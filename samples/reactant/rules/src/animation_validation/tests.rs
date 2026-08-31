@@ -36,6 +36,26 @@ fn passing_probe_produces_machine_and_human_evidence() {
 }
 
 #[test]
+fn linear_protocol_fixture_freezes_every_required_checkpoint() {
+  let registry = fixture_registry();
+  let case = registry
+    .select(
+      ScreenId("validation-infrastructure"),
+      CaseId("linear-protocol"),
+    )
+    .unwrap();
+  assert_eq!(
+    case
+      .checkpoints
+      .iter()
+      .map(|checkpoint| checkpoint.elapsed_micros)
+      .collect::<Vec<_>>(),
+    vec![0, 250_000, 500_000, 999_000, 1_000_000]
+  );
+  assert!(run_fixture_case(case, fixture_metadata(), fixture_observation).passed());
+}
+
+#[test]
 fn permanent_negative_self_test_explains_the_wrong_value() {
   let registry = fixture_registry();
   let case = registry
@@ -113,7 +133,7 @@ fn shared_control_path_dispatches_every_fixture_action() {
   assert!(session.playing());
   assert_eq!(session.speed(), 2.0);
   assert_eq!(session.reduced_motion(), ReducedMotionOverride::Always);
-  assert_eq!(session.generation(), 2);
+  assert_eq!(session.generation(), 3);
   assert_eq!(session.reconnects(), 1);
 }
 

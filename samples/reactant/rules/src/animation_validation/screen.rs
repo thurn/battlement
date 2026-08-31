@@ -9,6 +9,7 @@ use crate::{Game, animation_validation::runner, design_system};
 
 const PASSING_CASE: CaseId = CaseId("static-presentation");
 const FAILING_CASE: CaseId = CaseId("wrong-expectation");
+const LINEAR_CASE: CaseId = CaseId("linear-protocol");
 
 /// Interactive sample state for the shared animation validation strip.
 #[derive(Clone, Debug, PartialEq)]
@@ -17,6 +18,7 @@ pub(crate) struct ValidationUiState {
   session: FixtureSession,
   report: Option<ValidationReport>,
   show_json: bool,
+  checkpoint_index: usize,
 }
 
 impl Default for ValidationUiState {
@@ -26,6 +28,7 @@ impl Default for ValidationUiState {
       session: FixtureSession::default(),
       report: None,
       show_json: false,
+      checkpoint_index: 0,
     }
   }
 }
@@ -35,13 +38,14 @@ impl ValidationUiState {
     self.session.reset();
     self.report = None;
     self.show_json = false;
+    self.checkpoint_index = 0;
   }
 
   pub(crate) fn select_next(&mut self) {
-    self.selected_case = if self.selected_case == PASSING_CASE {
-      FAILING_CASE
-    } else {
-      PASSING_CASE
+    self.selected_case = match self.selected_case {
+      PASSING_CASE => FAILING_CASE,
+      FAILING_CASE => LINEAR_CASE,
+      _ => PASSING_CASE,
     };
     self.reset();
   }
@@ -54,7 +58,9 @@ impl ValidationUiState {
         self.selected_case,
       )
       .expect("sample validation case should exist");
-    self.session.seek(case.checkpoints[0].elapsed_micros);
+    let checkpoint = &case.checkpoints[self.checkpoint_index % case.checkpoints.len()];
+    self.session.seek(checkpoint.elapsed_micros);
+    self.checkpoint_index = (self.checkpoint_index + 1) % case.checkpoints.len();
   }
 
   pub(crate) fn capture(&mut self) {
@@ -82,6 +88,10 @@ impl ValidationUiState {
 
   pub(crate) fn session(&self) -> &FixtureSession {
     &self.session
+  }
+
+  fn is_linear_protocol(&self) -> bool {
+    self.selected_case == LINEAR_CASE
   }
 }
 
@@ -212,6 +222,24 @@ impl Component for ValidationScreen {
         .name("validation-result")
         .style(result(self.state.report.as_ref().is_some_and(ValidationReport::passed))),
       )
+      .child(self.state.is_linear_protocol().then(|| {
+        battlement_reactant::host::View::new()
+          .name("motion-protocol-probe")
+          .style(protocol_probe())
+          .__protocol_motion(
+            self.state.session.elapsed_micros(),
+            self.state.session.generation(),
+          )
+          .child(
+            battlement_reactant::host::Label::new(format!(
+              "LINEAR PROTOCOL · t={}µs · expected opacity {:.3}",
+              self.state.session.elapsed_micros(),
+              self.state.session.elapsed_micros().min(1_000_000) as f64 / 1_000_000.0,
+            ))
+            .name("motion-protocol-value")
+            .style(status()),
+          )
+      }))
       .child(
         battlement_reactant::host::Label::new(details)
           .name("validation-details")
@@ -297,6 +325,16 @@ fn result(passed: bool) -> Style {
     .color(Color::rgb(0.94, 0.98, 0.99))
     .font_size(20.0)
     .padding(16.0)
+    .margin((8, 0))
+}
+
+fn protocol_probe() -> Style {
+  Style::new()
+    .width(360.0)
+    .height(96.0)
+    .background_color(Color::rgb(0.13, 0.78, 0.88))
+    .border_radius(8.0)
+    .padding(18.0)
     .margin((8, 0))
 }
 

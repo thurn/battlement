@@ -9,6 +9,7 @@ use crate::animation_validation::{
 const FIXTURE_SCREEN: ScreenId = ScreenId("validation-infrastructure");
 const PASSING_CASE: CaseId = CaseId("static-presentation");
 const FAILING_CASE: CaseId = CaseId("wrong-expectation");
+const LINEAR_CASE: CaseId = CaseId("linear-protocol");
 
 /// Result of comparing one captured checkpoint with its independent expectation.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -117,6 +118,7 @@ impl FixtureSession {
 
   pub(crate) fn seek(&mut self, elapsed_micros: u64) {
     self.elapsed_micros = elapsed_micros;
+    self.generation = self.generation.wrapping_add(1);
   }
 
   pub(crate) fn reset(&mut self) {
@@ -184,6 +186,18 @@ pub(crate) fn fixture_registry() -> ValidationRegistry {
         actions,
         deliberately_failing: true,
       },
+      FixtureCase {
+        screen: FIXTURE_SCREEN,
+        id: LINEAR_CASE,
+        seed: 0x5eed_0003,
+        clock_quantum_micros: 1_000,
+        checkpoints: [0_u64, 250_000, 500_000, 999_000, 1_000_000]
+          .into_iter()
+          .map(linear_checkpoint)
+          .collect(),
+        actions: vec![FixtureAction::Trigger],
+        deliberately_failing: false,
+      },
     ],
   }
 }
@@ -225,6 +239,38 @@ fn fixture_checkpoint(expected_scalar: f64) -> FixtureCheckpoint {
     id: CheckpointId("captured"),
     elapsed_micros: 250_000,
     expected: ExpectedObservation::fixture(expected_scalar, fixture_lifecycle()),
+  }
+}
+
+fn linear_checkpoint(elapsed_micros: u64) -> FixtureCheckpoint {
+  let value = elapsed_micros.min(1_000_000) as f64 / 1_000_000.0;
+  FixtureCheckpoint {
+    id: CheckpointId(match elapsed_micros {
+      0 => "linear-0",
+      250_000 => "linear-250",
+      500_000 => "linear-500",
+      999_000 => "linear-999",
+      1_000_000 => "linear-1000",
+      _ => unreachable!("linear protocol checkpoint is fixed"),
+    }),
+    elapsed_micros,
+    expected: ExpectedObservation {
+      scalar: Some(value),
+      scalar_tolerance: Tolerance::new(0.000_01, "Unity writes the final opacity as f32"),
+      velocity: Some(if elapsed_micros == 1_000_000 {
+        0.0
+      } else {
+        1.0
+      }),
+      velocity_tolerance: Tolerance::new(0.000_01, "logical velocity uses f64 sampling"),
+      paint: Some([0.13, 0.78, 0.88, value]),
+      paint_tolerance: Tolerance::new(0.001, "native screenshot channels are quantized"),
+      geometry: Some([24.0, 36.0, 360.0, 96.0]),
+      geometry_tolerance: Tolerance::new(0.01, "panel geometry uses single-precision pixels"),
+      lifecycle: Vec::new(),
+      live_hosts: 1,
+      active_slots: usize::from(elapsed_micros < 1_000_000),
+    },
   }
 }
 
@@ -337,7 +383,10 @@ pub(crate) fn fixture_metadata() -> FixtureMetadata {
   }
 }
 
-pub(crate) fn fixture_observation(_: &FixtureCheckpoint) -> Observation {
+pub(crate) fn fixture_observation(checkpoint: &FixtureCheckpoint) -> Observation {
+  if checkpoint.id.0.starts_with("linear-") {
+    return Observation::from(&checkpoint.expected);
+  }
   Observation::from(&ExpectedObservation::fixture(42.0, fixture_lifecycle()))
 }
 

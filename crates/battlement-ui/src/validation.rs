@@ -245,6 +245,11 @@ fn validate_node(
     return Err(UiValidationError::InvalidProperty);
   }
   validate_element(&node.element, true)?;
+  if let Some(descriptor) = node.element.visual_element().motion.set_value()
+    && descriptor.host_id != node.object_id
+  {
+    return Err(UiValidationError::InvalidReference);
+  }
   for child in &node.children {
     validate_node(child, identities, depth + 1, Some(kind), false)?;
   }
@@ -289,6 +294,13 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
     if values.iter().collect::<HashSet<_>>().len() != values.len() {
       return Err(UiValidationError::InvalidProperty);
     }
+  }
+  if visual
+    .motion
+    .set_value()
+    .is_some_and(|descriptor| descriptor.validate().is_err())
+  {
+    return Err(UiValidationError::InvalidProperty);
   }
   validate_style(&visual.style)
 }

@@ -909,7 +909,12 @@ namespace Battlement
             || type == typeof(GeometryValue.WorldPoint)
             || type == typeof(GeometryValue.WorldBounds)
             || type == typeof(GeometryObservationResult.Current)
-            || type == typeof(GeometryObservationResult.Unavailable);
+            || type == typeof(GeometryObservationResult.Unavailable)
+            || type == typeof(MotionEasing.CubicBezier)
+            || type == typeof(InertiaTarget.NearestMultiple)
+            || type == typeof(InertiaTarget.FloorMultiple)
+            || type == typeof(InertiaTarget.CeilingMultiple)
+            || type == typeof(TransitionGenerator.Spring);
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
@@ -922,6 +927,11 @@ namespace Battlement
             || baseType == typeof(ImageSource)
             || baseType == typeof(IconSource)
             || baseType == typeof(UiValue)
+            || baseType == typeof(MotionValue)
+            || baseType == typeof(MotionTransform)
+            || baseType == typeof(MotionFilter)
+            || baseType == typeof(MotionRepeat)
+            || baseType == typeof(MotionClockSource)
             || baseType == typeof(LowerLimit)
             || baseType == typeof(UpperLimit)
             || baseType == typeof(InteractionDistance)
@@ -1057,6 +1067,100 @@ namespace Battlement
                     ("Camera", typeof(GameObjectKind.Camera)),
                     ("Light", typeof(GameObjectKind.Light)),
                     ("Prefab", typeof(GameObjectKind.Prefab))
+                ),
+                [typeof(MotionTransform)] = Fixed(
+                    ("Translate", typeof(MotionTransform.Translate)),
+                    ("Rotate", typeof(MotionTransform.Rotate)),
+                    ("Skew", typeof(MotionTransform.Skew)),
+                    ("Scale", typeof(MotionTransform.Scale))
+                ),
+                [typeof(MotionFilter)] = Fixed(
+                    ("Blur", typeof(MotionFilter.Blur)),
+                    ("Brightness", typeof(MotionFilter.Brightness)),
+                    ("Saturate", typeof(MotionFilter.Saturate)),
+                    ("Contrast", typeof(MotionFilter.Contrast)),
+                    ("HueRotate", typeof(MotionFilter.HueRotate)),
+                    ("Opacity", typeof(MotionFilter.Opacity)),
+                    ("DropShadow", typeof(MotionFilter.DropShadow))
+                ),
+                [typeof(MotionGradient)] = Fixed(
+                    ("Linear", typeof(MotionGradient.Linear)),
+                    ("Radial", typeof(MotionGradient.Radial))
+                ),
+                [typeof(MotionValue)] = Fixed(
+                    ("Scalar", typeof(MotionValue.Scalar)),
+                    ("Length", typeof(MotionValue.Length)),
+                    ("Color", typeof(MotionValue.Color)),
+                    ("Vector2", typeof(MotionValue.Vector2)),
+                    ("Vector3", typeof(MotionValue.Vector3)),
+                    ("Angle", typeof(MotionValue.Angle)),
+                    ("TransformList", typeof(MotionValue.TransformList)),
+                    ("FilterList", typeof(MotionValue.FilterList)),
+                    ("ShadowList", typeof(MotionValue.ShadowList)),
+                    ("Gradient", typeof(MotionValue.Gradient)),
+                    ("ClipInset", typeof(MotionValue.ClipInset)),
+                    ("ClipPolygon", typeof(MotionValue.ClipPolygon)),
+                    ("Discrete", typeof(MotionValue.Discrete))
+                ),
+                [typeof(MotionEasing)] = Fixed(
+                    ("Linear", typeof(MotionEasing.Linear)),
+                    ("EaseIn", typeof(MotionEasing.EaseIn)),
+                    ("EaseOut", typeof(MotionEasing.EaseOut)),
+                    ("EaseInOut", typeof(MotionEasing.EaseInOut)),
+                    ("CubicBezier", typeof(MotionEasing.CubicBezier)),
+                    ("Steps", typeof(MotionEasing.Steps))
+                ),
+                [typeof(MotionRepeat)] = Fixed(
+                    ("None", typeof(MotionRepeat.None)),
+                    ("Count", typeof(MotionRepeat.Count)),
+                    ("Forever", typeof(MotionRepeat.Forever))
+                ),
+                [typeof(InertiaTarget)] = Fixed(
+                    ("Identity", typeof(InertiaTarget.Identity)),
+                    ("NearestMultiple", typeof(InertiaTarget.NearestMultiple)),
+                    ("FloorMultiple", typeof(InertiaTarget.FloorMultiple)),
+                    ("CeilingMultiple", typeof(InertiaTarget.CeilingMultiple)),
+                    ("Clamp", typeof(InertiaTarget.Clamp))
+                ),
+                [typeof(SpringConfiguration)] = Fixed(
+                    ("Physical", typeof(SpringConfiguration.Physical)),
+                    ("Duration", typeof(SpringConfiguration.Duration)),
+                    ("VisualDuration", typeof(SpringConfiguration.VisualDuration))
+                ),
+                [typeof(TransitionGenerator)] = Fixed(
+                    ("Immediate", typeof(TransitionGenerator.Immediate)),
+                    ("Tween", typeof(TransitionGenerator.Tween)),
+                    ("Spring", typeof(TransitionGenerator.Spring)),
+                    ("Inertia", typeof(TransitionGenerator.Inertia))
+                ),
+                [typeof(MotionClockSource)] = Fixed(
+                    ("Unscaled", typeof(MotionClockSource.Unscaled)),
+                    ("Scaled", typeof(MotionClockSource.Scaled)),
+                    ("Controlled", typeof(MotionClockSource.Controlled)),
+                    ("Audio", typeof(MotionClockSource.Audio))
+                ),
+                [typeof(MotionEventKind)] = Fixed(
+                    ("Activated", typeof(MotionEventKind.Activated)),
+                    ("Started", typeof(MotionEventKind.Started)),
+                    ("Repeated", typeof(MotionEventKind.Repeated)),
+                    ("Completed", typeof(MotionEventKind.Completed)),
+                    ("Stopped", typeof(MotionEventKind.Stopped)),
+                    ("Cancelled", typeof(MotionEventKind.Cancelled))
+                ),
+                [typeof(MotionPlaybackCommand)] = Fixed(
+                    ("Play", typeof(MotionPlaybackCommand.Play)),
+                    ("Pause", typeof(MotionPlaybackCommand.Pause)),
+                    ("Replay", typeof(MotionPlaybackCommand.Replay)),
+                    ("Stop", typeof(MotionPlaybackCommand.Stop)),
+                    ("Cancel", typeof(MotionPlaybackCommand.Cancel)),
+                    ("Complete", typeof(MotionPlaybackCommand.Complete)),
+                    ("Seek", typeof(MotionPlaybackCommand.Seek)),
+                    ("SetSpeed", typeof(MotionPlaybackCommand.SetSpeed)),
+                    ("SetDirection", typeof(MotionPlaybackCommand.SetDirection))
+                ),
+                [typeof(MotionControlledClockCommand)] = Fixed(
+                    ("Set", typeof(MotionControlledClockCommand.Set)),
+                    ("Advance", typeof(MotionControlledClockCommand.Advance))
                 ),
                 [typeof(UiElement)] = Fixed(
                     ("VisualElement", typeof(UiElement.VisualElement)),

@@ -1,0 +1,22 @@
+{
+  "source": "motion@13.1.1",
+  "commit": "1b037b0032578b52af94b06ff3920bfa0aaa5e36",
+  "tolerance": 0.00001,
+  "vectors": [
+    { "name": "linear-0", "kind": "tween", "elapsed_micros": 0, "value": 0.0, "velocity": 1.0 },
+    { "name": "linear-250", "kind": "tween", "elapsed_micros": 250000, "value": 0.25, "velocity": 1.0 },
+    { "name": "linear-500", "kind": "tween", "elapsed_micros": 500000, "value": 0.5, "velocity": 1.0 },
+    { "name": "linear-999", "kind": "tween", "elapsed_micros": 999000, "value": 0.999, "velocity": 1.0 },
+    { "name": "linear-1000", "kind": "tween", "elapsed_micros": 1000000, "value": 1.0, "velocity": 0.0 },
+    { "name": "spring-under-250", "kind": "spring-under", "elapsed_micros": 250000, "value": 1.0233595799066924, "velocity": 2.7410989870570246 },
+    { "name": "spring-critical-500", "kind": "spring-critical", "elapsed_micros": 500000, "value": 0.9595723180054871, "velocity": 0.33689734995427334 },
+    { "name": "spring-over-500", "kind": "spring-over", "elapsed_micros": 500000, "value": 0.826595349759536, "velocity": 0.662338936587935 },
+    { "name": "inertia-250", "kind": "inertia", "elapsed_micros": 250000, "value": 42.93045046150597, "velocity": 114.06015242613547 },
+    { "name": "inertia-500", "kind": "inertia", "elapsed_micros": 500000, "value": 62.823106212664214, "velocity": 52.8519808841101 }
+  ],
+  "seek_events": {
+    "direct": { "start": false, "repeat": false, "update": true, "complete": false },
+    "repeated": { "start": false, "repeat": false, "update": true, "complete": false },
+    "backward": { "start": false, "repeat": false, "update": true, "complete": false }
+  }
+}

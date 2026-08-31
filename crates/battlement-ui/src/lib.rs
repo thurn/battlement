@@ -44,6 +44,7 @@ mod commands;
 mod documents;
 mod elements;
 mod events;
+mod motion;
 mod panel_validation;
 /// Deterministic logical routing for native UI events.
 pub mod routing;
@@ -53,6 +54,7 @@ pub use commands::*;
 pub use documents::*;
 pub use elements::*;
 pub use events::*;
+pub use motion::*;
 pub use panel_validation::*;
 pub use validation::*;
 

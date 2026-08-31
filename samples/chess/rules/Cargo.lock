@@ -120,6 +120,7 @@ dependencies = [
  "enum-kinds",
  "enum_dispatch",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

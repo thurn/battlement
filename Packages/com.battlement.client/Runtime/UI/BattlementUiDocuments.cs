@@ -12,7 +12,7 @@ using UnityTransitionStartEvent = UnityEngine.UIElements.TransitionStartEvent;
 namespace Battlement.UI
 {
     /// <summary>Constructs and populates Battlement-owned UI Toolkit documents.</summary>
-    public sealed class BattlementUiDocuments
+    public sealed class BattlementUiDocuments : IDisposable
     {
         private const int MaximumHierarchyDepth = 256;
 
@@ -38,6 +38,7 @@ namespace Battlement.UI
         private readonly BattlementUiRangeControls rangeControls;
         private readonly BattlementUiPartProperties partProperties;
         private readonly BattlementUiRepeatControls repeatControls;
+        private readonly BattlementMotionWorld motionWorld;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -77,6 +78,7 @@ namespace Battlement.UI
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             partProperties = new BattlementUiPartProperties(assetLookup);
             repeatControls = new BattlementUiRepeatControls(events, Route);
+            motionWorld = new BattlementMotionWorld();
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -179,6 +181,8 @@ namespace Battlement.UI
 
         internal IEnumerable<UIDocument> InputDocuments => rootDocuments.Values;
 
+        internal BattlementMotionWorld MotionWorldForTests => motionWorld;
+
         internal bool TryFindNearestId(
             UnityEngine.UIElements.VisualElement? element,
             out ObjectId objectId
@@ -246,6 +250,7 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            motionWorld.Clear();
             eventObserver.Clear();
             lifecycleEvents.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
@@ -267,6 +272,13 @@ namespace Battlement.UI
             logicalChildren.Clear();
             rootIds.Clear();
             repeatControls.Clear();
+        }
+
+        /// <summary>Releases motion loop integration and tracked UI state.</summary>
+        public void Dispose()
+        {
+            Clear();
+            motionWorld.Dispose();
         }
 
         /// <summary>Creates and attaches one validated element subtree.</summary>
@@ -349,6 +361,11 @@ namespace Battlement.UI
                     textFieldControls.ValidateUpdate(properties.ObjectId, properties.Element);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
                         partProperties.Prepare(target, properties.ObjectId, properties.Element);
+                    BattlementMotionWorld.PreparedAdmission? preparedMotion = motionWorld.Prepare(
+                        target,
+                        properties.ObjectId,
+                        properties.Element.Motion
+                    );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -359,6 +376,7 @@ namespace Battlement.UI
                     sliderControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     rangeControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     preparedParts.Commit(properties.ObjectId.Value);
+                    preparedMotion?.Commit();
                     if (properties.Element is UiElement.RepeatButton repeat)
                         repeatControls.ApplyUpdate(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -554,6 +572,11 @@ namespace Battlement.UI
             Guid parentId
         )
         {
+            BattlementMotionWorld.PreparedAdmission? preparedMotion = motionWorld.Prepare(
+                value,
+                node.ObjectId,
+                node.Element.Motion
+            );
             properties.ApplyElement(value, node.ObjectId, node.Element);
             Reserve(node.ObjectId, value, documentRoot, parentId);
             scrollControls.ApplyCreate(value, node.ObjectId, node.Element);
@@ -565,6 +588,7 @@ namespace Battlement.UI
             sliderControls.ApplyCreate(value, node.ObjectId, node.Element);
             rangeControls.ApplyCreate(value, node.ObjectId, node.Element);
             partProperties.Apply(value, node.ObjectId, node.Element);
+            preparedMotion?.Commit();
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
                 tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
@@ -960,6 +984,7 @@ namespace Battlement.UI
                 sliderControls.Remove(objectId);
                 rangeControls.Remove(objectId);
                 partProperties.Remove(objectId);
+                motionWorld.RemoveHost(new ObjectId(objectId));
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);

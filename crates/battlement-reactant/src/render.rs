@@ -16,6 +16,7 @@ use crate::{
   event_handler::Handler,
   hook_storage::HookComponent,
   hooks,
+  host::ProtocolMotion,
   key::ErasedKey,
   portal::PortalTarget,
   reconcile,
@@ -150,6 +151,14 @@ pub(crate) struct RenderSink<'a> {
   error: Option<RenderError>,
   pending: Vec<ResourceToken>,
   pending_hook_lengths: Vec<usize>,
+}
+
+pub(crate) struct FacadeMetadata {
+  pub(crate) key: Option<ErasedKey>,
+  pub(crate) element_ref: Option<ElementRef>,
+  pub(crate) portal_target: Option<PortalTarget>,
+  pub(crate) handlers: Vec<Handler>,
+  pub(crate) protocol_motion: Option<ProtocolMotion>,
 }
 
 impl<'a> RenderSink<'a> {
@@ -377,17 +386,14 @@ impl<'a> RenderSink<'a> {
 
   pub(crate) fn push_facade<R: 'static>(
     &mut self,
-    key: Option<ErasedKey>,
-    element_ref: Option<ElementRef>,
-    portal_target: Option<PortalTarget>,
-    handlers: Vec<Handler>,
+    metadata: FacadeMetadata,
     element: UiElement,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
     if self.error.is_some() {
       return;
     }
-    if let Some(key) = &key {
+    if let Some(key) = &metadata.key {
       assert!(
         !self
           .positions
@@ -397,7 +403,7 @@ impl<'a> RenderSink<'a> {
       );
     }
     let descriptor = TypeId::of::<R>();
-    let matching = match &key {
+    let matching = match &metadata.key {
       Some(key) => self
         .committed
         .positions
@@ -416,6 +422,9 @@ impl<'a> RenderSink<'a> {
     if remount {
       node.object_id = ObjectId::new_v4();
     }
+    if let Some(motion) = metadata.protocol_motion {
+      node.element.visual_element_mut().motion = Prop::Set(motion.descriptor(node.object_id));
+    }
     let empty = RenderTree::default();
     let committed = if remount {
       &empty
@@ -433,7 +442,8 @@ impl<'a> RenderSink<'a> {
     };
     self.pending.extend(pending);
     node.children = children.hosts();
-    let mut kinds = handlers
+    let mut kinds = metadata
+      .handlers
       .iter()
       .map(Handler::native_kind)
       .filter(|kind| !kind.propagates())
@@ -449,16 +459,16 @@ impl<'a> RenderSink<'a> {
     };
     self.positions.push(RenderPosition {
       descriptor,
-      key,
+      key: metadata.key,
       host: Some(node),
-      handlers,
+      handlers: metadata.handlers,
       component: None,
       memo_value: None,
       provider: None,
       portal: None,
-      portal_target,
+      portal_target: metadata.portal_target,
       error_boundary: None,
-      element_ref,
+      element_ref: metadata.element_ref,
       suspense: None,
       children,
     });

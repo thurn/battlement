@@ -717,30 +717,37 @@ namespace Battlement
                                         {
                                             try
                                             {
-                                                world?.Dispose();
+                                                uiDocuments?.Dispose();
                                             }
                                             finally
                                             {
                                                 try
                                                 {
-                                                    unityErrorSubscription?.Dispose();
+                                                    world?.Dispose();
                                                 }
                                                 finally
                                                 {
                                                     try
                                                     {
-                                                        failureSurface?.Dispose();
+                                                        unityErrorSubscription?.Dispose();
                                                     }
                                                     finally
                                                     {
                                                         try
                                                         {
-                                                            modules?.Dispose();
+                                                            failureSurface?.Dispose();
                                                         }
                                                         finally
                                                         {
-                                                            developmentDiagnostics?.Dispose();
-                                                            isDisposed = true;
+                                                            try
+                                                            {
+                                                                modules?.Dispose();
+                                                            }
+                                                            finally
+                                                            {
+                                                                developmentDiagnostics?.Dispose();
+                                                                isDisposed = true;
+                                                            }
                                                         }
                                                     }
                                                 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Prop, Style, UiVisualElementProperties};
+use crate::{MotionDescriptor, Prop, Style, UiVisualElementProperties};
 
 /// Determines whether Unity can select an element during pointer hit testing.
 ///
@@ -168,6 +168,13 @@ pub struct UiVisualElement {
   /// every routed subscription.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub event_subscriptions: Prop<Vec<crate::UiEventSubscription>>,
+  /// Validated animation state installed beside this native host.
+  ///
+  /// Reset removes every descriptor slot and restores the static presentation.
+  /// Reactant authors this field through host façade motion builders; protocol
+  /// adapters may author it directly for controlled conformance fixtures.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub motion: Prop<MotionDescriptor>,
 }
 
 impl UiVisualElement {
@@ -210,6 +217,9 @@ impl UiVisualElement {
     }
     if !value.event_subscriptions.is_unset() {
       self.event_subscriptions = value.event_subscriptions.clone();
+    }
+    if !value.motion.is_unset() {
+      self.motion = value.motion.clone();
     }
   }
 }

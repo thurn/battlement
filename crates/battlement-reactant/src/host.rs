@@ -33,10 +33,14 @@
 use std::{any::TypeId, hash::Hash, num::NonZeroU32};
 
 use battlement::{
-  Prop, Style, UiBox, UiButton, UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel,
-  UiMinMaxSlider, UiPopupWindow, UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton,
-  UiScrollView, UiScroller, UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField,
-  UiToggle, UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
+  MotionCallbackSubscriptions, MotionClockSource, MotionDescriptor, MotionEasing, MotionGeneration,
+  MotionLayer, MotionProperty, MotionPropertyTrack, MotionPropertyValue, MotionRepeat,
+  MotionRepeatType, MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor, MotionValue, Prop,
+  ReducedMotionPolicy, Style, TransitionDefinition, TransitionGenerator, UiBox, UiButton,
+  UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow,
+  UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller,
+  UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
+  UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
 
 use crate::{
@@ -44,7 +48,7 @@ use crate::{
   event_handler::Handler,
   key::ErasedKey,
   portal::PortalTarget,
-  render::{Node, Render, RenderSink},
+  render::{FacadeMetadata, Node, Render, RenderSink},
   render_value::Sealed,
 };
 
@@ -56,6 +60,72 @@ pub(crate) struct HostState<H> {
   pub(crate) key: Option<ErasedKey>,
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
+  pub(crate) protocol_motion: Option<ProtocolMotion>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ProtocolMotion {
+  elapsed_micros: u64,
+  generation: u32,
+}
+
+impl ProtocolMotion {
+  pub(crate) fn descriptor(self, host_id: battlement::ObjectId) -> MotionDescriptor {
+    let immediate = TransitionDefinition {
+      generator: TransitionGenerator::Immediate,
+      delay_micros: 0,
+      repeat: MotionRepeat::None,
+      repeat_delay_micros: 0,
+      repeat_type: MotionRepeatType::Loop,
+    };
+    MotionDescriptor {
+      descriptor_id: host_id,
+      host_id,
+      generation: MotionGeneration(self.generation),
+      static_baseline: vec![MotionPropertyValue {
+        property: MotionProperty::Opacity,
+        value: MotionValue::Scalar(1.0),
+      }],
+      initial: Some(MotionTargetDescriptor {
+        tracks: vec![MotionPropertyTrack {
+          property: MotionProperty::Opacity,
+          values: vec![MotionValue::Scalar(0.0)],
+          times: None,
+          transition: immediate,
+        }],
+        transition_end: Vec::new(),
+      }),
+      initial_disabled: false,
+      slots: vec![MotionSlotDescriptor {
+        slot: MotionSlotId(1),
+        generation: MotionGeneration(self.generation),
+        layer: MotionLayer::Animate,
+        target: MotionTargetDescriptor {
+          tracks: vec![MotionPropertyTrack {
+            property: MotionProperty::Opacity,
+            values: vec![MotionValue::Scalar(1.0)],
+            times: None,
+            transition: TransitionDefinition {
+              generator: TransitionGenerator::Tween {
+                duration_micros: 1_000_000,
+                easings: vec![MotionEasing::Linear],
+                times: None,
+              },
+              delay_micros: -i64::try_from(self.elapsed_micros)
+                .expect("motion checkpoint must fit signed microseconds"),
+              repeat: MotionRepeat::None,
+              repeat_delay_micros: 0,
+              repeat_type: MotionRepeatType::Loop,
+            },
+          }],
+          transition_end: Vec::new(),
+        },
+        callbacks: MotionCallbackSubscriptions::default(),
+      }],
+      clock: MotionClockSource::Controlled(host_id),
+      reduced_motion: ReducedMotionPolicy::Never,
+    }
+  }
 }
 
 macro_rules! facade {
@@ -82,6 +152,7 @@ macro_rules! facade {
             key: None,
             element_ref: None,
             portal_target: None,
+            protocol_motion: None,
           },
         }
       }
@@ -189,6 +260,16 @@ macro_rules! facade {
           .handlers
           .retain(|existing| !existing.same_slot(&handler));
         self.state.handlers.push(handler);
+        self
+      }
+
+      #[doc(hidden)]
+      #[must_use]
+      pub fn __protocol_motion(mut self, elapsed_micros: u64, generation: u32) -> Self {
+        self.state.protocol_motion = Some(ProtocolMotion {
+          elapsed_micros,
+          generation,
+        });
         self
       }
     }
@@ -428,21 +509,33 @@ container!(
 );
 
 fn lower<R: 'static, H: Into<UiElement>>(state: HostState<H>, sink: &mut RenderSink<'_>) {
-  let element = state.host.into();
+  let HostState {
+    host,
+    children: host_children,
+    handlers,
+    key,
+    element_ref,
+    portal_target,
+    protocol_motion,
+  } = state;
+  let element = host.into();
   assert_eq!(
     TypeId::of::<R>(),
     facade_descriptor(&element),
     "Reactant façade lowered through the wrong native host catalog entry"
   );
   sink.push_facade::<R>(
-    state.key,
-    state.element_ref,
-    state.portal_target,
-    state.handlers,
+    FacadeMetadata {
+      key,
+      element_ref,
+      portal_target,
+      handlers,
+      protocol_motion,
+    },
     element,
-    |children| {
-      for child in state.children {
-        child.render_owned(children);
+    |sink| {
+      for child in host_children {
+        child.render_owned(sink);
       }
     },
   );

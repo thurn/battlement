@@ -1634,6 +1634,15 @@ slot. `cancel` removes the slot and reveals the next lower animation layer.
 finite animation and wraps repeating animation. A speed of zero is equivalent
 to pause; a negative speed is invalid because direction is explicit.
 
+Seek follows Motion 13.1.1's immediate-time contract. Direct, repeated, and
+backward seeks all sample the requested logical time and synchronously publish
+one coalesced update when that slot subscribes to updates. Seek never emits
+start, repeat, or completion boundaries, including when the requested time
+crosses those boundaries. Repeating the same seek still publishes its one
+coalesced update. A seek leaves playback paused; resuming from a terminal seek
+may emit completion only after logical playback advances again. These rules are
+identical for imperative handles and controlled-clock validation.
+
 The handle also implements Reactant's single-threaded completion future. Its
 future resolves to `PlaybackOutcome::Completed`, `Stopped`, or `Cancelled`.
 After any terminal operation, later commands on that playback handle are

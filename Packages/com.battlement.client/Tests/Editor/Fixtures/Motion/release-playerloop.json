@@ -1,0 +1,23 @@
+{
+  "unity_version": "6000.5.8f1",
+  "player_assembly": "UnityEngine.CoreModule",
+  "parent": "UnityEngine.PlayerLoop.PreLateUpdate",
+  "ordered_siblings": [
+    "UnityEngine.PlayerLoop.PreLateUpdate+AIUpdatePostScript",
+    "UnityEngine.PlayerLoop.PreLateUpdate+DirectorUpdateAnimationBegin",
+    "UnityEngine.PlayerLoop.PreLateUpdate+LegacyAnimationUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+DirectorUpdateAnimationEnd",
+    "UnityEngine.PlayerLoop.PreLateUpdate+DirectorDeferredEvaluate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+AccessibilityUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+UIElementsUpdatePanels",
+    "UnityEngine.PlayerLoop.PreLateUpdate+EndGraphicsJobsAfterScriptUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+ConstraintManagerUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+ParticleSystemBeginUpdateAll",
+    "UnityEngine.PlayerLoop.PreLateUpdate+PhysicsCore2DLateUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+Physics2DLateUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+PhysicsLateUpdate",
+    "UnityEngine.PlayerLoop.PreLateUpdate+ScriptRunBehaviourLateUpdate"
+  ],
+  "insertion": ["ReactantMotionPreLayout", "UIElementsUpdatePanels", "ReactantMotionPostLayout"],
+  "panel_updates_per_frame": 1
+}

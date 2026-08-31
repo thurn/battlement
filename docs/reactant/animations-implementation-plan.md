@@ -397,7 +397,7 @@ are accurate, then inspect both the passing and intentionally failing reports.
 **Evidence:** schema and registry results, fast-lane timing, and one passing
 plus one intentionally failing native-player record.
 
-## Task 02 — Implement animation data and canonical sampling
+## Task 02 — Implement animation data and canonical sampling [DONE]
 
 **Prerequisites:** Task 01. **Asset Generator prerequisites:** none.
 

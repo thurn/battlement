@@ -84,6 +84,60 @@ click = { target = [0.625, 0.285] }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "animation protocol checkpoints"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.08, 0.06] }
+
+[[scenarios.steps]]
+click = { target = [0.34, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.34, 0.285] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "protocol-checkpoints", motion = "controlled", max_duration = "6s" }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+click = { target = [0.535, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+click = { target = [0.535, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+click = { target = [0.535, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+click = { target = [0.535, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+click = { target = [0.535, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 5 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "context and memo"
 
 [[scenarios.steps]]

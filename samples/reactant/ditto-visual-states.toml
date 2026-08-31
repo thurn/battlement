@@ -133,6 +133,11 @@ key = "animation-validation.fixture-report"
 screen = "animation-validation"
 transient = true
 
+[[states]]
+key = "animation-validation.protocol-checkpoints"
+screen = "animation-validation"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

@@ -173,6 +173,16 @@ macro_rules! impl_common_visual_element_methods {
       self.visual_element_mut().style = value;
       self
     }
+
+    /// Installs a complete validated animation descriptor beside this host.
+    #[must_use]
+    pub fn motion_descriptor(
+      mut self,
+      value: impl Into<$crate::Prop<$crate::MotionDescriptor>>,
+    ) -> Self {
+      self.visual_element_mut().motion = value.into();
+      self
+    }
   };
 }
 

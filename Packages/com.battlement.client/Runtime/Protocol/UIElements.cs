@@ -141,6 +141,10 @@ namespace Battlement
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public Prop<IReadOnlyList<UiEventSubscription>> EventSubscriptions { get; init; }
 
+        /// <summary>Validated animation state installed beside this native host.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<MotionDescriptor> Motion { get; init; }
+
         /// <summary>The base class for objects in the UI Toolkit visual tree.</summary>
         public sealed record VisualElement : UiElement;
 
