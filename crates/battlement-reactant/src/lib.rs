@@ -28,6 +28,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod asset_generator;
 mod commit;
 pub mod component;
 pub mod context;
@@ -71,3 +72,11 @@ mod root_view;
 pub mod runtime;
 mod runtime_document;
 pub mod suspense;
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __register_generated_asset {
+  ($registration:expr) => {
+    $crate::asset_generator::__private::submit! { $registration }
+  };
+}

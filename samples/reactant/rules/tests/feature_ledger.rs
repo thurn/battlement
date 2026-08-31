@@ -33,6 +33,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/geometry_effects.rs"),
   ),
   (
+    "generated_assets.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/generated_assets.rs"),
+  ),
+  (
     "hook_scheduling.rs",
     include_str!("../../../../crates/battlement-reactant/tests/hook_scheduling.rs"),
   ),

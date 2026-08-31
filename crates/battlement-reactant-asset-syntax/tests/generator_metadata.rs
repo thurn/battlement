@@ -189,6 +189,7 @@ fn validates_canvas_and_subject_geometry_boundaries() {
     "@background PANEL { @canvas 0px 10px; }",
     "@background PANEL { @canvas 10px -1px; }",
     "@background PANEL { @canvas 10.25px 10px; }",
+    "@background PANEL { @canvas 1e100px 10px; }",
   ];
   for source in invalid {
     assert_diagnostic(source, DiagnosticCategory::InvalidGeometry, "@canvas");

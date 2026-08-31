@@ -365,7 +365,7 @@ diagnostic output.
 
 ## Wave 2: macro, discovery, and identity
 
-### Task 07 — Generate public handles and linked registrations
+### Task 07 — Generate public handles and linked registrations [DONE]
 
 **Prerequisites:** Task 06 and the completed Reactant host-façade migration.
 **Target:** 350–500 non-test lines.

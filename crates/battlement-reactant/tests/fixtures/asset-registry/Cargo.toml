@@ -1,0 +1,13 @@
+[workspace]
+members = ["consumer", "dependency-a", "dependency-b"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+rust-version = "1.85"
+
+[workspace.dependencies]
+battlement-reactant = { path = "../../.." }
+dependency-a = { path = "dependency-a" }
+dependency-b = { path = "dependency-b" }

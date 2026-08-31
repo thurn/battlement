@@ -581,7 +581,7 @@ fn value_cursor(statement: &RawStatement) -> Cursor {
 }
 
 fn scaled_integer(value: f64, scale: u8) -> bool {
-  value.is_finite() && (value * f64::from(scale)).fract() == 0.0
+  value.is_finite() && value <= f64::from(f32::MAX) && (value * f64::from(scale)).fract() == 0.0
 }
 
 fn canonical_fields(fields: &[crate::value::ParsedField]) -> Vec<u8> {

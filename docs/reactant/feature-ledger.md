@@ -11,6 +11,7 @@ than the specimen.
 
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
+| `asset_generator` | Composition | `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
 | `component` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `primitives.rs` |
 | `context` | Context & Memo | `composition.rs::context_screen_overrides_only_the_nested_descendant_and_restores`, `refs_context.rs` |
 | `element_ref` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `element_refs.rs` |
