@@ -30,7 +30,7 @@ fn empty_commands_resolve_project_and_remove_only_generated_output() {
   assert!(!fixture.generated_root().exists());
   assert!(!fixture.generated_meta().exists());
   let report: Value = serde_json::from_slice(&fs::read(report).unwrap()).unwrap();
-  assert_eq!(report["cargoMetadataRuns"], 1);
+  assert_eq!(report["cargoMetadataRuns"], 2);
   assert_eq!(report["browserLaunches"], 0);
   assert_eq!(report["browserContextsCreated"], 0);
   assert_eq!(report["filesWritten"], 2);
@@ -136,7 +136,290 @@ fn empty_preview_uses_the_system_opener_without_a_renderer() {
   let report: Value = serde_json::from_slice(&fs::read(report).unwrap()).unwrap();
   assert_eq!(report["browserLaunches"], 0);
   assert_eq!(report["browserContextsCreated"], 0);
-  assert_eq!(report["subprocessesStarted"], 2);
+  assert_eq!(report["subprocessesStarted"], 4);
+}
+
+#[test]
+fn declarations_are_discovered_across_modules_and_reachable_packages() {
+  let fixture = Fixture::new();
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  fs::create_dir_all(fixture.project.join("rules/src/nested")).unwrap();
+  fs::create_dir_all(fixture.project.join("rules/asset-pack/src")).unwrap();
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [features]\ndefault = []\nart = [\"dep:asset-pack\"]\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\nasset-pack = {{ path = \"asset-pack\", optional = true }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "mod nested;\npub fn rules() {}\n",
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/src/nested/mod.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @background PANEL { @canvas 20px 10px; background: linear-gradient(red, blue); }\n\
+     }\n",
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/asset-pack/Cargo.toml"),
+    format!(
+      "[package]\nname = \"asset-pack\"\nversion = \"0.2.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/asset-pack/src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @nine-slice FRAME { @canvas 30px 18px; @slices 2px 2px 2px 2px; border: 1px dashed red; }\n\
+     }\n",
+  )
+  .unwrap();
+
+  let output = fixture.run_from(
+    &fixture.project,
+    ["reactant", "assets", "generate", "--features", "art"],
+  );
+
+  assert!(output.status.success(), "{}", stderr(&output));
+  assert!(stdout(&output).contains("discovered=2 deduplicated=2"));
+}
+
+#[test]
+fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
+  let fixture = Fixture::new();
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  let git_assets = fixture.root.join("git-assets");
+  fs::create_dir_all(git_assets.join("src")).unwrap();
+  fs::write(
+    git_assets.join("Cargo.toml"),
+    format!(
+      "[package]\nname = \"git-assets\"\nversion = \"0.3.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(
+    git_assets.join("src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @background GIT_PANEL { @canvas 12px 8px; background: linear-gradient(red, blue); }\n\
+     }\n",
+  )
+  .unwrap();
+  for arguments in [
+    vec!["init", "-q"],
+    vec!["add", "."],
+    vec![
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "commit",
+      "-qm",
+      "fixture",
+    ],
+  ] {
+    assert!(
+      Command::new("git")
+        .args(arguments)
+        .current_dir(&git_assets)
+        .status()
+        .unwrap()
+        .success()
+    );
+  }
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\ngit-assets = {{ git = {:?} }}\n",
+      format!("file://{}", git_assets.display())
+    ),
+  )
+  .unwrap();
+
+  let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+
+  assert!(output.status.success(), "{}", stderr(&output));
+  assert!(stdout(&output).contains("discovered=1 deduplicated=1"));
+}
+
+#[test]
+fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
+  let fixture = Fixture::new();
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  let cases = [
+    (
+      "use battlement_reactant::asset_generator;\nasset_generator::generate! { anything }\n",
+      "imports or reexports",
+    ),
+    (
+      "fn nested() { battlement_reactant::asset_generator::generate! { anything } }\n",
+      "is nested",
+    ),
+    (
+      "#[cfg(any())]\nbattlement_reactant::asset_generator::generate! { anything }\n",
+      "conditionally compiled",
+    ),
+    (
+      "macro_rules! wrapped { () => { battlement_reactant::asset_generator::generate! { anything } } }\n",
+      "macro wrapper",
+    ),
+  ];
+  for (source, diagnostic) in cases {
+    fs::write(fixture.project.join("rules/src/lib.rs"), source).unwrap();
+    let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains(diagnostic), "{}", stderr(&output));
+  }
+
+  fs::create_dir_all(fixture.project.join("rules/host-art/src")).unwrap();
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n\
+       [target.'cfg(not(target_arch = \"wasm32\"))'.dependencies]\nhost-art = {{ path = \"host-art\" }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "pub fn rules() {}\n",
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/host-art/Cargo.toml"),
+    format!(
+      "[package]\nname = \"host-art\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/host-art/src/lib.rs"),
+    "pub fn art() {}\n",
+  )
+  .unwrap();
+  let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!output.status.success());
+  assert!(stderr(&output).contains("reachable declaration packages differ"));
+  assert!(stderr(&output).contains("host="));
+  assert!(stderr(&output).contains("WebAssembly="));
+}
+
+#[test]
+fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
+  let fixture = Fixture::new();
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nreactant = {{ package = \"battlement-reactant\", path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  let renamed = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!renamed.status.success());
+  assert!(stderr(&renamed).contains("aliases battlement-reactant as reactant"));
+
+  let outside = fixture.root.join("outside-assets");
+  fs::create_dir_all(outside.join("src")).unwrap();
+  fs::write(
+    outside.join("Cargo.toml"),
+    format!(
+      "[package]\nname = \"outside-assets\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  fs::write(outside.join("src/lib.rs"), "pub fn outside() {}\n").unwrap();
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+     [dependencies]\noutside-assets = { path = \"../../outside-assets\" }\n",
+  )
+  .unwrap();
+  let nonportable = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!nonportable.status.success());
+  assert!(stderr(&nonportable).contains("outside Unity project"));
+  assert!(stderr(&nonportable).contains("no portable coordinate"));
+}
+
+#[test]
+fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
+  let fixture = Fixture::new();
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+  for (declaration, category) in [
+    (
+      "@background PANEL { @canvas 10px 10px; @canvas 20px 20px; background: linear-gradient(red, blue); }",
+      "duplicate-statement",
+    ),
+    (
+      "@background PANEL { @canvas 0px 10px; background: linear-gradient(red, blue); }",
+      "invalid-geometry",
+    ),
+    (
+      "@background PANEL { @canvas 10px 10px; background: red; }",
+      "native-only",
+    ),
+  ] {
+    fs::write(
+      fixture.project.join("rules/src/lib.rs"),
+      format!("battlement_reactant::asset_generator::generate! {{ {declaration} }}\n"),
+    )
+    .unwrap();
+    let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+    assert!(!output.status.success());
+    assert!(stderr(&output).contains(category), "{}", stderr(&output));
+  }
 }
 
 struct Fixture {

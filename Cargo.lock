@@ -627,8 +627,10 @@ name = "battlement-reactant-assets"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "battlement-reactant-asset-syntax",
  "serde",
  "serde_json",
+ "syn 2.0.119",
  "tempfile",
 ]
 

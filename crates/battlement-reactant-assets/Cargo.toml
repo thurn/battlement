@@ -9,6 +9,8 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+battlement-reactant-asset-syntax.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+syn = { version = "2.0.119", features = ["full", "visit"] }
 tempfile = "3.27.0"

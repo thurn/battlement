@@ -11,8 +11,12 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
-use serde_json::Value;
 use tempfile::Builder;
+
+mod discovery;
+mod source_scan;
+
+pub use discovery::{DiscoveredAsset, Discovery};
 
 const GENERATED_ROOT: &str = "Assets/Generated/BattlementReactant";
 const GENERATED_ROOT_META: &str = "Assets/Generated/BattlementReactant.meta";
@@ -113,7 +117,16 @@ fn run_inner(
   let current = env::current_dir().context("failed to read the current directory")?;
   let project = self::select_project(options.project.as_deref(), &current, report)?;
   let manifest = self::select_manifest(options.manifest_path.as_deref(), &project, &current)?;
-  self::require_empty_rules(&manifest, &options.feature_selection, report)?;
+  let discovery = discovery::discover(&manifest, &project, &options.feature_selection, report)?;
+  if !discovery.assets.is_empty() {
+    println!(
+      "discovered={} deduplicated={} current=0 rendered=0 stale={}; browser not started",
+      discovery.assets.len(),
+      discovery.assets.len(),
+      discovery.assets.len()
+    );
+    return Ok(());
+  }
   match command {
     AssetCommand::Generate => self::remove_generated_output(&project, report)?,
     AssetCommand::Check => self::check_empty_output(&project, report)?,
@@ -180,72 +193,6 @@ fn select_manifest(explicit: Option<&Path>, project: &Path, current: &Path) -> R
     );
   }
   Ok(manifest)
-}
-
-fn require_empty_rules(
-  manifest: &Path,
-  features: &FeatureSelection,
-  report: &mut WorkReport,
-) -> Result<()> {
-  let mut command = Command::new("cargo");
-  command.args([
-    "metadata",
-    "--format-version",
-    "1",
-    "--no-deps",
-    "--manifest-path",
-  ]);
-  command.arg(manifest);
-  if features.all_features {
-    command.arg("--all-features");
-  }
-  if features.no_default_features {
-    command.arg("--no-default-features");
-  }
-  if !features.features.is_empty() {
-    command.arg("--features").arg(features.features.join(","));
-  }
-  report.cargo_metadata_runs += 1;
-  report.subprocesses_started += 1;
-  let output = command.output().context("failed to run Cargo metadata")?;
-  if !output.status.success() {
-    bail!(
-      "Cargo metadata failed: {}",
-      String::from_utf8_lossy(&output.stderr).trim()
-    );
-  }
-  let metadata: Value =
-    serde_json::from_slice(&output.stdout).context("Cargo metadata returned invalid JSON")?;
-  let manifest_text = manifest.to_string_lossy();
-  let source = metadata["packages"]
-    .as_array()
-    .and_then(|packages| {
-      packages.iter().find(|package| {
-        package["manifest_path"]
-          .as_str()
-          .is_some_and(|path| path == manifest_text)
-      })
-    })
-    .and_then(|package| package["targets"].as_array())
-    .and_then(|targets| {
-      targets.iter().find(|target| {
-        target["kind"]
-          .as_array()
-          .is_some_and(|kinds| kinds.iter().any(|kind| kind == "lib" || kind == "cdylib"))
-      })
-    })
-    .and_then(|target| target["src_path"].as_str())
-    .context("rules manifest does not define a library target")?;
-  let source = Path::new(source);
-  let contents = fs::read_to_string(source)
-    .with_context(|| format!("failed to read rules source {}", source.display()))?;
-  report.files_opened += 1;
-  report.rust_source_opens += 1;
-  report.bytes_read += contents.len() as u64;
-  if contents.contains("asset_generator::generate!") {
-    bail!("asset declarations require the generator syntax implementation");
-  }
-  Ok(())
 }
 
 fn remove_generated_output(project: &Path, report: &mut WorkReport) -> Result<()> {

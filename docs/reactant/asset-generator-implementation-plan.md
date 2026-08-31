@@ -402,7 +402,7 @@ WebAssembly target build, and Node execution in the exhaustive tier.
 **Evidence:** passing host-façade suite transcript, doctest output, and
 native/WebAssembly registry fixture results.
 
-### Task 08 — Discover declarations through both Cargo graphs
+### Task 08 — Discover declarations through both Cargo graphs [DONE]
 
 **Prerequisites:** Task 07. **Target:** 400–500 non-test lines.
 
