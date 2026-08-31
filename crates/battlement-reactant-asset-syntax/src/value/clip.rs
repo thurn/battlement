@@ -41,7 +41,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
       encode::value(&value, &mut canonical);
       canonical
     }
-    "path" => return Err(self::invalid()),
+    "path" => super::path::parse(arguments)?,
     _ => return Err(self::invalid()),
   };
   Ok(ParsedValue {

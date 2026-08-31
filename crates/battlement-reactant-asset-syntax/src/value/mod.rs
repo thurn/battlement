@@ -14,6 +14,7 @@ mod clip;
 mod display;
 mod encode;
 mod gradient;
+mod path;
 mod position;
 mod shadow;
 

@@ -358,6 +358,62 @@ fn rejects_invalid_degenerate_and_external_clip_shapes() {
   }
 }
 
+#[test]
+fn accepts_every_typed_absolute_clip_path_command() {
+  for declaration in [
+    "clip-path: path(\"M 0 0 L 10 10 H 20 V 30 C 1 2 3 4 5 6 Q 7 8 9 10 A 5 6 45 0 1 20 20 Z\")",
+    "clip-path: path(\"M0 0 10 10 20 20Z\")",
+    "clip-path: path(\"M.5.6L1e1-2e1L+30,+40\")",
+    "clip-path: path(\"M0 0L1 2 3 4H5 6V7 8C1 2 3 4 5 6 7 8 9 10 11 12Q1 2 3 4 5 6 7 8A1 2 3 0 1 4 5 6 7 8 1 0 9 10\")",
+  ] {
+    request(declaration).unwrap_or_else(|error| panic!("{declaration}: {error:?}"));
+  }
+}
+
+#[test]
+fn path_identity_normalizes_numbers_separators_and_implicit_lines() {
+  let compact = request("clip-path: path(\"M0,0 10,10L20-20Z\")").unwrap();
+  let expanded = request("clip-path: path(\"M 0.0 0e0 L 1e1 10.00 L 20 -20 Z\")").unwrap();
+  let reordered = request("clip-path: path(\"M0 0L20-20L10 10Z\")").unwrap();
+
+  assert_eq!(compact.identity(), expanded.identity());
+  assert_ne!(compact.identity(), reordered.identity());
+}
+
+#[test]
+fn rejects_malformed_relative_and_unsupported_clip_paths() {
+  for declaration in [
+    "clip-path: path(\"\")",
+    "clip-path: path(\"M0 0\")",
+    "clip-path: path(\"M0 0Z\")",
+    "clip-path: path(\"L0 0\")",
+    "clip-path: path(\"m0 0l1 1\")",
+    "clip-path: path(\"M0 0S1 2 3 4\")",
+    "clip-path: path(\"M0 0T1 2\")",
+    "clip-path: path(\"M0 0L\")",
+    "clip-path: path(\"M0 0L1\")",
+    "clip-path: path(\"M0 0Z1\")",
+    "clip-path: path(\"M,0 0L1 1\")",
+    "clip-path: path(\"M0 0L1,,2\")",
+    "clip-path: path(\"M0 0L1e 2\")",
+    "clip-path: path(\"M0 0L1e309 2\")",
+    "clip-path: path(\"M0 0A-1 2 0 0 1 3 4\")",
+    "clip-path: path(\"M0 0A1 2 0 2 1 3 4\")",
+    "clip-path: path(\"M0 0A1 2 0 0 -1 3 4\")",
+    "clip-path: path(M0 0L1 1)",
+    "clip-path: path(\"M0 0\", \"L1 1\")",
+  ] {
+    let error = request(declaration).unwrap_err();
+    assert_eq!(
+      error.category,
+      DiagnosticCategory::InvalidValue,
+      "{declaration}"
+    );
+    assert_eq!(error.symbol.as_deref(), Some("PANEL"));
+    assert_eq!(error.property.as_deref(), Some("clip-path"));
+  }
+}
+
 fn request(
   declarations: &str,
 ) -> Result<
