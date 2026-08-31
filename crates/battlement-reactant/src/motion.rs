@@ -1,19 +1,15 @@
 //! Typed Motion authoring for Reactant hosts and forwarding components.
 
-use std::any::TypeId;
-
 use battlement::{
-  MotionCallbackSubscriptions, MotionClockSource, MotionColor, MotionDescriptor, MotionFilter,
-  MotionGeneration, MotionGradient, MotionLayer, MotionLength, MotionProperty, MotionPropertyTrack,
-  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionShadow, MotionSlotDescriptor,
-  MotionSlotId, MotionTargetDescriptor, MotionTransform, MotionValue, ReducedMotionPolicy,
-  SpringConfiguration, StepPosition, TransitionDefinition, TransitionGenerator, Visibility,
+  MotionColor, MotionFilter, MotionGradient, MotionLength, MotionProperty, MotionPropertyTrack,
+  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionShadow, MotionTargetDescriptor,
+  MotionTransform, MotionValue, SpringConfiguration, StepPosition, TransitionDefinition,
+  TransitionGenerator, Visibility,
 };
 
 use crate::{
-  component::Component,
-  render::{Render, RenderSink},
-  render_value::Sealed,
+  motion_variants::VariantOrchestration,
+  variant_map::{ErasedVariantData, ErasedVariantSelection, ErasedVariants},
 };
 
 /// A property-local sequence of typed Motion keyframes.
@@ -40,18 +36,17 @@ pub struct MotionTarget {
 /// Complete Motion props forwarded to one host façade.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MotionProps {
-  initial: Option<InitialTarget>,
-  animate: Option<MotionTarget>,
-  exit: Option<MotionTarget>,
-  transition: Option<Transition>,
+  pub(crate) initial: Option<InitialTarget>,
+  pub(crate) animate: Option<MotionTarget>,
+  pub(crate) exit: Option<MotionTarget>,
+  pub(crate) transition: Option<Transition>,
+  pub(crate) variants: ErasedVariants,
+  pub(crate) variant_data: Option<ErasedVariantData>,
+  pub(crate) initial_variant_selection: Option<ErasedVariantSelection>,
+  pub(crate) variant_selection: Option<ErasedVariantSelection>,
+  pub(crate) exit_variant_selection: Option<ErasedVariantSelection>,
+  pub(crate) inherit_variants: bool,
   pub(crate) css: crate::motion_css::CssProps,
-}
-
-/// Rust-only adapter that forwards one complete Motion value without a host wrapper.
-#[doc(hidden)]
-pub struct ForwardedMotion<C> {
-  component: C,
-  motion: MotionProps,
 }
 
 /// A concrete or disabled mount origin.
@@ -146,97 +141,7 @@ pub struct Transition {
   pub(crate) default: TransitionDefinition,
   pub(crate) properties: Vec<(MotionProperty, TransitionDefinition)>,
   pub(crate) spring_authoring: SpringAuthoring,
-}
-
-/// Components that forward one complete Motion value to a stable host.
-pub trait MotionComponent: Component + Sized {
-  /// Applies the complete forwarded Motion value.
-  fn with_motion(self, motion: MotionProps) -> Self;
-}
-
-/// Motion builders available on forwarding components.
-pub trait MotionComponentExt: MotionComponent + Clone {
-  /// Applies a complete Motion value.
-  #[must_use]
-  fn motion(self, value: MotionProps) -> ForwardedMotion<Self> {
-    ForwardedMotion::new(self, value)
-  }
-
-  /// Selects the mount origin.
-  #[must_use]
-  fn initial(self, value: impl InitialValue) -> ForwardedMotion<Self> {
-    ForwardedMotion::new(self, MotionProps::new().initial(value))
-  }
-
-  /// Selects the base animation target.
-  #[must_use]
-  fn animate(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
-    ForwardedMotion::new(self, MotionProps::new().animate(value))
-  }
-
-  /// Selects the presence-exit target.
-  #[must_use]
-  fn exit(self, value: impl Into<MotionTarget>) -> ForwardedMotion<Self> {
-    ForwardedMotion::new(self, MotionProps::new().exit(value))
-  }
-
-  /// Replaces the default transition.
-  #[must_use]
-  fn transition(self, value: Transition) -> ForwardedMotion<Self> {
-    ForwardedMotion::new(self, MotionProps::new().transition(value))
-  }
-}
-
-impl<T: MotionComponent + Clone> MotionComponentExt for T {}
-
-impl<C> ForwardedMotion<C> {
-  fn new(component: C, motion: MotionProps) -> Self {
-    Self { component, motion }
-  }
-
-  /// Selects the mount origin.
-  #[must_use]
-  pub fn initial(mut self, value: impl InitialValue) -> Self {
-    self.motion = self.motion.merge(MotionProps::new().initial(value));
-    self
-  }
-
-  /// Selects the base animation target.
-  #[must_use]
-  pub fn animate(mut self, value: impl Into<MotionTarget>) -> Self {
-    self.motion = self.motion.merge(MotionProps::new().animate(value));
-    self
-  }
-
-  /// Selects the presence-exit target.
-  #[must_use]
-  pub fn exit(mut self, value: impl Into<MotionTarget>) -> Self {
-    self.motion = self.motion.merge(MotionProps::new().exit(value));
-    self
-  }
-
-  /// Replaces inherited target timing.
-  #[must_use]
-  pub fn transition(mut self, value: Transition) -> Self {
-    self.motion = self.motion.merge(MotionProps::new().transition(value));
-    self
-  }
-}
-
-impl<C> Render for ForwardedMotion<C> where C: MotionComponent + Clone {}
-
-#[allow(private_interfaces)]
-impl<C> Sealed for ForwardedMotion<C>
-where
-  C: MotionComponent + Clone,
-{
-  fn descriptor(&self) -> TypeId {
-    TypeId::of::<Self>()
-  }
-
-  fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.push_motion_component::<Self, C>(self.component.clone(), self.motion.clone());
-  }
+  pub(crate) orchestration: VariantOrchestration,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -689,11 +594,48 @@ impl MotionTarget {
     self
   }
 
-  fn descriptor(&self, inherited: Option<&Transition>) -> MotionTargetDescriptor {
+  pub(crate) fn descriptor(
+    &self,
+    inherited: Option<&Transition>,
+    extra_delay_micros: u64,
+  ) -> MotionTargetDescriptor {
     let transition = self.transition.as_ref().or(inherited);
     let mut target = self.style.target(transition);
+    for track in &mut target.tracks {
+      track.transition.delay_micros = track
+        .transition
+        .delay_micros
+        .checked_add_unsigned(extra_delay_micros)
+        .expect("variant delay exhausted");
+    }
     target.transition_end = self.transition_end.values();
     target
+  }
+
+  pub(crate) fn merge(mut self, value: Self) -> Self {
+    self.style = self.style.merge(value.style);
+    self.transition_end = self.transition_end.merge(value.transition_end);
+    if value.transition.is_some() {
+      self.transition = value.transition;
+    }
+    self
+  }
+
+  pub(crate) fn total_duration_micros(&self, inherited: Option<&Transition>) -> u64 {
+    self
+      .descriptor(inherited, 0)
+      .tracks
+      .iter()
+      .map(|track| transition_duration_micros(&track.transition))
+      .max()
+      .unwrap_or(0)
+  }
+
+  pub(crate) fn variant_orchestration(&self) -> VariantOrchestration {
+    self
+      .transition
+      .as_ref()
+      .map_or_else(VariantOrchestration::new, |value| value.orchestration)
   }
 }
 
@@ -712,6 +654,12 @@ impl MotionProps {
       animate: None,
       exit: None,
       transition: None,
+      variants: ErasedVariants::new(),
+      variant_data: None,
+      initial_variant_selection: None,
+      variant_selection: None,
+      exit_variant_selection: None,
+      inherit_variants: true,
       css: crate::motion_css::CssProps::new(),
     }
   }
@@ -757,50 +705,26 @@ impl MotionProps {
     if value.transition.is_some() {
       self.transition = value.transition;
     }
+    if value.variants != ErasedVariants::new() {
+      self.variants = value.variants;
+    }
+    if value.variant_data.is_some() {
+      self.variant_data = value.variant_data;
+    }
+    if value.variant_selection.is_some() {
+      self.variant_selection = value.variant_selection;
+    }
+    if value.initial_variant_selection.is_some() {
+      self.initial_variant_selection = value.initial_variant_selection;
+    }
+    if value.exit_variant_selection.is_some() {
+      self.exit_variant_selection = value.exit_variant_selection;
+    }
+    if !value.inherit_variants {
+      self.inherit_variants = false;
+    }
     self.css = self.css.merge(value.css);
     self
-  }
-
-  pub(crate) fn descriptor(
-    &self,
-    host_id: battlement::ObjectId,
-    generation: MotionGeneration,
-  ) -> MotionDescriptor {
-    let transition = self.transition.as_ref();
-    let (initial, initial_disabled) = match &self.initial {
-      Some(InitialTarget::Target(value)) => (
-        Some(value.descriptor(Some(&Transition::immediate()))),
-        false,
-      ),
-      Some(InitialTarget::Disabled) => (None, true),
-      None => (None, false),
-    };
-    let slots = self
-      .animate
-      .iter()
-      .map(|target| MotionSlotDescriptor {
-        slot: MotionSlotId(1),
-        generation,
-        layer: MotionLayer::Animate,
-        target: target.descriptor(transition),
-        callbacks: MotionCallbackSubscriptions::default(),
-      })
-      .collect();
-    MotionDescriptor {
-      descriptor_id: host_id,
-      host_id,
-      generation,
-      static_baseline: Vec::new(),
-      initial,
-      initial_disabled,
-      slots,
-      clock: MotionClockSource::Unscaled,
-      reduced_motion: ReducedMotionPolicy::Never,
-      pseudo_styles: self.css.pseudo_descriptors(),
-      style_transition: self.css.transition_descriptor(),
-      animations: self.css.animation_descriptors(generation),
-      decorations: self.css.decoration_descriptors(generation),
-    }
   }
 }
 
@@ -888,6 +812,34 @@ fn visibility_value(value: Visibility) -> &'static str {
     Visibility::Visible => "visible",
     Visibility::Hidden => "hidden",
   }
+}
+
+fn transition_duration_micros(value: &TransitionDefinition) -> u64 {
+  let active = match &value.generator {
+    TransitionGenerator::Immediate => 0,
+    TransitionGenerator::Tween {
+      duration_micros, ..
+    } => *duration_micros,
+    TransitionGenerator::Spring(SpringConfiguration::Duration {
+      duration_micros, ..
+    })
+    | TransitionGenerator::Spring(SpringConfiguration::VisualDuration {
+      duration_micros, ..
+    }) => *duration_micros,
+    TransitionGenerator::Spring(SpringConfiguration::Physical { .. }) => 1_000_000,
+    TransitionGenerator::Inertia {
+      time_constant_micros,
+      ..
+    } => time_constant_micros.saturating_mul(8),
+  };
+  let plays = match value.repeat {
+    MotionRepeat::None => 1,
+    MotionRepeat::Count(count) => u64::from(count) + 1,
+    MotionRepeat::Forever => panic!("infinite variants cannot sequence parent and children"),
+  };
+  value.delay_micros.max(0) as u64
+    + active.saturating_mul(plays)
+    + value.repeat_delay_micros.saturating_mul(plays - 1)
 }
 
 pub(crate) fn micros(value: f64, allow_zero: bool) -> u64 {

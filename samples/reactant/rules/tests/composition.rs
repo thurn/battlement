@@ -7,8 +7,9 @@ use battlement::{
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
   KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
   PointerCrossingEvent, PointerType, PreparedAsset, Projective2, Prop, Rect, Response,
-  ResponseMessage, ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
-  ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
+  ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElementKind, UiEvent, UiEventBody,
+  UiVisualElementProperties, VariantWhen, Vector, ViewportGeometry, ViewportPoint, ViewportRect,
+  WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -246,6 +247,71 @@ fn assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice()
   client.ui().click(action);
   let canvas = find_named(&client.ui(), ROOT_ID, "assets-canvas");
   assert_eq!(visible_text(&client.ui(), canvas), initial);
+}
+
+#[test]
+fn variants_screen_propagates_ordered_snapshotted_targets_and_reverses_cleanly() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect_with(
+    engine,
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(360, 800)),
+  );
+  let next = find_named(&client.ui(), ROOT_ID, "next-navigation");
+  for _ in 0..11 {
+    client.ui().click(next);
+  }
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "variants-orchestration-canvas");
+  let title = find_named(&client.ui(), canvas, "page-title");
+  assert_eq!(
+    client.ui().element(title).text(),
+    Some("Variants & Orchestration")
+  );
+  let first = find_named(&client.ui(), canvas, "variant-child-0");
+  let opted_out = find_named(&client.ui(), canvas, "variant-child-2");
+  let descriptor = motion_descriptor(&client.ui(), first);
+  let facts = descriptor.variants.as_ref().unwrap();
+  assert_eq!(facts.names, ["East", "Custom", "Forward"]);
+  assert!(facts.inherited);
+  assert_eq!(facts.child_index, 0);
+  assert_eq!(facts.delay_micros, 320_000);
+  assert_eq!(facts.when, VariantWhen::BeforeChildren);
+  assert_eq!(facts.stagger_direction, StaggerDirection::Forward);
+  assert!(
+    motion_descriptor(&client.ui(), opted_out)
+      .variants
+      .is_none()
+  );
+  assert_eq!(
+    motion_scalar(&descriptor, battlement::MotionProperty::Opacity),
+    1.0,
+    "the last selected variant must win ordered property conflicts"
+  );
+
+  let custom = find_named(&client.ui(), canvas, "variants-custom");
+  client.ui().click(custom);
+  let after_custom = motion_descriptor(&client.ui(), first);
+  assert_eq!(after_custom.generation, descriptor.generation);
+  assert_eq!(
+    after_custom.variants.as_ref().unwrap().custom_snapshot,
+    facts.custom_snapshot
+  );
+
+  let route = find_named(&client.ui(), canvas, "variants-route");
+  client.ui().click(route);
+  let west = motion_descriptor(&client.ui(), first);
+  assert_eq!(west.variants.as_ref().unwrap().names[0], "West");
+  assert!(west.generation.0 > descriptor.generation.0);
+  assert!(motion_scalar(&west, battlement::MotionProperty::X) < 0.0);
+
+  let stagger = find_named(&client.ui(), canvas, "variants-stagger");
+  client.ui().click(stagger);
+  let reverse = motion_descriptor(&client.ui(), first);
+  let facts = reverse.variants.as_ref().unwrap();
+  assert_eq!(facts.names[2], "Reverse");
+  assert_eq!(facts.delay_micros, 500_000);
+  assert_eq!(facts.stagger_direction, StaggerDirection::Reverse);
 }
 
 #[test]
@@ -972,6 +1038,34 @@ where
     pending.extend(element.children().iter().rev());
   }
   text
+}
+
+fn motion_descriptor<E>(ui: &UiClient<'_, E>, object_id: ObjectId) -> battlement::MotionDescriptor
+where
+  E: Engine<Command = Command>,
+{
+  match &ui.element(object_id).element().visual_element().motion {
+    Prop::Set(value) => value.clone(),
+    value => panic!("expected a motion descriptor, received {value:?}"),
+  }
+}
+
+fn motion_scalar(
+  descriptor: &battlement::MotionDescriptor,
+  property: battlement::MotionProperty,
+) -> f32 {
+  let value = descriptor.slots[0]
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == property)
+    .and_then(|track| track.values.last())
+    .expect("motion property should be present");
+  match value {
+    battlement::MotionValue::Scalar(value) => *value,
+    battlement::MotionValue::Length(value) if value.percent == 0.0 => value.px,
+    value => panic!("motion property is not scalar-like: {value:?}"),
+  }
 }
 
 fn assert_accessible_text(

@@ -4,8 +4,8 @@ use battlement_ui::{
   MotionControlledClockOperation, MotionDescriptor, MotionEasing, MotionGeneration, MotionLayer,
   MotionPlaybackCommand, MotionPlaybackDirection, MotionPlaybackOperation, MotionProperty,
   MotionPropertyTrack, MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionSlotDescriptor,
-  MotionSlotId, MotionTargetDescriptor, MotionValue, ReducedMotionPolicy, TransitionDefinition,
-  TransitionGenerator,
+  MotionSlotId, MotionTargetDescriptor, MotionValue, MotionVariantResolution, ReducedMotionPolicy,
+  StaggerDirection, TransitionDefinition, TransitionGenerator, VariantWhen,
 };
 
 #[test]
@@ -83,6 +83,15 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
     style_transition: battlement_ui::StyleTransitionDescriptor::default(),
     animations: Vec::new(),
     decorations: Vec::new(),
+    variants: Some(MotionVariantResolution {
+      names: vec!["west".to_owned(), "selected".to_owned()],
+      inherited: true,
+      custom_snapshot: 91,
+      child_index: 3,
+      delay_micros: 470_000,
+      when: VariantWhen::AfterChildren,
+      stagger_direction: StaggerDirection::Reverse,
+    }),
   };
 
   let json = serde_json::to_string(&descriptor).unwrap();
@@ -91,6 +100,7 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
   assert!(json.contains("\"Mirror\""));
   assert!(json.contains("\"Controlled\""));
   assert!(json.contains("\"transition_end\""));
+  assert!(json.contains("\"custom_snapshot\":91"));
 }
 
 #[test]

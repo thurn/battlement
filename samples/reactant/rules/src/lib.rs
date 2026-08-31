@@ -19,6 +19,7 @@ mod state_identity;
 mod styles_decorations;
 #[cfg(test)]
 mod tests;
+mod variants_orchestration;
 
 use battlement::{
   ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
@@ -76,11 +77,13 @@ pub enum Screen {
   PhysicalMotion,
   /// CSS transitions, reusable animations, decorations, and advanced paint.
   StylesDecorations,
+  /// Typed variants, logical propagation, and child orchestration.
+  VariantsOrchestration,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 11] = [
+  pub const ALL: [Self; 12] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -92,6 +95,7 @@ impl Screen {
     Self::TargetsTimelines,
     Self::PhysicalMotion,
     Self::StylesDecorations,
+    Self::VariantsOrchestration,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -108,6 +112,7 @@ impl Screen {
       Self::TargetsTimelines => "targets-timelines",
       Self::PhysicalMotion => "physical-motion",
       Self::StylesDecorations => "styles-decorations",
+      Self::VariantsOrchestration => "variants-orchestration",
     }
   }
 }
@@ -153,6 +158,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     animation_validation: game.animation_validation.clone(),
     physical_motion: game.physical_motion.clone(),
     styles_decorations: game.styles_decorations.clone(),
+    variants_orchestration: game.variants_orchestration.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -181,6 +187,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       animation_validation: animation_validation::ValidationUiState::default(),
       physical_motion: physical_motion::PhysicalMotionState::default(),
       styles_decorations: styles_decorations::StylesDecorationsState::default(),
+      variants_orchestration: variants_orchestration::VariantsOrchestrationState::default(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -309,6 +316,7 @@ struct Game {
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
   styles_decorations: styles_decorations::StylesDecorationsState,
+  variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -341,6 +349,7 @@ struct Shell {
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
   styles_decorations: styles_decorations::StylesDecorationsState,
+  variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -493,6 +502,10 @@ impl Component for Shell {
       }),
       Screen::StylesDecorations => Node::new(styles_decorations::StylesDecorations {
         state: self.styles_decorations.clone(),
+        compact: self.compact,
+      }),
+      Screen::VariantsOrchestration => Node::new(variants_orchestration::VariantsOrchestration {
+        state: self.variants_orchestration.clone(),
         compact: self.compact,
       }),
     };
@@ -764,7 +777,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::StylesDecorations,
+    Screen::Composition => Screen::VariantsOrchestration,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -775,6 +788,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::TargetsTimelines => Screen::Assets,
     Screen::PhysicalMotion => Screen::TargetsTimelines,
     Screen::StylesDecorations => Screen::PhysicalMotion,
+    Screen::VariantsOrchestration => Screen::StylesDecorations,
   }
 }
 
@@ -790,7 +804,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::Assets => Screen::TargetsTimelines,
     Screen::TargetsTimelines => Screen::PhysicalMotion,
     Screen::PhysicalMotion => Screen::StylesDecorations,
-    Screen::StylesDecorations => Screen::Composition,
+    Screen::StylesDecorations => Screen::VariantsOrchestration,
+    Screen::VariantsOrchestration => Screen::Composition,
   }
 }
 
@@ -807,6 +822,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::TargetsTimelines => "09 TARGETS & TIMELINES",
     Screen::PhysicalMotion => "10 PHYSICAL MOTION",
     Screen::StylesDecorations => "11 STYLES & DECORATIONS",
+    Screen::VariantsOrchestration => "12 VARIANTS & ORCHESTRATION",
   }
 }
 

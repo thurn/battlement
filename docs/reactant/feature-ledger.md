@@ -39,10 +39,12 @@ geometry effects, Assets covers generated advanced paint, and Physical Motion
 covers springs, inertia, velocity handoff, and terminal playback outcomes.
 Styles & Decorations covers pseudo
 precedence, CSS playback, keyed decoration identity, composition, and advanced
-paint. Public physical and CSS authoring are checked
+paint. Variants & Orchestration covers typed maps, custom-data snapshots,
+ordered targets, logical propagation, opt-out, and bidirectional stagger.
+Public physical, CSS, and variant authoring are checked
 in `crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
 checked in `Packages/com.battlement.client/Tests/Editor/PhysicalMotionTests.cs`
-and `Packages/com.battlement.client/Tests/Editor/CssMotionTests.cs`.
+and the adjacent CSS and variant motion tests.
 The complete initial, changed, and restored flows are checked in
 `samples/reactant/rules/tests/composition.rs`.
 

@@ -576,7 +576,7 @@ input.
 lifecycle traces, and captures of pseudo-state, advanced paint, and burst
 states.
 
-## Task 06 — Add variants and the Variants & Orchestration screen
+## Task 06 — Add variants and the Variants & Orchestration screen [DONE]
 
 **Prerequisites:** Tasks 03–05. **Asset Generator prerequisites:** none.
 

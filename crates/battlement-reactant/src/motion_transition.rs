@@ -1,10 +1,14 @@
 use battlement::{
   InertiaTarget as MotionInertiaTarget, MotionEasing, MotionProperty, MotionRepeat,
-  MotionRepeatType, SpringConfiguration, TransitionDefinition, TransitionGenerator,
+  MotionRepeatType, SpringConfiguration, StaggerDirection, TransitionDefinition,
+  TransitionGenerator, VariantWhen,
 };
 
-use crate::motion::{
-  Easing, InertiaTarget, Repeat, RepeatType, SpringAuthoring, Transition, micros, validate_times,
+use crate::{
+  motion::{
+    Easing, InertiaTarget, Repeat, RepeatType, SpringAuthoring, Transition, micros, validate_times,
+  },
+  motion_variants::VariantOrchestration,
 };
 
 impl InertiaTarget {
@@ -89,6 +93,41 @@ impl Transition {
       },
       SpringAuthoring::NotSpring,
     )
+  }
+
+  /// Selects concurrent, parent-first, or children-first variant playback.
+  #[must_use]
+  pub fn when(mut self, value: VariantWhen) -> Self {
+    self.orchestration = self.orchestration.when(value);
+    self
+  }
+
+  /// Delays propagated variant children from the orchestration origin.
+  #[must_use]
+  pub fn delay_children_secs(mut self, value: f64) -> Self {
+    self.orchestration = self.orchestration.delay_children_secs(value);
+    self
+  }
+
+  /// Assigns a delay step between direct propagated variant children.
+  #[must_use]
+  pub fn stagger_children_secs(mut self, value: f64) -> Self {
+    self.orchestration = self.orchestration.stagger_secs(value);
+    self
+  }
+
+  /// Selects forward or reverse propagated child order.
+  #[must_use]
+  pub fn stagger_direction(mut self, value: StaggerDirection) -> Self {
+    self.orchestration = self.orchestration.stagger_direction(value);
+    self
+  }
+
+  /// Supplies the participating child count needed by reverse staggering.
+  #[must_use]
+  pub fn stagger_child_count(mut self, value: u32) -> Self {
+    self.orchestration = self.orchestration.child_count(value);
+    self
   }
 
   /// Sets tween or duration-spring duration in seconds.
@@ -390,6 +429,7 @@ impl Transition {
       default,
       properties: Vec::new(),
       spring_authoring,
+      orchestration: VariantOrchestration::new(),
     }
   }
 

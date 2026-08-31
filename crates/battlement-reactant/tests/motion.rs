@@ -419,6 +419,189 @@ fn same_frame_retargets_advance_generation_without_recreating_the_host() {
 }
 
 #[test]
+fn variants_propagate_merge_in_order_and_schedule_logical_children() {
+  #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+  enum TestVariant {
+    Open,
+    Emphasis,
+  }
+
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    View::new()
+      .variants(
+        Variants::<TestVariant>::new()
+          .target(TestVariant::Open, MotionStyle::new().x(8.0).opacity(0.4))
+          .target(
+            TestVariant::Emphasis,
+            VariantTarget::new(
+              MotionTarget::new(MotionStyle::new().opacity(1.0))
+                .transition(Transition::tween().duration_secs(0.2)),
+            )
+            .orchestration(
+              VariantOrchestration::new()
+                .delay_children_secs(0.05)
+                .stagger_secs(0.1)
+                .when(VariantWhen::BeforeChildren),
+            ),
+          ),
+      )
+      .animate_variants([TestVariant::Open, TestVariant::Emphasis])
+      .child(
+        View::new().variants(
+          Variants::<TestVariant>::new()
+            .target(TestVariant::Open, MotionStyle::new().x(20.0).opacity(0.5))
+            .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.9)),
+        ),
+      )
+      .child(
+        View::new()
+          .variants(
+            Variants::<TestVariant>::new()
+              .target(TestVariant::Open, MotionStyle::new().x(40.0))
+              .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.8)),
+          )
+          .inherit_variants(false),
+      )
+      .child(
+        View::new().variants(
+          Variants::<TestVariant>::new()
+            .target(TestVariant::Open, MotionStyle::new().x(60.0))
+            .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.7)),
+        ),
+      )
+  });
+  let rendered = start(&mut reactant, &mut (), &document);
+  let parent = &rendered.children[0];
+  let descriptors = parent
+    .children
+    .iter()
+    .map(|child| match &child.element.visual_element().motion {
+      Prop::Set(value) => value,
+      Prop::Unset | Prop::Reset => panic!("variant child is missing a descriptor"),
+    })
+    .collect::<Vec<_>>();
+  assert_eq!(descriptors[0].variants.as_ref().unwrap().child_index, 0);
+  assert_eq!(
+    descriptors[0].variants.as_ref().unwrap().delay_micros,
+    250_000
+  );
+  let first = &descriptors[0].slots[0].target.tracks;
+  assert_eq!(
+    first
+      .iter()
+      .find(|track| track.property == MotionProperty::Opacity)
+      .unwrap()
+      .values,
+    [MotionValue::Scalar(0.9)]
+  );
+  assert_eq!(descriptors[2].variants.as_ref().unwrap().child_index, 1);
+  assert_eq!(
+    descriptors[2].variants.as_ref().unwrap().delay_micros,
+    350_000
+  );
+  assert!(descriptors[1].variants.is_none());
+  assert_eq!(
+    first
+      .iter()
+      .find(|track| track.property == MotionProperty::X)
+      .unwrap()
+      .transition
+      .delay_micros,
+    250_000
+  );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn computed_variant_custom_data_is_snapshotted_until_selection_changes() {
+  #[derive(Clone, Hash)]
+  struct RouteData {
+    offset: i32,
+  }
+
+  #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+  enum RouteVariant {
+    Enter,
+    Route,
+    Exit,
+  }
+
+  let document = document();
+  let mut data = RouteData { offset: -32 };
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |data: &RouteData| {
+    View::new()
+      .variants(
+        Variants::<RouteVariant, RouteData>::new()
+          .target(RouteVariant::Enter, MotionStyle::new().x(-12.0))
+          .resolver(RouteVariant::Route, |snapshot| {
+            VariantTarget::new(MotionStyle::new().x(snapshot.offset as f32))
+          })
+          .target(RouteVariant::Exit, MotionStyle::new().x(12.0)),
+      )
+      .custom(data.clone())
+      .initial_variant(RouteVariant::Enter)
+      .animate_variant(RouteVariant::Route)
+      .exit_variant(RouteVariant::Exit)
+  });
+  let rendered = start(&mut reactant, &mut data, &document);
+  let Prop::Set(first) = &rendered.children[0].element.visual_element().motion else {
+    panic!("computed variant did not lower");
+  };
+  let snapshot = first.variants.as_ref().unwrap().custom_snapshot;
+  let MotionValue::Length(initial_x) = first.initial.as_ref().unwrap().tracks[0].values[0] else {
+    panic!("initial variant did not lower a length");
+  };
+  assert_eq!(initial_x.px, -12.0);
+  data.offset = 96;
+  assert!(reactant.refresh(&mut data).unwrap().is_empty());
+  let _ = reactant.shutdown(&mut data).into_groups();
+  assert_ne!(snapshot, 0);
+}
+
+#[test]
+fn invalid_variant_maps_and_selections_panic_before_commit() {
+  #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+  enum TestVariant {
+    Open,
+    Missing,
+  }
+
+  assert!(
+    panic::catch_unwind(|| {
+      Variants::<TestVariant>::new()
+        .target(TestVariant::Open, MotionStyle::new().opacity(1.0))
+        .target(TestVariant::Open, MotionStyle::new().opacity(0.5))
+    })
+    .is_err()
+  );
+  assert!(
+    panic::catch_unwind(|| {
+      MotionProps::new().animate_variants([TestVariant::Open, TestVariant::Open])
+    })
+    .is_err()
+  );
+  assert!(
+    panic::catch_unwind(AssertUnwindSafe(|| {
+      let document = document();
+      let mut reactant = Reactant::new(IdleSpawner);
+      reactant.register_root(document.clone(), |(): &()| {
+        View::new()
+          .variants(
+            Variants::<TestVariant>::new()
+              .target(TestVariant::Open, MotionStyle::new().opacity(1.0)),
+          )
+          .animate_variant(TestVariant::Missing)
+      });
+      let _ = start(&mut reactant, &mut (), &document);
+    }))
+    .is_err()
+  );
+}
+
+#[test]
 fn invalid_public_keyframe_times_fail_at_the_authoring_boundary() {
   let result = panic::catch_unwind(AssertUnwindSafe(|| {
     Keyframes::new([0.0, 1.0]).times([0.2, 1.0])

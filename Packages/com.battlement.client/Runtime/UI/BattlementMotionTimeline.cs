@@ -239,6 +239,12 @@ namespace Battlement.UI
             }
         }
 
+        public void CancelActiveSlots(BattlementMotionWorld world, ulong clockMicros)
+        {
+            foreach (SlotState slot in slots)
+                Cancel(slot, world, slot.Elapsed(clockMicros));
+        }
+
         public void Dispose()
         {
             pseudoStyles?.Dispose();

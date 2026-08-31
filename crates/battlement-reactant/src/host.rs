@@ -48,6 +48,7 @@ use crate::{
   portal::PortalTarget,
   render::{FacadeMetadata, Node, Render, RenderSink},
   render_value::Sealed,
+  variant_map::{VariantData, VariantKey, Variants},
 };
 
 #[derive(Clone)]
@@ -225,6 +226,70 @@ macro_rules! facade {
       #[must_use]
       pub fn transition(self, value: Transition) -> Self {
         self.motion(MotionProps::new().transition(value))
+      }
+
+      /// Replaces the named variant definitions available to this host.
+      #[must_use]
+      pub fn variants<Name, Custom>(self, value: Variants<Name, Custom>) -> Self
+      where
+        Name: VariantKey,
+        Custom: VariantData,
+      {
+        self.motion(MotionProps::new().variants(value))
+      }
+
+      /// Selects one named variant target.
+      #[must_use]
+      pub fn animate_variant<Name: VariantKey>(self, value: Name) -> Self {
+        self.motion(MotionProps::new().animate_variant(value))
+      }
+
+      /// Selects one named mount origin.
+      #[must_use]
+      pub fn initial_variant<Name: VariantKey>(self, value: Name) -> Self {
+        self.motion(MotionProps::new().initial_variant(value))
+      }
+
+      /// Selects an ordered named mount-origin list.
+      #[must_use]
+      pub fn initial_variants<Name: VariantKey>(
+        self,
+        values: impl IntoIterator<Item = Name>,
+      ) -> Self {
+        self.motion(MotionProps::new().initial_variants(values))
+      }
+
+      /// Selects one named presence-exit target.
+      #[must_use]
+      pub fn exit_variant<Name: VariantKey>(self, value: Name) -> Self {
+        self.motion(MotionProps::new().exit_variant(value))
+      }
+
+      /// Selects an ordered named presence-exit list.
+      #[must_use]
+      pub fn exit_variants<Name: VariantKey>(self, values: impl IntoIterator<Item = Name>) -> Self {
+        self.motion(MotionProps::new().exit_variants(values))
+      }
+
+      /// Selects an ordered variant list.
+      #[must_use]
+      pub fn animate_variants<Name: VariantKey>(
+        self,
+        values: impl IntoIterator<Item = Name>,
+      ) -> Self {
+        self.motion(MotionProps::new().animate_variants(values))
+      }
+
+      /// Supplies custom data to computed variants.
+      #[must_use]
+      pub fn custom<T: VariantData>(self, value: T) -> Self {
+        self.motion(MotionProps::new().custom(value))
+      }
+
+      /// Enables or disables logical parent variant propagation.
+      #[must_use]
+      pub fn inherit_variants(self, value: bool) -> Self {
+        self.motion(MotionProps::new().inherit_variants(value))
       }
 
       /// Merges a typed hover-state style.

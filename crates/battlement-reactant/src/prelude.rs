@@ -62,9 +62,11 @@ pub use crate::{
   },
   key::{KeyRenderExt, Keyed},
   motion::{
-    Easing, InertiaTarget, InitialTarget, Keyframes, MotionComponent, MotionComponentExt,
-    MotionProps, MotionStyle, MotionTarget, Repeat, RepeatType, Transition,
+    Easing, InertiaTarget, InitialTarget, Keyframes, MotionProps, MotionStyle, MotionTarget,
+    Repeat, RepeatType, Transition,
   },
+  motion_component::{MotionComponent, MotionComponentExt},
+  motion_variants::VariantOrchestration,
   portal::{Portal, PortalTarget, create_portal},
   props::Missing,
   render::{Either, Fragment, Node, Render},
@@ -72,4 +74,6 @@ pub use crate::{
   resource::{Resource, ResourceRead, ResourceStatus, use_resource},
   runtime::RenderError,
   suspense::Suspense,
+  variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},
 };
+pub use battlement::{StaggerDirection, VariantWhen};

@@ -286,7 +286,10 @@ namespace Battlement.UI
                     out DescriptorState previous
                 )
             )
+            {
+                previous.CancelActiveSlots(this, ClockMicros(previous.Descriptor.Clock));
                 previous.Dispose();
+            }
             descriptors[prepared.Descriptor.DescriptorId.Value] = prepared;
             descriptorByHost[hostId] = prepared.Descriptor.DescriptorId.Value;
             EnsurePlayerLoop();

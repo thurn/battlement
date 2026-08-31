@@ -225,6 +225,48 @@ wait = { frames = 4 }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "variants and orchestration"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.08, 0.06] }
+
+[[scenarios.steps]]
+click = { target = [0.82, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.40, 0.345] }
+
+[[scenarios.steps]]
+click = { target = [0.75, 0.28] }
+
+[[scenarios.steps]]
+wait = { frames = 3 }
+
+[[scenarios.steps]]
+video = { action = "start", name = "variants-orchestration", motion = "controlled", max_duration = "8s" }
+
+[[scenarios.steps]]
+click = { target = [0.43, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.54, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.66, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.75, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "context and memo"
 
 [[scenarios.steps]]

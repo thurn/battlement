@@ -93,6 +93,9 @@ fn controls() -> View {
     .child(action("TARGETS", "styles-targets", |game| {
       game.screen = crate::Screen::TargetsTimelines;
     }))
+    .child(action("VARIANTS", "styles-variants", |game| {
+      game.screen = crate::Screen::VariantsOrchestration;
+    }))
 }
 
 fn pseudo_specimen() -> View {

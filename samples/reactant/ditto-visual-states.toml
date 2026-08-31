@@ -160,6 +160,11 @@ key = "styles-decorations.interaction"
 screen = "styles-decorations"
 transient = true
 
+[[states]]
+key = "variants-orchestration.lifecycle"
+screen = "variants-orchestration"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

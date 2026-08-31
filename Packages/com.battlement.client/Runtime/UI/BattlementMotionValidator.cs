@@ -21,6 +21,17 @@ namespace Battlement.UI
             ValidatePropertyValues(descriptor.StaticBaseline, "static baseline");
             if (descriptor.Initial is not null)
                 ValidateTarget(descriptor.Initial);
+            if (descriptor.Variants is MotionVariantResolution variants)
+            {
+                if (variants.Names.Count == 0)
+                    throw Invalid("Resolved variant names cannot be empty.");
+                var names = new HashSet<string>();
+                foreach (string name in variants.Names)
+                {
+                    if (string.IsNullOrWhiteSpace(name) || !names.Add(name))
+                        throw Invalid("Resolved variant names must be nonblank and unique.");
+                }
+            }
 
             var slots = new HashSet<ulong>();
             var motionProperties = new HashSet<MotionProperty>();

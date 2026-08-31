@@ -25,6 +25,10 @@ namespace Battlement.Tests
             Assert.That(BattlementJson.SerializeResponse(decoded), Is.EqualTo(json));
             Assert.That(actual.DescriptorId, Is.EqualTo(descriptor.DescriptorId));
             Assert.That(actual.Slots[0].Target.Tracks[0].Times, Is.EqualTo(new[] { 0d, 0.4, 1 }));
+            Assert.That(actual.Variants!.Names, Is.EqualTo(new[] { "west", "selected" }));
+            Assert.That(actual.Variants.CustomSnapshot, Is.EqualTo(91));
+            Assert.That(actual.Variants.When, Is.EqualTo(VariantWhen.AfterChildren));
+            Assert.That(actual.Variants.StaggerDirection, Is.EqualTo(StaggerDirection.Reverse));
             string text = Encoding.UTF8.GetString(json);
             StringAssert.Contains("\"Controlled\"", text);
             StringAssert.Contains("\"Mirror\"", text);
@@ -103,6 +107,19 @@ namespace Battlement.Tests
                         ),
                     },
                     System.Array.Empty<MotionPropertyValue>()
+                ),
+                null,
+                null,
+                null,
+                null,
+                new MotionVariantResolution(
+                    new[] { "west", "selected" },
+                    true,
+                    91,
+                    3,
+                    470_000,
+                    VariantWhen.AfterChildren,
+                    StaggerDirection.Reverse
                 )
             );
 

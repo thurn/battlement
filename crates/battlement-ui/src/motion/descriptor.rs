@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use battlement_types::ObjectId;
 use serde::{Deserialize, Serialize};
 
+use crate::MotionVariantResolution;
 use crate::{
   CssAnimationDescriptor, MotionDecorationDescriptor, MotionPseudoStyle, StyleTransitionDescriptor,
 };
@@ -246,6 +247,9 @@ pub struct MotionDescriptor {
   /// Non-interactive keyed paint layers.
   #[serde(default)]
   pub decorations: Vec<MotionDecorationDescriptor>,
+  /// Inspectable logical-variant resolution facts.
+  #[serde(default)]
+  pub variants: Option<MotionVariantResolution>,
 }
 
 impl MotionDescriptor {
@@ -273,6 +277,9 @@ impl MotionDescriptor {
         return Err(format!("motion descriptor repeats slot {}", slot.slot.0));
       }
       slot.target.validate()?;
+    }
+    if let Some(variants) = &self.variants {
+      variants.validate()?;
     }
     validate_css(self)?;
     Ok(())
@@ -706,6 +713,7 @@ mod tests {
       style_transition: crate::StyleTransitionDescriptor::default(),
       animations: Vec::new(),
       decorations: Vec::new(),
+      variants: None,
     };
     assert!(descriptor.validate().unwrap_err().contains("repeats slot"));
     descriptor.slots.truncate(1);

@@ -52,8 +52,10 @@ mod host_properties;
 pub mod key;
 mod lifecycle;
 pub mod motion;
+mod motion_component;
 mod motion_css;
 mod motion_transition;
+mod motion_variants;
 mod mutation;
 pub mod portal;
 pub mod prelude;
@@ -75,6 +77,7 @@ mod root_view;
 pub mod runtime;
 mod runtime_document;
 pub mod suspense;
+mod variant_map;
 
 #[doc(hidden)]
 #[macro_export]

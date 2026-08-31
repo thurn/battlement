@@ -18,7 +18,9 @@ use crate::{
   hook_storage::HookComponent,
   hooks,
   key::ErasedKey,
-  motion::{MotionComponent, MotionProps},
+  motion::MotionProps,
+  motion_component::MotionComponent,
+  motion_variants::VariantScope,
   portal::PortalTarget,
   reconcile,
   render_value::Sealed,
@@ -152,6 +154,7 @@ pub(crate) struct RenderSink<'a> {
   error: Option<RenderError>,
   pending: Vec<ResourceToken>,
   pending_hook_lengths: Vec<usize>,
+  variant_scope: VariantScope,
 }
 
 pub(crate) struct FacadeMetadata {
@@ -183,17 +186,22 @@ fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   result
 }
 
+fn sink_with_scope(committed: &RenderTree, variant_scope: VariantScope) -> RenderSink<'_> {
+  let mut pending_hook_lengths = Vec::new();
+  committed.pending_hook_lengths(&mut pending_hook_lengths);
+  RenderSink {
+    committed,
+    positions: Vec::new(),
+    error: None,
+    pending: Vec::new(),
+    pending_hook_lengths,
+    variant_scope,
+  }
+}
+
 impl<'a> RenderSink<'a> {
   fn new(committed: &'a RenderTree) -> Self {
-    let mut pending_hook_lengths = Vec::new();
-    committed.pending_hook_lengths(&mut pending_hook_lengths);
-    Self {
-      committed,
-      positions: Vec::new(),
-      error: None,
-      pending: Vec::new(),
-      pending_hook_lengths,
-    }
+    sink_with_scope(committed, VariantScope::default())
   }
 
   pub(crate) fn push_keyed<R: 'static>(
@@ -220,7 +228,7 @@ impl<'a> RenderSink<'a> {
       .find(|position| position.key.as_ref() == Some(&key))
       .filter(|position| position.descriptor == descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = RenderSink::new(committed);
+    let mut children = sink_with_scope(committed, self.variant_scope.clone());
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -260,7 +268,7 @@ impl<'a> RenderSink<'a> {
       .unwrap_or_else(HookComponent::new);
     let mut retries = 0;
     loop {
-      let mut children = RenderSink::new(committed);
+      let mut children = sink_with_scope(committed, self.variant_scope.clone());
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
       let (children, pending) = match children.finish_attempt() {
@@ -388,7 +396,7 @@ impl<'a> RenderSink<'a> {
       .unwrap_or_else(HookComponent::new);
     let mut retries = 0;
     loop {
-      let mut children = RenderSink::new(committed);
+      let mut children = sink_with_scope(committed, self.variant_scope.clone());
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
       let (children, pending) = match children.finish_attempt() {
@@ -477,40 +485,18 @@ impl<'a> RenderSink<'a> {
     if remount {
       node.object_id = ObjectId::new_v4();
     }
-    if metadata.motion != MotionProps::new() {
-      let previous_motion =
-        previous.and_then(|value| match &value.element.visual_element().motion {
-          Prop::Set(value) => Some(value),
-          Prop::Unset | Prop::Reset => None,
-        });
-      let prior_generation = previous_motion.map_or(MotionGeneration(1), |value| value.generation);
-      let same_generation = metadata.motion.descriptor(node.object_id, prior_generation);
-      node.element.visual_element_mut().motion = if previous_motion == Some(&same_generation) {
-        Prop::Set(same_generation)
-      } else {
-        let generation = previous_motion.map_or(MotionGeneration(1), |value| {
-          MotionGeneration(
-            value
-              .generation
-              .0
-              .checked_add(1)
-              .expect("motion generation exhausted"),
-          )
-        });
-        Prop::Set(metadata.motion.descriptor(node.object_id, generation))
-      };
-    } else if previous
-      .is_some_and(|value| matches!(value.element.visual_element().motion, Prop::Set(_)))
-    {
-      node.element.visual_element_mut().motion = Prop::Reset;
-    }
+    let resolved_variants = self.variant_scope.resolve(&metadata.motion);
+    let previous_motion = previous.and_then(|value| match &value.element.visual_element().motion {
+      Prop::Set(value) => Some(value.clone()),
+      Prop::Unset | Prop::Reset => None,
+    });
     let empty = RenderTree::default();
     let committed = if remount {
       &empty
     } else {
       matching.map_or(&empty, |position| &position.children)
     };
-    let mut children = RenderSink::new(committed);
+    let mut children = sink_with_scope(committed, resolved_variants.child_scope.clone());
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -520,6 +506,43 @@ impl<'a> RenderSink<'a> {
       }
     };
     self.pending.extend(pending);
+    let duration_micros = metadata.motion.resolved_duration_micros(&resolved_variants);
+    resolved_variants.complete(&self.variant_scope, duration_micros);
+    if metadata.motion != MotionProps::new() || resolved_variants.descriptor.is_some() {
+      let prior_generation = previous_motion
+        .as_ref()
+        .map_or(MotionGeneration(1), |value| value.generation);
+      let same_generation = metadata.motion.descriptor(
+        node.object_id,
+        prior_generation,
+        &resolved_variants,
+        previous_motion.as_ref(),
+      );
+      node.element.visual_element_mut().motion =
+        if previous_motion.as_ref() == Some(&same_generation) {
+          Prop::Set(same_generation)
+        } else {
+          let generation = previous_motion
+            .as_ref()
+            .map_or(MotionGeneration(1), |value| {
+              MotionGeneration(
+                value
+                  .generation
+                  .0
+                  .checked_add(1)
+                  .expect("motion generation exhausted"),
+              )
+            });
+          Prop::Set(metadata.motion.descriptor(
+            node.object_id,
+            generation,
+            &resolved_variants,
+            previous_motion.as_ref(),
+          ))
+        };
+    } else if previous_motion.is_some() {
+      node.element.visual_element_mut().motion = Prop::Reset;
+    }
     node.children = children.hosts();
     let mut kinds = metadata
       .handlers
@@ -567,7 +590,7 @@ impl<'a> RenderSink<'a> {
       .matching_position(descriptor)
       .filter(|position| position.portal.as_ref() == Some(&target))
       .map_or(&empty, |position| &position.children);
-    let mut children = RenderSink::new(committed);
+    let mut children = sink_with_scope(committed, self.variant_scope.clone());
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -611,7 +634,7 @@ impl<'a> RenderSink<'a> {
     let committed = self
       .matching_position(descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = RenderSink::new(committed);
+    let mut children = sink_with_scope(committed, self.variant_scope.clone());
     provider.enter(|| render(&mut children));
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -650,7 +673,7 @@ impl<'a> RenderSink<'a> {
     let committed = self
       .matching_position(descriptor)
       .map_or(&empty, |position| &position.children);
-    let mut children = RenderSink::new(committed);
+    let mut children = sink_with_scope(committed, self.variant_scope.clone());
     render(&mut children);
     match Self::finish_child(children) {
       Ok((children, pending)) => {
@@ -691,7 +714,7 @@ impl<'a> RenderSink<'a> {
       &empty
     };
     let (children, error, report) = if let Some(error) = latched {
-      let mut children = RenderSink::new(fallback_committed);
+      let mut children = sink_with_scope(fallback_committed, self.variant_scope.clone());
       fallback(&error, &mut children);
       let (children, pending) = match Self::finish_child(children) {
         Ok(attempt) => attempt,
@@ -703,7 +726,7 @@ impl<'a> RenderSink<'a> {
       self.pending.extend(pending);
       (children, Some(error), None)
     } else {
-      let mut children = RenderSink::new(primary_committed);
+      let mut children = sink_with_scope(primary_committed, self.variant_scope.clone());
       primary(&mut children);
       match children.finish_attempt() {
         Ok((children, pending)) => {
@@ -711,7 +734,7 @@ impl<'a> RenderSink<'a> {
           (children, None, None)
         }
         Err(error) => {
-          let mut children = RenderSink::new(fallback_committed);
+          let mut children = sink_with_scope(fallback_committed, self.variant_scope.clone());
           fallback(&error, &mut children);
           let (children, pending) = match Self::finish_child(children) {
             Ok(attempt) => attempt,
@@ -774,7 +797,7 @@ impl<'a> RenderSink<'a> {
     } else {
       &empty
     };
-    let mut primary_children = RenderSink::new(primary_committed);
+    let mut primary_children = sink_with_scope(primary_committed, self.variant_scope.clone());
     primary(&mut primary_children);
     if primary_children.error.is_none() && !primary_children.pending.is_empty() {
       primary_children.rollback_pending_hooks();
@@ -801,7 +824,7 @@ impl<'a> RenderSink<'a> {
       RenderTree::default()
     };
     let children = if showing_fallback {
-      let mut fallback_children = RenderSink::new(fallback_committed);
+      let mut fallback_children = sink_with_scope(fallback_committed, self.variant_scope.clone());
       fallback(&mut fallback_children);
       let (children, fallback_pending) = match Self::finish_child(fallback_children) {
         Ok(attempt) => attempt,

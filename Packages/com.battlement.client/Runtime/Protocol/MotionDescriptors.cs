@@ -86,7 +86,34 @@ namespace Battlement
         IReadOnlyList<MotionPseudoStyle>? PseudoStyles = null,
         StyleTransitionDescriptor? StyleTransition = null,
         IReadOnlyList<CssAnimationDescriptor>? Animations = null,
-        IReadOnlyList<MotionDecorationDescriptor>? Decorations = null
+        IReadOnlyList<MotionDecorationDescriptor>? Decorations = null,
+        MotionVariantResolution? Variants = null
+    );
+
+    /// <summary>Parent/child sequencing selected by a resolved variant.</summary>
+    public enum VariantWhen
+    {
+        Together,
+        BeforeChildren,
+        AfterChildren,
+    }
+
+    /// <summary>Direction used to assign stagger positions.</summary>
+    public enum StaggerDirection
+    {
+        Forward,
+        Reverse,
+    }
+
+    /// <summary>Inspectable facts from Rust's logical variant resolution.</summary>
+    public sealed record MotionVariantResolution(
+        IReadOnlyList<string> Names,
+        bool Inherited,
+        ulong CustomSnapshot,
+        uint ChildIndex,
+        ulong DelayMicros,
+        VariantWhen When,
+        StaggerDirection StaggerDirection
     );
 
     /// <summary>A locally resolved UI pseudo-state.</summary>
