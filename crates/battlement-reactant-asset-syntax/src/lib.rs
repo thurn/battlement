@@ -12,7 +12,7 @@ mod value;
 
 pub use model::{
   AssetRequest, ClipEdge, Compression, DependencyKind, FilterMode, GeneratorMetadata, Insets,
-  LocalDependency, LogicalRect, LogicalSize, PaintDeclaration, WrapMode,
+  LocalDependency, LogicalRect, LogicalSize, NativeSupport, PaintDeclaration, WrapMode,
 };
 pub use parser::{
   DeclarationEnvelope, DeclarationKind, Diagnostic, DiagnosticCategory, RawStatement, StatementName,
@@ -24,7 +24,22 @@ pub const DEFAULT_RASTER_SCALE: u8 = 2;
 
 /// Parses and validates one complete generated-asset request.
 pub fn parse(source: &str) -> Result<AssetRequest, Diagnostic> {
-  metadata::validate(parser::parse(source)?)
+  let (request, support) = metadata::validate(parser::parse(source)?)?;
+  match support {
+    NativeSupport::GeneratorRequired => Ok(request),
+    NativeSupport::NativeOnly { replacements } => Err(Diagnostic {
+      category: DiagnosticCategory::NativeOnly,
+      symbol: Some(request.symbol),
+      property: None,
+      replacement: Some(replacements.join(", ")),
+      span: request.span,
+    }),
+  }
+}
+
+/// Classifies a complete declaration against Battlement's native UI surface.
+pub fn classify_native_support(source: &str) -> Result<NativeSupport, Diagnostic> {
+  metadata::validate(parser::parse(source)?).map(|(_, support)| support)
 }
 
 /// Parses only the token-level declaration envelope.

@@ -10,7 +10,7 @@ fn parses_color_and_local_image_backgrounds() {
     "unity-url(\"Assets/Textures/panel.png\") 10vw 2em / calc(100% - 4px) 8vmin round border-box padding-box #1238",
   ] {
     parse(&format!(
-      "@background PANEL {{ @canvas 20px 10px; background: {background}; }}"
+      "@background PANEL {{ @canvas 20px 10px; background: {background}; box-shadow: 1px 2px red; }}"
     ))
     .unwrap_or_else(|error| panic!("{background}: {error:?}"));
   }
@@ -68,6 +68,7 @@ fn text_requests_expose_their_font_dependency() {
       @font-file unity(\"Assets/Fonts/face.woff2\");
       content: \"Hi\";
       font-size: 8px;
+      filter: brightness(1.1);
     }",
   )
   .unwrap();

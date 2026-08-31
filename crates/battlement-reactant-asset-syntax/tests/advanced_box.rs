@@ -68,7 +68,7 @@ fn nonoverlapping_edge_declarations_ignore_statement_order() {
 
   assert_eq!(first.identity(), reordered.identity());
   assert_eq!(first.paint[0].property, "border-bottom");
-  assert_eq!(first.paint.len(), 4);
+  assert_eq!(first.paint.len(), 5);
 }
 
 #[test]
@@ -421,6 +421,6 @@ fn request(
   battlement_reactant_asset_syntax::Diagnostic,
 > {
   parse(&format!(
-    "@background PANEL {{ @canvas 20px 10px; {declarations}; }}"
+    "@background PANEL {{ @canvas 20px 10px; mask: linear-gradient(red, blue) alpha; {declarations}; }}"
   ))
 }

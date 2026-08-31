@@ -13,12 +13,14 @@ mod calc;
 mod clip;
 mod composite;
 mod display;
+mod effects;
 mod encode;
 mod gradient;
 mod mask;
 mod path;
 mod position;
 mod shadow;
+mod text;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {
@@ -104,6 +106,8 @@ pub(crate) struct ParsedField {
 pub(crate) enum ParsedRelation {
   BackgroundLayers(usize),
   BlendModes(Vec<u8>),
+  TextClip,
+  TextColorTransparent(bool),
 }
 
 pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue, ValueError> {
@@ -114,7 +118,22 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
     "box-shadow" => shadow::parse(property, source),
     "clip-path" => clip::parse(property, source),
     "background-blend-mode" | "isolation" | "opacity" => composite::parse(property, source),
+    "filter" | "transform" | "transform-origin" => effects::parse(property, source),
     "mask" => mask::parse(source),
+    "content"
+    | "font-size"
+    | "font-style"
+    | "font-weight"
+    | "font-stretch"
+    | "line-height"
+    | "letter-spacing"
+    | "word-spacing"
+    | "text-align"
+    | "white-space"
+    | "color"
+    | "background-clip"
+    | "-webkit-text-stroke" => text::parse(property, source),
+    "text-shadow" => shadow::parse(property, source),
     _ => Ok(ParsedValue {
       fields: vec![ParsedField {
         property: property.to_owned(),
@@ -164,6 +183,7 @@ pub(crate) fn standalone_diagnostic(error: ValueError) -> Diagnostic {
     category: error.category,
     symbol: None,
     property: None,
+    replacement: None,
     span: error.span,
   }
 }

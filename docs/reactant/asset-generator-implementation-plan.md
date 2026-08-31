@@ -343,7 +343,7 @@ properties fail with the declaring symbol and property.
 
 **Evidence:** public syntax transcript for the advanced-box corpus.
 
-### Task 06 — Complete effects, text paint, and native-only rejection
+### Task 06 — Complete effects, text paint, and native-only rejection [DONE]
 
 **Prerequisites:** Task 05. **Target:** 400–500 non-test lines.
 

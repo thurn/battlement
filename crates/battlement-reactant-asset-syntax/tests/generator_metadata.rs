@@ -6,9 +6,9 @@ use battlement_reactant_asset_syntax::{
 #[test]
 fn applies_background_defaults_independent_of_statement_order() {
   let first =
-    parse("@background PANEL { @canvas 32px 16px; border-radius: 3px; background: red; }").unwrap();
+    parse("@background PANEL { @canvas 32px 16px; border-radius: 3px; background: red; mask: linear-gradient(red, blue) alpha; }").unwrap();
   let reordered =
-    parse("@background PANEL { background: red; @canvas 32px 16px; border-radius: 3px; }").unwrap();
+    parse("@background PANEL { background: red; @canvas 32px 16px; mask: linear-gradient(red, blue) alpha; border-radius: 3px; }").unwrap();
 
   assert_eq!(first.metadata, reordered.metadata);
   assert_eq!(first.kind, reordered.kind);
@@ -54,7 +54,7 @@ fn applies_background_defaults_independent_of_statement_order() {
       .iter()
       .map(|value| value.property.as_str())
       .collect::<Vec<_>>(),
-    ["background", "border-radius"]
+    ["background", "border-radius", "mask"]
   );
 }
 
@@ -71,6 +71,7 @@ fn parses_nine_slice_metadata_and_every_nondefault_option() {
       @filter-mode nearest;
       @canvas 24px 20px;
       background: #fff;
+      box-shadow: 1px 2px #000;
     }",
   )
   .unwrap();
@@ -112,6 +113,7 @@ fn parses_text_image_requirements_and_font_path() {
       @canvas 120px 30px;
       @font-file unity(\"Assets/Fonts/Heading.ttf\");
       content: \"Ready\";
+      filter: brightness(1.1);
     }",
   )
   .unwrap();
@@ -127,7 +129,7 @@ fn parses_text_image_requirements_and_font_path() {
       .iter()
       .map(|value| value.property.as_str())
       .collect::<Vec<_>>(),
-    ["content", "font-size"]
+    ["content", "filter", "font-size"]
   );
 }
 
@@ -206,8 +208,10 @@ fn validates_canvas_and_subject_geometry_boundaries() {
     assert_diagnostic(source, DiagnosticCategory::InvalidGeometry, "@subject");
   }
 
-  let boundary =
-    parse("@background PANEL { @canvas 10px 10px; @subject 10px 10px 0px 0px; }").unwrap();
+  let boundary = parse(
+    "@background PANEL { @canvas 10px 10px; @subject 10px 10px 0px 0px; box-shadow: 1px 2px red; }",
+  )
+  .unwrap();
   assert_eq!(
     boundary.metadata.subject,
     LogicalRect {
@@ -231,7 +235,7 @@ fn validates_slice_geometry_and_effective_scale() {
     assert_diagnostic(source, DiagnosticCategory::InvalidGeometry, "@slices");
   }
 
-  parse("@nine-slice FRAME { @canvas 10px 10px; @slices 0.25px 1px 1px 1px; @raster-scale 4; }")
+  parse("@nine-slice FRAME { @canvas 10px 10px; @slices 0.25px 1px 1px 1px; @raster-scale 4; box-shadow: 1px 2px red; }")
     .unwrap();
 }
 
@@ -249,7 +253,7 @@ fn validates_clipping_edges_as_an_ordered_set() {
 
   for value in ["top", "right bottom", "top right bottom left"] {
     parse(&format!(
-      "@background PANEL {{ @canvas 10px 10px; @allow-clipping {value}; }}"
+      "@background PANEL {{ @canvas 10px 10px; @allow-clipping {value}; box-shadow: 1px 2px red; }}"
     ))
     .unwrap();
   }
@@ -289,7 +293,7 @@ fn validates_metadata_keywords_and_ranges() {
 
   for scale in [1, 3, 4, 5, 6, 7, 8] {
     parse(&format!(
-      "@background PANEL {{ @canvas 14px 10px; @raster-scale {scale}; }}"
+      "@background PANEL {{ @canvas 14px 10px; @raster-scale {scale}; box-shadow: 1px 2px red; }}"
     ))
     .unwrap();
   }

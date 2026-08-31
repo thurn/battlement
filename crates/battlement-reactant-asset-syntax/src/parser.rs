@@ -34,6 +34,8 @@ pub enum DiagnosticCategory {
   InvalidValue,
   /// CSS calculation operands have incompatible dimensions or an invalid result.
   InvalidArithmetic,
+  /// The complete request can be authored with native Reactant UI properties.
+  NativeOnly,
 }
 
 impl DiagnosticCategory {
@@ -53,6 +55,7 @@ impl DiagnosticCategory {
       Self::RedundantDefault => "redundant-default",
       Self::InvalidValue => "invalid-value",
       Self::InvalidArithmetic => "invalid-arithmetic",
+      Self::NativeOnly => "native-only",
     }
   }
 }
@@ -68,6 +71,8 @@ pub struct Diagnostic {
   pub property: Option<String>,
   /// Source span associated with the failure.
   pub span: SourceSpan,
+  /// Native Reactant authoring replacement, when applicable.
+  pub replacement: Option<String>,
 }
 
 impl fmt::Display for Diagnostic {
@@ -78,6 +83,9 @@ impl fmt::Display for Diagnostic {
     }
     if let Some(property) = &self.property {
       write!(formatter, " at {property}")?;
+    }
+    if let Some(replacement) = &self.replacement {
+      write!(formatter, "; use {replacement}")?;
     }
     write!(
       formatter,
@@ -147,6 +155,7 @@ pub(crate) fn parse(source: &str) -> Result<DeclarationEnvelope, Diagnostic> {
     category: DiagnosticCategory::InvalidSyntax,
     symbol: None,
     property: None,
+    replacement: None,
     span: error.span().into(),
   })?;
   Parser::new(stream).envelope()
@@ -284,6 +293,7 @@ impl Parser {
       category,
       symbol: self.symbol.clone(),
       property: property.map(str::to_owned),
+      replacement: None,
       span,
     }
   }

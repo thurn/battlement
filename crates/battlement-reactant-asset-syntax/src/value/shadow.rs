@@ -22,7 +22,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
       .to_be_bytes(),
   );
   for layer in layers {
-    self::layer(layer, &mut canonical)?;
+    self::layer(layer, property == "text-shadow", &mut canonical)?;
   }
   Ok(ParsedValue {
     fields: vec![ParsedField {
@@ -34,7 +34,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
   })
 }
 
-fn layer(value: &Value, canonical: &mut Vec<u8>) -> Result<(), ValueError> {
+fn layer(value: &Value, text: bool, canonical: &mut Vec<u8>) -> Result<(), ValueError> {
   let values = self::atoms(value);
   let mut inset = false;
   let mut color = None;
@@ -58,6 +58,9 @@ fn layer(value: &Value, canonical: &mut Vec<u8>) -> Result<(), ValueError> {
   let Some(color) = color else {
     return Err(self::invalid());
   };
+  if text && (inset || lengths.len() > 3) {
+    return Err(self::invalid());
+  }
   if !(2..=4).contains(&lengths.len()) {
     return Err(self::invalid());
   }

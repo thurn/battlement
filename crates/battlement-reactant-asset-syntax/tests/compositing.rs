@@ -147,6 +147,6 @@ fn request(
   battlement_reactant_asset_syntax::Diagnostic,
 > {
   parse(&format!(
-    "@background PANEL {{ @canvas 20px 10px; {declarations}; }}"
+    "@background PANEL {{ @canvas 20px 10px; mask: linear-gradient(red, blue) alpha; {declarations}; }}"
   ))
 }

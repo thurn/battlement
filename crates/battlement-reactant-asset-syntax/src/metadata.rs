@@ -1,18 +1,20 @@
-use std::str::FromStr;
+use std::{collections::BTreeSet, str::FromStr};
 
 use proc_macro2::{Delimiter, TokenStream};
 
 use crate::{
   AssetRequest, ClipEdge, Compression, DEFAULT_RASTER_SCALE, DeclarationEnvelope, DeclarationKind,
   DependencyKind, Diagnostic, DiagnosticCategory, FilterMode, GeneratorMetadata, Insets,
-  LocalDependency, LogicalRect, LogicalSize, PaintDeclaration, RawStatement, SourceSpan,
-  StatementName, WrapMode,
+  LocalDependency, LogicalRect, LogicalSize, NativeSupport, PaintDeclaration, RawStatement,
+  SourceSpan, StatementName, WrapMode,
   model::CanonicalPaintField,
   token::{Cursor, css_name},
   value::{self, ParsedRelation},
 };
 
-pub(crate) fn validate(envelope: DeclarationEnvelope) -> Result<AssetRequest, Diagnostic> {
+pub(crate) fn validate(
+  envelope: DeclarationEnvelope,
+) -> Result<(AssetRequest, NativeSupport), Diagnostic> {
   Builder::new(envelope).build()
 }
 
@@ -31,6 +33,10 @@ struct Builder {
   dependencies: Vec<LocalDependency>,
   background_layers: Option<usize>,
   blend_modes: Option<Vec<u8>>,
+  text_clip: bool,
+  text_color_transparent: Option<bool>,
+  generator_required: bool,
+  native_replacements: BTreeSet<&'static str>,
 }
 
 impl Builder {
@@ -50,10 +56,14 @@ impl Builder {
       dependencies: Vec::new(),
       background_layers: None,
       blend_modes: None,
+      text_clip: false,
+      text_color_transparent: None,
+      generator_required: false,
+      native_replacements: BTreeSet::new(),
     }
   }
 
-  fn build(mut self) -> Result<AssetRequest, Diagnostic> {
+  fn build(mut self) -> Result<(AssetRequest, NativeSupport), Diagnostic> {
     for statement in self.envelope.statements.clone() {
       match &statement.name {
         StatementName::Metadata(name) => self.metadata(name, &statement)?,
@@ -61,6 +71,7 @@ impl Builder {
       }
     }
     self.validate_compositing()?;
+    self.validate_text_fill()?;
     let canvas = self.canvas.ok_or_else(|| self.missing("@canvas"))?;
     self.validate_placement()?;
     self.validate_geometry(canvas)?;
@@ -88,24 +99,42 @@ impl Builder {
       .sort_by(|left, right| left.property.cmp(&right.property));
     self.dependencies.sort();
     self.dependencies.dedup();
-    Ok(AssetRequest {
-      symbol: self.envelope.symbol,
-      kind: self.envelope.kind,
-      metadata: GeneratorMetadata {
-        canvas,
-        subject,
-        slices: self.slices,
-        allowed_clipping: self.clipping,
-        raster_scale: self.raster_scale,
-        filter_mode: self.filter_mode,
-        wrap_mode: self.wrap_mode,
-        compression: self.compression,
-        font_file: self.font_file,
+    let support = if self.generator_required {
+      NativeSupport::GeneratorRequired
+    } else {
+      if self.envelope.kind == DeclarationKind::NineSlice {
+        self
+          .native_replacements
+          .insert("Style::unity_slice_* with a normal texture");
+      }
+      if self.native_replacements.is_empty() {
+        self.native_replacements.insert("Style");
+      }
+      NativeSupport::NativeOnly {
+        replacements: self.native_replacements.into_iter().collect(),
+      }
+    };
+    Ok((
+      AssetRequest {
+        symbol: self.envelope.symbol,
+        kind: self.envelope.kind,
+        metadata: GeneratorMetadata {
+          canvas,
+          subject,
+          slices: self.slices,
+          allowed_clipping: self.clipping,
+          raster_scale: self.raster_scale,
+          filter_mode: self.filter_mode,
+          wrap_mode: self.wrap_mode,
+          compression: self.compression,
+          font_file: self.font_file,
+        },
+        paint: self.paint,
+        dependencies: self.dependencies,
+        span: self.envelope.span,
       },
-      paint: self.paint,
-      dependencies: self.dependencies,
-      span: self.envelope.span,
-    })
+      support,
+    ))
   }
 
   fn metadata(&mut self, name: &str, statement: &RawStatement) -> Result<(), Diagnostic> {
@@ -185,12 +214,25 @@ impl Builder {
     }
     let parsed = value::parse_property(name, &statement.value)
       .map_err(|error| self.at(error.category, name, statement.span))?;
+    if generator_required(self.envelope.kind, name, &statement.value, &parsed) {
+      self.generator_required = true;
+    } else {
+      self.native_replacements.insert(native_replacement(
+        self.envelope.kind,
+        name,
+        !parsed.dependencies.is_empty(),
+      ));
+    }
     match &parsed.relation {
       Some(ParsedRelation::BackgroundLayers(count)) => {
         self.background_layers = Some(*count);
       }
       Some(ParsedRelation::BlendModes(modes)) => {
         self.blend_modes = Some(modes.clone());
+      }
+      Some(ParsedRelation::TextClip) => self.text_clip = true,
+      Some(ParsedRelation::TextColorTransparent(value)) => {
+        self.text_color_transparent = Some(*value);
       }
       None => {}
     }
@@ -273,6 +315,39 @@ impl Builder {
       .first_mut()
       .expect("background blend canonical field")
       .value = canonical;
+    Ok(())
+  }
+
+  fn validate_text_fill(&self) -> Result<(), Diagnostic> {
+    if self.envelope.kind != DeclarationKind::TextImage {
+      return Ok(());
+    }
+    let background = self
+      .paint
+      .iter()
+      .find(|declaration| declaration.property == "background");
+    let clip = self
+      .paint
+      .iter()
+      .find(|declaration| declaration.property == "background-clip");
+    if let Some(declaration) = background {
+      if self.background_layers != Some(1) || !self.text_clip {
+        return Err(self.at(
+          DiagnosticCategory::InvalidValue,
+          "background",
+          declaration.span,
+        ));
+      }
+      if self.text_color_transparent != Some(true) {
+        return Err(self.at(DiagnosticCategory::InvalidValue, "color", declaration.span));
+      }
+    } else if let Some(declaration) = clip {
+      return Err(self.at(
+        DiagnosticCategory::InvalidValue,
+        "background-clip",
+        declaration.span,
+      ));
+    }
     Ok(())
   }
 
@@ -479,6 +554,7 @@ impl Builder {
       category,
       symbol: Some(self.envelope.symbol.clone()),
       property: Some(property.to_owned()),
+      replacement: None,
       span,
     }
   }
@@ -591,4 +667,119 @@ fn property_allowed(kind: DeclarationKind, property: &str) -> bool {
     DeclarationKind::Background | DeclarationKind::NineSlice => BOX.contains(&property),
     DeclarationKind::TextImage => TEXT.contains(&property),
   }
+}
+
+fn generator_required(
+  kind: DeclarationKind,
+  property: &str,
+  source: &str,
+  parsed: &crate::value::ParsedValue,
+) -> bool {
+  match property {
+    "background" if kind == DeclarationKind::TextImage => {
+      !parsed.dependencies.is_empty()
+        || contains_name(
+          source,
+          &[
+            "linear-gradient",
+            "repeating-linear-gradient",
+            "radial-gradient",
+            "repeating-radial-gradient",
+            "conic-gradient",
+            "repeating-conic-gradient",
+          ],
+        )
+    }
+    "background" => {
+      matches!(parsed.relation, Some(ParsedRelation::BackgroundLayers(count)) if count > 1)
+        || contains_name(
+          source,
+          &[
+            "linear-gradient",
+            "repeating-linear-gradient",
+            "radial-gradient",
+            "repeating-radial-gradient",
+            "conic-gradient",
+            "repeating-conic-gradient",
+          ],
+        )
+    }
+    "box-shadow" | "mask" | "background-blend-mode" | "isolation" => true,
+    "border" | "border-style" | "border-top" | "border-right" | "border-bottom" | "border-left" => {
+      contains_name(source, &["dashed", "dotted", "double"])
+    }
+    "clip-path" => !contains_name(source, &["inset"]) || contains_name(source, &["round"]),
+    "filter" => contains_name(source, &["brightness", "drop-shadow", "saturate"]),
+    "transform" => contains_name(source, &["skew", "skewx", "skewy", "matrix"]),
+    "text-shadow" => top_level_commas(source) > 0,
+    _ => false,
+  }
+}
+
+fn native_replacement(
+  kind: DeclarationKind,
+  property: &str,
+  has_image_dependency: bool,
+) -> &'static str {
+  match property {
+    "background" if has_image_dependency => "Style::background_image or Image::source",
+    "background" => "Style::background_color",
+    "border" | "border-width" | "border-style" | "border-color" | "border-top" | "border-right"
+    | "border-bottom" | "border-left" | "border-radius" => "Style::border_*",
+    "clip-path" => "Style overflow clipping",
+    "opacity" => "Style::opacity",
+    "filter" => "Style::filter",
+    "transform" | "transform-origin" => "Style transform properties",
+    "text-shadow" => "Style::text_shadow",
+    "-webkit-text-stroke" => "Style::unity_text_outline_*",
+    _ if kind == DeclarationKind::TextImage => "text Style properties",
+    _ => "Style",
+  }
+}
+
+fn contains_name(source: &str, names: &[&str]) -> bool {
+  fn tokens_contain(stream: TokenStream, names: &[&str]) -> bool {
+    let tokens = stream.into_iter().collect::<Vec<_>>();
+    let mut index = 0;
+    while index < tokens.len() {
+      if let proc_macro2::TokenTree::Group(value) = &tokens[index]
+        && tokens_contain(value.stream(), names)
+      {
+        return true;
+      }
+      let proc_macro2::TokenTree::Ident(first) = &tokens[index] else {
+        index += 1;
+        continue;
+      };
+      let mut name = first.to_string().to_ascii_lowercase();
+      let mut end = index + 1;
+      while matches!(tokens.get(end), Some(proc_macro2::TokenTree::Punct(value)) if value.as_char() == '-')
+      {
+        let Some(proc_macro2::TokenTree::Ident(part)) = tokens.get(end + 1) else {
+          break;
+        };
+        name.push('-');
+        name.push_str(&part.to_string().to_ascii_lowercase());
+        end += 2;
+      }
+      if names.contains(&name.as_str()) {
+        return true;
+      }
+      index = end;
+    }
+    false
+  }
+
+  TokenStream::from_str(source).is_ok_and(|stream| tokens_contain(stream, names))
+}
+
+fn top_level_commas(source: &str) -> usize {
+  TokenStream::from_str(source).map_or(0, |stream| {
+    stream
+      .into_iter()
+      .filter(
+        |token| matches!(token, proc_macro2::TokenTree::Punct(value) if value.as_char() == ','),
+      )
+      .count()
+  })
 }

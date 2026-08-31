@@ -1,5 +1,17 @@
 use crate::{DeclarationKind, SourceSpan};
 
+/// Whether a complete declaration needs generated paint.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeSupport {
+  /// At least one authored feature cannot be reproduced by Battlement UI.
+  GeneratorRequired,
+  /// Every authored feature has a native Reactant replacement.
+  NativeOnly {
+    /// Reactant authoring APIs that replace the declaration.
+    replacements: Vec<&'static str>,
+  },
+}
+
 /// Kind of Unity-project file referenced by an asset request.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum DependencyKind {

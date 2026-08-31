@@ -129,10 +129,10 @@ fn rejects_invalid_typed_arithmetic() {
 #[test]
 fn request_identity_ignores_spelling_symbol_location_and_statement_order() {
   let first =
-    parse("@background FIRST { @canvas 20px 10px; opacity: 0.5; background: rgb(255, 0, 0); }")
+    parse("@background FIRST { @canvas 20px 10px; opacity: 0.5; background: rgb(255, 0, 0); box-shadow: 1px 2px red; }")
       .unwrap();
   let second = parse(
-    "\n\n@background SECOND {\n  background: #f00;\n  @canvas 20px 10px;\n  opacity: 5e-1;\n}",
+    "\n\n@background SECOND {\n  background: #f00;\n  @canvas 20px 10px;\n  opacity: 5e-1;\n  box-shadow: 1px 2px red;\n}",
   )
   .unwrap();
 
@@ -143,13 +143,13 @@ fn request_identity_ignores_spelling_symbol_location_and_statement_order() {
 #[test]
 fn request_identity_includes_kind_metadata_and_ordered_values() {
   let base =
-    parse("@background PANEL { @canvas 20px 10px; transform: translate(1px) rotate(2deg); }")
+    parse("@background PANEL { @canvas 20px 10px; transform: translate(1px) rotate(2deg); box-shadow: 1px 2px red; }")
       .unwrap();
   let reordered =
-    parse("@background PANEL { @canvas 20px 10px; transform: rotate(2deg) translate(1px); }")
+    parse("@background PANEL { @canvas 20px 10px; transform: rotate(2deg) translate(1px); box-shadow: 1px 2px red; }")
       .unwrap();
   let resized =
-    parse("@background PANEL { @canvas 21px 10px; transform: translate(1px) rotate(2deg); }")
+    parse("@background PANEL { @canvas 21px 10px; transform: translate(1px) rotate(2deg); box-shadow: 1px 2px red; }")
       .unwrap();
 
   assert_ne!(base.identity(), reordered.identity());
