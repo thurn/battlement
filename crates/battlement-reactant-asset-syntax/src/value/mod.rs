@@ -14,6 +14,7 @@ mod clip;
 mod display;
 mod encode;
 mod gradient;
+mod mask;
 mod path;
 mod position;
 mod shadow;
@@ -105,6 +106,7 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
     | "border-bottom" | "border-left" | "border-radius" => border::parse(property, source),
     "box-shadow" => shadow::parse(property, source),
     "clip-path" => clip::parse(property, source),
+    "mask" => mask::parse(source),
     _ => Ok(ParsedValue {
       fields: vec![ParsedField {
         property: property.to_owned(),
