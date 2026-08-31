@@ -454,7 +454,7 @@ deduplication, and complete collision diagnostics.
 **Evidence:** generated identity table and diagnostics for escaped, mismatched,
 and conflicting dependencies.
 
-### Task 10 — Add incremental discovery and output fingerprints
+### Task 10 — Add incremental discovery and output fingerprints [DONE]
 
 **Prerequisites:** Task 09. **Target:** 400–500 non-test lines.
 

@@ -1,13 +1,10 @@
-use std::{collections::BTreeMap, fs, io::Cursor, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{Context, Result, bail};
-use battlement_reactant_asset_syntax::{DependencyKind, LocalDependency};
-use bytes::Bytes;
+use battlement_reactant_asset_syntax::DependencyKind;
 use sha2::{Digest, Sha256};
-use syn::LitStr;
-use ttf_parser::{Face, name_id};
 
-use crate::{Discovery, WorkReport};
+use crate::{Discovery, WorkReport, dependency::DependencyIndex};
 
 const ADDRESS_PREFIX: &str = "battlement-reactant/generated/";
 const GENERATED_ROOT: &str = "Assets/Generated/BattlementReactant";
@@ -64,12 +61,14 @@ struct PendingAsset {
 pub(crate) fn resolve(
   discovery: &Discovery,
   project: &Path,
+  index: &mut DependencyIndex,
   report: &mut WorkReport,
 ) -> Result<AssetCatalog> {
   let project = project
     .canonicalize()
     .with_context(|| format!("failed to resolve Unity project {}", project.display()))?;
   let mut requests = BTreeMap::<[u8; 32], PendingAsset>::new();
+  index.begin_run();
   for declaration in &discovery.assets {
     let canonical = declaration.request.canonical_bytes();
     let request_identity = declaration.request.identity();
@@ -77,7 +76,9 @@ pub(crate) fn resolve(
       .request
       .dependencies
       .iter()
-      .map(|dependency| self::dependency(dependency, &declaration.request, &project, report))
+      .map(|dependency| {
+        crate::dependency::resolve(dependency, &declaration.request, &project, index, report)
+      })
       .collect::<Result<Vec<_>>>()?;
     let address = self::address(request_identity);
     self::validate_address(&address)?;
@@ -99,16 +100,20 @@ pub(crate) fn resolve(
     .map(|pending| pending.asset)
     .collect::<Vec<_>>();
   assets.sort_by(|left, right| left.address.cmp(&right.address));
-  let directories = [
-    GENERATED_ROOT,
-    concat!("Assets/Generated/BattlementReactant", "/Resources"),
-  ]
-  .into_iter()
-  .map(|path| DirectoryIdentity {
-    path: path.to_owned(),
-    guid: self::guid(b"reactant-directory\0", path.as_bytes()),
-  })
-  .collect();
+  let directories = if assets.is_empty() {
+    Vec::new()
+  } else {
+    [
+      GENERATED_ROOT,
+      concat!("Assets/Generated/BattlementReactant", "/Resources"),
+    ]
+    .into_iter()
+    .map(|path| DirectoryIdentity {
+      path: path.to_owned(),
+      guid: self::guid(b"reactant-directory\0", path.as_bytes()),
+    })
+    .collect()
+  };
   Ok(AssetCatalog {
     assets,
     directories,
@@ -143,153 +148,6 @@ fn merge_request(
   }
   existing.asset.source_symbols.extend(asset.source_symbols);
   Ok(())
-}
-
-fn dependency(
-  dependency: &LocalDependency,
-  request: &battlement_reactant_asset_syntax::AssetRequest,
-  project: &Path,
-  report: &mut WorkReport,
-) -> Result<DependencyIdentity> {
-  let selected = project.join(&dependency.path);
-  let resolved = selected
-    .canonicalize()
-    .with_context(|| format!("failed to open dependency {}", dependency.path))?;
-  if !resolved.starts_with(project) {
-    bail!(
-      "dependency {} resolves outside Unity project {}",
-      dependency.path,
-      project.display()
-    );
-  }
-  let bytes = fs::read(&resolved)
-    .with_context(|| format!("failed to read dependency {}", dependency.path))?;
-  report.files_opened += 1;
-  report.dependency_file_opens += 1;
-  report.bytes_read += bytes.len() as u64;
-  let normalized = match dependency.kind {
-    DependencyKind::Image => self::normalize_png(&bytes, &dependency.path)?,
-    DependencyKind::Font => self::normalize_font(&bytes, &dependency.path, request)?,
-  };
-  let mut hash = Sha256::new();
-  match dependency.kind {
-    DependencyKind::Image => hash.update(b"reactant-image-dependency\0"),
-    DependencyKind::Font => hash.update(b"reactant-font-dependency\0"),
-  }
-  hash.update(normalized);
-  Ok(DependencyIdentity {
-    kind: dependency.kind,
-    path: dependency.path.clone(),
-    identity: hash.finalize().into(),
-  })
-}
-
-fn normalize_png(bytes: &[u8], path: &str) -> Result<Vec<u8>> {
-  if !path.to_ascii_lowercase().ends_with(".png") {
-    bail!("image dependency {path} must use a .png extension");
-  }
-  let mut decoder = png::Decoder::new(Cursor::new(bytes));
-  decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-  let mut reader = decoder
-    .read_info()
-    .with_context(|| format!("image dependency {path} is not a decodable PNG"))?;
-  if reader.info().animation_control.is_some() {
-    bail!("image dependency {path} must be a single-frame PNG");
-  }
-  let mut pixels = vec![
-    0;
-    reader
-      .output_buffer_size()
-      .context("decoded PNG exceeds supported dimensions")?
-  ];
-  let output = reader
-    .next_frame(&mut pixels)
-    .with_context(|| format!("image dependency {path} is not a decodable PNG"))?;
-  pixels.truncate(output.buffer_size());
-  if output.bit_depth != png::BitDepth::Eight {
-    bail!("image dependency {path} could not be normalized to 8-bit pixels");
-  }
-  let rgba = match output.color_type {
-    png::ColorType::Grayscale => pixels
-      .into_iter()
-      .flat_map(|value| [value, value, value, u8::MAX])
-      .collect(),
-    png::ColorType::GrayscaleAlpha => pixels
-      .chunks_exact(2)
-      .flat_map(|value| [value[0], value[0], value[0], value[1]])
-      .collect(),
-    png::ColorType::Rgb => pixels
-      .chunks_exact(3)
-      .flat_map(|value| [value[0], value[1], value[2], u8::MAX])
-      .collect(),
-    png::ColorType::Rgba => pixels,
-    png::ColorType::Indexed => {
-      bail!("image dependency {path} retained an indexed color table after decoding")
-    }
-  };
-  let mut normalized = b"decoded-png\0".to_vec();
-  normalized.extend(output.width.to_be_bytes());
-  normalized.extend(output.height.to_be_bytes());
-  normalized.extend(rgba);
-  Ok(normalized)
-}
-
-fn normalize_font(
-  bytes: &[u8],
-  path: &str,
-  request: &battlement_reactant_asset_syntax::AssetRequest,
-) -> Result<Vec<u8>> {
-  let extension = Path::new(path)
-    .extension()
-    .and_then(|value| value.to_str())
-    .map(str::to_ascii_lowercase)
-    .context("font dependency has no extension")?;
-  let normalized = match extension.as_str() {
-    "woff2" => woff2_patched::convert_woff2_to_ttf(&mut Bytes::copy_from_slice(bytes))
-      .with_context(|| format!("font dependency {path} is not valid WOFF2"))?,
-    "ttf" => {
-      if !matches!(bytes.get(..4), Some(b"\0\x01\0\0" | b"true" | b"typ1")) {
-        bail!("font dependency {path} extension does not match its TrueType format");
-      }
-      bytes.to_vec()
-    }
-    "otf" => {
-      if bytes.get(..4) != Some(b"OTTO") {
-        bail!("font dependency {path} extension does not match its OpenType format");
-      }
-      bytes.to_vec()
-    }
-    _ => bail!("font dependency {path} uses an unsupported format"),
-  };
-  let face = Face::parse(&normalized, 0)
-    .with_context(|| format!("font dependency {path} has invalid font metadata"))?;
-  let has_family = face.names().into_iter().any(|name| {
-    matches!(name.name_id, name_id::FAMILY | name_id::TYPOGRAPHIC_FAMILY)
-      && name
-        .to_string()
-        .is_some_and(|value| !value.trim().is_empty())
-  });
-  if !has_family || face.units_per_em() == 0 {
-    bail!("font dependency {path} is missing required family metadata");
-  }
-  let content = request
-    .paint
-    .iter()
-    .find(|paint| paint.property == "content")
-    .context("text image request is missing content")?;
-  let text = syn::parse_str::<LitStr>(&content.value)
-    .with_context(|| format!("text content for {path} is not a Rust string literal"))?
-    .value();
-  if let Some(character) = text
-    .chars()
-    .find(|character| face.glyph_index(*character).is_none())
-  {
-    bail!(
-      "font dependency {path} does not cover authored character U+{:04X}",
-      u32::from(character)
-    );
-  }
-  Ok(normalized)
 }
 
 fn address(identity: [u8; 32]) -> String {
@@ -332,24 +190,11 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-  use std::{collections::BTreeMap, io::Cursor};
+  use std::collections::BTreeMap;
 
   use battlement_reactant_asset_syntax::DependencyKind;
 
-  use super::{
-    CatalogAsset, DependencyIdentity, PendingAsset, merge_request, normalize_png, validate_address,
-  };
-
-  #[test]
-  fn png_identity_normalizes_equivalent_rgb_and_rgba_encodings() {
-    let rgb = self::png(png::ColorType::Rgb, &[255, 0, 0]);
-    let rgba = self::png(png::ColorType::Rgba, &[255, 0, 0, 255]);
-
-    assert_eq!(
-      normalize_png(&rgb, "Assets/red.png").unwrap(),
-      normalize_png(&rgba, "Assets/red.png").unwrap()
-    );
-  }
+  use super::{CatalogAsset, DependencyIdentity, PendingAsset, merge_request, validate_address};
 
   #[test]
   fn conflict_diagnostics_distinguish_hash_and_dependency_collisions() {
@@ -411,20 +256,5 @@ mod tests {
       }],
       source_symbols: vec![source.to_owned()],
     }
-  }
-
-  fn png(color: png::ColorType, pixels: &[u8]) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    {
-      let mut encoder = png::Encoder::new(Cursor::new(&mut bytes), 1, 1);
-      encoder.set_color(color);
-      encoder.set_depth(png::BitDepth::Eight);
-      encoder
-        .write_header()
-        .unwrap()
-        .write_image_data(pixels)
-        .unwrap();
-    }
-    bytes
   }
 }

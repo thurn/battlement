@@ -1,20 +1,64 @@
 use std::{
-  collections::BTreeSet,
+  collections::{BTreeMap, BTreeSet},
   fs,
   path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use syn::{Attribute, Item, ItemMacro, ItemMod, Macro, UseTree, visit::Visit};
 
 use crate::{
   WorkReport,
   discovery::{DiscoveredAsset, Package},
+  incremental::{FileFingerprint, fingerprint},
 };
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct SourceIndex {
+  records: BTreeMap<String, SourceRecord>,
+  #[serde(skip)]
+  visited: BTreeSet<String>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct SourceRecord {
+  fingerprint: FileFingerprint,
+  content_hash: String,
+  coordinate: String,
+  crate_name: String,
+  source_root: String,
+  module: String,
+  module_edges: Vec<ModuleEdge>,
+  declarations: Vec<CachedDeclaration>,
+  diagnostics: Vec<String>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct ModuleEdge {
+  source: PathBuf,
+  module_dir: PathBuf,
+  module: String,
+  conditional: bool,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct CachedDeclaration {
+  source_symbol: String,
+  package: String,
+  source_file: PathBuf,
+  request_source: String,
+}
 
 pub(crate) fn scan_package(
   package: &Package,
   coordinate: &str,
+  index: &mut SourceIndex,
   report: &mut WorkReport,
   assets: &mut Vec<DiscoveredAsset>,
 ) -> Result<()> {
@@ -51,16 +95,62 @@ pub(crate) fn scan_package(
     "",
     false,
     &context,
+    index,
     report,
     &mut seen,
     assets,
   )
 }
 
+impl SourceIndex {
+  pub(crate) fn begin_run(&mut self) {
+    self.visited.clear();
+  }
+
+  pub(crate) fn retain_visited(&mut self) {
+    self.records.retain(|path, _| self.visited.contains(path));
+  }
+
+  fn reusable(
+    &mut self,
+    source: &Path,
+    fingerprint: &FileFingerprint,
+    module: &str,
+    context: &ScanContext<'_>,
+  ) -> Option<SourceRecord> {
+    let key = self::normalized(source);
+    self.visited.insert(key.clone());
+    self
+      .records
+      .get(&key)
+      .filter(|record| {
+        record.fingerprint == *fingerprint
+          && record.coordinate == context.coordinate
+          && record.crate_name == context.crate_name
+          && record.source_root == self::normalized(context.source_root)
+          && record.module == module
+      })
+      .cloned()
+  }
+
+  fn insert(&mut self, source: &Path, record: SourceRecord) {
+    let key = self::normalized(source);
+    self.visited.insert(key.clone());
+    self.records.insert(key, record);
+  }
+}
+
 struct ScanContext<'a> {
   coordinate: &'a str,
   crate_name: &'a str,
   source_root: &'a Path,
+}
+
+struct FileCollector<'a> {
+  source: &'a Path,
+  context: &'a ScanContext<'a>,
+  declarations: Vec<CachedDeclaration>,
+  edges: Vec<ModuleEdge>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -70,6 +160,7 @@ fn scan_file(
   module: &str,
   conditional: bool,
   context: &ScanContext<'_>,
+  index: &mut SourceIndex,
   report: &mut WorkReport,
   seen: &mut BTreeSet<PathBuf>,
   assets: &mut Vec<DiscoveredAsset>,
@@ -87,57 +178,106 @@ fn scan_file(
   if !seen.insert(source.clone()) {
     return Ok(());
   }
-  let contents = fs::read_to_string(&source)
+  let current = fingerprint(&source, report)
+    .with_context(|| format!("failed to fingerprint Rust source {}", source.display()))?;
+  let reused = index.reusable(&source, &current, module, context);
+  let record = if let Some(record) = reused {
+    record
+  } else {
+    let parsed = self::parse_file(
+      &source,
+      module_dir,
+      module,
+      conditional,
+      context,
+      current,
+      report,
+    )?;
+    index.insert(&source, parsed.clone());
+    parsed
+  };
+  self::append_declarations(&record.declarations, assets)?;
+  for edge in &record.module_edges {
+    self::scan_file(
+      &edge.source,
+      &edge.module_dir,
+      &edge.module,
+      edge.conditional,
+      context,
+      index,
+      report,
+      seen,
+      assets,
+    )?;
+  }
+  Ok(())
+}
+
+fn parse_file(
+  source: &Path,
+  module_dir: &Path,
+  module: &str,
+  conditional: bool,
+  context: &ScanContext<'_>,
+  fingerprint: FileFingerprint,
+  report: &mut WorkReport,
+) -> Result<SourceRecord> {
+  let contents = fs::read_to_string(source)
     .with_context(|| format!("failed to read Rust source {}", source.display()))?;
   report.files_opened += 1;
   report.rust_source_opens += 1;
   report.bytes_read += contents.len() as u64;
   let file = syn::parse_file(&contents)
     .with_context(|| format!("failed to parse Rust source {}", source.display()))?;
-  self::scan_items(
+  let mut collector = FileCollector {
+    source,
+    context,
+    declarations: Vec::new(),
+    edges: Vec::new(),
+  };
+  self::collect_items(
     &file.items,
-    &source,
     module_dir,
     module,
     conditional,
-    context,
     report,
-    seen,
-    assets,
-  )
+    &mut collector,
+  )?;
+  Ok(SourceRecord {
+    fingerprint,
+    content_hash: self::hex(&Sha256::digest(contents.as_bytes())),
+    coordinate: context.coordinate.to_owned(),
+    crate_name: context.crate_name.to_owned(),
+    source_root: self::normalized(context.source_root),
+    module: module.to_owned(),
+    module_edges: collector.edges,
+    declarations: collector.declarations,
+    diagnostics: Vec::new(),
+  })
 }
 
-#[allow(clippy::too_many_arguments)]
-fn scan_items(
+fn collect_items(
   items: &[Item],
-  source: &Path,
   module_dir: &Path,
   module: &str,
   conditional: bool,
-  context: &ScanContext<'_>,
   report: &mut WorkReport,
-  seen: &mut BTreeSet<PathBuf>,
-  assets: &mut Vec<DiscoveredAsset>,
+  collector: &mut FileCollector<'_>,
 ) -> Result<()> {
   for item in items {
     match item {
-      Item::Macro(item_macro) => {
-        self::scan_macro(item_macro, source, module, conditional, context, assets)?
-      }
-      Item::Mod(item_module) => self::scan_module(
+      Item::Macro(item_macro) => self::collect_macro(item_macro, module, conditional, collector)?,
+      Item::Mod(item_module) => self::collect_module(
         item_module,
-        source,
         module_dir,
         module,
         conditional,
-        context,
         report,
-        seen,
-        assets,
+        collector,
       )?,
       Item::Use(item_use) if self::use_mentions_generator(&item_use.tree) => bail!(
         "{} imports or reexports the asset generator; use the exact battlement_reactant::asset_generator::generate! path",
-        source.display()
+        collector.source.display()
       ),
       _ => {
         let mut visitor = NestedMacroVisitor::default();
@@ -145,7 +285,7 @@ fn scan_items(
         if visitor.generator {
           bail!(
             "asset declaration in {} is nested; declarations must be top-level module items",
-            source.display()
+            collector.source.display()
           );
         }
       }
@@ -154,33 +294,39 @@ fn scan_items(
   Ok(())
 }
 
-fn scan_macro(
+fn collect_macro(
   item: &ItemMacro,
-  source: &Path,
   module: &str,
   conditional: bool,
-  context: &ScanContext<'_>,
-  assets: &mut Vec<DiscoveredAsset>,
+  collector: &mut FileCollector<'_>,
 ) -> Result<()> {
   if self::exact_generator(&item.mac) {
     if conditional || self::conditional(&item.attrs) {
       bail!(
         "asset declaration in {} is conditionally compiled",
-        source.display()
+        collector.source.display()
       );
     }
-    let request = battlement_reactant_asset_syntax::parse(&item.mac.tokens.to_string())
-      .with_context(|| format!("invalid asset declaration in {}", source.display()))?;
+    let request_source = item.mac.tokens.to_string();
+    let request = battlement_reactant_asset_syntax::parse(&request_source).with_context(|| {
+      format!(
+        "invalid asset declaration in {}",
+        collector.source.display()
+      )
+    })?;
     let rust_symbol = if module.is_empty() {
-      format!("{}::{}", context.crate_name, request.symbol)
+      format!("{}::{}", collector.context.crate_name, request.symbol)
     } else {
-      format!("{}::{module}::{}", context.crate_name, request.symbol)
+      format!(
+        "{}::{module}::{}",
+        collector.context.crate_name, request.symbol
+      )
     };
-    assets.push(DiscoveredAsset {
-      source_symbol: format!("{}::{rust_symbol}", context.coordinate),
-      package: context.coordinate.to_owned(),
-      source_file: source.to_owned(),
-      request,
+    collector.declarations.push(CachedDeclaration {
+      source_symbol: format!("{}::{rust_symbol}", collector.context.coordinate),
+      package: collector.context.coordinate.to_owned(),
+      source_file: collector.source.to_owned(),
+      request_source,
     });
     return Ok(());
   }
@@ -199,23 +345,19 @@ fn scan_macro(
     };
     bail!(
       "unsupported asset-generator {kind} in {}; use the exact battlement_reactant::asset_generator::generate! path",
-      source.display()
+      collector.source.display()
     );
   }
   Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-fn scan_module(
+fn collect_module(
   item: &ItemMod,
-  source: &Path,
   module_dir: &Path,
   module: &str,
   inherited_conditional: bool,
-  context: &ScanContext<'_>,
   report: &mut WorkReport,
-  seen: &mut BTreeSet<PathBuf>,
-  assets: &mut Vec<DiscoveredAsset>,
+  collector: &mut FileCollector<'_>,
 ) -> Result<()> {
   if item
     .attrs
@@ -224,7 +366,7 @@ fn scan_module(
   {
     bail!(
       "#[path] modules are unsupported during asset discovery in {}",
-      source.display()
+      collector.source.display()
     );
   }
   let name = item.ident.to_string();
@@ -235,20 +377,18 @@ fn scan_module(
   };
   let conditional = inherited_conditional || self::conditional(&item.attrs);
   if let Some((_, items)) = &item.content {
-    return self::scan_items(
+    return self::collect_items(
       items,
-      source,
       &module_dir.join(&name),
       &nested,
       conditional,
-      context,
       report,
-      seen,
-      assets,
+      collector,
     );
   }
   let flat = module_dir.join(format!("{name}.rs"));
   let nested_file = module_dir.join(&name).join("mod.rs");
+  report.stat_calls += 2;
   let next = match (flat.is_file(), nested_file.is_file()) {
     (true, false) => flat,
     (false, true) => nested_file,
@@ -259,19 +399,38 @@ fn scan_module(
     ),
     (false, false) => bail!(
       "module {nested} declared in {} has no source file",
-      source.display()
+      collector.source.display()
     ),
   };
-  self::scan_file(
-    &next,
-    &module_dir.join(name),
-    &nested,
+  collector.edges.push(ModuleEdge {
+    source: next,
+    module_dir: module_dir.join(name),
+    module: nested,
     conditional,
-    context,
-    report,
-    seen,
-    assets,
-  )
+  });
+  Ok(())
+}
+
+fn append_declarations(
+  declarations: &[CachedDeclaration],
+  assets: &mut Vec<DiscoveredAsset>,
+) -> Result<()> {
+  for declaration in declarations {
+    assets.push(DiscoveredAsset {
+      source_symbol: declaration.source_symbol.clone(),
+      package: declaration.package.clone(),
+      source_file: declaration.source_file.clone(),
+      request: battlement_reactant_asset_syntax::parse(&declaration.request_source).with_context(
+        || {
+          format!(
+            "cached declaration {} is invalid",
+            declaration.source_symbol
+          )
+        },
+      )?,
+    });
+  }
+  Ok(())
 }
 
 fn exact_generator(value: &Macro) -> bool {
@@ -306,6 +465,21 @@ fn use_mentions_generator(tree: &UseTree) -> bool {
     UseTree::Group(group) => group.items.iter().any(self::use_mentions_generator),
     UseTree::Glob(_) => false,
   }
+}
+
+fn normalized(path: &Path) -> String {
+  path.to_string_lossy().replace('\\', "/")
+}
+
+fn hex(bytes: &[u8]) -> String {
+  const DIGITS: &[u8; 16] = b"0123456789abcdef";
+
+  let mut output = String::with_capacity(bytes.len() * 2);
+  for byte in bytes {
+    output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+    output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+  }
+  output
 }
 
 #[derive(Default)]

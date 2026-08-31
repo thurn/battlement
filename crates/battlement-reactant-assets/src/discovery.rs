@@ -6,9 +6,12 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use battlement_reactant_asset_syntax::AssetRequest;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::{FeatureSelection, WorkReport};
+use crate::{
+  FeatureSelection, WorkReport,
+  incremental::{IncrementalIndex, ReusableGraph},
+};
 
 const REACTANT_PACKAGE: &str = "battlement-reactant";
 const REACTANT_CRATE: &str = "battlement_reactant";
@@ -40,7 +43,7 @@ struct Metadata {
   resolve: Option<Resolve>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub(crate) struct Package {
   pub(crate) id: String,
   pub(crate) name: String,
@@ -50,7 +53,7 @@ pub(crate) struct Package {
   pub(crate) targets: Vec<Target>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub(crate) struct Target {
   pub(crate) name: String,
   pub(crate) kind: Vec<String>,
@@ -79,22 +82,42 @@ struct GraphDiscovery {
   assets: Vec<DiscoveredAsset>,
 }
 
+struct GraphResolution {
+  packages: Vec<Package>,
+  manifests: BTreeSet<PathBuf>,
+}
+
 pub(crate) fn discover(
   manifest: &Path,
   project: &Path,
   features: &FeatureSelection,
+  index: &mut IncrementalIndex,
   report: &mut WorkReport,
 ) -> Result<Discovery> {
-  let host_target = self::host_target(report)?;
-  let host = self::discover_graph("host", &host_target, manifest, project, features, report)?;
-  let wasm = self::discover_graph(
-    "WebAssembly",
-    WASM_TARGET,
-    manifest,
-    project,
-    features,
-    report,
-  )?;
+  index.sources().begin_run();
+  let (host_target, host_packages, wasm_packages) =
+    if let Some(graph) = index.reusable_graph(report) {
+      (graph.host_target, graph.host_packages, graph.wasm_packages)
+    } else {
+      let host_target = self::host_target(report)?;
+      let host = self::resolve_graph("host", &host_target, manifest, features, report)?;
+      let wasm = self::resolve_graph("WebAssembly", WASM_TARGET, manifest, features, report)?;
+      let manifests = host.manifests.union(&wasm.manifests).cloned().collect();
+      index.replace_graph(
+        project,
+        manifest,
+        ReusableGraph {
+          host_target: host_target.clone(),
+          host_packages: host.packages.clone(),
+          wasm_packages: wasm.packages.clone(),
+        },
+        manifests,
+        report,
+      )?;
+      (host_target, host.packages, wasm.packages)
+    };
+  let host = self::scan_graph(&host_packages, project, index, report)?;
+  let wasm = self::scan_graph(&wasm_packages, project, index, report)?;
   if host.packages != wasm.packages {
     bail!(
       "host ({host_target}) and WebAssembly ({WASM_TARGET}) reachable declaration packages differ: host={:?}; WebAssembly={:?}",
@@ -132,14 +155,13 @@ fn host_target(report: &mut WorkReport) -> Result<String> {
     .context("rustc -vV did not report a host target")
 }
 
-fn discover_graph(
+fn resolve_graph(
   origin: &str,
   target: &str,
   manifest: &Path,
-  project: &Path,
   features: &FeatureSelection,
   report: &mut WorkReport,
-) -> Result<GraphDiscovery> {
+) -> Result<GraphResolution> {
   let metadata = self::metadata(target, manifest, features, report)
     .with_context(|| format!("failed to resolve the {origin} Cargo graph ({target})"))?;
   let root = metadata
@@ -197,12 +219,28 @@ fn discover_graph(
       candidates.push(*package);
     }
   }
+  Ok(GraphResolution {
+    packages: candidates.into_iter().cloned().collect(),
+    manifests: metadata
+      .packages
+      .into_iter()
+      .map(|package| package.manifest_path)
+      .collect(),
+  })
+}
+
+fn scan_graph(
+  candidates: &[Package],
+  project: &Path,
+  index: &mut IncrementalIndex,
+  report: &mut WorkReport,
+) -> Result<GraphDiscovery> {
   let mut packages = Vec::new();
   let mut assets = Vec::new();
   for package in candidates {
     let coordinate = self::coordinate(package, project)?;
     packages.push(coordinate.clone());
-    crate::source_scan::scan_package(package, &coordinate, report, &mut assets)?;
+    crate::source_scan::scan_package(package, &coordinate, index.sources(), report, &mut assets)?;
   }
   packages.sort();
   packages.dedup();

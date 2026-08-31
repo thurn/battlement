@@ -33,7 +33,7 @@ fn empty_commands_resolve_project_and_remove_only_generated_output() {
   assert_eq!(report["cargoMetadataRuns"], 2);
   assert_eq!(report["browserLaunches"], 0);
   assert_eq!(report["browserContextsCreated"], 0);
-  assert_eq!(report["filesWritten"], 2);
+  assert_eq!(report["filesWritten"], 3);
 
   let nested = fixture.project.join("Assets/Nested/Deeper");
   fs::create_dir_all(&nested).unwrap();
@@ -541,6 +541,256 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   assert!(stderr(&escaped).contains("resolves outside Unity project"));
 }
 
+#[test]
+fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
+  let fixture = Fixture::new();
+  write_asset_manifest(&fixture);
+  let textures = fixture.project.join("Assets/Textures");
+  fs::create_dir_all(&textures).unwrap();
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Texture.png"),
+    textures.join("panel.png"),
+  )
+  .unwrap();
+  let source = fixture.project.join("rules/src/lib.rs");
+  let declaration = "battlement_reactant::asset_generator::generate! {\n\
+    @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
+  }\n";
+  fs::write(&source, declaration).unwrap();
+
+  let cold_report = fixture.root.join("cold.json");
+  let cold = fixture.generate_with_report(&cold_report);
+  assert!(cold.status.success(), "{}", stderr(&cold));
+  assert_eq!(report(&cold_report)["cargoMetadataRuns"], 2);
+
+  let warm_report = fixture.root.join("warm.json");
+  let warm = fixture.generate_with_report(&warm_report);
+  assert!(warm.status.success(), "{}", stderr(&warm));
+  let warm = report(&warm_report);
+  for counter in [
+    "cargoMetadataRuns",
+    "rustSourceOpens",
+    "dependencyFileOpens",
+    "generatedPngOpens",
+    "browserExecutableOpens",
+    "subprocessesStarted",
+    "browserLaunches",
+    "browserContextsCreated",
+    "filesWritten",
+  ] {
+    assert_eq!(
+      warm[counter], 0,
+      "unexpected warm work in {counter}: {warm}"
+    );
+  }
+
+  fs::write(&source, format!("{declaration}\npub fn unrelated() {{}}\n")).unwrap();
+  let source_report = fixture.root.join("source.json");
+  let source_changed = fixture.generate_with_report(&source_report);
+  assert!(
+    source_changed.status.success(),
+    "{}",
+    stderr(&source_changed)
+  );
+  let source_work = report(&source_report);
+  assert_eq!(source_work["cargoMetadataRuns"], 0);
+  assert_eq!(source_work["rustSourceOpens"], 1);
+  assert_eq!(source_work["dependencyFileOpens"], 0);
+  assert_eq!(source_work["filesWritten"], 1);
+
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Cursor.png"),
+    textures.join("panel.png"),
+  )
+  .unwrap();
+  let dependency_report = fixture.root.join("dependency.json");
+  let dependency_changed = fixture.generate_with_report(&dependency_report);
+  assert!(
+    dependency_changed.status.success(),
+    "{}",
+    stderr(&dependency_changed)
+  );
+  let dependency_work = report(&dependency_report);
+  assert_eq!(dependency_work["cargoMetadataRuns"], 0);
+  assert_eq!(dependency_work["rustSourceOpens"], 0);
+  assert_eq!(dependency_work["dependencyFileOpens"], 1);
+  assert_eq!(dependency_work["filesWritten"], 1);
+
+  let generated_texture = fixture.generated_root().join("textures/cached.png");
+  fs::create_dir_all(generated_texture.parent().unwrap()).unwrap();
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Texture.png"),
+    &generated_texture,
+  )
+  .unwrap();
+  let output_report = fixture.root.join("output.json");
+  assert!(
+    fixture
+      .generate_with_report(&output_report)
+      .status
+      .success()
+  );
+  let output_work = report(&output_report);
+  assert_eq!(output_work["cargoMetadataRuns"], 0);
+  assert_eq!(output_work["generatedPngOpens"], 1);
+  assert_eq!(output_work["filesWritten"], 1);
+
+  let output_warm_report = fixture.root.join("output-warm.json");
+  assert!(
+    fixture
+      .generate_with_report(&output_warm_report)
+      .status
+      .success()
+  );
+  let output_warm = report(&output_warm_report);
+  assert_eq!(output_warm["generatedPngOpens"], 0);
+  assert_eq!(output_warm["filesWritten"], 0);
+}
+
+#[test]
+fn graph_inputs_and_corrupt_state_fall_back_to_full_resolution() {
+  let fixture = Fixture::new();
+  let first_report = fixture.root.join("first.json");
+  assert!(fixture.generate_with_report(&first_report).status.success());
+  let state_directory = fixture
+    .project
+    .join("Library/BattlementReactant/asset-generator-state");
+  let default_index = fs::read_dir(&state_directory)
+    .unwrap()
+    .next()
+    .unwrap()
+    .unwrap()
+    .path();
+  let state: Value = serde_json::from_slice(&fs::read(&default_index).unwrap()).unwrap();
+  assert_eq!(state["schema"], "battlement-reactant-asset-index-v1");
+  assert!(
+    state["graph"]["inputs"]
+      .as_array()
+      .unwrap()
+      .iter()
+      .any(|input| {
+        input["path"]
+          .as_str()
+          .unwrap()
+          .ends_with("/.cargo/config.toml")
+          && input["fingerprint"].is_null()
+      })
+  );
+
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    "[package]\nname = \"fixture-rules\"\nversion = \"0.1.1\"\nedition = \"2024\"\n\
+     [features]\ncache = []\n",
+  )
+  .unwrap();
+  let manifest_report = fixture.root.join("manifest.json");
+  assert!(
+    fixture
+      .generate_with_report(&manifest_report)
+      .status
+      .success()
+  );
+  assert_eq!(report(&manifest_report)["cargoMetadataRuns"], 2);
+
+  fs::create_dir_all(fixture.project.join("rules/.cargo")).unwrap();
+  fs::write(
+    fixture.project.join("rules/.cargo/config.toml"),
+    "[net]\noffline = true\n",
+  )
+  .unwrap();
+  let config_report = fixture.root.join("config.json");
+  assert!(
+    fixture
+      .generate_with_report(&config_report)
+      .status
+      .success()
+  );
+  assert_eq!(report(&config_report)["cargoMetadataRuns"], 2);
+
+  let lockfile = fixture.project.join("rules/Cargo.lock");
+  let mut lock = fs::read_to_string(&lockfile).unwrap();
+  lock.push_str("\n# fingerprint probe\n");
+  fs::write(lockfile, lock).unwrap();
+  let lock_report = fixture.root.join("lock.json");
+  assert!(fixture.generate_with_report(&lock_report).status.success());
+  assert_eq!(report(&lock_report)["cargoMetadataRuns"], 2);
+
+  fs::write(&default_index, "{\"unknown\":true}\n").unwrap();
+  let corrupt_report = fixture.root.join("corrupt.json");
+  assert!(
+    fixture
+      .generate_with_report(&corrupt_report)
+      .status
+      .success()
+  );
+  assert_eq!(report(&corrupt_report)["cargoMetadataRuns"], 2);
+
+  let environment_report = fixture.root.join("environment.json");
+  let environment_changed = Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+    .args([
+      "reactant",
+      "assets",
+      "generate",
+      "--work-report",
+      environment_report.to_str().unwrap(),
+    ])
+    .env("CARGO_NET_OFFLINE", "true")
+    .current_dir(&fixture.project)
+    .output()
+    .unwrap();
+  assert!(
+    environment_changed.status.success(),
+    "{}",
+    stderr(&environment_changed)
+  );
+  assert_eq!(report(&environment_report)["cargoMetadataRuns"], 2);
+
+  let feature_report = fixture.root.join("feature.json");
+  let feature_changed = fixture.run_from(
+    &fixture.project,
+    [
+      "reactant",
+      "assets",
+      "generate",
+      "--features",
+      "cache",
+      "--work-report",
+      feature_report.to_str().unwrap(),
+    ],
+  );
+  assert!(
+    feature_changed.status.success(),
+    "{}",
+    stderr(&feature_changed)
+  );
+  assert_eq!(report(&feature_report)["cargoMetadataRuns"], 2);
+  assert_eq!(fs::read_dir(&state_directory).unwrap().count(), 2);
+
+  let before = fs::read(&default_index).unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "pub fn empty() {}\npub fn unrelated() {}\n",
+  )
+  .unwrap();
+  let check_report = fixture.root.join("readonly-check.json");
+  let checked = fixture.run_from(
+    &fixture.project,
+    [
+      "reactant",
+      "assets",
+      "check",
+      "--work-report",
+      check_report.to_str().unwrap(),
+    ],
+  );
+  assert!(checked.status.success(), "{}", stderr(&checked));
+  assert_eq!(report(&check_report)["filesWritten"], 0);
+  assert_eq!(fs::read(default_index).unwrap(), before);
+}
+
 struct Fixture {
   _temporary: tempfile::TempDir,
   root: PathBuf,
@@ -589,6 +839,19 @@ impl Fixture {
     self
       .project
       .join("Assets/Generated/BattlementReactant.meta")
+  }
+
+  fn generate_with_report(&self, report: &Path) -> Output {
+    self.run_from(
+      &self.project,
+      [
+        "reactant",
+        "assets",
+        "generate",
+        "--work-report",
+        report.to_str().unwrap(),
+      ],
+    )
   }
 
   fn write_generated_output(&self) {
@@ -644,6 +907,10 @@ fn field<'a>(line: &'a str, prefix: &str) -> &'a str {
     .split_whitespace()
     .find_map(|field| field.strip_prefix(prefix))
     .unwrap()
+}
+
+fn report(path: &Path) -> Value {
+  serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
 fn stdout(output: &Output) -> String {

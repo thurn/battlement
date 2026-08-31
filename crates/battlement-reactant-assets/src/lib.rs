@@ -13,8 +13,11 @@ use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use tempfile::Builder;
 
+mod dependency;
 mod discovery;
 mod identity;
+mod incremental;
+mod output_index;
 mod source_scan;
 
 pub use discovery::{DiscoveredAsset, Discovery};
@@ -119,9 +122,18 @@ fn run_inner(
   let current = env::current_dir().context("failed to read the current directory")?;
   let project = self::select_project(options.project.as_deref(), &current, report)?;
   let manifest = self::select_manifest(options.manifest_path.as_deref(), &project, &current)?;
-  let discovery = discovery::discover(&manifest, &project, &options.feature_selection, report)?;
+  let mut index =
+    incremental::IncrementalIndex::load(&project, &manifest, &options.feature_selection, report)?;
+  let discovery = discovery::discover(
+    &manifest,
+    &project,
+    &options.feature_selection,
+    &mut index,
+    report,
+  )?;
+  let catalog = identity::resolve(&discovery, &project, index.dependencies(), report)?;
+  index.record_catalog(&catalog)?;
   if !discovery.assets.is_empty() {
-    let catalog = identity::resolve(&discovery, &project, report)?;
     for asset in &catalog.assets {
       let dependencies = asset
         .dependencies
@@ -146,6 +158,10 @@ fn run_inner(
       catalog.assets.len(),
       catalog.assets.len()
     );
+    index.refresh_outputs(&project, report)?;
+    if command != AssetCommand::Check {
+      index.save(report)?;
+    }
     return Ok(());
   }
   match command {
@@ -155,6 +171,10 @@ fn run_inner(
       self::remove_generated_output(&project, report)?;
       self::open_empty_preview(&project, report)?;
     }
+  }
+  index.refresh_outputs(&project, report)?;
+  if command != AssetCommand::Check {
+    index.save(report)?;
   }
   println!("discovered=0 deduplicated=0 current=0 rendered=0 stale=0; browser not started");
   Ok(())
