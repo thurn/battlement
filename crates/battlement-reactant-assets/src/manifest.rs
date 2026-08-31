@@ -18,7 +18,7 @@ use crate::{
     AssetRecord, BrowserRecord, DependencyRecord, FileIdentityRecord, ImportRecord,
     LogicalSizeRecord, Manifest, RasterSizeRecord, Sidecar, SliceInsetsRecord, SubjectBoundsRecord,
   },
-  manifest_validation as validation, unity_metadata,
+  manifest_validation as validation, transaction, unity_metadata,
 };
 
 const GENERATED_ROOT: &str = "Assets/Generated/BattlementReactant";
@@ -34,32 +34,9 @@ pub(crate) fn install(
   report: &mut WorkReport,
 ) -> Result<()> {
   let set = self::build(project, catalog, browser, report)?;
-  let root = project.join(GENERATED_ROOT);
-  let root_meta = project.join(format!("{GENERATED_ROOT}.meta"));
-  if root.exists() {
-    fs::remove_dir_all(&root)
-      .with_context(|| format!("failed to replace generated root {}", root.display()))?;
-    report.files_written += 1;
-  }
-  if root_meta.exists() {
-    fs::remove_file(&root_meta).with_context(|| {
-      format!(
-        "failed to replace generated metadata {}",
-        root_meta.display()
-      )
-    })?;
-    report.files_written += 1;
-  }
-  for directory in &set.directories {
-    fs::create_dir_all(project.join(directory))
-      .with_context(|| format!("failed to create generated directory {directory}"))?;
-  }
-  for (path, bytes) in set.files {
-    fs::write(project.join(&path), bytes)
-      .with_context(|| format!("failed to write generated asset {path}"))?;
-    report.files_written += 1;
-  }
-  self::validate(project, catalog, report)
+  transaction::install(project, &set, report, |report| {
+    self::validate(project, catalog, report)
+  })
 }
 
 pub(crate) fn validate(

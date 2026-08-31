@@ -26,6 +26,9 @@ mod output_index;
 mod png_output;
 mod renderer_document;
 mod source_scan;
+mod transaction;
+#[cfg(test)]
+mod transaction_tests;
 mod unity_metadata;
 
 pub use discovery::{DiscoveredAsset, Discovery};
@@ -129,6 +132,9 @@ fn run_inner(
 ) -> Result<()> {
   let current = env::current_dir().context("failed to read the current directory")?;
   let project = self::select_project(options.project.as_deref(), &current, report)?;
+  if command != AssetCommand::Check {
+    transaction::recover(&project, report)?;
+  }
   let manifest = self::select_manifest(options.manifest_path.as_deref(), &project, &current)?;
   let mut index =
     incremental::IncrementalIndex::load(&project, &manifest, &options.feature_selection, report)?;

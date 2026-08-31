@@ -579,7 +579,7 @@ matrix and exercises Addressables metadata variations.
 **Evidence:** generated tree listing, canonical manifest and sidecar hashes, and
 focused Unity import result.
 
-### Task 14 — Make generated-set replacement transactional
+### Task 14 — Make generated-set replacement transactional [DONE]
 
 **Prerequisites:** Task 13. **Target:** 350–500 non-test lines.
 
