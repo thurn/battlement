@@ -29,7 +29,7 @@ def main() -> None:
         _verify_cargo_target_isolation(root)
         _verify_parallel_sample_target_isolation(root)
         _verify_windows_paths(root)
-        _verify_ditto_is_opt_in()
+        _verify_ditto_gate_contract()
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -129,7 +129,8 @@ def _verify_parallel_sample_target_isolation(root: Path) -> None:
         ci.subprocess.run = run
         ci.unity_editor_lease = nullcontext
         ci.standalone_sample_workers = lambda: 2
-        ci.build_standalone_samples(["basic", "chess"], ImmediateCache())
+        with patch.object(ci.platform, "system", return_value="Windows"):
+            ci.build_standalone_samples(["basic", "chess"], ImmediateCache())
     finally:
         ci.subprocess.run = original_run
         ci.unity_editor_lease = original_lease
@@ -150,7 +151,7 @@ def _verify_windows_paths(root: Path) -> None:
     assert ci.executable_name("fixture") == expected
 
 
-def _verify_ditto_is_opt_in() -> None:
+def _verify_ditto_gate_contract() -> None:
     config = tomllib.loads(
         (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
     )
@@ -161,26 +162,24 @@ def _verify_ditto_is_opt_in() -> None:
     with patch.object(sys, "argv", ["ci.py", "--ditto"]):
         assert ci.parse_arguments().ditto is True
 
-    steps: list[tuple[str, list[str]]] = []
+    steps: list[tuple[str, list[str], dict[str, str]]] = []
 
     def record(
         name: str,
         command: list[str] | None = None,
+        environment: dict[str, str] | None = None,
         **_options: object,
     ) -> None:
         assert command is not None
-        steps.append((name, command))
+        assert environment is not None
+        steps.append((name, command, environment))
 
     with patch.object(ci, "run_step", side_effect=record):
-        ci.run_ditto_validation()
+        ci.run_ditto_validation(1.25)
 
-    commands = [command for _name, command in steps]
-    assert [sys.executable, "scripts/ditto_ci.py", "prepare", "cold"] in commands
-    assert [sys.executable, "scripts/ditto_ci.py", "prepare", "warm"] in commands
-    for sample in ci.DITTO_SAMPLES:
-        assert [sys.executable, "scripts/ditto_ci.py", "sample", sample] in commands
-    for adapter in ci.DITTO_ADAPTERS:
-        assert [sys.executable, "scripts/ditto_ci.py", "adapter", adapter] in commands
+    commands = [command for _name, command, _environment in steps]
+    assert commands == [[sys.executable, "scripts/ditto_ci.py", "gate"]]
+    assert steps[0][2]["DITTO_CI_PREPARATION_SECONDS"] == "1.25"
 
 
 def _workspace(root: Path) -> None:

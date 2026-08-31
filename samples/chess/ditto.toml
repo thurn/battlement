@@ -8,8 +8,8 @@ launch = "90s"
 baseline_download = "2m"
 
 [defaults]
-step_timeout = "8s"
-scenario_timeout = "60s"
+step_timeout = "2s"
+scenario_timeout = "10s"
 motion = "instant"
 
 [defaults.comparison]
@@ -72,19 +72,21 @@ target = "macos"
 display = { width = 1280, height = 720, scale = 1.0 }
 
 [[scenarios]]
-name = "opening board move and ai"
+name = "title"
+fixture = "title"
 
 [[scenarios.steps]]
-wait = { object = "state_title", state = "visible" }
+assert = { object = "state_title", state = "visible" }
 
 [[scenarios.steps]]
 screenshot = { name = "title" }
 
-[[scenarios.steps]]
-click = { target = "play" }
+[[scenarios]]
+name = "opening board move and ai"
+fixture = "initial"
 
 [[scenarios.steps]]
-wait = { object = "state_initial", state = "visible" }
+assert = { object = "state_initial", state = "visible" }
 
 [[scenarios.steps]]
 wait = { object = "piece_e2", state = "visible" }
@@ -121,6 +123,7 @@ screenshot = { name = "ai-response" }
 
 [[scenarios]]
 name = "capture"
+fixture = "capture"
 motion = "controlled"
 
 [[scenarios.steps]]
@@ -139,9 +142,6 @@ click = { target = "piece_e5" }
 wait = { object = "state_capture", state = "visible" }
 
 [[scenarios.steps]]
-wait = { frames = 70 }
-
-[[scenarios.steps]]
 assert = { object = "piece_e5", state = "absent" }
 
 [[scenarios.steps]]
@@ -149,6 +149,7 @@ screenshot = { name = "capture" }
 
 [[scenarios]]
 name = "castling"
+fixture = "castling"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -170,6 +171,7 @@ screenshot = { name = "castling" }
 
 [[scenarios]]
 name = "en passant"
+fixture = "en passant"
 motion = "controlled"
 
 [[scenarios.steps]]
@@ -188,13 +190,11 @@ click = { target = "target_d6" }
 wait = { object = "state_en_passant", state = "visible" }
 
 [[scenarios.steps]]
-wait = { frames = 70 }
-
-[[scenarios.steps]]
 screenshot = { name = "en-passant" }
 
 [[scenarios]]
 name = "promotion"
+fixture = "promotion"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -216,6 +216,7 @@ screenshot = { name = "promotion" }
 
 [[scenarios]]
 name = "check"
+fixture = "check"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -237,6 +238,7 @@ screenshot = { name = "check" }
 
 [[scenarios]]
 name = "player win"
+fixture = "player win"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -252,6 +254,7 @@ screenshot = { name = "player-win" }
 
 [[scenarios]]
 name = "computer win"
+fixture = "computer win"
 
 [[scenarios.steps]]
 wait = { object = "state_computer_win", state = "visible" }
@@ -261,6 +264,7 @@ screenshot = { name = "computer-win" }
 
 [[scenarios]]
 name = "draw"
+fixture = "draw"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -276,6 +280,7 @@ screenshot = { name = "draw" }
 
 [[scenarios]]
 name = "pause refresh and restart"
+fixture = "title"
 
 [[scenarios.steps]]
 wait = { object = "state_title", state = "visible" }
@@ -336,6 +341,7 @@ screenshot = { name = "restarted", max_changed_percent = 0.1 }
 
 [[scenarios]]
 name = "resumed board"
+fixture = "resumed board"
 
 [[scenarios.steps]]
 wait = { object = "state_resumed", state = "visible" }

@@ -401,6 +401,7 @@ fn scenario(index: u32) -> ResolvedScenario {
     id: scenario_id(index),
     run_index: index,
     name: format!("scenario-{index}"),
+    fixture: None,
     motion: Motion::Controlled,
     timeout_ms: 100,
     steps: vec![ResolvedStep {
@@ -409,6 +410,7 @@ fn scenario(index: u32) -> ResolvedScenario {
       timeout_ms: 10,
       action: StepKind::Click {
         target: InputTarget::Coordinates([0.5, 0.5]),
+        settle: true,
       },
     }],
   }

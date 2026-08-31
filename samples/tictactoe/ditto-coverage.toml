@@ -10,7 +10,7 @@ owner = "tests::initial_world_contains_clickable_board_and_prepared_art"
 
 [[mappings]]
 state = "turn.human-move"
-scenario = "opening and turns"
+scenario = "human move"
 checkpoint = "human-move"
 owner = "tests::player_move_is_immediate_and_ai_move_appears_at_the_deadline"
 

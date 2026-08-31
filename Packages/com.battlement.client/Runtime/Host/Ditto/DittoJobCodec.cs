@@ -117,11 +117,22 @@ namespace Battlement
 
         private static DittoResolvedScenario Scenario(JObject value)
         {
-            Exact(value, "id", "run_index", "name", "motion", "timeout_ms", "steps");
+            ExactOptional(
+                value,
+                "fixture",
+                "id",
+                "run_index",
+                "name",
+                "motion",
+                "timeout_ms",
+                "steps"
+            );
+            JToken? fixture = value["fixture"];
             return new DittoResolvedScenario(
                 String(Field(value, "id")),
                 UInt32(Field(value, "run_index")),
                 String(Field(value, "name")),
+                fixture is null || fixture.Type == JTokenType.Null ? null : String(fixture),
                 Motion(Field(value, "motion")),
                 UInt64(Field(value, "timeout_ms")),
                 Array(value, "steps", token => Step(Object(token, "step")))
@@ -150,7 +161,7 @@ namespace Battlement
             JObject body = Object(variant.Value, variant.Name);
             return variant.Name switch
             {
-                "click" => new DittoStepAction.Click(TargetBody(body)),
+                "click" => Click(body),
                 "hover" => new DittoStepAction.Hover(TargetBody(body)),
                 "drag" => Drag(body),
                 "key" => Key(body),
@@ -160,6 +171,15 @@ namespace Battlement
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
             };
+        }
+
+        private static DittoStepAction.Click Click(JObject value)
+        {
+            Exact(value, "target", "settle");
+            return new DittoStepAction.Click(
+                Target(Field(value, "target")),
+                Boolean(Field(value, "settle"))
+            );
         }
 
         private static DittoInputTarget TargetBody(JObject value)
@@ -305,6 +325,24 @@ namespace Battlement
         private static void Exact(JObject value, params string[] fields)
         {
             var expected = new HashSet<string>(fields, StringComparer.Ordinal);
+            string? unknown = value
+                .Properties()
+                .Select(property => property.Name)
+                .FirstOrDefault(name => !expected.Contains(name));
+            if (unknown is not null)
+            {
+                throw new JsonSerializationException($"Unknown field {unknown}.");
+            }
+            string? missing = fields.FirstOrDefault(field => value.Property(field) is null);
+            if (missing is not null)
+            {
+                throw new JsonSerializationException($"Missing required field {missing}.");
+            }
+        }
+
+        private static void ExactOptional(JObject value, string optional, params string[] fields)
+        {
+            var expected = new HashSet<string>(fields, StringComparer.Ordinal) { optional };
             string? unknown = value
                 .Properties()
                 .Select(property => property.Name)

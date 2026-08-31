@@ -59,7 +59,14 @@ pub struct MacosCaptureRequest<'a> {
 
 /// Launches the exact executable selected by the immutable build handle.
 pub trait MacosPlayerLauncher {
-  fn launch(&self, executable: &Path, session_url: &str, log_path: &Path) -> Result<Child>;
+  fn launch(
+    &self,
+    executable: &Path,
+    session_url: &str,
+    log_path: &Path,
+    width: u32,
+    height: u32,
+  ) -> Result<Child>;
 }
 
 /// Production launcher for immutable macOS application executables.
@@ -76,10 +83,23 @@ pub struct MacosCaptureOutcome {
 }
 
 impl MacosPlayerLauncher for ImmutableMacosLauncher {
-  fn launch(&self, executable: &Path, session_url: &str, log_path: &Path) -> Result<Child> {
+  fn launch(
+    &self,
+    executable: &Path,
+    session_url: &str,
+    log_path: &Path,
+    width: u32,
+    height: u32,
+  ) -> Result<Child> {
     Command::new(executable)
       .arg("--battlement-ditto-url")
       .arg(session_url)
+      .arg("-screen-width")
+      .arg(width.to_string())
+      .arg("-screen-height")
+      .arg(height.to_string())
+      .arg("-screen-fullscreen")
+      .arg("0")
       .arg("-logFile")
       .arg(log_path)
       .stdin(Stdio::null())
@@ -142,7 +162,13 @@ pub fn capture_macos(
   )?;
   let launch_started = Instant::now();
   let executable = macos_build::player_executable(request.build)?;
-  let child = launcher.launch(&executable, &server.base_url(), &request.player_log_source)?;
+  let child = launcher.launch(
+    &executable,
+    &server.base_url(),
+    &request.player_log_source,
+    request.job.profile.display.width,
+    request.job.profile.display.height,
+  )?;
   let mut supervisor = PlayerSupervisor::macos(child);
   let launch_duration = elapsed_ms(launch_started);
   let startup_started = Instant::now();

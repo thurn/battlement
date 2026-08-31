@@ -103,7 +103,7 @@ source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
 
 [[baselines]]
 profile = "macos"
-scenario = "opening board move and ai"
+scenario = "title"
 checkpoint = "title"
 sha256 = "c36d51e0245ae245671064600f7bc3e0350fb9af59dc5f0b1bcdf5f3fa23bd44"
 width = 1280

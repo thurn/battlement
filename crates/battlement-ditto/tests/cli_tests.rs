@@ -9,6 +9,12 @@ use std::{
 
 #[test]
 fn core_command_matrix_parses_complete_options() {
+  assert!(matches!(
+    parse_from(["ditto", "build", "--profile", "macos", "--json"])
+      .unwrap()
+      .command,
+    Command::Build(options) if options.profile.as_deref() == Some("macos") && options.json
+  ));
   let run = parse_from([
     "ditto",
     "--config",

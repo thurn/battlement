@@ -33,9 +33,8 @@ namespace Battlement.Tests
             );
             using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
 
-            Assert.That(executor.Advance(), Is.False);
-            Assert.That(executor.LastCommittedFrame, Is.EqualTo(200));
-            Assert.That(executor.Advance(), Is.True);
+            Drain(executor);
+            Assert.That(executor.LastCommittedFrame, Is.GreaterThanOrEqualTo(202));
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
         }
 
@@ -78,7 +77,7 @@ namespace Battlement.Tests
 
             Drain(executor);
 
-            Assert.That(executor.LastCommittedFrame, Is.Zero);
+            Assert.That(executor.LastCommittedFrame, Is.GreaterThanOrEqualTo(2));
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
         }
 
@@ -263,7 +262,11 @@ namespace Battlement.Tests
                 runTimeout: runTimeout
             );
 
-            Assert.That(executor.Advance(), Is.False);
+            for (var advance = 0; advance < 8 && executor.CurrentStepIndex is null; advance++)
+            {
+                Assert.That(executor.Advance(), Is.False);
+            }
+            Assert.That(executor.CurrentStepIndex, Is.EqualTo(0));
             current = TimeSpan.FromMilliseconds(
                 expected == DittoDeadlineKind.Run ? runTimeout : scenarioTimeout
             );
@@ -326,6 +329,7 @@ namespace Battlement.Tests
                 Guid.NewGuid().ToString("D"),
                 0,
                 "executor",
+                null,
                 DittoMotion.Controlled,
                 timeout,
                 steps

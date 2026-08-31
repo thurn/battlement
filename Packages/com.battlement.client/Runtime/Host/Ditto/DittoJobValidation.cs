@@ -30,6 +30,10 @@ namespace Battlement
                 Identifier("scenario.id", scenario.Id);
                 Require(ids.Add(scenario.Id), "scenario IDs must be unique");
                 Name("scenario.name", scenario.Name);
+                if (scenario.Fixture is not null)
+                {
+                    Name("scenario.fixture", scenario.Fixture);
+                }
                 Require(names.Add(scenario.Name), "scenario names must be unique");
                 if (previousIndex.HasValue)
                 {

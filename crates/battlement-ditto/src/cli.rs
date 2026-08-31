@@ -14,6 +14,7 @@ pub struct Invocation {
 /// A complete publicly available command.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Command {
+  Build(BuildOptions),
   Run(RunOptions),
   Capture(CaptureOptions),
   Review(ReviewOptions),
@@ -22,6 +23,14 @@ pub enum Command {
   Doctor(DoctorOptions),
   Clean(CleanCommand),
   Storage(StorageCommand),
+}
+
+/// Options for preparing an immutable player without executing scenarios.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuildOptions {
+  pub profile: Option<String>,
+  pub json: bool,
+  pub output: Option<PathBuf>,
 }
 
 /// Scenario and profile selectors shared by execution and inspection commands.
@@ -105,6 +114,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum ParsedCommand {
+  /// Build or reuse the exact immutable player selected by the suite.
+  Build(BuildArgs),
   /// Execute scenarios and compare reached screenshots.
   Run(RunArgs),
   /// Execute scenarios without reading or changing baselines.
@@ -121,6 +132,19 @@ enum ParsedCommand {
   Clean(CleanArgs),
   /// Manage canonical baseline-store state.
   Storage(StorageArgs),
+}
+
+#[derive(Debug, Args)]
+struct BuildArgs {
+  /// Profile to build instead of the suite default.
+  #[arg(long)]
+  profile: Option<String>,
+  /// Write only the build result object to standard output.
+  #[arg(long)]
+  json: bool,
+  /// Copy the build result to this path.
+  #[arg(long)]
+  output: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -276,6 +300,11 @@ where
 
 fn command(command: ParsedCommand) -> Command {
   match command {
+    ParsedCommand::Build(args) => Command::Build(BuildOptions {
+      profile: args.profile,
+      json: args.json,
+      output: args.output,
+    }),
     ParsedCommand::Run(args) => Command::Run(RunOptions {
       selection: selection(args.selection),
       update: args.update,

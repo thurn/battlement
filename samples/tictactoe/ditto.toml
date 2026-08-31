@@ -68,12 +68,6 @@ screenshot = { name = "empty-board" }
 click = { target = [0.596, 0.391] }
 
 [[scenarios.steps]]
-wait = { object = "x2", state = "visible" }
-
-[[scenarios.steps]]
-screenshot = { name = "human-move" }
-
-[[scenarios.steps]]
 wait = { object = "o7", state = "visible" }
 
 [[scenarios.steps]]
@@ -84,6 +78,16 @@ assert = { object = "o7", state = "visible" }
 
 [[scenarios.steps]]
 screenshot = { name = "ai-response" }
+
+[[scenarios]]
+name = "human move"
+fixture = "human move"
+
+[[scenarios.steps]]
+wait = { object = "x2", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "human-move" }
 
 [[scenarios]]
 name = "player win"

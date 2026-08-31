@@ -2,9 +2,11 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS.Xcode;
 using UnityEngine;
@@ -33,7 +35,14 @@ namespace Battlement.Editor
             }
 
             string previousProductName = PlayerSettings.productName;
+            string previousIdentifier = PlayerSettings.GetApplicationIdentifier(
+                NamedBuildTarget.Standalone
+            );
             PlayerSettings.productName = "BattlementDitto";
+            PlayerSettings.SetApplicationIdentifier(
+                NamedBuildTarget.Standalone,
+                $"com.battlement.ditto.{Identifier(Required("BATTLEMENT_DITTO_SUITE"))}"
+            );
             BattlementSampleBuild.ConfigurePlugin(false);
             try
             {
@@ -62,6 +71,10 @@ namespace Battlement.Editor
             finally
             {
                 PlayerSettings.productName = previousProductName;
+                PlayerSettings.SetApplicationIdentifier(
+                    NamedBuildTarget.Standalone,
+                    previousIdentifier
+                );
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
@@ -70,6 +83,13 @@ namespace Battlement.Editor
             }
             Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
         }
+
+        private static string Identifier(string value) =>
+            string.Concat(
+                value
+                    .ToLowerInvariant()
+                    .Select(character => char.IsLetterOrDigit(character) ? character : '-')
+            );
 
         /// <summary>Builds one release WebGL player from validated host-provided inputs.</summary>
         public static void BuildWebgl()

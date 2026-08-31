@@ -92,6 +92,7 @@ namespace Battlement.Tests
                     Guid.NewGuid().ToString("D"),
                     0,
                     "video",
+                    null,
                     DittoMotion.Instant,
                     5_000,
                     new[]
@@ -234,6 +235,7 @@ namespace Battlement.Tests
                     Guid.NewGuid().ToString("D"),
                     0,
                     "video failure",
+                    null,
                     DittoMotion.Instant,
                     5_000,
                     new[]

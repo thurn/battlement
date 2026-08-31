@@ -129,11 +129,19 @@ pub struct TicTacToeEngine {
   rng: Rng,
   now: Box<dyn Fn() -> Instant>,
   visual_state: VisualState,
+  semantic_fixture: Option<VisualState>,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<TicTacToeEngine, EngineError> {
-  Ok(create_seeded_engine(DITTO_SEED, Instant::now))
+  let mut engine = create_seeded_engine(DITTO_SEED, Instant::now);
+  engine.semantic_fixture = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
+    .ok()
+    .map(|name| {
+      self::semantic_fixture(&name)
+        .unwrap_or_else(|| panic!("unknown Tic-Tac-Toe semantic fixture {name:?}"))
+    });
+  Ok(engine)
 }
 
 /// Creates a deterministic engine for simulations.
@@ -149,10 +157,16 @@ impl Engine for TicTacToeEngine {
   fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
     self.session_id = SessionId::new_v4();
     self.round = 1;
-    self.reset_state(VisualState::EmptyBoard);
+    self.reset_state(self.semantic_fixture.unwrap_or(VisualState::EmptyBoard));
+    if self.semantic_fixture == Some(VisualState::HumanMove) {
+      self.board[2] = Some(Mark::X);
+      self.marker_ids[2] = Some(X_MARK_IDS[2]);
+    }
     Ok(Response::snapshot(self::snapshot(
       self.session_id,
       self.round,
+      &self.board,
+      self.visual_state,
     )))
   }
 
@@ -185,6 +199,7 @@ impl TicTacToeEngine {
       rng,
       now,
       visual_state: VisualState::EmptyBoard,
+      semantic_fixture: None,
     }
   }
 
@@ -304,7 +319,12 @@ impl TicTacToeEngine {
   }
 }
 
-fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
+fn snapshot(
+  session_id: SessionId,
+  round: u32,
+  marks: &[Option<Mark>; 9],
+  visual_state: VisualState,
+) -> Snapshot {
   let camera = GameObject::new(
     CAMERA_ID,
     CameraState::new()
@@ -334,7 +354,7 @@ fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
 
   let status = GameObject::new(
     STATUS_ID,
-    TextState::new(self::status_text(VisualState::EmptyBoard), FONT)
+    TextState::new(self::status_text(visual_state), FONT)
       .size(3.2)
       .color(Color::rgb(0.06, 0.08, 0.15))
       .wrap_width(14.0),
@@ -342,6 +362,10 @@ fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
   .parent_scene(ParentScene::Persistent)
   .position(Vector3::new(0.0, 3.75, -0.1));
 
+  let mut objects = vec![camera, board, title, status];
+  objects.extend(marks.iter().enumerate().filter_map(|(index, mark)| {
+    mark.map(|mark| self::marker(self::marker_id(index, mark), index, mark))
+  }));
   Snapshot::new(
     session_id,
     vec![
@@ -352,9 +376,16 @@ fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
       PreparedAsset::text_mesh_pro_font(FONT),
     ],
     vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-    vec![camera, board, title, status],
+    objects,
     CAMERA_ID,
   )
+}
+
+fn semantic_fixture(name: &str) -> Option<VisualState> {
+  match name {
+    "human move" => Some(VisualState::HumanMove),
+    _ => None,
+  }
 }
 
 fn marker(object_id: ObjectId, index: usize, mark: Mark) -> GameObject {

@@ -90,6 +90,7 @@ namespace Battlement
         string Id,
         uint RunIndex,
         string Name,
+        string? Fixture,
         DittoMotion Motion,
         ulong TimeoutMs,
         IReadOnlyList<DittoResolvedStep> Steps
@@ -104,7 +105,7 @@ namespace Battlement
 
     internal abstract record DittoStepAction
     {
-        internal sealed record Click(DittoInputTarget Target) : DittoStepAction;
+        internal sealed record Click(DittoInputTarget Target, bool Settle = true) : DittoStepAction;
 
         internal sealed record Hover(DittoInputTarget Target) : DittoStepAction;
 

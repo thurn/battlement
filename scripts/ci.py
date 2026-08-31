@@ -620,8 +620,11 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
-def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
+def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
     def build(name: str) -> None:
+        if platform.system() == "Darwin":
+            build_uncached(name)
+            return
         ci_cache.run(
             f"standalone-{name}",
             (*SAMPLE_SHARED_INPUTS, f"samples/{name}"),
@@ -629,16 +632,33 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
         )
 
     def build_uncached(name: str) -> None:
-        with unity_editor_lease():
-            subprocess.run(
-                [
-                    "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
-                    "sample", "build", name,
-                ],
-                cwd=REPOSITORY_ROOT,
-                env=cargo_environment(None, f"standalone-{name}"),
-                check=True,
-            )
+        if platform.system() != "Darwin":
+            with unity_editor_lease():
+                subprocess.run(
+                    [
+                        "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
+                        "sample", "build", name,
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(None, f"standalone-{name}"),
+                    check=True,
+                )
+            return
+        environment = os.environ.copy()
+        environment["DITTO_CACHE_ROOT"] = os.environ.get(
+            "DITTO_CI_CACHE_ROOT",
+            str(Path.home() / "Library/Caches/Battlement/ditto-ci"),
+        )
+        subprocess.run(
+            [
+                str(REPOSITORY_ROOT / "target/debug/ditto"),
+                "--config", f"samples/{name}/ditto.toml", "build",
+                "--profile", "macos", "--json",
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+            check=True,
+        )
         changed = subprocess.run(
             ["git", "diff", "--name-only", "--", f"samples/{name}"],
             cwd=REPOSITORY_ROOT,
@@ -651,46 +671,30 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
                 f"The {name} sample build modified tracked files:\n" + "\n".join(changed)
             )
 
+    ditto_preparation_seconds = 0.0
+    if platform.system() == "Darwin":
+        started = time.monotonic()
+        subprocess.run(
+            ["cargo", "build", "-p", "battlement-ditto"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+        )
+        ditto_preparation_seconds = time.monotonic() - started
     run_parallel_steps(
         [(f"{name} standalone build", lambda name=name: build(name)) for name in samples],
         workers=standalone_sample_workers(),
     )
+    return ditto_preparation_seconds
 
 
-def run_ditto_validation() -> None:
-    """Run the opt-in Ditto screenshot validation matrix."""
+def run_ditto_validation(preparation_seconds: float) -> None:
+    """Run the bounded screenshot gate against prebuilt players."""
     environment = os.environ.copy()
-    environment["DITTO_BENCHMARK_HOST_CLASS"] = "apple-silicon"
+    environment["DITTO_CI_PREPARATION_SECONDS"] = str(preparation_seconds)
     run_step(
-        "Check Ditto performance definition",
-        [sys.executable, "scripts/ditto_benchmark.py", "--check", "--check-host"],
+        "Run Ditto screenshot gate",
+        [sys.executable, "scripts/ditto_ci.py", "gate"],
         environment=environment,
-    )
-    run_step(
-        "Prepare cold Ditto builds",
-        [sys.executable, "scripts/ditto_ci.py", "prepare", "cold"],
-    )
-    run_step(
-        "Prepare warm Ditto builds",
-        [sys.executable, "scripts/ditto_ci.py", "prepare", "warm"],
-    )
-    for sample in DITTO_SAMPLES:
-        run_step(
-            f"Run {sample} Ditto screenshots",
-            [sys.executable, "scripts/ditto_ci.py", "sample", sample],
-        )
-    for adapter in DITTO_ADAPTERS:
-        run_step(
-            f"Test Ditto {adapter} adapter",
-            [sys.executable, "scripts/ditto_ci.py", "adapter", adapter],
-        )
-    run_step(
-        "Validate Ditto performance",
-        [sys.executable, "scripts/ditto_ci.py", "performance"],
-    )
-    run_step(
-        "Publish Ditto baselines",
-        [sys.executable, "scripts/ditto_ci.py", "publish"],
     )
 
 
@@ -748,6 +752,10 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         "Test CI Cache",
         [sys.executable, "scripts/tests/ci-cache.test.py"],
     )
+    run_step(
+        "Test Ditto CI",
+        [sys.executable, "scripts/tests/ditto-ci.test.py"],
+    )
     if ditto:
         run_step(
             "Test Ditto performance benchmark",
@@ -756,10 +764,6 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         run_step(
             "Test Ditto cutover",
             [sys.executable, "scripts/tests/ditto-cutover.test.py"],
-        )
-        run_step(
-            "Test Ditto CI",
-            [sys.executable, "scripts/tests/ditto-ci.test.py"],
         )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
@@ -782,15 +786,19 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
             check_dotnet_diagnostics,
         ),
     )
+    ditto_preparation_seconds = [0.0]
     if full and platform.system() in {"Darwin", "Windows"}:
+        def build_samples() -> None:
+            ditto_preparation_seconds[0] = build_standalone_samples(samples, ci_cache)
+
         run_step(
             "Build standalone samples",
-            function=lambda: build_standalone_samples(samples, ci_cache),
+            function=build_samples,
         )
     elif full:
         run_step("Skip desktop full validation", function=skip_desktop_full_validation)
-    if ditto:
-        run_ditto_validation()
+    if full and platform.system() == "Darwin":
+        run_ditto_validation(ditto_preparation_seconds[0])
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 

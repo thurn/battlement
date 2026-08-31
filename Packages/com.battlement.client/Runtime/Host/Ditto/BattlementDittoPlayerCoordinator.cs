@@ -345,7 +345,7 @@ namespace Battlement
             engine = DittoNativeEngineSession.Create(
                 runner!.DittoNativeTransport,
                 out BattlementTransportResult creation,
-                scenario.Name
+                scenario.Fixture
             );
             executor = NewExecutor(scenario);
             if (engine is null)

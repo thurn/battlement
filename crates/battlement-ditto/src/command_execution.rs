@@ -4,7 +4,8 @@ use anyhow::Result;
 
 use crate::{
   cli::{Command, Invocation},
-  maintenance_commands, review_commands, run_commands, selection, storage_commands, suite,
+  config, macos_run, maintenance_commands, review_commands, run_commands, selection,
+  storage_commands, suite,
 };
 
 pub(crate) fn execute(
@@ -14,6 +15,11 @@ pub(crate) fn execute(
   interrupted: &AtomicBool,
 ) -> Result<u8> {
   match invocation.command {
+    Command::Build(options) => macos_run::build(
+      &config::load(invocation.config.as_deref())?,
+      options,
+      stdout,
+    ),
     Command::List(options) => {
       writeln!(
         stdout,

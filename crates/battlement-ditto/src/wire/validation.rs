@@ -31,6 +31,9 @@ pub(super) fn validate_job(job: &Job) -> Result<()> {
       "scenario IDs must be unique"
     );
     name("scenario.name", &scenario.name)?;
+    if let Some(fixture) = &scenario.fixture {
+      name("scenario.fixture", fixture)?;
+    }
     ensure!(
       scenario_names.insert(&scenario.name),
       "scenario names must be unique"
@@ -196,7 +199,7 @@ fn validate_step<'a>(
     );
   }
   match &step.action {
-    StepKind::Click { target } => {
+    StepKind::Click { target, .. } => {
       capability(job, Capability::Click)?;
       input_target(target)
     }

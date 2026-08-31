@@ -46,6 +46,7 @@ fn complete_job_round_trips_every_step_and_union_variant() {
   let encoded = serde_json::to_string(&job).unwrap();
   let decoded: Job = serde_json::from_str(&encoded).unwrap();
   assert_eq!(decoded, job);
+  assert!(encoded.contains(r#""fixture":"fixture-one""#));
   assert!(encoded.contains(r#""wait":{"frames":2}"#));
   assert!(encoded.contains(r#""wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1""#));
   assert!(encoded.contains(r#""video":{"action":"start""#));
@@ -289,6 +290,7 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
   invalid("object UUID", |job| {
     job.scenarios[0].steps[0].action = StepKind::Click {
       target: battlement_ditto::wire::job::InputTarget::Object("alias".to_owned()),
+      settle: true,
     }
   });
   invalid("coordinate range", |job| {
@@ -453,10 +455,11 @@ const VALID_JOB: &str = r#"{
     "id":"1f160ce4-dcdc-47ac-9613-31011f8afc96",
     "run_index":1,
     "name":"all wire shapes",
+    "fixture":"fixture-one",
     "motion":"controlled",
     "timeout_ms":10000,
     "steps":[
-      {"index":0,"name":"click object","timeout_ms":1000,"action":{"click":{"target":"4aac8ca0-af3d-409e-958e-62954e6cb3d1"}}},
+      {"index":0,"name":"click object","timeout_ms":1000,"action":{"click":{"target":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","settle":true}}},
       {"index":1,"name":null,"timeout_ms":1000,"action":{"hover":{"target":[0.5,0.75]}}},
       {"index":2,"name":null,"timeout_ms":1000,"action":{"drag":{"from":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","to":[0.75,0.75]}}},
       {"index":3,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"down"}}},

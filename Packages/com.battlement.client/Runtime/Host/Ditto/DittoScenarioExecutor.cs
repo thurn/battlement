@@ -41,6 +41,7 @@ namespace Battlement
         private enum Phase
         {
             None,
+            StartupSettle,
             Input,
             Settle,
             ScreenshotSettle,
@@ -90,6 +91,7 @@ namespace Battlement
         private bool completeAfterBoundary;
         private bool videoMotionOverridden;
         private bool presentationChanged;
+        private int startupQuietFrames;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -311,7 +313,9 @@ namespace Battlement
             scenarioStarted = now();
             setup();
             motion.Begin(scenario.Motion);
-            executionStarted = now();
+            phase = Phase.StartupSettle;
+            phaseStarted = now();
+            executionStarted = phaseStarted;
             DittoDeadlineKind? expired = Expired(null);
             if (expired.HasValue)
             {
@@ -418,11 +422,29 @@ namespace Battlement
             committedFrame = frame.Index;
             presentationChanged = frame.LayoutChanged;
             CaptureVideoFrame(frame);
-            DittoResolvedStep step = scenario.Steps[nextStep];
             if (TryFreezeObserved())
             {
                 return;
             }
+            if (phase == Phase.StartupSettle)
+            {
+                if (Expired(null).HasValue)
+                {
+                    scenarioExpiry = Expired(null);
+                    FailRemaining(scenarioExpiry!.Value, "Scenario setup exceeded its deadline.");
+                    return;
+                }
+                startupQuietFrames = frame.IsSettled ? startupQuietFrames + 1 : 0;
+                if (startupQuietFrames == 2)
+                {
+                    settleDurationMs += PhaseDuration();
+                    presentationReady = true;
+                    executionStarted = now();
+                    phase = Phase.None;
+                }
+                return;
+            }
+            DittoResolvedStep step = scenario.Steps[nextStep];
             if (TryExpireStep(step))
             {
                 return;
@@ -431,8 +453,9 @@ namespace Battlement
             switch (phase)
             {
                 case Phase.Input when input.PendingFrameCount == 0:
-                    if (NextStepIsWait())
+                    if (step.Action is DittoStepAction.Click { Settle: false })
                     {
+                        presentationReady = true;
                         PassStep(step);
                     }
                     else
@@ -465,6 +488,7 @@ namespace Battlement
                     EvaluateObjectWait(step);
                     break;
                 case Phase.Input:
+                case Phase.StartupSettle:
                 case Phase.Settle:
                 case Phase.ScreenshotSettle:
                     break;
@@ -874,10 +898,6 @@ namespace Battlement
             Freeze(errorRef);
             return true;
         }
-
-        private bool NextStepIsWait() =>
-            nextStep + 1 < scenario.Steps.Count
-            && scenario.Steps[nextStep + 1].Action is DittoStepAction.Wait;
 
         private static ulong Duration(TimeSpan start, TimeSpan end, ulong capMs)
         {

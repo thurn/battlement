@@ -53,7 +53,7 @@ source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
 
 [[baselines]]
 profile = "macos"
-scenario = "opening and turns"
+scenario = "human move"
 checkpoint = "human-move"
 sha256 = "6c1680703423e86bb317f07b5b5ecc124efac32163e38e36407ee4b1c2e999dc"
 width = 1280

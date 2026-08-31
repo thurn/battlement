@@ -15,6 +15,7 @@ fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
   assert_eq!(suite.defaults.step_timeout.as_millis(), 750);
   assert_eq!(suite.defaults.scenario_timeout.as_millis(), 12_000);
   assert_eq!(suite.defaults.motion, Motion::Instant);
+  assert_eq!(suite.scenarios[0].fixture, None);
   assert_eq!(
     suite.defaults.comparison.threshold.as_str(),
     "0.10000000000000001"

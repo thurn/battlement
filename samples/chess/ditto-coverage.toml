@@ -4,7 +4,7 @@ canonical_profile = "macos"
 
 [[mappings]]
 state = "screen.title"
-scenario = "opening board move and ai"
+scenario = "title"
 checkpoint = "title"
 owner = "gameplay::initial_world_displays_play_without_creating_pieces"
 

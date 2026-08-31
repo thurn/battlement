@@ -127,12 +127,16 @@ pub(crate) struct SemanticFixture {
 
 pub(crate) fn semantic_fixture(name: &str) -> Option<SemanticFixture> {
   let (fen, state) = match name {
-    "opening board move and ai" | "pause refresh and restart" => {
+    "title" => {
       return Some(SemanticFixture {
         board: Board::default(),
         state: VisualState::Title,
       });
     }
+    "initial" => (
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      VisualState::Initial,
+    ),
     "capture" => ("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1", VisualState::Initial),
     "castling" => ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", VisualState::Initial),
     "en passant" => ("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1", VisualState::Initial),

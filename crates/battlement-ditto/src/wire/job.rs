@@ -112,6 +112,7 @@ pub struct ResolvedScenario {
   pub id: String,
   pub run_index: u32,
   pub name: String,
+  pub fixture: Option<String>,
   pub motion: Motion,
   pub timeout_ms: u64,
   pub steps: Vec<ResolvedStep>,
@@ -131,7 +132,7 @@ pub struct ResolvedStep {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub enum StepKind {
-  Click { target: InputTarget },
+  Click { target: InputTarget, settle: bool },
   Hover { target: InputTarget },
   Drag { from: InputTarget, to: InputTarget },
   Key { key: String, action: KeyAction },

@@ -5,24 +5,36 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import hashlib
 import json
 import os
 from pathlib import Path
 import platform
+import signal
 import shutil
 import subprocess
 import sys
 import tarfile
+import time
 import tomllib
 from typing import Any
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts/ditto-ci"
-CACHE_ROOT = REPOSITORY_ROOT / "target/ditto-ci-cache"
-DITTO = Path(
-    os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/release/ditto")
+CACHE_ROOT = Path(
+    os.environ.get(
+        "DITTO_CI_CACHE_ROOT",
+        Path.home() / "Library/Caches/Battlement/ditto-ci",
+    )
 )
+DITTO = Path(
+    os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
+)
+SAMPLE_TIMEOUT_SECONDS = float(os.environ.get("DITTO_CI_SAMPLE_TIMEOUT_SECONDS", "45"))
+GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "50"))
+ADDED_BUDGET_SECONDS = 60
 DEFAULT_ODIFF = (
     Path.home()
     / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"
@@ -36,12 +48,33 @@ UNITY_GENERATED_DIRECTORIES = ("Library", "Logs", "Temp", "UserSettings")
 
 
 def command(
-    arguments: list[str], *, check: bool = True, environment: dict[str, str] | None = None
+    arguments: list[str], *, check: bool = True,
+    environment: dict[str, str] | None = None, timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a repository command while preserving output in the CI log."""
-    result = subprocess.run(
-        arguments, cwd=REPOSITORY_ROOT, capture_output=True, text=True, env=environment
+    process = subprocess.Popen(
+        arguments, cwd=REPOSITORY_ROOT, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, text=True, env=environment, process_group=0,
     )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = process.communicate()
+        raise subprocess.TimeoutExpired(
+            arguments, timeout, output=stdout, stderr=stderr
+        )
+    result = subprocess.CompletedProcess(arguments, process.returncode, stdout, stderr)
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
     if check and result.returncode != 0:
@@ -128,7 +161,9 @@ def clean_unity_workspace(sample: str) -> None:
         shutil.rmtree(root / name, ignore_errors=True)
 
 
-def execute_sample(sample: str, *, preparation: str | None = None) -> dict[str, Any]:
+def execute_sample(
+    sample: str, *, preparation: str | None = None, retain: bool = True,
+) -> dict[str, Any]:
     output = artifact_directory(
         f"prepare-{preparation}-{sample}" if preparation else sample
     )
@@ -146,24 +181,131 @@ def execute_sample(sample: str, *, preparation: str | None = None) -> dict[str, 
         arguments.append(expected[0])
     if preparation != "cold":
         arguments.append("--no-build")
-    completed = command(arguments, check=False, environment=ditto_environment())
+    try:
+        completed = command(
+            arguments, check=False, environment=ditto_environment(),
+            timeout=SAMPLE_TIMEOUT_SECONDS if not preparation else None,
+        )
+    except subprocess.TimeoutExpired as error:
+        stdout = error.stdout.decode() if isinstance(error.stdout, bytes) else error.stdout or ""
+        stderr = error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr or ""
+        sys.stdout.write(stdout)
+        sys.stderr.write(stderr)
+        retain_run(run_directory(stderr), output)
+        raise
     source = run_directory(completed.stderr)
-    retain_run(source, output)
-    result = load_result(result_path)
-    validate_result(
-        result,
-        sample,
-        expected,
-        expected_disposition="created" if preparation == "cold" else "reused",
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
+    try:
+        result = load_result(result_path)
+        validate_result(
+            result,
+            sample,
+            expected,
+            expected_disposition="created" if preparation == "cold" else "reused",
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
+    except Exception:
+        retain_run(source, output)
+        raise
+    if retain:
+        retain_run(source, output)
+    elif source is not None:
+        shutil.rmtree(source, ignore_errors=True)
     return {
         "sample": sample,
         "run_id": result["run_id"],
         "build": result["build"]["disposition"],
         "result": str(result_path),
     }
+
+
+def inventory() -> tuple[dict[str, Any], int, int]:
+    suites: dict[str, Any] = {}
+    scenarios = 0
+    screenshots = 0
+    for sample in SAMPLES:
+        suite = tomllib.loads(
+            (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
+        )
+        entries = []
+        for scenario in suite["scenarios"]:
+            checkpoints = [
+                step["screenshot"]["name"]
+                for step in scenario["steps"]
+                if "screenshot" in step
+            ]
+            entries.append({"name": scenario["name"], "screenshots": checkpoints})
+            screenshots += len(checkpoints)
+        suites[sample] = entries
+        scenarios += len(entries)
+    return suites, scenarios, screenshots
+
+
+def validate_inventory() -> None:
+    expected = json.loads(
+        (REPOSITORY_ROOT / "scripts/ditto_inventory.json").read_text()
+    )
+    suites, scenarios, screenshots = inventory()
+    encoded = json.dumps(suites, sort_keys=True, separators=(",", ":")).encode()
+    actual = {
+        "schema": 1,
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+        "scenarios": scenarios,
+        "screenshots": screenshots,
+    }
+    if actual != expected:
+        raise RuntimeError(
+            "Ditto inventory changed; review it and refresh scripts/ditto_inventory.json: "
+            + json.dumps(actual, sort_keys=True)
+        )
+
+
+def gate() -> None:
+    """Run the exact screenshot inventory concurrently within the CI budget."""
+    platform_report()
+    validate_inventory()
+    started = time.monotonic()
+    results = []
+    failures = []
+    with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
+        futures = {
+            executor.submit(execute_sample, sample, retain=False): sample
+            for sample in SAMPLES
+        }
+        for future in as_completed(futures):
+            sample = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
+                failures.append(f"{sample}: {error}")
+    duration = time.monotonic() - started
+    preparation = float(os.environ.get("DITTO_CI_PREPARATION_SECONDS", "0"))
+    added_duration = preparation + duration
+    if duration > GATE_BUDGET_SECONDS:
+        failures.append(
+            f"wall clock {duration:.3f}s exceeded the {GATE_BUDGET_SECONDS:g}s gate budget"
+        )
+    if added_duration > ADDED_BUDGET_SECONDS:
+        failures.append(
+            f"added work {added_duration:.3f}s exceeded the {ADDED_BUDGET_SECONDS}s CI budget"
+        )
+    report = {
+        "schema": 1,
+        "status": "failed" if failures else "passed",
+        "duration_seconds": round(duration, 3),
+        "budget_seconds": GATE_BUDGET_SECONDS,
+        "preparation_seconds": round(preparation, 3),
+        "added_duration_seconds": round(added_duration, 3),
+        "added_budget_seconds": ADDED_BUDGET_SECONDS,
+        "samples": sorted(results, key=lambda item: item["sample"]),
+        "failures": failures,
+    }
+    ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
+    (ARTIFACT_ROOT / "gate.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    if failures:
+        raise RuntimeError("Ditto gate failed:\n" + "\n".join(failures))
 
 
 def prepare(mode: str) -> None:
@@ -266,6 +408,7 @@ def main() -> None:
     adapter_parser.add_argument("name", choices=ADAPTER_TESTS)
     subcommands.add_parser("performance")
     subcommands.add_parser("publish")
+    subcommands.add_parser("gate")
     arguments = parser.parse_args()
     if arguments.command == "prepare":
         prepare(arguments.mode)
@@ -275,6 +418,8 @@ def main() -> None:
         adapter(arguments.name)
     elif arguments.command == "performance":
         performance()
+    elif arguments.command == "gate":
+        gate()
     else:
         publish()
 

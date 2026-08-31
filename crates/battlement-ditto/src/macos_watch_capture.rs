@@ -68,7 +68,13 @@ impl WarmMacosPlayer {
     )?;
     let launch_started = Instant::now();
     let executable = macos_build::player_executable(request.build)?;
-    let child = launcher.launch(&executable, &server.base_url(), &request.player_log_source)?;
+    let child = launcher.launch(
+      &executable,
+      &server.base_url(),
+      &request.player_log_source,
+      request.job.profile.display.width,
+      request.job.profile.display.height,
+    )?;
     let mut supervisor = PlayerSupervisor::macos(child);
     let launch_duration = elapsed_ms(launch_started);
     let startup_started = Instant::now();

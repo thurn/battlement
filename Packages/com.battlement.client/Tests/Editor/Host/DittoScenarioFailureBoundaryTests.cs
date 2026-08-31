@@ -135,7 +135,11 @@ namespace Battlement.Tests
                 stepEnded: context.StepEnded
             );
 
-            Assert.That(executor.Advance(), Is.False);
+            for (var advance = 0; advance < 8 && executor.CurrentStepIndex is null; advance++)
+            {
+                Assert.That(executor.Advance(), Is.False);
+            }
+            Assert.That(executor.CurrentStepIndex, Is.EqualTo(0));
             BattlementLogStore.Add(
                 "unity",
                 new BattlementLogRecord(
@@ -200,6 +204,7 @@ namespace Battlement.Tests
                 Guid.NewGuid().ToString("D"),
                 0,
                 "failure boundary",
+                null,
                 DittoMotion.Controlled,
                 5_000,
                 new[]

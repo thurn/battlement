@@ -289,6 +289,7 @@ fn job(build: &BuildHandle) -> Job {
       id: Uuid::new_v4().to_string(),
       run_index: 0,
       name: "focused web adapter".to_owned(),
+      fixture: None,
       motion: Motion::Controlled,
       timeout_ms: 1_000,
       steps: vec![ResolvedStep {
@@ -297,6 +298,7 @@ fn job(build: &BuildHandle) -> Job {
         timeout_ms: 100,
         action: StepKind::Click {
           target: InputTarget::Coordinates([0.5, 0.5]),
+          settle: true,
         },
       }],
     }],

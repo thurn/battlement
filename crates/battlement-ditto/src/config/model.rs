@@ -117,6 +117,7 @@ pub enum Orientation {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Scenario {
   pub name: String,
+  pub fixture: Option<String>,
   pub motion: Motion,
   pub timeout: DurationValue,
   pub steps: Vec<Step>,
@@ -141,7 +142,7 @@ pub struct Step {
 /// A supported scenario action.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StepKind {
-  Click { target: InputTarget },
+  Click { target: InputTarget, settle: bool },
   Hover { target: InputTarget },
   Drag { from: InputTarget, to: InputTarget },
   Key { key: String, action: KeyAction },

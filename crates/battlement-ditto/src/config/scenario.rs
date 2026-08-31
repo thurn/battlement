@@ -22,6 +22,14 @@ pub(super) fn validate(
   raw: RawScenario,
 ) -> Result<Scenario, ConfigError> {
   let key = format!("scenarios.{scenario_index}");
+  if let Some(fixture) = &raw.fixture {
+    name(
+      validation.path,
+      validation.source,
+      &format!("{key}.fixture"),
+      fixture,
+    )?;
+  }
   if raw.steps.is_empty() || raw.steps.len() > 128 {
     return Err(invalid(
       validation.path,
@@ -88,6 +96,7 @@ pub(super) fn validate(
   }
   Ok(Scenario {
     name: raw.name,
+    fixture: raw.fixture,
     motion: scenario_motion,
     timeout,
     steps,
@@ -172,6 +181,7 @@ fn step_value(
   let action = if let Some(click) = raw.click.take() {
     StepKind::Click {
       target: input_target(validation, &format!("{key}.click.target"), click.target)?,
+      settle: click.settle,
     }
   } else if let Some(hover) = raw.hover.take() {
     StepKind::Hover {

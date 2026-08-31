@@ -23,10 +23,11 @@
       "id": "1f160ce4-dcdc-47ac-9613-31011f8afc96",
       "run_index": 1,
       "name": "all wire shapes",
+      "fixture": "fixture-one",
       "motion": "controlled",
       "timeout_ms": 10000,
       "steps": [
-        {"index": 0, "name": "click object", "timeout_ms": 1000, "action": {"click": {"target": "4aac8ca0-af3d-409e-958e-62954e6cb3d1"}}},
+        {"index": 0, "name": "click object", "timeout_ms": 1000, "action": {"click": {"target": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "settle": true}}},
         {"index": 1, "name": null, "timeout_ms": 1000, "action": {"hover": {"target": [0.5, 0.75]}}},
         {"index": 2, "name": null, "timeout_ms": 1000, "action": {"drag": {"from": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "to": [0.75, 0.75]}}},
         {"index": 3, "name": null, "timeout_ms": 1000, "action": {"key": {"key": "Space", "action": "down"}}},
@@ -61,6 +62,8 @@
     {"name": "unreleased key", "pointer": "/scenarios/0/steps/4/action/key/action", "value": "down"},
     {"name": "instant video", "pointer": "/scenarios/0/steps/10/action/video/motion", "value": "instant"},
     {"name": "malformed video stop", "pointer": "/scenarios/0/steps/12/action/video/name", "value": "clip"},
+    {"name": "empty fixture", "pointer": "/scenarios/0/fixture", "value": ""},
+    {"name": "oversized fixture", "pointer": "/scenarios/0/fixture", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
     {"name": "missing required field", "pointer": "/profile/source_fingerprint", "remove": true}
   ]
 }

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
 
 
@@ -22,7 +23,9 @@ FAKE_DITTO = r'''#!/usr/bin/env python3
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
+import time
 import tomllib
 
 arguments = sys.argv[1:]
@@ -36,6 +39,16 @@ run.mkdir(parents=True, exist_ok=True)
 (run / "logs").mkdir(exist_ok=True)
 (run / "logs/events.jsonl").write_text('{"sequence":1}\n')
 (run / "diagnostics.txt").write_text("private failure diagnostics\n")
+print(f"DITTO_RUN_DIR={run}", file=sys.stderr, flush=True)
+if expected_cache := os.environ.get("FAKE_EXPECTED_CACHE"):
+    assert os.environ["DITTO_CACHE_ROOT"] == expected_cache
+if marker := os.environ.get("FAKE_CHILD_MARKER"):
+    subprocess.Popen([
+        sys.executable,
+        "-c",
+        "import os,time; time.sleep(0.5); open(os.environ['FAKE_CHILD_MARKER'], 'w').write('leaked')",
+    ])
+time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
 status = os.environ.get("FAKE_STATUS", "passed")
 disposition = "reused" if "--no-build" in arguments else "created"
 config = Path(arguments[arguments.index("--config") + 1])
@@ -53,8 +66,11 @@ result = {
     "scenarios": [{"name": name, "status": status} for name in names],
 }
 output.parent.mkdir(parents=True, exist_ok=True)
-output.write_text(json.dumps(result))
-print(f"DITTO_RUN_DIR={run}", file=sys.stderr)
+result_mode = os.environ.get("FAKE_RESULT", "complete")
+if result_mode == "complete":
+    output.write_text(json.dumps(result))
+elif result_mode == "malformed":
+    output.write_text("{")
 raise SystemExit(0 if status == "passed" else 1)
 '''
 
@@ -82,6 +98,8 @@ def main() -> None:
         environment = os.environ.copy()
         environment.update({
             "DITTO_CI_BINARY": str(fake),
+            "DITTO_CI_CACHE_ROOT": str(root / "cache"),
+            "FAKE_EXPECTED_CACHE": str(root / "cache"),
             "FAKE_RUN_ROOT": str(root / "runs"),
             "FAKE_PUBLISH_LOG": str(root / "published"),
         })
@@ -96,6 +114,42 @@ def main() -> None:
             assert diagnostics.read() == b"private failure diagnostics\n"
         assert not (root / "published").exists()
 
+        gated = run(["gate"], environment)
+        assert gated.returncode == 0, gated.stderr
+        gate = json.loads(
+            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
+        )
+        assert gate["status"] == "passed"
+        assert len(gate["samples"]) == 5
+
+        environment["FAKE_SLEEP"] = "0.2"
+        gated = run(["gate"], environment)
+        assert gated.returncode == 0, gated.stderr
+        gate = json.loads(
+            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
+        )
+        assert gate["duration_seconds"] < 0.7
+
+        environment["DITTO_CI_GATE_BUDGET_SECONDS"] = "0.05"
+        over_budget = run(["gate"], environment)
+        assert over_budget.returncode == 1
+        gate = json.loads(
+            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
+        )
+        assert gate["status"] == "failed"
+        assert any("gate budget" in failure for failure in gate["failures"])
+        environment.pop("DITTO_CI_GATE_BUDGET_SECONDS")
+        environment.pop("FAKE_SLEEP")
+
+        environment["DITTO_CI_PREPARATION_SECONDS"] = "61"
+        over_added_budget = run(["gate"], environment)
+        assert over_added_budget.returncode == 1
+        gate = json.loads(
+            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
+        )
+        assert any("added work" in failure for failure in gate["failures"])
+        environment.pop("DITTO_CI_PREPARATION_SECONDS")
+
         environment["FAKE_STATUS"] = "failed"
         failed = run(["sample", "chess"], environment)
         assert failed.returncode == 1
@@ -104,7 +158,30 @@ def main() -> None:
             assert "run/diagnostics.txt" in retained.getnames()
         assert not (root / "published").exists()
 
-        environment.pop("FAKE_STATUS")
+        for result_mode in ("missing", "malformed"):
+            environment.pop("FAKE_STATUS", None)
+            environment["FAKE_RESULT"] = result_mode
+            invalid_result = run(["sample", "chess"], environment)
+            assert invalid_result.returncode == 1
+            with tarfile.open(failed_artifact) as retained:
+                assert "run/diagnostics.txt" in retained.getnames()
+        environment.pop("FAKE_RESULT")
+
+        marker = root / "leaked-child"
+        environment["DITTO_CI_SAMPLE_TIMEOUT_SECONDS"] = "0.1"
+        environment["FAKE_CHILD_MARKER"] = str(marker)
+        environment["FAKE_SLEEP"] = "10"
+        timed_out = run(["sample", "chess"], environment)
+        assert timed_out.returncode == 1
+        time.sleep(0.8)
+        assert not marker.exists()
+        with tarfile.open(failed_artifact) as retained:
+            assert "run/diagnostics.txt" in retained.getnames()
+        environment.pop("DITTO_CI_SAMPLE_TIMEOUT_SECONDS")
+        environment.pop("FAKE_CHILD_MARKER")
+        environment.pop("FAKE_SLEEP")
+
+        environment.pop("FAKE_STATUS", None)
         environment["DITTO_CI_BRANCH"] = "master"
         published = run(["publish"], environment)
         assert published.returncode == 0, published.stderr

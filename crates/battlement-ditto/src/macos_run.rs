@@ -24,6 +24,7 @@ use crate::{
   baseline_update::{
     self, BaselineProposal, BaselineUpdateRequest, ScenarioUpdate, ScenarioUpdateStatus,
   },
+  cli::BuildOptions,
   config::model::{Baseline, Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
@@ -45,6 +46,58 @@ use crate::{
     run_storage::ActiveRun,
   },
 };
+
+pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+  let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
+  let profile = suite
+    .profiles
+    .get(profile_name)
+    .with_context(|| format!("profile {profile_name:?} does not exist"))?;
+  anyhow::ensure!(
+    profile.target() == Target::Macos,
+    "build currently supports macOS profiles"
+  );
+  let discovery = HostDiscovery::inspect(
+    &SystemHost,
+    &maintenance_commands::discovery_request(suite, Target::Macos)?,
+  )?;
+  let selected = macos_build::select_macos_player(&build_request(suite, &discovery)?, true)?;
+  let (build, disposition) = match selected {
+    MacosBuildResult::Ready { build, outcome } => (
+      build,
+      match outcome {
+        MacosBuildOutcome::Created => "created",
+        MacosBuildOutcome::Reused => "reused",
+      },
+    ),
+    MacosBuildResult::Required { .. } => unreachable!("builds are allowed"),
+    MacosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+  };
+  let value = serde_json::json!({
+    "schema": 1,
+    "suite": suite.name,
+    "profile": profile_name,
+    "source_fingerprint": build.metadata().identity.source_fingerprint,
+    "build_fingerprint": build.metadata().identity.fingerprint,
+    "disposition": disposition,
+    "player_path": build.path(),
+  });
+  let encoded = serde_json::to_string_pretty(&value)? + "\n";
+  if let Some(path) = options.output {
+    fs::write(path, &encoded)?;
+  }
+  if options.json {
+    write!(stdout, "{encoded}")?;
+  } else {
+    writeln!(
+      stdout,
+      "{} player {disposition}: {}",
+      suite.name,
+      build.path().display()
+    )?;
+  }
+  Ok(0)
+}
 
 pub(crate) struct Options {
   pub command: ResultCommand,

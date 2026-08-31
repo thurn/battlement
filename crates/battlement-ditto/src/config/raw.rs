@@ -127,6 +127,7 @@ pub(super) enum RawOrientation {
 #[serde(deny_unknown_fields)]
 pub(super) struct RawScenario {
   pub name: String,
+  pub fixture: Option<String>,
   pub motion: Option<RawMotion>,
   pub timeout: Option<String>,
   pub steps: Vec<RawStep>,
@@ -160,6 +161,12 @@ pub(super) struct RawStep {
 #[serde(deny_unknown_fields)]
 pub(super) struct RawClick {
   pub target: RawInputTarget,
+  #[serde(default = "default_settle")]
+  pub settle: bool,
+}
+
+fn default_settle() -> bool {
+  true
 }
 
 #[derive(Debug, Deserialize)]

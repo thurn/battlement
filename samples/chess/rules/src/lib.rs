@@ -125,11 +125,11 @@ pub struct ChessEngine {
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-  let engine = match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
-    .ok()
-    .and_then(|name| visual_state::semantic_fixture(&name))
-  {
-    Some(fixture) => self::engine_for_fixture(fixture)?,
+  let engine = match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").ok() {
+    Some(name) => self::engine_for_fixture(
+      visual_state::semantic_fixture(&name)
+        .unwrap_or_else(|| panic!("unknown Chess semantic fixture {name:?}")),
+    )?,
     None => self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?,
   };
   info!(

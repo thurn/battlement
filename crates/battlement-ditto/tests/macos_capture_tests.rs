@@ -183,7 +183,14 @@ impl FixtureLauncher {
 }
 
 impl MacosPlayerLauncher for FixtureLauncher {
-  fn launch(&self, _executable: &Path, session_url: &str, log_path: &Path) -> Result<Child> {
+  fn launch(
+    &self,
+    _executable: &Path,
+    session_url: &str,
+    log_path: &Path,
+    _width: u32,
+    _height: u32,
+  ) -> Result<Child> {
     fs::write(log_path, b"fixture player log\n")?;
     self.count.fetch_add(1, Ordering::SeqCst);
     Ok(
@@ -387,6 +394,7 @@ fn job(build: &BuildHandle, count: u32) -> Job {
         id: Uuid::new_v4().to_string(),
         run_index: index,
         name: format!("scenario {index}"),
+        fixture: None,
         motion: Motion::Instant,
         timeout_ms: 500,
         steps: vec![ResolvedStep {
@@ -395,6 +403,7 @@ fn job(build: &BuildHandle, count: u32) -> Job {
           timeout_ms: 100,
           action: StepKind::Click {
             target: InputTarget::Coordinates([0.5, 0.5]),
+            settle: true,
           },
         }],
       })

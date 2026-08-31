@@ -152,6 +152,7 @@ fn resolve_inner(
           id: Uuid::new_v4().to_string(),
           run_index: scenario.run_index,
           name: scenario.scenario.name.clone(),
+          fixture: scenario.scenario.fixture.clone(),
           motion: motion(scenario.scenario.motion),
           timeout_ms: scenario.scenario.timeout.as_millis(),
           steps: scenario
@@ -179,8 +180,9 @@ fn resolved_step(
     name: step.name.clone(),
     timeout_ms: step.timeout.as_millis(),
     action: match &step.action {
-      AuthoredStepKind::Click { target } => StepKind::Click {
+      AuthoredStepKind::Click { target, settle } => StepKind::Click {
         target: input_target(target, aliases)?,
+        settle: *settle,
       },
       AuthoredStepKind::Hover { target } => StepKind::Hover {
         target: input_target(target, aliases)?,

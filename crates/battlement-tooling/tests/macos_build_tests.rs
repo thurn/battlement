@@ -115,10 +115,13 @@ fn every_build_input_category_selects_a_distinct_entry() {
   let mut generated = fixture.request();
   generated.generated_inputs[0].bytes = b"generated v2\n".to_vec();
   fingerprints.push(ready_fingerprint(build_macos_player(&generated).unwrap()));
+  let mut suite = fixture.request();
+  suite.suite = "renamed-fixture".to_owned();
+  fingerprints.push(ready_fingerprint(build_macos_player(&suite).unwrap()));
 
   fingerprints.sort();
   fingerprints.dedup();
-  assert_eq!(fingerprints.len(), 7);
+  assert_eq!(fingerprints.len(), 8);
 }
 
 #[test]

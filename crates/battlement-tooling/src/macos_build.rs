@@ -239,6 +239,7 @@ fn build_identity(request: &MacosBuildRequest, source: &SourceManifest) -> Resul
   let options = BTreeMap::from([
     ("editor-method".to_owned(), EDITOR_METHOD.to_owned()),
     ("profile".to_owned(), "release".to_owned()),
+    ("suite".to_owned(), request.suite.clone()),
   ]);
   BuildIdentity::derive(&BuildIdentityRequest {
     source_fingerprint: source.fingerprint.clone(),
@@ -322,6 +323,7 @@ fn build_pending(
     .arg(&unity_log)
     .env("BATTLEMENT_DITTO_BUILD_PATH", pending.path().join(PLAYER))
     .env("BATTLEMENT_DITTO_SCENE_PATH", self::unity_scene(request)?)
+    .env("BATTLEMENT_DITTO_SUITE", &request.suite)
     .env(
       "BATTLEMENT_DITTO_DIAGNOSTICS",
       if request.diagnostics { "1" } else { "0" },
