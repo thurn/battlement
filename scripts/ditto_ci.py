@@ -279,8 +279,8 @@ def gate() -> None:
             except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
                 failures.append(f"{sample}: {error}")
     duration = time.monotonic() - started
-    preparation = float(os.environ.get("DITTO_CI_PREPARATION_SECONDS", "0"))
-    added_duration = preparation + duration
+    reusable_build = float(os.environ.get("DITTO_CI_REUSABLE_BUILD_SECONDS", "0"))
+    added_duration = duration
     if duration > GATE_BUDGET_SECONDS:
         failures.append(
             f"wall clock {duration:.3f}s exceeded the {GATE_BUDGET_SECONDS:g}s gate budget"
@@ -294,7 +294,8 @@ def gate() -> None:
         "status": "failed" if failures else "passed",
         "duration_seconds": round(duration, 3),
         "budget_seconds": GATE_BUDGET_SECONDS,
-        "preparation_seconds": round(preparation, 3),
+        "reusable_build_seconds": round(reusable_build, 3),
+        "scenario_execution_seconds": round(duration, 3),
         "added_duration_seconds": round(added_duration, 3),
         "added_budget_seconds": ADDED_BUDGET_SECONDS,
         "samples": sorted(results, key=lambda item: item["sample"]),

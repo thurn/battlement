@@ -56,6 +56,28 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void SettledInputObservesTwoQuietFramesAfterVirtualInputDrains()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            while (executor.CurrentStepIndex is null)
+            {
+                Assert.That(executor.Advance(), Is.False);
+            }
+            ulong inputStartedAt = executor.LastCommittedFrame;
+
+            Drain(executor);
+
+            Assert.That(executor.LastCommittedFrame - inputStartedAt, Is.GreaterThanOrEqualTo(3));
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
         public void ObjectWaitObservesAnAlreadyMatchingConditionBeforeAdvancing()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

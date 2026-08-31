@@ -179,7 +179,7 @@ def _verify_ditto_gate_contract() -> None:
 
     commands = [command for _name, command, _environment in steps]
     assert commands == [[sys.executable, "scripts/ditto_ci.py", "gate"]]
-    assert steps[0][2]["DITTO_CI_PREPARATION_SECONDS"] == "1.25"
+    assert steps[0][2]["DITTO_CI_REUSABLE_BUILD_SECONDS"] == "1.25"
 
 
 def _workspace(root: Path) -> None:

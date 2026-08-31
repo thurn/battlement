@@ -687,10 +687,10 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
     return ditto_preparation_seconds
 
 
-def run_ditto_validation(preparation_seconds: float) -> None:
+def run_ditto_validation(reusable_build_seconds: float) -> None:
     """Run the bounded screenshot gate against prebuilt players."""
     environment = os.environ.copy()
-    environment["DITTO_CI_PREPARATION_SECONDS"] = str(preparation_seconds)
+    environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = str(reusable_build_seconds)
     run_step(
         "Run Ditto screenshot gate",
         [sys.executable, "scripts/ditto_ci.py", "gate"],

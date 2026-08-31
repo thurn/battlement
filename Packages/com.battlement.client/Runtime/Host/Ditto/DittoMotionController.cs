@@ -97,6 +97,11 @@ namespace Battlement
 
         public void PreserveExactWaitState()
         {
+            RestartQuietWindow();
+        }
+
+        public void RestartQuietWindow()
+        {
             RequireStarted();
             previous = runner.ObserveDittoWork();
             quietFrames = 0;

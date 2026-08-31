@@ -460,6 +460,7 @@ namespace Battlement
                     }
                     else
                     {
+                        motion.RestartQuietWindow();
                         phase = Phase.Settle;
                         phaseStarted = now();
                     }

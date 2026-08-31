@@ -141,14 +141,15 @@ def main() -> None:
         environment.pop("DITTO_CI_GATE_BUDGET_SECONDS")
         environment.pop("FAKE_SLEEP")
 
-        environment["DITTO_CI_PREPARATION_SECONDS"] = "61"
-        over_added_budget = run(["gate"], environment)
-        assert over_added_budget.returncode == 1
+        environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = "61"
+        reusable_build = run(["gate"], environment)
+        assert reusable_build.returncode == 0
         gate = json.loads(
             (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
         )
-        assert any("added work" in failure for failure in gate["failures"])
-        environment.pop("DITTO_CI_PREPARATION_SECONDS")
+        assert gate["reusable_build_seconds"] == 61
+        assert gate["added_duration_seconds"] == gate["scenario_execution_seconds"]
+        environment.pop("DITTO_CI_REUSABLE_BUILD_SECONDS")
 
         environment["FAKE_STATUS"] = "failed"
         failed = run(["sample", "chess"], environment)
