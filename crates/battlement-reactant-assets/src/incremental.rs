@@ -194,7 +194,7 @@ impl IncrementalIndex {
     (&mut self.state.dependencies, &mut self.state.browser)
   }
 
-  pub(crate) fn record_catalog(&mut self, catalog: &AssetCatalog) -> Result<()> {
+  pub(crate) fn record_catalog(&mut self, catalog: &AssetCatalog) -> Result<bool> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct SemanticAsset<'a> {
@@ -240,8 +240,23 @@ impl IncrementalIndex {
         .map(|directory| (directory.path.as_str(), directory.guid.as_str()))
         .collect(),
     };
-    self.state.semantic_output_set_hash = self::hash_json(&semantic)?;
-    Ok(())
+    let current = self::hash_json(&semantic)?;
+    let unchanged = self.state.semantic_output_set_hash == current;
+    self.state.semantic_output_set_hash = current;
+    Ok(unchanged)
+  }
+
+  pub(crate) fn outputs_current(&self, report: &mut WorkReport) -> bool {
+    self.state.outputs.matches(report)
+  }
+
+  pub(crate) fn browser_current(
+    &self,
+    catalog: &AssetCatalog,
+    project: &Path,
+    report: &mut WorkReport,
+  ) -> bool {
+    crate::browser::index_current(&self.state.browser, catalog, project, report)
   }
 
   pub(crate) fn refresh_outputs(&mut self, project: &Path, report: &mut WorkReport) -> Result<()> {
@@ -450,12 +465,16 @@ fn file_id(metadata: &fs::Metadata) -> String {
   #[cfg(unix)]
   {
     use std::os::unix::fs::MetadataExt;
-    return format!("{}:{}", metadata.dev(), metadata.ino());
+    return format!("unix:{:x}:{:x}", metadata.dev(), metadata.ino());
   }
   #[cfg(windows)]
   {
     use std::os::windows::fs::MetadataExt;
-    return metadata.file_index().unwrap_or_default().to_string();
+    return format!(
+      "windows:{:x}:{:x}",
+      metadata.volume_serial_number().unwrap_or_default(),
+      metadata.file_index().unwrap_or_default()
+    );
   }
   #[allow(unreachable_code)]
   "unavailable".to_owned()

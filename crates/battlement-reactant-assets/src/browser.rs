@@ -34,6 +34,7 @@ pub(crate) struct BrowserIdentity {
   pub(crate) executable_fingerprint: FileFingerprint,
   pub(crate) executable_sha256: String,
   pub(crate) product: String,
+  pub(crate) version: String,
   pub(crate) protocol_version: String,
   pub(crate) revision: String,
   pub(crate) user_agent: String,
@@ -54,7 +55,9 @@ struct BrowserProbe {
 
 pub(crate) struct BrowserRun {
   pub(crate) executable_path: String,
+  pub(crate) executable_fingerprint: FileFingerprint,
   pub(crate) product: String,
+  pub(crate) version: String,
   pub(crate) protocol_version: String,
   pub(crate) executable_sha256: String,
   pub(crate) renderer_identity: String,
@@ -70,6 +73,34 @@ pub(crate) struct BrowserRequest {
   pub(crate) height: u32,
   pub(crate) alpha: AlphaBounds,
   pub(crate) warnings: Vec<String>,
+}
+
+pub(crate) fn index_current(
+  index: &BrowserIndex,
+  catalog: &AssetCatalog,
+  project: &Path,
+  report: &mut WorkReport,
+) -> bool {
+  let renderer_identity = self::renderer_identity();
+  let Some(identity) = index.identity.as_ref() else {
+    return false;
+  };
+  let executable = Path::new(&identity.executable_path);
+  let executable_matches =
+    fingerprint(executable, report).as_ref() == Some(&identity.executable_fingerprint);
+  if !executable_matches || index.renderer_identity != renderer_identity {
+    return false;
+  }
+  self::request_records(
+    catalog,
+    project,
+    identity,
+    &renderer_identity,
+    &index.requests,
+    report,
+  )
+  .into_iter()
+  .all(|request| request.is_some())
 }
 
 pub(crate) fn prepare(
@@ -252,7 +283,11 @@ fn cache_path(project: &Path, cache_key: &str) -> PathBuf {
     .join(format!("{cache_key}.png"))
 }
 
-fn renderer_identity() -> String {
+pub(crate) fn cached_png_path(project: &Path, cache_key: &str) -> PathBuf {
+  self::cache_path(project, cache_key)
+}
+
+pub(crate) fn renderer_identity() -> String {
   let mut hash = Sha256::new();
   hash.update(b"battlement-reactant-browser-renderer\0");
   hash.update(env!("CARGO_PKG_VERSION").as_bytes());
@@ -265,6 +300,10 @@ fn renderer_identity() -> String {
   hash.update(include_bytes!("renderer_document.rs"));
   hash.update(include_bytes!("png_output.rs"));
   hash.update(include_bytes!("browser_protocol.rs"));
+  hash.update(include_bytes!("manifest.rs"));
+  hash.update(include_bytes!("manifest_schema.rs"));
+  hash.update(include_bytes!("manifest_validation.rs"));
+  hash.update(include_bytes!("unity_metadata.rs"));
   self::hex(&hash.finalize())
 }
 
@@ -276,7 +315,9 @@ fn run_record(
 ) -> BrowserRun {
   BrowserRun {
     executable_path: identity.executable_path.clone(),
+    executable_fingerprint: identity.executable_fingerprint.clone(),
     product: identity.product.clone(),
+    version: identity.version.clone(),
     protocol_version: identity.protocol_version.clone(),
     executable_sha256: identity.executable_sha256.clone(),
     renderer_identity,
@@ -385,9 +426,25 @@ fn is_executable(path: &Path) -> bool {
   true
 }
 
-fn cache_key(
+pub(crate) fn cache_key(
   asset: &crate::CatalogAsset,
   browser: &BrowserIdentity,
+  renderer_identity: &str,
+) -> String {
+  self::manifest_cache_key(
+    asset,
+    &browser.executable_sha256,
+    &browser.product,
+    &browser.version,
+    renderer_identity,
+  )
+}
+
+pub(crate) fn manifest_cache_key(
+  asset: &crate::CatalogAsset,
+  executable_sha256: &str,
+  product: &str,
+  version: &str,
   renderer_identity: &str,
 ) -> String {
   let mut hash = Sha256::new();
@@ -402,15 +459,7 @@ fn cache_key(
     self::field(&mut hash, &dependency.identity);
   }
   hash.update([asset.raster_scale]);
-  for value in [
-    &browser.executable_sha256,
-    &browser.product,
-    &browser.protocol_version,
-    &browser.revision,
-    &browser.user_agent,
-    &browser.javascript_version,
-    renderer_identity,
-  ] {
+  for value in [executable_sha256, product, version, renderer_identity] {
     self::field(&mut hash, value.as_bytes());
   }
   self::hex(&hash.finalize())
@@ -473,6 +522,7 @@ mod tests {
       },
       executable_sha256: "executable".to_owned(),
       product: "Chrome/1".to_owned(),
+      version: "1".to_owned(),
       protocol_version: "1".to_owned(),
       revision: "revision".to_owned(),
       user_agent: "agent".to_owned(),

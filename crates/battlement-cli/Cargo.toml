@@ -23,3 +23,4 @@ tempfile = "3.27.0"
 
 [dev-dependencies]
 png = "0.18.1"
+sha2.workspace = true

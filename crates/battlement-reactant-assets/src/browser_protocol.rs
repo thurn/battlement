@@ -100,13 +100,17 @@ impl BrowserSession {
     let version = session
       .protocol
       .command("Browser.getVersion", json!({}), None)?;
-    let product = self::required_string(&version, "product")?;
-    if !self::supported_product(&product) {
+    let reported_product = self::required_string(&version, "product")?;
+    if !self::supported_product(&reported_product) {
       bail!(
-        "browser {} reported unsupported product {product}; expected stable Chrome or Chromium",
+        "browser {} reported unsupported product {reported_product}; expected stable Chrome or Chromium",
         executable.display()
       );
     }
+    let (product, browser_version) = reported_product
+      .split_once('/')
+      .filter(|(product, version)| !product.is_empty() && !version.is_empty())
+      .context("browser reported an invalid product identity")?;
     let executable_sha256 = if let Some(hash) = cached_hash {
       hash.to_owned()
     } else {
@@ -121,7 +125,8 @@ impl BrowserSession {
       executable_path: self::normalized(executable),
       executable_fingerprint,
       executable_sha256,
-      product,
+      product: product.to_owned(),
+      version: browser_version.to_owned(),
       protocol_version: self::required_string(&version, "protocolVersion")?,
       revision: self::required_string(&version, "revision")?,
       user_agent: self::required_string(&version, "userAgent")?,
@@ -347,14 +352,9 @@ fn wait_for_endpoint(
     if let Ok(contents) = fs::read_to_string(&active_port) {
       report.files_opened += 1;
       report.bytes_read += contents.len() as u64;
-      let mut lines = contents.lines();
-      let port = lines
-        .next()
-        .context("browser debugging endpoint omitted its port")?;
-      let path = lines
-        .next()
-        .context("browser debugging endpoint omitted its path")?;
-      return Ok(format!("ws://127.0.0.1:{port}{path}"));
+      if let Some(endpoint) = self::debugging_endpoint(&contents) {
+        return Ok(endpoint);
+      }
     }
     if let Some(status) = child.try_wait()? {
       let selection = if explicit {
@@ -371,6 +371,16 @@ fn wait_for_endpoint(
     }
     thread::sleep(Duration::from_millis(20));
   }
+}
+
+fn debugging_endpoint(contents: &str) -> Option<String> {
+  let mut lines = contents.lines();
+  let port = lines.next()?.parse::<u16>().ok()?;
+  let path = lines.next()?;
+  if path.is_empty() || !path.starts_with('/') {
+    return None;
+  }
+  Some(format!("ws://127.0.0.1:{port}{path}"))
 }
 
 fn stop_child(child: &mut Option<Child>) {

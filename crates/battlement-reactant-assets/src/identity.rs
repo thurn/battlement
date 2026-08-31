@@ -115,6 +115,7 @@ pub(crate) fn resolve(
     [
       GENERATED_ROOT,
       concat!("Assets/Generated/BattlementReactant", "/Resources"),
+      concat!("Assets/Generated/BattlementReactant", "/textures"),
     ]
     .into_iter()
     .map(|path| DirectoryIdentity {

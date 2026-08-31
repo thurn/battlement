@@ -550,7 +550,7 @@ corpora; visual judgment remains Manual QA.
 
 **Evidence:** browser identity plus decoded metadata and hashes for the batch.
 
-### Task 13 — Write manifests, Unity metadata, and the runtime sidecar
+### Task 13 — Write manifests, Unity metadata, and the runtime sidecar [DONE]
 
 **Prerequisites:** Task 12. **Target:** 400–500 non-test lines.
 

@@ -54,7 +54,7 @@ impl OutputIndex {
     self::record_path(&metadata, self, report)
   }
 
-  fn matches(&self, report: &mut WorkReport) -> bool {
+  pub(crate) fn matches(&self, report: &mut WorkReport) -> bool {
     if self.roots.len() != 2 {
       return false;
     }

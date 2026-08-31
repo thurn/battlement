@@ -19,10 +19,14 @@ mod dependency;
 mod discovery;
 mod identity;
 mod incremental;
+mod manifest;
+mod manifest_schema;
+mod manifest_validation;
 mod output_index;
 mod png_output;
 mod renderer_document;
 mod source_scan;
+mod unity_metadata;
 
 pub use discovery::{DiscoveredAsset, Discovery};
 pub use identity::{AssetCatalog, CatalogAsset, DependencyIdentity, DirectoryIdentity};
@@ -136,7 +140,9 @@ fn run_inner(
     report,
   )?;
   let catalog = identity::resolve(&discovery, &project, index.dependencies(), report)?;
-  index.record_catalog(&catalog)?;
+  let semantic_unchanged = index.record_catalog(&catalog)?;
+  let outputs_current = index.outputs_current(report);
+  let browser_current = index.browser_current(&catalog, &project, report);
   if !discovery.assets.is_empty() {
     for asset in &catalog.assets {
       let dependencies = asset
@@ -156,6 +162,21 @@ fn run_inner(
     for directory in &catalog.directories {
       println!("directory={} guid={}", directory.path, directory.guid);
     }
+    if command == AssetCommand::Check {
+      if !semantic_unchanged || !outputs_current || !browser_current {
+        manifest::validate(&project, &catalog, report).context(
+          "generated Reactant assets are stale; run `cargo battlement reactant assets generate`",
+        )?;
+      }
+      println!(
+        "discovered={} deduplicated={} current={} rendered=0 stale=0",
+        discovery.assets.len(),
+        catalog.assets.len(),
+        catalog.assets.len()
+      );
+      index.refresh_outputs(&project, report)?;
+      return Ok(());
+    }
     if command != AssetCommand::Check {
       let (dependencies, browser_index) = index.render_state();
       let browser = browser::prepare(
@@ -167,15 +188,16 @@ fn run_inner(
         report,
       )?;
       println!(
-        "browser={} product={} protocol={} executable={} renderer={} session-requests={}",
+        "browser={} product={}/{} protocol={} executable={} renderer={} session-requests={}",
         browser.executable_path,
         browser.product,
+        browser.version,
         browser.protocol_version,
         browser.executable_sha256,
         browser.renderer_identity,
         browser.session_requests
       );
-      for request in browser.requests {
+      for request in &browser.requests {
         println!(
           "cache={} key={} probe={}",
           request.address, request.cache_key, request.image_hash
@@ -190,16 +212,21 @@ fn run_inner(
           request.alpha.right,
           request.alpha.bottom
         );
-        for warning in request.warnings {
+        for warning in &request.warnings {
           println!("warning[{warning}] asset={}", request.address);
         }
       }
+      if !semantic_unchanged || !outputs_current || browser.session_requests != 0 {
+        manifest::install(&project, &catalog, &browser, report)?;
+      }
     }
     println!(
-      "discovered={} deduplicated={} current=0 rendered=0 stale={}",
+      "discovered={} deduplicated={} current={} rendered={} stale={}",
       discovery.assets.len(),
       catalog.assets.len(),
-      catalog.assets.len()
+      usize::from(semantic_unchanged && outputs_current) * catalog.assets.len(),
+      usize::from(!semantic_unchanged || !outputs_current) * catalog.assets.len(),
+      usize::from(!semantic_unchanged || !outputs_current) * catalog.assets.len()
     );
     index.refresh_outputs(&project, report)?;
     if command != AssetCommand::Check {
