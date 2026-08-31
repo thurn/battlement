@@ -12,6 +12,9 @@ members = [
     "crates/battlement-cli",
     "crates/battlement-native",
     "crates/battlement-reactant",
+    "crates/battlement-reactant-asset-macros",
+    "crates/battlement-reactant-asset-syntax",
+    "crates/battlement-reactant-assets",
     "crates/battlement-native/tests/fixtures/exported-engine",
 ]
 exclude = ["samples/basic/rules", "samples/tictactoe/rules"]
@@ -28,6 +31,8 @@ battlement-cloud = { path = "crates/battlement-cloud" }
 battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
 battlement-ditto = { path = "crates/battlement-ditto" }
 battlement-reactant = { path = "crates/battlement-reactant" }
+battlement-reactant-asset-syntax = { path = "crates/battlement-reactant-asset-syntax" }
+battlement-reactant-assets = { path = "crates/battlement-reactant-assets" }
 battlement-tooling = { path = "crates/battlement-tooling" }
 battlement-types = { path = "crates/battlement-types" }
 battlement-ui = { path = "crates/battlement-ui" }

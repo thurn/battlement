@@ -1,0 +1,10 @@
+[package]
+name = "battlement-reactant-asset-syntax"
+version = "0.1.0"
+description = "Shared Reactant generated-asset syntax and identity contracts"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]

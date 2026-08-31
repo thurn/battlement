@@ -247,7 +247,7 @@ is present.
 
 ## Wave 1: contract and authoring grammar
 
-### Task 01 — Establish the generator crates and empty command surface
+### Task 01 — Establish the generator crates and empty command surface [DONE]
 
 **Prerequisites:** none. **Target:** 300–400 non-test lines.
 

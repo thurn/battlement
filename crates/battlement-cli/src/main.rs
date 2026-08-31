@@ -2,6 +2,7 @@ mod author;
 mod generate;
 mod plugin;
 mod plugin_build;
+mod reactant_assets;
 mod sample;
 mod tools;
 
@@ -60,6 +61,8 @@ enum Command {
   },
   /// Manage the native rules plugin in a macOS Unity application.
   Plugin(PluginArgs),
+  /// Work with Reactant projects.
+  Reactant(ReactantArgs),
   /// Build and run standalone Battlement samples.
   Sample(SampleArgs),
 }
@@ -109,6 +112,18 @@ enum SampleCommand {
 struct PluginArgs {
   #[command(subcommand)]
   command: PluginCommand,
+}
+
+#[derive(Debug, Args)]
+struct ReactantArgs {
+  #[command(subcommand)]
+  command: ReactantCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum ReactantCommand {
+  /// Manage generated Reactant assets.
+  Assets(reactant_assets::Args),
 }
 
 #[derive(Debug, Subcommand)]
@@ -253,6 +268,12 @@ fn run() -> Result<u8> {
       }
       PluginCommand::Verify { library } => {
         plugin::verify(&library)?;
+        0
+      }
+    },
+    Command::Reactant(args) => match args.command {
+      ReactantCommand::Assets(args) => {
+        reactant_assets::run(args)?;
         0
       }
     },
