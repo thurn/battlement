@@ -32,6 +32,8 @@ pub enum DiagnosticCategory {
   RedundantDefault,
   /// A CSS value is outside the closed scalar grammar.
   InvalidValue,
+  /// CSS calculation operands have incompatible dimensions or an invalid result.
+  InvalidArithmetic,
 }
 
 impl DiagnosticCategory {
@@ -50,6 +52,7 @@ impl DiagnosticCategory {
       Self::InvalidClippingOrder => "invalid-clipping-order",
       Self::RedundantDefault => "redundant-default",
       Self::InvalidValue => "invalid-value",
+      Self::InvalidArithmetic => "invalid-arithmetic",
     }
   }
 }

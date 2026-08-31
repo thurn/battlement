@@ -135,3 +135,15 @@ pub struct AssetRequest {
   /// Complete declaration source span.
   pub span: SourceSpan,
 }
+
+impl AssetRequest {
+  /// Deterministic encoding of every public identity field.
+  pub fn canonical_bytes(&self) -> Vec<u8> {
+    crate::canonical::request(self)
+  }
+
+  /// SHA-256 identity of the canonical request.
+  pub fn identity(&self) -> [u8; 32] {
+    crate::canonical::identity(&self.canonical_bytes())
+  }
+}

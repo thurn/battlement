@@ -7,6 +7,7 @@ use crate::{
   token::{Cursor, css_name},
 };
 
+mod calc;
 mod display;
 mod encode;
 
@@ -19,6 +20,7 @@ enum Value {
   Function(String, Box<Value>),
   Space(Vec<Value>),
   Comma(Vec<Value>),
+  Calculation(Calculation),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -42,6 +44,36 @@ enum Unit {
 struct Scalar {
   value: f64,
   unit: Unit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Dimension {
+  Number,
+  Length,
+  Percentage,
+  LengthPercentage,
+  Angle,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct Calculation {
+  node: CalcNode,
+  dimension: Dimension,
+  basis: Option<Unit>,
+  constant: Option<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum CalcNode {
+  Scalar(Scalar),
+  Add(Box<Calculation>, Box<Calculation>),
+  Subtract(Box<Calculation>, Box<Calculation>),
+  Multiply(Box<Calculation>, Box<Calculation>),
+  Divide(Box<Calculation>, Box<Calculation>),
+  Min(Vec<Calculation>),
+  Max(Vec<Calculation>),
+  Clamp(Vec<Calculation>),
+  Group(Box<Calculation>),
 }
 
 pub(crate) struct ValueError {
@@ -134,6 +166,9 @@ fn atom(cursor: &mut Cursor) -> Result<Value, ValueError> {
     if matches!(name.as_str(), "rgb" | "rgba" | "hsl" | "hsla") {
       let authored = format!("{name}({})", arguments.to_string().replace(" %", "%"));
       return self::color(&authored, span).map(Value::Color);
+    }
+    if matches!(name.as_str(), "calc" | "min" | "max" | "clamp") {
+      return calc::parse(&name, arguments, span).map(Value::Calculation);
     }
     return self::parse_stream(arguments).map(|value| Value::Function(name, Box::new(value)));
   }

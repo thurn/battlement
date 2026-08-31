@@ -1,5 +1,5 @@
 use battlement_reactant_asset_syntax::{
-  DiagnosticCategory, canonicalize_value, serialize_value, value_identity,
+  DiagnosticCategory, canonicalize_value, parse, serialize_value, value_identity,
 };
 
 #[test]
@@ -91,4 +91,75 @@ fn rejects_nonfinite_and_unknown_dimensions() {
       "{value}"
     );
   }
+}
+
+#[test]
+fn accepts_typed_calculations() {
+  for value in [
+    "calc(10px + 2px)",
+    "calc(2 * 10px / 4)",
+    "min(1em, 10px)",
+    "max(25%, 10px)",
+    "clamp(1px, 5%, 10px)",
+    "calc((1px + 2px) * 3)",
+  ] {
+    assert!(!canonicalize_value(value).unwrap().is_empty(), "{value}");
+  }
+}
+
+#[test]
+fn rejects_invalid_typed_arithmetic() {
+  for value in [
+    "calc(1px + 1deg)",
+    "calc(1px * 1px)",
+    "calc(1px / 0)",
+    "calc(1 / (1 - 1))",
+    "calc(1e308 * 1e308)",
+    "min(1px, 1deg)",
+    "clamp(1px, 2px)",
+  ] {
+    assert_eq!(
+      canonicalize_value(value).unwrap_err().category,
+      DiagnosticCategory::InvalidArithmetic,
+      "{value}"
+    );
+  }
+}
+
+#[test]
+fn request_identity_ignores_spelling_symbol_location_and_statement_order() {
+  let first =
+    parse("@background FIRST { @canvas 20px 10px; opacity: 1.0; background: rgb(255, 0, 0); }")
+      .unwrap();
+  let second = parse(
+    "\n\n@background SECOND {\n  background: #f00;\n  @canvas 20px 10px;\n  opacity: 1e0;\n}",
+  )
+  .unwrap();
+
+  assert_eq!(first.canonical_bytes(), second.canonical_bytes());
+  assert_eq!(first.identity(), second.identity());
+}
+
+#[test]
+fn request_identity_includes_kind_metadata_and_ordered_values() {
+  let base = parse("@background PANEL { @canvas 20px 10px; background: red, blue; }").unwrap();
+  let reordered = parse("@background PANEL { @canvas 20px 10px; background: blue, red; }").unwrap();
+  let resized = parse("@background PANEL { @canvas 21px 10px; background: red, blue; }").unwrap();
+
+  assert_ne!(base.identity(), reordered.identity());
+  assert_ne!(base.identity(), resized.identity());
+}
+
+#[test]
+fn arithmetic_diagnostics_retain_declaration_context() {
+  let error = parse(
+    "@background PANEL {\n  @canvas 20px 10px;\n  background: red;\n  opacity: calc(1px + 1deg);\n}",
+  )
+  .unwrap_err();
+
+  assert_eq!(error.category, DiagnosticCategory::InvalidArithmetic);
+  assert_eq!(error.symbol.as_deref(), Some("PANEL"));
+  assert_eq!(error.property.as_deref(), Some("opacity"));
+  assert_eq!(error.span.start_line, 4);
+  assert_eq!(error.span.start_column, 3);
 }

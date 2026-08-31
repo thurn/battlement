@@ -288,7 +288,7 @@ stable diagnostic category, symbol, property, and source span.
 **Evidence:** fixture transcript containing one valid declaration of each kind
 and representative metadata diagnostics with symbol and location.
 
-### Task 03 — Add scalar CSS values and canonical encoding
+### Task 03 — Add scalar CSS values and canonical encoding [DONE]
 
 **Prerequisites:** Task 02. **Target:** 400–500 non-test lines.
 
