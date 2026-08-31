@@ -12,7 +12,7 @@ does not introduce animated copies of every host type. `Button`,
 builders through a sealed extension trait imported by the Reactant prelude.
 
 The execution goal is 60 Hz motion in native macOS and desktop WebGL players,
-as measured by the numeric release gates in
+as measured by the on-demand checks in
 [Performance requirements](#performance-requirements). Rust declares animation
 state. Unity recognizes gestures, evaluates motion-value graphs, samples
 timelines, projects layout, and applies final UI Toolkit values on every
@@ -31,8 +31,9 @@ per frame.
   defines logical identity, host identity, event ordering, and portals.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines `ElementRef`,
   asynchronous geometry, and panel ownership.
-- [Generated UI assets](asset-generator.md) defines the static paint compiler
-  used by animation hosts and decoration layers.
+- [Generated UI assets](asset-generator.md) defines an optional source of
+  immutable textures. Reactant Animations also works with ordinary prepared
+  textures, styles, custom geometry, and shaders.
 - [Motion for React][motion-react] is the naming and behavioral reference for
   targets, transitions, gestures, presence, layout, and motion values.
 - [Motion layout animation][motion-layout] explains the projection behavior
@@ -77,14 +78,17 @@ Motion families:
 - animation lifecycle callbacks and explicit value subscriptions; and
 - system and application reduced-motion policies.
 
-The release targets are native macOS desktop and desktop WebGL only. Touch
-pointer semantics remain defined for touch-capable desktop hardware, but there
-is no mobile player, device profile, performance gate, or manual QA target.
+The release targets are native macOS desktop and desktop WebGL only. Mobile is
+an architectural constraint: the frame loop may not require threads, per-frame
+managed allocation, desktop-only shaders, or mouse-only input. Touch semantics
+remain defined and the runtime must remain suitable for mobile-class CPU and
+memory budgets, but there is no mobile player, device profile, performance
+gate, or manual QA target.
 
 The contract covers UI hosts and typed UI values. Browser-only DOM mutation,
 arbitrary CSS selectors, SVG path machinery, and runtime CSS string parsing are
 not part of Reactant. Equivalent UI effects use typed values, decoration
-layers, generated assets, or a purpose-built Unity rendering implementation.
+layers, prepared textures, or a purpose-built Unity rendering implementation.
 
 Motion APIs whose purpose is to run JavaScript on every browser frame become
 Unity-local graphs rather than Rust frame callbacks. `use_time`, motion-value
@@ -93,12 +97,13 @@ expressions, and explicit coalesced subscriptions cover those cases.
 at build time. Browser view transitions have no counterpart; Reactant presence
 and shared layout animate the live UI Toolkit hosts instead.
 
-The compatibility baseline is Motion `13.1.x`, with numerical behavior frozen
-to the mockup's installed `13.1.1` release. The supported core is:
+The compatibility baseline is exactly Motion `13.1.1`, the version installed by
+the pinned mockup. A later Motion release does not change this contract until
+the design explicitly adopts it. The supported core is:
 
 | Motion family | Reactant contract |
 |---|---|
-| `motion.*` | Motion builders on concrete Reactant host primitives |
+| `motion.*` | Motion builders on hosts and explicitly forwarding components |
 | targets and variants | Typed styles, keyframes, names, and custom data |
 | transitions | Tween, spring, inertia, repeats, and orchestration |
 | gestures | Hover, tap, focus, pan, drag, in-view, and reorder |
@@ -109,14 +114,15 @@ to the mockup's installed `13.1.1` release. The supported core is:
 | accessibility | Inherited and application-observable reduced motion |
 | CSS animation | Typed transitions, pseudo-styles, and reusable keyframes |
 
-Reactant does not animate arbitrary components. A component may render zero,
-one, or many hosts, so selecting one implicitly would make a structural
-refactor change behavior. Components expose ordinary struct builders that
-forward animation configuration to the intended host. `motion.create`, DOM
-selectors and mutation, SVG path animation, runtime CSS strings,
-`useAnimationFrame` callbacks, `AnimateActivity`, `AnimateView`, and Motion+
-components are outside the compatible core. Their absence is compile-time API
-absence, not a runtime fallback.
+Reactant does not guess which host belongs to an arbitrary component. A
+component may render zero, one, or many hosts, so implicit selection would make
+a structural refactor change behavior. A component may instead implement the
+explicit forwarding contract in
+[Component forwarding](#component-forwarding). DOM selectors and mutation,
+SVG path animation, runtime CSS strings, `useAnimationFrame` callbacks,
+`AnimateActivity`, `AnimateView`, and Motion+ components are outside the
+compatible core. Their absence is compile-time API absence, not a runtime
+fallback.
 
 The pinned settings mockup is the minimum feature bar. Its animation patterns
 are listed in
@@ -194,6 +200,40 @@ implements `Render`, terminal host adapters, `MotionHostExt`, and every
 remaining Motion builder. It implements neither primitive property methods nor
 child and event methods. `NoVariant` is a sealed zero-sized marker used until a
 variant map establishes the application's name and custom-data types.
+
+### Component forwarding
+
+Custom components can opt into the same Motion builder surface without adding
+a Unity wrapper. **Motion forwarding** means that the component explicitly
+accepts a complete `MotionProps` value and applies it to one host selected by
+the component author.
+
+```rust
+pub trait MotionComponent: Component + Sized {
+    fn with_motion(self, motion: MotionProps) -> Self;
+}
+```
+
+`MotionComponentExt` is implemented for `MotionComponent` values and collects
+the same targets, transitions, gestures, variants, layout settings, and
+callbacks as `MotionHostExt`. Before rendering, its Rust-only adapter calls
+`with_motion`. The component must forward that value unchanged to exactly one
+stable primitive host in every render branch. That host is eligible for a
+property only when its property-catalog capability accepts the requested value
+shape.
+
+Failure to forward, forwarding to multiple hosts, or changing the selected host
+without changing component identity is a developer error detected while
+lowering. The adapter contributes no logical position, physical parent, layout
+box, event target, or focus target. Components that cannot promise one stable
+host expose their own narrower builders instead of implementing
+`MotionComponent`.
+
+```rust
+SettingsCard::new(settings)
+    .animate(MotionStyle::new().opacity(1.0).y(0.0))
+    .exit(MotionStyle::new().opacity(0.0).y(-8.0))
+```
 
 ### Motion targets
 
@@ -340,7 +380,8 @@ The mockup's installed Motion 13.1.1 sampler is the compatibility baseline.
 Reactant freezes its relevant defaults and equations here so a later Motion
 release cannot silently change application behavior.
 
-An unspecified transition uses these property defaults:
+An unspecified transition uses these property defaults, in order. The
+more-than-two-keyframes rule takes precedence over the property-specific rules:
 
 - more than two keyframes use a `0.8` second tween;
 - non-transform values use a `0.3` second tween with cubic Bézier
@@ -378,7 +419,8 @@ Motion 13.1.1's `0.001` displacement envelope. A non-finite result falls back
 to stiffness `100` and damping `10`. The resulting stiffness is
 `frequency² * mass`; damping is
 `2 * ratio * sqrt(mass * stiffness)`. These constants, iteration count, and
-fallback are normative and are ported directly into both samplers. A
+fallback are normative and become checked-in conformance vectors for Reactant's
+normative Unity sampler. A
 visual-duration spring uses angular root
 `2 * PI / (1.2 * visual_duration)` and derives stiffness and damping from that
 root and the clamped bounce ratio.
@@ -495,9 +537,10 @@ impl StyleTransition {
 
 Only tween and immediate transitions are accepted; spring or inertia panics
 during render validation. Repeating `property` replaces that property's entry.
-`all` supplies a default for changed properties without an explicit entry. It
-expands at validation time to every changed interpolable property and never
-includes discrete properties implicitly.
+`all` supplies a default for changed properties without an explicit entry,
+regardless of builder call order. It expands at validation time to every
+changed interpolable property and never includes discrete properties
+implicitly.
 
 Discrete transitions require `.allow_discrete(true)`. They switch at 50 percent
 of the active interval. `Display::None` and hidden visibility switch at the end
@@ -731,14 +774,17 @@ logical child order after reconciliation; reverse starts from the last child.
 
 ### Typed property catalog
 
-`MotionStyle` covers every public Battlement UI style property plus Motion
-aliases and the additional visual values required by the mockup. The existing
-host-style schema generates an exhaustive `MotionProperty` catalog. Every
-catalog entry declares its Rust value type, canonical unit, initial value,
-interpolation category, percentage reference box, additive rule, wire encoding,
-and Unity writer. Generation fails when any public style property lacks an
-entry. Each generated builder and serializer uses that same entry, so the Rust
-and Unity catalogs cannot drift.
+`MotionStyle` can syntactically represent every public Battlement UI style
+property plus Motion aliases and the additional visual values required by the
+mockup. A particular host still accepts only the property and value-shape
+combinations declared by its renderer capability; descriptor validation rejects
+unsupported combinations before activation. Implementation establishes one
+authoritative animation-property metadata catalog. Every entry
+declares its Rust value type, canonical unit, initial value, interpolation
+category, percentage reference box, additive rule, wire encoding, and Unity
+writer. Generation fails when any public style property lacks an entry. Each
+generated builder and serializer uses that same entry, so the Rust and Unity
+catalogs cannot drift.
 
 Interpolated values include:
 
@@ -886,6 +932,7 @@ where
     O: MotionValueType;
 pub fn use_velocity(source: MotionValue<f32>) -> MotionValue<f32>;
 pub fn use_time() -> MotionValue<Duration>;
+pub fn use_motion_time(source: MotionTimeSource) -> MotionValue<Duration>;
 pub fn use_scroll(value: ScrollOptions) -> ScrollMotionValues;
 pub fn use_motion_expression<T: MotionValueType>(
     expression: MotionExpression<T>,
@@ -933,10 +980,56 @@ let distance = use_motion_expression(
 ```
 
 Expression nodes are a closed serializable set covering arithmetic, ranges,
-clamp, wrap, color mixing, lengths, and transforms. Reactant does not pretend
-that an arbitrary Rust closure can execute in Unity. Application-specific Rust
+clamp, modulo and wrap, minimum and maximum, powers and exponential decay,
+color mixing, lengths, and transforms. Reactant does not pretend that an
+arbitrary Rust closure can execute in Unity. Application-specific Rust
 calculations require an explicit value subscription and therefore update only
 at the Rust exchange rate.
+
+### Time sources
+
+`use_time()` is the direct Motion counterpart and reads unscaled runtime time.
+`use_motion_time(source)` selects another Unity-local clock without creating
+per-frame Rust traffic.
+
+```rust
+pub enum MotionTimeSource {
+    Unscaled,
+    Scaled,
+    Controlled(ControlledMotionClock),
+    Audio(AudioPlayback),
+}
+```
+
+`AudioPlayback` is a stable, cloneable handle identifying one Battlement-owned
+audio operation. The audio play command creates it before submission so Rust
+can use the same identity for stop, volume, and motion-source operations. Unity
+publishes the operation's current playhead, playing state, and discontinuities
+directly to `MotionWorld`; it does not send a time sample to Rust each frame.
+
+An unavailable or not-yet-started audio source reports duration zero. Pausing
+or buffering freezes its motion time. Seeking, looping, or replacing playback
+is a discontinuity: dependent graph nodes evaluate once at the new playhead and
+retain no velocity across the jump. Stopping the operation freezes the final
+playhead until every dependent descriptor releases the source.
+
+The source abstraction is closed. Applications combine the supplied time,
+scroll, pointer, and geometry values through `MotionExpression`; they cannot
+register arbitrary Unity callbacks or string-named native sources.
+
+The settings mockup's heartbeat is therefore application-authored math rather
+than a library feature:
+
+```rust
+let time = use_motion_time(MotionTimeSource::Audio(music));
+let phase = use_motion_expression(
+    MotionExpression::input(time).sub_secs(1.04).wrap_secs(0.0, 60.0 / 56.0),
+);
+```
+
+The application derives pulse strength, scale, brightness, and glow from this
+phase and shares those resulting motion values through ordinary Reactant
+context. The library knows nothing about beats or the mockup's visual formula.
 
 Motion's `useMotionTemplate` translates to `use_motion_expression` with typed
 `TransformList`, `FilterList`, gradient, or length expression nodes. There is no
@@ -954,9 +1047,12 @@ effects, and engine-thread application callbacks. They panic during render.
 `set` retargets through an attached passive effect when a component needs to
 synchronize an external value.
 
-`MotionValue::get` returns the last value observed by Rust and may lag one
-exchange. It is forbidden during render because using a sampled client value as
-render input would create an implicit subscription and unstable feedback loop.
+`MotionValue::get` returns the mount value, the last locally issued value whose
+Unity acknowledgement has arrived, or the last value delivered by a lifecycle
+event or explicit subscription carrying that exact motion-value identity. It
+may lag Unity by one exchange. It is forbidden during render because using a
+sampled client value as render input would create an implicit subscription and
+unstable feedback loop.
 
 ### Subscriptions
 
@@ -1519,10 +1615,11 @@ Panel::new()
 ```
 
 Sequence positions support after previous, with previous, absolute time, and a
-signed offset from a named label. Targets are snapshotted when their sequence
-step becomes eligible. A target unmounted before its step is skipped; an active
-target unmounted during its step is cancelled. Empty selector results are valid
-and complete immediately.
+signed offset from a named label. `.at(...)` repositions the most recently
+appended `animate` or `then` step and panics if no step precedes it. Targets are
+snapshotted when their sequence step becomes eligible. A target unmounted
+before its step is skipped; an active target unmounted during its step is
+cancelled. Empty selector results are valid and complete immediately.
 
 ### Playback handles
 
@@ -1584,7 +1681,7 @@ callbacks are ordered by animation layer, host preorder, and slot identity.
 MotionConfig::new(app)
     .transition(Transition::spring().stiffness(420.0).damping(32.0))
     .reduced_motion(ReducedMotion::User)
-    .time_source(MotionTime::Unscaled)
+    .time_source(MotionTimeSource::Unscaled)
 ```
 
 The optional transition is the inherited default for descendants that do not
@@ -1750,10 +1847,10 @@ second synchronous layout pass in one frame.
 
 ### Clocks and dropped frames
 
-Unscaled time is the default. `.time_source(MotionTime::Scaled)` opts a subtree,
-animation, or imperative start into Unity game time. The nearest setting wins.
-Pause and playback speed multiply the selected clock without changing its
-source.
+Unscaled time is the default. `.time_source(MotionTimeSource::Scaled)` opts a
+subtree, animation, or imperative start into Unity game time. The nearest
+setting wins. Pause and playback speed multiply the selected clock without
+changing its source.
 
 `ControlledMotionClock` replaces both sources for tests and captures. It
 advances only through explicit commands and samples exact requested durations.
@@ -1869,35 +1966,46 @@ late old-session completion from dispatching it twice.
 
 ### Assets and advanced paint
 
-The generated-asset system produces immutable textures with no runtime
-parameters. Reactant Animations may:
+Reactant Animations has no hard dependency on the Reactant Asset Generator or
+any numbered task in its implementation plan. Animation descriptors consume
+ordinary prepared textures and typed renderer values. A generated texture is
+one optional source of such an immutable texture and follows exactly the same
+runtime path as any other prepared texture.
 
-- animate the transform, opacity, tint, filter, clip, or layout of a generated
+Reactant Animations may:
+
+- animate the transform, opacity, tint, filter, clip, or layout of an ordinary
   texture host;
-- use generated variants as discrete keyframes;
-- place a generated texture in a decoration layer; or
+- use prepared texture variants as discrete keyframes;
+- place a prepared texture in a decoration layer; or
 - drive a separately implemented UI Toolkit custom renderer or shader through
   typed style and motion-value bindings.
 
-The animation design does not add runtime inputs to the asset generator and
-does not accept arbitrary shader-property strings. A custom renderer exposes
-typed properties through the same property catalog before those values can
+When both projects exist, Asset Generator Task 16 makes its textures ordinary
+Reactant prepared assets and Task 17 makes them available in Unity. No animation
+task waits for either integration because styles, authored textures, custom
+geometry, and shaders cover the same animation interfaces. Asset Generator
+Tasks 01–15, 18, and 19 likewise provide no prerequisite for this design.
+
+The animation design does not add runtime inputs to asset generation and does
+not accept arbitrary shader-property strings. A custom renderer exposes typed
+properties through the same property catalog before those values can
 participate in `MotionStyle`.
 
 The properties required by the settings mockup have concrete runtime paths:
 
 - rectangular inset clips use the host's existing overflow clip and sampled
   inset values without inserting a wrapper;
-- static polygon clips use generated or authored vector chrome;
-- animated polygon clips update cached custom geometry for an eligible host or
+- static polygon clips use authored vector chrome or custom geometry;
+- animated polygon clips update cached custom geometry for a capable host or
   decoration rather than claiming to clip arbitrary descendants;
 - skew, `rotate_x`, and `rotate_y` deform cached custom quad geometry for the
-  eligible host paint or decoration while leaving descendant layout and input
+  capable host paint or decoration while leaving descendant layout and input
   geometry unchanged;
 - blur, brightness, saturation, contrast, hue rotation, and supported filter
   lists use pinned UI Toolkit filter writers; and
 - gradients, glows, shadows, and masks use ordinary styles when supported and
-  generated textures or cached custom geometry otherwise.
+  prepared textures or cached custom geometry otherwise.
 
 Reactant does not promise offscreen capture or transformation of an arbitrary
 live UI Toolkit subtree. UI Toolkit exposes no supported subtree-capture
@@ -1925,44 +2033,14 @@ Reactant never accepts a track and then silently omits its paint.
 ## Mockup translation coverage
 
 The acceptance source is `~/Documents/mockups` at Git commit
-`2451ea9cc6f76b356b1102ee37b82c478853122a`. Each entry below becomes one
-checked-in effect-gallery case. The gallery is a focused set of independent
-examples, not a port of the complete settings screen.
+`2451ea9cc6f76b356b1102ee37b82c478853122a`. The ledger below is a manually
+reviewed requirements checklist. It does not create a source analyzer,
+manifest, generated fixture, mirrored gallery, or automated coverage check.
 
-Each case must use only public Reactant builders. Its manifest stores the
-source path and line, source commit, literal target/keyframe data, transition,
-reduced-motion result, and Rust case ID.
-
-The inventory generator parses the TypeScript and CSS syntax trees rather than
-searching text. Its roots are all files reachable from `app/layout.tsx`. It
-records:
-
-- every `motion.*` JSX element and its `initial`, `animate`, `exit`, gesture,
-  layout, drag, variant, custom-data, and transition props;
-- every `AnimatePresence` instance and its mode, initial, custom data, and
-  completion behavior;
-- every `useReducedMotion` call and conditional target or static fallback that
-  consumes it;
-- every style `animation` and `transition` declaration; and
-- every referenced variant object, transition object, and named `@keyframes`
-  definition.
-
-The analyzer resolves local constants, imports, object spreads, conditional
-branches, and template literals within the repository. A dynamic expression it
-cannot normalize is emitted as an explicit source declaration whose literal
-source span and referenced identifiers must be mapped manually; it is never
-silently skipped. The checked-in inventory contains normalized declarations,
-source spans, and hashes of all reachable files.
-
-CI compares that inventory with the gallery manifest, so it does not depend on
-the external mockup checkout. When the mockup is available, a separate
-verification command checks its Git commit and regenerates the inventory; any
-diff must be reviewed. An added, removed, duplicated, or unmapped declaration
-fails one of these checks.
-
-The generator command is
-`./scripts/update_reactant_animation_mockup_inventory.py --mockups <path>`.
-It refuses a checkout whose HEAD differs from the pinned commit.
+Implementation reviews the pinned source directly and exercises the complex
+animation families through focused Rust tests or the existing Reactant sample.
+Simple declarations do not each require a separate test. The settings screen
+itself is not ported.
 
 The acceptance criterion is API and behavior coverage. Pixel identity and
 matching the browser's exact intermediate trajectory are not required. Values,
@@ -1970,6 +2048,13 @@ times, easing, repetition, presence policy, and interruption semantics are
 preserved unless an entry explicitly names a paint approximation.
 
 ### Coverage ledger
+
+- `BackgroundMusic.tsx:139`: audio-synchronized control heartbeat. Read the
+  stable audio playback handle through `MotionTimeSource::Audio`, reproduce
+  `heartbeatStrength` with serializable modulo, minimum, clamp, and exponential
+  expression nodes, and derive shared scale, brightness, and glow motion
+  values. Distribute those values through ordinary Reactant context. Paused,
+  stalled, ended, and reduced-motion states resolve to zero pulse strength.
 
 - `SettingsTabs.tsx:90`: tab host. Target `y = active ? 0 : 3`, hover
   `y = active ? 0 : -1`, tap `scale = 0.955`, spring stiffness `520`, damping
@@ -2029,8 +2114,9 @@ preserved unless an entry explicitly names a paint approximation.
 
 - `ActionButton.tsx:87`: transform `90ms`
   `cubic-bezier(.2,.8,.2,1)`, filter `140ms ease`, and background `140ms ease`.
-  Use gesture layers for pressed state and typed pseudo styles for hover and
-  focus.
+  The tap gesture layer owns the pressed transform. Typed hover and focus
+  pseudo-styles own filter and background, so no property is driven by two
+  layers for the same interaction.
 
 - `ControlInteraction.tsx:41`: `control-shine-sweep`, `720ms ease-out`, one
   iteration, `Both` fill. Use a decoration CSS `Animation`; reduced motion
@@ -2038,7 +2124,7 @@ preserved unless an entry explicitly names a paint approximation.
 
 - `ArcadeAttractMode.tsx:125`: perspective grid breathing. Preserve the source
   keyframes, duration, alternate direction, and infinite iterations in a CSS
-  `Animation` on generated grid chrome.
+  `Animation` on grid chrome.
 
 - `ArcadeAttractMode.tsx:169`: 48 particle loops. Preserve each seeded size,
   color, position, drift, duration, and negative phase delay. Use keyed
@@ -2069,7 +2155,7 @@ preserved unless an entry explicitly names a paint approximation.
 
 - `ArcadeTabTransition.tsx:108`: directional light sweep. X starts at `-90` or
   `940` and crosses to the other value; opacity `[0,.68,.68,0]`, `.34s`, times
-  `[0,.22,.72,1]`, easing `(.4,0,.2,1)`. Skew applies to generated sweep
+  `[0,.22,.72,1]`, easing `(.4,0,.2,1)`. Skew applies to custom sweep
   geometry, not the live panel subtree.
 
 - `ArcadeTabTransition.tsx:140`: scan line. Y `-12 -> 1000`, opacity
@@ -2093,7 +2179,7 @@ preserved unless an entry explicitly names a paint approximation.
   with presence and exit opacity in `.04s`.
 
 - `ArcadeCheckboxEffect.tsx:40`: checkbox ring. Preserve its source opacity,
-  scale, rotation, duration, and easing in a generated chrome target.
+  scale, rotation, duration, and easing in a decoration target.
 
 - `ArcadeCheckboxEffect.tsx:53`: checkbox flash. Preserve its source opacity,
   scale, duration, and easing in a decoration target.
@@ -2108,7 +2194,7 @@ preserved unless an entry explicitly names a paint approximation.
   the root presentation values.
 
 - `ArcadeButtonEffect.tsx:46`: button ring. Preserve source opacity, scale,
-  rotation, duration, and easing on generated chrome.
+  rotation, duration, and easing on a decoration.
 
 - `ArcadeButtonEffect.tsx:61`: button beam. Preserve source scale-x, opacity,
   duration, and easing on a decoration.
@@ -2152,20 +2238,23 @@ preserved unless an entry explicitly names a paint approximation.
   opacity, scale, and x targets with the same clock as the main content. Its
   independent x values remain literal. Reduced motion fades in `.08s`.
 
-Every source `useReducedMotion` branch is part of its case. Inherited
+Every source `useReducedMotion` branch is part of the checklist. Inherited
 `ReducedMotion::User` supplies the normal mapping; a component whose source has
 a custom static value uses `use_reduced_motion` and builds that value directly.
-The gallery runs each case with motion enabled and reduced motion forced.
+Manual review exercises each relevant pattern with motion enabled and reduced
+motion forced.
 
-Static gradients, glows, masks, and shadows may use ordinary styles, generated
-assets, custom UI Toolkit geometry, or a shader. These paint choices cannot
+Static gradients, glows, masks, and shadows may use ordinary styles, prepared
+textures, custom UI Toolkit geometry, or a shader. These paint choices cannot
 alter timing, presence, gesture, or reduced-motion behavior.
 
 ## Performance requirements
 
 Animation performance is a release requirement rather than an optional
-optimization. The normative machine is a `Mac17,6` with an Apple M5 Max and
-64 GB memory. It runs macOS `26.5.2` and Unity `6000.5.8f1`. The two required
+optimization. It is exercised manually before release and by an explicitly
+triggered release or regression job when new evidence is needed. It does not
+run in ordinary CI. The reference machine is a `Mac17,6` with an Apple M5 Max
+and 64 GB memory running macOS `26.5.2` and Unity `6000.5.8f1`. The two required
 profiles are:
 
 - `macos-arm64-metal`: a non-development Release player, Apple silicon, Metal,
@@ -2175,22 +2264,11 @@ profiles are:
   normalized by the harness, WebAssembly threads disabled, and 60 Hz display
   mode.
 
-Both use the production quality level and color-space settings. Each checked-in
-profile manifest records these fields, the build flags, and a stable profile
-ID. Results include the manifest hash and fail before measurement when the
-executing environment differs. A newer browser, operating system, Unity
-version, or reference machine requires an intentional manifest update.
-
-The implementation adds
-`./scripts/benchmark_reactant_animations.py --profile <id>`. The command builds
-the requested player, starts it, drives the committed input trace, collects the
-result, validates every gate, writes a canonical JSON artifact, and exits
-nonzero on failure. `--verify-environment` performs only the manifest check.
-The release job `reactant-animation-reference` runs both profiles sequentially
-on the self-hosted `mac17-6-m5-max` runner and retains the player logs, profiler
-capture, manifest, input trace hash, raw samples, and result JSON. Ordinary CI
-does not pretend to satisfy this hardware gate. Reactant Animations is not
-release-complete until that authoritative job passes both profiles.
+Both use the production quality level and color-space settings. The reviewer
+records the actual browser, operating system, Unity version, build flags, and
+hardware with the profiler capture. A later run may use newer compatible tools
+as long as its environment is recorded rather than silently compared with an
+older result.
 
 After warm-up, the motion frame loop must allocate no managed memory. Descriptor
 installation may allocate when Reactant commits a changed tree; steady playback,
@@ -2208,9 +2286,10 @@ both workloads:
   layout projection, color/filter, rectangular clip, decoration, and custom
   geometry animation, for 50 additional hosts.
 
-The scene, host sizes, start phases, targets, durations, spring parameters, and
-input events are generated from seed `0x52454143` and committed with the
-harness. Gesture events occur at fixed frame indices, not wall-clock callbacks.
+The manual performance screen fixes host sizes, start phases, targets,
+durations, spring parameters, and input order so separate runs exercise the
+same work. Gesture events occur at controlled frame indices rather than
+wall-clock callbacks.
 
 The 30-second sample begins after five seconds of warm-up. CPU p95 uses all
 sampled frames. The delivered average must be at least 59 frames per second;
@@ -2233,11 +2312,11 @@ non-monotonic, missing, background-tab, display-mode-change, or disjoint warm-up
 and measurement samples. Average fps is `(sample_count - 1)` divided by the
 elapsed time between the first and last accepted presentation timestamps.
 
-The effect gallery also runs a deterministic 30-second scenario that cycles
-route, tab, modal, control, burst, and ambient cases at committed frame indices.
-It must meet the same frame-pacing and allocation gates. This is the end-to-end
-GPU adequacy check; Reactant does not claim a portable animation-owned GPU-time
-measurement on desktop WebGL.
+The same screen also runs a 30-second mixed scenario cycling route, tab, modal,
+control, burst, ambient, and audio-time patterns. It must meet the same
+frame-pacing and allocation gates. This is the end-to-end GPU adequacy check;
+Reactant does not claim a portable animation-owned GPU-time measurement on
+desktop WebGL.
 
 Profiler counters report active timelines, active layout tracks, graph nodes
 evaluated, properties applied, native-optimized tracks, managed allocations,
@@ -2272,7 +2351,7 @@ cover:
 - reduced-motion target rewriting;
 - full snapshot and reconnect reconstruction;
 - atomic transaction rejection without partial Unity mutation; and
-- exact mockup source-ID and effect-gallery manifest coverage.
+- audio-time discontinuities and derived expression behavior.
 
 Tests assert behavior at public boundaries rather than private storage layout.
 Developer-error cases assert their diagnostic's relevant host, property, or
@@ -2307,18 +2386,22 @@ updates, repeat ranges, out-of-order old-session events, reconnect during
 entrance and exit, scaled-time reconstruction, controlled time, and completion
 while disconnected.
 
-Performance tests run both exact profiles and all three scenarios. They fail on
-profile mismatch, the CPU budget, average delivered frame rate, frame-pacing
-limits, missing samples, or any steady-state managed allocation.
+The full native and WebGL performance runs are manual or explicitly triggered.
+Ordinary CI may contain cheap controlled-clock and allocation assertions, but
+its cached critical path may grow by no more than 30 seconds for this project.
+Record the pre-Task-01 release commit as the baseline and compare it with the
+final staged implementation on the same machine and cache configuration. Warm
+each tree once, then compare the median wall time of three unchanged-input runs.
 
 ## Manual QA
 
-Use the effect-gallery build made only from public Reactant builders. Do not use
-direct C# animation calls.
+Use the Reactant animation sample made only from public Reactant builders. Do
+not use direct C# animation calls.
 
-1. Run every manifest case once with motion enabled. Compare values, keyframe
-   order, timing, easing, repeats, delays, fill, and final state with its pinned
-   source entry.
+1. Review every item in the mockup coverage ledger against the pinned source.
+   Exercise each animation family with motion enabled and reduced motion
+   forced. Compare values, keyframe order, timing, easing, repeats, delays,
+   fill, and final state.
 2. Rapidly interrupt the route, tab, modal, layout, spring, and gesture cases.
    Confirm each new track starts from the visible presentation and compatible
    springs retain velocity.
@@ -2330,8 +2413,8 @@ direct C# animation calls.
    remain.
 5. Exercise the modal case. Confirm backdrop and panel exit before unmount, the
    three-frame exit uses even fallback spacing, mixed filter functions do not
-   snap, generated chrome skews while live content remains interactive, and the
-   repeating shine stops after removal.
+   snap, decoration chrome skews while live content remains interactive, and
+   the repeating shine stops after removal.
 6. Leave ambient cases running. Confirm particles retain distinct negative
    phases, the grid alternates, border comets follow all corners, and loops do
    not restart in sync.
@@ -2343,7 +2426,7 @@ direct C# animation calls.
    and canceled pointer-owned gestures.
 9. Exercise seek, reverse, pause, complete, stop, and cancel. Confirm values and
    slot-local lifecycle callbacks match their documented distinctions.
-10. Run `transform-200`, `mixed-200`, and the gallery scenario on both normative
+10. Run `transform-200`, `mixed-200`, and the mixed scenario on both reference
     profiles. Confirm CPU p95 below `4ms`, at least `59` average fps, interval
     gates, zero steady-state managed allocations, and the calculated lifecycle
-    traffic bound.
+    traffic bound. Record the environment and retain the profiler captures.
