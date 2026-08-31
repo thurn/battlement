@@ -9,6 +9,7 @@ use crate::{
   StatementName, WrapMode,
   model::CanonicalPaintField,
   token::{Cursor, css_name},
+  value::{self, ParsedRelation},
 };
 
 pub(crate) fn validate(envelope: DeclarationEnvelope) -> Result<AssetRequest, Diagnostic> {
@@ -28,6 +29,8 @@ struct Builder {
   font_file: Option<String>,
   paint: Vec<PaintDeclaration>,
   dependencies: Vec<LocalDependency>,
+  background_layers: Option<usize>,
+  blend_modes: Option<Vec<u8>>,
 }
 
 impl Builder {
@@ -45,6 +48,8 @@ impl Builder {
       font_file: None,
       paint: Vec::new(),
       dependencies: Vec::new(),
+      background_layers: None,
+      blend_modes: None,
     }
   }
 
@@ -55,6 +60,7 @@ impl Builder {
         StatementName::Property(name) => self.paint(name, &statement)?,
       }
     }
+    self.validate_compositing()?;
     let canvas = self.canvas.ok_or_else(|| self.missing("@canvas"))?;
     self.validate_placement()?;
     self.validate_geometry(canvas)?;
@@ -177,8 +183,17 @@ impl Builder {
     if !property_allowed(self.envelope.kind, name) {
       return Err(self.at(DiagnosticCategory::UnknownStatement, name, statement.span));
     }
-    let parsed = crate::value::parse_property(name, &statement.value)
+    let parsed = value::parse_property(name, &statement.value)
       .map_err(|error| self.at(error.category, name, statement.span))?;
+    match &parsed.relation {
+      Some(ParsedRelation::BackgroundLayers(count)) => {
+        self.background_layers = Some(*count);
+      }
+      Some(ParsedRelation::BlendModes(modes)) => {
+        self.blend_modes = Some(modes.clone());
+      }
+      None => {}
+    }
     self
       .dependencies
       .extend(parsed.dependencies.into_iter().map(|path| LocalDependency {
@@ -210,6 +225,54 @@ impl Builder {
         })
         .collect(),
     });
+    Ok(())
+  }
+
+  fn validate_compositing(&mut self) -> Result<(), Diagnostic> {
+    let Some(modes) = &self.blend_modes else {
+      return Ok(());
+    };
+    let Some(layer_count) = self.background_layers else {
+      let declaration = self
+        .paint
+        .iter()
+        .find(|declaration| declaration.property == "background-blend-mode")
+        .expect("parsed background blend declaration");
+      return Err(self.at(
+        DiagnosticCategory::InvalidValue,
+        "background-blend-mode",
+        declaration.span,
+      ));
+    };
+    if modes.len() != 1 && modes.len() != layer_count {
+      let declaration = self
+        .paint
+        .iter()
+        .find(|declaration| declaration.property == "background-blend-mode")
+        .expect("parsed background blend declaration");
+      return Err(self.at(
+        DiagnosticCategory::InvalidValue,
+        "background-blend-mode",
+        declaration.span,
+      ));
+    }
+    let expanded = if modes.len() == 1 {
+      vec![modes[0]; layer_count]
+    } else {
+      modes.clone()
+    };
+    let canonical = value::blend_canonical(&expanded);
+    let declaration = self
+      .paint
+      .iter_mut()
+      .find(|declaration| declaration.property == "background-blend-mode")
+      .expect("parsed background blend declaration");
+    declaration.canonical_value = canonical.clone();
+    declaration
+      .canonical_fields
+      .first_mut()
+      .expect("background blend canonical field")
+      .value = canonical;
     Ok(())
   }
 

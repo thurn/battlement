@@ -4,7 +4,7 @@ use proc_macro2::{Span, TokenStream, TokenTree};
 
 use crate::{DiagnosticCategory, SourceSpan};
 
-use super::{Dimension, ParsedField, ParsedValue, Scalar, Unit, Value, ValueError};
+use super::{Dimension, ParsedField, ParsedRelation, ParsedValue, Scalar, Unit, Value, ValueError};
 
 pub(super) fn parse(source: &str) -> Result<ParsedValue, ValueError> {
   let stream = TokenStream::from_str(source).map_err(|error| self::error(error.span().into()))?;
@@ -31,6 +31,7 @@ pub(super) fn parse(source: &str) -> Result<ParsedValue, ValueError> {
       canonical,
     }],
     dependencies,
+    relation: Some(ParsedRelation::BackgroundLayers(layer_count)),
   })
 }
 

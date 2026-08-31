@@ -29,6 +29,7 @@ pub(super) fn parse(source: &str) -> Result<ParsedValue, ValueError> {
       canonical,
     }],
     dependencies,
+    relation: None,
   })
 }
 

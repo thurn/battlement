@@ -11,6 +11,7 @@ mod background;
 mod border;
 mod calc;
 mod clip;
+mod composite;
 mod display;
 mod encode;
 mod gradient;
@@ -92,11 +93,17 @@ pub(crate) struct ValueError {
 pub(crate) struct ParsedValue {
   pub(crate) fields: Vec<ParsedField>,
   pub(crate) dependencies: Vec<String>,
+  pub(crate) relation: Option<ParsedRelation>,
 }
 
 pub(crate) struct ParsedField {
   pub(crate) property: String,
   pub(crate) canonical: Vec<u8>,
+}
+
+pub(crate) enum ParsedRelation {
+  BackgroundLayers(usize),
+  BlendModes(Vec<u8>),
 }
 
 pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue, ValueError> {
@@ -106,6 +113,7 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
     | "border-bottom" | "border-left" | "border-radius" => border::parse(property, source),
     "box-shadow" => shadow::parse(property, source),
     "clip-path" => clip::parse(property, source),
+    "background-blend-mode" | "isolation" | "opacity" => composite::parse(property, source),
     "mask" => mask::parse(source),
     _ => Ok(ParsedValue {
       fields: vec![ParsedField {
@@ -113,8 +121,13 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
         canonical: self::canonicalize(source)?,
       }],
       dependencies: Vec::new(),
+      relation: None,
     }),
   }
+}
+
+pub(crate) fn blend_canonical(modes: &[u8]) -> Vec<u8> {
+  composite::blend_canonical(modes)
 }
 
 pub(crate) fn local_path(path: &str, extensions: &[&str]) -> Option<String> {

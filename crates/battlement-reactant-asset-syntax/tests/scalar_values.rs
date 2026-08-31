@@ -129,10 +129,10 @@ fn rejects_invalid_typed_arithmetic() {
 #[test]
 fn request_identity_ignores_spelling_symbol_location_and_statement_order() {
   let first =
-    parse("@background FIRST { @canvas 20px 10px; opacity: 1.0; background: rgb(255, 0, 0); }")
+    parse("@background FIRST { @canvas 20px 10px; opacity: 0.5; background: rgb(255, 0, 0); }")
       .unwrap();
   let second = parse(
-    "\n\n@background SECOND {\n  background: #f00;\n  @canvas 20px 10px;\n  opacity: 1e0;\n}",
+    "\n\n@background SECOND {\n  background: #f00;\n  @canvas 20px 10px;\n  opacity: 5e-1;\n}",
   )
   .unwrap();
 

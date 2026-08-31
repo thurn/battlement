@@ -325,7 +325,7 @@ references without resolving files or launching a browser.
 **Evidence:** syntax corpus transcript and canonical identities for the complete
 background corpus.
 
-### Task 05 — Parse advanced box paint
+### Task 05 — Parse advanced box paint [DONE]
 
 **Prerequisites:** Task 04. **Target:** 400–500 non-test lines.
 

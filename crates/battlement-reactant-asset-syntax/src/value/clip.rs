@@ -50,6 +50,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
       canonical,
     }],
     dependencies: Vec::new(),
+    relation: None,
   })
 }
 

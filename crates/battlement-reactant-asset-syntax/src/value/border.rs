@@ -26,6 +26,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
   Ok(ParsedValue {
     fields,
     dependencies: Vec::new(),
+    relation: None,
   })
 }
 
