@@ -624,7 +624,7 @@ page captured for final manual visual review.
 
 ## Wave 4: Reactant, Unity, workflows, and sample
 
-### Task 16 — Merge linked generated assets into Reactant snapshots
+### Task 16 — Merge linked generated assets into Reactant snapshots [DONE]
 
 **Prerequisites:** Task 15. **Target:** 350–500 non-test lines.
 

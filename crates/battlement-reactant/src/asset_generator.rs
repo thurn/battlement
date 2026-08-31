@@ -20,7 +20,8 @@
 
 use battlement::{
   BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat, BackgroundRepeatMode,
-  BackgroundSize, BackgroundSource, ImageSource, Length, Style, TextureAddress,
+  BackgroundSize, BackgroundSource, ImageSource, Length, PreparedAsset, Snapshot, Style,
+  TextureAddress,
 };
 
 pub use battlement_reactant_asset_macros::generate;
@@ -329,6 +330,87 @@ inventory::collect!(AssetRegistration);
 /// Enumerates linked generated-asset registrations in linker order.
 pub fn registrations() -> impl Iterator<Item = &'static AssetRegistration> {
   inventory::iter::<AssetRegistration>.into_iter()
+}
+
+pub(crate) fn merge_into_snapshot(snapshot: &mut Snapshot) {
+  let registrations = self::canonical_registrations();
+  for asset in &snapshot.prepared_assets {
+    let (case, address) = self::prepared_asset(asset);
+    if !address.starts_with("battlement-reactant/generated/") {
+      continue;
+    }
+    let source = registrations
+      .iter()
+      .find(|registration| registration.address == address)
+      .map_or("<no linked source symbol>", |registration| {
+        registration.source_symbol
+      });
+    panic!(
+      "caller-authored PreparedAsset::{case} at reserved generated address {address} conflicts with linked source symbol {source}; the linked generated-asset registry exclusively owns battlement-reactant/generated/"
+    );
+  }
+  snapshot.prepared_assets.extend(
+    registrations.into_iter().map(|registration| {
+      PreparedAsset::Texture(TextureAddress::from_static(registration.address))
+    }),
+  );
+}
+
+fn canonical_registrations() -> Vec<&'static AssetRegistration> {
+  let mut registrations = self::registrations().collect::<Vec<_>>();
+  registrations.sort_by(|left, right| {
+    left
+      .address
+      .cmp(right.address)
+      .then_with(|| left.source_symbol.cmp(right.source_symbol))
+  });
+  let mut unique: Vec<&AssetRegistration> = Vec::new();
+  for registration in registrations {
+    let Some(previous) = unique.last() else {
+      unique.push(registration);
+      continue;
+    };
+    if previous.address != registration.address {
+      unique.push(registration);
+      continue;
+    }
+    if self::same_metadata(previous, registration) {
+      continue;
+    }
+    panic!(
+      "conflicting linked generated asset registrations at {}: {} metadata canvas={:?}, subject={:?}, slices={:?}; {} metadata canvas={:?}, subject={:?}, slices={:?}",
+      registration.address,
+      previous.source_symbol,
+      previous.canvas,
+      previous.subject,
+      previous.slices,
+      registration.source_symbol,
+      registration.canvas,
+      registration.subject,
+      registration.slices,
+    );
+  }
+  unique
+}
+
+fn same_metadata(left: &AssetRegistration, right: &AssetRegistration) -> bool {
+  left.canvas == right.canvas && left.subject == right.subject && left.slices == right.slices
+}
+
+fn prepared_asset(asset: &PreparedAsset) -> (&'static str, &str) {
+  match asset {
+    PreparedAsset::Scene(value) => ("Scene", value.as_str()),
+    PreparedAsset::Prefab(value) => ("Prefab", value.as_str()),
+    PreparedAsset::ParticleEffect(value) => ("ParticleEffect", value.as_str()),
+    PreparedAsset::Material(value) => ("Material", value.as_str()),
+    PreparedAsset::Texture(value) => ("Texture", value.as_str()),
+    PreparedAsset::Sprite(value) => ("Sprite", value.as_str()),
+    PreparedAsset::VectorImage(value) => ("VectorImage", value.as_str()),
+    PreparedAsset::RenderTexture(value) => ("RenderTexture", value.as_str()),
+    PreparedAsset::AudioClip(value) => ("AudioClip", value.as_str()),
+    PreparedAsset::TextMeshProFont(value) => ("TextMeshProFont", value.as_str()),
+    PreparedAsset::UiFont(value) => ("UiFont", value.as_str()),
+  }
 }
 
 fn background_style(address: &'static str, canvas: LogicalSize) -> Style {

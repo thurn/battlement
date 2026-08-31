@@ -5,7 +5,10 @@ use battlement::{
   Snapshot,
 };
 
-use crate::runtime::{ReactantCommit, ResponseReactantExt, SessionUi};
+use crate::{
+  asset_generator,
+  runtime::{ReactantCommit, ResponseReactantExt, SessionUi},
+};
 
 #[derive(Clone)]
 pub(crate) struct DeliveryReceipt {
@@ -93,6 +96,7 @@ impl SessionUi<'_> {
 
   /// Adds this session UI to a snapshot and returns the minimal commit path.
   pub fn into_parts(mut self, mut snapshot: Snapshot) -> (Snapshot, ReactantCommit) {
+    asset_generator::merge_into_snapshot(&mut snapshot);
     let external = self
       .external
       .take()
