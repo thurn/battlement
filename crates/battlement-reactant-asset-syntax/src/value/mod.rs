@@ -7,6 +7,7 @@ use crate::{
   token::{Cursor, css_name},
 };
 
+mod background;
 mod calc;
 mod display;
 mod encode;
@@ -79,6 +80,40 @@ enum CalcNode {
 pub(crate) struct ValueError {
   pub(crate) category: DiagnosticCategory,
   span: SourceSpan,
+}
+
+pub(crate) struct ParsedValue {
+  pub(crate) canonical: Vec<u8>,
+  pub(crate) dependencies: Vec<String>,
+}
+
+pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue, ValueError> {
+  if property == "background" {
+    background::parse(source)
+  } else {
+    Ok(ParsedValue {
+      canonical: self::canonicalize(source)?,
+      dependencies: Vec::new(),
+    })
+  }
+}
+
+pub(crate) fn local_path(path: &str, extensions: &[&str]) -> Option<String> {
+  if path.is_empty() || path.contains(['\\', '\0', '?', '#']) || path.starts_with('/') {
+    return None;
+  }
+  let segments = path.split('/').collect::<Vec<_>>();
+  if segments
+    .iter()
+    .any(|segment| segment.is_empty() || matches!(*segment, "." | ".."))
+  {
+    return None;
+  }
+  let extension = segments.last()?.rsplit_once('.')?.1;
+  extensions
+    .iter()
+    .any(|allowed| extension.eq_ignore_ascii_case(allowed))
+    .then(|| segments.join("/"))
 }
 
 pub(crate) fn canonicalize(source: &str) -> Result<Vec<u8>, ValueError> {

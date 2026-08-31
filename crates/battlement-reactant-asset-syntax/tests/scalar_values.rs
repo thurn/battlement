@@ -142,9 +142,15 @@ fn request_identity_ignores_spelling_symbol_location_and_statement_order() {
 
 #[test]
 fn request_identity_includes_kind_metadata_and_ordered_values() {
-  let base = parse("@background PANEL { @canvas 20px 10px; background: red, blue; }").unwrap();
-  let reordered = parse("@background PANEL { @canvas 20px 10px; background: blue, red; }").unwrap();
-  let resized = parse("@background PANEL { @canvas 21px 10px; background: red, blue; }").unwrap();
+  let base =
+    parse("@background PANEL { @canvas 20px 10px; transform: translate(1px) rotate(2deg); }")
+      .unwrap();
+  let reordered =
+    parse("@background PANEL { @canvas 20px 10px; transform: rotate(2deg) translate(1px); }")
+      .unwrap();
+  let resized =
+    parse("@background PANEL { @canvas 21px 10px; transform: translate(1px) rotate(2deg); }")
+      .unwrap();
 
   assert_ne!(base.identity(), reordered.identity());
   assert_ne!(base.identity(), resized.identity());

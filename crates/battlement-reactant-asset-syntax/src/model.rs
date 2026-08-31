@@ -1,5 +1,23 @@
 use crate::{DeclarationKind, SourceSpan};
 
+/// Kind of Unity-project file referenced by an asset request.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum DependencyKind {
+  /// Raster image used by a paint layer.
+  Image,
+  /// Font face used by a text image.
+  Font,
+}
+
+/// Canonical project-relative dependency reference.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct LocalDependency {
+  /// Expected dependency format.
+  pub kind: DependencyKind,
+  /// Normalized forward-slash path relative to the Unity project.
+  pub path: String,
+}
+
 /// Logical canvas size in pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LogicalSize {
@@ -132,6 +150,8 @@ pub struct AssetRequest {
   pub metadata: GeneratorMetadata,
   /// Paint declarations sorted by property name.
   pub paint: Vec<PaintDeclaration>,
+  /// Unique local dependency references sorted by kind and path.
+  pub dependencies: Vec<LocalDependency>,
   /// Complete declaration source span.
   pub span: SourceSpan,
 }

@@ -11,8 +11,8 @@ mod token;
 mod value;
 
 pub use model::{
-  AssetRequest, ClipEdge, Compression, FilterMode, GeneratorMetadata, Insets, LogicalRect,
-  LogicalSize, PaintDeclaration, WrapMode,
+  AssetRequest, ClipEdge, Compression, DependencyKind, FilterMode, GeneratorMetadata, Insets,
+  LocalDependency, LogicalRect, LogicalSize, PaintDeclaration, WrapMode,
 };
 pub use parser::{
   DeclarationEnvelope, DeclarationKind, Diagnostic, DiagnosticCategory, RawStatement, StatementName,

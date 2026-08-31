@@ -4,8 +4,9 @@ use proc_macro2::{Delimiter, TokenStream};
 
 use crate::{
   AssetRequest, ClipEdge, Compression, DEFAULT_RASTER_SCALE, DeclarationEnvelope, DeclarationKind,
-  Diagnostic, DiagnosticCategory, FilterMode, GeneratorMetadata, Insets, LogicalRect, LogicalSize,
-  PaintDeclaration, RawStatement, SourceSpan, StatementName, WrapMode,
+  DependencyKind, Diagnostic, DiagnosticCategory, FilterMode, GeneratorMetadata, Insets,
+  LocalDependency, LogicalRect, LogicalSize, PaintDeclaration, RawStatement, SourceSpan,
+  StatementName, WrapMode,
   token::{Cursor, css_name},
 };
 
@@ -25,6 +26,7 @@ struct Builder {
   compression: Compression,
   font_file: Option<String>,
   paint: Vec<PaintDeclaration>,
+  dependencies: Vec<LocalDependency>,
 }
 
 impl Builder {
@@ -41,6 +43,7 @@ impl Builder {
       compression: Compression::Lossless,
       font_file: None,
       paint: Vec::new(),
+      dependencies: Vec::new(),
     }
   }
 
@@ -76,6 +79,8 @@ impl Builder {
     self
       .paint
       .sort_by(|left, right| left.property.cmp(&right.property));
+    self.dependencies.sort();
+    self.dependencies.dedup();
     Ok(AssetRequest {
       symbol: self.envelope.symbol,
       kind: self.envelope.kind,
@@ -91,6 +96,7 @@ impl Builder {
         font_file: self.font_file,
       },
       paint: self.paint,
+      dependencies: self.dependencies,
       span: self.envelope.span,
     })
   }
@@ -147,7 +153,14 @@ impl Builder {
           _ => return Err(self.invalid(statement, "@compression")),
         };
       }
-      "font-file" => self.font_file = Some(self.parse_font(statement)?),
+      "font-file" => {
+        let path = self.parse_font(statement)?;
+        self.dependencies.push(LocalDependency {
+          kind: DependencyKind::Font,
+          path: path.clone(),
+        });
+        self.font_file = Some(path);
+      }
       _ => {
         return Err(self.at(
           DiagnosticCategory::UnknownStatement,
@@ -163,13 +176,19 @@ impl Builder {
     if !property_allowed(self.envelope.kind, name) {
       return Err(self.at(DiagnosticCategory::UnknownStatement, name, statement.span));
     }
-    let canonical_value = crate::value::canonicalize(&statement.value)
+    let parsed = crate::value::parse_property(name, &statement.value)
       .map_err(|error| self.at(error.category, name, statement.span))?;
+    self
+      .dependencies
+      .extend(parsed.dependencies.into_iter().map(|path| LocalDependency {
+        kind: DependencyKind::Image,
+        path,
+      }));
     self.paint.push(PaintDeclaration {
       property: name.to_owned(),
       value: statement.value.clone(),
       span: statement.span,
-      canonical_value,
+      canonical_value: parsed.canonical,
     });
     Ok(())
   }
@@ -308,7 +327,11 @@ impl Builder {
     if !arguments.is_empty() || path.is_none() {
       return Err(self.invalid(statement, "@font-file"));
     }
-    Ok(path.expect("validated font path"))
+    crate::value::local_path(
+      &path.expect("validated font path"),
+      &["ttf", "otf", "woff2"],
+    )
+    .ok_or_else(|| self.invalid(statement, "@font-file"))
   }
 
   fn keyword(&self, statement: &RawStatement, property: &str) -> Result<String, Diagnostic> {
