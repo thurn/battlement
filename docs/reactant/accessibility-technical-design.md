@@ -8,9 +8,9 @@ The semantic model, lifecycle, ownership rules, validation, wire behavior,
 fallback rules, acceptance scenarios, and completion criteria are normative.
 Rust and C# snippets are illustrative syntax; their type boundaries and data
 ownership are normative, while final type and method names may follow repository
-conventions. The platform matrix is required coverage. Phase 0 may select a
-different native implementation substrate, but lowering a required capability
-needs an explicit amendment to this design.
+conventions. The Unity capability matrix is required v1 coverage. The only v1
+assistive-technology integration substrate is `UnityEngine.Accessibility`;
+custom native plugins and WebGL DOM/ARIA projection are explicitly out of scope.
 
 The phased plan is delivery guidance. It may be split into smaller tasks without
 changing a phase's dependencies or exit criteria.
@@ -20,8 +20,9 @@ changing a phase's dependencies or exit criteria.
 Reactant will own a platform-neutral semantic tree that is reconciled beside the
 visual tree. Rust declares accessible meaning and finite interaction policies.
 Unity owns the live semantic mirror, geometry, input modality, focus scopes, and
-all operations that a native accessibility callback must complete synchronously.
-Platform backends translate that mirror to native assistive-technology APIs.
+all operations that a Unity accessibility callback must complete synchronously.
+The Unity host lowers the mirror into `AccessibilityHierarchy` and
+`AccessibilityNode` on platforms where Unity supports `AssistiveSupport`.
 
 The public Rust API follows the lower-level React Aria model: state, accessible
 behavior, interaction, rendering, and styling remain separate. A hook may return
@@ -37,6 +38,9 @@ Unity objects are recreated.
 
 This design intentionally does not model accessibility as DOM attributes, infer
 it from UI Toolkit classes, or use focus order as a substitute for reading order.
+V1 preserves semantics that Unity cannot currently publish so applications are
+ready to benefit when Unity expands its accessibility surface; Reactant does not
+work around those limitations by calling platform accessibility APIs directly.
 
 ## Related information
 
@@ -67,11 +71,10 @@ External design references:
 - [WAI-ARIA 1.2](https://www.w3.org/TR/wai-aria-1.2/)
 - [Unity mobile accessibility][unity-mobile] and
   [`AccessibilityHierarchy`][unity-hierarchy]
-- [UIKit `UIAccessibilityElement`][uikit-accessibility]
-- [AppKit `NSAccessibilityElement`][appkit-accessibility]
-- [Android `AccessibilityNodeInfo`][android-node]
-- [Microsoft UI Automation providers][uia-providers]
-- [HTML canvas accessibility][canvas-accessibility]
+- [`AccessibilityNode`][unity-node]
+- [`AccessibilityRole`][unity-role] and
+  [`AccessibilityState`][unity-state]
+- [`AssistiveSupport`][unity-assistive]
 
 [reconciliation-design]: reconciliation-events-and-portals.md
 [refs-design]: refs-geometry-and-floating-ui.md
@@ -79,18 +82,19 @@ External design references:
 [apg-keyboard]: https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/
 [accname]: https://www.w3.org/TR/accname-1.2/
 [core-aam]: https://www.w3.org/TR/core-aam-1.2/
-[unity-mobile]: https://docs.unity3d.com/6000.0/Documentation/Manual/mobile-accessibility.html
-[unity-hierarchy]: https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Accessibility.AccessibilityHierarchy.html
-[uikit-accessibility]: https://developer.apple.com/documentation/uikit/uiaccessibilityelement
-[appkit-accessibility]: https://developer.apple.com/documentation/appkit/nsaccessibilityelement
-[android-node]: https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo
-[uia-providers]: https://learn.microsoft.com/windows/win32/winauto/uiauto-providersoverview
-[canvas-accessibility]: https://html.spec.whatwg.org/multipage/canvas.html#best-practices
+[unity-mobile]: https://docs.unity3d.com/6000.5/Documentation/Manual/mobile-accessibility.html
+[unity-hierarchy]: https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Accessibility.AccessibilityHierarchy.html
+[unity-node]: https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Accessibility.AccessibilityNode.html
+[unity-role]: https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Accessibility.AccessibilityRole.html
+[unity-state]: https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Accessibility.AccessibilityState.html
+[unity-assistive]: https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Accessibility.AssistiveSupport.html
 
 WAI-ARIA is used here as a vocabulary and behavior reference. It is not the wire
-format and it does not imply a browser accessibility tree. Platform backends map
-the same intent to UIAccessibility, Android accessibility nodes, NSAccessibility,
-UI Automation, or the browser accessibility tree.
+format and it does not imply a browser accessibility tree. The v1 Unity adapter
+maps that vocabulary to the smaller set of roles, states, values, and actions
+that `UnityEngine.Accessibility` exposes. Reactant does not create browser DOM
+nodes or invoke UIKit, Android accessibility, NSAccessibility, or UI Automation
+APIs directly.
 
 The mockups under `/Users/dthurn/Documents/mockups/` were behavioral evidence for
 settings tabs, key rebinding, dialogs, sliders, announcements, focus treatments,
@@ -111,9 +115,9 @@ The subsystem must:
   activation through one declared interaction contract;
 - remain correct across portals, nested overlays, virtualization, reconnects,
   localization, right-to-left layouts, and presence animation;
-- give each platform the richest mapping it supports without corrupting the
-  canonical model to match the least capable backend;
-- detect invalid compositions before they become a partially committed native
+- produce the most plausible Unity accessibility representation available
+  without reducing the canonical model to Unity's current feature set;
+- detect invalid compositions before they become a partially committed Unity
   tree; and
 - provide deterministic Rust, Unity, protocol, and Ditto tests while identifying
   the behavior that still requires real assistive technology.
@@ -147,16 +151,17 @@ lifetime: an element that has logically disappeared must stop receiving
 assistive-technology focus and actions before its exit animation runs.
 
 Ditto creates a fresh engine per scenario and drives the production input path.
-It can prove semantic snapshots and actions, but it cannot prove what VoiceOver,
-TalkBack, Narrator, or a browser screen reader actually speaks.
+It can prove semantic snapshots and actions, but it cannot prove what VoiceOver
+or TalkBack actually speaks through Unity's mobile integration.
 
 These contracts lead to four rules:
 
 1. Rust declares semantics and bounded policies; it does not issue platform API
    calls.
-2. Unity applies a semantic commit and native callbacks on the engine thread.
+2. Unity applies a semantic commit and accessibility callbacks on the engine
+   thread.
 3. Logical Reactant ancestry is authoritative for semantics and relationships.
-4. A native default that must happen during an input callback is owned by Unity,
+4. A Unity default that must happen during an input callback is owned by Unity,
    based on a policy already declared by Rust.
 
 ### Repository dependency contract
@@ -174,7 +179,7 @@ This document uses the following Reactant terms with fixed meanings:
 - the safe response gate admits that response only after the current UI Toolkit
   propagation/default-action stack has unwound, but still before the next
   repaint;
-- the production input path is Unity input or a native accessibility callback,
+- the production input path is Unity input or a Unity accessibility callback,
   then the synchronous runtime call, then safe-gate application; tests must not
   call an application handler directly; and
 - attachment invalidation means a reconnect or host removal immediately makes
@@ -318,7 +323,8 @@ printing private values.
 The `(identity_owner, hook, semantic_key)` tuple is collision-free on the wire and
 is not reduced to a hash. Reordering retains the ID. Removing and later recreating
 the same key creates a new logical lifetime with a new node incarnation, so the
-complete structured ID changes and stale native callbacks cannot reach it.
+complete structured ID changes and stale Unity accessibility callbacks cannot
+reach it.
 
 `NodeIncarnation` is a nonzero session-local counter allocated whenever a
 semantic slot enters a new logical lifetime. It remains stable through reorder,
@@ -542,9 +548,10 @@ pub struct CellInfo {
 `AccessibleName::LabelledBy` is the only authored labelled-by source, and
 `AccessibleDescription::DescribedBy` is the only authored described-by source.
 Projection copies those same references into `ResolvedSemanticRelations` for
-backends with native relationship APIs. Text/contents name or description sources
-produce no such relation. There are no duplicate relation fields that can
-disagree with name computation.
+canonical inspection and future lowering. Unity v1 resolves their text into
+`label` or `hint` rather than publishing a relationship. Text/contents name or
+description sources produce no such relation. There are no duplicate relation
+fields that can disagree with name computation.
 
 All `SemanticState` booleans default to false; all options default to `None`.
 Relations and actions default empty, reading order defaults natural, geometry
@@ -632,15 +639,16 @@ column header in the same table/grid. Table counts may be unknown; known cell
 coordinates and spans must fit them.
 
 `SemanticAlias` is an optional application-supplied diagnostic/test identifier.
-It must be unique in the current semantic tree, is never exposed to native
-assistive technology, and is not identity. Changing it does not remount a node.
+It must be unique in the current semantic tree, is never exposed through Unity
+accessibility, and is not identity. Changing it does not remount a node.
 
 `SemanticRole` is exactly the closed set listed below:
 
 `LocalizedText` contains a resolved string and locale identifier. Reactant does
 not carry localization keys over the wire or ask Unity to translate application
-content. Native backends may supply platform-standard action phrases, but never
-invent a control's name, help text, validation message, or formatted value.
+content. Unity or the operating-system service may supply standard role/action
+phrases, but Reactant never invents a control's name, help text, validation
+message, or formatted value.
 
 - button, link, checkbox, switch, radio, radio group, slider, tab, tab list, and
   tab panel;
@@ -654,9 +662,11 @@ invent a control's name, help text, validation message, or formatted value.
 - list, list item, table, row, column header, row header, cell, grid, tree,
   tree item, disclosure, and scroll area.
 
-The canonical enum is richer than any single platform role list. A backend maps
-unsupported roles by the fallback rules defined later; it never changes the
-canonical tree.
+The canonical enum is intentionally richer than Unity's current
+`AccessibilityRole` enum. The Unity adapter maps unsupported roles by the
+fallback rules defined later; it never changes the canonical tree. Developers
+should declare the most accurate Reactant role instead of pre-degrading their
+application to Unity's current subset.
 
 Role validation follows these normative families; the detailed pattern sections
 add stricter behavior:
@@ -780,20 +790,22 @@ The finite policy enums are closed:
   direction, drag geometry source, and the controlled target value kind.
 - `TextInteractionPolicy` contains editable/read-only mode, multiline mode,
   selection support, password/privacy mode, and allowed native edit intents.
-- `DismissPolicy` is none, Escape, controller cancel, native dismiss, or their
-  explicit combination. Pointer backdrop dismissal is a separate press policy.
+- `DismissPolicy` is none, Escape, controller cancel, Unity accessibility
+  dismiss, or their explicit combination. Pointer backdrop dismissal is a
+  separate press policy.
 - `InputCapturePolicy` contains the eligible input-device/control set and reserved
   cancel controls. Rebind is its standard constructor, not a wire enum shortcut.
 - `ScrollRoute` contains the scroll-container `ElementRef`, reveal alignment,
   axis, and maximum one-frame reveal distance.
 
 `FallbackClass` is role, relation, state, value/range, collection, custom action,
-live announcement, geometry, modal, or virtual continuation. Every backend
-mapping records zero or more of these classes.
+live announcement, geometry, modal, or virtual continuation. Every Unity
+lowering records zero or more of these classes. The record explains what Unity
+could not publish; it does not remove that information from the canonical tree.
 
 `FocusRestoreKey` is an application key scoped to the nearest focus scope. It is
 stable through keyed reorder and reconnect, unique among live descendants of that
-scope, and never exposed natively. Restoration resolves the key to the current
+scope, and never exposed through Unity. Restoration resolves the key to the current
 eligible semantic node; it does not retain a Unity object reference.
 
 Focus scopes and presentation promotion use this closed declaration:
@@ -889,7 +901,7 @@ Projection maintains three explicit views:
   semantic ancestry, plus text contributed by referenced `NameSourceOnly` nodes;
   it is independent of transient UI Toolkit attachment and computed visibility;
   and
-- the **active presentation forest** is Unity's backend traversal view after
+- the **active presentation forest** is the Unity adapter's traversal view after
   attachment, computed visibility, inherited author inertness, modal exclusion,
   reading order, and overlay-root promotion.
 
@@ -925,25 +937,25 @@ A portal changes the physical parent used for rendering. It does not change the
 semantic parent, relationship scope, name computation, event ancestry, or
 ownership of an overlay trigger. Geometry still comes from the physical host.
 
-An overlay may be promoted to a presentation root while open so a platform can
-treat it as a new screen or window. Its canonical parent does not change. The
-snapshot therefore carries both `logical_roots` and ordered
+An overlay may be promoted to a presentation root while open so Unity can send a
+screen-change notification and publish only the active scope. Its canonical
+parent does not change. The snapshot therefore carries both `logical_roots` and ordered
 `presentation_roots`; one node may have a canonical parent and simultaneously be
-a presentation root. A backend omits the canonical edge above a presentation
-root from native traversal, without cloning the node. Relations such as
+a presentation root. The adapter omits the canonical edge above a presentation
+root from Unity traversal, without cloning the node. Relations such as
 `controls`, `labelled_by`, and `described_by` continue to resolve through stable
 IDs.
 
 For a top modal, the active presentation forest contains only that dialog subtree
 and any nested overlay roots. For a nonmodal overlay, page and overlay roots are
 both active in declared presentation order. Closing an overlay removes its
-promotion before native focus restoration.
+promotion before Unity focus restoration.
 
 Changing a portal's target follows the existing Reactant remount contract. The
 old subtree and semantic IDs are removed, new hosts receive new `ObjectId` and
 node incarnations, and focus restoration uses an explicit restore key if the
-application wants continuity. Reconnect rebinding is different: all native hosts
-are recreated while surviving logical portal state and semantic IDs remain.
+application wants continuity. Reconnect rebinding is different: all UI Toolkit
+hosts are recreated while surviving logical portal state and semantic IDs remain.
 
 ### Names and descriptions
 
@@ -966,7 +978,7 @@ order and contribute by reference.
 Description computation is separate and never repeats the source that supplied
 the name. Cycles, duplicate references, cross-session references, and references
 to removed nodes are errors. Application-authored role words such as “button” are
-not appended because native assistive technology supplies them.
+not appended because Unity and the operating-system service supply them.
 
 ### States, values, and relationships
 
@@ -976,15 +988,16 @@ multiselectable, orientation, and sort direction. Invalid state may reference an
 `ErrorMessageRef`; it does not automatically announce the error.
 
 Range values are numeric first. `value.text` is an optional localized speech
-override such as “Quiet” or “75 percent.” A backend exposes numeric range
-interfaces where possible and retains the text as the human-readable value.
+override such as “Quiet” or “75 percent.” The Unity adapter uses the `Slider` role
+and increment/decrement events for supported ranges and retains the text in
+`AccessibilityNode.value`.
 
 Resolved relationships include the labelled-by and described-by sources derived
 from accessible name/description, plus authored error-message, controls, details,
 flow-to, active-descendant, and dialog invoker. There is no `owns` relation:
 canonical ownership is always logical semantic parentage. A portaled popup remains
-a logical descendant or uses `controls` when it is a sibling. Backends never use
-a relationship to silently rewrite canonical ancestry.
+a logical descendant or uses `controls` when it is a sibling. Unity lowering never
+uses a relationship to silently rewrite canonical ancestry.
 
 Headings carry a level from 1 through 6. Landmarks require a name only when more
 than one landmark of the same role exists in the current scope. A validation
@@ -998,7 +1011,7 @@ detached, has `display: none`, has UI Toolkit visibility hidden, is inside an
 inactive modal background, declares `SemanticVisibility::Hidden`, or inherits
 `SemanticProps.inert`. Unity computes and stores the corresponding
 `PresentationExposure`; render-hidden and detached nodes stay in the mirror but
-are not published natively. A `NameSourceOnly` node remains in the declaration
+are not published through Unity. A `NameSourceOnly` node remains in the declaration
 graph only. Opacity alone never hides semantics. The author must hide a purely
 visual zero-opacity duplicate explicitly.
 
@@ -1010,8 +1023,8 @@ and no semantic nodes. There is no option to keep an interactive exiting subtree
 accessible.
 
 An element may remain visually mounted but semantic-inert by declaring `inert` on
-any semantic ancestor or focus scope. Inert is inherited and disables native
-exposure, accessibility actions, input focus, and focus navigation. Disabled is
+any semantic ancestor or focus scope. Inert is inherited and disables Unity
+publication, accessibility actions, input focus, and focus navigation. Disabled is
 not the same as hidden or inert: disabled controls remain discoverable and expose
 their disabled state.
 
@@ -1028,11 +1041,19 @@ commit records with `AnnouncementId`, locale, politeness, resolved text, and
 `Deduplication::None`, `UntilChanged(key)`, or `Within(key, duration)`.
 
 An announcement moves through `Pending`, `Submitted`, `Acknowledged`, or
-`Dropped`. Rust creates `Pending`; Unity changes it to `Submitted` only when the
-backend accepts its notification API call, then immediately returns an
-acknowledgement event. Acknowledgement means accepted by the platform API, not
-spoken. Backend rejection changes it to `Dropped` with a reason and reports
-degraded health.
+`Dropped`. Rust creates `Pending`; Unity changes it to `Submitted` only when its
+notification dispatcher accepts the call, then immediately returns an
+acknowledgement event. Acknowledgement means accepted by Unity, not spoken.
+Dispatcher rejection or lack of support changes it to `Dropped` with a reason and
+reports degraded health.
+
+Unity's `SendAnnouncement(string)` accepts only text. It cannot express polite
+versus assertive delivery, locale, atomicity, or relevance. Reactant still uses
+those declarations to decide what text to resolve, deduplicate, coalesce, and
+submit, and preserves the full announcement record canonically. Every submitted
+announcement records `FallbackClass::LiveAnnouncement` because Unity chooses the
+delivery urgency. Submission order is best effort and does not imply interruption
+or speech order.
 
 Polite records with the same key coalesce while pending in one frame. On
 reconnect, pending polite records older than two seconds are stale and dropped;
@@ -1062,17 +1083,19 @@ unknown, the accepted `ControlValue` resolution must name the focus key in the
 new window. An accepted response whose window bounds, continuation, materialized
 item positions, and focus key disagree is invalid.
 
-Backends expose materialized items with position and set-size metadata. They do
-not synthesize thousands of native nodes. A native next, previous, page, or
-scroll accessibility action at a window edge dispatches a typed collection
-intent. Rust updates the window synchronously through the existing runtime call;
-Unity admits the response, applies it at the safe response gate in the same
-frame, sends a layout-changed notification, and restores accessibility focus by
-item key.
+The canonical mirror exposes materialized items with position and set-size
+metadata and never synthesizes thousands of nodes. Unity v1 may fold useful
+position text into `value` or `hint`, but has no collection-continuation action.
+Keyboard, controller, or Ditto next, previous, page, or scroll interaction at a
+window edge dispatches the typed collection intent. Rust updates the window
+synchronously through the existing runtime call; Unity admits the response,
+applies it at the safe response gate in the same frame, sends a layout-changed
+notification when supported, and restores accessibility focus by item key.
 
-If a backend cannot request more items, it exposes the current window and reports
-the total size in the collection summary. It must not claim that the last
-materialized item is the last item in the collection.
+Because Unity v1 cannot request collection continuation through an accessibility
+action, it exposes the current window and reports the total size in the adapted
+collection summary. It must not claim that the last materialized item is the last
+item in the collection.
 
 ## Focus, navigation, events, and default actions
 
@@ -1114,25 +1137,32 @@ Accessibility focus requests use one Unity state machine:
 
 1. A new process-local `FocusRequestId` cancels any globally pending older focus
    request, then `Validate` resolves generation, node incarnation, active
-   exposure, backend action, focus host, and optional scroll route.
-2. A visible node moves to `FocusNow`; Unity sets native accessibility focus,
-   optionally correlates input focus, then emits `Focused`.
+   exposure, active screen-reader status, focus host, and optional scroll route.
+2. A visible node moves to `FocusRequestPending`. The adapter requests focus by
+   passing the node to `SendLayoutChanged` or `SendScreenChanged`; those methods
+   return no success result, so Reactant does not yet change canonical focus or
+   focus-visible state.
 3. An offscreen but revealable node moves to `RevealPending`; Unity returns
-   handled to the native request but keeps the previous native focus.
+   handled to the Unity request but keeps the previous accessibility focus.
 4. Reveal is a Unity-local scroll-to-element operation identified by the same
    `FocusRequestId`; it is not a Rust proposal and creates no wire event. Unity
    applies it at the safe gate and waits at most two frames or 250 ms, whichever
    comes first, for nonempty visible geometry.
-5. Success continues through `FocusNow`. Failure moves to `Failed`, preserves the
-   old focus, reports a diagnostic/result event, and sends a layout notification
-   for the still-active scope.
+5. Successful reveal continues through `FocusRequestPending`. An exact
+   `AccessibilityNode.focusChanged(true)` or `AssistiveSupport.nodeFocusChanged`
+   callback for the requested node moves to `FocusNow`, optionally correlates
+   input focus, and emits `Focused`.
+6. Reveal failure, screen-reader deactivation, focus moving to another node, or
+   no confirming Unity focus event within one second moves to `Failed`, preserves
+   the last confirmed focus, and reports a diagnostic/result event.
 
-Only `FocusNow` updates the canonical accessibility-focus field. A platform
-callback reporting that assistive technology already focused a visible node may
+Only `FocusNow` updates the canonical accessibility-focus field. A Unity callback
+reporting that assistive technology already focused a visible node may
 enter at that step. It cannot immediately focus a clipped node and bypass reveal.
 There is at most one pending accessibility-focus request for the runtime. Latest
 request wins; cancellation prevents the older request from setting focus or
-emitting `Focused`, even if its layout becomes visible later.
+emitting `Focused`, even if its layout becomes visible or a delayed notification
+arrives later.
 
 ### Declared navigation policies
 
@@ -1225,7 +1255,7 @@ Rust never attempts late `prevent_default`. A behavior hook installs the finite
 Unity policy required to own a standard default. Raw event handlers remain
 post-default and are unsuitable for reimplementing those standards.
 
-Admission-backed actions have no native value to roll back. The callback returns
+Admission-backed actions have no local Unity value to roll back. The callback returns
 handled when a matching committed handler runs and returns accept. Rejection or
 runtime failure leaves focus and semantic state unchanged.
 
@@ -1234,11 +1264,11 @@ observation handler is absent, rejects, or fails. Selection does not follow that
 move unless its separate proposal is accepted. If an accepted render removes the
 focused target, normal focus restoration runs during commit.
 
-For a proposal-backed action, Unity may expose a local draft to native assistive
+For a proposal-backed action, Unity may expose a local draft to assistive
 technology during the callback. It submits the proposal to Rust, restores the
 committed state without notification, and applies the authoritative response at
 the dispatch gate. On rejection, it sends a layout/value notification only when
-the native backend had already announced the draft.
+Unity or the operating-system service had already announced the draft.
 
 Every controlled proposal carries
 `ProposalId { backend_generation, sequence }`, target ID including node
@@ -1254,7 +1284,7 @@ The same runtime response must contain exactly one
 or mismatched resolutions reject the entire response. The authoritative value is
 also present in the resolved semantic upsert, and the two must agree.
 
-Unity restores the previous value before leaving the native callback, admits the
+Unity restores the previous value before leaving the accessibility callback, admits the
 response, and applies the authoritative value at the safe gate. “Handled” is true
 only for an accepted resolution. Reject, runtime error, disconnect, or callback
 timeout returns false and leaves the previous value observable. A response from
@@ -1318,7 +1348,7 @@ VisualElement::new()
 
 `use_button` returns the button role, disabled state, activate action, press
 policy, input-focus policy, and `PressState`. It supports pointer, touch, Enter,
-Space, controller submit, and native accessibility activation without emitting
+Space, controller submit, and Unity accessibility activation without emitting
 duplicate logical presses. The hook does not require a native `Button` host.
 
 A repeat button composes `use_button` with `use_repeat_press`. A toggle button
@@ -1436,7 +1466,7 @@ focus and Enter, Space, or controller submit selects.
 Only the selected panel is exposed. A panel retained by presence becomes hidden
 and inert at deselection before its visual exit. Removing the selected tab chooses
 the nearest enabled tab in collection order and announces the new selection only
-through the platform's ordinary focus/selection feedback.
+through Unity's ordinary focus/selection feedback.
 
 ### Dialogs and overlays
 
@@ -1469,7 +1499,7 @@ title, close button, layout, or portal. A modal scope:
 - hides and makes inert every sibling scope below it in the overlay stack;
 - moves focus after the dialog's semantic nodes and hosts are committed;
 - traps Tab and controller navigation within eligible descendants;
-- routes Escape, controller cancel, and native dismiss to the top scope;
+- routes Escape, controller cancel, and Unity accessibility dismiss to the top scope;
 - preserves a typed invoker/restoration target; and
 - restores focus only after the closing subtree becomes semantic-inert.
 
@@ -1569,8 +1599,9 @@ Any validation failure aborts both visual and semantic work. Unity never sees a
 new host tree paired with the previous semantic tree or the reverse.
 
 The committed Rust semantic tree stores declarations and resolved canonical
-values. It does not store platform fallbacks. This allows a reconnect to a
-different capable backend without rerendering the application.
+values. It does not store Unity fallbacks. This allows reconnect or a future
+Unity capability increase to reclassify the tree without rerendering the
+application.
 
 ### Ordered Unity application
 
@@ -1583,17 +1614,18 @@ post-commit object index, then applies these barriers:
 4. update host properties and semantic nodes;
 5. install navigation, controlled-action, and overlay policies;
 6. execute focus and scroll actions;
-7. submit layout, screen, value, and announcements to platform backends; and
+7. submit supported layout, screen, value, and announcement notifications to
+   `UnityEngine.Accessibility`; and
 8. destroy visual hosts no longer retained by presence.
 
-The response gate still prevents mutation during UI Toolkit propagation. Native
+The response gate still prevents mutation during UI Toolkit propagation. Unity
 accessibility callbacks enter through the same synchronous runtime dispatch used
 by other UI events, and their response is admitted at that safe gate. The callback
 returns “handled” when a live declared action route accepted the event, not when
 the later visual render happens to change.
 
 Motion may change geometry between Reactant commits. The Unity accessibility
-manager therefore uses live frame getters where a backend supports them and marks
+manager therefore uses `AccessibilityNode.frameGetter` and marks
 affected frames dirty in the Motion post-update player-loop phase. It coalesces
 one layout-changed notification per semantic root per frame. Geometry animation
 does not mutate semantic content.
@@ -1610,9 +1642,10 @@ If the previously focused node is no longer eligible, it runs the normal logical
 restoration algorithm. A reconnect sends one screen-changed notification after
 the complete tree is active; it does not announce every recreated node.
 
-Native platform object IDs are backend-local and may change. Only
-`AccessibilityId` is stable across reconnect. An incoming native callback carries
-the current backend generation, so a callback from a disposed tree is rejected.
+Unity node IDs and objects may change across reconstruction. Only
+`AccessibilityId` is stable across reconnect. An incoming Unity callback resolves
+through the current backend generation, so a callback from a disposed hierarchy
+is rejected.
 
 ## Wire protocol
 
@@ -1694,15 +1727,15 @@ pub struct FocusScopeSnapshot {
 The canonical semantic forest and nontraversal relationship sources cross the
 wire separately. `NameSourceOnly` becomes a `RelationshipSourceSnapshot`; it is
 never a root, child, focus target, or action target. This preserves labelled-by,
-described-by, details, and error-message IDs for capable backends. A backend that
-lacks that relationship flattens the same source text under the explicit fallback
-rule. `Hidden` declarations are absent.
+described-by, details, and error-message IDs for canonical inspection and future
+Unity mappings. Unity v1 flattens the same source text under the explicit
+fallback rule. `Hidden` declarations are absent.
 
 Rust declares eligible, modal-background, or author-inert exposure. Unity
 combines that with live attachment and computed UI Toolkit visibility to produce
 `PresentationExposure`. Nodes remain in the Unity mirror while render-hidden or
-detached so they can reactivate atomically. Native backends publish only `Active`
-nodes and any nontraversal source objects required by their relationship API.
+detached so they can reactivate atomically. The Unity adapter publishes only
+`Active` nodes; relationship-only source objects remain in the canonical mirror.
 
 Incremental response bodies gain:
 
@@ -1729,9 +1762,9 @@ pub struct AccessibilityMutationBatch {
 }
 ```
 
-`upserts` contain complete canonical nodes, not sparse platform patches. The batch
+`upserts` contain complete canonical nodes, not sparse Unity patches. The batch
 itself is sparse, while each changed node is self-contained. This simplifies
-backend rebuilding, deterministic fixtures, and capability fallback. Removals are
+hierarchy rebuilding, deterministic fixtures, and capability fallback. Removals are
 children before parents; upserts are parents before children. Relationship source
 upserts are available before dependent node upserts. A source removal follows all
 node removals/updates that drop its last reference. The staged post-batch graph
@@ -1776,8 +1809,9 @@ pub struct ProposalResolution {
 ```
 
 `FocusFailure` is stale generation, stale incarnation, inactive, disabled,
-missing focus host, reveal rejected, reveal target removed, reveal timeout, or
-backend failure. `FocusScopeMutation` installs a complete scope snapshot or
+screen reader inactive, missing focus host, reveal rejected, reveal target
+removed, reveal timeout, Unity focus timeout, superseded focus, or adapter
+failure. `FocusScopeMutation` installs a complete scope snapshot or
 removes it by owner. `PresentationRootSnapshot.activation_order` is assigned by
 Rust commit sequence and never by physical portal order.
 
@@ -1793,23 +1827,21 @@ The lifecycle counters have distinct meanings:
 - `commit_sequence` is Rust's session-local accepted visual/semantic commit
   number. Incremental batches must be exactly previous plus one; a full snapshot
   resets the Unity mirror to the supplied value.
-- `backend_generation` is Unity's activation count for a native backend. It
-  changes on reconnect, backend replacement, or capability-set replacement and
-  accompanies every callback envelope and proposal.
+- `backend_generation` is Unity's activation count for the Unity accessibility
+  adapter. It changes on reconnect, hierarchy replacement, or capability-set
+  replacement and accompanies every callback envelope and proposal.
 - `NodeIncarnation` is Rust's per-slot logical-lifetime token and is part of every
   `AccessibilityId`.
-- `CallbackRequestId` is Unity's process-local off-thread dispatch token and never
-  crosses the Rust wire.
 
 Actions are typed: activate, increment, decrement, set range value, toggle,
 select, expand, collapse, dismiss, show help, scroll by direction/page, move to a
 collection boundary, the complete text-edit variants above, and custom named
 application action. A custom action must have localized text and an explicit Rust
-handler. Backends must not turn unknown actions into a click.
+handler. The Unity adapter must not turn an unsupported action into a click.
 
 The protocol handshake advertises:
 
-- backend kind and native OS version;
+- Unity version, runtime platform, and whether `AssistiveSupport` is available;
 - supported roles, states, relations, range and collection interfaces;
 - custom-action, live-region, geometry, modal, and virtual-navigation support;
 - screen-reader active status when available; and
@@ -1823,40 +1855,48 @@ schema compatibility adapter is provided.
 
 Rust protocol fixtures and C# DTOs are generated and reviewed together.
 
-Capability enforcement has two inputs. `RequiredCapabilities` is static player
-configuration checked once during handshake; a missing capability prevents
-accessibility activation and, for a strict shipping player, prevents the Reactant
-session from starting. `FallbackPolicy` is declared on nodes and checked on every
-candidate commit against the connected capability set. An unapproved exercised
-fallback rejects that complete visual/semantic commit and leaves the previous
-complete commit active; it does not deactivate the session.
+Capability enforcement has two inputs. `RequiredCapabilities` is optional static
+player configuration checked once during handshake. It can require a particular
+Unity capability for a product that cannot operate plausibly without it, but the
+v1 default requires none and permits best-effort lowering. `FallbackPolicy` is
+declared on nodes and checked on every candidate commit against Unity's reported
+capability set. An explicitly forbidden exercised fallback rejects that complete
+visual/semantic commit and leaves the previous complete commit active; it does
+not deactivate the session.
 
 `AccessibilityCoverage::Required` is separate. It rejects an actionable or
 focusable descendant with no explicit semantic contract, regardless of backend
 capability. Backend health is `Available`, `Degraded`, or `Unavailable`.
 `Degraded` means at least one allowed fallback is active. `Unavailable` means no
-native tree is published. Strictness is policy applied to those facts, not a
-fourth health state.
+Unity accessibility hierarchy is published. Strictness is policy applied to
+those facts, not a fourth health state.
 
 A generated pure fallback classifier is authoritative. Its inputs are backend
-kind, OS/API level, immutable capability set, and a resolved canonical node; its
-output is the exact native mapping plan and `BTreeSet<FallbackClass>`. Rust runs
-the classifier before accepting a candidate commit. Unity runs the same generated
-tables again before backend mutation and asserts identical fallback classes. A
-mismatch rejects the session as a package/schema error.
+kind, Unity version, runtime platform, immutable capability set, and a resolved
+canonical node; its output is the exact `AccessibilityNode` mapping plan and
+`BTreeSet<FallbackClass>`. Rust runs the classifier before accepting a candidate
+commit. Unity runs the same generated tables again before hierarchy mutation and
+asserts identical fallback classes. A mismatch rejects the session as a
+package/schema error.
 
 The effective fallback policy is the nearest ancestor policy after canonical
 parentage is resolved. The semantic root cannot use `Inherit`. `AllowAll` accepts
 and diagnoses the classifier's set. `Forbid(classes)` rejects when the intersection
 is nonempty; an empty set therefore means allow all while remaining explicit.
 
-Capabilities are immutable within one backend generation. A screen-reader or
-native-service status change that does not alter capabilities updates health
-only. A changed capability set deactivates the native tree, creates a new backend
-generation, sends a full status event, and requires Rust to reclassify the last
-committed tree before Unity republishes it. Missing static required capabilities
-leave the backend unavailable; node-level forbidden fallback leaves the previous
-complete tree active and reports the failed reactivation.
+Capabilities are immutable within one backend generation. When the screen reader
+turns off, Unity clears `AssistiveSupport.activeHierarchy`; Reactant marks the
+generation inactive, cancels pending focus, reports `Unavailable` with a
+screen-reader-off reason, and keeps the canonical mirror. When it turns on,
+Reactant creates a new backend generation, rebuilds fresh `AccessibilityNode`
+objects from that mirror, reassigns `AssistiveSupport.activeHierarchy`, and sends
+a full status event without requiring a Rust rerender.
+
+A changed capability set follows the same deactivation boundary but requires Rust
+to reclassify the last committed tree before Unity republishes it. Missing static
+required capabilities leave the adapter unavailable; node-level forbidden
+fallback leaves the previous complete tree active and reports the failed
+reactivation.
 
 ## Unity host architecture
 
@@ -1874,7 +1914,7 @@ One manager per Reactant runtime owns:
 - modality and focus-visible state;
 - the overlay and restoration stack;
 - navigation, typeahead, press, range, and collection policy adapters;
-- frame invalidation and platform notifications; and
+- frame invalidation and Unity notifications; and
 - backend lifecycle and capability diagnostics.
 
 The manager depends on `BattlementUiDocuments` and the live object index for
@@ -1889,44 +1929,46 @@ internal interface IAccessibilityBackend
     AccessibilityCapabilities Capabilities { get; }
     void Activate(AccessibilityTree tree);
     void Apply(AccessibilityBackendBatch batch);
-    void SetFocus(AccessibilityId? id, AccessibilityFocusReason reason);
+    void RequestFocus(AccessibilityId? id, AccessibilityFocusReason reason);
     void Notify(AccessibilityNotification notification);
     void Announce(AccessibilityAnnouncement announcement);
     void Deactivate();
 }
 ```
 
+The v1 implementations are `UnityAccessibilityBackend`, which owns one
+`AccessibilityHierarchy`, and `InspectorAccessibilityBackend`, which exposes no
+assistive-technology nodes. The interface is an internal testing and lifecycle
+boundary, not an extension point for native plugins or browser DOM backends.
+
 Mutation, focus, notification, and action-dispatch methods run on Unity's main
-thread. The manager publishes an immutable, generation-tagged provider snapshot
-after each successful batch. Native read-only queries for role, name, state,
-value, relations, children, actions, and last frame may run on any thread against
-that snapshot without entering Unity.
+thread. `UnityAccessibilityBackend` creates, updates, moves, and removes
+`AccessibilityNode` objects and publishes its hierarchy through
+`AssistiveSupport.activeHierarchy`. It uses Unity's notification dispatcher for
+the layout, screen, and announcement operations Unity supports.
 
-An action or native-focus callback received off-thread posts one
-`CallbackRequestId` in atomic state `Pending` and waits up to 100 ms for main-thread
-start. The dispatcher checks the request deadline and uses compare-and-swap to
-move `Pending` to `Executing`. If the deadline wins, the caller moves `Pending` to
-`Cancelled` and returns; the dispatcher must observe that state and perform no
-lookup, proposal, or Rust call. Completed requests publish their result before
-moving `Executing` to `Completed`.
+The adapter subscribes to `AssistiveSupport.screenReaderStatusChanged` before
+activation. It never assumes its hierarchy remains assigned after a disabled
+status event. Re-enabling reconstructs and assigns the complete current mirror as
+described above; an incremental batch is never applied to an unassigned stale
+hierarchy.
 
-Mobile callbacks already on the main thread dispatch directly. If Unity is inside
-semantic commit or synchronous runtime dispatch, recursive action dispatch is
-rejected as busy; it is not queued after the callback returns. Teardown, busy,
-cancel, or generation/incarnation mismatch returns
-unsupported/element-not-available and creates no proposal. Once execution starts,
-the caller waits for the existing bounded synchronous runtime call; a runtime
+Unity node action and focus events dispatch directly on the main thread. If Unity
+is inside semantic commit or synchronous runtime dispatch, recursive action
+dispatch is rejected as busy; it is not queued after the callback returns.
+Teardown, busy, or generation/incarnation mismatch returns `false` from the Unity
+event when that event permits a handled result and creates no proposal. A runtime
 budget failure rejects the response and applies no safe-gate mutation.
 
 On the main thread, the manager validates the active generation and action route,
 runs the synchronous Rust call, and decides handled status from the matching
 `ProposalResolution` or noncontrolled handler admission. Safe-gate mutation may
-follow, but handled status is no longer ambiguous. A backend cannot retain a
+follow, but handled status is no longer ambiguous. The adapter cannot retain a
 mutable node reference across a generation change.
 
-`AccessibilityBackendBatch` contains already resolved platform mappings plus the
+`AccessibilityBackendBatch` contains already resolved Unity mappings plus the
 canonical node for diagnostics. Mapping is deterministic and side-effect-free;
-the manager computes it before entering the backend.
+the manager computes it before entering the adapter.
 
 ### UI Toolkit integration
 
@@ -1939,9 +1981,10 @@ the current `worldBound`, panel scaling, player viewport, and platform coordinat
 origin. Clipping intersects the frame with all physical clipping ancestors even
 though semantic ancestry is logical. A fully clipped interactive node validates
 only when `FocusProps.scroll_route` names an attached scroll container and a
-bounded reveal action. It remains in the tree with an offscreen frame; native
-focus first executes the reveal route, waits for safe-gate layout, then reports
-focus. Without that route, an actionable fully clipped node is invalid.
+bounded reveal action. It remains in the tree with an offscreen frame; Unity
+focus first executes the reveal route, waits for safe-gate layout, requests focus
+through Unity's notification dispatcher, and waits for a confirming focus event.
+Without that route, an actionable fully clipped node is invalid.
 
 Virtual nodes choose one geometry source:
 
@@ -1958,174 +2001,132 @@ cannot reveal the target owner.
 Native controls continue to own text editing, selection, drag, scroll, and other
 local interaction behavior. Behavior hooks install their semantic contract
 explicitly so a native control and a custom visual host produce the same tree.
-The manager suppresses any implicit UI Toolkit/native accessibility exposure that
-would create a duplicate platform node.
+Reactant owns `AssistiveSupport.activeHierarchy` while its adapter is active and
+does not attempt to merge its nodes with another application-authored Unity
+hierarchy. UI Toolkit host types do not create additional Reactant nodes.
 
-### Native callback lifetime
+### Unity callback lifetime
 
 A callback resolves `(backend_generation, AccessibilityId)` including node
 incarnation against the active mirror, checks exposure, disabled/read-only/action
 state, and only then submits the typed event. Increment, decrement, select,
 toggle, and text-set callbacks use the same controlled proposal semantics as
-native UI events.
+Unity UI events.
 
-A platform focus callback enters the focus state machine. An already visible
+A Unity focus callback enters the focus state machine. An already visible
 target updates accessibility focus during `FocusNow`; a clipped target remains at
 the old focus through `RevealPending`. Input focus changes only through declared
 `FocusProps`. A stale, hidden, inactive, timed-out, or reveal-failed target returns
 the defined failure and does not fall back to an ancestor action.
 
-## Platform mappings and capability policy
+## Unity mapping and capability policy
 
-Reactant ships a backend per supported player family. “Full” means the canonical
-concept has a native representation. “Adapted” means Reactant preserves behavior
-but must flatten or phrase part of the semantic information. “None” means the
-backend reports the gap and applies the listed fallback.
+V1 has one assistive-technology backend:
+`UnityEngine.Accessibility`. “Full” below means Unity has a direct documented
+field, role, state, event, or notification for the canonical concept. “Adapted”
+means Reactant retains the canonical concept but publishes a simpler, plausibly
+useful representation. “Unavailable” means Reactant keeps the concept for
+inspection and future lowering but does not publish it through Unity.
 
-| Capability | iOS | Android | macOS | Windows | WebGL |
-| --- | --- | --- | --- | --- | --- |
-| Basic roles, names, states | Full | Full | Full | Full | Full |
-| Rich role vocabulary | Full | Full | Full | Full | Full |
-| Label/description relations | Adapted | Adapted | Full | Full | Full |
-| Range interfaces/actions | Full | Full | Full | Full | Full |
-| Collection position/size | Full | Full | Full | Full | Full |
-| Active descendant | Adapted | Full | Adapted | Full | Full |
-| Custom named actions | Full | Full | Full | Full | Adapted |
-| Modal scope/screen change | Full | Full | Full | Full | Full |
-| Live announcements | Full | Full | Full | Full | Full |
-| Virtual window continuation | Adapted | Full | Adapted | Full | Adapted |
-| Live animated geometry | Full | Full | Full | Full | Full |
-| Screen-reader active signal | Full | Full | Full | Adapted | Adapted |
+The table describes the documented API surface of the repository's pinned Unity
+6000.5.8f1 version in
+[`ProjectSettings/ProjectVersion.txt`](../../ProjectSettings/ProjectVersion.txt).
+Phase 0 verifies the observable VoiceOver and TalkBack result; an operating
+system may still phrase or navigate the mapped node differently.
 
-This matrix is the required end state, not a claim about Unity's current built-in
-coverage.
+| Canonical capability | Unity v1 lowering |
+| --- | --- |
+| Name | Full: `AccessibilityNode.label` |
+| Description or help text | Adapted: resolved text in `AccessibilityNode.hint` |
+| Formatted value text | Full: `AccessibilityNode.value` |
+| Unity role surface | Full: `Button`, `Container`, `Dropdown`, `Header`, `Image`, `KeyboardKey`, `ScrollView`, `SearchField`, `Slider`, `StaticText`, `TabBar`, `TabButton`, `TextField`, and `Toggle` |
+| Other roles | Adapted to a non-misleading supported role or `None`; otherwise omitted |
+| Disabled, expanded, and selected state | Full: corresponding `AccessibilityState` |
+| Other state | Adapted into concise localized hint/value text when useful; otherwise omitted |
+| Activate, increment, decrement, dismiss, and scroll | Full through `invoked`, `incremented`, `decremented`, `dismissed`, and `scrolled` events |
+| Other and custom named actions | Unavailable; omitted with diagnostics |
+| Label/description/error/details relationships | Adapted by resolving source text into label or hint |
+| Other relationships and active descendant | Unavailable as relationships; retained canonically |
+| Reading order and hierarchy | Full where representable by `AccessibilityHierarchy` node order and parentage |
+| Collection position, size, table, grid, and tree metadata | Adapted into concise localized value/hint text when useful |
+| Geometry | Full through `frame` or `frameGetter` |
+| Accessibility focus | Adapted: requested through a layout/screen notification and confirmed by Unity focus events |
+| Layout, screen, and page-scrolled notifications | Full through Unity's dispatcher |
+| Announcement text | Adapted through `SendAnnouncement`; politeness is unavailable and diagnosed |
+| Locale/language metadata | Unavailable; localized strings remain canonical |
+| Screen-reader active signal | Full through `AssistiveSupport` |
 
-### iOS
+The mapping table is generated and versioned against the pinned Unity API. It
+may grow when a Unity upgrade adds roles, states, relationships, actions, or
+notifications. Such growth does not require an application API migration because
+the canonical Rust declarations already preserve that information.
 
-The backend maps canonical nodes to `UIAccessibilityElement` instances in a
-custom accessibility container attached to the Unity player view. Traits, value,
-hint, frame, custom actions, increment/decrement, escape/dismiss, and layout or
-screen-change notifications use UIKit accessibility APIs.
+### Supported Unity players
 
-UIKit exposes flattened label and hint text rather than canonical labelled-by and
-described-by objects. The backend computes those strings from the resolved source
-records, does not publish the sources as navigable elements, and records a
-`FallbackClass::Relation` adaptation. Error-message and details text append to the
-hint in canonical relation order with localized separators.
+Unity documents `AssistiveSupport` for iOS and Android. On those targets,
+Reactant constructs one `AccessibilityHierarchy`, fills it with
+`AccessibilityNode` objects, assigns it to `AssistiveSupport.activeHierarchy`,
+and listens to Unity events for focus, invoke, increment, decrement, dismiss, and
+scroll. Reactant calls no UIKit or Android accessibility API directly.
 
-Unity's `AccessibilityHierarchy` may be used as the implementation substrate for
-roles and actions it represents correctly. The current Unity role/state surface
-is narrower than the canonical model, so the backend must use a native extension
-for collections, rich roles, custom actions, or values that the OS can represent
-but Unity cannot. An extension cannot turn a flattened UIKit relation into a Full
-mapping. It must never publish both Unity and extension nodes for the same
-canonical ID.
+The inspector backend always maintains the canonical Unity mirror and accepts
+Ditto actions. It exposes no assistive-technology nodes. It is used in the Unity
+Editor, headless tests, and players where `AssistiveSupport` is unavailable.
 
-### Android
+macOS, Windows, Linux, consoles, and WebGL therefore report `Unavailable` in v1.
+Reactant does not ship NSAccessibility, UI Automation, Java/Kotlin, Objective-C,
+Swift, or JavaScript accessibility integrations, and WebGL does not create DOM or
+ARIA nodes beside the Unity canvas. Applications on those targets still receive
+keyboard/controller interaction, semantic validation, inspector diagnostics, and
+Ditto coverage, but the document does not claim screen-reader access.
 
-The backend exposes virtual descendants of the Unity player view through an
-`AccessibilityNodeProvider`. It maps role/class, content description, state,
-range info, collection info, actions, bounds, traversal order, and live-region
-events to `AccessibilityNodeInfo` and related events.
+### Best-effort fallback order
 
-The Android API 26 baseline cannot preserve every ordered multi-source label and
-description relation in the canonical model. The backend uses native relations
-that exist on the running API, flattens the remainder into content/state/error
-descriptions in canonical order, and records `FallbackClass::Relation`. A later OS
-API may expose more native relations, but the required API 26+ capability remains
-Adapted unless this matrix is explicitly amended.
+The adapter first selects an exact Unity role, state, value, and event. If Unity
+lacks an exact role, it selects a supported role only when the result preserves
+the control's primary meaning; otherwise it uses `AccessibilityRole.None` or
+omits a structural node that would add noise. It never maps an unsupported
+interactive role to an unrelated control merely to make it actionable.
 
-Unity's mobile accessibility layer may supply the basic hierarchy, but the same
-single-owner rule applies. Android virtual node IDs are allocated per backend
-generation and mapped to stable `AccessibilityId` values.
+Reactant preserves resolved name, description, and formatted value whenever the
+corresponding Unity fields exist. Relationship sources may be flattened into the
+label or hint in canonical order. Required, invalid, checked, expanded,
+collection position, and similar unsupported metadata may be expressed as a
+short localized hint/value phrase when that produces a clearer experience than
+silence. Reactant does not concatenate application-authored sentences or invent
+a name.
 
-### macOS
+Activation remains available only when a matching Unity node event safely
+represents the primary action. Unsupported secondary and custom actions are
+omitted. Unsupported relations, state, and actions remain present in the
+canonical inspector and Ditto snapshot so a Unity upgrade can expose them later
+without changing application declarations.
 
-The backend attaches a custom `NSAccessibility` element hierarchy to the player
-content view. It uses role-specific protocols where available, exposes values and
-actions, reports ordered children and relationships, and posts focused-element,
-layout, value, title, and announcement notifications.
-
-The custom elements are not `NSView` instances. Their frames are derived from UI
-Toolkit hosts and converted to macOS screen coordinates. Native objects are
-retained only for the active backend generation.
-
-### Windows
-
-The backend implements a UI Automation fragment root under the player `HWND`.
-Each canonical node has an `IRawElementProviderSimple`; structural nodes that
-participate in navigation also implement fragment interfaces. Roles map to
-control types and state/value/action contracts map to UIA control patterns such
-as Invoke, Toggle, Selection, SelectionItem, RangeValue, Value, ExpandCollapse,
-Scroll, Grid, Table, and Window.
-
-Runtime IDs include the backend generation and a stable per-generation integer.
-UIA events are coalesced after a semantic batch. Provider calls marshal to the
-Unity thread with a bounded timeout and return element-not-available when the
-generation has ended.
-
-### WebGL
-
-Canvas pixels are not an accessibility tree. The WebGL backend creates a sibling
-semantic DOM subtree with one focusable or structural element for each exposed
-canonical node. It uses native HTML elements where their behavior matches the
-canonical role and ARIA only for missing states, relationships, composites, and
-live regions.
-
-DOM order follows canonical reading order, not canvas draw order. Elements are
-visually transparent and positioned over interactive canvas regions so browser
-focus, magnification, and touch exploration align with UI Toolkit geometry. The
-canvas itself is presentation-only once the semantic subtree is active.
-
-DOM input is forwarded as typed accessibility actions and controlled proposals;
-it does not synthesize pointer coordinates. A focusable DOM node has a one-to-one
-mapping to a canonical interactive node, following the HTML canvas guidance.
-
-### Unsupported platforms and headless runs
-
-An inspector backend always maintains the canonical Unity mirror and accepts
-Ditto actions. It exposes no native nodes and reports `Unavailable` health. This
-is the default for headless tests and unsupported desktop players.
-
-A product may allow that fallback for nonshipping tools. A shipping build that
-declares strict accessibility fails startup with a clear diagnostic instead of
-pretending the interface is accessible.
-
-### General fallback order
-
-For an unsupported canonical role, a backend chooses the nearest noninteractive
-structural role or generic group, preserves the name, description, value text,
-and supported state, and exposes every still-valid action as a named custom
-action. It never maps an unsupported interactive role to an unrelated standard
-control.
-
-If custom actions are also unsupported, activation remains available only when a
-safe primary activate action exists. Secondary actions are omitted with one
-deduplicated diagnostic. Relationship text may be folded into the description
-only when the native API has no relationship channel. Numeric values retain
-their formatted text when a range interface is unavailable.
-
-Fallback is observable through the capability report, editor inspector, logs,
-and Ditto snapshot. Strict profiles can elevate selected fallback classes to
-errors.
+Every loss or adaptation records a `FallbackClass` in the capability report,
+editor inspector, logs, and Ditto snapshot. `AllowAll` is the recommended v1
+root policy and provides best-effort output with diagnostics. Products may use
+`Forbid` or `RequiredCapabilities` for individual experiences whose degraded
+mapping would be unusable, but Reactant never responds by loading a custom native
+or browser backend.
 
 ## Localization and layout direction
 
 `AccessibilityContext` carries the resolved application locale, layout direction,
 number formatter, and optional default strings for hook-authored validation. A
-semantic commit records its locale so a backend can set the appropriate native
-language metadata.
+semantic commit records its locale for canonical inspection, navigation, and
+fallback formatting. Unity v1 has no node-language field, so the adapter records
+the resulting capability limitation when it materially affects a published node.
 
 Hooks do not concatenate localized sentences. Application content supplies
 complete localized names, descriptions, errors, and value text. Collection
-position phrases and role/action words are left to the native platform. If a
-fallback must fold state into a description, it uses a small Reactant platform
-catalog selected by locale and reports when the catalog lacks that locale.
+position phrases used by a fallback come from a small Reactant Unity catalog
+selected by locale. Role and action words are left to Unity and the operating
+system. The adapter reports when the catalog lacks the requested locale.
 
 Direction is inherited from the nearest Reactant language-direction context, not
 from the physical portal target. An explicit direction on a semantic subtree may
 override it. The same resolved direction configures visual host direction,
-navigation policy, typeahead collation, and backend language metadata.
+navigation policy, and typeahead collation.
 
 Typeahead uses locale-aware case folding and grapheme boundaries. It searches
 resolved accessible names, skips disabled or hidden items according to the
@@ -2171,7 +2172,7 @@ Warnings include:
 - an excessive unvirtualized collection;
 - a description that duplicates the resolved name;
 - live-region churn that is coalesced every frame;
-- a backend fallback used by a live node;
+- a Unity fallback used by a live node;
 - a focus order that materially differs from reading order; and
 - a visually clipped focused node without a scroll container.
 
@@ -2188,8 +2189,8 @@ The Unity editor gains an Accessibility inspector showing:
   portal location;
 - input, navigation, and accessibility focus;
 - active modality, modal/inert scopes, and restoration targets;
-- native backend mapping and fallbacks; and
-- recent native actions, notifications, and announcements.
+- Unity node mapping and fallbacks; and
+- recent Unity accessibility actions, notifications, and announcements.
 
 The inspector reads the production mirror. It does not maintain a parallel debug
 tree. Selecting a node highlights its UI Toolkit frame without changing either
@@ -2197,9 +2198,10 @@ focus kind.
 
 ## Compatibility and rollout boundaries
 
-Accessibility protocol, Rust types, generated JSON fixtures, Unity DTOs, and
-native backends land together. A stale Rust or Unity package does not
-interoperate. There is no schema negotiation that drops unknown semantic fields.
+Accessibility protocol, Rust types, generated JSON fixtures, Unity DTOs, and the
+Unity accessibility adapter land together. A stale Rust or Unity package does
+not interoperate. There is no schema negotiation that drops unknown semantic
+fields.
 
 Existing Reactant applications continue to render and receive input, but no role
 or name is inferred for custom elements or native controls. They become
@@ -2215,10 +2217,10 @@ Public hook APIs may evolve as product needs change. Rust source compatibility i
 not a goal for this project, but a stale player must still fail loudly rather than
 misrepresent a new tree.
 
-Native plugins are loaded only on their target platform. Their ABI is private to
-the matching Unity package and carries a generation token on every object and
-callback. Failure to load selects the inspector backend and reports unavailable
-health; it never silently exposes a partial duplicate hierarchy.
+The Unity adapter activates only when the running platform implements
+`AssistiveSupport`. Otherwise Reactant selects the inspector backend and reports
+unavailable health. V1 does not probe for, load, or define an accessibility
+plugin ABI.
 
 ## Test architecture
 
@@ -2288,23 +2290,28 @@ real UI Toolkit panels. They cover:
 
 - frame conversion, scaling, clipping, physical portals, and virtual-node unions;
 - staged batch validation and atomic failure;
-- native callback generation rejection;
-- same-generation stale-incarnation rejection and off-thread timeout
-  cancellation before dispatch;
+- Unity callback generation rejection;
+- same-generation stale-incarnation rejection before dispatch;
 - input, navigation, accessibility focus, and focus-visible correlation;
+- focus notification requests, exact-event confirmation, timeout, supersession,
+  and screen-reader deactivation;
 - admission-backed activate plus controlled drafts for toggle, selection, range,
   text, and dismiss;
 - Tab trapping, nested overlays, logical restoration, and removed invokers;
 - typeahead and RTL navigation;
 - Motion frame invalidation and one notification per frame;
-- reconnect activation and a single screen-change notification; and
-- backend fallback, capability-generation replacement, focus reveal
-  success/failure, and strict-capability policy.
+- reconnect activation and a single screen-change notification;
+- screen-reader off/on reconstruction with fresh Unity nodes and complete
+  hierarchy reassignment; and
+- pinned Unity 6000.5 role/state/action mapping, announcement-politeness fallback,
+  capability-generation replacement, focus reveal success/failure, and
+  strict-capability policy.
 
-Platform plugin unit tests map every canonical role, state, value, relation, and
-action to native objects. Tests use protocol/provider-level inspection rather than
-screen-reader speech. IL2CPP player smoke tests prove plugin loading, callback
-marshalling, teardown, and stale-generation behavior.
+Adapter unit tests map every canonical role, state, value, relation, and action to
+an `AccessibilityNode` field/event or an explicit fallback class. Tests inspect
+the resulting `AccessibilityHierarchy` rather than screen-reader speech. iOS and
+Android IL2CPP player smoke tests prove hierarchy activation, Unity callback
+dispatch, teardown, and stale-generation behavior.
 
 ### Ditto tests
 
@@ -2328,26 +2335,26 @@ to exactly one node. Assertions cover role, name, description, state, value,
 relationships, actions, order, position, set size, focus, modal/inert state,
 backend fallback, and announcements.
 
-`accessibility_action` enters through the same Unity backend callback adapter as a
-native provider action. It must not call Rust handlers directly. Existing click,
+`accessibility_action` enters through the same callback adapter as a Unity
+`AccessibilityNode` action. It must not call Rust handlers directly. Existing click,
 key, controller, drag, wait, and screenshot steps remain the way to test ordinary
 input and visual focus styling.
 
 Semantic settle requires no pending Reactant work, no pending safe-gate batch, no
 unacknowledged inspector-backend notification, and two quiet frames. Snapshot
-normalization removes backend-local native IDs and frames unless a scenario asks
+normalization removes Unity node IDs and frames unless a scenario asks
 for geometry.
 
 Ditto does not assert spoken phrases or replace manual assistive-technology
-testing. It proves the canonical tree and action plumbing that native backends
-consume.
+testing. It proves the canonical tree and action plumbing that the Unity adapter
+consumes.
 
 ### Performance tests
 
 Phase 0 checks in a machine manifest for one macOS and one Windows release runner.
 It records CPU, memory, OS build, power mode, Unity build options, and command.
 Benchmarks use a release player, fixed locale, screen reader off, and the inspector
-backend so native service latency is excluded.
+backend so assistive-service latency is excluded.
 
 The fixture contains 1,000 exposed nodes, 100 relationships, 50 controlled
 actions, two portals, one modal scope, and a 100-item materialized window whose
@@ -2365,22 +2372,27 @@ unidentified host.
 
 ## Acceptance scenarios
 
-Every scenario below must pass at the Rust fake-host level, through a Unity fake
-backend, through Ditto where applicable, and manually on each relevant native
-screen reader before completion.
+Every scenario below must pass exactly at the Rust fake-host level, through the
+Unity canonical mirror, and through Ditto where applicable. In scenario prose,
+“exposes” describes the canonical Reactant result unless a Unity node is named
+explicitly. The iOS and Android adapter tests assert the direct or best-effort
+mapping defined by the Unity capability table, including an explicit fallback
+for every canonical field Unity cannot publish. Manual VoiceOver and TalkBack
+testing verifies the resulting Unity-supported subset; it is not expected to
+recover semantics absent from `UnityEngine.Accessibility`.
 
 ### Labeled controls
 
 Given a custom-painted save button labelled by visible text and described by
-hidden help text, the canonical and native nodes expose one button with name
-“Save changes” and the help description. Pointer, Space, Enter, controller submit,
-and accessibility activate each produce one logical press. Disabled state keeps
-the control readable and suppresses all activation.
+hidden help text, the canonical tree exposes one button with name “Save changes”
+and the help description. Unity publishes the name as `label`, the description as
+`hint`, and the role as `Button`. Pointer, Space, Enter, controller submit, and
+accessibility activate each produce one logical press. Disabled state keeps the
+control readable and suppresses all activation.
 
-The hidden help declaration is a nontraversal relationship source. Windows,
-macOS, and WebGL retain the native relation. iOS and baseline Android flatten the
-same resolved text, report the relation adaptation, and do not expose a ghost text
-node.
+The hidden help declaration is a nontraversal relationship source. The Unity
+adapter flattens the resolved text into `hint`, reports the relation adaptation,
+and does not expose a ghost text node.
 
 A checkbox labelled by another logical node exposes checked, required, invalid,
 and error-message relations independently. Reordering the visual label and
@@ -2390,8 +2402,9 @@ control through a portal does not change their relationship or reading order.
 
 Opening a portaled settings dialog promotes it as the active semantic screen,
 makes the page below it inert, places focus at the declared first control, and
-keeps Tab/controller navigation inside. Escape, controller cancel, native dismiss,
-and an authored close button each request the same Rust close intent once.
+keeps Tab/controller navigation inside. Escape, controller cancel, Unity
+accessibility dismiss, and an authored close button each request the same Rust
+close intent once.
 
 Closing removes dialog semantics before exit animation, then restores focus to
 the logical invoker. A nested confirmation dialog restores to the settings dialog
@@ -2409,7 +2422,7 @@ exposed, including while a deselected panel animates out.
 
 A custom music-volume slider exposes numeric range and localized percent text.
 Arrows, Page keys, controller direction, accessibility increment/decrement,
-pointer drag, and touch drag produce controlled value proposals. The native value
+pointer drag, and touch drag produce controlled value proposals. The Unity value
 does not remain changed if Rust rejects a proposal. RTL reverses horizontal
 spatial increment direction but not minimum, maximum, or value meaning.
 
@@ -2433,8 +2446,10 @@ without announcing the entire form. A repeated equivalent error is deduplicated.
 
 Rapid music-playback status updates with the same polite key coalesce within one
 frame. An assertive connection-loss message is delivered in commit order and
-acknowledged. A reconnect does not replay acknowledged speech and replays an
-unacknowledged assertive message at most once.
+acknowledged. Unity receives the resolved text in submission order, while the
+inspector reports that polite/assertive delivery was not representable. A
+reconnect does not replay acknowledged speech and replays an unacknowledged
+assertive message at most once.
 
 ### Portaled overlays
 
@@ -2462,15 +2477,20 @@ numeric value meaning remain stable. Typeahead matches locale-aware names.
 
 Disconnecting and reconnecting while a modal dialog and virtual collection are
 open recreates stable canonical IDs, modal inertness, selection, and eligible
-focus. Native generations change, stale callbacks are rejected, and the backend
+focus. Backend generations change, stale callbacks are rejected, and the adapter
 emits one screen-change notification without replaying ordinary live-region
 history.
+
+Turning the screen reader off and on without a Rust render also changes the
+backend generation. Reactant rebuilds fresh Unity nodes from the retained mirror,
+reassigns one complete active hierarchy, rejects callbacks from the cleared
+hierarchy, and preserves canonical IDs.
 
 ### Presence animation
 
 Removing a focused tooltip, tab panel, menu, or dialog makes it semantic-inert in
 the removal commit, chooses the documented focus destination, and suppresses
-native actions. Its `VisualElement` and Motion animation may remain until exit
+Unity accessibility actions. Its `VisualElement` and Motion animation may remain until exit
 completion. Frame updates for still-present nodes remain synchronized without
 semantic churn.
 
@@ -2492,8 +2512,9 @@ while focus is inside moves focus to the disclosure before hiding the region.
 A labelled required text field exposes text value, selection/editability,
 description, and validation without duplicating its visible placeholder as a
 name. Read-only text remains focusable and selectable; disabled text does not
-edit. Native insert, delete, selection, paste, and accessibility set-value actions
-produce correlated controlled proposals.
+edit. UI Toolkit insert, delete, selection, and paste events produce correlated
+controlled proposals. Ditto may exercise the canonical accessibility set-value
+action. Unity v1 omits that unsupported action and records its fallback.
 
 In a combobox, text input focus remains on the field while accessibility focus or
 active descendant navigates the portaled listbox. Filtering that removes the
@@ -2524,9 +2545,10 @@ value without announcing every frame. An indeterminate indicator exposes busy
 state and no false percentage. Explicit milestones announce once according to
 their deduplication policy.
 
-A custom action with a localized name appears only on backends that support it or
-an approved fallback. Invoking it routes one typed action to its logical owner.
-Removing or renaming the action invalidates stale native callbacks by generation.
+A custom action with a localized name remains available to canonical inspection
+and Ditto but is omitted from Unity's v1 hierarchy with a custom-action fallback.
+Invoking it through Ditto routes one typed action to its logical owner. Removing
+or renaming the action invalidates stale test callbacks by generation.
 
 ### Focus-kind divergence
 
@@ -2538,11 +2560,11 @@ The diagnostics inspector shows all four focus/modality values throughout.
 
 ### Backend fallback and validation recovery
 
-On a fake backend missing a rich role but supporting named custom actions, an
-allowing node exposes the documented generic fallback, preserves name/value, and
-records one degraded diagnostic. The same node with that fallback class forbidden
-rejects the complete candidate visual/semantic commit and leaves the previous
-complete screen active.
+Against a pinned Unity capability fixture missing a rich role, an allowing node
+uses the documented Unity fallback, preserves every supported name/hint/value
+field, omits unsupported actions, and records the exact degraded diagnostics. The
+same node with one of those fallback classes forbidden rejects the complete
+candidate visual/semantic commit and leaves the previous complete screen active.
 
 An invalid labelled-by cycle and an actionable clipped node without a scroll
 route likewise reject the whole candidate. Correcting the declaration on the next
@@ -2551,14 +2573,14 @@ error without restarting the session.
 
 ### Switch control and alternate actions
 
-With iOS Switch Control or Android Switch Access, scanning follows the active
-presentation order, skips inert/hidden nodes, enters one composite at its active
-member, and offers the same primary and custom actions as touch exploration.
-Activate, increment/decrement, show help, and dismiss work without synthesized
-pointer coordinates. Opening a modal replaces the scan scope; closing it restores
-the previous keyed scan/focus target when still eligible.
+With iOS Switch Control or Android Switch Access, scanning follows the hierarchy
+and order Unity publishes and skips nodes Reactant marks inactive. Select,
+increment/decrement, and dismiss work when Unity exposes the corresponding node
+event. Custom actions and active-member composite entry remain canonical-only and
+produce fallbacks. Opening a modal publishes the updated active hierarchy;
+closing it restores the previous keyed focus target when Unity permits it.
 
-### Identity, timeout, capability, and reveal failures
+### Identity, capability, and reveal failures
 
 Removing and recreating the same keyed virtual item in one backend generation
 changes its node incarnation. A callback holding the removed ID is rejected and
@@ -2569,57 +2591,62 @@ slot/key handlers and retain their exact semantic target through capture and
 bubble. Changing a portal target remounts its subtree with new host and semantic
 IDs; reconnect rebinding with the target unchanged preserves them.
 
-An off-thread native request that misses its 100 ms main-thread-start deadline
-atomically cancels. Its later queued work observes `Cancelled`, creates no
-proposal, calls no Rust handler, and leaves state unchanged.
-
-When a backend capability set changes, Unity deactivates the native tree, creates
+When the Unity capability set changes, Unity deactivates the active hierarchy, creates
 a new backend generation, and asks Rust to reclassify the last complete commit.
 An allowed mapping republishes once; a missing static requirement stays
 unavailable; a newly forbidden fallback leaves the previous complete Reactant
-commit intact and publishes no misleading native tree.
+commit intact and publishes no misleading Unity hierarchy.
 
 Requesting accessibility focus on a clipped node with a valid reveal route keeps
-old focus until geometry becomes visible. A rejected reveal, missing target, or
-two-frame/250 ms deadline preserves old focus, returns the documented failure,
-and creates no `Focused` event for the target.
+old focus until geometry becomes visible and Unity reports an exact focus event
+for the requested node. A rejected reveal, missing target, two-frame/250 ms reveal
+deadline, one-second Unity-focus deadline, focus on another node, or
+screen-reader deactivation preserves the last confirmed focus, returns the
+documented failure, and creates no `Focused` event for the target.
+
+Turning the screen reader off clears the active Unity hierarchy and cancels any
+pending focus request. Turning it on creates a new backend generation, rebuilds
+fresh Unity nodes from the last canonical mirror, and assigns the complete
+hierarchy without requiring a Rust rerender. Canonical IDs remain stable, while
+callbacks from the prior Unity generation are rejected.
 
 ### Scenario-to-platform coverage
 
-“All” means iOS, Android, macOS, Windows, WebGL Chromium, and WebGL Safari.
-Inspector-only scenarios also run headlessly and do not count as native manual
-certification.
+Canonical automation runs in Rust, protocol tests, the Unity Editor, and Ditto.
+The `UnityAccessibilityBackend` mapping suite runs against the pinned Unity API.
+Only iOS and Android require player and manual assistive-technology evidence in
+v1. Other player targets must report `Unavailable` and must not claim a semantic
+tree was published.
 
-| Scenario family | Automated targets | Manual targets |
-| --- | --- | --- |
-| Labels, controls, validation | All plus inspector | All |
-| Dialogs, overlays, presence | All plus inspector | All |
-| Tabs, menus, disclosures | All plus inspector | All |
-| Sliders and progress | All plus inspector | All |
-| Text input, rebinding, combobox | All plus inspector | All |
-| Announcements and reconnect | All plus inspector | All |
-| Virtual listbox, table, grid, tree | All plus inspector | All |
-| RTL and localization | All plus inspector | All |
-| Focus-kind divergence | All plus inspector | All |
-| Fallback and validation recovery | Inspector and target unit tests | Each target with forced capabilities |
-| Provider timeout and stale callback | Target plugin tests | macOS, Windows, iOS, and Android |
+| Scenario family | Canonical automation | Unity adapter | Manual AT |
+| --- | --- | --- | --- |
+| Labels, controls, validation | Required | Required mapping/fallback | iOS and Android |
+| Dialogs, overlays, presence | Required | Required mapping/fallback | iOS and Android |
+| Tabs, menus, disclosures | Required | Required mapping/fallback | iOS and Android |
+| Sliders and progress | Required | Required mapping/fallback | iOS and Android |
+| Text input, rebinding, combobox | Required | Required mapping/fallback | iOS and Android |
+| Announcements, reconnect, and screen-reader reactivation | Required | Required mapping/fallback | iOS and Android |
+| Virtual listbox, table, grid, tree | Required | Required mapping/fallback | iOS and Android |
+| RTL and localization | Required | Required mapping/fallback | iOS and Android |
+| Focus-kind divergence | Required | Required mapping/fallback | iOS and Android |
+| Fallback and validation recovery | Required | Forced capability fixtures | Representative iOS and Android cases |
+| Stale callback and off/on hierarchy replacement | Required | iOS and Android player smoke tests | iOS and Android |
 
 The required evidence by test layer is:
 
-| Scenario family | Rust | Protocol | Unity | Ditto | Native provider | Manual AT |
+| Scenario family | Rust | Protocol | Unity mirror | Ditto | Unity hierarchy | Manual AT |
 | --- | --- | --- | --- | --- | --- | --- |
 | Labels/control state | Required | Required | Required | Required | Required | Required |
-| Dialog/portal/presence | Required | Required | Required | Required | Required | Required |
-| Composite navigation | Required | Required | Required | Required | Required | Required |
-| Range/text proposals | Required | Required | Required | Required | Required | Required |
-| Collections/virtualization | Required | Required | Required | Required | Required | Required |
+| Dialog/portal/presence | Required | Required | Required | Required | Required | Required subset |
+| Composite navigation | Required | Required | Required | Required | Required | Required subset |
+| Range/text proposals | Required | Required | Required | Required | Required | Required subset |
+| Collections/virtualization | Required | Required | Required | Required | Required fallback | Required subset |
 | Live announcements | Required | Required | Required | Required | Required | Required |
-| RTL/localization | Required | Required | Required | Required | Required | Required |
-| Validation/fallback | Required | Required | Required | Required | Required | Forced capability fixture |
+| RTL/localization | Required | Required | Required | Required | Required fallback | Required subset |
+| Validation/fallback | Required | Required | Required | Required | Required | Representative fallback |
 | Identity/reconnect | Required | Required | Required | Required | Required | Required |
-| Timeout/cancellation | — | Required | Required | — | Required | Provider smoke test |
-| Focus reveal/failure | Required | Required | Required | Required | Required | Required |
-| Switch scanning/actions | Required | Required | Required | Required | Required | iOS and Android |
+| Focus reveal/failure | Required | Required | Required | Required | Required | Required subset |
+| Switch scanning/actions | Required | Required | Required | Required | Required subset | iOS and Android |
 
 Every required cell produces a named test result or manual record linked from the
 release checklist. A scenario may share setup with another, but no cell is
@@ -2631,37 +2658,45 @@ Each phase ends in an independently reviewable commit series during
 implementation. Later phases may add mappings but must not redefine the canonical
 semantics established in Phase 1.
 
-### Phase 0: Reference fixtures and platform spikes
+### Phase 0: Unity accessibility fixtures and player spikes
 
-Purpose: remove native API uncertainty before public Rust APIs harden.
+Purpose: measure the pinned `UnityEngine.Accessibility` surface before its
+best-effort mapping tables harden.
 
 Tasks:
 
 - Create a small canonical fixture covering a labelled button, checkbox, slider,
   tabs, modal dialog, listbox, live region, and one virtual item.
-- Build disposable native spikes for iOS, Android, macOS, Windows, and WebGL that
-  expose the fixture through the intended player attachment point.
-- Verify role, name, value, action, focus, geometry, update notification, and
-  teardown behavior with each platform's inspector and screen reader.
-- Record the actual native mappings, OS minimums, engine-thread restrictions, and
-  unsupported features in checked-in backend mapping tables.
-- Decide per mobile feature whether Unity's `AccessibilityHierarchy` is complete
-  enough or the native extension must own that node type.
-- Prove that only one native hierarchy is visible when switching mobile
-  implementation paths.
+- Build disposable iOS and Android players that expose the fixture exclusively
+  through `AccessibilityHierarchy` and `AccessibilityNode`.
+- Verify label, hint, value, role, state, action events, focus, frame getters,
+  notification, screen-reader status, replacement, and teardown behavior with
+  Unity's inspector plus VoiceOver and TalkBack.
+- Verify that layout and screen notifications request focus without synchronously
+  confirming it, and record the exact focus callback that confirms the request.
+- Verify that screen-reader off/on clears, reconstructs, and reassigns the active
+  hierarchy without a Reactant rerender or reuse of old Unity nodes.
+- Record the actual Unity mappings, minimum player requirements, callback-thread
+  behavior, and unsupported concepts in checked-in mapping tables.
+- Verify that macOS, Windows, Linux, console, and WebGL players select the
+  inspector backend and report `Unavailable` without calling an unsupported
+  `AssistiveSupport` API.
+- Confirm that no target loads a custom accessibility plugin or creates a WebGL
+  semantic DOM.
 - Record exact benchmark hardware, OS, power mode, player build options, fixture
   generator, warmup, sample count, and invocation in a checked-in performance
   manifest.
 
 Exit criteria:
 
-- every target can expose and activate the fixture without duplicate nodes;
-- native callback threading and player-view attachment are proven;
+- iOS and Android can expose and activate every fixture action Unity supports
+  without duplicate nodes;
+- Unity callback threading and hierarchy activation are proven;
+- focus request/confirmation and screen-reader off/on reconstruction are proven;
 - relationships, active descendant, virtual continuation, promoted modal roots,
-  synchronous actions, live announcements, and animated geometry each have a
-  measured platform result and an explicit backend mapping decision;
-- any result that cannot meet the required capability matrix has an approved
-  design amendment rather than an implicit downgrade; and
+  synchronous actions, live announcements, and animated geometry each have an
+  explicit Unity mapping or fallback decision;
+- unsupported player targets deterministically report `Unavailable`; and
 - the reproducible performance manifest names every completion-gate machine and
   command.
 
@@ -2737,6 +2772,8 @@ Tasks:
 - Implement modality and `use_focus_visible`.
 - Implement `FocusProps`, focus correlation, queued focus commands, restoration,
   and focus-scope infrastructure.
+- Implement layout/screen focus requests, exact Unity-event confirmation,
+  supersession, one-second timeout, and screen-reader-deactivation failure.
 - Implement Unity navigation policies for Tab, arrows, Home/End, Page keys,
   controller direction, submit, and cancel.
 - Implement admission-backed `use_press` activation, controlled
@@ -2754,7 +2791,7 @@ Tasks:
 Exit criteria:
 
 - all standard defaults in the ownership table execute synchronously in Unity;
-- Rust receives one typed intent per physical or native action;
+- Rust receives one typed intent per physical or supported Unity action;
 - no public API implies late default cancellation; and
 - focus-visible state agrees across pointer, touch, keyboard, controller,
   accessibility, and programmatic transitions.
@@ -2817,29 +2854,38 @@ Exit criteria:
 - nested overlay closure restores focus correctly under invoker removal and
   presence animation.
 
-### Phase 6: Native backends
+### Phase 6: Unity accessibility backend
 
-Purpose: expose the proven canonical model to target assistive technologies.
+Purpose: expose the proven canonical model through Unity's supported
+assistive-technology integration.
 
 Tasks:
 
-- Implement and test iOS UIAccessibility and Android virtual-node backends,
-  reusing Unity mobile accessibility only for the measured complete subset.
-- Implement macOS NSAccessibility and Windows UI Automation fragment backends.
-- Implement the WebGL sibling semantic DOM and focusable-region geometry bridge.
-- Add build, IL2CPP, plugin-load, teardown, callback, timeout, and capability
-  health tests for every target.
-- Implement platform mapping tables, fallbacks, notification coalescing, and
-  strict-profile enforcement.
-- Validate minimum OS/browser versions and document deployment requirements.
+- Implement `UnityAccessibilityBackend` with `AccessibilityHierarchy`,
+  `AccessibilityNode`, `AssistiveSupport`, and Unity's notification dispatcher.
+- Add iOS and Android IL2CPP build, hierarchy activation, replacement, teardown,
+  callback, and capability-health tests.
+- Rebuild and reassign the complete hierarchy with fresh nodes after a
+  screen-reader off/on transition, without requiring a Rust rerender.
+- Implement the generated Unity mapping tables, best-effort fallbacks,
+  notification coalescing, and strict-profile enforcement.
+- Map the complete pinned Unity 6000.5 role, state, action, focus, and notification
+  surface, including a diagnosed live-announcement fallback for lost politeness.
+- Add unsupported-player tests proving deterministic inspector selection and
+  `Unavailable` health without platform API calls.
+- Validate Unity's minimum mobile OS versions and document deployment
+  requirements.
 
 Exit criteria:
 
-- every cell marked Full or Adapted in the required capability matrix behaves as
-  specified;
-- no canonical node is duplicated by Unity and a native extension;
-- platform inspectors match the canonical fixture; and
-- all native action callbacks use the production controlled/default-action path.
+- every cell marked Full or Adapted in the Unity capability matrix behaves as
+  specified or records the exact documented fallback;
+- the active Unity hierarchy contains no duplicate Reactant nodes;
+- screen-reader reactivation publishes the retained canonical mirror through a
+  new backend generation and rejects old-generation callbacks;
+- Unity's hierarchy inspector matches the generated mapping fixture; and
+- all Unity node action callbacks use the production controlled/default-action
+  path.
 
 ### Phase 7: Product adoption and assistive-technology certification
 
@@ -2851,38 +2897,40 @@ Tasks:
 - Migrate representative Battlement settings, input rebinding, overlays, tabs,
   sliders, validation, and dynamic status surfaces.
 - Enable `AccessibilityCoverage::Required` at migrated roots.
-- Run the full acceptance suite with VoiceOver, TalkBack, Narrator, and browser
-  screen readers on supported targets.
+- Run the Unity-supported acceptance subset with VoiceOver and TalkBack.
 - Test keyboard-only and controller-only use with screen readers off and on.
 - Test large text, bold text, reduced motion, high contrast where supported,
   orientation changes, locale changes, and RTL layouts.
-- Record results by exact OS, player, browser, and screen-reader version; file all
+- Record results by exact OS, player, and screen-reader version; file all
   divergences as product bugs rather than undocumented exceptions.
-- Measure semantic commit, native provider, geometry, and virtual-window latency
+- Measure semantic commit, Unity hierarchy, geometry, and virtual-window latency
   under release builds.
 
 Exit criteria:
 
-- every acceptance scenario passes manually on its platform matrix;
+- every applicable Unity-supported acceptance scenario passes manually on iOS
+  and Android;
 - no release-blocking inspector or screen-reader issue remains;
-- required roots contain no unlabeled actionable nodes or unhandled fallback; and
+- required roots contain no unlabeled actionable nodes or undocumented fallback;
+  and
 - performance stays within the completion thresholds below.
 
 ## Delivery risks and mitigations
 
-### Native APIs differ more than their role names suggest
+### Unity mappings differ by mobile platform and engine version
 
-The same “selected,” “modal,” or “active descendant” concept can have different
-navigation effects across platforms. Phase 0 measures behavior before the public
-model hardens. Canonical tests remain platform-neutral, while backend tests and
-manual matrices record intentional adaptations.
+The same Unity role, state, or notification can produce different VoiceOver and
+TalkBack behavior, and Unity may expand or change its mapping between engine
+versions. Phase 0 measures the pinned version. Canonical tests remain stable,
+while adapter fixtures and the manual mobile matrix record the observed Unity
+behavior and every intentional fallback.
 
-### Assistive callbacks contend with the engine thread
+### Unity callbacks contend with Reactant dispatch
 
-Windows providers and mobile callbacks may arrive off-thread or expect a prompt
-answer. Backends marshal through a bounded main-thread bridge, serve immutable
-snapshot data where safe, and return element-not-available rather than blocking
-indefinitely. Actions still enter the synchronous runtime path.
+Unity accessibility events run on the engine thread and may arrive while other
+UI work is settling. The adapter rejects recursive dispatch, validates generation
+and incarnation before invoking Rust, and admits resulting mutations through the
+existing safe gate. It does not add an off-thread native-provider bridge.
 
 ### Accessibility and input focus can diverge
 
@@ -2890,14 +2938,15 @@ Conflating them would make static reading move keyboard focus and make modal
 restoration unpredictable. The manager stores both, applies explicit correlation
 rules, and shows both in diagnostics. Acceptance tests cover their divergence.
 
-### Controlled state can cause misleading native feedback
+### Controlled state can cause misleading assistive feedback
 
-Some APIs announce a local value before Rust accepts it. The controlled proposal
+Unity or the operating-system service may announce a local value before Rust
+accepts it. The controlled proposal
 adapter restores committed state and sends a corrective value notification only
 when needed. Tests cover accepted, rejected, delayed-safe-gate, and disconnected
 responses.
 
-### Geometry churn can overwhelm native services
+### Geometry churn can overwhelm Unity accessibility
 
 Motion and scroll can change many frames each update. Live getters, dirty-owner
 tracking, one notification per root per frame, and windowed collections bound the
@@ -2906,16 +2955,16 @@ work. Release measurements gate completion.
 ### A rich canonical tree can hide degraded output
 
 Capability negotiation, per-node fallback diagnostics, strict profiles, and
-platform inspector tests keep degradation visible. Fallback never changes the
+Unity hierarchy tests keep degradation visible. Fallback never changes the
 Rust canonical snapshot, so tests can distinguish author errors from backend
 limitations.
 
-### Screen-reader behavior changes outside the repository
+### Screen-reader and Unity behavior change outside the repository
 
 Automation cannot guarantee spoken order, rotor behavior, gesture conventions,
 or verbosity. The release matrix records exact external versions and manual
-results. A supported-version change requires targeted recertification, not a
-claim that old results still apply.
+results. A supported Unity or operating-system version change requires targeted
+recertification, not a claim that old results still apply.
 
 ## Rejected alternatives
 
@@ -2923,7 +2972,8 @@ claim that old results still apply.
 
 Strings such as `aria-*` would defer validation, invite impossible state/role
 combinations, and pretend all targets use the browser accessibility model. Typed
-semantic values and relations retain intent and allow native mappings.
+semantic values and relations retain intent and allow richer Unity mappings as
+the engine evolves.
 
 ### Port React Aria Components
 
@@ -2951,31 +3001,48 @@ be readable without being in the Tab sequence. Conversely, a focusable canvas
 proxy without a role and name is not accessible. The two projections integrate
 through explicit contracts but remain distinct.
 
-### Ask Rust to cancel every native default
+### Ask Rust to cancel every Unity default
 
 The current event reaches Rust after UI Toolkit default behavior. A remote
-prevent-default flag would be too late and race native assistive callbacks.
+prevent-default flag would be too late and race Unity accessibility callbacks.
 Finite declared Unity policies make required defaults synchronous and observable.
 
 ### Keep exiting elements accessible until Motion completes
 
 Logical removal means an action can no longer be handled reliably. Leaving an
-exiting dialog, menu, or panel in the native tree creates ghost focus and stale
-actions. Semantic lifetime ends at logical removal while visual lifetime may
-continue.
+exiting dialog, menu, or panel in the Unity hierarchy creates ghost focus and
+stale actions. Semantic lifetime ends at logical removal while visual lifetime
+may continue.
 
-### Build one lowest-common-denominator backend
+### Reduce the public model to Unity's current subset
 
-Unity's current mobile role/state surface cannot represent the required
-relationships, collections, and desktop targets. Reducing the canonical model to
-that subset would prevent high-fidelity native mappings. A rich model plus
-observable fallback preserves intent.
+Unity's current role/state surface cannot represent Reactant's relationships,
+collections, rich widgets, or future targets. Reducing the canonical model to
+that subset would discard author intent and force application migrations whenever
+Unity adds capability. A rich model plus observable best-effort lowering keeps
+applications future-ready without claiming that v1 publishes every declaration.
+
+### Add custom native accessibility plugins in v1
+
+Direct UIKit, Android provider, NSAccessibility, and UI Automation integrations
+would multiply lifecycle, threading, build, and certification surfaces while
+duplicating work Unity may later provide. V1 depends only on Unity's public
+accessibility API. A future design may reconsider native plugins using measured
+product requirements, but this protocol and implementation do not reserve or
+load them.
+
+### Create a WebGL DOM or ARIA mirror in v1
+
+A browser semantic mirror would require DOM ownership, focus synchronization,
+geometry overlays, input forwarding, hosting integration, and browser-specific
+certification outside Unity's accessibility contract. V1 reports accessibility
+as unavailable on WebGL and does not emit arbitrary DOM or ARIA nodes.
 
 ### Validate only with screenshots or semantic snapshots
 
-Those tests cannot prove spoken output, gesture navigation, rotor/landmark lists,
-focus handoff, or native provider timing. They are necessary regression layers,
-not substitutes for assistive-technology validation.
+Those tests cannot prove spoken output, gesture navigation, rotor behavior,
+focus handoff, or Unity hierarchy behavior on a device. They are necessary
+regression layers, not substitutes for assistive-technology validation.
 
 ## Completion criteria
 
@@ -2991,27 +3058,28 @@ The subsystem is complete when all of the following are true:
 - visual and semantic candidates validate and commit atomically;
 - portals preserve logical semantics, presence removes semantics at logical exit,
   and reconnect restores stable IDs and valid focus;
-- Unity executes all native callback and standard navigation defaults
-  synchronously from Rust-declared finite policies;
+- Unity executes all supported accessibility callback and standard navigation
+  defaults synchronously from Rust-declared finite policies;
 - Rust receives exactly one typed logical intent for every standard input and
-  accessibility action;
-- iOS, Android, macOS, Windows, and WebGL backends pass canonical fixture,
-  provider, lifecycle, and target-player tests;
+  supported Unity accessibility action;
+- the Unity backend passes mapping, hierarchy, lifecycle, and iOS/Android player
+  tests, while unsupported players report `Unavailable`;
 - Ditto can inspect and act on the production semantic mirror without calling
   Rust handlers directly;
 - every acceptance scenario passes in Rust, Unity, protocol, and Ditto layers
   where applicable;
-- every acceptance scenario has a recorded manual result on each applicable
-  target and screen reader;
+- every Unity-supported acceptance scenario has a recorded manual result on iOS
+  and Android;
 - a 10,000-item virtual collection performs semantic work proportional to the
   visible window, not the total item count;
 - semantic projection and Unity batch application each remain below 1 ms at the
   95th percentile for 1,000 exposed nodes on supported release hardware, excluding
-  native service time;
+  assistive-service time;
 - a Motion frame emits at most one coalesced layout notification per affected
   semantic root;
 - strict roots contain no unlabeled actionable nodes, invalid compositions,
-  unapproved fallback, duplicate native nodes, or unavailable backend; and
+  unapproved fallback, duplicate Unity nodes, or unavailable required backend;
+  and
 - repository CI, target build smoke tests, and the manual matrix are green for
   the release candidate.
 
@@ -3023,7 +3091,7 @@ editor.
 
 Record for every run:
 
-- commit, Unity version, OS/device, browser when applicable, backend kind, locale,
+- commit, Unity version, OS/device, backend kind, locale,
   layout direction, and assistive-technology name/version;
 - whether an external keyboard, controller, touch, pointer, or switch-control
   device was used; and
@@ -3032,23 +3100,19 @@ Record for every run:
 
 Use this target matrix:
 
-| Target | Assistive technology | Native inspection |
+| Target | Assistive technology | Unity/platform inspection |
 | --- | --- | --- |
 | iOS device | VoiceOver | Accessibility Inspector |
 | Android API 26+ device | TalkBack | Layout Inspector/Accessibility Scanner |
-| macOS player | VoiceOver | Accessibility Inspector |
-| Windows player | Narrator, plus one UIA client | Accessibility Insights |
-| WebGL Chromium | ChromeVox or NVDA on Windows | Browser accessibility tree |
-| WebGL Safari | VoiceOver | Web Inspector accessibility tree |
 
 For each target:
 
 1. Navigate the complete migrated surface using only the screen reader's next,
-   previous, rotor/landmark, and action mechanisms.
+   previous, and Unity-exposed action mechanisms.
 2. Repeat with keyboard only, controller only, and screen reader plus keyboard or
    controller.
-3. Execute every acceptance scenario in this design, including rejection and
-   removed-target branches.
+3. Execute every applicable Unity-supported acceptance scenario plus
+   representative fallback, rejection, and removed-target branches.
 4. Confirm names are concise, descriptions are not repeated, role and state are
    understandable, and dynamic announcements are neither missing nor noisy.
 5. Confirm visual focus matches keyboard/controller/accessibility modality and
@@ -3061,11 +3125,11 @@ For each target:
    and virtual collection navigation.
 9. Leave a screen open through live updates for five minutes and verify that
    announcements remain meaningful and focus does not jump.
-10. Inspect the native tree after every portal open/close and presence exit to
-    confirm there are no duplicate, ghost, or stale nodes.
+10. Inspect Unity's published hierarchy after every portal open/close and
+    presence exit to confirm there are no duplicate, ghost, or stale nodes.
 
-A mismatch between canonical inspection and spoken/native behavior is a backend
-bug even when automated tests pass. A mismatch between the intended user behavior
-and the canonical tree is a Rust hook or application-composition bug. Release is
-blocked until each mismatch has an owner, a regression test at the lowest useful
-layer, and a passing manual retest.
+A mismatch between canonical inspection and Unity's supported spoken behavior is
+an adapter bug even when automated tests pass. A mismatch between the intended
+user behavior and the canonical tree is a Rust hook or application-composition
+bug. Release is blocked until each mismatch has an owner, a regression test at
+the lowest useful layer, and a passing manual retest.
