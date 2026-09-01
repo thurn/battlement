@@ -29,6 +29,9 @@ behavior impossible.
 - [Focus and navigation](focus-and-navigation.md) defines UI Toolkit-owned
   focus, declarative scopes, portals, restoration, directional and roving
   navigation, focus-visible behavior, and reconnect recovery.
+- [Layout and stacking](layout-and-stacking.md) defines explicit Flex, Grid,
+  Stack, sticky, and portal-based overlay behavior beyond native UI Toolkit
+  flex layout.
 - [Feature ledger](feature-ledger.md) maps every public V1 module to its sample
   screen and black-box proof and records reserved React APIs as unsupported.
 - [Asset generator](asset-generator.md) defines static CSS-style paint
