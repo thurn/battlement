@@ -378,7 +378,7 @@ namespace Battlement.UI
 
         private static void RejectUnavailableLayout(UiElement element)
         {
-            bool unavailableHost = element is UiElement.Flex or UiElement.Grid or UiElement.Stack;
+            bool unavailableHost = element is UiElement.Grid or UiElement.Stack;
             bool unavailableDescriptor =
                 element.GridItem.IsSet
                 || element.StackItem.IsSet

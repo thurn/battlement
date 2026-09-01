@@ -1,11 +1,11 @@
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, GameObject, GameObjectKind, GridItem, LowerLimit,
-  ObjectId, OverlayLayer, OverlayPlacement, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, StackItem,
-  Sticky, Style, UiDocument, UiDocumentState, UiElementKind, UiNode, UiVisualElementProperties,
-  UpperLimit,
+  Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
+  GameObjectKind, GridItem, Justify, LowerLimit, ObjectId, OverlayLayer, OverlayPlacement,
+  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
+  Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState,
+  UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -240,6 +240,49 @@ fn common_facades_lower_layout_item_descriptors() {
     children[3].element.visual_element().overlay_placement,
     Prop::Set(overlay)
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn flex_facade_preserves_specific_gap_overrides_in_either_builder_order() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| {
+    (
+      battlement_reactant::host::Flex::new()
+        .direction(FlexDirection::RowReverse)
+        .wrap(FlexWrap::Wrap)
+        .align_items(Align::Center)
+        .justify_content(Justify::SpaceBetween)
+        .row_gap(1.0)
+        .gap(2.0)
+        .on_click(|_: &mut ()| {}),
+      battlement_reactant::host::Flex::new().gap(2.0).row_gap(1.0),
+    )
+  });
+
+  let rendered = reactant
+    .begin_session(&mut ())
+    .expect("flex render succeeds")
+    .into_parts(snapshot(
+      SessionId::new_v4(),
+      std::slice::from_ref(&document),
+    ))
+    .0;
+  for child in &rendered.ui[0].children {
+    let UiElement::Flex(flex) = &child.element else {
+      panic!("Flex facade lowered to a different protocol host");
+    };
+    assert_eq!(flex.row_gap, Prop::Set(1.0));
+    assert_eq!(flex.column_gap, Prop::Set(2.0));
+  }
+  let UiElement::Flex(flex) = &rendered.ui[0].children[0].element else {
+    unreachable!();
+  };
+  assert_eq!(flex.direction, Prop::Set(FlexDirection::RowReverse));
+  assert_eq!(flex.wrap, Prop::Set(FlexWrap::Wrap));
+  assert_eq!(flex.align_items, Prop::Set(Align::Center));
+  assert_eq!(flex.justify_content, Prop::Set(Justify::SpaceBetween));
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 

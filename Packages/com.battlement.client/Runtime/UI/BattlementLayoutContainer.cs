@@ -45,6 +45,7 @@ namespace Battlement.UI
 
     internal sealed class BattlementLayoutContainer : VisualElement
     {
+        private readonly BattlementFlexLayout? flexLayout;
         private bool layoutDirty = true;
 
         public BattlementLayoutContainer(BattlementLayoutContainerKind kind)
@@ -55,11 +56,25 @@ namespace Battlement.UI
                 kind is BattlementLayoutContainerKind.Grid or BattlementLayoutContainerKind.Stack,
                 MarkLayoutDirty
             );
+            if (kind == BattlementLayoutContainerKind.Flex)
+                flexLayout = new BattlementFlexLayout(this, Adapter);
         }
 
         public BattlementLayoutContainerKind Kind { get; }
 
         public BattlementLayoutContainerAdapter Adapter { get; }
+
+        public BattlementFlexLayout? FlexLayout => flexLayout;
+
+        public void ApplyFlex(UiElement.Flex value)
+        {
+            if (flexLayout is null)
+                throw new InvalidOperationException(
+                    "Only a Flex container accepts Flex properties."
+                );
+            flexLayout.Apply(value);
+            layoutDirty = true;
+        }
 
         public bool TakeLayoutDirty()
         {
@@ -68,7 +83,11 @@ namespace Battlement.UI
             return dirty;
         }
 
-        private void MarkLayoutDirty() => layoutDirty = true;
+        private void MarkLayoutDirty()
+        {
+            layoutDirty = true;
+            flexLayout?.Refresh();
+        }
     }
 
     internal sealed class BattlementLayoutContainerAdapter
@@ -167,6 +186,11 @@ namespace Battlement.UI
             slot = found ? value : null;
             return found;
         }
+
+        public BattlementLayoutSlot SlotFor(VisualElement child) =>
+            slots.TryGetValue(child, out BattlementLayoutSlot value)
+                ? value
+                : throw new InvalidOperationException("The child is not attached to this adapter.");
 
         public void Clear()
         {

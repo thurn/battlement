@@ -34,10 +34,10 @@ use std::{any::TypeId, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
   GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
-  UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar, UiRadioButton,
-  UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider, UiSliderInt, UiTab,
-  UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup, UiVisualElement,
-  UiVisualElementProperties,
+  UiFlex, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar,
+  UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
+  UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup,
+  UiVisualElement, UiVisualElementProperties,
 };
 
 use crate::{
@@ -755,6 +755,11 @@ facade!(
   "Unity UI Toolkit's neutral, general-purpose layout and hierarchy element.\n\nUse a `View` to group children, apply shared style, or create a structural region without control behavior. It lowers to one [`UiVisualElement`] and adds logical children directly to that host's content container. Unlike [`Box`], it has no themed box treatment.\n\nSee Unity's [VisualElement manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-VisualElement.html)."
 );
 facade!(
+  Flex,
+  UiFlex,
+  "A native Flex layout container with independent row and column gaps.\n\nLogical child order remains stable while direction and wrapping affect presentation."
+);
+facade!(
   Box,
   UiBox,
   "A themed Unity UI Toolkit container with a visible box treatment.\n\n`Box` has the hierarchy and layout role of [`View`], while Unity's `.unity-box` USS class supplies the themed background and border. Use it to visually group related content.\n\nSee Unity's [Box manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Box.html)."
@@ -881,6 +886,7 @@ macro_rules! empty_constructor {
 
 empty_constructor!(
   View => UiVisualElement,
+  Flex => UiFlex,
   Box => UiBox,
   TextField => UiTextField,
   Toggle => UiToggle,
@@ -956,6 +962,7 @@ macro_rules! container {
 
 container!(
   View,
+  Flex,
   Box,
   ToggleButtonGroup,
   GroupBox,

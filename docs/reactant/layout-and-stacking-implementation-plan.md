@@ -216,7 +216,7 @@ protocol or fake-client model.
 - Run Rust fake-client hierarchy and Reactant portal tests.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 3: Flex facade and independent gaps
+## Task 3: Flex facade and independent gaps `[DONE]`
 
 **Prerequisites:** Tasks 1 and 2 `[DONE]`.
 

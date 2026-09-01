@@ -6,9 +6,9 @@ use crate::{
   element_ref::ElementRef,
   event_handler::Handler,
   host::{
-    Box, Button, DropdownField, GroupBox, Image, Label, MinMaxSlider, PopupWindow, ProgressBar,
-    RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider, SliderInt, Tab,
-    TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
+    Box, Button, DropdownField, Flex, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
+    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
+    SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
   key::ErasedKey,
   motion::MotionProps,
@@ -78,7 +78,8 @@ pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
 fn facade_descriptor(element: &UiElement) -> TypeId {
   match element {
     UiElement::VisualElement(_) => TypeId::of::<View>(),
-    UiElement::Flex(_) | UiElement::Grid(_) | UiElement::Stack(_) => {
+    UiElement::Flex(_) => TypeId::of::<Flex>(),
+    UiElement::Grid(_) | UiElement::Stack(_) => {
       panic!("layout protocol hosts do not have Reactant facades")
     }
     UiElement::Box(_) => TypeId::of::<Box>(),
