@@ -2,10 +2,10 @@ use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
   Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
-  GameObjectKind, GridItem, Justify, LowerLimit, ObjectId, OverlayLayer, OverlayPlacement,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
-  Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState,
-  UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
+  GameObjectKind, GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayLayer,
+  OverlayPlacement, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response,
+  ResponseMessage, Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument,
+  UiDocumentState, UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -283,6 +283,56 @@ fn flex_facade_preserves_specific_gap_overrides_in_either_builder_order() {
   assert_eq!(flex.wrap, Prop::Set(FlexWrap::Wrap));
   assert_eq!(flex.align_items, Prop::Set(Align::Center));
   assert_eq!(flex.justify_content, Prop::Set(Justify::SpaceBetween));
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn grid_facade_lowers_explicit_implicit_and_alignment_sizing() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| {
+    (
+      battlement_reactant::host::Grid::new()
+        .columns([GridTrack::px(80.0), GridTrack::fr(1.0)])
+        .rows([GridTrack::auto()])
+        .auto_columns(GridTrack::fr(2.0))
+        .auto_rows(GridTrack::px(24.0))
+        .row_gap(1.0)
+        .gap(2.0)
+        .align_items(Align::Center)
+        .justify_items(Align::FlexEnd)
+        .on_click(|_: &mut ()| {}),
+      battlement_reactant::host::Grid::new().gap(2.0).row_gap(1.0),
+    )
+  });
+
+  let rendered = reactant
+    .begin_session(&mut ())
+    .expect("grid render succeeds")
+    .into_parts(snapshot(
+      SessionId::new_v4(),
+      std::slice::from_ref(&document),
+    ))
+    .0;
+  for child in &rendered.ui[0].children {
+    let UiElement::Grid(grid) = &child.element else {
+      panic!("Grid facade lowered to a different protocol host");
+    };
+    assert_eq!(grid.row_gap, Prop::Set(1.0));
+    assert_eq!(grid.column_gap, Prop::Set(2.0));
+  }
+  let UiElement::Grid(grid) = &rendered.ui[0].children[0].element else {
+    unreachable!();
+  };
+  assert_eq!(
+    grid.columns,
+    Prop::Set(vec![GridTrack::px(80.0), GridTrack::fr(1.0)])
+  );
+  assert_eq!(grid.rows, Prop::Set(vec![GridTrack::auto()]));
+  assert_eq!(grid.auto_columns, Prop::Set(GridTrack::fr(2.0)));
+  assert_eq!(grid.auto_rows, Prop::Set(GridTrack::px(24.0)));
+  assert_eq!(grid.align_items, Prop::Set(Align::Center));
+  assert_eq!(grid.justify_items, Prop::Set(Align::FlexEnd));
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 

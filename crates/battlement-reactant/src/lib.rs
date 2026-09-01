@@ -52,6 +52,7 @@ pub mod host;
 mod host_events;
 mod host_facade;
 mod host_flex;
+mod host_grid;
 mod host_properties;
 pub mod key;
 pub mod layout;

@@ -12,7 +12,7 @@ use crate::{
   event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
   host::{
-    Box, Button, DropdownField, Flex, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
+    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
     ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
     SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
@@ -494,6 +494,7 @@ macro_rules! implement_event_methods {
 implement_event_methods!(common_event_methods:
   View,
   Flex,
+  Grid,
   Box,
   Label,
   TextElement,

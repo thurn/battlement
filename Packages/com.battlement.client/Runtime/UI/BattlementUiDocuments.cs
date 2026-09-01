@@ -429,6 +429,11 @@ namespace Battlement.UI
                         && properties.Element is UiElement.Flex flex
                     )
                         layout.ApplyFlex(flex);
+                    if (
+                        target is BattlementLayoutContainer gridLayout
+                        && properties.Element is UiElement.Grid grid
+                    )
+                        gridLayout.ApplyGrid(grid);
                     RefreshParentLayout(properties.ObjectId.Value);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -509,6 +514,7 @@ namespace Battlement.UI
             {
                 UiElement.VisualElement => new UnityEngine.UIElements.VisualElement(),
                 UiElement.Flex => new BattlementLayoutContainer(BattlementLayoutContainerKind.Flex),
+                UiElement.Grid => new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid),
                 UiElement.Box => new UnityEngine.UIElements.Box(),
                 UiElement.Label => new UnityEngine.UIElements.Label(),
                 UiElement.TextElement => new UnityEngine.UIElements.TextElement(),
@@ -644,6 +650,11 @@ namespace Battlement.UI
             properties.ApplyElement(value, node.ObjectId, node.Element);
             if (value is BattlementLayoutContainer layout && node.Element is UiElement.Flex flex)
                 layout.ApplyFlex(flex);
+            if (
+                value is BattlementLayoutContainer gridLayout
+                && node.Element is UiElement.Grid grid
+            )
+                gridLayout.ApplyGrid(grid);
             Reserve(node.ObjectId, value, documentRoot, parentId);
             scrollControls.ApplyCreate(value, node.ObjectId, node.Element);
             tabControls.ApplyCreate(value, node.ObjectId, node.Element);
@@ -809,6 +820,8 @@ namespace Battlement.UI
                     == typeof(UnityEngine.UIElements.VisualElement),
                 UiElement.Flex => target is BattlementLayoutContainer layout
                     && layout.Kind == BattlementLayoutContainerKind.Flex,
+                UiElement.Grid => target is BattlementLayoutContainer grid
+                    && grid.Kind == BattlementLayoutContainerKind.Grid,
                 UiElement.Box => target.GetType() == typeof(UnityEngine.UIElements.Box),
                 UiElement.Label => target.GetType() == typeof(UnityEngine.UIElements.Label),
                 UiElement.TextElement => target.GetType()
@@ -979,7 +992,10 @@ namespace Battlement.UI
                 && parentId is Guid value
                 && elements[value] is BattlementLayoutContainer layout
             )
+            {
                 layout.FlexLayout?.Refresh();
+                layout.GridLayout?.Invalidate();
+            }
         }
 
         private int DepthOf(Guid objectId)

@@ -267,7 +267,7 @@ presentation only; logical source order remains unchanged.
 - Run rustdoc tests for the public Flex examples.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 4: Grid sizing foundation
+## Task 4 [DONE]: Grid sizing foundation
 
 **Prerequisites:** Tasks 1 and 2 `[DONE]`.
 

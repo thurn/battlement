@@ -46,6 +46,7 @@ namespace Battlement.UI
     internal sealed class BattlementLayoutContainer : VisualElement
     {
         private readonly BattlementFlexLayout? flexLayout;
+        private readonly BattlementGridLayout? gridLayout;
         private bool layoutDirty = true;
 
         public BattlementLayoutContainer(BattlementLayoutContainerKind kind)
@@ -58,6 +59,8 @@ namespace Battlement.UI
             );
             if (kind == BattlementLayoutContainerKind.Flex)
                 flexLayout = new BattlementFlexLayout(this, Adapter);
+            if (kind == BattlementLayoutContainerKind.Grid)
+                gridLayout = new BattlementGridLayout(this, Adapter);
         }
 
         public BattlementLayoutContainerKind Kind { get; }
@@ -66,6 +69,8 @@ namespace Battlement.UI
 
         public BattlementFlexLayout? FlexLayout => flexLayout;
 
+        public BattlementGridLayout? GridLayout => gridLayout;
+
         public void ApplyFlex(UiElement.Flex value)
         {
             if (flexLayout is null)
@@ -73,6 +78,16 @@ namespace Battlement.UI
                     "Only a Flex container accepts Flex properties."
                 );
             flexLayout.Apply(value);
+            layoutDirty = true;
+        }
+
+        public void ApplyGrid(UiElement.Grid value)
+        {
+            if (gridLayout is null)
+                throw new InvalidOperationException(
+                    "Only a Grid container accepts Grid properties."
+                );
+            gridLayout.Apply(value);
             layoutDirty = true;
         }
 
@@ -87,6 +102,7 @@ namespace Battlement.UI
         {
             layoutDirty = true;
             flexLayout?.Refresh();
+            gridLayout?.Invalidate();
         }
     }
 

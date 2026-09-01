@@ -6,7 +6,7 @@ use crate::{
   element_ref::ElementRef,
   event_handler::Handler,
   host::{
-    Box, Button, DropdownField, Flex, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
+    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
     ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
     SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
@@ -79,7 +79,8 @@ fn facade_descriptor(element: &UiElement) -> TypeId {
   match element {
     UiElement::VisualElement(_) => TypeId::of::<View>(),
     UiElement::Flex(_) => TypeId::of::<Flex>(),
-    UiElement::Grid(_) | UiElement::Stack(_) => {
+    UiElement::Grid(_) => TypeId::of::<Grid>(),
+    UiElement::Stack(_) => {
       panic!("layout protocol hosts do not have Reactant facades")
     }
     UiElement::Box(_) => TypeId::of::<Box>(),

@@ -378,13 +378,17 @@ namespace Battlement.UI
 
         private static void RejectUnavailableLayout(UiElement element)
         {
-            bool unavailableHost = element is UiElement.Grid or UiElement.Stack;
+            bool unavailableHost = element is UiElement.Stack;
+            bool unavailableGridFlow =
+                element is UiElement.Grid grid
+                && grid.AutoFlow.IsSet
+                && grid.AutoFlow.Value != GridAutoFlow.Row;
             bool unavailableDescriptor =
                 element.GridItem.IsSet
                 || element.StackItem.IsSet
                 || element.Sticky.IsSet
                 || element.OverlayPlacement.IsSet;
-            if (unavailableHost || unavailableDescriptor)
+            if (unavailableHost || unavailableGridFlow || unavailableDescriptor)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "The authored layout host or descriptor is not enabled "

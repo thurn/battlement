@@ -34,7 +34,7 @@ use std::{any::TypeId, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
   GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
-  UiFlex, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar,
+  UiFlex, UiGrid, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar,
   UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
   UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup,
   UiVisualElement, UiVisualElementProperties,
@@ -760,6 +760,11 @@ facade!(
   "A native Flex layout container with independent row and column gaps.\n\nLogical child order remains stable while direction and wrapping affect presentation."
 );
 facade!(
+  Grid,
+  UiGrid,
+  "A deterministic track-based layout container with explicit and implicit rows and columns.\n\nGrid uses stable native slots and preserves logical child order while tracks determine presentation."
+);
+facade!(
   Box,
   UiBox,
   "A themed Unity UI Toolkit container with a visible box treatment.\n\n`Box` has the hierarchy and layout role of [`View`], while Unity's `.unity-box` USS class supplies the themed background and border. Use it to visually group related content.\n\nSee Unity's [Box manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Box.html)."
@@ -887,6 +892,7 @@ macro_rules! empty_constructor {
 empty_constructor!(
   View => UiVisualElement,
   Flex => UiFlex,
+  Grid => UiGrid,
   Box => UiBox,
   TextField => UiTextField,
   Toggle => UiToggle,
@@ -963,6 +969,7 @@ macro_rules! container {
 container!(
   View,
   Flex,
+  Grid,
   Box,
   ToggleButtonGroup,
   GroupBox,

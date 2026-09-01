@@ -236,7 +236,7 @@ namespace Battlement.Tests
                     documents.Create(
                         new CommandBody.VisualElement.Create(
                             rootId,
-                            new UiNode(layoutId, new UiElement.Grid())
+                            new UiNode(layoutId, new UiElement.Stack())
                         )
                     )
                 );
