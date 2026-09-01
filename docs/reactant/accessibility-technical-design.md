@@ -119,8 +119,8 @@ The subsystem must:
   without reducing the canonical model to Unity's current feature set;
 - detect invalid compositions before they become a partially committed Unity
   tree; and
-- provide deterministic Rust, Unity, protocol, and Ditto tests while identifying
-  the behavior that still requires real assistive technology.
+- provide fast deterministic Rust and Unity Editor coverage, with only small
+  boundary tests and targeted assistive-technology spot-checks.
 
 This design does not create a Reactant component library or a visual design
 system. It does not select host elements, draw focus rings, localize application
@@ -2224,94 +2224,65 @@ plugin ABI.
 
 ## Test architecture
 
+### Routine CI budget
+
+Accessibility may add at most ten seconds of wall-clock time to the standard CI
+run, with a five-second target on a warm worker. That budget includes all new
+Rust, protocol, C#, Unity EditMode, and Ditto coverage introduced by this
+feature. A test that cannot fit is not a routine CI test.
+
+Routine CI does not build or launch iOS or Android players, attach a screen
+reader, use a device or emulator, run a large performance fixture, or repeat
+every acceptance scenario at every layer. Tests use small deterministic
+in-memory fixtures and exercise each behavior at the lowest layer that owns it.
+Cross-layer tests exist only to protect a serialization or adapter boundary. The
+Unity cases join the repository's existing EditMode invocation; accessibility
+does not add another Unity startup or CI job.
+
 ### Rust tests
 
 The fake host records the resolved semantic tree and interaction policies beside
 normal commands. Black-box tests render public hook examples and assert observable
 canonical output rather than hook internals.
 
-Required Rust coverage includes:
+The focused Rust suite covers representative cases for:
 
-- accessible name and description precedence, whitespace, hidden references,
-  localization, cycles, and duplicate sources;
-- explicit accessibility-key conversion, namespace collision, and distinct
-  domain-newtype identity;
-- role/state/value/relationship validation;
-- stable IDs through keyed reorder, conditional components, unchanged portal
-  targets, and reconnect snapshots, plus new IDs after portal-target change;
-- changed node incarnation after keyed removal/recreation in one backend
-  generation;
-- transparent nodes, explicit grouping, reading order, landmarks, headings, and
-  collection positions;
-- nested fixed and keyed virtual-node parentage, order, forward-reference, and
-  removal behavior;
-- controlled button, toggle, radio, slider, selection, combobox, and overlay
-  intents;
-- exact virtual semantic action targeting and capture/target/bubble propagation;
-- complete text-edit action payloads and authoritative text/selection proposals;
-- modality and focus-visible state transitions;
-- LTR and RTL composite navigation policies;
-- modal stacking, initial focus, dismissal, and logical restoration;
-- dynamic validation, live-region coalescing, announcement acknowledgement, and
-  reconnect replay rules;
-- virtual windows and focus restoration by collection key; and
-- semantic removal at presence exit start while the physical object remains.
+- name resolution and one invalid relationship cycle;
+- role/state/value validation and representative fallback classification;
+- stable identity through keyed reorder, reconnect, and one portal move;
+- one controlled action, one focus restoration path, and modal inertness;
+- live-announcement deduplication; and
+- a virtual window whose work is proportional to its visible items.
 
-Property tests generate valid semantic forests and assert that projection is
-acyclic, deterministic, and stable under no-op reconciliation. Separate mutation
-tests generate one invalid relationship, range, or composition and assert that
-the visual commit is also rejected.
+Small table-driven cases replace combinatorial scenario suites. A bounded
+property test may cover tree acyclicity and deterministic no-op projection when
+it remains inside the shared CI budget; broad randomized or mutation campaigns
+are developer-invoked tests.
 
 ### Protocol tests
 
-Rust and C# share golden fixtures for a full snapshot, incremental upsert/remove,
-modal-stack update, action event, backend status, announcement, and reconnect.
-Fixtures include unknown fields and enum variants to prove a loud failure.
-Fixtures include nontraversal relationship sources, virtual parent IDs, text-edit
-payloads, and semantic-key namespaces.
-
-Round-trip tests assert structured IDs and locale strings exactly. Ordering tests
-prove child-before-parent removals, parent-before-child upserts, generation
-checks, and commit barrier placement relative to visual creation and destruction.
-They also cover independent commit sequence, backend generation, node
-incarnation, callback request, and proposal sequence values.
-
-Cross-language fixtures compare semantic values after parsing. The fixture
-normalizer sorts JSON object keys and arrays representing mathematical sets by
-their structured ID/action key, preserves arrays whose order is semantic, emits
-finite numbers in the repository's shortest round-trippable format, and preserves
-strings exactly as Unicode scalar sequences. Raw object field order and
-whitespace are not test requirements.
+Rust and C# share one compact golden conversation containing a snapshot, one
+upsert/remove batch, one action, one focus result, one announcement, and one
+backend-status event. It proves representative round-trip equality, semantic
+array ordering, and loud failure for an unknown required enum value. Individual
+message variants are otherwise tested by their owning serializer, not through a
+second cross-language matrix.
 
 ### Unity tests
 
-EditMode tests construct the production semantic manager with a fake backend and
-real UI Toolkit panels. They cover:
+One small EditMode fixture constructs the production manager and covers the
+highest-risk Unity boundary:
 
-- frame conversion, scaling, clipping, physical portals, and virtual-node unions;
-- staged batch validation and atomic failure;
-- Unity callback generation rejection;
-- same-generation stale-incarnation rejection before dispatch;
-- input, navigation, accessibility focus, and focus-visible correlation;
-- focus notification requests, exact-event confirmation, timeout, supersession,
-  and screen-reader deactivation;
-- admission-backed activate plus controlled drafts for toggle, selection, range,
-  text, and dismiss;
-- Tab trapping, nested overlays, logical restoration, and removed invokers;
-- typeahead and RTL navigation;
-- Motion frame invalidation and one notification per frame;
-- reconnect activation and a single screen-change notification;
-- screen-reader off/on reconstruction with fresh Unity nodes and complete
-  hierarchy reassignment; and
-- pinned Unity 6000.5 role/state/action mapping, announcement-politeness fallback,
-  capability-generation replacement, focus reveal success/failure, and
-  strict-capability policy.
+- table-driven mapping of the pinned Unity roles, states, actions, and fallback
+  classes;
+- atomic activation, replacement, and teardown of a three-node hierarchy;
+- one action callback and stale-generation rejection;
+- focus request followed by confirmation and timeout; and
+- screen-reader off/on reconstruction plus unsupported-platform selection.
 
-Adapter unit tests map every canonical role, state, value, relation, and action to
-an `AccessibilityNode` field/event or an explicit fallback class. Tests inspect
-the resulting `AccessibilityHierarchy` rather than screen-reader speech. iOS and
-Android IL2CPP player smoke tests prove hierarchy activation, Unity callback
-dispatch, teardown, and stale-generation behavior.
+The suite inspects `AccessibilityHierarchy`; it does not use a real UI Toolkit
+screen or assert screen-reader speech. iOS and Android IL2CPP builds and player
+launches are explicitly excluded from routine CI.
 
 ### Ditto tests
 
@@ -2331,55 +2302,38 @@ Ditto adds production-backed steps and assertions:
 ```
 
 Targets accept object ID, semantic alias, or a role/name query that must resolve
-to exactly one node. Assertions cover role, name, description, state, value,
-relationships, actions, order, position, set size, focus, modal/inert state,
-backend fallback, and announcements.
+to exactly one node. The primitives themselves receive focused unit coverage.
 
 `accessibility_action` enters through the same callback adapter as a Unity
 `AccessibilityNode` action. It must not call Rust handlers directly. Existing click,
 key, controller, drag, wait, and screenshot steps remain the way to test ordinary
 input and visual focus styling.
 
-Semantic settle requires no pending Reactant work, no pending safe-gate batch, no
-unacknowledged inspector-backend notification, and two quiet frames. Snapshot
-normalization removes Unity node IDs and frames unless a scenario asks
-for geometry.
+Semantic settle requires no pending Reactant work, no pending safe-gate batch,
+and no unacknowledged inspector-backend notification. Snapshot normalization
+removes Unity node IDs and frames unless a scenario asks for geometry.
 
-Ditto does not assert spoken phrases or replace manual assistive-technology
-testing. It proves the canonical tree and action plumbing that the Unity adapter
-consumes.
+V1 does not add a Ditto accessibility scenario to routine CI. Product scenarios
+may use these primitives later, but they are not a completion gate for the
+accessibility subsystem. Ditto does not assert spoken phrases or replace a manual
+device spot-check.
 
-### Performance tests
+### Performance checks
 
-Phase 0 checks in a machine manifest for one macOS and one Windows release runner.
-It records CPU, memory, OS build, power mode, Unity build options, and command.
-Benchmarks use a release player, fixed locale, screen reader off, and the inspector
-backend so assistive-service latency is excluded.
-
-The fixture contains 1,000 exposed nodes, 100 relationships, 50 controlled
-actions, two portals, one modal scope, and a 100-item materialized window whose
-declared set size is 10,000. After 200 warmup commits, the runner measures 2,000
-commits each for no-op, one-node value update, 100-node reorder, portal-subtree
-reorder under one target, and window replacement. It reports median, p95, maximum,
-allocation count, and wire
-bytes separately for Rust projection and Unity batch application.
-
-The completion threshold is p95 below 1 ms for each side on both manifest
-machines, no allocation growth across no-op commits, and mutation/wire work
-proportional to the materialized window. Any machine or fixture change resets the
-recorded baseline and requires explicit review rather than comparison to an
-unidentified host.
+Routine CI asserts only that a virtualized update visits the materialized window
+rather than the declared collection size. Dedicated benchmarks, large fixtures,
+allocation measurements, release-player runs, and machine-specific latency gates
+are out of scope for v1. Developers profile a representative screen when an
+observed regression justifies it.
 
 ## Acceptance scenarios
 
-Every scenario below must pass exactly at the Rust fake-host level, through the
-Unity canonical mirror, and through Ditto where applicable. In scenario prose,
-“exposes” describes the canonical Reactant result unless a Unity node is named
-explicitly. The iOS and Android adapter tests assert the direct or best-effort
-mapping defined by the Unity capability table, including an explicit fallback
-for every canonical field Unity cannot publish. Manual VoiceOver and TalkBack
-testing verifies the resulting Unity-supported subset; it is not expected to
-recover semantics absent from `UnityEngine.Accessibility`.
+The scenarios below define behavior and guide focused tests; they are not an
+integration-test checklist. In scenario prose, “exposes” describes the canonical
+Reactant result unless a Unity node is named explicitly. Rust tests own canonical
+semantics and interactions. Unity Editor tests own direct or best-effort mapping
+and hierarchy lifecycle. A scenario needs end-to-end coverage only when a defect
+cannot be reproduced at either of those layers.
 
 ### Labeled controls
 
@@ -2612,45 +2566,20 @@ callbacks from the prior Unity generation are rejected.
 
 ### Scenario-to-platform coverage
 
-Canonical automation runs in Rust, protocol tests, the Unity Editor, and Ditto.
-The `UnityAccessibilityBackend` mapping suite runs against the pinned Unity API.
-Only iOS and Android require player and manual assistive-technology evidence in
-v1. Other player targets must report `Unavailable` and must not claim a semantic
-tree was published.
+The acceptance scenarios describe intended behavior; they do not create a
+cross-product of required test layers. Evidence is assigned once to the layer
+that owns the risk:
 
-| Scenario family | Canonical automation | Unity adapter | Manual AT |
-| --- | --- | --- | --- |
-| Labels, controls, validation | Required | Required mapping/fallback | iOS and Android |
-| Dialogs, overlays, presence | Required | Required mapping/fallback | iOS and Android |
-| Tabs, menus, disclosures | Required | Required mapping/fallback | iOS and Android |
-| Sliders and progress | Required | Required mapping/fallback | iOS and Android |
-| Text input, rebinding, combobox | Required | Required mapping/fallback | iOS and Android |
-| Announcements, reconnect, and screen-reader reactivation | Required | Required mapping/fallback | iOS and Android |
-| Virtual listbox, table, grid, tree | Required | Required mapping/fallback | iOS and Android |
-| RTL and localization | Required | Required mapping/fallback | iOS and Android |
-| Focus-kind divergence | Required | Required mapping/fallback | iOS and Android |
-| Fallback and validation recovery | Required | Forced capability fixtures | Representative iOS and Android cases |
-| Stale callback and off/on hierarchy replacement | Required | iOS and Android player smoke tests | iOS and Android |
+| Risk | Primary evidence |
+| --- | --- |
+| Semantic projection, validation, focus, controls, collections, and announcements | Fast Rust tests |
+| Wire compatibility | One compact Rust/C# golden conversation |
+| Unity role/state/action lowering, hierarchy lifecycle, and fallbacks | Fast Unity Editor tests |
+| Actual VoiceOver/TalkBack presentation | Small manual spot-check before initial release or a Unity accessibility upgrade |
 
-The required evidence by test layer is:
-
-| Scenario family | Rust | Protocol | Unity mirror | Ditto | Unity hierarchy | Manual AT |
-| --- | --- | --- | --- | --- | --- | --- |
-| Labels/control state | Required | Required | Required | Required | Required | Required |
-| Dialog/portal/presence | Required | Required | Required | Required | Required | Required subset |
-| Composite navigation | Required | Required | Required | Required | Required | Required subset |
-| Range/text proposals | Required | Required | Required | Required | Required | Required subset |
-| Collections/virtualization | Required | Required | Required | Required | Required fallback | Required subset |
-| Live announcements | Required | Required | Required | Required | Required | Required |
-| RTL/localization | Required | Required | Required | Required | Required fallback | Required subset |
-| Validation/fallback | Required | Required | Required | Required | Required | Representative fallback |
-| Identity/reconnect | Required | Required | Required | Required | Required | Required |
-| Focus reveal/failure | Required | Required | Required | Required | Required | Required subset |
-| Switch scanning/actions | Required | Required | Required | Required | Required subset | iOS and Android |
-
-Every required cell produces a named test result or manual record linked from the
-release checklist. A scenario may share setup with another, but no cell is
-satisfied by inference from a different layer.
+No acceptance scenario must be repeated in every column. iOS and Android player
+builds are not CI gates. Unsupported-player selection is proved with Editor/unit
+fixtures rather than builds for every target.
 
 ## Phased implementation plan
 
@@ -2658,7 +2587,7 @@ Each phase ends in an independently reviewable commit series during
 implementation. Later phases may add mappings but must not redefine the canonical
 semantics established in Phase 1.
 
-### Phase 0: Unity accessibility fixtures and player spikes
+### Phase 0: Unity accessibility fixtures and Editor spike
 
 Purpose: measure the pinned `UnityEngine.Accessibility` surface before its
 best-effort mapping tables harden.
@@ -2667,38 +2596,29 @@ Tasks:
 
 - Create a small canonical fixture covering a labelled button, checkbox, slider,
   tabs, modal dialog, listbox, live region, and one virtual item.
-- Build disposable iOS and Android players that expose the fixture exclusively
-  through `AccessibilityHierarchy` and `AccessibilityNode`.
-- Verify label, hint, value, role, state, action events, focus, frame getters,
-  notification, screen-reader status, replacement, and teardown behavior with
-  Unity's inspector plus VoiceOver and TalkBack.
+- Use the Unity Editor to inspect the fixture and exercise label, value, role,
+  state, action, focus, notification, replacement, and teardown behavior.
 - Verify that layout and screen notifications request focus without synchronously
   confirming it, and record the exact focus callback that confirms the request.
 - Verify that screen-reader off/on clears, reconstructs, and reassigns the active
   hierarchy without a Reactant rerender or reuse of old Unity nodes.
 - Record the actual Unity mappings, minimum player requirements, callback-thread
   behavior, and unsupported concepts in checked-in mapping tables.
-- Verify that macOS, Windows, Linux, console, and WebGL players select the
-  inspector backend and report `Unavailable` without calling an unsupported
-  `AssistiveSupport` API.
+- Verify unsupported-platform selection with compile-symbol and backend-factory
+  Editor tests rather than building every player target.
 - Confirm that no target loads a custom accessibility plugin or creates a WebGL
   semantic DOM.
-- Record exact benchmark hardware, OS, power mode, player build options, fixture
-  generator, warmup, sample count, and invocation in a checked-in performance
-  manifest.
 
 Exit criteria:
 
-- iOS and Android can expose and activate every fixture action Unity supports
-  without duplicate nodes;
+- the Editor fixture exposes supported mappings without duplicate nodes;
 - Unity callback threading and hierarchy activation are proven;
 - focus request/confirmation and screen-reader off/on reconstruction are proven;
 - relationships, active descendant, virtual continuation, promoted modal roots,
   synchronous actions, live announcements, and animated geometry each have an
   explicit Unity mapping or fallback decision;
-- unsupported player targets deterministically report `Unavailable`; and
-- the reproducible performance manifest names every completion-gate machine and
-  command.
+- unsupported player targets deterministically report `Unavailable` through the
+  selected backend.
 
 ### Phase 1: Canonical Rust model and validation
 
@@ -2740,7 +2660,7 @@ Tasks:
 
 - Add snapshot, mutation, policy, focus, notification, announcement, event, and
   capability messages to Rust and C# protocol types.
-- Add shared golden fixtures and unknown-schema failure tests.
+- Add one compact shared golden conversation and an unknown-schema failure test.
 - Generate the pure Rust/C# fallback classifier from Phase 0 mapping tables and
   implement immutable capability generations and reclassification.
 - Implement `BattlementAccessibilityManager`, its indexes, generation checks,
@@ -2758,10 +2678,9 @@ Exit criteria:
 
 - a real UI Toolkit panel is reflected exactly in the inspector backend;
 - visual and semantic mutations fail or commit together;
-- Motion, portal, reconnect reconstruction, and stale-callback Unity tests pass;
-  and
-- all protocol fixtures round-trip to semantic equality through the shared
-  canonical fixture normalizer.
+- focused Motion, portal, reconnect, and stale-callback tests pass at their
+  owning Rust or Unity layer; and
+- the compact protocol conversation round-trips to semantic equality.
 
 ### Phase 3: Synchronous interaction and focus primitives
 
@@ -2818,7 +2737,7 @@ Tasks:
 Exit criteria:
 
 - labelled controls, sliders, text-field validation, progress, custom-action,
-  announcement-queue, and primitive LTR/RTL scenarios pass in automated layers;
+  announcement-queue, and primitive LTR/RTL behavior pass focused Rust tests;
 - a standalone rebind capture policy works without requiring a dialog, and
   semantic reconnect works without asserting overlay restoration;
 - custom and native visual implementations produce equivalent canonical trees;
@@ -2840,15 +2759,15 @@ Tasks:
   dismissal, nested restoration, and portaled relationships.
 - Enforce tab/panel, group/item, active-descendant, table/header, tree-level,
   collection-window, overlay, and composite-member validation.
-- Extend Ditto with semantic snapshots, role/name queries, focus, relation,
-  modal/inert, collection, and announcement assertions.
-- Add high-volume performance fixtures for collection diffing and geometry.
+- Extend Ditto with semantic snapshot and action primitives, tested below the
+  scenario layer.
+- Add a bounded Rust test proving collection diffing visits only the materialized
+  window.
 
 Exit criteria:
 
-- dialog, tabs, menus, disclosures, combobox, input-rebinding dialog, tooltip,
-  table, grid, tree, portaled overlay, presence, focus-divergence, and virtualized
-  collection acceptance scenarios pass through Ditto;
+- focused Rust tests cover the state machines for dialogs, composites, overlays,
+  and virtualized collections;
 - a 10,000-item virtual collection emits work proportional to the materialized
   window and changed metadata; and
 - nested overlay closure restores focus correctly under invoker removal and
@@ -2863,8 +2782,8 @@ Tasks:
 
 - Implement `UnityAccessibilityBackend` with `AccessibilityHierarchy`,
   `AccessibilityNode`, `AssistiveSupport`, and Unity's notification dispatcher.
-- Add iOS and Android IL2CPP build, hierarchy activation, replacement, teardown,
-  callback, and capability-health tests.
+- Add fast Unity Editor tests for hierarchy activation, replacement, teardown,
+  callbacks, and capability health.
 - Rebuild and reassign the complete hierarchy with fresh nodes after a
   screen-reader off/on transition, without requiring a Rust rerender.
 - Implement the generated Unity mapping tables, best-effort fallbacks,
@@ -2873,8 +2792,8 @@ Tasks:
   surface, including a diagnosed live-announcement fallback for lost politeness.
 - Add unsupported-player tests proving deterministic inspector selection and
   `Unavailable` health without platform API calls.
-- Validate Unity's minimum mobile OS versions and document deployment
-  requirements.
+- Document Unity's minimum mobile OS versions from the pinned engine
+  documentation; do not add per-OS player builds to CI.
 
 Exit criteria:
 
@@ -2887,7 +2806,7 @@ Exit criteria:
 - all Unity node action callbacks use the production controlled/default-action
   path.
 
-### Phase 7: Product adoption and assistive-technology certification
+### Phase 7: Product adoption and mobile spot-check
 
 Purpose: apply the subsystem to real Reactant surfaces and close gaps that only a
 screen reader reveals.
@@ -2897,23 +2816,17 @@ Tasks:
 - Migrate representative Battlement settings, input rebinding, overlays, tabs,
   sliders, validation, and dynamic status surfaces.
 - Enable `AccessibilityCoverage::Required` at migrated roots.
-- Run the Unity-supported acceptance subset with VoiceOver and TalkBack.
-- Test keyboard-only and controller-only use with screen readers off and on.
-- Test large text, bold text, reduced motion, high contrast where supported,
-  orientation changes, locale changes, and RTL layouts.
-- Record results by exact OS, player, and screen-reader version; file all
-  divergences as product bugs rather than undocumented exceptions.
-- Measure semantic commit, Unity hierarchy, geometry, and virtual-window latency
-  under release builds.
+- Run one short representative path with VoiceOver and TalkBack before the
+  initial release and after a pinned Unity accessibility upgrade.
+- Record the tested OS, player, and screen-reader version plus any observed
+  Unity limitation.
 
 Exit criteria:
 
-- every applicable Unity-supported acceptance scenario passes manually on iOS
-  and Android;
+- the representative mobile path exposes a labelled control, an adjustable
+  value, an announcement, and a focus transition on iOS and Android;
 - no release-blocking inspector or screen-reader issue remains;
-- required roots contain no unlabeled actionable nodes or undocumented fallback;
-  and
-- performance stays within the completion thresholds below.
+- required roots contain no unlabeled actionable nodes or undocumented fallback.
 
 ## Delivery risks and mitigations
 
@@ -2921,9 +2834,9 @@ Exit criteria:
 
 The same Unity role, state, or notification can produce different VoiceOver and
 TalkBack behavior, and Unity may expand or change its mapping between engine
-versions. Phase 0 measures the pinned version. Canonical tests remain stable,
-while adapter fixtures and the manual mobile matrix record the observed Unity
-behavior and every intentional fallback.
+versions. Phase 0 measures the pinned version. Canonical Rust tests remain
+stable, while Unity Editor fixtures record every intentional fallback. A short
+mobile spot-check catches gross presentation differences.
 
 ### Unity callbacks contend with Reactant dispatch
 
@@ -2950,7 +2863,8 @@ responses.
 
 Motion and scroll can change many frames each update. Live getters, dirty-owner
 tracking, one notification per root per frame, and windowed collections bound the
-work. Release measurements gate completion.
+work. A bounded Rust test checks that work follows the visible window; profiling
+is reserved for an observed regression.
 
 ### A rich canonical tree can hide degraded output
 
@@ -2962,9 +2876,9 @@ limitations.
 ### Screen-reader and Unity behavior change outside the repository
 
 Automation cannot guarantee spoken order, rotor behavior, gesture conventions,
-or verbosity. The release matrix records exact external versions and manual
-results. A supported Unity or operating-system version change requires targeted
-recertification, not a claim that old results still apply.
+or verbosity. The small mobile spot-check records exact external versions. A
+Unity accessibility upgrade repeats that spot-check rather than the full
+acceptance catalog.
 
 ## Rejected alternatives
 
@@ -3040,9 +2954,9 @@ as unavailable on WebGL and does not emit arbitrary DOM or ARIA nodes.
 
 ### Validate only with screenshots or semantic snapshots
 
-Those tests cannot prove spoken output, gesture navigation, rotor behavior,
-focus handoff, or Unity hierarchy behavior on a device. They are necessary
-regression layers, not substitutes for assistive-technology validation.
+Those tests cannot prove spoken output or Unity hierarchy behavior on a device.
+Rust and Unity Editor tests remain the primary regression layers; the small
+pre-release device spot-check catches only gross integration failures.
 
 ## Completion criteria
 
@@ -3062,74 +2976,48 @@ The subsystem is complete when all of the following are true:
   defaults synchronously from Rust-declared finite policies;
 - Rust receives exactly one typed logical intent for every standard input and
   supported Unity accessibility action;
-- the Unity backend passes mapping, hierarchy, lifecycle, and iOS/Android player
-  tests, while unsupported players report `Unavailable`;
+- the Unity backend passes focused Editor mapping and lifecycle tests, while
+  unsupported players select an `Unavailable` backend;
 - Ditto can inspect and act on the production semantic mirror without calling
   Rust handlers directly;
-- every acceptance scenario passes in Rust, Unity, protocol, and Ditto layers
-  where applicable;
-- every Unity-supported acceptance scenario has a recorded manual result on iOS
-  and Android;
+- acceptance risks have focused coverage at their owning Rust or Unity Editor
+  layer rather than duplicated cross-layer suites;
+- the initial-release mobile spot-check succeeds on iOS and Android;
 - a 10,000-item virtual collection performs semantic work proportional to the
   visible window, not the total item count;
-- semantic projection and Unity batch application each remain below 1 ms at the
-  95th percentile for 1,000 exposed nodes on supported release hardware, excluding
-  assistive-service time;
 - a Motion frame emits at most one coalesced layout notification per affected
   semantic root;
 - strict roots contain no unlabeled actionable nodes, invalid compositions,
   unapproved fallback, duplicate Unity nodes, or unavailable required backend;
   and
-- repository CI, target build smoke tests, and the manual matrix are green for
-  the release candidate.
+- the accessibility feature adds no more than ten seconds to routine CI, with a
+  five-second target on a warm worker.
 
 ## Manual QA
 
-Automation establishes the canonical contract but cannot certify the user
-experience. Run these checks on release player builds, not only in the Unity
-editor.
+Rust and Unity Editor tests provide the routine evidence. Manual device QA is a
+short sanity check before the first accessibility release and after changing the
+pinned Unity version or Unity mapping code; it is not required for ordinary
+pull requests.
 
-Record for every run:
-
-- commit, Unity version, OS/device, backend kind, locale,
-  layout direction, and assistive-technology name/version;
-- whether an external keyboard, controller, touch, pointer, or switch-control
-  device was used; and
-- spoken output, focus order, action result, visual focus indicator, and any
-  backend diagnostic.
-
-Use this target matrix:
+Use one current device per supported mobile platform:
 
 | Target | Assistive technology | Unity/platform inspection |
 | --- | --- | --- |
 | iOS device | VoiceOver | Accessibility Inspector |
 | Android API 26+ device | TalkBack | Layout Inspector/Accessibility Scanner |
 
-For each target:
+On each device, spend a few minutes on one representative settings screen:
 
-1. Navigate the complete migrated surface using only the screen reader's next,
-   previous, and Unity-exposed action mechanisms.
-2. Repeat with keyboard only, controller only, and screen reader plus keyboard or
-   controller.
-3. Execute every applicable Unity-supported acceptance scenario plus
-   representative fallback, rejection, and removed-target branches.
-4. Confirm names are concise, descriptions are not repeated, role and state are
-   understandable, and dynamic announcements are neither missing nor noisy.
-5. Confirm visual focus matches keyboard/controller/accessibility modality and
-   remains visible under clipping, scroll, scale, and Motion.
-6. Enable the platform's largest practical text setting, bold text, reduced
-   motion, and high contrast/increase contrast where supported.
-7. Repeat the settings, tabs, slider, menu, and dialog paths in at least one RTL
-   locale and one non-English LTR locale.
-8. Reconnect during an open nested dialog, active rebind capture, slider change,
-   and virtual collection navigation.
-9. Leave a screen open through live updates for five minutes and verify that
-   announcements remain meaningful and focus does not jump.
-10. Inspect Unity's published hierarchy after every portal open/close and
-    presence exit to confirm there are no duplicate, ghost, or stale nodes.
+1. Confirm VoiceOver or TalkBack finds a labelled button and slider in plausible
+   order.
+2. Activate the button, adjust the slider, and confirm Reactant receives the
+   intended action once.
+3. Trigger one announcement and one programmatic focus request.
+4. Turn the screen reader off and on, then confirm the small hierarchy returns
+   without duplicate nodes.
 
-A mismatch between canonical inspection and Unity's supported spoken behavior is
-an adapter bug even when automated tests pass. A mismatch between the intended
-user behavior and the canonical tree is a Rust hook or application-composition
-bug. Release is blocked until each mismatch has an owner, a regression test at
-the lowest useful layer, and a passing manual retest.
+Record only the commit, Unity version, OS/device, screen-reader version, and any
+unexpected behavior. A discovered bug gets a focused regression test at the
+lowest useful Rust or Unity Editor layer; it does not expand the permanent
+manual matrix by default.
