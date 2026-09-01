@@ -217,7 +217,7 @@ fn validate_node(
     return Err(UiValidationError::InvalidHierarchy);
   }
   let kind = node.element.kind();
-  validate_grid_context(node, parent_kind, unplaced_root)?;
+  validate_layout_context(node, parent_kind, unplaced_root)?;
   if parent_kind == Some(crate::UiElementKind::TabView) && kind != crate::UiElementKind::Tab {
     return Err(UiValidationError::InvalidHierarchy);
   }
@@ -257,17 +257,21 @@ fn validate_node(
   Ok(())
 }
 
-fn validate_grid_context(
+fn validate_layout_context(
   node: &UiNode,
   parent_kind: Option<crate::UiElementKind>,
   unplaced_root: bool,
 ) -> Result<(), UiValidationError> {
   let visual = node.element.visual_element();
   let in_grid = parent_kind == Some(crate::UiElementKind::Grid);
+  let in_stack = parent_kind == Some(crate::UiElementKind::Stack);
   if matches!(visual.grid_item, Prop::Set(_)) && !in_grid && !unplaced_root {
     return Err(UiValidationError::InvalidProperty);
   }
-  if !in_grid {
+  if matches!(visual.stack_item, Prop::Set(_)) && !in_stack && !unplaced_root {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  if !in_grid && !in_stack {
     return Ok(());
   }
   let position_is_absolute = matches!(
@@ -281,14 +285,14 @@ fn validate_grid_context(
     &visual.style.left,
   ]
   .into_iter()
-  .all(grid_offset_is_automatic);
+  .all(layout_offset_is_automatic);
   if position_is_absolute || !offsets_are_automatic {
     return Err(UiValidationError::InvalidProperty);
   }
   Ok(())
 }
 
-fn grid_offset_is_automatic(value: &Prop<StyleValue<LengthOrAuto>>) -> bool {
+fn layout_offset_is_automatic(value: &Prop<StyleValue<LengthOrAuto>>) -> bool {
   matches!(
     value,
     Prop::Unset
@@ -360,6 +364,13 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
       .overlay_placement
       .set_value()
       .is_some_and(|value| !valid_overlay(value))
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  let has_sticky = matches!(visual.sticky, Prop::Set(_));
+  if has_sticky
+    && (matches!(visual.stack_item, Prop::Set(_))
+      || matches!(visual.overlay_placement, Prop::Set(_)))
   {
     return Err(UiValidationError::InvalidProperty);
   }

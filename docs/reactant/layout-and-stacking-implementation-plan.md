@@ -409,7 +409,7 @@ adapter is a Grid are both valid Grid placement contexts.
 - Compile the normative Grid examples as rustdoc or integration examples.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 6: Stack sizing, placement, and isolation
+## Task 6 [DONE]: Stack sizing, placement, and isolation
 
 **Prerequisites:** Tasks 1 and 2 `[DONE]`.
 

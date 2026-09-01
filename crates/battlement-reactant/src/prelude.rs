@@ -67,7 +67,7 @@ pub use crate::{
   host::{
     Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
     ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
-    SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
+    SliderInt, Stack, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
   key::{KeyRenderExt, Keyed},
   layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},

@@ -209,7 +209,10 @@ fn common_facades_lower_layout_item_descriptors() {
     (
       battlement_reactant::host::Grid::new()
         .child(battlement_reactant::host::View::new().grid_item(grid_item)),
-      battlement_reactant::host::Button::new("stack").stack_item(stack_item),
+      battlement_reactant::host::Stack::new()
+        .align_items(Align::Center)
+        .justify_items(Align::FlexEnd)
+        .child(battlement_reactant::host::Button::new("stack").stack_item(stack_item)),
       battlement_reactant::host::Label::new("sticky").sticky(sticky),
       battlement_reactant::host::Box::new().overlay_placement(rendered_overlay.clone()),
     )
@@ -230,9 +233,14 @@ fn common_facades_lower_layout_item_descriptors() {
     Prop::Set(grid_item)
   );
   assert_eq!(
-    children[1].element.visual_element().stack_item,
+    children[1].children[0].element.visual_element().stack_item,
     Prop::Set(stack_item)
   );
+  let UiElement::Stack(stack) = &children[1].element else {
+    panic!("Stack facade must lower to UiStack")
+  };
+  assert_eq!(stack.align_items, Prop::Set(Align::Center));
+  assert_eq!(stack.justify_items, Prop::Set(Align::FlexEnd));
   assert_eq!(
     children[2].element.visual_element().sticky,
     Prop::Set(sticky)

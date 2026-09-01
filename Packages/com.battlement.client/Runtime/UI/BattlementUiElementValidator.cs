@@ -229,6 +229,11 @@ namespace Battlement.UI
                 ValidateSticky(element.Sticky.Value);
             if (element.OverlayPlacement.IsSet)
                 ValidateOverlay(element.OverlayPlacement.Value);
+            if (element.Sticky.IsSet && (element.StackItem.IsSet || element.OverlayPlacement.IsSet))
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky cannot be combined with StackItem or overlay placement."
+                );
 
             switch (element)
             {
@@ -378,9 +383,8 @@ namespace Battlement.UI
 
         private static void RejectUnavailableLayout(UiElement element)
         {
-            bool unavailableHost = element is UiElement.Stack;
-            bool unavailableDescriptor =
-                element.StackItem.IsSet || element.Sticky.IsSet || element.OverlayPlacement.IsSet;
+            bool unavailableHost = false;
+            bool unavailableDescriptor = element.Sticky.IsSet || element.OverlayPlacement.IsSet;
             if (unavailableHost || unavailableDescriptor)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,

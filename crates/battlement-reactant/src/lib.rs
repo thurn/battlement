@@ -54,6 +54,7 @@ mod host_facade;
 mod host_flex;
 mod host_grid;
 mod host_properties;
+mod host_stack;
 pub mod key;
 pub mod layout;
 mod lifecycle;

@@ -47,6 +47,7 @@ namespace Battlement.UI
     {
         private readonly BattlementFlexLayout? flexLayout;
         private readonly BattlementGridLayout? gridLayout;
+        private readonly BattlementStackLayout? stackLayout;
         private bool layoutDirty = true;
 
         public BattlementLayoutContainer(BattlementLayoutContainerKind kind)
@@ -61,6 +62,8 @@ namespace Battlement.UI
                 flexLayout = new BattlementFlexLayout(this, Adapter);
             if (kind == BattlementLayoutContainerKind.Grid)
                 gridLayout = new BattlementGridLayout(this, Adapter);
+            if (kind == BattlementLayoutContainerKind.Stack)
+                stackLayout = new BattlementStackLayout(this, Adapter);
         }
 
         public BattlementLayoutContainerKind Kind { get; }
@@ -70,6 +73,8 @@ namespace Battlement.UI
         public BattlementFlexLayout? FlexLayout => flexLayout;
 
         public BattlementGridLayout? GridLayout => gridLayout;
+
+        public BattlementStackLayout? StackLayout => stackLayout;
 
         public void ApplyFlex(UiElement.Flex value)
         {
@@ -91,6 +96,16 @@ namespace Battlement.UI
             layoutDirty = true;
         }
 
+        public void ApplyStack(UiElement.Stack value)
+        {
+            if (stackLayout is null)
+                throw new InvalidOperationException(
+                    "Only a Stack container accepts Stack properties."
+                );
+            stackLayout.Apply(value);
+            layoutDirty = true;
+        }
+
         public bool TakeLayoutDirty()
         {
             bool dirty = layoutDirty;
@@ -103,6 +118,7 @@ namespace Battlement.UI
             layoutDirty = true;
             flexLayout?.Refresh();
             gridLayout?.Invalidate();
+            stackLayout?.Invalidate();
         }
     }
 
@@ -238,11 +254,23 @@ namespace Battlement.UI
 
         private void PresentSlots(IReadOnlyList<VisualElement> children)
         {
-            foreach (BattlementLayoutSlot slot in slots.Values)
-                slot.RemoveFromHierarchy();
             int offset = measurement is null ? 0 : 1;
+            foreach (VisualElement child in children)
+            {
+                BattlementLayoutSlot slot = slots[child];
+                if (slot.parent != owner)
+                    owner.hierarchy.Add(slot);
+            }
             for (int index = 0; index < children.Count; index++)
-                owner.hierarchy.Insert(offset + index, slots[children[index]]);
+            {
+                BattlementLayoutSlot slot = slots[children[index]];
+                if (owner.hierarchy[offset + index] == slot)
+                    continue;
+                if (offset + index == 0)
+                    slot.SendToBack();
+                else
+                    slot.PlaceInFront(owner.hierarchy[offset + index - 1]);
+            }
         }
 
         private static VisualElement PrivateElement() =>

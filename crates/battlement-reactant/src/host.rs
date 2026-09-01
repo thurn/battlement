@@ -36,8 +36,8 @@ use battlement::{
   GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
   UiFlex, UiGrid, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar,
   UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
-  UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup,
-  UiVisualElement, UiVisualElementProperties,
+  UiSliderInt, UiStack, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
+  UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
 
 use crate::{
@@ -765,6 +765,11 @@ facade!(
   "A deterministic track-based layout container with explicit and implicit rows and columns.\n\nGrid uses stable native slots and preserves logical child order while tracks determine presentation."
 );
 facade!(
+  Stack,
+  UiStack,
+  "An isolated overlapping layout container with explicit layer order.\n\nStack uses stable native slots for placement while preserving logical hierarchy and host identity."
+);
+facade!(
   Box,
   UiBox,
   "A themed Unity UI Toolkit container with a visible box treatment.\n\n`Box` has the hierarchy and layout role of [`View`], while Unity's `.unity-box` USS class supplies the themed background and border. Use it to visually group related content.\n\nSee Unity's [Box manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Box.html)."
@@ -893,6 +898,7 @@ empty_constructor!(
   View => UiVisualElement,
   Flex => UiFlex,
   Grid => UiGrid,
+  Stack => UiStack,
   Box => UiBox,
   TextField => UiTextField,
   Toggle => UiToggle,
@@ -970,6 +976,7 @@ container!(
   View,
   Flex,
   Grid,
+  Stack,
   Box,
   ToggleButtonGroup,
   GroupBox,

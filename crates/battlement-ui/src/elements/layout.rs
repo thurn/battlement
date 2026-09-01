@@ -163,6 +163,79 @@ impl Default for StackItem {
   }
 }
 
+impl StackItem {
+  /// Creates default Stack placement metadata.
+  #[must_use]
+  pub const fn new() -> Self {
+    Self {
+      order: 0,
+      align_self: Align::Auto,
+      justify_self: Align::Auto,
+      top: None,
+      right: None,
+      bottom: None,
+      left: None,
+      contributes_to_size: true,
+    }
+  }
+
+  /// Sets the presentation order within the parent Stack.
+  #[must_use]
+  pub const fn order(mut self, value: i32) -> Self {
+    self.order = value;
+    self
+  }
+
+  /// Overrides vertical alignment inside the Stack.
+  #[must_use]
+  pub const fn align_self(mut self, value: Align) -> Self {
+    self.align_self = value;
+    self
+  }
+
+  /// Overrides horizontal alignment inside the Stack.
+  #[must_use]
+  pub const fn justify_self(mut self, value: Align) -> Self {
+    self.justify_self = value;
+    self
+  }
+
+  /// Sets the top inset in panel pixels.
+  #[must_use]
+  pub const fn top(mut self, value: f32) -> Self {
+    self.top = Some(value);
+    self
+  }
+
+  /// Sets the right inset in panel pixels.
+  #[must_use]
+  pub const fn right(mut self, value: f32) -> Self {
+    self.right = Some(value);
+    self
+  }
+
+  /// Sets the bottom inset in panel pixels.
+  #[must_use]
+  pub const fn bottom(mut self, value: f32) -> Self {
+    self.bottom = Some(value);
+    self
+  }
+
+  /// Sets the left inset in panel pixels.
+  #[must_use]
+  pub const fn left(mut self, value: f32) -> Self {
+    self.left = Some(value);
+    self
+  }
+
+  /// Selects whether this layer contributes to intrinsic Stack size.
+  #[must_use]
+  pub const fn contributes_to_size(mut self, value: bool) -> Self {
+    self.contributes_to_size = value;
+    self
+  }
+}
+
 /// Sticky positioning metadata for one normal-flow child.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Sticky {

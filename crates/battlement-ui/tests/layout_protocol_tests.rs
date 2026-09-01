@@ -242,3 +242,87 @@ fn grid_item_builder_authors_each_axis_and_alignment() {
     }
   );
 }
+
+#[test]
+fn stack_item_builder_and_context_author_the_closed_contract() {
+  let item = StackItem::new()
+    .order(-3)
+    .align_self(Align::Center)
+    .justify_self(Align::FlexEnd)
+    .top(1.0)
+    .right(2.0)
+    .bottom(3.0)
+    .left(4.0)
+    .contributes_to_size(false);
+  assert_eq!(
+    item,
+    StackItem {
+      order: -3,
+      align_self: Align::Center,
+      justify_self: Align::FlexEnd,
+      top: Some(1.0),
+      right: Some(2.0),
+      bottom: Some(3.0),
+      left: Some(4.0),
+      contributes_to_size: false,
+    }
+  );
+
+  let outside = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      stack_item: Prop::Set(item),
+      ..UiVisualElement::new()
+    },
+  ));
+  assert_eq!(
+    battlement_ui::validate_documents(&[outside]),
+    Err(UiValidationError::InvalidProperty)
+  );
+
+  for style in [
+    Style::new().position(Position::Absolute),
+    Style::new().left(1),
+  ] {
+    let stack = UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(ObjectId::new_v4(), UiStack::new()).child(UiNode::new(
+        ObjectId::new_v4(),
+        UiVisualElement {
+          style,
+          ..UiVisualElement::new()
+        },
+      )),
+    );
+    assert_eq!(
+      battlement_ui::validate_documents(&[stack]),
+      Err(UiValidationError::InvalidProperty)
+    );
+  }
+}
+
+#[test]
+fn sticky_rejects_stack_and_overlay_placement_combinations() {
+  for visual in [
+    UiVisualElement {
+      stack_item: Prop::Set(StackItem::new()),
+      sticky: Prop::Set(Sticky {
+        top: Some(0.0),
+        ..Sticky::default()
+      }),
+      ..UiVisualElement::new()
+    },
+    UiVisualElement {
+      sticky: Prop::Set(Sticky {
+        top: Some(0.0),
+        ..Sticky::default()
+      }),
+      overlay_placement: Prop::Set(OverlayPlacement::Layer(OverlayLayer::Popover)),
+      ..UiVisualElement::new()
+    },
+  ] {
+    assert_eq!(
+      validate_element_state(&UiElement::from(visual)),
+      Err(UiValidationError::InvalidProperty)
+    );
+  }
+}

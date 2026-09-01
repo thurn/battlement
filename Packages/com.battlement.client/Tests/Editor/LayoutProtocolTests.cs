@@ -216,12 +216,13 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void UnavailableLayoutStateIsRejectedWithoutChangingTheNativeTree()
+        public void InvalidPlacementIsRejectedWithoutChangingTheNativeTree()
         {
             ObjectId documentId = Id("7d175052-06d3-46a6-87e4-d12a711db84c");
             ObjectId rootId = Id("34cd0664-cbaf-41f5-aa2b-31c0a102fc56");
             ObjectId layoutId = Id("831053d0-6a4f-49f7-9750-e98f5207cdba");
             ObjectId ordinaryId = Id("c1dcd487-b065-44db-8864-280f365db147");
+            ObjectId stackChildId = Id("f3f62f22-a0d3-44a0-8873-bf9be707b9a6");
             GameObject owned = BattlementUiDocuments.CreateGameObject(
                 new GameObjectKind.UiDocumentState(rootId)
             );
@@ -232,17 +233,13 @@ namespace Battlement.Tests
                     new[] { new UiDocument(documentId, rootId) },
                     id => id == documentId ? owned : null
                 );
-                BattlementUiException? createFailure = Assert.Throws<BattlementUiException>(() =>
-                    documents.Create(
-                        new CommandBody.VisualElement.Create(
-                            rootId,
-                            new UiNode(layoutId, new UiElement.Stack())
-                        )
+                documents.Create(
+                    new CommandBody.VisualElement.Create(
+                        rootId,
+                        new UiNode(layoutId, new UiElement.Stack())
                     )
                 );
-                Assert.That(createFailure!.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
-                StringAssert.Contains("not enabled", createFailure.Message);
-                Assert.That(documents.TryGet(layoutId, out _), Is.False);
+                Assert.That(documents.TryGet(layoutId, out _), Is.True);
 
                 documents.Create(
                     new CommandBody.VisualElement.Create(
@@ -274,6 +271,59 @@ namespace Battlement.Tests
                 );
                 Assert.That(updateFailure!.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
                 Assert.That(ordinary!.name, Is.EqualTo("unchanged"));
+
+                BattlementUiException? stackItemFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                ordinaryId,
+                                new UiElement.VisualElement
+                                {
+                                    Name = "also-not-applied",
+                                    StackItem = new StackItem(
+                                        1,
+                                        UiAlign.Auto,
+                                        UiAlign.Auto,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        true
+                                    ),
+                                }
+                            )
+                        )
+                    )
+                );
+                Assert.That(stackItemFailure!.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(ordinary.name, Is.EqualTo("unchanged"));
+
+                documents.Create(
+                    new CommandBody.VisualElement.Create(
+                        layoutId,
+                        new UiNode(
+                            stackChildId,
+                            new UiElement.VisualElement { Name = "stack-child" }
+                        )
+                    )
+                );
+                Assert.That(documents.TryGet(stackChildId, out VisualElement? stackChild), Is.True);
+                BattlementUiException? styleFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                stackChildId,
+                                new UiElement.VisualElement
+                                {
+                                    Name = "style-not-applied",
+                                    Style = new UiStyle(Position: UiStyle.Set(UiPosition.Absolute)),
+                                }
+                            )
+                        )
+                    )
+                );
+                Assert.That(styleFailure!.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(stackChild!.name, Is.EqualTo("stack-child"));
             }
             finally
             {

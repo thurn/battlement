@@ -401,7 +401,7 @@ namespace Battlement.UI
                 {
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
-                    ValidateGridUpdate(target, properties.Element);
+                    ValidateLayoutUpdate(target, properties.Element);
                     BattlementUiElementProperties.Validate(
                         properties.Element,
                         allowUsageHints: false
@@ -426,6 +426,7 @@ namespace Battlement.UI
                     );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     BattlementGridItems.Apply(target, properties.Element.GridItem);
+                    BattlementStackItems.Apply(target, properties.Element.StackItem);
                     if (
                         target is BattlementLayoutContainer layout
                         && properties.Element is UiElement.Flex flex
@@ -436,6 +437,11 @@ namespace Battlement.UI
                         && properties.Element is UiElement.Grid grid
                     )
                         gridLayout.ApplyGrid(grid);
+                    if (
+                        target is BattlementLayoutContainer stackLayout
+                        && properties.Element is UiElement.Stack stack
+                    )
+                        stackLayout.ApplyStack(stack);
                     RefreshParentLayout(properties.ObjectId.Value);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -517,6 +523,9 @@ namespace Battlement.UI
                 UiElement.VisualElement => new UnityEngine.UIElements.VisualElement(),
                 UiElement.Flex => new BattlementLayoutContainer(BattlementLayoutContainerKind.Flex),
                 UiElement.Grid => new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid),
+                UiElement.Stack => new BattlementLayoutContainer(
+                    BattlementLayoutContainerKind.Stack
+                ),
                 UiElement.Box => new UnityEngine.UIElements.Box(),
                 UiElement.Label => new UnityEngine.UIElements.Label(),
                 UiElement.TextElement => new UnityEngine.UIElements.TextElement(),
@@ -651,6 +660,7 @@ namespace Battlement.UI
             );
             properties.ApplyElement(value, node.ObjectId, node.Element);
             BattlementGridItems.Apply(value, node.Element.GridItem);
+            BattlementStackItems.Apply(value, node.Element.StackItem);
             if (value is BattlementLayoutContainer layout && node.Element is UiElement.Flex flex)
                 layout.ApplyFlex(flex);
             if (
@@ -658,6 +668,11 @@ namespace Battlement.UI
                 && node.Element is UiElement.Grid grid
             )
                 gridLayout.ApplyGrid(grid);
+            if (
+                value is BattlementLayoutContainer stackLayout
+                && node.Element is UiElement.Stack stack
+            )
+                stackLayout.ApplyStack(stack);
             Reserve(node.ObjectId, value, documentRoot, parentId);
             scrollControls.ApplyCreate(value, node.ObjectId, node.Element);
             tabControls.ApplyCreate(value, node.ObjectId, node.Element);
@@ -825,6 +840,8 @@ namespace Battlement.UI
                     && layout.Kind == BattlementLayoutContainerKind.Flex,
                 UiElement.Grid => target is BattlementLayoutContainer grid
                     && grid.Kind == BattlementLayoutContainerKind.Grid,
+                UiElement.Stack => target is BattlementLayoutContainer stack
+                    && stack.Kind == BattlementLayoutContainerKind.Stack,
                 UiElement.Box => target.GetType() == typeof(UnityEngine.UIElements.Box),
                 UiElement.Label => target.GetType() == typeof(UnityEngine.UIElements.Label),
                 UiElement.TextElement => target.GetType()
@@ -1065,6 +1082,10 @@ namespace Battlement.UI
                 child,
                 parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Grid }
             );
+            ValidateStackPlacement(
+                child,
+                parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack }
+            );
         }
 
         private static void ValidatePlacement(UiElement child, UiElement parent)
@@ -1076,6 +1097,7 @@ namespace Battlement.UI
                 parent is UiElement.ToggleButtonGroup
             );
             ValidateGridPlacement(child, parent is UiElement.Grid);
+            ValidateStackPlacement(child, parent is UiElement.Stack);
         }
 
         private static void ValidatePlacement(
@@ -1097,10 +1119,19 @@ namespace Battlement.UI
                     "GridItem requires a direct Grid placement context."
                 );
             if (parentIsGrid)
-                ValidateNativeGridStyle(child);
+                ValidateNativeLayoutStyle(child, "Grid");
+            bool parentIsStack =
+                parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack };
+            if (BattlementStackItems.HasAuthored(child) && !parentIsStack)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "StackItem requires a direct Stack placement context."
+                );
+            if (parentIsStack)
+                ValidateNativeLayoutStyle(child, "Stack");
         }
 
-        private static void ValidateGridUpdate(
+        private static void ValidateLayoutUpdate(
             UnityEngine.UIElements.VisualElement target,
             UiElement value
         )
@@ -1115,7 +1146,18 @@ namespace Battlement.UI
                     "GridItem requires a direct Grid placement context."
                 );
             if (parentIsGrid)
-                ValidateGridStyle(value.Style);
+                ValidateLayoutStyle(value.Style, "Grid");
+            bool parentIsStack =
+                target.parent is BattlementLayoutSlot stackSlot
+                && stackSlot.parent
+                    is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack };
+            if (value.StackItem.IsSet && !parentIsStack)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "StackItem requires a direct Stack placement context."
+                );
+            if (parentIsStack)
+                ValidateLayoutStyle(value.Style, "Stack");
         }
 
         private static void ValidateGridPlacement(UiElement child, bool parentIsGrid)
@@ -1126,10 +1168,21 @@ namespace Battlement.UI
                     "GridItem requires a direct Grid placement context."
                 );
             if (parentIsGrid)
-                ValidateGridStyle(child.Style);
+                ValidateLayoutStyle(child.Style, "Grid");
         }
 
-        private static void ValidateGridStyle(UiStyle? style)
+        private static void ValidateStackPlacement(UiElement child, bool parentIsStack)
+        {
+            if (child.StackItem.IsSet && !parentIsStack)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "StackItem requires a direct Stack placement context."
+                );
+            if (parentIsStack)
+                ValidateLayoutStyle(child.Style, "Stack");
+        }
+
+        private static void ValidateLayoutStyle(UiStyle? style, string container)
         {
             if (style is null)
                 return;
@@ -1143,20 +1196,24 @@ namespace Battlement.UI
                 style.Right,
                 style.Bottom,
                 style.Left,
-            }.All(GridOffsetIsAutomatic);
+            }.All(LayoutOffsetIsAutomatic);
             if (absolute || !offsetsAreAutomatic)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
-                    "Grid placement children require relative position and automatic offsets."
+                    $"{container} placement children require relative position "
+                        + "and automatic offsets."
                 );
         }
 
-        private static bool GridOffsetIsAutomatic(Prop<UiStyleValue<UiLengthOrAuto>> value) =>
+        private static bool LayoutOffsetIsAutomatic(Prop<UiStyleValue<UiLengthOrAuto>> value) =>
             !value.IsSet
             || value.Value.Keyword is not null
             || value.Value.Value is UiLengthOrAuto.Auto;
 
-        private static void ValidateNativeGridStyle(UnityEngine.UIElements.VisualElement child)
+        private static void ValidateNativeLayoutStyle(
+            UnityEngine.UIElements.VisualElement child,
+            string container
+        )
         {
             bool offsetsAreAutomatic = new[]
             {
@@ -1168,7 +1225,8 @@ namespace Battlement.UI
             if (child.style.position.value == Position.Absolute || !offsetsAreAutomatic)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
-                    "Grid placement children require relative position and automatic offsets."
+                    $"{container} placement children require relative position "
+                        + "and automatic offsets."
                 );
         }
 
