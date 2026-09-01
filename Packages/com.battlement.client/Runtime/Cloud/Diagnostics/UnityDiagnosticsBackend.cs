@@ -8,15 +8,29 @@ namespace Battlement.Cloud.Diagnostics
     {
         public bool CaptureExceptions
         {
-            set => CrashReportHandler.enableCaptureExceptions = value;
+            set
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                CrashReportHandler.enableCaptureExceptions = value;
+#endif
+            }
         }
 
         public uint LogBufferSize
         {
-            set => CrashReportHandler.logBufferSize = value;
+            set
+            {
+#if !UNITY_WEBGL || UNITY_EDITOR
+                CrashReportHandler.logBufferSize = value;
+#endif
+            }
         }
 
-        public void SetMetadata(string key, string? value) =>
+        public void SetMetadata(string key, string? value)
+        {
+#if !UNITY_WEBGL || UNITY_EDITOR
             CrashReportHandler.SetUserMetadata(key, value);
+#endif
+        }
     }
 }
