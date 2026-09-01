@@ -12,6 +12,7 @@ mod context_memo;
 mod design_system;
 mod effects_stores;
 mod events_portals;
+mod gestures_drag;
 mod physical_motion;
 mod presence_lifecycle;
 mod refs_geometry;
@@ -88,11 +89,13 @@ pub enum Screen {
   PresenceLifecycle,
   /// Native motion values, time sources, audio transport, and imperative controls.
   ValuesTimeControls,
+  /// Unity-local gestures, constrained drag, momentum, scroll, and viewport state.
+  GesturesDrag,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 14] = [
+  pub const ALL: [Self; 15] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -107,6 +110,7 @@ impl Screen {
     Self::VariantsOrchestration,
     Self::PresenceLifecycle,
     Self::ValuesTimeControls,
+    Self::GesturesDrag,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -126,6 +130,7 @@ impl Screen {
       Self::VariantsOrchestration => "variants-orchestration",
       Self::PresenceLifecycle => "presence-lifecycle",
       Self::ValuesTimeControls => "values-time-controls",
+      Self::GesturesDrag => "gestures-drag",
     }
   }
 }
@@ -174,6 +179,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     variants_orchestration: game.variants_orchestration.clone(),
     presence_lifecycle: game.presence_lifecycle.clone(),
     values_time_controls: game.values_time_controls.clone(),
+    gestures_drag: game.gestures_drag.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -205,6 +211,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       variants_orchestration: variants_orchestration::VariantsOrchestrationState::default(),
       presence_lifecycle: presence_lifecycle::PresenceLifecycleState::default(),
       values_time_controls: values_time_controls::ValuesTimeControlsState::default(),
+      gestures_drag: gestures_drag::GesturesDragState::default(),
       pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
@@ -362,6 +369,7 @@ struct Game {
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
+  gestures_drag: gestures_drag::GesturesDragState,
   pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
@@ -398,6 +406,7 @@ struct Shell {
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
+  gestures_drag: gestures_drag::GesturesDragState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -564,6 +573,10 @@ impl Component for Shell {
         state: self.values_time_controls.clone(),
         compact: self.compact,
       }),
+      Screen::GesturesDrag => Node::new(gestures_drag::GesturesDrag {
+        state: self.gestures_drag.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -627,17 +640,17 @@ impl Component for Navigation {
           } else {
             "REACTANT"
           })
-          .name(if self.screen == Screen::TargetsTimelines {
-            "values-navigation"
-          } else {
-            "targets-timelines-navigation"
+          .name(match self.screen {
+            Screen::TargetsTimelines => "values-navigation",
+            Screen::ValuesTimeControls => "gestures-navigation",
+            _ => "targets-timelines-navigation",
           })
           .style(design_system::brand(self.compact))
           .on_click(|game: &mut Game| {
-            game.screen = if game.screen == Screen::TargetsTimelines {
-              Screen::ValuesTimeControls
-            } else {
-              Screen::TargetsTimelines
+            game.screen = match game.screen {
+              Screen::TargetsTimelines => Screen::ValuesTimeControls,
+              Screen::ValuesTimeControls => Screen::GesturesDrag,
+              _ => Screen::TargetsTimelines,
             };
           }),
         )
@@ -847,7 +860,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::ValuesTimeControls,
+    Screen::Composition => Screen::GesturesDrag,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -861,6 +874,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::VariantsOrchestration => Screen::StylesDecorations,
     Screen::PresenceLifecycle => Screen::VariantsOrchestration,
     Screen::ValuesTimeControls => Screen::PresenceLifecycle,
+    Screen::GesturesDrag => Screen::ValuesTimeControls,
   }
 }
 
@@ -879,7 +893,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::StylesDecorations => Screen::VariantsOrchestration,
     Screen::VariantsOrchestration => Screen::PresenceLifecycle,
     Screen::PresenceLifecycle => Screen::ValuesTimeControls,
-    Screen::ValuesTimeControls => Screen::Composition,
+    Screen::ValuesTimeControls => Screen::GesturesDrag,
+    Screen::GesturesDrag => Screen::Composition,
   }
 }
 
@@ -899,6 +914,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::VariantsOrchestration => "12 VARIANTS & ORCHESTRATION",
     Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
     Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
+    Screen::GesturesDrag => "15 GESTURES & DRAG",
   }
 }
 

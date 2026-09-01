@@ -45,6 +45,7 @@ mappings = [
   { state = "variants-orchestration.lifecycle", scenario = "variants and orchestration", video = "variants-orchestration", owner = "variant-motion-tests::staggered-children-start-only-at-their-forward-and-reverse-boundaries" },
   { state = "presence-lifecycle.lifecycle", scenario = "presence and lifecycle", video = "presence-lifecycle", owner = "presence::automatic_exit_retains_hooks_until_exact_generation_completion" },
   { state = "values-time-controls.lifecycle", scenario = "values time and controls", video = "values-time-controls", owner = "motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract" },
+  { state = "gestures-drag.interaction", scenario = "gestures and drag", video = "gestures-drag", owner = "motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract" },
 ]
 
 transitions = [

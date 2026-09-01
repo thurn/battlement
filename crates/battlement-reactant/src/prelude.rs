@@ -54,6 +54,10 @@ pub use crate::{
     GeometrySnapshot, GeometryTargets, IntoGeometryEffectCleanup, Measurement, MeasurementStatus,
     ViewportRef, WorldGeometry, WorldRef, use_geometry, use_geometry_effect,
   },
+  gesture::{
+    DragAxis, DragConstraints, DragControls, DragElastic, DragStartOptions, DragTransition,
+    GestureConfig, use_drag_controls,
+  },
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,
     use_context, use_effect, use_effect_always, use_external_store, use_is_present, use_memo,

@@ -24,6 +24,9 @@ namespace Battlement
 
             /// <summary>Execute one closed animation-scope operation.</summary>
             public sealed record Scope(MotionScopeOperation Payload) : CommandBody;
+
+            /// <summary>Start a drag through one stable controls binding.</summary>
+            public sealed record DragControl(MotionDragControlOperation Payload) : CommandBody;
         }
     }
 }

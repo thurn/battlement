@@ -239,7 +239,7 @@ impl MotionProps {
         == resolved.descriptor.as_ref().map(|value| &value.names)
         && resolved.descriptor.is_some()
     });
-    let slots = if reuse_variant {
+    let mut slots: Vec<MotionSlotDescriptor> = if reuse_variant {
       previous
         .expect("reused variant descriptor exists")
         .slots
@@ -263,6 +263,25 @@ impl MotionProps {
         })
         .collect()
     };
+    slots.extend(self.gesture_slots(generation, transition));
+    let mut values = target.map_or_else(Vec::new, MotionTarget::graph_values);
+    for value in self.gesture_graph_values() {
+      if !values
+        .iter()
+        .any(|existing| existing.value_id == value.value_id)
+      {
+        values.push(value);
+      }
+    }
+    let mut value_subscriptions = target.map_or_else(Vec::new, MotionTarget::value_subscriptions);
+    for subscription in self.gesture_value_subscriptions() {
+      if !value_subscriptions
+        .iter()
+        .any(|existing| existing.subscription_id == subscription.subscription_id)
+      {
+        value_subscriptions.push(subscription);
+      }
+    }
     MotionDescriptor {
       descriptor_id: host_id,
       host_id,
@@ -288,9 +307,9 @@ impl MotionProps {
         }
         value
       }),
-      values: target.map_or_else(Vec::new, MotionTarget::graph_values),
+      values,
       value_bindings: target.map_or_else(Vec::new, MotionTarget::value_bindings),
-      value_subscriptions: target.map_or_else(Vec::new, MotionTarget::value_subscriptions),
+      value_subscriptions,
       control_id: self.control_id,
       scope_id: self.scope_id,
       scope_root: self.scope_root,
@@ -300,6 +319,7 @@ impl MotionProps {
           .variants
           .named_targets(self.variant_data.as_ref(), transition)
       }),
+      gestures: self.gesture_descriptor(),
     }
   }
 

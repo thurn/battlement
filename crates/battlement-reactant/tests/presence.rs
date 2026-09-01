@@ -346,6 +346,7 @@ impl Fixture {
           samples: Vec::new(),
           value_samples: Vec::new(),
           playback_events: Vec::new(),
+          gesture_events: Vec::new(),
         },
       )
       .unwrap()

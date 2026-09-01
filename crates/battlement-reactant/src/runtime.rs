@@ -245,20 +245,13 @@ impl<G: 'static> Reactant<G> {
           .map(|root| root.committed.clone())
           .collect::<Vec<_>>();
         let previous = portal::layout(self.runtime_id, &committed, &bindings);
-        let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
-        let changed = portal::changed_attachments(&previous, &desired);
+        let tentative = portal::layout(self.runtime_id, &rendered, &bindings);
+        let changed = portal::changed_attachments(&previous, &tentative);
         if !changed.is_empty() {
           for tree in &mut rendered {
             tree.remount_changed_portals(&changed);
           }
-          desired = portal::layout(self.runtime_id, &rendered, &bindings);
         }
-        let documents = self
-          .roots
-          .iter()
-          .zip(&desired.roots)
-          .map(|(root, physical)| runtime_document::render(&root.document, physical))
-          .collect();
         let attachments = AttachmentSet::collect(
           self.runtime_id,
           self
@@ -267,6 +260,16 @@ impl<G: 'static> Reactant<G> {
             .zip(&rendered)
             .map(|(root, tree)| (root.document.document_id, tree)),
         );
+        for tree in &mut rendered {
+          tree.resolve_drag_constraints(self.runtime_id, &attachments);
+        }
+        let desired = portal::layout(self.runtime_id, &rendered, &bindings);
+        let documents = self
+          .roots
+          .iter()
+          .zip(&desired.roots)
+          .map(|(root, physical)| runtime_document::render(&root.document, physical))
+          .collect();
         let mut geometry_targets = Vec::new();
         for tree in &rendered {
           tree.geometry_targets(&mut geometry_targets);
@@ -395,6 +398,11 @@ impl<G: 'static> Reactant<G> {
           changed |= root.committed.invoke_motion_sample(game, sample);
         }
       }
+      for event in &batch.gesture_events {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_gesture(game, event);
+        }
+      }
       changed |= runtime
         .motion_values
         .borrow_mut()
@@ -481,14 +489,25 @@ impl<G: 'static> Reactant<G> {
         .map(|root| root.committed.clone())
         .collect::<Vec<_>>();
       let previous = portal::layout(self.runtime_id, &committed, &bindings);
-      let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
-      let changed = portal::changed_attachments(&previous, &desired);
+      let tentative = portal::layout(self.runtime_id, &rendered, &bindings);
+      let changed = portal::changed_attachments(&previous, &tentative);
       if !changed.is_empty() {
         for tree in &mut rendered {
           tree.remount_changed_portals(&changed);
         }
-        desired = portal::layout(self.runtime_id, &rendered, &bindings);
       }
+      let attachments = AttachmentSet::collect(
+        self.runtime_id,
+        self
+          .roots
+          .iter()
+          .zip(&rendered)
+          .map(|(root, tree)| (root.document.document_id, tree)),
+      );
+      for tree in &mut rendered {
+        tree.resolve_drag_constraints(self.runtime_id, &attachments);
+      }
+      let desired = portal::layout(self.runtime_id, &rendered, &bindings);
       let documents = self
         .roots
         .iter()
@@ -512,14 +531,6 @@ impl<G: 'static> Reactant<G> {
         self
           .external_portals
           .active_groups(&previous, &desired, &documents),
-      );
-      let attachments = AttachmentSet::collect(
-        self.runtime_id,
-        self
-          .roots
-          .iter()
-          .zip(&rendered)
-          .map(|(root, tree)| (root.document.document_id, tree)),
       );
       let mut geometry_targets = Vec::new();
       for tree in &rendered {

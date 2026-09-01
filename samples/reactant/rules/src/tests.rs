@@ -6,7 +6,7 @@ use crate::{DITTO_VISUAL_STATE_REGISTRY, Screen};
 fn screen_inventory_matches_the_ditto_registry() {
   assert_eq!(
     DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-    42
+    43
   );
   let registered_screens = DITTO_VISUAL_STATE_REGISTRY
     .lines()
@@ -61,7 +61,7 @@ fn task_47_scenarios_cover_registered_stable_states() {
       .map_or(following, |end| &following[..end]);
     for checkpoint in checkpoints {
       assert!(
-        block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
+        block.contains(&format!("screenshot = {{ name = \"{checkpoint}\"")),
         "scenario {scenario} is missing {checkpoint}"
       );
     }

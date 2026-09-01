@@ -434,6 +434,9 @@ namespace Battlement
                     CommandBody.Motion.Scope motion => ExecuteUi(() =>
                         uiDocuments.Apply(motion.Payload)
                     ),
+                    CommandBody.Motion.DragControl motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
                     CommandBody.GeometryObservation geometry => ExecuteUi(() =>
                         updateGeometry(geometry.Value)
                     ),

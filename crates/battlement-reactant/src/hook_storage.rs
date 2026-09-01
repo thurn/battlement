@@ -81,6 +81,7 @@ pub(crate) enum HookKind {
   AnimationControl,
   AnimationScope,
   Context,
+  DragControl,
   ElementRef,
   Effect,
   Geometry,

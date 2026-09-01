@@ -12,15 +12,20 @@ namespace Battlement.UI
     {
         private readonly Dictionary<Guid, DescriptorState> descriptors = new();
         private readonly Dictionary<Guid, Guid> descriptorByHost = new();
+        private readonly Dictionary<Guid, BattlementGestureState> gestures = new();
         private readonly Dictionary<Guid, ulong> controlledClocks = new();
         private readonly BattlementImperativePlaybacks imperativePlaybacks = new();
         private readonly Dictionary<Guid, ActiveControl> activeControls = new();
         private readonly HashSet<Guid> installingControls = new();
         private readonly List<MotionLifecycleEvent> events = new();
         private readonly List<(DescriptorState Descriptor, SlotState Slot)> pendingSamples = new();
+        private readonly List<MotionGestureEvent> gestureEvents = new();
+        private readonly List<MotionGestureEvent> pendingGestureSamples = new();
         private readonly Func<double> unscaledTime;
         private readonly Func<double> scaledTime;
         private readonly Func<ObjectId, MotionClockSample>? audioTime;
+        private readonly Func<ObjectId, VisualElement?> resolveElement;
+        private readonly Func<TimeSpan> gestureTime;
         private readonly BattlementMotionGraph graph;
         private readonly bool enablePlayerLoop;
         private readonly IBattlementUiAssetLookup? assets;
@@ -32,12 +37,17 @@ namespace Battlement.UI
             Func<double>? scaledTime = null,
             bool registerPlayerLoop = true,
             IBattlementUiAssetLookup? assetLookup = null,
-            Func<ObjectId, MotionClockSample>? audioTime = null
+            Func<ObjectId, MotionClockSample>? audioTime = null,
+            Func<ObjectId, VisualElement?>? resolveElement = null,
+            Func<TimeSpan>? gestureTime = null
         )
         {
             this.unscaledTime = unscaledTime ?? (() => Time.unscaledTimeAsDouble);
             this.scaledTime = scaledTime ?? (() => Time.timeAsDouble);
             this.audioTime = audioTime;
+            this.resolveElement = resolveElement ?? (_ => null);
+            this.gestureTime =
+                gestureTime ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             enablePlayerLoop = registerPlayerLoop;
             assets = assetLookup;
             graph = new BattlementMotionGraph(ClockSample);
@@ -103,6 +113,8 @@ namespace Battlement.UI
                 return;
             if (descriptors.Remove(descriptorId, out DescriptorState descriptor))
             {
+                if (gestures.Remove(descriptorId, out BattlementGestureState gesture))
+                    gesture.Dispose();
                 descriptor.Dispose();
                 BattlementMotionPropertyWriter.Release(descriptor.Target);
                 graph.Remove(descriptor.Descriptor.DescriptorId);
@@ -111,6 +123,9 @@ namespace Battlement.UI
 
         public void Clear()
         {
+            foreach (BattlementGestureState gesture in gestures.Values)
+                gesture.Dispose();
+            gestures.Clear();
             foreach (DescriptorState descriptor in descriptors.Values)
             {
                 descriptor.Dispose();
@@ -125,6 +140,7 @@ namespace Battlement.UI
             graph.Clear();
             events.Clear();
             pendingSamples.Clear();
+            pendingGestureSamples.Clear();
             if (IsPlayerLoopRegistered)
             {
                 BattlementMotionPlayerLoop.Unregister(this);
@@ -283,6 +299,17 @@ namespace Battlement.UI
                 default:
                     throw Invalid("Unknown animation-scope operation.");
             }
+        }
+
+        public void Apply(MotionDragControlOperation operation)
+        {
+            BattlementGestureState[] bindings = gestures
+                .Values.Where(value => value.ControlId == operation.ControlId)
+                .ToArray();
+            if (bindings.Length > 1)
+                throw Invalid("External drag controls are bound to more than one host.");
+            if (bindings.Length == 1)
+                bindings[0].StartExternal(operation);
         }
 
         public void Apply(MotionPlaybackOperation operation)
@@ -488,16 +515,21 @@ namespace Battlement.UI
             List<MotionLifecycleEvent> boundaries = new(events);
             IReadOnlyList<MotionPresentationSample> samples = DrainSamples();
             IReadOnlyList<MotionValueSample> valueSamples = graph.DrainSamples();
+            var nativeGestures = new List<MotionGestureEvent>(gestureEvents);
+            nativeGestures.AddRange(pendingGestureSamples);
             var terminalPlaybacks = new List<MotionPlaybackEvent>(
                 imperativePlaybacks.DrainEvents()
             );
             terminalPlaybacks.AddRange(graph.DrainPlaybackEvents());
             events.Clear();
+            gestureEvents.Clear();
+            pendingGestureSamples.Clear();
             if (
                 boundaries.Count == 0
                 && samples.Count == 0
                 && valueSamples.Count == 0
                 && terminalPlaybacks.Count == 0
+                && nativeGestures.Count == 0
             )
                 return null;
             ulong first = boundaries.Count == 0 ? sequence : boundaries[0].Sequence;
@@ -508,7 +540,8 @@ namespace Battlement.UI
                 boundaries,
                 samples,
                 valueSamples,
-                terminalPlaybacks
+                terminalPlaybacks,
+                nativeGestures
             );
         }
 
@@ -524,6 +557,8 @@ namespace Battlement.UI
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.CompleteSlots(this);
             CompleteImperativePlaybacks();
+            foreach (BattlementGestureState gesture in gestures.Values)
+                gesture.Sample();
         }
 
         public void Dispose()
@@ -551,6 +586,13 @@ namespace Battlement.UI
             )
             {
                 previous.CancelActiveSlots(this, ClockMicros(previous.Descriptor.Clock));
+                if (
+                    gestures.Remove(
+                        prepared.Descriptor.DescriptorId.Value,
+                        out BattlementGestureState gesture
+                    )
+                )
+                    gesture.Dispose();
                 previous.Dispose();
             }
             descriptors[prepared.Descriptor.DescriptorId.Value] = prepared;
@@ -562,7 +604,41 @@ namespace Battlement.UI
             prepared.SynchronizeStaticStyles();
             prepared.ApplyInitialPresentation();
             prepared.EmitActivated(this);
+            if (prepared.Descriptor.Gestures is not null)
+            {
+                Guid descriptorId = prepared.Descriptor.DescriptorId.Value;
+                gestures[descriptorId] = new BattlementGestureState(
+                    prepared.Descriptor,
+                    prepared.Target,
+                    resolveElement,
+                    gestureTime,
+                    (layer, value) =>
+                        prepared.SetGestureLayer(
+                            layer,
+                            value,
+                            ClockMicros(prepared.Descriptor.Clock)
+                        ),
+                    (valueId, value) => graph.SetLocal(valueId, value),
+                    EmitGesture
+                );
+            }
             AttachActiveControl(prepared);
+        }
+
+        private void EmitGesture(MotionGestureEvent value, bool replaceable)
+        {
+            if (!replaceable)
+            {
+                gestureEvents.Add(value);
+                return;
+            }
+            int index = pendingGestureSamples.FindIndex(existing =>
+                existing.DescriptorId == value.DescriptorId && existing.Kind == value.Kind
+            );
+            if (index < 0)
+                pendingGestureSamples.Add(value);
+            else
+                pendingGestureSamples[index] = value;
         }
 
         private DescriptorState[] ControlBindings(ObjectId controlId) =>

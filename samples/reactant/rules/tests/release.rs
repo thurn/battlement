@@ -38,6 +38,10 @@ fn release_lab_navigates_every_focused_screen() {
   click_label(&mut client, values_navigation);
   let canvas = find_named(&client.ui(), ROOT_ID, "values-time-controls-canvas");
   assert!(!client.ui().element(canvas).children().is_empty());
+  let gestures_navigation = find_named(&client.ui(), ROOT_ID, "gestures-navigation");
+  click_label(&mut client, gestures_navigation);
+  let canvas = find_named(&client.ui(), ROOT_ID, "gestures-drag-canvas");
+  assert!(!client.ui().element(canvas).children().is_empty());
 }
 
 #[test]

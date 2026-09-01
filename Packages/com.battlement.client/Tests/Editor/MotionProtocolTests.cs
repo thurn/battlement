@@ -10,6 +10,51 @@ namespace Battlement.Tests
     public sealed class MotionProtocolTests
     {
         [Test]
+        public void GestureDescriptorAcceptsNullDragFromTheWire()
+        {
+            ObjectId hostId = Id("e65c1a57-4d9d-443d-8b7e-07e79c534a01");
+            MotionDescriptor descriptor = Descriptor(hostId) with
+            {
+                Gestures = new MotionGestureDescriptor(
+                    3,
+                    10,
+                    3,
+                    8,
+                    false,
+                    null,
+                    false,
+                    false,
+                    null,
+                    null,
+                    null,
+                    new MotionGestureSubscriptions(
+                        true,
+                        true,
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false
+                    )
+                ),
+            };
+
+            Response decoded = BattlementJson.DeserializeResponse(
+                BattlementJson.SerializeResponse(ResponseWith(hostId, descriptor))
+            );
+            var batch = (ResponseMessage<Command>.BatchMessage)decoded.Messages[0];
+            var update = (CommandBody.VisualElement.Update)batch.Batch.Groups[0].Commands[0].Body;
+            var properties = (VisualElementUpdate.Properties)update.Value;
+
+            Assert.That(properties.Element.Motion.Value.Gestures, Is.Not.Null);
+            Assert.That(properties.Element.Motion.Value.Gestures!.Drag, Is.Null);
+        }
+
+        [Test]
         public void CompleteDescriptorRoundTripsWithoutLosingUnionPayloads()
         {
             ObjectId hostId = Id("e6c173ab-fecb-461c-b215-8972cf45ad7a");
@@ -47,6 +92,70 @@ namespace Battlement.Tests
             StringAssert.Contains("\"CubicBezier\"", text);
             StringAssert.Contains("\"Discrete\":\"hidden\"", text);
             StringAssert.Contains($"\"Time\":{{\"Controlled\":\"{clockId.Value}\"}}", text);
+        }
+
+        [Test]
+        public void ExternalDragControlCommandsUseTheDirectOperationPayload()
+        {
+            SessionId session = new(Id("de8ab6a6-2022-43bc-8453-e4873be72085").Value);
+            ObjectId controlId = Id("4a846df8-0e8b-4038-aab7-b6e00bc8e33f");
+            Response response = new(
+                session,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(Id("fd9eb52d-bda4-4302-bd51-e14bd89bb1ca").Value),
+                            session,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    new[]
+                                    {
+                                        new Command(
+                                            new CommandId(
+                                                Id("7cd0fced-04bd-4af1-95db-3aa9901e649a").Value
+                                            ),
+                                            new CommandBody.Motion.DragControl(
+                                                new MotionDragControlOperation(
+                                                    controlId,
+                                                    19,
+                                                    MotionPointerDevice.Pen,
+                                                    new MotionGestureVector(14, 28),
+                                                    true
+                                                )
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
+
+            byte[] json = BattlementJson.SerializeResponse(response);
+            Response decoded = BattlementJson.DeserializeResponse(json);
+            var batch = (ResponseMessage<Command>.BatchMessage)decoded.Messages[0];
+            var body = (CommandBody.Motion.DragControl)batch.Batch.Groups[0].Commands[0].Body;
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(json));
+
+            Assert.That(body.Payload.ControlId, Is.EqualTo(controlId));
+            Assert.That(body.Payload.PointerId, Is.EqualTo(19));
+            Assert.That(
+                root.SelectToken(
+                    "messages[0].Batch.groups[0].commands[0].body.MotionDragControl.payload"
+                ),
+                Is.Null
+            );
+            Assert.That(
+                root.SelectToken(
+                            "messages[0].Batch.groups[0].commands[0].body"
+                                + ".MotionDragControl.control_id"
+                        )!
+                    .Value<string>(),
+                Is.EqualTo(controlId.Value.ToString())
+            );
         }
 
         [Test]

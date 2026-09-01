@@ -9,6 +9,7 @@ use battlement::{
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
+  gesture::GestureProps,
   motion_lifecycle::MotionCallbacks,
   motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
@@ -56,6 +57,7 @@ pub struct MotionProps {
   pub(crate) scope_id: Option<ObjectId>,
   pub(crate) scope_root: bool,
   pub(crate) motion_name: Option<String>,
+  pub(crate) gestures: GestureProps,
 }
 
 /// A concrete or disabled mount origin.
@@ -786,6 +788,10 @@ impl From<MotionStyle> for MotionTarget {
 }
 
 impl MotionProps {
+  pub(crate) fn drag_constraint_ref(&self) -> Option<&crate::element_ref::ElementRef> {
+    self.gestures.drag_constraint_ref()
+  }
+
   /// Creates empty Motion props.
   #[must_use]
   pub const fn new() -> Self {
@@ -806,6 +812,7 @@ impl MotionProps {
       scope_id: None,
       scope_root: false,
       motion_name: None,
+      gestures: GestureProps::new(),
     }
   }
 
@@ -907,6 +914,7 @@ impl MotionProps {
     if value.motion_name.is_some() {
       self.motion_name = value.motion_name;
     }
+    self.gestures = self.gestures.merge(value.gestures);
     self
   }
 }

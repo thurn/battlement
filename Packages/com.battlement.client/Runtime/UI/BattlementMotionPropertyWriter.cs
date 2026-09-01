@@ -424,6 +424,13 @@ namespace Battlement.UI
                 throw Unsupported(property);
         }
 
+        public static void WriteTranslation(VisualElement target, float x, float y) =>
+            target.style.translate = new Translate(
+                new Length(x, LengthUnit.Pixel),
+                new Length(y, LengthUnit.Pixel),
+                target.resolvedStyle.translate.z
+            );
+
         private static void WriteColor(
             VisualElement target,
             MotionProperty property,

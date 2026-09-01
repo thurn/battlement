@@ -21,6 +21,7 @@ namespace Battlement.UI
             ValidatePropertyValues(descriptor.StaticBaseline, "static baseline");
             if (descriptor.Initial is not null)
                 ValidateTarget(descriptor.Initial);
+            ValidateGestures(descriptor);
             if (descriptor.Variants is MotionVariantResolution variants)
             {
                 if (variants.Names.Count == 0)
@@ -113,6 +114,49 @@ namespace Battlement.UI
                         ValidateComposition(animation, track);
                 }
             }
+        }
+
+        private static void ValidateGestures(MotionDescriptor descriptor)
+        {
+            if (descriptor.Gestures is not MotionGestureDescriptor gestures)
+                return;
+            foreach (
+                float value in new[]
+                {
+                    gestures.PanThreshold,
+                    gestures.DirectionLockThreshold,
+                    gestures.PointerTapSlop,
+                    gestures.TouchTapSlop,
+                }
+            )
+                if (!float.IsFinite(value) || value < 0)
+                    throw Invalid("Motion gesture thresholds must be finite and nonnegative.");
+            if (gestures.Drag is not MotionDragDescriptor drag)
+                return;
+            foreach (
+                float value in new[]
+                {
+                    drag.Elastic.Left,
+                    drag.Elastic.Right,
+                    drag.Elastic.Top,
+                    drag.Elastic.Bottom,
+                }
+            )
+                if (!float.IsFinite(value) || value < 0 || value > 1)
+                    throw Invalid("Motion drag elasticity must be between zero and one.");
+            MotionDragTransition transition = drag.Transition;
+            if (
+                !float.IsFinite(transition.VelocityRetention)
+                || transition.VelocityRetention <= 0
+                || transition.VelocityRetention >= 1
+                || !float.IsFinite(transition.RestSpeed)
+                || transition.RestSpeed < 0
+                || !float.IsFinite(transition.BounceStiffness)
+                || transition.BounceStiffness <= 0
+                || !float.IsFinite(transition.BounceDamping)
+                || transition.BounceDamping <= 0
+            )
+                throw Invalid("Motion drag transition is invalid.");
         }
 
         private static void ValidateStyleTransition(TransitionDefinition transition)

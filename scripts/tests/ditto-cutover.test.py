@@ -124,7 +124,7 @@ def check_ci_opt_in() -> None:
     ]
     ci = (REPOSITORY_ROOT / "scripts/ci.py").read_text(encoding="utf-8")
     assert '"--ditto"' in ci
-    assert "run_ditto_validation()" in ci
+    assert "run_ditto_validation(" in ci
 
 
 def check_handoff_guidance() -> None:

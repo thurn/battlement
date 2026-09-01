@@ -139,6 +139,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Context & Memo",
       "Effects & Stores",
       "Events & Portals",
+      "Gestures & Drag",
       "Presence & Lifecycle",
       "Refs & Geometry",
       "Resources & Boundaries",

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   GameObject, GeometryObservationUpdate, MotionControlOperation, MotionControlledClockOperation,
-  MotionPlaybackOperation, MotionScopeOperation, MotionValueOperation,
+  MotionDragControlOperation, MotionPlaybackOperation, MotionScopeOperation, MotionValueOperation,
   MotionValuePlaybackOperation, ObjectId, VisualElementCreate, VisualElementDestroy,
   VisualElementPerformAction, VisualElementUpdate,
 };
@@ -202,6 +202,8 @@ pub enum CommandBody {
   MotionControl(MotionControlOperation),
   /// Execute one closed animation-scope operation.
   MotionScope(MotionScopeOperation),
+  /// Start a drag through one stable external-controls binding.
+  MotionDragControl(MotionDragControlOperation),
   /// Atomically update the native geometry observation registry.
   GeometryObservationUpdate(GeometryObservationUpdate),
 }

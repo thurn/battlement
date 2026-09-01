@@ -263,6 +263,9 @@ impl Component for ValuesTimeControls {
           .name("values-trace")
           .style(trace()),
       )
+      .child(action("GESTURES & DRAG", "gestures-navigation", |game| {
+        game.screen = crate::Screen::GesturesDrag;
+      }))
   }
 }
 

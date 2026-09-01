@@ -234,6 +234,46 @@ fn lru_pressure_skips_active_entries_and_reports_oversize_builds() {
 }
 
 #[test]
+fn concurrent_limit_enforcement_tolerates_entries_evicted_during_scan() {
+  let temporary = TempDir::new().unwrap();
+  let generous = BuildCache::open(temporary.path(), 1024 * 1024).unwrap();
+  for index in 0..24 {
+    let identity = identity(HASH_A, &format!("entry-{index}"));
+    let pending = expect_pending(
+      generous
+        .acquire(REPOSITORY, "suite-a", &identity, index)
+        .unwrap(),
+    );
+    populate(&pending, b"player bytes");
+    drop(
+      pending
+        .publish(Path::new("player.app"), index)
+        .unwrap()
+        .build,
+    );
+  }
+
+  let cache = Arc::new(BuildCache::open(temporary.path(), 1).unwrap());
+  let barrier = Arc::new(Barrier::new(8));
+  let threads = (0..8)
+    .map(|index| {
+      let cache = Arc::clone(&cache);
+      let barrier = Arc::clone(&barrier);
+      thread::spawn(move || {
+        barrier.wait();
+        for attempt in 0..20 {
+          cache.enforce_limit(100 + index * 20 + attempt).unwrap();
+        }
+      })
+    })
+    .collect::<Vec<_>>();
+  for thread in threads {
+    thread.join().unwrap();
+  }
+  assert_eq!(cache.enforce_limit(1000).unwrap().remaining_bytes, 0);
+}
+
+#[test]
 fn suite_cleanup_is_scoped_and_global_cleanup_removes_the_rest() {
   let temporary = TempDir::new().unwrap();
   let cache = BuildCache::open(temporary.path(), 1024 * 1024).unwrap();

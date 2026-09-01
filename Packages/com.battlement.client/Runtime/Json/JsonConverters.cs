@@ -902,6 +902,7 @@ namespace Battlement
             type == typeof(CommandBody.VisualElement.Update)
             || type == typeof(CommandBody.GeometryObservation)
             || type == typeof(CommandBody.Diagnostics)
+            || type == typeof(CommandBody.Motion.DragControl)
             || type == typeof(ActionBody.GeometryObservations)
             || type == typeof(ActionBody.MotionEvents)
             || type == typeof(CameraTarget.Object)
@@ -919,6 +920,8 @@ namespace Battlement
             || type == typeof(MotionExpressionOperation.Power)
             || type == typeof(MotionExpressionOperation.Modulo)
             || type == typeof(MotionValueSource.Time)
+            || type == typeof(MotionDragConstraint.Bounds)
+            || type == typeof(MotionDragConstraint.Element)
             || type == typeof(MotionValueCommand.Set)
             || type == typeof(MotionValueCommand.Jump)
             || type == typeof(MotionControlTarget.Target)
@@ -944,6 +947,7 @@ namespace Battlement
             || baseType == typeof(MotionFilter)
             || baseType == typeof(MotionRepeat)
             || baseType == typeof(MotionClockSource)
+            || baseType == typeof(MotionDragConstraint)
             || baseType == typeof(LowerLimit)
             || baseType == typeof(UpperLimit)
             || baseType == typeof(InteractionDistance)
@@ -1202,6 +1206,10 @@ namespace Battlement
                     ("Scaled", typeof(MotionClockSource.Scaled)),
                     ("Controlled", typeof(MotionClockSource.Controlled)),
                     ("Audio", typeof(MotionClockSource.Audio))
+                ),
+                [typeof(MotionDragConstraint)] = Fixed(
+                    ("Bounds", typeof(MotionDragConstraint.Bounds)),
+                    ("Element", typeof(MotionDragConstraint.Element))
                 ),
                 [typeof(MotionEventKind)] = Fixed(
                     ("Activated", typeof(MotionEventKind.Activated)),
@@ -1489,6 +1497,7 @@ namespace Battlement
                 ("MotionControlledClock", typeof(CommandBody.Motion.ControlledClock)),
                 ("MotionControl", typeof(CommandBody.Motion.Control)),
                 ("MotionScope", typeof(CommandBody.Motion.Scope)),
+                ("MotionDragControl", typeof(CommandBody.Motion.DragControl)),
                 ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation)),
                 ("Diagnostics", typeof(CommandBody.Diagnostics))
             );

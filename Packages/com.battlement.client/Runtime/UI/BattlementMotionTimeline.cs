@@ -138,6 +138,13 @@ namespace Battlement.UI
         public void SetPseudoState(MotionPseudoState state, bool value) =>
             pseudoStyles?.SetState(state, value);
 
+        public void SetGestureLayer(MotionLayer layer, bool value, ulong clockMicros)
+        {
+            foreach (SlotState slot in slots)
+                if (slot.Definition.Layer == layer)
+                    slot.SetActive(value, Target, clockMicros);
+        }
+
         public SlotState? FindSlot(ulong slot)
         {
             foreach (SlotState state in slots)
@@ -163,7 +170,7 @@ namespace Battlement.UI
         public void ApplyInitialPresentation()
         {
             foreach (SlotState slot in slots)
-                if (!noBackwardsFill.Contains(slot.Definition.Slot))
+                if (slot.Active && !noBackwardsFill.Contains(slot.Definition.Slot))
                     slot.ApplyOrigin(Target);
         }
 
@@ -179,10 +186,12 @@ namespace Battlement.UI
         {
             pseudoStyles?.Sample(clockMicros, layout);
             foreach (SlotState slot in slots)
-                if (slot.Cancelled)
+                if (slot.Active && slot.Cancelled)
                     slot.ApplyOrigin(Target, layout);
             foreach (SlotState slot in slots)
             {
+                if (!slot.Active)
+                    continue;
                 bool css = cssAnimations.TryGetValue(
                     slot.Definition.Slot,
                     out CssAnimationDescriptor animation
@@ -214,6 +223,8 @@ namespace Battlement.UI
                 return;
             foreach (SlotState slot in slots)
             {
+                if (!slot.Active)
+                    continue;
                 slot.EmitCrossedBoundaries(this, world);
                 if (slot.Definition.Callbacks.Update)
                     world.MarkUpdate(this, slot);
@@ -224,6 +235,8 @@ namespace Battlement.UI
         {
             foreach (SlotState slot in slots)
             {
+                if (!slot.Active)
+                    continue;
                 if (slot.SeekPending)
                 {
                     slot.ConsumeSeek();
@@ -317,6 +330,7 @@ namespace Battlement.UI
             AnchorMicros = anchorMicros;
             Speed = 1;
             Direction = MotionPlaybackDirection.Forward;
+            Active = definition.Layer is MotionLayer.Animate or MotionLayer.Exit;
             tracks = new TrackState[definition.Target.Tracks.Count];
             for (int index = 0; index < tracks.Length; index++)
             {
@@ -352,6 +366,8 @@ namespace Battlement.UI
         public bool Paused { get; set; }
 
         public bool SeekPending { get; set; }
+
+        public bool Active { get; private set; }
 
         public MotionPlaybackDirection Direction { get; set; }
 
@@ -422,6 +438,25 @@ namespace Battlement.UI
             emittedIteration = 0;
             foreach (TrackState track in tracks)
                 track.Reset();
+        }
+
+        public void SetActive(bool value, VisualElement target, ulong clockMicros)
+        {
+            if (Active == value)
+                return;
+            Active = value;
+            if (!value)
+                return;
+            AnchorMicros = clockMicros;
+            HeldMicros = 0;
+            Paused = false;
+            SeekPending = false;
+            Terminal = false;
+            Cancelled = false;
+            emittedStart = false;
+            emittedIteration = 0;
+            foreach (TrackState track in tracks)
+                track.Retarget(target);
         }
 
         public TrackState? FindTrack(MotionProperty property)
@@ -605,8 +640,8 @@ namespace Battlement.UI
 
     internal sealed class TrackState
     {
-        private readonly MotionValue origin;
-        private readonly double incomingVelocity;
+        private MotionValue origin;
+        private double incomingVelocity;
 
         public TrackState(
             MotionPropertyTrack definition,
@@ -643,6 +678,13 @@ namespace Battlement.UI
             Velocity = incomingVelocity;
             Done = false;
             Iteration = 0;
+        }
+
+        public void Retarget(VisualElement target)
+        {
+            origin = BattlementMotionPropertyWriter.Read(target, Definition.Property);
+            incomingVelocity = Velocity;
+            Reset();
         }
 
         public void Freeze()

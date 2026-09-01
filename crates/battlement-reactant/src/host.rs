@@ -52,6 +52,195 @@ use crate::{
   variant_map::{VariantData, VariantKey, Variants},
 };
 
+macro_rules! gesture_methods {
+  () => {
+    /// Sets the locally activated hover target.
+    #[must_use]
+    pub fn while_hover(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_hover(value))
+    }
+
+    /// Sets the locally activated exact-focus target.
+    #[must_use]
+    pub fn while_focus(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_focus(value))
+    }
+
+    /// Sets the locally activated tap target.
+    #[must_use]
+    pub fn while_tap(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_tap(value))
+    }
+
+    /// Sets the locally activated drag target.
+    #[must_use]
+    pub fn while_drag(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_drag(value))
+    }
+
+    /// Sets the viewport-entry target.
+    #[must_use]
+    pub fn while_in_view(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_in_view(value))
+    }
+
+    /// Replaces local gesture thresholds.
+    #[must_use]
+    pub fn gesture_config(self, value: crate::gesture::GestureConfig) -> Self {
+      self.motion(MotionProps::new().gesture_config(value))
+    }
+
+    /// Enables pan recognition.
+    #[must_use]
+    pub fn pan(self, value: bool) -> Self {
+      self.motion(MotionProps::new().pan(value))
+    }
+
+    /// Enables drag ownership on selected axes.
+    #[must_use]
+    pub fn drag(mut self, value: crate::gesture::DragAxis) -> Self {
+      self.state.motion = self.state.motion.drag(value);
+      self
+    }
+
+    /// Replaces drag constraints.
+    #[must_use]
+    pub fn drag_constraints(mut self, value: crate::gesture::DragConstraints) -> Self {
+      self.state.motion = self.state.motion.drag_constraints(value);
+      self
+    }
+
+    /// Replaces elastic overshoot.
+    #[must_use]
+    pub fn drag_elastic(mut self, value: crate::gesture::DragElastic) -> Self {
+      self.state.motion = self.state.motion.drag_elastic(value);
+      self
+    }
+
+    /// Enables or disables release momentum.
+    #[must_use]
+    pub fn drag_momentum(mut self, value: bool) -> Self {
+      self.state.motion = self.state.motion.drag_momentum(value);
+      self
+    }
+
+    /// Enables or disables drag direction locking.
+    #[must_use]
+    pub fn drag_direction_lock(mut self, value: bool) -> Self {
+      self.state.motion = self.state.motion.drag_direction_lock(value);
+      self
+    }
+
+    /// Enables or disables pointer initiation on this host.
+    #[must_use]
+    pub fn drag_listener(mut self, value: bool) -> Self {
+      self.state.motion = self.state.motion.drag_listener(value);
+      self
+    }
+
+    /// Selects axes returned to their origin after release.
+    #[must_use]
+    pub fn drag_snap_to_origin(mut self, value: crate::gesture::DragAxis) -> Self {
+      self.state.motion = self.state.motion.drag_snap_to_origin(value);
+      self
+    }
+
+    /// Allows an eligible ancestor to recognize the same pointer drag.
+    #[must_use]
+    pub fn drag_propagation(mut self, value: bool) -> Self {
+      self.state.motion = self.state.motion.drag_propagation(value);
+      self
+    }
+
+    /// Replaces release inertia and boundary spring behavior.
+    #[must_use]
+    pub fn drag_transition(mut self, value: crate::gesture::DragTransition) -> Self {
+      self.state.motion = self.state.motion.drag_transition(value);
+      self
+    }
+
+    /// Binds native drag offsets to mutable motion values.
+    #[must_use]
+    pub fn drag_motion_values(
+      mut self,
+      x: crate::motion_value::MotionValue<f32>,
+      y: crate::motion_value::MotionValue<f32>,
+    ) -> Self {
+      self.state.motion = self.state.motion.drag_motion_values(x, y);
+      self
+    }
+
+    /// Binds stable external drag controls.
+    #[must_use]
+    pub fn drag_controls(mut self, value: crate::gesture::DragControls) -> Self {
+      self.state.motion = self.state.motion.drag_controls(value);
+      self
+    }
+
+    /// Enables native scroll observation.
+    #[must_use]
+    pub fn observe_scroll(self, value: bool) -> Self {
+      self.motion(MotionProps::new().observe_scroll(value))
+    }
+
+    /// Binds native scroll offsets to mutable motion values.
+    #[must_use]
+    pub fn scroll_motion_values(
+      self,
+      x: crate::motion_value::MotionValue<f32>,
+      y: crate::motion_value::MotionValue<f32>,
+    ) -> Self {
+      self.motion(MotionProps::new().scroll_motion_values(x, y))
+    }
+
+    /// Binds viewport membership to a mutable zero-or-one motion value.
+    #[must_use]
+    pub fn in_view_motion_value(self, value: crate::motion_value::MotionValue<f32>) -> Self {
+      self.motion(MotionProps::new().in_view_motion_value(value))
+    }
+
+    gesture_callback_methods! {
+      on_hover_start;
+      on_hover_end;
+      on_tap_start;
+      on_tap;
+      on_tap_cancel;
+      on_focus_start;
+      on_focus_end;
+      on_pan_session_start;
+      on_pan_start;
+      on_pan;
+      on_pan_end;
+      on_pan_cancel;
+      on_drag_start;
+      on_drag_direction_lock;
+      on_drag;
+      on_drag_end;
+      on_drag_cancel;
+      on_drag_momentum_complete;
+      on_drag_constraints_measured;
+      on_scroll_motion;
+      on_viewport_enter;
+      on_viewport_leave;
+    }
+  };
+}
+
+macro_rules! gesture_callback_methods {
+  ($($event:ident;)+) => {
+    $(
+      #[doc = concat!("Runs native gesture callback `", stringify!($event), "` with event data.")]
+      #[must_use]
+      pub fn $event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionGestureEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().$event(callback))
+      }
+    )+
+  };
+}
+
 #[derive(Clone)]
 pub(crate) struct HostState<H> {
   pub(crate) host: H,
@@ -231,6 +420,8 @@ macro_rules! facade {
       pub fn motion_name(self, value: impl Into<String>) -> Self {
         self.motion(MotionProps::new().motion_name(value))
       }
+
+      gesture_methods!();
 
       /// Selects the mount origin.
       #[must_use]

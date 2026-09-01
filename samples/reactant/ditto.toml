@@ -108,6 +108,39 @@ click = { target = [0.625, 0.285] }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "gestures and drag"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "gestures-drag", motion = "controlled", max_duration = "8s" }
+
+[[scenarios.steps]]
+drag = { from = [0.37, 0.43], to = [0.45, 0.46] }
+
+[[scenarios.steps]]
+drag = { from = [0.56, 0.43], to = [0.62, 0.43] }
+
+[[scenarios.steps]]
+drag = { from = [0.76, 0.4], to = [0.83, 0.47] }
+
+[[scenarios.steps]]
+wait = { frames = 6 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "targets and timelines checkpoints"
 
 [[scenarios.steps]]

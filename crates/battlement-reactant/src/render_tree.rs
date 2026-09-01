@@ -7,12 +7,13 @@ use std::{
 };
 
 use battlement::{
-  MotionEventKind, MotionLifecycleEvent, MotionPresentationSample, ObjectId, Prop, UiNode,
-  UiVisualElementProperties,
+  MotionDragConstraint, MotionEventKind, MotionGestureEvent, MotionLifecycleEvent,
+  MotionPresentationSample, ObjectId, Prop, UiNode, UiVisualElementProperties,
 };
 
 use crate::{
   effect::EffectOperation,
+  element_ref::AttachmentSet,
   error_boundary::ErrorReport,
   event_dispatch::EventNode,
   geometry::GeometryTarget,
@@ -28,6 +29,35 @@ impl RenderTree {
     let mut hosts = Vec::new();
     self.append_hosts(&mut hosts);
     hosts
+  }
+
+  pub(crate) fn resolve_drag_constraints(&mut self, runtime_id: u64, attachments: &AttachmentSet) {
+    for position in &mut self.positions {
+      if let Some(element_ref) = &position.drag_constraint_ref {
+        let (_, target_id) = attachments
+          .geometry_target(runtime_id, element_ref)
+          .expect("drag constraint element ref is not attached in the rendered tree");
+        let host = position
+          .host
+          .as_mut()
+          .expect("drag constraints require a native host");
+        let Prop::Set(descriptor) = &mut host.element.visual_element_mut().motion else {
+          panic!("drag constraints require a Motion descriptor");
+        };
+        let gestures = descriptor
+          .gestures
+          .as_mut()
+          .expect("drag constraints require a gesture descriptor");
+        gestures
+          .drag
+          .as_mut()
+          .expect("drag constraints require drag(axis)")
+          .constraints = Some(MotionDragConstraint::Element(target_id));
+      }
+      position
+        .children
+        .resolve_drag_constraints(runtime_id, attachments);
+    }
   }
 
   pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode>> {
@@ -393,6 +423,30 @@ impl RenderTree {
         invoked |= suspense.primary.invoke_motion_sample(game, sample);
       }
       invoked |= position.children.invoke_motion_sample(game, sample);
+    }
+    invoked
+  }
+
+  pub(crate) fn invoke_motion_gesture(
+    &mut self,
+    game: &mut dyn Any,
+    event: &MotionGestureEvent,
+  ) -> bool {
+    let mut invoked = false;
+    for position in &mut self.positions {
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+          return false;
+        };
+        descriptor.descriptor_id == event.descriptor_id && descriptor.generation == event.generation
+      });
+      if matches {
+        invoked |= position.motion_callbacks.invoke_gesture(game, event);
+      }
+      if let Some(suspense) = &mut position.suspense {
+        invoked |= suspense.primary.invoke_motion_gesture(game, event);
+      }
+      invoked |= position.children.invoke_motion_gesture(game, event);
     }
     invoked
   }

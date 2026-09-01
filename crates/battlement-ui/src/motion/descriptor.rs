@@ -8,7 +8,8 @@ use crate::{
   CssAnimationDescriptor, MotionDecorationDescriptor, MotionPseudoStyle, StyleTransitionDescriptor,
 };
 use crate::{
-  MotionNamedTarget, MotionValueBinding, MotionValueDescriptor, MotionValueSubscription,
+  MotionNamedTarget, MotionValueBinding, MotionValueDescriptor, MotionValueSource,
+  MotionValueSubscription,
 };
 use crate::{MotionProperty, MotionValue, MotionValueKind, TransitionDefinition};
 
@@ -161,6 +162,174 @@ pub enum MotionLayer {
   Exit,
 }
 
+/// Axis ownership for pan and drag recognition.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum MotionGestureAxis {
+  /// Horizontal movement only.
+  X,
+  /// Vertical movement only.
+  Y,
+  /// Independent movement on both axes.
+  Both,
+}
+
+/// Pointer or navigation device which owns a gesture.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum MotionPointerDevice {
+  /// Mouse pointer.
+  Mouse,
+  /// Pen pointer.
+  Pen,
+  /// Touch-compatible pointer.
+  Touch,
+  /// Keyboard submit.
+  Keyboard,
+  /// Gamepad submit.
+  Gamepad,
+}
+
+/// Panel-space point or vector carried by a gesture event.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct MotionGestureVector {
+  /// Horizontal panel pixels.
+  pub x: f32,
+  /// Vertical panel pixels.
+  pub y: f32,
+}
+
+/// Fixed panel-space drag bounds.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionDragBounds {
+  /// Minimum horizontal offset.
+  pub min_x: f32,
+  /// Maximum horizontal offset.
+  pub max_x: f32,
+  /// Minimum vertical offset.
+  pub min_y: f32,
+  /// Maximum vertical offset.
+  pub max_y: f32,
+}
+
+/// Source used to resolve drag bounds locally.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum MotionDragConstraint {
+  /// Authored panel-space bounds.
+  Bounds(MotionDragBounds),
+  /// Padding box of another host in the same panel.
+  Element(ObjectId),
+}
+
+/// Per-edge elasticity applied beyond drag bounds.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionDragElastic {
+  /// Overshoot multiplier at the left edge.
+  pub left: f32,
+  /// Overshoot multiplier at the right edge.
+  pub right: f32,
+  /// Overshoot multiplier at the top edge.
+  pub top: f32,
+  /// Overshoot multiplier at the bottom edge.
+  pub bottom: f32,
+}
+
+/// Native release-inertia and boundary-spring settings.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionDragTransition {
+  /// Exponential velocity retention per second, between zero and one.
+  pub velocity_retention: f32,
+  /// Velocity below which inertia completes, in panel pixels per second.
+  pub rest_speed: f32,
+  /// Spring stiffness used when an offset finishes beyond a constraint.
+  pub bounce_stiffness: f32,
+  /// Spring damping used when an offset finishes beyond a constraint.
+  pub bounce_damping: f32,
+}
+
+/// Native drag behavior attached to one host.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionDragDescriptor {
+  /// Axes owned by drag.
+  pub axis: MotionGestureAxis,
+  /// Optional fixed or measured constraints.
+  pub constraints: Option<MotionDragConstraint>,
+  /// Per-edge elastic overshoot.
+  pub elastic: MotionDragElastic,
+  /// Whether release velocity starts inertia.
+  pub momentum: bool,
+  /// Whether drag waits for a ten-pixel direction lock.
+  pub direction_lock: bool,
+  /// Whether the host itself listens for pointer initiation.
+  pub listener: bool,
+  /// Axes returned to their origin after release.
+  pub snap_to_origin: Option<MotionGestureAxis>,
+  /// Optional stable external-control binding.
+  pub control_id: Option<ObjectId>,
+  /// Whether an eligible ancestor may recognize the same pointer drag.
+  pub propagation: bool,
+  /// Release-inertia and boundary-spring settings.
+  pub transition: MotionDragTransition,
+  /// Optional mutable motion value receiving the horizontal offset.
+  pub x_value: Option<ObjectId>,
+  /// Optional mutable motion value receiving the vertical offset.
+  pub y_value: Option<ObjectId>,
+}
+
+/// Explicit callback subscriptions for gesture boundaries and samples.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MotionGestureSubscriptions {
+  /// Hover entered or left.
+  pub hover: bool,
+  /// Tap began, completed, or cancelled.
+  pub tap: bool,
+  /// Exact focus changed.
+  pub focus: bool,
+  /// Pan session and threshold boundaries.
+  pub pan: bool,
+  /// Coalesced pan movement.
+  pub pan_update: bool,
+  /// Drag boundaries and direction lock.
+  pub drag: bool,
+  /// Coalesced pointer-driven drag movement.
+  pub drag_update: bool,
+  /// Momentum reached its terminal offset.
+  pub momentum_complete: bool,
+  /// Drag constraints were measured.
+  pub constraints_measured: bool,
+  /// Scroll offset or progress changed.
+  pub scroll: bool,
+  /// Viewport entry changed.
+  pub in_view: bool,
+}
+
+/// Unity-local gesture recognition and presentation configuration.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionGestureDescriptor {
+  /// Panel pixels required to start pan or drag.
+  pub pan_threshold: f32,
+  /// Panel pixels required to lock one drag direction.
+  pub direction_lock_threshold: f32,
+  /// Mouse and pen tap slop in panel pixels.
+  pub pointer_tap_slop: f32,
+  /// Touch tap slop in panel pixels.
+  pub touch_tap_slop: f32,
+  /// Whether pan recognition is enabled.
+  pub pan: bool,
+  /// Optional drag behavior.
+  pub drag: Option<MotionDragDescriptor>,
+  /// Whether viewport intersection is observed.
+  pub in_view: bool,
+  /// Whether native scroll progress is observed.
+  pub scroll: bool,
+  /// Optional mutable motion value receiving horizontal scroll offset.
+  pub scroll_x_value: Option<ObjectId>,
+  /// Optional mutable motion value receiving vertical scroll offset.
+  pub scroll_y_value: Option<ObjectId>,
+  /// Optional mutable motion value receiving zero outside and one inside the viewport.
+  pub in_view_value: Option<ObjectId>,
+  /// Callback subscription set.
+  pub subscriptions: MotionGestureSubscriptions,
+}
+
 /// One independently identified layer slot.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MotionSlotDescriptor {
@@ -277,6 +446,9 @@ pub struct MotionDescriptor {
   /// Named targets resolved for imperative starts.
   #[serde(default)]
   pub named_targets: Vec<MotionNamedTarget>,
+  /// Unity-local gesture recognizers and drag behavior.
+  #[serde(default)]
+  pub gestures: Option<MotionGestureDescriptor>,
 }
 
 impl MotionDescriptor {
@@ -313,9 +485,93 @@ impl MotionDescriptor {
       &self.value_bindings,
       &self.value_subscriptions,
     )?;
+    validate_gestures(self)?;
     validate_css(self)?;
     Ok(())
   }
+}
+
+fn validate_gestures(descriptor: &MotionDescriptor) -> Result<(), String> {
+  let Some(gestures) = descriptor.gestures else {
+    return Ok(());
+  };
+  for (name, value) in [
+    ("pan threshold", gestures.pan_threshold),
+    (
+      "direction-lock threshold",
+      gestures.direction_lock_threshold,
+    ),
+    ("pointer tap slop", gestures.pointer_tap_slop),
+    ("touch tap slop", gestures.touch_tap_slop),
+  ] {
+    if !value.is_finite() || value < 0.0 {
+      return Err(format!(
+        "motion gesture {name} must be finite and nonnegative"
+      ));
+    }
+  }
+  if let Some(drag) = gestures.drag {
+    for value in [
+      drag.elastic.left,
+      drag.elastic.right,
+      drag.elastic.top,
+      drag.elastic.bottom,
+    ] {
+      if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Err("motion drag elasticity must be between zero and one".to_owned());
+      }
+    }
+    if let Some(MotionDragConstraint::Bounds(bounds)) = drag.constraints
+      && (!bounds.min_x.is_finite()
+        || !bounds.max_x.is_finite()
+        || !bounds.min_y.is_finite()
+        || !bounds.max_y.is_finite()
+        || bounds.min_x > bounds.max_x
+        || bounds.min_y > bounds.max_y)
+    {
+      return Err("motion drag bounds are invalid".to_owned());
+    }
+    let transition = drag.transition;
+    if !transition.velocity_retention.is_finite()
+      || !(0.0..1.0).contains(&transition.velocity_retention)
+      || !transition.rest_speed.is_finite()
+      || transition.rest_speed < 0.0
+      || !transition.bounce_stiffness.is_finite()
+      || transition.bounce_stiffness <= 0.0
+      || !transition.bounce_damping.is_finite()
+      || transition.bounce_damping <= 0.0
+    {
+      return Err("motion drag transition is invalid".to_owned());
+    }
+    for value_id in [drag.x_value, drag.y_value].into_iter().flatten() {
+      let value = descriptor
+        .values
+        .iter()
+        .find(|value| value.value_id == value_id)
+        .ok_or_else(|| "motion drag value is unavailable".to_owned())?;
+      if !matches!(value.source, MotionValueSource::Mutable) {
+        return Err("motion drag values must be mutable".to_owned());
+      }
+    }
+  }
+  for value_id in [
+    gestures.scroll_x_value,
+    gestures.scroll_y_value,
+    gestures.in_view_value,
+  ]
+  .into_iter()
+  .flatten()
+  {
+    let value = descriptor
+      .values
+      .iter()
+      .find(|value| value.value_id == value_id)
+      .ok_or_else(|| "motion gesture value is unavailable".to_owned())?;
+    if !matches!(value.source, MotionValueSource::Mutable) {
+      return Err("motion gesture values must be mutable".to_owned());
+    }
+  }
+  Ok(())
 }
 
 fn validate_css(descriptor: &MotionDescriptor) -> Result<(), String> {
@@ -554,6 +810,100 @@ pub struct MotionPresentationSample {
   pub values: Vec<MotionPropertyValue>,
 }
 
+/// Reliable or replaceable native gesture event kind.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum MotionGestureEventKind {
+  /// A non-touch pointer entered the host.
+  HoverStart,
+  /// The owning hover pointer left the host.
+  HoverEnd,
+  /// Pointer or submit tap recognition began.
+  TapStart,
+  /// Tap recognition completed.
+  Tap,
+  /// Tap recognition was cancelled.
+  TapCancel,
+  /// The exact host gained focus.
+  FocusStart,
+  /// The exact host lost focus.
+  FocusEnd,
+  /// A primary pointer established a pan session.
+  PanSessionStart,
+  /// Pan crossed its configured threshold.
+  PanStart,
+  /// Latest coalesced pan movement.
+  Pan,
+  /// Pointer ownership ended after pan.
+  PanEnd,
+  /// Pan was cancelled.
+  PanCancel,
+  /// Drag crossed its configured threshold.
+  DragStart,
+  /// Drag selected one locked direction.
+  DragDirectionLock,
+  /// Latest coalesced pointer-driven drag movement.
+  Drag,
+  /// Pointer ownership ended after drag.
+  DragEnd,
+  /// Drag or active momentum was cancelled.
+  DragCancel,
+  /// Release momentum reached its terminal offset.
+  DragMomentumComplete,
+  /// Element-backed constraints were measured.
+  DragConstraintsMeasured,
+  /// Native scroll offset or viewport progress changed.
+  Scroll,
+  /// The host entered its viewport.
+  InViewEnter,
+  /// The host left its viewport.
+  InViewLeave,
+}
+
+/// One gesture boundary or coalesced movement sample.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionGestureEvent {
+  /// Descriptor identity.
+  pub descriptor_id: ObjectId,
+  /// Descriptor generation.
+  pub generation: MotionGeneration,
+  /// Gesture event kind.
+  pub kind: MotionGestureEventKind,
+  /// Owning pointer identity, or `-1` for navigation and observation events.
+  pub pointer_id: i32,
+  /// Owning device.
+  pub device: MotionPointerDevice,
+  /// Current panel-space point.
+  pub point: MotionGestureVector,
+  /// Delta since the previous sample.
+  pub delta: MotionGestureVector,
+  /// Offset from the gesture origin.
+  pub offset: MotionGestureVector,
+  /// Panel pixels per second.
+  pub velocity: MotionGestureVector,
+  /// Direction selected by locking, when any.
+  pub axis: Option<MotionGestureAxis>,
+  /// Stable release-momentum generation.
+  pub momentum_generation: u32,
+  /// Whether the current offset is constrained on either axis.
+  #[serde(default)]
+  pub constrained: bool,
+}
+
+/// One external drag-controls start sampled from an initiating pointer event.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionDragControlOperation {
+  /// Stable binding shared with one draggable host.
+  pub control_id: ObjectId,
+  /// Pointer which owns the initiated drag.
+  pub pointer_id: i32,
+  /// Initiating pointer device.
+  pub device: MotionPointerDevice,
+  /// Current panel-space pointer position.
+  pub point: MotionGestureVector,
+  /// Whether the draggable host is centered under the pointer before movement.
+  pub snap_to_cursor: bool,
+}
+
 /// Terminal result for one stable imperative playback identity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum MotionPlaybackOutcome {
@@ -593,6 +943,9 @@ pub struct MotionEventBatch {
   /// Terminal events for stable imperative playback handles.
   #[serde(default)]
   pub playback_events: Vec<MotionPlaybackEvent>,
+  /// Reliable gesture boundaries followed by latest coalesced movement samples.
+  #[serde(default)]
+  pub gesture_events: Vec<MotionGestureEvent>,
 }
 
 /// Compact timeline checkpoint retained for reconnect reconstruction.
@@ -782,6 +1135,7 @@ mod tests {
       scope_root: false,
       motion_name: None,
       named_targets: Vec::new(),
+      gestures: None,
     };
     assert!(descriptor.validate().unwrap_err().contains("repeats slot"));
     descriptor.slots.truncate(1);

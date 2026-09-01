@@ -90,7 +90,10 @@ namespace Battlement.UI
                             checked((ulong)(elapsed.TotalMilliseconds * 1000)),
                             discontinuity
                         );
-                    }
+                    },
+                resolveElement: id =>
+                    elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
+                gestureTime: now
             );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
@@ -211,6 +214,8 @@ namespace Battlement.UI
         internal void Apply(MotionControlOperation operation) => motionWorld.Apply(operation);
 
         internal void Apply(MotionScopeOperation operation) => motionWorld.Apply(operation);
+
+        internal void Apply(MotionDragControlOperation operation) => motionWorld.Apply(operation);
 
         internal bool TryFindNearestId(
             UnityEngine.UIElements.VisualElement? element,

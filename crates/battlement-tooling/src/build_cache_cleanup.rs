@@ -186,10 +186,14 @@ fn scan(cache: &BuildCache) -> Result<Vec<CacheEntry>> {
   let mut entries = Vec::new();
   for entry in fs::read_dir(cache.entries_path())? {
     let entry = entry?;
-    if !entry.file_type()?.is_dir() {
+    if !entry.path().is_dir() {
       continue;
     }
     let fingerprint = entry.file_name().to_string_lossy().into_owned();
+    let _active_lock = build_cache_io::lock_shared(&cache.active_lock_path(&fingerprint))?;
+    if !entry.path().is_dir() {
+      continue;
+    }
     let metadata: BuildMetadata = build_cache_io::read_json(&entry.path().join("metadata.json"))?;
     metadata.identity.validate()?;
     ensure!(

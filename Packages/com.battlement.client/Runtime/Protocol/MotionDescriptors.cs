@@ -33,6 +33,97 @@ namespace Battlement
         Exit,
     }
 
+    /// <summary>Axis ownership for pan and drag recognition.</summary>
+    public enum MotionGestureAxis
+    {
+        X,
+        Y,
+        Both,
+    }
+
+    /// <summary>Pointer or navigation device which owns a gesture.</summary>
+    public enum MotionPointerDevice
+    {
+        Mouse,
+        Pen,
+        Touch,
+        Keyboard,
+        Gamepad,
+    }
+
+    /// <summary>Panel-space point or vector carried by a gesture event.</summary>
+    public sealed record MotionGestureVector(float X, float Y);
+
+    /// <summary>Fixed panel-space drag bounds.</summary>
+    public sealed record MotionDragBounds(float MinX, float MaxX, float MinY, float MaxY);
+
+    /// <summary>Source used to resolve drag bounds locally.</summary>
+    public abstract record MotionDragConstraint
+    {
+        public sealed record Bounds(MotionDragBounds Value) : MotionDragConstraint;
+
+        public sealed record Element(ObjectId Value) : MotionDragConstraint;
+    }
+
+    /// <summary>Per-edge elasticity applied beyond drag bounds.</summary>
+    public sealed record MotionDragElastic(float Left, float Right, float Top, float Bottom);
+
+    /// <summary>Native release-inertia and boundary-spring settings.</summary>
+    public sealed record MotionDragTransition(
+        float VelocityRetention,
+        float RestSpeed,
+        float BounceStiffness,
+        float BounceDamping
+    );
+
+    /// <summary>Native drag behavior attached to one host.</summary>
+    public sealed record MotionDragDescriptor(
+        MotionGestureAxis Axis,
+        MotionDragConstraint? Constraints,
+        MotionDragElastic Elastic,
+        bool Momentum,
+        bool DirectionLock,
+        bool Listener,
+        MotionGestureAxis? SnapToOrigin,
+        ObjectId? ControlId,
+        bool Propagation,
+        MotionDragTransition Transition,
+        ObjectId? XValue,
+        ObjectId? YValue
+    );
+
+    /// <summary>Explicit callback subscriptions for gesture boundaries and samples.</summary>
+    public sealed record MotionGestureSubscriptions(
+        bool Hover,
+        bool Tap,
+        bool Focus,
+        bool Pan,
+        bool PanUpdate,
+        bool Drag,
+        bool DragUpdate,
+        bool MomentumComplete,
+        bool ConstraintsMeasured,
+        bool Scroll,
+        bool InView
+    );
+
+    /// <summary>Unity-local gesture recognition and presentation configuration.</summary>
+    public sealed record MotionGestureDescriptor(
+        float PanThreshold,
+        float DirectionLockThreshold,
+        float PointerTapSlop,
+        float TouchTapSlop,
+        bool Pan,
+        [property: Newtonsoft.Json.JsonProperty(Required = Newtonsoft.Json.Required.AllowNull)]
+            MotionDragDescriptor? Drag,
+        bool InView,
+        bool Scroll,
+        ObjectId? ScrollXValue,
+        ObjectId? ScrollYValue,
+        ObjectId? InViewValue,
+        MotionGestureSubscriptions Subscriptions
+    );
+
     /// <summary>Explicit lifecycle subscription set for one slot.</summary>
     public sealed record MotionCallbackSubscriptions(
         bool Start,
@@ -95,7 +186,8 @@ namespace Battlement
         ObjectId? ScopeId = null,
         bool ScopeRoot = false,
         string? MotionName = null,
-        IReadOnlyList<MotionNamedTarget>? NamedTargets = null
+        IReadOnlyList<MotionNamedTarget>? NamedTargets = null,
+        MotionGestureDescriptor? Gestures = null
     );
 
     /// <summary>Parent/child sequencing selected by a resolved variant.</summary>
@@ -278,6 +370,58 @@ namespace Battlement
         IReadOnlyList<MotionPropertyValue> Values
     );
 
+    /// <summary>Reliable or replaceable native gesture event kind.</summary>
+    public enum MotionGestureEventKind
+    {
+        HoverStart,
+        HoverEnd,
+        TapStart,
+        Tap,
+        TapCancel,
+        FocusStart,
+        FocusEnd,
+        PanSessionStart,
+        PanStart,
+        Pan,
+        PanEnd,
+        PanCancel,
+        DragStart,
+        DragDirectionLock,
+        Drag,
+        DragEnd,
+        DragCancel,
+        DragMomentumComplete,
+        DragConstraintsMeasured,
+        Scroll,
+        InViewEnter,
+        InViewLeave,
+    }
+
+    /// <summary>One gesture boundary or coalesced movement sample.</summary>
+    public sealed record MotionGestureEvent(
+        ObjectId DescriptorId,
+        uint Generation,
+        MotionGestureEventKind Kind,
+        int PointerId,
+        MotionPointerDevice Device,
+        MotionGestureVector Point,
+        MotionGestureVector Delta,
+        MotionGestureVector Offset,
+        MotionGestureVector Velocity,
+        MotionGestureAxis? Axis,
+        uint MomentumGeneration,
+        bool Constrained
+    );
+
+    /// <summary>One external drag-controls start sampled from a pointer event.</summary>
+    public sealed record MotionDragControlOperation(
+        ObjectId ControlId,
+        int PointerId,
+        MotionPointerDevice Device,
+        MotionGestureVector Point,
+        bool SnapToCursor
+    );
+
     /// <summary>Terminal result for one stable imperative playback identity.</summary>
     public enum MotionPlaybackOutcome
     {
@@ -300,7 +444,8 @@ namespace Battlement
         IReadOnlyList<MotionLifecycleEvent> Events,
         IReadOnlyList<MotionPresentationSample> Samples,
         IReadOnlyList<MotionValueSample>? ValueSamples = null,
-        IReadOnlyList<MotionPlaybackEvent>? PlaybackEvents = null
+        IReadOnlyList<MotionPlaybackEvent>? PlaybackEvents = null,
+        IReadOnlyList<MotionGestureEvent>? GestureEvents = null
     );
 
     /// <summary>Compact timeline checkpoint retained for reconnect.</summary>

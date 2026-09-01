@@ -3,10 +3,12 @@ use std::time::Duration;
 
 use battlement::{
   AudioClipAddress, CameraState, CommandBody, GameObject, GameObjectKind,
-  InertiaTarget as LoweredInertiaTarget, MotionEasing, MotionProperty, MotionRepeat,
-  MotionRepeatType, MotionValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style,
-  TransitionGenerator, UiDocument, UiDocumentState, UiVisualElementProperties,
+  InertiaTarget as LoweredInertiaTarget, MotionDragConstraint, MotionEasing, MotionEventBatch,
+  MotionGeneration, MotionGestureAxis, MotionGestureEvent, MotionGestureEventKind,
+  MotionGestureVector, MotionPointerDevice, MotionProperty, MotionRepeat, MotionRepeatType,
+  MotionSequence, MotionValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
+  Prop, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style, TransitionGenerator,
+  UiDocument, UiDocumentState, UiVisualElementProperties,
 };
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -23,6 +25,10 @@ enum ValueVariant {
 }
 
 struct ValueContract;
+
+struct GestureContract;
+
+struct ElementConstraintContract;
 
 impl Spawner for IdleSpawner {
   fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
@@ -54,6 +60,65 @@ impl Component for ValueContract {
           .animate_variant(ValueVariant::Rest),
       )
       .child(View::new().animate(MotionStyle::new().opacity_value(derived)))
+  }
+}
+
+impl Component for GestureContract {
+  fn render(&self) -> impl Render {
+    let x = use_motion_value(0.0_f32);
+    let y = use_motion_value(0.0_f32);
+    let scroll_x = use_motion_value(0.0_f32);
+    let scroll_y = use_motion_value(0.0_f32);
+    let in_view = use_motion_value(0.0_f32);
+    let controls = use_drag_controls();
+    View::new()
+      .while_hover(MotionStyle::new().scale(1.04))
+      .while_tap(MotionStyle::new().scale(0.96))
+      .while_focus(MotionStyle::new().opacity(1.0))
+      .while_drag(MotionStyle::new().scale(1.08))
+      .while_in_view(MotionStyle::new().opacity(0.9))
+      .pan(true)
+      .drag(DragAxis::Both)
+      .drag_constraints(DragConstraints::bounds(-40.0, 80.0, -20.0, 60.0))
+      .drag_elastic(DragElastic::sides(0.1, 0.2, 0.3, 0.4))
+      .drag_direction_lock(true)
+      .drag_propagation(true)
+      .drag_snap_to_origin(DragAxis::X)
+      .drag_transition(
+        DragTransition::new()
+          .velocity_retention(0.04)
+          .rest_speed(5.0),
+      )
+      .drag_motion_values(x, y)
+      .drag_controls(controls)
+      .scroll_motion_values(scroll_x, scroll_y)
+      .in_view_motion_value(in_view)
+      .on_hover_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+      .on_drag_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+      .on_drag_end(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+      .on_scroll_motion(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+      .on_viewport_enter(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+  }
+}
+
+impl Component for ElementConstraintContract {
+  fn render(&self) -> impl Render {
+    let constraint = use_element_ref();
+    View::new().element_ref(constraint.clone()).child(
+      View::new()
+        .drag(DragAxis::Both)
+        .drag_constraints(DragConstraints::element(constraint)),
+    )
   }
 }
 
@@ -762,6 +827,88 @@ fn typed_motion_values_controls_and_scopes_lower_closed_native_contract() {
     audio.seek(Duration::from_millis(350)).body,
     CommandBody::AudioSeek(_)
   ));
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &Vec<MotionGestureEventKind>| {
+    GestureContract
+  });
+  let mut events = Vec::new();
+  let rendered = start(&mut reactant, &mut events, &document);
+  let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+    panic!("gesture descriptor did not lower");
+  };
+  descriptor.validate().unwrap();
+  let gestures = descriptor.gestures.unwrap();
+  let drag = gestures.drag.unwrap();
+  assert_eq!(drag.axis, MotionGestureAxis::Both);
+  assert_eq!(drag.snap_to_origin, Some(MotionGestureAxis::X));
+  assert!(drag.direction_lock);
+  assert!(drag.propagation);
+  assert!(drag.control_id.is_some());
+  assert_eq!(drag.elastic.left, 0.1);
+  assert_eq!(drag.transition.rest_speed, 5.0);
+  assert_eq!(descriptor.values.len(), 5);
+  assert!(gestures.subscriptions.hover);
+  assert!(gestures.subscriptions.drag);
+  assert!(gestures.subscriptions.scroll);
+  assert!(gestures.subscriptions.in_view);
+
+  let _ = reactant
+    .motion_events(
+      &mut events,
+      MotionEventBatch {
+        first_sequence: MotionSequence(0),
+        last_sequence: MotionSequence(0),
+        events: Vec::new(),
+        samples: Vec::new(),
+        value_samples: Vec::new(),
+        playback_events: Vec::new(),
+        gesture_events: vec![MotionGestureEvent {
+          descriptor_id: descriptor.descriptor_id,
+          generation: MotionGeneration(descriptor.generation.0),
+          kind: MotionGestureEventKind::DragStart,
+          pointer_id: 7,
+          device: MotionPointerDevice::Pen,
+          point: MotionGestureVector { x: 20.0, y: 30.0 },
+          delta: MotionGestureVector::default(),
+          offset: MotionGestureVector::default(),
+          velocity: MotionGestureVector::default(),
+          axis: Some(MotionGestureAxis::X),
+          momentum_generation: 0,
+          constrained: true,
+        }],
+      },
+    )
+    .unwrap();
+  assert_eq!(events, [MotionGestureEventKind::DragStart]);
+  let _ = reactant.shutdown(&mut events).into_groups();
+}
+
+#[test]
+fn element_drag_constraints_resolve_on_their_first_shared_render() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| ElementConstraintContract);
+  let rendered = start(&mut reactant, &mut (), &document);
+  let constraint = &rendered.children[0];
+  let target = &constraint.children[0];
+  let Prop::Set(descriptor) = &target.element.visual_element().motion else {
+    panic!("element drag constraint did not lower");
+  };
+  let drag = descriptor
+    .gestures
+    .expect("gesture descriptor")
+    .drag
+    .expect("drag descriptor");
+  assert_eq!(
+    drag.constraints,
+    Some(MotionDragConstraint::Element(constraint.object_id))
+  );
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 

@@ -187,6 +187,15 @@ namespace Battlement.UI
             }
         }
 
+        public void SetLocal(ObjectId valueId, MotionValue value)
+        {
+            if (!nodes.TryGetValue(valueId.Value, out NodeState node))
+                throw Invalid("The gesture motion value does not exist.");
+            if (node.Descriptor.Source is not MotionValueSource.Mutable)
+                throw Invalid("Gesture motion values must be mutable.");
+            node.Set(value, discontinuity: false);
+        }
+
         public void Apply(MotionValuePlaybackOperation operation)
         {
             if (!playbacks.TryGetValue(operation.PlaybackId.Value, out ValuePlayback playback))

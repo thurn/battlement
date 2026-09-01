@@ -134,6 +134,7 @@ pub(crate) struct RenderPosition {
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) error_boundary: Option<BoundaryState>,
   pub(crate) element_ref: Option<ElementRef>,
+  pub(crate) drag_constraint_ref: Option<ElementRef>,
   pub(crate) suspense: Option<SuspenseState>,
   pub(crate) retained_render: Option<Node>,
   pub(crate) exit_blueprint: Option<ExitBlueprint>,
@@ -249,6 +250,7 @@ impl<'a> RenderSink<'a> {
       portal_target: None,
       error_boundary: None,
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: None,
       retained_render,
       exit_blueprint: None,
@@ -309,6 +311,7 @@ impl<'a> RenderSink<'a> {
         portal_target: None,
         error_boundary: None,
         element_ref: None,
+        drag_constraint_ref: None,
         suspense: None,
         retained_render: None,
         exit_blueprint: None,
@@ -390,6 +393,7 @@ impl<'a> RenderSink<'a> {
         portal_target: None,
         error_boundary: None,
         element_ref: None,
+        drag_constraint_ref: None,
         suspense: None,
         retained_render: None,
         exit_blueprint: None,
@@ -447,6 +451,7 @@ impl<'a> RenderSink<'a> {
         portal_target: None,
         error_boundary: None,
         element_ref: None,
+        drag_constraint_ref: None,
         suspense: None,
         retained_render: None,
         exit_blueprint: None,
@@ -503,6 +508,7 @@ impl<'a> RenderSink<'a> {
       node.object_id = ObjectId::new_v4();
     }
     let resolved_variants = self.variant_scope.resolve(&metadata.motion);
+    let drag_constraint_ref = metadata.motion.drag_constraint_ref().cloned();
     let motion_callbacks = metadata.motion.callbacks(&resolved_variants);
     let exit_blueprint = ExitBlueprint::new(metadata.motion.clone(), self.variant_scope.clone());
     let previous_motion = previous.and_then(|value| match &value.element.visual_element().motion {
@@ -599,6 +605,7 @@ impl<'a> RenderSink<'a> {
       portal_target: metadata.portal_target,
       error_boundary: None,
       element_ref: metadata.element_ref,
+      drag_constraint_ref,
       suspense: None,
       retained_render: metadata.retained_render,
       exit_blueprint,
@@ -645,6 +652,7 @@ impl<'a> RenderSink<'a> {
       portal_target: None,
       error_boundary: None,
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: None,
       retained_render: None,
       exit_blueprint: None,
@@ -702,6 +710,7 @@ impl<'a> RenderSink<'a> {
       portal_target: None,
       error_boundary: None,
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: None,
       retained_render: None,
       exit_blueprint: None,
@@ -818,6 +827,7 @@ impl<'a> RenderSink<'a> {
         report,
       }),
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: None,
       retained_render: None,
       exit_blueprint: None,
@@ -910,6 +920,7 @@ impl<'a> RenderSink<'a> {
       portal_target: None,
       error_boundary: None,
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: Some(suspense),
       retained_render: None,
       exit_blueprint: None,
@@ -953,6 +964,7 @@ impl<'a> RenderSink<'a> {
       portal_target: None,
       error_boundary: None,
       element_ref: None,
+      drag_constraint_ref: None,
       suspense: None,
       retained_render: None,
       exit_blueprint: None,

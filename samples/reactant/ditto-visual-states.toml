@@ -175,6 +175,11 @@ key = "values-time-controls.lifecycle"
 screen = "values-time-controls"
 transient = true
 
+[[states]]
+key = "gestures-drag.interaction"
+screen = "gestures-drag"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

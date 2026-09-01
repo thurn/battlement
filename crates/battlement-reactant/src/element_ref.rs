@@ -6,6 +6,7 @@ use std::{
   any::TypeId,
   cell::{Cell, RefCell},
   collections::{HashMap, HashSet},
+  fmt,
   hash::{Hash, Hasher},
   rc::{Rc, Weak},
 };
@@ -256,6 +257,16 @@ impl ElementRef {
       object_id,
       generation,
     }));
+  }
+}
+
+impl fmt::Debug for ElementRef {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    formatter
+      .debug_struct("ElementRef")
+      .field("identity", &self.inner.identity)
+      .field("attached", &self.inner.attachment.get().is_some())
+      .finish()
   }
 }
 

@@ -21,6 +21,7 @@ than the specimen.
 | `executor` | Resources & Boundaries | `composition.rs::resources_screen_catches_resets_and_restores`, `resources.rs` |
 | `external_store` | Effects & Stores | `composition.rs::effects_store_swaps_updates_and_restores_its_external_snapshot`, `external_stores.rs` |
 | `geometry` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `geometry.rs`, `geometry_effects.rs` |
+| `gesture` | Gestures & Drag | `motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract` |
 | `hooks` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `hook_scheduling.rs`, `state.rs` |
 | `key` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `identity.rs`, `moves.rs` |
 | `motion` | Targets & Timelines | `motion.rs::host_methods_interleave_without_restarting_or_adding_a_host`, `motion.rs::public_targets_serialize_keyframes_overrides_repeats_and_transition_end`, `motion.rs::forwarding_component_collects_complete_props_without_a_wrapper_host` |
@@ -57,6 +58,10 @@ springs, explicit checkpoints, controlled and audio time, broadcast controls,
 selector snapshots, and ordered sequences. Native dirty propagation, clock,
 coalescing, and discontinuity behavior is checked in
 `Packages/com.battlement.client/Tests/Editor/MotionWorldTests.cs`.
+Gestures & Drag demonstrates device-aware hover, focus, tap and pan boundaries,
+constrained momentum, external drag controls, native motion-value outputs,
+scroll progress, and viewport state. Deterministic pointer and geometry behavior
+is checked in `Packages/com.battlement.client/Tests/Editor/GestureMotionTests.cs`.
 The complete initial, changed, and restored flows are checked in
 `samples/reactant/rules/tests/composition.rs`.
 

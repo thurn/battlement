@@ -49,7 +49,11 @@ namespace Battlement
                     );
                 }
                 bool optional = CanOmit(parameter);
-                property.Required = optional ? Required.Default : Required.Always;
+                bool allowsNull = property.Required == Required.AllowNull;
+                property.Required =
+                    allowsNull ? Required.AllowNull
+                    : optional ? Required.Default
+                    : Required.Always;
                 property.DefaultValueHandling = optional
                     ? DefaultValueHandling.IgnoreAndPopulate
                     : DefaultValueHandling.Include;

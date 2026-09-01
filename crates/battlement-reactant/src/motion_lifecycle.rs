@@ -8,13 +8,15 @@ use std::{
 
 use battlement::{
   MotionCallbackSubscriptions, MotionDescriptor, MotionEventKind, MotionGeneration,
-  MotionLifecycleEvent, MotionPresentationSample, MotionSlotId, ObjectId,
+  MotionGestureEvent, MotionGestureEventKind, MotionGestureSubscriptions, MotionLifecycleEvent,
+  MotionPresentationSample, MotionSlotId, ObjectId,
 };
 
 use crate::motion::{MotionProps, MotionTarget};
 
 type LifecycleCallback = dyn Fn(&mut dyn Any, &MotionLifecycleEvent);
 type UpdateCallback = dyn Fn(&mut dyn Any, &MotionPresentationSample);
+type GestureCallback = dyn Fn(&mut dyn Any, &MotionGestureEvent);
 
 #[derive(Clone, Copy)]
 pub(crate) enum MotionCallbackKind {
@@ -33,6 +35,7 @@ pub(crate) struct MotionCallbacks {
   complete: Option<MotionHandler>,
   stop: Option<MotionHandler>,
   cancel: Option<MotionHandler>,
+  gestures: [Option<GestureHandler>; 22],
 }
 
 #[derive(Clone)]
@@ -53,6 +56,12 @@ struct MotionHandler {
 struct MotionUpdateHandler {
   model: TypeId,
   callback: Rc<UpdateCallback>,
+}
+
+#[derive(Clone)]
+struct GestureHandler {
+  model: TypeId,
+  callback: Rc<GestureCallback>,
 }
 
 impl MotionTarget {
@@ -272,6 +281,7 @@ impl MotionCallbacks {
       complete: None,
       stop: None,
       cancel: None,
+      gestures: [const { None }; 22],
     }
   }
 
@@ -327,6 +337,20 @@ impl MotionCallbacks {
     if value.cancel.is_some() {
       self.cancel = value.cancel;
     }
+    for (index, handler) in value.gestures.into_iter().enumerate() {
+      if handler.is_some() {
+        self.gestures[index] = handler;
+      }
+    }
+    self
+  }
+
+  pub(crate) fn gesture_event<G: 'static>(
+    mut self,
+    kind: MotionGestureEventKind,
+    callback: impl Fn(&mut G, &MotionGestureEvent) + 'static,
+  ) -> Self {
+    self.gestures[gesture_index(kind)] = Some(GestureHandler::new(callback));
     self
   }
 
@@ -338,6 +362,46 @@ impl MotionCallbacks {
       complete: self.complete.is_some(),
       stop: self.stop.is_some(),
       cancel: self.cancel.is_some(),
+    }
+  }
+
+  pub(crate) fn gesture_subscriptions(&self) -> MotionGestureSubscriptions {
+    MotionGestureSubscriptions {
+      hover: self.has_any_gesture(&[
+        MotionGestureEventKind::HoverStart,
+        MotionGestureEventKind::HoverEnd,
+      ]),
+      tap: self.has_any_gesture(&[
+        MotionGestureEventKind::TapStart,
+        MotionGestureEventKind::Tap,
+        MotionGestureEventKind::TapCancel,
+      ]),
+      focus: self.has_any_gesture(&[
+        MotionGestureEventKind::FocusStart,
+        MotionGestureEventKind::FocusEnd,
+      ]),
+      pan: self.has_any_gesture(&[
+        MotionGestureEventKind::PanSessionStart,
+        MotionGestureEventKind::PanStart,
+        MotionGestureEventKind::PanEnd,
+        MotionGestureEventKind::PanCancel,
+      ]),
+      pan_update: self.has_any_gesture(&[MotionGestureEventKind::Pan]),
+      drag: self.has_any_gesture(&[
+        MotionGestureEventKind::DragStart,
+        MotionGestureEventKind::DragDirectionLock,
+        MotionGestureEventKind::DragEnd,
+        MotionGestureEventKind::DragCancel,
+      ]),
+      drag_update: self.has_any_gesture(&[MotionGestureEventKind::Drag]),
+      momentum_complete: self.has_any_gesture(&[MotionGestureEventKind::DragMomentumComplete]),
+      constraints_measured: self
+        .has_any_gesture(&[MotionGestureEventKind::DragConstraintsMeasured]),
+      scroll: self.has_any_gesture(&[MotionGestureEventKind::Scroll]),
+      in_view: self.has_any_gesture(&[
+        MotionGestureEventKind::InViewEnter,
+        MotionGestureEventKind::InViewLeave,
+      ]),
     }
   }
 
@@ -371,6 +435,15 @@ impl MotionCallbacks {
     }
   }
 
+  pub(crate) fn invoke_gesture(&self, game: &mut dyn Any, event: &MotionGestureEvent) -> bool {
+    if let Some(handler) = &self.gestures[gesture_index(event.kind)] {
+      handler.invoke(game, event);
+      true
+    } else {
+      false
+    }
+  }
+
   pub(crate) fn validate_model(&self, model: TypeId) {
     for handler in [
       &self.start,
@@ -393,6 +466,12 @@ impl MotionCallbacks {
         "Motion update callback model type does not match its runtime"
       );
     }
+    for handler in self.gestures.iter().flatten() {
+      assert_eq!(
+        handler.model, model,
+        "Motion gesture callback model type does not match its runtime"
+      );
+    }
   }
 
   fn set(&mut self, kind: MotionCallbackKind, handler: MotionHandler) {
@@ -403,6 +482,39 @@ impl MotionCallbacks {
       MotionCallbackKind::Stop => &mut self.stop,
       MotionCallbackKind::Cancel => &mut self.cancel,
     } = Some(handler);
+  }
+
+  fn has_any_gesture(&self, kinds: &[MotionGestureEventKind]) -> bool {
+    kinds
+      .iter()
+      .any(|kind| self.gestures[gesture_index(*kind)].is_some())
+  }
+}
+
+const fn gesture_index(kind: MotionGestureEventKind) -> usize {
+  match kind {
+    MotionGestureEventKind::HoverStart => 0,
+    MotionGestureEventKind::HoverEnd => 1,
+    MotionGestureEventKind::TapStart => 2,
+    MotionGestureEventKind::Tap => 3,
+    MotionGestureEventKind::TapCancel => 4,
+    MotionGestureEventKind::FocusStart => 5,
+    MotionGestureEventKind::FocusEnd => 6,
+    MotionGestureEventKind::PanSessionStart => 7,
+    MotionGestureEventKind::PanStart => 8,
+    MotionGestureEventKind::Pan => 9,
+    MotionGestureEventKind::PanEnd => 10,
+    MotionGestureEventKind::PanCancel => 11,
+    MotionGestureEventKind::DragStart => 12,
+    MotionGestureEventKind::DragDirectionLock => 13,
+    MotionGestureEventKind::Drag => 14,
+    MotionGestureEventKind::DragEnd => 15,
+    MotionGestureEventKind::DragCancel => 16,
+    MotionGestureEventKind::DragMomentumComplete => 17,
+    MotionGestureEventKind::DragConstraintsMeasured => 18,
+    MotionGestureEventKind::Scroll => 19,
+    MotionGestureEventKind::InViewEnter => 20,
+    MotionGestureEventKind::InViewLeave => 21,
   }
 }
 
@@ -502,11 +614,32 @@ impl MotionUpdateHandler {
   }
 }
 
+impl GestureHandler {
+  fn new<G: 'static>(callback: impl Fn(&mut G, &MotionGestureEvent) + 'static) -> Self {
+    Self {
+      model: TypeId::of::<G>(),
+      callback: Rc::new(move |game, event| {
+        callback(
+          game
+            .downcast_mut::<G>()
+            .expect("Motion gesture callback model type was not validated"),
+          event,
+        );
+      }),
+    }
+  }
+
+  fn invoke(&self, game: &mut dyn Any, event: &MotionGestureEvent) {
+    (self.callback)(game, event);
+  }
+}
+
 impl fmt::Debug for MotionCallbacks {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
     formatter
       .debug_struct("MotionCallbacks")
       .field("subscriptions", &self.subscriptions())
+      .field("gesture_subscriptions", &self.gesture_subscriptions())
       .finish()
   }
 }
@@ -514,5 +647,6 @@ impl fmt::Debug for MotionCallbacks {
 impl PartialEq for MotionCallbacks {
   fn eq(&self, other: &Self) -> bool {
     self.subscriptions() == other.subscriptions()
+      && self.gesture_subscriptions() == other.gesture_subscriptions()
   }
 }

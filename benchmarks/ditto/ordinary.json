@@ -21,7 +21,8 @@
       "name": "tictactoe",
       "config": "samples/tictactoe/ditto.toml",
       "scenarios": [
-        {"name": "opening and turns", "checkpoints": ["empty-board", "human-move", "ai-response"]},
+        {"name": "opening and turns", "checkpoints": ["empty-board", "ai-response"]},
+        {"name": "human move", "checkpoints": ["human-move"]},
         {"name": "player win", "checkpoints": ["player-win"]},
         {"name": "computer win", "checkpoints": ["computer-win"]},
         {"name": "draw and restart", "checkpoints": ["draw", "restored-board"]}
@@ -51,10 +52,9 @@
       "name": "ui",
       "config": "samples/ui/ditto.toml",
       "scenarios": [
-        {"name": "components foundation", "checkpoints": ["initial"]},
         {"name": "buttons controls", "checkpoints": ["initial", "pointer", "keyboard", "repeat"]},
         {"name": "containers controls", "checkpoints": ["initial", "changed", "restored"]},
-        {"name": "scroll controls", "checkpoints": ["initial", "changed"]}
+        {"name": "complex parts", "checkpoints": ["initial", "changed", "restored"]}
       ]
     }
   ]

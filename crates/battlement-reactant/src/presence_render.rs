@@ -159,6 +159,7 @@ pub(crate) fn push<R: 'static>(
     portal_target: None,
     error_boundary: None,
     element_ref: None,
+    drag_constraint_ref: None,
     suspense: None,
     retained_render: None,
     exit_blueprint: None,
