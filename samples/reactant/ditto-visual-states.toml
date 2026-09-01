@@ -180,6 +180,11 @@ key = "gestures-drag.interaction"
 screen = "gestures-drag"
 transient = true
 
+[[states]]
+key = "layout-reorder.interaction"
+screen = "layout-reorder"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

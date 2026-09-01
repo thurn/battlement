@@ -20,10 +20,6 @@ pub(crate) fn push<R: 'static>(
   if sink.error.is_some() {
     return;
   }
-  assert!(
-    config.mode != PresenceMode::PopLayout,
-    "PresenceMode::PopLayout requires layout projection"
-  );
   let descriptor = TypeId::of::<R>();
   let previous = sink
     .committed
@@ -95,6 +91,9 @@ pub(crate) fn push<R: 'static>(
     let existing = state.exits.iter().find(|exit| &exit.key == key).cloned();
     let exit_generation = existing.as_ref().map_or(generation, |exit| exit.generation);
     let mut exiting = rerender_retained(prior, exit_generation, &sink.variant_scope);
+    if config.mode == PresenceMode::PopLayout {
+      mark_pop_layout(&mut exiting);
+    }
     let exit = existing.unwrap_or_else(|| {
       let (automatic, holds) = start_exit(&mut exiting, config.custom.as_ref());
       PresenceExit {
@@ -166,6 +165,22 @@ pub(crate) fn push<R: 'static>(
     presence: Some(state),
     children: current,
   });
+}
+
+fn mark_pop_layout(position: &mut RenderPosition) {
+  if let Some(host) = &mut position.host
+    && let battlement::Prop::Set(descriptor) = &mut host.element.visual_element_mut().motion
+  {
+    let layout = descriptor
+      .layout
+      .as_mut()
+      .expect("PresenceMode::PopLayout requires layout(...) on the exiting host");
+    layout.pop_layout = true;
+    return;
+  }
+  for child in &mut position.children.positions {
+    mark_pop_layout(child);
+  }
 }
 
 fn validate_keyed(tree: &RenderTree) {

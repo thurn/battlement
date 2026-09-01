@@ -13,6 +13,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, DescriptorState> descriptors = new();
         private readonly Dictionary<Guid, Guid> descriptorByHost = new();
         private readonly Dictionary<Guid, BattlementGestureState> gestures = new();
+        private readonly BattlementSharedLayoutRegistry sharedLayouts = new();
         private readonly Dictionary<Guid, ulong> controlledClocks = new();
         private readonly BattlementImperativePlaybacks imperativePlaybacks = new();
         private readonly Dictionary<Guid, ActiveControl> activeControls = new();
@@ -99,7 +100,8 @@ namespace Battlement.UI
                 descriptor,
                 target,
                 ClockMicros(descriptor.Clock),
-                previous
+                previous,
+                sharedLayouts.Origin(descriptor, target, previous, descriptors.Values)
             );
             return new PreparedAdmission(this, hostId.Value, prepared);
         }
@@ -113,6 +115,7 @@ namespace Battlement.UI
                 return;
             if (descriptors.Remove(descriptorId, out DescriptorState descriptor))
             {
+                sharedLayouts.Remember(descriptor);
                 if (gestures.Remove(descriptorId, out BattlementGestureState gesture))
                     gesture.Dispose();
                 descriptor.Dispose();
@@ -141,6 +144,7 @@ namespace Battlement.UI
             events.Clear();
             pendingSamples.Clear();
             pendingGestureSamples.Clear();
+            sharedLayouts.Clear();
             if (IsPlayerLoopRegistered)
             {
                 BattlementMotionPlayerLoop.Unregister(this);
@@ -553,7 +557,11 @@ namespace Battlement.UI
 
         public void PostLayout()
         {
+            foreach (DescriptorState descriptor in descriptors.Values)
+                descriptor.CaptureLayoutTarget();
             Sample(layout: false);
+            foreach (DescriptorState descriptor in descriptors.Values)
+                descriptor.SampleLayout(ClockMicros(descriptor.Descriptor.Clock));
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.CompleteSlots(this);
             CompleteImperativePlaybacks();

@@ -403,6 +403,36 @@ macro_rules! facade {
         self
       }
 
+      /// Enables state-driven native layout projection.
+      #[must_use]
+      pub fn layout(self, value: crate::layout::Layout) -> Self {
+        self.motion(MotionProps::new().layout(value))
+      }
+
+      /// Assigns typed identity for a shared-layout handoff.
+      #[must_use]
+      pub fn layout_id<K: Hash + 'static>(self, value: K) -> Self {
+        self.motion(MotionProps::new().layout_id(value))
+      }
+
+      /// Marks this host as a projection-aware scroll boundary.
+      #[must_use]
+      pub fn layout_scroll(self, value: bool) -> Self {
+        self.motion(MotionProps::new().layout_scroll(value))
+      }
+
+      /// Establishes a fixed projection root for descendants.
+      #[must_use]
+      pub fn layout_root(self, value: bool) -> Self {
+        self.motion(MotionProps::new().layout_root(value))
+      }
+
+      /// Enables position projection and drag behavior for reordering.
+      #[must_use]
+      pub fn reorder_item(self, axis: crate::layout::ReorderAxis) -> Self {
+        self.motion(MotionProps::new().reorder_item(axis))
+      }
+
       /// Binds this host to stable typed animation controls.
       #[must_use]
       pub fn animation_controls<Name: VariantKey>(self, value: AnimationControls<Name>) -> Self {

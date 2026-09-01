@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -79,7 +80,7 @@ namespace Battlement
     /// <summary>Native drag behavior attached to one host.</summary>
     public sealed record MotionDragDescriptor(
         MotionGestureAxis Axis,
-        MotionDragConstraint? Constraints,
+        [property: JsonProperty(Required = Required.AllowNull)] MotionDragConstraint? Constraints,
         MotionDragElastic Elastic,
         bool Momentum,
         bool DirectionLock,
@@ -163,6 +164,29 @@ namespace Battlement
         Never,
     }
 
+    /// <summary>Projection axes applied after one native layout pass.</summary>
+    public enum MotionLayoutMode
+    {
+        Position,
+        Size,
+        Both,
+    }
+
+    /// <summary>Stable typed identity for a layout group or shared handoff.</summary>
+    public sealed record MotionLayoutIdentity(string ValueType, ulong ValueHash);
+
+    /// <summary>Native layout-projection configuration for one host.</summary>
+    public sealed record MotionLayoutDescriptor(
+        MotionLayoutMode Mode,
+        MotionLayoutIdentity Group,
+        [property: Newtonsoft.Json.JsonProperty(Required = Newtonsoft.Json.Required.AllowNull)]
+            MotionLayoutIdentity? LayoutId,
+        bool Scroll,
+        bool Root,
+        bool PopLayout,
+        TransitionDefinition Transition
+    );
+
     /// <summary>Complete validated animation state installed beside one host.</summary>
     public sealed record MotionDescriptor(
         ObjectId DescriptorId,
@@ -187,7 +211,8 @@ namespace Battlement
         bool ScopeRoot = false,
         string? MotionName = null,
         IReadOnlyList<MotionNamedTarget>? NamedTargets = null,
-        MotionGestureDescriptor? Gestures = null
+        MotionGestureDescriptor? Gestures = null,
+        MotionLayoutDescriptor? Layout = null
     );
 
     /// <summary>Parent/child sequencing selected by a resolved variant.</summary>

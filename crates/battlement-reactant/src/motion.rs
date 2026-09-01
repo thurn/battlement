@@ -58,6 +58,7 @@ pub struct MotionProps {
   pub(crate) scope_root: bool,
   pub(crate) motion_name: Option<String>,
   pub(crate) gestures: GestureProps,
+  pub(crate) layout: crate::layout::LayoutProps,
 }
 
 /// A concrete or disabled mount origin.
@@ -813,6 +814,12 @@ impl MotionProps {
       scope_root: false,
       motion_name: None,
       gestures: GestureProps::new(),
+      layout: crate::layout::LayoutProps {
+        mode: None,
+        layout_id: None,
+        scroll: false,
+        root: false,
+      },
     }
   }
 
@@ -915,6 +922,14 @@ impl MotionProps {
       self.motion_name = value.motion_name;
     }
     self.gestures = self.gestures.merge(value.gestures);
+    if value.layout.mode.is_some() {
+      self.layout.mode = value.layout.mode;
+    }
+    if value.layout.layout_id.is_some() {
+      self.layout.layout_id = value.layout.layout_id;
+    }
+    self.layout.scroll |= value.layout.scroll;
+    self.layout.root |= value.layout.root;
     self
   }
 }

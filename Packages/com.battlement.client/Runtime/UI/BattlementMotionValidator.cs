@@ -22,6 +22,7 @@ namespace Battlement.UI
             if (descriptor.Initial is not null)
                 ValidateTarget(descriptor.Initial);
             ValidateGestures(descriptor);
+            ValidateLayout(descriptor.Layout);
             if (descriptor.Variants is MotionVariantResolution variants)
             {
                 if (variants.Names.Count == 0)
@@ -157,6 +158,20 @@ namespace Battlement.UI
                 || transition.BounceDamping <= 0
             )
                 throw Invalid("Motion drag transition is invalid.");
+        }
+
+        private static void ValidateLayout(MotionLayoutDescriptor? layout)
+        {
+            if (layout is null)
+                return;
+            if (string.IsNullOrWhiteSpace(layout.Group.ValueType))
+                throw Invalid("A layout group identity type must be nonblank.");
+            if (
+                layout.LayoutId is MotionLayoutIdentity layoutId
+                && string.IsNullOrWhiteSpace(layoutId.ValueType)
+            )
+                throw Invalid("A shared layout identity type must be nonblank.");
+            ValidateTransition(MotionProperty.Layout, layout.Transition, 2);
         }
 
         private static void ValidateStyleTransition(TransitionDefinition transition)

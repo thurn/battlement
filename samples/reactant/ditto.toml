@@ -108,6 +108,45 @@ click = { target = [0.625, 0.285] }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "layout and reorder"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "layout-reorder", motion = "controlled", max_duration = "10s" }
+
+[[scenarios.steps]]
+click = { target = [0.31, 0.215] }
+
+[[scenarios.steps]]
+click = { target = [0.42, 0.215] }
+
+[[scenarios.steps]]
+click = { target = [0.54, 0.215] }
+
+[[scenarios.steps]]
+click = { target = [0.64, 0.215] }
+
+[[scenarios.steps]]
+wait = { frames = 8 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "gestures and drag"
 
 [[scenarios.steps]]

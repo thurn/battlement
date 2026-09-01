@@ -49,6 +49,12 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/lifecycle.rs"),
   ),
   (
+    "LayoutProjectionTests.cs",
+    include_str!(
+      "../../../../Packages/com.battlement.client/Tests/Editor/LayoutProjectionTests.cs"
+    ),
+  ),
+  (
     "moves.rs",
     include_str!("../../../../crates/battlement-reactant/tests/moves.rs"),
   ),
@@ -140,6 +146,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Effects & Stores",
       "Events & Portals",
       "Gestures & Drag",
+      "Layout & Reorder",
       "Presence & Lifecycle",
       "Refs & Geometry",
       "Resources & Boundaries",

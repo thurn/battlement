@@ -65,6 +65,7 @@ impl Component for RetainedCard {
     );
     View::new()
       .name(self.label)
+      .layout(Layout::Both)
       .animate(MotionStyle::new().opacity(1.0))
       .exit(
         MotionTarget::new(MotionStyle::new().opacity(0.0))
@@ -89,7 +90,7 @@ fn automatic_exit_retains_hooks_until_exact_generation_completion() {
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
 
   fixture.game.open = false;
-  let (descriptor_id, generation) = exit_update(fixture.refresh());
+  let (descriptor_id, generation, _) = exit_update(fixture.refresh());
   assert_eq!(descriptor_id, host_id);
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
 
@@ -124,7 +125,7 @@ fn manual_hold_reconnect_and_rapid_reopen_preserve_one_mount() {
   let host_id = initial.children[0].object_id;
   let _ = fixture.poll().into_groups();
   fixture.game.open = false;
-  let (descriptor_id, generation) = exit_update(fixture.refresh());
+  let (descriptor_id, generation, _) = exit_update(fixture.refresh());
 
   let reconnect = fixture.start();
   let Prop::Set(reconnected) = &reconnect.children[0].element.visual_element().motion else {
@@ -143,7 +144,7 @@ fn manual_hold_reconnect_and_rapid_reopen_preserve_one_mount() {
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
 
   fixture.game.open = false;
-  let (descriptor_id, second_generation) = exit_update(fixture.refresh());
+  let (descriptor_id, second_generation, _) = exit_update(fixture.refresh());
   let second_reconnect = fixture.start();
   let Prop::Set(reconnected) = &second_reconnect.children[0].element.visual_element().motion else {
     panic!("second reconnect lost retained motion");
@@ -209,7 +210,7 @@ fn exit_without_automatic_tracks_completes_on_the_next_boundary() {
 }
 
 #[test]
-fn wait_defers_the_next_key_and_pop_layout_is_reserved() {
+fn wait_defers_the_next_key_and_pop_layout_marks_the_exiting_projection() {
   let mut fixture = Fixture::new(PresenceMode::Wait, false);
   let initial = fixture.start();
   assert_eq!(
@@ -219,7 +220,7 @@ fn wait_defers_the_next_key_and_pop_layout_is_reserved() {
   let _ = fixture.poll().into_groups();
 
   fixture.game.route = Route::Second;
-  let (descriptor_id, generation) = exit_update(fixture.refresh());
+  let (descriptor_id, generation, _) = exit_update(fixture.refresh());
   assert_eq!(&*fixture.lifecycle.borrow(), &["mount"]);
   let entered = fixture.terminal(descriptor_id, generation, MotionEventKind::Cancelled);
   assert_eq!(fixture.game.slot_cancelled, 1);
@@ -232,8 +233,14 @@ fn wait_defers_the_next_key_and_pop_layout_is_reserved() {
   );
   fixture.shutdown();
 
-  let failure = panic::catch_unwind(|| AnimatePresence::new().mode(PresenceMode::PopLayout));
-  assert!(failure.is_err());
+  let mut pop = Fixture::new(PresenceMode::PopLayout, false);
+  let _ = pop.start();
+  let _ = pop.poll().into_groups();
+  pop.game.open = false;
+  let (descriptor_id, generation, pop_layout) = exit_update(pop.refresh());
+  assert!(pop_layout);
+  let _ = pop.complete(descriptor_id, generation).into_groups();
+  pop.shutdown();
 }
 
 struct Fixture {
@@ -357,7 +364,7 @@ impl Fixture {
   }
 }
 
-fn exit_update(commit: ReactantCommit) -> (ObjectId, MotionGeneration) {
+fn exit_update(commit: ReactantCommit) -> (ObjectId, MotionGeneration, bool) {
   commit
     .into_groups()
     .into_iter()
@@ -376,7 +383,11 @@ fn exit_update(commit: ReactantCommit) -> (ObjectId, MotionGeneration) {
         .slots
         .iter()
         .any(|slot| slot.layer == MotionLayer::Exit)
-        .then_some((object_id, descriptor.generation))
+        .then_some((
+          object_id,
+          descriptor.generation,
+          descriptor.layout.is_some_and(|layout| layout.pop_layout),
+        ))
     })
     .expect("presence removal did not install an exit descriptor")
 }

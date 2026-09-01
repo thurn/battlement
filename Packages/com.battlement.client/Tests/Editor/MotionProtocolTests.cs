@@ -10,7 +10,7 @@ namespace Battlement.Tests
     public sealed class MotionProtocolTests
     {
         [Test]
-        public void GestureDescriptorAcceptsNullDragFromTheWire()
+        public void GestureDescriptorAcceptsNullConstraintFromTheWire()
         {
             ObjectId hostId = Id("e65c1a57-4d9d-443d-8b7e-07e79c534a01");
             MotionDescriptor descriptor = Descriptor(hostId) with
@@ -21,7 +21,20 @@ namespace Battlement.Tests
                     3,
                     8,
                     false,
-                    null,
+                    new MotionDragDescriptor(
+                        MotionGestureAxis.Y,
+                        null,
+                        new MotionDragElastic(0, 0, 0, 0),
+                        true,
+                        false,
+                        true,
+                        null,
+                        null,
+                        false,
+                        new MotionDragTransition(0.998f, 10, 500, 10),
+                        null,
+                        null
+                    ),
                     false,
                     false,
                     null,
@@ -51,7 +64,7 @@ namespace Battlement.Tests
             var properties = (VisualElementUpdate.Properties)update.Value;
 
             Assert.That(properties.Element.Motion.Value.Gestures, Is.Not.Null);
-            Assert.That(properties.Element.Motion.Value.Gestures!.Drag, Is.Null);
+            Assert.That(properties.Element.Motion.Value.Gestures!.Drag!.Constraints, Is.Null);
         }
 
         [Test]
@@ -61,6 +74,23 @@ namespace Battlement.Tests
             ObjectId clockId = Id("030b27a6-8f4a-4d4b-9b11-67d84fd7c920");
             MotionDescriptor descriptor = Descriptor(hostId) with
             {
+                Layout = new MotionLayoutDescriptor(
+                    MotionLayoutMode.Both,
+                    new MotionLayoutIdentity("&str", 17),
+                    null,
+                    true,
+                    true,
+                    false,
+                    new TransitionDefinition(
+                        new TransitionGenerator.Spring(
+                            new SpringConfiguration.Physical(100, 10, 1, null, null, null)
+                        ),
+                        0,
+                        new MotionRepeat.None(),
+                        0,
+                        MotionRepeatType.Loop
+                    )
+                ),
                 Values = new[]
                 {
                     new MotionValueDescriptor(
@@ -86,6 +116,7 @@ namespace Battlement.Tests
             Assert.That(actual.Variants.CustomSnapshot, Is.EqualTo(91));
             Assert.That(actual.Variants.When, Is.EqualTo(VariantWhen.AfterChildren));
             Assert.That(actual.Variants.StaggerDirection, Is.EqualTo(StaggerDirection.Reverse));
+            Assert.That(actual.Layout, Is.EqualTo(descriptor.Layout));
             string text = Encoding.UTF8.GetString(json);
             StringAssert.Contains("\"Controlled\"", text);
             StringAssert.Contains("\"Mirror\"", text);

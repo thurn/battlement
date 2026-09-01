@@ -13,6 +13,7 @@ mod design_system;
 mod effects_stores;
 mod events_portals;
 mod gestures_drag;
+mod layout_reorder;
 mod physical_motion;
 mod presence_lifecycle;
 mod refs_geometry;
@@ -91,11 +92,13 @@ pub enum Screen {
   ValuesTimeControls,
   /// Unity-local gestures, constrained drag, momentum, scroll, and viewport state.
   GesturesDrag,
+  /// Native layout projection, shared handoffs, and drag reorder.
+  LayoutReorder,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 15] = [
+  pub const ALL: [Self; 16] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -111,6 +114,7 @@ impl Screen {
     Self::PresenceLifecycle,
     Self::ValuesTimeControls,
     Self::GesturesDrag,
+    Self::LayoutReorder,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -131,6 +135,7 @@ impl Screen {
       Self::PresenceLifecycle => "presence-lifecycle",
       Self::ValuesTimeControls => "values-time-controls",
       Self::GesturesDrag => "gestures-drag",
+      Self::LayoutReorder => "layout-reorder",
     }
   }
 }
@@ -180,6 +185,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     presence_lifecycle: game.presence_lifecycle.clone(),
     values_time_controls: game.values_time_controls.clone(),
     gestures_drag: game.gestures_drag.clone(),
+    layout_reorder: game.layout_reorder.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -212,6 +218,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       presence_lifecycle: presence_lifecycle::PresenceLifecycleState::default(),
       values_time_controls: values_time_controls::ValuesTimeControlsState::default(),
       gestures_drag: gestures_drag::GesturesDragState::default(),
+      layout_reorder: layout_reorder::LayoutReorderState::default(),
       pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
@@ -370,6 +377,7 @@ struct Game {
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
+  layout_reorder: layout_reorder::LayoutReorderState,
   pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
@@ -407,6 +415,7 @@ struct Shell {
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
+  layout_reorder: layout_reorder::LayoutReorderState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -577,6 +586,10 @@ impl Component for Shell {
         state: self.gestures_drag.clone(),
         compact: self.compact,
       }),
+      Screen::LayoutReorder => Node::new(layout_reorder::LayoutReorder {
+        state: self.layout_reorder.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -650,6 +663,8 @@ impl Component for Navigation {
             game.screen = match game.screen {
               Screen::TargetsTimelines => Screen::ValuesTimeControls,
               Screen::ValuesTimeControls => Screen::GesturesDrag,
+              Screen::GesturesDrag => Screen::LayoutReorder,
+              Screen::LayoutReorder => Screen::TargetsTimelines,
               _ => Screen::TargetsTimelines,
             };
           }),
@@ -860,7 +875,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::GesturesDrag,
+    Screen::Composition => Screen::LayoutReorder,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -875,6 +890,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::PresenceLifecycle => Screen::VariantsOrchestration,
     Screen::ValuesTimeControls => Screen::PresenceLifecycle,
     Screen::GesturesDrag => Screen::ValuesTimeControls,
+    Screen::LayoutReorder => Screen::GesturesDrag,
   }
 }
 
@@ -894,7 +910,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::VariantsOrchestration => Screen::PresenceLifecycle,
     Screen::PresenceLifecycle => Screen::ValuesTimeControls,
     Screen::ValuesTimeControls => Screen::GesturesDrag,
-    Screen::GesturesDrag => Screen::Composition,
+    Screen::GesturesDrag => Screen::LayoutReorder,
+    Screen::LayoutReorder => Screen::Composition,
   }
 }
 
@@ -915,6 +932,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
     Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
     Screen::GesturesDrag => "15 GESTURES & DRAG",
+    Screen::LayoutReorder => "16 LAYOUT & REORDER",
   }
 }
 

@@ -14,12 +14,14 @@ namespace Battlement.UI
         private readonly Dictionary<ulong, CssAnimationDescriptor> cssAnimations = new();
         private readonly BattlementPseudoStyleState? pseudoStyles;
         private readonly BattlementDecorationState? decorations;
+        private readonly BattlementLayoutProjection? layoutProjection;
 
         public DescriptorState(
             MotionDescriptor descriptor,
             VisualElement target,
             ulong clockMicros,
-            DescriptorState? previous
+            DescriptorState? previous,
+            BattlementLayoutOrigin? layoutOrigin = null
         )
         {
             Descriptor = descriptor;
@@ -129,11 +131,24 @@ namespace Battlement.UI
                     clockMicros,
                     previous?.decorations
                 );
+            if (descriptor.Layout is not null)
+                layoutProjection = new BattlementLayoutProjection(
+                    target,
+                    descriptor.Layout,
+                    layoutOrigin
+                        ?? new BattlementLayoutOrigin(
+                            previous?.Target.worldBound ?? target.worldBound,
+                            previous?.Target.panel ?? target.panel
+                        ),
+                    clockMicros
+                );
         }
 
         public MotionDescriptor Descriptor { get; }
 
         public VisualElement Target { get; }
+
+        public BattlementLayoutProjection? LayoutProjection => layoutProjection;
 
         public void SetPseudoState(MotionPseudoState state, bool value) =>
             pseudoStyles?.SetState(state, value);
@@ -175,6 +190,10 @@ namespace Battlement.UI
         }
 
         public void SynchronizeStaticStyles() => pseudoStyles?.SynchronizeStaticStyles();
+
+        public void CaptureLayoutTarget() => layoutProjection?.CaptureDestination();
+
+        public void SampleLayout(ulong clockMicros) => layoutProjection?.Sample(clockMicros);
 
         public void EmitActivated(BattlementMotionWorld world)
         {
@@ -260,6 +279,7 @@ namespace Battlement.UI
 
         public void Dispose()
         {
+            layoutProjection?.Release();
             pseudoStyles?.Dispose();
             decorations?.Dispose();
         }

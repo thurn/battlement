@@ -24,6 +24,7 @@ than the specimen.
 | `gesture` | Gestures & Drag | `motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract` |
 | `hooks` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `hook_scheduling.rs`, `state.rs` |
 | `key` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `identity.rs`, `moves.rs` |
+| `layout` | Layout & Reorder | `motion.rs::layout_projection_shared_handoff_and_reorder_lower_native_contract`, `LayoutProjectionTests.cs` |
 | `motion` | Targets & Timelines | `motion.rs::host_methods_interleave_without_restarting_or_adding_a_host`, `motion.rs::public_targets_serialize_keyframes_overrides_repeats_and_transition_end`, `motion.rs::forwarding_component_collects_complete_props_without_a_wrapper_host` |
 | `motion_value` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
 | `portal` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `portals.rs`, `external_portals.rs` |
@@ -62,6 +63,10 @@ Gestures & Drag demonstrates device-aware hover, focus, tap and pan boundaries,
 constrained momentum, external drag controls, native motion-value outputs,
 scroll progress, and viewport state. Deterministic pointer and geometry behavior
 is checked in `Packages/com.battlement.client/Tests/Editor/GestureMotionTests.cs`.
+Layout & Reorder demonstrates position and size projection, nested scale
+correction, shared handoffs, projection-aware scrolling, drag reorder, and
+presence-owned `PopLayout` removal. Controlled geometry behavior is checked in
+`Packages/com.battlement.client/Tests/Editor/LayoutProjectionTests.cs`.
 The complete initial, changed, and restored flows are checked in
 `samples/reactant/rules/tests/composition.rs`.
 

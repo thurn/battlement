@@ -141,10 +141,6 @@ impl<R> AnimatePresence<R> {
   /// Selects entering and exiting child coordination.
   #[must_use]
   pub fn mode(mut self, value: PresenceMode) -> Self {
-    assert!(
-      value != PresenceMode::PopLayout,
-      "PresenceMode::PopLayout requires layout projection"
-    );
     self.mode = value;
     self
   }

@@ -534,7 +534,19 @@ namespace Battlement
             }
 
             JToken token = JToken.Load(reader);
-            (string tag, JToken payload) = ReadTag(token);
+            if (token.Type == JTokenType.Null)
+            {
+                if (objectType.IsValueType)
+                {
+                    throw new JsonSerializationException(
+                        $"Protocol union {objectType.Name} cannot be null."
+                    );
+                }
+
+                return null!;
+            }
+
+            (string tag, JToken payload) = ReadTag(token, objectType);
             Type target = ResolveCase(objectType, tag);
             if (target is null)
             {
@@ -708,7 +720,7 @@ namespace Battlement
             );
         }
 
-        private static (string Tag, JToken Payload) ReadTag(JToken token)
+        private static (string Tag, JToken Payload) ReadTag(JToken token, Type objectType)
         {
             if (token.Type == JTokenType.String)
             {
@@ -722,7 +734,7 @@ namespace Battlement
             if (token is not JObject objectValue || objectValue.Count != 1)
             {
                 throw new JsonSerializationException(
-                    "Externally tagged unions require one JSON property."
+                    $"Externally tagged union {objectType.Name} requires one JSON property."
                 );
             }
 

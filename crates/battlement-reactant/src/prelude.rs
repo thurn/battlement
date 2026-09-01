@@ -70,6 +70,7 @@ pub use crate::{
     TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
   key::{KeyRenderExt, Keyed},
+  layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},
   motion::{
     Easing, InertiaTarget, InitialTarget, Keyframes, MotionProps, MotionStyle, MotionTarget,
     Repeat, RepeatType, Transition,

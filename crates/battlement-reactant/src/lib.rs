@@ -52,6 +52,7 @@ pub mod host;
 mod host_events;
 mod host_properties;
 pub mod key;
+pub mod layout;
 mod lifecycle;
 pub mod motion;
 mod motion_component;

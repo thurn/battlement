@@ -92,6 +92,7 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
     motion_name: None,
     named_targets: Vec::new(),
     gestures: None,
+    layout: None,
     variants: Some(MotionVariantResolution {
       names: vec!["west".to_owned(), "selected".to_owned()],
       inherited: true,
@@ -230,6 +231,7 @@ fn gesture_descriptor_round_trips_constraints_values_and_inertia() {
         in_view: true,
       },
     }),
+    layout: None,
   };
   descriptor.validate().unwrap();
   let json = serde_json::to_string(&descriptor).unwrap();

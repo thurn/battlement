@@ -320,6 +320,7 @@ impl MotionProps {
           .named_targets(self.variant_data.as_ref(), transition)
       }),
       gestures: self.gesture_descriptor(),
+      layout: self.layout_descriptor(),
     }
   }
 

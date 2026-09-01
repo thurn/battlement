@@ -386,6 +386,45 @@ pub enum ReducedMotionPolicy {
   Never,
 }
 
+/// Projection axes applied after one native layout pass.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum MotionLayoutMode {
+  /// Project panel-space position only.
+  Position,
+  /// Project rendered size only.
+  Size,
+  /// Project both position and size.
+  Both,
+}
+
+/// Stable typed identity used by layout groups and shared layout handoffs.
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct MotionLayoutIdentity {
+  /// Rust type which owns the identity value.
+  pub value_type: String,
+  /// Stable hash of the typed value.
+  pub value_hash: u64,
+}
+
+/// Native layout-projection configuration for one host.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MotionLayoutDescriptor {
+  /// Projection axes.
+  pub mode: MotionLayoutMode,
+  /// Nearest logical layout group.
+  pub group: MotionLayoutIdentity,
+  /// Optional shared-layout identity within the group.
+  pub layout_id: Option<MotionLayoutIdentity>,
+  /// Whether this host contributes scroll offset to projected descendants.
+  pub scroll: bool,
+  /// Whether this host establishes a fixed projection root.
+  pub root: bool,
+  /// Whether an exiting host is removed from native layout flow.
+  pub pop_layout: bool,
+  /// Timing used to animate the inverse projection to identity.
+  pub transition: TransitionDefinition,
+}
+
 /// Complete validated animation state installed beside one UI host.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MotionDescriptor {
@@ -449,6 +488,9 @@ pub struct MotionDescriptor {
   /// Unity-local gesture recognizers and drag behavior.
   #[serde(default)]
   pub gestures: Option<MotionGestureDescriptor>,
+  /// Optional layout projection and shared-layout configuration.
+  #[serde(default)]
+  pub layout: Option<MotionLayoutDescriptor>,
 }
 
 impl MotionDescriptor {
@@ -1136,6 +1178,7 @@ mod tests {
       motion_name: None,
       named_targets: Vec::new(),
       gestures: None,
+      layout: None,
     };
     assert!(descriptor.validate().unwrap_err().contains("repeats slot"));
     descriptor.slots.truncate(1);

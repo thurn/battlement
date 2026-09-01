@@ -30,6 +30,8 @@ struct GestureContract;
 
 struct ElementConstraintContract;
 
+struct LayoutContract;
+
 impl Spawner for IdleSpawner {
   fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
     SpawnedTask::detached()
@@ -118,6 +120,23 @@ impl Component for ElementConstraintContract {
       View::new()
         .drag(DragAxis::Both)
         .drag_constraints(DragConstraints::element(constraint)),
+    )
+  }
+}
+
+impl Component for LayoutContract {
+  fn render(&self) -> impl Render {
+    LayoutGroup::new("settings").child(
+      View::new()
+        .layout(Layout::Both)
+        .layout_id("active")
+        .layout_scroll(true)
+        .layout_root(true)
+        .transition(Transition::tween().duration_secs(0.4).property(
+          MotionProperty::Layout,
+          Transition::tween().duration_secs(0.25),
+        ))
+        .child(View::new().reorder_item(ReorderAxis::Y)),
     )
   }
 }
@@ -909,6 +928,48 @@ fn element_drag_constraints_resolve_on_their_first_shared_render() {
     drag.constraints,
     Some(MotionDragConstraint::Element(constraint.object_id))
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn layout_projection_shared_handoff_and_reorder_lower_native_contract() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| LayoutContract);
+  let rendered = start(&mut reactant, &mut (), &document);
+  let root = &rendered.children[0];
+  let Prop::Set(descriptor) = &root.element.visual_element().motion else {
+    panic!("layout descriptor did not lower");
+  };
+  let layout = descriptor.layout.as_ref().expect("layout configuration");
+  assert_eq!(layout.mode, battlement::MotionLayoutMode::Both);
+  assert!(layout.layout_id.is_some());
+  assert!(layout.scroll);
+  assert!(layout.root);
+  assert!(matches!(
+    layout.transition.generator,
+    TransitionGenerator::Tween {
+      duration_micros: 250_000,
+      ..
+    }
+  ));
+
+  let Prop::Set(reorder) = &root.children[0].element.visual_element().motion else {
+    panic!("reorder descriptor did not lower");
+  };
+  assert_eq!(
+    reorder.layout.as_ref().unwrap().mode,
+    battlement::MotionLayoutMode::Position
+  );
+  assert_eq!(
+    reorder.gestures.unwrap().drag.unwrap().axis,
+    MotionGestureAxis::Y
+  );
+  assert_eq!(reorder_index(1, 80.0, &[20.0, 60.0, 100.0]), 2);
+  assert_eq!(reorder_index(2, -100.0, &[20.0, 60.0, 100.0]), 0);
+  assert_eq!(reorder_index(1, 10.0, &[20.0, 60.0, 100.0]), 1);
+  assert_eq!(reorder_index(1, 41.0, &[20.0, 60.0, 100.0]), 2);
+  assert_eq!(reorder_index(1, -41.0, &[20.0, 60.0, 100.0]), 0);
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
