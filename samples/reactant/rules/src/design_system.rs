@@ -1,6 +1,6 @@
 use battlement::{
-  Align, Color, EasingFunction, FlexDirection, FlexWrap, LengthUnits, Position, Style, TextAnchor,
-  TransitionList, TransitionProperty, WhiteSpace,
+  Align, Color, EasingFunction, FlexDirection, FlexWrap, LengthUnits, Position, StackItem, Style,
+  TextAnchor, TransitionList, TransitionProperty, WhiteSpace,
 };
 
 const ACTION_HOVER: Color = Color::rgb(1.0, 0.79, 0.38);
@@ -669,7 +669,7 @@ pub(crate) fn portal_card(compact: bool) -> Style {
     .border_width(1.0)
     .border_top_width(4.0)
     .border_radius(4)
-    .min_height(140.0)
+    .min_height(152.0)
     .padding(20.0);
   if compact {
     style
@@ -679,6 +679,19 @@ pub(crate) fn portal_card(compact: bool) -> Style {
   } else {
     style.width(300.0).margin((10, 0, 14, 0))
   }
+}
+
+pub(crate) fn portal_layer_item(compact: bool) -> StackItem {
+  StackItem::new()
+    .align_self(Align::FlexStart)
+    .justify_self(if compact {
+      Align::Center
+    } else {
+      Align::FlexEnd
+    })
+    .top(if compact { 220.0 } else { 161.0 })
+    .right(if compact { 0.0 } else { 100.0 })
+    .contributes_to_size(false)
 }
 
 pub(crate) fn portal_connector(compact: bool) -> Style {

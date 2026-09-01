@@ -31,7 +31,8 @@
 //! ```
 
 pub use battlement::{
-  MotionColor, MotionLength, MotionProperty, Prop, StepPosition, Style, Visibility,
+  MotionColor, MotionLength, MotionProperty, PlacementAlign, PlacementSide, PopoverPlacement, Prop,
+  StepPosition, Style, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -85,6 +86,7 @@ pub use crate::{
     use_motion_value_event, use_spring, use_time, use_transform, use_velocity,
   },
   motion_variants::VariantOrchestration,
+  overlay::{Overlay, OverlayHost},
   portal::{Portal, PortalTarget, create_portal},
   presence::{AnimatePresence, Presence, PresenceMode},
   props::Missing,

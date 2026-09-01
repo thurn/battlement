@@ -12,6 +12,7 @@ use crate::{
   },
   key::ErasedKey,
   motion::MotionProps,
+  overlay::OverlayReference,
   portal::PortalTarget,
   render::{Node, RenderSink},
   render_value::Sealed,
@@ -26,6 +27,7 @@ pub(crate) struct HostState<H> {
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) motion: MotionProps,
+  pub(crate) overlay_reference: Option<OverlayReference>,
 }
 
 pub(crate) struct FacadeMetadata {
@@ -35,6 +37,7 @@ pub(crate) struct FacadeMetadata {
   pub(crate) handlers: Vec<Handler>,
   pub(crate) motion: MotionProps,
   pub(crate) retained_render: Option<Node>,
+  pub(crate) overlay_reference: Option<OverlayReference>,
 }
 
 pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
@@ -50,6 +53,7 @@ pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
     element_ref,
     portal_target,
     motion,
+    overlay_reference,
   } = state;
   let element = host.into();
   assert_eq!(
@@ -65,6 +69,7 @@ pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
       handlers,
       motion,
       retained_render,
+      overlay_reference,
     },
     element,
     |sink| {

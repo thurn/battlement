@@ -68,6 +68,7 @@ pub mod motion_value;
 mod motion_value_runtime;
 mod motion_variants;
 mod mutation;
+pub mod overlay;
 pub mod portal;
 pub mod prelude;
 pub mod presence;

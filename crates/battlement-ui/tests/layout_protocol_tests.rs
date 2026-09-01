@@ -328,6 +328,47 @@ fn sticky_rejects_stack_and_overlay_placement_combinations() {
 }
 
 #[test]
+fn overlay_wrappers_reject_reserved_layout_and_host_filling_dimensions() {
+  let anchor = ObjectId::new_v4();
+  let popover = OverlayPlacement::Popover {
+    anchor,
+    placement: PopoverPlacement::default(),
+  };
+  for (placement, style) in [
+    (popover.clone(), Style::new().margin_top(1.0)),
+    (popover.clone(), Style::new().position(Position::Absolute)),
+    (
+      OverlayPlacement::Layer(OverlayLayer::Popover),
+      Style::new().width(12.0),
+    ),
+    (
+      OverlayPlacement::Modal {
+        initial_focus: None,
+        restore_focus: None,
+      },
+      Style::new().min_height(12.0),
+    ),
+  ] {
+    assert_eq!(
+      validate_element_state(&UiElement::from(UiVisualElement {
+        overlay_placement: Prop::Set(placement),
+        style,
+        ..UiVisualElement::new()
+      })),
+      Err(UiValidationError::InvalidProperty)
+    );
+  }
+  assert!(
+    validate_element_state(&UiElement::from(UiVisualElement {
+      overlay_placement: Prop::Set(popover),
+      style: Style::new().width(120.0).padding(8.0),
+      ..UiVisualElement::new()
+    }))
+    .is_ok()
+  );
+}
+
+#[test]
 fn sticky_builders_accept_only_orthogonal_edges() {
   assert_eq!(
     Sticky::top(-2.0).with_left(3.0).order(7),

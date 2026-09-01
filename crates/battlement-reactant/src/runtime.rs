@@ -28,6 +28,7 @@ use crate::{
   geometry_runtime::{GeometryPlan, GeometryRuntime},
   lifecycle::{self, EntryCheckpoint, FrozenResources, PlannedSession, RuntimeState},
   motion_value_runtime::{self, MotionValueRuntime},
+  overlay,
   portal::{self, PortalTarget},
   reconcile,
   render::{Render, RenderTree},
@@ -262,7 +263,9 @@ impl<G: 'static> Reactant<G> {
         );
         for tree in &mut rendered {
           tree.resolve_drag_constraints(self.runtime_id, &attachments);
+          tree.resolve_overlay_refs(self.runtime_id, &attachments);
         }
+        overlay::resolve_order(&mut rendered);
         let desired = portal::layout(self.runtime_id, &rendered, &bindings);
         let documents = self
           .roots
@@ -506,7 +509,9 @@ impl<G: 'static> Reactant<G> {
       );
       for tree in &mut rendered {
         tree.resolve_drag_constraints(self.runtime_id, &attachments);
+        tree.resolve_overlay_refs(self.runtime_id, &attachments);
       }
+      overlay::resolve_order(&mut rendered);
       let desired = portal::layout(self.runtime_id, &rendered, &bindings);
       let documents = self
         .roots

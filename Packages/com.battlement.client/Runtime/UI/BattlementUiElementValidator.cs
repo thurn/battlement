@@ -216,7 +216,6 @@ namespace Battlement.UI
                 default:
                     break;
             }
-            RejectUnavailableLayout(element);
         }
 
         private static void ValidateLayout(UiElement element)
@@ -228,7 +227,10 @@ namespace Battlement.UI
             if (element.Sticky.IsSet)
                 ValidateSticky(element.Sticky.Value);
             if (element.OverlayPlacement.IsSet)
+            {
                 ValidateOverlay(element.OverlayPlacement.Value);
+                ValidateOverlayStyle(element.Style, element.OverlayPlacement.Value);
+            }
             if (element.Sticky.IsSet && (element.StackItem.IsSet || element.OverlayPlacement.IsSet))
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
@@ -370,6 +372,50 @@ namespace Battlement.UI
             }
         }
 
+        internal static void ValidateOverlayStyle(UiStyle? style, OverlayPlacement overlay)
+        {
+            if (style is null)
+                return;
+            bool forbiddenPlacement = new[]
+            {
+                style.MarginTop,
+                style.MarginRight,
+                style.MarginBottom,
+                style.MarginLeft,
+                style.Top,
+                style.Right,
+                style.Bottom,
+                style.Left,
+            }.Any(value => value.IsSet);
+            if (
+                forbiddenPlacement
+                || style.Position.IsSet
+                || style.Display.IsSet
+                || style.Visibility.IsSet
+            )
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Overlay wrappers cannot author margin, position, offsets, display, "
+                        + "or visibility."
+                );
+            if (overlay is OverlayPlacement.Popover)
+                return;
+            bool authoredDimensions = new[]
+            {
+                style.Width,
+                style.Height,
+                style.MinWidth,
+                style.MinHeight,
+                style.MaxWidth,
+                style.MaxHeight,
+            }.Any(value => value.IsSet);
+            if (authoredDimensions)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Host-filling overlay wrappers cannot author dimensions."
+                );
+        }
+
         private static void ValidateGap(float? gap)
         {
             ValidateFinite(gap);
@@ -389,18 +435,6 @@ namespace Battlement.UI
         {
             if (value.HasValue && !Enum.IsDefined(typeof(T), value.Value))
                 throw Failure(CoreErrorCode.InvalidProperty, $"{name} is not recognized.");
-        }
-
-        private static void RejectUnavailableLayout(UiElement element)
-        {
-            bool unavailableHost = false;
-            bool unavailableDescriptor = element.OverlayPlacement.IsSet;
-            if (unavailableHost || unavailableDescriptor)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "The authored layout host or descriptor is not enabled "
-                        + "by its native layout task."
-                );
         }
 
         private static T? SetValue<T>(Prop<T> value)

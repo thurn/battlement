@@ -394,6 +394,89 @@ impl Default for PopoverPlacement {
   }
 }
 
+impl PopoverPlacement {
+  /// Places a popover above its anchor with leading edges aligned.
+  #[must_use]
+  pub fn top_start() -> Self {
+    Self {
+      side: PlacementSide::Top,
+      ..Self::default()
+    }
+  }
+
+  /// Places a popover to the right of its anchor with leading edges aligned.
+  #[must_use]
+  pub fn right_start() -> Self {
+    Self {
+      side: PlacementSide::Right,
+      ..Self::default()
+    }
+  }
+
+  /// Places a popover below its anchor with leading edges aligned.
+  #[must_use]
+  pub fn bottom_start() -> Self {
+    Self::default()
+  }
+
+  /// Places a popover to the left of its anchor with leading edges aligned.
+  #[must_use]
+  pub fn left_start() -> Self {
+    Self {
+      side: PlacementSide::Left,
+      ..Self::default()
+    }
+  }
+
+  /// Selects cross-axis alignment against the anchor.
+  #[must_use]
+  pub const fn align(mut self, value: PlacementAlign) -> Self {
+    self.align = value;
+    self
+  }
+
+  /// Sets the signed distance away from the selected side.
+  #[must_use]
+  pub const fn offset(self, value: f32) -> Self {
+    self.main_offset(value)
+  }
+
+  /// Sets the signed distance away from the selected side.
+  #[must_use]
+  pub const fn main_offset(mut self, value: f32) -> Self {
+    self.main_offset = value;
+    self
+  }
+
+  /// Sets the signed physical cross-axis displacement.
+  #[must_use]
+  pub const fn cross_offset(mut self, value: f32) -> Self {
+    self.cross_offset = value;
+    self
+  }
+
+  /// Sets the host-edge collision padding.
+  #[must_use]
+  pub const fn collision_padding(mut self, value: f32) -> Self {
+    self.collision_padding = value;
+    self
+  }
+
+  /// Enables or disables opposite-side collision selection.
+  #[must_use]
+  pub const fn flip(mut self, value: bool) -> Self {
+    self.flip = value;
+    self
+  }
+
+  /// Enables or disables cross-axis collision shifting.
+  #[must_use]
+  pub const fn shift(mut self, value: bool) -> Self {
+    self.shift = value;
+    self
+  }
+}
+
 /// Placement metadata for one top-level overlay portal attachment.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum OverlayPlacement {

@@ -8,7 +8,7 @@ use std::{
 
 use battlement::{
   MotionDragConstraint, MotionEventKind, MotionGestureEvent, MotionLifecycleEvent,
-  MotionPresentationSample, ObjectId, Prop, UiNode, UiVisualElementProperties,
+  MotionPresentationSample, ObjectId, OverlayPlacement, Prop, UiNode, UiVisualElementProperties,
 };
 
 use crate::{
@@ -20,6 +20,7 @@ use crate::{
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::GeometryRuntime,
   hook_storage::{HookComponent, HookOwner},
+  overlay::OverlayReference,
   portal::PortalTarget,
   render::{RenderPosition, RenderTree},
 };
@@ -57,6 +58,37 @@ impl RenderTree {
       position
         .children
         .resolve_drag_constraints(runtime_id, attachments);
+    }
+  }
+
+  pub(crate) fn resolve_overlay_refs(&mut self, runtime_id: u64, attachments: &AttachmentSet) {
+    for position in &mut self.positions {
+      if let Some(reference) = &position.overlay_reference {
+        let host = position
+          .host
+          .as_mut()
+          .expect("overlay metadata requires a public wrapper host");
+        host.element.visual_element_mut().overlay_placement = Prop::Set(match reference {
+          OverlayReference::Popover { anchor, placement } => OverlayPlacement::Popover {
+            anchor: attachments.reference_target(runtime_id, anchor),
+            placement: *placement,
+          },
+          OverlayReference::Modal {
+            initial_focus,
+            restore_focus,
+          } => OverlayPlacement::Modal {
+            initial_focus: initial_focus
+              .as_ref()
+              .map(|value| attachments.reference_target(runtime_id, value)),
+            restore_focus: restore_focus
+              .as_ref()
+              .map(|value| attachments.reference_target(runtime_id, value)),
+          },
+        });
+      }
+      position
+        .children
+        .resolve_overlay_refs(runtime_id, attachments);
     }
   }
 

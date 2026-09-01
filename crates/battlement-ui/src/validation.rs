@@ -396,6 +396,11 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
   {
     return Err(UiValidationError::InvalidProperty);
   }
+  if let Some(overlay) = visual.overlay_placement.set_value()
+    && !valid_overlay_style(&visual.style, overlay)
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
   validate_style(&visual.style)
 }
 
@@ -794,6 +799,41 @@ fn valid_overlay(value: &crate::OverlayPlacement) -> bool {
     && placement.cross_offset.is_finite()
     && placement.collision_padding.is_finite()
     && placement.collision_padding >= 0.0
+}
+
+fn valid_overlay_style(style: &Style, overlay: &crate::OverlayPlacement) -> bool {
+  let forbidden = [
+    &style.margin_top,
+    &style.margin_right,
+    &style.margin_bottom,
+    &style.margin_left,
+    &style.top,
+    &style.right,
+    &style.bottom,
+    &style.left,
+  ];
+  if forbidden
+    .into_iter()
+    .any(|value| matches!(value, Prop::Set(_)))
+    || matches!(style.position, Prop::Set(_))
+    || matches!(style.display, Prop::Set(_))
+    || matches!(style.visibility, Prop::Set(_))
+  {
+    return false;
+  }
+  if matches!(overlay, crate::OverlayPlacement::Popover { .. }) {
+    return true;
+  }
+  [
+    &style.width,
+    &style.height,
+    &style.min_width,
+    &style.min_height,
+    &style.max_width,
+    &style.max_height,
+  ]
+  .into_iter()
+  .all(|value| !matches!(value, Prop::Set(_)))
 }
 
 fn validate_parts(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {

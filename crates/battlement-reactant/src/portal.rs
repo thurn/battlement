@@ -8,8 +8,8 @@ use std::{
 };
 
 use battlement::{
-  Display, ObjectId, Prop, StyleValue, UiEventPhase, UiEventSubscription, UiNode,
-  UiVisualElementProperties,
+  Display, ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventPhase,
+  UiEventSubscription, UiNode, UiVisualElementProperties,
 };
 
 use crate::{
@@ -125,6 +125,7 @@ pub(crate) fn layout(
     .iter()
     .map(|tree| self::physical_hosts(tree, &catalog.ranges, &mut Vec::new()))
     .collect::<Vec<_>>();
+  self::validate_overlay_hosts(&roots, &catalog.attachments);
   let externals = external_targets
     .into_iter()
     .map(|target| {
@@ -167,6 +168,80 @@ pub(crate) fn layout(
     externals,
     roots,
   }
+}
+
+fn validate_overlay_hosts(roots: &[Vec<UiNode>], attachments: &HashMap<PortalTarget, ObjectId>) {
+  let target_ids = attachments.values().copied().collect::<HashSet<_>>();
+  for root in roots {
+    let configured = self::collect_overlay_hosts(root, &target_ids);
+    assert!(
+      configured.len() <= 1,
+      "one document root cannot contain more than one OverlayHost"
+    );
+    let Some(host_id) = configured.first() else {
+      assert!(
+        !self::contains_overlay_wrapper(root),
+        "overlay portal content requires an OverlayHost target"
+      );
+      continue;
+    };
+    assert!(
+      root.len() == 1 && matches!(root[0].element, UiElement::Stack(_)),
+      "OverlayHost requires one document-root Stack"
+    );
+    assert_eq!(
+      root[0].children.last().map(|child| child.object_id),
+      Some(*host_id),
+      "OverlayHost must be the final child of its document-root Stack"
+    );
+    let _ = self::find_host(root, *host_id).expect("validated OverlayHost remains attached");
+  }
+}
+
+fn collect_overlay_hosts(roots: &[UiNode], target_ids: &HashSet<ObjectId>) -> Vec<ObjectId> {
+  let mut values = Vec::new();
+  for node in roots {
+    if target_ids.contains(&node.object_id) && self::is_overlay_host(node) {
+      values.push(node.object_id);
+    }
+    values.extend(self::collect_overlay_hosts(&node.children, target_ids));
+  }
+  values
+}
+
+fn is_overlay_host(node: &UiNode) -> bool {
+  let visual = node.element.visual_element();
+  matches!(node.element, UiElement::Stack(_))
+    && visual.picking_mode == Prop::Set(PickingMode::Ignore)
+    && matches!(
+      visual.stack_item,
+      Prop::Set(value) if value.order == i32::MAX && !value.contributes_to_size
+    )
+    && matches!(
+      visual.style.overflow,
+      Prop::Set(StyleValue::Value(Overflow::Visible))
+    )
+}
+
+fn contains_overlay_wrapper(roots: &[UiNode]) -> bool {
+  roots.iter().any(|node| {
+    matches!(
+      node.element.visual_element().overlay_placement,
+      Prop::Set(_)
+    ) || self::contains_overlay_wrapper(&node.children)
+  })
+}
+
+fn find_host(roots: &[UiNode], id: ObjectId) -> Option<&UiNode> {
+  for node in roots {
+    if node.object_id == id {
+      return Some(node);
+    }
+    if let Some(found) = self::find_host(&node.children, id) {
+      return Some(found);
+    }
+  }
+  None
 }
 
 pub(crate) fn changed_attachments(

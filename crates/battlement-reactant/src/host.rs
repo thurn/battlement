@@ -268,6 +268,7 @@ macro_rules! facade {
             element_ref: None,
             portal_target: None,
             motion: MotionProps::new(),
+            overlay_reference: None,
           },
         }
       }

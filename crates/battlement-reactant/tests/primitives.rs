@@ -2,15 +2,16 @@ use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
   Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
-  GameObjectKind, GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayLayer,
-  OverlayPlacement, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response,
-  ResponseMessage, Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument,
-  UiDocumentState, UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
+  GameObjectKind, GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayPlacement,
+  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
+  Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState,
+  UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   component::Component,
+  element_ref::use_element_ref,
   executor::{BoxFuture, SpawnedTask, Spawner},
   props::Missing,
   render::{Node, Render},
@@ -39,6 +40,29 @@ struct GeneratedCard<Title = Missing, Child = Missing> {
 struct ManualCard<Title = Missing, Child = Missing> {
   required: (Title, Child),
   optional: RequiredOptions,
+}
+
+struct OverlayFixture {
+  target: battlement_reactant::portal::PortalTarget,
+}
+
+impl Component for OverlayFixture {
+  fn render(&self) -> impl Render {
+    let anchor = use_element_ref();
+    battlement_reactant::host::Stack::new()
+      .child(battlement_reactant::host::Button::new("anchor").element_ref(anchor.clone()))
+      .child(
+        battlement_reactant::overlay::Overlay::popover(self.target.clone(), anchor)
+          .placement(battlement::PopoverPlacement::bottom_start().offset(6.0))
+          .child(battlement_reactant::render::Fragment::new((
+            battlement_reactant::host::Label::new("one"),
+            battlement_reactant::host::Label::new("two"),
+          ))),
+      )
+      .child(battlement_reactant::overlay::OverlayHost::new(
+        self.target.clone(),
+      ))
+  }
 }
 
 battlement_reactant::required_props!(GeneratedCard, title: String, child: battlement_reactant::host::Label);
@@ -202,8 +226,6 @@ fn common_facades_lower_layout_item_descriptors() {
     top: Some(0.0),
     ..Sticky::default()
   };
-  let overlay = OverlayPlacement::Layer(OverlayLayer::Popover);
-  let rendered_overlay = overlay.clone();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), move |_: &()| {
     (
@@ -215,7 +237,6 @@ fn common_facades_lower_layout_item_descriptors() {
         .child(battlement_reactant::host::Button::new("stack").stack_item(stack_item)),
       battlement_reactant::host::ScrollView::new()
         .child(battlement_reactant::host::Label::new("sticky").sticky(sticky)),
-      battlement_reactant::host::Box::new().overlay_placement(rendered_overlay.clone()),
     )
   });
 
@@ -246,9 +267,41 @@ fn common_facades_lower_layout_item_descriptors() {
     children[2].children[0].element.visual_element().sticky,
     Prop::Set(sticky)
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn overlay_helpers_resolve_first_mount_refs_and_wrap_fragment_children() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  let target = reactant.create_portal_target();
+  reactant.register_root(document.clone(), move |_: &()| OverlayFixture {
+    target: target.clone(),
+  });
+
+  let rendered = reactant
+    .begin_session(&mut ())
+    .expect("overlay render succeeds")
+    .into_parts(snapshot(
+      SessionId::new_v4(),
+      std::slice::from_ref(&document),
+    ))
+    .0;
+  let root = &rendered.ui[0].children[0];
+  let anchor = root.children[0].object_id;
+  let overlay_host = &root.children[1];
+  let wrapper = &overlay_host.children[0];
+  assert!(matches!(
+    wrapper.element.visual_element().overlay_placement,
+    Prop::Set(OverlayPlacement::Popover {
+      anchor: value,
+      placement
+    }) if value == anchor && placement.main_offset == 6.0
+  ));
+  assert_eq!(wrapper.children.len(), 2);
   assert_eq!(
-    children[3].element.visual_element().overlay_placement,
-    Prop::Set(overlay)
+    overlay_host.element.visual_element().picking_mode,
+    Prop::Set(battlement::PickingMode::Ignore)
   );
   let _ = reactant.shutdown(&mut ()).into_groups();
 }

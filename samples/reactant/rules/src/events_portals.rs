@@ -1,4 +1,4 @@
-use battlement::{ScrollViewMode, ScrollerVisibility};
+use battlement::{LengthUnits, PickingMode, ScrollViewMode, ScrollerVisibility};
 use battlement_reactant::prelude::*;
 
 use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
@@ -55,7 +55,25 @@ impl Component for EventsPortals {
                       .style(design_system::event_status_frame(self.compact))
                       .child(self.status()),
                   )
-                  .child(create_portal(self.action(), self.overlay.clone()))
+                  .child(
+                    Overlay::layer(self.overlay.clone()).child(
+                      battlement_reactant::host::Stack::new()
+                        .name("portal-layer")
+                        .picking_mode(PickingMode::Ignore)
+                        .style(Style::new().width(100.0_f32.pct()).height(100.0_f32.pct()))
+                        .child(
+                          battlement_reactant::host::View::new()
+                            .name("portal-overlay")
+                            .style(design_system::portal_card(self.compact))
+                            .stack_item(design_system::portal_layer_item(self.compact))
+                            .child(
+                              battlement_reactant::host::Label::new("Portaled overlay")
+                                .style(design_system::effect_heading()),
+                            )
+                            .child(self.action()),
+                        ),
+                    ),
+                  )
                   .on_click_capture(|game: &mut Game| {
                     game.event_trace.clear();
                     game.event_trace.push("CAPTURE");
@@ -65,16 +83,6 @@ impl Component for EventsPortals {
               .child(
                 battlement_reactant::host::Label::new(if self.compact { "v" } else { ">" })
                   .style(design_system::portal_connector(self.compact)),
-              )
-              .child(
-                battlement_reactant::host::View::new()
-                  .name("portal-overlay")
-                  .style(design_system::portal_card(self.compact))
-                  .child(
-                    battlement_reactant::host::Label::new("Portaled overlay")
-                      .style(design_system::effect_heading()),
-                  )
-                  .portal_target(self.overlay.clone()),
               ),
           ),
       )

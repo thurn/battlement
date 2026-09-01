@@ -83,8 +83,18 @@ fn sample_opens_on_an_accessible_composition_screen() {
   let shell = find_named(&ui, ROOT_ID, "sample-shell");
   let navigation = find_named(&ui, ROOT_ID, "navigation");
   let canvas = find_named(&ui, ROOT_ID, "composition-canvas");
+  let root_stack = ui.element(ROOT_ID).children()[0];
 
-  assert_eq!(ui.element(ROOT_ID).children(), &[shell]);
+  assert_eq!(ui.element(root_stack).children()[0], shell);
+  assert_eq!(ui.element(root_stack).children().len(), 2);
+  assert_eq!(
+    ui.element(root_stack).style().width,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
+  );
+  assert_eq!(
+    ui.element(root_stack).style().height,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
+  );
   assert_eq!(ui.element(shell).children(), &[navigation, canvas]);
   assert_eq!(
     ui.element(find_named(&ui, navigation, "composition-navigation"))
@@ -375,15 +385,22 @@ fn events_screen_runs_and_restores_one_logical_event_path() {
   client.ui().click(navigation);
 
   let canvas = find_named(&client.ui(), ROOT_ID, "events-canvas");
-  let action = find_named(&client.ui(), canvas, "events-action");
+  let action = find_named(&client.ui(), ROOT_ID, "events-action");
   let source = find_named(&client.ui(), canvas, "event-source");
-  let overlay = find_named(&client.ui(), canvas, "portal-overlay");
+  let layer = find_named(&client.ui(), ROOT_ID, "portal-layer");
+  let overlay = find_named(&client.ui(), ROOT_ID, "portal-overlay");
   let status = find_named(&client.ui(), canvas, "events-status");
   let initial = self::visible_text(&client.ui(), canvas);
   assert!(visible_word_count(&client.ui(), canvas) <= EVENTS_WORD_BUDGET);
   assert_eq!(client.ui().element(action).text(), Some("RUN EVENT"));
   assert_eq!(client.ui().element(status).text(), Some("READY"));
   assert!(!client.ui().element(source).children().contains(&action));
+  assert_eq!(client.ui().element(layer).kind(), UiElementKind::Stack);
+  assert_eq!(
+    client.ui().element(layer).picking_mode(),
+    Some(battlement::PickingMode::Ignore)
+  );
+  assert_eq!(client.ui().element(layer).children(), &[overlay]);
   assert!(client.ui().element(overlay).children().contains(&action));
 
   client.ui().click(action);

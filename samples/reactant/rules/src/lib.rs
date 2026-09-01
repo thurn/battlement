@@ -545,20 +545,25 @@ impl Component for Shell {
         compact: self.compact,
       }),
     };
-    battlement_reactant::host::View::new()
-      .name("sample-shell")
+    battlement_reactant::host::Stack::new()
       .style(design_system::root(self.compact))
-      .child(Navigation {
-        screen: self.screen,
-        interaction: self.interaction,
-        compact: self.compact,
-        phone: self.phone,
-      })
-      .child(page)
-      .on_geometry_changed_event(|game: &mut Game, event| {
-        game.compact = event.payload().current.width < 1_100.0;
-        game.phone = event.payload().current.width < 600.0;
-      })
+      .child(
+        battlement_reactant::host::View::new()
+          .name("sample-shell")
+          .style(design_system::root(self.compact))
+          .child(Navigation {
+            screen: self.screen,
+            interaction: self.interaction,
+            compact: self.compact,
+            phone: self.phone,
+          })
+          .child(page)
+          .on_geometry_changed_event(|game: &mut Game, event| {
+            game.compact = event.payload().current.width < 1_100.0;
+            game.phone = event.payload().current.width < 600.0;
+          }),
+      )
+      .child(OverlayHost::new(self.event_overlay.clone()))
   }
 }
 

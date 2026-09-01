@@ -56,6 +56,7 @@ struct ElementAttachment {
 struct ElementRefInner {
   runtime_id: u64,
   identity: u64,
+  reference_id: ObjectId,
   runtime: Weak<RefCell<ElementRefRuntime>>,
   geometry: Weak<RefCell<GeometryRuntime>>,
   attachment: Cell<Option<ElementAttachment>>,
@@ -316,6 +317,25 @@ impl ElementRefRuntime {
 }
 
 impl AttachmentSet {
+  pub(crate) fn reference_target(&self, runtime_id: u64, element_ref: &ElementRef) -> ObjectId {
+    assert_eq!(
+      runtime_id, element_ref.inner.runtime_id,
+      "Reactant overlay refs cannot cross runtimes"
+    );
+    self
+      .desired
+      .get(&element_ref.inner.identity)
+      .map(|attachment| attachment.object_id)
+      .or_else(|| {
+        element_ref
+          .inner
+          .attachment
+          .get()
+          .map(|attachment| attachment.object_id)
+      })
+      .unwrap_or(element_ref.inner.reference_id)
+  }
+
   pub(crate) fn geometry_target(
     &self,
     runtime_id: u64,
@@ -506,6 +526,7 @@ fn create_ref() -> ElementRef {
       inner: Rc::new(ElementRefInner {
         runtime_id: current.runtime_id,
         identity,
+        reference_id: ObjectId::new_v4(),
         runtime: Rc::downgrade(&runtime_rc),
         geometry: current.geometry.clone(),
         attachment: Cell::new(None),

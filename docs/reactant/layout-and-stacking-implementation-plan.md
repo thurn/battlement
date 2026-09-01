@@ -539,7 +539,7 @@ snapshot-attachment waiting state.
 - Run Reactant event, ref, reconciliation, and fake-client tests.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 8: OverlayHost, popovers, and modals
+## Task 8 [DONE]: OverlayHost, popovers, and modals
 
 **Prerequisites:** Tasks 2 and 6 `[DONE]`.
 

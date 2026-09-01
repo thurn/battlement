@@ -37,6 +37,7 @@ specimen, and black-box proof exist together.
 | `motion` | Targets & Timelines | `motion.rs::host_methods_interleave_without_restarting_or_adding_a_host`, `motion.rs::public_targets_serialize_keyframes_overrides_repeats_and_transition_end`, `motion.rs::forwarding_component_collects_complete_props_without_a_wrapper_host` |
 | `motion_config` | Composed Effects | `motion.rs::motion_config_inherits_transition_and_reduced_motion_without_a_host` |
 | `motion_value` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
+| `overlay` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `primitives.rs::overlay_helpers_resolve_first_mount_refs_and_wrap_fragment_children` |
 | `portal` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `portals.rs`, `external_portals.rs` |
 | `prelude` | Composition | `composition.rs::sample_opens_on_an_accessible_composition_screen`, `primitives.rs` |
 | `presence` | Presence & Lifecycle | `presence.rs::automatic_exit_retains_hooks_until_exact_generation_completion`, `presence.rs::manual_hold_reconnect_and_rapid_reopen_preserve_one_mount` |
