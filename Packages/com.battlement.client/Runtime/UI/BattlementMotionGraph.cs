@@ -27,10 +27,13 @@ namespace Battlement.UI
         private readonly List<MotionPlaybackEvent> playbackEvents = new();
         private readonly Dictionary<MotionClockSource, MotionClockSample> clockSamples = new();
         private readonly Func<MotionClockSource, MotionClockSample> clock;
+        private readonly Func<MotionDescriptor, bool> reducedMotion;
         private ulong frame;
 
-        public BattlementMotionGraph(Func<MotionClockSource, MotionClockSample> clock) =>
-            this.clock = clock;
+        public BattlementMotionGraph(
+            Func<MotionClockSource, MotionClockSample> clock,
+            Func<MotionDescriptor, bool> reducedMotion
+        ) => (this.clock, this.reducedMotion) = (clock, reducedMotion);
 
         public int NodeCount => nodes.Count;
 
@@ -293,9 +296,41 @@ namespace Battlement.UI
                     ?? Array.Empty<MotionValueBinding>()
             )
             {
-                MotionValue value = Adapt(binding.Property, nodes[binding.ValueId.Value].Value);
+                MotionValue value =
+                    reducedMotion(registration.Descriptor)
+                    && BattlementMotionPropertyWriter.IsSpatial(binding.Property)
+                        ? ReducedValue(registration.Descriptor, binding.Property)
+                        : Adapt(binding.Property, nodes[binding.ValueId.Value].Value);
                 BattlementMotionPropertyWriter.Write(registration.Target, binding.Property, value);
             }
+        }
+
+        private static MotionValue ReducedValue(
+            MotionDescriptor descriptor,
+            MotionProperty property
+        )
+        {
+            foreach (MotionPropertyValue baseline in descriptor.StaticBaseline)
+                if (baseline.Property == property)
+                    return baseline.Value;
+            return property switch
+            {
+                MotionProperty.X or MotionProperty.Y or MotionProperty.Z => new MotionValue.Length(
+                    new MotionLength(0, 0)
+                ),
+                MotionProperty.Translate => new MotionValue.Vector2(new double[] { 0, 0 }),
+                MotionProperty.Scale => new MotionValue.Vector2(new double[] { 1, 1 }),
+                MotionProperty.ScaleX or MotionProperty.ScaleY => new MotionValue.Scalar(1),
+                MotionProperty.Rotate
+                or MotionProperty.RotateX
+                or MotionProperty.RotateY
+                or MotionProperty.SkewX
+                or MotionProperty.SkewY => new MotionValue.Angle(0),
+                MotionProperty.TransformList => new MotionValue.TransformList(
+                    Array.Empty<MotionTransform>()
+                ),
+                _ => throw Invalid("Reduced motion received a non-spatial binding."),
+            };
         }
 
         private void CaptureSubscriptions()

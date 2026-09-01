@@ -88,6 +88,22 @@ namespace Battlement.UI
                     or MotionProperty.Width
                     or MotionProperty.WordSpacing;
 
+        public static bool IsSpatial(MotionProperty property) =>
+            property
+                is MotionProperty.X
+                    or MotionProperty.Y
+                    or MotionProperty.Z
+                    or MotionProperty.Translate
+                    or MotionProperty.Rotate
+                    or MotionProperty.RotateX
+                    or MotionProperty.RotateY
+                    or MotionProperty.Scale
+                    or MotionProperty.ScaleX
+                    or MotionProperty.ScaleY
+                    or MotionProperty.SkewX
+                    or MotionProperty.SkewY
+                    or MotionProperty.TransformList;
+
         public static bool IsDiscrete(MotionProperty property) =>
             property
                 is MotionProperty.BackgroundImage

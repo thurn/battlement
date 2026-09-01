@@ -8,6 +8,7 @@ use std::{
 
 mod animation_validation;
 mod assets;
+mod composed_effects;
 mod context_memo;
 mod design_system;
 mod effects_stores;
@@ -94,11 +95,13 @@ pub enum Screen {
   GesturesDrag,
   /// Native layout projection, shared handoffs, and drag reorder.
   LayoutReorder,
+  /// Complex public Motion compositions and reduced-motion behavior.
+  ComposedEffects,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 16] = [
+  pub const ALL: [Self; 17] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -115,6 +118,7 @@ impl Screen {
     Self::ValuesTimeControls,
     Self::GesturesDrag,
     Self::LayoutReorder,
+    Self::ComposedEffects,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -136,6 +140,7 @@ impl Screen {
       Self::ValuesTimeControls => "values-time-controls",
       Self::GesturesDrag => "gestures-drag",
       Self::LayoutReorder => "layout-reorder",
+      Self::ComposedEffects => "composed-effects",
     }
   }
 }
@@ -186,6 +191,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     values_time_controls: game.values_time_controls.clone(),
     gestures_drag: game.gestures_drag.clone(),
     layout_reorder: game.layout_reorder.clone(),
+    composed_effects: game.composed_effects.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -219,6 +225,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       values_time_controls: values_time_controls::ValuesTimeControlsState::default(),
       gestures_drag: gestures_drag::GesturesDragState::default(),
       layout_reorder: layout_reorder::LayoutReorderState::default(),
+      composed_effects: composed_effects::ComposedEffectsState::default(),
       pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
@@ -289,7 +296,9 @@ impl Engine for ReactantEngine {
         .expect("sample Motion event dispatch should succeed"),
       _ => return Ok(Response::empty(self.session_id)),
     };
-    if self.game.presence_lifecycle.take_reconnect_request() {
+    if self.game.presence_lifecycle.take_reconnect_request()
+      || self.game.composed_effects.take_reconnect_request()
+    {
       let _ = commit.into_groups();
       return Ok(
         self
@@ -378,6 +387,7 @@ struct Game {
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
   layout_reorder: layout_reorder::LayoutReorderState,
+  composed_effects: composed_effects::ComposedEffectsState,
   pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
@@ -416,6 +426,7 @@ struct Shell {
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
   layout_reorder: layout_reorder::LayoutReorderState,
+  composed_effects: composed_effects::ComposedEffectsState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -590,6 +601,10 @@ impl Component for Shell {
         state: self.layout_reorder.clone(),
         compact: self.compact,
       }),
+      Screen::ComposedEffects => Node::new(composed_effects::ComposedEffects {
+        state: self.composed_effects.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -664,7 +679,8 @@ impl Component for Navigation {
               Screen::TargetsTimelines => Screen::ValuesTimeControls,
               Screen::ValuesTimeControls => Screen::GesturesDrag,
               Screen::GesturesDrag => Screen::LayoutReorder,
-              Screen::LayoutReorder => Screen::TargetsTimelines,
+              Screen::LayoutReorder => Screen::ComposedEffects,
+              Screen::ComposedEffects => Screen::TargetsTimelines,
               _ => Screen::TargetsTimelines,
             };
           }),
@@ -875,7 +891,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::LayoutReorder,
+    Screen::Composition => Screen::ComposedEffects,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -891,6 +907,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::ValuesTimeControls => Screen::PresenceLifecycle,
     Screen::GesturesDrag => Screen::ValuesTimeControls,
     Screen::LayoutReorder => Screen::GesturesDrag,
+    Screen::ComposedEffects => Screen::LayoutReorder,
   }
 }
 
@@ -911,7 +928,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::PresenceLifecycle => Screen::ValuesTimeControls,
     Screen::ValuesTimeControls => Screen::GesturesDrag,
     Screen::GesturesDrag => Screen::LayoutReorder,
-    Screen::LayoutReorder => Screen::Composition,
+    Screen::LayoutReorder => Screen::ComposedEffects,
+    Screen::ComposedEffects => Screen::Composition,
   }
 }
 
@@ -933,6 +951,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
     Screen::GesturesDrag => "15 GESTURES & DRAG",
     Screen::LayoutReorder => "16 LAYOUT & REORDER",
+    Screen::ComposedEffects => "17 COMPOSED EFFECTS",
   }
 }
 

@@ -133,7 +133,7 @@ namespace Battlement.UI
             target.RegisterCallback(focusOut);
         }
 
-        public void Sample(ulong clockMicros, bool layout)
+        public void Sample(ulong clockMicros, bool layout, bool reducedMotion)
         {
             currentMicros = clockMicros;
             SyncStaticBaseline();
@@ -153,7 +153,13 @@ namespace Battlement.UI
             foreach (TrackState track in tracks)
             {
                 if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) == layout)
-                    track.Sample(target, elapsed, MotionPlaybackDirection.Forward);
+                    track.Sample(
+                        target,
+                        elapsed,
+                        MotionPlaybackDirection.Forward,
+                        reducedMotion
+                            && BattlementMotionPropertyWriter.IsSpatial(track.Definition.Property)
+                    );
             }
         }
 
@@ -363,10 +369,10 @@ namespace Battlement.UI
             }
         }
 
-        public void Sample(ulong clockMicros, bool layout)
+        public void Sample(ulong clockMicros, bool layout, bool reducedMotion)
         {
             foreach (DecorationEntry entry in entries.Values)
-                entry.Sample(clockMicros, layout);
+                entry.Sample(clockMicros, layout, reducedMotion);
         }
 
         public void Dispose()
@@ -461,7 +467,7 @@ namespace Battlement.UI
 
             public VisualElement Element { get; }
 
-            public void Sample(ulong clockMicros, bool layout)
+            public void Sample(ulong clockMicros, bool layout, bool reducedMotion)
             {
                 foreach (SlotState slot in slots)
                 {
@@ -474,7 +480,7 @@ namespace Battlement.UI
                     IReadOnlyDictionary<MotionProperty, MotionValue>? lower = capture
                         ? slot.CaptureValues(Element, layout)
                         : null;
-                    slot.Sample(Element, clockMicros, layout);
+                    slot.Sample(Element, clockMicros, layout, reducedMotion);
                     if (lower is null)
                         continue;
                     if (noForwardsFill.Contains(animation.Slot) && slot.AllTracksDone)

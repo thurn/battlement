@@ -424,6 +424,20 @@ impl Transition {
       .map_or_else(|| self.default.clone(), |(_, value)| value.clone())
   }
 
+  pub(crate) fn merge_inherited(inherited: &Self, local: &Self) -> Self {
+    let mut merged = local.clone();
+    for (property, transition) in &inherited.properties {
+      if !merged
+        .properties
+        .iter()
+        .any(|(candidate, _)| candidate == property)
+      {
+        merged.properties.push((*property, transition.clone()));
+      }
+    }
+    merged
+  }
+
   fn new(default: TransitionDefinition, spring_authoring: SpringAuthoring) -> Self {
     Self {
       default,

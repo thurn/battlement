@@ -345,7 +345,7 @@ namespace Battlement.Tests
             target.style.opacity = 0.2f;
             using var world = new BattlementMotionWorld(registerPlayerLoop: false);
             world.Install(target, id, Descriptor(id, pseudo: true));
-            BattlementMotionWorld.PreparedAdmission prepared = world.Prepare(
+            BattlementPreparedMotionAdmission prepared = world.Prepare(
                 target,
                 id,
                 Descriptor(id, pseudo: true, generation: 2)

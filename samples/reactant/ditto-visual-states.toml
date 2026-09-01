@@ -185,6 +185,11 @@ key = "layout-reorder.interaction"
 screen = "layout-reorder"
 transient = true
 
+[[states]]
+key = "composed-effects.interaction"
+screen = "composed-effects"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

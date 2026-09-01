@@ -18,6 +18,7 @@ namespace Battlement.UI
         private readonly BattlementImperativePlaybacks imperativePlaybacks = new();
         private readonly Dictionary<Guid, ActiveControl> activeControls = new();
         private readonly HashSet<Guid> installingControls = new();
+        private readonly BattlementMotionReconnectState reconnect = new();
         private readonly List<MotionLifecycleEvent> events = new();
         private readonly List<(DescriptorState Descriptor, SlotState Slot)> pendingSamples = new();
         private readonly List<MotionGestureEvent> gestureEvents = new();
@@ -27,6 +28,7 @@ namespace Battlement.UI
         private readonly Func<ObjectId, MotionClockSample>? audioTime;
         private readonly Func<ObjectId, VisualElement?> resolveElement;
         private readonly Func<TimeSpan> gestureTime;
+        private readonly Func<bool> reducedMotion;
         private readonly BattlementMotionGraph graph;
         private readonly bool enablePlayerLoop;
         private readonly IBattlementUiAssetLookup? assets;
@@ -40,7 +42,8 @@ namespace Battlement.UI
             IBattlementUiAssetLookup? assetLookup = null,
             Func<ObjectId, MotionClockSample>? audioTime = null,
             Func<ObjectId, VisualElement?>? resolveElement = null,
-            Func<TimeSpan>? gestureTime = null
+            Func<TimeSpan>? gestureTime = null,
+            Func<bool>? reducedMotion = null
         )
         {
             this.unscaledTime = unscaledTime ?? (() => Time.unscaledTimeAsDouble);
@@ -49,9 +52,10 @@ namespace Battlement.UI
             this.resolveElement = resolveElement ?? (_ => null);
             this.gestureTime =
                 gestureTime ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
+            this.reducedMotion = reducedMotion ?? BattlementReducedMotion.Read;
             enablePlayerLoop = registerPlayerLoop;
             assets = assetLookup;
-            graph = new BattlementMotionGraph(ClockSample);
+            graph = new BattlementMotionGraph(ClockSample, IsReduced);
         }
 
         public int DescriptorCount => descriptors.Count;
@@ -65,7 +69,7 @@ namespace Battlement.UI
 
         public bool IsPlayerLoopRegistered { get; private set; }
 
-        public PreparedAdmission? Prepare(
+        public BattlementPreparedMotionAdmission? Prepare(
             VisualElement target,
             ObjectId hostId,
             Prop<MotionDescriptor> motion
@@ -75,12 +79,12 @@ namespace Battlement.UI
             if (motion.IsUnset)
                 return null;
             if (motion.IsReset)
-                return new PreparedAdmission(this, hostId.Value, null);
+                return new BattlementPreparedMotionAdmission(this, hostId.Value, null);
 
             MotionDescriptor descriptor = motion.Value;
             BattlementMotionPropertyWriter.Configure(target, assets);
             BattlementMotionValidator.Validate(descriptor, hostId);
-            ValidateCapabilities(descriptor);
+            BattlementMotionDescriptorValidator.ValidateCapabilities(descriptor);
             BattlementMotionGraph.ValidateDescriptor(descriptor);
             DescriptorState? previous = descriptors.TryGetValue(
                 descriptor.DescriptorId.Value,
@@ -89,7 +93,12 @@ namespace Battlement.UI
                 ? value
                 : null;
             if (previous is not null && descriptor.Generation <= previous.Descriptor.Generation)
-                throw Invalid("A motion descriptor update must advance its generation.");
+            {
+                bool sameReconnectGeneration =
+                    reconnect.Active && descriptor.Generation == previous.Descriptor.Generation;
+                if (!sameReconnectGeneration)
+                    throw Invalid("A motion descriptor update must advance its generation.");
+            }
             if (
                 descriptorByHost.TryGetValue(hostId.Value, out Guid existingId)
                 && existingId != descriptor.DescriptorId.Value
@@ -101,9 +110,10 @@ namespace Battlement.UI
                 target,
                 ClockMicros(descriptor.Clock),
                 previous,
-                sharedLayouts.Origin(descriptor, target, previous, descriptors.Values)
+                sharedLayouts.Origin(descriptor, target, previous, descriptors.Values),
+                reconnect.Active
             );
-            return new PreparedAdmission(this, hostId.Value, prepared);
+            return new BattlementPreparedMotionAdmission(this, hostId.Value, prepared);
         }
 
         public void Install(VisualElement target, ObjectId hostId, Prop<MotionDescriptor> motion) =>
@@ -140,6 +150,7 @@ namespace Battlement.UI
             imperativePlaybacks.Clear();
             activeControls.Clear();
             installingControls.Clear();
+            reconnect.Clear();
             graph.Clear();
             events.Clear();
             pendingSamples.Clear();
@@ -151,6 +162,29 @@ namespace Battlement.UI
                 IsPlayerLoopRegistered = false;
             }
         }
+
+        public void BeginReconnect()
+        {
+            ThrowIfDisposed();
+            reconnect.Begin(descriptors.Keys);
+        }
+
+        public void EndReconnect()
+        {
+            foreach (Guid descriptorId in reconnect.Complete())
+            {
+                if (!descriptors.Remove(descriptorId, out DescriptorState descriptor))
+                    continue;
+                descriptorByHost.Remove(descriptor.Descriptor.HostId.Value);
+                if (gestures.Remove(descriptorId, out BattlementGestureState gesture))
+                    gesture.Dispose();
+                descriptor.Dispose();
+                BattlementMotionPropertyWriter.Release(descriptor.Target);
+                graph.Remove(descriptor.Descriptor.DescriptorId);
+            }
+        }
+
+        public void AbortReconnect() => Clear();
 
         public void AdvanceControlledClock(ObjectId clockId, ulong deltaMicros)
         {
@@ -226,7 +260,10 @@ namespace Battlement.UI
                         MotionPlaybackOutcome.Cancelled
                     );
                     foreach (DescriptorState binding in ControlBindings(operation.ControlId))
-                        ApplyImmediately(binding, Resolve(binding, set.Value));
+                        BattlementMotionControlUtilities.ApplyImmediately(
+                            binding,
+                            BattlementMotionControlUtilities.Resolve(binding, set.Value)
+                        );
                     break;
                 case MotionControlCommand.Stop:
                     RemoveActiveControl(
@@ -273,7 +310,13 @@ namespace Battlement.UI
                     for (int index = 0; index < start.Steps.Count; index++)
                     {
                         MotionSequenceStep step = start.Steps[index];
-                        foreach (DescriptorState target in Select(root, step.Selector))
+                        foreach (
+                            DescriptorState target in BattlementMotionControlUtilities.Select(
+                                descriptors.Values,
+                                root,
+                                step.Selector
+                            )
+                        )
                         {
                             Guid id = target.Descriptor.DescriptorId.Value;
                             if (!selected.TryGetValue(id, out var group))
@@ -281,7 +324,15 @@ namespace Battlement.UI
                                 group = (target, new List<(MotionTargetDescriptor, ulong)>());
                                 selected.Add(id, group);
                             }
-                            group.Targets.Add((Delay(step.Target, step.StartMicros), (ulong)index));
+                            group.Targets.Add(
+                                (
+                                    BattlementMotionControlUtilities.Delay(
+                                        step.Target,
+                                        step.StartMicros
+                                    ),
+                                    (ulong)index
+                                )
+                            );
                         }
                     }
                     foreach (var group in selected.Values)
@@ -293,11 +344,23 @@ namespace Battlement.UI
                         FinishImperative(start.PlaybackId.Value, MotionPlaybackOutcome.Completed);
                     break;
                 case MotionScopeCommand.Set set:
-                    foreach (DescriptorState target in Select(root, set.Selector))
-                        ApplyImmediately(target, set.Target);
+                    foreach (
+                        DescriptorState target in BattlementMotionControlUtilities.Select(
+                            descriptors.Values,
+                            root,
+                            set.Selector
+                        )
+                    )
+                        BattlementMotionControlUtilities.ApplyImmediately(target, set.Target);
                     break;
                 case MotionScopeCommand.Stop stop:
-                    foreach (DescriptorState target in Select(root, stop.Value))
+                    foreach (
+                        DescriptorState target in BattlementMotionControlUtilities.Select(
+                            descriptors.Values,
+                            root,
+                            stop.Value
+                        )
+                    )
                         StopImperative(target);
                     break;
                 default:
@@ -561,7 +624,10 @@ namespace Battlement.UI
                 descriptor.CaptureLayoutTarget();
             Sample(layout: false);
             foreach (DescriptorState descriptor in descriptors.Values)
-                descriptor.SampleLayout(ClockMicros(descriptor.Descriptor.Clock));
+                descriptor.SampleLayout(
+                    ClockMicros(descriptor.Descriptor.Clock),
+                    IsReduced(descriptor.Descriptor)
+                );
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.CompleteSlots(this);
             CompleteImperativePlaybacks();
@@ -579,7 +645,7 @@ namespace Battlement.UI
             disposed = true;
         }
 
-        private void Commit(Guid hostId, DescriptorState? prepared)
+        internal void Commit(Guid hostId, DescriptorState? prepared)
         {
             if (prepared is null)
             {
@@ -593,7 +659,8 @@ namespace Battlement.UI
                 )
             )
             {
-                previous.CancelActiveSlots(this, ClockMicros(previous.Descriptor.Clock));
+                if (!reconnect.Active)
+                    previous.CancelActiveSlots(this, ClockMicros(previous.Descriptor.Clock));
                 if (
                     gestures.Remove(
                         prepared.Descriptor.DescriptorId.Value,
@@ -604,14 +671,19 @@ namespace Battlement.UI
                 previous.Dispose();
             }
             descriptors[prepared.Descriptor.DescriptorId.Value] = prepared;
+            reconnect.Restored(prepared.Descriptor.DescriptorId.Value);
             descriptorByHost[hostId] = prepared.Descriptor.DescriptorId.Value;
             graph.Replace(prepared.Descriptor, prepared.Target);
             EnsurePlayerLoop();
             foreach (MotionPropertyValue value in prepared.Descriptor.StaticBaseline)
                 BattlementMotionPropertyWriter.Write(prepared.Target, value.Property, value.Value);
             prepared.SynchronizeStaticStyles();
-            prepared.ApplyInitialPresentation();
-            prepared.EmitActivated(this);
+            if (reconnect.Active)
+                prepared.ApplyReconnectPresentation();
+            else
+                prepared.ApplyInitialPresentation(IsReduced(prepared.Descriptor));
+            if (!reconnect.Active)
+                prepared.EmitActivated(this);
             if (prepared.Descriptor.Gestures is not null)
             {
                 Guid descriptorId = prepared.Descriptor.DescriptorId.Value;
@@ -620,6 +692,7 @@ namespace Battlement.UI
                     prepared.Target,
                     resolveElement,
                     gestureTime,
+                    () => IsReduced(prepared.Descriptor),
                     (layer, value) =>
                         prepared.SetGestureLayer(
                             layer,
@@ -677,7 +750,7 @@ namespace Battlement.UI
         ) =>
             InstallImperative(
                 descriptor,
-                Resolve(descriptor, active.Start.Target),
+                BattlementMotionControlUtilities.Resolve(descriptor, active.Start.Target),
                 active.Start.Generation,
                 0
             );
@@ -730,8 +803,22 @@ namespace Battlement.UI
         {
             ThrowIfDisposed();
             foreach (DescriptorState descriptor in descriptors.Values)
-                descriptor.Sample(ClockMicros(descriptor.Descriptor.Clock), layout, this);
+                descriptor.Sample(
+                    ClockMicros(descriptor.Descriptor.Clock),
+                    layout,
+                    IsReduced(descriptor.Descriptor),
+                    this
+                );
         }
+
+        private bool IsReduced(MotionDescriptor descriptor) =>
+            descriptor.ReducedMotion switch
+            {
+                ReducedMotionPolicy.Always => true,
+                ReducedMotionPolicy.Never => false,
+                ReducedMotionPolicy.User => reducedMotion(),
+                _ => throw Invalid("Unknown reduced-motion policy."),
+            };
 
         private ulong ClockMicros(MotionClockSource source) => ClockSample(source).ElapsedMicros;
 
@@ -739,11 +826,11 @@ namespace Battlement.UI
             source switch
             {
                 MotionClockSource.Unscaled => new MotionClockSample(
-                    SecondsToMicros(unscaledTime()),
+                    BattlementMotionClock.ToMicros(unscaledTime()),
                     false
                 ),
                 MotionClockSource.Scaled => new MotionClockSample(
-                    SecondsToMicros(scaledTime()),
+                    BattlementMotionClock.ToMicros(scaledTime()),
                     false
                 ),
                 MotionClockSource.Controlled value => controlledClocks.TryGetValue(
@@ -885,86 +972,6 @@ namespace Battlement.UI
             );
         }
 
-        private static void ApplyImmediately(
-            DescriptorState descriptor,
-            MotionTargetDescriptor target
-        )
-        {
-            foreach (MotionPropertyTrack track in target.Tracks)
-                if (track.Values.Count != 0)
-                    BattlementMotionPropertyWriter.Write(
-                        descriptor.Target,
-                        track.Property,
-                        track.Values[^1]
-                    );
-            foreach (MotionPropertyValue value in target.TransitionEnd)
-                BattlementMotionPropertyWriter.Write(
-                    descriptor.Target,
-                    value.Property,
-                    value.Value
-                );
-        }
-
-        private static MotionTargetDescriptor Resolve(
-            DescriptorState descriptor,
-            MotionControlTarget target
-        ) =>
-            target switch
-            {
-                MotionControlTarget.Target value => value.Value,
-                MotionControlTarget.Variant value => (
-                    descriptor.Descriptor.NamedTargets ?? Array.Empty<MotionNamedTarget>()
-                )
-                    .FirstOrDefault(candidate => candidate.Name == value.Value)
-                    ?.Target
-                    ?? throw Invalid($"Controlled variant '{value.Value}' is unavailable."),
-                _ => throw Invalid("Unknown animation-controls target."),
-            };
-
-        private IEnumerable<DescriptorState> Select(DescriptorState root, MotionSelector selector)
-        {
-            DescriptorState[] snapshot = descriptors.Values.ToArray();
-            return selector switch
-            {
-                MotionSelector.Element value => snapshot.Where(candidate =>
-                    candidate.Descriptor.HostId == value.Value
-                ),
-                MotionSelector.Name value => snapshot.Where(candidate =>
-                    root.Target.Contains(candidate.Target)
-                    && candidate.Descriptor.MotionName == value.Value
-                ),
-                MotionSelector.ScopeRoot => new[] { root },
-                MotionSelector.Children => snapshot.Where(candidate =>
-                    ReferenceEquals(candidate.Target.parent, root.Target)
-                ),
-                MotionSelector.Descendants => snapshot.Where(candidate =>
-                    !ReferenceEquals(candidate, root) && root.Target.Contains(candidate.Target)
-                ),
-                _ => throw Invalid("Unknown animation-scope selector."),
-            };
-        }
-
-        private static MotionTargetDescriptor Delay(
-            MotionTargetDescriptor target,
-            ulong delayMicros
-        ) =>
-            new(
-                target
-                    .Tracks.Select(track =>
-                        track with
-                        {
-                            Transition = track.Transition with
-                            {
-                                DelayMicros = checked(
-                                    track.Transition.DelayMicros + (long)delayMicros
-                                ),
-                            },
-                        }
-                    )
-                    .ToArray(),
-                target.TransitionEnd
-            );
-
         private void Apply(MotionPlaybackAddress address, MotionPlaybackCommand command) =>
             Apply(
                 new MotionPlaybackOperation(
@@ -974,57 +981,6 @@ namespace Battlement.UI
                     command
                 )
             );
-
-        private static void ValidateCapabilities(MotionDescriptor descriptor)
-        {
-            ValidateTarget(descriptor.Initial);
-            foreach (MotionSlotDescriptor slot in descriptor.Slots)
-                ValidateTarget(slot.Target);
-            foreach (MotionPropertyValue value in descriptor.StaticBaseline)
-                RequireWriter(value.Property);
-            foreach (
-                MotionPseudoStyle style in descriptor.PseudoStyles
-                    ?? Array.Empty<MotionPseudoStyle>()
-            )
-            foreach (MotionPropertyValue value in style.Values)
-                RequireWriter(value.Property);
-            foreach (
-                CssAnimationDescriptor animation in descriptor.Animations
-                    ?? Array.Empty<CssAnimationDescriptor>()
-            )
-            foreach (CssPropertyTrack track in animation.Tracks)
-                RequireWriter(track.Property);
-            foreach (
-                MotionDecorationDescriptor decoration in descriptor.Decorations
-                    ?? Array.Empty<MotionDecorationDescriptor>()
-            )
-            foreach (CssAnimationDescriptor animation in decoration.Animations)
-            foreach (CssPropertyTrack track in animation.Tracks)
-                RequireWriter(track.Property);
-        }
-
-        private static void ValidateTarget(MotionTargetDescriptor? target)
-        {
-            if (target is null)
-                return;
-            foreach (MotionPropertyTrack track in target.Tracks)
-                RequireWriter(track.Property);
-            foreach (MotionPropertyValue value in target.TransitionEnd)
-                RequireWriter(value.Property);
-        }
-
-        private static void RequireWriter(MotionProperty property)
-        {
-            if (!BattlementMotionPropertyWriter.Supports(property))
-                throw Invalid($"Motion property {property} has no renderer capability.");
-        }
-
-        private static ulong SecondsToMicros(double seconds)
-        {
-            if (!double.IsFinite(seconds) || seconds < 0)
-                throw Invalid("A motion clock returned invalid time.");
-            return checked((ulong)Math.Round(seconds * 1_000_000d));
-        }
 
         private void ThrowIfDisposed()
         {
@@ -1039,27 +995,5 @@ namespace Battlement.UI
             MotionControlCommand.Start Start,
             List<MotionPlaybackAddress> Addresses
         );
-
-        internal sealed class PreparedAdmission
-        {
-            private readonly BattlementMotionWorld world;
-            private readonly Guid hostId;
-            private readonly DescriptorState? prepared;
-            private bool committed;
-
-            public PreparedAdmission(
-                BattlementMotionWorld world,
-                Guid hostId,
-                DescriptorState? prepared
-            ) => (this.world, this.hostId, this.prepared) = (world, hostId, prepared);
-
-            public void Commit()
-            {
-                if (committed)
-                    throw new InvalidOperationException("Motion admission was already committed.");
-                world.Commit(hostId, prepared);
-                committed = true;
-            }
-        }
     }
 }

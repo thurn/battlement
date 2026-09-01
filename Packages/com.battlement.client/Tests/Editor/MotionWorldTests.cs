@@ -38,6 +38,120 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void UserReducedMotionRespondsLiveAndKeepsNonSpatialTiming()
+        {
+            ObjectId clock = Id("65c0d0a2-ad0a-46df-b934-54a03f560257");
+            ObjectId host = Id("259ace0f-8fd7-49e1-b401-41aec827926a");
+            bool reduced = false;
+            var target = new VisualElement();
+            using var world = new BattlementMotionWorld(
+                registerPlayerLoop: false,
+                reducedMotion: () => reduced
+            );
+            world.Install(target, host, ReducedDescriptor(host, clock));
+
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(50).Within(0.001));
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.001));
+
+            reduced = true;
+            world.PostLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(100).Within(0.001));
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.001));
+
+            reduced = false;
+            world.SetControlledClock(clock, 750_000);
+            world.PostLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(75).Within(0.001));
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.75f).Within(0.001));
+        }
+
+        [Test]
+        public void ReducedMotionSuppressesSpatialGraphBindingsWithoutStoppingTheirValues()
+        {
+            ObjectId host = Id("af32cb17-bf35-419f-b5f0-ec014a833231");
+            ObjectId value = Id("8768ea9c-ee59-410b-86cf-458077c1b7ee");
+            bool reduced = false;
+            var target = new VisualElement();
+            using var world = new BattlementMotionWorld(
+                registerPlayerLoop: false,
+                reducedMotion: () => reduced
+            );
+            world.Install(
+                target,
+                host,
+                GraphDescriptor(
+                    host,
+                    new[]
+                    {
+                        new MotionValueDescriptor(
+                            value,
+                            new MotionValue.Scalar(72),
+                            new MotionValueSource.Mutable()
+                        ),
+                    },
+                    new[] { new MotionValueBinding(MotionProperty.X, value) }
+                ) with
+                {
+                    ReducedMotion = ReducedMotionPolicy.User,
+                }
+            );
+
+            world.PreLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(72).Within(0.001));
+            reduced = true;
+            world.PreLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.Zero.Within(0.001));
+            reduced = false;
+            world.PreLayout();
+            Assert.That(ReadPixels(target, MotionProperty.X), Is.EqualTo(72).Within(0.001));
+        }
+
+        [Test]
+        public void ReconnectRestoresPhaseWithoutCancellationAndCleansMissingHosts()
+        {
+            ObjectId clock = Id("f34010c9-77dc-4da8-a7a8-a33a01289c5b");
+            ObjectId host = Id("a5bda971-69dc-4fa1-b6a0-827ca36bd230");
+            ObjectId staleHost = Id("d373cb08-e946-45cc-900a-89a030a02a2a");
+            MotionDescriptor descriptor = Descriptor(host, host, clock, 1, 1, 1);
+            var original = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(original, host, descriptor);
+            world.Install(
+                new VisualElement(),
+                staleHost,
+                Descriptor(staleHost, staleHost, clock, 1, 1, 1)
+            );
+            world.SetControlledClock(clock, 400_000);
+            world.PostLayout();
+            world.DrainEventBatch();
+            float presentation = original.style.opacity.value;
+
+            var replacement = new VisualElement();
+            world.BeginReconnect();
+            world.Install(replacement, host, descriptor);
+            world.EndReconnect();
+
+            Assert.That(world.DescriptorCount, Is.EqualTo(1));
+            Assert.That(replacement.style.opacity.value, Is.EqualTo(presentation).Within(0.001));
+            MotionEventBatch? reconnectEvents = world.DrainEventBatch();
+            Assert.That(
+                reconnectEvents?.Events.Any(value => value.Kind is MotionEventKind.Cancelled),
+                Is.Not.True
+            );
+
+            world.SetControlledClock(clock, 1_000_000);
+            world.PostLayout();
+            Assert.That(replacement.style.opacity.value, Is.EqualTo(1).Within(0.001));
+            MotionEventBatch completed = world.DrainEventBatch()!;
+            Assert.That(
+                completed.Events.Count(value => value.Kind is MotionEventKind.Completed),
+                Is.EqualTo(1)
+            );
+        }
+
+        [Test]
         public void KeyframeBoundaryStructuredDiscreteAndTransitionEndSampleTogether()
         {
             ObjectId clock = Id("d0961886-84a6-49cb-af9e-ea4e49dc6f26");
@@ -144,7 +258,11 @@ namespace Battlement.Tests
 
                 documents.Replace(new[] { description }, id => id == document ? owned : null);
                 Assert.DoesNotThrow(() =>
-                    documents.Replace(new[] { description }, id => id == document ? owned : null)
+                    documents.Replace(
+                        new[] { description },
+                        id => id == document ? owned : null,
+                        preserveMotion: true
+                    )
                 );
                 Assert.That(documents.TryGet(host, out VisualElement? restored), Is.True);
                 Assert.That(restored, Is.Not.Null);
@@ -653,6 +771,74 @@ namespace Battlement.Tests
                 ReducedMotionPolicy.Never,
                 null
             );
+
+        private static MotionDescriptor ReducedDescriptor(ObjectId host, ObjectId clock) =>
+            new(
+                host,
+                host,
+                1,
+                new[]
+                {
+                    new MotionPropertyValue(
+                        MotionProperty.X,
+                        new MotionValue.Length(new MotionLength(0, 0))
+                    ),
+                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0)),
+                },
+                false,
+                new[]
+                {
+                    new MotionSlotDescriptor(
+                        1,
+                        1,
+                        MotionLayer.Animate,
+                        new MotionTargetDescriptor(
+                            new[]
+                            {
+                                new MotionPropertyTrack(
+                                    MotionProperty.X,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Length(new MotionLength(100, 0)),
+                                    },
+                                    LinearTween()
+                                ),
+                                new MotionPropertyTrack(
+                                    MotionProperty.Opacity,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Scalar(0),
+                                        new MotionValue.Scalar(1),
+                                    },
+                                    LinearTween()
+                                ),
+                            },
+                            Array.Empty<MotionPropertyValue>()
+                        ),
+                        new MotionCallbackSubscriptions(false, false, false, false, false, false)
+                    ),
+                },
+                new MotionClockSource.Controlled(clock),
+                ReducedMotionPolicy.User
+            );
+
+        private static TransitionDefinition LinearTween() =>
+            new(
+                new TransitionGenerator.Tween(
+                    1_000_000,
+                    new MotionEasing[] { new MotionEasing.Linear() },
+                    null
+                ),
+                0,
+                new MotionRepeat.None(),
+                0,
+                MotionRepeatType.Loop
+            );
+
+        private static float ReadPixels(VisualElement target, MotionProperty property) =>
+            BattlementMotionPropertyWriter.Read(target, property) is MotionValue.Length value
+                ? (float)value.Value.Px
+                : 0;
 
         private static MotionDescriptor CompoundDescriptor(
             ObjectId host,

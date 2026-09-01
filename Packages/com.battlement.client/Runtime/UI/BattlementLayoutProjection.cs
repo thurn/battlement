@@ -64,10 +64,16 @@ namespace Battlement.UI
                 completed = true;
         }
 
-        public void Sample(ulong clockMicros)
+        public void Sample(ulong clockMicros, bool reducedMotion = false)
         {
             if (!captured || completed)
                 return;
+            if (reducedMotion)
+            {
+                Apply(Vector2.zero, Vector2.one);
+                completed = true;
+                return;
+            }
             MotionScalarSample progress = BattlementMotionScalarSampler.Sample(
                 0,
                 1,

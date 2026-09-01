@@ -1301,7 +1301,7 @@ namespace Battlement
                 geometryFrames.Reset();
                 particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
-                snapshotReplacement!.Begin(responseSession, snapshot);
+                snapshotReplacement!.Begin(responseSession, snapshot, session.IsReconnecting);
                 AdvanceSnapshotPreparation(configured);
             }
             catch (BattlementSnapshotReplacementException exception)

@@ -147,6 +147,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Events & Portals",
       "Gestures & Drag",
       "Layout & Reorder",
+      "Composed Effects",
       "Presence & Lifecycle",
       "Refs & Geometry",
       "Resources & Boundaries",

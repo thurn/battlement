@@ -15,13 +15,15 @@ namespace Battlement.UI
         private readonly BattlementPseudoStyleState? pseudoStyles;
         private readonly BattlementDecorationState? decorations;
         private readonly BattlementLayoutProjection? layoutProjection;
+        private readonly IReadOnlyDictionary<MotionProperty, MotionValue>? reconnectPresentation;
 
         public DescriptorState(
             MotionDescriptor descriptor,
             VisualElement target,
             ulong clockMicros,
             DescriptorState? previous,
-            BattlementLayoutOrigin? layoutOrigin = null
+            BattlementLayoutOrigin? layoutOrigin = null,
+            bool reconnecting = false
         )
         {
             Descriptor = descriptor;
@@ -33,9 +35,13 @@ namespace Battlement.UI
             {
                 MotionSlotDescriptor slot = descriptor.Slots[index];
                 SlotState? oldSlot = previous?.FindSlot(slot.Slot);
-                if (oldSlot is not null && slot.Generation <= oldSlot.Definition.Generation)
+                if (
+                    oldSlot is not null
+                    && slot.Generation <= oldSlot.Definition.Generation
+                    && !(reconnecting && slot.Generation == oldSlot.Definition.Generation)
+                )
                     throw Invalid("A motion slot update must advance its generation.");
-                slots[index] = new SlotState(
+                var state = new SlotState(
                     slot,
                     descriptor.Clock,
                     target,
@@ -43,6 +49,13 @@ namespace Battlement.UI
                     previous is null ? InitialOrigins(descriptor) : null,
                     previous
                 );
+                if (
+                    reconnecting
+                    && oldSlot is not null
+                    && slot.Generation == oldSlot.Definition.Generation
+                )
+                    state.AdoptPlayback(oldSlot, clockMicros, oldSlot.Paused);
+                slots[index] = state;
             }
             for (int cssIndex = 0; cssIndex < cssAnimations.Count; cssIndex++)
             {
@@ -142,6 +155,8 @@ namespace Battlement.UI
                         ),
                     clockMicros
                 );
+            if (reconnecting && previous is not null)
+                reconnectPresentation = CapturePresentation(previous);
         }
 
         public MotionDescriptor Descriptor { get; }
@@ -182,18 +197,27 @@ namespace Battlement.UI
             return 0;
         }
 
-        public void ApplyInitialPresentation()
+        public void ApplyInitialPresentation(bool reducedMotion)
         {
             foreach (SlotState slot in slots)
                 if (slot.Active && !noBackwardsFill.Contains(slot.Definition.Slot))
-                    slot.ApplyOrigin(Target);
+                    slot.ApplyInitialOrigin(Target, reducedMotion);
+        }
+
+        public void ApplyReconnectPresentation()
+        {
+            if (reconnectPresentation is null)
+                return;
+            foreach ((MotionProperty property, MotionValue value) in reconnectPresentation)
+                BattlementMotionPropertyWriter.Write(Target, property, value);
         }
 
         public void SynchronizeStaticStyles() => pseudoStyles?.SynchronizeStaticStyles();
 
         public void CaptureLayoutTarget() => layoutProjection?.CaptureDestination();
 
-        public void SampleLayout(ulong clockMicros) => layoutProjection?.Sample(clockMicros);
+        public void SampleLayout(ulong clockMicros, bool reducedMotion) =>
+            layoutProjection?.Sample(clockMicros, reducedMotion);
 
         public void EmitActivated(BattlementMotionWorld world)
         {
@@ -201,12 +225,17 @@ namespace Battlement.UI
                 world.Emit(this, slot, new MotionEventKind.Activated(), slot.HeldMicros);
         }
 
-        public void Sample(ulong clockMicros, bool layout, BattlementMotionWorld world)
+        public void Sample(
+            ulong clockMicros,
+            bool layout,
+            bool reducedMotion,
+            BattlementMotionWorld world
+        )
         {
-            pseudoStyles?.Sample(clockMicros, layout);
+            pseudoStyles?.Sample(clockMicros, layout, reducedMotion);
             foreach (SlotState slot in slots)
                 if (slot.Active && slot.Cancelled)
-                    slot.ApplyOrigin(Target, layout);
+                    slot.ApplyOrigin(Target, reducedMotion);
             foreach (SlotState slot in slots)
             {
                 if (!slot.Active)
@@ -229,7 +258,7 @@ namespace Battlement.UI
                     )
                         ? slot.CaptureValues(Target, layout)
                         : null;
-                slot.Sample(Target, clockMicros, layout);
+                slot.Sample(Target, clockMicros, layout, reducedMotion);
                 if (lower is null)
                     continue;
                 if (noForwardsFill.Contains(slot.Definition.Slot) && slot.AllTracksDone)
@@ -237,7 +266,7 @@ namespace Battlement.UI
                 else if (animation.Composition != AnimationComposition.Replace)
                     slot.Compose(Target, lower, animation.Composition, layout);
             }
-            decorations?.Sample(clockMicros, layout);
+            decorations?.Sample(clockMicros, layout, reducedMotion);
             if (layout)
                 return;
             foreach (SlotState slot in slots)
@@ -282,6 +311,23 @@ namespace Battlement.UI
             layoutProjection?.Release();
             pseudoStyles?.Dispose();
             decorations?.Dispose();
+        }
+
+        private IReadOnlyDictionary<MotionProperty, MotionValue> CapturePresentation(
+            DescriptorState previous
+        )
+        {
+            var properties = new HashSet<MotionProperty>();
+            foreach (SlotState slot in slots)
+            foreach (MotionPropertyTrack track in slot.Definition.Target.Tracks)
+                properties.Add(track.Property);
+            var presentation = new Dictionary<MotionProperty, MotionValue>();
+            foreach (MotionProperty property in properties)
+                presentation[property] = BattlementMotionPropertyWriter.Read(
+                    previous.Target,
+                    property
+                );
+            return presentation;
         }
 
         public void Stop(SlotState slot, BattlementMotionWorld world, ulong elapsedMicros)
@@ -493,6 +539,18 @@ namespace Battlement.UI
                 track.ApplyOrigin(target);
         }
 
+        public void ApplyInitialOrigin(VisualElement target, bool reducedMotion)
+        {
+            foreach (TrackState track in tracks)
+                if (
+                    reducedMotion
+                    && BattlementMotionPropertyWriter.IsSpatial(track.Definition.Property)
+                )
+                    track.ApplyTerminal(target);
+                else
+                    track.ApplyOrigin(target);
+        }
+
         public void ApplyOrigin(VisualElement target, bool layout)
         {
             foreach (TrackState track in tracks)
@@ -508,7 +566,7 @@ namespace Battlement.UI
                 track.ApplyTerminal(target);
         }
 
-        public void Sample(VisualElement target, ulong clockMicros, bool layout)
+        public void Sample(VisualElement target, ulong clockMicros, bool layout, bool reducedMotion)
         {
             if (Cancelled || (Terminal && !Paused))
                 return;
@@ -517,7 +575,13 @@ namespace Battlement.UI
             {
                 if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) != layout)
                     continue;
-                track.Sample(target, LastElapsedMicros, Direction);
+                track.Sample(
+                    target,
+                    LastElapsedMicros,
+                    Direction,
+                    reducedMotion
+                        && BattlementMotionPropertyWriter.IsSpatial(track.Definition.Property)
+                );
             }
         }
 
@@ -584,6 +648,8 @@ namespace Battlement.UI
             uint iteration = 0;
             foreach (TrackState track in tracks)
             {
+                if (track.Suppressed)
+                    continue;
                 earliestDelay = Math.Min(earliestDelay, track.Definition.Transition.DelayMicros);
                 iteration = Math.Max(iteration, track.Iteration);
             }
@@ -682,6 +748,8 @@ namespace Battlement.UI
 
         public uint Iteration { get; private set; }
 
+        public bool Suppressed { get; private set; }
+
         public MotionValue Origin => origin;
 
         public MotionValue End => EndValue();
@@ -698,6 +766,7 @@ namespace Battlement.UI
             Velocity = incomingVelocity;
             Done = false;
             Iteration = 0;
+            Suppressed = false;
         }
 
         public void Retarget(VisualElement target)
@@ -722,9 +791,11 @@ namespace Battlement.UI
         public void Sample(
             VisualElement target,
             ulong elapsedMicros,
-            MotionPlaybackDirection direction
+            MotionPlaybackDirection direction,
+            bool suppressed
         )
         {
+            Suppressed = suppressed;
             bool reverse =
                 direction
                 is MotionPlaybackDirection.Reverse
@@ -754,6 +825,8 @@ namespace Battlement.UI
                 Velocity = scalar.Velocity;
                 Done = scalar.Done;
                 Iteration = scalar.Iteration;
+                if (suppressed)
+                    Suppress(target);
                 return;
             }
             bool reverseSequence =
@@ -776,6 +849,16 @@ namespace Battlement.UI
             Velocity = sample.Velocity;
             Done = sample.Done;
             Iteration = sample.Iteration;
+            if (suppressed)
+                Suppress(target);
+        }
+
+        private void Suppress(VisualElement target)
+        {
+            ApplyTerminal(target);
+            Velocity = 0;
+            if (Definition.Transition.Repeat is not MotionRepeat.Forever)
+                Done = true;
         }
 
         private MotionValue EndValue() =>

@@ -717,7 +717,7 @@ impl ControlledMotionClock {
 }
 
 impl MotionTimeSource {
-  fn into_clock(self) -> MotionClockSource {
+  pub(crate) fn into_clock(self) -> MotionClockSource {
     match self {
       Self::Unscaled => MotionClockSource::Unscaled,
       Self::Scaled => MotionClockSource::Scaled,

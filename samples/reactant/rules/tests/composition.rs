@@ -836,6 +836,71 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
   );
 }
 
+#[test]
+fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect_with(
+    engine,
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(360, 800)),
+  );
+  let next = find_named(&client.ui(), ROOT_ID, "next-navigation");
+  for _ in 0..16 {
+    client.ui().click(next);
+  }
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "composed-effects-canvas");
+  let option = find_named(&client.ui(), canvas, "composed-option-0");
+  let finite = motion_descriptor(&client.ui(), option);
+  assert_eq!(finite.reduced_motion, battlement::ReducedMotionPolicy::User);
+  let x = finite.slots[0]
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == battlement::MotionProperty::X)
+    .expect("staggered option should animate x");
+  assert!(matches!(
+    x.transition.generator,
+    battlement::TransitionGenerator::Tween {
+      duration_micros: 180_000,
+      ..
+    }
+  ));
+
+  let grid = find_named(&client.ui(), canvas, "composed-grid");
+  let ambient = motion_descriptor(&client.ui(), grid);
+  assert!(matches!(
+    ambient.animations[0].tracks[0].transition.repeat,
+    battlement::MotionRepeat::Forever
+  ));
+  let host_id = ambient.host_id;
+
+  let reduced = find_named(&client.ui(), canvas, "composed-reduced");
+  client.ui().click(reduced);
+  let grid = find_named(&client.ui(), ROOT_ID, "composed-grid");
+  let reduced_descriptor = motion_descriptor(&client.ui(), grid);
+  assert_eq!(
+    reduced_descriptor.reduced_motion,
+    battlement::ReducedMotionPolicy::Always
+  );
+  let generation = reduced_descriptor.generation;
+
+  let reconnect = find_named(&client.ui(), ROOT_ID, "composed-reconnect");
+  client.ui().click(reconnect);
+  let restored_grid = find_named(&client.ui(), ROOT_ID, "composed-grid");
+  let restored = motion_descriptor(&client.ui(), restored_grid);
+  assert_eq!(restored.generation, generation);
+  assert_eq!(restored.host_id, host_id);
+  let restored_status = find_named(&client.ui(), ROOT_ID, "composed-status");
+  assert!(
+    client
+      .ui()
+      .element(restored_status)
+      .text()
+      .is_some_and(|text| text.contains("RECONNECTS 1"))
+  );
+}
+
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);

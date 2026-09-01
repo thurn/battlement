@@ -14,6 +14,7 @@ namespace Battlement.UI
         private readonly VisualElement target;
         private readonly Func<ObjectId, VisualElement?> resolve;
         private readonly Func<TimeSpan> now;
+        private readonly Func<bool> reducedMotion;
         private readonly Action<MotionLayer, bool> setLayer;
         private readonly Action<ObjectId, MotionValue> setValue;
         private readonly Action<MotionGestureEvent, bool> emit;
@@ -53,6 +54,7 @@ namespace Battlement.UI
             VisualElement target,
             Func<ObjectId, VisualElement?> resolve,
             Func<TimeSpan> now,
+            Func<bool> reducedMotion,
             Action<MotionLayer, bool> setLayer,
             Action<ObjectId, MotionValue> setValue,
             Action<MotionGestureEvent, bool> emit
@@ -63,6 +65,7 @@ namespace Battlement.UI
             this.target = target;
             this.resolve = resolve;
             this.now = now;
+            this.reducedMotion = reducedMotion;
             this.setLayer = setLayer;
             this.setValue = setValue;
             this.emit = emit;
@@ -107,7 +110,14 @@ namespace Battlement.UI
                 Cancel();
             if (gestures.Drag?.Constraints is MotionDragConstraint.Element)
                 ResolveBounds();
-            if (momentum)
+            if (momentum && reducedMotion())
+            {
+                momentum = false;
+                velocity = Vector2.zero;
+                SnapToOrigin();
+                setLayer(MotionLayer.Drag, false);
+            }
+            else if (momentum)
                 SampleMomentum();
             ApplyPresentation();
             SampleScroll();
@@ -332,7 +342,7 @@ namespace Battlement.UI
             bool continueMomentum =
                 drag is not null
                 && drag.Momentum
-                && descriptor.ReducedMotion != ReducedMotionPolicy.Always
+                && !reducedMotion()
                 && velocity.magnitude >= drag.Transition.RestSpeed;
             if (dragStarted && continueMomentum)
                 momentumGeneration++;
@@ -379,10 +389,11 @@ namespace Battlement.UI
                 setValue(xValue, new MotionValue.Scalar(offset.x));
             if (gestures.Drag?.YValue is ObjectId yValue)
                 setValue(yValue, new MotionValue.Scalar(offset.y));
+            bool reduced = reducedMotion();
             BattlementMotionPropertyWriter.WriteTranslation(
                 target,
-                baseTranslation.x + offset.x,
-                baseTranslation.y + offset.y
+                baseTranslation.x + (reduced ? 0 : offset.x),
+                baseTranslation.y + (reduced ? 0 : offset.y)
             );
         }
 

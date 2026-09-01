@@ -3,9 +3,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
-  MotionCallbackSubscriptions, MotionClockSource, MotionDescriptor, MotionGeneration, MotionLayer,
-  MotionRepeat, MotionSlotDescriptor, MotionSlotId, MotionVariantResolution, ObjectId,
-  ReducedMotionPolicy, StaggerDirection, VariantWhen,
+  MotionCallbackSubscriptions, MotionDescriptor, MotionGeneration, MotionLayer, MotionRepeat,
+  MotionSlotDescriptor, MotionSlotId, MotionVariantResolution, ObjectId, StaggerDirection,
+  VariantWhen,
 };
 
 use crate::{
@@ -216,7 +216,13 @@ impl MotionProps {
     resolved: &ResolvedVariants,
     previous: Option<&MotionDescriptor>,
   ) -> MotionDescriptor {
-    let transition = self.transition.as_ref();
+    let config = crate::motion_config::current();
+    let transition = match (&config.transition, &self.transition) {
+      (Some(inherited), Some(local)) => Some(Transition::merge_inherited(inherited, local)),
+      (Some(inherited), None) => Some(inherited.clone()),
+      (None, Some(local)) => Some(local.clone()),
+      (None, None) => None,
+    };
     let (initial, initial_disabled) = if let Some(value) = &resolved.initial_target {
       (
         Some(value.descriptor(Some(&Transition::immediate()), 0)),
@@ -258,12 +264,12 @@ impl MotionProps {
           slot: MotionSlotId(1),
           generation,
           layer: MotionLayer::Animate,
-          target: target.descriptor(transition, delay_micros),
+          target: target.descriptor(transition.as_ref(), delay_micros),
           callbacks: self.callbacks(resolved).subscriptions(),
         })
         .collect()
     };
-    slots.extend(self.gesture_slots(generation, transition));
+    slots.extend(self.gesture_slots(generation, transition.as_ref()));
     let mut values = target.map_or_else(Vec::new, MotionTarget::graph_values);
     for value in self.gesture_graph_values() {
       if !values
@@ -290,8 +296,8 @@ impl MotionProps {
       initial,
       initial_disabled,
       slots,
-      clock: MotionClockSource::Unscaled,
-      reduced_motion: ReducedMotionPolicy::Never,
+      clock: config.clock,
+      reduced_motion: config.reduced_motion,
       pseudo_styles: self.css.pseudo_descriptors(),
       style_transition: self.css.transition_descriptor(),
       animations: self.css.animation_descriptors(generation),
@@ -317,7 +323,7 @@ impl MotionProps {
       named_targets: self.control_id.map_or_else(Vec::new, |_| {
         self
           .variants
-          .named_targets(self.variant_data.as_ref(), transition)
+          .named_targets(self.variant_data.as_ref(), transition.as_ref())
       }),
       gestures: self.gesture_descriptor(),
       layout: self.layout_descriptor(),

@@ -109,64 +109,81 @@ namespace Battlement.UI
         /// <summary>Replaces tracked hierarchies from an authoritative snapshot.</summary>
         public void Replace(
             IReadOnlyList<UiDocument>? descriptions,
-            Func<ObjectId, GameObject?> resolveGameObject
+            Func<ObjectId, GameObject?> resolveGameObject,
+            bool preserveMotion = false
         )
         {
-            eventObserver.Clear();
-            lifecycleEvents.Clear();
-            motionWorld.Clear();
-            elements.Clear();
-            elementIds.Clear();
-            properties.Clear();
-            scrollControls.Clear();
-            tabControls.Clear();
-            textFieldControls.Clear();
-            booleanControls.Clear();
-            choiceControls.Clear();
-            dropdownControls.Clear();
-            sliderControls.Clear();
-            rangeControls.Clear();
-            partProperties.Clear();
-            documentRoots.Clear();
-            rootDocuments.Clear();
-            parentIds.Clear();
-            logicalChildren.Clear();
-            rootIds.Clear();
-            repeatControls.Clear();
-            foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
+            if (preserveMotion)
+                motionWorld.BeginReconnect();
+            else
+                motionWorld.Clear();
+            try
             {
-                GameObject? gameObject = resolveGameObject(description.DocumentId);
-                if (gameObject == null)
+                eventObserver.Clear();
+                lifecycleEvents.Clear();
+                elements.Clear();
+                elementIds.Clear();
+                properties.Clear();
+                scrollControls.Clear();
+                tabControls.Clear();
+                textFieldControls.Clear();
+                booleanControls.Clear();
+                choiceControls.Clear();
+                dropdownControls.Clear();
+                sliderControls.Clear();
+                rangeControls.Clear();
+                partProperties.Clear();
+                documentRoots.Clear();
+                rootDocuments.Clear();
+                parentIds.Clear();
+                logicalChildren.Clear();
+                rootIds.Clear();
+                repeatControls.Clear();
+                foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
                 {
-                    throw new InvalidOperationException(
-                        $"UI document {description.DocumentId} has no owning GameObject."
-                    );
+                    GameObject? gameObject = resolveGameObject(description.DocumentId);
+                    if (gameObject == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"UI document {description.DocumentId} has no owning GameObject."
+                        );
+                    }
+                    if (!gameObject.TryGetComponent(out UIDocument document))
+                    {
+                        throw new InvalidOperationException(
+                            $"UI document {description.DocumentId} has no UIDocument component."
+                        );
+                    }
+                    UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
+                    root.Clear();
+                    properties.ApplyRoot(root, description.RootId, description);
+                    Reserve(description.RootId, root, description.RootId.Value);
+                    rootDocuments.Add(description.RootId.Value, document);
+                    rootIds.Add(description.RootId.Value);
+                    eventObserver.RegisterRoot(root);
+                    foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
+                    {
+                        UnityEngine.UIElements.VisualElement created = CreateElement(
+                            child,
+                            description.RootId.Value,
+                            description.RootId.Value
+                        );
+                        tabControls.Insert(root, created);
+                        logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
+                    }
                 }
-                if (!gameObject.TryGetComponent(out UIDocument document))
-                {
-                    throw new InvalidOperationException(
-                        $"UI document {description.DocumentId} has no UIDocument component."
-                    );
-                }
-                UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
-                root.Clear();
-                properties.ApplyRoot(root, description.RootId, description);
-                Reserve(description.RootId, root, description.RootId.Value);
-                rootDocuments.Add(description.RootId.Value, document);
-                rootIds.Add(description.RootId.Value);
-                eventObserver.RegisterRoot(root);
-                foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
-                {
-                    UnityEngine.UIElements.VisualElement created = CreateElement(
-                        child,
-                        description.RootId.Value,
-                        description.RootId.Value
-                    );
-                    tabControls.Insert(root, created);
-                    logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
-                }
+                lifecycleEvents.SetInputEnabled(true);
+                if (preserveMotion)
+                    motionWorld.EndReconnect();
             }
-            lifecycleEvents.SetInputEnabled(true);
+            catch
+            {
+                if (preserveMotion)
+                    motionWorld.AbortReconnect();
+                else
+                    motionWorld.Clear();
+                throw;
+            }
         }
 
         /// <summary>Finds a tracked document root or authored element.</summary>
@@ -395,7 +412,7 @@ namespace Battlement.UI
                     textFieldControls.ValidateUpdate(properties.ObjectId, properties.Element);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
                         partProperties.Prepare(target, properties.ObjectId, properties.Element);
-                    BattlementMotionWorld.PreparedAdmission? preparedMotion = motionWorld.Prepare(
+                    BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                         target,
                         properties.ObjectId,
                         properties.Element.Motion
@@ -606,7 +623,7 @@ namespace Battlement.UI
             Guid parentId
         )
         {
-            BattlementMotionWorld.PreparedAdmission? preparedMotion = motionWorld.Prepare(
+            BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                 value,
                 node.ObjectId,
                 node.Element.Motion

@@ -26,6 +26,8 @@ namespace Battlement
 
         public bool InputDisabled { get; private set; } = true;
 
+        public bool IsReconnecting { get; private set; }
+
         public bool IsInputAvailable => Phase == BattlementSessionPhase.Running && !InputDisabled;
 
         public void BeginConnection(TimeSpan now, bool reconnecting)
@@ -37,6 +39,7 @@ namespace Battlement
 
             Phase = BattlementSessionPhase.AwaitingSnapshot;
             InputDisabled = true;
+            IsReconnecting = reconnecting;
             PreviousStepTime = now;
             pendingConnectionEvent = reconnecting
                 ? "battlement.host.reconnected"
@@ -71,6 +74,7 @@ namespace Battlement
             }
 
             InputDisabled = inputDisabled;
+            IsReconnecting = false;
             Phase = BattlementSessionPhase.Running;
         }
 
@@ -101,6 +105,7 @@ namespace Battlement
         {
             Phase = BattlementSessionPhase.Stopped;
             InputDisabled = true;
+            IsReconnecting = false;
             PreviousStepTime = null;
             pendingConnectionEvent = null;
             pendingConnectionMessage = null;

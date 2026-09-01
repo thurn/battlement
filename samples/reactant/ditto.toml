@@ -108,6 +108,48 @@ click = { target = [0.625, 0.285] }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "composed effects"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.322, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.469, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.542, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.616, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.689, 0.222] }
+
+[[scenarios.steps]]
+wait = { frames = 6 }
+
+[[scenarios]]
 name = "layout and reorder"
 
 [[scenarios.steps]]

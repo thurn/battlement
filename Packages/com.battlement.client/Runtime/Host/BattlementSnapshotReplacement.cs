@@ -38,7 +38,7 @@ namespace Battlement
             this.reactantAssets = reactantAssets;
         }
 
-        public void Begin(SessionId responseSession, Snapshot snapshot)
+        public void Begin(SessionId responseSession, Snapshot snapshot, bool preserveMotion)
         {
             if (snapshot.SessionId != responseSession)
             {
@@ -53,7 +53,7 @@ namespace Battlement
                 panelInput.ValidateBeforeReplacement(snapshot);
                 world.PrepareReplacement(objectOrder, snapshot.Scenes);
                 preparedAssets.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
-                pending = new PendingSnapshot(snapshot, objectOrder);
+                pending = new PendingSnapshot(snapshot, objectOrder, preserveMotion);
             }
             catch (BattlementSnapshotReplacementException)
             {
@@ -106,7 +106,8 @@ namespace Battlement
                 world.ReplaceObjects(completed.ObjectOrder);
                 uiDocuments.Replace(
                     completed.Snapshot.Ui,
-                    id => world.TryGetObject(id, out UnityEngine.GameObject? value) ? value : null
+                    id => world.TryGetObject(id, out UnityEngine.GameObject? value) ? value : null,
+                    completed.PreserveMotion
                 );
                 ApplicationProbe?.Invoke();
                 world.ReplaceUiIdentities(uiDocuments.IdentityIds);
@@ -174,16 +175,20 @@ namespace Battlement
         {
             public PendingSnapshot(
                 Snapshot snapshot,
-                IReadOnlyList<BattlementGameObject> objectOrder
+                IReadOnlyList<BattlementGameObject> objectOrder,
+                bool preserveMotion
             )
             {
                 Snapshot = snapshot;
                 ObjectOrder = objectOrder;
+                PreserveMotion = preserveMotion;
             }
 
             public Snapshot Snapshot { get; }
 
             public IReadOnlyList<BattlementGameObject> ObjectOrder { get; }
+
+            public bool PreserveMotion { get; }
 
             public bool SceneReplacementStarted { get; set; }
         }

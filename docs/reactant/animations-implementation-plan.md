@@ -751,7 +751,7 @@ neighbor reflow, scale-corrected children, and final unprojected geometry.
 **Evidence:** focused Unity results, fast-lane timing, geometry records,
 lifecycle traces, and baseline/midpoint/interrupted/final captures.
 
-## Task 11 — Validate composed effects in the Composed Effects screen
+## Task 11 — Validate composed effects in the Composed Effects screen [DONE]
 
 **Prerequisites:** Tasks 05–10. **Asset Generator prerequisites:** none.
 

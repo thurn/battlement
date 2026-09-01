@@ -76,6 +76,7 @@ pub use crate::{
     Repeat, RepeatType, Transition,
   },
   motion_component::{MotionComponent, MotionComponentExt},
+  motion_config::{MotionConfig, ReducedMotion, use_reduced_motion},
   motion_value::{
     AnimationPlayback, AudioPlayback, AudioPlaybackOptions, ControlledMotionClock, InputRange,
     MotionExpression, MotionTimeSource, MotionValue as TypedMotionValue, MotionValueEvent,

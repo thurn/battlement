@@ -32,6 +32,8 @@ struct ElementConstraintContract;
 
 struct LayoutContract;
 
+struct MotionConfigContract;
+
 impl Spawner for IdleSpawner {
   fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
     SpawnedTask::detached()
@@ -138,6 +140,22 @@ impl Component for LayoutContract {
         ))
         .child(View::new().reorder_item(ReorderAxis::Y)),
     )
+  }
+}
+
+impl Component for MotionConfigContract {
+  fn render(&self) -> impl Render {
+    MotionConfig::new(MotionConfig::new(
+      View::new()
+        .animate(MotionStyle::new().x(24.0).opacity(1.0))
+        .transition(Transition::tween().duration_secs(0.45)),
+    ))
+    .transition(Transition::tween().duration_secs(0.9).property(
+      MotionProperty::Opacity,
+      Transition::tween().duration_secs(0.2),
+    ))
+    .reduced_motion(ReducedMotion::Always)
+    .time_source(MotionTimeSource::Scaled)
   }
 }
 
@@ -970,6 +988,53 @@ fn layout_projection_shared_handoff_and_reorder_lower_native_contract() {
   assert_eq!(reorder_index(1, 10.0, &[20.0, 60.0, 100.0]), 1);
   assert_eq!(reorder_index(1, 41.0, &[20.0, 60.0, 100.0]), 2);
   assert_eq!(reorder_index(1, -41.0, &[20.0, 60.0, 100.0]), 0);
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn motion_config_inherits_transition_and_reduced_motion_without_a_host() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| MotionConfigContract);
+  let rendered = start(&mut reactant, &mut (), &document);
+  let root = &rendered.children[0];
+  let Prop::Set(descriptor) = &root.element.visual_element().motion else {
+    panic!("configured motion descriptor did not lower");
+  };
+  assert_eq!(
+    descriptor.reduced_motion,
+    battlement::ReducedMotionPolicy::Always
+  );
+  assert!(matches!(
+    descriptor.clock,
+    battlement::MotionClockSource::Scaled
+  ));
+  let x = descriptor.slots[0]
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::X)
+    .unwrap();
+  let opacity = descriptor.slots[0]
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::Opacity)
+    .unwrap();
+  assert!(matches!(
+    x.transition.generator,
+    TransitionGenerator::Tween {
+      duration_micros: 450_000,
+      ..
+    }
+  ));
+  assert!(matches!(
+    opacity.transition.generator,
+    TransitionGenerator::Tween {
+      duration_micros: 200_000,
+      ..
+    }
+  ));
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
