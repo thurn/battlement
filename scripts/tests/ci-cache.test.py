@@ -9,11 +9,13 @@ import os
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
+import ci_cache  # noqa: E402
 from ci_cache import CiCache, charged_size, prune_chrome_code_sign_clones  # noqa: E402
 
 
@@ -127,6 +129,8 @@ def main() -> None:
         assert shared_old in result.removed
         assert shared_new in result.removed
         assert charged_size(cache_root) == result.after_bytes
+        _verify_maintenance_cadence(cache)
+        _verify_targeted_chrome_scan(root)
         _verify_chrome_clone_pruning(root)
         print("CI Cache tests passed.")
 
@@ -156,6 +160,33 @@ def _verify_chrome_clone_pruning(root: Path) -> None:
     assert old_open.is_dir()
     assert recent.is_dir()
     assert unrelated.is_dir()
+
+
+def _verify_maintenance_cadence(cache: CiCache) -> None:
+    now_ns = 10_000_000_000
+    with patch.object(ci_cache, "prune_chrome_code_sign_clones") as chrome:
+        chrome.return_value = ci_cache.CachePruneResult(0, 0, ())
+        assert cache.maintain(now_ns, interval_seconds=5)
+        assert not cache.maintain(now_ns + 4_000_000_000, interval_seconds=5)
+        assert cache.maintain(now_ns + 5_000_000_000, interval_seconds=5)
+        assert chrome.call_count == 2
+
+
+def _verify_targeted_chrome_scan(root: Path) -> None:
+    clone_root = root / "targeted-code-sign-clones"
+    clone = clone_root / "code_sign_clone.OPEN01"
+    clone.mkdir(parents=True)
+    completed = subprocess.CompletedProcess(
+        ["lsof"],
+        0,
+        stdout=f"p123\nfcwd\nn{clone}/payload\n",
+        stderr="",
+    )
+    with patch.object(ci_cache.subprocess, "run", return_value=completed) as run:
+        assert ci_cache._open_chrome_clones(clone_root) == {clone.name}
+        command = run.call_args.args[0]
+        assert command[1:] == ["-Fn", "+D", str(clone_root)]
+        assert run.call_args.kwargs["timeout"] == ci_cache.CHROME_LSOF_TIMEOUT_SECONDS
 
 
 if __name__ == "__main__":
