@@ -46,6 +46,7 @@ ROOT_RUST_INPUTS = (
     "Cargo.lock",
     "rust-toolchain.toml",
     "crates",
+    "samples",
     "scripts/ci.py",
     "scripts/ci_cache.py",
 )

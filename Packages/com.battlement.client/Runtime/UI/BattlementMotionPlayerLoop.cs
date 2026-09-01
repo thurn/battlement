@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using Unity.Profiling;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
 
@@ -11,6 +12,9 @@ namespace Battlement.UI
         private static BattlementMotionWorld[] worlds = Array.Empty<BattlementMotionWorld>();
         private static PlayerLoopSystem previousLoop;
         private static bool installed;
+        private static readonly ProfilerMarker MotionFrameMarker = new("Reactant.MotionFrame");
+        private static readonly ProfilerMarker PreLayoutMarker = new("Reactant.MotionPreLayout");
+        private static readonly ProfilerMarker PostLayoutMarker = new("Reactant.MotionPostLayout");
 
         public static void Register(BattlementMotionWorld world)
         {
@@ -67,16 +71,22 @@ namespace Battlement.UI
 
         private static void PreLayout()
         {
+            MotionFrameMarker.Begin();
+            PreLayoutMarker.Begin();
             BattlementMotionWorld[] snapshot = worlds;
             for (int index = 0; index < snapshot.Length; index++)
                 snapshot[index].PreLayout();
+            PreLayoutMarker.End();
         }
 
         private static void PostLayout()
         {
+            PostLayoutMarker.Begin();
             BattlementMotionWorld[] snapshot = worlds;
             for (int index = 0; index < snapshot.Length; index++)
                 snapshot[index].PostLayout();
+            PostLayoutMarker.End();
+            MotionFrameMarker.End();
         }
 
         private static bool InsertAroundUiPanels(ref PlayerLoopSystem parent)

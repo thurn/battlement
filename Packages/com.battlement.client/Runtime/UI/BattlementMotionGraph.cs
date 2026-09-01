@@ -7,16 +7,6 @@ using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
-    internal readonly struct MotionClockSample
-    {
-        public MotionClockSample(ulong elapsedMicros, bool discontinuity) =>
-            (ElapsedMicros, Discontinuity) = (elapsedMicros, discontinuity);
-
-        public ulong ElapsedMicros { get; }
-
-        public bool Discontinuity { get; }
-    }
-
     internal sealed class BattlementMotionGraph
     {
         private readonly Dictionary<Guid, Registration> registrations = new();
@@ -119,7 +109,11 @@ namespace Battlement.UI
             frame++;
             LastEvaluationCount = 0;
             clockSamples.Clear();
-            foreach ((Guid id, ValuePlayback playback) in playbacks.ToArray())
+            foreach (
+                (Guid id, ValuePlayback playback) in playbacks.Count == 0
+                    ? Array.Empty<KeyValuePair<Guid, ValuePlayback>>()
+                    : playbacks.ToArray()
+            )
             {
                 playback.Sample(clock(new MotionClockSource.Unscaled()).ElapsedMicros);
                 if (playback.Outcome is MotionPlaybackOutcome outcome)
@@ -296,11 +290,21 @@ namespace Battlement.UI
                     ?? Array.Empty<MotionValueBinding>()
             )
             {
+                NodeState node = nodes[binding.ValueId.Value];
+                if (!reducedMotion(registration.Descriptor) && node.TryScalar(out double scalar))
+                {
+                    BattlementMotionPropertyWriter.WriteAdaptedScalar(
+                        registration.Target,
+                        binding.Property,
+                        scalar
+                    );
+                    continue;
+                }
                 MotionValue value =
                     reducedMotion(registration.Descriptor)
                     && BattlementMotionPropertyWriter.IsSpatial(binding.Property)
                         ? ReducedValue(registration.Descriptor, binding.Property)
-                        : Adapt(binding.Property, nodes[binding.ValueId.Value].Value);
+                        : Adapt(binding.Property, node.SnapshotValue());
                 BattlementMotionPropertyWriter.Write(registration.Target, binding.Property, value);
             }
         }
@@ -358,8 +362,8 @@ namespace Battlement.UI
                     subscription.SubscriptionId,
                     subscription.ValueId,
                     frame,
-                    node.Value,
-                    node.Velocity,
+                    node.SnapshotValue(),
+                    node.SnapshotVelocity(),
                     node.Discontinuity
                 );
                 if (existing < 0)
@@ -483,6 +487,13 @@ namespace Battlement.UI
             private MotionValue? springTarget;
             private MotionValue? springOrigin;
             private ulong springAnchor;
+            private readonly bool scalar;
+            private readonly TransitionDefinition? scalarSpringTransition;
+            private double scalarValue;
+            private double scalarVelocity;
+            private double previousScalar;
+            private double? scalarSpringTarget;
+            private double scalarSpringOrigin;
 
             public NodeState(MotionValueDescriptor descriptor)
             {
@@ -490,6 +501,20 @@ namespace Battlement.UI
                 Value = descriptor.Initial;
                 previous = descriptor.Initial;
                 Velocity = Zero(descriptor.Initial);
+                if (descriptor.Initial is MotionValue.Scalar initial)
+                {
+                    scalar = true;
+                    scalarValue = initial.Value;
+                    previousScalar = initial.Value;
+                }
+                if (descriptor.Source is MotionValueSource.Spring spring)
+                    scalarSpringTransition = new TransitionDefinition(
+                        new TransitionGenerator.Spring(spring.Configuration),
+                        0,
+                        new MotionRepeat.None(),
+                        0,
+                        MotionRepeatType.Loop
+                    );
             }
 
             public MotionValueDescriptor Descriptor { get; }
@@ -502,25 +527,47 @@ namespace Battlement.UI
 
             public bool Changed { get; set; } = true;
 
+            public bool TryScalar(out double value)
+            {
+                value = scalarValue;
+                return scalar;
+            }
+
+            public MotionValue SnapshotValue() =>
+                scalar ? new MotionValue.Scalar(scalarValue) : Value;
+
+            public MotionValue SnapshotVelocity() =>
+                scalar ? new MotionValue.Scalar(scalarVelocity) : Velocity;
+
             public bool Compatible(MotionValueDescriptor descriptor) =>
                 Descriptor.Source.GetType() == descriptor.Source.GetType();
 
             public bool Matches(MotionValueDescriptor descriptor) => Descriptor == descriptor;
 
-            public bool ShouldEvaluate(IReadOnlyDictionary<Guid, NodeState> graph) =>
-                Descriptor.Source switch
+            public bool ShouldEvaluate(IReadOnlyDictionary<Guid, NodeState> graph)
+            {
+                return Descriptor.Source switch
                 {
                     MotionValueSource.Mutable => Changed || Discontinuity,
                     MotionValueSource.Time => true,
+                    MotionValueSource.Velocity value => ChangedInput(value.Source, graph),
+                    MotionValueSource.Range value => ChangedInput(value.Source, graph),
                     MotionValueSource.Spring value => graph[value.Source.Value].Changed
                         || graph[value.Source.Value].Discontinuity
-                        || springTarget is not null && !Equals(Value, springTarget),
-                    _ => Dependencies(Descriptor.Source)
-                        .Any(id => graph[id].Changed || graph[id].Discontinuity),
+                        || ScalarSpringActive()
+                        || !scalar && springTarget is not null && !Equals(Value, springTarget),
+                    MotionValueSource.Expression value => AnyChanged(value, graph),
+                    _ => false,
                 };
+            }
 
-            public bool Evaluate(IReadOnlyDictionary<Guid, NodeState> graph, MotionClockSample now)
+            public void Evaluate(IReadOnlyDictionary<Guid, NodeState> graph, MotionClockSample now)
             {
+                if (scalar)
+                {
+                    EvaluateScalar(graph, now);
+                    return;
+                }
                 MotionValue next = Descriptor.Source switch
                 {
                     MotionValueSource.Mutable => Value,
@@ -546,11 +593,21 @@ namespace Battlement.UI
                 previousMicros = now.ElapsedMicros;
                 Discontinuity |= now.Discontinuity;
                 Changed |= changed;
-                return changed;
             }
 
             public void Set(MotionValue value, bool discontinuity)
             {
+                if (scalar && value is MotionValue.Scalar scalarInput)
+                {
+                    previousScalar = scalarValue;
+                    scalarValue = scalarInput.Value;
+                    scalarVelocity = 0;
+                    Value = value;
+                    Discontinuity |= discontinuity;
+                    Changed = true;
+                    scalarSpringTarget = null;
+                    return;
+                }
                 previous = Value;
                 Value = value;
                 Velocity = Zero(value);
@@ -561,9 +618,125 @@ namespace Battlement.UI
 
             public void Stop()
             {
+                if (scalar)
+                {
+                    scalarVelocity = 0;
+                    Changed = true;
+                    scalarSpringTarget = null;
+                    return;
+                }
                 Velocity = Zero(Value);
                 Changed = true;
                 springTarget = null;
+            }
+
+            private void EvaluateScalar(
+                IReadOnlyDictionary<Guid, NodeState> graph,
+                MotionClockSample now
+            )
+            {
+                double next = Descriptor.Source switch
+                {
+                    MotionValueSource.Mutable => scalarValue,
+                    MotionValueSource.Time => now.ElapsedMicros / 1_000_000d,
+                    MotionValueSource.Velocity value => ScalarVelocity(value.Source, graph),
+                    MotionValueSource.Range value => BattlementScalarMotionGraph.Range(
+                        value,
+                        ScalarValue(value.Source, graph)
+                    ),
+                    MotionValueSource.Spring value => SpringScalar(
+                        ScalarValue(value.Source, graph),
+                        now.ElapsedMicros
+                    ),
+                    MotionValueSource.Expression value => ExpressionScalar(value, graph),
+                    _ => throw Invalid("Unknown scalar motion-value source."),
+                };
+                bool changed = next != scalarValue || now.Discontinuity;
+                previousScalar = scalarValue;
+                scalarValue = next;
+                ulong delta = now.ElapsedMicros - previousMicros;
+                scalarVelocity =
+                    now.Discontinuity || delta == 0
+                        ? 0
+                        : (scalarValue - previousScalar) / (delta / 1_000_000d);
+                previousMicros = now.ElapsedMicros;
+                Discontinuity |= now.Discontinuity;
+                Changed |= changed;
+            }
+
+            private double SpringScalar(double target, ulong now)
+            {
+                if (scalarSpringTarget != target)
+                {
+                    scalarSpringTarget = target;
+                    scalarSpringOrigin = scalarValue;
+                    springAnchor = now;
+                }
+                MotionScalarSample sample = BattlementMotionScalarSampler.Sample(
+                    scalarSpringOrigin,
+                    target,
+                    scalarVelocity,
+                    scalarSpringTransition!,
+                    now - springAnchor
+                );
+                return sample.Value;
+            }
+
+            private bool ScalarSpringActive() =>
+                scalar && scalarSpringTarget.HasValue && scalarValue != scalarSpringTarget.Value;
+
+            private static bool ChangedInput(
+                ObjectId source,
+                IReadOnlyDictionary<Guid, NodeState> graph
+            ) => graph[source.Value].Changed || graph[source.Value].Discontinuity;
+
+            private static bool AnyChanged(
+                MotionValueSource.Expression expression,
+                IReadOnlyDictionary<Guid, NodeState> graph
+            )
+            {
+                foreach (ObjectId input in expression.Inputs)
+                    if (ChangedInput(input, graph))
+                        return true;
+                return false;
+            }
+
+            private static double ScalarValue(
+                ObjectId source,
+                IReadOnlyDictionary<Guid, NodeState> graph
+            ) => graph[source.Value].ScalarValue();
+
+            private static double ScalarVelocity(
+                ObjectId source,
+                IReadOnlyDictionary<Guid, NodeState> graph
+            ) => graph[source.Value].ScalarVelocity();
+
+            private double ScalarValue() =>
+                scalar ? scalarValue : throw Invalid("Motion graph expected a scalar value.");
+
+            private double ScalarVelocity() =>
+                scalar ? scalarVelocity : throw Invalid("Motion graph expected scalar velocity.");
+
+            private static double ExpressionScalar(
+                MotionValueSource.Expression expression,
+                IReadOnlyDictionary<Guid, NodeState> graph
+            )
+            {
+                double left = graph[expression.Inputs[0].Value].ScalarValue();
+                double right =
+                    expression.Inputs.Count > 1
+                        ? graph[expression.Inputs[1].Value].ScalarValue()
+                        : 0;
+                double mix =
+                    expression.Inputs.Count > 2
+                        ? graph[expression.Inputs[2].Value].ScalarValue()
+                        : 0;
+                return BattlementScalarMotionGraph.Expression(
+                    expression.Operation,
+                    left,
+                    right,
+                    mix
+                );
             }
 
             private MotionValue Spring(
@@ -716,7 +889,7 @@ namespace Battlement.UI
             {
                 Node = node;
                 Generation = command.Generation;
-                origin = node.Value;
+                origin = node.SnapshotValue();
                 target = command.Target;
                 transition = command.Transition;
                 anchor = now;

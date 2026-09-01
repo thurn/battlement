@@ -694,6 +694,33 @@ namespace Battlement.Tests
             Assert.That(late.style.opacity.value, Is.EqualTo(0).Within(0.00001));
         }
 
+        [Test]
+        public void PerformanceSnapshotCountsWorkWithoutLifecycleTraffic()
+        {
+            ObjectId clock = Id("63dbdaeb-8152-4280-bbbd-76994880438d");
+            ObjectId host = Id("9e75e297-ecbc-4332-87f7-bf9372220d2a");
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                new VisualElement(),
+                host,
+                Descriptor(host, host, clock, 1, 1, 1, subscribe: false)
+            );
+
+            world.SetControlledClock(clock, 500_000);
+            world.PreLayout();
+            world.PostLayout();
+
+            BattlementMotionPerformanceSnapshot snapshot = world.Performance;
+            Assert.That(snapshot.Frame, Is.EqualTo(1));
+            Assert.That(snapshot.ActiveTimelines, Is.EqualTo(1));
+            Assert.That(snapshot.ActiveLayoutTracks, Is.Zero);
+            Assert.That(snapshot.PropertiesApplied, Is.EqualTo(1));
+            Assert.That(snapshot.GraphNodesEvaluated, Is.Zero);
+            Assert.That(snapshot.LifecycleMessages, Is.Zero);
+            Assert.That(snapshot.LifecyclePayloadBytes, Is.Zero);
+            Assert.That(snapshot.MotionCpuMilliseconds, Is.GreaterThanOrEqualTo(0));
+        }
+
         private static PlayerLoopSystem Find(PlayerLoopSystem parent, Type type)
         {
             if (parent.type == type)

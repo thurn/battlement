@@ -2,6 +2,7 @@
 
 use std::{
   collections::VecDeque,
+  env,
   sync::{Arc, Mutex},
   task::{Context, Poll, Waker},
 };
@@ -15,10 +16,13 @@ mod effects_stores;
 mod events_portals;
 mod gestures_drag;
 mod layout_reorder;
+mod motion_performance;
 mod physical_motion;
 mod presence_lifecycle;
 mod refs_geometry;
 mod resources_boundaries;
+mod sample_navigation;
+mod screens;
 mod state_identity;
 mod styles_decorations;
 #[cfg(test)]
@@ -45,6 +49,9 @@ const DOCUMENT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000002")
 const SCENE_ID: SceneId = scene_id!("25300000-0000-4000-8000-000000000003");
 const MISSING_GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000006");
 
+/// A screen available in the Reactant sample.
+pub type Screen = screens::Screen;
+
 /// Address of the sample's authored content scene.
 pub const CONTENT_SCENE: &str = "reactant/content";
 /// Address of the sample's prepared UI shader material.
@@ -59,91 +66,6 @@ pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-s
 pub const GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000005");
 /// Stable identity of the Reactant document root.
 pub const ROOT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000004");
-
-/// A screen available in the Reactant sample.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Screen {
-  /// Component and structural composition.
-  Composition,
-  /// Logical event routing and portal placement.
-  EventsPortals,
-  /// Local state and keyed component identity.
-  StateIdentity,
-  /// Logical context inheritance and memoization.
-  ContextMemo,
-  /// Passive effects and external stores.
-  EffectsStores,
-  /// Fallible rendering and resource recovery.
-  ResourcesBoundaries,
-  /// Stable element refs and queued host actions.
-  RefsGeometry,
-  /// Generated advanced paint and resizable nine-slice assets.
-  Assets,
-  /// Typed Motion targets, timelines, repeats, and interruption.
-  TargetsTimelines,
-  /// Spring, inertia, velocity handoff, and playback outcomes.
-  PhysicalMotion,
-  /// CSS transitions, reusable animations, decorations, and advanced paint.
-  StylesDecorations,
-  /// Typed variants, logical propagation, and child orchestration.
-  VariantsOrchestration,
-  /// Retained exits, manual holds, and lifecycle ordering.
-  PresenceLifecycle,
-  /// Native motion values, time sources, audio transport, and imperative controls.
-  ValuesTimeControls,
-  /// Unity-local gestures, constrained drag, momentum, scroll, and viewport state.
-  GesturesDrag,
-  /// Native layout projection, shared handoffs, and drag reorder.
-  LayoutReorder,
-  /// Complex public Motion compositions and reduced-motion behavior.
-  ComposedEffects,
-}
-
-impl Screen {
-  /// Every screen in navigation order.
-  pub const ALL: [Self; 17] = [
-    Self::Composition,
-    Self::EventsPortals,
-    Self::StateIdentity,
-    Self::ContextMemo,
-    Self::EffectsStores,
-    Self::ResourcesBoundaries,
-    Self::RefsGeometry,
-    Self::Assets,
-    Self::TargetsTimelines,
-    Self::PhysicalMotion,
-    Self::StylesDecorations,
-    Self::VariantsOrchestration,
-    Self::PresenceLifecycle,
-    Self::ValuesTimeControls,
-    Self::GesturesDrag,
-    Self::LayoutReorder,
-    Self::ComposedEffects,
-  ];
-
-  /// Returns the canonical coverage registry key.
-  pub const fn registry_key(self) -> &'static str {
-    match self {
-      Self::Composition => "composition",
-      Self::EventsPortals => "events-portals",
-      Self::StateIdentity => "state-identity",
-      Self::ContextMemo => "context-memo",
-      Self::EffectsStores => "effects-stores",
-      Self::ResourcesBoundaries => "resources-boundaries",
-      Self::RefsGeometry => "refs-geometry",
-      Self::Assets => "assets",
-      Self::TargetsTimelines => "targets-timelines",
-      Self::PhysicalMotion => "physical-motion",
-      Self::StylesDecorations => "styles-decorations",
-      Self::VariantsOrchestration => "variants-orchestration",
-      Self::PresenceLifecycle => "presence-lifecycle",
-      Self::ValuesTimeControls => "values-time-controls",
-      Self::GesturesDrag => "gestures-drag",
-      Self::LayoutReorder => "layout-reorder",
-      Self::ComposedEffects => "composed-effects",
-    }
-  }
-}
 
 /// Native Reactant sample rules engine.
 pub struct ReactantEngine {
@@ -169,6 +91,11 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   let preview_resource = Resource::new(|key| async move { key });
   let view_resource = preview_resource.clone();
   let event_overlay = reactant.create_portal_target();
+  let performance_profile = env::args().find_map(|argument| {
+    argument
+      .strip_prefix("--reactant-performance=")
+      .and_then(motion_performance::MotionPerformanceState::profiled)
+  });
   reactant.register_root(document.clone(), move |game: &Game| Shell {
     screen: game.screen,
     reversed: game.reversed,
@@ -192,6 +119,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     gestures_drag: game.gestures_drag.clone(),
     layout_reorder: game.layout_reorder.clone(),
     composed_effects: game.composed_effects.clone(),
+    motion_performance: game.motion_performance.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -205,7 +133,11 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
     game: Game {
-      screen: Screen::Composition,
+      screen: if performance_profile.is_some() {
+        Screen::MotionPerformance
+      } else {
+        Screen::Composition
+      },
       reversed: false,
       event_active: false,
       event_trace: Vec::new(),
@@ -226,6 +158,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       gestures_drag: gestures_drag::GesturesDragState::default(),
       layout_reorder: layout_reorder::LayoutReorderState::default(),
       composed_effects: composed_effects::ComposedEffectsState::default(),
+      motion_performance: performance_profile.unwrap_or_default(),
       pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
@@ -388,6 +321,7 @@ struct Game {
   gestures_drag: gestures_drag::GesturesDragState,
   layout_reorder: layout_reorder::LayoutReorderState,
   composed_effects: composed_effects::ComposedEffectsState,
+  motion_performance: motion_performance::MotionPerformanceState,
   pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
@@ -427,6 +361,7 @@ struct Shell {
   gestures_drag: gestures_drag::GesturesDragState,
   layout_reorder: layout_reorder::LayoutReorderState,
   composed_effects: composed_effects::ComposedEffectsState,
+  motion_performance: motion_performance::MotionPerformanceState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -605,6 +540,10 @@ impl Component for Shell {
         state: self.composed_effects.clone(),
         compact: self.compact,
       }),
+      Screen::MotionPerformance => Node::new(motion_performance::MotionPerformance {
+        state: self.motion_performance.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -639,10 +578,10 @@ impl Component for Navigation {
               Control::PreviousNavigation,
             )),
             Control::PreviousNavigation,
-            |game| game.screen = self::previous_screen(game.screen),
+            |game| game.screen = sample_navigation::previous(game.screen),
           ))
           .child(
-            battlement_reactant::host::Label::new(self::phone_screen_name(self.screen))
+            battlement_reactant::host::Label::new(sample_navigation::phone_name(self.screen))
               .name("phone-current-screen")
               .style(design_system::phone_navigation_label()),
           )
@@ -654,7 +593,7 @@ impl Component for Navigation {
               Control::NextNavigation,
             )),
             Control::NextNavigation,
-            |game| game.screen = self::next_screen(game.screen),
+            |game| game.screen = sample_navigation::next(game.screen),
           )),
       );
     }
@@ -680,7 +619,8 @@ impl Component for Navigation {
               Screen::ValuesTimeControls => Screen::GesturesDrag,
               Screen::GesturesDrag => Screen::LayoutReorder,
               Screen::LayoutReorder => Screen::ComposedEffects,
-              Screen::ComposedEffects => Screen::TargetsTimelines,
+              Screen::ComposedEffects => Screen::MotionPerformance,
+              Screen::MotionPerformance => Screen::TargetsTimelines,
               _ => Screen::TargetsTimelines,
             };
           }),
@@ -887,72 +827,6 @@ fn composition_badges(reversed: bool) -> Node {
       .style(design_system::badge_row())
       .child(Fragment::new(badges)),
   )
-}
-
-fn previous_screen(screen: Screen) -> Screen {
-  match screen {
-    Screen::Composition => Screen::ComposedEffects,
-    Screen::EventsPortals => Screen::Composition,
-    Screen::StateIdentity => Screen::EventsPortals,
-    Screen::ContextMemo => Screen::StateIdentity,
-    Screen::EffectsStores => Screen::ContextMemo,
-    Screen::ResourcesBoundaries => Screen::EffectsStores,
-    Screen::RefsGeometry => Screen::ResourcesBoundaries,
-    Screen::Assets => Screen::RefsGeometry,
-    Screen::TargetsTimelines => Screen::Assets,
-    Screen::PhysicalMotion => Screen::TargetsTimelines,
-    Screen::StylesDecorations => Screen::PhysicalMotion,
-    Screen::VariantsOrchestration => Screen::StylesDecorations,
-    Screen::PresenceLifecycle => Screen::VariantsOrchestration,
-    Screen::ValuesTimeControls => Screen::PresenceLifecycle,
-    Screen::GesturesDrag => Screen::ValuesTimeControls,
-    Screen::LayoutReorder => Screen::GesturesDrag,
-    Screen::ComposedEffects => Screen::LayoutReorder,
-  }
-}
-
-fn next_screen(screen: Screen) -> Screen {
-  match screen {
-    Screen::Composition => Screen::EventsPortals,
-    Screen::EventsPortals => Screen::StateIdentity,
-    Screen::StateIdentity => Screen::ContextMemo,
-    Screen::ContextMemo => Screen::EffectsStores,
-    Screen::EffectsStores => Screen::ResourcesBoundaries,
-    Screen::ResourcesBoundaries => Screen::RefsGeometry,
-    Screen::RefsGeometry => Screen::Assets,
-    Screen::Assets => Screen::TargetsTimelines,
-    Screen::TargetsTimelines => Screen::PhysicalMotion,
-    Screen::PhysicalMotion => Screen::StylesDecorations,
-    Screen::StylesDecorations => Screen::VariantsOrchestration,
-    Screen::VariantsOrchestration => Screen::PresenceLifecycle,
-    Screen::PresenceLifecycle => Screen::ValuesTimeControls,
-    Screen::ValuesTimeControls => Screen::GesturesDrag,
-    Screen::GesturesDrag => Screen::LayoutReorder,
-    Screen::LayoutReorder => Screen::ComposedEffects,
-    Screen::ComposedEffects => Screen::Composition,
-  }
-}
-
-fn phone_screen_name(screen: Screen) -> &'static str {
-  match screen {
-    Screen::Composition => "01 COMPOSITION",
-    Screen::EventsPortals => "02 EVENTS",
-    Screen::StateIdentity => "03 STATE",
-    Screen::ContextMemo => "04 CONTEXT",
-    Screen::EffectsStores => "05 EFFECTS",
-    Screen::ResourcesBoundaries => "06 RESOURCES",
-    Screen::RefsGeometry => "07 GEOMETRY",
-    Screen::Assets => "08 ASSETS",
-    Screen::TargetsTimelines => "09 TARGETS & TIMELINES",
-    Screen::PhysicalMotion => "10 PHYSICAL MOTION",
-    Screen::StylesDecorations => "11 STYLES & DECORATIONS",
-    Screen::VariantsOrchestration => "12 VARIANTS & ORCHESTRATION",
-    Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
-    Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
-    Screen::GesturesDrag => "15 GESTURES & DRAG",
-    Screen::LayoutReorder => "16 LAYOUT & REORDER",
-    Screen::ComposedEffects => "17 COMPOSED EFFECTS",
-  }
 }
 
 fn interactive_button(

@@ -605,7 +605,7 @@ mixed variant layers active.
 **Evidence:** descriptor facts, fast-lane timing, ordered event records,
 checkpoint captures, and the screen's orchestration record.
 
-## Task 07 — Add presence and the Presence & Lifecycle screen
+## Task 07 — Add presence and the Presence & Lifecycle screen [DONE]
 
 **Prerequisites:** Task 06. **Asset Generator prerequisites:** none.
 
@@ -639,7 +639,7 @@ exactly one terminal event and one unmount.
 **Evidence:** fake-client host facts, controlled presence results, fast-lane
 timing, lifecycle and mount records, and retained/interrupted/final captures.
 
-## Task 08 — Add values, clocks, and the Values, Time & Controls screen
+## Task 08 — Add values, clocks, and the Values, Time & Controls screen [DONE]
 
 **Prerequisites:** Tasks 04, 06–07. **Asset Generator prerequisites:** none.
 
@@ -684,7 +684,7 @@ pause, seek, loop, and completion within the design's platform tolerance.
 **Evidence:** graph results, transport counters, fast-lane timing,
 audio-playhead traces, checkpoint records, and discontinuity captures.
 
-## Task 09 — Add gestures and the Gestures & Drag screen
+## Task 09 — Add gestures and the Gestures & Drag screen [DONE]
 
 **Prerequisites:** Tasks 04, 06, 08. **Asset Generator prerequisites:** none.
 
@@ -717,7 +717,7 @@ element, motion values, and callbacks agree and no canceled gesture resumes.
 **Evidence:** callback records, rendered geometry records, fast-lane timing,
 pointer lifecycle traces, and threshold, constraint, and momentum captures.
 
-## Task 10 — Add projection and the Layout & Reorder screen
+## Task 10 — Add projection and the Layout & Reorder screen [DONE]
 
 **Prerequisites:** Tasks 07–09. **Asset Generator prerequisites:** none.
 
@@ -799,7 +799,7 @@ except for input availability in the checked-in platform-exception list.
 **Evidence:** completed coverage review, named records, focused test results,
 fast-lane timing, lifecycle and reconnect traces, and useful player captures.
 
-## Task 12 — Add the Motion Performance screen and complete validation
+## Task 12 — Add the Motion Performance screen and complete validation [DONE]
 
 **Prerequisites:** Task 11. **Asset Generator prerequisites:** none.
 

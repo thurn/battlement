@@ -901,6 +901,76 @@ fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
   );
 }
 
+#[test]
+fn motion_performance_builds_the_exact_transform_workload() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  for navigation in [
+    "targets-timelines-navigation",
+    "values-navigation",
+    "gestures-navigation",
+    "targets-timelines-navigation",
+    "targets-timelines-navigation",
+    "targets-timelines-navigation",
+  ] {
+    let target = find_named(&client.ui(), ROOT_ID, navigation);
+    client.ui().send_event(UiEvent::click(
+      target,
+      battlement::ClickEvent::pointer(
+        0,
+        PanelPoint::default(),
+        PointerButton::Left,
+        1,
+        KeyModifiers::default(),
+      ),
+    ));
+  }
+
+  let grid = find_named(&client.ui(), ROOT_ID, "motion-performance-grid");
+  let hosts = client.ui().element(grid).children().to_vec();
+  assert_eq!(hosts.len(), 200);
+  let descriptors = hosts
+    .iter()
+    .map(|host| motion_descriptor(&client.ui(), *host))
+    .collect::<Vec<_>>();
+  assert_eq!(
+    descriptors
+      .iter()
+      .map(|descriptor| descriptor.values.len())
+      .sum::<usize>(),
+    120
+  );
+  assert_eq!(
+    descriptors
+      .iter()
+      .map(|descriptor| descriptor.value_subscriptions.len())
+      .sum::<usize>(),
+    0
+  );
+  assert_eq!(
+    descriptors
+      .iter()
+      .map(|descriptor| descriptor.slots.len())
+      .sum::<usize>(),
+    320
+  );
+  for scenario in ["performance-mixed", "performance-interaction"] {
+    let target = find_named(&client.ui(), ROOT_ID, scenario);
+    client.ui().send_event(UiEvent::click(
+      target,
+      battlement::ClickEvent::pointer(
+        0,
+        PanelPoint::default(),
+        PointerButton::Left,
+        1,
+        KeyModifiers::default(),
+      ),
+    ));
+    let grid = find_named(&client.ui(), ROOT_ID, "motion-performance-grid");
+    assert_eq!(client.ui().element(grid).children().len(), 200);
+  }
+}
+
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);

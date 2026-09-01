@@ -30,6 +30,7 @@ namespace Battlement.UI
         private readonly Func<TimeSpan> gestureTime;
         private readonly Func<bool> reducedMotion;
         private readonly BattlementMotionGraph graph;
+        private readonly BattlementMotionPerformance performance = new();
         private readonly bool enablePlayerLoop;
         private readonly IBattlementUiAssetLookup? assets;
         private ulong sequence;
@@ -63,6 +64,11 @@ namespace Battlement.UI
         public int GraphNodeCount => graph.NodeCount;
 
         public int LastGraphEvaluationCount => graph.LastEvaluationCount;
+
+        public BattlementMotionPerformanceSnapshot Performance => performance.Snapshot;
+
+        public void RecordPerformanceTraffic(int payloadBytes) =>
+            performance.RecordTraffic(payloadBytes);
 
         internal void SetPseudoState(ObjectId descriptorId, MotionPseudoState state, bool value) =>
             descriptors[descriptorId.Value].SetPseudoState(state, value);
@@ -156,6 +162,7 @@ namespace Battlement.UI
             pendingSamples.Clear();
             pendingGestureSamples.Clear();
             sharedLayouts.Clear();
+            performance.Reset();
             if (IsPlayerLoopRegistered)
             {
                 BattlementMotionPlayerLoop.Unregister(this);
@@ -614,6 +621,7 @@ namespace Battlement.UI
 
         public void PreLayout()
         {
+            performance.BeginFrame(Time.realtimeSinceStartupAsDouble);
             graph.Sample();
             Sample(layout: true);
         }
@@ -633,6 +641,11 @@ namespace Battlement.UI
             CompleteImperativePlaybacks();
             foreach (BattlementGestureState gesture in gestures.Values)
                 gesture.Sample();
+            performance.EndFrame(
+                Time.realtimeSinceStartupAsDouble,
+                descriptors.Values,
+                graph.LastEvaluationCount
+            );
         }
 
         public void Dispose()
@@ -773,8 +786,9 @@ namespace Battlement.UI
 
         private void CompleteImperativePlaybacks()
         {
-            foreach (Guid id in imperativePlaybacks.Complete(descriptors))
-                ForgetActiveControl(id);
+            IReadOnlyList<Guid> completed = imperativePlaybacks.Complete(descriptors);
+            for (int index = 0; index < completed.Count; index++)
+                ForgetActiveControl(completed[index]);
         }
 
         private void FinishImperative(Guid id, MotionPlaybackOutcome outcome)
@@ -823,26 +837,13 @@ namespace Battlement.UI
         private ulong ClockMicros(MotionClockSource source) => ClockSample(source).ElapsedMicros;
 
         private MotionClockSample ClockSample(MotionClockSource source) =>
-            source switch
-            {
-                MotionClockSource.Unscaled => new MotionClockSample(
-                    BattlementMotionClock.ToMicros(unscaledTime()),
-                    false
-                ),
-                MotionClockSource.Scaled => new MotionClockSample(
-                    BattlementMotionClock.ToMicros(scaledTime()),
-                    false
-                ),
-                MotionClockSource.Controlled value => controlledClocks.TryGetValue(
-                    value.Value.Value,
-                    out ulong elapsed
-                )
-                    ? new MotionClockSample(elapsed, false)
-                    : new MotionClockSample(0, false),
-                MotionClockSource.Audio value => audioTime?.Invoke(value.Value)
-                    ?? new MotionClockSample(0, false),
-                _ => throw Invalid("Unknown motion clock source."),
-            };
+            BattlementMotionClockSampler.Sample(
+                source,
+                unscaledTime,
+                scaledTime,
+                controlledClocks,
+                audioTime
+            );
 
         private SlotState RequireSlot(ObjectId descriptorId, ulong slot, uint generation)
         {

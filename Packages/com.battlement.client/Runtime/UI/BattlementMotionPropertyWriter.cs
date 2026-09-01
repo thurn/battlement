@@ -440,6 +440,41 @@ namespace Battlement.UI
                 throw Unsupported(property);
         }
 
+        public static void WriteAdaptedScalar(
+            VisualElement target,
+            MotionProperty property,
+            double value
+        )
+        {
+            float number = checked((float)value);
+            if (property == MotionProperty.Scale)
+            {
+                target.style.scale = new Scale(new UnityEngine.Vector2(number, number));
+                return;
+            }
+            if (
+                property
+                is MotionProperty.X
+                    or MotionProperty.Y
+                    or MotionProperty.Z
+                    or MotionProperty.Width
+                    or MotionProperty.Height
+                    or MotionProperty.MinWidth
+                    or MotionProperty.MinHeight
+                    or MotionProperty.MaxWidth
+                    or MotionProperty.MaxHeight
+            )
+            {
+                WriteLength(
+                    target,
+                    property,
+                    new StyleLength(new Length(number, LengthUnit.Pixel))
+                );
+                return;
+            }
+            WriteScalar(target, property, value);
+        }
+
         public static void WriteTranslation(VisualElement target, float x, float y) =>
             target.style.translate = new Translate(
                 new Length(x, LengthUnit.Pixel),

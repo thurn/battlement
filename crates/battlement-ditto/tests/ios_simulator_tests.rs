@@ -145,7 +145,7 @@ esac
     SimulatorTools {
       xcrun: self.xcrun.clone(),
       plutil: self.plutil.clone(),
-      command_timeout: Duration::from_secs(2),
+      command_timeout: Duration::from_secs(10),
       boot_timeout: Duration::from_secs(2),
     }
   }

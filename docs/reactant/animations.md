@@ -2251,9 +2251,10 @@ and 64 GB memory running macOS `26.5.2` and Unity `6000.5.8f1`. The two required
 profiles are:
 
 - `macos-arm64-metal`: a non-development Release player, Apple silicon, Metal,
-  VSync count `1`, fixed `1280 x 720` framebuffer, and 60 Hz display mode.
+  VSync count `0`, target frame rate `64`, fixed `1280 x 720` framebuffer, and
+  60 Hz display mode.
 - `webgl-chrome-desktop`: a Release WebGL 2 build in Chrome
-  `152.0.7977.64`, fixed `1280 x 720` backing framebuffer, device-pixel ratio
+  `152.0.7977.65`, fixed `1280 x 720` backing framebuffer, device-pixel ratio
   normalized by the harness, WebAssembly threads disabled, and 60 Hz display
   mode.
 
@@ -2318,6 +2319,38 @@ samples are absent without an explicit subscription. With subscriptions, there
 is at most one coalesced sample per `(subscription, rendered frame)` plus
 non-droppable ordered boundary events. Tests calculate this exact structural
 upper bound from the active subscription and boundary counts.
+
+### Running the release workloads
+
+Open **Motion Performance** from the sample navigation and select
+`TRANSFORM-200`, `MIXED-200`, or `INTERACTION`. `STEP` advances the fixed input
+phase, `SUBSCRIBE` adds exactly one explicit presentation subscription, and
+`RESET` restores `transform-200` with no subscription. The screen shows the
+authored host, timeline, layout, graph, and subscription counts. CPU, frame,
+allocation, property, native-optimization, and lifecycle values come from the
+host counter rather than Rust frame callbacks.
+
+Native harnesses read `BattlementRunner.MotionPerformance`. The returned
+`BattlementMotionPerformanceSnapshot` is updated around the complete Motion
+pre-layout, UI Toolkit panel, and post-layout span. Lifecycle payload bytes are
+the actual serialized message size. Native players report the thread's exact
+allocated bytes; WebGL reports positive managed-heap growth because its IL2CPP
+profile does not expose the thread allocation counter. Leaving the screen removes its descriptors;
+the next snapshot therefore returns active-work counters to the session
+baseline. The checked-in structural smoke renders the full `transform-200`
+tree under virtual time, while the five-second warm-up and complete 30-second
+native and WebGL runs remain explicitly invoked release validation.
+
+For a native retained profile, launch the Release executable with matching
+`--reactant-performance=<scenario>`,
+`--battlement-motion-scenario=<scenario>`, and
+`--battlement-motion-profile=<absolute-json-path>` arguments. Supported scenario
+values are `transform-200`, `mixed-200`, and `mixed-interaction`. WebGL enables
+the same recorder with the `battlement-motion-profile=<scenario>` query
+parameter; after the run, the JSON result is available from the document's
+`data-battlement-motion-profile` attribute. Both paths wait for the first active
+timeline or property, exclude the five-second warm-up, retain the complete next
+30 seconds, and evaluate the documented gates without a Development player.
 
 ## Validation
 

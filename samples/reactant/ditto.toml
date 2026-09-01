@@ -156,6 +156,39 @@ wait = { frames = 6 }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "motion performance"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "motion-performance-structural", motion = "controlled", max_duration = "2s" }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "layout and reorder"
 
 [[scenarios.steps]]

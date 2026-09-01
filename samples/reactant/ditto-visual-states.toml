@@ -190,6 +190,11 @@ key = "composed-effects.interaction"
 screen = "composed-effects"
 transient = true
 
+[[states]]
+key = "motion-performance.structural"
+screen = "motion-performance"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

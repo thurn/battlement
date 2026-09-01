@@ -28,6 +28,8 @@ namespace Battlement.UI
 
         public IReadOnlyList<Guid> Complete(IReadOnlyDictionary<Guid, DescriptorState> descriptors)
         {
+            if (values.Count == 0)
+                return Array.Empty<Guid>();
             var finished = new List<Guid>();
             foreach ((Guid id, ImperativePlayback playback) in values.ToArray())
             {

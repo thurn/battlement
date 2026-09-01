@@ -217,7 +217,13 @@ namespace Battlement.UI
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
 
+        /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
+        public BattlementMotionPerformanceSnapshot MotionPerformance => motionWorld.Performance;
+
         internal MotionEventBatch? TakeMotionEvents() => motionWorld.DrainEventBatch();
+
+        internal void RecordMotionTraffic(int payloadBytes) =>
+            motionWorld.RecordPerformanceTraffic(payloadBytes);
 
         internal void Apply(MotionValueOperation operation) => motionWorld.Apply(operation);
 

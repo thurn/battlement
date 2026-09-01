@@ -105,6 +105,10 @@ namespace Battlement
         /// <summary>Whether an unknown runtime failure requires an application restart.</summary>
         public bool IsRestartRequired => isRuntimePoisoned;
 
+        /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
+        public BattlementMotionPerformanceSnapshot MotionPerformance =>
+            uiDocuments?.MotionPerformance ?? default;
+
         internal System.Action? SnapshotApplicationProbe
         {
             set => snapshotReplacement!.ApplicationProbe = value;
@@ -835,6 +839,8 @@ namespace Battlement
                                     ? new ActionBody.MotionEvents(motion)
                                     : new ActionBody.GeometryObservations(geometry!)
                             );
+                        if (motion is not null)
+                            uiDocuments!.RecordMotionTraffic(message.Length);
                         if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
                         {
                             FailSession(

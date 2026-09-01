@@ -198,6 +198,8 @@ The release benchmark measures 20 scenarios and 40 screenshots. On the pinned
 Apple silicon lane, source hashing must remain at or below 250 ms, a cold player
 launch at or below 20 seconds, and a warm watch cycle at or below 5 seconds.
 Build time is reported separately and is never counted as scenario latency.
+The on-demand full-suite gate retains the complete five-sample evidence matrix
+within 110 seconds of wall-clock and added work.
 
 Tollgate runs repository CI, cold and warm preparation, all five macOS suites,
 WebGL and iOS adapter smokes, the performance budget, and final baseline

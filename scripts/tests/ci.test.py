@@ -24,6 +24,7 @@ SPEC.loader.exec_module(ci)
 
 
 def main() -> None:
+    assert "samples" in ci.ROOT_RUST_INPUTS
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
         _verify_cargo_target_isolation(root)

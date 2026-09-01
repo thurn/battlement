@@ -121,6 +121,8 @@ def main() -> None:
         )
         assert gate["status"] == "passed"
         assert len(gate["samples"]) == 5
+        assert gate["budget_seconds"] == 110
+        assert gate["added_budget_seconds"] == 110
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)

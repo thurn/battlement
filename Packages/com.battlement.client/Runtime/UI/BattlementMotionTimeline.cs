@@ -165,6 +165,44 @@ namespace Battlement.UI
 
         public BattlementLayoutProjection? LayoutProjection => layoutProjection;
 
+        public int ActiveTimelineCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (SlotState slot in slots)
+                    if (slot.Active && !slot.Terminal)
+                        count++;
+                return count;
+            }
+        }
+
+        public int ActiveLayoutTrackCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (SlotState slot in slots)
+                    if (slot.Active && !slot.Terminal)
+                        count += slot.LayoutTrackCount;
+                return count;
+            }
+        }
+
+        public int ActivePropertyCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (SlotState slot in slots)
+                    if (slot.Active && !slot.Terminal)
+                        count += slot.TrackCount;
+                return count;
+            }
+        }
+
+        public int NativeOptimizedTrackCount => Descriptor.StyleTransition?.Properties.Count ?? 0;
+
         public void SetPseudoState(MotionPseudoState state, bool value) =>
             pseudoStyles?.SetState(state, value);
 
@@ -434,6 +472,20 @@ namespace Battlement.UI
         public bool SeekPending { get; set; }
 
         public bool Active { get; private set; }
+
+        public int TrackCount => tracks.Length;
+
+        public int LayoutTrackCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (TrackState track in tracks)
+                    if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property))
+                        count++;
+                return count;
+            }
+        }
 
         public MotionPlaybackDirection Direction { get; set; }
 

@@ -81,6 +81,10 @@ Composed Effects combines dropdown, modal, directional route, keyed control
 burst, pseudo-state, ambient, audio-time, reduced-motion, and reconnect
 specimens. `MotionConfig`, the platform preference bridge, and reconnect phase
 adoption are checked by the Reactant Motion and controlled Unity tests.
+Motion Performance instantiates the fixed `transform-200`, `mixed-200`, and
+mixed interaction workloads from public builders. Its fast black-box proof
+checks the emitted host, graph, subscription, and timeline structure; native
+and WebGL Release profiling remains in the on-demand release lane.
 
 ### Pinned settings mockup animation coverage
 
