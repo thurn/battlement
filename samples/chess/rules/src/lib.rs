@@ -517,8 +517,9 @@ impl ChessEngine {
     let (sender, receiver) = mpsc::channel();
     let board = self.board.clone();
     let think_time = self.think_time;
+    let parallel = self.thread_pool.is_parallel();
     let search = move || {
-      if let Some(mv) = ai::choose_move(&board, think_time) {
+      if let Some(mv) = ai::choose_move(&board, think_time, parallel) {
         let _ = sender.send(mv);
       }
     };

@@ -1,5 +1,6 @@
 use std::{
   env, fs,
+  hash::{DefaultHasher, Hash, Hasher},
   net::TcpStream,
   path::{Path, PathBuf},
   process::{Child, Command, ExitStatus},
@@ -155,7 +156,7 @@ fn build_prepared(
     bail!("Unity sample build omitted its success marker");
   }
   if web {
-    self::configure_web_entry_point(&root, &output)?;
+    self::configure_web_entry_point(&root, &output, web_threads)?;
     if !output.join("index.html").is_file() {
       bail!(
         "sample Web build omitted {}",
@@ -186,10 +187,19 @@ fn build_prepared(
   Ok(output)
 }
 
-fn configure_web_entry_point(root: &Path, output: &Path) -> Result<()> {
+fn configure_web_entry_point(root: &Path, output: &Path, web_threads: bool) -> Result<()> {
   let index_path = output.join("index.html");
   let mut index = fs::read_to_string(&index_path)
     .with_context(|| format!("failed to read {}", index_path.display()))?;
+  let source =
+    fs::read_to_string(root.join("web/init.js")).context("failed to read the Web initializer")?;
+  let initializer = format!("window.battlementWebThreadingEnabled = {web_threads};\n{source}");
+  let mut fingerprint = DefaultHasher::new();
+  initializer.hash(&mut fingerprint);
+  let initializer_script = format!(
+    "<script src=\"init.js?v={:016x}\"></script>",
+    fingerprint.finish()
+  );
   if !index.contains("autoSyncPersistentDataPath: true") {
     let marker = "var config = {";
     let Some(offset) = index.find(marker) else {
@@ -201,19 +211,25 @@ fn configure_web_entry_point(root: &Path, output: &Path) -> Result<()> {
     let insertion = offset + marker.len();
     index.insert_str(insertion, "\n        autoSyncPersistentDataPath: true,");
   }
-  if !index.contains("<script src=\"init.js\"></script>") {
+  if let Some(start) = index.find("<script src=\"init.js") {
+    let end = index[start..]
+      .find("</script>")
+      .map(|offset| start + offset + "</script>".len())
+      .context("Web entry point has an incomplete initializer script")?;
+    index.replace_range(start..end, &initializer_script);
+  } else {
     let Some(offset) = index.find("</head>") else {
       bail!(
         "Web entry point {} has no closing head",
         index_path.display()
       );
     };
-    index.insert_str(offset, "  <script src=\"init.js\"></script>\n");
+    index.insert_str(offset, &format!("  {initializer_script}\n"));
   }
   fs::write(&index_path, index)
     .with_context(|| format!("failed to configure {}", index_path.display()))?;
-  fs::copy(root.join("web/init.js"), output.join("init.js"))
-    .with_context(|| format!("failed to copy Web initializer into {}", output.display()))?;
+  fs::write(output.join("init.js"), initializer)
+    .with_context(|| format!("failed to write Web initializer into {}", output.display()))?;
   Ok(())
 }
 
@@ -952,8 +968,8 @@ mod tests {
         )
         .unwrap();
 
-    self::configure_web_entry_point(temporary.path(), &output).unwrap();
-    self::configure_web_entry_point(temporary.path(), &output).unwrap();
+    self::configure_web_entry_point(temporary.path(), &output, false).unwrap();
+    self::configure_web_entry_point(temporary.path(), &output, false).unwrap();
 
     let generated = fs::read_to_string(index).unwrap();
     assert_eq!(
@@ -963,15 +979,10 @@ mod tests {
       1
     );
     assert!(generated.contains("var config = {\n        autoSyncPersistentDataPath: true,"));
-    assert_eq!(
-      generated
-        .matches("<script src=\"init.js\"></script>")
-        .count(),
-      1
-    );
+    assert_eq!(generated.matches("<script src=\"init.js?v=").count(), 1);
     assert_eq!(
       fs::read_to_string(output.join("init.js")).unwrap(),
-      "// Browser initializer.\n"
+      "window.battlementWebThreadingEnabled = false;\n// Browser initializer.\n"
     );
   }
 }

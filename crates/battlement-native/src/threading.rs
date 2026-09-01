@@ -13,11 +13,11 @@ use crate::{EngineError, panic_capture};
 ///
 /// Native builds schedule work on a dedicated parallel pool. On Web, Battlement's
 /// page initializer chooses the worker count: desktop browsers get a parallel
-/// worker pool, while mobile browsers get a current-thread pool and synchronous
-/// execution. The mobile fallback avoids starting nested WebAssembly workers,
+/// worker pool, while compatibility browsers execute synchronously without a
+/// pool. The fallback avoids starting nested WebAssembly workers,
 /// which can hang or crash Unity players even when `SharedArrayBuffer` exists.
 pub struct AdaptiveThreadPool {
-  pool: ThreadPool,
+  pool: Option<ThreadPool>,
   execute_synchronously: bool,
   panic: Arc<Mutex<Option<String>>>,
 }
@@ -48,10 +48,19 @@ impl AdaptiveThreadPool {
       }
     };
     if self.execute_synchronously {
-      self.pool.install(guarded);
+      guarded();
     } else {
-      self.pool.spawn(guarded);
+      self
+        .pool
+        .as_ref()
+        .expect("asynchronous execution requires a thread pool")
+        .spawn(guarded);
     }
+  }
+
+  /// Returns whether work is scheduled on a parallel pool.
+  pub fn is_parallel(&self) -> bool {
+    !self.execute_synchronously
   }
 
   /// Takes a panic raised by background work so the engine can fail its next poll.
@@ -66,31 +75,31 @@ impl AdaptiveThreadPool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn build_pool() -> Result<(ThreadPool, bool), ThreadPoolBuildError> {
+fn build_pool() -> Result<(Option<ThreadPool>, bool), ThreadPoolBuildError> {
   // Native platforms are not subject to browser worker restrictions. Even a
   // one-core host still schedules asynchronously so gameplay remains responsive.
-  ThreadPoolBuilder::new().build().map(|pool| (pool, false))
+  ThreadPoolBuilder::new()
+    .build()
+    .map(|pool| (Some(pool), false))
 }
 
 #[cfg(target_arch = "wasm32")]
-fn build_pool() -> Result<(ThreadPool, bool), ThreadPoolBuildError> {
+fn build_pool() -> Result<(Option<ThreadPool>, bool), ThreadPoolBuildError> {
   // SAFETY: Unity links this symbol from BattlementWebThreading.jslib. init.js
   // initializes its positive thread count before Unity loads the Wasm module.
   let thread_count = unsafe { self::battlement_web_thread_count() }.max(1) as usize;
-  let builder = ThreadPoolBuilder::new().num_threads(thread_count);
   if thread_count == 1 {
-    // Rayon normally adapts how many workers it creates, but it cannot know
-    // that spawning a nested Wasm worker is unsafe on some mobile browsers.
-    // Current-thread mode creates no worker and therefore needs synchronous
-    // dispatch so the installed search can make progress before returning.
-    builder
-      .use_current_thread()
-      .build()
-      .map(|pool| (pool, true))
+    // Rayon cannot initialize its registry without Wasm atomics, even when its
+    // current-thread option is selected. The compatibility path therefore owns
+    // no Rayon pool and dispatches work directly on the browser's main thread.
+    Ok((None, true))
   } else {
     // Desktop browsers that passed the SharedArrayBuffer/isolation gate can
     // retain parallel search without requiring a second game implementation.
-    builder.build().map(|pool| (pool, false))
+    ThreadPoolBuilder::new()
+      .num_threads(thread_count)
+      .build()
+      .map(|pool| (Some(pool), false))
   }
 }
 

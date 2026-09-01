@@ -35,7 +35,8 @@
     1,
     Math.min(4, hardwareConcurrency - 1),
   );
-  const threadCount = isMobile ? 1 : desktopThreadCount;
+  const threadingEnabled = window.battlementWebThreadingEnabled !== false;
+  const threadCount = threadingEnabled && !isMobile ? desktopThreadCount : 1;
 
   function showWebThreadsError() {
     compatibilityErrorShown = true;
@@ -74,7 +75,8 @@
     // Unity creates its own persistent workers from hardwareConcurrency. Desktop
     // needs additional prestarted workers for Rayon's dedicated pool; mobile's
     // current-thread pool needs no surplus worker and must not attempt to make one.
-    pthreadPoolSize: hardwareConcurrency + (isMobile ? 0 : threadCount),
+    pthreadPoolSize:
+      hardwareConcurrency + (threadingEnabled && !isMobile ? threadCount : 0),
     showUnsupportedError: showWebThreadsError,
     threadCount,
   });
