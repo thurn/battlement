@@ -1,9 +1,10 @@
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, GameObject, GameObjectKind, LowerLimit, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Response, ResponseMessage, Scene,
-  SceneId, SessionId, Snapshot, Style, UiDocument, UiDocumentState, UiElementKind, UiNode,
+  CameraState, ClientMessage, Command, Connect, GameObject, GameObjectKind, GridItem, LowerLimit,
+  ObjectId, OverlayLayer, OverlayPlacement, PanelScaleMode, PanelSettings, ParentScene,
+  PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, StackItem,
+  Sticky, Style, UiDocument, UiDocumentState, UiElementKind, UiNode, UiVisualElementProperties,
   UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
@@ -190,6 +191,56 @@ fn generated_and_handwritten_required_props_render_equivalent_fake_trees() {
     assert_eq!(client.ui().element(children[0]).text(), Some("Citadel"));
     assert_eq!(client.ui().element(children[1]).text(), Some("body"));
   }
+}
+
+#[test]
+fn common_facades_lower_layout_item_descriptors() {
+  let document = document();
+  let grid_item = GridItem::default();
+  let stack_item = StackItem::default();
+  let sticky = Sticky {
+    top: Some(0.0),
+    ..Sticky::default()
+  };
+  let overlay = OverlayPlacement::Layer(OverlayLayer::Popover);
+  let rendered_overlay = overlay.clone();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), move |_: &()| {
+    (
+      battlement_reactant::host::View::new().grid_item(grid_item),
+      battlement_reactant::host::Button::new("stack").stack_item(stack_item),
+      battlement_reactant::host::Label::new("sticky").sticky(sticky),
+      battlement_reactant::host::Box::new().overlay_placement(rendered_overlay.clone()),
+    )
+  });
+
+  let rendered = reactant
+    .begin_session(&mut ())
+    .expect("descriptor render succeeds")
+    .into_parts(snapshot(
+      SessionId::new_v4(),
+      std::slice::from_ref(&document),
+    ))
+    .0;
+  let children = &rendered.ui[0].children;
+
+  assert_eq!(
+    children[0].element.visual_element().grid_item,
+    Prop::Set(grid_item)
+  );
+  assert_eq!(
+    children[1].element.visual_element().stack_item,
+    Prop::Set(stack_item)
+  );
+  assert_eq!(
+    children[2].element.visual_element().sticky,
+    Prop::Set(sticky)
+  );
+  assert_eq!(
+    children[3].element.visual_element().overlay_placement,
+    Prop::Set(overlay)
+  );
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]

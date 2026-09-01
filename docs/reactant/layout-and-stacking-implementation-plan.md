@@ -153,7 +153,7 @@ exist.
 - Regenerate checked-in protocol artifacts through the repository generator.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 2: Native layout slots and logical-child adapter
+## Task 2 [DONE]: Native layout slots and logical-child adapter
 
 **Prerequisites:** Task 1 `[DONE]`.
 

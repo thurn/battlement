@@ -17,7 +17,7 @@ use crate::{
   event_handler::Handler,
   hook_storage::HookComponent,
   hooks,
-  host::FacadeMetadata,
+  host_facade::FacadeMetadata,
   key::ErasedKey,
   motion::MotionProps,
   motion_component::MotionComponent,

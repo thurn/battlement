@@ -33,16 +33,18 @@
 use std::{any::TypeId, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
-  Prop, Style, UiBox, UiButton, UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel,
-  UiMinMaxSlider, UiPopupWindow, UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton,
-  UiScrollView, UiScroller, UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField,
-  UiToggle, UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
+  GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
+  UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar, UiRadioButton,
+  UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider, UiSliderInt, UiTab,
+  UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup, UiVisualElement,
+  UiVisualElementProperties,
 };
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
   element_ref::ElementRef,
   event_handler::Handler,
+  host_facade::{self, HostState},
   key::ErasedKey,
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   motion_css::{Animation, Decoration, IntoPseudoStyle, StyleTransition},
@@ -241,26 +243,6 @@ macro_rules! gesture_callback_methods {
   };
 }
 
-#[derive(Clone)]
-pub(crate) struct HostState<H> {
-  pub(crate) host: H,
-  pub(crate) children: Vec<Node>,
-  pub(crate) handlers: Vec<Handler>,
-  pub(crate) key: Option<ErasedKey>,
-  pub(crate) element_ref: Option<ElementRef>,
-  pub(crate) portal_target: Option<PortalTarget>,
-  pub(crate) motion: MotionProps,
-}
-
-pub(crate) struct FacadeMetadata {
-  pub(crate) key: Option<ErasedKey>,
-  pub(crate) element_ref: Option<ElementRef>,
-  pub(crate) portal_target: Option<PortalTarget>,
-  pub(crate) handlers: Vec<Handler>,
-  pub(crate) motion: MotionProps,
-  pub(crate) retained_render: Option<Node>,
-}
-
 macro_rules! facade {
   ($name:ident, $native:ty, $docs:literal) => {
     #[doc = $docs]
@@ -363,6 +345,34 @@ macro_rules! facade {
       #[must_use]
       pub fn style(mut self, value: Style) -> Self {
         self.state.host.visual_element_mut().style = value;
+        self
+      }
+
+      /// Places this host when it is a Grid placement child.
+      #[must_use]
+      pub fn grid_item(mut self, value: impl Into<Prop<GridItem>>) -> Self {
+        self.state.host.visual_element_mut().grid_item = value.into();
+        self
+      }
+
+      /// Places and orders this host when it is a Stack placement child.
+      #[must_use]
+      pub fn stack_item(mut self, value: impl Into<Prop<StackItem>>) -> Self {
+        self.state.host.visual_element_mut().stack_item = value.into();
+        self
+      }
+
+      /// Makes this host sticky within its nearest supported scroll container.
+      #[must_use]
+      pub fn sticky(mut self, value: impl Into<Prop<Sticky>>) -> Self {
+        self.state.host.visual_element_mut().sticky = value.into();
+        self
+      }
+
+      /// Places this host through a target-owned overlay presentation slot.
+      #[must_use]
+      pub fn overlay_placement(mut self, value: impl Into<Prop<OverlayPlacement>>) -> Self {
+        self.state.host.visual_element_mut().overlay_placement = value.into();
         self
       }
 
@@ -721,7 +731,7 @@ macro_rules! facade {
       }
 
       fn render_into(&self, sink: &mut RenderSink<'_>) {
-        self::lower::<Self, $native>(self.state.clone(), None, sink);
+        host_facade::lower::<Self, $native>(self.state.clone(), None, sink);
       }
 
       fn render_owned(self, sink: &mut RenderSink<'_>) {
@@ -733,7 +743,7 @@ macro_rules! facade {
           render: Rc::clone(&self) as Rc<dyn crate::render_value::ErasedRender>,
           descriptor: TypeId::of::<Self>(),
         });
-        self::lower::<Self, $native>(self.state.clone(), retained_render, sink);
+        host_facade::lower::<Self, $native>(self.state.clone(), retained_render, sink);
       }
     }
   };
@@ -954,72 +964,3 @@ container!(
   Tab,
   TabView
 );
-
-fn lower<R: 'static, H: Into<UiElement>>(
-  state: HostState<H>,
-  retained_render: Option<Node>,
-  sink: &mut RenderSink<'_>,
-) {
-  let HostState {
-    host,
-    children: host_children,
-    handlers,
-    key,
-    element_ref,
-    portal_target,
-    motion,
-  } = state;
-  let element = host.into();
-  assert_eq!(
-    TypeId::of::<R>(),
-    facade_descriptor(&element),
-    "Reactant façade lowered through the wrong native host catalog entry"
-  );
-  sink.push_facade::<R>(
-    FacadeMetadata {
-      key,
-      element_ref,
-      portal_target,
-      handlers,
-      motion,
-      retained_render,
-    },
-    element,
-    |sink| {
-      for child in host_children {
-        child.render_owned(sink);
-      }
-    },
-  );
-}
-
-fn facade_descriptor(element: &UiElement) -> TypeId {
-  match element {
-    UiElement::VisualElement(_) => TypeId::of::<View>(),
-    UiElement::Flex(_) | UiElement::Grid(_) | UiElement::Stack(_) => {
-      panic!("layout protocol hosts do not have Reactant facades")
-    }
-    UiElement::Box(_) => TypeId::of::<Box>(),
-    UiElement::Label(_) => TypeId::of::<Label>(),
-    UiElement::TextElement(_) => TypeId::of::<TextElement>(),
-    UiElement::TextField(_) => TypeId::of::<TextField>(),
-    UiElement::Toggle(_) => TypeId::of::<Toggle>(),
-    UiElement::RadioButton(_) => TypeId::of::<RadioButton>(),
-    UiElement::RadioButtonGroup(_) => TypeId::of::<RadioButtonGroup>(),
-    UiElement::ToggleButtonGroup(_) => TypeId::of::<ToggleButtonGroup>(),
-    UiElement::DropdownField(_) => TypeId::of::<DropdownField>(),
-    UiElement::Button(_) => TypeId::of::<Button>(),
-    UiElement::RepeatButton(_) => TypeId::of::<RepeatButton>(),
-    UiElement::GroupBox(_) => TypeId::of::<GroupBox>(),
-    UiElement::PopupWindow(_) => TypeId::of::<PopupWindow>(),
-    UiElement::ScrollView(_) => TypeId::of::<ScrollView>(),
-    UiElement::Scroller(_) => TypeId::of::<Scroller>(),
-    UiElement::Slider(_) => TypeId::of::<Slider>(),
-    UiElement::SliderInt(_) => TypeId::of::<SliderInt>(),
-    UiElement::MinMaxSlider(_) => TypeId::of::<MinMaxSlider>(),
-    UiElement::ProgressBar(_) => TypeId::of::<ProgressBar>(),
-    UiElement::Tab(_) => TypeId::of::<Tab>(),
-    UiElement::TabView(_) => TypeId::of::<TabView>(),
-    UiElement::Image(_) => TypeId::of::<Image>(),
-  }
-}

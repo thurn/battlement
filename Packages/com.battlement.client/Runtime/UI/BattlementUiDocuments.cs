@@ -373,7 +373,7 @@ namespace Battlement.UI
                     command.ParentId.Value
                 );
                 choiceControls.BeginHierarchyMutation(command.ParentId);
-                tabControls.Insert(parent, created, command.ChildIndex is null ? null : index);
+                InsertNativeChild(parent, created, command.ChildIndex is null ? null : index);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
                 choiceControls.Insert(
                     command.ParentId,
@@ -475,7 +475,7 @@ namespace Battlement.UI
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
             int removedIndex = logicalChildren[parentId].IndexOf(command.ObjectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
-            tabControls.Remove(target);
+            RemoveNativeChild(elements[parentId], target);
             logicalChildren[parentId].Remove(command.ObjectId.Value);
             choiceControls.Remove(
                 new ObjectId(parentId),
@@ -648,7 +648,11 @@ namespace Battlement.UI
             preparedMotion?.Commit();
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
-                tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
+                InsertNativeChild(
+                    value,
+                    CreateElement(child, documentRoot, node.ObjectId.Value),
+                    null
+                );
                 logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
             }
             if (node.Element is UiElement.TabView tabView)
@@ -878,8 +882,8 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             choiceControls.BeginHierarchyMutation(new ObjectId(oldParent));
             choiceControls.BeginHierarchyMutation(parentId);
-            tabControls.Remove(target);
-            tabControls.Insert(parent, target, newIndex);
+            RemoveNativeChild(elements[oldParent], target);
+            InsertNativeChild(parent, target, newIndex);
             logicalChildren[oldParent].Remove(objectId.Value);
             logicalChildren[parentId.Value].Insert(newIndex, objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
@@ -916,7 +920,9 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
-            if (parent is UnityEngine.UIElements.TabView tabView)
+            if (parent is BattlementLayoutContainer layout)
+                layout.Adapter.Reindex(target, index);
+            else if (parent is UnityEngine.UIElements.TabView tabView)
                 tabControls.Reorder(tabView, previousIndex, index);
             else
             {
@@ -926,6 +932,33 @@ namespace Battlement.UI
             logicalChildren[parentId].Remove(objectId.Value);
             logicalChildren[parentId].Insert(index, objectId.Value);
             choiceControls.Reorder(new ObjectId(parentId), previousIndex, index);
+        }
+
+        private void InsertNativeChild(
+            UnityEngine.UIElements.VisualElement parent,
+            UnityEngine.UIElements.VisualElement child,
+            int? index
+        )
+        {
+            if (parent is BattlementLayoutContainer layout)
+            {
+                layout.Adapter.Insert(child, index ?? layout.Adapter.LogicalChildren.Count);
+                return;
+            }
+            tabControls.Insert(parent, child, index);
+        }
+
+        private void RemoveNativeChild(
+            UnityEngine.UIElements.VisualElement parent,
+            UnityEngine.UIElements.VisualElement child
+        )
+        {
+            if (parent is BattlementLayoutContainer layout)
+            {
+                layout.Adapter.Detach(child);
+                return;
+            }
+            tabControls.Remove(child);
         }
 
         private int DepthOf(Guid objectId)
@@ -1030,6 +1063,8 @@ namespace Battlement.UI
         {
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
             {
+                if (value is BattlementLayoutContainer layout)
+                    layout.Adapter.Clear();
                 actions.Remove(new ObjectId(objectId), value);
                 elementIds.Remove(value);
                 lifecycleEvents.Remove(objectId);

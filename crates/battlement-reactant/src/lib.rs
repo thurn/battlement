@@ -50,6 +50,7 @@ mod hook_storage;
 pub mod hooks;
 pub mod host;
 mod host_events;
+mod host_facade;
 mod host_properties;
 pub mod key;
 pub mod layout;

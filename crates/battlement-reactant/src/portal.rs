@@ -80,14 +80,21 @@ pub(crate) struct PortalLayout {
   pub(crate) roots: Vec<PortalRoot>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PortalSourceOrdinal {
+  root: usize,
+  portal: usize,
+}
+
 pub(crate) fn layout(
   runtime_id: u64,
   trees: &[RenderTree],
   externals: &[(PortalTarget, ObjectId)],
 ) -> PortalLayout {
   let mut catalog = PortalCatalog::default();
-  for tree in trees {
-    self::collect_portals(runtime_id, tree, false, &mut catalog);
+  for (root, tree) in trees.iter().enumerate() {
+    let mut portal = 0;
+    self::collect_portals(runtime_id, tree, false, root, &mut portal, &mut catalog);
   }
   let external_targets = externals
     .iter()
@@ -191,12 +198,15 @@ struct PortalCatalog<'a> {
 struct PortalRange<'a> {
   tree: &'a RenderTree,
   hidden: bool,
+  source: PortalSourceOrdinal,
 }
 
 fn collect_portals<'a>(
   runtime_id: u64,
   tree: &'a RenderTree,
   hidden: bool,
+  root: usize,
+  portal: &mut usize,
   catalog: &mut PortalCatalog<'a>,
 ) {
   for position in &tree.positions {
@@ -226,6 +236,13 @@ fn collect_portals<'a>(
     if let Some(target) = &position.portal {
       self::validate_target(runtime_id, target);
       catalog.referenced.insert(target.clone());
+      let source = PortalSourceOrdinal {
+        root,
+        portal: *portal,
+      };
+      *portal = portal
+        .checked_add(1)
+        .expect("Reactant portal preorder ordinal overflow");
       catalog
         .ranges
         .entry(target.clone())
@@ -233,12 +250,20 @@ fn collect_portals<'a>(
         .push(PortalRange {
           tree: &position.children,
           hidden,
+          source,
         });
     }
     if let Some(suspense) = &position.suspense {
-      self::collect_portals(runtime_id, &suspense.primary, true, catalog);
+      self::collect_portals(runtime_id, &suspense.primary, true, root, portal, catalog);
     }
-    self::collect_portals(runtime_id, &position.children, hidden, catalog);
+    self::collect_portals(
+      runtime_id,
+      &position.children,
+      hidden,
+      root,
+      portal,
+      catalog,
+    );
   }
 }
 
@@ -279,7 +304,9 @@ fn physical_hosts(
           "Reactant portal targets form a physical cycle"
         );
         expanding.push(target.clone());
-        for range in ranges.get(target).into_iter().flatten() {
+        let mut target_ranges = ranges.get(target).into_iter().flatten().collect::<Vec<_>>();
+        target_ranges.sort_by_key(|range| range.source);
+        for range in target_ranges {
           let mut portal_hosts = self::physical_hosts(range.tree, ranges, expanding);
           if range.hidden {
             self::hide_roots(&mut portal_hosts);
