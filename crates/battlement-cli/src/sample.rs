@@ -249,7 +249,7 @@ pub(crate) fn run(
     self::build_prepared(prepared, web, web_threads, release)?
   };
   if web {
-    return self::serve_web(&root, &output, port.unwrap_or(DEFAULT_WEB_PORT));
+    return self::serve_web(&root, &project, &output, port.unwrap_or(DEFAULT_WEB_PORT));
   }
 
   let executable = self::native_executable(&output)?;
@@ -335,12 +335,27 @@ fn build_stamp(output: &Path, web: bool, web_threads: bool) -> PathBuf {
     })
 }
 
-fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
+fn serve_web(root: &Path, project: &Path, output: &Path, port: u16) -> Result<()> {
   let address = format!("127.0.0.1:{port}");
   if TcpStream::connect(&address).is_ok() {
     bail!("port {port} is already in use; select another with --port");
   }
-  let python = env::var_os("PYTHON").unwrap_or_else(|| "python3".into());
+  let python = if let Some(configured) = env::var_os("PYTHON") {
+    configured
+  } else {
+    #[cfg(windows)]
+    {
+      tools::unity_editor(project)?
+        .parent()
+        .context("Unity Editor path has no parent directory")?
+        .join("Data/PlaybackEngines/WebGLSupport/BuildTools/Emscripten/python/python.exe")
+        .into_os_string()
+    }
+    #[cfg(not(windows))]
+    {
+      "python3".into()
+    }
+  };
   reset_interrupted();
   let mut server = Command::new(python)
     .arg(root.join("scripts/serve_web.py"))
@@ -361,7 +376,15 @@ fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
   let url = format!("http://{address}/");
   println!("Running Battlement Web sample at {url}");
   println!("Press Ctrl-C to stop.");
-  let open_status = match Command::new("open").arg(&url).status() {
+  #[cfg(windows)]
+  let mut opener = {
+    let mut command = Command::new("rundll32.exe");
+    command.arg("url.dll,FileProtocolHandler");
+    command
+  };
+  #[cfg(not(windows))]
+  let mut opener = Command::new("open");
+  let open_status = match opener.arg(&url).status() {
     Ok(status) => status,
     Err(error) => {
       self::stop_server(&mut server);

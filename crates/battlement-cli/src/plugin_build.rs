@@ -64,21 +64,42 @@ pub(crate) fn web_rules_plugin(
   unity_editor: &Path,
   build: WebBuild,
 ) -> Result<PathBuf> {
+  #[cfg(windows)]
+  let emscripten = unity_editor
+    .parent()
+    .context("Unity Editor path has no parent directory")?
+    .join("Data/PlaybackEngines/WebGLSupport/BuildTools/Emscripten");
+  #[cfg(not(windows))]
   let emscripten = unity_editor
     .ancestors()
     .nth(4)
     .context("Unity Editor path does not have the expected application layout")?
     .join("PlaybackEngines/WebGLSupport/BuildTools/Emscripten");
+  #[cfg(windows)]
+  let emcc = emscripten.join("emscripten/emcc.bat");
+  #[cfg(not(windows))]
   let emcc = emscripten.join("emscripten/emcc");
   let llvm = emscripten.join("llvm");
   let binaryen = emscripten.join("binaryen");
+  #[cfg(windows)]
+  let node = emscripten.join("node/node.exe");
+  #[cfg(not(windows))]
   let node = emscripten.join("node/node");
-  for required in [
+  #[cfg(windows)]
+  let required = [
+    &emcc,
+    &node,
+    &llvm.join("clang.exe"),
+    &binaryen.join("bin/wasm-opt.exe"),
+  ];
+  #[cfg(not(windows))]
+  let required = [
     &emcc,
     &node,
     &llvm.join("clang"),
     &binaryen.join("bin/wasm-opt"),
-  ] {
+  ];
+  for required in required {
     if !required.is_file() {
       bail!(
         "Unity Web Build Support is incomplete; {} was not found",
