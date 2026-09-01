@@ -9,6 +9,15 @@ The screen is a focused specimen, not an exhaustive API catalog. The listed
 tests remain the authoritative behavior proof when a capability is broader
 than the specimen.
 
+## Planned focus and navigation
+
+The [focus and navigation design](focus-and-navigation.md) specifies the next
+Reactant focus contract. Its companion [implementation
+plan](focus-and-navigation-implementation-plan.md) maps that contract to
+independently testable work. The design is not a shipped module or sample
+mapping, so it does not add a row to this release ledger until the public API,
+specimen, and black-box proof exist together.
+
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |

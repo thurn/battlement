@@ -23,6 +23,9 @@ behavior impossible.
   caching, fallback rendering, and retries.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines Unity element
   attachment, batched measurement, coordinate conversion, and host actions.
+- [Focus and navigation](focus-and-navigation.md) defines UI Toolkit-owned
+  focus, declarative scopes, portals, restoration, directional and roving
+  navigation, focus-visible behavior, and reconnect recovery.
 - [Feature ledger](feature-ledger.md) maps every public V1 module to its sample
   screen and black-box proof and records reserved React APIs as unsupported.
 - [Asset generator](asset-generator.md) defines static CSS-style paint

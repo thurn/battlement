@@ -6,6 +6,11 @@ Status: implementation companion to
 [`reactant-technical-design.md`](reactant-technical-design.md) and its
 appendices.
 
+The separately approved [focus and navigation implementation
+plan](focus-and-navigation-implementation-plan.md) extends this completed
+foundation. Its [normative design](focus-and-navigation.md) defines the focus
+contract; this historical plan does not add or override focus semantics.
+
 This plan implements the approved Battlement Reactant contract without adding
 features. The technical design and appendices are normative. If this plan and
 the design disagree, the design wins.
