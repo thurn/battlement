@@ -996,6 +996,9 @@ fn lower<R: 'static, H: Into<UiElement>>(
 fn facade_descriptor(element: &UiElement) -> TypeId {
   match element {
     UiElement::VisualElement(_) => TypeId::of::<View>(),
+    UiElement::Flex(_) | UiElement::Grid(_) | UiElement::Stack(_) => {
+      panic!("layout protocol hosts do not have Reactant facades")
+    }
     UiElement::Box(_) => TypeId::of::<Box>(),
     UiElement::Label(_) => TypeId::of::<Label>(),
     UiElement::TextElement(_) => TypeId::of::<TextElement>(),

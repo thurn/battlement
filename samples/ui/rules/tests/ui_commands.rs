@@ -29,6 +29,7 @@ const COVERAGE_GROUP_IDS: [ObjectId; 7] = [
   object_id!("28000000-0000-4000-8000-000000000106"),
   object_id!("28000000-0000-4000-8000-000000000107"),
 ];
+const NATIVE_GATED_ELEMENTS: [&str; 3] = ["Flex", "Grid", "Stack"];
 const WORLD_DOCUMENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000001");
 const WORLD_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000003");
 const WORLD_STATUS_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000004");
@@ -658,7 +659,7 @@ fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
   assert_page_design_contract(&ui, 125);
 
   let authoritative = [
-    enum_inventory(
+    available_element_inventory(
       include_str!("../../../../crates/battlement-ui/src/elements/mod.rs"),
       "pub enum UiElement {",
     ),
@@ -1744,6 +1745,17 @@ fn enum_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> 
     }
   }
   values
+}
+
+fn available_element_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> {
+  let all = enum_inventory(source, declaration);
+  for gated in NATIVE_GATED_ELEMENTS {
+    assert!(all.contains(&gated), "native gate names an unknown element");
+  }
+  all
+    .into_iter()
+    .filter(|candidate| !NATIVE_GATED_ELEMENTS.contains(candidate))
+    .collect()
 }
 
 fn style_inventory(source: &'static str) -> Vec<&'static str> {

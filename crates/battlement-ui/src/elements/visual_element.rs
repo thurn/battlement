@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{MotionDescriptor, Prop, Style, UiVisualElementProperties};
+use crate::{
+  GridItem, MotionDescriptor, OverlayPlacement, Prop, StackItem, Sticky, Style,
+  UiVisualElementProperties,
+};
 
 /// Determines whether Unity can select an element during pointer hit testing.
 ///
@@ -175,6 +178,18 @@ pub struct UiVisualElement {
   /// adapters may author it directly for controlled conformance fixtures.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub motion: Prop<MotionDescriptor>,
+  /// Grid placement metadata for a direct or top-level portaled Grid child.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub grid_item: Prop<GridItem>,
+  /// Stack placement metadata for a direct or top-level portaled Stack child.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub stack_item: Prop<StackItem>,
+  /// Sticky positioning metadata resolved by the nearest physical scroll view.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub sticky: Prop<Sticky>,
+  /// Overlay placement metadata for a top-level overlay portal attachment.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub overlay_placement: Prop<OverlayPlacement>,
 }
 
 impl UiVisualElement {
@@ -220,6 +235,18 @@ impl UiVisualElement {
     }
     if !value.motion.is_unset() {
       self.motion = value.motion.clone();
+    }
+    if !value.grid_item.is_unset() {
+      self.grid_item = value.grid_item;
+    }
+    if !value.stack_item.is_unset() {
+      self.stack_item = value.stack_item;
+    }
+    if !value.sticky.is_unset() {
+      self.sticky = value.sticky;
+    }
+    if !value.overlay_placement.is_unset() {
+      self.overlay_placement = value.overlay_placement.clone();
     }
   }
 }

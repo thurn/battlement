@@ -941,7 +941,8 @@ namespace Battlement
             || type == typeof(MotionControlCommand.Set)
             || type == typeof(MotionSelector.Element)
             || type == typeof(MotionSelector.Name)
-            || type == typeof(MotionScopeCommand.Stop);
+            || type == typeof(MotionScopeCommand.Stop)
+            || type == typeof(OverlayPlacement.Layer);
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
@@ -965,6 +966,7 @@ namespace Battlement
             || baseType == typeof(InteractionDistance)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
+            || baseType == typeof(GridTrack)
             || baseType == typeof(UiEventBody);
 
         private static string ToSnakeCase(string value) =>
@@ -1246,8 +1248,21 @@ namespace Battlement
                     ("Set", typeof(MotionControlledClockCommand.Set)),
                     ("Advance", typeof(MotionControlledClockCommand.Advance))
                 ),
+                [typeof(GridTrack)] = Fixed(
+                    ("Px", typeof(GridTrack.Px)),
+                    ("Fraction", typeof(GridTrack.Fraction)),
+                    ("Auto", typeof(GridTrack.Auto))
+                ),
+                [typeof(OverlayPlacement)] = Fixed(
+                    ("Layer", typeof(OverlayPlacement.Layer)),
+                    ("Popover", typeof(OverlayPlacement.Popover)),
+                    ("Modal", typeof(OverlayPlacement.Modal))
+                ),
                 [typeof(UiElement)] = Fixed(
                     ("VisualElement", typeof(UiElement.VisualElement)),
+                    ("Flex", typeof(UiElement.Flex)),
+                    ("Grid", typeof(UiElement.Grid)),
+                    ("Stack", typeof(UiElement.Stack)),
                     ("Box", typeof(UiElement.Box)),
                     ("Label", typeof(UiElement.Label)),
                     ("TextElement", typeof(UiElement.TextElement)),

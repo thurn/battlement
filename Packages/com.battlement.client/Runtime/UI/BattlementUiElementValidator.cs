@@ -54,6 +54,7 @@ namespace Battlement.UI
             );
             if (element.Motion.IsSet)
                 BattlementMotionValidator.Validate(element.Motion.Value);
+            ValidateLayout(element);
             ValidateParts(element);
             switch (element)
             {
@@ -215,6 +216,180 @@ namespace Battlement.UI
                 default:
                     break;
             }
+            RejectUnavailableLayout(element);
+        }
+
+        private static void ValidateLayout(UiElement element)
+        {
+            if (element.GridItem.IsSet)
+                ValidateGridItem(element.GridItem.Value);
+            if (element.StackItem.IsSet)
+                ValidateStackItem(element.StackItem.Value);
+            if (element.Sticky.IsSet)
+                ValidateSticky(element.Sticky.Value);
+            if (element.OverlayPlacement.IsSet)
+                ValidateOverlay(element.OverlayPlacement.Value);
+
+            switch (element)
+            {
+                case UiElement.Flex flex:
+                    ValidateEnum<UiFlexDirection>(SetStructValue(flex.Direction), "Flex direction");
+                    ValidateEnum<UiFlexWrap>(SetStructValue(flex.Wrap), "Flex wrap");
+                    ValidateGap(SetStructValue(flex.RowGap));
+                    ValidateGap(SetStructValue(flex.ColumnGap));
+                    ValidateContainerAlign(SetStructValue(flex.AlignItems));
+                    ValidateEnum<UiJustify>(
+                        SetStructValue(flex.JustifyContent),
+                        "Flex justification"
+                    );
+                    break;
+                case UiElement.Grid grid:
+                    foreach (GridTrack track in SetValues(grid.Columns))
+                        ValidateGridTrack(track);
+                    foreach (GridTrack track in SetValues(grid.Rows))
+                        ValidateGridTrack(track);
+                    if (grid.AutoColumns.IsSet)
+                        ValidateGridTrack(grid.AutoColumns.Value);
+                    if (grid.AutoRows.IsSet)
+                        ValidateGridTrack(grid.AutoRows.Value);
+                    ValidateEnum<GridAutoFlow>(SetStructValue(grid.AutoFlow), "Grid auto-flow");
+                    ValidateGap(SetStructValue(grid.RowGap));
+                    ValidateGap(SetStructValue(grid.ColumnGap));
+                    ValidateContainerAlign(SetStructValue(grid.AlignItems));
+                    ValidateContainerAlign(SetStructValue(grid.JustifyItems));
+                    break;
+                case UiElement.Stack stack:
+                    ValidateContainerAlign(SetStructValue(stack.AlignItems));
+                    ValidateContainerAlign(SetStructValue(stack.JustifyItems));
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private static void ValidateGridTrack(GridTrack track)
+        {
+            switch (track)
+            {
+                case GridTrack.Px px:
+                    ValidateFinite(px.Value);
+                    if (px.Value < 0)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "Grid pixel tracks must be nonnegative."
+                        );
+                    break;
+                case GridTrack.Fraction fraction:
+                    ValidateFinite(fraction.Value);
+                    if (fraction.Value <= 0)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "Grid fraction tracks must be positive."
+                        );
+                    break;
+                case GridTrack.Auto:
+                    break;
+                default:
+                    throw Failure(CoreErrorCode.InvalidProperty, "Unknown Grid track.");
+            }
+        }
+
+        private static void ValidateGridItem(GridItem item)
+        {
+            ValidateEnum<UiAlign>(item.AlignSelf, "Grid item alignment");
+            ValidateEnum<UiAlign>(item.JustifySelf, "Grid item justification");
+            bool startsArePositive = item.Row is null or > 0 && item.Column is null or > 0;
+            bool spansArePositive = item.RowSpan > 0 && item.ColumnSpan > 0;
+            bool rowFits = item.Row is not uint row || row <= uint.MaxValue - (item.RowSpan - 1);
+            bool columnFits =
+                item.Column is not uint column || column <= uint.MaxValue - (item.ColumnSpan - 1);
+            if (!startsArePositive || !spansArePositive || !rowFits || !columnFits)
+                throw Failure(CoreErrorCode.InvalidProperty, "Grid item placement is invalid.");
+        }
+
+        private static void ValidateStackItem(StackItem item)
+        {
+            ValidateEnum<UiAlign>(item.AlignSelf, "Stack item alignment");
+            ValidateEnum<UiAlign>(item.JustifySelf, "Stack item justification");
+            ValidateFinite(item.Top, item.Right, item.Bottom, item.Left);
+            if (item.Top < 0 || item.Right < 0 || item.Bottom < 0 || item.Left < 0)
+                throw Failure(CoreErrorCode.InvalidProperty, "Stack insets must be nonnegative.");
+        }
+
+        private static void ValidateSticky(Sticky sticky)
+        {
+            ValidateFinite(sticky.Top, sticky.Right, sticky.Bottom, sticky.Left);
+            int horizontalEdges = (sticky.Left.HasValue ? 1 : 0) + (sticky.Right.HasValue ? 1 : 0);
+            int verticalEdges = (sticky.Top.HasValue ? 1 : 0) + (sticky.Bottom.HasValue ? 1 : 0);
+            if (horizontalEdges + verticalEdges == 0)
+                throw Failure(CoreErrorCode.InvalidProperty, "Sticky requires an inset edge.");
+            if (horizontalEdges > 1 || verticalEdges > 1)
+                throw Failure(CoreErrorCode.InvalidProperty, "Sticky edges are contradictory.");
+        }
+
+        private static void ValidateOverlay(OverlayPlacement overlay)
+        {
+            switch (overlay)
+            {
+                case OverlayPlacement.Layer layer:
+                    ValidateEnum<OverlayLayer>(layer.Value, "Overlay layer");
+                    break;
+                case OverlayPlacement.Popover popover:
+                    ValidateEnum<PlacementSide>(popover.Placement.Side, "Popover side");
+                    ValidateEnum<PlacementAlign>(popover.Placement.Align, "Popover alignment");
+                    ValidateFinite(
+                        popover.Placement.MainOffset,
+                        popover.Placement.CrossOffset,
+                        popover.Placement.CollisionPadding
+                    );
+                    if (popover.Placement.CollisionPadding < 0)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "Popover collision padding must be nonnegative."
+                        );
+                    break;
+                case OverlayPlacement.Modal:
+                    break;
+                default:
+                    throw Failure(CoreErrorCode.InvalidProperty, "Unknown overlay placement.");
+            }
+        }
+
+        private static void ValidateGap(float? gap)
+        {
+            ValidateFinite(gap);
+            if (gap < 0)
+                throw Failure(CoreErrorCode.InvalidProperty, "Layout gaps must be nonnegative.");
+        }
+
+        private static void ValidateContainerAlign(UiAlign? align)
+        {
+            ValidateEnum<UiAlign>(align, "Container alignment");
+            if (align == UiAlign.Auto)
+                throw Failure(CoreErrorCode.InvalidProperty, "Container alignment cannot be Auto.");
+        }
+
+        private static void ValidateEnum<T>(T? value, string name)
+            where T : struct, Enum
+        {
+            if (value.HasValue && !Enum.IsDefined(typeof(T), value.Value))
+                throw Failure(CoreErrorCode.InvalidProperty, $"{name} is not recognized.");
+        }
+
+        private static void RejectUnavailableLayout(UiElement element)
+        {
+            bool unavailableHost = element is UiElement.Flex or UiElement.Grid or UiElement.Stack;
+            bool unavailableDescriptor =
+                element.GridItem.IsSet
+                || element.StackItem.IsSet
+                || element.Sticky.IsSet
+                || element.OverlayPlacement.IsSet;
+            if (unavailableHost || unavailableDescriptor)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "The authored layout host or descriptor is not enabled "
+                        + "by its native layout task."
+                );
         }
 
         private static T? SetValue<T>(Prop<T> value)

@@ -11,6 +11,10 @@ pub use group_box::UiGroupBox;
 pub use icon::IconSource;
 pub use image::{ImageScaleMode, ImageSource, UiImage};
 pub use label::UiLabel;
+pub use layout::{
+  GridAutoFlow, GridItem, GridTrack, OverlayLayer, OverlayPlacement, PlacementAlign, PlacementSide,
+  PopoverPlacement, StackItem, Sticky, UiFlex, UiGrid, UiStack,
+};
 pub use min_max_slider::{LowerLimit, UiMinMaxSlider, UpperLimit};
 pub use popup_window::UiPopupWindow;
 pub use progress_bar::UiProgressBar;
@@ -194,6 +198,7 @@ mod group_box;
 mod icon;
 mod image;
 mod label;
+mod layout;
 mod min_max_slider;
 pub(crate) mod parts;
 mod popup_window;
@@ -242,6 +247,12 @@ pub trait UiVisualElementProperties {
 pub enum UiElement {
   /// A neutral container for grouping and styling child elements.
   VisualElement(UiVisualElement),
+  /// A flex container with independent gaps and stable native child slots.
+  Flex(UiFlex),
+  /// A deterministic track-based layout container.
+  Grid(UiGrid),
+  /// An isolated overlapping layout container.
+  Stack(UiStack),
   /// A container with Unity's themed box background and border.
   Box(UiBox),
   /// A leaf text element for titles, captions, and descriptions.
@@ -312,6 +323,9 @@ impl UiElement {
       (Self::VisualElement(target), Self::VisualElement(value)) => {
         target.apply_update(value);
       }
+      (Self::Flex(target), Self::Flex(value)) => target.apply_update(value),
+      (Self::Grid(target), Self::Grid(value)) => target.apply_update(value),
+      (Self::Stack(target), Self::Stack(value)) => target.apply_update(value),
       (Self::Box(target), Self::Box(value)) => target.apply_update(value),
       (Self::Label(target), Self::Label(value)) => target.apply_update(value),
       (Self::TextElement(target), Self::TextElement(value)) => target.apply_update(value),

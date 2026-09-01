@@ -302,12 +302,60 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
   {
     return Err(UiValidationError::InvalidProperty);
   }
+  if visual
+    .grid_item
+    .set_value()
+    .is_some_and(|value| !valid_grid_item(value))
+    || visual
+      .stack_item
+      .set_value()
+      .is_some_and(|value| !valid_stack_item(value))
+    || visual
+      .sticky
+      .set_value()
+      .is_some_and(|value| !valid_sticky(value))
+    || visual
+      .overlay_placement
+      .set_value()
+      .is_some_and(|value| !valid_overlay(value))
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
   validate_style(&visual.style)
 }
 
 fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {
   validate_visual(value.visual_element())?;
   validate_parts(value, require_complete)?;
+  match value {
+    UiElement::Flex(value) => {
+      validate_gap(value.row_gap.set_value())?;
+      validate_gap(value.column_gap.set_value())?;
+      validate_container_align(value.align_items.set_value())?;
+    }
+    UiElement::Grid(value) => {
+      for track in value
+        .columns
+        .set_value()
+        .into_iter()
+        .flatten()
+        .chain(value.rows.set_value().into_iter().flatten())
+        .chain(value.auto_columns.set_value())
+        .chain(value.auto_rows.set_value())
+      {
+        validate_grid_track(*track)?;
+      }
+      validate_gap(value.row_gap.set_value())?;
+      validate_gap(value.column_gap.set_value())?;
+      validate_container_align(value.align_items.set_value())?;
+      validate_container_align(value.justify_items.set_value())?;
+    }
+    UiElement::Stack(value) => {
+      validate_container_align(value.align_items.set_value())?;
+      validate_container_align(value.justify_items.set_value())?;
+    }
+    _ => {}
+  }
   if let UiElement::Image(image) = value {
     validate_image(image)?;
   }
@@ -600,6 +648,77 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     }
     _ => Ok(()),
   })
+}
+
+fn validate_gap(value: Option<&f32>) -> Result<(), UiValidationError> {
+  if value.is_some_and(|value| !value.is_finite() || *value < 0.0) {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  Ok(())
+}
+
+fn validate_container_align(value: Option<&crate::Align>) -> Result<(), UiValidationError> {
+  if value == Some(&crate::Align::Auto) {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  Ok(())
+}
+
+fn validate_grid_track(value: crate::GridTrack) -> Result<(), UiValidationError> {
+  let valid = match value {
+    crate::GridTrack::Px(value) => value.is_finite() && value >= 0.0,
+    crate::GridTrack::Fraction(value) => value.is_finite() && value > 0.0,
+    crate::GridTrack::Auto => true,
+  };
+  if !valid {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  Ok(())
+}
+
+fn valid_grid_item(value: &crate::GridItem) -> bool {
+  let starts_are_positive =
+    value.row.is_none_or(|value| value > 0) && value.column.is_none_or(|value| value > 0);
+  let spans_are_positive = value.row_span > 0 && value.column_span > 0;
+  if !starts_are_positive || !spans_are_positive {
+    return false;
+  }
+  let rows_are_finite = value
+    .row
+    .is_none_or(|start| start.checked_add(value.row_span - 1).is_some());
+  let columns_are_finite = value
+    .column
+    .is_none_or(|start| start.checked_add(value.column_span - 1).is_some());
+  rows_are_finite && columns_are_finite
+}
+
+fn valid_stack_item(value: &crate::StackItem) -> bool {
+  [value.top, value.right, value.bottom, value.left]
+    .into_iter()
+    .flatten()
+    .all(|value| value.is_finite() && value >= 0.0)
+}
+
+fn valid_sticky(value: &crate::Sticky) -> bool {
+  let horizontal_edges = usize::from(value.left.is_some()) + usize::from(value.right.is_some());
+  let vertical_edges = usize::from(value.top.is_some()) + usize::from(value.bottom.is_some());
+  let has_edge = horizontal_edges + vertical_edges > 0;
+  let compatible_edges = horizontal_edges <= 1 && vertical_edges <= 1;
+  let finite = [value.top, value.right, value.bottom, value.left]
+    .into_iter()
+    .flatten()
+    .all(f32::is_finite);
+  has_edge && compatible_edges && finite
+}
+
+fn valid_overlay(value: &crate::OverlayPlacement) -> bool {
+  let crate::OverlayPlacement::Popover { placement, .. } = value else {
+    return true;
+  };
+  placement.main_offset.is_finite()
+    && placement.cross_offset.is_finite()
+    && placement.collision_padding.is_finite()
+    && placement.collision_padding >= 0.0
 }
 
 fn validate_parts(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {

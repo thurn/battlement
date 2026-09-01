@@ -98,7 +98,7 @@ The task sections use these terms consistently:
 - **Stable identity** means the same public `ObjectId`, native control state,
   ref attachment, and keyed component state survive a sparse layout update.
 
-## Task 1: Closed protocol data model
+## Task 1 [DONE]: Closed protocol data model
 
 **Prerequisites:** completed asset generator and animation work.
 

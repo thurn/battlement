@@ -81,7 +81,7 @@ namespace Battlement
     }
 
     /// <summary>Represents sparse visual properties for a concrete UI Toolkit element.</summary>
-    public abstract record UiElement
+    public abstract partial record UiElement
     {
         /// <summary>The name operation; reset restores the constructor's empty name.</summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
@@ -144,6 +144,22 @@ namespace Battlement
         /// <summary>Validated animation state installed beside this native host.</summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public Prop<MotionDescriptor> Motion { get; init; }
+
+        /// <summary>Grid placement metadata for a placement child.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<GridItem> GridItem { get; init; }
+
+        /// <summary>Stack placement metadata for a placement child.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<StackItem> StackItem { get; init; }
+
+        /// <summary>Sticky positioning metadata resolved by a physical scroll view.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<Sticky> Sticky { get; init; }
+
+        /// <summary>Overlay placement metadata for a top-level portal attachment.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<OverlayPlacement> OverlayPlacement { get; init; }
 
         /// <summary>The base class for objects in the UI Toolkit visual tree.</summary>
         public sealed record VisualElement : UiElement;
