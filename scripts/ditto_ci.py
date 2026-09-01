@@ -32,13 +32,13 @@ CACHE_ROOT = Path(
 DITTO = Path(
     os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
 )
-GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "90"))
+GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "110"))
 SAMPLE_TIMEOUT_SECONDS = float(
     os.environ.get(
         "DITTO_CI_SAMPLE_TIMEOUT_SECONDS", str(GATE_BUDGET_SECONDS + 15),
     )
 )
-ADDED_BUDGET_SECONDS = 90
+ADDED_BUDGET_SECONDS = 110
 DEFAULT_ODIFF = (
     Path.home()
     / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"

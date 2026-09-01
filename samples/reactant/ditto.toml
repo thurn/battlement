@@ -129,6 +129,9 @@ click = { target = [0.13, 0.065] }
 click = { target = [0.13, 0.065] }
 
 [[scenarios.steps]]
+video = { action = "start", name = "composed-effects", motion = "controlled", max_duration = "4s" }
+
+[[scenarios.steps]]
 click = { target = [0.322, 0.222] }
 
 [[scenarios.steps]]
@@ -148,6 +151,9 @@ click = { target = [0.689, 0.222] }
 
 [[scenarios.steps]]
 wait = { frames = 6 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
 
 [[scenarios]]
 name = "layout and reorder"
