@@ -19,6 +19,9 @@ behavior impossible.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
   defines identity, tree comparison, command generation, event routing, and
   physical placement outside logical parents.
+- [Events and default actions](events-and-default-actions.md) defines the
+  portable synchronous native-policy boundary, logical propagation lifecycle,
+  focus and input ownership, and phased implementation plan.
 - [Resources and Suspense](resources-and-suspense.md) defines asynchronous work,
   caching, fallback rendering, and retries.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines Unity element
