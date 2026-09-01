@@ -1,2118 +1,1776 @@
 # Reactant Events and Default Actions
 
-Reactant needs event handling that feels familiar to a Rust author porting an
-ordinary React interface. It must also tell the truth about where decisions are
-made. Unity UI Toolkit dispatches input and runs many default actions while its
-event callback is active. A Rust callback may run across an asynchronous
-transport and cannot retroactively cancel that work.
+Reactant invokes every subscribed UI Toolkit event handler synchronously in
+Rust while the originating Unity event callback is still active. A handler may
+therefore call `prevent_default()` and have Unity observe that decision before
+it performs the event's remaining default actions.
 
-This design splits the system at that timing boundary:
+Only the default-action decision returns through the active callback. Reactant
+still defers every Unity mutation produced by reconciliation until normal
+response processing resumes after UI Toolkit dispatch. This boundary gives
+application code useful event-time authority without permitting arbitrary tree
+mutation during native event propagation.
 
-- Unity makes every event-time decision synchronously from state installed by
-  the last Reactant commit.
-- Rust performs logical capture and bubble propagation after delivery.
-- Reactant does not add a browser-shaped `prevent_default()` method.
-- An author who must prevent a native default declares a closed, serializable
-  policy before the input occurs.
-- Native controls and Motion keep their higher-level Unity-local state
-  machines. Reactant does not suppress and later replay their behavior.
+The design makes synchronous UI event submission part of the core Battlement
+engine contract. It does not support an asynchronous Reactant UI transport or a
+second, policy-based cancellation model.
 
-The result is portable across in-process and asynchronous transports. The same
-component cannot accidentally depend on a synchronous Rust callback that only
-some hosts can provide.
+The two values returned by Rust have different lifetimes:
 
-## Related information
+- The **event disposition** is the immediate decision Unity consumes before
+  the current callback returns. It is either `Continue` or `PreventDefault`.
+- The **deferred response** is the ordinary Battlement `Response` containing
+  commands produced by Reactant reconciliation. Unity queues it and applies it
+  only at a normal response-drain point.
 
-- [Reactant technical design](reactant-technical-design.md) defines sessions,
-  commits, host façades, and the Rust-to-Unity boundary.
+## Related Information
+
+- [Battlement Reactant technical design](reactant-technical-design.md) defines
+  sessions, roots, commits, and the Rust component runtime.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
-  defines committed identity and the
-  existing logical propagation API. This document supersedes its event timing
-  and stale-event rules.
-- [Hooks and effects](hooks-and-effects.md) defines state batching and callback
-  snapshots.
-- [Refs and geometry](refs-geometry-and-floating-ui.md) defines delayed host
-  actions, including focus and pointer-capture requests.
-- [Reactant Animations](animations.md) defines Motion gestures, dragging,
-  velocity, constraints, momentum, and coalesced samples.
+  defines host identity, logical ancestry, handler storage, and physical portal
+  placement.
+- [Hooks and effects](hooks-and-effects.md) defines event-time state batching,
+  reconciliation, effects, and cleanup.
+- [Focus and navigation](focus-and-navigation.md) defines native focus
+  ownership, scopes, restoration, controller navigation, and portal behavior.
+- [Refs, geometry, and floating UI](refs-geometry-and-floating-ui.md) defines
+  deferred host actions such as focus, scrolling, and pointer capture.
+- [Reactant animations](animations.md) defines Unity-owned Motion gestures,
+  capture, samples, velocity, constraints, and momentum.
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
-  the Unity host, wire values, controlled controls, and fake client. This
-  document supersedes its assumption that Rust event handling is always
-  synchronous.
-- [Controller input](../controller-input.md) defines the existing global
-  gameplay controller actions. Captured UI input remains separate from them.
-- [Ditto technical design](../ditto-technical-design.md) defines production
-  input injection and observable player evidence.
-- [Unity event handling][unity-events] defines target selection, trickle-down,
-  bubble-up, default-action ordering, propagation stopping, and cancellation.
+  UI documents, event payloads, native controls, and command application.
+- [Battlement technical design](../technical-design.md) defines the engine,
+  native ABI, transport, sessions, response ordering, and input gating.
+- [Unity event handling][unity-events] defines target selection,
+  trickle-down, bubble-up, default actions, and cancellation.
+- [Unity event dispatch][unity-dispatch] defines dispatch ordering and event
+  lifetime.
 - [Unity pointer capture][unity-capture] defines native pointer ownership and
   capture transition events.
-- The settings mockup in `~/Documents/mockups` at commit
-  `2451ea9cc6f76b356b1102ee37b82c478853122a` is behavioral evidence only. Its
-  browser event calls and DOM structure are not architecture.
 
-[unity-events]: https://docs.unity3d.com/Manual/UIE-Events-Handling.html
-[unity-capture]: https://docs.unity3d.com/Manual/UIE-capture-the-pointer.html
+[unity-events]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-Events-Handling.html
+[unity-dispatch]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-Events-Dispatching.html
+[unity-capture]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-capture-the-pointer.html
 
-## Design goals and constraints
+## Required Behavior
 
-The system must let ordinary components predict capture, target, and bubble
-ordering without knowing their physical Unity placement. It must preserve that
-logical behavior through portals and must make event metadata sufficient for a
-bug report after the native callback has finished.
+This design establishes one event model for every Battlement engine and every
+Reactant host. The same component must not change behavior according to which
+transport happens to host it.
 
-The system must also preserve UI Toolkit behavior that Reactant cannot safely
-reimplement: text composition, selection, native control manipulation, pointer
-tracking, focus movement, and scroll inertia. Prevention is available only
-where Unity can decide synchronously from a finite descriptor.
+The fixed requirements are:
 
-The fixed constraints are:
+- Every `UiEvent` submitted by Unity enters Rust before the originating UI
+  Toolkit callback returns.
+- Every Battlement engine implements the synchronous UI event operation.
+- Every subscribed UI Toolkit event uses that operation, including events that
+  cannot prevent a default action.
+- One UI event runs all applicable logical handlers before Reactant reconciles.
+- Rust returns one disposition and one ordinary `Response` from the operation.
+- Unity consumes the disposition immediately and queues the response without
+  applying it.
+- Unity applies no Reactant command while a callback forwarded through the
+  Reactant bridge is active.
+- `prevent_default()` affects only the current Unity event's remaining default
+  actions.
+- `stop_propagation()` affects only later Reactant handlers in the current
+  logical dispatch.
+- Native controls continue to own editing, selection, control tracking,
+  scrolling, focus internals, and other higher-level state machines.
+- Motion continues to own gesture recognition and continuous gesture state in
+  Unity.
+- Logical routing follows Reactant ancestry, including through portals.
+- Physical UI Toolkit listeners outside Reactant remain native listeners.
+- A panic, engine error, or malformed native result never prevents the Unity
+  default action.
 
-- Rust event callbacks may cross an asynchronous boundary.
-- A committed host state is the only Rust-authored state Unity may consult
-  during native dispatch.
-- One native event never waits for a Rust callback.
-- One accepted event runs all of its Rust handlers before reconciliation.
-- A session has one total FIFO order for reliable input boundaries.
-- Physical UI Toolkit listeners outside Reactant remain native listeners and
-  are not controlled by Rust logical propagation.
-- Policies are data. They never contain Rust closures or arbitrary scripts.
-- The Rust and C# wire models change atomically. No compatibility layer or
-  protocol version is introduced.
+The synchronous contract is intentionally limited. It permits an immediate
+default-action decision, not an immediate Unity mutation channel.
 
-## Core concepts
+## Architectural Consequences
 
-A **logical route** is the Reactant host path from the logical root to the
-event target, inclusive. Reactant authors this parentage. A portal changes a
-host's physical Unity parent but not its logical route.
+The synchronous requirement removes machinery whose only purpose would be to
+make a delayed event appear current. Reactant does not need a separate UI-event
+delivery queue, retained logical routes, route revisions, event
+acknowledgements, or a C# evaluator for Rust-authored default-action policies.
+Rust evaluates the current handler tree while the native event still exists.
 
-A **native default** is UI Toolkit or control-adapter work that occurs because
-of input, such as editing text, moving a slider, focusing a button, or scrolling
-a view. A **normalized default** is Reactant-owned native work that makes one
-behavior consistent across controls, such as label activation or modal focus
-containment.
+It also keeps the UI-specific result out of ordinary Battlement actions.
+`UiEventDisposition` belongs only to `submit_ui_event`; `Response`, custom
+actions, geometry observation, Motion traffic, and polling do not acquire an
+`ActionOutcome` concept.
 
-A **native event policy** is committed, serializable data that matches a closed
-set of input properties and selects a synchronous native disposition. Policies
-can prevent a default, stop native propagation, or do both. They do not invoke
-application code.
+The decision does not eliminate every timing mechanism. Unity must still defer
+the ordinary response, bound and order queued responses, recover if Rust
+commits state but a response is lost, and retain specialized native ownership
+for controls, focus, input capture, pointer capture, and Motion.
 
-A **reliable boundary** changes ownership or semantic state. Pointer down, up,
-cancel, capture changes, focus changes, key transitions, activation, value
-commit, and captured-input transitions are reliable boundaries. They are never
-coalesced or dropped.
+## Core Engine Contract
 
-A **replaceable sample** reports an intermediate state that a later sample
-fully supersedes. Pointer moves, live scroll changes, Motion drag samples, and
-other explicitly marked samples may be coalesced.
+UI is a core Battlement subsystem, even when a particular snapshot contains no
+UI documents. Synchronous UI submission therefore belongs directly on
+`Engine`; it is not an optional extension trait.
 
-## Ownership matrix
-
-| Behavior | Synchronous owner |
-|---|---|
-| Text editing, IME, caret, selection | UI Toolkit control |
-| Native focus-ring movement | UI Toolkit control |
-| Native control activation | UI Toolkit control |
-| Native slider tracking | UI Toolkit control |
-| Control-internal pointer capture | UI Toolkit control |
-| Wheel and touch scrolling, inertia | UI Toolkit control |
-| Logical click activation | Reactant host adapter |
-| Bubbling focus and blur | Reactant host adapter |
-| Pointer enter and leave crossing | Reactant host adapter |
-| Controlled value proposals | Reactant host adapter |
-| Label focus, activation, naming | Reactant host adapter |
-| Modal focus containment | Reactant host adapter |
-| Keyboard and controller capture | Reactant host adapter |
-| Disabled and hidden gating | Reactant host adapter |
-| Portal-aware logical routing | Reactant host adapter |
-| Gesture recognition and drag | Motion in Unity |
-| Drag velocity, constraints, momentum | Motion in Unity |
-
-UI Toolkit retains the complete native state machine for its controls. A text
-field consumes editing keys and navigation needed for caret movement. A slider
-tracks its value and pointer. A scroll view owns wheel, touch scrolling, and
-inertia. Their adapters emit typed proposals and notifications at the defined
-boundaries.
-
-Reactant normalizes behavior that depends on logical structure or portable
-semantics. The Unity host performs the synchronous half from committed
-descriptors. Rust later receives the corresponding logical event and updates
-application state.
-
-Motion retains Unity-local recognition, pointer capture, translation, velocity,
-constraints, and momentum. Rust receives reliable start, end, cancel, and
-completion boundaries plus coalesced samples. A Rust callback cannot cancel a
-drag that Unity has already recognized.
-
-## Public Rust event API
-
-`ReactantEvent<E>` remains an immutable view over one shared event. Its only
-mutating operation is logical `stop_propagation()`.
+The engine contract adds one operation:
 
 ```rust
-pub enum EventOrigin {
-    Native,
-    NativeNormalized,
-    NativeCleanup,
-    RustSynthetic,
-}
+pub trait Engine {
+    type ActionPayload: DeserializeOwned;
+    type ErrorCode: DeserializeOwned;
+    type Command: Serialize;
 
-pub enum NativeControlKind {
-    Button,
-    Toggle,
-    Radio,
-    Dropdown,
-    Slider,
-    TextField,
-    ScrollView,
-    TabView,
+    fn submit_ui_event(
+        &mut self,
+        action: UiEventAction,
+    ) -> Result<UiEventResponse<Self::Command>, EngineError>;
 }
+```
 
-pub enum DefaultActionState {
-    NotCancelable,
-    Allowed,
-    PreventedByPolicy {
-        policy_owner: ElementTarget,
-    },
-    HandledByNativeControl {
-        control: NativeControlKind,
-    },
+The existing `connect`, `submit`, and `poll` operations retain their current
+signatures and semantics. The complete conceptual contract is:
+
+- `connect` establishes or replaces a session.
+- `submit` processes an ordinary built-in or game-owned action.
+- `submit_ui_event` processes an event before Unity may continue dispatching
+  it.
+- `poll` retrieves independently produced work without blocking.
+
+`ActionBody::VisualElement(UiEvent)` is removed. Keeping it would create two UI
+event paths with different timing, cancellation, and failure semantics.
+
+### UI event action
+
+`UiEventAction` gives a UI event the same causal and session identity that an
+ordinary action currently carries without wrapping it in `ActionBody`.
+
+```rust
+pub struct UiEventAction {
+    pub action_id: ActionId,
+    pub session_id: SessionId,
+    pub event: UiEvent,
 }
+```
 
-pub enum NativeInputOwner {
-    None,
-    NativeControl(NativeControlKind),
-    Motion,
-    InputCapture(ElementTarget),
+The fields have these meanings:
+
+- `action_id` is unique within the session and identifies command batches
+  caused by this event.
+- `session_id` selects the active engine and Unity session.
+- `event` contains the Reactant target and typed UI payload.
+
+The existing `UiEvent` wire value adds the native cancellation fact captured by
+the active Unity callback:
+
+```rust
+pub struct UiEvent {
+    pub target_id: ObjectId,
+    pub cancelable: bool,
+    pub default_prevented: bool,
+    pub body: UiEventBody,
 }
+```
 
-pub enum NativeBubbleDisposition {
-    Continued,
-    StoppedByPolicy {
-        policy_owner: ElementTarget,
-    },
-    StoppedByNativeControl {
-        control: NativeControlKind,
-    },
+`cancelable` and `default_prevented` must come from the actual `EventBase`.
+Rust does not infer either value from `UiEventKind`. The second field preserves
+prevention requested by an earlier native callback. Native adapter events with
+no corresponding `EventBase` set both fields to `false`.
+
+`default_prevented == true` requires `cancelable == true`. The native adapter
+copies Unity's effective values, and Rust rejects a malformed action that
+violates this invariant.
+
+The response may use `action_id` as `Batch::caused_by_action_id`, exactly as a
+batch caused by an ordinary submitted action does today.
+
+### UI event response
+
+`UiEventResponse` keeps the immediate decision structurally separate from the
+ordinary response protocol.
+
+```rust
+pub struct UiEventResponse<C> {
+    pub disposition: UiEventDisposition,
+    pub response: Response<C>,
 }
+```
 
-pub enum LogicalBubbleDisposition {
-    Allowed,
-    SuppressedByNativeControl(NativeControlKind),
+The disposition has a deliberately small public shape:
+
+```rust
+#[repr(u32)]
+pub enum UiEventDisposition {
+    Continue = 0,
+    PreventDefault = 1,
 }
+```
 
+The response is still required when it contains no commands. An empty response
+preserves the session and causal identity of a successfully completed event.
+
+The disposition does not contain focus, pointer capture, scrolling, element
+mutation, or arbitrary commands. Those operations remain in the response and
+therefore remain deferred.
+
+## Native ABI
+
+The native ABI exposes a dedicated operation because UI event submission has a
+different completion contract from ordinary action submission.
+
+```c
+int battlement_submit_ui_event(
+    void* engine,
+    const uint8_t* request,
+    uint64_t request_length,
+    uint32_t* out_disposition,
+    BattlementBuffer* out_payload
+);
+```
+
+The ABI operation performs all of the following before returning success:
+
+1. Reject null engine and output pointers and validate the live engine handle.
+2. Initialize both outputs to their failure-safe values.
+3. Validate the request pointer, length, and configured message-size limit.
+4. Decode exactly one `UiEventAction` with no trailing JSON value.
+5. Invoke `Engine::submit_ui_event` serially and non-reentrantly.
+6. Validate that the returned response belongs to the submitted session.
+7. Serialize the complete ordinary response into `out_payload`.
+8. Write the validated disposition into `out_disposition`.
+
+The output rules prevent a partial result from canceling native behavior:
+
+- The adapter initializes `out_disposition` to `Continue` before invoking the
+  engine.
+- The adapter initializes `out_payload` to the canonical empty buffer.
+- The adapter writes `PreventDefault` only after response serialization
+  succeeds.
+- The Rust enum cannot contain an invalid disposition. C# nevertheless
+  validates the returned `uint32_t`; an unknown value is an ABI failure, not
+  `PreventDefault`.
+- A panic poisons the engine through the existing native panic boundary.
+- Any non-success status leaves the effective disposition as `Continue`.
+- C# frees `out_payload` through the existing buffer-free operation after it
+  has copied or consumed the payload according to current transport ownership
+  rules.
+
+A null request pointer is valid only when `request_length` is zero. Both output
+pointers must be non-null, writable, and correctly aligned as required by the
+unsafe C contract. The adapter can check null and the registered live handle;
+writability and alignment are caller preconditions that the ABI cannot prove.
+If response allocation or serialization fails, the adapter frees any partial
+response allocation before producing the failure result.
+
+As with `battlement_submit`, `out_payload` has status-dependent contents. On
+success it owns the serialized `Response`. On failure it owns the bounded UTF-8
+diagnostic, or the canonical empty buffer when no diagnostic can be allocated.
+A failure payload is never admitted to the response queue.
+
+The status code, handle validation, size limit, panic boundary, buffer shape,
+and free operation are the existing Battlement native transport contract. This
+operation adds no second ownership model.
+
+The normal `battlement_submit` ABI remains unchanged. It never accepts a
+`UiEventAction` and never returns an event disposition.
+
+### Exported engine surface
+
+Every engine export contains `battlement_submit_ui_event`. There is no runtime
+capability negotiation and no fallback to ordinary `submit`.
+
+The engine export macro emits the complete fixed symbol set. An exported engine
+that omits the UI symbol is incompatible with the matching Unity client and
+fails during normal native integration validation.
+
+This requirement keeps cancellation semantics uniform across:
+
+- production native engines;
+- native ABI fixtures;
+- Unity EditMode tests;
+- the Rust fake client; and
+- game-specific engine implementations.
+
+## Localhost HTTP
+
+The synchronous localhost development transport exposes the same engine
+operation without putting a UI-specific value into ordinary `Response`:
+
+```text
+POST /ui-events
+Battlement-UI-Event-Disposition: 0 | 1
+```
+
+The request body is exactly one JSON-encoded `UiEventAction`. On HTTP 200, the
+body is exactly the ordinary JSON-encoded `Response<C>`, and the required
+`Battlement-UI-Event-Disposition` response header contains the decimal numeric
+disposition. Keeping the response body unchanged lets the managed transport
+preserve it as opaque response bytes.
+
+The server invokes `Engine::submit_ui_event` and does not route this endpoint
+through ordinary `Engine::submit`. HTTP 400 means an invalid request, HTTP 500
+means an engine or serialization failure, and other status codes are transport
+failures, matching the existing localhost rules. Failure bodies may contain
+bounded diagnostic text; a failure header is ignored and never prevents the
+native default.
+
+The endpoint uses the existing 100 ms submit timeout and synchronous Unity
+main-thread request. Exceeding that timeout stops the session. The production
+performance gates are measured on the native transport, while the HTTP fixture
+must prove identical disposition, response, failure, and ordering semantics.
+
+## Managed Transport Contract
+
+The managed transport exposes UI submission directly because the UI subsystem
+is always available to the runner.
+
+```csharp
+public interface IBattlementTransport
+{
+    BattlementTransportResult Submit(ReadOnlyMemory<byte> json);
+    BattlementUiEventTransportResult SubmitUiEvent(
+        ReadOnlyMemory<byte> json
+    );
+}
+```
+
+The specialized result separates the fixed disposition from the opaque
+response bytes:
+
+```csharp
+public sealed record BattlementUiEventTransportResult(
+    BattlementTransportStatus Status,
+    UiEventDisposition Disposition,
+    ReadOnlyMemory<byte> ResponsePayload,
+    string? Diagnostic = null
+);
+```
+
+`BattlementNativeTransport.SubmitUiEvent` uses the same:
+
+- live engine pointer;
+- owning-thread check;
+- serial call gate;
+- payload limits;
+- status translation;
+- panic handling; and
+- buffer ownership rules
+
+as ordinary `Submit`.
+
+`BattlementHttpTransport.SubmitUiEvent` posts the same serialized action to
+`/ui-events`, validates the required disposition header, and preserves the HTTP
+body as `ResponsePayload`. Both implementations return the same managed result
+and failure statuses.
+
+The transport does not decode the ordinary `Response`. It returns the fixed
+disposition immediately and preserves the response payload for the runner's
+normal decoding path.
+
+`ResponsePayload` is nonempty only for a successful status. For failure
+statuses, the same native buffer is consumed as `Diagnostic`, and the managed
+result exposes an empty `ResponsePayload`.
+
+## Unity Event Bridge
+
+The Unity event bridge keeps the original UI Toolkit event object only on the
+active C# stack. It never acquires, stores, or uses the pooled object later.
+
+The bridge performs this operation for one event:
+
+```csharp
+UiEventResult result = runner.EmitUiEvent(ToUiEvent(eventValue));
+if (result.Disposition == UiEventDisposition.PreventDefault)
+    eventValue.PreventDefault();
+```
+
+`EmitUiEvent` is the only runner path that calls `SubmitUiEvent`. Its behavior
+is:
+
+1. Increment `uiDispatchDepth`.
+2. Allocate the action ID and its pending inspection record.
+3. Reserve one bounded response-queue admission token.
+4. Create and serialize the `UiEventAction`.
+5. Call the synchronous transport operation.
+6. Validate the transport status, disposition, and response payload.
+7. Commit the returned payload into the reserved queue position.
+8. Return the disposition to the active event observer.
+9. Decrement `uiDispatchDepth` in a `finally` block.
+
+The reservation claims one item slot and fixes the event response's FIFO
+position before Rust can change application state. No other producer may
+consume that position. A reservation is either committed exactly once or
+released exactly once.
+
+The shared deferred-response queue allows 256 item slots and 64 MiB of total
+serialized payload. Each payload also remains subject to the existing 16 MiB
+`MaximumMessageBytes` limit. The item slot is reserved before the call; the
+exact byte count is charged after the native buffer returns and before the
+disposition becomes observable. These limits live beside the existing protocol
+limits and apply to responses from every producer.
+
+If item reservation fails, Unity does not call Rust. It returns `Continue`,
+rejects further session input, and records a fatal pending session failure. If
+the native call or exact byte charge fails, Unity releases the unused
+reservation and records the same failure. After a successful call, the
+disposition is not observable until the payload has been committed to the
+reserved queue position.
+
+The observer applies `PreventDefault()` only after `EmitUiEvent` returns a
+validated success. It then returns normally to UI Toolkit.
+
+`uiDispatchDepth` prohibits response application during callbacks forwarded by
+the Reactant bridge. It also covers UI Toolkit callbacks nested beneath those
+callbacks. Reactant does not claim to detect unrelated callbacks registered by
+other systems. Leaving the outermost bridge callback does not itself drain the
+response queue. The queue drains at the next normal runner response-drain
+point, which may occur later in the same Unity frame or in a later frame.
+
+### Authoritative event coverage
+
+Every event represented as `UiEvent` uses `SubmitUiEvent`, even if the event is
+not cancelable. This gives all logical events one ordering and failure model.
+
+The following list is the complete `UiEventKind` inventory. Adding a variant
+requires adding it to exactly one coverage class.
+
+- **Root trickle observer:** `PointerDown`, `PointerMove`, `PointerUp`,
+  `PointerCancel`, `Click`, `PointerOver`, `PointerOut`, `Wheel`, `KeyDown`,
+  `KeyUp`, `NavigationMove`, `NavigationCancel`, `FocusIn`, and `FocusOut`.
+  Each comes from its propagating `EventBase`. Navigation submit on a button
+  is normalized to `Click`.
+- **Owned target observer:** `PointerEnter`, `PointerLeave`, `PointerCapture`,
+  `PointerCaptureOut`, `Focus`, and `Blur`. Each comes from its
+  non-propagating `EventBase` on the registered host.
+- **Lifecycle adapter:** `GeometryChanged`, `AttachToPanel`,
+  `DetachFromPanel`, `TransitionStart`, `TransitionEnd`, `TransitionCancel`,
+  `LinkEnter`, `LinkLeave`, `LinkDown`, and `LinkUp`. Each comes from a target
+  callback or Unity lifecycle or link event normalized by the adapter.
+- **Controlled-value adapter:** `ValueChanging`, `ValueCommitted`, `Input`,
+  `SelectionChanged`, `ScrollSettled`, `ScrollChanged`,
+  `TabSelectionRequested`, `TabCloseRequested`, and `TabReorderRequested`.
+  Each comes from a control-specific callback or proposal emitted by the
+  owning adapter.
+
+Coverage source and logical propagation are independent. The complete logical
+propagation classification is:
+
+- **Capture, target, and bubble:** `PointerDown`, `PointerMove`, `PointerUp`,
+  `PointerCancel`, `Click`, `PointerOver`, `PointerOut`, `Wheel`,
+  `PointerCapture`, `PointerCaptureOut`, `KeyDown`, `KeyUp`,
+  `NavigationMove`, `NavigationCancel`, `FocusIn`, `FocusOut`, `LinkEnter`,
+  `LinkLeave`, `LinkDown`, and `LinkUp`.
+- **Target only:** `PointerEnter`, `PointerLeave`, `Focus`, `Blur`,
+  `GeometryChanged`, `AttachToPanel`, `DetachFromPanel`, `TransitionStart`,
+  `TransitionEnd`, `TransitionCancel`, `ValueChanging`, `ValueCommitted`,
+  `Input`, `SelectionChanged`, `ScrollSettled`, `ScrollChanged`,
+  `TabSelectionRequested`, `TabCloseRequested`, and `TabReorderRequested`.
+
+The first group permits `Trickle`, `Target`, and `Bubble` subscriptions. The
+second permits only `Target`; validation rejects its ancestor subscriptions.
+This list is the implementation of `UiEventKind::propagates()` in both Rust and
+C# and must remain byte-for-byte equivalent at the variant level.
+
+An **event island** is one registered UI document or panel root and all
+Reactant hosts physically owned by that root. Each island installs exactly one
+root observer set. Owned target observers are installed only for kinds that do
+not enter through the root observer. Adapters own only their listed class. These
+disjoint sources are the exactly-once rule; a source must not also forward the
+raw event from which it derives a normalized event.
+
+In particular:
+
+- button navigation submit emits one normalized `Click`, not a second raw
+  navigation event;
+- button repeat emits one `Click` for each configured repeat activation;
+- a control proposal emits its typed proposal event instead of separately
+  forwarding the underlying raw change notification; and
+- link and pointer events are distinct when both are explicitly subscribed,
+  because they represent different public event kinds.
+
+Every `EventBase`-backed source copies `EventBase.cancellable` and
+`EventBase.isDefaultPrevented`. A normalized `Click` copies those values from
+the `ClickEvent` or `NavigationSubmitEvent` that caused it. Sources without an
+active `EventBase` use `false` for both fields. The Unity 6000.5.8f1 integration
+matrix records the observed values for every inventory entry and fails when a
+Unity upgrade changes them.
+
+Subscriptions are committed Unity state. An event admitted while Unity still
+has an old subscription may reach Rust after Rust removed that handler. Rust
+checks its current handler tree and invokes no removed handler. The active entry
+still flushes pending effects, error reports, geometry work, hooks, and element
+actions, so its ordinary response is not necessarily empty. A newly added
+handler cannot receive native events until its deferred subscription command is
+applied. Reactant does not buffer or replay either case.
+
+Reactant does not forward every event created internally by UI Toolkit. Existing
+subscription coverage and native adapter rules still decide which events enter
+the bridge.
+
+The following traffic does not become `UiEvent` merely to use this ABI:
+
+- global pointer, keyboard, and controller actions targeting the game world;
+- geometry observation batches;
+- Motion lifecycle batches, presentation samples, and value samples;
+- polling responses; and
+- game-specific custom actions.
+
+## Ordered Event Lifecycle
+
+One accepted UI event completes its Rust work before Unity resumes the native
+dispatch. Its Unity mutations still occur later.
+
+The complete lifecycle is:
+
+1. UI Toolkit selects the physical event target.
+2. A Reactant coverage callback runs during root trickle-down or the event's
+   earliest supported callback point.
+3. Unity maps the physical target to one Reactant host ID.
+4. Unity allocates an action ID and pending inspection record.
+5. Unity reserves the response's position in the normal bounded queue.
+6. Unity captures the serializable payload, cancelability, and existing native
+   prevention state.
+7. Unity submits one `UiEventAction` synchronously.
+8. Rust validates the session and resolves the current logical route.
+9. Reactant snapshots the route and applicable handler slots.
+10. Reactant invokes logical capture, target, and bubble handlers.
+11. Reactant reconciles once when the dispatch requires a refresh.
+12. Rust constructs one disposition and one ordinary response.
+13. The native adapter serializes the response and returns both outputs.
+14. Unity commits the payload into the reserved queue position.
+15. Unity calls `PreventDefault()` when the disposition requires it.
+16. The coverage callback returns and UI Toolkit continues native dispatch.
+17. The runner later decodes and admits queued responses in FIFO order; batch
+    execution retains its existing scheduler semantics.
+
+Steps 4 through 15 are part of Unity's event-callback latency. Step 17 is not.
+
+The bridge makes no second Rust call to retrieve the disposition. The
+disposition and response are outputs of the same engine invocation.
+
+## Public Rust Event API
+
+`ReactantEvent<E>` is a typed view over one shared logical dispatch. Every clone
+observes the same propagation and default-prevention state.
+
+```rust
 impl<E> ReactantEvent<E> {
     pub fn payload(&self) -> &E;
     pub fn target(&self) -> ElementTarget;
     pub fn current_target(&self) -> ElementTarget;
     pub fn phase(&self) -> EventPhase;
     pub fn cancelable(&self) -> bool;
-    pub fn default_action_state(&self) -> DefaultActionState;
-    pub fn origin(&self) -> EventOrigin;
-    pub fn native_input_owner(&self) -> NativeInputOwner;
-    pub fn native_bubble_disposition(&self) -> NativeBubbleDisposition;
-    pub fn native_propagation_stopped(&self) -> bool;
-    pub fn logical_bubble_disposition(&self) -> LogicalBubbleDisposition;
+    pub fn default_prevented(&self) -> bool;
+    pub fn prevent_default(&self);
     pub fn stop_propagation(&self);
 }
 ```
 
-`cancelable()` describes whether the native event admitted prevention. It does
-not imply that Rust can prevent it. `default_action_state()` records the result
-already chosen by Unity. The native-input owner, physical native propagation,
-and logical bubble disposition are independent read-only dimensions.
-`native_propagation_stopped()` is shorthand for testing whether
-`native_bubble_disposition()` is not `Continued`.
-
-`stop_propagation()` affects only later Reactant callbacks for the current
-logical dispatch. It cannot stop UI Toolkit callbacks, physical ancestors,
-native defaults, another already queued event, or application code outside
-Reactant. Reactant does not add `prevent_default()`.
-
-`DefaultActionState::HandledByNativeControl` means an intrinsic control ran its
-default. `NativeInputOwner::NativeControl` can still classify an input when a
-policy prevents that default. Ownership prevents generic ancestor behavior
-from reinterpreting the input, even if the control did not mutate a visible
-value. For example, a text field can own Left Arrow at the beginning of its
-text.
-
-The default-state choice is deterministic. `NotCancelable` wins for a
-non-cancelable event. Otherwise matched prevention yields
-`PreventedByPolicy`; otherwise an intrinsic default that ran yields
-`HandledByNativeControl`; all other cases yield `Allowed`. Independent owner
-and policy fields retain the facts not represented by that mutually exclusive
-result.
-
-For physical propagation, policy stopping is reported as
-`StoppedByPolicy` when any policy requested it; otherwise a control stop is
-`StoppedByNativeControl`; otherwise the result is `Continued`. The separate
-logical-bubble value never changes this physical result.
-
-## Declarative native policies
-
-Policies use typed selectors and a shared disposition. The public shape is
-closed so the Rust lowering and Unity evaluator can validate identical rules.
+The event's shared internal state contains independent flags:
 
 ```rust
-pub enum NativeEventDisposition {
-    PreventDefault,
-    StopNativePropagation,
-    PreventDefaultAndStopNativePropagation,
-}
-
-pub enum ModifierMatch {
-    Any,
-    None,
-    Exactly(KeyModifiers),
-}
-
-pub enum RepeatMatch {
-    FirstOnly,
-    RepeatsOnly,
-    FirstAndRepeats,
-}
-
-pub struct KeyDownPolicy {
-    pub keys: KeySet,
-    pub modifiers: ModifierMatch,
-    pub repeat: RepeatMatch,
-    pub disposition: NativeEventDisposition,
-}
-
-pub enum NavigationIntent {
-    MoveUp,
-    MoveDown,
-    MoveLeft,
-    MoveRight,
-    Submit,
-    Cancel,
-    Next,
-    Previous,
-}
-
-pub struct NavigationPolicy {
-    pub intents: NavigationIntentSet,
-    pub source: NavigationSourceMatch,
-    pub disposition: NativeEventDisposition,
-}
-
-pub enum WheelAxisMatch {
-    Horizontal,
-    Vertical,
-    Either,
-}
-
-pub struct WheelPolicy {
-    pub axis: WheelAxisMatch,
-    pub modifiers: ModifierMatch,
-    pub disposition: NativeEventDisposition,
-}
-
-pub enum PointerPolicyPhase {
-    Down,
-    Move,
-    Up,
-    Cancel,
-}
-
-pub struct PointerPolicy {
-    pub phases: PointerPolicyPhaseSet,
-    pub buttons: PointerButtonSet,
-    pub pointer_types: PointerTypeSet,
-    pub disposition: NativeEventDisposition,
-}
-
-pub struct NativeEventPolicy {
-    pub key_down: Vec<KeyDownPolicy>,
-    pub navigation: Vec<NavigationPolicy>,
-    pub wheel: Vec<WheelPolicy>,
-    pub pointer: Vec<PointerPolicy>,
+struct EventInner {
+    propagation_stopped: Cell<bool>,
+    default_prevented: Cell<bool>,
+    prevented_by_reactant: Cell<bool>,
 }
 ```
 
-`KeySet`, the set wrappers, and modifier values serialize as canonical sorted
-sets. Duplicate members, empty selectors, unsupported keys, and overlapping
-same-node entries with different dispositions are developer errors rejected
-before commit. Canonical values make Rust and C# fixtures byte-for-byte stable.
+The methods have precise, separate meanings:
 
-Pointer button matching is phase-specific. Down and up match the button that
-changed. Move matches when any selected button is currently pressed. Cancel
-matches the initiating button of the capture or gesture being canceled; a
-cancel with no initiating button matches only `PointerButtonSet::any()`.
-Pointer state in the payload includes both the optional changed button and the
-complete pressed-button set so Rust, Unity, and the fake evaluator agree.
+- `cancelable()` reports the actual native event's cancellation capability.
+- `prevent_default()` requests cancellation only when `cancelable()` is true.
+- `default_prevented()` reports whether prevention was already present on the
+  native event or an earlier Reactant handler made an effective request.
+- `stop_propagation()` stops later Reactant handlers for this logical dispatch.
 
-Every host façade that can receive the relevant input provides:
+Calling `prevent_default()` for a non-cancelable event is a no-op. It does not
+set `default_prevented()` and the final disposition remains `Continue`. This
+matches the useful behavior of browser events without claiming authority Unity
+did not provide.
+
+`default_prevented` initializes from `UiEvent.default_prevented`.
+`prevented_by_reactant` initializes to `false` and becomes `true` only when a
+Reactant handler successfully requests prevention. The final disposition is
+`PreventDefault` whenever `default_prevented` is true. Calling Unity's method a
+second time is harmless and preserves the fact across the ABI boundary.
+
+The method remains available on the common event type because cancelability is
+a property of the actual native event, not solely of the Rust payload enum.
+
+### Example: dynamically preventing an arrow default
+
+A custom slider can use current application state instead of installing a
+policy during an earlier commit:
 
 ```rust
-impl<G> View<G> {
-    pub fn native_event_policy(
-        self,
-        policy: NativeEventPolicy,
-    ) -> Self;
-}
+.on_key_down_event(|game, event| {
+    if event.payload().physical_key == PhysicalKey::ArrowRight {
+        event.prevent_default();
+        game.volume = (game.volume + 1).min(100);
+    }
+})
 ```
 
-The method represents the common façade capability; concrete host façades
-return their own builder type. Multiple builder calls replace the same policy
-slot. Authors compose entries in one `NativeEventPolicy` rather than relying on
-builder order.
+The same callback updates Rust state and requests cancellation. Reconciliation
+returns the new slider representation in the deferred response, while Unity
+observes the cancellation before returning to its own default handling.
 
-Policies match the event-time logical route from target toward root. Prevention
-is additive: if any matched entry requests prevention, the default is
-prevented. Native propagation stopping is also additive. For diagnostics, the
-**policy winner** for each disposition bit is the nearest matching logical
-node. If entries on that node are equivalent, the canonical kind and selector
-order breaks the tie. This order is deterministic and has no behavioral effect
-beyond attribution because matched bits are combined with logical OR.
+### Example: observing a post-change notification
 
-Policies cannot suppress delivery to Rust. A prevented key event still enters
-logical capture and target handling unless an intrinsic native-control rule
-marks logical bubble as suppressed. This lets a component consume a native
-default and still update application state later.
-
-Prevention against a non-cancelable event has no effect on its default and
-records `NotCancelable`. A native-propagation bit in the same policy still
-applies where UI Toolkit permits. The inspector records the ineffective
-prevention match so the declaration is not silently misleading.
-
-## Pointer capture policy
-
-Portable custom drags need capture during the initiating native callback. A
-delayed `ElementRef::capture_pointer()` request cannot promise that timing.
+An input notification describes text that the native text field has already
+edited. It still uses the synchronous channel, but prevention is ineffective:
 
 ```rust
-pub enum PointerCapturePolicy {
-    None,
-    OnPointerDown {
-        buttons: PointerButtonSet,
-        pointer_types: PointerTypeSet,
-    },
-}
-
-impl<G> View<G> {
-    pub fn pointer_capture_policy(
-        self,
-        policy: PointerCapturePolicy,
-    ) -> Self;
-}
+.on_input_event(|game, event| {
+    assert!(!event.cancelable());
+    game.draft = event.payload().value.clone();
+})
 ```
 
-Unity evaluates capture claimants along the logical target-to-root route. The
-nearest matching node wins. At the same node, an intrinsic control claimant
-wins over Motion, and Motion wins over generic capture. A host cannot declare
-both Motion pointer initiation and generic capture for the same input;
-canonical validation rejects that same-priority conflict before commit.
+The channel is uniform even though this event can only report native work.
 
-A matching `PointerPolicy` is evaluated before an intrinsic pointer default.
-Its prevention bit can block control activation or tracking. An explicitly
-declared Motion or generic capture claimant is not a default and still captures;
-authors commonly combine prevention with custom capture. Native propagation
-stopping remains independent. The inspector records both the selected capture
-claimant and each policy outcome.
+## Default-Action Semantics
 
-Capture begins before the pointer-down callback returns. Subsequent pointer
-events target the capturing host while preserving the original pointer ID.
-Unity releases capture on matching up, cancel, explicit release, host disable,
-`display: none`, detach, removal, document blur, or reconnect. It emits one
-reliable capture-loss boundary where the session still exists.
+`prevent_default()` applies to the remaining default actions of the exact Unity
+`EventBase` that caused the Rust dispatch. It is not a transaction rollback.
 
-`ElementRef::capture_pointer()` remains available for imperative work. A
-request made from Rust runs in a later Unity commit and carries no guarantee
-for the first move or up event. Diagnostics identify it as delayed capture.
-Motion uses its own control-specific capture contract and does not lower to
-this generic policy.
+Reactant registers cancelable input coverage at the earliest supported
+trickle-down point. This is necessary because UI Toolkit may run a target
+default action before bubble-up callbacks.
 
-## Focus scopes
+The following rules define the guarantee:
 
-A focus scope is logical state lowered to Unity. A modal scope owns containment
-and restoration without waiting for Rust.
+- Reactant calls `EventBase.PreventDefault()` before the coverage callback
+  returns.
+- The event must report that it is cancelable.
+- Unity decides which of its remaining default actions honor prevention.
+- Prevention does not undo native work performed before the coverage callback.
+- Prevention does not undo callbacks, manipulators, or control-adapter work
+  that is not implemented as a cancelable default action.
+- Prevention does not automatically cancel a later, distinct event.
+- Prevention does not stop native propagation.
+- Prevention does not suppress global gameplay input outside UI Toolkit.
+
+For example, preventing `PointerDownEvent` does not create a Reactant-owned
+activation latch that automatically prevents a later `ClickEvent`. If an
+application must prevent the click event's own default, its click handler must
+make that decision when the click is dispatched. Native controls retain any
+stronger behavior UI Toolkit itself associates with pointer-down prevention.
+
+### Cancelable raw input
+
+Raw input events are the main users of `prevent_default()`:
+
+- key down;
+- navigation move and cancel;
+- pointer down, move, up, and cancel where UI Toolkit marks them cancelable;
+- click where UI Toolkit marks it cancelable; and
+- wheel where UI Toolkit marks it cancelable.
+
+`UiEventKind` has no `NavigationSubmit` variant. A button's native navigation
+submit is normalized to `Click`, and that `Click` carries the source
+`NavigationSubmitEvent` cancellation state. Navigation submit for other hosts
+is not forwarded unless a control adapter normalizes it to a documented public
+event.
+
+The Unity integration test matrix, rather than a handwritten Rust table, is
+authoritative for actual cancelability on the pinned Unity version.
+
+### Post-default and lifecycle events
+
+These events ordinarily describe state that already exists or a transition
+that already occurred:
+
+- text input and selection changes;
+- value-changing and value-committed proposals;
+- scroll changes and settling;
+- focus and blur notifications;
+- pointer capture and capture loss;
+- attach and detach notifications;
+- transition lifecycle events; and
+- geometry-related notifications that are represented as UI events.
+
+They still run synchronously for ordering consistency. Their disposition is
+normally `Continue`, and application code reacts through later declarative
+state rather than claiming to undo the notification.
+
+## Logical Propagation
+
+Reactant propagation uses the current committed logical tree, not Unity's
+physical ancestry. Portals therefore preserve source-side capture and bubble
+behavior.
+
+For a propagating event, Reactant invokes handlers in this order:
+
+1. Capture on strict ancestors from logical root to target parent.
+2. Target capture with `EventPhase::Target`.
+3. Target bubble with `EventPhase::Target`.
+4. Bubble on strict ancestors from target parent to logical root.
+
+For a non-propagating event, Reactant invokes only its target handler slot.
+That slot is the target bubble slot. Validation rejects capture or ancestor
+subscriptions for a non-propagating kind.
+
+Before the first handler runs, Reactant snapshots:
+
+- every logical host in the route;
+- each host's event-time identity;
+- the capture and bubble handler slots for the event kind; and
+- the event payload shared by those handlers.
+
+An early handler may update application or hook state so that reconciliation
+removes a later host. The active dispatch still uses its snapshot and completes
+unless a handler calls `stop_propagation()`.
+
+`target()` and `current_target()` return stable logical `ElementTarget` values,
+not borrowed Unity objects. `target()` is constant for the whole dispatch.
+`current_target()` changes before each handler invocation and remains the last
+invoked host after that handler returns. A ref command made from either target
+is deferred with the ordinary response and follows the existing absent-target
+behavior if that host no longer exists when Unity applies it.
+
+There is one capture slot and one bubble slot per event kind on each host.
+Reactant has no multiple-listener list inside a slot, so it does not expose
+`stop_immediate_propagation()`. The stopping behavior is exact:
+
+- From strict-ancestor capture, no later ancestor, target, or bubble handler
+  runs.
+- From target capture, no target bubble or ancestor bubble handler runs.
+- From target bubble, no ancestor bubble handler runs.
+- From strict-ancestor bubble, no later ancestor bubble handler runs.
+- From a non-propagating target slot, no handler remains because dispatch is at
+  its last slot.
+
+The handler that calls `stop_propagation()` always finishes. Prevention and
+propagation are independent: either, both, or neither flag may be set.
+
+### Logical phase versus native phase
+
+For a propagating root-observed event, all logical phases run while Unity is
+physically executing the Reactant root's early coverage callback. A Reactant
+handler whose `phase()` is `Bubble` is therefore not running during UI
+Toolkit's physical bubble-up phase.
+
+Owned-target and adapter events enter at their documented target or adapter
+callback. Their logical route still runs entirely inside that one native
+callback. They do not claim the root trickle timing guarantee unless their
+coverage class uses the root observer.
+
+This distinction has two consequences:
+
+- `prevent_default()` from any Reactant logical phase can still reach Unity
+  before its target default action.
+- `stop_propagation()` cannot truthfully mean native propagation stopping.
+
+Reactant does not expose a general native `stop_propagation` operation. If it
+did, a logical bubble handler would physically stop Unity while the event was
+still near the start of trickle-down, before unrelated target callbacks had
+run.
+
+Physical listeners can observe `isDefaultPrevented` after Reactant requests
+prevention. They otherwise run according to UI Toolkit's own propagation
+rules.
+
+## Reconciliation and Deferred Responses
+
+Reactant performs event callbacks and the resulting reconciliation before the
+synchronous engine operation returns. Unity applies none of the produced
+commands until native event dispatch reaches a safe point.
+
+The response may contain:
+
+- visual element creation, update, movement, and destruction;
+- focus, scrolling, pointer-capture, and text-selection actions;
+- Motion declarations and controls;
+- non-UI Battlement commands emitted by the application; and
+- an empty command list when the event produced no host work.
+
+Every item in that list is deferred. The immediate disposition is not a command
+and never appears in a batch.
+
+### Why reconciliation remains synchronous
+
+Reactant currently defines one event as one active entry with one resulting
+commit. Keeping reconciliation inside that entry preserves:
+
+- state batching across every handler in the logical route;
+- one handler snapshot for the active event;
+- one committed Rust tree before the next Rust event begins;
+- existing hook and effect scheduling; and
+- one causal response per UI event.
+
+Splitting callbacks from reconciliation would create a second event-time tree
+and handler model. This design keeps the existing single-entry semantics and
+uses performance tests to bound their cost.
+
+### Response queue ordering
+
+All response producers use one admission sequencer. A reservation immediately
+claims the next FIFO sequence number; committing its bytes does not change that
+position. Ordinary submissions, polling, and UI events therefore have one
+total order based on admission, not completion or later application time.
+
+The admission sequencer is serialized-response ingress in front of the existing
+`BattlementResponseStream` and `BattlementBatchScheduler`. At a normal drain
+point, while `uiDispatchDepth == 0`, the runner performs these steps:
+
+1. Take committed serialized payloads in admission-sequence order.
+2. Decode and validate each response.
+3. Enqueue it into `BattlementResponseStream` in that same order.
+4. Let the response stream admit snapshots and batches in protocol order.
+5. Let later normal runner steps advance admitted batches according to their
+   existing `BatchStart`, dependency, and parallel-group semantics.
+
+Response ordering is not command-execution atomicity. Draining response A may
+admit its batches without executing their commands, then admit response B.
+Commands from those batches execute only when `BattlementBatchScheduler`
+advances and may interleave exactly as the existing batch contract permits.
+
+No Reactant command is decoded or applied while `uiDispatchDepth` is nonzero.
+Completing the outermost bridge callback only makes draining eligible; it does
+not invoke `DrainResponses` itself.
+
+If applying a deferred response later fails, the session follows existing
+batch-failure behavior. Unity cannot retroactively undo a default that Reactant
+already prevented. The inspector connects the immediate decision to the later
+application failure so the sequence remains explainable.
+
+## Nested Events and State Skew
+
+Rust and Unity may briefly describe different UI trees after a synchronous
+event returns. Rust has committed the new Reactant tree, while Unity has not yet
+applied the corresponding response.
+
+This **state skew** is the bounded interval between Rust committing an event
+response and Unity completing the causal snapshot or batch mutations. Merely
+draining the serialized response into the batch scheduler does not end it.
+
+State skew obeys these rules:
+
+- Rust's committed tree is authoritative for the next logical dispatch.
+- Unity's live tree remains authoritative for physical target selection.
+- Deferred responses enter `BattlementResponseStream` in admission order;
+  their commands retain ordinary batch scheduling semantics.
+- Reactant never reconstructs an old logical tree merely because Unity has not
+  applied its response yet.
+- An event for a host absent from the current Rust tree invokes no handler.
+- A dropped stale event does not add prevention and preserves prevention
+  already present on the native event. Its active entry may still return
+  unrelated pending work.
+
+### Example: an event removes its own target
+
+Suppose event A closes a panel. Rust commits the removal, but Unity still has
+the panel until A's response is applied. A native action then emits event B for
+the old panel. Rust finds no current host and invokes no handler for B. The
+response for B may nevertheless carry passive or already-pending work from its
+active Reactant entry.
+
+No route revision, delayed-event queue, acknowledgement protocol, or retained
+old-tree tombstone is required. The synchronous lookup either finds the target
+in the current Rust tree or safely ignores it.
+
+### Native nested dispatch
+
+The native engine remains serial and non-reentrant. Rust cannot create a nested
+Unity event during its own callback because its response is not being applied.
+
+UI Toolkit may create another event after the first Rust call returns but before
+the outer native operation completely settles. That second event performs a new
+synchronous engine call after the first call has released the engine gate.
+
+Each event receives its own disposition immediately. Their deferred responses
+remain ordered by the queue positions reserved at admission.
+
+### Events raised while applying a response
+
+Applying a response can cause focus, detach, value, or other UI Toolkit events.
+Those events also use `submit_ui_event`.
+
+For a batch command, the exact call sequence is:
+
+1. Response A has already entered `BattlementResponseStream`, and its batch has
+   been admitted to `BattlementBatchScheduler`.
+2. The scheduler advances one command from A, which raises UI event B.
+3. B increments `uiDispatchDepth`, reserves serialized-response ingress, and
+   calls Rust. The native engine is idle because A is Unity-side work.
+4. Rust commits its current tree and returns response B plus its disposition.
+5. Unity commits B's serialized response and applies B's disposition.
+6. B returns and the scheduler continues its ordinary current advance step.
+7. At the next normal response-drain point, B is decoded and its messages are
+   admitted after every earlier serialized-response reservation.
+8. B's batches execute later according to ordinary batch scheduling.
+
+If a snapshot or response-message admission itself raises B, the response
+stream finishes or pauses its current ordered admission before a later normal
+drain admits B. Neither case recursively drains B or changes batch semantics.
+
+Reactant lifecycle and effect cleanup comes from reconciliation. It never
+depends on delivering a native detach or focus event to a host already removed
+from the committed Rust tree.
+
+## Physical Targets, Portals, and External Listeners
+
+An `EventBase`-backed source maps its physical target to at most one registered
+Reactant host in the same event island. Mapping uses this precedence and stops
+at the first applicable source:
+
+1. For a pointer event with native capture, start at the capture owner.
+2. For a keyboard, navigation, or focus event, start at Unity's focused or
+   focus-related event target.
+3. For all other events, start at `EventBase.target`.
+4. If the starting element is an internal part of a registered native control,
+   use that control's explicitly registered owner host.
+5. Otherwise walk physical parents within the event island and use the nearest
+   registered host.
+6. Apply the event-kind eligibility test to the mapped target host.
+7. Consult committed subscription coverage for applicable target, logical
+   capture, or logical bubble handlers.
+8. If mapping, eligibility, or subscription coverage has no result, emit no
+   `UiEvent`.
+
+A source with no active `EventBase` supplies the `ObjectId` of its owning
+registered host directly. Unity verifies that the owner is live in the
+adapter's event island, then applies the same eligibility and committed
+subscription checks from steps 6 and 7. It never derives a target from focus,
+pointer state, or an unrelated physical child.
+
+Eligibility failure does not restart the parent walk. An eligible target may
+still dispatch to subscribed logical ancestors; an ineligible child does not
+retarget the event to an ancestor. Internal-control ownership outranks ancestry
+because Unity may place an implementation child outside the owner's obvious
+content hierarchy.
+
+An unmapped event is an intentional native-only event. It allocates no action
+ID, makes no Rust call, and produces no inspection record unless verbose
+coverage diagnostics are enabled.
+
+After mapping, Rust derives the current logical route from the committed
+Reactant tree. `UiEventAction` does not carry a serialized logical path, host
+generation list, or route revision because the event is not waiting in an
+asynchronous delivery queue.
+
+A portal changes physical placement but not logical ancestry. Reactant capture
+and bubble therefore travel through the source tree, while external UI Toolkit
+listeners continue along the physical Unity path.
+
+`prevent_default()` sets the shared Unity event's native prevention flag.
+External listeners that run later may observe that flag. Reactant's logical
+`stop_propagation()` has no effect on them.
+
+## Native Controls and Controlled Values
+
+Synchronous Rust callbacks do not replace state machines that require native
+frame timing, internal control state, or platform integration.
+
+UI Toolkit and Reactant's native adapters continue to own:
+
+- text editing, IME composition, caret movement, and selection;
+- clipboard behavior and native text validation;
+- button, toggle, radio, and dropdown pressed or open state;
+- slider and range-control tracking;
+- control-internal pointer capture;
+- wheel and touch scrolling, chaining, and inertia;
+- focus-controller state and native navigation; and
+- accessibility actions exposed by native controls.
+
+Reactant receives typed events and proposals from those adapters. Application
+state may accept, clamp, replace, or reject the next declarative value according
+to each control's controlled-value contract.
+
+A proposal is observed after the native control has calculated or briefly
+installed its local value, but before Rust decides the next authoritative
+declarative value. Adapters that currently restore the committed value before
+forwarding continue to do so. Text drafts and live drag values that are
+intentionally native-local remain local until their existing commit boundary.
+The deferred response is the only way Rust accepts or replaces the next
+declarative value.
+
+`prevent_default()` can stop a remaining cancelable default for the raw event.
+It cannot undo the local mutation that produced a proposal or notification.
+Adapter events therefore set `cancelable` to `false`; they are synchronous for
+Rust ordering, not for rollback.
+
+### Raw event bubbling from controls
+
+Reactant does not duplicate UI Toolkit control ownership in a Rust/C# table
+merely to decide logical bubbling. Raw key and pointer events may logically
+bubble from native controls according to their Reactant subscriptions.
+
+Ancestor handlers use the stable logical `event.target()` when behavior should
+exclude an interactive descendant. They do not inspect the Unity control type
+or physical path.
+
+Higher-level navigation and activation adapters should emit normalized events
+only when their native control contract says the generic behavior occurred.
+They must not duplicate an input that a control already consumed.
+
+This keeps native-control knowledge in the adapter that owns the control rather
+than maintaining a second exhaustive `UiIntrinsicInputProfile` evaluator.
+
+## Focus, Input Capture, and Pointer Capture
+
+Default prevention is only one part of input ownership. Focus scopes, gameplay
+input capture, and pointer capture retain their specialized designs.
+
+### Focus and navigation
+
+The focus system continues to install declarative scope membership, containment,
+restoration, and accessibility state in Unity. This lets Unity maintain valid
+focus even when no application handler runs.
+
+A synchronous key or navigation handler may call `prevent_default()` when the
+application dynamically decides that the current native navigation default
+must not run. That decision does not replace:
+
+- modal focus containment;
+- focus restoration after removal;
+- portal-aware focus membership;
+- roving focus and explicit neighbors; or
+- native accessibility traversal.
+
+The focus design must no longer claim that Rust can never participate during an
+input event. Its native ownership rules remain authoritative, while this design
+supplies the synchronous cancellation boundary.
+
+### Keyboard and controller input capture
+
+`prevent_default()` affects the current UI Toolkit event. It does not suppress
+Battlement's separate global gameplay action path.
+
+Input rebinding therefore retains an input-capture mechanism that arbitrates
+before both UI and gameplay consume a physical transition. It also retains a
+release latch so removing a capture owner after key-down cannot leak the
+matching key-up into gameplay.
+
+The capture subsystem may invoke the same synchronous Reactant handler for an
+accepted UI event, but its cross-input-system ownership is not encoded in
+`UiEventDisposition`.
+
+### Pointer capture
+
+Ordinary `ElementRef::capture_pointer()` remains a deferred host action because
+it is carried in the Reactant response. Calling it from a pointer-down handler
+does not guarantee capture before the first subsequent native event.
+
+Interactions requiring event-time capture must use a native control adapter or
+Motion, both of which already execute in Unity. This design does not turn the
+disposition into a general immediate-action list merely to make arbitrary ref
+operations synchronous.
+
+If generic event-time pointer capture becomes a required public feature, it
+needs its own narrowly typed ABI result and lifecycle contract. It must not be
+smuggled into the deferred response or implemented by applying arbitrary
+commands during dispatch.
+
+## Motion and High-Frequency Input
+
+Motion remains Unity-local because continuous gesture state cannot afford a
+full application render for every native sample.
+
+Motion continues to own:
+
+- hover, press, tap, pan, and drag recognition;
+- pointer capture and loss;
+- velocity, constraints, and momentum;
+- sample coalescing; and
+- frame-timed presentation updates.
+
+Reliable Motion boundaries and coalesced samples retain their Motion protocol.
+They do not move into `submit_ui_event` solely to share its disposition.
+
+Raw pointer-move, wheel, scroll, and transition events use synchronous UI
+submission only when Reactant subscriptions require them. The host must not
+forward an unsubscribed high-frequency event.
+
+Reactant should avoid reconciliation when dispatch invokes no handler and
+creates no other dirty work. A handler that merely observes an event still
+participates in the active entry; application authors are responsible for
+keeping synchronous handlers bounded.
+
+## Performance Requirements
+
+Synchronous UI work consumes Unity's main-thread frame budget. The system must
+measure the complete blocking interval rather than only the native ABI call or
+only Rust handler execution.
+
+The primary measured interval starts when the Reactant coverage callback begins
+and ends immediately before that callback returns to UI Toolkit. It includes:
+
+- subscription and target mapping;
+- queue reservation and action-ID allocation;
+- Unity event conversion and request serialization;
+- managed-to-native transition;
+- Rust request decoding and route lookup;
+- logical handlers and application work;
+- Reactant reconciliation;
+- response serialization; and
+- native-to-managed return and disposition validation;
+- response-queue commit; and
+- the final native `PreventDefault()` call when required.
+
+It excludes deferred response decoding and command application because those
+do not block the active event callback. They remain part of the whole Unity
+frame and must be measured separately by existing response-processing tests.
+
+Layer-specific timers may subdivide the primary interval, but the performance
+gate uses the outer coverage-callback measurement.
+
+### Reference workloads
+
+Performance evidence uses the repository's reference Apple M5 Max machine and
+Unity 6000.5.8f1 running natively on arm64. The player loop uses release
+scripting defines, VSync is disabled, the frame rate is uncapped, Deep Profile
+is disabled, and no profiler window is repainting during collection.
+
+The retained benchmark suite has stable workload IDs and deterministic setup:
+
+- `noop-depth-8` uses eight nested hosts. One target `KeyDown` handler reads the
+  payload, changes no state, and returns an empty response.
+- `single-update-{1,10,100,500,1000}` uses the named number of sibling hosts.
+  A target `Click` increments one counter rendered as one text-property update
+  in a single batch.
+- `settings-transition-v1` uses a checked-in 240-host mixed-control tree with a
+  maximum logical route depth of eight. One `Click` opens and then closes its
+  40-host advanced-settings subtree. The fixture retains the exact serialized
+  request, response, command-kind counts, and payload byte counts for both
+  directions; changing that manifest creates a new workload ID.
+- `burst-32-pointer-move` sends 32 subscribed `PointerMove` events to one target
+  before response draining. Each event increments one displayed counter and
+  produces one text-property update in one response.
+- `stale-target-empty` submits one event for a target removed by the immediately
+  preceding undrained response. It invokes no handler and returns an empty
+  response.
+- `prevent-default-empty` uses one `KeyDown` handler that only calls
+  `prevent_default()` and returns an empty response.
+
+Each workload warms for at least 2,000 iterations and measures at least 20,000
+iterations. Reports retain p50, p95, p99, and maximum duration plus event count
+per frame.
+
+### Performance gates
+
+The representative production screen must satisfy both synchronous gates on
+the reference machine:
+
+- p95 blocking duration remains below 4 ms; and
+- p99 blocking duration remains below 8 ms.
+
+The complete main-thread frame containing the event and deferred response
+application must remain below 16.667 ms at p95. The report also counts frames
+above 16.667 ms so a percentile does not hide frequent visible misses.
+Synthetic 500-host and 1,000-host results are retained as scaling evidence even
+when they are not representative production screens.
+
+A result beyond either synchronous gate or the complete-frame gate blocks
+release until the workload is reduced or the implementation is optimized. It
+is not addressed by silently making only that event asynchronous, because that
+would change public event semantics.
+
+## Failure Handling
+
+Failure behavior favors an uncanceled native event over a partial or
+unverifiable application decision. It also recognizes that a handler may have
+changed Rust or application state before a later serialization failure.
+
+Failure never calls `PreventDefault()` on Reactant's behalf. It also cannot
+clear prevention requested by an earlier native listener. In the descriptions
+below, returning `Continue` means Reactant adds no prevention; the active
+`EventBase.isDefaultPrevented` flag remains otherwise unchanged.
+
+The runner retains Battlement's existing session phases and explicit reconnect
+ownership. A fatal event failure sets `pendingSessionFailure` on the runner
+thread. While that field is set, input forwarding is suppressed and any
+already-entered bridge callback returns without another Rust call.
+
+The current Unity callback unwinds without running teardown mutations. At the
+next normal runner boundary, the pending failure calls the existing
+`FailSession` path, which transitions to `Stopped`, clears old-session
+responses and batch work, and exposes the normal failure surface. The runner
+does not reconnect automatically. The host must explicitly call reconnect
+after correcting the failure.
+
+If failure occurs inside a callback raised by batch execution, the current
+command callback unwinds first. No further old-session work starts after the
+pending failure is observed. An explicit reconnect later supplies the
+replacement snapshot.
+
+### Engine or ABI failure
+
+When request decoding, Rust dispatch, response serialization, response
+validation, or native output validation fails:
+
+- the effective disposition is `Continue`;
+- the reserved response position is released without admitting a payload;
+- the runner records a fatal pending session failure because C# cannot safely
+  infer whether Rust began or committed the dispatch;
+- the Unity callback unwinds normally; and
+- the error records the event action ID when decoding progressed far enough to
+  identify it.
+
+A Rust panic has the same callback behavior and poisons the native engine
+through the existing panic boundary. An explicit reconnect attempt against
+that instance follows existing panic recovery and may require the host to
+restart or explicitly replace the engine transport. The runner never recreates
+the engine automatically. Other failures permit an explicit reconnect to the
+surviving engine and therefore snapshot its current committed state.
+
+For a surviving engine, event state, external-store writes, and application
+side effects are not rolled back. For a panic, the poisoned in-memory engine is
+discarded: only durable or external state that the engine factory reads during
+recreation survives. The new snapshot may therefore omit unpersisted mutations
+made before the panic.
+
+The failed UI event is never replayed in either case. If the host explicitly
+replaces a poisoned engine, its reconnect snapshot reflects only durable or
+external state read by the new factory. Applications that require panic
+recovery to retain a side effect must persist it independently of the poisoned
+engine before exposing that side effect.
+
+### Session mismatch
+
+Rust rejects a UI event whose session does not equal the active session. The
+operation returns an engine error rather than a successful empty response,
+because accepting input into the wrong session would make ordering ambiguous.
+
+Unity adds no prevention, records the fatal session failure, and does not
+enqueue a response.
+
+### Unknown target
+
+An event whose session is current but whose target no longer exists in the
+committed Rust tree is an expected state-skew case. Reactant invokes no event
+handler, then completes the normal active-entry flush. The disposition is
+`PreventDefault` only when the incoming event was already prevented; no
+Reactant handler adds prevention. The ordinary response contains any pending
+work produced by that flush and is empty only when no such work exists. The
+inspector records the stale target. The session remains healthy.
+
+### Deferred application failure
+
+The response has already passed the synchronous boundary when Unity later
+applies it. A batch failure cannot undo `PreventDefault()`.
+
+The runner reports the existing batch failure and associates it with:
+
+- the UI event action ID;
+- the immediate disposition;
+- the response or batch ID; and
+- the command group that failed.
+
+The runner follows existing batch-failure semantics. A recoverable command
+failure reports `BatchFailed` and stops that batch; a fatal protocol or session
+failure stops the session. Neither path replays the native default or resubmits
+the UI event.
+
+### Queue pressure
+
+The runner reserves one response item before calling Rust. If no item is
+available, it does not call Rust, returns `Continue`, and records a fatal
+pending session failure.
+Dropping a subscribed UI event while continuing the same session would
+silently diverge application behavior, so queue pressure is not a recoverable
+skip.
+
+After Rust returns, Unity charges the response's exact serialized size against
+the byte budget. Failure releases the item reservation, returns `Continue`, and
+records the same fatal pending failure; an explicit reconnect snapshot accounts
+for state Rust may already have committed. A violated token, payload-size, or
+ownership invariant follows the same transition.
+
+There is no separate UI-event queue, acknowledgement command, or cleanup
+reserve. The ordinary response queue and reconnect snapshot provide the only
+admission and realignment protocol; reconnect remains host-initiated.
+
+## Diagnostics
+
+The development event inspector must make the split timing visible. A reader
+should be able to tell what Rust decided immediately and what Unity applied
+later.
+
+One inspection record contains at least:
 
 ```rust
-pub enum InitialFocus {
-    FirstFocusable,
-    Control(ControlRefId),
-    Container,
-}
-
-pub enum FocusRestore {
-    PreviouslyFocused,
-    Control(ControlRefId),
-    None,
-}
-
-pub struct FocusScope {
-    private: FocusScopeState,
-}
-
-impl FocusScope {
-    pub fn modal() -> Self;
-
-    pub fn initial_focus(self, value: InitialFocus) -> Self;
-
-    pub fn restore(self, value: FocusRestore) -> Self;
-}
-
-impl<G> View<G> {
-    pub fn focus_scope(self, scope: FocusScope) -> Self;
-}
-```
-
-`FocusScope::modal()` defaults to `FirstFocusable` and
-`PreviouslyFocused`. When installed, Unity records the currently focused
-eligible host, focuses the declared initial target after attachment, and limits
-native keyboard and controller focus movement to eligible logical descendants.
-Portaled descendants count; unrelated physical descendants do not.
-
-V1 exposes only modal scopes. `FocusScope` is public but opaque; authors cannot
-construct a non-modal state or mutate its fields. A requested initial control
-falls back to the first eligible focusable descendant, then an eligible scope
-container, then clear focus. `InitialFocus::Container` falls back to the first
-eligible focusable descendant and then clear focus.
-
-Cancel input such as Escape remains an application decision, but a modal scope
-prevents it from escaping to a lower focus scope or gameplay. The modal's
-`NavigationIntent::Cancel` event is delivered to Rust. Removing the modal later
-restores its recorded focus target if that target is still attached, visible,
-enabled, and focusable. Otherwise Unity chooses the nearest eligible logical
-ancestor and then the first focusable host in the newly active scope. Failure
-to find one leaves focus clear and records a diagnostic.
-
-The modal descriptor lowers a mandatory cancel-prevention and native-stop rule
-owned by the scope root. It is installed with the focus state and appears as a
-policy winner in event metadata. Authors may handle cancel but cannot let it
-fall through while the modal is active.
-
-For `FocusRestore::Control`, Unity first tries the requested control, then its
-nearest eligible logical ancestor, then the first focusable host in the newly
-active scope. `FocusRestore::None` clears focus unless the newly active modal
-scope must establish its own initial focus.
-
-Nested modal scopes form a stack in commit order. Only the topmost attached
-modal is active. Equal-depth portaled scopes are ordered by logical root
-registration and source-tree order, the same stable order used for portal
-ranges. Moving a scope retains its restoration record; removing and recreating
-it creates a new record.
-
-The active modal scope also limits accessibility traversal to its logical
-descendants and exposes native modal semantics on its container. Background
-content remains rendered but is inaccessible to focus, activation, and
-assistive navigation until the modal leaves. Portaled descendants retain their
-source-side accessible ownership.
-
-## Keyboard and controller input capture
-
-Input rebinding is a specialized exclusive mode, not a generic event handler.
-It must claim an input before a focused button, UI navigation, or gameplay can
-use it.
-
-```rust
-pub enum CapturedPhysicalInput {
-    Key(PhysicalKey),
-    ControllerButton {
-        controller: ControllerId,
-        button: ControllerButton,
-    },
-}
-
-pub enum CapturedInputPhase {
-    Pressed,
-    Released,
-}
-
-pub struct CapturedInputEvent {
-    pub input: CapturedPhysicalInput,
-    pub phase: CapturedInputPhase,
-    pub modifiers: KeyModifiers,
-    pub repeat: bool,
-}
-
-pub enum InputCaptureKeys {
-    NonModifierKeys,
-    Explicit(KeySet),
-}
-
-pub struct InputCapture {
-    pub keys: InputCaptureKeys,
-    pub controller_buttons: ControllerButtonSet,
-}
-
-impl InputCapture {
-    pub fn rebinding() -> Self;
-}
-
-impl<G> View<G> {
-    pub fn input_capture(self, capture: InputCapture) -> Self;
-
-    pub fn on_captured_input_event(
-        self,
-        handler: impl Fn(&mut G, ReactantEvent<CapturedInputEvent>) + 'static,
-    ) -> Self;
-}
-```
-
-`InputCapture::rebinding()` matches every non-modifier physical keyboard key
-and every supported controller button. Modifier-only transitions update the
-modifiers included with a later key but do not complete a capture.
-
-An input-capture descriptor is active only when its host is eligible and is a
-logical ancestor of the focused host in the topmost active modal scope. With no
-modal, it must be an ancestor of the focused host in that root. The nearest
-matching ancestor wins. If focus is clear, only the active modal root may own
-capture. A host has one replaceable capture slot, so equal-depth candidates
-cannot exist on one focus path. Cross-root candidates are inactive because one
-panel has only one focused Reactant host.
-
-Unity marks a matched press as captured before intrinsic control handling. It
-prevents default behavior, stops native UI propagation, and withholds the input
-from global controller actions. The corresponding release remains suppressed
-even if Rust removes the capture owner after receiving the press. Unity retains
-a small per-device release latch until every captured control is released or
-the session ends. The release boundary is always retained and delivered on the
-wire. Rust dispatches its handler only if the original owner remains eligible;
-otherwise it records `CapturedOwnerIneligible` in the inspector without
-invoking a logical callback. Suppression never depends on handler delivery.
-
-A claimed press produces `CapturedInput` instead of ordinary key, navigation,
-activation, or controller-action envelopes. Its claimed release likewise
-produces only `CapturedInput`. This replacement prevents two Rust handler
-families from interpreting one physical transition.
-
-An active input capture lowers an implicit mandatory native event policy at
-its owner. The event therefore reports `PreventedByPolicy` and
-`StoppedByPolicy` with that host as both policy winners, while
-`NativeInputOwner::InputCapture` identifies why the policy existed. No extra
-default or propagation variant is required.
-
-Captured controller payloads are a new UI event family. They do not reuse or
-merge with existing global `ControllerAction` messages. This prevents a bind
-operation from also navigating a menu or triggering gameplay.
-
-## Labels and native controls
-
-Label behavior is a declared relationship rather than an ordinary nested click
-handler. It provides synchronous focus, activation, and accessible naming.
-
-```rust
-pub trait LabelControl: private::Sealed {}
-
-pub struct ControlRef<C: LabelControl> {
-    private: ControlRefState,
-    marker: PhantomData<C>,
-}
-
-impl<C: LabelControl> Label<C> {
-    pub fn for_control(
-        text: impl Into<String>,
-        control: ControlRef<C>,
-    ) -> Self;
-}
-```
-
-Each compatible native façade accepts a matching `ControlRef<C>`. V1
-implements `LabelControl` for buttons, toggles, radio controls, dropdowns,
-sliders, and text inputs. It is absent for plain views and output-only text.
-Cross-session and cross-runtime relationships are developer errors.
-
-On primary activation, Unity focuses the related control and invokes its native
-activation exactly once. The label then emits one normalized logical click
-whose target is the label. The control emits its ordinary value proposal or
-activation event. Nesting the control physically inside the label does not add
-a second activation.
-
-Unity assigns the label click the first normalized sequence after its raw
-activation boundary and names that raw sequence as its source. Focus-out and
-focus-in envelopes caused by the relationship follow the label click. The
-control activation or value proposal follows those focus envelopes and names
-the label-click sequence as its source. Unity has completed the synchronous
-default before delivery, but Rust always observes this normalized semantic
-order. A control that was already focused simply omits the focus envelopes.
-
-The relationship supplies the control's accessible name when the control has
-no explicit accessible label. An explicit control name wins. The label remains
-an accessible relationship even when a portal separates the physical hosts,
-provided both are in the same panel and session.
-
-A disabled, hidden, detached, or incompatible control makes label activation a
-no-op. The label may still receive its own non-activation pointer events when
-it is otherwise eligible. Validation rejects relationship cycles and more than
-one primary label for the same control. Additional descriptive text must use a
-separate accessibility-description relationship in a future design.
-
-## Native control precedence
-
-Unity evaluates input in this order:
-
-1. Reject ineligible sessions, targets, and routes.
-2. Apply an active `InputCapture` claim.
-3. Classify intrinsic control ownership without mutating control state.
-4. Resolve intrinsic, Motion, and generic pointer-capture claimants.
-5. Evaluate every matching policy along the logical route.
-6. Run each allowed intrinsic or normalized default.
-7. Allow generic focus, scrolling, or activation if still unclaimed.
-
-Input capture is intentionally first because it is an explicit exclusive mode.
-Outside that mode, native-control behavior takes precedence over generic
-ancestor behavior. A text field's caret navigation wins over an ancestor's
-menu navigation. A focused slider's arrow handling wins over a scroll view.
-
-Declarative prevention is additive after ownership classification and before
-mutation. A matching policy can prevent an intrinsic or generic default and
-can stop native propagation. The control remains the input owner, so prevention
-does not let a generic ancestor reinterpret the input. No policy runs after a
-control mutation and no state machine is partially rewound.
-
-A native control may return `suppress_logical_bubble`. Reactant still runs
-logical capture, target capture, and target bubble handlers, then stops before
-the target parent. This is reserved for inputs the control semantically owns,
-including text editing and caret movement. It is not a general control setting.
-The event records `LogicalBubbleDisposition::SuppressedByNativeControl` so the
-missing ancestor callback is explainable. This is independent of physical
-`NativeBubbleDisposition`.
-
-### Intrinsic control profiles
-
-Intrinsic ownership is a closed adapter contract, not an arbitrary C# callback.
-Each host state carries one profile:
-
-```rust
-pub enum UiIntrinsicInputProfile {
-    None,
-    Button,
-    Toggle,
-    Radio,
-    Dropdown,
-    Slider,
-    TextField,
-    ScrollView,
-    TabView,
-}
-```
-
-Unity combines the profile with native state that the adapter exclusively
-owns, such as an open dropdown, text composition, slider drag, or remaining
-scroll range. The fake client models the same state transitions. Shared outcome
-fixtures enumerate every profile, input family, and relevant state flag.
-
-All profiles first apply disabled, hidden, and detached gating. A policy may
-prevent an owned cancelable default before mutation; ownership still blocks
-generic reinterpretation. The exhaustive profile rules are:
-
-- `Button` owns keyboard or controller Submit and a valid primary-pointer
-  click. Its default emits one activation. Submit key events stop physical
-  native propagation and suppress logical ancestor bubble. The normalized
-  click itself logically bubbles.
-- `Toggle` and `Radio` use the button rules, then emit one committed value
-  proposal. A radio already selected still owns activation but emits no value
-  change.
-- `Dropdown` uses button rules while closed. While open, it owns Up, Down,
-  Home, End, Submit, and Cancel; updates highlight locally; commits once on
-  Submit or pointer selection; and closes on Cancel. Owned open-state key and
-  navigation events stop physical propagation and suppress logical bubble.
-- `Slider` owns arrows, Page Up, Page Down, Home, End, and primary-pointer
-  tracking. Each discrete key changes by exactly one declared step or endpoint.
-  Owned keys stop physical propagation and suppress logical bubble. Pointer
-  tracking uses intrinsic capture and emits typed live and commit proposals.
-- `TextField` owns character input, composition, clipboard editing, deletion,
-  caret arrows, Home, End, and selection-modified forms. It owns Enter as commit
-  for single-line text or newline for multiline text. Tab is generic focus
-  navigation unless the native `accept_tab` property is set. Escape is owned
-  only while canceling composition. Owned editing keys stop physical
-  propagation and suppress logical bubble.
-- `ScrollView` owns wheel or touch movement only while it can move on the
-  requested axis. At an edge, the unconsumed axis chains to an ancestor. A
-  focused scroll view also owns Page Up, Page Down, Home, and End when movement
-  is possible. Owned keys suppress physical and logical ancestor propagation;
-  consumed wheel and touch use UI Toolkit's native chaining disposition.
-- `TabView` owns arrows, Home, and End while its tab strip is focused. It moves
-  selection once, stops physical propagation, suppresses logical bubble, and
-  emits one tab-selection proposal.
-- `None` owns no input and contributes no default, capture, or suppression.
-
-Primary pointer down, move, and up events still logically propagate unless a
-declared policy stops them. Intrinsic capture changes their target but does not
-by itself suppress their logical bubble. Control-generated value, selection,
-and commit proposals remain target-only under their existing typed contract.
-
-The shared fixtures treat every input not listed above as unowned. Adding an
-owned input or state flag requires changing this enum, the Rust and C# profile
-tables, and their fixtures atomically.
-
-## Text editing and controlled values
-
-`Input` is a post-edit notification. Its payload contains the control draft
-after UI Toolkit has applied the edit. No Rust callback can reject that edit
-before it appears.
-
-Editing restrictions must be native declarations. Existing properties such as
-single-line mode, maximum length, read-only state, and allowed character class
-remain control properties. A closed `TextEditPolicy` may add portable filters
-that Unity can enforce before mutation:
-
-```rust
-pub struct TextEditPolicy {
-    pub character_filter: CharacterFilter,
-    pub max_utf16_length: Option<u32>,
-    pub newline: NewlinePolicy,
-    pub paste: PastePolicy,
-}
-
-impl<G> TextField<G> {
-    pub fn text_edit_policy(self, policy: TextEditPolicy) -> Self;
-}
-```
-
-`CharacterFilter` is `Any`, `AsciiDigits`, `AsciiHex`, or a canonical set of
-Unicode general categories. `NewlinePolicy` is `Allow`, `Reject`, or
-`Commit`. `PastePolicy` is `Allow`, `Reject`, or `Filter`. None accepts a
-regular expression or Rust callback. IME composition remains allowed only for
-`Any` or a category set that accepts every code point in the completed
-composition. ASCII filters reject IME enablement before commit. A finite
-maximum must be greater than zero.
-
-Controlled text retains the adapter-owned proposal and restore behavior. The
-adapter owns the draft, committed value, selection, composition, and exact
-restore point, so it can safely propose and restore. That control-specific
-state machine is not generic suppression and replay.
-
-`ValueChanging`, `ValueCommitted`, and `ScrollChanged` likewise describe state
-already produced by a native control. Rust may accept, clamp, or replace the
-next declarative value. It cannot claim that the earlier native action never
-happened.
-
-## Activation and navigation
-
-Reactant defines one logical activation from pointer click, keyboard submit,
-controller submit, or label activation. Unity emits the normalized activation
-only after the intrinsic control determines that activation is valid. Disabled
-or hidden targets cannot activate.
-
-One physical input produces at most one activation per eligible control.
-Pointer down and up remain separate events. Click is emitted after a valid
-primary release. Keyboard or controller submit uses the target control's native
-pressed-state timing. A label routes activation to its control and does not
-manufacture a second control click.
-
-Unity maintains one activation latch per primary pointer and target generation.
-A valid primary down creates it. Default prevention on that down marks it
-disarmed. A matching primary up consults its event-time policy; prevention on
-the up also disarms it before click generation. Move prevention alone does not
-disarm activation, although native movement slop or Motion drag recognition
-may do so.
-
-Up emits click only when the latch is still armed, target and generation still
-match, the control remains eligible, and its native activation test succeeds.
-Up, cancel, capture loss, disablement, hiding, removal, drag recognition, and
-reconnect always clear the latch. Cancel never activates, regardless of whether
-its own default was prevented. Native propagation stopping without prevention
-does not disarm activation.
-
-Pointer-policy changes after down do not rewrite the latched down result; the
-up uses the policy installed when up occurs. Keyboard and controller Submit
-have no cross-event latch: the first nonrepeat press is one activation decision,
-and matching key or navigation prevention suppresses it before mutation.
-
-Navigation has typed intents independent of raw keys. Keyboard arrows, Tab,
-Escape, and controller controls may produce navigation intents. Raw `KeyDown`
-remains available for key-specific behavior. A host may therefore receive a
-raw arrow event and one normalized move event with consecutive dispatch
-sequences. Policies can match either family, and the inspector links a
-normalized event to its source sequence.
-
-Unity classifies an optional navigation intent before evaluating policy. It
-combines matching `KeyDownPolicy` and `NavigationPolicy` bits in one native
-decision. The raw key envelope is queued first. If no intrinsic control owns
-the intent, Unity then queues the normalized navigation envelope with the next
-sequence and the raw sequence as `source_sequence`. Prevention suppresses the
-native navigation default but not either Rust envelope. Native stopping applies
-once to the physical key callback and both envelopes report that result.
-
-An intrinsic control that consumes the raw input suppresses the corresponding
-generic navigation event. This rule makes a slider change once without also
-scrolling or moving focus. It also keeps a text field's arrow key from reaching
-an ancestor navigation handler.
-
-For arbitrary nested interactive controls, the deepest picked eligible control
-is the intrinsic owner. An ancestor control never runs its own activation
-default for the descendant's input. Ordinary ancestor logical click handlers
-may still observe bubble unless propagation is stopped. A declared label
-relationship is the only mechanism that forwards native activation to another
-control.
-
-An event policy never grants accessibility semantics. A custom slider, button,
-or menu must declare its native role, name, value, enabled state, and supported
-actions through the accessibility façade. Native controls contribute these
-semantics from their adapter. Activation and navigation policies are validated
-against the declared role where a mismatch would create unusable input.
-
-## Physical target mapping and normalized crossings
-
-Pointer capture selects its capturing Reactant host before hit testing. Without
-capture, UI Toolkit picks a physical target and the coverage adapter walks its
-physical ancestors to the nearest registered Reactant host in that event
-island. An internal child created by a native control maps to the owning control
-host. An unmanaged child under a Reactant host maps to its nearest registered
-ancestor.
-
-The nearest mapped host is authoritative. If it is disabled, hidden, detached,
-or otherwise ineligible, Reactant does not skip it to target an eligible outer
-host for activation. UI Toolkit overlap and picking order decide which physical
-branch wins before Reactant mapping. If no registered eligible host exists, no
-`UiEvent` is created and external Unity listeners continue normally.
-
-Keyboard events map to the focused eligible Reactant host. With no such focus,
-only an active `InputCapture` at the modal root may receive a key or controller
-button; other UI input creates no Reactant event. Navigation uses that same
-target. A portaled host maps in its physical event island, then resolves its
-Reactant-authored logical route.
-
-When focus moves, Unity settles containment and the native focus target first.
-It then queues `FocusOut` for the old target followed by `FocusIn` for the new
-target, each with the other host as related target and each with its own route
-snapshot and consecutive sequence. Reactant exposes them as bubbling
-`on_blur` and `on_focus`. Clearing or establishing focus omits the missing side.
-
-For pointer crossing, Rust derives leave events from the old target upward to
-but excluding the lowest common logical ancestor. It then derives enter events
-from that ancestor's entering child down to the new target. Leave and enter
-events use target phase, share the raw event's state batch, and finish before
-the raw over or out propagation. Stopping one synthetic traversal does not stop
-the raw event or its complementary crossing event.
-
-## Event-time host state
-
-Each successful Unity commit installs one immutable `ReactantEventHostState`
-for the Reactant runtime across all of its panels. It contains:
-
-- the session ID and event-route revision;
-- each Reactant host's logical parent and source root;
-- enabled, displayed, attached, and event-eligibility bits;
-- native event and pointer-capture policies;
-- focus-scope and input-capture descriptors;
-- label-to-control relationships;
-- control kind and intrinsic input capabilities; and
-- the native subscription coverage required by logical handlers.
-
-The shared wire model is concrete:
-
-```rust
-pub struct ReactantEventHostState {
-    pub runtime_id: ReactantRuntimeId,
-    pub session_id: SessionId,
-    pub route_revision: u64,
-    pub cleanup_token: Option<UiCleanupToken>,
-    pub nodes: Vec<ReactantEventNode>,
-    pub focus_scopes: Vec<UiFocusScope>,
-    pub labels: Vec<UiLabelRelationship>,
-}
-
-pub struct ReactantEventNode {
-    pub id: ObjectId,
-    pub generation: u64,
-    pub panel_id: UiPanelId,
-    pub logical_parent: Option<ObjectId>,
-    pub logical_root: ObjectId,
-    pub eligibility: UiEventEligibility,
-    pub native_control: Option<UiNativeControlKind>,
-    pub intrinsic_input: UiIntrinsicInputProfile,
-    pub policy: Option<UiNativeEventPolicy>,
-    pub pointer_capture: UiPointerCapturePolicy,
-    pub motion_pointer_claim: Option<UiMotionPointerClaim>,
-    pub input_capture: Option<UiInputCapture>,
-    pub subscriptions: UiEventKindSet,
-}
-```
-
-Unity swaps the complete state only after validating it. A route revision
-changes when logical parentage, host generation, eligibility, policy, scope,
-capture, label, or control capability changes. A Rust handler-only replacement
-does not change the Unity route revision.
-
-The Unity UI manager validates the runtime-global state, builds one lookup shard
-per physical panel, and swaps every shard while native event forwarding is
-paused on the main thread. Failure leaves all old shards installed. A target
-panel's shard includes the global node index and precomputed logical ancestor
-indices needed by portals, so it evaluates source-panel policies without
-walking or querying the source panel during dispatch.
-
-One runtime has one Reactant focus coordinator above UI Toolkit's per-panel
-focus controllers. It records at most one focused Reactant host as
-`(panel_id, object_id, generation)`. Focusing a host in another panel clears
-the old panel first, then focuses the new panel. Focus events retain their
-respective old and new logical routes and use consecutive runtime-global
-dispatch sequences.
-
-A modal scope is runtime-global. Its portaled descendants may occupy another
-panel, but all nonmodal Reactant panels are gated from focus, activation, input
-capture, and accessibility traversal while it is active. Restoration records
-the prior panel and host. The two-state focus transaction chooses the pending
-panel and host before swapping shards, emits old-panel `FocusOut`, installs all
-shards atomically, and emits new-panel `FocusIn`. External Unity focus and
-listeners outside the runtime remain outside this contract.
-
-Every policy lookup uses this immutable state. Event callbacks allocate no
-route or policy collections. The commit precomputes compact ancestor indices,
-canonical match tables, and capture claimants.
-
-`subscriptions` is the canonical union of event kinds required by logical
-handler coverage, intrinsic control profiles, Motion, focus scopes, input
-capture, pointer capture, and label relationships. Rust computes it; Unity
-validates the union and installs exactly that coverage. Unity never infers
-subscriptions from a missing field or from current physical ancestry.
-
-## Wire protocol
-
-Rust and C# replace the current `UiEvent` model together:
-
-```rust
-pub struct UiEvent {
-    pub session_id: SessionId,
-    pub dispatch_sequence: u64,
-    pub coalesced_sequences: Option<UiSequenceRange>,
-    pub route_revision: u64,
-    pub target_panel_id: UiPanelId,
-    pub target_id: ObjectId,
-    pub target_generation: u64,
-    pub logical_path: Vec<UiLogicalPathEntry>,
-    pub origin: UiEventOrigin,
-    pub cancelability: UiEventCancelability,
-    pub native_input_owner: UiNativeInputOwner,
-    pub default_action: UiDefaultActionState,
-    pub native_bubble: UiNativeBubbleDisposition,
-    pub logical_bubble: UiLogicalBubbleDisposition,
-    pub policy_outcome: UiPolicyOutcome,
-    pub pointer_capture_owner: Option<ObjectId>,
-    pub cleanup_token: Option<UiCleanupToken>,
-    pub captured_delivery: Option<UiCapturedInputDelivery>,
-    pub source_sequence: Option<u64>,
-    pub body: UiEventBody,
-}
-
-pub struct UiLogicalPathEntry {
-    pub id: ObjectId,
-    pub generation: u64,
-}
-
-pub struct UiSequenceRange {
-    pub first: u64,
-    pub last: u64,
-    pub count: u32,
-}
-
-pub struct UiPolicyOutcome {
-    pub default_winner: Option<ObjectId>,
-    pub native_stop_winner: Option<ObjectId>,
-    pub ineffective_prevention: bool,
-}
-
-pub enum UiCapturedInputDelivery {
-    Logical,
-    OwnerIneligible,
-}
-
-pub enum UiEventStreamItem {
-    Event(UiEvent),
-    CleanupWatermark(UiCleanupWatermark),
-}
-
-pub struct UiCleanupWatermark {
-    pub session_id: SessionId,
-    pub cleanup_token: UiCleanupToken,
-    pub final_dispatch_sequence: u64,
-}
-
-pub struct UiEventStreamAction {
-    pub stream_item_id: u64,
-    pub item: UiEventStreamItem,
-}
-
-pub struct UiEventStreamAck {
-    pub session_id: SessionId,
-    pub stream_item_id: u64,
-}
-```
-
-`logical_path` is ordered root to target and includes both endpoints. Its final
-entry repeats `target_id` and `target_generation`; disagreement rejects the
-envelope. Generations make ID reuse detectable without retaining every normal
-route revision.
-
-`source_sequence` names the immediate causal envelope. A normalized event may
-therefore point to a raw event or to another normalized event. Following the
-chain reaches one raw native sequence. Raw and cleanup events use `None`. A
-non-coalesced event has no sequence range. A coalesced event's range starts at
-the first replaced sample, ends at `dispatch_sequence`, and has the exact
-number of represented samples.
-
-Host state adds wire descriptors for:
-
-- Reactant-authored logical event parentage;
-- closed native event policies;
-- focus scopes and their ordered focusable members;
-- keyboard and controller input capture;
-- portable pointer capture; and
-- label and compatible-control relationships.
-
-`UiEventStreamItem` is FIFO. A cleanup watermark is not an application event
-and consumes no dispatch sequence. It follows every cleanup event bearing its
-token and records the greatest sequence assigned before it. A token with no
-cleanup event still produces a watermark using the last assigned sequence.
-
-### Transport delivery and acknowledgement
-
-The wire-breaking change removes `ActionBody::VisualElement(UiEvent)` and adds
-`ActionBody::UiEventStream(UiEventStreamAction)`. It also adds the
-Rust-to-Unity command `CommandBody::AcknowledgeUiEvent(UiEventStreamAck)`.
-`ActionBody::MotionEvents` remains for the Motion records retained below.
-
-`IBattlementUiHost.SubmitUiEvent` is replaced by nonblocking
-`EnqueueUiEvent`. The event bridge calls it from the native callback after
-policy evaluation. `BattlementRunner.EmitUiEvent` is replaced by a queue pump;
-no Rust transport call occurs while `uiDispatchDepth` is nonzero.
-
-Unity permits exactly one stream item in flight. After the native callback
-unwinds and `uiDispatchDepth` reaches zero, the runner submits the queue head
-with a monotonically increasing `stream_item_id`. Submission does not remove
-the item. An asynchronous transport may leave it in flight across frames while
-native callbacks append later items behind it.
-
-Rust handles one `UiEventStreamAction` as one engine action. An application
-event produces its one Reactant dispatch and `ReactantCommit`. The response
-contains that commit's ordered mutation and action groups, followed by a final
-sequential group containing `AcknowledgeUiEvent`. A stale drop, inspector-only
-release, or cleanup watermark returns only the acknowledgement when it creates
-no other command.
-
-The existing response stream applies every earlier response group on Unity's
-main thread before applying the acknowledgement. The acknowledgement verifies
-the active session and exact in-flight item ID, removes the queue head, and
-schedules the pump for the next safe runner update. The next item cannot enter
-Rust before the preceding response, commit, and acknowledgement finish. This
-preserves `ReactantCommit`'s no-outstanding-receipt rule.
-
-The Battlement transport either returns one response for the action or ends the
-session; the event stream adds no independent retry or replay protocol. A
-duplicate, missing, or out-of-order item ID is a framework failure. Disconnect
-clears the in-flight item with the old-session queue. The fake host implements
-the same submit, response-group, acknowledgement, and next-item ordering.
-
-`UiEventBody` adds `CapturedInput`. Its controller button values remain distinct
-from global controller actions. The input payloads used by policies and
-normalized routing have these minimum wire fields:
-
-```rust
-pub struct UiKeyEvent {
-    pub physical_key: PhysicalKey,
-    pub logical_key: LogicalKey,
-    pub modifiers: KeyModifiers,
-    pub repeat: bool,
-}
-
-pub struct UiNavigationEvent {
-    pub intent: NavigationIntent,
-    pub source: NavigationSource,
-}
-
-pub struct UiPointerEvent {
-    pub pointer_id: i32,
-    pub pointer_type: PointerType,
-    pub button: Option<PointerButton>,
-    pub pressed_buttons: PointerButtonSet,
-    pub position: UiPoint,
-    pub delta: UiPoint,
-    pub related_target_id: Option<ObjectId>,
-}
-
-pub struct UiFocusEvent {
-    pub related_target_id: Option<ObjectId>,
-}
-
-pub struct UiActivationEvent {
-    pub source: ActivationSource,
-}
-```
-
-Value, text, selection, scroll, and Motion payloads remain the typed values
-owned by their existing adapters. This design changes their envelope and
-ordering, not their value representation.
-
-The C# and Rust definitions use the same canonical validation fixtures. The
-fake client validates and evaluates every closed descriptor, but does not claim
-to reproduce UI Toolkit text, focus, gesture, or scroll internals.
-
-This change is:
-
-- **wire-breaking:** `UiEvent` and host state change shape;
-- **source-additive:** new façade methods and event accessors are added; and
-- **semantically breaking:** Rust callbacks no longer rely on a synchronous
-  Unity call or current-tree route discovery.
-
-All Rust fixtures, C# fixtures, fake behavior, and callers change in one commit
-stack. There is no compatibility shim, negotiation field, protocol version, or
-dual event path.
-
-## Ordered event lifecycle
-
-One native input follows this lifecycle:
-
-1. UI Toolkit selects the physical native target.
-2. The Reactant coverage listener maps it to one eligible Reactant target.
-3. Unity snapshots the committed logical path and route revision.
-4. Unity applies input capture, intrinsic-control rules, and matching policies.
-5. UI Toolkit and control adapters perform allowed native defaults.
-6. Unity records outcomes and classifies the draft as reliable or replaceable.
-7. Unity admits the draft, then assigns its next per-session sequence.
-8. Unity appends it FIFO or replaces only a matching queue-tail sample.
-9. The transport delivers envelopes in sequence order to Rust.
-10. Rust validates the session, target generation, and complete logical path.
-11. Rust snapshots the accepted path and every applicable handler slot.
-12. Rust runs logical capture, target, and bubble propagation.
-13. Reactant reconciles all state and model changes once.
-14. A later Unity commit installs mutations, actions, and new event host state.
-
-Steps 1 through 8 complete without waiting for Rust. Steps 10 through 13 form
-one active Reactant entry. No commit from that entry can affect the native
-default that produced it.
-
-Unity assigns one strictly increasing `dispatch_sequence` to every admitted
-native and Unity-normalized event in a session. Sequence zero is invalid.
-Events produced by a nested Unity callback are queued; the coverage listener
-never reenters Reactant.
-
-Coalescing is allowed only when the matching replaceable envelope is the queue
-tail. The replacement stays in that position, takes the newest sequence and
-payload, and extends `coalesced_sequences` from the first represented sequence
-through the newest. If any reliable or nonmatching envelope is later in the
-queue, Unity appends the sample when capacity exists. Rust accepts a sequence
-gap only when the next envelope's exact coalesced range starts at the expected
-sequence and ends at its own sequence.
-
-Rust-derived pointer enter and leave events run as deterministic synthetic
-subevents of their owning raw sequence. The inspector records a
-`synthetic_ordinal`, starting at one. They finish before Rust starts the next
-wire envelope and do not consume a Unity sequence.
-
-Derived subevents snapshot all crossing routes and handlers when their raw
-dispatch starts. They share the raw event's state batch and cause no separate
-reconciliation. After the derived traversal, the raw event uses its already
-snapshotted handlers. A synthetic `stop_propagation()` flag is local to that
-traversal.
-
-An application-injected synthetic event enters the same Rust queue behind the
-active event. It receives a monotonically increasing Rust-local synthetic
-sequence, takes a fresh route and handler snapshot when its own dispatch starts,
-and causes its own single reconciliation. It has no Unity dispatch sequence or
-native default. It cannot create native focus, editing, scrolling, capture, or
-activation. Tests may inject it through the public test dispatcher, but
-production behavior must be proven through native input.
-
-## Rust propagation algorithm
-
-At Rust dispatch start, Reactant performs these checks in order:
-
-1. `session_id` equals the active session.
-2. The sequence is next, or an exact coalesced range explains every gap.
-3. An ineligible captured release is recorded and consumed without route
-   dispatch.
-4. A cleanup token resolves to its retained old-route tombstone.
-5. Otherwise every path ID and generation matches current committed hosts.
-6. The path matches committed logical parentage and route revision.
-7. The target and route were eligible when Unity created the event.
-
-Step 3 applies only to a captured release with
-`UiCapturedInputDelivery::OwnerIneligible`. It produces the named inspector
-reason, invokes no handler, and advances sequence state. It is neither a stale
-drop nor a tombstone dispatch. `Logical` captured input follows the normal
-checks. Step 4 compares every path generation against the tombstone captured
-for that token; a missing, reused, or retired token is a framework failure.
-
-A route revision remains compatible across handler-only commits. A structural,
-eligibility, relationship, or policy commit makes an older route stale. Any
-failed session, target, or route check drops the entire event and invokes no
-handler. Reactant still advances sequence bookkeeping where safe so one stale
-event cannot make all later valid events appear out of order.
-
-After validation, Reactant snapshots the path and the capture and bubble
-handler slots for every path member. It does not look up a slot again during
-the dispatch. Handler replacement committed before dispatch is visible.
-Handler or model changes requested during dispatch do not change the snapshot.
-
-Propagation order is:
-
-1. capture on strict ancestors, root to target parent;
-2. target capture with `EventPhase::Target`;
-3. target bubble with `EventPhase::Target`; and
-4. bubble on strict ancestors, target parent to root.
-
-`stop_propagation()` stops all later steps and nodes. It does not stop another
-handler already executing. There is one capture slot and one bubble slot per
-event kind per node, so there is no same-node immediate-propagation variant.
-
-If Unity marked logical bubble as suppressed by a native control, steps 1
-through 3 still run and step 4 is skipped. A Rust call to
-`stop_propagation()` during capture can stop before the target as usual.
-
-All callbacks share one mutable application-model borrow and one state batch.
-Reactant reconciles roots once after propagation completes. Host mutations and
-actions are emitted after that reconciliation in the ordering defined by the
-main Reactant design.
-
-## Portals and physical propagation
-
-Unity policy evaluation and Rust propagation both use the event-time logical
-path. A portaled overlay therefore sees policies, focus scopes, capture owners,
-and handlers declared on its source ancestry.
-
-The physical portal container and its unrelated Unity ancestors never become
-Reactant ancestors. Reactant's coverage listener reports the event once. Any
-external UI Toolkit listeners on the physical path still run according to UI
-Toolkit rules. Rust `stop_propagation()` cannot affect them.
-
-A native propagation-stopping policy is applied at the earliest Reactant
-coverage callback available for the physical island. It stops later native
-callbacks only where UI Toolkit permits. The event metadata reports that fact;
-Reactant never claims it stopped callbacks that had already run.
-
-Policy lookup across a portal is still O(logical depth). Commit-time parent
-indices avoid walking Unity's physical tree. Portal target changes increment
-the route revision and make already queued old-route events stale.
-
-## Eligibility and lifecycle changes
-
-A disabled subtree is inert for activation, focus movement, navigation, input
-capture, label activation, and new drag starts. Descendants cannot opt back in
-while an ancestor is disabled. Pointer and focus exit or cancellation events
-needed for cleanup may still originate from a newly ineligible host.
-
-A detached host or host under `display: none` cannot originate a new event.
-`visibility: hidden` follows the existing UI Toolkit picking and focus rules;
-Reactant lowers its effective event eligibility explicitly so Rust and Unity do
-not disagree.
-
-When a pending commit makes a host ineligible, Unity applies one two-state
-transaction:
-
-1. validate the complete pending host state and its cleanup token;
-2. cancel activation latches, input capture, Motion, custom drags, and pointer
-   capture against the old state;
-3. select restored focus using old restoration records but pending scope,
-   eligibility, and logical ancestry;
-4. enqueue cleanup and `FocusOut` envelopes on old routes with the token;
-5. install the pending host state and destroy removed native hosts;
-6. enqueue `FocusIn` on the selected new route and revision; and
-7. enqueue the cleanup watermark before accepting later native input.
-
-Removal, disablement, and hiding use this same transaction. `FocusOut` can
-therefore reach the old tombstone, while `FocusIn` always validates against the
-new state. If no pending-state target is eligible, the transaction clears
-focus and omits `FocusIn`.
-
-Cleanup envelopes use `UiEventOrigin::NativeCleanup` and carry a commit-issued
-cleanup token. Before emitting the commit, Reactant stores one tombstone for
-the token containing every affected old route and a fallback copy of its
-handler slots. Only an event with that token may use it. Ordinary old-revision
-input remains stale and never gains tombstone access.
-
-At cleanup dispatch, each old-path node first looks for the same host generation
-in current committed state. A surviving host contributes its current handler
-slot even when the cleanup-producing commit replaced that handler or moved the
-host. A removed or replaced host contributes the tombstone fallback. Reactant
-freezes those per-node choices once before capture starts. Thus a removed target
-can receive its terminal callback, while a surviving ancestor obeys the normal
-dispatch-time handler rule. The cleanup event has one state batch and one
-reconciliation.
-
-FIFO delivery guarantees that Rust processes every token-bearing event before
-its `UiCleanupWatermark`. Processing the watermark retires the tombstone; no
-additional acknowledgement is needed. The tombstone store contains 1,152
-entries, one per possible queued or in-flight cleanup watermark. Cleanup items
-join the sequence at the queue tail; they never pass input that Unity captured
-before the commit.
-
-Reactant never retains or defers a nonempty commit. Unity reserves 128 stream
-slots beyond the 1,024 ordinary slots for commit-generated cleanup. If applying
-a valid commit would exceed the total bound, Unity still applies the commit and
-performs native cleanup, then enters input-fatal reconnect without promising
-old-session Rust cleanup callbacks. The session reset clears every tombstone.
-This failure path preserves Reactant's mandatory commit handoff and prevents
-native and Rust trees from diverging.
-
-`begin_session` or reconnect clears the old event queue, sequence state,
-pointer capture, focus-scope stack, focus restoration records, control drafts,
-activation latches, captured-release latches, Motion gestures, and policy state.
-The new snapshot reconstructs only committed declarative state. An old-session
-event is rejected without invoking handlers, even if its object IDs happen to
-exist again.
-
-Reconnect is the exception to Rust cleanup delivery. Unity releases capture
-and cancels gestures locally, records one old-session terminal inspector entry,
-and then discards the old queue. It does not deliver a cancellation callback to
-the new session. The acceptance requirement is exactly one local release and
-no old-session Rust callback, not a cross-session terminal event.
-
-## Removal, handler updates, and reentrancy
-
-The event-time route is preserved only while it remains a valid committed
-route at Rust dispatch start. This prevents a queued event from targeting a
-node that an earlier commit removed or reparented.
-
-Once dispatch starts, the route and handler slots are frozen. If an early
-handler changes application state so the target will disappear, later handlers
-from the active snapshot still run. Reconciliation and removal occur only after
-propagation finishes.
-
-A later queued event for that target is checked against the resulting commit.
-After the commit makes the target stale, the later event is dropped with
-`reactant.event.stale_target` or `reactant.event.stale_route`. It does not fall
-back to an ancestor.
-
-Changing a handler without changing structure affects the next event whose Rust
-dispatch has not started. An active dispatch keeps the prior snapshotted
-closure. This rule applies equally to capture and bubble slots.
-
-Rust event dispatch is non-reentrant. A synthetic event, engine callback, or
-transport delivery attempted during an active dispatch is appended to the
-session queue. It begins only after the active propagation and reconciliation
-complete. Nested Unity events follow their native sequence and are likewise
-delivered later.
-
-## Scrolling and gesture arbitration
-
-Wheel and touch scrolling remain UI Toolkit defaults. A nested scroll view
-first receives an opportunity to consume movement on an axis where it can
-scroll. Ancestor scrolling receives only unconsumed movement according to the
-control adapter's native chaining rule.
-
-A `WheelPolicy` can prevent or stop a selected wheel input synchronously. It is
-appropriate for zoom surfaces or fixed interaction regions. Rust cannot inspect
-the delta and then retroactively decide to scroll. A policy that needs a delta
-threshold is unsupported until that threshold is a closed descriptor.
-
-Motion contributes a capture claimant at its declaring host. Intrinsic control,
-Motion, and generic capture use the precedence frozen in
-[Pointer capture policy](#pointer-capture-policy). `PointerPolicy` prevention
-and native stopping are independent of that claimant selection. Once Motion
-drag begins, Unity cancels tap, captures the pointer, and emits `DragStart`.
-Rust can change later declarative state but cannot cancel that already-started
-drag.
-
-For a non-Motion custom drag, `PointerCapturePolicy::OnPointerDown` establishes
-ownership and Rust handlers interpret the ordered pointer events. The policy
-does not calculate velocity, constraints, or momentum.
-
-## Motion protocol boundary
-
-This design supersedes the gesture portion of the Motion lifecycle protocol.
-Every `MotionGestureEventKind`, including hover, tap, focus, pan, drag, scroll,
-in-view, constraints, and momentum-complete records, moves from
-`MotionEventBatch::gesture_events` to
-`UiEventBody::MotionGesture(MotionGestureEvent)`. The
-`gesture_events` field is removed atomically from Rust and C#.
-
-Reliable gesture boundaries use the unified UI dispatch sequence, one-item
-in-flight acknowledgement, route snapshot, and stale-event rules. Replaceable
-Pan, Drag, and Scroll gesture samples use the unified queue-tail coalescing
-rule. Input-caused gesture events name the immediate input envelope in
-`source_sequence`; in-view and momentum events without one use `None`.
-
-Animation lifecycle boundaries in `MotionEventBatch::events`, imperative
-`playback_events`, presentation `samples`, and `value_samples` remain under the
-Motion design. Its reliable Motion sequence, highest-contiguous acknowledgement,
-timeout replay, logical-ID deduplication, and sample partitioning all survive.
-Those records never consume UI dispatch sequences.
-
-Gesture callbacks now reconcile once per unified stream event. A remaining
-`MotionEventBatch` still batches its lifecycle callbacks and reconciles once per
-batch as specified by the Motion design. The two sequence spaces and
-acknowledgements are independent and are distinguished by their `ActionBody`
-variants.
-
-## Diagnostics and event inspection
-
-Structured diagnostics use stable names and fields:
-
-- `reactant.event.stale_session` records expected and received sessions.
-- `reactant.event.invalid_sequence` records previous and received sequences.
-- `reactant.event.stale_target` records target ID and route revision.
-- `reactant.event.stale_route` records expected and received logical paths.
-- `reactant.event.policy_conflict` records the node and conflicting selectors.
-- `reactant.event.capture_conflict` records competing pointer claimants.
-- `reactant.event.queue_overflow` records capacity and the blocked boundary.
-- `reactant.event.sample_dropped` records a replaceable draft rejected before
-  sequence assignment.
-- `reactant.event.input_disabled` records the fatal overflow sequence.
-- `reactant.event.capture_released` records pointer ID and release reason.
-- `reactant.event.focus_restore_failed` records the removed scope and target.
-- `reactant.event.cleanup_overflow` records exhausted reserved cleanup slots.
-- `reactant.event.policy_non_cancelable` records ineffective prevention.
-- `reactant.event.captured_owner_ineligible` records a retained release with no
-  logical handler.
-- `reactant.event.native_mismatch` records Rust and Unity outcome disagreement.
-
-Expected stale events are warnings in development and structured trace entries
-in production. Invalid descriptors, sequence regression, or Rust/C# outcome
-disagreement are framework failures. They poison or disconnect the affected UI
-session rather than continuing with ambiguous input state.
-
-The development event inspector stores one bounded record per envelope:
-
-```rust
-pub enum EventInspectionOrder {
-    Wire {
-        dispatch_sequence: u64,
-        synthetic_ordinal: Option<u16>,
-    },
-    RustSynthetic {
-        synthetic_sequence: u64,
-    },
-    NativeDropped {
-        attempted_after_sequence: u64,
-    },
-}
-
 pub struct EventInspection {
+    pub action_id: ActionId,
     pub session_id: SessionId,
-    pub order: EventInspectionOrder,
+    pub island_id: ObjectId,
     pub target_id: ObjectId,
-    pub target_generation: u64,
-    pub logical_path: Vec<UiLogicalPathEntry>,
-    pub route_revision: u64,
-    pub origin: UiEventOrigin,
-    pub default_policy_winner: Option<ObjectId>,
-    pub native_stop_policy_winner: Option<ObjectId>,
-    pub native_input_owner: UiNativeInputOwner,
-    pub default_action: UiDefaultActionState,
-    pub native_bubble: UiNativeBubbleDisposition,
-    pub logical_bubble: UiLogicalBubbleDisposition,
-    pub pointer_capture_owner: Option<ObjectId>,
-    pub coalesced_samples: u32,
-    pub drop_reason: Option<UiEventDropReason>,
-    pub rust_queue_latency_us: Option<u64>,
-    pub rust_handling_duration_us: Option<u64>,
-    pub resulting_commit_id: Option<CommitId>,
+    pub kind: UiEventKind,
+    pub cancelable: bool,
+    pub prevented_before_reactant: bool,
+    pub prevented_by_reactant: bool,
+    pub disposition: UiEventDisposition,
+    pub admission_sequence: Option<u64>,
+    pub synchronous_duration_us: u64,
+    pub resulting_batch_ids: Vec<BatchId>,
+    pub outcome: EventInspectionOutcome,
+    pub failure_reason: Option<EventFailureReason>,
+}
+
+pub enum EventInspectionOutcome {
+    Pending,
+    Completed,
+    StaleTarget,
+    RejectedBeforeDispatch,
+    FailedAfterDispatch,
+    DeferredApplyFailed,
+}
+
+pub enum EventFailureReason {
+    QueueItemLimit,
+    QueueByteLimit,
+    SessionNotAccepting,
+    RequestValidation,
+    StaleSession,
+    NativeTransport,
+    Engine,
+    ResponseSerialization,
+    InvalidDisposition,
+    ResponseCommitInvariant,
+    Panic,
+    DeferredApply,
 }
 ```
 
-A stale drop has no resulting commit. A handled event records the commit that
-results from its one reconciliation, including a no-mutation commit marker. The
-inspector never stores text contents, composed characters, or application
-payload fields by default.
+The actual record also identifies:
 
-## Queueing, coalescing, and performance
+- logical route IDs and handler phases invoked;
+- whether logical propagation stopped;
+- whether the native adapter applied `PreventDefault()`;
+- whether the event was dropped for an unknown target;
+- serialization, native-call, Rust-dispatch, and reconciliation durations when
+  that layer can report them;
+- response byte size, queue admission time, and later application time;
+- deferred batch failure, when one occurs; and
+- whether the event originated during ordinary input or response application.
 
-The Unity session queue has 1,024 ordinary envelope slots plus 128 slots
-reserved for commit-generated cleanup and watermarks. Native input cannot use
-the reserve. Reliable boundaries retain exact order. A replaceable sample may
-replace only the queue tail, and only when event kind, target, pointer or
-device, capture generation, and rendered frame all match. Otherwise it appends
-when ordinary capacity exists.
+`Pending` is the only nonterminal value. A completed record has one terminal
+value. Precedence is:
 
-Pointer moves, scroll changes, and Motion samples may coalesce to one per
-target, pointer, and rendered frame. Down, up, cancel, capture, focus, key,
-activation, commit, and captured-input boundaries are never dropped.
+1. `DeferredApplyFailed` if a successfully admitted response later fails.
+2. `FailedAfterDispatch` if the ABI may have entered Rust but did not return a
+   trustworthy complete result.
+3. `RejectedBeforeDispatch` if reservation, validation, or session state
+   prevented entry into Rust.
+4. `StaleTarget` for the successful current-session no-handler case.
+5. `Completed` for every other successfully admitted response.
 
-No queued envelope is evicted. At ordinary capacity, a nonmatching replaceable
-draft is discarded before sequence assignment and gets a local
-`sample_dropped` inspection record. Because it had no sequence, it creates no
-receiver gap. A reliable native draft at ordinary capacity records
-`queue_overflow` outside the full queue, disables further input, and requests
-reconnect. No later event from that session is delivered, so its unassigned
-boundary cannot create a hidden gap. Rendering may continue while the session
-is input-fatal.
+The inspector creates the record when an action ID is allocated, updates the
+same record through admission and application, and never emits separate records
+for the immediate and deferred halves. An unmapped native-only event has no
+action ID and is visible only in optional coverage diagnostics.
 
-The reference machine is the repository's `Mac17,6` with an Apple M5 Max. Tests
-run the project's pinned Unity Editor natively on arm64 in batch mode, with Deep
-Profile disabled and the release scripting defines enabled.
+`failure_reason` is required for every failed or rejected outcome and absent
+for `Pending`, `Completed`, and `StaleTarget`. The originating layer chooses the
+most specific reason; a generic transport reason is used only when the native
+status cannot distinguish engine, serialization, or panic failure. An event may
+produce zero or several batches, so inspection retains every causal batch ID in
+response order.
 
-The policy workload has one depth-32 route. Every node carries one matching key
-prevention rule, one matching navigation-stop rule, one nonmatching wheel rule,
-and one nonmatching pointer rule: 128 entries and 64 matches per lookup. The
-enqueue workload holds 768 of 1,024 slots, uses a non-coalescing reliable key
-event, and dequeues one envelope after each measured enqueue to hold occupancy
-constant.
+The inspector does not record typed text contents, composition contents, or
+other sensitive payload values by default.
 
-On that fixed workload and hardware:
+Stable diagnostics include:
 
-- policy lookup for a depth-32 logical route allocates nothing after
-  installation and remains below 0.25 ms at p95;
-- native event capture, outcome recording, and enqueue remain below 0.5 ms at
-  p95, excluding transport and application code; and
-- coalescing work is constant per replaceable queue key.
+- `reactant.event.stale_session` for a session mismatch;
+- `reactant.event.stale_target` for a current-session unknown target;
+- `reactant.event.invalid_disposition` for an unknown ABI value;
+- `reactant.event.submit_failed` for transport or engine failure;
+- `reactant.event.response_rejected` for failed response admission;
+- `reactant.event.prevented` for an applied default-prevention decision; and
+- `reactant.event.deferred_apply_failed` for a later response failure.
 
-Unity EditMode performance tests warm each path for 2,000 iterations, measure
-20,000 iterations, and calculate p95 with nearest-rank selection. They report
-p50, p95, and maximum and fail the p95 gates. A profiler test asserts zero
-managed allocations in the measured policy lookup. The retained result records
-Unity version, build target, hardware, route depth, entry and match counts,
-queue capacity and occupancy, warm-up count, and sample count.
+The terminal record selects its primary stable code as follows:
 
-## Migration examples
+- `StaleTarget` uses `reactant.event.stale_target`.
+- `StaleSession` uses `reactant.event.stale_session`.
+- `InvalidDisposition` uses `reactant.event.invalid_disposition`.
+- `QueueItemLimit`, `QueueByteLimit`, and `ResponseCommitInvariant` use
+  `reactant.event.response_rejected`.
+- `DeferredApply` uses `reactant.event.deferred_apply_failed`.
+- Every other failed or rejected reason uses `reactant.event.submit_failed`.
+- `Completed` has no primary failure code.
 
-The examples translate behavior observed in the settings mockup. They do not
-copy its DOM or browser event implementation.
+`reactant.event.prevented` is emitted only when
+`prevented_by_reactant == true` and Unity successfully applies the disposition.
+Prior-only native prevention remains visible in the inspection fields but does
+not claim that Reactant caused it.
 
-### Slider arrows
+When several conditions occur, the terminal outcome above selects the primary
+diagnostic. Cleanup failures and engine poisoning are attached as secondary
+fields rather than replacing the event's causal failure.
 
-The mockup prevents an arrow key so the slider changes without scrolling its
-ancestor. A native Reactant slider needs no generic handler policy: the native
-adapter owns arrows, applies one value change, suppresses generic navigation,
-and emits one controlled proposal.
+## Migration and Compatibility
 
-```rust
-Slider::new(0.0..=100.0)
-    .value(game.volume)
-    .on_change(|game: &mut Game, value| {
-        game.volume = value;
-    })
-```
+The engine, ABI, Rust protocol, managed transport, fake client, and Unity event
+bridge change atomically. No compatibility shim or alternate UI path remains.
 
-A custom slider declares the prevention before input:
+The migration performs these contract changes:
 
-```rust
-View::new()
-    .role(AccessibilityRole::Slider)
-    .native_event_policy(NativeEventPolicy::new().key_down(
-        KeyDownPolicy::arrows(
-            NativeEventDisposition::PreventDefault,
-        ),
-    ))
-    .on_key_down_event(update_custom_slider)
-```
+- Add `Engine::submit_ui_event` to every engine implementation.
+- Add `UiEventAction`, `UiEventResponse`, and `UiEventDisposition`.
+- Export `battlement_submit_ui_event` from every native engine.
+- Add `POST /ui-events` to the localhost development server.
+- Add `IBattlementTransport.SubmitUiEvent` to every managed transport.
+- Route every Unity-produced `UiEvent` through the specialized operation.
+- Remove `ActionBody::VisualElement` from the ordinary action union.
+- Remove ordinary `submit` handling for UI events from engines and fake clients.
+- Add shared Rust, ABI, and C# disposition fixtures.
+- Update related Reactant documents that claim Rust cannot participate during a
+  native input event.
 
-### Modal Escape and focus
+Game-specific engines move their existing `ActionBody::VisualElement` match arm
+into `submit_ui_event`. Their ordinary custom-action and command unions do not
+gain any event disposition variant.
 
-The mockup traps focus, closes on Escape, and restores prior focus. The scope
-performs containment and synchronous cancel suppression; Rust handles closure.
+The change is wire-breaking and ABI-breaking. Rust and C# definitions land
+together. The repository does not add protocol negotiation, dual symbols,
+legacy deserialization, or version-specific behavior.
 
-```rust
-View::new()
-    .focus_scope(
-        FocusScope::modal()
-            .initial_focus(InitialFocus::Control(close_button.id()))
-            .restore(FocusRestore::PreviouslyFocused),
-    )
-    .on_navigation_cancel(|game: &mut Game| {
-        game.settings_open = false;
-    })
-    .child(settings_panel)
-```
+An engine with no mounted UI documents still implements
+`submit_ui_event`. With no registered hosts, a current-session event is handled
+as a stale target: it invokes no UI handler, adds no prevention, and returns the
+ordinary response from its active entry. UI capability is not negotiated per
+application.
 
-### Input rebinding
+Binary mismatch fails before session connection:
 
-The mockup captures a physical key before the focused button can activate. The
-Reactant capture descriptor makes that claim synchronous for keyboard and
-controller input.
+- a Unity client that cannot resolve `battlement_submit_ui_event` reports the
+  missing symbol and refuses to connect;
+- the exported-library fixture verifies the exact symbol and ABI shape;
+- an old request containing `ActionBody::VisualElement` fails ordinary action
+  decoding rather than entering an asynchronous compatibility path; and
+- an unknown raw disposition returned to C# fails the active session and is
+  never interpreted as prevention.
 
-```rust
-View::new()
-    .input_capture(InputCapture::rebinding())
-    .on_captured_input_event(|game: &mut Game, event| {
-        if event.payload().phase == CapturedInputPhase::Pressed {
-            game.bind(event.payload().input.clone());
-        }
-    })
-```
+## Alternatives Considered
 
-### Dropdown navigation
+The rejected alternatives clarify why the dedicated synchronous operation is
+part of the target architecture.
 
-A native dropdown owns Up, Down, Submit, and Cancel while open. It moves its
-highlight locally and emits a committed selection once. An ancestor tab or
-scroll handler never receives those owned navigation events. A custom popup
-declares matching `NavigationPolicy` values and manages its logical highlight
-from the later Rust callbacks.
+### Disposition on every ordinary response
 
-### Nested label controls
+Adding `ActionOutcome` or an optional disposition field to `Response` would
+make every Battlement action understand a UI Toolkit callback-lifetime problem.
+It would also require C# to decode response metadata while the event is active.
 
-The mockup uses nested labels and controls. Reactant declares the relationship
-so one label activation focuses and activates the control exactly once.
+The dedicated operation keeps `Response` generic and returns the fixed
+disposition without decoding deferred commands.
 
-```rust
-let music = use_control_ref::<Toggle>();
+### Optional UI engine extension
 
-View::new()
-    .child(Label::for_control("Background music", music.clone()))
-    .child(
-        Toggle::new()
-            .control_ref(music)
-            .value(game.music_enabled)
-            .on_change(set_music_enabled),
-    )
-```
+An extension trait would imply that some Battlement engines or transports lack
+the UI subsystem. Battlement snapshots, the runner, native exports, UI events,
+and fake clients already treat UI as a core capability.
 
-### Pointer dragging
+Putting `submit_ui_event` directly on `Engine` makes missing support a compile
+error rather than a runtime feature branch.
 
-The mockup calls pointer capture during pointer down. A custom Reactant drag
-declares that first-event requirement; a Motion drag uses `.drag(...)` instead.
+### Asynchronous event delivery with native policies
 
-```rust
-View::new()
-    .pointer_capture_policy(PointerCapturePolicy::OnPointerDown {
-        buttons: PointerButtonSet::primary(),
-        pointer_types: PointerTypeSet::direct_manipulation(),
-    })
-    .on_pointer_move_event(update_drag)
-    .on_pointer_up_event(finish_drag)
-```
+An asynchronous callback cannot decide `PreventDefault()` before Unity runs the
+default. A parallel declarative policy system could make selected decisions
+from state installed by an earlier commit, but it would require duplicate Rust
+and C# evaluators, selector validation, route snapshots, queue ordering,
+acknowledgements, stale-event rules, and different authoring semantics.
 
-## Acceptance scenarios
+The current production transport is already synchronous. Reactant chooses one
+honest event model instead of preserving hypothetical asynchronous UI hosts.
 
-Each scenario specifies observable order. Unit tests may inspect event metadata,
-but end-to-end tests use production input and visible outcomes.
+### Disposition as a command
 
-### Slider consumes arrow input
+A command is processed after the event callback, when prevention is too late.
+Special-casing one command for early application would break batch ordering and
+blur the boundary that protects UI Toolkit dispatch from tree mutation.
 
-1. Focus a slider inside a vertically scrollable ancestor.
-2. Press Right Arrow once.
-3. Unity classifies the slider as the intrinsic owner.
-4. The slider changes by one step and emits one value proposal.
-5. No generic navigation or ancestor scroll default runs.
-6. Rust receives capture and target handling with
-   `HandledByNativeControl` and suppressed logical bubble.
-7. Rust accepts the proposal and the later commit preserves the new value.
+The disposition is an ABI result, never a command.
 
-A custom slider with an arrow policy follows the same visible result, but its
-event records `PreventedByPolicy` and its Rust target handler computes the new
-value.
+### Applying the complete response during dispatch
 
-### Modal handles Escape
+Applying Reactant mutations before the callback returns could destroy,
+reparent, focus, or otherwise modify elements in UI Toolkit's active propagation
+path. It would also permit command-triggered events to reenter the engine before
+the current Rust call had returned.
 
-1. Focus a control behind the modal, then mount the modal scope.
-2. Unity records prior focus and focuses the declared initial modal control.
-3. Press Escape.
-4. Unity prevents lower-scope navigation and gameplay synchronously.
-5. Rust receives modal capture, target, and bubble handlers in logical order.
-6. The modal handler changes the model to closed.
-7. Reactant reconciles once and a later commit removes the modal.
-8. Unity restores the prior eligible control.
+Only the fixed disposition crosses the immediate boundary. All commands remain
+deferred.
 
-Focus never leaves the modal between steps 2 and 7, including controller
-navigation and portaled descendants.
+### Retaining the Unity event object
 
-### Rebinding captures Space or a controller button
+Keeping a managed reference or acquiring a pooled event does not extend the
+period during which UI Toolkit consults its prevention flag. Calling
+`PreventDefault()` after dispatch cannot undo a default action.
 
-1. Focus a button inside an active rebinding scope.
-2. Press Space or the controller South button.
-3. Input capture claims the physical press before the button or navigation.
-4. Unity prevents activation, navigation, and global gameplay delivery.
-5. Rust receives one captured pressed event and records the binding.
-6. Rust removes the rebinding scope in its later commit.
-7. Release the same input.
-8. Unity's release latch suppresses the release from UI and gameplay.
+The bridge keeps the event only on the active callback stack and applies the
+disposition before returning.
 
-The focused button never enters its activation callback or visible pressed
-commit because of the captured input.
+## Acceptance Criteria
 
-### Nested click stops logical propagation
+The design is complete when all of these externally reviewable conditions hold:
 
-1. A child button is nested under a Reactant view with click handlers on both.
-2. Unity performs any valid native button action and enqueues one click.
-3. Reactant runs ancestor capture, child target capture, then child target
-   bubble.
-4. The child target bubble handler calls `stop_propagation()`.
-5. The ancestor Reactant bubble handler does not run.
-6. Physical UI Toolkit listeners run according to native propagation and are
-   explicitly unaffected by the Rust call.
+- **EVT-01:** Every engine and transport exposes synchronous UI event
+  submission.
+- **EVT-02:** `ActionBody::VisualElement` and its generic submit path are
+  absent.
+- **EVT-03:** Every forwarded `UiEvent` uses `submit_ui_event` exactly once.
+- **EVT-04:** A Rust handler can dynamically prevent a cancelable Unity
+  default.
+- **EVT-05:** Initial native prevention is visible to every Rust handler and
+  survives the round trip.
+- **EVT-06:** A non-cancelable event reports `cancelable() == false` and
+  returns `Continue`.
+- **EVT-07:** `stop_propagation()` follows the defined handler-slot semantics
+  without stopping physical Unity propagation.
+- **EVT-08:** No response command executes while `uiDispatchDepth` is nonzero.
+- **EVT-09:** Successful serialized responses enter the existing response
+  stream later in total admission order without changing batch execution
+  semantics.
+- **EVT-10:** Nested events receive immediate independent dispositions without
+  reentering an active Rust call or response drain.
+- **EVT-11:** A current-session stale target invokes no handler and does not
+  newly prevent the native default.
+- **EVT-12:** Unmapped native events allocate no action and make no Rust call.
+- **EVT-13:** A session mismatch, queue-admission failure, or engine failure
+  never adds prevention, stops the session, and requires an explicit host
+  reconnect. Earlier native prevention remains set.
+- **EVT-14:** A surviving engine retains state committed before a later
+  transport or serialization failure. A panic may discard unpersisted engine
+  state. Neither path replays the failed event; an explicit host reconnect
+  supplies the replacement snapshot.
+- **EVT-15:** A deferred response failure never causes event replay.
+- **EVT-16:** Portaled events use logical Reactant ancestry and physical Unity
+  targeting.
+- **EVT-17:** Native controls retain editing, tracking, scrolling, and focus
+  internals.
+- **EVT-18:** Motion retains Unity-local continuous gesture behavior.
+- **EVT-19:** The inspector connects each disposition to its later response
+  application or explicit-reconnect outcome.
+- **EVT-20:** Representative production screens satisfy the synchronous and
+  complete-frame performance gates.
 
-### Pointer capture sustains a drag
+In addition, the following compatibility condition is required:
 
-1. Pointer down matches `OnPointerDown` and Unity captures synchronously.
-2. Rust later receives pointer down.
-3. Move outside the original bounds; ordered moves still target the captor.
-4. Pointer up releases capture and emits the final reliable boundary.
-5. Repeat with cancel, disable, removal, and reconnect.
-6. Every case ends capture exactly once and no later move targets the old
-   captor.
+- **EVT-21:** Old and new native binaries fail at startup or decoding; they do
+  not silently choose different event timing.
 
-Cancel, disable, and removal deliver their reliable cleanup event through the
-old route tombstone. Reconnect records its terminal release only in Unity's
-old-session inspector and invokes no Rust callback in the new session.
+## Automated Validation
 
-### Native text field owns navigation
+Tests must prove both sides of the timing boundary. Pure Rust tests cannot prove
+that Unity observes `PreventDefault()` at the correct phase.
 
-1. Focus a text field inside an ancestor with a navigation-move handler.
-2. Press Left Arrow while editing.
-3. The text field moves or retains its caret according to native rules.
-4. Unity classifies the event as handled by the native control.
-5. Logical capture and target handlers may observe it.
-6. Logical bubble to the ancestor is suppressed.
-7. No ancestor focus move, scroll, or menu navigation occurs.
+Each retained test names the applicable `EVT-*` criteria in its test
+description or fixture metadata. Every criterion must have at least one
+automated test except behavior that the Manual QA section explicitly reserves
+for profiler or platform inspection.
 
-### Portaled overlay preserves logical ancestry
+### Rust tests
 
-1. Render a modal overlay into an external physical portal container.
-2. Activate a nested overlay control.
-3. Unity snapshots the route through the source-side modal ancestry.
-4. Modal policies and focus containment evaluate on that logical route.
-5. Rust capture and bubble use the same source ancestry.
-6. The unrelated physical container never becomes a Reactant current target.
-7. External Unity listeners on the physical path remain unaffected.
+Rust black-box tests cover:
 
-### Nodes disappear during dispatch
+- identical Rust and C# propagation classification for every `UiEventKind`;
+- capture, target, and bubble ordering;
+- every row of the propagation-stopping table;
+- default prevention from every logical phase;
+- an event that arrives already prevented;
+- shared prevention state across cloned event values;
+- logical propagation stopping independent of prevention;
+- non-cancelable prevention as a no-op;
+- one reconciliation and one response per accepted event;
+- active handler snapshots when state removes a host;
+- current-session unknown targets;
+- session mismatch rejection;
+- a session with no mounted UI documents;
+- portal logical routes;
+- empty successful UI responses when no other active-entry work is pending;
+  and
+- caused-by action identity on resulting batches.
 
-1. Queue events A and B for one target in sequence order.
-2. Event A begins Rust dispatch and snapshots its route and handlers.
-3. An early A handler changes state so the target will be removed.
-4. Every later handler in A's snapshot still runs unless propagation stops.
-5. Reactant reconciles once and Unity commits the removal.
-6. Event B reaches Rust after that commit and fails target or route validation.
-7. Reactant invokes no B handler and records the structured stale reason.
+### Native ABI tests
 
-## Automated validation
+Exported-library tests load the real symbols and cover:
 
-### Rust black-box tests
+- the presence and exact signature of `battlement_submit_ui_event`;
+- request decoding and complete response serialization;
+- `Continue` and `PreventDefault` numeric values;
+- disposition initialization before engine invocation;
+- safely testable null engine, request, and output-pointer cases;
+- a null request with nonzero length and poisoned initial output values;
+- engine errors, serialization errors, and panics;
+- serialization failure after a handler committed state;
+- panic after durable and in-memory mutations, proving that recreation retains
+  only state supplied again by the engine factory;
+- no `PreventDefault` output on any failure;
+- response-buffer ownership and freeing;
+- engine disposal waiting for an active submission to leave the native call
+  gate; and
+- startup failure when the UI event symbol is absent.
 
-Tests drive the public dispatcher and observe application state, commits, and
-inspector records. They cover:
+### Localhost HTTP tests
 
-- root-to-target capture, target capture, target bubble, and bubble-to-root;
-- logical `stop_propagation()` at every phase;
-- native-control bubble suppression without capture suppression;
-- event-time route validation and dispatch-time handler snapshots;
-- handler replacement before and during dispatch;
-- portal routes that exclude physical ancestors;
-- stale sessions, target and path generations, revisions, and parentage;
-- nodes removed during an active dispatch and before a queued dispatch;
-- cleanup-token tombstones, watermarks, retirement, and overflow reconnect;
-- removed-target fallbacks with current surviving-ancestor handlers;
-- ineligible captured releases that remain reliable but invoke no handler;
-- one-item stream acknowledgement and mandatory commit handoff;
-- synthetic pointer crossing and synthetic-event queue ordering;
-- nested dispatch attempts and FIFO non-reentrancy;
-- disabled, hidden, detached, and re-enabled nodes;
-- reconnect clearing all session-owned event state;
-- canonical policy lowering and invalid conflict rejection; and
-- one reconciliation and one resulting commit record per accepted event.
+The real development server and managed HTTP transport cover:
 
-These are black-box tests against public Reactant and fake-host behavior. They
-do not assert private fiber, callback-erasure, or mutation-plan structure.
+- `POST /ui-events` accepting exactly one serialized `UiEventAction`;
+- HTTP 200 returning the unchanged ordinary response body;
+- required `Continue` and `PreventDefault` header values;
+- a missing, duplicate, malformed, or unknown disposition header;
+- HTTP 400, HTTP 500, timeout, refusal, and diagnostic bodies adding no
+  prevention and stopping the session;
+- identical action IDs, response bytes, and inspection outcomes to the native
+  fixture; and
+- response admission order shared with ordinary HTTP submit and poll.
 
 ### Unity EditMode tests
 
-Tests construct real UI Toolkit controls and drive their native callbacks. They
-observe value, focus, propagation, capture, queues, and emitted envelopes. They
+Unity tests construct real UI Toolkit elements and controls. They cover:
+
+- prevention from the root trickle-down callback before target defaults;
+- cancelability for every forwarded event family;
+- every inventory source forwarding exactly once;
+- initially prevented input remaining prevented through Rust dispatch;
+- key, navigation, pointer, click, and wheel default prevention;
+- post-change events that remain non-cancelable;
+- native callbacks outside Reactant observing the default-prevention flag;
+- logical `stop_propagation()` leaving physical listeners untouched;
+- no Unity mutation while `uiDispatchDepth` is nonzero;
+- deferred response decoding and admission at the next safe drain point;
+- nested focus, detach, and value events during response application;
+- total ordering across UI, ordinary-submit, and poll responses;
+- no recursive drain when a nested event completes synchronously;
+- old and new subscription state during the state-skew interval;
+- an intentionally unmapped event making no transport call;
+- pointer-capture owner precedence over the physical target;
+- focused-host targeting for key, navigation, and focus events;
+- internal-control owner precedence over physical ancestry;
+- nearest registered physical ancestor mapping;
+- target ineligibility without ancestor fallback;
+- a logical-ancestor-only subscription admitting the event;
+- cross-island target rejection;
+- adapter-only events using their explicit owning host;
+- engine failure adding no prevention, with an unprevented native default
+  proceeding;
+- failure on initially prevented input preserving prior prevention;
+- invalid raw disposition adding no prevention and stopping the session;
+- failure after Rust commits requiring explicit reconnect with no event replay;
+- the runner remaining stopped until the host explicitly reconnects;
+- a poisoned native engine requiring explicit host restart or replacement;
+- stale target handling during state skew; and
+- response-admission failure adding no prevention and stopping the session.
+
+### Fake-client tests
+
+The fake client uses `Engine::submit_ui_event` directly and verifies:
+
+- identical action and response serialization;
+- identical disposition values;
+- one UI event producing one ordinary response;
+- state changes before the next fake UI dispatch;
+- deferred client-side response application;
+- absence of the removed `ActionBody::VisualElement` path;
+- old visual-element action decoding failure; and
+- no-UI-engine stale-target behavior.
+
+The fake client does not claim to reproduce UI Toolkit's control defaults. Real
+Unity tests remain authoritative for whether a native default is cancelable and
+what behavior prevention suppresses.
+
+### Diagnostics tests
+
+Inspector tests follow one record from `Pending` through its terminal state and
 cover:
 
-- synchronous key, navigation, wheel, and pointer prevention;
-- native propagation stopping and accurate outcome metadata;
-- every intrinsic profile, state flag, owned input, and unowned input;
-- intrinsic native-control precedence over generic ancestors;
-- phase-specific pointer-button policy matching;
-- pointer activation-latch creation, disarming, and every cleanup path;
-- text editing, IME-safe filters, caret movement, and post-edit `Input`;
-- native and custom slider arbitration against scrolling;
-- modal initial focus, containment, nesting, and restoration;
-- label focus, activation, accessible naming, and disabled gating;
-- portable and control-owned pointer capture with every release reason;
-- keyboard and controller rebinding, including release latches;
-- per-session sequencing, nested native callbacks, and FIFO delivery;
-- asynchronous one-item pump, response ordering, acknowledgement, and dequeue;
-- exact coalesced ranges, pre-sequence sample drops, and gap validation;
-- exact raw, normalized, focus, label, and source-sequence ordering;
-- cleanup watermark ordering, tombstone retirement, and reserve exhaustion;
-- runtime-global shard installation and cross-panel modal focus restoration;
-- unified Motion gesture versus retained lifecycle sequence separation;
-- reliable-boundary retention;
-- queue overflow entering input-fatal state; and
-- disable, hide, detach, removal, document blur, and reconnect cleanup.
+- `Completed`, `StaleTarget`, `RejectedBeforeDispatch`,
+  `FailedAfterDispatch`, and `DeferredApplyFailed`;
+- terminal-outcome precedence when cleanup also fails;
+- the specific failure reason and stable diagnostic code for every failure
+  injection point;
+- action ID, admission sequence, every resulting batch ID, and application
+  timestamps;
+- prior native prevention versus prevention requested by Reactant; and
+- one record spanning immediate disposition and deferred application, without
+  a duplicate completion record.
 
-Rust and C# share serialized valid and invalid descriptor fixtures plus event
-outcome fixtures. Any difference is a test failure.
+### Performance tests
 
-### Ditto scenarios
+Performance tests retain the environment, warm-up, sample count, tree size,
+event kind, handler behavior, response size, and per-frame event count alongside
+the recorded percentiles.
 
-Ditto adds a deterministic controller-button step that injects a complete
-press or release through the production Input System. It never calls Reactant
-handlers directly and does not repurpose global controller actions.
+The test report separates:
 
-One retained suite exercises all eight acceptance scenarios. Assertions use
-visible model state, focused object where the player exposes it, object
-existence, visibility, enabled state, and screenshots. The suite checks that:
+- synchronous callback latency;
+- deferred response decoding and command application; and
+- complete frame duration.
 
-- the slider value changes once while scroll position stays fixed;
-- Escape closes the modal and restores the prior visible focus state;
-- Space and controller binding text change without button activation;
-- a nested click changes only the child-observable state;
-- dragging continues outside bounds and terminates on every cleanup path;
-- text caret behavior does not move the ancestor selection;
-- the portaled overlay closes through its logical modal handler; and
-- a stale queued event produces no second visible model change.
-
-Tests use `Controlled` Motion where time affects drag or focus visuals. They
-retain screenshots only at stable boundaries.
-
-## Failure modes and mitigations
-
-- **A policy is installed one commit too late.** The old committed policy
-  governs input until Unity installs the new state. Components render an input
-  mode and its policy in the same commit. The inspector reports the route
-  revision used by the event.
-- **Rust is slow or disconnected.** Unity continues intrinsic control behavior
-  and bounded enqueueing. Reliable overflow disables session input and requests
-  reconnect instead of losing order.
-- **A policy over-suppresses input.** Typed, narrow selectors and the
-  inspector's winning node make the declaration visible. Canonical fixtures
-  exercise each selector.
-- **A native control and ancestor both claim navigation.** Intrinsic control
-  ownership wins; only capture and target observation remain. Generic ancestor
-  navigation does not run.
-- **A modal restoration target disappears.** Unity applies the deterministic
-  fallback order and records `focus_restore_failed` if no target exists.
-- **Pointer ownership outlives a node.** Eligibility cleanup releases capture
-  before destruction and emits one cancellation boundary.
-- **A stale event names reused object IDs.** Session, route revision, and host
-  generation validation prevent delivery to the replacement host.
-- **Rust and Unity lower policies differently.** Shared canonical fixtures and
-  outcome assertions fail the build; runtime mismatch ends the session.
-
-## Alternatives considered
-
-### Browser-style `prevent_default()`
-
-Rejected. A Rust callback may run after UI Toolkit has edited text, moved
-focus, captured a pointer, scrolled, or activated a control. A method with that
-name would either lie on asynchronous hosts or create transport-dependent
-behavior. Read-only cancelability and outcome metadata preserve useful
-inspection without implying authority.
-
-### Declarative default-action policies
-
-Accepted for closed, timing-sensitive cases. Policies are portable because
-Unity evaluates data already installed before dispatch. The limitation is
-intentional: arbitrary application conditions must become declarative state in
-an earlier commit or remain a later application reaction.
-
-### Public synchronous Rust handler subsets
-
-Rejected. They would work only for in-process transports, split the handler
-model, complicate borrowing and reentrancy, and make a component behave
-differently after transport changes. Unity-local closed descriptors cover the
-legitimate synchronous cases.
-
-### Speculative suppression and replay
-
-Rejected. Focus, IME composition, caret selection, pointer capture, drag,
-scroll chaining, and inertia cannot be reconstructed faithfully after Rust
-answers. Replay would also reorder external Unity callbacks.
-
-Control-specific proposal and restore remains allowed. A text field or slider
-adapter may restore its own value because it owns the complete control state
-machine and knows the exact native invariants. That is not a generic replay
-facility.
-
-### Higher-level native controls
-
-Accepted as the default for complex behavior. Text fields, dropdowns, sliders,
-scroll views, labels, and Motion gestures keep semantic adapters in Unity.
-Rust configures them and receives typed outcomes. This produces fewer generic
-escape hatches and preserves accessibility and input-device behavior.
-
-## Phased implementation plan
-
-Each phase is dependency-complete and ends with externally observable evidence.
-Later phases may not invent new propagation, precedence, or cancellation rules.
-
-### Phase 1: Shared protocol foundation
-
-Implement the Rust and C# event enums, stream action and acknowledgement,
-sequence fields, route revisions, logical paths, origins, cancelability,
-default outcomes, native-bubble outcomes, policy descriptors, relationship
-descriptors, and diagnostics. Add canonical validation to Rust, C#, and the
-fake client.
-
-Prerequisite tests:
-
-- cross-language valid and invalid descriptor fixtures;
-- exact `UiEvent` round trips for every new field and payload;
-- stream-item, cleanup-watermark, and acknowledgement round trips;
-- canonical set ordering and conflict rejection;
-- fake-client policy matching and outcome fixtures; and
-- structured diagnostic serialization.
-
-Exit criteria:
-
-- Rust and C# accept and reject the same fixtures;
-- old `UiEvent` construction no longer compiles;
-- the old per-event `VisualElement` action and `SubmitUiEvent` path are absent;
-- fake behavior exposes sequence, route, policy, and outcome metadata; and
-- the event inspector can record a fabricated complete lifecycle.
-
-### Phase 2: Reactant logical dispatch
-
-Update event ingestion, route validation, handler snapshotting, capture and
-bubble propagation, one-event batching, stale drops, synthetic events,
-non-reentrant queueing, and portal routing. Add the read-only public accessors.
-
-Prerequisite tests:
-
-- all Rust black-box ordering, stopping, snapshot, stale, portal, reconnect,
-  synthetic, reentrancy, eligibility, and lowering cases; and
-- one accepted event producing one reconciliation and commit record.
-
-Exit criteria:
-
-- event-time routes and dispatch-time handlers follow this document;
-- removal during dispatch preserves the active snapshot;
-- queued stale events invoke no callbacks and have named diagnostics;
-- portals evaluate and propagate only through logical source ancestry; and
-- cleanup dispatch uses old routes, removed-host fallbacks, and current
-  surviving-host handlers.
-
-### Phase 3: Unity synchronous event core
-
-Install immutable event host state, the no-allocation policy evaluator,
-intrinsic outcome classification, monotonic sequence queue, coalescing, reliable
-overflow failure, one-item transport pumping, normalized-event links, and
-reconnect cleanup.
-
-Prerequisite tests:
-
-- Unity prevention and propagation tests for every policy family;
-- sequence, nested-callback, coalescing, overflow, and reconnect tests;
-- async response application, acknowledgement, dequeue, and next-pump tests;
-- native-control precedence fixtures; and
-- depth-32 policy and enqueue performance harnesses.
-
-Exit criteria:
-
-- Unity makes no event-time Rust call;
-- every emitted event contains a complete native outcome and route snapshot;
-- reliable boundaries remain FIFO under nested callbacks and pressure;
-- the next item cannot enter Rust before the prior commit and ack apply; and
-- both p95 timing gates and the zero-allocation lookup gate pass.
-
-### Phase 4: Interaction relationships
-
-Implement modal focus scopes, initial focus and restoration, keyboard and
-controller input capture, captured-release latches, label relationships,
-portable pointer capture, disabled and hidden cleanup, and native control
-ownership tables. Install runtime-global panel shards and cross-panel focus
-coordination.
-
-Prerequisite tests:
-
-- Unity modal nesting, portal containment, and focus fallback tests;
-- cross-panel portal policy, focus, accessibility, and atomic-shard tests;
-- key and controller capture tests with focused native controls;
-- label activation and accessibility relationship tests;
-- pointer capture and all release-reason tests;
-- pointer activation-latch tests for down and up prevention; and
-- Rust lowering and conflict tests for every new façade builder.
-
-Exit criteria:
-
-- modal focus cannot escape through keyboard, controller, or portal placement;
-- captured input cannot activate UI or gameplay before its release;
-- labels activate compatible controls exactly once; and
-- capture, focus, and release latches cannot survive ineligibility or reconnect.
-
-### Phase 5: Native controls and Motion integration
-
-Integrate Motion arbitration, migrate gesture events to the unified stream,
-retain the independent lifecycle protocol, and add native text edit policies,
-controlled text and range proposals, scroll chaining, slider key ownership,
-dropdown navigation, and logical bubble suppression.
-
-Prerequisite tests:
-
-- Motion tap-to-drag ordering, capture loss, coalescing, and momentum tests;
-- Motion gesture-stream and lifecycle-sequence separation tests;
-- text editing, composition, selection, proposal, and restore tests;
-- slider and text-field navigation arbitration tests; and
-- scroll view chaining and wheel-policy tests.
-
-Exit criteria:
-
-- no generic policy duplicates a native control state machine;
-- Motion retains Unity-local timing and emits ordered Rust boundaries;
-- text `Input` is observably post-edit; and
-- slider, dropdown, text, range, and scroll behavior obey the ownership matrix.
-
-### Phase 6: Production evidence and migration
-
-Add Ditto controller-button input, build the eight production-input scenarios,
-retain performance evidence, migrate sample call sites, and update the
-superseded event sections in related designs.
-
-Prerequisite tests:
-
-- all Rust and Unity suites from phases 1 through 5;
-- Ditto adapter tests for deterministic controller press and release;
-- the eight end-to-end scenarios on the required native player target; and
-- retained p95 and allocation reports on reference hardware.
-
-Exit criteria:
-
-- every acceptance scenario passes without direct handler invocation;
-- migration examples compile in the Reactant sample;
-- related designs link here and contain no contradictory timing claim;
-- event inspector evidence names every native decision and resulting commit;
-  and
-- implementation review can map every completion criterion to retained proof.
-
-## Completion criteria
-
-The event and default-action system is complete only when all of the following
-are true:
-
-- Unity performs every timing-sensitive decision from committed descriptors
-  without waiting for Rust.
-- Rust exposes no mutating default-prevention API.
-- Capture, target, and bubble order matches the frozen algorithm.
-- One acknowledged stream item is the only Reactant event in flight, and its
-  commit applies before the next dispatch.
-- Handler replacement and node removal follow the dispatch snapshot rules.
-- Portals use source logical ancestry for policies, focus, and propagation
-  across panels through one atomic runtime state.
-- Intrinsic controls win over generic ancestor navigation and scrolling.
-- Declarative prevention and native stopping report deterministic winners.
-- Disabled, hidden, detached, removed, and reconnected hosts clean up focus,
-  pointer, drag, draft, scope, and capture state deterministically.
-- Text editing, selection, IME, slider tracking, scrolling, and Motion remain in
-  their higher-level native adapters.
-- Motion gestures use unified event ordering while animation lifecycle records
-  retain their independent reliable protocol.
-- Pointer prevention disarms activation through the declared latch rules.
-- Modal Escape, focus containment, rebinding, labels, and pointer capture need
-  no synchronous Rust callback.
-- Reliable event boundaries cannot be coalesced or silently lost.
-- Fatal overflow disables session input and emits the named diagnostic.
-- Rust and C# fixtures, Rust black-box tests, Unity EditMode tests, Ditto
-  scenarios, and performance gates all pass.
-- The event inspector connects every accepted event to its route, policy
-  result, Rust latency, and resulting commit.
-- The eight acceptance scenarios have retained, externally observable evidence.
+This separation prevents a fast disposition result from hiding expensive later
+application, or a fast frame average from hiding an event-time input hitch.
 
 ## Manual QA
 
-1. Open the Reactant settings sample with a scrollable sound panel. Focus both
-   a native and custom slider, press every arrow key, and verify one value step
-   per press with no ancestor scroll.
-2. Open the modal from a focused background button. Navigate by keyboard and
-   controller, including through a portaled child. Verify focus stays inside.
-   Press Escape, verify one close, and verify focus returns to the background
-   button.
-3. Start rebinding while a button is focused. Bind Space, then repeat with each
-   supported controller button. Verify no focused-button activation, UI move,
-   gameplay action, or release leak.
-4. Activate a nested child whose target handler stops propagation. Verify the
-   child state changes, the Reactant ancestor state does not, and an external
-   Unity listener still follows its physical propagation contract.
-5. Drag a custom captured host outside its bounds. End by up, cancel, disable,
-   removal, document blur, and reconnect. Verify one terminal record and no
-   stale capture in every case. Verify reconnect invokes no old-session Rust
-   callback.
-6. Edit a native text field with arrows, Home, End, selection modifiers, IME,
-   paste, and controller navigation nearby. Verify text and caret behavior win
-   without moving the ancestor menu.
-7. Activate controls in a portaled overlay. Inspect the event record and verify
-   source logical ancestry, modal policy attribution, physical-listener
-   independence, and the resulting commit.
-8. Pause Rust delivery, queue two events, and make the first remove the target.
-   Resume delivery. Verify the active first dispatch finishes, the second event
-   is diagnosed as stale, and no replacement or ancestor handler receives it.
-9. Exercise a native label for every compatible control. Verify focus,
-   activation, value proposal, accessible naming, disabled gating, and exactly
-   one activation.
-10. Run the depth-32 Unity profiler harness on reference hardware. Retain the
-    zero-allocation policy lookup and p50, p95, and maximum timing report for
-    both policy lookup and capture-plus-enqueue.
+Manual QA opens `Battlement/Reactant/Event Lab` in a development build and
+keeps `Window/Battlement/Reactant Event Inspector` visible. The Event Lab has
+named panels for `Keyboard Default`, `Native Text`, `Propagation`, `Portal`,
+`State Skew`, `Nested Ordering`, and `Recovery`. Each flow checks both the
+immediate disposition and the later deferred response.
+
+The `Recovery` panel provides `Fill 256 Queue Slots`, `Fail Serialization After
+Commit`, `Panic After Commit`, `Prevent Before Reactant`, `Reconnect`, and
+`Recreate Engine` controls. The `State Skew` panel provides
+`Hold Response Drain` and `Emit Stale Event`. `Nested Ordering` can admit one
+ordinary response, one UI response, and one poll response in a labeled order.
+These are deterministic diagnostic fixtures, not production behavior switches.
+
+1. In `Keyboard Default`, focus the custom slider inside its scrollable parent
+   and press Right Arrow. Verify that the slider changes once, the parent does
+   not scroll, the inspector reports `PreventDefault`, and the resulting Unity
+   mutation applies only after the key callback returns.
+2. Repeat the slider test with a handler condition that allows the default.
+   Verify that the inspector reports `Continue` and UI Toolkit performs its
+   normal behavior.
+3. In `Native Text`, edit the native text field with characters, arrows,
+   selection
+   modifiers, paste, and IME. Verify that native editing remains correct, input
+   notifications report non-cancelable behavior, and Reactant state follows
+   through deferred controlled-value updates.
+4. In `Propagation`, select `Stop At Target` and activate the nested button.
+   Verify that the Reactant ancestor does not run while the labeled external
+   Unity listener still follows native propagation.
+5. Prevent the button's cancelable event. Verify that an external later Unity
+   listener observes the prevention flag and that no Reactant command executes
+   during the active callback.
+6. Install an earlier native listener that prevents the event before Reactant.
+   Verify that the first Rust handler sees `default_prevented() == true`, the
+   inspector distinguishes prior prevention from Reactant prevention, and the
+   event remains prevented.
+7. In `Portal`, open the overlay and activate its nested control. Verify that
+   the inspector shows source-side logical ancestry while external Unity
+   listeners follow the portal's physical path.
+8. In `State Skew`, select `Hold Response Drain`, activate `Remove This Panel`,
+   and then select `Emit Stale Event` before releasing the drain. Verify that
+   the second Rust dispatch invokes no stale handler, returns `Continue`, and
+   the queued removal later applies once.
+9. In `Nested Ordering`, activate `Focus During Apply` and then `Detach During
+   Apply`. Verify that each event's Rust response is queued behind admitted
+   work and is not recursively applied inside the callback.
+10. In `Nested Ordering`, select `Admit Labeled Sequence`. Verify that the
+    inspector's sequence matches response-stream admission order. Then verify
+    that command execution follows each labeled batch's declared start and
+    dependency settings rather than response-wide atomicity.
+11. In `Recovery`, select `Fill 256 Queue Slots`, then activate the unprevented
+    test button. Verify that Rust is not called, Unity performs the default,
+    input becomes disabled, and the runner remains stopped. Select `Reconnect`
+    and verify that one replacement snapshot restores a running session.
+12. In `Recovery`, select `Fail Serialization After Commit`, then activate the
+    unprevented test button. Verify that Unity performs the default, the event
+    is not replayed, queued old-session work is discarded, and the replacement
+    snapshot contains the committed Rust counter.
+13. In `Recovery`, select `Panic After Commit`, then activate the test button.
+    Verify that Unity adds no prevention, no partial response is admitted,
+    and the runner remains stopped. Verify that reconnecting the poisoned
+    instance fails, then select `Recreate Engine` and `Reconnect`. The durable
+    test marker must survive factory recreation and the volatile counter must
+    return to its factory value.
+14. Run `Battlement/Reactant/Run Event Benchmarks`. Verify every stable workload
+    ID reports the retained p50, p95, p99, maximum, events per frame, request
+    and response bytes, deferred-application time, and complete-frame result
+    against all three performance gates.

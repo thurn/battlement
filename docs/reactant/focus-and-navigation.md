@@ -5,9 +5,10 @@ components, portals, overlays, reconciliation, Motion presence, accessibility,
 and reconnects without replacing Unity UI Toolkit's focus engine.
 
 The design keeps UI Toolkit's `FocusController`, focused element, focus ring,
-focus events, and built-in control behavior authoritative. Rust describes policy
-before input begins. Unity enforces that policy synchronously while it handles
-the input event, then reports the native result to Rust.
+focus events, and built-in control behavior authoritative. Rust describes
+persistent policy before input begins. A synchronous Reactant handler may also
+prevent the current native default, while every resulting Unity mutation stays
+deferred until event dispatch is safe.
 
 This division is the central invariant:
 
@@ -16,7 +17,8 @@ This division is the central invariant:
   accessibility relationships.
 - Unity decides whether a live element can actually receive focus.
 - Unity performs focus changes, default actions, and scrolling.
-- Rust never participates in a round trip during one input event.
+- Rust may synchronously return a default-action disposition without directly
+  mutating Unity's focus tree during the callback.
 
 ## Related Information
 
@@ -26,6 +28,8 @@ This division is the central invariant:
   defines host identity, logical event routes, and physical portal placement.
 - [Hooks and effects](hooks-and-effects.md) defines state batching and the
   post-commit timing available to application code.
+- [Events and default actions](events-and-default-actions.md) defines the
+  synchronous event disposition and deferred response boundary.
 - [Reactant animations](animations.md) defines Motion gestures, presence,
   physical overlays, and reconnect reconstruction.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines `ElementRef`,
@@ -1345,11 +1349,11 @@ propagation. Reactant does not cancel an event already delivered to them.
 
 For one input-caused move, transport order is deterministic:
 
-1. enqueue the original pointer or navigation application event;
+1. synchronously submit the original pointer or navigation application event;
 2. apply a synchronous declared move, if any;
-3. enqueue `FocusOut`, `FocusIn`, `Blur`, and `Focus` in UI Toolkit's native
-   before-change then after-change order, omitting events Unity did not emit;
-4. enqueue a roving selection request after the focus events; and
+3. synchronously submit `FocusOut`, `FocusIn`, `Blur`, and `Focus` as Unity
+   emits them in native before-change then after-change order;
+4. submit a roving selection request after the focus events; and
 5. attach the settled `UiFocusState` report after all application events.
 
 Commit-caused focus events use the same focus-event order but have no preceding
@@ -1358,9 +1362,10 @@ before invoking any application handler, then dispatches application events in
 their listed order through the committed logical tree. This keeps reconnect
 state even when no handler exists or a handler fails.
 
-Rust application handlers cannot call `prevent_default`. By dispatch time the
-native default action has already happened. A behavior that must affect the
-same input event must be expressible in the preinstalled focus plan.
+Rust application handlers may prevent the remaining default action of the
+currently submitted cancelable event. Focus movement, containment, and
+restoration still come from the preinstalled focus plan or a later deferred
+response; a handler cannot mutate Unity's focus tree during its callback.
 
 ## Modal and Non-modal Scopes
 
@@ -1744,9 +1749,10 @@ Submit and cancel events retain existing behavior:
 - application state changes caused by submit or cancel arrive in a later Rust
   response.
 
-An overlay that must close synchronously before another default action would
-need a future predeclared native dismissal action. This design does not infer
-application state mutation from `Escape` or controller cancel.
+An overlay handler may prevent the current cancel default and commit closed
+application state. Unity removes the overlay only when the deferred response
+is applied. Native removal during the callback still requires a predeclared
+Unity behavior; Reactant does not infer one from `Escape` or controller cancel.
 
 ## Failure Handling and Diagnostics
 
@@ -1875,8 +1881,9 @@ the Rust-to-Unity boundary cannot provide it.
   not synchronous from Rust.
 - `while_focus_visible` follows the documented Reactant modality heuristic,
   not every browser user-agent exception.
-- Reactant has no callback `prevent_default`; declarative Unity policy must
-  exist before input.
+- Reactant callbacks may prevent the current cancelable default. Declarative
+  Unity policy remains necessary for coordination that must mutate native focus
+  state during input handling.
 - `FocusIn` and `FocusOut` use Reactant logical propagation. `Focus` and `Blur`
   remain target-only, and all four retain UI Toolkit timing.
 - Browser `inert` inspires Reactant's behavior, but Reactant applies it through
@@ -2124,12 +2131,14 @@ controllers.
 
 The following approaches conflict with the ownership or timing requirements.
 
-- **Centralize focus in Rust.** Rust cannot synchronously answer during one
-  Unity input event, and mirrored focus would race native controls.
+- **Centralize focus in Rust.** Rust can synchronously answer only with a
+  default-action disposition. Applying arbitrary focus commands during the
+  callback would race native controls and mutate the active propagation path.
 - **Replace UI Toolkit's focus ring.** A second ring would diverge from native
   control defaults, delegation, panel behavior, and future Unity fixes.
-- **Wait for a Rust event response.** Input would stall on transport latency and
-  could not preserve native event ordering.
+- **Apply a complete Rust response during the event.** Tree, focus, and ref
+  commands could invalidate UI Toolkit's active propagation path. Only the
+  fixed disposition is consumed before the callback returns.
 - **Synthesize Reactant focus events.** Synthetic events would lose native
   related targets, direction, timing, and external Unity listener behavior.
 - **Use one key handler per component.** Ad hoc handlers cannot coordinate
@@ -2151,7 +2160,8 @@ The focus and navigation implementation is complete only when all of these are
 true:
 
 - UI Toolkit remains the sole native focus authority.
-- Every synchronous decision is present in Unity before its input event.
+- Every persistent focus decision is present in Unity before its input event;
+  dynamic Rust participation is limited to the default-action disposition.
 - Ordinary controls pass native default-action conformance tests.
 - Keyed reconciliation preserves focus without a visible style flash.
 - Modal, non-modal, nested, portal, presence, and reconnect scenarios pass.

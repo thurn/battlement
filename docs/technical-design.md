@@ -1501,8 +1501,10 @@ excessive nesting, and trailing bytes.
 
 Battlement reaches the same engine interface through a native production plugin or
 a synchronous localhost HTTP development server. Both expose connect, generic
-client-message submission, and nonblocking poll. Every successful connect,
-submit, or nonempty poll returns the same `battlement.response` shape. Client
+client-message submission, synchronous UI event submission, and nonblocking
+poll. Every successful connect, ordinary submit, UI event submit, or nonempty
+poll returns the same ordinary `battlement.response` shape. UI event submission
+also returns its fixed disposition outside that response. Client
 submissions block and happen immediately on Unity's main thread. Every returned
 response is parsed there synchronously. When response processing is idle,
 Battlement applies the parsed messages immediately. If a nested submission returns
@@ -1533,10 +1535,19 @@ int32_t battlement_connect(
 int32_t battlement_submit(
     BattlementEngine *engine, const uint8_t *json, uint64_t length,
     BattlementBuffer *out_buffer);
+int32_t battlement_submit_ui_event(
+    BattlementEngine *engine, const uint8_t *json, uint64_t length,
+    uint32_t *out_disposition, BattlementBuffer *out_buffer);
 int32_t battlement_poll(
     BattlementEngine *engine, BattlementBuffer *out_buffer);
 void battlement_buffer_free(BattlementBuffer buffer);
 ```
+
+UI event disposition values are `0` (`Continue`) and `1`
+(`PreventDefault`). The output initializes to `Continue` and changes only after
+the ordinary response has serialized successfully. See
+[Reactant events and default actions](reactant/events-and-default-actions.md)
+for the complete timing and failure contract.
 
 Status values are `0` (`OK`), `1` (`NO_MESSAGE`), `2`
 (`INVALID_ARGUMENT`), `3` (`ENGINE_ERROR`), and `4` (`PANIC`). Unknown status
@@ -1611,6 +1622,9 @@ Development HTTP is synchronous and mirrors the ABI:
 - `POST /connect` accepts `battlement.connect` and returns a response.
 - `POST /messages` accepts any client-message union member and returns a
   response, including an empty `messages` list when there is no immediate work.
+- `POST /ui-events` accepts one JSON-encoded `UiEventAction`, returns an ordinary
+  response body, and requires a decimal `Battlement-UI-Event-Disposition`
+  header containing `0` or `1`.
 - `GET /poll` returns immediately with one response or HTTP 204 when no message
   is ready. It is not a long poll and never runs through a Unity background
   request.

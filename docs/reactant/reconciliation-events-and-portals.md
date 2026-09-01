@@ -570,6 +570,9 @@ impl<E> ReactantEvent<E> {
     pub fn target(&self) -> ElementTarget;
     pub fn current_target(&self) -> ElementTarget;
     pub fn phase(&self) -> EventPhase;
+    pub fn cancelable(&self) -> bool;
+    pub fn default_prevented(&self) -> bool;
+    pub fn prevent_default(&self);
     pub fn stop_propagation(&self);
 }
 ```
@@ -579,7 +582,8 @@ impl<E> ReactantEvent<E> {
 host later unmounts. A stale target has no direct Unity access and never
 resolves as the target of a later event.
 
-It exposes immutable accessors plus `stop_propagation`. The propagation flag is
+It exposes immutable accessors plus `prevent_default` and
+`stop_propagation`. The prevention and propagation flags are independent and
 shared by event views given to successive handlers.
 
 For one Unity event, Reactant:
@@ -606,8 +610,12 @@ refreshes roots once after propagation finishes, even when no handler changed
 state, because application methods may have mutated fields Reactant cannot
 observe directly.
 
-There is no `prevent_default`. Unity has already performed native default
-behavior before Rust receives the event, so such a method would be misleading.
+`ReactantEvent` exposes `cancelable`, `default_prevented`, and
+`prevent_default`. Unity submits the event synchronously while its callback is
+active, consumes only the fixed default-action disposition immediately, and
+defers the ordinary Reactant response. The complete timing, failure, and native
+ownership contract is defined by
+[Events and default actions](events-and-default-actions.md).
 
 ### Synthetic pointer crossing
 

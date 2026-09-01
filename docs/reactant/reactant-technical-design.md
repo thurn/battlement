@@ -20,8 +20,8 @@ behavior impossible.
   defines identity, tree comparison, command generation, event routing, and
   physical placement outside logical parents.
 - [Events and default actions](events-and-default-actions.md) defines the
-  portable synchronous native-policy boundary, logical propagation lifecycle,
-  focus and input ownership, and phased implementation plan.
+  synchronous UI event operation, logical propagation, default prevention,
+  deferred response application, and event-time performance contract.
 - [Resources and Suspense](resources-and-suspense.md) defines asynchronous work,
   caching, fallback rendering, and retries.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines Unity element
@@ -114,8 +114,9 @@ public contract rather than incidental implementation details.
 - **Layout:** V1 does not include `useLayoutEffect` because Reactant cannot run
   Rust code synchronously between Unity layout and paint. `use_geometry`
   reports one coherent Unity layout on the next frame exchange instead.
-- **Native defaults:** `prevent_default` is absent because Unity has already
-  performed native default behavior.
+- **Native defaults:** a synchronous UI event handler may call
+  `prevent_default` before Unity completes the current default. The resulting
+  Reactant response remains deferred until event dispatch is safe to mutate.
 - **Event phases:** familiar event builders preserve React's logical behavior.
   Native UI Toolkit events with different semantics have explicitly native
   names rather than silently changing familiar React behavior.
@@ -878,10 +879,12 @@ let commands = game.drain_commands();
 response.extend(commands).append_reactant(commit);
 ```
 
-`ReactantEvent<E>` supplies target, current target, phase, typed payload, and
-`stop_propagation`. Reactant does not expose `prevent_default`: Rust receives
-the event only after Unity has performed any native default action. See
-[Reconciliation, events, and portals](reconciliation-events-and-portals.md).
+`ReactantEvent<E>` supplies target, current target, phase, typed payload,
+cancelability, `prevent_default`, and logical `stop_propagation`. Unity submits
+the event synchronously while its native callback is active, consumes the
+resulting default-action disposition immediately, and applies the Reactant
+response later. See
+[Events and default actions](events-and-default-actions.md).
 
 ## Hooks and post-commit effects
 

@@ -31,7 +31,7 @@ in JSON.
 
 ```rust
 use crate::assets::mygame::ui;
-use battlement::{Command, ObjectId};
+use battlement::{Command, ObjectId, UiEvent};
 use battlement_ui::prelude::LengthUnits;
 use battlement_ui::{
     Align, Box, Button, Color, FlexDirection, Image, Label, ScrollView, Style,
@@ -97,13 +97,10 @@ event calls Rust synchronously through the existing Battlement transport; the
 synchronous call blocks Unity's event callback until Rust returns.
 
 ```rust
-use battlement::{Action, ActionBody, Command, ObjectId};
+use battlement::{Command, ObjectId};
 use battlement_ui::{Button, Color, Style, UiEventBody};
 
-fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
-    let ActionBody::VisualElement(event) = &action.body else {
-        return Vec::new();
-    };
+fn handle_ui_event(event: &UiEvent, play_id: ObjectId) -> Vec<Command> {
     if event.target_id != play_id {
         return Vec::new();
     }
@@ -122,11 +119,11 @@ fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
 }
 ```
 
-Unity decodes the returned commands before the callback returns. It applies the
-mutations after the current UI Toolkit event finishes but before the next
-layout and repaint. The hover color therefore appears on the first rendered
-frame after the pointer enters without mutating the hierarchy while UI Toolkit
-is still traversing it.
+Unity retains the returned serialized response without decoding it while the
+callback is active. The next safe response drain decodes and admits its batch;
+an immediately runnable hover update can therefore appear on the first
+rendered frame after pointer entry without mutating the hierarchy while UI
+Toolkit is still traversing it.
 
 ### Commit a text field without sending every keystroke
 
@@ -134,7 +131,7 @@ A **controlled value** is application state that Rust commits. The Unity
 control may hold a temporary local draft, but Rust remains authoritative.
 
 ```rust
-use battlement::{ActionBody, Command, ObjectId};
+use battlement::{Command, ObjectId, UiEvent};
 use battlement_ui::{TextField, UiEventBody, UiEventKind, UiNode, UiValue};
 
 fn name_field(id: ObjectId) -> UiNode {
@@ -147,10 +144,7 @@ fn name_field(id: ObjectId) -> UiNode {
     )
 }
 
-fn accept_name(action: &ActionBody, id: ObjectId) -> Option<Command> {
-    let ActionBody::VisualElement(event) = action else {
-        return None;
-    };
+fn accept_name(event: &UiEvent, id: ObjectId) -> Option<Command> {
     let UiEventBody::ValueCommitted(UiValue::String(proposed)) = &event.body else {
         return None;
     };
@@ -377,15 +371,17 @@ the current logical child count is invalid. Destroying an element recursively
 destroys its Rust-owned descendants. Destroying a document root through this
 command is invalid; destroy its owning GameObject or replace the snapshot.
 
-`ActionBody` gains exactly two cases:
+`ActionBody` gains one UI-support case:
 
 ```rust
 pub enum ActionBody {
     // Existing cases remain.
-    VisualElement(UiEvent),
     GeometryObservations(GeometryObservationBatch),
 }
 ```
+
+`UiEvent` is submitted through `UiEventAction` and the dedicated
+`Engine::submit_ui_event` operation. It is not an `ActionBody` case.
 
 All detailed element, update, action, and event unions live in `battlement-ui`.
 A **closed enum** lists every permitted case and has no arbitrary extension
@@ -1382,7 +1378,7 @@ outer input event or one subscription system:
 | Concern | World delivery | UI delivery |
 |---|---|---|
 | Target | Global key selection or collider-resolved GameObject | Focused or picked visual element |
-| Dispatch | Flat core `ActionBody` case | One `ActionBody::VisualElement(UiEvent)` routed through the Rust visual tree |
+| Dispatch | Flat core `ActionBody` case | One `UiEventAction` sent through `Engine::submit_ui_event` and routed through the Rust visual tree |
 | Coordinates | Bottom-left screen position plus world hit | Upper-left panel position and delta; crossing and focus events carry a related Rust-owned target when available |
 | Click meaning | Matching pointer press and release on one runtime object | Pointer activation, navigation activation, or repeat activation |
 | Keyboard meaning | Selected physical transitions; repeat suppressed | Focused UI Toolkit key events with text; the public event surface has no repeat flag |
@@ -1429,9 +1425,12 @@ events, including `ValueCommitted`, `ScrollSettled`, and `TabReordered`, need a
 restores its committed value when local interaction ends and sends no traffic.
 The fake applies the same rule and the text example subscribes explicitly.
 
-Rust cannot prevent a native default action, stop propagation, or stop
-immediate propagation. `UiEvent` therefore contains no cancellation result and
-`Response` remains unchanged.
+Rust may prevent the remaining default action of the current cancelable native
+event. Reactant propagation stopping remains logical and does not stop native
+propagation or immediate propagation. `Response` remains unchanged; the fixed
+default-action disposition is returned separately by the dedicated synchronous
+UI event operation. See
+[Reactant events and default actions](reactant/events-and-default-actions.md).
 
 ### Complete event matrix
 
@@ -1643,41 +1642,37 @@ snapshot replacement then installs only the new snapshot's committed state.
 
 ### Synchronous response and deferred mutation
 
-Native and localhost HTTP submission remain synchronous and use the existing
-`ClientMessage` and `Response` pipeline. A **dispatch gate** is the Runtime
-boundary that temporarily holds a complete response while UI Toolkit is
-traversing an event. No UI-specific **C ABI (C application
-binary interface)**, secondary socket, callback pointer, or asynchronous event
-queue is added.
+Native and localhost HTTP submission use the dedicated synchronous UI event
+operation defined by
+[Reactant events and default actions](reactant/events-and-default-actions.md).
+The native ABI returns a fixed disposition beside the ordinary serialized
+`Response`; localhost HTTP returns the same value in its required response
+header. `Response` itself stays generic. No secondary socket, callback pointer,
+or asynchronous event queue is added.
+
+A **dispatch gate** is the Runtime boundary that holds the serialized ordinary
+response while UI Toolkit is traversing the event.
 
 While a UI Toolkit event callback is active:
 
 1. C# constructs at most one subscribed `UiEvent` and calls Rust synchronously.
-2. Runtime decodes the response and validates transport/session identity
-   immediately, but does not pass any message in that response to
-   `BattlementBatchScheduler.Schedule` or any snapshot/command executor.
-3. It enqueues the entire decoded response in arrival order behind the
-   UI-dispatch gate. Deferring only UI commands is forbidden because eager
-   execution of a world command or snapshot could still mutate state during
-   native propagation.
-4. The callback and native event propagation finish.
-5. A **late player-loop flush** (a package callback near the end of Unity's
-   per-frame update sequence) feeds each queued response into the ordinary
-   response admission and batch scheduler exactly once, before UI Toolkit's
-   next layout and repaint. Queued messages retain response, batch, and group
-   order.
+2. Rust returns one fixed disposition and one ordinary serialized response.
+3. Runtime validates the transport result and commits the serialized response
+   to ordered ingress without decoding or executing it.
+4. C# applies `PreventDefault()` only when the validated disposition requires
+   it, then the callback and native event propagation finish.
+5. The next normal safe response drain decodes ingress in admission order and
+   feeds each response into the existing response stream exactly once.
+6. The response stream admits snapshots and batches; the existing scheduler
+   later executes batches according to ordinary start and dependency rules.
 
 The gate sits in `Battlement.Runtime` immediately before the existing response
-dispatcher; it is not an executor inside `Battlement.UI`. The flush component
-has an explicit Unity execution order after the EventSystem and before
-rendering. Immediately runnable UI commands in the response from normal
-pointer, keyboard, navigation, and control input execute in that flush and are
-visible in the first repaint. A delayed or dependency-blocked batch, a command
+stream; it is not an executor inside `Battlement.UI`. A safe drain never runs
+while a Reactant bridge callback is active. Immediately runnable UI batches may
+still become visible in the first repaint when the normal player-loop drain and
+scheduler step occur in time. A delayed or dependency-blocked batch, a command
 behind earlier blocking work, and an authoritative snapshot retain their
-ordinary scheduler semantics and have no same-frame promise. If an event
-originates after the flush, such as a late geometry event during rendering,
-its response applies at the next safe flush. The first-render hover test uses
-one ungrouped, dependency-free UI update so it exercises the guaranteed path.
+ordinary scheduler semantics and have no same-frame promise.
 
 The synchronous call runs on Unity's main thread. Game code must keep handlers
 within its frame budget. Battlement avoids routine high-frequency calls through
@@ -1789,13 +1784,13 @@ near the repository's 500-line source-file target:
 | element executor | Prevalidate aggregate final state, stage leases, and apply properties, outer/part styles, placement, subscriptions, destruction, and one-shot actions in stable order |
 | style converter | Exhaustive typed conversion for the 88 outer and part properties; no reflection or string property lookup |
 | usage-lease set | Own per-element, per-part, and per-document leases; acquire replacements before releasing originals |
-| event bridge | Maintain subscription counts, map internal targets, encode one typed event, and call the existing submit function |
+| event bridge | Maintain subscription counts, map internal targets, encode one typed event, and call the dedicated synchronous UI event operation |
 | controlled-value adapters | Capture, propose, restore without notification, and accept Rust-returned values for each control family |
 
-The dispatch gate is a `Battlement.Runtime` component beside the ordinary
-response dispatcher, not a `Battlement.UI` component. The UI event bridge only
-calls `IBattlementUiHost.SubmitUiEvent`; Runtime owns response queueing and the
-late flush.
+The dispatch gate is a `Battlement.Runtime` component in front of the ordinary
+response stream, not a `Battlement.UI` component. The UI event bridge only
+calls `IBattlementUiHost.SubmitUiEvent`; Runtime owns serialized response
+ingress and the normal safe drain.
 
 The Unity implementation uses only the audited public UI Toolkit surface.
 Document creation assigns a runtime `PanelSettings` instance through
@@ -1837,7 +1832,7 @@ public interface IBattlementUiHost
     ObjectKind? FindObjectKind(ObjectId objectId);
     bool TryReserveIdentity(ObjectId objectId, ObjectKind kind);
     void ReleaseIdentity(ObjectId objectId, ObjectKind kind);
-    void SubmitUiEvent(UiEvent value);
+    UiEventDisposition SubmitUiEvent(UiEvent value);
     InputCameraSelection ResolveInputCamera();
     void RegisterUiCollider(Collider value);
     void UnregisterUiCollider(Collider value);
@@ -1850,8 +1845,9 @@ public readonly record struct InputCameraSelection(
     Camera? Camera);
 ```
 
-`SubmitUiEvent` blocks until Rust's response is decoded and safely queued, as
-specified by the dispatch gate; it does not execute that response inline.
+`SubmitUiEvent` blocks until Rust returns, commits the serialized response to
+ordered ingress, and returns the validated disposition. It does not decode or
+execute that response inline.
 `AutomaticMain` returns the current `Camera.main`, which may be null;
 `Explicit` must contain the selected camera. The mode remains distinguishable
 even when the explicit camera happens to equal `Camera.main`, allowing the
@@ -1948,11 +1944,13 @@ click, focus/blur, text input and commit, toggle/radio/dropdown selection,
 slider drag completion, scroll settlement, tab selection/close/reorder, pointer
 capture, and link interaction. A helper verifies the target exists, is the
 correct class, is enabled, and has the required target or ancestor subscription.
-It then submits exactly one raw `ActionBody::VisualElement(UiEvent)` to the
-engine synchronously—the same action boundary used by production—and applies
-returned commands immediately. It does not expand routing into multiple engine
-actions. Application code may call `battlement_ui::route_event` on that one
-event to enumerate subscribed trickle, target, and bubble deliveries.
+It then submits exactly one `UiEventAction` through
+`Engine::submit_ui_event`—the same dedicated boundary used by production. The
+fake exposes the disposition immediately and defers client-side application of
+the ordinary response until its next response step. It does not expand routing
+into multiple engine actions. Application code may call
+`battlement_ui::route_event` on that one event to enumerate subscribed trickle,
+target, and bubble deliveries.
 
 The fake implements the same sole implicit closeable-Tab subscription and the
 same `input_disabled`, teardown, and snapshot-replacement cleanup. Disabled UI
