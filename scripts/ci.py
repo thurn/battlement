@@ -189,16 +189,16 @@ def cargo_environment(
     workspace: Path | None,
     concurrent_scope: str | None = None,
 ) -> dict[str, str]:
-    """Return bounded Cargo settings isolated by checkout and concurrent writer."""
-    checkout = hashlib.sha256(REPOSITORY_ROOT.resolve().as_posix().encode()).hexdigest()[:16]
+    """Return bounded Cargo settings shared across checkouts and isolated by writer scope."""
     workspace_identity = "root" if workspace is None else workspace.parent.as_posix()
     target_identity = workspace_identity if concurrent_scope is None else concurrent_scope
     target = hashlib.sha256(target_identity.encode()).hexdigest()[:16]
     environment = os.environ.copy()
     environment.setdefault("CARGO_BUILD_JOBS", str(DEFAULT_CARGO_JOBS))
-    environment["CARGO_TARGET_DIR"] = str(
-        CI_CACHE_ROOT / "cargo-targets" / checkout / target
-    )
+    target_directory = CI_CACHE_ROOT / "cargo-targets" / "shared" / target
+    target_directory.mkdir(parents=True, exist_ok=True)
+    target_directory.touch()
+    environment["CARGO_TARGET_DIR"] = str(target_directory)
     return environment
 
 
@@ -709,7 +709,7 @@ def run_reactant_asset_fast_lane() -> None:
     )
 
 
-def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
+def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
     ci_cache = CiCache(
@@ -826,6 +826,13 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     if full and platform.system() == "Darwin":
         run_ditto_validation(ditto_preparation_seconds[0])
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
+
+
+def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
+    """Run CI while holding the shared compiler-cache lease."""
+    coordinator = CiCache(REPOSITORY_ROOT, CI_CACHE_ROOT, ci_environment())
+    with coordinator.invocation():
+        run_ci(full, use_ci_cache, ditto)
 
 
 def parse_arguments() -> argparse.Namespace:

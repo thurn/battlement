@@ -319,6 +319,7 @@ fn build_stamp(output: &Path, web: bool) -> PathBuf {
     })
 }
 
+#[cfg_attr(not(windows), allow(unused_variables))]
 fn serve_web(root: &Path, project: &Path, output: &Path, port: u16) -> Result<()> {
   let address = format!("127.0.0.1:{port}");
   if TcpStream::connect(&address).is_ok() {

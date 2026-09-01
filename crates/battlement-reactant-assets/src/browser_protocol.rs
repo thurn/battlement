@@ -1,7 +1,9 @@
 use std::{
+  collections::HashSet,
+  ffi::OsString,
   fs,
   net::TcpStream,
-  path::Path,
+  path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   thread,
   time::{Duration, Instant},
@@ -9,6 +11,12 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
+use fs2::FileExt;
+#[cfg(unix)]
+use nix::{
+  sys::signal::{Signal, killpg},
+  unistd::Pid,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
@@ -22,6 +30,7 @@ use crate::{
 pub(crate) struct BrowserSession {
   protocol: Protocol,
   child: Option<Child>,
+  browser_spills: BrowserSpillLease,
   _profile: TempDir,
   context_id: String,
   session_id: String,
@@ -32,6 +41,15 @@ struct Protocol {
   next_id: u64,
 }
 
+struct BrowserSpillLease {
+  #[cfg(target_os = "macos")]
+  root: PathBuf,
+  #[cfg(target_os = "macos")]
+  existing: HashSet<OsString>,
+  #[cfg(target_os = "macos")]
+  _lock: fs::File,
+}
+
 impl BrowserSession {
   pub(crate) fn launch(
     executable: &Path,
@@ -40,8 +58,10 @@ impl BrowserSession {
     explicit: bool,
     report: &mut WorkReport,
   ) -> Result<(Self, BrowserIdentity)> {
+    let browser_spills = BrowserSpillLease::acquire()?;
     let profile = tempfile::tempdir().context("failed to create isolated browser profile")?;
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    command
       .args([
         "--headless=new",
         "--remote-debugging-port=0",
@@ -65,7 +85,14 @@ impl BrowserSession {
       .arg("about:blank")
       .stdin(Stdio::null())
       .stdout(Stdio::null())
-      .stderr(Stdio::null())
+      .stderr(Stdio::null());
+    #[cfg(unix)]
+    {
+      use std::os::unix::process::CommandExt;
+
+      command.process_group(0);
+    }
+    let mut child = command
       .spawn()
       .with_context(|| format!("failed to launch browser {}", executable.display()))?;
     report.browser_launches += 1;
@@ -87,12 +114,19 @@ impl BrowserSession {
       }
     };
     if let MaybeTlsStream::Plain(stream) = socket.get_mut() {
-      stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-      stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+      if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(10))) {
+        self::terminate_child(&mut child);
+        return Err(error.into());
+      }
+      if let Err(error) = stream.set_write_timeout(Some(Duration::from_secs(10))) {
+        self::terminate_child(&mut child);
+        return Err(error.into());
+      }
     }
     let mut session = Self {
       protocol: Protocol { socket, next_id: 1 },
       child: Some(child),
+      browser_spills,
       _profile: profile,
       context_id: String::new(),
       session_id: String::new(),
@@ -228,6 +262,7 @@ impl BrowserSession {
     )?;
     let _ = self.protocol.command("Browser.close", json!({}), None);
     self::stop_child(&mut self.child);
+    self.browser_spills.cleanup();
     Ok(())
   }
 
@@ -306,7 +341,67 @@ impl BrowserSession {
 impl Drop for BrowserSession {
   fn drop(&mut self) {
     self::stop_child(&mut self.child);
+    self.browser_spills.cleanup();
   }
+}
+
+impl BrowserSpillLease {
+  fn acquire() -> Result<Self> {
+    #[cfg(target_os = "macos")]
+    {
+      let root = std::env::temp_dir()
+        .parent()
+        .context("temporary directory has no parent")?
+        .join("X/com.google.Chrome.code_sign_clone");
+      fs::create_dir_all(&root)?;
+      let lock = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(root.join(".battlement.lock"))?;
+      lock.lock_exclusive()?;
+      let existing = self::spill_directories(&root)?;
+      Ok(Self {
+        root,
+        existing,
+        _lock: lock,
+      })
+    }
+    #[cfg(not(target_os = "macos"))]
+    Ok(Self {})
+  }
+
+  fn cleanup(&mut self) {
+    #[cfg(target_os = "macos")]
+    {
+      let Ok(current) = self::spill_directories(&self.root) else {
+        return;
+      };
+      for name in current.difference(&self.existing) {
+        let path = self.root.join(name);
+        if path.is_dir() && !path.is_symlink() {
+          let _ = fs::remove_dir_all(path);
+        }
+      }
+      self.existing = current;
+    }
+  }
+}
+
+impl Drop for BrowserSpillLease {
+  fn drop(&mut self) {
+    self.cleanup();
+  }
+}
+
+#[cfg(target_os = "macos")]
+fn spill_directories(root: &Path) -> Result<HashSet<OsString>> {
+  Ok(
+    fs::read_dir(root)?
+      .filter_map(Result::ok)
+      .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+      .map(|entry| entry.file_name())
+      .collect(),
+  )
 }
 
 impl Protocol {
@@ -390,18 +485,32 @@ fn stop_child(child: &mut Option<Child>) {
   let deadline = Instant::now() + Duration::from_secs(3);
   while Instant::now() < deadline {
     if child.try_wait().ok().flatten().is_some() {
+      self::terminate_process_group(child.id());
       return;
     }
     thread::sleep(Duration::from_millis(20));
   }
+  self::terminate_process_group(child.id());
   let _ = child.kill();
   let _ = child.wait();
 }
 
 fn terminate_child(child: &mut Child) {
+  self::terminate_process_group(child.id());
   let _ = child.kill();
   let _ = child.wait();
 }
+
+#[cfg(unix)]
+fn terminate_process_group(id: u32) {
+  let group = Pid::from_raw(id as i32);
+  let _ = killpg(group, Signal::SIGTERM);
+  thread::sleep(Duration::from_millis(100));
+  let _ = killpg(group, Signal::SIGKILL);
+}
+
+#[cfg(not(unix))]
+fn terminate_process_group(_id: u32) {}
 
 fn required_string(value: &Value, field: &str) -> Result<String> {
   value

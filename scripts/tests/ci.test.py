@@ -6,6 +6,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -78,6 +79,9 @@ def _verify_cargo_target_isolation(root: Path) -> None:
 
     ci.REPOSITORY_ROOT = first_checkout
     first_root = Path(ci.cargo_environment(None)["CARGO_TARGET_DIR"])
+    os.utime(first_root, ns=(1, 1))
+    first_access = first_root.stat().st_mtime_ns
+    ci.cargo_environment(None)
     first_sample = Path(
         ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
     )
@@ -94,12 +98,13 @@ def _verify_cargo_target_isolation(root: Path) -> None:
         ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
     )
 
-    assert first_root != second_root
-    assert first_sample != second_sample
+    assert first_root == second_root
+    assert first_sample == second_sample
     assert first_sample != first_root
     assert first_sample != other_sample
     assert first_sample == first_sample_again
-    assert first_root.is_relative_to(cache / "cargo-targets")
+    assert first_root.is_relative_to(cache / "cargo-targets/shared")
+    assert first_root.stat().st_mtime_ns > first_access
 
 
 def _verify_parallel_sample_target_isolation(root: Path) -> None:

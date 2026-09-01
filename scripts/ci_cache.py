@@ -4,18 +4,131 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
+import tempfile
 import time
+import uuid
 
-from platform_support import lock_file, resolve_executable
+from platform_support import lock_file, resolve_executable, unlock_file
 
 
 CACHE_SCHEMA = 1
+DEFAULT_TARGET_BYTES = 20 * 1024**3
+DEFAULT_HIGH_WATER_BYTES = 25 * 1024**3
+CHROME_CLONE_MINIMUM_AGE_SECONDS = 60 * 60
+
+
+@dataclass(frozen=True)
+class CachePruneResult:
+    """Allocated storage reclaimed by one cache maintenance pass."""
+
+    before_bytes: int
+    after_bytes: int
+    removed: tuple[Path, ...]
+
+
+def chrome_clone_root() -> Path:
+    """Return Chrome's per-user macOS code-signing clone directory."""
+    return Path(tempfile.gettempdir()).parent / "X/com.google.Chrome.code_sign_clone"
+
+
+def prune_chrome_code_sign_clones(
+    root: Path | None = None,
+    open_clones: set[str] | None = None,
+    now_ns: int | None = None,
+    minimum_age_seconds: int = CHROME_CLONE_MINIMUM_AGE_SECONDS,
+) -> CachePruneResult:
+    """Remove abandoned Chrome signing clones after proving they are not in use."""
+    root = chrome_clone_root() if root is None else root
+    if not root.is_dir() or root.is_symlink():
+        return CachePruneResult(0, 0, ())
+    lock = root / ".battlement.lock"
+    with lock.open("a+") as lease:
+        lock_file(lease)
+        try:
+            open_clones = _open_chrome_clones(root) if open_clones is None else open_clones
+            before = charged_size(root)
+            if open_clones is None:
+                return CachePruneResult(before, before, ())
+            cutoff = (time.time_ns() if now_ns is None else now_ns) - (
+                minimum_age_seconds * 1_000_000_000
+            )
+            removed = []
+            for path in root.iterdir():
+                suffix = path.name.removeprefix("code_sign_clone.")
+                owned = len(suffix) == 6 and suffix.isalnum()
+                if not owned or path.name in open_clones or path.is_symlink():
+                    continue
+                if not path.is_dir() or path.stat().st_mtime_ns > cutoff:
+                    continue
+                quarantine = path.with_name(f".battlement-pruning-{uuid.uuid4()}")
+                path.rename(quarantine)
+                shutil.rmtree(quarantine)
+                removed.append(path)
+            after = charged_size(root)
+            if removed:
+                print(
+                    f"    Chrome Cache: reclaimed {before - after} allocated bytes; "
+                    f"{after} bytes remain",
+                    flush=True,
+                )
+            return CachePruneResult(before, after, tuple(removed))
+        finally:
+            unlock_file(lease)
+
+
+def _open_chrome_clones(root: Path) -> set[str] | None:
+    try:
+        result = subprocess.run(
+            [resolve_executable("lsof"), "-Fn"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    prefix = f"{root}/"
+    open_clones = set()
+    for line in result.stdout.splitlines():
+        if not line.startswith(f"n{prefix}"):
+            continue
+        relative = line[1 + len(prefix) :]
+        open_clones.add(relative.split("/", 1)[0])
+    return open_clones
+
+
+def charged_size(path: Path) -> int:
+    """Return allocated bytes without following symbolic links."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return 0
+    if path.is_symlink():
+        raise RuntimeError(f"CI Cache path is a symbolic link: {path}")
+    return _charged_size_entry(path, metadata)
+
+
+def _charged_size_entry(path: Path, metadata: os.stat_result) -> int:
+    """Count one owned tree entry while treating descendant links as leaves."""
+    size = getattr(metadata, "st_blocks", 0) * 512 or metadata.st_size
+    if path.is_symlink() or not path.is_dir():
+        return size
+    total = size
+    for child in path.iterdir():
+        try:
+            child_metadata = child.lstat()
+        except FileNotFoundError:
+            continue
+        total += _charged_size_entry(child, child_metadata)
+    return total
 
 
 class CiCache:
@@ -32,6 +145,69 @@ class CiCache:
         self.cache_root = cache_root
         self.environment = environment
         self.enabled = enabled
+        self._invocation_lease = None
+
+    @contextmanager
+    def invocation(self) -> Iterator[None]:
+        """Serialize shared compiler writers and prune outside active builds."""
+        lock = self.cache_root / "locks" / "invocation.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        with lock.open("a+") as lease:
+            lock_file(lease)
+            prune_chrome_code_sign_clones()
+            self.prune()
+            try:
+                yield
+            finally:
+                self.prune()
+                prune_chrome_code_sign_clones()
+                unlock_file(lease)
+
+    def prune(
+        self,
+        target_bytes: int = DEFAULT_TARGET_BYTES,
+        high_water_bytes: int = DEFAULT_HIGH_WATER_BYTES,
+    ) -> CachePruneResult:
+        """Remove legacy checkout trees and least-recent shared targets under pressure."""
+        before = charged_size(self.cache_root)
+        targets = self.cache_root / "cargo-targets"
+        if not targets.is_dir():
+            return CachePruneResult(before, before, ())
+        candidates: list[Path] = []
+        for child in targets.iterdir():
+            if child.name == "shared" and child.is_dir() and not child.is_symlink():
+                candidates.extend(
+                    path
+                    for path in child.iterdir()
+                    if path.is_dir() and not path.is_symlink()
+                )
+            elif child.is_dir() and not child.is_symlink():
+                candidates.append(child)
+        legacy = [path for path in candidates if path.parent == targets]
+        shared = [path for path in candidates if path.parent.name == "shared"]
+        selected = list(legacy)
+        projected = before - sum(charged_size(path) for path in legacy)
+        if projected > high_water_bytes:
+            shared.sort(key=lambda path: (path.stat().st_mtime_ns, path.name))
+            for path in shared:
+                if projected <= target_bytes:
+                    break
+                selected.append(path)
+                projected -= charged_size(path)
+        removed = []
+        for path in selected:
+            quarantine = path.with_name(f".pruning-{uuid.uuid4()}")
+            path.rename(quarantine)
+            shutil.rmtree(quarantine)
+            removed.append(path)
+        after = charged_size(self.cache_root)
+        if removed:
+            print(
+                f"    CI Cache: reclaimed {before - after} allocated bytes; "
+                f"{after} bytes remain",
+                flush=True,
+            )
+        return CachePruneResult(before, after, tuple(removed))
 
     def run(
         self,
