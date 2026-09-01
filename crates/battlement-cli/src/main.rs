@@ -82,9 +82,6 @@ enum SampleCommand {
     /// Build a browser player with the Rust engine embedded in WebAssembly.
     #[arg(long)]
     web: bool,
-    /// Disable WebAssembly threads for compatibility with restricted browsers and hosts.
-    #[arg(long, requires = "web")]
-    web_unthreaded: bool,
     /// Build a non-Development release player.
     #[arg(long)]
     release: bool,
@@ -96,9 +93,6 @@ enum SampleCommand {
     /// Run a browser player with the Rust engine embedded in WebAssembly.
     #[arg(long)]
     web: bool,
-    /// Disable WebAssembly threads for compatibility with restricted browsers and hosts.
-    #[arg(long, requires = "web")]
-    web_unthreaded: bool,
     /// Local static-server port for a Web player.
     #[arg(long, requires = "web")]
     port: Option<u16>,
@@ -280,23 +274,17 @@ fn run() -> Result<u8> {
     Command::Sample(args) => {
       install_interrupt_handler()?;
       match args.command {
-        SampleCommand::Build {
-          name,
-          web,
-          web_unthreaded,
-          release,
-        } => {
-          sample::build(&name, web, web && !web_unthreaded, release)?;
+        SampleCommand::Build { name, web, release } => {
+          sample::build(&name, web, release)?;
           0
         }
         SampleCommand::Run {
           name,
           web,
-          web_unthreaded,
           port,
           release,
         } => {
-          sample::run(&name, web, web && !web_unthreaded, port, release)?;
+          sample::run(&name, web, port, release)?;
           0
         }
       }

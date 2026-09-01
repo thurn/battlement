@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use fs2::FileExt;
+use fs2::{FileExt, lock_contended_error};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::build_cache::CacheJournalEntry;
@@ -46,7 +46,7 @@ pub(super) fn try_lock_exclusive(path: &Path) -> Result<Option<File>> {
   let file = self::open_lock(path)?;
   match file.try_lock_exclusive() {
     Ok(()) => Ok(Some(file)),
-    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+    Err(error) if error.raw_os_error() == lock_contended_error().raw_os_error() => Ok(None),
     Err(error) => Err(error.into()),
   }
 }
@@ -152,16 +152,25 @@ fn sync_tree_at(root: &Path, directory: &Path) -> Result<()> {
       );
     } else {
       ensure!(file_type.is_file(), "build cache contains a special file");
-      File::open(entry.path())?.sync_all()?;
+      OpenOptions::new()
+        .write(true)
+        .open(entry.path())?
+        .sync_all()?;
     }
   }
   self::sync_directory(directory)
 }
 
+#[cfg(not(windows))]
 pub(super) fn sync_directory(path: &Path) -> Result<()> {
   File::open(path)?
     .sync_all()
     .with_context(|| format!("sync cache directory {}", path.display()))
+}
+
+#[cfg(windows)]
+pub(super) fn sync_directory(_path: &Path) -> Result<()> {
+  Ok(())
 }
 
 pub(super) fn directory_bytes(directory: &Path) -> Result<u64> {

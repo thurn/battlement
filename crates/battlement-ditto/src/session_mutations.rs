@@ -1,6 +1,8 @@
+#[cfg(not(windows))]
+use std::fs::File;
 use std::{
   collections::{BTreeMap, BTreeSet},
-  fs::{self, File, OpenOptions},
+  fs::{self, OpenOptions},
   io::Write,
   path::{Path, PathBuf},
   sync::Arc,
@@ -596,7 +598,13 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
   result
 }
 
+#[cfg(not(windows))]
 fn sync_directory(path: &Path) -> Result<()> {
   File::open(path)?.sync_all()?;
+  Ok(())
+}
+
+#[cfg(windows)]
+fn sync_directory(_path: &Path) -> Result<()> {
   Ok(())
 }

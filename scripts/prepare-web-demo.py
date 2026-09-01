@@ -36,7 +36,7 @@ WEB_SHARED_INPUTS = (
 )
 
 
-def staged_fingerprint(sample: str, release: bool, compatible: bool) -> str:
+def staged_fingerprint(sample: str, release: bool) -> str:
     """Fingerprint staged Web build inputs and the local build toolchain."""
     editor = unity_editor(sample)
     editor_metadata = editor.stat()
@@ -67,7 +67,6 @@ def staged_fingerprint(sample: str, release: bool, compatible: bool) -> str:
         "schema": 1,
         "sample": sample,
         "release": release,
-        "compatible": compatible,
         "staged": staged,
         "host": [platform.system(), platform.machine()],
         "editor": [str(editor.resolve()), editor_metadata.st_mtime_ns, editor_metadata.st_size],
@@ -79,12 +78,12 @@ def staged_fingerprint(sample: str, release: bool, compatible: bool) -> str:
     ).hexdigest()
 
 
-def prepare(sample: str, release: bool, compatible: bool, cache_root: Path) -> Path:
+def prepare(sample: str, release: bool, cache_root: Path) -> Path:
     """Materialize one exact cached Web build and return its local path."""
     validate_sample(sample)
-    key = staged_fingerprint(sample, release, compatible)
+    key = staged_fingerprint(sample, release)
     profile = "release" if release else "debug"
-    output_name = "Web" if compatible else "WebThreads"
+    output_name = "WebThreads"
     output = REPOSITORY_ROOT / "samples" / sample / "Build" / profile / output_name
     cached = cache_root / "entries" / sample / key / output_name
     lock = cache_root / "locks" / sample / f"{key}.lock"
@@ -95,7 +94,7 @@ def prepare(sample: str, release: bool, compatible: bool, cache_root: Path) -> P
         if not valid_web_build(cached):
             print(f"Web demo cache miss {key[:12]}; building {sample}", flush=True)
             with unity_editor_lease():
-                subprocess.run(build_command(sample, release, compatible), cwd=REPOSITORY_ROOT, check=True)
+                subprocess.run(build_command(sample, release), cwd=REPOSITORY_ROOT, check=True)
             if not valid_web_build(output):
                 raise RuntimeError(f"Web build is incomplete: {output}")
             publish_directory(output, cached, cache_root / "entries")
@@ -106,13 +105,11 @@ def prepare(sample: str, release: bool, compatible: bool, cache_root: Path) -> P
     return output
 
 
-def build_command(sample: str, release: bool, compatible: bool) -> list[str]:
+def build_command(sample: str, release: bool) -> list[str]:
     command = [
         "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
         "sample", "build", sample, "--web",
     ]
-    if compatible:
-        command.append("--web-unthreaded")
     if release:
         command.append("--release")
     return command
@@ -187,7 +184,6 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sample")
     parser.add_argument("--release", action="store_true")
-    parser.add_argument("--web-compatible", action="store_true")
     parser.add_argument("--cache-root", type=Path, default=DEFAULT_CACHE_ROOT)
     return parser.parse_args()
 
@@ -198,7 +194,6 @@ if __name__ == "__main__":
         prepare(
             arguments.sample,
             arguments.release,
-            arguments.web_compatible,
             arguments.cache_root,
         )
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:

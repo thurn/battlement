@@ -38,7 +38,7 @@ run = Path(os.environ["FAKE_RUN_ROOT"]) / output.parent.name
 run.mkdir(parents=True, exist_ok=True)
 (run / "logs").mkdir(exist_ok=True)
 (run / "logs/events.jsonl").write_text('{"sequence":1}\n')
-(run / "diagnostics.txt").write_text("private failure diagnostics\n")
+(run / "diagnostics.txt").write_bytes(b"private failure diagnostics\n")
 print(f"DITTO_RUN_DIR={run}", file=sys.stderr, flush=True)
 if expected_cache := os.environ.get("FAKE_EXPECTED_CACHE"):
     assert os.environ["DITTO_CACHE_ROOT"] == expected_cache
@@ -92,13 +92,19 @@ def run(
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="ditto-ci-test.") as temporary:
         root = Path(temporary)
-        fake = root / "ditto"
+        fake = root / "ditto.py"
         fake.write_text(FAKE_DITTO)
-        fake.chmod(0o755)
+        if os.name == "nt":
+            launcher = root / "ditto.cmd"
+            launcher.write_text(f'@"{sys.executable}" "{fake}" %*\n')
+        else:
+            fake.chmod(0o755)
+            launcher = fake
         environment = os.environ.copy()
         environment.update({
-            "DITTO_CI_BINARY": str(fake),
+            "DITTO_CI_BINARY": str(launcher),
             "DITTO_CI_CACHE_ROOT": str(root / "cache"),
+            "DITTO_CI_TEST_HOST": "macos-arm64",
             "FAKE_EXPECTED_CACHE": str(root / "cache"),
             "FAKE_RUN_ROOT": str(root / "runs"),
             "FAKE_PUBLISH_LOG": str(root / "published"),

@@ -1,5 +1,6 @@
 use std::{
   collections::{BTreeMap, BTreeSet},
+  env,
   io::{BufRead, BufReader},
   path::{Path, PathBuf},
   process::{Command, Stdio},
@@ -220,13 +221,14 @@ second = SlotLease(root, "unity-editor", 2).acquire()
 print("ready", flush=True)
 time.sleep(30)
 "#;
-  let mut child = Command::new("python3")
-    .args(["-u", "-c", code])
-    .env("PYTHONPATH", scripts)
-    .env("BATTLEMENT_RESOURCE_SLOTS", temporary.path())
-    .stdout(Stdio::piped())
-    .spawn()
-    .unwrap();
+  let mut child =
+    Command::new(env::var_os("BATTLEMENT_PYTHON").unwrap_or_else(|| "python3".into()))
+      .args(["-u", "-c", code])
+      .env("PYTHONPATH", scripts)
+      .env("BATTLEMENT_RESOURCE_SLOTS", temporary.path())
+      .stdout(Stdio::piped())
+      .spawn()
+      .unwrap();
   let mut ready = String::new();
   BufReader::new(child.stdout.take().unwrap())
     .read_line(&mut ready)

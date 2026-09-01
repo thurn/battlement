@@ -56,24 +56,23 @@ def command(
     environment: dict[str, str] | None = None, timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a repository command while preserving output in the CI log."""
+    process_options: dict[str, Any]
+    if os.name == "nt":
+        process_options = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    else:
+        process_options = {"process_group": 0}
     process = subprocess.Popen(
         arguments, cwd=REPOSITORY_ROOT, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, text=True, env=environment, process_group=0,
+        stderr=subprocess.PIPE, text=True, env=environment, **process_options,
     )
     try:
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        terminate_process_group(process, force=False)
         try:
             stdout, stderr = process.communicate(timeout=3)
         except subprocess.TimeoutExpired:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            terminate_process_group(process, force=True)
             stdout, stderr = process.communicate()
         raise subprocess.TimeoutExpired(
             arguments, timeout, output=stdout, stderr=stderr
@@ -84,6 +83,28 @@ def command(
     if check and result.returncode != 0:
         raise RuntimeError(f"command exited with {result.returncode}: {' '.join(arguments)}")
     return result
+
+
+def terminate_process_group(process: subprocess.Popen[str], *, force: bool) -> None:
+    """Stops a command and its descendants on the current host."""
+    if os.name == "nt":
+        subprocess.run(
+            [
+                "taskkill",
+                "/PID",
+                str(process.pid),
+                "/T",
+                "/F",
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        return
+    try:
+        os.killpg(process.pid, signal.SIGKILL if force else signal.SIGTERM)
+    except ProcessLookupError:
+        pass
 
 
 def ditto_environment() -> dict[str, str]:
@@ -367,6 +388,8 @@ def adapter(name: str) -> None:
 
 
 def platform_report() -> dict[str, str]:
+    if os.environ.get("DITTO_CI_TEST_HOST") == "macos-arm64":
+        return {"system": "macos", "architecture": "arm64"}
     architecture = platform.machine()
     if platform.system() != "Darwin" or architecture not in {"aarch64", "arm64"}:
         raise RuntimeError("Ditto CI requires Apple silicon macOS")

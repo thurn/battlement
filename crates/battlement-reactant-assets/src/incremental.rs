@@ -9,6 +9,10 @@ use std::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
 use tempfile::Builder;
 
 use crate::{
@@ -464,16 +468,14 @@ fn target_hint() -> String {
 fn file_id(metadata: &fs::Metadata) -> String {
   #[cfg(unix)]
   {
-    use std::os::unix::fs::MetadataExt;
     return format!("unix:{:x}:{:x}", metadata.dev(), metadata.ino());
   }
   #[cfg(windows)]
   {
-    use std::os::windows::fs::MetadataExt;
     return format!(
       "windows:{:x}:{:x}",
-      metadata.volume_serial_number().unwrap_or_default(),
-      metadata.file_index().unwrap_or_default()
+      metadata.creation_time(),
+      metadata.file_attributes()
     );
   }
   #[allow(unreachable_code)]

@@ -87,10 +87,13 @@ impl FilesystemPublicationStore {
     let temporary = parent.join(format!(".{}.tmp", uuid::Uuid::new_v4()));
     let result = (|| {
       fs::write(&temporary, bytes)?;
-      File::open(&temporary)?.sync_all()?;
+      OpenOptions::new()
+        .write(true)
+        .open(&temporary)?
+        .sync_all()?;
       match fs::hard_link(&temporary, &path) {
         Ok(()) => {
-          File::open(parent)?.sync_all()?;
+          self::sync_directory(parent)?;
           Ok(ConditionalMutation::Applied)
         }
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
@@ -102,6 +105,17 @@ impl FilesystemPublicationStore {
     let _ = fs::remove_file(temporary);
     result
   }
+}
+
+#[cfg(not(windows))]
+fn sync_directory(path: &Path) -> Result<()> {
+  File::open(path)?.sync_all()?;
+  Ok(())
+}
+
+#[cfg(windows)]
+fn sync_directory(_path: &Path) -> Result<()> {
+  Ok(())
 }
 
 impl ConditionalObjectStore for FilesystemPublicationStore {

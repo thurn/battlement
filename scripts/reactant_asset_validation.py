@@ -282,7 +282,6 @@ def exhaustive(evidence: Path) -> None:
                 "build",
                 "reactant",
                 "--web",
-                "--web-unthreaded",
             ],
             environment=cargo_environment("exhaustive-web"),
         )

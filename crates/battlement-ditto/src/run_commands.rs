@@ -449,8 +449,22 @@ fn replace_output(source: &Path, destination: &Path) -> Result<()> {
   ));
   fs::copy(source, &temporary)
     .with_context(|| format!("copy result to {}", destination.display()))?;
-  fs::File::open(&temporary)?.sync_all()?;
+  fs::OpenOptions::new()
+    .write(true)
+    .open(&temporary)?
+    .sync_all()?;
   fs::rename(&temporary, destination)?;
-  fs::File::open(parent)?.sync_all()?;
+  self::sync_directory(parent)?;
+  Ok(())
+}
+
+#[cfg(not(windows))]
+fn sync_directory(path: &Path) -> Result<()> {
+  fs::File::open(path)?.sync_all()?;
+  Ok(())
+}
+
+#[cfg(windows)]
+fn sync_directory(_path: &Path) -> Result<()> {
   Ok(())
 }

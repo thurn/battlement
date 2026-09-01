@@ -266,6 +266,7 @@ fn player_paths_reject_symlink_and_lexical_repository_escapes() {
 
 struct Fixture {
   _temporary: tempfile::TempDir,
+  #[cfg(unix)]
   root: PathBuf,
   config: PathBuf,
 }
@@ -290,6 +291,7 @@ impl Fixture {
     );
     Self {
       _temporary: temporary,
+      #[cfg(unix)]
       root,
       config,
     }

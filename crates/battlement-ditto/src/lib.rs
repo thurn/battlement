@@ -89,7 +89,11 @@ pub fn run() -> u8 {
     );
     return 2;
   }
-  process_from(std::env::args_os(), &mut io::stdout(), &mut io::stderr())
+  process_from(
+    std::iter::once(OsString::from("ditto")).chain(std::env::args_os().skip(1)),
+    &mut io::stdout(),
+    &mut io::stderr(),
+  )
 }
 
 /// Runs Ditto with process-style arguments and explicit output streams.

@@ -10,7 +10,7 @@ use std::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
   },
-  task::{Context, Poll, Wake, Waker},
+  task::{Context, Poll, Waker},
   thread,
 };
 
@@ -55,8 +55,6 @@ struct PanickingKey {
 
 #[derive(Debug)]
 struct LoadError;
-
-struct NoopWake;
 
 impl ManualSpawner {
   fn new() -> Self {
@@ -146,10 +144,6 @@ impl Hash for PanickingKey {
     );
     self.id.hash(state);
   }
-}
-
-impl Wake for NoopWake {
-  fn wake(self: Arc<Self>) {}
 }
 
 #[test]
@@ -501,8 +495,7 @@ fn loader_and_executor_panics_leave_no_pending_cache_entry() {
 }
 
 fn run_ready(mut task: Pin<Box<dyn Future<Output = ()> + Send>>) {
-  let waker = Waker::from(Arc::new(NoopWake));
-  let mut context = Context::from_waker(&waker);
+  let mut context = Context::from_waker(Waker::noop());
   assert_eq!(task.as_mut().poll(&mut context), Poll::Ready(()));
 }
 

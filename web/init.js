@@ -30,13 +30,12 @@
     navigator.hardwareConcurrency || 1,
   );
   // Leave one logical processor for the browser and cap this sample's search
-  // pool. Mobile deliberately selects one so Rayon never creates a Web Worker.
+  // pool. Mobile uses a single worker to limit its resource footprint.
   const desktopThreadCount = Math.max(
     1,
     Math.min(4, hardwareConcurrency - 1),
   );
-  const threadingEnabled = window.battlementWebThreadingEnabled !== false;
-  const threadCount = threadingEnabled && !isMobile ? desktopThreadCount : 1;
+  const threadCount = !isMobile ? desktopThreadCount : 1;
 
   function showWebThreadsError() {
     compatibilityErrorShown = true;
@@ -66,17 +65,16 @@
   }
 
   // init.js runs from the document head before Unity's generated startup script.
-  // Threaded builds use this result to avoid requesting the loader at all when
-  // SharedArrayBuffer is unavailable; non-threaded builds simply ignore it.
+  // Avoid requesting the threaded loader when SharedArrayBuffer is unavailable.
   window.battlementWebThreads = Object.freeze({
     isSupported:
       self.crossOriginIsolated && typeof SharedArrayBuffer !== "undefined",
     isMobile,
     // Unity creates its own persistent workers from hardwareConcurrency. Desktop
-    // needs additional prestarted workers for Rayon's dedicated pool; mobile's
-    // current-thread pool needs no surplus worker and must not attempt to make one.
+    // needs additional prestarted workers for Rayon's dedicated pool. Mobile
+    // draws its single Rayon worker from Unity's existing pool.
     pthreadPoolSize:
-      hardwareConcurrency + (threadingEnabled && !isMobile ? threadCount : 0),
+      hardwareConcurrency + (!isMobile ? threadCount : 0),
     showUnsupportedError: showWebThreadsError,
     threadCount,
   });

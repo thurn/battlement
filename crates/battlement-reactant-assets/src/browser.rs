@@ -368,21 +368,21 @@ fn default_candidates(report: &mut WorkReport) -> Vec<PathBuf> {
   }
   #[cfg(target_os = "windows")]
   {
-    return self::windows_candidates(report);
+    self::windows_candidates(report)
   }
   #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
   {
     let _ = report;
     let path = env::var_os("PATH").unwrap_or_default();
     let directories = env::split_paths(&path).collect::<Vec<_>>();
-    return ["google-chrome-stable", "google-chrome", "chromium"]
+    ["google-chrome-stable", "google-chrome", "chromium"]
       .into_iter()
       .flat_map(|name| {
         directories
           .iter()
           .map(move |directory| directory.join(name))
       })
-      .collect();
+      .collect()
   }
 }
 

@@ -1,3 +1,5 @@
+#![cfg(target_os = "macos")]
+
 use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
 
 use battlement_tooling::{

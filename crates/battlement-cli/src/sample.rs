@@ -40,17 +40,12 @@ struct SavedPath {
 
 const DEFAULT_WEB_PORT: u16 = 8000;
 
-pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> Result<PathBuf> {
+pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
   reset_interrupted();
-  self::build_prepared(self::prepare(name)?, web, web_threads, release)
+  self::build_prepared(self::prepare(name)?, web, release)
 }
 
-fn build_prepared(
-  prepared: PreparedSample,
-  web: bool,
-  web_threads: bool,
-  release: bool,
-) -> Result<PathBuf> {
+fn build_prepared(prepared: PreparedSample, web: bool, release: bool) -> Result<PathBuf> {
   let PreparedSample {
     root,
     project,
@@ -59,14 +54,9 @@ fn build_prepared(
     package,
     editor,
   } = prepared;
-  let web_build = if web_threads {
-    plugin_build::WebBuild::Threaded
-  } else {
-    plugin_build::WebBuild::Compatible
-  };
   let (plugin, plugin_directory, plugin_name) = if web {
     (
-      plugin_build::web_rules_plugin(&package, release, &manifest, &editor, web_build)?,
+      plugin_build::web_rules_plugin(&package, release, &manifest, &editor)?,
       project.join("Assets/Plugins/WebGL"),
       "libbattlement_rules.a",
     )
@@ -88,7 +78,7 @@ fn build_prepared(
     project
       .join("Build")
       .join(profile)
-      .join(self::web_output_name(web_threads))
+      .join(self::web_output_name())
   } else {
     project
       .join("Build")
@@ -134,10 +124,6 @@ fn build_prepared(
       "BATTLEMENT_SAMPLE_PLATFORM",
       if web { "web" } else { "native" },
     )
-    .env(
-      "BATTLEMENT_SAMPLE_WEB_THREADS",
-      if web_threads { "1" } else { "0" },
-    )
     .env("BATTLEMENT_SAMPLE_RELEASE", if release { "1" } else { "0" })
     .spawn()
     .context("failed to launch Unity")?;
@@ -156,7 +142,7 @@ fn build_prepared(
     bail!("Unity sample build omitted its success marker");
   }
   if web {
-    self::configure_web_entry_point(&root, &output, web_threads)?;
+    self::configure_web_entry_point(&root, &output)?;
     if !output.join("index.html").is_file() {
       bail!(
         "sample Web build omitted {}",
@@ -171,9 +157,7 @@ fn build_prepared(
     if !has_wasm {
       bail!("sample Web build omitted its WebAssembly player");
     }
-    if web_threads {
-      self::validate_threaded_web_output(&output)?;
-    }
+    self::validate_threaded_web_output(&output)?;
   } else {
     let packaged_plugin = self::packaged_native_plugin(&output);
     if !packaged_plugin.is_file() {
@@ -181,19 +165,19 @@ fn build_prepared(
     }
     self::native_executable(&output)?;
   }
-  fs::write(self::build_stamp(&output, web, web_threads), b"")
+  fs::write(self::build_stamp(&output, web), b"")
     .context("failed to record the completed sample build")?;
   println!("Built {}", output.display());
   Ok(output)
 }
 
-fn configure_web_entry_point(root: &Path, output: &Path, web_threads: bool) -> Result<()> {
+fn configure_web_entry_point(root: &Path, output: &Path) -> Result<()> {
   let index_path = output.join("index.html");
   let mut index = fs::read_to_string(&index_path)
     .with_context(|| format!("failed to read {}", index_path.display()))?;
   let source =
     fs::read_to_string(root.join("web/init.js")).context("failed to read the Web initializer")?;
-  let initializer = format!("window.battlementWebThreadingEnabled = {web_threads};\n{source}");
+  let initializer = source;
   let mut fingerprint = DefaultHasher::new();
   initializer.hash(&mut fingerprint);
   let initializer_script = format!(
@@ -233,13 +217,7 @@ fn configure_web_entry_point(root: &Path, output: &Path, web_threads: bool) -> R
   Ok(())
 }
 
-pub(crate) fn run(
-  name: &str,
-  web: bool,
-  web_threads: bool,
-  port: Option<u16>,
-  release: bool,
-) -> Result<()> {
+pub(crate) fn run(name: &str, web: bool, port: Option<u16>, release: bool) -> Result<()> {
   reset_interrupted();
   let prepared = self::prepare(name)?;
   let root = prepared.root.clone();
@@ -250,19 +228,17 @@ pub(crate) fn run(
     project
       .join("Build")
       .join(profile)
-      .join(self::web_output_name(web_threads))
+      .join(self::web_output_name())
   } else {
     project
       .join("Build")
       .join(profile)
       .join(self::native_output_name(&application))
   };
-  let output = if existing.exists()
-    && !self::requires_rebuild(&root, &project, &existing, web, web_threads)?
-  {
+  let output = if existing.exists() && !self::requires_rebuild(&root, &project, &existing, web)? {
     existing
   } else {
-    self::build_prepared(prepared, web, web_threads, release)?
+    self::build_prepared(prepared, web, release)?
   };
   if web {
     return self::serve_web(&root, &project, &output, port.unwrap_or(DEFAULT_WEB_PORT));
@@ -305,14 +281,8 @@ fn prepare_at(root: PathBuf, name: &str) -> Result<PreparedSample> {
   })
 }
 
-fn requires_rebuild(
-  root: &Path,
-  project: &Path,
-  output: &Path,
-  web: bool,
-  web_threads: bool,
-) -> Result<bool> {
-  let stamp = self::build_stamp(output, web, web_threads);
+fn requires_rebuild(root: &Path, project: &Path, output: &Path, web: bool) -> Result<bool> {
+  let stamp = self::build_stamp(output, web);
   let built_at = match fs::metadata(&stamp).and_then(|metadata| metadata.modified()) {
     Ok(modified) => modified,
     Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
@@ -338,14 +308,12 @@ fn requires_rebuild(
   Ok(false)
 }
 
-fn build_stamp(output: &Path, web: bool, web_threads: bool) -> PathBuf {
+fn build_stamp(output: &Path, web: bool) -> PathBuf {
   output
     .parent()
     .expect("sample application has a build directory")
-    .join(if web_threads {
+    .join(if web {
       ".battlement-web-threaded-build-stamp"
-    } else if web {
-      ".battlement-web-build-stamp"
     } else {
       ".battlement-build-stamp"
     })
@@ -601,8 +569,8 @@ fn packaged_native_plugin(output: &Path) -> PathBuf {
   }
 }
 
-fn web_output_name(web_threads: bool) -> &'static str {
-  if web_threads { "WebThreads" } else { "Web" }
+fn web_output_name() -> &'static str {
+  "WebThreads"
 }
 
 fn config_value(contents: &str, key: &str) -> Result<String> {
@@ -968,8 +936,8 @@ mod tests {
         )
         .unwrap();
 
-    self::configure_web_entry_point(temporary.path(), &output, false).unwrap();
-    self::configure_web_entry_point(temporary.path(), &output, false).unwrap();
+    self::configure_web_entry_point(temporary.path(), &output).unwrap();
+    self::configure_web_entry_point(temporary.path(), &output).unwrap();
 
     let generated = fs::read_to_string(index).unwrap();
     assert_eq!(
@@ -982,7 +950,7 @@ mod tests {
     assert_eq!(generated.matches("<script src=\"init.js?v=").count(), 1);
     assert_eq!(
       fs::read_to_string(output.join("init.js")).unwrap(),
-      "window.battlementWebThreadingEnabled = false;\n// Browser initializer.\n"
+      "// Browser initializer.\n"
     );
   }
 }

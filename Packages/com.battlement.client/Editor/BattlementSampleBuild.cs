@@ -53,8 +53,6 @@ namespace Battlement.Editor
             string output = Required("BATTLEMENT_SAMPLE_BUILD_PATH");
             string scene = Required("BATTLEMENT_SAMPLE_SCENE_PATH");
             bool web = Environment.GetEnvironmentVariable("BATTLEMENT_SAMPLE_PLATFORM") == "web";
-            bool webThreads =
-                Environment.GetEnvironmentVariable("BATTLEMENT_SAMPLE_WEB_THREADS") == "1";
             bool release = Environment.GetEnvironmentVariable("BATTLEMENT_SAMPLE_RELEASE") == "1";
             BuildTarget target = web ? BuildTarget.WebGL : NativeBuildTarget;
             BuildTargetGroup group = web ? BuildTargetGroup.WebGL : BuildTargetGroup.Standalone;
@@ -77,19 +75,16 @@ namespace Battlement.Editor
                 );
                 emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREADS_DEBUG=");
                 emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
-                if (webThreads)
+                emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
+                emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
+                if (!release)
                 {
-                    emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
-                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
-                    if (!release)
-                    {
-                        emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);
-                        emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadDebug);
-                    }
+                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);
+                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadDebug);
                 }
                 PlayerSettings.WebGL.emscriptenArgs = emscriptenArgs;
                 PlayerSettings.WebGL.decompressionFallback = true;
-                PlayerSettings.WebGL.threadsSupport = webThreads;
+                PlayerSettings.WebGL.threadsSupport = true;
             }
 
             try
@@ -117,10 +112,7 @@ namespace Battlement.Editor
                     }
                     if (web)
                     {
-                        if (webThreads)
-                        {
-                            AddWebThreadGuard(output);
-                        }
+                        AddWebThreadGuard(output);
                         SetWebDevicePixelRatio(output);
                     }
                 }

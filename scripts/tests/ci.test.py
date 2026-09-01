@@ -29,6 +29,7 @@ def main() -> None:
         root = Path(temporary)
         _verify_cargo_target_isolation(root)
         _verify_parallel_sample_target_isolation(root)
+        _verify_sample_worker_defaults()
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
         _verify_unity_project_regeneration(root)
@@ -151,6 +152,16 @@ def _verify_windows_paths(root: Path) -> None:
             )
     expected = "fixture.exe" if ci.os.name == "nt" else "fixture"
     assert ci.executable_name("fixture") == expected
+
+
+def _verify_sample_worker_defaults() -> None:
+    with patch.dict(ci.os.environ, {}, clear=True):
+        with patch.object(ci.platform, "system", return_value="Windows"):
+            assert ci.standalone_sample_workers() == 1
+        with patch.object(ci.platform, "system", return_value="Linux"):
+            assert ci.standalone_sample_workers() == 4
+    with patch.dict(ci.os.environ, {"BATTLEMENT_CI_SAMPLE_WORKERS": "3"}):
+        assert ci.standalone_sample_workers() == 3
 
 
 def _verify_ditto_gate_contract() -> None:

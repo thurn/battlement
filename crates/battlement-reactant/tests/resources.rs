@@ -11,7 +11,7 @@ use std::{
     Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
   },
-  task::{Context, Poll, Wake, Waker},
+  task::{Context, Poll, Waker},
 };
 
 use battlement::{
@@ -92,8 +92,6 @@ struct ResourceGame {
 
 #[derive(Debug)]
 struct LoadError;
-
-struct NoopWake;
 
 impl ManualSpawner {
   fn new() -> Self {
@@ -243,10 +241,6 @@ impl fmt::Display for LoadError {
 }
 
 impl Error for LoadError {}
-
-impl Wake for NoopWake {
-  fn wake(self: Arc<Self>) {}
-}
 
 #[test]
 fn sibling_and_shared_reads_start_together_before_the_fallback_commits() {
@@ -758,8 +752,7 @@ fn status_text(status: ResourceStatus) -> &'static str {
 }
 
 fn run_ready(mut task: Pin<Box<dyn Future<Output = ()> + Send>>) {
-  let waker = Waker::from(Arc::new(NoopWake));
-  let mut context = Context::from_waker(&waker);
+  let mut context = Context::from_waker(Waker::noop());
   assert_eq!(task.as_mut().poll(&mut context), Poll::Ready(()));
 }
 

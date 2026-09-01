@@ -45,9 +45,11 @@ pub(crate) fn invoke_ready_presence<G: 'static>(
   roots: &mut [RootRegistration<G>],
   game: &mut G,
 ) -> bool {
-  roots.iter_mut().fold(false, |invoked, root| {
-    root.committed.invoke_ready_presence(game) || invoked
-  })
+  let mut invoked = false;
+  for root in roots {
+    invoked = root.committed.invoke_ready_presence(game) || invoked;
+  }
+  invoked
 }
 
 pub(crate) fn merge_groups(

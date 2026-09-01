@@ -17,12 +17,6 @@ const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\
 const THREADED_RUSTFLAGS: &str =
   "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=-pthread";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum WebBuild {
-  Compatible,
-  Threaded,
-}
-
 pub(crate) fn rules_plugin(
   package: &str,
   architectures: &[String],
@@ -62,7 +56,6 @@ pub(crate) fn web_rules_plugin(
   release: bool,
   manifest_path: &Path,
   unity_editor: &Path,
-  build: WebBuild,
 ) -> Result<PathBuf> {
   #[cfg(windows)]
   let emscripten = unity_editor
@@ -108,10 +101,7 @@ pub(crate) fn web_rules_plugin(
     }
   }
 
-  let target_directory = self::target_directory(package)?.join(match build {
-    WebBuild::Compatible => "web",
-    WebBuild::Threaded => "web-threaded",
-  });
+  let target_directory = self::target_directory(package)?.join("web-threaded");
   let toolchain_directory = target_directory.join("emscripten");
   fs::create_dir_all(&toolchain_directory)
     .with_context(|| format!("failed to create {}", toolchain_directory.display()))?;
@@ -136,19 +126,16 @@ pub(crate) fn web_rules_plugin(
   if let Some(existing) = env::var_os("PATH") {
     paths.extend(env::split_paths(&existing));
   }
-  let mut command =
-    self::web_cargo_command(package, release, manifest_path, &target_directory, build);
+  let mut command = self::web_cargo_command(package, release, manifest_path, &target_directory);
   command
     .env("EM_CONFIG", &config)
     .env("EM_CACHE", toolchain_directory.join("cache"))
     .env("CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER", &emcc)
     .env("PATH", env::join_paths(paths)?);
-  if build == WebBuild::Threaded {
-    command.env("RUSTC_BOOTSTRAP", "1").env(
-      "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
-      THREADED_RUSTFLAGS,
-    );
-  }
+  command.env("RUSTC_BOOTSTRAP", "1").env(
+    "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
+    THREADED_RUSTFLAGS,
+  );
   let status = command
     .status()
     .context("failed to run the Rust WebAssembly build")?;
@@ -179,7 +166,6 @@ fn web_cargo_command(
   release: bool,
   manifest_path: &Path,
   target_directory: &Path,
-  build: WebBuild,
 ) -> Command {
   let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
   let mut command = Command::new(cargo);
@@ -193,9 +179,7 @@ fn web_cargo_command(
     .arg(manifest_path)
     .arg("--lib")
     .args(["--crate-type", "staticlib"]);
-  if build == WebBuild::Threaded {
-    command.args(["-Z", "build-std=std,panic_abort"]);
-  }
+  command.args(["-Z", "build-std=std,panic_abort"]);
   self::configure_release_profile(&mut command, release);
   command
 }
@@ -318,7 +302,6 @@ mod tests {
       true,
       Path::new("rules/Cargo.toml"),
       Path::new("target/web"),
-      WebBuild::Compatible,
     );
     let arguments: Vec<_> = command
       .get_args()
@@ -351,7 +334,6 @@ mod tests {
       false,
       Path::new("rules/Cargo.toml"),
       Path::new("target/web-threaded"),
-      WebBuild::Threaded,
     );
     let arguments: Vec<_> = command
       .get_args()

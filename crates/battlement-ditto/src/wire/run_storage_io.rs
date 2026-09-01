@@ -1,5 +1,7 @@
+#[cfg(not(windows))]
+use std::fs::File;
 use std::{
-  fs::{self, File, OpenOptions},
+  fs::{self, OpenOptions},
   io::Write,
   path::Path,
 };
@@ -97,10 +99,16 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
   write
 }
 
+#[cfg(not(windows))]
 pub(super) fn sync_directory(path: &Path) -> Result<()> {
   File::open(path)?
     .sync_all()
     .with_context(|| format!("sync directory {}", path.display()))
+}
+
+#[cfg(windows)]
+pub(super) fn sync_directory(_path: &Path) -> Result<()> {
+  Ok(())
 }
 
 pub(super) fn materialize_paths(source: &Path, destination: &Path, paths: &[String]) -> Result<()> {

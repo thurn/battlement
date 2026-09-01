@@ -39,6 +39,7 @@ CI_CACHE_ROOT = Path(
     )
 )
 DEFAULT_STANDALONE_SAMPLE_WORKERS = 4
+WINDOWS_STANDALONE_SAMPLE_WORKERS = 1
 RUST_WORKSPACE_WORKERS = 2
 DEFAULT_CARGO_JOBS = 3
 ROOT_RUST_INPUTS = (
@@ -342,6 +343,8 @@ def standalone_sample_workers() -> int:
     """Return the configured number of concurrent standalone sample builds."""
     configured = os.environ.get("BATTLEMENT_CI_SAMPLE_WORKERS")
     if configured is None:
+        if platform.system() == "Windows":
+            return WINDOWS_STANDALONE_SAMPLE_WORKERS
         return DEFAULT_STANDALONE_SAMPLE_WORKERS
     try:
         workers = int(configured)
@@ -850,6 +853,7 @@ def interrupted(_signal_number, _frame) -> None:
 
 
 if __name__ == "__main__":
+    os.environ.setdefault("BATTLEMENT_PYTHON", sys.executable)
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:

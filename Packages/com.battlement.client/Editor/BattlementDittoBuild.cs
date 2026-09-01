@@ -1,15 +1,17 @@
 #nullable enable
 
 using System;
-using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
-using UnityEditor.iOS.Xcode;
 using UnityEngine;
+#if UNITY_EDITOR_OSX
+using System.IO;
+using UnityEditor.iOS.Xcode;
+#endif
 
 namespace Battlement.Editor
 {
@@ -157,6 +159,7 @@ namespace Battlement.Editor
             Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
         }
 
+#if UNITY_EDITOR_OSX
         /// <summary>Builds one release iOS Simulator Xcode project.</summary>
         public static void BuildIosSimulator()
         {
@@ -276,6 +279,7 @@ namespace Battlement.Editor
             }
             project.WriteToFile(projectPath);
         }
+#endif
 
         private static bool Diagnostics() =>
             Environment.GetEnvironmentVariable("BATTLEMENT_DITTO_DIAGNOSTICS") switch
@@ -287,6 +291,7 @@ namespace Battlement.Editor
                 ),
             };
 
+#if UNITY_EDITOR_OSX
         private static AppleMobileArchitectureSimulator SimulatorArchitecture() =>
             Required("BATTLEMENT_DITTO_IOS_SIMULATOR_ARCHITECTURE") switch
             {
@@ -295,6 +300,7 @@ namespace Battlement.Editor
                     $"Unsupported iOS Simulator architecture: {value}"
                 ),
             };
+#endif
 
         private static string[] DiagnosticsDefines(bool enabled) =>
             enabled ? new[] { DiagnosticsDefine } : Array.Empty<string>();

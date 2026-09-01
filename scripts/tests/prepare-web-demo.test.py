@@ -39,8 +39,8 @@ def main() -> None:
         prepare_web_demo.materialize_directory(source, destination)
         assert (destination / "index.html").read_text() == "updated\n"
 
-        command = prepare_web_demo.build_command("tictactoe", True, True)
-        assert command[-3:] == ["--web", "--web-unthreaded", "--release"]
+        command = prepare_web_demo.build_command("tictactoe", True)
+        assert command[-2:] == ["--web", "--release"]
 
         repository = root / "repository"
         create_repository(repository)
@@ -49,11 +49,11 @@ def main() -> None:
         try:
             prepare_web_demo.REPOSITORY_ROOT = repository
             prepare_web_demo.unity_editor = lambda _sample: Path(sys.executable)
-            initial = prepare_web_demo.staged_fingerprint("fixture", False, False)
+            initial = prepare_web_demo.staged_fingerprint("fixture", False)
             tracked = repository / "samples/fixture/rules/src/lib.rs"
             tracked.write_text("pub fn value() -> u8 { 2 }\n")
             subprocess.run(["git", "add", str(tracked)], cwd=repository, check=True)
-            changed = prepare_web_demo.staged_fingerprint("fixture", False, False)
+            changed = prepare_web_demo.staged_fingerprint("fixture", False)
         finally:
             prepare_web_demo.REPOSITORY_ROOT = original_root
             prepare_web_demo.unity_editor = original_editor

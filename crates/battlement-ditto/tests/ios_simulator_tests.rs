@@ -1,3 +1,5 @@
+#![cfg(target_os = "macos")]
+
 use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, time::Duration};
 
 use battlement_ditto::{

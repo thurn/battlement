@@ -2,10 +2,10 @@ use battlement_ditto::cli::{CleanCommand, Command, StorageCommand, parse_from};
 use std::{
   fs,
   io::Write,
-  os::unix::fs::PermissionsExt,
-  path::Path,
   process::{Command as ProcessCommand, Stdio},
 };
+#[cfg(target_os = "macos")]
+use std::{os::unix::fs::PermissionsExt, path::Path};
 
 #[test]
 fn core_command_matrix_parses_complete_options() {
@@ -204,7 +204,7 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
   .unwrap();
   fs::write(
     repository.join("ditto.toml"),
-    SUITE.replace("$BASELINE", &baseline.to_string_lossy()),
+    SUITE.replace("$BASELINE", &baseline.to_string_lossy().replace('\\', "/")),
   )
   .unwrap();
   assert!(
@@ -259,6 +259,7 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn runnable_no_build_command_returns_a_durable_machine_failure() {
   let temporary = tempfile::tempdir().unwrap();
   let repository = temporary.path().join("repository");
@@ -367,7 +368,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   .unwrap();
   fs::write(
     repository.join("ditto.toml"),
-    SUITE.replace("$BASELINE", &baseline.to_string_lossy()),
+    SUITE.replace("$BASELINE", &baseline.to_string_lossy().replace('\\', "/")),
   )
   .unwrap();
   assert!(
@@ -428,6 +429,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   assert!(String::from_utf8_lossy(&stdin.stderr).contains("DITTO_RESULT="));
 }
 
+#[cfg(target_os = "macos")]
 fn executable(path: &Path, source: &str) {
   fs::write(path, source).unwrap();
   let mut permissions = fs::metadata(path).unwrap().permissions();
@@ -460,6 +462,7 @@ name = "unsupported hover"
 hover = { target = [0.5, 0.5] }
 "#;
 
+#[cfg(target_os = "macos")]
 const RUNNABLE_SUITE: &str = r#"name = "fixture"
 default_profile = "macos-local"
 

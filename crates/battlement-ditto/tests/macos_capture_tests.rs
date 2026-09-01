@@ -1,6 +1,6 @@
 use std::{
   collections::BTreeMap,
-  fs,
+  env, fs,
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   sync::{
@@ -194,16 +194,22 @@ impl MacosPlayerLauncher for FixtureLauncher {
     fs::write(log_path, b"fixture player log\n")?;
     self.count.fetch_add(1, Ordering::SeqCst);
     Ok(
-      Command::new("/usr/bin/python3")
-        .arg(&self.script)
-        .arg(session_url)
-        .env("DITTO_FIXTURE_LOG", &self.log)
-        .env("DITTO_FIXTURE_SETUP", &self.setup)
-        .env("DITTO_FIXTURE_OVERRIDE", &self.override_value)
-        .env("DITTO_FIXTURE_MODE", self.mode)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?,
+      Command::new(env::var_os("BATTLEMENT_PYTHON").unwrap_or_else(|| {
+        if cfg!(windows) {
+          "python3".into()
+        } else {
+          "/usr/bin/python3".into()
+        }
+      }))
+      .arg(&self.script)
+      .arg(session_url)
+      .env("DITTO_FIXTURE_LOG", &self.log)
+      .env("DITTO_FIXTURE_SETUP", &self.setup)
+      .env("DITTO_FIXTURE_OVERRIDE", &self.override_value)
+      .env("DITTO_FIXTURE_MODE", self.mode)
+      .stdout(Stdio::null())
+      .stderr(Stdio::null())
+      .spawn()?,
     )
   }
 }

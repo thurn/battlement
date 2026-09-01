@@ -110,7 +110,11 @@ struct Fixture {
 impl Fixture {
   fn new(succeeds: bool) -> Self {
     let root = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
     let ffmpeg = root.path().join("ffmpeg");
+    #[cfg(windows)]
+    let ffmpeg = root.path().join("ffmpeg.cmd");
+    #[cfg(unix)]
     let source = if succeeds {
       r#"#!/bin/sh
 case " $* " in
@@ -123,6 +127,23 @@ exit 0
 "#
     } else {
       "#!/bin/sh\necho injected encoder failure >&2\nexit 9\n"
+    };
+    #[cfg(windows)]
+    let source = if succeeds {
+      r#"@echo off
+set "output="
+:arguments
+if "%~1"=="" goto encode
+set "output=%~1"
+shift
+goto arguments
+:encode
+if "%output%"=="-" exit /b 0
+powershell.exe -NoProfile -Command "[IO.File]::WriteAllBytes($env:output, [byte[]](0,0,0,24,102,116,121,112,105,115,111,109))"
+exit /b %errorlevel%
+"#
+    } else {
+      "@echo off\necho injected encoder failure 1>&2\nexit /b 9\n"
     };
     fs::write(&ffmpeg, source).unwrap();
     executable(&ffmpeg);

@@ -37,17 +37,31 @@ const ARTIFACT_ID: &str = "24000000-0000-4000-8000-000000000001";
 
 #[test]
 fn owned_processes_and_simulator_apps_report_exit_once() {
-  let child = Command::new("/bin/sh")
-    .args(["-c", "exit 7"])
-    .spawn()
-    .unwrap();
+  let child = if cfg!(windows) {
+    Command::new("cmd")
+      .args(["/C", "exit", "7"])
+      .spawn()
+      .unwrap()
+  } else {
+    Command::new("/bin/sh")
+      .args(["-c", "exit 7"])
+      .spawn()
+      .unwrap()
+  };
   let mut macos = PlayerSupervisor::macos(child);
   let status = wait_for_exit(&mut macos);
   assert_eq!(status.platform, SupervisedPlatform::Macos);
   assert_eq!(status.code, Some(7));
   assert!(macos.poll().unwrap().is_none());
 
-  let child = Command::new("/usr/bin/true").spawn().unwrap();
+  let child = if cfg!(windows) {
+    Command::new("cmd")
+      .args(["/C", "exit", "0"])
+      .spawn()
+      .unwrap()
+  } else {
+    Command::new("/usr/bin/true").spawn().unwrap()
+  };
   let mut webgl = PlayerSupervisor::webgl(child);
   assert_eq!(
     wait_for_exit(&mut webgl).platform,

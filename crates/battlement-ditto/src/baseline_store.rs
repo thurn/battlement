@@ -186,13 +186,27 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
   ));
   let result = (|| {
     fs::write(&temporary, bytes)?;
-    fs::File::open(&temporary)?.sync_all()?;
+    fs::OpenOptions::new()
+      .write(true)
+      .open(&temporary)?
+      .sync_all()?;
     fs::rename(&temporary, path)?;
-    fs::File::open(parent)?.sync_all()?;
+    self::sync_directory(parent)?;
     Ok(())
   })();
   if result.is_err() {
     let _ = fs::remove_file(temporary);
   }
   result
+}
+
+#[cfg(not(windows))]
+fn sync_directory(path: &Path) -> Result<()> {
+  fs::File::open(path)?.sync_all()?;
+  Ok(())
+}
+
+#[cfg(windows)]
+fn sync_directory(_path: &Path) -> Result<()> {
+  Ok(())
 }

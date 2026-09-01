@@ -98,7 +98,7 @@ impl R2BaselineStore {
     Ok(format!(
       "{}/{}",
       self.public_base_url,
-      path.to_string_lossy()
+      path.to_string_lossy().replace('\\', "/")
     ))
   }
 }

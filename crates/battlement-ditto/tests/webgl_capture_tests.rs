@@ -1,6 +1,6 @@
 use std::{
   collections::BTreeMap,
-  fs,
+  env, fs,
   path::Path,
   sync::{Arc, atomic::AtomicBool},
   time::Duration,
@@ -43,7 +43,15 @@ fn configured_headless_player_completes_through_the_same_origin_launcher() {
   let script = run.path().join("browser.py");
   fs::write(&script, PLAYER).unwrap();
   let command = vec![
-    "/usr/bin/python3".to_owned(),
+    env::var_os("BATTLEMENT_PYTHON")
+      .map(|value| value.to_string_lossy().into_owned())
+      .unwrap_or_else(|| {
+        if cfg!(windows) {
+          "python3".to_owned()
+        } else {
+          "/usr/bin/python3".to_owned()
+        }
+      }),
     script.to_string_lossy().into_owned(),
     "{url}".to_owned(),
   ];
@@ -73,7 +81,17 @@ fn configured_headless_player_completes_through_the_same_origin_launcher() {
 fn supervised_exit_and_unobservable_launch_deadline_are_bounded() {
   let build = FixtureBuild::new();
   let exited = tempfile::tempdir().unwrap();
-  let command = vec!["/usr/bin/false".to_owned(), "{url}".to_owned()];
+  let command = if cfg!(windows) {
+    vec![
+      "cmd".to_owned(),
+      "/C".to_owned(),
+      "exit".to_owned(),
+      "0".to_owned(),
+      "{url}".to_owned(),
+    ]
+  } else {
+    vec!["/usr/bin/false".to_owned(), "{url}".to_owned()]
+  };
   let error = capture_webgl(
     request(&build.handle, exited.path(), Some(&command)),
     &LocalWebglLauncher,

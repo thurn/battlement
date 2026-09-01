@@ -10,11 +10,11 @@ const INFINITY: i32 = 1_000_000;
 const CHECKMATE: i32 = 100_000;
 const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
 /// Searches for the best move found before the think-time budget expires.
-pub(super) fn choose_move(board: &Board, think_time: Duration, parallel: bool) -> Option<Move> {
-  self::search(board, think_time, parallel)
+pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
+  self::search(board, think_time)
 }
 
-fn search(board: &Board, think_time: Duration, parallel: bool) -> Option<Move> {
+fn search(board: &Board, think_time: Duration) -> Option<Move> {
   let deadline = Instant::now() + think_time;
   let mut moves = self::legal_moves(board);
   moves.sort_unstable_by_key(|mv| {
@@ -44,11 +44,7 @@ fn search(board: &Board, think_time: Duration, parallel: bool) -> Option<Move> {
       self::negamax(&child, depth - 1, -INFINITY, INFINITY, 1, deadline)
         .map(|score| (score.saturating_neg(), mv))
     };
-    let scores = if parallel {
-      moves.par_iter().map(&score).collect::<Vec<_>>()
-    } else {
-      moves.iter().map(score).collect::<Vec<_>>()
-    };
+    let scores = moves.par_iter().map(&score).collect::<Vec<_>>();
     if scores.iter().any(Option::is_none) {
       break;
     }
