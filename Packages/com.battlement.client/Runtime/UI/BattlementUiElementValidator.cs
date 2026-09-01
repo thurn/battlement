@@ -234,6 +234,16 @@ namespace Battlement.UI
                     CoreErrorCode.InvalidProperty,
                     "Sticky cannot be combined with StackItem or overlay placement."
                 );
+            if (
+                element.Sticky.IsSet
+                && element.Style?.Position.IsSet == true
+                && element.Style.Position.Value.Keyword is null
+                && element.Style.Position.Value.Value == UiPosition.Absolute
+            )
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires relative positioning."
+                );
 
             switch (element)
             {
@@ -384,7 +394,7 @@ namespace Battlement.UI
         private static void RejectUnavailableLayout(UiElement element)
         {
             bool unavailableHost = false;
-            bool unavailableDescriptor = element.Sticky.IsSet || element.OverlayPlacement.IsSet;
+            bool unavailableDescriptor = element.OverlayPlacement.IsSet;
             if (unavailableHost || unavailableDescriptor)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,

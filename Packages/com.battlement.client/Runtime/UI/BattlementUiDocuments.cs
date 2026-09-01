@@ -27,6 +27,7 @@ namespace Battlement.UI
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiEventObserver eventObserver;
         private readonly BattlementUiLifecycleEvents lifecycleEvents;
+        private readonly BattlementStickyCoordinator stickyCoordinator = new();
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiActions actions;
         private readonly BattlementUiTabControls tabControls;
@@ -121,6 +122,7 @@ namespace Battlement.UI
             {
                 eventObserver.Clear();
                 lifecycleEvents.Clear();
+                stickyCoordinator.Clear();
                 elements.Clear();
                 elementIds.Clear();
                 properties.Clear();
@@ -170,6 +172,7 @@ namespace Battlement.UI
                         );
                         tabControls.Insert(root, created);
                         logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
+                        ApplyStickyAfterAttachment(created);
                     }
                 }
                 lifecycleEvents.SetInputEnabled(true);
@@ -310,6 +313,7 @@ namespace Battlement.UI
             motionWorld.Clear();
             eventObserver.Clear();
             lifecycleEvents.Clear();
+            stickyCoordinator.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
             elementIds.Clear();
@@ -344,6 +348,7 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement parent = Require(command.ParentId);
             RequireContainer(parent, command.ParentId);
             ValidatePlacement(command.Node.Element, parent);
+            ValidateStickySubtree(command.Node, HasScrollAncestor(parent));
             if (
                 parent is UnityEngine.UIElements.ToggleButtonGroup
                 && logicalChildren[command.ParentId.Value].Count >= 64
@@ -375,6 +380,8 @@ namespace Battlement.UI
                 choiceControls.BeginHierarchyMutation(command.ParentId);
                 InsertNativeChild(parent, created, command.ChildIndex is null ? null : index);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
+                ApplyStickyAfterAttachment(created);
+                RefreshStickyOrdinals();
                 choiceControls.Insert(
                     command.ParentId,
                     index,
@@ -402,6 +409,7 @@ namespace Battlement.UI
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
                     ValidateLayoutUpdate(target, properties.Element);
+                    ValidateStickyUpdate(target, properties.ObjectId, properties.Element);
                     BattlementUiElementProperties.Validate(
                         properties.Element,
                         allowUsageHints: false
@@ -427,6 +435,7 @@ namespace Battlement.UI
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     BattlementGridItems.Apply(target, properties.Element.GridItem);
                     BattlementStackItems.Apply(target, properties.Element.StackItem);
+                    BattlementStickyItems.Apply(target, properties.Element.Sticky);
                     if (
                         target is BattlementLayoutContainer layout
                         && properties.Element is UiElement.Flex flex
@@ -443,6 +452,11 @@ namespace Battlement.UI
                     )
                         stackLayout.ApplyStack(stack);
                     RefreshParentLayout(properties.ObjectId.Value);
+                    stickyCoordinator.Apply(
+                        target,
+                        properties.Element.Sticky,
+                        SourceOrdinal(target)
+                    );
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     textFieldControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -494,6 +508,7 @@ namespace Battlement.UI
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
             int removedIndex = logicalChildren[parentId].IndexOf(command.ObjectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
+            stickyCoordinator.PrepareHierarchyChange(target);
             RemoveNativeChild(elements[parentId], target);
             logicalChildren[parentId].Remove(command.ObjectId.Value);
             choiceControls.Remove(
@@ -503,6 +518,7 @@ namespace Battlement.UI
             );
             foreach (Guid id in removed)
                 RemoveIdentity(id);
+            RefreshStickyOrdinals();
             releaseIdentities?.Invoke(removed);
             eventObserver.Clear();
         }
@@ -661,6 +677,7 @@ namespace Battlement.UI
             properties.ApplyElement(value, node.ObjectId, node.Element);
             BattlementGridItems.Apply(value, node.Element.GridItem);
             BattlementStackItems.Apply(value, node.Element.StackItem);
+            BattlementStickyItems.Apply(value, node.Element.Sticky);
             if (value is BattlementLayoutContainer layout && node.Element is UiElement.Flex flex)
                 layout.ApplyFlex(flex);
             if (
@@ -692,6 +709,7 @@ namespace Battlement.UI
                     null
                 );
                 logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
+                ApplyStickyAfterAttachment(elements[child.ObjectId.Value]);
             }
             if (node.Element is UiElement.TabView tabView)
                 tabControls.Initialize(
@@ -897,6 +915,11 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement parent = Require(parentId);
             RequireContainer(parent, parentId);
             ValidatePlacement(target, parent);
+            if (BattlementStickyItems.HasAuthored(target) && !HasScrollAncestor(parent))
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires a physical ScrollView ancestor."
+                );
             Guid oldParent =
                 parentIds[objectId.Value]
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
@@ -926,11 +949,14 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             choiceControls.BeginHierarchyMutation(new ObjectId(oldParent));
             choiceControls.BeginHierarchyMutation(parentId);
+            stickyCoordinator.PrepareHierarchyChange(target);
             RemoveNativeChild(elements[oldParent], target);
             InsertNativeChild(parent, target, newIndex);
             logicalChildren[oldParent].Remove(objectId.Value);
             logicalChildren[parentId.Value].Insert(newIndex, objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
+            ApplyStickyAfterAttachment(target);
+            RefreshStickyOrdinals();
             if (oldParent == parentId.Value)
                 choiceControls.Reorder(parentId, oldIndex, newIndex);
             else
@@ -964,6 +990,7 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
+            stickyCoordinator.PrepareHierarchyChange(target);
             if (parent is BattlementLayoutContainer layout)
                 layout.Adapter.Reindex(target, index);
             else if (parent is UnityEngine.UIElements.TabView tabView)
@@ -975,6 +1002,8 @@ namespace Battlement.UI
             }
             logicalChildren[parentId].Remove(objectId.Value);
             logicalChildren[parentId].Insert(index, objectId.Value);
+            ApplyStickyAfterAttachment(target);
+            RefreshStickyOrdinals();
             choiceControls.Reorder(new ObjectId(parentId), previousIndex, index);
         }
 
@@ -1015,7 +1044,100 @@ namespace Battlement.UI
             {
                 layout.FlexLayout?.Refresh();
                 layout.GridLayout?.Invalidate();
+                layout.StackLayout?.Invalidate();
             }
+        }
+
+        private void ApplyStickyAfterAttachment(UnityEngine.UIElements.VisualElement target)
+        {
+            if (!BattlementStickyItems.HasAuthored(target))
+                return;
+            stickyCoordinator.Apply(
+                target,
+                Prop<Sticky>.Set(BattlementStickyItems.Get(target)),
+                SourceOrdinal(target)
+            );
+        }
+
+        private void RefreshStickyOrdinals() => stickyCoordinator.RefreshOrdinals(SourceOrdinal);
+
+        private int SourceOrdinal(UnityEngine.UIElements.VisualElement target)
+        {
+            if (!elementIds.TryGetValue(target, out Guid targetId))
+                return int.MaxValue;
+            Guid root = documentRoots[targetId];
+            int ordinal = 0;
+            return FindOrdinal(root, targetId, ref ordinal) ? ordinal : int.MaxValue;
+        }
+
+        private bool FindOrdinal(Guid current, Guid target, ref int ordinal)
+        {
+            foreach (Guid child in logicalChildren[current])
+            {
+                if (child == target)
+                    return true;
+                ordinal++;
+                if (FindOrdinal(child, target, ref ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        private void ValidateStickyUpdate(
+            UnityEngine.UIElements.VisualElement target,
+            ObjectId objectId,
+            UiElement value
+        )
+        {
+            bool remainsSticky =
+                value.Sticky.IsSet
+                || (value.Sticky.IsUnset && BattlementStickyItems.HasAuthored(target));
+            if (!remainsSticky)
+                return;
+            Guid parentId =
+                parentIds[objectId.Value]
+                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            if (!HasScrollAncestor(elements[parentId]))
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires a physical ScrollView ancestor."
+                );
+            bool absolute =
+                value.Style?.Position.IsSet == true
+                    ? value.Style.Position.Value.Keyword is null
+                        && value.Style.Position.Value.Value == UiPosition.Absolute
+                    : target.style.position.value == Position.Absolute;
+            if (absolute)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires relative positioning."
+                );
+        }
+
+        private static void ValidateStickySubtree(UiNode node, bool hasScrollAncestor)
+        {
+            if (node.Element.Sticky.IsSet && !hasScrollAncestor)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires a physical ScrollView ancestor."
+                );
+            bool descendantsHaveScroll = hasScrollAncestor || node.Element is UiElement.ScrollView;
+            foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+                ValidateStickySubtree(child, descendantsHaveScroll);
+        }
+
+        private static bool HasScrollAncestor(UnityEngine.UIElements.VisualElement value)
+        {
+            for (
+                UnityEngine.UIElements.VisualElement? current = value;
+                current is not null;
+                current = current.parent
+            )
+            {
+                if (current is UnityEngine.UIElements.ScrollView)
+                    return true;
+            }
+            return false;
         }
 
         private int DepthOf(Guid objectId)
@@ -1129,6 +1251,11 @@ namespace Battlement.UI
                 );
             if (parentIsStack)
                 ValidateNativeLayoutStyle(child, "Stack");
+            if (BattlementStickyItems.HasAuthored(child) && !HasScrollAncestor(parent))
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Sticky requires a physical ScrollView ancestor."
+                );
         }
 
         private static void ValidateLayoutUpdate(
@@ -1253,6 +1380,7 @@ namespace Battlement.UI
         {
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
             {
+                stickyCoordinator.Remove(value);
                 if (value is BattlementLayoutContainer layout)
                     layout.Adapter.Clear();
                 actions.Remove(new ObjectId(objectId), value);

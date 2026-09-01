@@ -157,7 +157,7 @@ namespace Battlement.UI
                 throw new ArgumentOutOfRangeException(nameof(index));
             RequireUnattached(child);
             directChildren.Insert(index, child);
-            slots.Add(child, new BattlementLayoutSlot(child));
+            slots.Add(child, new BattlementLayoutSlot(child, owner));
             PresentLogicalOrder();
             markDirty();
         }
@@ -166,7 +166,7 @@ namespace Battlement.UI
         {
             RequireUnattached(child);
             portalChildren.Add(new PortalChild(child, source));
-            slots.Add(child, new BattlementLayoutSlot(child));
+            slots.Add(child, new BattlementLayoutSlot(child, owner));
             PresentLogicalOrder();
             markDirty();
         }
@@ -286,16 +286,25 @@ namespace Battlement.UI
 
     internal sealed class BattlementLayoutSlot : VisualElement
     {
-        public BattlementLayoutSlot(VisualElement host)
+        public BattlementLayoutSlot(VisualElement host, VisualElement containingBlock)
         {
             Host = host;
+            ContainingBlock = containingBlock;
             focusable = false;
             pickingMode = PickingMode.Ignore;
             tabIndex = -1;
             hierarchy.Add(host);
         }
 
+        public VisualElement ContainingBlock { get; }
+
         public VisualElement Host { get; }
+
+        public void AttachHost()
+        {
+            if (Host.parent != this)
+                hierarchy.Add(Host);
+        }
 
         public void DetachHost()
         {

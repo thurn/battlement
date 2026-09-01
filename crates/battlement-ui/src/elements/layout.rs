@@ -251,6 +251,83 @@ pub struct Sticky {
   pub order: i32,
 }
 
+impl Sticky {
+  /// Creates leading-edge vertical sticky placement.
+  #[must_use]
+  pub fn top(value: f32) -> Self {
+    Self {
+      top: Some(value),
+      ..Self::default()
+    }
+  }
+
+  /// Creates trailing-edge horizontal sticky placement.
+  #[must_use]
+  pub fn right(value: f32) -> Self {
+    Self {
+      right: Some(value),
+      ..Self::default()
+    }
+  }
+
+  /// Creates trailing-edge vertical sticky placement.
+  #[must_use]
+  pub fn bottom(value: f32) -> Self {
+    Self {
+      bottom: Some(value),
+      ..Self::default()
+    }
+  }
+
+  /// Creates leading-edge horizontal sticky placement.
+  #[must_use]
+  pub fn left(value: f32) -> Self {
+    Self {
+      left: Some(value),
+      ..Self::default()
+    }
+  }
+
+  /// Adds a top inset to a horizontally constrained descriptor.
+  #[must_use]
+  pub fn with_top(mut self, value: f32) -> Self {
+    assert!(self.top.is_none() && self.bottom.is_none());
+    self.top = Some(value);
+    self
+  }
+
+  /// Adds a right inset to a vertically constrained descriptor.
+  #[must_use]
+  pub fn with_right(mut self, value: f32) -> Self {
+    assert!(self.left.is_none() && self.right.is_none());
+    self.right = Some(value);
+    self
+  }
+
+  /// Adds a bottom inset to a horizontally constrained descriptor.
+  #[must_use]
+  pub fn with_bottom(mut self, value: f32) -> Self {
+    assert!(self.top.is_none() && self.bottom.is_none());
+    self.bottom = Some(value);
+    self
+  }
+
+  /// Adds a left inset to a vertically constrained descriptor.
+  #[must_use]
+  pub fn with_left(mut self, value: f32) -> Self {
+    assert!(self.left.is_none() && self.right.is_none());
+    self.left = Some(value);
+    self
+  }
+
+  /// Sets presentation order among sticky items in one ScrollView.
+  #[must_use]
+  pub const fn order(mut self, value: i32) -> Self {
+    self.order = value;
+    self
+  }
+}
+
 /// Overlay presentation tier.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum OverlayLayer {

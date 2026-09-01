@@ -472,7 +472,7 @@ size of contributing layers to a flex parent.
 - Run existing event-routing and focus suites to detect logical-order changes.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 7: Same-frame sticky positioning
+## Task 7 [DONE]: Same-frame sticky positioning
 
 **Prerequisites:** Tasks 2, 3, 5, and 6 `[DONE]`.
 

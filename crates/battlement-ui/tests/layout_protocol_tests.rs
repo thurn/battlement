@@ -326,3 +326,58 @@ fn sticky_rejects_stack_and_overlay_placement_combinations() {
     );
   }
 }
+
+#[test]
+fn sticky_builders_accept_only_orthogonal_edges() {
+  assert_eq!(
+    Sticky::top(-2.0).with_left(3.0).order(7),
+    Sticky {
+      top: Some(-2.0),
+      right: None,
+      bottom: None,
+      left: Some(3.0),
+      order: 7,
+    }
+  );
+  assert_eq!(
+    Sticky::right(4.0).with_bottom(5.0),
+    Sticky {
+      top: None,
+      right: Some(4.0),
+      bottom: Some(5.0),
+      left: None,
+      order: 0,
+    }
+  );
+  assert!(std::panic::catch_unwind(|| Sticky::top(0.0).with_bottom(1.0)).is_err());
+  assert!(std::panic::catch_unwind(|| Sticky::left(0.0).with_right(1.0)).is_err());
+}
+
+#[test]
+fn sticky_requires_scroll_ancestry_and_normal_flow_positioning() {
+  let sticky = UiVisualElement {
+    sticky: Prop::Set(Sticky::top(0.0)),
+    ..UiVisualElement::new()
+  };
+  let outside =
+    UiDocument::new(ObjectId::new_v4()).child(UiNode::new(ObjectId::new_v4(), sticky.clone()));
+  assert_eq!(
+    battlement_ui::validate_documents(&[outside]),
+    Err(UiValidationError::InvalidProperty)
+  );
+
+  let inside = UiDocument::new(ObjectId::new_v4()).child(
+    UiNode::new(ObjectId::new_v4(), battlement_ui::UiScrollView::new())
+      .child(UiNode::new(ObjectId::new_v4(), sticky)),
+  );
+  assert!(battlement_ui::validate_documents(&[inside]).is_ok());
+
+  assert_eq!(
+    validate_element_state(&UiElement::from(UiVisualElement {
+      sticky: Prop::Set(Sticky::left(0.0)),
+      style: Style::new().position(Position::Absolute),
+      ..UiVisualElement::new()
+    })),
+    Err(UiValidationError::InvalidProperty)
+  );
+}

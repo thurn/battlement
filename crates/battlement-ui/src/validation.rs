@@ -52,7 +52,7 @@ pub fn validate_documents(
     }
     validate_visual(&document.element)?;
     for child in &document.children {
-      validate_node(child, &mut identities, 1, None, false)?;
+      validate_node(child, &mut identities, 1, None, false, false)?;
     }
   }
   Ok(identities)
@@ -70,7 +70,7 @@ pub fn validate_documents(
 /// subtree.
 pub fn validate_create_subtree(node: &UiNode) -> Result<HashSet<ObjectId>, UiValidationError> {
   let mut identities = HashSet::new();
-  validate_node(node, &mut identities, 0, None, true)?;
+  validate_node(node, &mut identities, 0, None, true, false)?;
   Ok(identities)
 }
 
@@ -191,6 +191,7 @@ fn validate_node(
   depth: usize,
   parent_kind: Option<crate::UiElementKind>,
   unplaced_root: bool,
+  has_scroll_ancestor: bool,
 ) -> Result<(), UiValidationError> {
   insert_identity(identities, node.object_id)?;
   if depth > MAXIMUM_HIERARCHY_DEPTH || node.children.len() > MAXIMUM_IDENTITIES {
@@ -218,6 +219,12 @@ fn validate_node(
   }
   let kind = node.element.kind();
   validate_layout_context(node, parent_kind, unplaced_root)?;
+  if matches!(node.element.visual_element().sticky, Prop::Set(_))
+    && !has_scroll_ancestor
+    && !unplaced_root
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
   if parent_kind == Some(crate::UiElementKind::TabView) && kind != crate::UiElementKind::Tab {
     return Err(UiValidationError::InvalidHierarchy);
   }
@@ -252,7 +259,14 @@ fn validate_node(
     return Err(UiValidationError::InvalidReference);
   }
   for child in &node.children {
-    validate_node(child, identities, depth + 1, Some(kind), false)?;
+    validate_node(
+      child,
+      identities,
+      depth + 1,
+      Some(kind),
+      false,
+      has_scroll_ancestor || kind == crate::UiElementKind::ScrollView,
+    )?;
   }
   Ok(())
 }
@@ -371,6 +385,14 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
   if has_sticky
     && (matches!(visual.stack_item, Prop::Set(_))
       || matches!(visual.overlay_placement, Prop::Set(_)))
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  if has_sticky
+    && matches!(
+      visual.style.position,
+      Prop::Set(StyleValue::Value(Position::Absolute))
+    )
   {
     return Err(UiValidationError::InvalidProperty);
   }

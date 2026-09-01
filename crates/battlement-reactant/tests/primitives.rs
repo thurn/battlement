@@ -213,7 +213,8 @@ fn common_facades_lower_layout_item_descriptors() {
         .align_items(Align::Center)
         .justify_items(Align::FlexEnd)
         .child(battlement_reactant::host::Button::new("stack").stack_item(stack_item)),
-      battlement_reactant::host::Label::new("sticky").sticky(sticky),
+      battlement_reactant::host::ScrollView::new()
+        .child(battlement_reactant::host::Label::new("sticky").sticky(sticky)),
       battlement_reactant::host::Box::new().overlay_placement(rendered_overlay.clone()),
     )
   });
@@ -242,7 +243,7 @@ fn common_facades_lower_layout_item_descriptors() {
   assert_eq!(stack.align_items, Prop::Set(Align::Center));
   assert_eq!(stack.justify_items, Prop::Set(Align::FlexEnd));
   assert_eq!(
-    children[2].element.visual_element().sticky,
+    children[2].children[0].element.visual_element().sticky,
     Prop::Set(sticky)
   );
   assert_eq!(
