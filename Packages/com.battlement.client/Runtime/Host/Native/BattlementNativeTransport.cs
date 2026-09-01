@@ -30,8 +30,6 @@ namespace Battlement
             owningThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
-        public BattlementTransportKind Kind => BattlementTransportKind.Native;
-
         /// <summary>The plugin filename required on the current Unity target.</summary>
         public static string RequiredPluginName
         {

@@ -1,6 +1,5 @@
 #nullable enable
 
-using System;
 using UnityEngine;
 
 namespace Battlement
@@ -26,7 +25,7 @@ namespace Battlement
             BattlementRunner runner = GetComponent<BattlementRunner>();
             runner.Configure(
                 new BattlementRunnerOptions(
-                    Transport(runner),
+                    new BattlementNativeTransport(),
                     new BattlementAddressablesAssetStorage(),
                     BattlementJson.Instance
                 )
@@ -39,15 +38,5 @@ namespace Battlement
 #endif
             runner.Connect();
         }
-
-        private static IBattlementTransport Transport(BattlementRunner runner) =>
-            runner.TransportKind switch
-            {
-                BattlementTransportKind.Native => new BattlementNativeTransport(),
-                BattlementTransportKind.Http => new BattlementHttpTransport(
-                    runner.HttpTransport.BaseUrl
-                ),
-                _ => throw new ArgumentOutOfRangeException(nameof(runner)),
-            };
     }
 }

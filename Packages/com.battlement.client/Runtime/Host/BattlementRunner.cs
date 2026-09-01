@@ -25,15 +25,6 @@ namespace Battlement
             IBattlementGeometryWorldSource
     {
         [SerializeField]
-        private BattlementTransportKind transportKind;
-
-        [SerializeField]
-        private BattlementNativeTransportConfiguration nativeTransport = new();
-
-        [SerializeField]
-        private BattlementHttpTransportConfiguration httpTransport = new();
-
-        [SerializeField]
         private bool showLoadingSurface = true;
 
         [SerializeField]
@@ -81,12 +72,6 @@ namespace Battlement
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
-
-        public BattlementTransportKind TransportKind => transportKind;
-
-        public BattlementNativeTransportConfiguration NativeTransport => nativeTransport;
-
-        public BattlementHttpTransportConfiguration HttpTransport => httpTransport;
 
         /// <summary>Whether Battlement renders its built-in loading and failure surface.</summary>
         public bool ShowLoadingSurface => showLoadingSurface;
@@ -1270,7 +1255,6 @@ namespace Battlement
 
         private Connect BuildConnect(BattlementRunnerOptions configured)
         {
-            bool native = configured.Transport.Kind == BattlementTransportKind.Native;
             var commandTypes = new SortedSet<string>(
                 configured.CustomCommandTypes,
                 StringComparer.Ordinal
@@ -1285,8 +1269,8 @@ namespace Battlement
                 Application.unityVersion,
                 new ScreenSize(checked((uint)Screen.width), checked((uint)Screen.height)),
                 new List<string>(commandTypes),
-                native ? Path.GetFullPath(Application.persistentDataPath) : null,
-                native ? Path.GetFullPath(Application.streamingAssetsPath) : null,
+                Path.GetFullPath(Application.persistentDataPath),
+                Path.GetFullPath(Application.streamingAssetsPath),
                 modules!.ModuleIds
             );
         }

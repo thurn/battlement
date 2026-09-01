@@ -20,7 +20,6 @@ namespace Battlement.Tests
             Scene scene,
             GameObject hostObject,
             BattlementRunner runner,
-            BattlementTransportKind transportKind,
             bool useInstantAnimations,
             IEnumerable<string>? customCommandTypes,
             IBattlementProtocolCodec? protocolCodec,
@@ -33,7 +32,6 @@ namespace Battlement.Tests
             this.hostObject = hostObject;
             Runner = runner;
             Transport = new FakeBattlementTransport();
-            Transport.Kind = transportKind;
             AssetStorage = new FakeBattlementAssetStorage();
             Clock = new FakeBattlementClock();
             Logger = new FakeBattlementLogger();
@@ -70,7 +68,6 @@ namespace Battlement.Tests
         public IBattlementErrorSink ErrorSink { get; }
 
         public static BattlementTestHarness Create(
-            BattlementTransportKind transportKind = BattlementTransportKind.Native,
             bool useInstantAnimations = true,
             IEnumerable<string>? customCommandTypes = null,
             IBattlementProtocolCodec? protocolCodec = null,
@@ -91,7 +88,6 @@ namespace Battlement.Tests
                 scene,
                 hostObject,
                 runner,
-                transportKind,
                 useInstantAnimations,
                 customCommandTypes,
                 protocolCodec,
@@ -138,8 +134,6 @@ namespace Battlement.Tests
         private readonly Queue<BattlementTransportResult> connectResults = new();
         private readonly Queue<BattlementTransportResult> submitResults = new();
         private readonly Queue<BattlementTransportResult> pollResults = new();
-
-        public BattlementTransportKind Kind { get; set; } = BattlementTransportKind.Native;
 
         public List<string> Calls { get; } = new();
 

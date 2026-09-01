@@ -20,7 +20,7 @@ static SUBMIT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static CONNECT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static NEXT_ENGINE_ID: AtomicUsize = AtomicUsize::new(1);
 
-/// Stateful fixture used by both the exported ABI and loopback HTTP server.
+/// Stateful fixture exposed through the native plugin ABI.
 pub struct FixtureEngine {
   engine_id: usize,
   mode: String,

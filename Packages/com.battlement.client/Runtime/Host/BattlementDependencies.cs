@@ -9,11 +9,6 @@ namespace Battlement
     /// <summary>A rules-engine transport owned by one <see cref="BattlementRunner"/>.</summary>
     public interface IBattlementTransport : IDisposable
     {
-        /// <summary>
-        /// Gets the transport kind used to shape environment-specific connect data.
-        /// </summary>
-        BattlementTransportKind Kind { get; }
-
         /// <summary>Starts a new transport session.</summary>
         BattlementTransportResult Connect(ReadOnlyMemory<byte> json);
 

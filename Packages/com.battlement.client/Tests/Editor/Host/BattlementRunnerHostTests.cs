@@ -23,10 +23,6 @@ namespace Battlement.Tests
 
             try
             {
-                Assert.That(runner.TransportKind, Is.EqualTo(BattlementTransportKind.Native));
-                Assert.That(runner.NativeTransport.LibraryName, Is.EqualTo("battlement_rules"));
-                Assert.That(runner.HttpTransport.BaseUrl, Is.EqualTo("http://127.0.0.1:8080"));
-
                 runner.Connect();
                 harness.Clock.Advance(TimeSpan.FromTicks(125_000));
                 runner.RunFrame();
@@ -142,23 +138,6 @@ namespace Battlement.Tests
                 Is.EqualTo(Absolute(Application.streamingAssetsPath))
             );
             Assert.That(harness.Runner.IsInputAvailable, Is.False);
-        }
-
-        [Test]
-        public void HttpConnectOmitsLocalPathsAndEnablesInputAfterSnapshot()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                BattlementTransportKind.Http
-            );
-
-            harness.Runner.Connect();
-
-            Connect connect = BattlementJson.DeserializeConnect(
-                harness.Transport.ConnectMessages.Single()
-            );
-            Assert.That(connect.PersistentDataPath, Is.Null);
-            Assert.That(connect.StreamingAssetsPath, Is.Null);
-            Assert.That(harness.Runner.IsInputAvailable, Is.True);
         }
 
         [Test]

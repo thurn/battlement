@@ -162,9 +162,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fdc695ec6b9a4ec49e7bf8a50f4f3bc4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Battlement.Runtime::Battlement.BattlementRunner
-  transportKind: 0
-  httpTransport:
-    baseUrl: http://127.0.0.1:8080
 --- !u!4 &1619549856
 Transform:
   m_ObjectHideFlags: 0

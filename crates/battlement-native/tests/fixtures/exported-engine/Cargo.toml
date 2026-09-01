@@ -8,10 +8,6 @@ publish = false
 name = "battlement_rules"
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "battlement-release-http-fixture"
-path = "src/release_http_fixture.rs"
-
 [dependencies]
 battlement = { path = "../../../../battlement" }
 battlement-native = { path = "../../.." }

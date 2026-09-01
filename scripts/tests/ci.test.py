@@ -31,6 +31,7 @@ def main() -> None:
         _verify_parallel_sample_target_isolation(root)
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
+        _verify_unity_project_regeneration(root)
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -181,6 +182,17 @@ def _verify_ditto_gate_contract() -> None:
     commands = [command for _name, command, _environment in steps]
     assert commands == [[sys.executable, "scripts/ditto_ci.py", "gate"]]
     assert steps[0][2]["DITTO_CI_REUSABLE_BUILD_SECONDS"] == "1.25"
+
+
+def _verify_unity_project_regeneration(root: Path) -> None:
+    ci.REPOSITORY_ROOT = root
+    project = root / "Assembly-CSharp-Editor.csproj"
+    with patch.object(ci, "run_with_unity_lease") as run:
+        ci.ensure_unity_project_files()
+        run.assert_called_once_with(ci.run_unity_edit_mode_tests)
+        project.touch()
+        ci.ensure_unity_project_files()
+        run.assert_called_once_with(ci.run_unity_edit_mode_tests)
 
 
 def _workspace(root: Path) -> None:

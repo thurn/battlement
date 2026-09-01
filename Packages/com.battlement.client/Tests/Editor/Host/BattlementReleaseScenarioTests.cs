@@ -42,12 +42,7 @@ namespace Battlement.Tests
             {
                 foreach (ReleaseScenarioCase scenario in ScenarioCorpus)
                 {
-                    yield return new TestCaseData(scenario, BattlementTransportKind.Native).SetName(
-                        $"Release_{scenario.Name}_Native"
-                    );
-                    yield return new TestCaseData(scenario, BattlementTransportKind.Http).SetName(
-                        $"Release_{scenario.Name}_Http"
-                    );
+                    yield return new TestCaseData(scenario).SetName($"Release_{scenario.Name}");
                 }
             }
         }
@@ -67,20 +62,14 @@ namespace Battlement.Tests
         }
 
         [TestCaseSource(nameof(Cases))]
-        public void SharedCorpusRunsThroughProductionTransport(
-            ReleaseScenarioCase scenario,
-            BattlementTransportKind transportKind
-        )
+        public void SharedCorpusRunsThroughNativePlugin(ReleaseScenarioCase scenario)
         {
-            using (var host = ReleaseScenarioHost.Create(scenario.Name, transportKind))
+            using (var host = ReleaseScenarioHost.Create(scenario.Name))
             {
                 scenario.Run(host, mouse!);
             }
 
-            if (transportKind == BattlementTransportKind.Native)
-            {
-                Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
-            }
+            Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
         }
 
         private static void RunBatchFailures(ReleaseScenarioHost host, Mouse mouse)
@@ -346,10 +335,7 @@ namespace Battlement.Tests
 
         public RecordingProtocolCodec Codec { get; }
 
-        public static ReleaseScenarioHost Create(
-            string scenario,
-            BattlementTransportKind transportKind
-        )
+        public static ReleaseScenarioHost Create(string scenario)
         {
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -361,7 +347,7 @@ namespace Battlement.Tests
             return new ReleaseScenarioHost(
                 hostObject,
                 runner,
-                CreateTransport(transportKind),
+                new BattlementNativeTransport(),
                 scenario
             );
         }
@@ -381,19 +367,6 @@ namespace Battlement.Tests
             Object.DestroyImmediate(hostObject);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
-
-        private static IBattlementTransport CreateTransport(BattlementTransportKind kind) =>
-            kind switch
-            {
-                BattlementTransportKind.Native => new BattlementNativeTransport(),
-                BattlementTransportKind.Http => new BattlementHttpTransport(
-                    Environment.GetEnvironmentVariable("BATTLEMENT_RELEASE_FIXTURE_URL")
-                        ?? throw new InvalidOperationException(
-                            "BATTLEMENT_RELEASE_FIXTURE_URL is required for release scenarios."
-                        )
-                ),
-                _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-            };
     }
 
     internal sealed class RecordingProtocolCodec : IBattlementExtensionProtocolCodec

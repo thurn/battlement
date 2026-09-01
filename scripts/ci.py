@@ -393,7 +393,14 @@ def unity_analyzer_environment() -> dict[str, str]:
     return environment
 
 
+def ensure_unity_project_files() -> None:
+    """Generate Unity project files when an earlier test result came from cache."""
+    if not (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").is_file():
+        run_with_unity_lease(run_unity_edit_mode_tests)
+
+
 def check_dotnet_diagnostics() -> None:
+    ensure_unity_project_files()
     environment = unity_analyzer_environment()
     subprocess.run(
         ["dotnet", "restore", "battlement-ci.slnx"],
@@ -453,7 +460,6 @@ def run_unity_edit_mode_tests() -> None:
     project_file_state = {
         path: path.read_bytes() if path.is_file() else None for path in mutable_project_files
     }
-    http_fixture: subprocess.Popen[str] | None = None
     try:
         subprocess.run(
             [
@@ -474,20 +480,6 @@ def run_unity_edit_mode_tests() -> None:
                 value for value in (str(native_fixture), environment.get(variable)) if value
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
-        http_fixture = subprocess.Popen(
-            [str(native_fixture / executable_name("battlement-release-http-fixture"))],
-            cwd=REPOSITORY_ROOT,
-            stdout=subprocess.PIPE,
-            text=True,
-        )
-        if http_fixture.stdout is None:
-            raise RuntimeError("The release HTTP fixture did not expose stdout.")
-        fixture_url = readline_with_timeout(http_fixture.stdout, 5)
-        if fixture_url is None:
-            raise RuntimeError("The release HTTP fixture did not start within five seconds.")
-        environment["BATTLEMENT_RELEASE_FIXTURE_URL"] = fixture_url.strip()
-        if not environment["BATTLEMENT_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
-            raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
         assembly_names = (
             "Battlement.Integration.EditorTests;Battlement.EditorTests;"
             "Battlement.HostEditorTests"
@@ -541,13 +533,6 @@ def run_unity_edit_mode_tests() -> None:
                 "Unity's log did not preserve the expected Rust failure diagnostics."
             )
     finally:
-        if http_fixture is not None:
-            http_fixture.terminate()
-            try:
-                http_fixture.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                http_fixture.kill()
-                http_fixture.wait(timeout=5)
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)

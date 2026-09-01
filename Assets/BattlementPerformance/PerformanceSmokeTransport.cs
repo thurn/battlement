@@ -21,8 +21,6 @@ namespace Battlement.Performance
         );
         private static readonly SceneAddress SceneAddress = new("battlement/integration/scene");
 
-        public BattlementTransportKind Kind => BattlementTransportKind.Native;
-
         public int ClickCount { get; private set; }
 
         public BattlementTransportResult Connect(ReadOnlyMemory<byte> json) =>
