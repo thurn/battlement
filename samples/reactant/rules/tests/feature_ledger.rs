@@ -144,6 +144,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Resources & Boundaries",
       "State & Identity",
       "Targets & Timelines",
+      "Values, Time & Controls",
     ])
   );
 }

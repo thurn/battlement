@@ -344,6 +344,8 @@ impl Fixture {
             kind,
           }],
           samples: Vec::new(),
+          value_samples: Vec::new(),
+          playback_events: Vec::new(),
         },
       )
       .unwrap()

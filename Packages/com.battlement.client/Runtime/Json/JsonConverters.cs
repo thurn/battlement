@@ -915,7 +915,18 @@ namespace Battlement
             || type == typeof(InertiaTarget.NearestMultiple)
             || type == typeof(InertiaTarget.FloorMultiple)
             || type == typeof(InertiaTarget.CeilingMultiple)
-            || type == typeof(TransitionGenerator.Spring);
+            || type == typeof(TransitionGenerator.Spring)
+            || type == typeof(MotionExpressionOperation.Power)
+            || type == typeof(MotionExpressionOperation.Modulo)
+            || type == typeof(MotionValueSource.Time)
+            || type == typeof(MotionValueCommand.Set)
+            || type == typeof(MotionValueCommand.Jump)
+            || type == typeof(MotionControlTarget.Target)
+            || type == typeof(MotionControlTarget.Variant)
+            || type == typeof(MotionControlCommand.Set)
+            || type == typeof(MotionSelector.Element)
+            || type == typeof(MotionSelector.Name)
+            || type == typeof(MotionScopeCommand.Stop);
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
@@ -1102,6 +1113,58 @@ namespace Battlement
                     ("ClipInset", typeof(MotionValue.ClipInset)),
                     ("ClipPolygon", typeof(MotionValue.ClipPolygon)),
                     ("Discrete", typeof(MotionValue.Discrete))
+                ),
+                [typeof(MotionExpressionOperation)] = Fixed(
+                    ("Add", typeof(MotionExpressionOperation.Add)),
+                    ("Subtract", typeof(MotionExpressionOperation.Subtract)),
+                    ("Multiply", typeof(MotionExpressionOperation.Multiply)),
+                    ("Divide", typeof(MotionExpressionOperation.Divide)),
+                    ("Power", typeof(MotionExpressionOperation.Power)),
+                    ("SquareRoot", typeof(MotionExpressionOperation.SquareRoot)),
+                    ("Absolute", typeof(MotionExpressionOperation.Absolute)),
+                    ("Minimum", typeof(MotionExpressionOperation.Minimum)),
+                    ("Maximum", typeof(MotionExpressionOperation.Maximum)),
+                    ("Clamp", typeof(MotionExpressionOperation.Clamp)),
+                    ("Modulo", typeof(MotionExpressionOperation.Modulo)),
+                    ("Wrap", typeof(MotionExpressionOperation.Wrap)),
+                    ("ExponentialDecay", typeof(MotionExpressionOperation.ExponentialDecay)),
+                    ("Mix", typeof(MotionExpressionOperation.Mix))
+                ),
+                [typeof(MotionValueSource)] = Fixed(
+                    ("Mutable", typeof(MotionValueSource.Mutable)),
+                    ("Time", typeof(MotionValueSource.Time)),
+                    ("Velocity", typeof(MotionValueSource.Velocity)),
+                    ("Range", typeof(MotionValueSource.Range)),
+                    ("Spring", typeof(MotionValueSource.Spring)),
+                    ("Expression", typeof(MotionValueSource.Expression))
+                ),
+                [typeof(MotionValueCommand)] = Fixed(
+                    ("Set", typeof(MotionValueCommand.Set)),
+                    ("Jump", typeof(MotionValueCommand.Jump)),
+                    ("Stop", typeof(MotionValueCommand.Stop)),
+                    ("Animate", typeof(MotionValueCommand.Animate))
+                ),
+                [typeof(MotionControlTarget)] = Fixed(
+                    ("Target", typeof(MotionControlTarget.Target)),
+                    ("Variant", typeof(MotionControlTarget.Variant))
+                ),
+                [typeof(MotionControlCommand)] = Fixed(
+                    ("Start", typeof(MotionControlCommand.Start)),
+                    ("Set", typeof(MotionControlCommand.Set)),
+                    ("Stop", typeof(MotionControlCommand.Stop)),
+                    ("Clear", typeof(MotionControlCommand.Clear))
+                ),
+                [typeof(MotionSelector)] = Fixed(
+                    ("Element", typeof(MotionSelector.Element)),
+                    ("Name", typeof(MotionSelector.Name)),
+                    ("ScopeRoot", typeof(MotionSelector.ScopeRoot)),
+                    ("Children", typeof(MotionSelector.Children)),
+                    ("Descendants", typeof(MotionSelector.Descendants))
+                ),
+                [typeof(MotionScopeCommand)] = Fixed(
+                    ("Start", typeof(MotionScopeCommand.Start)),
+                    ("Set", typeof(MotionScopeCommand.Set)),
+                    ("Stop", typeof(MotionScopeCommand.Stop))
                 ),
                 [typeof(MotionEasing)] = Fixed(
                     ("Linear", typeof(MotionEasing.Linear)),
@@ -1400,6 +1463,11 @@ namespace Battlement
                 ("ParticleSpawn", typeof(CommandBody.Particle.Spawn)),
                 ("AudioPlay", typeof(CommandBody.Audio.Play)),
                 ("AudioStop", typeof(CommandBody.Audio.Stop)),
+                ("AudioPause", typeof(CommandBody.Audio.Pause)),
+                ("AudioResume", typeof(CommandBody.Audio.Resume)),
+                ("AudioSeek", typeof(CommandBody.Audio.Seek)),
+                ("AudioSetBuffering", typeof(CommandBody.Audio.SetBuffering)),
+                ("AudioReplace", typeof(CommandBody.Audio.Replace)),
                 ("AudioSetVolume", typeof(CommandBody.Audio.SetVolume)),
                 ("AudioTweenVolume", typeof(CommandBody.Audio.TweenVolume)),
                 ("TimeWait", typeof(CommandBody.Time.Wait)),
@@ -1415,6 +1483,12 @@ namespace Battlement
                 ("VisualElementUpdate", typeof(CommandBody.VisualElement.Update)),
                 ("VisualElementDestroy", typeof(CommandBody.VisualElement.Destroy)),
                 ("VisualElementPerformAction", typeof(CommandBody.VisualElement.PerformAction)),
+                ("MotionValue", typeof(CommandBody.Motion.ValueCommand)),
+                ("MotionValuePlayback", typeof(CommandBody.Motion.ValuePlayback)),
+                ("MotionPlayback", typeof(CommandBody.Motion.Playback)),
+                ("MotionControlledClock", typeof(CommandBody.Motion.ControlledClock)),
+                ("MotionControl", typeof(CommandBody.Motion.Control)),
+                ("MotionScope", typeof(CommandBody.Motion.Scope)),
                 ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation)),
                 ("Diagnostics", typeof(CommandBody.Diagnostics))
             );

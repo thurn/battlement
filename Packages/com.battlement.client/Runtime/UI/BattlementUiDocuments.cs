@@ -50,7 +50,8 @@ namespace Battlement.UI
             Action<IReadOnlyList<Guid>>? reserveUiIdentities = null,
             Action<IReadOnlyList<Guid>>? releaseUiIdentities = null,
             IBattlementUiAssetLookup? assetLookup = null,
-            Func<TimeSpan>? now = null
+            Func<TimeSpan>? now = null,
+            Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null
         )
         {
             properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
@@ -78,7 +79,19 @@ namespace Battlement.UI
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             partProperties = new BattlementUiPartProperties(assetLookup);
             repeatControls = new BattlementUiRepeatControls(events, Route);
-            motionWorld = new BattlementMotionWorld(assetLookup: assetLookup);
+            motionWorld = new BattlementMotionWorld(
+                assetLookup: assetLookup,
+                audioTime: audioTime is null
+                    ? null
+                    : id =>
+                    {
+                        (TimeSpan elapsed, bool discontinuity) = audioTime(id);
+                        return new MotionClockSample(
+                            checked((ulong)(elapsed.TotalMilliseconds * 1000)),
+                            discontinuity
+                        );
+                    }
+            );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -185,6 +198,19 @@ namespace Battlement.UI
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
 
         internal MotionEventBatch? TakeMotionEvents() => motionWorld.DrainEventBatch();
+
+        internal void Apply(MotionValueOperation operation) => motionWorld.Apply(operation);
+
+        internal void Apply(MotionValuePlaybackOperation operation) => motionWorld.Apply(operation);
+
+        internal void Apply(MotionPlaybackOperation operation) => motionWorld.Apply(operation);
+
+        internal void Apply(MotionControlledClockOperation operation) =>
+            motionWorld.Apply(operation);
+
+        internal void Apply(MotionControlOperation operation) => motionWorld.Apply(operation);
+
+        internal void Apply(MotionScopeOperation operation) => motionWorld.Apply(operation);
 
         internal bool TryFindNearestId(
             UnityEngine.UIElements.VisualElement? element,

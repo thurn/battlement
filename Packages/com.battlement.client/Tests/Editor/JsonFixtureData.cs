@@ -325,9 +325,19 @@ namespace Battlement.Tests
                     return 3;
                 }
 
+                if (type == typeof(long))
+                {
+                    return 3L;
+                }
+
                 if (type == typeof(uint))
                 {
                     return 3u;
+                }
+
+                if (type == typeof(ulong))
+                {
+                    return 3ul;
                 }
 
                 if (type == typeof(byte))
@@ -395,9 +405,13 @@ namespace Battlement.Tests
                     return Create(concreteType);
                 }
 
-                ConstructorInfo constructor = type.GetConstructors()
-                    .OrderBy(candidate => candidate.GetParameters().Length)
-                    .First();
+                ConstructorInfo constructor =
+                    type.GetConstructors()
+                        .OrderBy(candidate => candidate.GetParameters().Length)
+                        .FirstOrDefault()
+                    ?? throw new InvalidOperationException(
+                        $"Could not find a public constructor for {type}."
+                    );
                 return constructor.Invoke(
                         constructor
                             .GetParameters()

@@ -3,12 +3,14 @@
 use battlement::{
   MotionColor, MotionFilter, MotionGradient, MotionLength, MotionProperty, MotionPropertyTrack,
   MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionShadow, MotionTargetDescriptor,
-  MotionTransform, MotionValue, SpringConfiguration, StepPosition, TransitionDefinition,
+  MotionTransform, MotionValue, ObjectId, SpringConfiguration, StepPosition, TransitionDefinition,
   TransitionGenerator, Visibility,
 };
 
 use crate::{
+  animation_controls::{AnimationControls, AnimationScope},
   motion_lifecycle::MotionCallbacks,
+  motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
   variant_map::{ErasedVariantData, ErasedVariantSelection, ErasedVariants},
 };
@@ -50,6 +52,10 @@ pub struct MotionProps {
   pub(crate) inherit_variants: bool,
   pub(crate) callbacks: MotionCallbacks,
   pub(crate) css: crate::motion_css::CssProps,
+  pub(crate) control_id: Option<ObjectId>,
+  pub(crate) scope_id: Option<ObjectId>,
+  pub(crate) scope_root: bool,
+  pub(crate) motion_name: Option<String>,
 }
 
 /// A concrete or disabled mount origin.
@@ -152,6 +158,7 @@ pub(crate) struct MotionStyleEntry {
   pub(crate) property: MotionProperty,
   pub(crate) values: Vec<MotionValue>,
   pub(crate) times: Option<Vec<f64>>,
+  pub(crate) binding: Option<ErasedMotionValue>,
 }
 
 impl<T> Keyframes<T> {
@@ -209,6 +216,12 @@ impl MotionStyle {
     self.scalar_keyframes(MotionProperty::Opacity, value)
   }
 
+  /// Binds opacity to a stable Unity-local motion value.
+  #[must_use]
+  pub fn opacity_value(self, value: TypedMotionValue<f32>) -> Self {
+    self.bind(MotionProperty::Opacity, value.erase())
+  }
+
   /// Sets horizontal translation in panel pixels.
   #[must_use]
   pub fn x(self, value: f32) -> Self {
@@ -221,6 +234,18 @@ impl MotionStyle {
     self.length_keyframes(MotionProperty::X, map_keyframes(value, MotionLength::px))
   }
 
+  /// Binds horizontal translation to a scalar pixel motion value.
+  #[must_use]
+  pub fn x_value(self, value: TypedMotionValue<f32>) -> Self {
+    self.bind(MotionProperty::X, value.erase())
+  }
+
+  /// Binds horizontal translation to a typed length value.
+  #[must_use]
+  pub fn x_length_value(self, value: TypedMotionValue<MotionLength>) -> Self {
+    self.bind(MotionProperty::X, value.erase())
+  }
+
   /// Sets vertical translation in panel pixels.
   #[must_use]
   pub fn y(self, value: f32) -> Self {
@@ -231,6 +256,12 @@ impl MotionStyle {
   #[must_use]
   pub fn y_keyframes(self, value: Keyframes<f32>) -> Self {
     self.length_keyframes(MotionProperty::Y, map_keyframes(value, MotionLength::px))
+  }
+
+  /// Binds vertical translation to a scalar pixel motion value.
+  #[must_use]
+  pub fn y_value(self, value: TypedMotionValue<f32>) -> Self {
+    self.bind(MotionProperty::Y, value.erase())
   }
 
   /// Sets two-axis scale.
@@ -246,6 +277,12 @@ impl MotionStyle {
       MotionProperty::Scale,
       map_keyframes(value, |value| [value, value]),
     )
+  }
+
+  /// Binds uniform scale to a scalar motion value.
+  #[must_use]
+  pub fn scale_value(self, value: TypedMotionValue<f32>) -> Self {
+    self.bind(MotionProperty::Scale, value.erase())
   }
 
   /// Sets horizontal scale.
@@ -290,10 +327,34 @@ impl MotionStyle {
     self.color_keyframes(MotionProperty::BackgroundColor, value)
   }
 
+  /// Binds background color to a color motion value.
+  #[must_use]
+  pub fn background_color_value(self, value: TypedMotionValue<MotionColor>) -> Self {
+    self.bind(MotionProperty::BackgroundColor, value.erase())
+  }
+
   /// Sets text color.
   #[must_use]
   pub fn color(self, value: MotionColor) -> Self {
     self.color_property(MotionProperty::Color, value)
+  }
+
+  /// Binds text color to a color motion value.
+  #[must_use]
+  pub fn color_value(self, value: TypedMotionValue<MotionColor>) -> Self {
+    self.bind(MotionProperty::Color, value.erase())
+  }
+
+  /// Binds the ordered transform list to a native motion value.
+  #[must_use]
+  pub fn transform_list_value(self, value: TypedMotionValue<Vec<MotionTransform>>) -> Self {
+    self.bind(MotionProperty::TransformList, value.erase())
+  }
+
+  /// Binds the ordered filter list to a native motion value.
+  #[must_use]
+  pub fn filter_value(self, value: TypedMotionValue<Vec<MotionFilter>>) -> Self {
+    self.bind(MotionProperty::Filter, value.erase())
   }
 
   /// Sets panel-plane rotation in degrees.
@@ -524,6 +585,26 @@ impl MotionStyle {
       property,
       values,
       times,
+      binding: None,
+    };
+    if let Some(index) = self
+      .entries
+      .iter()
+      .position(|value| value.property == property)
+    {
+      self.entries[index] = entry;
+    } else {
+      self.entries.push(entry);
+    }
+    self
+  }
+
+  fn bind(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
+    let entry = MotionStyleEntry {
+      property,
+      values: Vec::new(),
+      times: None,
+      binding: Some(binding),
     };
     if let Some(index) = self
       .entries
@@ -542,6 +623,7 @@ impl MotionStyle {
       tracks: self
         .entries
         .iter()
+        .filter(|entry| entry.binding.is_none())
         .map(|entry| MotionPropertyTrack {
           property: entry.property,
           values: entry.values.clone(),
@@ -560,6 +642,7 @@ impl MotionStyle {
     self
       .entries
       .iter()
+      .filter(|entry| entry.binding.is_none())
       .map(|entry| MotionPropertyValue {
         property: entry.property,
         value: entry
@@ -569,6 +652,46 @@ impl MotionStyle {
           .clone(),
       })
       .collect()
+  }
+
+  pub(crate) fn value_bindings(&self) -> Vec<battlement::MotionValueBinding> {
+    self
+      .entries
+      .iter()
+      .filter_map(|entry| {
+        entry
+          .binding
+          .as_ref()
+          .map(|value| battlement::MotionValueBinding {
+            property: entry.property,
+            value_id: value.id(),
+          })
+      })
+      .collect()
+  }
+
+  pub(crate) fn graph_values(&self) -> Vec<battlement::MotionValueDescriptor> {
+    let mut values = Vec::new();
+    for binding in self
+      .entries
+      .iter()
+      .filter_map(|entry| entry.binding.as_ref())
+    {
+      binding.collect(&mut values);
+    }
+    values
+  }
+
+  pub(crate) fn value_subscriptions(&self) -> Vec<battlement::MotionValueSubscription> {
+    let mut subscriptions = Vec::new();
+    for binding in self
+      .entries
+      .iter()
+      .filter_map(|entry| entry.binding.as_ref())
+    {
+      binding.collect_subscriptions(&mut subscriptions);
+    }
+    subscriptions
   }
 }
 
@@ -614,6 +737,18 @@ impl MotionTarget {
     }
     target.transition_end = self.transition_end.values();
     target
+  }
+
+  pub(crate) fn value_bindings(&self) -> Vec<battlement::MotionValueBinding> {
+    self.style.value_bindings()
+  }
+
+  pub(crate) fn graph_values(&self) -> Vec<battlement::MotionValueDescriptor> {
+    self.style.graph_values()
+  }
+
+  pub(crate) fn value_subscriptions(&self) -> Vec<battlement::MotionValueSubscription> {
+    self.style.value_subscriptions()
   }
 
   pub(crate) fn merge(mut self, value: Self) -> Self {
@@ -667,6 +802,10 @@ impl MotionProps {
       inherit_variants: true,
       callbacks: MotionCallbacks::new(),
       css: crate::motion_css::CssProps::new(),
+      control_id: None,
+      scope_id: None,
+      scope_root: false,
+      motion_name: None,
     }
   }
 
@@ -695,6 +834,33 @@ impl MotionProps {
   #[must_use]
   pub fn transition(mut self, value: Transition) -> Self {
     self.transition = Some(value);
+    self
+  }
+
+  /// Binds this host to one stable typed animation-controls identity.
+  #[must_use]
+  pub fn animation_controls<Name: crate::variant_map::VariantKey>(
+    mut self,
+    value: AnimationControls<Name>,
+  ) -> Self {
+    self.control_id = Some(value.id());
+    self
+  }
+
+  /// Marks this host as one animation-scope root.
+  #[must_use]
+  pub fn animation_scope(mut self, value: AnimationScope) -> Self {
+    self.scope_id = Some(value.id());
+    self.scope_root = true;
+    self
+  }
+
+  /// Assigns one stable closed selector name.
+  #[must_use]
+  pub fn motion_name(mut self, value: impl Into<String>) -> Self {
+    let value = value.into();
+    assert!(!value.trim().is_empty(), "motion name is empty");
+    self.motion_name = Some(value);
     self
   }
 
@@ -731,6 +897,16 @@ impl MotionProps {
     }
     self.callbacks = self.callbacks.merge(value.callbacks);
     self.css = self.css.merge(value.css);
+    if value.control_id.is_some() {
+      self.control_id = value.control_id;
+    }
+    if value.scope_id.is_some() {
+      self.scope_id = value.scope_id;
+      self.scope_root = value.scope_root;
+    }
+    if value.motion_name.is_some() {
+      self.motion_name = value.motion_name;
+    }
     self
   }
 }

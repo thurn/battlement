@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Battlement.UI;
@@ -255,6 +256,326 @@ namespace Battlement.Tests
             );
         }
 
+        [Test]
+        public void SharedValueGraphEvaluatesOnlyDirtyNodesAndCoalescesSamples()
+        {
+            ObjectId source = Id("bce2847e-981e-4647-b8bd-7442cc000001");
+            ObjectId derived = Id("bce2847e-981e-4647-b8bd-7442cc000002");
+            ObjectId subscription = Id("bce2847e-981e-4647-b8bd-7442cc000003");
+            MotionValueDescriptor[] values =
+            {
+                new(source, new MotionValue.Scalar(0.2), new MotionValueSource.Mutable()),
+                new(
+                    derived,
+                    new MotionValue.Scalar(0.2),
+                    new MotionValueSource.Range(
+                        source,
+                        new MotionValue[] { new MotionValue.Scalar(0), new MotionValue.Scalar(1) },
+                        new MotionValue[] { new MotionValue.Scalar(0), new MotionValue.Scalar(1) },
+                        true
+                    )
+                ),
+            };
+            var first = new VisualElement();
+            var second = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                first,
+                Id("bce2847e-981e-4647-b8bd-7442cc000010"),
+                GraphDescriptor(
+                    Id("bce2847e-981e-4647-b8bd-7442cc000010"),
+                    values,
+                    new[] { new MotionValueBinding(MotionProperty.Opacity, derived) },
+                    new[]
+                    {
+                        new MotionValueSubscription(
+                            subscription,
+                            source,
+                            MotionValueEventKind.Change
+                        ),
+                    }
+                )
+            );
+            world.Install(
+                second,
+                Id("bce2847e-981e-4647-b8bd-7442cc000011"),
+                GraphDescriptor(
+                    Id("bce2847e-981e-4647-b8bd-7442cc000011"),
+                    values,
+                    new[] { new MotionValueBinding(MotionProperty.Opacity, derived) }
+                )
+            );
+
+            world.PreLayout();
+            Assert.That(world.GraphNodeCount, Is.EqualTo(2));
+            Assert.That(world.LastGraphEvaluationCount, Is.EqualTo(2));
+            world.DrainEventBatch();
+            world.PreLayout();
+            Assert.That(world.LastGraphEvaluationCount, Is.Zero);
+
+            world.Apply(
+                new MotionValueOperation(
+                    source,
+                    new MotionValueCommand.Set(new MotionValue.Scalar(0.4))
+                )
+            );
+            world.PreLayout();
+            world.Apply(
+                new MotionValueOperation(
+                    source,
+                    new MotionValueCommand.Set(new MotionValue.Scalar(0.8))
+                )
+            );
+            world.PreLayout();
+            MotionValueSample[] samples = world.DrainEventBatch()!.ValueSamples.ToArray();
+            Assert.That(samples, Has.Length.EqualTo(1));
+            Assert.That(((MotionValue.Scalar)samples[0].Value).Value, Is.EqualTo(0.8));
+            Assert.That(first.style.opacity.value, Is.EqualTo(0.8f).Within(0.00001));
+            Assert.That(second.style.opacity.value, Is.EqualTo(0.8f).Within(0.00001));
+        }
+
+        [Test]
+        public void ValueGraphRejectsCyclesBeforeChangingTheInstalledWorld()
+        {
+            ObjectId first = Id("bce2847e-981e-4647-b8bd-7442cc000020");
+            ObjectId second = Id("bce2847e-981e-4647-b8bd-7442cc000021");
+            MotionValueDescriptor[] values =
+            {
+                new(
+                    first,
+                    new MotionValue.Scalar(0),
+                    new MotionValueSource.Expression(
+                        new MotionExpressionOperation.Add(),
+                        new[] { second, second }
+                    )
+                ),
+                new(
+                    second,
+                    new MotionValue.Scalar(0),
+                    new MotionValueSource.Expression(
+                        new MotionExpressionOperation.Add(),
+                        new[] { first, first }
+                    )
+                ),
+            };
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            Assert.Throws<BattlementUiException>(() =>
+                world.Install(
+                    new VisualElement(),
+                    first,
+                    GraphDescriptor(first, values, Array.Empty<MotionValueBinding>())
+                )
+            );
+            Assert.That(world.DescriptorCount, Is.Zero);
+            Assert.That(world.GraphNodeCount, Is.Zero);
+        }
+
+        [Test]
+        public void AudioClockFreezesAndMarksSeekAndReplacementDiscontinuities()
+        {
+            ObjectId playback = Id("bce2847e-981e-4647-b8bd-7442cc000030");
+            ObjectId time = Id("bce2847e-981e-4647-b8bd-7442cc000031");
+            ObjectId subscription = Id("bce2847e-981e-4647-b8bd-7442cc000032");
+            ulong elapsed = 0;
+            bool discontinuity = false;
+            using var world = new BattlementMotionWorld(
+                registerPlayerLoop: false,
+                audioTime: _ => new MotionClockSample(elapsed, discontinuity)
+            );
+            world.Install(
+                new VisualElement(),
+                time,
+                GraphDescriptor(
+                    time,
+                    new[]
+                    {
+                        new MotionValueDescriptor(
+                            time,
+                            new MotionValue.Scalar(0),
+                            new MotionValueSource.Time(new MotionClockSource.Audio(playback))
+                        ),
+                    },
+                    Array.Empty<MotionValueBinding>(),
+                    new[]
+                    {
+                        new MotionValueSubscription(
+                            subscription,
+                            time,
+                            MotionValueEventKind.Change
+                        ),
+                    }
+                )
+            );
+            world.PreLayout();
+            world.DrainEventBatch();
+            elapsed = 250_000;
+            world.PreLayout();
+            MotionValueSample moving = world.DrainEventBatch()!.ValueSamples.Single();
+            Assert.That(((MotionValue.Scalar)moving.Value).Value, Is.EqualTo(0.25));
+            Assert.That(((MotionValue.Scalar)moving.Velocity).Value, Is.EqualTo(1).Within(0.00001));
+
+            world.PreLayout();
+            Assert.That(world.DrainEventBatch(), Is.Null);
+            elapsed = 800_000;
+            discontinuity = true;
+            world.PreLayout();
+            MotionValueSample jumped = world.DrainEventBatch()!.ValueSamples.Single();
+            Assert.That(jumped.Discontinuity, Is.True);
+            Assert.That(((MotionValue.Scalar)jumped.Velocity).Value, Is.Zero);
+        }
+
+        [Test]
+        public void ValuePlaybackReportsReplacementAndNaturalCompletionExactlyOnce()
+        {
+            ObjectId source = Id("bce2847e-981e-4647-b8bd-7442cc000033");
+            ObjectId first = Id("bce2847e-981e-4647-b8bd-7442cc000034");
+            ObjectId second = Id("bce2847e-981e-4647-b8bd-7442cc000035");
+            double now = 0;
+            using var world = new BattlementMotionWorld(
+                unscaledTime: () => now,
+                registerPlayerLoop: false
+            );
+            world.Install(
+                new VisualElement(),
+                source,
+                GraphDescriptor(
+                    source,
+                    new[]
+                    {
+                        new MotionValueDescriptor(
+                            source,
+                            new MotionValue.Scalar(0),
+                            new MotionValueSource.Mutable()
+                        ),
+                    },
+                    Array.Empty<MotionValueBinding>()
+                )
+            );
+            TransitionDefinition transition = new(
+                new TransitionGenerator.Tween(
+                    1_000_000,
+                    new MotionEasing[] { new MotionEasing.Linear() },
+                    null
+                ),
+                0,
+                new MotionRepeat.None(),
+                0,
+                MotionRepeatType.Loop
+            );
+            world.Apply(
+                new MotionValueOperation(
+                    source,
+                    new MotionValueCommand.Animate(
+                        first,
+                        1,
+                        new MotionValue.Scalar(0.5),
+                        transition
+                    )
+                )
+            );
+            world.Apply(
+                new MotionValueOperation(
+                    source,
+                    new MotionValueCommand.Animate(second, 1, new MotionValue.Scalar(1), transition)
+                )
+            );
+            MotionPlaybackEvent replaced = world.DrainEventBatch()!.PlaybackEvents.Single();
+            Assert.That(replaced.PlaybackId, Is.EqualTo(first));
+            Assert.That(replaced.Outcome, Is.EqualTo(MotionPlaybackOutcome.Cancelled));
+
+            now = 1.1;
+            world.PreLayout();
+            MotionPlaybackEvent completed = world.DrainEventBatch()!.PlaybackEvents.Single();
+            Assert.That(completed.PlaybackId, Is.EqualTo(second));
+            Assert.That(completed.Outcome, Is.EqualTo(MotionPlaybackOutcome.Completed));
+            world.PreLayout();
+            Assert.That(world.DrainEventBatch(), Is.Null);
+        }
+
+        [Test]
+        public void ControlsAttachLateAndScopeSelectorsUseCommandTimeSnapshots()
+        {
+            ObjectId clock = Id("bce2847e-981e-4647-b8bd-7442cc000040");
+            ObjectId control = Id("bce2847e-981e-4647-b8bd-7442cc000041");
+            ObjectId scope = Id("bce2847e-981e-4647-b8bd-7442cc000042");
+            ObjectId playback = Id("bce2847e-981e-4647-b8bd-7442cc000043");
+            var controlled = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Apply(
+                new MotionControlOperation(
+                    control,
+                    new MotionControlCommand.Start(
+                        playback,
+                        1,
+                        new MotionControlTarget.Target(Target(1, 1_000_000))
+                    )
+                )
+            );
+            world.Install(
+                controlled,
+                control,
+                EmptyDescriptor(control, clock) with
+                {
+                    ControlId = control,
+                }
+            );
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            Assert.That(controlled.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+            world.SetControlledClock(clock, 1_100_000);
+            world.PostLayout();
+            MotionPlaybackEvent completed = world
+                .DrainEventBatch()!
+                .PlaybackEvents.Single(value => value.PlaybackId == playback);
+            Assert.That(completed.Outcome, Is.EqualTo(MotionPlaybackOutcome.Completed));
+
+            var rootElement = new VisualElement();
+            var selected = new VisualElement();
+            var late = new VisualElement();
+            rootElement.Add(selected);
+            world.Install(
+                rootElement,
+                scope,
+                EmptyDescriptor(scope, clock) with
+                {
+                    ScopeId = scope,
+                    ScopeRoot = true,
+                }
+            );
+            world.Install(
+                selected,
+                Id("bce2847e-981e-4647-b8bd-7442cc000044"),
+                EmptyDescriptor(Id("bce2847e-981e-4647-b8bd-7442cc000044"), clock)
+            );
+            world.Apply(
+                new MotionScopeOperation(
+                    scope,
+                    new MotionScopeCommand.Start(
+                        Id("bce2847e-981e-4647-b8bd-7442cc000045"),
+                        1,
+                        new[]
+                        {
+                            new MotionSequenceStep(
+                                new MotionSelector.Children(),
+                                Target(1, 1_000_000),
+                                0
+                            ),
+                        }
+                    )
+                )
+            );
+            rootElement.Add(late);
+            world.Install(
+                late,
+                Id("bce2847e-981e-4647-b8bd-7442cc000046"),
+                EmptyDescriptor(Id("bce2847e-981e-4647-b8bd-7442cc000046"), clock)
+            );
+            world.SetControlledClock(clock, 2_500_000);
+            world.PostLayout();
+            Assert.That(selected.style.opacity.value, Is.EqualTo(1).Within(0.00001));
+            Assert.That(late.style.opacity.value, Is.EqualTo(0).Within(0.00001));
+        }
+
         private static PlayerLoopSystem Find(PlayerLoopSystem parent, Type type)
         {
             if (parent.type == type)
@@ -477,6 +798,57 @@ namespace Battlement.Tests
                 ReducedMotionPolicy.Never
             );
         }
+
+        private static MotionDescriptor GraphDescriptor(
+            ObjectId host,
+            IReadOnlyList<MotionValueDescriptor> values,
+            IReadOnlyList<MotionValueBinding> bindings,
+            IReadOnlyList<MotionValueSubscription>? subscriptions = null
+        ) =>
+            EmptyDescriptor(host, Id("bce2847e-981e-4647-b8bd-7442cc000099")) with
+            {
+                Values = values,
+                ValueBindings = bindings,
+                ValueSubscriptions = subscriptions,
+            };
+
+        private static MotionDescriptor EmptyDescriptor(ObjectId host, ObjectId clock) =>
+            new(
+                host,
+                host,
+                1,
+                new[]
+                {
+                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0)),
+                },
+                false,
+                Array.Empty<MotionSlotDescriptor>(),
+                new MotionClockSource.Controlled(clock),
+                ReducedMotionPolicy.Never
+            );
+
+        private static MotionTargetDescriptor Target(double opacity, ulong duration) =>
+            new(
+                new[]
+                {
+                    new MotionPropertyTrack(
+                        MotionProperty.Opacity,
+                        new MotionValue[] { new MotionValue.Scalar(opacity) },
+                        new TransitionDefinition(
+                            new TransitionGenerator.Tween(
+                                duration,
+                                new MotionEasing[] { new MotionEasing.Linear() },
+                                null
+                            ),
+                            0,
+                            new MotionRepeat.None(),
+                            0,
+                            MotionRepeatType.Loop
+                        )
+                    ),
+                },
+                Array.Empty<MotionPropertyValue>()
+            );
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));
     }

@@ -309,7 +309,8 @@ namespace Battlement
                 world.ReserveUiIdentities,
                 world.ReleaseUiIdentities,
                 this,
-                () => dittoMotionClock.Elapsed
+                () => dittoMotionClock.Elapsed,
+                audioSources.MotionTime
             );
             geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(

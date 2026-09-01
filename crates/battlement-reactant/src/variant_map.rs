@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-  motion::{MotionStyle, MotionTarget},
+  motion::{MotionStyle, MotionTarget, Transition},
   motion_variants::VariantOrchestration,
 };
 
@@ -48,6 +48,7 @@ pub(crate) struct ErasedVariants {
   name_type: Option<TypeId>,
   custom_type: Option<TypeId>,
   fingerprint: Vec<VariantFingerprint>,
+  selections: Vec<ErasedVariantSelection>,
   resolve: Option<Rc<ResolveVariants>>,
 }
 
@@ -199,11 +200,17 @@ where
         },
       })
       .collect();
+    let selections = self
+      .entries
+      .iter()
+      .map(|(name, _)| ErasedVariantSelection::new([name.clone()]))
+      .collect();
     let entries = Rc::new(self.entries);
     ErasedVariants {
       name_type: Some(TypeId::of::<Name>()),
       custom_type: Some(TypeId::of::<Custom>()),
       fingerprint,
+      selections,
       resolve: Some(Rc::new(move |selection, custom| {
         let mut result: Option<VariantTarget> = None;
         for value in &selection.values {
@@ -267,6 +274,7 @@ impl ErasedVariants {
       name_type: None,
       custom_type: None,
       fingerprint: Vec::new(),
+      selections: Vec::new(),
       resolve: None,
     }
   }
@@ -290,6 +298,25 @@ impl ErasedVariants {
       return None;
     }
     Some(resolve(selection, custom.map(|value| value.value.as_ref())))
+  }
+
+  pub(crate) fn named_targets(
+    &self,
+    custom: Option<&ErasedVariantData>,
+    transition: Option<&Transition>,
+  ) -> Vec<battlement::MotionNamedTarget> {
+    self
+      .selections
+      .iter()
+      .filter_map(|selection| {
+        self
+          .resolve(selection, custom, true)
+          .map(|target| battlement::MotionNamedTarget {
+            name: selection.labels[0].clone(),
+            target: target.target.descriptor(transition, 0),
+          })
+      })
+      .collect()
   }
 }
 
@@ -407,7 +434,7 @@ fn stable_hash(value: &impl Hash) -> u64 {
   hasher.finish()
 }
 
-fn variant_label<Name: VariantKey>(value: &Name) -> String {
+pub(crate) fn variant_label<Name: VariantKey>(value: &Name) -> String {
   (value as &dyn Any)
     .downcast_ref::<VariantName>()
     .map_or_else(|| format!("{value:?}"), |value| value.0.clone())

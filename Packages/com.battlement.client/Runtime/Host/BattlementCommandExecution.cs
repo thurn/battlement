@@ -375,6 +375,11 @@ namespace Battlement
                     ),
                     CommandBody.Audio.Play audio => audioSources.Play(command.Id, audio, now),
                     CommandBody.Audio.Stop audio => audioSources.Stop(audio, now),
+                    CommandBody.Audio.Pause audio => audioSources.Pause(audio),
+                    CommandBody.Audio.Resume audio => audioSources.Resume(audio),
+                    CommandBody.Audio.Seek audio => audioSources.Seek(audio, now),
+                    CommandBody.Audio.SetBuffering audio => audioSources.SetBuffering(audio),
+                    CommandBody.Audio.Replace audio => audioSources.Replace(audio, now),
                     CommandBody.Audio.SetVolume audio => audioSources.SetVolume(audio),
                     CommandBody.Audio.TweenVolume audio => audioSources.TweenVolume(
                         audio,
@@ -410,6 +415,24 @@ namespace Battlement
                     ),
                     CommandBody.VisualElement.PerformAction ui => ExecuteUi(() =>
                         uiDocuments.PerformAction(ui)
+                    ),
+                    CommandBody.Motion.ValueCommand motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
+                    CommandBody.Motion.ValuePlayback motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
+                    CommandBody.Motion.Playback motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
+                    CommandBody.Motion.ControlledClock motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
+                    CommandBody.Motion.Control motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
+                    ),
+                    CommandBody.Motion.Scope motion => ExecuteUi(() =>
+                        uiDocuments.Apply(motion.Payload)
                     ),
                     CommandBody.GeometryObservation geometry => ExecuteUi(() =>
                         updateGeometry(geometry.Value)

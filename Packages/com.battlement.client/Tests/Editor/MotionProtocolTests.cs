@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -12,7 +13,18 @@ namespace Battlement.Tests
         public void CompleteDescriptorRoundTripsWithoutLosingUnionPayloads()
         {
             ObjectId hostId = Id("e6c173ab-fecb-461c-b215-8972cf45ad7a");
-            MotionDescriptor descriptor = Descriptor(hostId);
+            ObjectId clockId = Id("030b27a6-8f4a-4d4b-9b11-67d84fd7c920");
+            MotionDescriptor descriptor = Descriptor(hostId) with
+            {
+                Values = new[]
+                {
+                    new MotionValueDescriptor(
+                        Id("ba969342-d1d6-487e-a442-11348468e9e4"),
+                        new MotionValue.Scalar(0),
+                        new MotionValueSource.Time(new MotionClockSource.Controlled(clockId))
+                    ),
+                },
+            };
             Response response = ResponseWith(hostId, descriptor);
 
             byte[] json = BattlementJson.SerializeResponse(response);
@@ -34,6 +46,7 @@ namespace Battlement.Tests
             StringAssert.Contains("\"Mirror\"", text);
             StringAssert.Contains("\"CubicBezier\"", text);
             StringAssert.Contains("\"Discrete\":\"hidden\"", text);
+            StringAssert.Contains($"\"Time\":{{\"Controlled\":\"{clockId.Value}\"}}", text);
         }
 
         [Test]
@@ -74,6 +87,15 @@ namespace Battlement.Tests
                                         ),
                                     }
                                 ),
+                            },
+                            Array.Empty<MotionValueSample>(),
+                            new[]
+                            {
+                                new MotionPlaybackEvent(
+                                    Id("57aa39aa-3f30-4699-b2d0-d4421e3d4f43"),
+                                    2,
+                                    MotionPlaybackOutcome.Completed
+                                ),
                             }
                         )
                     )
@@ -91,6 +113,11 @@ namespace Battlement.Tests
                 Is.EqualTo(2)
             );
             Assert.That(root.SelectToken("Action.body.MotionEvents.Value"), Is.Null);
+            Assert.That(
+                root.SelectToken("Action.body.MotionEvents.playback_events[0].outcome")!
+                    .Value<string>(),
+                Is.EqualTo("Completed")
+            );
         }
 
         private static MotionDescriptor Descriptor(ObjectId hostId) =>

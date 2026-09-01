@@ -20,13 +20,15 @@ mod state_identity;
 mod styles_decorations;
 #[cfg(test)]
 mod tests;
+mod values_time_controls;
 mod variants_orchestration;
 
 use battlement::{
-  ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
-  Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
-  ParentScene, PickingMode, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, Style,
-  TextureAddress, UiDocument, UiDocumentState, Vector3, object_id, scene_id,
+  ActionBody, Batch, BatchId, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color,
+  Command, Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, PreparedAsset, Response,
+  ResponseMessage, Scene, SceneId, SessionId, Snapshot, Style, TextureAddress, UiDocument,
+  UiDocumentState, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
@@ -44,6 +46,8 @@ const MISSING_GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000
 pub const CONTENT_SCENE: &str = "reactant/content";
 /// Address of the sample's prepared UI shader material.
 pub const MOTION_MATERIAL: &str = "reactant/assets/motion-material";
+/// Address of the sample's prepared audio-playhead pulse.
+pub const MOTION_AUDIO_CLIP: battlement::AudioClipAddress = values_time_controls::AUDIO_CLIP;
 /// Address of the sample's prepared motion texture.
 pub const MOTION_TEXTURE: &str = "reactant/assets/texture";
 /// Machine-readable registry derived from the Reactant screen inventory.
@@ -82,11 +86,13 @@ pub enum Screen {
   VariantsOrchestration,
   /// Retained exits, manual holds, and lifecycle ordering.
   PresenceLifecycle,
+  /// Native motion values, time sources, audio transport, and imperative controls.
+  ValuesTimeControls,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 13] = [
+  pub const ALL: [Self; 14] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -100,6 +106,7 @@ impl Screen {
     Self::StylesDecorations,
     Self::VariantsOrchestration,
     Self::PresenceLifecycle,
+    Self::ValuesTimeControls,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -118,6 +125,7 @@ impl Screen {
       Self::StylesDecorations => "styles-decorations",
       Self::VariantsOrchestration => "variants-orchestration",
       Self::PresenceLifecycle => "presence-lifecycle",
+      Self::ValuesTimeControls => "values-time-controls",
     }
   }
 }
@@ -165,6 +173,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     styles_decorations: game.styles_decorations.clone(),
     variants_orchestration: game.variants_orchestration.clone(),
     presence_lifecycle: game.presence_lifecycle.clone(),
+    values_time_controls: game.values_time_controls.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -195,6 +204,8 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       styles_decorations: styles_decorations::StylesDecorationsState::default(),
       variants_orchestration: variants_orchestration::VariantsOrchestrationState::default(),
       presence_lifecycle: presence_lifecycle::PresenceLifecycleState::default(),
+      values_time_controls: values_time_controls::ValuesTimeControlsState::default(),
+      pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -276,6 +287,17 @@ impl Engine for ReactantEngine {
     }
     let mut response =
       Response::empty(self.session_id).append_reactant_for_action(action.action_id, commit);
+    if !self.game.pending_commands.is_empty() {
+      let mut batch = Batch::new(
+        BatchId::new_v4(),
+        self.session_id,
+        vec![ParallelCommandGroup::new(std::mem::take(
+          &mut self.game.pending_commands,
+        ))],
+      );
+      batch.caused_by_action_id = Some(action.action_id);
+      response.messages.push(ResponseMessage::Batch(batch));
+    }
     if self.game.resource_invalidation_requested {
       self.game.resource_invalidation_requested = false;
       self.reactant.invalidate(&self.preview_resource, &1);
@@ -339,6 +361,8 @@ struct Game {
   styles_decorations: styles_decorations::StylesDecorationsState,
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
+  values_time_controls: values_time_controls::ValuesTimeControlsState,
+  pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -373,6 +397,7 @@ struct Shell {
   styles_decorations: styles_decorations::StylesDecorationsState,
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
+  values_time_controls: values_time_controls::ValuesTimeControlsState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -535,6 +560,10 @@ impl Component for Shell {
         state: self.presence_lifecycle.clone(),
         compact: self.compact,
       }),
+      Screen::ValuesTimeControls => Node::new(values_time_controls::ValuesTimeControls {
+        state: self.values_time_controls.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -593,10 +622,24 @@ impl Component for Navigation {
         .name("navigation")
         .style(design_system::navigation(self.compact))
         .child(
-          battlement_reactant::host::Label::new("REACTANT")
-            .name("targets-timelines-navigation")
-            .style(design_system::brand(self.compact))
-            .on_click(|game: &mut Game| game.screen = Screen::TargetsTimelines),
+          battlement_reactant::host::Label::new(if self.screen == Screen::TargetsTimelines {
+            "VALUES & TIME"
+          } else {
+            "REACTANT"
+          })
+          .name(if self.screen == Screen::TargetsTimelines {
+            "values-navigation"
+          } else {
+            "targets-timelines-navigation"
+          })
+          .style(design_system::brand(self.compact))
+          .on_click(|game: &mut Game| {
+            game.screen = if game.screen == Screen::TargetsTimelines {
+              Screen::ValuesTimeControls
+            } else {
+              Screen::TargetsTimelines
+            };
+          }),
         )
         .child(
           battlement_reactant::host::View::new()
@@ -804,7 +847,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::PresenceLifecycle,
+    Screen::Composition => Screen::ValuesTimeControls,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -817,6 +860,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::StylesDecorations => Screen::PhysicalMotion,
     Screen::VariantsOrchestration => Screen::StylesDecorations,
     Screen::PresenceLifecycle => Screen::VariantsOrchestration,
+    Screen::ValuesTimeControls => Screen::PresenceLifecycle,
   }
 }
 
@@ -834,7 +878,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::PhysicalMotion => Screen::StylesDecorations,
     Screen::StylesDecorations => Screen::VariantsOrchestration,
     Screen::VariantsOrchestration => Screen::PresenceLifecycle,
-    Screen::PresenceLifecycle => Screen::Composition,
+    Screen::PresenceLifecycle => Screen::ValuesTimeControls,
+    Screen::ValuesTimeControls => Screen::Composition,
   }
 }
 
@@ -853,6 +898,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::StylesDecorations => "11 STYLES & DECORATIONS",
     Screen::VariantsOrchestration => "12 VARIANTS & ORCHESTRATION",
     Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
+    Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
   }
 }
 
@@ -952,6 +998,7 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
       PreparedAsset::scene(CONTENT_SCENE),
       PreparedAsset::material(MOTION_MATERIAL),
       PreparedAsset::texture(MOTION_TEXTURE),
+      PreparedAsset::AudioClip(values_time_controls::AUDIO_CLIP),
     ],
     vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
     vec![camera, specimen, ui_host],

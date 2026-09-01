@@ -87,7 +87,15 @@ namespace Battlement
         StyleTransitionDescriptor? StyleTransition = null,
         IReadOnlyList<CssAnimationDescriptor>? Animations = null,
         IReadOnlyList<MotionDecorationDescriptor>? Decorations = null,
-        MotionVariantResolution? Variants = null
+        MotionVariantResolution? Variants = null,
+        IReadOnlyList<MotionValueDescriptor>? Values = null,
+        IReadOnlyList<MotionValueBinding>? ValueBindings = null,
+        IReadOnlyList<MotionValueSubscription>? ValueSubscriptions = null,
+        ObjectId? ControlId = null,
+        ObjectId? ScopeId = null,
+        bool ScopeRoot = false,
+        string? MotionName = null,
+        IReadOnlyList<MotionNamedTarget>? NamedTargets = null
     );
 
     /// <summary>Parent/child sequencing selected by a resolved variant.</summary>
@@ -270,12 +278,29 @@ namespace Battlement
         IReadOnlyList<MotionPropertyValue> Values
     );
 
+    /// <summary>Terminal result for one stable imperative playback identity.</summary>
+    public enum MotionPlaybackOutcome
+    {
+        Completed,
+        Stopped,
+        Cancelled,
+    }
+
+    /// <summary>One generation-checked terminal event for an imperative playback.</summary>
+    public sealed record MotionPlaybackEvent(
+        ObjectId PlaybackId,
+        uint Generation,
+        MotionPlaybackOutcome Outcome
+    );
+
     /// <summary>Ordered lifecycle boundaries and coalesced samples.</summary>
     public sealed record MotionEventBatch(
         ulong FirstSequence,
         ulong LastSequence,
         IReadOnlyList<MotionLifecycleEvent> Events,
-        IReadOnlyList<MotionPresentationSample> Samples
+        IReadOnlyList<MotionPresentationSample> Samples,
+        IReadOnlyList<MotionValueSample>? ValueSamples = null,
+        IReadOnlyList<MotionPlaybackEvent>? PlaybackEvents = null
     );
 
     /// <summary>Compact timeline checkpoint retained for reconnect.</summary>

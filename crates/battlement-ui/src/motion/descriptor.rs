@@ -7,6 +7,9 @@ use crate::MotionVariantResolution;
 use crate::{
   CssAnimationDescriptor, MotionDecorationDescriptor, MotionPseudoStyle, StyleTransitionDescriptor,
 };
+use crate::{
+  MotionNamedTarget, MotionValueBinding, MotionValueDescriptor, MotionValueSubscription,
+};
 use crate::{MotionProperty, MotionValue, MotionValueKind, TransitionDefinition};
 
 /// Stable animation slot identity scoped to one descriptor.
@@ -250,6 +253,30 @@ pub struct MotionDescriptor {
   /// Inspectable logical-variant resolution facts.
   #[serde(default)]
   pub variants: Option<MotionVariantResolution>,
+  /// Deduplicated value nodes required by this host's bindings and subscriptions.
+  #[serde(default)]
+  pub values: Vec<MotionValueDescriptor>,
+  /// Host properties driven by graph values.
+  #[serde(default)]
+  pub value_bindings: Vec<MotionValueBinding>,
+  /// Explicit Rust-side value observations.
+  #[serde(default)]
+  pub value_subscriptions: Vec<MotionValueSubscription>,
+  /// Optional animation-controls binding.
+  #[serde(default)]
+  pub control_id: Option<ObjectId>,
+  /// Optional animation-scope root identity.
+  #[serde(default)]
+  pub scope_id: Option<ObjectId>,
+  /// Whether this host is the scope root.
+  #[serde(default)]
+  pub scope_root: bool,
+  /// Optional closed selector name.
+  #[serde(default)]
+  pub motion_name: Option<String>,
+  /// Named targets resolved for imperative starts.
+  #[serde(default)]
+  pub named_targets: Vec<MotionNamedTarget>,
 }
 
 impl MotionDescriptor {
@@ -281,6 +308,11 @@ impl MotionDescriptor {
     if let Some(variants) = &self.variants {
       variants.validate()?;
     }
+    crate::validate_motion_graph(
+      &self.values,
+      &self.value_bindings,
+      &self.value_subscriptions,
+    )?;
     validate_css(self)?;
     Ok(())
   }
@@ -522,6 +554,28 @@ pub struct MotionPresentationSample {
   pub values: Vec<MotionPropertyValue>,
 }
 
+/// Terminal result for one stable imperative playback identity.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum MotionPlaybackOutcome {
+  /// The terminal target was applied.
+  Completed,
+  /// Playback froze at its presentation value.
+  Stopped,
+  /// Playback was removed and exposed its lower layer.
+  Cancelled,
+}
+
+/// One generation-checked terminal event for an imperative playback.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct MotionPlaybackEvent {
+  /// Stable playback identity.
+  pub playback_id: ObjectId,
+  /// Playback generation.
+  pub generation: u32,
+  /// Terminal outcome.
+  pub outcome: MotionPlaybackOutcome,
+}
+
 /// Ordered lifecycle boundaries and partitioned replaceable samples.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct MotionEventBatch {
@@ -533,6 +587,12 @@ pub struct MotionEventBatch {
   pub events: Vec<MotionLifecycleEvent>,
   /// Latest coalesced presentation samples.
   pub samples: Vec<MotionPresentationSample>,
+  /// Latest coalesced samples for explicit value subscriptions.
+  #[serde(default)]
+  pub value_samples: Vec<crate::MotionValueSample>,
+  /// Terminal events for stable imperative playback handles.
+  #[serde(default)]
+  pub playback_events: Vec<MotionPlaybackEvent>,
 }
 
 /// Compact timeline checkpoint retained for reconnect reconstruction.
@@ -714,6 +774,14 @@ mod tests {
       animations: Vec::new(),
       decorations: Vec::new(),
       variants: None,
+      values: Vec::new(),
+      value_bindings: Vec::new(),
+      value_subscriptions: Vec::new(),
+      control_id: None,
+      scope_id: None,
+      scope_root: false,
+      motion_name: None,
+      named_targets: Vec::new(),
     };
     assert!(descriptor.validate().unwrap_err().contains("repeats slot"));
     descriptor.slots.truncate(1);

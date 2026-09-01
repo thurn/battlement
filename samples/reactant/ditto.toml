@@ -540,7 +540,7 @@ screenshot = { name = "initial" }
 click = { target = [0.38, 0.208] }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+screenshot = { name = "changed", max_changed_percent = 0.2 }
 
 [[scenarios.steps]]
 click = { target = [0.38, 0.208] }
@@ -553,3 +553,63 @@ click = { target = [0.38, 0.208] }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "values time and controls"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "values-time-controls", motion = "controlled", max_duration = "10s" }
+
+[[scenarios.steps]]
+click = { target = [0.322, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.469, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.542, 0.222] }
+
+[[scenarios.steps]]
+click = { target = [0.322, 0.308] }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.542, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.616, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.542, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.469, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.689, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.762, 0.308] }
+
+[[scenarios.steps]]
+click = { target = [0.836, 0.308] }
+
+[[scenarios.steps]]
+video = { action = "stop" }

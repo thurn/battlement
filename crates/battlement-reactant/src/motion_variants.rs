@@ -288,6 +288,18 @@ impl MotionProps {
         }
         value
       }),
+      values: target.map_or_else(Vec::new, MotionTarget::graph_values),
+      value_bindings: target.map_or_else(Vec::new, MotionTarget::value_bindings),
+      value_subscriptions: target.map_or_else(Vec::new, MotionTarget::value_subscriptions),
+      control_id: self.control_id,
+      scope_id: self.scope_id,
+      scope_root: self.scope_root,
+      motion_name: self.motion_name.clone(),
+      named_targets: self.control_id.map_or_else(Vec::new, |_| {
+        self
+          .variants
+          .named_targets(self.variant_data.as_ref(), transition)
+      }),
     }
   }
 

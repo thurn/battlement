@@ -2,6 +2,7 @@
 
 mod css;
 mod descriptor;
+mod graph;
 mod property;
 mod transition;
 mod value;
@@ -9,6 +10,7 @@ mod variant;
 
 pub use css::*;
 pub use descriptor::*;
+pub use graph::*;
 pub use property::*;
 pub use transition::*;
 pub use value::*;

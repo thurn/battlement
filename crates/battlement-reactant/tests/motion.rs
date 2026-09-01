@@ -1,11 +1,12 @@
 use std::panic::{self, AssertUnwindSafe};
+use std::time::Duration;
 
 use battlement::{
-  CameraState, CommandBody, GameObject, GameObjectKind, InertiaTarget as LoweredInertiaTarget,
-  MotionEasing, MotionProperty, MotionRepeat, MotionRepeatType, MotionValue, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
-  Snapshot, SpringConfiguration, Style, TransitionGenerator, UiDocument, UiDocumentState,
-  UiVisualElementProperties,
+  AudioClipAddress, CameraState, CommandBody, GameObject, GameObjectKind,
+  InertiaTarget as LoweredInertiaTarget, MotionEasing, MotionProperty, MotionRepeat,
+  MotionRepeatType, MotionValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
+  PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style,
+  TransitionGenerator, UiDocument, UiDocumentState, UiVisualElementProperties,
 };
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -15,9 +16,44 @@ use battlement_reactant::{
 
 struct IdleSpawner;
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum ValueVariant {
+  Rest,
+  Active,
+}
+
+struct ValueContract;
+
 impl Spawner for IdleSpawner {
   fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
     SpawnedTask::detached()
+  }
+}
+
+impl Component for ValueContract {
+  fn render(&self) -> impl Render {
+    let source = use_motion_value(0.25_f32);
+    let derived = use_transform(
+      source,
+      InputRange::new([0.0, 1.0]),
+      OutputRange::new([0.2, 0.9]),
+    );
+    let controls = use_animation_controls::<ValueVariant>();
+    let scope = use_animation_scope();
+    View::new()
+      .animation_scope(scope)
+      .child(
+        View::new()
+          .animation_controls(controls)
+          .motion_name("controlled")
+          .variants(
+            Variants::<ValueVariant, ()>::new()
+              .target(ValueVariant::Rest, MotionStyle::new().opacity(0.3))
+              .target(ValueVariant::Active, MotionStyle::new().opacity(1.0)),
+          )
+          .animate_variant(ValueVariant::Rest),
+      )
+      .child(View::new().animate(MotionStyle::new().opacity_value(derived)))
   }
 }
 
@@ -677,6 +713,56 @@ fn css_and_motion_property_conflicts_fail_atomically() {
     descriptor.validate().unwrap();
   }));
   assert!(result.is_err());
+}
+
+#[test]
+fn typed_motion_values_controls_and_scopes_lower_closed_native_contract() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| ValueContract);
+  let rendered = start(&mut reactant, &mut (), &document);
+  let root = &rendered.children[0];
+  let Prop::Set(scope) = &root.element.visual_element().motion else {
+    panic!("animation scope did not lower");
+  };
+  assert!(scope.scope_root);
+  assert!(scope.scope_id.is_some());
+
+  let Prop::Set(controlled) = &root.children[0].element.visual_element().motion else {
+    panic!("animation controls did not lower");
+  };
+  assert!(controlled.control_id.is_some());
+  assert_eq!(controlled.motion_name.as_deref(), Some("controlled"));
+  assert_eq!(
+    controlled
+      .named_targets
+      .iter()
+      .map(|value| value.name.as_str())
+      .collect::<Vec<_>>(),
+    ["Rest", "Active"]
+  );
+
+  let Prop::Set(graph) = &root.children[1].element.visual_element().motion else {
+    panic!("motion-value graph did not lower");
+  };
+  graph.validate().unwrap();
+  assert_eq!(graph.values.len(), 2);
+  assert_eq!(graph.value_bindings.len(), 1);
+  assert_eq!(graph.value_bindings[0].property, MotionProperty::Opacity);
+
+  let audio = AudioPlayback::new(ObjectId::new_v4());
+  let play = audio.play_command(
+    AudioClipAddress::from_static("test/pulse"),
+    AudioPlaybackOptions::new().looping(true),
+  );
+  assert_eq!(play.command_id.into_uuid(), audio.id().into_uuid());
+  assert!(matches!(play.body, CommandBody::AudioPlay(_)));
+  assert!(matches!(audio.pause().body, CommandBody::AudioPause(_)));
+  assert!(matches!(
+    audio.seek(Duration::from_millis(350)).body,
+    CommandBody::AudioSeek(_)
+  ));
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 fn motion_update(commit: ReactantCommit) -> (ObjectId, u32) {

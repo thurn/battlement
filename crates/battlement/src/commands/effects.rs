@@ -71,6 +71,40 @@ pub struct AudioStopPayload {
   pub fade_out_ms: u64,
 }
 
+/// Addresses one live audio playback operation.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AudioPlaybackPayload {
+  /// Command and operation identity of the audio playback.
+  pub audio_command_id: CommandId,
+}
+
+/// Seeks one live audio playback operation.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AudioSeekPayload {
+  /// Command and operation identity of the audio playback.
+  pub audio_command_id: CommandId,
+  /// Requested playhead position in milliseconds.
+  pub position_ms: u64,
+}
+
+/// Changes whether one playback is stalled by simulated buffering.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AudioBufferingPayload {
+  /// Command and operation identity of the audio playback.
+  pub audio_command_id: CommandId,
+  /// Whether playhead advancement is currently buffered.
+  pub buffering: bool,
+}
+
+/// Replaces the clip behind one stable playback identity.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct AudioReplacePayload {
+  /// Command and operation identity of the audio playback.
+  pub audio_command_id: CommandId,
+  /// Prepared replacement audio-clip address.
+  pub address: AudioClipAddress,
+}
+
 /// Sets a playing audio operation's volume.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct AudioVolumePayload {

@@ -170,6 +170,11 @@ key = "presence-lifecycle.lifecycle"
 screen = "presence-lifecycle"
 transient = true
 
+[[states]]
+key = "values-time-controls.lifecycle"
+screen = "values-time-controls"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

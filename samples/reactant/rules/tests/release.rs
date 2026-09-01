@@ -1,13 +1,14 @@
 use std::{fs, path::Path, sync::Arc};
 
-use battlement::{Command, ObjectId};
+use battlement::{ClickEvent, Command, KeyModifiers, ObjectId, PanelPoint, PointerButton, UiEvent};
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::{FakeClient, ui::UiClient},
 };
 use battlement_native::Engine;
 use battlement_rules::{
-  CONTENT_SCENE, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, create_engine, generated_asset_addresses,
+  CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, create_engine,
+  generated_asset_addresses,
 };
 
 #[test]
@@ -31,6 +32,12 @@ fn release_lab_navigates_every_focused_screen() {
     let canvas = find_named(&client.ui(), ROOT_ID, canvas);
     assert!(!client.ui().element(canvas).children().is_empty());
   }
+  let animation_navigation = find_named(&client.ui(), ROOT_ID, "targets-timelines-navigation");
+  click_label(&mut client, animation_navigation);
+  let values_navigation = find_named(&client.ui(), ROOT_ID, "values-navigation");
+  click_label(&mut client, values_navigation);
+  let canvas = find_named(&client.ui(), ROOT_ID, "values-time-controls-canvas");
+  assert!(!client.ui().element(canvas).children().is_empty());
 }
 
 #[test]
@@ -42,12 +49,29 @@ fn release_sample_source_contains_no_c_sharp() {
   );
 }
 
+fn click_label<E>(client: &mut FakeClient<E>, target_id: ObjectId)
+where
+  E: Engine<Command = Command>,
+{
+  client.ui().send_event(UiEvent::click(
+    target_id,
+    ClickEvent::pointer(
+      0,
+      PanelPoint::default(),
+      PointerButton::Left,
+      1,
+      KeyModifiers::default(),
+    ),
+  ));
+}
+
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
   catalog.add_textures(generated_asset_addresses());
   catalog.add_material(MOTION_MATERIAL);
   catalog.add_texture(MOTION_TEXTURE);
+  catalog.add_audio_clip(MOTION_AUDIO_CLIP);
   Arc::new(catalog)
 }
 

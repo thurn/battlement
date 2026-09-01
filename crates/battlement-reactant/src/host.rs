@@ -40,6 +40,7 @@ use battlement::{
 };
 
 use crate::{
+  animation_controls::{AnimationControls, AnimationScope},
   element_ref::ElementRef,
   event_handler::Handler,
   key::ErasedKey,
@@ -211,6 +212,24 @@ macro_rules! facade {
       pub fn motion(mut self, value: MotionProps) -> Self {
         self.state.motion = self.state.motion.merge(value);
         self
+      }
+
+      /// Binds this host to stable typed animation controls.
+      #[must_use]
+      pub fn animation_controls<Name: VariantKey>(self, value: AnimationControls<Name>) -> Self {
+        self.motion(MotionProps::new().animation_controls(value))
+      }
+
+      /// Marks this host as an animation-scope root.
+      #[must_use]
+      pub fn animation_scope(self, value: AnimationScope) -> Self {
+        self.motion(MotionProps::new().animation_scope(value))
+      }
+
+      /// Assigns a stable name for closed scope selectors.
+      #[must_use]
+      pub fn motion_name(self, value: impl Into<String>) -> Self {
+        self.motion(MotionProps::new().motion_name(value))
       }
 
       /// Selects the mount origin.

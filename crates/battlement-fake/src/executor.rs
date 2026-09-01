@@ -468,6 +468,11 @@ where
         );
       }
       CommandBody::AudioStop(value) => self.world.audio_remove(value.audio_command_id),
+      CommandBody::AudioPause(_)
+      | CommandBody::AudioResume(_)
+      | CommandBody::AudioSeek(_)
+      | CommandBody::AudioSetBuffering(_)
+      | CommandBody::AudioReplace(_) => {}
       CommandBody::AudioSetVolume(value) => {
         self.world.audio_mut(value.payload.audio_command_id).volume = value.payload.volume
       }
@@ -475,6 +480,12 @@ where
         let audio = self.world.audio_mut(value.payload.audio_command_id);
         audio.volume = tween::scalar(audio.volume, value.payload.volume, value.payload.tween);
       }
+      CommandBody::MotionValue(_)
+      | CommandBody::MotionValuePlayback(_)
+      | CommandBody::MotionPlayback(_)
+      | CommandBody::MotionControlledClock(_)
+      | CommandBody::MotionControl(_)
+      | CommandBody::MotionScope(_) => {}
       CommandBody::TimeWait(_) => {}
       CommandBody::OperationCancel(value) => assert!(
         self.executed_commands.contains(&value.command_id),

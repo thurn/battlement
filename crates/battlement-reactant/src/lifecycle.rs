@@ -14,6 +14,7 @@ use crate::{
   element_ref::{AttachmentSet, ElementRefRuntime},
   external_portal::{ExternalPortalRegistry, SessionExternal},
   geometry_runtime::{GeometryPlan, GeometryRuntime},
+  motion_value_runtime::MotionValueRuntime,
   portal, reconcile,
   render::RenderTree,
   resource_cache::{FrozenCompletions, PanicPayload, ResourceOverlay},
@@ -24,6 +25,7 @@ use crate::{
 
 pub(crate) struct EntryCheckpoint {
   actions: usize,
+  motion_commands: usize,
   hooks: Vec<Vec<usize>>,
 }
 
@@ -79,9 +81,11 @@ impl EntryCheckpoint {
   pub(crate) fn capture<'a>(
     trees: impl IntoIterator<Item = &'a RenderTree>,
     element_refs: &Rc<RefCell<ElementRefRuntime>>,
+    motion_values: &Rc<RefCell<MotionValueRuntime>>,
   ) -> Self {
     Self {
       actions: element_refs.borrow().queued_actions(),
+      motion_commands: motion_values.borrow().queued_commands(),
       hooks: trees
         .into_iter()
         .map(|tree| {
@@ -93,21 +97,29 @@ impl EntryCheckpoint {
     }
   }
 
-  pub(crate) fn discard_actions(&self, element_refs: &Rc<RefCell<ElementRefRuntime>>) {
+  pub(crate) fn discard_actions(
+    &self,
+    element_refs: &Rc<RefCell<ElementRefRuntime>>,
+    motion_values: &Rc<RefCell<MotionValueRuntime>>,
+  ) {
     element_refs.borrow_mut().truncate_actions(self.actions);
+    motion_values
+      .borrow_mut()
+      .truncate_commands(self.motion_commands);
   }
 
   pub(crate) fn rollback<'a>(
     &self,
     trees: impl IntoIterator<Item = &'a RenderTree>,
     element_refs: &Rc<RefCell<ElementRefRuntime>>,
+    motion_values: &Rc<RefCell<MotionValueRuntime>>,
   ) {
     for (tree, lengths) in trees.into_iter().zip(&self.hooks) {
       let mut cursor = 0;
       tree.truncate_pending_hooks(lengths, &mut cursor);
       assert_eq!(cursor, lengths.len());
     }
-    self.discard_actions(element_refs);
+    self.discard_actions(element_refs, motion_values);
   }
 }
 

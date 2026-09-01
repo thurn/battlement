@@ -28,6 +28,8 @@ fn motion_event_action_round_trips_boundaries_and_samples() {
         value: MotionValue::Scalar(0.75),
       }],
     }],
+    value_samples: Vec::new(),
+    playback_events: Vec::new(),
   });
   let encoded = json::to_vec(&body).unwrap();
   assert_eq!(json::from_slice::<ActionBody>(&encoded).unwrap(), body);

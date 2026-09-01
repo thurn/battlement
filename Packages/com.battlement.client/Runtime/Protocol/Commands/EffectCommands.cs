@@ -62,6 +62,26 @@ namespace Battlement
                 [property: JsonProperty("fade_out_ms")] TimeSpan FadeOut = default
             ) : CommandBody;
 
+            /// <summary>Pause a live audio operation.</summary>
+            public sealed record Pause(CommandId AudioCommandId) : CommandBody;
+
+            /// <summary>Resume a paused audio operation.</summary>
+            public sealed record Resume(CommandId AudioCommandId) : CommandBody;
+
+            /// <summary>Seek a live audio operation.</summary>
+            public sealed record Seek(
+                CommandId AudioCommandId,
+                [property: JsonProperty("position_ms")] TimeSpan Position
+            ) : CommandBody;
+
+            /// <summary>Freeze or resume a playhead for buffering.</summary>
+            public sealed record SetBuffering(CommandId AudioCommandId, bool Buffering)
+                : CommandBody;
+
+            /// <summary>Replace a clip without replacing playback identity.</summary>
+            public sealed record Replace(CommandId AudioCommandId, AudioClipAddress Address)
+                : CommandBody;
+
             /// <summary>Set a playing audio operation's volume immediately.</summary>
             /// <param name="AudioCommandId">Identity of the audio playback command.</param>
             /// <param name="Volume">Requested volume in [0, 1].</param>

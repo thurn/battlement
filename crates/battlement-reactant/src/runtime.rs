@@ -27,6 +27,7 @@ use crate::{
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
   lifecycle::{self, EntryCheckpoint, FrozenResources, PlannedSession, RuntimeState},
+  motion_value_runtime::{self, MotionValueRuntime},
   portal::{self, PortalTarget},
   reconcile,
   render::{Render, RenderTree},
@@ -90,6 +91,7 @@ pub struct Reactant<G: 'static> {
   pending_geometry_effects: Vec<GeometryEffectOperation>,
   pending_error_reports: Vec<ErrorReport>,
   element_refs: Rc<RefCell<ElementRefRuntime>>,
+  motion_values: Rc<RefCell<MotionValueRuntime>>,
   geometry: Rc<RefCell<GeometryRuntime>>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
@@ -113,6 +115,7 @@ impl<G: 'static> Reactant<G> {
       pending_geometry_effects: Vec::new(),
       pending_error_reports: Vec::new(),
       element_refs: ElementRefRuntime::new(),
+      motion_values: MotionValueRuntime::new(runtime_id),
       geometry: GeometryRuntime::new(runtime_id),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
@@ -205,6 +208,7 @@ impl<G: 'static> Reactant<G> {
   fn plan_session(&mut self, game: &mut G) -> Result<PlannedSession, RenderError> {
     let _element_runtime =
       element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
+    let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
     let mut session_geometry = self.geometry.borrow().waiting_preview();
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let bindings = self.external_portals.session_bindings();
@@ -391,10 +395,24 @@ impl<G: 'static> Reactant<G> {
           changed |= root.committed.invoke_motion_sample(game, sample);
         }
       }
+      changed |= runtime
+        .motion_values
+        .borrow_mut()
+        .apply_samples(&batch.value_samples);
+      let playback_invocations = runtime
+        .motion_values
+        .borrow_mut()
+        .take_playback_events(&batch.playback_events);
+      for invocation in playback_invocations {
+        changed |= invocation.invoke();
+      }
       if !batch.events.is_empty() {
         runtime.last_motion_sequence = Some(batch.last_sequence);
       }
-      if changed || runtime_motion::has_ready_presence(&runtime.roots) {
+      if changed
+        || runtime.pending_hooks_changed()
+        || runtime_motion::has_ready_presence(&runtime.roots)
+      {
         runtime.render(game, None)
       } else {
         Ok(runtime.commit_pending_actions())
@@ -422,6 +440,7 @@ impl<G: 'static> Reactant<G> {
     game: &mut G,
     resources: Option<FrozenResources>,
   ) -> Result<ReactantCommit, RenderError> {
+    let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
     runtime_motion::invoke_ready_presence(&mut self.roots, game);
     let rendered_generation = self.geometry.borrow().generation;
     self.render_geometry(game, rendered_generation, 0, resources)
@@ -438,6 +457,7 @@ impl<G: 'static> Reactant<G> {
     let geometry_revision = self.geometry.borrow().revision();
     let bindings = self.external_portals.active_bindings();
     let frozen_actions = self.element_refs.borrow().queued_actions();
+    let frozen_motion_commands = self.motion_values.borrow().queued_commands();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
       let mut rendered = self
         .roots
@@ -516,6 +536,12 @@ impl<G: 'static> Reactant<G> {
         frozen_actions,
         &desired,
       ));
+      groups.extend(
+        self
+          .motion_values
+          .borrow()
+          .command_groups(frozen_motion_commands),
+      );
       Ok((rendered, groups, attachments, geometry))
     }));
     let (mut rendered, groups, attachments, geometry) = match planned {
@@ -540,6 +566,7 @@ impl<G: 'static> Reactant<G> {
       geometry,
       geometry_revision,
       frozen_actions,
+      frozen_motion_commands,
     );
     Ok(self.create_commit(groups))
   }
@@ -615,6 +642,7 @@ impl<G: 'static> Reactant<G> {
         .cancel_all()
         .unwrap_or_else(|payload| panic::resume_unwind(payload));
       self.element_refs.borrow_mut().detach_all();
+      self.motion_values.borrow_mut().clear();
       for root in &mut self.roots {
         root.committed = RenderTree::default();
       }
@@ -673,17 +701,19 @@ impl<G: 'static> Reactant<G> {
     let checkpoint = EntryCheckpoint::capture(
       self.roots.iter().map(|root| &root.committed),
       &self.element_refs,
+      &self.motion_values,
     );
     match panic::catch_unwind(AssertUnwindSafe(|| operation(self))) {
       Ok(Ok(value)) => Ok(value),
       Ok(Err(error)) => {
-        checkpoint.discard_actions(&self.element_refs);
+        checkpoint.discard_actions(&self.element_refs, &self.motion_values);
         Err(error)
       }
       Err(payload) => {
         checkpoint.rollback(
           self.roots.iter().map(|root| &root.committed),
           &self.element_refs,
+          &self.motion_values,
         );
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -732,7 +762,8 @@ impl<G: 'static> Reactant<G> {
 
   fn commit_pending_actions(&mut self) -> ReactantCommit {
     let frozen_actions = self.element_refs.borrow().queued_actions();
-    if frozen_actions == 0 {
+    let frozen_motion_commands = self.motion_values.borrow().queued_commands();
+    if frozen_actions == 0 && frozen_motion_commands == 0 {
       return ReactantCommit::empty();
     }
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -754,7 +785,15 @@ impl<G: 'static> Reactant<G> {
           .zip(&committed)
           .map(|(root, tree)| (root.document.document_id, tree)),
       );
-      attachments.action_groups(&self.element_refs.borrow(), frozen_actions, &layout)
+      let mut groups =
+        attachments.action_groups(&self.element_refs.borrow(), frozen_actions, &layout);
+      groups.extend(
+        self
+          .motion_values
+          .borrow()
+          .command_groups(frozen_motion_commands),
+      );
+      groups
     }));
     let groups = match planned {
       Ok(groups) => groups,
@@ -767,6 +806,10 @@ impl<G: 'static> Reactant<G> {
       .element_refs
       .borrow_mut()
       .consume_actions(frozen_actions);
+    self
+      .motion_values
+      .borrow_mut()
+      .consume_commands(frozen_motion_commands);
     self.create_commit(groups)
   }
 
@@ -777,6 +820,7 @@ impl<G: 'static> Reactant<G> {
     geometry: GeometryPlan,
     geometry_revision: u64,
     frozen_actions: usize,
+    frozen_motion_commands: usize,
   ) {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
       self.install_rendered(committed, attachments, false);
@@ -788,6 +832,10 @@ impl<G: 'static> Reactant<G> {
         .element_refs
         .borrow_mut()
         .consume_actions(frozen_actions);
+      self
+        .motion_values
+        .borrow_mut()
+        .consume_commands(frozen_motion_commands);
       self.state = RuntimeState::Active;
     }));
     if let Err(payload) = completed {

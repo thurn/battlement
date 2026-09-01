@@ -40,6 +40,10 @@ pub use crate::motion_css::{
   StyleProperty, StyleTransition,
 };
 pub use crate::{
+  animation_controls::{
+    AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionSelector,
+    SequencePosition, use_animation_controls, use_animation_scope,
+  },
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},
@@ -67,6 +71,13 @@ pub use crate::{
     Repeat, RepeatType, Transition,
   },
   motion_component::{MotionComponent, MotionComponentExt},
+  motion_value::{
+    AnimationPlayback, AudioPlayback, AudioPlaybackOptions, ControlledMotionClock, InputRange,
+    MotionExpression, MotionTimeSource, MotionValue as TypedMotionValue, MotionValueEvent,
+    MotionValueType, OutputRange, PlaybackOutcome, SpringOptions, SpringValue,
+    use_controlled_motion_clock, use_motion_expression, use_motion_time, use_motion_value,
+    use_motion_value_event, use_spring, use_time, use_transform, use_velocity,
+  },
   motion_variants::VariantOrchestration,
   portal::{Portal, PortalTarget, create_portal},
   presence::{AnimatePresence, Presence, PresenceMode},

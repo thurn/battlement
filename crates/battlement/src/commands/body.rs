@@ -2,7 +2,9 @@ use battlement_cloud::diagnostics::DiagnosticsCommand;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  GameObject, GeometryObservationUpdate, ObjectId, VisualElementCreate, VisualElementDestroy,
+  GameObject, GeometryObservationUpdate, MotionControlOperation, MotionControlledClockOperation,
+  MotionPlaybackOperation, MotionScopeOperation, MotionValueOperation,
+  MotionValuePlaybackOperation, ObjectId, VisualElementCreate, VisualElementDestroy,
   VisualElementPerformAction, VisualElementUpdate,
 };
 
@@ -148,6 +150,16 @@ pub enum CommandBody {
   AudioPlay(AudioPlayPayload),
   /// Stop audio started by a previous audio-play command.
   AudioStop(AudioStopPayload),
+  /// Pause one playing audio operation.
+  AudioPause(AudioPlaybackPayload),
+  /// Resume one paused audio operation.
+  AudioResume(AudioPlaybackPayload),
+  /// Seek one audio operation and mark a motion-time discontinuity.
+  AudioSeek(AudioSeekPayload),
+  /// Freeze or resume playhead time for buffering.
+  AudioSetBuffering(AudioBufferingPayload),
+  /// Replace the clip while retaining the playback identity.
+  AudioReplace(AudioReplacePayload),
   /// Set a playing audio operation's volume immediately.
   AudioSetVolume(PropertyCommand<AudioVolumePayload>),
   /// Tween a playing audio operation's volume.
@@ -178,6 +190,18 @@ pub enum CommandBody {
   VisualElementDestroy(VisualElementDestroy),
   /// Perform one transient UI operation.
   VisualElementPerformAction(VisualElementPerformAction),
+  /// Mutate one stable Reactant motion value.
+  MotionValue(MotionValueOperation),
+  /// Mutate one motion-value playback generation.
+  MotionValuePlayback(MotionValuePlaybackOperation),
+  /// Mutate one descriptor-slot playback generation.
+  MotionPlayback(MotionPlaybackOperation),
+  /// Set or advance one controlled motion clock.
+  MotionControlledClock(MotionControlledClockOperation),
+  /// Broadcast through one typed animation-controls identity.
+  MotionControl(MotionControlOperation),
+  /// Execute one closed animation-scope operation.
+  MotionScope(MotionScopeOperation),
   /// Atomically update the native geometry observation registry.
   GeometryObservationUpdate(GeometryObservationUpdate),
 }

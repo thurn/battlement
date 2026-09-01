@@ -28,6 +28,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod animation_controls;
 pub mod asset_generator;
 mod commit;
 pub mod component;
@@ -56,6 +57,8 @@ mod motion_component;
 mod motion_css;
 mod motion_lifecycle;
 mod motion_transition;
+pub mod motion_value;
+mod motion_value_runtime;
 mod motion_variants;
 mod mutation;
 pub mod portal;
