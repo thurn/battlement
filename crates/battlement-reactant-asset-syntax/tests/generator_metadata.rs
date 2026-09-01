@@ -134,6 +134,16 @@ fn parses_text_image_requirements_and_font_path() {
 }
 
 #[test]
+fn parses_trilinear_filtering_for_minified_assets() {
+  let request = parse(
+    "@background LABEL { @canvas 120px 30px; @filter-mode trilinear; background: red; box-shadow: 1px 2px red; }",
+  )
+  .unwrap();
+
+  assert_eq!(request.metadata.filter_mode, FilterMode::Trilinear);
+}
+
+#[test]
 fn reports_every_required_statement() {
   let cases = [
     ("@background PANEL { background: red; }", "@canvas"),

@@ -93,6 +93,7 @@ fn metadata(bytes: &mut Vec<u8>, metadata: &GeneratorMetadata) {
   bytes.push(match metadata.filter_mode {
     FilterMode::Bilinear => 1,
     FilterMode::Nearest => 2,
+    FilterMode::Trilinear => 3,
   });
   bytes.push(match metadata.wrap_mode {
     WrapMode::Clamp => 1,

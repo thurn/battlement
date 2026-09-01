@@ -170,7 +170,7 @@ namespace Battlement.Tests
 
             CreateGeneratedAsset();
             var importer = (TextureImporter)AssetImporter.GetAtPath(TexturePath);
-            importer.mipmapEnabled = true;
+            importer.mipmapEnabled = false;
             importer.SaveAndReimport();
             Assert.That(
                 () => ReactantGeneratedAssets.Prepare(SettingsWithGroup()),
@@ -184,7 +184,7 @@ namespace Battlement.Tests
         {
             Directory.CreateDirectory(Path.GetDirectoryName(TexturePath)!);
             Directory.CreateDirectory(Path.GetDirectoryName(SidecarPath)!);
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, true);
             texture.SetPixels32(
                 new[]
                 {
@@ -202,8 +202,8 @@ namespace Battlement.Tests
             importer.textureType = TextureImporterType.Default;
             importer.sRGBTexture = true;
             importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = false;
-            importer.filterMode = FilterMode.Bilinear;
+            importer.mipmapEnabled = true;
+            importer.filterMode = FilterMode.Trilinear;
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.SaveAndReimport();
@@ -242,8 +242,8 @@ namespace Battlement.Tests
                         {
                             ["alphaIsTransparency"] = true,
                             ["compression"] = "lossless",
-                            ["filterMode"] = "bilinear",
-                            ["mipmaps"] = false,
+                            ["filterMode"] = "trilinear",
+                            ["mipmaps"] = true,
                             ["sRgb"] = true,
                             ["textureType"] = "default",
                             ["wrapMode"] = "clamp",
@@ -325,8 +325,8 @@ namespace Battlement.Tests
             Assert.That(importer.textureType, Is.EqualTo(TextureImporterType.Default));
             Assert.That(importer.sRGBTexture, Is.True);
             Assert.That(importer.alphaIsTransparency, Is.True);
-            Assert.That(importer.mipmapEnabled, Is.False);
-            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Bilinear));
+            Assert.That(importer.mipmapEnabled, Is.True);
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Trilinear));
             Assert.That(importer.wrapMode, Is.EqualTo(TextureWrapMode.Clamp));
             Assert.That(
                 importer.textureCompression,

@@ -21,7 +21,7 @@ specimen, and black-box proof exist together.
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
-| `asset_generator` | Assets | `composition.rs::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
+| `asset_generator` | Assets | `composition.rs::assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
 | `component` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `primitives.rs` |
 | `context` | Context & Memo | `composition.rs::context_screen_overrides_only_the_nested_descendant_and_restores`, `refs_context.rs` |
 | `element_ref` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `element_refs.rs` |

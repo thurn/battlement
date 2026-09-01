@@ -293,7 +293,9 @@ fn validate_font_coverage(codepoints: &[u32], path: &str, request: &AssetRequest
     .with_context(|| format!("text content for {path} is not a Rust string literal"))?
     .value();
   if let Some(character) = text.chars().find(|character| {
-    !self::shaping_control(*character) && codepoints.binary_search(&u32::from(*character)).is_err()
+    !self::layout_control(*character)
+      && !self::shaping_control(*character)
+      && codepoints.binary_search(&u32::from(*character)).is_err()
   }) {
     bail!(
       "font dependency {path} does not cover authored character U+{:04X}",
@@ -301,6 +303,10 @@ fn validate_font_coverage(codepoints: &[u32], path: &str, request: &AssetRequest
     );
   }
   Ok(())
+}
+
+fn layout_control(character: char) -> bool {
+  matches!(character, '\n' | '\r' | '\t')
 }
 
 fn shaping_control(character: char) -> bool {
@@ -311,7 +317,16 @@ fn shaping_control(character: char) -> bool {
 mod tests {
   use std::io::Cursor;
 
-  use super::normalize_png;
+  use super::{layout_control, normalize_png};
+
+  #[test]
+  fn font_coverage_ignores_text_layout_controls() {
+    for character in ['\n', '\r', '\t'] {
+      assert!(layout_control(character));
+    }
+    assert!(!layout_control(' '));
+    assert!(!layout_control('A'));
+  }
 
   #[test]
   fn png_identity_normalizes_equivalent_rgb_and_rgba_encodings() {

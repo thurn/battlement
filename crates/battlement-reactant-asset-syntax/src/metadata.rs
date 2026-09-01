@@ -169,6 +169,7 @@ impl Builder {
       "filter-mode" => {
         self.filter_mode = match self.keyword(statement, "@filter-mode")?.as_str() {
           "nearest" => FilterMode::Nearest,
+          "trilinear" => FilterMode::Trilinear,
           "bilinear" => return Err(self.redundant(statement, "@filter-mode")),
           _ => return Err(self.invalid(statement, "@filter-mode")),
         };

@@ -85,6 +85,8 @@ pub enum FilterMode {
   Bilinear,
   /// Nearest-neighbor sampling.
   Nearest,
+  /// Trilinear interpolation across generated mip levels.
+  Trilinear,
 }
 
 /// Unity texture wrapping mode.

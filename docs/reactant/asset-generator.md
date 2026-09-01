@@ -281,7 +281,7 @@ The metadata grammar is:
 @slices <px> <px> <px> <px>;
 @allow-clipping <clip-edge>+;
 @raster-scale <integer>;
-@filter-mode bilinear | nearest;
+@filter-mode bilinear | nearest | trilinear;
 @wrap-mode clamp | repeat;
 @compression lossless | lossy-low | lossy-normal | lossy-high;
 @font-file unity("<path>");
@@ -298,10 +298,12 @@ required only for `@text-image`. Clipping edges are unique and must appear in
 top, right, bottom, left order. Raster scale is an integer from 1 through 8.
 
 The defaults are the complete canvas for `@subject`, no permitted clipping,
-the project raster scale of 2, bilinear filtering, clamp wrapping, and lossless
-compression. The lossy compression cases map to Unity's low-, normal-, and
-high-quality compressed importer settings. Explicitly writing a metadata value
-equal to its default is rejected as redundant.
+the project raster scale of 2, bilinear filtering without mipmaps, clamp
+wrapping, and lossless compression. Trilinear filtering enables generated
+mipmaps for assets that will be displayed substantially below their raster
+size. The lossy compression cases map to Unity's low-, normal-, and high-quality
+compressed importer settings. Explicitly writing a metadata value equal to its
+default is rejected as redundant.
 
 ### CSS declaration catalog
 
@@ -1173,9 +1175,11 @@ JSON values use these exact encodings:
   selected Unity project root and uses UTF-8 with forward slashes, no empty
   segment, dot segment, or parent segment.
 - `compression` is `"lossless"`, `"lossyLow"`, `"lossyNormal"`, or
-  `"lossyHigh"`; `filterMode` is `"bilinear"` or `"nearest"`; `wrapMode` is
-  `"clamp"` or `"repeat"`; and `textureType` is always `"default"`.
-- `alphaIsTransparency` and `sRgb` are true. `mipmaps` is false.
+  `"lossyHigh"`; `filterMode` is `"bilinear"`, `"nearest"`, or `"trilinear"`;
+  `wrapMode` is `"clamp"` or `"repeat"`; and `textureType` is always
+  `"default"`.
+- `alphaIsTransparency` and `sRgb` are true. `mipmaps` is true exactly when
+  `filterMode` is `"trilinear"`.
 - Logical geometry and slice fields are finite JSON numbers without negative
   zero. Raster dimensions are positive unsigned integers. Raster scale is an
   integer from 1 through 8.
@@ -1480,11 +1484,14 @@ CI rather than skipping the real-browser batch. Performance timing, destructive
 transaction interruption, external-tool failure injection, and visual pixel
 judgment remain release-level Manual QA rather than normal CI gates.
 
-The existing Reactant sample contains a compact asset gallery derived from the
-mockup needs: advanced gradient text, one clipped layered background, one
-explicit nine-slice control, and representative gradient, clip, shadow, mask,
-filter, and skew cases. Interactive size controls demonstrate nine-slice
-stretching while the surrounding layout remains native Reactant UI.
+The existing Reactant sample contains a compact asset sheet of the exact raster
+art used by the arcade-menu mockup: the screen and settings frames, reusable
+button and tab frames, game branding and action labels, checkbox parts, and
+volume-slider parts. The source PNGs are local image dependencies rendered at
+their native 2x density. Authored slice insets preserve the mockup's reusable
+action, small-control, tab, and slider-track geometry, and an interactive action
+frame demonstrates nine-slice stretching while the surrounding layout remains
+native Reactant UI.
 
 Acceptance requires the sample to run in native and WebAssembly players with
 the same linked catalog and public addresses. Pixel output may differ across

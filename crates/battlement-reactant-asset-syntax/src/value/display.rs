@@ -6,6 +6,10 @@ use syn::LitStr;
 use super::{CalcNode, Calculation, Unit, Value};
 
 pub(super) fn css_tokens(stream: TokenStream) -> String {
+  self::css_tokens_with_context(stream, false)
+}
+
+fn css_tokens_with_context(stream: TokenStream, arithmetic: bool) -> String {
   let tokens = stream.into_iter().collect::<Vec<_>>();
   let mut output = String::new();
   for (index, token) in tokens.iter().enumerate() {
@@ -26,7 +30,13 @@ pub(super) fn css_tokens(stream: TokenStream) -> String {
       TokenTree::Group(group) if group.delimiter() == Delimiter::Parenthesis => {
         self::trim_space(&mut output);
         output.push('(');
-        output.push_str(&self::css_tokens(group.stream()));
+        let calculation = index
+          .checked_sub(1)
+          .and_then(|previous| tokens.get(previous))
+          .is_some_and(|token| {
+            matches!(token, TokenTree::Ident(value) if matches!(value.to_string().as_str(), "calc" | "min" | "max" | "clamp"))
+          });
+        output.push_str(&self::css_tokens_with_context(group.stream(), calculation));
         self::trim_space(&mut output);
         output.push(')');
       }
@@ -64,8 +74,10 @@ pub(super) fn css_tokens(stream: TokenStream) -> String {
             self::trim_space(&mut output);
             output.push('-');
           }
-          '-' | '+' if unary => {
-            self::trim_space(&mut output);
+          '-' | '+' if unary || !arithmetic => {
+            if !output.is_empty() && !output.ends_with(' ') {
+              output.push(' ');
+            }
             output.push(character);
           }
           '-' | '+' | '*' => {
@@ -260,6 +272,22 @@ mod tests {
         .unwrap()
       ),
       "unity-url(\"Assets/a.png\") center / calc(20px - 2px) 10px no-repeat"
+    );
+  }
+
+  #[test]
+  fn css_tokens_keep_negative_css_list_values_attached() {
+    assert_eq!(
+      css_tokens(TokenStream::from_str("4px 6px #123, -3px -2px #456").unwrap()),
+      "4px 6px#123, -3px -2px#456"
+    );
+    assert_eq!(
+      css_tokens(TokenStream::from_str("translate(-3px, -2px)").unwrap()),
+      "translate(-3px, -2px)"
+    );
+    assert_eq!(
+      css_tokens(TokenStream::from_str("calc(20px - 2px)").unwrap()),
+      "calc(20px - 2px)"
     );
   }
 }

@@ -35,7 +35,8 @@ fn generated_tree_is_canonical_complete_and_strictly_checked() {
     serde_json::json!({"height": 36, "width": 48})
   );
   assert_eq!(asset["import"]["compression"], "lossyHigh");
-  assert_eq!(asset["import"]["filterMode"], "nearest");
+  assert_eq!(asset["import"]["filterMode"], "trilinear");
+  assert_eq!(asset["import"]["mipmaps"], true);
   assert_eq!(asset["import"]["wrapMode"], "repeat");
   assert_eq!(asset["dependencies"][0]["kind"], "image");
   assert_eq!(
@@ -86,7 +87,7 @@ fn generated_tree_is_canonical_complete_and_strictly_checked() {
     ),
     (
       "import",
-      mutate(&["assets", "0", "import", "mipmaps"], Value::Bool(true)),
+      mutate(&["assets", "0", "import", "mipmaps"], Value::Bool(false)),
     ),
     (
       "geometry",
@@ -266,7 +267,7 @@ impl Fixture {
           @slices 2px 2px 2px 2px;
           @allow-clipping top right bottom left;
           @raster-scale 3;
-          @filter-mode nearest;
+          @filter-mode trilinear;
           @wrap-mode repeat;
           @compression lossy-high;
           background: unity-url("Assets/Textures/panel.png") center / cover;

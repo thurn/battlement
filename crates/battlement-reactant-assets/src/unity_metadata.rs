@@ -24,9 +24,10 @@ pub(crate) fn texture(
   wrap: WrapMode,
   compression: Compression,
 ) -> Vec<u8> {
-  let filter = match filter {
-    FilterMode::Bilinear => 1,
-    FilterMode::Nearest => 0,
+  let (filter, mipmaps) = match filter {
+    FilterMode::Bilinear => (1, 0),
+    FilterMode::Nearest => (0, 0),
+    FilterMode::Trilinear => (2, 1),
   };
   let wrap = match wrap {
     WrapMode::Clamp => 1,
@@ -47,7 +48,7 @@ TextureImporter:
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 0
+    enableMipMap: {mipmaps}
     sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
@@ -173,7 +174,15 @@ pub(crate) fn validate_texture(
   let text = self::utf8(bytes)?;
   self::common(text, guid)?;
   self::header(text, TEXTURE_IMPORTER)?;
-  self::one(text, "enableMipMap", "0")?;
+  self::one(
+    text,
+    "enableMipMap",
+    if filter == FilterMode::Trilinear {
+      "1"
+    } else {
+      "0"
+    },
+  )?;
   self::one(text, "sRGBTexture", "1")?;
   self::one(text, "alphaIsTransparency", "1")?;
   self::one(text, "textureType", "0")?;
@@ -183,6 +192,7 @@ pub(crate) fn validate_texture(
     match filter {
       FilterMode::Bilinear => "1",
       FilterMode::Nearest => "0",
+      FilterMode::Trilinear => "2",
     },
   )?;
   let wrap = match wrap {
@@ -267,6 +277,28 @@ fn one(text: &str, key: &str, expected: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
   use battlement_reactant_asset_syntax::{Compression, FilterMode, WrapMode};
+
+  #[test]
+  fn trilinear_filtering_enables_mipmaps() {
+    let bytes = super::texture(
+      "0123456789abcdef0123456789abcdef",
+      FilterMode::Trilinear,
+      WrapMode::Clamp,
+      Compression::Lossless,
+    );
+    let text = String::from_utf8(bytes.clone()).unwrap();
+
+    assert!(text.contains("    enableMipMap: 1\n"));
+    assert!(text.contains("    filterMode: 2\n"));
+    super::validate_texture(
+      &bytes,
+      "0123456789abcdef0123456789abcdef",
+      FilterMode::Trilinear,
+      WrapMode::Clamp,
+      Compression::Lossless,
+    )
+    .unwrap();
+  }
 
   #[test]
   fn semantic_validation_accepts_key_reordering_and_rejects_overrides_and_labels() {

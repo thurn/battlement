@@ -326,9 +326,10 @@ fn import_record(metadata: &GeneratorMetadata) -> ImportRecord {
     filter_mode: match metadata.filter_mode {
       FilterMode::Bilinear => "bilinear",
       FilterMode::Nearest => "nearest",
+      FilterMode::Trilinear => "trilinear",
     }
     .to_owned(),
-    mipmaps: false,
+    mipmaps: metadata.filter_mode == FilterMode::Trilinear,
     s_rgb: true,
     texture_type: "default".to_owned(),
     wrap_mode: match metadata.wrap_mode {

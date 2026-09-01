@@ -259,12 +259,25 @@ namespace Battlement.Editor
             }
 
             JObject import = RequireObject(asset, "import");
+            string filter = RequiredString(import, "filterMode");
+            if (import["mipmaps"]?.Type != JTokenType.Boolean)
+            {
+                throw new InvalidOperationException(
+                    $"Generated import contract is invalid for '{address}'."
+                );
+            }
+            bool mipmaps = import["mipmaps"]!.Value<bool>();
             if (
                 import["alphaIsTransparency"]?.Value<bool>() != true
-                || import["mipmaps"]?.Value<bool>() != false
                 || import["sRgb"]?.Value<bool>() != true
                 || RequiredString(import, "textureType") != "default"
             )
+            {
+                throw new InvalidOperationException(
+                    $"Generated import contract is invalid for '{address}'."
+                );
+            }
+            if (mipmaps != (filter == "trilinear"))
             {
                 throw new InvalidOperationException(
                     $"Generated import contract is invalid for '{address}'."
@@ -274,7 +287,8 @@ namespace Battlement.Editor
                 address,
                 guid,
                 $"{GeneratedRoot}/{png}",
-                RequiredString(import, "filterMode"),
+                filter,
+                mipmaps,
                 RequiredString(import, "wrapMode"),
                 RequiredString(import, "compression")
             );
@@ -339,6 +353,7 @@ namespace Battlement.Editor
             FilterMode filter =
                 asset.Filter == "bilinear" ? FilterMode.Bilinear
                 : asset.Filter == "nearest" ? FilterMode.Point
+                : asset.Filter == "trilinear" ? FilterMode.Trilinear
                 : throw new InvalidOperationException(
                     $"Unknown generated filter '{asset.Filter}'."
                 );
@@ -360,7 +375,7 @@ namespace Battlement.Editor
                 importer.textureType != TextureImporterType.Default
                 || !importer.sRGBTexture
                 || !importer.alphaIsTransparency
-                || importer.mipmapEnabled
+                || importer.mipmapEnabled != asset.Mipmaps
                 || importer.filterMode != filter
                 || importer.wrapModeU != wrap
                 || importer.wrapModeV != wrap
@@ -527,6 +542,7 @@ namespace Battlement.Editor
                 string guid,
                 string path,
                 string filter,
+                bool mipmaps,
                 string wrap,
                 string compression
             )
@@ -535,6 +551,7 @@ namespace Battlement.Editor
                 Guid = guid;
                 Path = path;
                 Filter = filter;
+                Mipmaps = mipmaps;
                 Wrap = wrap;
                 Compression = compression;
             }
@@ -546,6 +563,8 @@ namespace Battlement.Editor
             public string Path { get; }
 
             public string Filter { get; }
+
+            public bool Mipmaps { get; }
 
             public string Wrap { get; }
 

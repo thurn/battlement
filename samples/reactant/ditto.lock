@@ -5,31 +5,31 @@ namespace = "battlement/reactant"
 profile = "macos"
 scenario = "assets"
 checkpoint = "initial"
-sha256 = "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8"
+sha256 = "02b7c3a53797f661db25fcfc2685f4bc9207b5581931e57c83fd730d95c73be4"
 width = 1280
 height = 720
-size_bytes = 139450
-source = "b6adeb75a4bbbb761d7cb0f07cc95decd139f47a7aeda63f77d71ba5491d13bb"
+size_bytes = 190093
+source = "b8d737392eb7408ee5463f4f4ae64e1547a1a67d988c2bb78cae3cc9b9ce255e"
 
 [[baselines]]
 profile = "macos"
 scenario = "assets"
 checkpoint = "resized"
-sha256 = "260605294fff32f13c1a78657079623ffa6d0d7dd6dac50e74a9fcd1fe7fd53b"
+sha256 = "43e8de8e9ebb4ad37d5ed04952190c338a4b570e6d9116dc7f9e12e60249eebd"
 width = 1280
 height = 720
-size_bytes = 160825
-source = "b6adeb75a4bbbb761d7cb0f07cc95decd139f47a7aeda63f77d71ba5491d13bb"
+size_bytes = 139985
+source = "b8d737392eb7408ee5463f4f4ae64e1547a1a67d988c2bb78cae3cc9b9ce255e"
 
 [[baselines]]
 profile = "macos"
 scenario = "assets"
 checkpoint = "restored"
-sha256 = "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8"
+sha256 = "81b599fec14f39037232a9f78dea3e276b01799c6a831b8697b4900c7a6ce744"
 width = 1280
 height = 720
-size_bytes = 139450
-source = "b6adeb75a4bbbb761d7cb0f07cc95decd139f47a7aeda63f77d71ba5491d13bb"
+size_bytes = 137194
+source = "b8d737392eb7408ee5463f4f4ae64e1547a1a67d988c2bb78cae3cc9b9ce255e"
 
 [[baselines]]
 profile = "macos"

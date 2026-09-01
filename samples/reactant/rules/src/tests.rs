@@ -42,6 +42,20 @@ fn assets_scenario_covers_initial_resize_and_restoration() {
 }
 
 #[test]
+fn assets_are_generated_without_runtime_images() {
+  let source = include_str!("assets.rs");
+  assert_eq!(source.matches("asset_generator::generate!").count(), 18);
+  assert!(
+    !source.contains("unity-url("),
+    "asset declarations must not load reference images"
+  );
+  assert!(
+    !source.contains("rules/assets/mockup"),
+    "asset declarations must not refer to the mockup image directory"
+  );
+}
+
+#[test]
 fn task_47_scenarios_cover_registered_stable_states() {
   let suite = include_str!("../../ditto.toml");
   for (scenario, checkpoints) in [

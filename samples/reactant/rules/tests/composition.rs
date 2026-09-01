@@ -192,12 +192,12 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
 }
 
 #[test]
-fn assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice() {
+fn assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
   let addresses = generated_asset_addresses();
-  assert_eq!(addresses.len(), 9);
-  assert_eq!(addresses.iter().cloned().collect::<BTreeSet<_>>().len(), 9);
+  assert_eq!(addresses.len(), 18);
+  assert_eq!(addresses.iter().cloned().collect::<BTreeSet<_>>().len(), 18);
   for address in &addresses {
     assert!(
       client
@@ -213,18 +213,38 @@ fn assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice()
   let canvas = find_named(&client.ui(), ROOT_ID, "assets-canvas");
   let action = find_named(&client.ui(), canvas, "assets-resize-action");
   let initial = visible_text(&client.ui(), canvas);
-  assert!(!initial.iter().any(|text| text == "SKEW / LATER STATE"));
+  for name in [
+    "assets-game-logo",
+    "assets-label-play",
+    "assets-label-settings",
+    "assets-label-about",
+    "assets-label-quit",
+    "assets-label-return",
+    "assets-arcade-screen-frame",
+    "assets-settings-panel-frame",
+    "assets-small-control-frame",
+    "assets-settings-tab-active",
+    "assets-settings-tab-inactive",
+    "assets-checkbox-unchecked",
+    "assets-checkbox-check",
+    "assets-volume-slider-track",
+    "assets-volume-slider-fill",
+    "assets-volume-slider-ticks",
+    "assets-volume-slider-handle",
+  ] {
+    find_named(&client.ui(), canvas, name);
+  }
   assert_eq!(
     client.ui().element(action).text(),
-    Some("RESIZE NINE-SLICE")
+    Some("STRETCH ACTION FRAME")
   );
   assert_eq!(
     style_length_or_auto(&client.ui().element(action).style().width),
-    Some(300.0)
+    Some(420.0)
   );
   assert!(matches!(
     client.ui().element(action).style().unity_slice_top,
-    Prop::Set(StyleValue::Value(value)) if value == 42
+    Prop::Set(StyleValue::Value(value)) if value == 48
   ));
 
   client.ui().click(action);
@@ -232,16 +252,11 @@ fn assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice()
   let action = find_named(&client.ui(), canvas, "assets-resize-action");
   assert_eq!(
     client.ui().element(action).text(),
-    Some("RESTORE NINE-SLICE")
+    Some("RESTORE ACTION FRAME")
   );
   assert_eq!(
     style_length_or_auto(&client.ui().element(action).style().width),
-    Some(520.0)
-  );
-  assert!(
-    visible_text(&client.ui(), canvas)
-      .iter()
-      .any(|text| text == "SKEW / LATER STATE")
+    Some(610.0)
   );
 
   client.ui().click(action);
