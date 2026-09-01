@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use battlement_types::ObjectId;
 
 use crate::{
-  PanelScaleMode, PanelScreenMatchMode, PanelSettings, Prop, Style, UiDocument, UiElement, UiNode,
-  UiVisualElementProperties, elements::parts,
+  LengthOrAuto, PanelScaleMode, PanelScreenMatchMode, PanelSettings, Position, Prop, Style,
+  StyleValue, UiDocument, UiElement, UiNode, UiVisualElementProperties, elements::parts,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -217,6 +217,7 @@ fn validate_node(
     return Err(UiValidationError::InvalidHierarchy);
   }
   let kind = node.element.kind();
+  validate_grid_context(node, parent_kind, unplaced_root)?;
   if parent_kind == Some(crate::UiElementKind::TabView) && kind != crate::UiElementKind::Tab {
     return Err(UiValidationError::InvalidHierarchy);
   }
@@ -254,6 +255,47 @@ fn validate_node(
     validate_node(child, identities, depth + 1, Some(kind), false)?;
   }
   Ok(())
+}
+
+fn validate_grid_context(
+  node: &UiNode,
+  parent_kind: Option<crate::UiElementKind>,
+  unplaced_root: bool,
+) -> Result<(), UiValidationError> {
+  let visual = node.element.visual_element();
+  let in_grid = parent_kind == Some(crate::UiElementKind::Grid);
+  if matches!(visual.grid_item, Prop::Set(_)) && !in_grid && !unplaced_root {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  if !in_grid {
+    return Ok(());
+  }
+  let position_is_absolute = matches!(
+    visual.style.position,
+    Prop::Set(StyleValue::Value(Position::Absolute))
+  );
+  let offsets_are_automatic = [
+    &visual.style.top,
+    &visual.style.right,
+    &visual.style.bottom,
+    &visual.style.left,
+  ]
+  .into_iter()
+  .all(grid_offset_is_automatic);
+  if position_is_absolute || !offsets_are_automatic {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  Ok(())
+}
+
+fn grid_offset_is_automatic(value: &Prop<StyleValue<LengthOrAuto>>) -> bool {
+  matches!(
+    value,
+    Prop::Unset
+      | Prop::Reset
+      | Prop::Set(StyleValue::Value(LengthOrAuto::Auto))
+      | Prop::Set(StyleValue::Keyword { .. })
+  )
 }
 
 fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationError> {

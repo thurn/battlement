@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine.UIElements;
@@ -68,6 +69,118 @@ namespace Battlement.Tests
 
             Assert.That(result.Sizes, Is.EqualTo(new[] { 250, 50 }));
             Assert.That(result.Overflow, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void MixedPlacementMatchesTheGoldenTableInBothFlowDirections()
+        {
+            GridItem[] items =
+            {
+                Item(row: 1, column: 2),
+                Item(columnSpan: 2),
+                Item(row: 1),
+                Item(column: 1),
+                Item(),
+            };
+
+            BattlementGridPlacementResult rows = BattlementGridOccupancy.Place(
+                items,
+                0,
+                3,
+                GridAutoFlow.Row
+            );
+            AssertPlacement(rows.Items[0], 0, 1, 1, 1);
+            AssertPlacement(rows.Items[1], 1, 0, 1, 2);
+            AssertPlacement(rows.Items[2], 0, 0, 1, 1);
+            AssertPlacement(rows.Items[3], 2, 0, 1, 1);
+            AssertPlacement(rows.Items[4], 2, 1, 1, 1);
+
+            GridItem[] transposed = items
+                .Select(item => new GridItem(
+                    item.Column,
+                    item.Row,
+                    item.ColumnSpan,
+                    item.RowSpan,
+                    item.JustifySelf,
+                    item.AlignSelf
+                ))
+                .ToArray();
+            BattlementGridPlacementResult columns = BattlementGridOccupancy.Place(
+                transposed,
+                3,
+                0,
+                GridAutoFlow.Column
+            );
+            AssertPlacement(columns.Items[0], 1, 0, 1, 1);
+            AssertPlacement(columns.Items[1], 0, 1, 2, 1);
+            AssertPlacement(columns.Items[2], 0, 0, 1, 1);
+            AssertPlacement(columns.Items[3], 0, 2, 1, 1);
+            AssertPlacement(columns.Items[4], 1, 2, 1, 1);
+        }
+
+        [Test]
+        public void AuthoredMinorStartUsesItsOccupiedFarEdge()
+        {
+            BattlementGridPlacementResult result = BattlementGridOccupancy.Place(
+                new[] { Item(column: 4, columnSpan: 2) },
+                0,
+                0,
+                GridAutoFlow.Row
+            );
+
+            Assert.That(result.Columns, Is.EqualTo(5));
+            AssertPlacement(result.Items[0], 0, 3, 1, 2);
+        }
+
+        [Test]
+        public void SpansCrossOneGapAndItemOverridesRespectMargins()
+        {
+            var container = new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid);
+            container.ApplyGrid(
+                new UiElement.Grid
+                {
+                    Columns = new GridTrack[] { new GridTrack.Px(40), new GridTrack.Px(50) },
+                    Rows = new GridTrack[] { new GridTrack.Px(30) },
+                    ColumnGap = 10,
+                }
+            );
+            VisualElement child = Sized(20, 10);
+            child.style.marginLeft = 5;
+            child.style.marginRight = 7;
+            child.style.marginTop = 3;
+            BattlementGridItems.Apply(
+                child,
+                Item(columnSpan: 2, alignSelf: UiAlign.FlexEnd, justifySelf: UiAlign.Center)
+            );
+            container.Adapter.Insert(child, 0);
+
+            AssertRect(container.Adapter.SlotFor(child), 39, 20, 20, 10);
+        }
+
+        [Test]
+        public void ResetPlacementAndFlowReuseTheExistingSlot()
+        {
+            var container = new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid);
+            container.ApplyGrid(
+                new UiElement.Grid
+                {
+                    Columns = new GridTrack[] { new GridTrack.Px(20), new GridTrack.Px(20) },
+                    Rows = new GridTrack[] { new GridTrack.Px(20), new GridTrack.Px(20) },
+                    AutoFlow = GridAutoFlow.Column,
+                }
+            );
+            var first = new VisualElement();
+            var second = new VisualElement();
+            BattlementGridItems.Apply(second, Item(row: 2, column: 2));
+            container.Adapter.Insert(first, 0);
+            container.Adapter.Insert(second, 1);
+            BattlementLayoutSlot retained = container.Adapter.SlotFor(second);
+
+            BattlementGridItems.Apply(second, Prop<GridItem>.Reset());
+            container.ApplyGrid(new UiElement.Grid { AutoFlow = Prop<GridAutoFlow>.Reset() });
+
+            Assert.That(container.Adapter.SlotFor(second), Is.SameAs(retained));
+            AssertRect(retained, 20, 0, 20, 20);
         }
 
         [Test]
@@ -164,6 +277,29 @@ namespace Battlement.Tests
             value.style.width = width;
             value.style.height = height;
             return value;
+        }
+
+        private static GridItem Item(
+            uint? row = null,
+            uint? column = null,
+            uint rowSpan = 1,
+            uint columnSpan = 1,
+            UiAlign alignSelf = UiAlign.Auto,
+            UiAlign justifySelf = UiAlign.Auto
+        ) => new(row, column, rowSpan, columnSpan, alignSelf, justifySelf);
+
+        private static void AssertPlacement(
+            BattlementGridPlacement value,
+            int row,
+            int column,
+            int rowSpan,
+            int columnSpan
+        )
+        {
+            Assert.That(value.Row, Is.EqualTo(row));
+            Assert.That(value.Column, Is.EqualTo(column));
+            Assert.That(value.RowSpan, Is.EqualTo(rowSpan));
+            Assert.That(value.ColumnSpan, Is.EqualTo(columnSpan));
         }
 
         private static void AssertRect(

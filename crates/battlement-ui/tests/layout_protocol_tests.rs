@@ -1,9 +1,9 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
   Align, FlexDirection, FlexWrap, GridAutoFlow, GridItem, GridTrack, Justify, OverlayLayer,
-  OverlayPlacement, PlacementAlign, PlacementSide, PopoverPlacement, Prop, StackItem, Sticky,
-  UiDocument, UiElement, UiFlex, UiGrid, UiNode, UiStack, UiValidationError, UiVisualElement,
-  validate_element_state,
+  OverlayPlacement, PlacementAlign, PlacementSide, PopoverPlacement, Position, Prop, StackItem,
+  Sticky, Style, UiDocument, UiElement, UiFlex, UiGrid, UiNode, UiStack, UiValidationError,
+  UiVisualElement, validate_element_state,
 };
 
 #[test]
@@ -186,4 +186,59 @@ fn snapshots_containing_each_layout_host_are_valid_protocol_state() {
     .child(UiNode::new(ObjectId::new_v4(), UiStack::new()));
 
   assert!(battlement_ui::validate_documents(&[document]).is_ok());
+}
+
+#[test]
+fn grid_items_require_a_grid_parent_and_default_positioning() {
+  let outside = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      grid_item: Prop::Set(GridItem::new()),
+      ..UiVisualElement::new()
+    },
+  ));
+  assert_eq!(
+    battlement_ui::validate_documents(&[outside]),
+    Err(UiValidationError::InvalidProperty)
+  );
+
+  for style in [
+    Style::new().position(Position::Absolute),
+    Style::new().top(1),
+  ] {
+    let grid = UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(ObjectId::new_v4(), UiGrid::new()).child(UiNode::new(
+        ObjectId::new_v4(),
+        UiVisualElement {
+          style,
+          ..UiVisualElement::new()
+        },
+      )),
+    );
+    assert_eq!(
+      battlement_ui::validate_documents(&[grid]),
+      Err(UiValidationError::InvalidProperty)
+    );
+  }
+}
+
+#[test]
+fn grid_item_builder_authors_each_axis_and_alignment() {
+  assert_eq!(
+    GridItem::new()
+      .row(2)
+      .column(3)
+      .span_rows(4)
+      .span_columns(5)
+      .align_self(Align::Center)
+      .justify_self(Align::FlexEnd),
+    GridItem {
+      row: Some(2),
+      column: Some(3),
+      row_span: 4,
+      column_span: 5,
+      align_self: Align::Center,
+      justify_self: Align::FlexEnd,
+    }
+  );
 }

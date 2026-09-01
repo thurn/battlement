@@ -401,6 +401,7 @@ namespace Battlement.UI
                 {
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
+                    ValidateGridUpdate(target, properties.Element);
                     BattlementUiElementProperties.Validate(
                         properties.Element,
                         allowUsageHints: false
@@ -424,6 +425,7 @@ namespace Battlement.UI
                         properties.Element.Motion
                     );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    BattlementGridItems.Apply(target, properties.Element.GridItem);
                     if (
                         target is BattlementLayoutContainer layout
                         && properties.Element is UiElement.Flex flex
@@ -648,6 +650,7 @@ namespace Battlement.UI
                 node.Element.Motion
             );
             properties.ApplyElement(value, node.ObjectId, node.Element);
+            BattlementGridItems.Apply(value, node.Element.GridItem);
             if (value is BattlementLayoutContainer layout && node.Element is UiElement.Flex flex)
                 layout.ApplyFlex(flex);
             if (
@@ -1050,32 +1053,124 @@ namespace Battlement.UI
         private static void ValidatePlacement(
             UiElement child,
             UnityEngine.UIElements.VisualElement parent
-        ) =>
+        )
+        {
             ValidatePlacement(
                 child is UiElement.Tab,
                 parent is UnityEngine.UIElements.TabView,
                 child is UiElement.Button,
                 parent is UnityEngine.UIElements.ToggleButtonGroup
             );
+            ValidateGridPlacement(
+                child,
+                parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Grid }
+            );
+        }
 
-        private static void ValidatePlacement(UiElement child, UiElement parent) =>
+        private static void ValidatePlacement(UiElement child, UiElement parent)
+        {
             ValidatePlacement(
                 child is UiElement.Tab,
                 parent is UiElement.TabView,
                 child is UiElement.Button,
                 parent is UiElement.ToggleButtonGroup
             );
+            ValidateGridPlacement(child, parent is UiElement.Grid);
+        }
 
         private static void ValidatePlacement(
             UnityEngine.UIElements.VisualElement child,
             UnityEngine.UIElements.VisualElement parent
-        ) =>
+        )
+        {
             ValidatePlacement(
                 child is UnityEngine.UIElements.Tab,
                 parent is UnityEngine.UIElements.TabView,
                 child is UnityEngine.UIElements.Button,
                 parent is UnityEngine.UIElements.ToggleButtonGroup
             );
+            bool parentIsGrid =
+                parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Grid };
+            if (BattlementGridItems.HasAuthored(child) && !parentIsGrid)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "GridItem requires a direct Grid placement context."
+                );
+            if (parentIsGrid)
+                ValidateNativeGridStyle(child);
+        }
+
+        private static void ValidateGridUpdate(
+            UnityEngine.UIElements.VisualElement target,
+            UiElement value
+        )
+        {
+            bool parentIsGrid =
+                target.parent is BattlementLayoutSlot slot
+                && slot.parent
+                    is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Grid };
+            if (value.GridItem.IsSet && !parentIsGrid)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "GridItem requires a direct Grid placement context."
+                );
+            if (parentIsGrid)
+                ValidateGridStyle(value.Style);
+        }
+
+        private static void ValidateGridPlacement(UiElement child, bool parentIsGrid)
+        {
+            if (child.GridItem.IsSet && !parentIsGrid)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "GridItem requires a direct Grid placement context."
+                );
+            if (parentIsGrid)
+                ValidateGridStyle(child.Style);
+        }
+
+        private static void ValidateGridStyle(UiStyle? style)
+        {
+            if (style is null)
+                return;
+            bool absolute =
+                style.Position.IsSet
+                && style.Position.Value.Keyword is null
+                && style.Position.Value.Value == UiPosition.Absolute;
+            bool offsetsAreAutomatic = new[]
+            {
+                style.Top,
+                style.Right,
+                style.Bottom,
+                style.Left,
+            }.All(GridOffsetIsAutomatic);
+            if (absolute || !offsetsAreAutomatic)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Grid placement children require relative position and automatic offsets."
+                );
+        }
+
+        private static bool GridOffsetIsAutomatic(Prop<UiStyleValue<UiLengthOrAuto>> value) =>
+            !value.IsSet
+            || value.Value.Keyword is not null
+            || value.Value.Value is UiLengthOrAuto.Auto;
+
+        private static void ValidateNativeGridStyle(UnityEngine.UIElements.VisualElement child)
+        {
+            bool offsetsAreAutomatic = new[]
+            {
+                child.style.top,
+                child.style.right,
+                child.style.bottom,
+                child.style.left,
+            }.All(value => value.keyword == StyleKeyword.Auto);
+            if (child.style.position.value == Position.Absolute || !offsetsAreAutomatic)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "Grid placement children require relative position and automatic offsets."
+                );
+        }
 
         private static void ValidatePlacement(
             bool childIsTab,

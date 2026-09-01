@@ -77,6 +77,56 @@ impl Default for GridItem {
   }
 }
 
+impl GridItem {
+  /// Creates an automatically placed item spanning one track on each axis.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
+
+  /// Sets the one-based row start.
+  #[must_use]
+  pub const fn row(mut self, value: u32) -> Self {
+    self.row = Some(value);
+    self
+  }
+
+  /// Sets the one-based column start.
+  #[must_use]
+  pub const fn column(mut self, value: u32) -> Self {
+    self.column = Some(value);
+    self
+  }
+
+  /// Sets the positive row span.
+  #[must_use]
+  pub const fn span_rows(mut self, value: u32) -> Self {
+    self.row_span = value;
+    self
+  }
+
+  /// Sets the positive column span.
+  #[must_use]
+  pub const fn span_columns(mut self, value: u32) -> Self {
+    self.column_span = value;
+    self
+  }
+
+  /// Overrides vertical alignment inside the resolved grid area.
+  #[must_use]
+  pub const fn align_self(mut self, value: Align) -> Self {
+    self.align_self = value;
+    self
+  }
+
+  /// Overrides horizontal alignment inside the resolved grid area.
+  #[must_use]
+  pub const fn justify_self(mut self, value: Align) -> Self {
+    self.justify_self = value;
+    self
+  }
+}
+
 /// Placement and presentation order of one Stack child.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct StackItem {

@@ -207,7 +207,8 @@ fn common_facades_lower_layout_item_descriptors() {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), move |_: &()| {
     (
-      battlement_reactant::host::View::new().grid_item(grid_item),
+      battlement_reactant::host::Grid::new()
+        .child(battlement_reactant::host::View::new().grid_item(grid_item)),
       battlement_reactant::host::Button::new("stack").stack_item(stack_item),
       battlement_reactant::host::Label::new("sticky").sticky(sticky),
       battlement_reactant::host::Box::new().overlay_placement(rendered_overlay.clone()),
@@ -225,7 +226,7 @@ fn common_facades_lower_layout_item_descriptors() {
   let children = &rendered.ui[0].children;
 
   assert_eq!(
-    children[0].element.visual_element().grid_item,
+    children[0].children[0].element.visual_element().grid_item,
     Prop::Set(grid_item)
   );
   assert_eq!(

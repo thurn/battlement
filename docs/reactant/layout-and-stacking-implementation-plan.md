@@ -333,7 +333,7 @@ preflight rejection until Task 5 removes that gate.
 - Run serialization and fake-client sparse-update tests from Task 1.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 5: Complete Grid placement and runtime updates
+## Task 5 [DONE]: Complete Grid placement and runtime updates
 
 **Prerequisites:** Task 4 `[DONE]`.
 

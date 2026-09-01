@@ -1,4 +1,4 @@
-use battlement::{Align, GridTrack, Prop};
+use battlement::{Align, GridAutoFlow, GridTrack, Prop};
 
 use crate::host::Grid;
 
@@ -28,6 +28,13 @@ impl Grid {
   #[must_use]
   pub fn auto_rows(mut self, value: GridTrack) -> Self {
     self.state.host.auto_rows = Prop::Set(value);
+    self
+  }
+
+  /// Selects the major-axis auto-placement scan direction.
+  #[must_use]
+  pub fn auto_flow(mut self, value: GridAutoFlow) -> Self {
+    self.state.host.auto_flow = Prop::Set(value);
     self
   }
 

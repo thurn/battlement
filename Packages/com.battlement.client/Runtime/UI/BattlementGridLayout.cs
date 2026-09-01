@@ -18,6 +18,7 @@ namespace Battlement.UI
         private IReadOnlyList<GridTrack> rows = Array.Empty<GridTrack>();
         private GridTrack autoColumns = new GridTrack.Auto();
         private GridTrack autoRows = new GridTrack.Auto();
+        private GridAutoFlow autoFlow = GridAutoFlow.Row;
         private UiAlign alignItems = UiAlign.Stretch;
         private UiAlign justifyItems = UiAlign.Stretch;
         private float rowGap;
@@ -46,6 +47,7 @@ namespace Battlement.UI
             rows = Resolve(value.Rows, rows);
             autoColumns = Resolve(value.AutoColumns, autoColumns, new GridTrack.Auto());
             autoRows = Resolve(value.AutoRows, autoRows, new GridTrack.Auto());
+            autoFlow = Resolve(value.AutoFlow, autoFlow, GridAutoFlow.Row);
             alignItems = Resolve(value.AlignItems, alignItems, UiAlign.Stretch);
             justifyItems = Resolve(value.JustifyItems, justifyItems, UiAlign.Stretch);
             rowGap = Resolve(value.RowGap, rowGap, 0);
@@ -65,23 +67,28 @@ namespace Battlement.UI
             VisualElement[] children = adapter
                 .LogicalChildren.Where(child => child.style.display.value != DisplayStyle.None)
                 .ToArray();
-            int columnCount = Math.Max(columns.Count, 1);
-            int rowCount = Math.Max(rows.Count, DivideCeiling(children.Length, columnCount));
             try
             {
+                GridItem[] items = children.Select(BattlementGridItems.Get).ToArray();
+                BattlementGridPlacementResult placement = BattlementGridOccupancy.Place(
+                    items,
+                    rows.Count,
+                    columns.Count,
+                    autoFlow
+                );
                 BattlementGridAxis columnAxis = BattlementGridTrackSizing.Resolve(
                     columns,
                     autoColumns,
-                    columnCount,
+                    placement.Columns,
                     columnGap,
                     Available(owner, horizontal: true),
                     children
                         .Select(
                             (child, index) =>
                                 new BattlementGridContribution(
-                                    index % columnCount,
-                                    1,
-                                    PreferredWidth(child)
+                                    placement.Items[index].Column,
+                                    placement.Items[index].ColumnSpan,
+                                    PreferredOuterWidth(child)
                                 )
                         )
                         .ToArray()
@@ -89,23 +96,32 @@ namespace Battlement.UI
                 BattlementGridAxis rowAxis = BattlementGridTrackSizing.Resolve(
                     rows,
                     autoRows,
-                    rowCount,
+                    placement.Rows,
                     rowGap,
                     Available(owner, horizontal: false),
                     children
                         .Select(
                             (child, index) =>
                                 new BattlementGridContribution(
-                                    index / columnCount,
-                                    1,
-                                    PreferredHeight(child, columnAxis.Sizes[index % columnCount])
+                                    placement.Items[index].Row,
+                                    placement.Items[index].RowSpan,
+                                    PreferredOuterHeight(
+                                        child,
+                                        AreaSize(
+                                            columnAxis,
+                                            placement.Items[index].Column,
+                                            placement.Items[index].ColumnSpan,
+                                            columnGap
+                                        )
+                                    )
                                 )
                         )
                         .ToArray()
                 );
-                Apply(children, columnCount, columnAxis, rowAxis);
+                Apply(children, items, placement.Items, columnAxis, rowAxis);
             }
-            catch (InvalidOperationException)
+            catch (Exception exception)
+                when (exception is InvalidOperationException or OverflowException)
             {
                 EmitDiagnostic();
             }
@@ -113,13 +129,16 @@ namespace Battlement.UI
 
         private void Apply(
             IReadOnlyList<VisualElement> children,
-            int columnCount,
+            IReadOnlyList<GridItem> items,
+            IReadOnlyList<BattlementGridPlacement> placements,
             BattlementGridAxis columnAxis,
             BattlementGridAxis rowAxis
         )
         {
             GridSignature next = new(
                 children,
+                items,
+                placements,
                 columnAxis.Sizes,
                 rowAxis.Sizes,
                 columnAxis.Total,
@@ -143,15 +162,15 @@ namespace Battlement.UI
             measurement.style.height = rowAxis.Total;
             for (int index = 0; index < children.Count; index++)
             {
-                int column = index % columnCount;
-                int row = index / columnCount;
+                BattlementGridPlacement placement = placements[index];
                 Place(
                     adapter.SlotFor(children[index]),
                     children[index],
-                    columnAxis.Positions[column],
-                    rowAxis.Positions[row],
-                    columnAxis.Sizes[column],
-                    rowAxis.Sizes[row]
+                    items[index],
+                    columnAxis.Positions[placement.Column],
+                    rowAxis.Positions[placement.Row],
+                    AreaSize(columnAxis, placement.Column, placement.ColumnSpan, columnGap),
+                    AreaSize(rowAxis, placement.Row, placement.RowSpan, rowGap)
                 );
             }
             signature = next;
@@ -162,16 +181,27 @@ namespace Battlement.UI
         private void Place(
             BattlementLayoutSlot slot,
             VisualElement child,
+            GridItem item,
             float left,
             float top,
             float width,
             float height
         )
         {
+            float marginLeft = Margin(child.style.marginLeft);
+            float marginRight = Margin(child.style.marginRight);
+            float marginTop = Margin(child.style.marginTop);
+            float marginBottom = Margin(child.style.marginBottom);
+            left += marginLeft;
+            top += marginTop;
+            width = Math.Max(0, width - marginLeft - marginRight);
+            height = Math.Max(0, height - marginTop - marginBottom);
             float preferredWidth = PreferredWidth(child);
             float preferredHeight = PreferredHeight(child, width);
-            (left, width) = Align(left, width, preferredWidth, justifyItems, HasWidth(child));
-            (top, height) = Align(top, height, preferredHeight, alignItems, HasHeight(child));
+            UiAlign horizontal = item.JustifySelf == UiAlign.Auto ? justifyItems : item.JustifySelf;
+            UiAlign vertical = item.AlignSelf == UiAlign.Auto ? alignItems : item.AlignSelf;
+            (left, width) = Align(left, width, preferredWidth, horizontal, HasWidth(child));
+            (top, height) = Align(top, height, preferredHeight, vertical, HasHeight(child));
             slot.style.position = Position.Absolute;
             slot.style.left = left;
             slot.style.top = top;
@@ -202,6 +232,22 @@ namespace Battlement.UI
             ?? FinitePositive(child.layout.width)
             ?? FinitePositive(child.resolvedStyle.width)
             ?? 0;
+
+        private static float PreferredOuterWidth(VisualElement child) =>
+            PreferredWidth(child)
+            + Margin(child.style.marginLeft)
+            + Margin(child.style.marginRight);
+
+        private static float PreferredOuterHeight(VisualElement child, float width) =>
+            PreferredHeight(
+                child,
+                Math.Max(
+                    0,
+                    width - Margin(child.style.marginLeft) - Margin(child.style.marginRight)
+                )
+            )
+            + Margin(child.style.marginTop)
+            + Margin(child.style.marginBottom);
 
         private static float PreferredHeight(VisualElement child, float width)
         {
@@ -249,6 +295,11 @@ namespace Battlement.UI
         private static float? FinitePositive(float value) =>
             float.IsFinite(value) && value > 0 ? value : null;
 
+        private static float Margin(StyleLength value) => AuthoredPixels(value) ?? 0;
+
+        private static float AreaSize(BattlementGridAxis axis, int start, int span, float gap) =>
+            axis.Sizes.Skip(start).Take(span).Sum() + gap * Math.Max(0, span - 1);
+
         private void EmitDiagnostic()
         {
             if (diagnosticIssued)
@@ -256,9 +307,6 @@ namespace Battlement.UI
             diagnosticIssued = true;
             DiagnosticCount++;
         }
-
-        private static int DivideCeiling(int value, int divisor) =>
-            value == 0 ? 0 : (value - 1) / divisor + 1;
 
         private static IReadOnlyList<GridTrack> Resolve(
             Prop<IReadOnlyList<GridTrack>> value,
@@ -279,12 +327,16 @@ namespace Battlement.UI
             private readonly VisualElement[] children;
             private readonly float[] columns;
             private readonly float height;
+            private readonly GridItem[] items;
             private readonly UiAlign justifyItems;
+            private readonly BattlementGridPlacement[] placements;
             private readonly float[] rows;
             private readonly float width;
 
             public GridSignature(
                 IReadOnlyList<VisualElement> children,
+                IReadOnlyList<GridItem> items,
+                IReadOnlyList<BattlementGridPlacement> placements,
                 IReadOnlyList<float> columns,
                 IReadOnlyList<float> rows,
                 float width,
@@ -294,6 +346,8 @@ namespace Battlement.UI
             )
             {
                 this.children = children.ToArray();
+                this.items = items.ToArray();
+                this.placements = placements.ToArray();
                 this.columns = columns.ToArray();
                 this.rows = rows.ToArray();
                 this.width = width;
@@ -309,6 +363,8 @@ namespace Battlement.UI
                 && alignItems == other.alignItems
                 && justifyItems == other.justifyItems
                 && children.SequenceEqual(other.children)
+                && items.SequenceEqual(other.items)
+                && placements.SequenceEqual(other.placements)
                 && columns.SequenceEqual(other.columns)
                 && rows.SequenceEqual(other.rows);
         }
