@@ -175,7 +175,8 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
         &mut game,
         UiEvent::click(button, ClickEvent::NavigationSubmit),
       )
-      .unwrap(),
+      .unwrap()
+      .into_commit(),
   );
 
   assert_eq!(world.element(label).unwrap().text(), Some("Count 11"));

@@ -1,6 +1,5 @@
 //! Synthetic gestures for controlled floating-point and integer sliders.
 
-use battlement::ActionBody;
 use battlement_native::Engine;
 
 use crate::client::ui::{ScrollerInteraction, SliderIntInteraction, UiClient};
@@ -112,12 +111,12 @@ where
         .ui_world
         .has_subscription(object_id, battlement::UiEventKind::ValueChanging)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent { proposed }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent { proposed }),
+      });
     }
   }
 
@@ -133,15 +132,15 @@ where
         .ui_world
         .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous,
-            proposed,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous,
+          proposed,
+        }),
+      });
     }
   }
 

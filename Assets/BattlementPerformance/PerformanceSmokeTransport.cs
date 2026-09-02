@@ -45,6 +45,20 @@ namespace Battlement.Performance
             return Result(new Response(Session, Array.Empty<ResponseMessage<Command>>()));
         }
 
+        public BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json)
+        {
+            UiEventAction action = BattlementJson.Deserialize<UiEventAction>(json);
+            return new BattlementUiEventTransportResult(
+                BattlementTransportStatus.Success,
+                action.Event.DefaultPrevented
+                    ? UiEventDisposition.PreventDefault
+                    : UiEventDisposition.Continue,
+                BattlementJson.SerializeResponse(
+                    new Response(Session, Array.Empty<ResponseMessage<Command>>())
+                )
+            );
+        }
+
         public BattlementTransportResult Poll() => new(BattlementTransportStatus.NoMessage);
 
         public void Stop() { }

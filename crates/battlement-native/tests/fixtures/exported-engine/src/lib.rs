@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use battlement::{
   AnyCommand, Batch, BatchId, ClientMessage, Command, CommandBody, CommandId, Connect,
   CoreErrorCode, ParallelCommandGroup, Response, ResponseMessage, SessionId, TextContentPayload,
-  json,
+  UiEventAction, UiEventResponse, json,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -95,6 +95,25 @@ impl Engine for FixtureEngine {
       panic!("fixture submit panic");
     }
     Ok(Response::new(self.session_id, Vec::new()))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("fixture UI event session mismatch"));
+    }
+    if self.mode == "panic-ui-event" {
+      panic!("fixture UI event panic");
+    }
+    if self.mode == "ui-event-error" {
+      return Err(EngineError::new("fixture UI event error"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(self.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {

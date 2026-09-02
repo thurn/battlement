@@ -133,6 +133,7 @@ namespace Battlement.Tests
 
         private readonly Queue<BattlementTransportResult> connectResults = new();
         private readonly Queue<BattlementTransportResult> submitResults = new();
+        private readonly Queue<BattlementUiEventTransportResult> uiEventResults = new();
         private readonly Queue<BattlementTransportResult> pollResults = new();
 
         public List<string> Calls { get; } = new();
@@ -140,6 +141,8 @@ namespace Battlement.Tests
         public List<byte[]> ConnectMessages { get; } = new();
 
         public List<byte[]> SubmitMessages { get; } = new();
+
+        public List<byte[]> UiEventMessages { get; } = new();
 
         public BattlementTransportResult? DefaultSubmitResult { get; set; }
 
@@ -167,6 +170,29 @@ namespace Battlement.Tests
 
         public void EnqueueSubmit(BattlementTransportResult result) =>
             submitResults.Enqueue(result);
+
+        public BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json)
+        {
+            Calls.Add("submit_ui_event");
+            UiEventMessages.Add(json.ToArray());
+            if (uiEventResults.Count > 0)
+            {
+                return uiEventResults.Dequeue();
+            }
+            UiEventAction action = BattlementJson.Deserialize<UiEventAction>(json);
+            return new BattlementUiEventTransportResult(
+                BattlementTransportStatus.Success,
+                action.Event.DefaultPrevented
+                    ? UiEventDisposition.PreventDefault
+                    : UiEventDisposition.Continue,
+                BattlementJson.SerializeResponse(
+                    new Response(action.SessionId, Array.Empty<ResponseMessage<Command>>())
+                )
+            );
+        }
+
+        public void EnqueueUiEvent(BattlementUiEventTransportResult result) =>
+            uiEventResults.Enqueue(result);
 
         public BattlementTransportResult Poll()
         {

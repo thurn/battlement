@@ -9,6 +9,8 @@
 
 mod adapter;
 mod engine;
+/// Transport-neutral localhost HTTP routing.
+pub mod http;
 mod logging;
 mod panic_capture;
 #[cfg(feature = "threading")]
@@ -84,6 +86,21 @@ macro_rules! export_engine {
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
       unsafe { $crate::ffi_submit($factory, engine, json, length, out_buffer) }
+    }
+
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_submit_ui_event(
+      engine: *mut ::core::ffi::c_void,
+      json: *const u8,
+      length: u64,
+      out_disposition: *mut u32,
+      out_buffer: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe {
+        $crate::ffi_submit_ui_event($factory, engine, json, length, out_disposition, out_buffer)
+      }
     }
 
     #[doc(hidden)]

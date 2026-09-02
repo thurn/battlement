@@ -287,9 +287,6 @@ namespace Battlement
 
         /// <summary>Ordered Motion lifecycle boundaries and coalesced samples.</summary>
         public sealed record MotionEvents(MotionEventBatch Value) : ActionBody;
-
-        /// <summary>A subscribed event from a Rust-authored UI element.</summary>
-        public sealed record VisualElement(ObjectId TargetId, UiEventBody Body) : ActionBody;
     }
 
     /// <summary>A game-specific action using Battlement's shared action format.</summary>

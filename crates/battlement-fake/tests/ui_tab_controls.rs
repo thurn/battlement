@@ -1,9 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, Batch, BatchId, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId,
+  Batch, BatchId, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId,
   ParallelCommandGroup, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
-  UiEventBody, UiEventKind, UiLabel, UiNode, UiTab, UiTabView,
+  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiLabel, UiNode,
+  UiTab, UiTabView,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -26,13 +27,17 @@ impl Engine for TabEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     self.events.borrow_mut().push(event.body.clone());
     let commands = match event.body {
       UiEventBody::TabSelectionRequested(value) => vec![Command::update_visual_element(
@@ -50,15 +55,21 @@ impl Engine for TabEngine {
       _ => return Err(EngineError::new("unexpected UI event")),
     };
     if commands.is_empty() {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     }
-    Ok(Response::batch(
-      Batch::new(
-        BatchId::new_v4(),
-        self.session_id,
-        vec![ParallelCommandGroup::new(commands)],
-      )
-      .caused_by_action_id(action.action_id),
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::batch(
+        Batch::new(
+          BatchId::new_v4(),
+          self.session_id,
+          vec![ParallelCommandGroup::new(commands)],
+        )
+        .caused_by_action_id(action.action_id),
+      ),
     ))
   }
 

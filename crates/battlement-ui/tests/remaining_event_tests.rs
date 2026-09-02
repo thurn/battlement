@@ -10,6 +10,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
   assert_eq!(
     serde_json::to_value(UiEvent {
       target_id,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::SelectionChanged(SelectionEvent {
         cursor_index: 7,
         selection_index: 3,
@@ -18,12 +20,16 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
     .unwrap(),
     serde_json::json!({
         "target_id": target_id,
+        "cancelable": false,
+        "default_prevented": false,
         "body": {"SelectionChanged": {"cursor_index": 7, "selection_index": 3}}
     })
   );
   assert_eq!(
     serde_json::to_value(UiEvent {
       target_id,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::GeometryChanged(GeometryEvent {
         previous: Rect::new(1.0, 2.0, 3.0, 4.0),
         current: Rect::new(5.0, 6.0, 7.0, 8.0),
@@ -32,6 +38,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
     .unwrap(),
     serde_json::json!({
         "target_id": target_id,
+        "cancelable": false,
+        "default_prevented": false,
         "body": {"GeometryChanged": {
             "previous": {"x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0},
             "current": {"x": 5.0, "y": 6.0, "width": 7.0, "height": 8.0}
@@ -41,6 +49,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
   assert_eq!(
     serde_json::to_value(UiEvent {
       target_id,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::LinkEnter(LinkEvent {
         link_id: "guide".to_owned(),
         link_text: "Field guide".to_owned(),
@@ -52,6 +62,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
     .unwrap(),
     serde_json::json!({
         "target_id": target_id,
+        "cancelable": false,
+        "default_prevented": false,
         "body": {"LinkEnter": {
             "link_id": "guide", "link_text": "Field guide",
             "position": {"x": 11.0, "y": 13.0}
@@ -61,6 +73,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
   assert_eq!(
     serde_json::to_value(UiEvent {
       target_id,
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::LinkDown(LinkEvent {
         link_id: "guide".to_owned(),
         link_text: "Field guide".to_owned(),
@@ -79,6 +93,8 @@ fn remaining_event_payloads_have_the_locked_wire_shapes() {
   assert_eq!(
     serde_json::to_value(UiEvent {
       target_id,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::AttachToPanel(LifecycleEvent {}),
     })
     .unwrap()["body"]

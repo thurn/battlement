@@ -47,11 +47,18 @@ namespace Battlement.UI
         private readonly BattlementUiStyleFontProperties styleFonts;
 
         public BattlementUiElementProperties(
-            Func<UiEvent, bool>? emitUiEvent,
+            Func<UiEvent, UiEventDisposition?>? emitUiEvent,
             IBattlementUiAssetLookup? assetLookup
         )
+            : this(emitUiEvent, assetLookup, null) { }
+
+        public BattlementUiElementProperties(
+            Func<UiEvent, UiEventDisposition?>? emitUiEvent,
+            IBattlementUiAssetLookup? assetLookup,
+            System.Action? uiEventPreventionApplied
+        )
         {
-            events = new BattlementUiEventForwarder(emitUiEvent);
+            events = new BattlementUiEventForwarder(emitUiEvent, uiEventPreventionApplied);
             images = new BattlementUiImageProperties(assetLookup);
             buttons = new BattlementUiButtonProperties(assetLookup);
             styleBackgrounds = new BattlementUiStyleBackgroundProperties(assetLookup);

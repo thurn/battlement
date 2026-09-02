@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use battlement::{ClientMessage, Connect, Response};
+use battlement::{ClientMessage, Connect, Response, UiEventAction, UiEventResponse};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// A diagnostic returned when a rules engine cannot complete an operation.
@@ -52,6 +52,12 @@ pub trait Engine {
     &mut self,
     message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
   ) -> Result<Response<Self::Command>, EngineError>;
+
+  /// Processes one UI event before its originating native callback returns.
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError>;
 
   /// Returns one queued response immediately, or `None` when no work is ready.
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError>;

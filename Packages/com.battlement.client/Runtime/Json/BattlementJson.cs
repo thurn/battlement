@@ -31,6 +31,10 @@ namespace Battlement
         public static byte[] SerializeAction(Action value) =>
             JsonProtocol.Serialize(new ClientMessage<CoreErrorCode, object>.ActionMessage(value));
 
+        /// <summary>Encodes one synchronous UI event action.</summary>
+        public static byte[] SerializeUiEventAction(UiEventAction value) =>
+            JsonProtocol.Serialize(value);
+
         /// <summary>Decodes a connection message.</summary>
         public static Connect DeserializeConnect(ReadOnlyMemory<byte> bytes) =>
             JsonProtocol.Deserialize<Connect>(bytes);
@@ -61,6 +65,9 @@ namespace Battlement
         ) => SerializeOperationFailure(value);
 
         byte[] IBattlementProtocolCodec.SerializeAction(Action value) => SerializeAction(value);
+
+        byte[] IBattlementProtocolCodec.SerializeUiEventAction(UiEventAction value) =>
+            SerializeUiEventAction(value);
 
         Response IBattlementProtocolCodec.DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             DeserializeResponse(bytes);

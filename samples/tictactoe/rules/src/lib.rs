@@ -6,7 +6,7 @@ use battlement::{
   ActionBody, ActionId, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color,
   Command, CommandBody, Connect, CoreErrorCode, GameObject, ImageFit, ImageState, ObjectId,
   ParentScene, PointerButton, PointerEvent, PreparedAsset, Response, Scene, SceneId, SessionId,
-  Snapshot, TextState, Vector3, object_id, scene_id,
+  Snapshot, TextState, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use fastrand::Rng;
@@ -175,6 +175,19 @@ impl Engine for TicTacToeEngine {
     message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
   ) -> Result<Response<Self::Command>, EngineError> {
     Ok(self.submit_at(message, (self.now)()))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(self.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {

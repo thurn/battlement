@@ -10,8 +10,8 @@ use battlement::{
   GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
   GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform, ObjectId,
   ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-  ScreenSize, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3, ViewportGeometry,
-  ViewportRect,
+  ScreenSize, Snapshot, Style, UiDocument, UiEventAction, UiEventResponse, UiFontAddress, UiNode,
+  Vector3, ViewportGeometry, ViewportRect,
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_cloud_fake::diagnostics::{DiagnosticsFake, FakeDiagnosticsCommandOutcome};
@@ -61,6 +61,16 @@ impl Engine for CoreScriptedEngine {
       .submit_response
       .take()
       .ok_or_else(|| EngineError::new("unexpected submit"))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(action.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

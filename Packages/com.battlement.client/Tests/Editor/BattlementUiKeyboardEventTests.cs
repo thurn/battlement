@@ -44,17 +44,34 @@ namespace Battlement.Tests
             var keyUp = (UiEventBody.KeyUp)fixture.Events[1].Body;
             Assert.That(keyUp.Value.PhysicalKey, Is.Null);
             Assert.That(keyUp.Value.Text, Is.Empty);
-            byte[] serialized = BattlementJson.SerializeAction(
-                new Battlement.Action(
+            byte[] serialized = BattlementJson.SerializeUiEventAction(
+                new UiEventAction(
                     new ActionId(Guid.Parse("23000000-0000-4000-8000-000000000011")),
                     new SessionId(Guid.Parse("23000000-0000-4000-8000-000000000012")),
-                    new ActionBody.VisualElement(fixture.TargetId, fixture.Events[1].Body)
+                    fixture.Events[1]
                 )
             );
             JToken payload = JObject
                 .Parse(System.Text.Encoding.UTF8.GetString(serialized))
-                .SelectToken("Action.body.VisualElement.body.KeyUp")!;
+                .SelectToken("event.body.KeyUp")!;
             Assert.That(JToken.DeepEquals(payload, JObject.Parse("{\"text\":\"\"}")), Is.True);
+        }
+
+        [Test]
+        public void PreventDefaultDispositionIsAppliedBeforeTheNativeCallbackReturns()
+        {
+            using var fixture = new KeyboardFixture(UiEventDisposition.PreventDefault);
+            using KeyDownEvent value = KeyDownEvent.GetPooled('A', KeyCode.A, EventModifiers.None);
+            value.target = fixture.Target;
+
+            fixture.Target.SendEvent(value);
+
+            Assert.That(fixture.Events, Has.Count.EqualTo(1));
+            Assert.That(fixture.Events[0].Cancelable, Is.True);
+            Assert.That(fixture.Events[0].DefaultPrevented, Is.False);
+#pragma warning disable CS0618
+            Assert.That(value.isDefaultPrevented, Is.True);
+#pragma warning restore CS0618
         }
 
         [Test]
@@ -103,7 +120,7 @@ namespace Battlement.Tests
             private readonly BattlementUiDocuments documents;
             private readonly GameObject owned;
 
-            public KeyboardFixture()
+            public KeyboardFixture(UiEventDisposition disposition = UiEventDisposition.Continue)
             {
                 ObjectId documentId = Id("23000000-0000-4000-8000-000000000001");
                 ObjectId rootId = Id("23000000-0000-4000-8000-000000000002");
@@ -116,7 +133,7 @@ namespace Battlement.Tests
                 documents = new BattlementUiDocuments(value =>
                 {
                     Events.Add(value);
-                    return true;
+                    return disposition;
                 });
                 documents.Replace(
                     new[]

@@ -349,7 +349,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(value =>
             {
                 events.Add(value);
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {
@@ -410,6 +410,7 @@ namespace Battlement.Tests
                             buttonId,
                             new[] { buttonId.Value, containerId.Value, rootId.Value },
                             true,
+                            null!,
                         }
                     );
                 Assert.That(events, Has.Count.EqualTo(1));
@@ -550,7 +551,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(_ =>
             {
                 emitted++;
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {

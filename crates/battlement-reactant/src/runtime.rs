@@ -11,7 +11,7 @@ use std::{
 
 use battlement::{
   self, ActionId, CommandBody, GeometryGeneration, GeometryObservationBatch, MotionEventBatch,
-  MotionSequence, ObjectId, UiDocument, UiEvent,
+  MotionSequence, ObjectId, UiDocument, UiEvent, UiEventDisposition,
 };
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
   effect::EffectOperation,
   element_ref::{self, AttachmentSet, ElementRefRuntime},
   error_boundary::ErrorReport,
-  event_dispatch::{self, CrossingCandidate},
+  event_dispatch,
   executor::Spawner,
   external_portal::{ExternalPortalRegistry, PreparedExternal, SessionExternal},
   geometry,
@@ -66,6 +66,45 @@ pub struct ReactantCommit {
   pub(crate) receipt: Option<DeliveryReceipt>,
 }
 
+/// The immediate decision and deferred commit produced by one UI event.
+#[must_use]
+pub struct ReactantEventResult {
+  disposition: UiEventDisposition,
+  prevented_by_reactant: bool,
+  commit: ReactantCommit,
+}
+
+impl ReactantEventResult {
+  /// Returns the decision Unity must consume before its callback returns.
+  #[must_use]
+  pub const fn disposition(&self) -> UiEventDisposition {
+    self.disposition
+  }
+
+  /// Returns whether a Reactant handler added default prevention.
+  #[must_use]
+  pub const fn prevented_by_reactant(&self) -> bool {
+    self.prevented_by_reactant
+  }
+
+  /// Returns the ordinary native mutation commit for deferred application.
+  pub fn into_commit(self) -> ReactantCommit {
+    self.commit
+  }
+
+  /// Returns whether deferred reconciliation produced no native mutations.
+  #[must_use]
+  pub fn is_empty(&self) -> bool {
+    self.commit.is_empty()
+  }
+
+  /// Consumes the result and returns its deferred command groups.
+  #[must_use]
+  pub fn into_groups(self) -> Vec<Vec<CommandBody>> {
+    self.commit.into_groups()
+  }
+}
+
 /// A prospective complete UI state for one session snapshot.
 #[must_use]
 pub struct SessionUi<'a> {
@@ -87,7 +126,6 @@ pub struct Reactant<G: 'static> {
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
-  crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
   pending_geometry_effects: Vec<GeometryEffectOperation>,
   pending_error_reports: Vec<ErrorReport>,
@@ -111,7 +149,6 @@ impl<G: 'static> Reactant<G> {
       roots: Vec::new(),
       state: RuntimeState::Registering,
       outstanding: None,
-      crossing_candidate: None,
       pending_effects: Vec::new(),
       pending_geometry_effects: Vec::new(),
       pending_error_reports: Vec::new(),
@@ -313,7 +350,11 @@ impl<G: 'static> Reactant<G> {
   }
 
   /// Dispatches one native UI event while active.
-  pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
+  pub fn dispatch(
+    &mut self,
+    game: &mut G,
+    event: UiEvent,
+  ) -> Result<ReactantEventResult, RenderError> {
     self.require_active();
     self.active_entry(|runtime| {
       let _element_runtime =
@@ -323,25 +364,28 @@ impl<G: 'static> Reactant<G> {
       runtime.flush_effects();
       let reported = runtime.flush_error_reports(game);
       let geometry_effected = runtime.flush_geometry_effects(game);
-      let invoked = event_dispatch::dispatch(
+      let dispatch = event_dispatch::dispatch(
         runtime.runtime_id,
         &runtime
           .roots
           .iter()
           .map(|root| &root.committed)
           .collect::<Vec<_>>(),
-        &mut runtime.crossing_candidate,
         game,
         event,
       );
-      if invoked || reported || geometry_effected {
-        return runtime.render(game, None);
-      }
-      if runtime.geometry.borrow().dirty() || runtime.pending_hooks_changed() {
-        runtime.render(game, None)
+      let dispatch_dirty = dispatch.invoked || reported || geometry_effected;
+      let runtime_dirty = runtime.geometry.borrow().dirty() || runtime.pending_hooks_changed();
+      let commit = if dispatch_dirty || runtime_dirty {
+        runtime.render(game, None)?
       } else {
-        Ok(runtime.commit_pending_actions())
-      }
+        runtime.commit_pending_actions()
+      };
+      Ok(ReactantEventResult {
+        disposition: dispatch.disposition,
+        prevented_by_reactant: dispatch.prevented_by_reactant,
+        commit,
+      })
     })
   }
 
@@ -1025,7 +1069,6 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     let mut geometry = Some(geometry);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
       self.install_rendered(committed, attachments, true);
-      self.crossing_candidate = None;
       self
         .element_refs
         .borrow_mut()

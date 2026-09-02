@@ -1,4 +1,4 @@
-use battlement::{ActionBody, Command};
+use battlement::Command;
 use battlement_native::Engine;
 
 use super::UiClient;
@@ -20,6 +20,8 @@ where
     );
     self.send_event(battlement::UiEvent {
       target_id: object_id,
+      cancelable: false,
+      default_prevented: false,
       body: battlement::UiEventBody::GeometryChanged(battlement::GeometryEvent {
         previous,
         current,
@@ -31,6 +33,8 @@ where
   pub fn attach_to_panel(&mut self, object_id: battlement::ObjectId) {
     self.send_event(battlement::UiEvent {
       target_id: object_id,
+      cancelable: false,
+      default_prevented: false,
       body: battlement::UiEventBody::AttachToPanel(battlement::LifecycleEvent {}),
     });
   }
@@ -39,6 +43,8 @@ where
   pub fn detach_from_panel(&mut self, object_id: battlement::ObjectId) {
     self.send_event(battlement::UiEvent {
       target_id: object_id,
+      cancelable: false,
+      default_prevented: false,
       body: battlement::UiEventBody::DetachFromPanel(battlement::LifecycleEvent {}),
     });
     self
@@ -197,12 +203,12 @@ where
     if !self.client.ui_world.has_subscription(object_id, kind) {
       return;
     }
-    self
-      .client
-      .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-        target_id: object_id,
-        body,
-      }));
+    self.client.submit_ui_event(battlement::UiEvent {
+      target_id: object_id,
+      cancelable: false,
+      default_prevented: false,
+      body,
+    });
   }
 
   fn send_link_event(
@@ -230,6 +236,8 @@ where
     };
     self.send_event(battlement::UiEvent {
       target_id: object_id,
+      cancelable: false,
+      default_prevented: false,
       body,
     });
   }

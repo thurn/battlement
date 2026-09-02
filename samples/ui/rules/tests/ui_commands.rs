@@ -224,6 +224,8 @@ fn pointer_route_page_receives_one_complete_fake_event() {
   client.ui().click(POINTER_ROUTING_BUTTON_ID);
   client.ui().send_event(UiEvent {
     target_id: POINTER_TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(PointerButtonEvent {
       position: PanelPoint { x: 412.0, y: 288.0 },
       delta: Vector { x: 3.0, y: -2.0 },
@@ -248,6 +250,8 @@ fn pointer_route_page_receives_one_complete_fake_event() {
 
   client.ui().send_event(UiEvent {
     target_id: POINTER_TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::PointerCapture(PointerCaptureEvent { pointer_id: 4 }),
   });
   assert_eq!(
@@ -256,6 +260,8 @@ fn pointer_route_page_receives_one_complete_fake_event() {
   );
   client.ui().send_event(UiEvent {
     target_id: POINTER_TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::PointerCaptureOut(PointerCaptureEvent { pointer_id: 4 }),
   });
   assert!(
@@ -277,6 +283,8 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
   client.ui().click(KEYBOARD_NAVIGATION_BUTTON_ID);
   client.ui().send_event(UiEvent {
     target_id: KEYBOARD_BRAVO_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::Focus(FocusEvent {
       related_target_id: Some(KEYBOARD_ALPHA_ID),
       direction: FocusDirection::Right,
@@ -302,6 +310,8 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
 
   client.ui().send_event(UiEvent {
     target_id: KEYBOARD_BRAVO_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::KeyDown(KeyEvent {
       physical_key: Some(PhysicalKey::KeyA),
       text: "a".to_owned(),
@@ -318,6 +328,8 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
   );
   client.ui().send_event(UiEvent {
     target_id: KEYBOARD_BRAVO_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::NavigationMove(NavigationMoveEvent {
       direction: NavigationDirection::Right,
       move_vector: Vector { x: 1.0, y: 0.0 },
@@ -342,6 +354,8 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
   );
   client.ui().send_event(UiEvent {
     target_id: KEYBOARD_BRAVO_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::NavigationCancel(NavigationEvent::default()),
   });
   assert!(

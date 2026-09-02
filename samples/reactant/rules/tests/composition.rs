@@ -6,10 +6,11 @@ use battlement::{
   GeometryGeneration, GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
   GridTrack, KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint,
-  PointerButton, PointerButtonEvent, PointerCrossingEvent, PointerType, PreparedAsset, Projective2,
+  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PreparedAsset, Projective2,
   Prop, Rect, Response, ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElement,
-  UiElementKind, UiEvent, UiEventBody, UiVisualElementProperties, VariantWhen, Vector,
-  ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
+  UiElementKind, UiEvent, UiEventAction, UiEventBody, UiEventResponse, UiVisualElementProperties,
+  VariantWhen, Vector, ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry,
+  WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -56,6 +57,27 @@ impl Engine for CorrelationEngine {
     let action_id = action.action_id;
     let response = self.inner.submit(message)?;
     let causes = response
+      .messages
+      .iter()
+      .filter_map(|message| match message {
+        ResponseMessage::Batch(batch) => Some(batch.caused_by_action_id),
+        _ => None,
+      })
+      .collect::<Vec<_>>();
+    if !causes.is_empty() {
+      self.correlations.borrow_mut().push((action_id, causes));
+    }
+    Ok(response)
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    let action_id = action.action_id;
+    let response = self.inner.submit_ui_event(action)?;
+    let causes = response
+      .response
       .messages
       .iter()
       .filter_map(|message| match message {
@@ -172,6 +194,8 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
 
   client.ui().send_event(UiEvent {
     target_id: shell,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::GeometryChanged(GeometryEvent {
       previous: Rect::new(0.0, 0.0, 1_280.0, 720.0),
       current: Rect::new(0.0, 0.0, 500.0, 700.0),
@@ -187,6 +211,8 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
 
   client.ui().send_event(UiEvent {
     target_id: shell,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::GeometryChanged(GeometryEvent {
       previous: Rect::new(0.0, 0.0, 500.0, 700.0),
       current: Rect::new(0.0, 0.0, 1_280.0, 720.0),
@@ -360,6 +386,8 @@ fn composition_action_reorders_and_restores_the_badges() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(self::pointer_button_event()),
   });
   let pressed = style_color(&client.ui().element(action).style().background_color)
@@ -448,6 +476,8 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(self::pointer_button_event()),
   });
   let pressed = style_color(&client.ui().element(action).style().background_color)
@@ -796,7 +826,9 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
     .expect("selected navigation background should be authored");
   client.ui().send_event(UiEvent {
     target_id: navigation,
-    body: UiEventBody::FocusIn(FocusEvent::default()),
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::Focus(FocusEvent::default()),
   });
   assert_eq!(
     style_color(&client.ui().element(navigation).style().background_color),
@@ -808,7 +840,9 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
   );
   client.ui().send_event(UiEvent {
     target_id: navigation,
-    body: UiEventBody::FocusOut(FocusEvent::default()),
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::Blur(FocusEvent::default()),
   });
   let action = find_named(&client.ui(), ROOT_ID, "composition-action");
   let resting = style_color(&client.ui().element(action).style().background_color)
@@ -817,8 +851,9 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
-    body: UiEventBody::PointerOver(PointerCrossingEvent {
-      related_target_id: None,
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::PointerEnter(PointerBoundaryEvent {
       pointer_id: 4,
       position: PanelPoint::default(),
       pointer_type: PointerType::Mouse,
@@ -830,6 +865,8 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(self::pointer_button_event()),
   });
   let pressed = style_color(&client.ui().element(action).style().background_color)
@@ -838,11 +875,15 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerUp(self::pointer_button_event()),
   });
   client.ui().send_event(UiEvent {
     target_id: action,
-    body: UiEventBody::FocusIn(FocusEvent::default()),
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::Focus(FocusEvent::default()),
   });
   assert_ne!(
     client.ui().element(action).style().border_top_width,
@@ -851,12 +892,15 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
   client.ui().send_event(UiEvent {
     target_id: action,
-    body: UiEventBody::FocusOut(FocusEvent::default()),
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::Blur(FocusEvent::default()),
   });
   client.ui().send_event(UiEvent {
     target_id: action,
-    body: UiEventBody::PointerOut(PointerCrossingEvent {
-      related_target_id: None,
+    cancelable: false,
+    default_prevented: false,
+    body: UiEventBody::PointerLeave(PointerBoundaryEvent {
       pointer_id: 4,
       position: PanelPoint::default(),
       pointer_type: PointerType::Mouse,

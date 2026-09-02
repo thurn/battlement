@@ -5,7 +5,8 @@ use battlement::{
   CommandBody, Connect, CoreErrorCode, DragMode, Easing, GameObject, GameObjectKind,
   MaterialAssignment, ObjectId, ParentScene, PointerEvent, PositionPayload, PreparedAsset,
   PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, SetMaterialPayload, Snapshot,
-  TextState, Tween, TweenPositionPayload, Vector3, object_id, scene_id,
+  TextState, Tween, TweenPositionPayload, UiEventAction, UiEventResponse, Vector3, object_id,
+  scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -241,6 +242,19 @@ impl Engine for BasicEngine {
         self::status_command(self.visual_state, self.last_action, &command, "polled"),
       ],
     )))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(self.session_id),
+    ))
   }
 }
 

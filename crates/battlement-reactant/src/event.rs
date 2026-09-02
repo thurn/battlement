@@ -78,6 +78,26 @@ impl<E> ReactantEvent<E> {
     self.phase
   }
 
+  /// Returns whether the active native event permits default prevention.
+  #[must_use]
+  pub fn cancelable(&self) -> bool {
+    self.inner.cancelable
+  }
+
+  /// Returns whether a native or Reactant handler has prevented the default.
+  #[must_use]
+  pub fn default_prevented(&self) -> bool {
+    self.inner.default_prevented.get()
+  }
+
+  /// Prevents the current event's remaining native default actions when allowed.
+  pub fn prevent_default(&self) {
+    if self.inner.cancelable {
+      self.inner.default_prevented.set(true);
+      self.inner.prevented_by_reactant.set(true);
+    }
+  }
+
   /// Stops later logical callbacks for this dispatch.
   pub fn stop_propagation(&self) {
     self.inner.propagation_stopped.set(true);
@@ -127,18 +147,37 @@ impl<E> Clone for ReactantEvent<E> {
 pub(crate) struct EventInner {
   target: ElementTarget,
   propagation_stopped: Rc<Cell<bool>>,
+  cancelable: bool,
+  default_prevented: Cell<bool>,
+  prevented_by_reactant: Cell<bool>,
 }
 
 impl EventInner {
-  pub(crate) fn new(target: ElementTarget, propagation_stopped: Rc<Cell<bool>>) -> Self {
+  pub(crate) fn new(
+    target: ElementTarget,
+    propagation_stopped: Rc<Cell<bool>>,
+    cancelable: bool,
+    default_prevented: bool,
+  ) -> Self {
     Self {
       target,
       propagation_stopped,
+      cancelable,
+      default_prevented: Cell::new(default_prevented),
+      prevented_by_reactant: Cell::new(false),
     }
   }
 
   pub(crate) fn propagation_stopped(&self) -> bool {
     self.propagation_stopped.get()
+  }
+
+  pub(crate) fn default_prevented(&self) -> bool {
+    self.default_prevented.get()
+  }
+
+  pub(crate) fn prevented_by_reactant(&self) -> bool {
+    self.prevented_by_reactant.get()
   }
 }
 

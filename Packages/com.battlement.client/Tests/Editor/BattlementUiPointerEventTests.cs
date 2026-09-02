@@ -31,7 +31,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(value =>
             {
                 emitted.Add(value);
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {
@@ -129,7 +129,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(_ =>
             {
                 emitted++;
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {
@@ -173,7 +173,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(value =>
             {
                 emitted.Add(value);
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {
@@ -249,11 +249,11 @@ namespace Battlement.Tests
         [Test]
         public void PointerActionJsonKeepsTheEventTagAndOmitsDefaults()
         {
-            byte[] bytes = BattlementJson.SerializeAction(
-                new Battlement.Action(
+            byte[] bytes = BattlementJson.SerializeUiEventAction(
+                new UiEventAction(
                     new ActionId(Guid.Parse("22000000-0000-4000-8000-000000000051")),
                     new SessionId(Guid.Parse("22000000-0000-4000-8000-000000000052")),
-                    new ActionBody.VisualElement(
+                    new UiEvent(
                         Id("22000000-0000-4000-8000-000000000053"),
                         new UiEventBody.PointerDown(
                             new UiPointerButtonEvent(
@@ -265,8 +265,10 @@ namespace Battlement.Tests
                 )
             );
             JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
-            JToken payload = root.SelectToken("Action.body.VisualElement.body.PointerDown")!;
+            JToken payload = root.SelectToken("event.body.PointerDown")!;
 
+            Assert.That(root.SelectToken("event.cancelable")!.Value<bool>(), Is.False);
+            Assert.That(root.SelectToken("event.default_prevented")!.Value<bool>(), Is.False);
             Assert.That(payload.SelectToken("position.x")!.Value<double>(), Is.EqualTo(12));
             Assert.That(payload["pointer_id"], Is.Null);
             Assert.That(payload["button"], Is.Null);
@@ -301,11 +303,11 @@ namespace Battlement.Tests
                     Environment.NewLine,
                     fixture.Journal.Select(value =>
                         Encoding.UTF8.GetString(
-                            BattlementJson.SerializeAction(
-                                new Battlement.Action(
+                            BattlementJson.SerializeUiEventAction(
+                                new UiEventAction(
                                     new ActionId(Guid.NewGuid()),
                                     new SessionId(Guid.NewGuid()),
-                                    new ActionBody.VisualElement(value.TargetId, value.Body)
+                                    value
                                 )
                             )
                         )
@@ -373,7 +375,7 @@ namespace Battlement.Tests
                 {
                     Events.Add(value);
                     Journal.Add(value);
-                    return true;
+                    return UiEventDisposition.Continue;
                 });
                 UiEventKind[] crossingEvents =
                 {

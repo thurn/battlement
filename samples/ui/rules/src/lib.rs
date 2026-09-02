@@ -3,12 +3,13 @@
 use std::collections::HashSet;
 
 use battlement::{
-  ActionBody, BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, Connect,
-  CoreErrorCode, DocumentPosition, GameObject, InteractionDistance, InteractionLayerMask, ObjectId,
+  BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, Connect, CoreErrorCode,
+  DocumentPosition, GameObject, InteractionDistance, InteractionLayerMask, ObjectId,
   PanelInputConfiguration, PanelInputRedirection, PanelRenderMode, PanelScaleMode, PanelSettings,
   ParallelCommandGroup, ParentScene, PickingMode, PivotReferenceSize, Quaternion, Response, Scene,
   SceneId, ScreenSize, SessionId, Snapshot, TransitionProperty, UiBox, UiButton, UiDocument,
-  UiEventBody, UiGroupBox, UiLabel, Vector3, WorldSpaceSizeMode, object_id, scene_id,
+  UiEventAction, UiEventBody, UiEventDisposition, UiEventResponse, UiGroupBox, UiLabel, Vector3,
+  WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -195,12 +196,8 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
   })
 }
 
-impl Engine for UiLabEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
-
-  fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
+impl UiLabEngine {
+  fn connect_engine(&mut self) -> Result<Response<Command>, EngineError> {
     self.session_id = SessionId::new_v4();
     self.page = Page::Components;
     self.greeting_visible = false;
@@ -223,16 +220,8 @@ impl Engine for UiLabEngine {
     Ok(Response::snapshot(snapshot(self.session_id)))
   }
 
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Ok(Response::empty(self.session_id));
-    };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Ok(Response::empty(self.session_id));
-    };
+  fn handle_ui_event(&mut self, action: UiEventAction) -> Result<Response<Command>, EngineError> {
+    let event = action.event;
     if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
       let commands = match &event.body {
         UiEventBody::TransitionStart(_) => vec![Command::update_visual_element(
@@ -709,6 +698,41 @@ impl Engine for UiLabEngine {
     Ok(Response::batch(
       Batch::new(BatchId::new_v4(), self.session_id, commands)
         .caused_by_action_id(action.action_id),
+    ))
+  }
+}
+
+impl Engine for UiLabEngine {
+  type ActionPayload = ();
+  type ErrorCode = CoreErrorCode;
+  type Command = Command;
+
+  fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
+    self.connect_engine()
+  }
+
+  fn submit(
+    &mut self,
+    _message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+  ) -> Result<Response<Self::Command>, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
+    };
+    Ok(UiEventResponse::new(
+      disposition,
+      self.handle_ui_event(action)?,
     ))
   }
 

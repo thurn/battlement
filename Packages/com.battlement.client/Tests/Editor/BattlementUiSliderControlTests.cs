@@ -298,16 +298,11 @@ namespace Battlement.Tests
                 owned = BattlementUiDocuments.CreateGameObject(
                     new GameObjectKind.UiDocumentState(rootId)
                 );
-                Documents = new BattlementUiDocuments(
-                    emit
-                        ?? (
-                            value =>
-                            {
-                                Events.Add(value);
-                                return true;
-                            }
-                        )
-                );
+                Documents = new BattlementUiDocuments(value =>
+                {
+                    Events.Add(value);
+                    return emit is null || emit(value) ? UiEventDisposition.Continue : null;
+                });
                 Documents.Replace(
                     new[]
                     {

@@ -24,7 +24,7 @@ use battlement::{
   Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState,
   MaterialAssignment, ObjectId, ObjectSetActivePayload, ParticleSpawnLocation,
   ParticleSpawnPayload, PointerEvent, PrefabAddress, PreparedAsset, Quaternion, Response, SceneId,
-  SessionId, Vector3, object_id, scene_id,
+  SessionId, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
@@ -307,6 +307,19 @@ impl Engine for ChessEngine {
     message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
   ) -> Result<Response<Self::Command>, EngineError> {
     self.submit_message(message)
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(self.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {

@@ -317,6 +317,9 @@ namespace Battlement.Tests
             public byte[] SerializeAction(Action value) =>
                 new byte[BattlementProtocolLimits.MaximumMessageBytes + 1];
 
+            public byte[] SerializeUiEventAction(UiEventAction value) =>
+                new byte[BattlementProtocolLimits.MaximumMessageBytes + 1];
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
                 BattlementJson.DeserializeResponse(bytes);
         }

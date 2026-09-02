@@ -287,7 +287,7 @@ namespace Battlement.Tests
                 {
                     Events.Add(value);
                     onEvent?.Invoke(value);
-                    return true;
+                    return UiEventDisposition.Continue;
                 });
                 Documents.Replace(
                     new[]

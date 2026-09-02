@@ -14,7 +14,8 @@ use battlement::{
   CameraState, ClickEvent, ClientMessage, Command, Connect, GameObject, GameObjectKind,
   GeometryGeneration, GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings,
   ParentScene, PreparedAsset, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiElementKind, UiEvent, UiLabel, UiNode,
+  UiDocument, UiDocumentState, UiElementKind, UiEvent, UiEventAction, UiEventResponse, UiLabel,
+  UiNode,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -135,6 +136,16 @@ impl Engine for ReactantEngine {
     Err(EngineError::new("fixture does not accept actions"))
   }
 
+  fn submit_ui_event(
+    &mut self,
+    message: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &message.event,
+      Response::empty(message.session_id),
+    ))
+  }
+
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
     Ok(None)
   }
@@ -175,6 +186,16 @@ impl Engine for StructuralEngine {
 
   fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
     Err(EngineError::new("fixture does not accept actions"))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    message: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &message.event,
+      Response::empty(message.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

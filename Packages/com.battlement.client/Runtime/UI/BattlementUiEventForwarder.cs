@@ -11,10 +11,14 @@ namespace Battlement.UI
     internal sealed class BattlementUiEventForwarder
     {
         private readonly Dictionary<Guid, SubscriptionState> subscriptions = new();
-        private readonly Func<UiEvent, bool>? emit;
+        private readonly Func<UiEvent, UiEventDisposition?>? emit;
+        private readonly System.Action? preventionApplied;
         private bool inputEnabled = true;
 
-        public BattlementUiEventForwarder(Func<UiEvent, bool>? emitUiEvent) => emit = emitUiEvent;
+        public BattlementUiEventForwarder(
+            Func<UiEvent, UiEventDisposition?>? emitUiEvent,
+            System.Action? uiEventPreventionApplied = null
+        ) => (emit, preventionApplied) = (emitUiEvent, uiEventPreventionApplied);
 
         public void SetInputEnabled(bool enabled) => inputEnabled = enabled;
 
@@ -50,19 +54,18 @@ namespace Battlement.UI
         {
             if (!CanForward(route, UiEventKind.Click))
                 return;
-            emit?.Invoke(
-                new UiEvent(
-                    objectId,
-                    new UiEventBody.Click(
-                        new Battlement.ClickEvent.Pointer(
-                            new PanelPoint(eventValue.position.x, eventValue.position.y),
-                            checked((uint)Math.Max(1, eventValue.clickCount)),
-                            eventValue.pointerId,
-                            ToPointerButton(eventValue.button),
-                            ToModifiers(eventValue.modifiers)
-                        )
+            _ = EmitEvent(
+                objectId,
+                new UiEventBody.Click(
+                    new Battlement.ClickEvent.Pointer(
+                        new PanelPoint(eventValue.position.x, eventValue.position.y),
+                        checked((uint)Math.Max(1, eventValue.clickCount)),
+                        eventValue.pointerId,
+                        ToPointerButton(eventValue.button),
+                        ToModifiers(eventValue.modifiers)
                     )
-                )
+                ),
+                eventValue
             );
         }
 
@@ -90,7 +93,7 @@ namespace Battlement.UI
                 UiEventKind.PointerUp => new UiEventBody.PointerUp(value),
                 _ => throw new InvalidOperationException("Unknown pointer-button event kind."),
             };
-            EmitRouted(objectId, route, kind, body);
+            EmitRouted(objectId, route, kind, body, nativeEvent: eventValue as EventBase);
         }
 
         public void ForwardPointerMove(
@@ -114,7 +117,8 @@ namespace Battlement.UI
                         ToModifiers(eventValue.modifiers),
                         ToPointerType(eventValue.pointerType)
                     )
-                )
+                ),
+                nativeEvent: eventValue as EventBase
             );
 
         public void ForwardPointerCancel(
@@ -136,7 +140,8 @@ namespace Battlement.UI
                         ToModifiers(eventValue.modifiers),
                         ToPointerType(eventValue.pointerType)
                     )
-                )
+                ),
+                nativeEvent: eventValue as EventBase
             );
 
         public void ForwardPointerBoundary(
@@ -157,7 +162,14 @@ namespace Battlement.UI
                 UiEventKind.PointerLeave => new UiEventBody.PointerLeave(value),
                 _ => throw new InvalidOperationException("Unknown pointer-boundary event kind."),
             };
-            EmitRouted(objectId, route, kind, body, targetOnly: true);
+            EmitRouted(
+                objectId,
+                route,
+                kind,
+                body,
+                targetOnly: true,
+                nativeEvent: eventValue as EventBase
+            );
         }
 
         public void ForwardPointerCrossing(
@@ -180,7 +192,7 @@ namespace Battlement.UI
                 UiEventKind.PointerOut => new UiEventBody.PointerOut(value),
                 _ => throw new InvalidOperationException("Unknown pointer-crossing event kind."),
             };
-            EmitRouted(objectId, route, kind, body);
+            EmitRouted(objectId, route, kind, body, nativeEvent: eventValue as EventBase);
         }
 
         public void ForwardWheel(
@@ -202,14 +214,16 @@ namespace Battlement.UI
                         ),
                         ToModifiers(eventValue.modifiers)
                     )
-                )
+                ),
+                nativeEvent: eventValue
             );
 
         public void ForwardPointerCapture(
             ObjectId objectId,
             IReadOnlyList<Guid> route,
             UiEventKind kind,
-            int pointerId
+            int pointerId,
+            EventBase? nativeEvent = null
         )
         {
             var value = new UiPointerCaptureEvent(pointerId);
@@ -219,7 +233,7 @@ namespace Battlement.UI
                 UiEventKind.PointerCaptureOut => new UiEventBody.PointerCaptureOut(value),
                 _ => throw new InvalidOperationException("Unknown pointer-capture event kind."),
             };
-            EmitRouted(objectId, route, kind, body);
+            EmitRouted(objectId, route, kind, body, nativeEvent: nativeEvent);
         }
 
         public void ForwardFocus(
@@ -228,7 +242,8 @@ namespace Battlement.UI
             UiEventKind kind,
             ObjectId? relatedTargetId,
             UiFocusDirection? direction,
-            bool targetOnly = false
+            bool targetOnly = false,
+            EventBase? nativeEvent = null
         )
         {
             var value = new UiFocusEvent(relatedTargetId, direction);
@@ -240,7 +255,7 @@ namespace Battlement.UI
                 UiEventKind.Blur => new UiEventBody.Blur(value),
                 _ => throw new InvalidOperationException("Unknown focus event kind."),
             };
-            EmitRouted(objectId, route, kind, body, targetOnly);
+            EmitRouted(objectId, route, kind, body, targetOnly, nativeEvent);
         }
 
         public void ForwardKey(
@@ -249,7 +264,8 @@ namespace Battlement.UI
             UiEventKind kind,
             KeyCode keyCode,
             char character,
-            EventModifiers modifiers
+            EventModifiers modifiers,
+            EventBase? nativeEvent = null
         )
         {
             var value = new UiKeyEvent(
@@ -263,7 +279,7 @@ namespace Battlement.UI
                 UiEventKind.KeyUp => new UiEventBody.KeyUp(value),
                 _ => throw new InvalidOperationException("Unknown key event kind."),
             };
-            EmitRouted(objectId, route, kind, body);
+            EmitRouted(objectId, route, kind, body, nativeEvent: nativeEvent);
         }
 
         public void ForwardNavigationMove(
@@ -280,21 +296,28 @@ namespace Battlement.UI
                         BattlementUiKeyboardMapper.Navigation(eventValue.direction),
                         new Battlement.Vector(eventValue.move.x, eventValue.move.y)
                     )
-                )
+                ),
+                nativeEvent: eventValue
             );
 
-        public void ForwardNavigationCancel(ObjectId objectId, IReadOnlyList<Guid> route) =>
+        public void ForwardNavigationCancel(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            EventBase? nativeEvent = null
+        ) =>
             EmitRouted(
                 objectId,
                 route,
                 UiEventKind.NavigationCancel,
-                new UiEventBody.NavigationCancel(new UiNavigationEvent())
+                new UiEventBody.NavigationCancel(new UiNavigationEvent()),
+                nativeEvent: nativeEvent
             );
 
         public void ForwardNavigationSubmit(
             ObjectId objectId,
             IReadOnlyList<Guid> route,
-            bool buttonTarget
+            bool buttonTarget,
+            EventBase? nativeEvent = null
         )
         {
             if (emit is null)
@@ -305,11 +328,10 @@ namespace Battlement.UI
             // so application code can handle every activation method once.
             if (buttonTarget && CanForward(route, UiEventKind.Click))
             {
-                emit(
-                    new UiEvent(
-                        objectId,
-                        new UiEventBody.Click(new Battlement.ClickEvent.NavigationSubmit())
-                    )
+                _ = EmitEvent(
+                    objectId,
+                    new UiEventBody.Click(new Battlement.ClickEvent.NavigationSubmit()),
+                    nativeEvent
                 );
             }
         }
@@ -318,11 +340,9 @@ namespace Battlement.UI
         {
             if (emit is null || !TrySubscribed(route, UiEventKind.Click, out Guid target))
                 return;
-            emit(
-                new UiEvent(
-                    new ObjectId(target),
-                    new UiEventBody.Click(new Battlement.ClickEvent.Repeat())
-                )
+            _ = EmitEvent(
+                new ObjectId(target),
+                new UiEventBody.Click(new Battlement.ClickEvent.Repeat())
             );
         }
 
@@ -359,18 +379,16 @@ namespace Battlement.UI
                 UiEventKind.TransitionCancel => new UiEventBody.TransitionCancel(transition),
                 _ => throw new InvalidOperationException("Unknown transition event kind."),
             };
-            emit!(new UiEvent(objectId, body));
+            _ = EmitEvent(objectId, body);
         }
 
         public bool ForwardValueChanging(ObjectId objectId, float proposed)
         {
             if (!CanForward(objectId, UiEventKind.ValueChanging))
                 return false;
-            return emit!(
-                new UiEvent(
-                    objectId,
-                    new UiEventBody.ValueChanging(new ValueChangingEvent(new UiValue.F32(proposed)))
-                )
+            return EmitEvent(
+                objectId,
+                new UiEventBody.ValueChanging(new ValueChangingEvent(new UiValue.F32(proposed)))
             );
         }
 
@@ -378,12 +396,10 @@ namespace Battlement.UI
         {
             if (!CanForward(objectId, UiEventKind.ValueCommitted))
                 return false;
-            return emit!(
-                new UiEvent(
-                    objectId,
-                    new UiEventBody.ValueCommitted(
-                        new ValueCommitEvent(new UiValue.F32(previous), new UiValue.F32(proposed))
-                    )
+            return EmitEvent(
+                objectId,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(new UiValue.F32(previous), new UiValue.F32(proposed))
                 )
             );
         }
@@ -508,7 +524,7 @@ namespace Battlement.UI
                 UiEventKind.ScrollSettled => new UiEventBody.ScrollSettled(value),
                 _ => throw new InvalidOperationException("Unknown scroll event kind."),
             };
-            return emit!(new UiEvent(objectId, body));
+            return EmitEvent(objectId, body);
         }
 
         public bool ForwardTabSelection(
@@ -569,8 +585,9 @@ namespace Battlement.UI
             IReadOnlyList<Guid> route,
             UiEventKind kind,
             UiEventBody body,
-            bool targetOnly = false
-        ) => EmitRouted(objectId, route, kind, body, targetOnly);
+            bool targetOnly = false,
+            EventBase? nativeEvent = null
+        ) => EmitRouted(objectId, route, kind, body, targetOnly, nativeEvent);
 
         private bool IsSubscribed(Guid objectId, UiEventKind kind) =>
             IsSubscribed(objectId, kind, UiEventPhase.Target);
@@ -603,7 +620,8 @@ namespace Battlement.UI
             IReadOnlyList<Guid> route,
             UiEventKind kind,
             UiEventBody body,
-            bool targetOnly = false
+            bool targetOnly = false,
+            EventBase? nativeEvent = null
         )
         {
             bool subscribed = targetOnly
@@ -612,15 +630,43 @@ namespace Battlement.UI
             return inputEnabled
                 && emit is not null
                 && subscribed
-                && emit(new UiEvent(objectId, body));
+                && EmitEvent(objectId, body, nativeEvent);
         }
 
         private bool Emit(ObjectId objectId, UiEventKind kind, UiEventBody body)
         {
             if (!CanForward(objectId, kind))
                 return false;
-            return emit!(new UiEvent(objectId, body));
+            return EmitEvent(objectId, body);
         }
+
+        private bool EmitEvent(ObjectId objectId, UiEventBody body, EventBase? nativeEvent = null)
+        {
+            if (emit is null)
+            {
+                return false;
+            }
+            UiEventDisposition? disposition = emit(
+                new UiEvent(
+                    objectId,
+                    nativeEvent is not null,
+                    nativeEvent is not null && IsDefaultPrevented(nativeEvent),
+                    body
+                )
+            );
+            if (disposition == UiEventDisposition.PreventDefault && nativeEvent is not null)
+            {
+                PreventDefault(nativeEvent);
+                preventionApplied?.Invoke();
+            }
+            return disposition is not null;
+        }
+
+#pragma warning disable CS0618
+        private static bool IsDefaultPrevented(EventBase value) => value.isDefaultPrevented;
+
+        private static void PreventDefault(EventBase value) => value.PreventDefault();
+#pragma warning restore CS0618
 
         private bool TrySubscribed(IReadOnlyList<Guid> route, UiEventKind kind, out Guid target)
         {

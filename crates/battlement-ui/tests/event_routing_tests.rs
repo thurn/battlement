@@ -34,6 +34,8 @@ fn routed_pointer_order_is_deterministic_and_matches_the_fake() {
 fn target_only_events_ignore_ancestors_and_reject_ancestor_phases() {
   let event = UiEvent {
     target_id: TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::PointerEnter(PointerBoundaryEvent {
       pointer_id: 0,
       position: PanelPoint::new(12.0, 24.0),
@@ -66,6 +68,8 @@ fn pointer_payloads_omit_defaults_and_preserve_other_buttons() {
     serde_json::to_value(pointer_down()).unwrap(),
     json!({
         "target_id": TARGET_ID,
+        "cancelable": true,
+        "default_prevented": false,
         "body": {
             "PointerDown": {
                 "position": { "x": 4.0, "y": 8.0 },
@@ -89,6 +93,8 @@ fn pointer_payloads_omit_defaults_and_preserve_other_buttons() {
 fn focus_payloads_preserve_owned_relations_and_omit_external_relations() {
   let related = UiEvent {
     target_id: TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::FocusIn(FocusEvent {
       related_target_id: Some(PANEL_ID),
       ..FocusEvent::default()
@@ -100,11 +106,18 @@ fn focus_payloads_preserve_owned_relations_and_omit_external_relations() {
   );
   let external = UiEvent {
     target_id: TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::Blur(FocusEvent::default()),
   };
   assert_eq!(
     serde_json::to_value(external).unwrap(),
-    json!({ "target_id": TARGET_ID, "body": { "Blur": {} } })
+    json!({
+      "target_id": TARGET_ID,
+      "cancelable": false,
+      "default_prevented": false,
+      "body": { "Blur": {} }
+    })
   );
 }
 
@@ -112,6 +125,8 @@ fn focus_payloads_preserve_owned_relations_and_omit_external_relations() {
 fn keyboard_navigation_payloads_are_exact_and_route_deterministically() {
   let key = UiEvent {
     target_id: TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::KeyDown(KeyEvent {
       physical_key: Some(PhysicalKey::KeyA),
       text: "A".to_owned(),
@@ -124,6 +139,8 @@ fn keyboard_navigation_payloads_are_exact_and_route_deterministically() {
   );
   let unmapped = UiEvent {
     target_id: TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::KeyUp(KeyEvent::default()),
   };
   assert_eq!(
@@ -146,6 +163,8 @@ fn keyboard_navigation_payloads_are_exact_and_route_deterministically() {
   ];
   let movement = UiEvent {
     target_id: TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::NavigationMove(NavigationMoveEvent {
       direction: NavigationDirection::Right,
       move_vector: Vector::new(1.0, 0.0),
@@ -169,6 +188,8 @@ fn keyboard_navigation_payloads_are_exact_and_route_deterministically() {
 fn focus_direction_is_preserved_without_serializing_native_objects() {
   let event = UiEvent {
     target_id: TARGET_ID,
+    cancelable: false,
+    default_prevented: false,
     body: UiEventBody::Focus(FocusEvent {
       related_target_id: Some(PANEL_ID),
       direction: FocusDirection::Other(27),
@@ -211,6 +232,8 @@ fn routed_documents() -> Vec<UiDocument> {
 fn pointer_down() -> UiEvent {
   UiEvent {
     target_id: TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(PointerButtonEvent {
       pointer_id: 0,
       position: PanelPoint::new(4.0, 8.0),

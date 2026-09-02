@@ -15,8 +15,8 @@ use battlement::{
   GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryRegistry,
   GeometryUnavailable, GeometryValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
   PreparedAsset, Projective2, Prop, Rect, Response, ResponseMessage, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiElement, UiNode, UiVisualElementProperties,
-  ViewportGeometry, ViewportRect,
+  Snapshot, UiDocument, UiDocumentState, UiElement, UiEventAction, UiEventResponse, UiNode,
+  UiVisualElementProperties, ViewportGeometry, ViewportRect,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -74,6 +74,16 @@ impl Engine for ScriptedEngine {
 
   fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
     Err(EngineError::new("unexpected submission"))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    message: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &message.event,
+      Response::empty(message.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

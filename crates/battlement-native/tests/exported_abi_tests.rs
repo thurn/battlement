@@ -14,6 +14,8 @@ const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-
 type Create = unsafe extern "C" fn(*mut *mut c_void, *mut BattlementBuffer) -> i32;
 type Destroy = unsafe extern "C" fn(*mut c_void, *mut BattlementBuffer) -> i32;
 type Request = unsafe extern "C" fn(*mut c_void, *const u8, u64, *mut BattlementBuffer) -> i32;
+type UiRequest =
+  unsafe extern "C" fn(*mut c_void, *const u8, u64, *mut u32, *mut BattlementBuffer) -> i32;
 type Poll = unsafe extern "C" fn(*mut c_void, *mut BattlementBuffer) -> i32;
 type BufferFree = unsafe extern "C" fn(BattlementBuffer);
 type Count = unsafe extern "C" fn() -> usize;
@@ -122,6 +124,8 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     let destroy: Symbol<'_, Destroy> = library.get(b"battlement_engine_destroy").unwrap();
     let connect: Symbol<'_, Request> = library.get(b"battlement_connect").unwrap();
     let submit: Symbol<'_, Request> = library.get(b"battlement_submit").unwrap();
+    let submit_ui_event: Symbol<'_, UiRequest> =
+      library.get(b"battlement_submit_ui_event").unwrap();
     let poll: Symbol<'_, Poll> = library.get(b"battlement_poll").unwrap();
     let free: Symbol<'_, BufferFree> = library.get(b"battlement_buffer_free").unwrap();
     let outstanding: Symbol<'_, Count> = library.get(b"fixture_outstanding_buffers").unwrap();
@@ -239,7 +243,34 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
       call_connect(&connect, engine, "panic-submit", &mut output),
       OK
     );
-    take_buffer(output, &free);
+    let connected: serde_json::Value = serde_json::from_slice(&take_buffer(output, &free)).unwrap();
+    let session_id = connected["session_id"].as_str().unwrap();
+    let event = serde_json::to_vec(&serde_json::json!({
+      "action_id": "11111111-1111-4111-8111-111111111111",
+      "session_id": session_id,
+      "event": {
+        "target_id": "33333333-3333-4333-8333-333333333333",
+        "cancelable": true,
+        "default_prevented": true,
+        "body": { "Click": "NavigationSubmit" }
+      }
+    }))
+    .unwrap();
+    let mut disposition = u32::MAX;
+    output = poison_buffer();
+    assert_eq!(
+      submit_ui_event(
+        engine,
+        event.as_ptr(),
+        event.len() as u64,
+        &mut disposition,
+        &mut output,
+      ),
+      OK
+    );
+    assert_eq!(disposition, 1);
+    let response: serde_json::Value = serde_json::from_slice(&take_buffer(output, &free)).unwrap();
+    assert_eq!(response["session_id"], session_id);
     let calls_before = submit_calls();
     output = poison_buffer();
     assert_eq!(

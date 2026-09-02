@@ -381,7 +381,8 @@ fn exercise_entry(source: Source, entry: Entry) {
             ClickEvent::NavigationSubmit,
           ),
         )
-        .unwrap(),
+        .unwrap()
+        .into_commit(),
     ),
     Entry::Poll => self::apply(&mut world, reactant.poll(&mut game).unwrap()),
     Entry::Refresh => self::apply(&mut world, reactant.refresh(&mut game).unwrap()),

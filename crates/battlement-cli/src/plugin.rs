@@ -10,7 +10,7 @@ use anyhow::{Context, Result, bail};
 use crate::{plugin_build, tools};
 
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
-const REQUIRED_SYMBOLS: [&str; 7] = [
+const REQUIRED_SYMBOLS: [&str; 8] = [
   "battlement_buffer_free",
   "battlement_connect",
   "battlement_engine_create",
@@ -18,6 +18,7 @@ const REQUIRED_SYMBOLS: [&str; 7] = [
   "battlement_logging_drain",
   "battlement_poll",
   "battlement_submit",
+  "battlement_submit_ui_event",
 ];
 
 pub(crate) struct PluginDetails {
@@ -273,6 +274,19 @@ mod tests {
     assert_eq!(
       validate_symbols(&symbols).unwrap_err().to_string(),
       "plugin is missing required exports: battlement_logging_drain"
+    );
+  }
+
+  #[test]
+  fn ui_event_symbol_is_required() {
+    let symbols = REQUIRED_SYMBOLS
+      .into_iter()
+      .filter(|symbol| *symbol != "battlement_submit_ui_event")
+      .map(str::to_owned)
+      .collect::<Vec<_>>();
+    assert_eq!(
+      validate_symbols(&symbols).unwrap_err().to_string(),
+      "plugin is missing required exports: battlement_submit_ui_event"
     );
   }
 

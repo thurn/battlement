@@ -1,9 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene,
-  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiButton, UiDocument, UiElement,
-  UiEventBody, UiEventKind, UiNode, UiRadioButtonGroup, UiToggleButtonGroup, UiValue,
+  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene, PreparedAsset,
+  Response, Scene, SceneId, SessionId, Snapshot, UiButton, UiDocument, UiElement, UiEventAction,
+  UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode, UiRadioButtonGroup,
+  UiToggleButtonGroup, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -27,13 +28,17 @@ impl Engine for ChoiceEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     let UiEventBody::ValueCommitted(value) = event.body else {
       return Err(EngineError::new("unexpected UI event"));
     };
@@ -56,12 +61,18 @@ impl Engine for ChoiceEngine {
       None
     };
     let Some(element) = update else {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     };
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      vec![Command::update_visual_element(event.target_id, element).body],
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::commands_for_action(
+        self.session_id,
+        action.action_id,
+        vec![Command::update_visual_element(event.target_id, element).body],
+      ),
     ))
   }
 

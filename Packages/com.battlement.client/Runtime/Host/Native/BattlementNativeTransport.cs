@@ -105,6 +105,56 @@ namespace Battlement
             }
         }
 
+        public BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json)
+        {
+            lock (callGate)
+            {
+                BattlementTransportResult? rejected = RejectCall();
+                if (rejected is not null)
+                {
+                    return UiFailure(rejected);
+                }
+                if (engine == IntPtr.Zero)
+                {
+                    return UiFailure(
+                        AbiError("Connect must create the native engine before UI submission.")
+                    );
+                }
+
+                byte[] synchronousInput = json.ToArray();
+                BattlementNativeBuffer output = default;
+                try
+                {
+                    int status = BattlementNativeMethods.battlement_submit_ui_event(
+                        engine,
+                        synchronousInput,
+                        checked((ulong)synchronousInput.LongLength),
+                        out uint disposition,
+                        out output
+                    );
+                    BattlementNativeLogging.Drain();
+                    BattlementUiEventTransportResult result = TranslateUiEvent(
+                        status,
+                        disposition,
+                        output
+                    );
+                    if (result.Status == BattlementTransportStatus.Panic)
+                    {
+                        _ = DestroyEngine();
+                    }
+                    return result;
+                }
+                catch (Exception exception)
+                {
+                    return UiFailure(ManagedFailure(exception));
+                }
+                finally
+                {
+                    Free(output);
+                }
+            }
+        }
+
         public BattlementTransportResult Poll()
         {
             lock (callGate)
@@ -360,6 +410,33 @@ namespace Battlement
             );
         }
 
+        private static BattlementUiEventTransportResult TranslateUiEvent(
+            int status,
+            uint disposition,
+            BattlementNativeBuffer output
+        )
+        {
+            BattlementTransportResult translated = Translate(status, output, false);
+            if (translated.Status != BattlementTransportStatus.Success)
+            {
+                return UiFailure(translated);
+            }
+            UiEventDisposition validated = disposition switch
+            {
+                0 => UiEventDisposition.Continue,
+                1 => UiEventDisposition.PreventDefault,
+                _ => throw new InvalidOperationException(
+                    $"Native UI event returned unknown disposition {disposition}."
+                ),
+            };
+            return new BattlementUiEventTransportResult(
+                BattlementTransportStatus.Success,
+                validated,
+                translated.Payload,
+                NativeStatus: status
+            );
+        }
+
         private BattlementTransportResult? RejectCall()
         {
             if (isDisposed)
@@ -547,6 +624,17 @@ namespace Battlement
 
         private static BattlementTransportResult ManagedFailure(Exception exception) =>
             AbiError($"Managed native transport failure: {exception.Message}");
+
+        private static BattlementUiEventTransportResult UiFailure(
+            BattlementTransportResult result
+        ) =>
+            new(
+                result.Status,
+                UiEventDisposition.Continue,
+                ReadOnlyMemory<byte>.Empty,
+                result.Diagnostic,
+                result.NativeStatus
+            );
 
         private static BattlementTransportResult AbiError(
             string diagnostic,

@@ -5,7 +5,8 @@ use battlement::{
   GameObjectKind, GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayPlacement,
   PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
   Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState,
-  UiElement, UiElementKind, UiNode, UiVisualElementProperties, UpperLimit,
+  UiElement, UiElementKind, UiEventAction, UiEventResponse, UiNode, UiVisualElementProperties,
+  UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -158,6 +159,16 @@ impl<G: 'static> Engine for SessionEngine<G> {
 
   fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
     Err(EngineError::new("fixture does not accept actions"))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    message: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &message.event,
+      Response::empty(message.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

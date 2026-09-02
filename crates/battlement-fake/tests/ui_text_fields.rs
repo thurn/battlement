@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventBody, UiEventKind, UiNode,
-  UiTextField,
+  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset, Response,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventAction, UiEventBody, UiEventDisposition,
+  UiEventKind, UiEventResponse, UiNode, UiTextField,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -26,31 +26,44 @@ impl Engine for TextEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     self.events.borrow_mut().push(event.body.clone());
     let UiEventBody::ValueCommitted(value) = event.body else {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     };
     let battlement::UiValue::String(proposed) = value.proposed else {
       return Err(EngineError::new("unexpected numeric text commit"));
     };
     if event.target_id != self.normalized_id {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     }
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      [Command::update_visual_element(
-        event.target_id,
-        UiTextField::new().value(proposed.trim().to_uppercase()),
-      )
-      .body],
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::commands_for_action(
+        self.session_id,
+        action.action_id,
+        [Command::update_visual_element(
+          event.target_id,
+          UiTextField::new().value(proposed.trim().to_uppercase()),
+        )
+        .body],
+      ),
     ))
   }
 

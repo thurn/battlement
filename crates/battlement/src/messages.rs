@@ -295,6 +295,79 @@ pub struct Action {
   pub body: ActionBody,
 }
 
+/// One synchronous UI event submission with ordinary action identity.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UiEventAction {
+  /// Session-unique identity used to correlate resulting command batches.
+  pub action_id: ActionId,
+  /// Session in which the native event occurred.
+  pub session_id: SessionId,
+  /// Native UI event and its active cancellation state.
+  pub event: UiEvent,
+}
+
+impl UiEventAction {
+  /// Creates one synchronous UI event submission.
+  #[must_use]
+  pub const fn new(action_id: ActionId, session_id: SessionId, event: UiEvent) -> Self {
+    Self {
+      action_id,
+      session_id,
+      event,
+    }
+  }
+
+  /// Returns whether the native cancellation state is internally consistent.
+  #[must_use]
+  pub const fn is_valid(&self) -> bool {
+    self.event.cancelable || !self.event.default_prevented
+  }
+}
+
+/// The immediate native-default decision returned by a UI event submission.
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum UiEventDisposition {
+  /// Let Unity continue its remaining default actions.
+  #[default]
+  Continue = 0,
+  /// Ask Unity to skip the current event's remaining preventable defaults.
+  PreventDefault = 1,
+}
+
+/// One immediate UI disposition paired with its deferred ordinary response.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UiEventResponse<C = Command> {
+  /// Decision consumed before the originating Unity callback returns.
+  pub disposition: UiEventDisposition,
+  /// Commands queued for later ordinary response processing.
+  pub response: Response<C>,
+}
+
+impl<C> UiEventResponse<C> {
+  /// Creates a synchronous UI event result.
+  #[must_use]
+  pub const fn new(disposition: UiEventDisposition, response: Response<C>) -> Self {
+    Self {
+      disposition,
+      response,
+    }
+  }
+
+  /// Creates a result that preserves the event's incoming prevention state.
+  #[must_use]
+  pub fn from_event(event: &UiEvent, response: Response<C>) -> Self {
+    Self::new(
+      if event.default_prevented {
+        UiEventDisposition::PreventDefault
+      } else {
+        UiEventDisposition::Continue
+      },
+      response,
+    )
+  }
+}
+
 impl Action {
   /// Creates a built-in pointer, key, or controller action.
   #[must_use]
@@ -334,8 +407,6 @@ pub enum ActionBody {
   ControllerButtonUp(ControllerButtonPayload),
   /// The D-pad or left stick requested one cardinal navigation step.
   ControllerNavigate(ControllerNavigationPayload),
-  /// A subscribed UI Toolkit event from a Rust-authored visual element.
-  VisualElement(UiEvent),
   /// One coherent generation of changed geometry observations.
   GeometryObservations(GeometryObservationBatch),
   /// Ordered Motion lifecycle boundaries and coalesced samples.

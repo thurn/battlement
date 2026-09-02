@@ -394,6 +394,9 @@ namespace Battlement.Tests
             return inner.SerializeAction(value);
         }
 
+        public byte[] SerializeUiEventAction(UiEventAction value) =>
+            inner.SerializeUiEventAction(value);
+
         public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             inner.DeserializeResponse(bytes);
 

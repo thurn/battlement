@@ -1,4 +1,3 @@
-use battlement::ActionBody;
 use battlement_native::Engine;
 
 use crate::client::ui::{TextFieldInteraction, UiClient};
@@ -30,12 +29,12 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::Input)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::Input(battlement::TextInputEvent { value: draft }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::Input(battlement::TextInputEvent { value: draft }),
+      });
     }
   }
 
@@ -64,15 +63,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous: battlement::UiValue::String(state.committed),
-            proposed: battlement::UiValue::String(state.draft),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous: battlement::UiValue::String(state.committed),
+          proposed: battlement::UiValue::String(state.draft),
+        }),
+      });
     }
   }
 
@@ -113,15 +112,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::SelectionChanged)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::SelectionChanged(battlement::SelectionEvent {
-            cursor_index,
-            selection_index: select_index,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::SelectionChanged(battlement::SelectionEvent {
+          cursor_index,
+          selection_index: select_index,
+        }),
+      });
     }
   }
 }

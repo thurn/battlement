@@ -99,11 +99,11 @@ namespace Battlement.Tests
         [Test]
         public void LinkJsonOmitsDefaultPointerAndButton()
         {
-            byte[] bytes = BattlementJson.SerializeAction(
-                new Battlement.Action(
+            byte[] bytes = BattlementJson.SerializeUiEventAction(
+                new UiEventAction(
                     new ActionId(Guid.NewGuid()),
                     new SessionId(Guid.NewGuid()),
-                    new ActionBody.VisualElement(
+                    new UiEvent(
                         new ObjectId(Guid.NewGuid()),
                         new UiEventBody.LinkEnter(
                             new LinkEvent("field-guide", "FIELD GUIDE", new PanelPoint(12, 34))
@@ -113,7 +113,7 @@ namespace Battlement.Tests
             );
             JToken payload = JObject
                 .Parse(Encoding.UTF8.GetString(bytes))
-                .SelectToken("Action.body.VisualElement.body.LinkEnter")!;
+                .SelectToken("event.body.LinkEnter")!;
 
             Assert.That(payload["pointer_id"], Is.Null);
             Assert.That(payload["button"], Is.Null);
@@ -214,7 +214,7 @@ namespace Battlement.Tests
                 Documents = new BattlementUiDocuments(value =>
                 {
                     Events.Add(value);
-                    return true;
+                    return UiEventDisposition.Continue;
                 });
                 Documents.Replace(
                     new[]

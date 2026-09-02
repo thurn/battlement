@@ -16,10 +16,10 @@ namespace Battlement.Tests
         {
             ObjectId objectId = new(System.Guid.Parse("0325d352-7221-44be-8294-91049b35edc3"));
             UiEvent? emitted = null;
-            System.Func<UiEvent, bool> emit = value =>
+            System.Func<UiEvent, UiEventDisposition?> emit = value =>
             {
                 emitted = value;
-                return true;
+                return UiEventDisposition.Continue;
             };
             Type type = typeof(BattlementUiDocuments).Assembly.GetType(
                 "Battlement.UI.BattlementUiElementProperties"

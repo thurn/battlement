@@ -34,17 +34,17 @@ mod values_time_controls;
 mod variants_orchestration;
 
 use battlement::{
-  ActionBody, Batch, BatchId, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color,
-  Command, Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
-  PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, PreparedAsset, Response,
-  ResponseMessage, Scene, SceneId, SessionId, Snapshot, Style, TextureAddress, UiDocument,
-  UiDocumentState, Vector3, object_id, scene_id,
+  ActionBody, ActionId, Batch, BatchId, CameraClearMode, CameraProjection, CameraState,
+  ClientMessage, Color, Command, Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId,
+  PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, PreparedAsset,
+  Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, Style, TextureAddress,
+  UiDocument, UiDocumentState, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   prelude::*,
-  runtime::{Reactant, ResponseReactantExt},
+  runtime::{Reactant, ReactantCommit, ResponseReactantExt},
 };
 
 const CAMERA_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000001");
@@ -200,6 +200,56 @@ impl ReactantEngine {
   pub const fn screen(&self) -> Screen {
     self.game.screen
   }
+
+  fn response_for_commit(&mut self, action_id: ActionId, commit: ReactantCommit) -> Response {
+    if self.game.layout_gallery.take_reconnect_request()
+      || self.game.presence_lifecycle.take_reconnect_request()
+      || self.game.composed_effects.take_reconnect_request()
+    {
+      let _ = commit.into_groups();
+      return self
+        .reactant
+        .begin_session(&mut self.game)
+        .expect("sample reconnect render should succeed")
+        .into_response(snapshot(self.session_id, &self.document));
+    }
+    let mut response =
+      Response::empty(self.session_id).append_reactant_for_action(action_id, commit);
+    if !self.game.pending_commands.is_empty() {
+      let mut batch = Batch::new(
+        BatchId::new_v4(),
+        self.session_id,
+        vec![ParallelCommandGroup::new(std::mem::take(
+          &mut self.game.pending_commands,
+        ))],
+      );
+      batch.caused_by_action_id = Some(action_id);
+      response.messages.push(ResponseMessage::Batch(batch));
+    }
+    if self.game.resource_invalidation_requested {
+      self.game.resource_invalidation_requested = false;
+      self.reactant.invalidate(&self.preview_resource, &1);
+      response = response.append_reactant_for_action(
+        action_id,
+        self
+          .reactant
+          .poll(&mut self.game)
+          .expect("sample resource invalidation should render"),
+      );
+    }
+    if self.game.resource_resolution_requested {
+      self.game.resource_resolution_requested = false;
+      self.spawner.run_next();
+      response = response.append_reactant_for_action(
+        action_id,
+        self
+          .reactant
+          .poll(&mut self.game)
+          .expect("sample resource completion should render"),
+      );
+    }
+    response
+  }
 }
 
 impl Engine for ReactantEngine {
@@ -228,10 +278,6 @@ impl Engine for ReactantEngine {
       return Ok(Response::empty(self.session_id));
     };
     let commit = match action.body {
-      ActionBody::VisualElement(event) => self
-        .reactant
-        .dispatch(&mut self.game, event)
-        .expect("sample event dispatch should succeed"),
       ActionBody::GeometryObservations(batch) => self
         .reactant
         .observe_geometry(&mut self.game, batch)
@@ -242,55 +288,25 @@ impl Engine for ReactantEngine {
         .expect("sample Motion event dispatch should succeed"),
       _ => return Ok(Response::empty(self.session_id)),
     };
-    if self.game.layout_gallery.take_reconnect_request()
-      || self.game.presence_lifecycle.take_reconnect_request()
-      || self.game.composed_effects.take_reconnect_request()
-    {
-      let _ = commit.into_groups();
-      return Ok(
-        self
-          .reactant
-          .begin_session(&mut self.game)
-          .expect("sample reconnect render should succeed")
-          .into_response(snapshot(self.session_id, &self.document)),
-      );
+    Ok(self.response_for_commit(action.action_id, commit))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
     }
-    let mut response =
-      Response::empty(self.session_id).append_reactant_for_action(action.action_id, commit);
-    if !self.game.pending_commands.is_empty() {
-      let mut batch = Batch::new(
-        BatchId::new_v4(),
-        self.session_id,
-        vec![ParallelCommandGroup::new(std::mem::take(
-          &mut self.game.pending_commands,
-        ))],
-      );
-      batch.caused_by_action_id = Some(action.action_id);
-      response.messages.push(ResponseMessage::Batch(batch));
-    }
-    if self.game.resource_invalidation_requested {
-      self.game.resource_invalidation_requested = false;
-      self.reactant.invalidate(&self.preview_resource, &1);
-      response = response.append_reactant_for_action(
-        action.action_id,
-        self
-          .reactant
-          .poll(&mut self.game)
-          .expect("sample resource invalidation should render"),
-      );
-    }
-    if self.game.resource_resolution_requested {
-      self.game.resource_resolution_requested = false;
-      self.spawner.run_next();
-      response = response.append_reactant_for_action(
-        action.action_id,
-        self
-          .reactant
-          .poll(&mut self.game)
-          .expect("sample resource completion should render"),
-      );
-    }
-    Ok(response)
+    let event = self
+      .reactant
+      .dispatch(&mut self.game, action.event)
+      .expect("sample event dispatch should succeed");
+    let disposition = event.disposition();
+    Ok(UiEventResponse::new(
+      disposition,
+      self.response_for_commit(action.action_id, event.into_commit()),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

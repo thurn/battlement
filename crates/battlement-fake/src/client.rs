@@ -11,7 +11,7 @@ use battlement::{
   ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
   GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
   PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
-  ScreenSize, Validate, Vector3,
+  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, Validate, Vector3,
 };
 use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
@@ -850,6 +850,28 @@ where
       )))
       .unwrap_or_else(|error| panic!("submit failed for session {}: {error}", self.session_id));
     self.apply_response(response, ResponseMode::Existing);
+  }
+
+  pub(crate) fn submit_ui_event(&mut self, event: UiEvent) -> UiEventDisposition {
+    let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
+      .expect("deterministic action ID must be nonzero");
+    self.next_action_number += 1;
+    let result = self
+      .engine
+      .submit_ui_event(UiEventAction::new(action_id, self.session_id, event))
+      .unwrap_or_else(|error| {
+        panic!(
+          "UI event submission failed for session {}: {error}",
+          self.session_id
+        )
+      });
+    assert_eq!(
+      result.response.session_id, self.session_id,
+      "UI event response belongs to another session"
+    );
+    let disposition = result.disposition;
+    self.apply_response(result.response, ResponseMode::Existing);
+    disposition
   }
 
   pub(crate) fn submit_batch_failure(

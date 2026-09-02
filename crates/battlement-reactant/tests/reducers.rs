@@ -188,7 +188,8 @@ fn clicks_batch_ordered_actions_and_the_current_render_supplies_the_reducer() {
         &mut game,
         UiEvent::click(button, ClickEvent::NavigationSubmit),
       )
-      .unwrap(),
+      .unwrap()
+      .into_commit(),
   );
   assert_eq!(world.element(label).unwrap().text(), Some("Count 11"));
   assert_eq!(renders.get(), 2, "one click produces one reduced render");

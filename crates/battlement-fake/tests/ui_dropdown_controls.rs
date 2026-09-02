@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene,
-  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField,
-  UiEventBody, UiEventKind, UiNode, UiValue,
+  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene, PreparedAsset,
+  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField, UiEventAction,
+  UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -26,13 +26,17 @@ impl Engine for DropdownEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     let UiEventBody::ValueCommitted(value) = event.body else {
       return Err(EngineError::new("unexpected UI event"));
     };
@@ -42,21 +46,27 @@ impl Engine for DropdownEngine {
       value.proposed.clone(),
     ));
     if event.target_id != self.accepted_id {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     }
     let UiValue::Choice(selection) = value.proposed else {
       return Err(EngineError::new("unexpected dropdown proposal"));
     };
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      vec![
-        Command::update_visual_element(
-          event.target_id,
-          UiDropdownField::new().selection_value(selection),
-        )
-        .body,
-      ],
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::commands_for_action(
+        self.session_id,
+        action.action_id,
+        vec![
+          Command::update_visual_element(
+            event.target_id,
+            UiDropdownField::new().selection_value(selection),
+          )
+          .body,
+        ],
+      ),
     ))
   }
 

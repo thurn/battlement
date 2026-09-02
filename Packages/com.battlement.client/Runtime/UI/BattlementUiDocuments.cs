@@ -48,16 +48,21 @@ namespace Battlement.UI
 
         /// <summary>Creates a document manager with an optional synchronous event sink.</summary>
         public BattlementUiDocuments(
-            Func<UiEvent, bool>? emitUiEvent = null,
+            Func<UiEvent, UiEventDisposition?>? emitUiEvent = null,
             Func<Guid, bool>? containsWorldObject = null,
             Action<IReadOnlyList<Guid>>? reserveUiIdentities = null,
             Action<IReadOnlyList<Guid>>? releaseUiIdentities = null,
             IBattlementUiAssetLookup? assetLookup = null,
             Func<TimeSpan>? now = null,
-            Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null
+            Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null,
+            System.Action? uiEventPreventionApplied = null
         )
         {
-            properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
+            properties = new BattlementUiElementProperties(
+                emitUiEvent,
+                assetLookup,
+                uiEventPreventionApplied
+            );
             events = properties.EventForwarder;
             eventObserver = new BattlementUiEventObserver(
                 events,

@@ -327,6 +327,10 @@ impl UiEventSubscription {
 pub struct UiEvent {
   /// Logical element on which the native event originated.
   pub target_id: ObjectId,
+  /// Whether the originating native event permits default prevention.
+  pub cancelable: bool,
+  /// Whether an earlier native callback already prevented the default action.
+  pub default_prevented: bool,
   /// Event-family-specific payload copied from native UI state.
   pub body: UiEventBody,
 }
@@ -337,7 +341,29 @@ impl UiEvent {
   pub fn click(target_id: ObjectId, value: ClickEvent) -> Self {
     Self {
       target_id,
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::Click(value),
+    }
+  }
+
+  /// Creates an event with the originating native cancellation state.
+  #[must_use]
+  pub const fn new(
+    target_id: ObjectId,
+    cancelable: bool,
+    default_prevented: bool,
+    body: UiEventBody,
+  ) -> Self {
+    assert!(
+      cancelable || !default_prevented,
+      "a non-cancelable UI event cannot already be prevented"
+    );
+    Self {
+      target_id,
+      cancelable,
+      default_prevented,
+      body,
     }
   }
 

@@ -80,7 +80,10 @@ namespace Battlement
         private static bool CanOmit(ParameterInfo parameter) =>
             Nullable.GetUnderlyingType(parameter.ParameterType) is not null
             || parameter.HasDefaultValue
-            || parameter.ParameterType == typeof(bool);
+            || (
+                parameter.ParameterType == typeof(bool)
+                && parameter.Member.DeclaringType != typeof(UiEvent)
+            );
 
         private static bool IsProp(Type type) =>
             type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Prop<>);

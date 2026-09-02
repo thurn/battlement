@@ -5,7 +5,7 @@ use battlement::{
   ClientMessage, Command, Connect, GameObject, GameObjectKind, ImageSource, ObjectId,
   PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
   Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument, UiDocumentState, UiElement,
-  UiElementKind, UiVisualElementProperties,
+  UiElementKind, UiEventAction, UiEventResponse, UiVisualElementProperties,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -75,6 +75,16 @@ impl Engine for SnapshotEngine {
 
   fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
     Err(EngineError::new("fixture does not accept actions"))
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    message: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &message.event,
+      Response::empty(message.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

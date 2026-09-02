@@ -186,7 +186,9 @@ namespace Battlement.UI
             )
                 return;
             var identity = new LinkIdentity(eventValue.linkID, eventValue.linkText);
-            if (ForwardLink(objectId, UiEventKind.LinkEnter, eventValue, identity, null))
+            if (
+                ForwardLink(objectId, UiEventKind.LinkEnter, eventValue, identity, null, eventValue)
+            )
                 links[(objectId.Value, eventValue.pointerId)] = identity;
         }
 
@@ -201,7 +203,7 @@ namespace Battlement.UI
             var key = (objectId.Value, eventValue.pointerId);
             if (!links.Remove(key, out LinkIdentity identity))
                 return;
-            ForwardLink(objectId, UiEventKind.LinkLeave, eventValue, identity, null);
+            ForwardLink(objectId, UiEventKind.LinkLeave, eventValue, identity, null, eventValue);
         }
 
         private void ForwardButton(
@@ -221,7 +223,8 @@ namespace Battlement.UI
                 kind,
                 eventValue,
                 new LinkIdentity(linkId, linkText),
-                ToPointerButton(eventValue.button)
+                ToPointerButton(eventValue.button),
+                eventBase
             );
         }
 
@@ -230,7 +233,8 @@ namespace Battlement.UI
             UiEventKind kind,
             IPointerEvent eventValue,
             LinkIdentity identity,
-            UiPointerButton? button
+            UiPointerButton? button,
+            EventBase nativeEvent
         )
         {
             if (!float.IsFinite(eventValue.position.x) || !float.IsFinite(eventValue.position.y))
@@ -250,7 +254,13 @@ namespace Battlement.UI
                 UiEventKind.LinkUp => new UiEventBody.LinkUp(value),
                 _ => throw new InvalidOperationException("Unknown link event kind."),
             };
-            return events.ForwardEvent(objectId, route(objectId.Value), kind, body);
+            return events.ForwardEvent(
+                objectId,
+                route(objectId.Value),
+                kind,
+                body,
+                nativeEvent: nativeEvent
+            );
         }
 
         private static Battlement.Rect ToRect(UnityEngine.Rect value) =>

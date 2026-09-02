@@ -2,9 +2,9 @@ use std::{io, ptr};
 
 use battlement::{
   CameraState, ClickEvent, FocusEvent, GameObject, GameObjectKind, ObjectId, PanelPoint,
-  PanelScaleMode, PanelSettings, ParentScene, PointerCrossingEvent, PointerType, PreparedAsset,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventBody,
-  UiVisualElementProperties,
+  PanelScaleMode, PanelSettings, ParentScene, PointerBoundaryEvent, PointerCrossingEvent,
+  PointerType, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
+  UiEvent, UiEventBody, UiEventDisposition, UiVisualElementProperties,
 };
 use battlement_reactant::{
   event::{EventPhase, ReactantEvent},
@@ -18,7 +18,10 @@ struct IdleSpawner;
 struct Ledger {
   entries: Vec<Entry>,
   click_events: Vec<ReactantEvent<ClickEvent>>,
+  cancelable_observations: Vec<bool>,
+  prevented_observations: Vec<bool>,
   fail_render: bool,
+  prevent_at: Option<&'static str>,
   stop_at: Option<&'static str>,
 }
 
@@ -99,6 +102,8 @@ fn capture_target_bubble_and_focus_use_the_logical_host_path() {
     &mut ledger,
     UiEvent {
       target_id: target,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::FocusIn(FocusEvent::default()),
     },
   );
@@ -114,7 +119,102 @@ fn capture_target_bubble_and_focus_use_the_logical_host_path() {
 }
 
 #[test]
-fn pointer_crossings_follow_logical_paths_and_deduplicate_only_complements() {
+fn default_prevention_is_shared_and_independent_of_logical_phase() {
+  for prevent_at in ["outer-capture", "target", "outer"] {
+    let document = self::document();
+    let mut ledger = Ledger {
+      prevent_at: Some(prevent_at),
+      ..Ledger::default()
+    };
+    let mut reactant = Reactant::new(IdleSpawner);
+    reactant.register_root(document.clone(), self::propagation_view);
+    let snapshot = reactant
+      .begin_session(&mut ledger)
+      .expect("prevention tree renders")
+      .into_parts(self::snapshot(&document))
+      .0;
+    let target = self::find_named(&snapshot.ui[0].children, "target");
+
+    let result = reactant
+      .dispatch(
+        &mut ledger,
+        UiEvent::click(target, ClickEvent::NavigationSubmit),
+      )
+      .expect("cancelable click dispatches");
+
+    assert_eq!(result.disposition(), UiEventDisposition::PreventDefault);
+    assert!(result.prevented_by_reactant());
+    assert!(ledger.cancelable_observations.iter().all(|value| *value));
+    assert!(
+      ledger
+        .click_events
+        .iter()
+        .all(ReactantEvent::default_prevented)
+    );
+    let _ = result.into_groups();
+    let _ = reactant.shutdown(&mut ledger).into_groups();
+  }
+}
+
+#[test]
+fn incoming_prevention_survives_and_noncancelable_prevention_is_ignored() {
+  let document = self::document();
+  let mut ledger = Ledger::default();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), self::propagation_view);
+  let snapshot = reactant
+    .begin_session(&mut ledger)
+    .expect("prevention tree renders")
+    .into_parts(self::snapshot(&document))
+    .0;
+  let target = self::find_named(&snapshot.ui[0].children, "target");
+
+  let incoming = reactant
+    .dispatch(
+      &mut ledger,
+      UiEvent::new(
+        target,
+        true,
+        true,
+        UiEventBody::Click(ClickEvent::NavigationSubmit),
+      ),
+    )
+    .expect("already-prevented click dispatches");
+  assert_eq!(incoming.disposition(), UiEventDisposition::PreventDefault);
+  assert!(!incoming.prevented_by_reactant());
+  assert!(ledger.prevented_observations.iter().all(|value| *value));
+  let _ = incoming.into_groups();
+
+  ledger.click_events.clear();
+  ledger.cancelable_observations.clear();
+  ledger.prevented_observations.clear();
+  ledger.prevent_at = Some("target");
+  let noncancelable = reactant
+    .dispatch(
+      &mut ledger,
+      UiEvent::new(
+        target,
+        false,
+        false,
+        UiEventBody::Click(ClickEvent::NavigationSubmit),
+      ),
+    )
+    .expect("noncancelable click dispatches");
+  assert_eq!(noncancelable.disposition(), UiEventDisposition::Continue);
+  assert!(!noncancelable.prevented_by_reactant());
+  assert!(ledger.cancelable_observations.iter().all(|value| !value));
+  assert!(
+    ledger
+      .click_events
+      .iter()
+      .all(|event| !event.default_prevented())
+  );
+  let _ = noncancelable.into_groups();
+  let _ = reactant.shutdown(&mut ledger).into_groups();
+}
+
+#[test]
+fn pointer_boundaries_dispatch_only_the_reported_native_event() {
   let document = self::document();
   let mut ledger = Ledger::default();
   let mut reactant = Reactant::new(IdleSpawner);
@@ -124,92 +224,23 @@ fn pointer_crossings_follow_logical_paths_and_deduplicate_only_complements() {
     .expect("crossing tree renders")
     .into_parts(self::snapshot(&document))
     .0;
-  let outer = self::find_named(&snapshot.ui[0].children, "crossing-outer");
   let a_parent = self::find_named(&snapshot.ui[0].children, "a-parent");
   let a_leaf = self::find_named(&snapshot.ui[0].children, "a-leaf");
-  let _b_parent = self::find_named(&snapshot.ui[0].children, "b-parent");
   let b_leaf = self::find_named(&snapshot.ui[0].children, "b-leaf");
 
-  self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
-  self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 7);
-  assert_eq!(
-    self::labels(&ledger),
-    [
-      "a-leaf-leave",
-      "a-parent-leave",
-      "b-parent-enter",
-      "b-leaf-enter"
-    ]
-  );
-  assert_eq!(ledger.entries[0].related, Some(b_leaf));
-  assert_eq!(ledger.entries[2].related, Some(a_leaf));
-  for entry in &ledger.entries {
-    assert_eq!(entry.phase, EventPhase::Target);
-    assert_eq!(entry.target, entry.current);
-  }
-
-  ledger.entries.clear();
-  self::cross(&mut reactant, &mut ledger, a_leaf, Some(a_parent), false, 7);
-  self::cross(&mut reactant, &mut ledger, a_parent, Some(a_leaf), true, 7);
+  self::boundary(&mut reactant, &mut ledger, a_leaf, false, 7);
   assert_eq!(self::labels(&ledger), ["a-leaf-leave"]);
+  assert_eq!(ledger.entries[0].phase, EventPhase::Target);
+  assert_eq!(ledger.entries[0].target, a_leaf);
+  assert_eq!(ledger.entries[0].current, a_leaf);
 
   ledger.entries.clear();
-  self::cross(&mut reactant, &mut ledger, b_leaf, None, false, 7);
-  assert_eq!(
-    self::labels(&ledger),
-    ["b-leaf-leave", "b-parent-leave", "outer-leave"]
-  );
-  assert_eq!(ledger.entries[2].current, outer);
+  self::boundary(&mut reactant, &mut ledger, a_parent, false, 7);
+  self::boundary(&mut reactant, &mut ledger, b_leaf, true, 7);
+  assert_eq!(self::labels(&ledger), ["a-parent-leave", "b-leaf-enter"]);
 
   ledger.entries.clear();
-  ledger.stop_at = Some("a-parent-leave");
   self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
-  assert_eq!(self::labels(&ledger), ["a-leaf-leave", "a-parent-leave"]);
-
-  ledger.entries.clear();
-  ledger.stop_at = None;
-  self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
-  self::dispatch(
-    &mut reactant,
-    &mut ledger,
-    UiEvent::click(ObjectId::new_v4(), ClickEvent::NavigationSubmit),
-  );
-  self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 7);
-  assert_eq!(ledger.entries.len(), 8);
-
-  ledger.entries.clear();
-  self::dispatch(
-    &mut reactant,
-    &mut ledger,
-    UiEvent::click(ObjectId::new_v4(), ClickEvent::NavigationSubmit),
-  );
-  self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
-  self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 8);
-  assert_eq!(ledger.entries.len(), 8);
-  let _ = reactant.shutdown(&mut ledger).into_groups();
-}
-
-#[test]
-fn failed_reconnect_preserves_complementary_pointer_deduplication() {
-  let document = self::document();
-  let mut ledger = Ledger::default();
-  let mut reactant = Reactant::new(IdleSpawner);
-  reactant.register_root(document.clone(), self::crossing_view);
-  let snapshot = reactant
-    .begin_session(&mut ledger)
-    .unwrap()
-    .into_parts(self::snapshot(&document))
-    .0;
-  let a_leaf = self::find_named(&snapshot.ui[0].children, "a-leaf");
-  let b_leaf = self::find_named(&snapshot.ui[0].children, "b-leaf");
-
-  self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
-  ledger.entries.clear();
-  ledger.fail_render = true;
-  assert!(reactant.begin_session(&mut ledger).is_err());
-  ledger.fail_render = false;
-  self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 7);
-
   assert!(ledger.entries.is_empty());
   let _ = reactant.shutdown(&mut ledger).into_groups();
 }
@@ -258,15 +289,15 @@ fn propagation_view(_ledger: &Ledger) -> impl battlement_reactant::render::Rende
             .name("target")
             .on_click_capture_event(self::record_click("target-capture"))
             .on_click_event(self::record_click("target"))
-            .on_focus_event(self::record_focus("target-focus")),
+            .on_focus_in_event(self::record_focus("target-focus")),
         )
         .on_click_capture_event(self::record_click("middle-capture"))
         .on_click_event(self::record_click("middle"))
-        .on_focus_event(self::record_focus("middle-focus")),
+        .on_focus_in_event(self::record_focus("middle-focus")),
     )
     .on_click_capture_event(self::record_click("outer-capture"))
     .on_click_event(self::record_click("outer"))
-    .on_focus_event(self::record_focus("outer-focus"))
+    .on_focus_in_event(self::record_focus("outer-focus"))
 }
 
 fn crossing_view(
@@ -280,28 +311,28 @@ fn crossing_view(
     .child(
       battlement_reactant::host::View::new()
         .name("a-leaf")
-        .on_pointer_enter_event(self::record_crossing("a-leaf-enter"))
-        .on_pointer_leave_event(self::record_crossing("a-leaf-leave")),
+        .on_pointer_enter_event(self::record_boundary("a-leaf-enter"))
+        .on_pointer_leave_event(self::record_boundary("a-leaf-leave")),
     )
-    .on_pointer_enter_event(self::record_crossing("a-parent-enter"))
-    .on_pointer_leave_event(self::record_crossing("a-parent-leave"));
+    .on_pointer_enter_event(self::record_boundary("a-parent-enter"))
+    .on_pointer_leave_event(self::record_boundary("a-parent-leave"));
   let b = battlement_reactant::host::View::new()
     .name("b-parent")
     .child(
       battlement_reactant::host::View::new()
         .name("b-leaf")
-        .on_pointer_enter_event(self::record_crossing("b-leaf-enter"))
-        .on_pointer_leave_event(self::record_crossing("b-leaf-leave")),
+        .on_pointer_enter_event(self::record_boundary("b-leaf-enter"))
+        .on_pointer_leave_event(self::record_boundary("b-leaf-leave")),
     )
-    .on_pointer_enter_event(self::record_crossing("b-parent-enter"))
-    .on_pointer_leave_event(self::record_crossing("b-parent-leave"));
+    .on_pointer_enter_event(self::record_boundary("b-parent-enter"))
+    .on_pointer_leave_event(self::record_boundary("b-parent-leave"));
   Ok(
     battlement_reactant::host::View::new()
       .name("crossing-outer")
       .child(a)
       .child(b)
-      .on_pointer_enter_event(self::record_crossing("outer-enter"))
-      .on_pointer_leave_event(self::record_crossing("outer-leave")),
+      .on_pointer_enter_event(self::record_boundary("outer-enter"))
+      .on_pointer_leave_event(self::record_boundary("outer-leave")),
   )
 }
 
@@ -327,6 +358,13 @@ fn raw_crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Rend
 
 fn record_click(label: &'static str) -> impl Fn(&mut Ledger, ReactantEvent<ClickEvent>) + 'static {
   move |ledger, event| {
+    ledger.cancelable_observations.push(event.cancelable());
+    ledger
+      .prevented_observations
+      .push(event.default_prevented());
+    if ledger.prevent_at == Some(label) {
+      event.prevent_default();
+    }
     ledger.click_events.push(event.clone());
     self::record(ledger, label, event, None);
   }
@@ -346,6 +384,12 @@ fn record_crossing(
     let related = event.payload().related_target_id;
     self::record(ledger, label, event, related);
   }
+}
+
+fn record_boundary(
+  label: &'static str,
+) -> impl Fn(&mut Ledger, ReactantEvent<PointerBoundaryEvent>) + 'static {
+  move |ledger, event| self::record(ledger, label, event, None)
 }
 
 fn record<E>(
@@ -385,12 +429,42 @@ fn cross(
     ledger,
     UiEvent {
       target_id,
+      cancelable: false,
+      default_prevented: false,
       body: if over {
         UiEventBody::PointerOver(payload)
       } else {
         UiEventBody::PointerOut(payload)
       },
     },
+  );
+}
+
+fn boundary(
+  reactant: &mut Reactant<Ledger>,
+  ledger: &mut Ledger,
+  target_id: ObjectId,
+  enter: bool,
+  pointer_id: i32,
+) {
+  let payload = PointerBoundaryEvent {
+    pointer_id,
+    position: PanelPoint::default(),
+    pointer_type: PointerType::Mouse,
+  };
+  self::dispatch(
+    reactant,
+    ledger,
+    UiEvent::new(
+      target_id,
+      false,
+      false,
+      if enter {
+        UiEventBody::PointerEnter(payload)
+      } else {
+        UiEventBody::PointerLeave(payload)
+      },
+    ),
   );
 }
 

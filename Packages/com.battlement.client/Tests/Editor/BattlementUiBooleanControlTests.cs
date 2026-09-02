@@ -214,7 +214,7 @@ namespace Battlement.Tests
                 Documents = new BattlementUiDocuments(value =>
                 {
                     Events.Add(value);
-                    return onEvent(value);
+                    return onEvent(value) ? UiEventDisposition.Continue : null;
                 });
                 Documents.Replace(
                     new[] { new UiDocument(documentId, rootId, Children: nodes) },

@@ -1,9 +1,10 @@
 use std::{cell::RefCell, num::NonZeroU32, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventBody,
-  UiEventKind, UiEventPhase, UiEventSubscription, UiNode, UiRepeatButton, UiVisualElement,
+  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset, Response,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventAction,
+  UiEventBody, UiEventKind, UiEventPhase, UiEventResponse, UiEventSubscription, UiNode,
+  UiRepeatButton, UiVisualElement,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -25,15 +26,14 @@ impl Engine for RecordingEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
-    };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
-    self.actions.borrow_mut().push(event);
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
     Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let response = UiEventResponse::from_event(&action.event, Response::empty(self.session_id));
+    self.actions.borrow_mut().push(action.event);
+    Ok(response)
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {

@@ -1,9 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, CommandBody, Connect, GameObject, ObjectId,
-  ParentScene, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
-  UiEventBody, UiEventKind, UiNode, UiRadioButton, UiToggle,
+  CameraState, ClientMessage, Command, CommandBody, Connect, GameObject, ObjectId, ParentScene,
+  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
+  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode,
+  UiRadioButton, UiToggle,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -27,13 +28,17 @@ impl Engine for BooleanEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     let UiEventBody::ValueCommitted(value) = event.body else {
       return Err(EngineError::new("unexpected UI event"));
     };
@@ -47,7 +52,10 @@ impl Engine for BooleanEngine {
       .borrow_mut()
       .push((event.target_id, previous, proposed));
     if !self.accepted.contains(&event.target_id) {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     }
     let update: UiElement = if event.target_id == self.gating_id {
       UiToggle::new().value(proposed).into()
@@ -60,10 +68,9 @@ impl Engine for BooleanEngine {
     if event.target_id == self.gating_id {
       commands.push(CommandBody::set_input_enabled(false));
     }
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      commands,
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::commands_for_action(self.session_id, action.action_id, commands),
     ))
   }
 

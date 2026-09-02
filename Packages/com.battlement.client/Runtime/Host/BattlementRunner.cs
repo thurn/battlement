@@ -55,6 +55,7 @@ namespace Battlement
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
+        private readonly List<BattlementUiEventInspection> uiEventInspections = new();
         private readonly ConcurrentQueue<BattlementCapturedUnityError> unityErrors = new();
         private BattlementDevelopmentDiagnostics? developmentDiagnostics;
         private BattlementFailureSurface? failureSurface;
@@ -69,6 +70,8 @@ namespace Battlement
         private int mainThreadId;
         private int uiDispatchDepth;
         private ulong dittoStateVersion;
+        private PendingUiFailure? pendingUiFailure;
+        private BattlementUiEventInspection? awaitingNativePrevention;
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
@@ -82,7 +85,7 @@ namespace Battlement
         /// <summary>
         /// Whether Battlement may currently emit pointer, keyboard, and controller input.
         /// </summary>
-        public bool IsInputAvailable => session.IsInputAvailable;
+        public bool IsInputAvailable => pendingUiFailure is null && session.IsInputAvailable;
 
         /// <summary>Current nontechnical failure presentation, if the session failed.</summary>
         public BattlementPlayerFailure? CurrentFailure => failureSurface?.Current;
@@ -93,6 +96,9 @@ namespace Battlement
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
         public BattlementMotionPerformanceSnapshot MotionPerformance =>
             uiDocuments?.MotionPerformance ?? default;
+
+        /// <summary>Recent causal records for synchronous Reactant UI events.</summary>
+        public IReadOnlyList<BattlementUiEventInspection> UiEventInspections => uiEventInspections;
 
         internal System.Action? SnapshotApplicationProbe
         {
@@ -167,6 +173,8 @@ namespace Battlement
             session.Stop();
             batchAdmission.BeginSession();
             responses.Clear();
+            uiEventInspections.Clear();
+            awaitingNativePrevention = null;
             while (unityErrors.TryDequeue(out _)) { }
             completedInitialSnapshot = false;
             isNativePanicRecovery = false;
@@ -299,7 +307,8 @@ namespace Battlement
                 world.ReleaseUiIdentities,
                 this,
                 () => dittoMotionClock.Elapsed,
-                audioSources.MotionTime
+                audioSources.MotionTime,
+                RecordUiEventPrevention
             );
             geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(
@@ -763,6 +772,7 @@ namespace Battlement
 
             BattlementRunnerOptions configured = options;
             DrainUnityErrors();
+            ApplyPendingUiFailure(configured);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
@@ -1102,14 +1112,30 @@ namespace Battlement
             );
         }
 
-        private void DrainResponses(BattlementRunnerOptions configured) =>
-            responses.Drain(
-                (response, isInitial, previousSession) =>
-                    ValidateResponse(configured, response, isInitial, previousSession),
-                (session, message) => ApplyMessage(configured, session, message),
-                () => session.Phase == BattlementSessionPhase.ApplyingSnapshot,
-                () => session.Phase == BattlementSessionPhase.Stopped
-            );
+        private void DrainResponses(BattlementRunnerOptions configured)
+        {
+            try
+            {
+                responses.Drain(
+                    (response, isInitial, previousSession) =>
+                        ValidateResponse(configured, response, isInitial, previousSession),
+                    (session, message) => ApplyMessage(configured, session, message),
+                    () => session.Phase == BattlementSessionPhase.ApplyingSnapshot,
+                    () => session.Phase == BattlementSessionPhase.Stopped
+                );
+            }
+            catch (Exception exception)
+            {
+                if (session.Phase != BattlementSessionPhase.Stopped)
+                {
+                    FailSession(
+                        configured,
+                        $"Deferred response failed: {exception.Message}",
+                        exception: exception
+                    );
+                }
+            }
+        }
 
         private bool ValidateResponse(
             BattlementRunnerOptions configured,
@@ -1652,6 +1678,7 @@ namespace Battlement
                 session.Stop();
                 batchAdmission.BeginSession();
                 responses.Clear();
+                pendingUiFailure = null;
             }
             if (log)
             {
@@ -1702,12 +1729,125 @@ namespace Battlement
             geometryFrames.Retire(update);
         }
 
-        private bool EmitUiEvent(UiEvent value)
+        private UiEventDisposition? EmitUiEvent(UiEvent value)
         {
+            if (!CanEmitInput || session.LastSession is not SessionId currentSession)
+            {
+                return null;
+            }
+
+            BattlementRunnerOptions configured = RequireOptions();
+            var action = new UiEventAction(new ActionId(Guid.NewGuid()), currentSession, value);
+            var inspection = new BattlementUiEventInspection(action, UiEventKindOf(value.Body));
+            AddUiEventInspection(inspection);
+            BattlementResponseStream.Reservation? reservation = null;
+            TimeSpan started = dittoMotionClock!.Elapsed;
+            bool enteredTransport = false;
             uiDispatchDepth++;
             try
             {
-                return EmitAction(new ActionBody.VisualElement(value.TargetId, value.Body));
+                reservation = responses.Reserve(payload =>
+                    DecodeUiEventResponse(configured, payload, inspection)
+                );
+                inspection.AdmissionSequence = reservation.Sequence;
+                byte[] message;
+                using (BattlementProfiler.Serialization.Auto())
+                    message = configured.ProtocolCodec.SerializeUiEventAction(action);
+                if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                {
+                    throw new InvalidDataException(
+                        "A UI event cannot exceed "
+                            + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes."
+                    );
+                }
+
+                BattlementUiEventTransportResult result;
+                using (BattlementProfiler.Transport.Auto())
+                {
+                    enteredTransport = true;
+                    result = configured.Transport.SubmitUiEvent(message);
+                }
+                if (result.Status != BattlementTransportStatus.Success)
+                {
+                    reservation.Release();
+                    reservation = null;
+                    FailUiEventInspection(
+                        inspection,
+                        BattlementUiEventInspectionOutcome.FailedAfterDispatch,
+                        FailureReason(result.Status),
+                        "reactant.event.submit_failed",
+                        dittoMotionClock.Elapsed - started
+                    );
+                    RecordUiFailure(
+                        "UI event submission failed.",
+                        result,
+                        dittoMotionClock.Elapsed - started
+                    );
+                    return null;
+                }
+                if (
+                    result.Disposition != UiEventDisposition.Continue
+                    && result.Disposition != UiEventDisposition.PreventDefault
+                )
+                {
+                    FailUiEventInspection(
+                        inspection,
+                        BattlementUiEventInspectionOutcome.FailedAfterDispatch,
+                        BattlementUiEventFailureReason.InvalidDisposition,
+                        "reactant.event.invalid_disposition",
+                        dittoMotionClock.Elapsed - started
+                    );
+                    throw new InvalidDataException(
+                        $"UI event returned unknown disposition {(uint)result.Disposition}."
+                    );
+                }
+                if (result.ResponsePayload.IsEmpty)
+                {
+                    throw new InvalidDataException("UI event returned an empty response payload.");
+                }
+
+                reservation.Commit(result.ResponsePayload);
+                reservation = null;
+                inspection.Disposition = result.Disposition;
+                inspection.PreventedByReactant =
+                    result.Disposition == UiEventDisposition.PreventDefault
+                    && !value.DefaultPrevented;
+                inspection.ResponseBytes = result.ResponsePayload.Length;
+                inspection.SynchronousDurationMicroseconds = Microseconds(
+                    dittoMotionClock.Elapsed - started
+                );
+                inspection.Outcome = BattlementUiEventInspectionOutcome.Completed;
+                awaitingNativePrevention =
+                    result.Disposition == UiEventDisposition.PreventDefault ? inspection : null;
+                return result.Disposition;
+            }
+            catch (Exception exception)
+            {
+                reservation?.Release();
+                if (inspection.Outcome == BattlementUiEventInspectionOutcome.Pending)
+                {
+                    BattlementUiEventFailureReason reason = enteredTransport
+                        ? CommitFailureReason(exception)
+                        : RejectionFailureReason(exception);
+                    FailUiEventInspection(
+                        inspection,
+                        enteredTransport
+                            ? BattlementUiEventInspectionOutcome.FailedAfterDispatch
+                            : BattlementUiEventInspectionOutcome.RejectedBeforeDispatch,
+                        reason,
+                        enteredTransport
+                            ? "reactant.event.response_rejected"
+                            : "reactant.event.submit_failed",
+                        dittoMotionClock.Elapsed - started
+                    );
+                }
+                RecordUiFailure(
+                    $"UI event response failed: {exception.Message}",
+                    null,
+                    dittoMotionClock.Elapsed - started,
+                    exception
+                );
+                return null;
             }
             finally
             {
@@ -1715,8 +1855,155 @@ namespace Battlement
             }
         }
 
+        private Response<ICommand> DecodeUiEventResponse(
+            BattlementRunnerOptions configured,
+            ReadOnlyMemory<byte> payload,
+            BattlementUiEventInspection inspection
+        )
+        {
+            try
+            {
+                Response<ICommand> response = DecodeResponse(configured, payload);
+                var batchIds = new List<BatchId>();
+                foreach (ResponseMessage<ICommand> message in response.Messages)
+                {
+                    if (message is ResponseMessage<ICommand>.BatchMessage batch)
+                        batchIds.Add(batch.Batch.Id);
+                }
+                inspection.SetBatchIds(batchIds);
+                inspection.AppliedAt = dittoMotionClock!.Elapsed;
+                return response;
+            }
+            catch
+            {
+                FailUiEventInspection(
+                    inspection,
+                    BattlementUiEventInspectionOutcome.DeferredApplyFailed,
+                    BattlementUiEventFailureReason.DeferredApply,
+                    "reactant.event.deferred_apply_failed",
+                    TimeSpan.FromTicks(
+                        checked((long)inspection.SynchronousDurationMicroseconds * 10)
+                    )
+                );
+                throw;
+            }
+        }
+
+        private void RecordUiEventPrevention()
+        {
+            if (awaitingNativePrevention is not BattlementUiEventInspection inspection)
+                return;
+            inspection.NativePreventionApplied = true;
+            awaitingNativePrevention = null;
+            if (inspection.PreventedByReactant)
+            {
+                Log(
+                    BattlementLogSeverity.Information,
+                    "reactant.event.prevented",
+                    "Reactant prevented the native UI event default action."
+                );
+            }
+        }
+
+        private void AddUiEventInspection(BattlementUiEventInspection inspection)
+        {
+            const int maximumInspectionRecords = 256;
+            if (uiEventInspections.Count == maximumInspectionRecords)
+                uiEventInspections.RemoveAt(0);
+            uiEventInspections.Add(inspection);
+        }
+
+        private void FailUiEventInspection(
+            BattlementUiEventInspection inspection,
+            BattlementUiEventInspectionOutcome outcome,
+            BattlementUiEventFailureReason reason,
+            string diagnosticCode,
+            TimeSpan duration
+        )
+        {
+            inspection.Outcome = outcome;
+            inspection.FailureReason = reason;
+            inspection.DiagnosticCode = diagnosticCode;
+            inspection.SynchronousDurationMicroseconds = Microseconds(duration);
+            Log(
+                BattlementLogSeverity.Error,
+                diagnosticCode,
+                $"Reactant UI event failed: {reason}."
+            );
+        }
+
+        private static UiEventKind UiEventKindOf(UiEventBody body) =>
+            Enum.Parse<UiEventKind>(body.GetType().Name);
+
+        private static BattlementUiEventFailureReason FailureReason(
+            BattlementTransportStatus status
+        ) =>
+            status switch
+            {
+                BattlementTransportStatus.EngineError => BattlementUiEventFailureReason.Engine,
+                BattlementTransportStatus.Panic => BattlementUiEventFailureReason.Panic,
+                _ => BattlementUiEventFailureReason.NativeTransport,
+            };
+
+        private static BattlementUiEventFailureReason RejectionFailureReason(Exception exception) =>
+            exception.Message.Contains("queue more than", StringComparison.Ordinal)
+                ? BattlementUiEventFailureReason.QueueItemLimit
+                : BattlementUiEventFailureReason.RequestValidation;
+
+        private static BattlementUiEventFailureReason CommitFailureReason(Exception exception)
+        {
+            if (exception.Message.Contains("response bytes", StringComparison.Ordinal))
+                return BattlementUiEventFailureReason.QueueByteLimit;
+            if (
+                exception.Message.Contains(
+                    "response reservation",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+                return BattlementUiEventFailureReason.ResponseCommitInvariant;
+            return BattlementUiEventFailureReason.ResponseSerialization;
+        }
+
+        private static ulong Microseconds(TimeSpan duration) =>
+            checked((ulong)Math.Max(0, duration.Ticks / 10));
+
         private bool CanEmitInput =>
-            session.IsInputAvailable && (hasApplicationFocus || Application.isBatchMode);
+            pendingUiFailure is null
+            && session.IsInputAvailable
+            && (hasApplicationFocus || Application.isBatchMode);
+
+        private void RecordUiFailure(
+            string message,
+            BattlementUiEventTransportResult? result,
+            TimeSpan duration,
+            Exception? exception = null
+        )
+        {
+            pendingUiFailure ??= new PendingUiFailure(message, result, duration, exception);
+        }
+
+        private void ApplyPendingUiFailure(BattlementRunnerOptions configured)
+        {
+            if (pendingUiFailure is not PendingUiFailure failure)
+            {
+                return;
+            }
+            pendingUiFailure = null;
+            BattlementTransportResult? result = failure.Result is null
+                ? null
+                : new BattlementTransportResult(
+                    failure.Result.Status,
+                    diagnostic: failure.Result.Diagnostic,
+                    nativeStatus: failure.Result.NativeStatus
+                );
+            FailSession(
+                configured,
+                failure.Message,
+                result,
+                failure.Duration,
+                exception: failure.Exception
+            );
+        }
 
         private void LogPendingConnection()
         {
@@ -1756,6 +2043,13 @@ namespace Battlement
                     "Configure the runner with public host dependencies before use."
                 );
         }
+
+        private sealed record PendingUiFailure(
+            string Message,
+            BattlementUiEventTransportResult? Result,
+            TimeSpan Duration,
+            Exception? Exception
+        );
 
         private BattlementRunnerOptions RequireRunningSession()
         {

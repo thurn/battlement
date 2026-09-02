@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
-use battlement::{ClientMessage, Command, Connect, Response};
+use battlement::{ClientMessage, Command, Connect, Response, UiEventAction, UiEventResponse};
 use battlement_native::{Engine, EngineError};
 
 pub type SharedProbe = Rc<RefCell<Probe>>;
@@ -58,6 +58,16 @@ impl Engine for ScriptedEngine {
     assert_eq!(message, expected);
     self.probe.borrow_mut().submits.push(message);
     Ok(response)
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(action.session_id),
+    ))
   }
 
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {

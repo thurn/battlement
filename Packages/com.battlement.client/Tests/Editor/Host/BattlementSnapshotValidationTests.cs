@@ -710,6 +710,9 @@ namespace Battlement.Tests
 
             public byte[] SerializeAction(Action value) => throw new NotSupportedException();
 
+            public byte[] SerializeUiEventAction(UiEventAction value) =>
+                throw new NotSupportedException();
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) => response;
         }
     }

@@ -2,10 +2,11 @@
 
 use battlement::{
   Choice, ClickEvent, F32Range, FocusEvent, GeometryEvent, KeyEvent, LifecycleEvent, LinkEvent,
-  NavigationEvent, NavigationMoveEvent, PointerButtonEvent, PointerCancelEvent,
-  PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, ScrollEvent, SelectionEvent,
-  TabCloseEvent, TabReorderEvent, TabSelectionEvent, TextInputEvent, TransitionEvent, UiEventBody,
-  UiEventKind, UiValue, ValueChangingEvent, ValueCommitEvent, WheelEvent,
+  NavigationEvent, NavigationMoveEvent, PointerBoundaryEvent, PointerButtonEvent,
+  PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, ScrollEvent,
+  SelectionEvent, TabCloseEvent, TabReorderEvent, TabSelectionEvent, TextInputEvent,
+  TransitionEvent, UiEventBody, UiEventKind, UiValue, ValueChangingEvent, ValueCommitEvent,
+  WheelEvent,
 };
 
 use crate::{
@@ -254,8 +255,8 @@ macro_rules! common_event_methods {
         on_focus_capture,
         on_focus_capture_event,
         "focus",
-        FocusIn,
-        FocusIn,
+        Focus,
+        Focus,
         FocusEvent
       ),
       (
@@ -264,8 +265,8 @@ macro_rules! common_event_methods {
         on_blur_capture,
         on_blur_capture_event,
         "blur",
-        FocusOut,
-        FocusOut,
+        Blur,
+        Blur,
         FocusEvent
       ),
       (
@@ -314,17 +315,17 @@ macro_rules! common_event_methods {
         on_pointer_enter,
         on_pointer_enter_event,
         "pointer_enter",
-        PointerOver,
-        PointerOver,
-        PointerCrossingEvent
+        PointerEnter,
+        PointerEnter,
+        PointerBoundaryEvent
       ),
       (
         on_pointer_leave,
         on_pointer_leave_event,
         "pointer_leave",
-        PointerOut,
-        PointerOut,
-        PointerCrossingEvent
+        PointerLeave,
+        PointerLeave,
+        PointerBoundaryEvent
       ),
       (
         on_geometry_changed,

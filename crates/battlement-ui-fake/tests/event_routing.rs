@@ -48,6 +48,8 @@ fn fake_serialization_preserves_crossing_relations_and_distinct_intervening_even
     ),
     UiEvent {
       target_id: PANEL_ID,
+      cancelable: false,
+      default_prevented: false,
       body: UiEventBody::PointerMove(PointerMoveEvent {
         pointer_id: 7,
         position: PanelPoint::new(12.0, 8.0),
@@ -133,12 +135,14 @@ fn crossing_documents() -> Vec<UiDocument> {
 }
 
 fn crossing(target_id: ObjectId, body: UiEventBody) -> UiEvent {
-  UiEvent { target_id, body }
+  UiEvent::new(target_id, false, false, body)
 }
 
 fn event() -> UiEvent {
   UiEvent {
     target_id: TARGET_ID,
+    cancelable: true,
+    default_prevented: false,
     body: UiEventBody::PointerDown(PointerButtonEvent {
       pointer_id: 0,
       position: PanelPoint::new(4.0, 8.0),

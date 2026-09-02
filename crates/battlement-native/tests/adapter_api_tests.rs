@@ -5,21 +5,26 @@ use std::{
   thread,
 };
 
-use battlement::{ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId, json};
+use battlement::{
+  ActionId, ClickEvent, ClientMessage, Command, Connect, CoreErrorCode, ObjectId, Response,
+  SessionId, UiEvent, UiEventAction, UiEventBody, UiEventResponse, json,
+};
 use battlement_native::{
   BattlementBuffer, BattlementEngine, ENGINE_ERROR, Engine, EngineError, INVALID_ARGUMENT,
   MAXIMUM_DIAGNOSTIC_BYTES, NO_MESSAGE, OK, PANIC, buffer_free, connect, create, destroy, poll,
-  submit,
+  submit, submit_ui_event,
 };
 
 const CONNECT_BYTES: &[u8] = br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#;
 const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-111111111111","session_id":"22222222-2222-4222-8222-222222222222","body":{"PointerEnter":{"object_id":"33333333-3333-4333-8333-333333333333","pointer_id":0,"screen_position":{"x":1.0,"y":2.0},"world_hit":{"x":0.0,"y":0.0,"z":0.0}}}}}"#;
+static TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Default)]
 struct State {
   connects: Vec<Connect>,
   submissions: usize,
   fail_submit: bool,
+  fail_ui_event: bool,
 }
 
 struct FakeEngine {
@@ -51,9 +56,36 @@ impl Engine for FakeEngine {
     Ok(self.immediate.clone())
   }
 
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if self.state.lock().unwrap().fail_ui_event {
+      return Err(EngineError::new("fake UI event failed"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      self.immediate.clone(),
+    ))
+  }
+
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
     Ok(self.pending.lock().unwrap().pop_front())
   }
+}
+
+fn ui_event_bytes(session_id: SessionId, default_prevented: bool) -> Vec<u8> {
+  json::to_vec(&UiEventAction::new(
+    ActionId::new_v4(),
+    session_id,
+    UiEvent::new(
+      ObjectId::new_v4(),
+      true,
+      default_prevented,
+      UiEventBody::Click(ClickEvent::NavigationSubmit),
+    ),
+  ))
+  .unwrap()
 }
 
 fn fake_engine(
@@ -90,6 +122,7 @@ unsafe fn take_error(buffer: BattlementBuffer) -> String {
 
 #[test]
 fn raw_adapter_contract_covers_lifecycle_calls_and_buffers() {
+  let _guard = TEST_LOCK.lock().unwrap();
   let state = Arc::new(Mutex::new(State::default()));
   let pending = Arc::new(Mutex::new(VecDeque::new()));
   let response = Response::new(SessionId::new_v4(), Vec::new());
@@ -291,6 +324,7 @@ fn raw_adapter_contract_covers_lifecycle_calls_and_buffers() {
 
 #[test]
 fn null_outputs_are_rejected_without_dereferencing_them() {
+  let _guard = TEST_LOCK.lock().unwrap();
   assert_eq!(
     [OK, NO_MESSAGE, INVALID_ARGUMENT, ENGINE_ERROR, PANIC],
     [0, 1, 2, 3, 4]
@@ -344,4 +378,103 @@ fn null_outputs_are_rejected_without_dereferencing_them() {
   };
   assert_eq!(status, INVALID_ARGUMENT);
   assert_eq!(unsafe { take_error(output) }, "engine pointer is null");
+}
+
+#[test]
+fn ui_event_adapter_returns_only_valid_complete_results() {
+  let _guard = TEST_LOCK.lock().unwrap();
+  let state = Arc::new(Mutex::new(State::default()));
+  let session_id = SessionId::new_v4();
+  let response = Response::empty(session_id);
+  let expected = json::to_vec(&response).unwrap();
+  let mut engine = ptr::null_mut();
+  let mut output = poison_buffer();
+  assert_eq!(
+    unsafe {
+      create(
+        || {
+          Ok(fake_engine(
+            Arc::clone(&state),
+            Arc::new(Mutex::new(VecDeque::new())),
+            response.clone(),
+          ))
+        },
+        &mut engine,
+        &mut output,
+      )
+    },
+    OK
+  );
+
+  let request = self::ui_event_bytes(session_id, false);
+  let mut disposition = u32::MAX;
+  output = poison_buffer();
+  assert_eq!(
+    unsafe {
+      submit_ui_event(
+        engine,
+        request.as_ptr(),
+        request.len() as u64,
+        &mut disposition,
+        &mut output,
+      )
+    },
+    OK
+  );
+  assert_eq!(disposition, 0);
+  assert_eq!(unsafe { take_bytes(output) }, expected);
+
+  let prevented = self::ui_event_bytes(session_id, true);
+  output = poison_buffer();
+  assert_eq!(
+    unsafe {
+      submit_ui_event(
+        engine,
+        prevented.as_ptr(),
+        prevented.len() as u64,
+        &mut disposition,
+        &mut output,
+      )
+    },
+    OK
+  );
+  assert_eq!(disposition, 1);
+  unsafe { buffer_free(output) };
+
+  state.lock().unwrap().fail_ui_event = true;
+  output = poison_buffer();
+  disposition = u32::MAX;
+  assert_eq!(
+    unsafe {
+      submit_ui_event(
+        engine,
+        request.as_ptr(),
+        request.len() as u64,
+        &mut disposition,
+        &mut output,
+      )
+    },
+    ENGINE_ERROR
+  );
+  assert_eq!(disposition, 0);
+  assert_eq!(unsafe { take_error(output) }, "fake UI event failed");
+
+  disposition = u32::MAX;
+  output = poison_buffer();
+  assert_eq!(
+    unsafe {
+      submit_ui_event::<FakeEngine>(
+        ptr::null_mut(),
+        ptr::null(),
+        1,
+        &mut disposition,
+        &mut output,
+      )
+    },
+    INVALID_ARGUMENT
+  );
+  assert_eq!(disposition, 0);
+  assert_eq!(unsafe { take_error(output) }, "engine pointer is null");
+
+  unsafe { destroy(engine) };
 }

@@ -5,7 +5,7 @@ use std::{
   sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use battlement::{Response, json};
+use battlement::{Response, UiEventAction, UiEventDisposition, json};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{Engine, EngineError, EngineFactory, panic_capture};
@@ -204,6 +204,100 @@ pub unsafe fn submit<E: Engine>(
       |engine, value| engine.submit(value),
     )
   }
+}
+
+/// Decodes a synchronous UI event, invokes the engine, and returns both outputs.
+///
+/// # Safety
+///
+/// `engine` must be the live handle from [`create`]. `json_data` must be
+/// readable for `length` bytes. Both output pointers must be writable and
+/// correctly aligned.
+pub unsafe fn submit_ui_event<E: Engine>(
+  engine: *mut BattlementEngine<E>,
+  json_data: *const u8,
+  length: u64,
+  out_disposition: *mut u32,
+  out_buffer: *mut BattlementBuffer,
+) -> i32 {
+  if !out_disposition.is_null() {
+    // SAFETY: The caller promises a non-null output pointer is writable.
+    unsafe { out_disposition.write(UiEventDisposition::Continue as u32) };
+  }
+  if !out_buffer.is_null() {
+    // SAFETY: The caller promises a non-null output pointer is writable.
+    unsafe { out_buffer.write(BattlementBuffer::EMPTY) };
+  }
+  if out_disposition.is_null() || out_buffer.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  if engine.is_null() {
+    // SAFETY: `out_buffer` was checked and initialized above.
+    unsafe { write_error(out_buffer, "engine pointer is null") };
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises a unique live engine pointer for this serial call.
+  if unsafe { (*engine).poisoned } {
+    // SAFETY: `out_buffer` was checked and initialized above.
+    unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+    return PANIC;
+  }
+  // SAFETY: The caller promises the input is readable for the duration of this call.
+  let bytes = match unsafe { input_slice(json_data, length) } {
+    Ok(bytes) => bytes,
+    Err(error) => {
+      // SAFETY: `out_buffer` was checked and initialized above.
+      unsafe { write_error(out_buffer, error) };
+      return INVALID_ARGUMENT;
+    }
+  };
+  let action: UiEventAction = match json::from_slice(bytes) {
+    Ok(action) => action,
+    Err(error) => {
+      // SAFETY: `out_buffer` was checked and initialized above.
+      unsafe { write_error(out_buffer, format!("invalid UI event action JSON: {error}")) };
+      return INVALID_ARGUMENT;
+    }
+  };
+  if !action.is_valid() {
+    // SAFETY: `out_buffer` was checked and initialized above.
+    unsafe {
+      write_error(
+        out_buffer,
+        "a default-prevented UI event must be cancelable",
+      )
+    };
+    return INVALID_ARGUMENT;
+  }
+  let session_id = action.session_id;
+  // SAFETY: The caller promises a unique live engine pointer for this serial call.
+  let result = match unsafe { &mut (*engine).engine }.submit_ui_event(action) {
+    Ok(result) => result,
+    Err(error) => {
+      // SAFETY: `out_buffer` was checked and initialized above.
+      unsafe { write_error(out_buffer, error.to_string()) };
+      return ENGINE_ERROR;
+    }
+  };
+  if result.response.session_id != session_id {
+    // SAFETY: `out_buffer` was checked and initialized above.
+    unsafe { write_error(out_buffer, "UI event response session mismatch") };
+    return ENGINE_ERROR;
+  }
+  let bytes = match json::to_vec(&result.response) {
+    Ok(bytes) => bytes,
+    Err(error) => {
+      // SAFETY: `out_buffer` was checked and initialized above.
+      unsafe { write_error(out_buffer, format!("could not serialize response: {error}")) };
+      return ENGINE_ERROR;
+    }
+  };
+  // SAFETY: Both outputs were checked and serialization has completed.
+  unsafe {
+    out_buffer.write(BattlementBuffer::from_bytes(bytes));
+    out_disposition.write(result.disposition as u32);
+  }
+  OK
 }
 
 /// Polls one queued response without blocking.
@@ -412,6 +506,46 @@ where
     ffi_output_call(engine, out_buffer, "battlement_submit", || {
       submit(engine, data, length, out_buffer)
     })
+  }
+}
+
+/// Runs synchronous UI event submission behind the panic-safe C ABI boundary.
+///
+/// # Safety
+///
+/// The pointers follow the requirements of [`submit_ui_event`].
+#[doc(hidden)]
+pub unsafe fn ffi_submit_ui_event<F>(
+  _: F,
+  engine: *mut c_void,
+  data: *const u8,
+  length: u64,
+  out_disposition: *mut u32,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: EngineFactory,
+{
+  let engine = engine.cast::<BattlementEngine<F::Engine>>();
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
+    // SAFETY: The constructor marker identifies the concrete handle type.
+    unsafe { submit_ui_event(engine, data, length, out_disposition, out_buffer) }
+  })) {
+    Ok(status) => status,
+    Err(payload) => {
+      if !engine.is_null() {
+        // SAFETY: The caller supplies the live engine pointer used by the failed call.
+        unsafe { (*engine).poisoned = true };
+      }
+      if !out_disposition.is_null() {
+        // SAFETY: The caller promises a non-null output pointer is writable.
+        unsafe { out_disposition.write(UiEventDisposition::Continue as u32) };
+      }
+      // SAFETY: A non-null output pointer is writable by contract.
+      unsafe { write_panic(out_buffer, "battlement_submit_ui_event", payload.as_ref()) };
+      PANIC
+    }
   }
 }
 

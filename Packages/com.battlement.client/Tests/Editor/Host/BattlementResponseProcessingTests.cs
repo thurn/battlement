@@ -187,7 +187,7 @@ namespace Battlement.Tests
 
             harness.Runner.Submit(new byte[] { 1 });
 
-            Assert.That(harness.Transport.SubmitMessages, Has.Count.EqualTo(258));
+            Assert.That(harness.Transport.SubmitMessages, Has.Count.EqualTo(257));
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(
                 harness.Logger.Records.Last().Message,
@@ -234,6 +234,8 @@ namespace Battlement.Tests
                 new byte[] { 40 };
 
             public byte[] SerializeAction(Action value) => new byte[] { 50 };
+
+            public byte[] SerializeUiEventAction(UiEventAction value) => new byte[] { 60 };
 
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
             {

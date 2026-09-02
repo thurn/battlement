@@ -64,6 +64,15 @@ namespace Battlement
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_submit_ui_event(
+            IntPtr engine,
+            [In] byte[] json,
+            ulong length,
+            out uint disposition,
+            out BattlementNativeBuffer output
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_poll(
             IntPtr engine,
             out BattlementNativeBuffer output

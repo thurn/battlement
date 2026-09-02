@@ -231,6 +231,8 @@ namespace Battlement.Tests
 
             public byte[] SerializeAction(Action value) => new byte[] { 6 };
 
+            public byte[] SerializeUiEventAction(UiEventAction value) => new byte[] { 7 };
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
             {
                 decodeCount++;

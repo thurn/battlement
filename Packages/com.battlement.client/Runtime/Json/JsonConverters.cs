@@ -1393,7 +1393,6 @@ namespace Battlement
                     "ControllerButtonDown",
                     "ControllerButtonUp",
                     "ControllerNavigate",
-                    "VisualElement",
                     "GeometryObservations",
                     "MotionEvents"
                 ),

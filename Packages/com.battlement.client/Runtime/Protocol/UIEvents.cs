@@ -2,6 +2,7 @@
 
 using System.Collections.Generic;
 using System.ComponentModel;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -119,8 +120,31 @@ namespace Battlement
         UiEventPhase Phase = UiEventPhase.Target
     );
 
+    /// <summary>Immediate decision returned before the native callback resumes.</summary>
+    public enum UiEventDisposition : uint
+    {
+        Continue = 0,
+        PreventDefault = 1,
+    }
+
+    /// <summary>One synchronous UI event submission.</summary>
+    public sealed record UiEventAction(
+        [property: JsonProperty("action_id")] ActionId Id,
+        SessionId SessionId,
+        UiEvent Event
+    );
+
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
-    public sealed record UiEvent(ObjectId TargetId, UiEventBody Body);
+    public sealed record UiEvent(
+        ObjectId TargetId,
+        bool Cancelable,
+        bool DefaultPrevented,
+        UiEventBody Body
+    )
+    {
+        public UiEvent(ObjectId targetId, UiEventBody body)
+            : this(targetId, false, false, body) { }
+    }
 
     /// <summary>Exact union of supported UI event payloads.</summary>
     public abstract record UiEventBody

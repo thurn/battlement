@@ -229,7 +229,8 @@ fn coalesced_thread_wakes_are_consumed_by_every_active_entry() {
         &mut (),
         UiEvent::click(ObjectId::new_v4(), ClickEvent::NavigationSubmit),
       )
-      .unwrap(),
+      .unwrap()
+      .into_commit(),
   );
   assert_eq!(world.element(label).unwrap().text(), Some("store 2"));
 

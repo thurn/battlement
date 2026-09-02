@@ -58,7 +58,12 @@ namespace Battlement.UI
                 {
                     Guid? targetId = nearestId(eventValue.target as VisualElement);
                     if (targetId is Guid id)
-                        events.ForwardNavigationSubmit(new ObjectId(id), route(id), isButton(id));
+                        events.ForwardNavigationSubmit(
+                            new ObjectId(id),
+                            route(id),
+                            isButton(id),
+                            eventValue
+                        );
                 },
                 TrickleDown.TrickleDown
             );
@@ -73,7 +78,8 @@ namespace Battlement.UI
                                 UiEventKind.KeyDown,
                                 eventValue.keyCode,
                                 eventValue.character,
-                                eventValue.modifiers
+                                eventValue.modifiers,
+                                eventValue
                             )
                     ),
                 TrickleDown.TrickleDown
@@ -89,7 +95,8 @@ namespace Battlement.UI
                                 UiEventKind.KeyUp,
                                 eventValue.keyCode,
                                 eventValue.character,
-                                eventValue.modifiers
+                                eventValue.modifiers,
+                                eventValue
                             )
                     ),
                 TrickleDown.TrickleDown
@@ -106,7 +113,7 @@ namespace Battlement.UI
                 eventValue =>
                     ForwardRoot(
                         eventValue,
-                        (target, path) => events.ForwardNavigationCancel(target, path)
+                        (target, path) => events.ForwardNavigationCancel(target, path, eventValue)
                     ),
                 TrickleDown.TrickleDown
             );
@@ -206,7 +213,8 @@ namespace Battlement.UI
                     objectId,
                     eventValue,
                     UiEventKind.PointerCapture,
-                    eventValue.pointerId
+                    eventValue.pointerId,
+                    eventValue
                 )
             );
             value.RegisterCallback<UnityPointerCaptureOutEvent>(eventValue =>
@@ -214,7 +222,8 @@ namespace Battlement.UI
                     objectId,
                     eventValue,
                     UiEventKind.PointerCaptureOut,
-                    eventValue.pointerId
+                    eventValue.pointerId,
+                    eventValue
                 )
             );
             value.RegisterCallback<UnityFocusEvent>(eventValue =>
@@ -244,7 +253,8 @@ namespace Battlement.UI
                     route(id),
                     kind,
                     RelatedTarget(eventValue),
-                    BattlementUiKeyboardMapper.Focus(eventValue.direction)
+                    BattlementUiKeyboardMapper.Focus(eventValue.direction),
+                    nativeEvent: eventBase
                 );
         }
 
@@ -283,12 +293,19 @@ namespace Battlement.UI
             ObjectId objectId,
             EventBase eventValue,
             UiEventKind kind,
-            int pointerId
+            int pointerId,
+            EventBase nativeEvent
         )
         {
             if (nearestId(eventValue.target as VisualElement) != objectId.Value)
                 return;
-            events.ForwardPointerCapture(objectId, route(objectId.Value), kind, pointerId);
+            events.ForwardPointerCapture(
+                objectId,
+                route(objectId.Value),
+                kind,
+                pointerId,
+                nativeEvent
+            );
         }
 
         private void ForwardOwnedFocus(
@@ -306,7 +323,8 @@ namespace Battlement.UI
                 kind,
                 RelatedTarget(eventValue),
                 BattlementUiKeyboardMapper.Focus(eventValue.direction),
-                targetOnly: true
+                targetOnly: true,
+                nativeEvent: eventBase
             );
         }
 

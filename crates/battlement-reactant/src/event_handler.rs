@@ -16,12 +16,6 @@ pub(crate) struct Handler {
   callback: Rc<ErasedHandler>,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum SyntheticHandler {
-  PointerEnter,
-  PointerLeave,
-}
-
 impl Handler {
   pub(crate) fn brief<G: 'static, E: 'static>(
     slot: &'static str,
@@ -141,14 +135,6 @@ impl Handler {
 
   pub(crate) fn phase(&self) -> HandlerPhase {
     self.phase
-  }
-
-  pub(crate) fn synthetic(&self) -> Option<SyntheticHandler> {
-    match self.slot {
-      "pointer_enter" => Some(SyntheticHandler::PointerEnter),
-      "pointer_leave" => Some(SyntheticHandler::PointerLeave),
-      _ => None,
-    }
   }
 
   pub(crate) fn same_slot(&self, other: &Self) -> bool {

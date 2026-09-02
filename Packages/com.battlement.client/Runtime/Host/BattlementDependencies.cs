@@ -15,6 +15,9 @@ namespace Battlement
         /// <summary>Submits one JSON client message synchronously.</summary>
         BattlementTransportResult Submit(ReadOnlyMemory<byte> json);
 
+        /// <summary>Submits one UI event before its native callback returns.</summary>
+        BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json);
+
         /// <summary>Polls immediately for one response.</summary>
         BattlementTransportResult Poll();
 
@@ -60,6 +63,15 @@ namespace Battlement
 
         public int? NativeStatus { get; }
     }
+
+    /// <summary>An immediate UI disposition and opaque deferred response payload.</summary>
+    public sealed record BattlementUiEventTransportResult(
+        BattlementTransportStatus Status,
+        UiEventDisposition Disposition,
+        ReadOnlyMemory<byte> ResponsePayload,
+        string? Diagnostic = null,
+        int? NativeStatus = null
+    );
 
     /// <summary>Prepares Addressables entries for use by Battlement-controlled content.</summary>
     public interface IBattlementAssetStorage : IDisposable
@@ -150,6 +162,9 @@ namespace Battlement
 
         /// <summary>Encodes one built-in pointer or keyboard action.</summary>
         byte[] SerializeAction(Action value);
+
+        /// <summary>Encodes one synchronous UI event action.</summary>
+        byte[] SerializeUiEventAction(UiEventAction value);
 
         /// <summary>Decodes one response containing core commands.</summary>
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);

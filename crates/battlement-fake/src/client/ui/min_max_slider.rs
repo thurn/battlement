@@ -1,7 +1,7 @@
 //! Synthetic gestures for controlled dual-thumb range sliders.
 
 use battlement::{
-  ActionBody, F32Range, LowerLimit, UiElement, UiElementKind, UiEventKind, UiValue, UpperLimit,
+  F32Range, LowerLimit, UiElement, UiElementKind, UiEventKind, UiValue, UpperLimit,
 };
 use battlement_native::Engine;
 
@@ -46,14 +46,14 @@ where
         .ui_world
         .has_subscription(object_id, UiEventKind::ValueChanging)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent {
-            proposed: UiValue::F32Range(proposed),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent {
+          proposed: UiValue::F32Range(proposed),
+        }),
+      });
     }
   }
 
@@ -70,15 +70,15 @@ where
         .ui_world
         .has_subscription(object_id, UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous: UiValue::F32Range(state.committed),
-            proposed: UiValue::F32Range(state.proposed),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous: UiValue::F32Range(state.committed),
+          proposed: UiValue::F32Range(state.proposed),
+        }),
+      });
     }
   }
 

@@ -7,7 +7,7 @@ mod text_field;
 
 use std::time::Instant;
 
-use battlement::{ActionBody, Command, PointerButton};
+use battlement::{Command, PointerButton};
 use battlement_native::Engine;
 use battlement_ui_fake::{UiElementState, UiJournalEntry, UiWorld};
 
@@ -112,7 +112,7 @@ where
     if self.client.ui_world.route_event(&event).is_empty() {
       return;
     }
-    self.client.submit_action(ActionBody::VisualElement(event));
+    let _ = self.client.submit_ui_event(event);
   }
 
   /// Sends one pointer-style click when the button is enabled and subscribed.
@@ -143,7 +143,7 @@ where
     if self.client.ui_world.route_event(&event).is_empty() {
       return;
     }
-    self.client.submit_action(ActionBody::VisualElement(event));
+    let _ = self.client.submit_ui_event(event);
   }
 
   /// Activates a UiButton through keyboard or gamepad submit.
@@ -165,7 +165,7 @@ where
     if self.client.ui_world.route_event(&event).is_empty() {
       return;
     }
-    self.client.submit_action(ActionBody::VisualElement(event));
+    let _ = self.client.submit_ui_event(event);
   }
 
   /// Presses and holds a repeat button for an exact number of milliseconds.
@@ -205,9 +205,7 @@ where
       return 0;
     }
     for _ in 0..callbacks {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(event.clone()));
+      self.client.submit_ui_event(event.clone());
     }
     callbacks
   }
@@ -264,12 +262,12 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ScrollChanged)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ScrollChanged(battlement::ScrollEvent { offset }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ScrollChanged(battlement::ScrollEvent { offset }),
+      });
     }
   }
 
@@ -303,12 +301,12 @@ where
           .ui_world
           .has_subscription(object_id, battlement::UiEventKind::ScrollSettled)
       {
-        self
-          .client
-          .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-            target_id: object_id,
-            body: battlement::UiEventBody::ScrollSettled(battlement::ScrollEvent { offset }),
-          }));
+        self.client.submit_ui_event(battlement::UiEvent {
+          target_id: object_id,
+          cancelable: false,
+          default_prevented: false,
+          body: battlement::UiEventBody::ScrollSettled(battlement::ScrollEvent { offset }),
+        });
       }
     }
   }
@@ -344,14 +342,14 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ValueChanging)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent {
-            proposed: battlement::UiValue::F32(proposed),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueChanging(battlement::ValueChangingEvent {
+          proposed: battlement::UiValue::F32(proposed),
+        }),
+      });
     }
   }
 
@@ -370,15 +368,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous: battlement::UiValue::F32(state.committed),
-            proposed: battlement::UiValue::F32(state.proposed),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous: battlement::UiValue::F32(state.committed),
+          proposed: battlement::UiValue::F32(state.proposed),
+        }),
+      });
     }
   }
 
@@ -532,16 +530,16 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::TabSelectionRequested)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::TabSelectionRequested(battlement::TabSelectionEvent {
-            previous_index,
-            proposed_index,
-            proposed_tab_id,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::TabSelectionRequested(battlement::TabSelectionEvent {
+          previous_index,
+          proposed_index,
+          proposed_tab_id,
+        }),
+      });
     }
   }
 
@@ -567,15 +565,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::TabCloseRequested)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::TabCloseRequested(battlement::TabCloseEvent {
-            tab_id,
-            index,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::TabCloseRequested(battlement::TabCloseEvent {
+          tab_id,
+          index,
+        }),
+      });
     }
   }
 
@@ -609,16 +607,16 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::TabReorderRequested)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::TabReorderRequested(battlement::TabReorderEvent {
-            tab_id,
-            previous_index,
-            proposed_index,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::TabReorderRequested(battlement::TabReorderEvent {
+          tab_id,
+          previous_index,
+          proposed_index,
+        }),
+      });
     }
   }
 
@@ -668,15 +666,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous: battlement::UiValue::Bool(previous),
-            proposed: battlement::UiValue::Bool(proposed),
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous: battlement::UiValue::Bool(previous),
+          proposed: battlement::UiValue::Bool(proposed),
+        }),
+      });
     }
   }
 
@@ -694,15 +692,15 @@ where
       .ui_world
       .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
     {
-      self
-        .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-          target_id: object_id,
-          body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-            previous,
-            proposed,
-          }),
-        }));
+      self.client.submit_ui_event(battlement::UiEvent {
+        target_id: object_id,
+        cancelable: false,
+        default_prevented: false,
+        body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+          previous,
+          proposed,
+        }),
+      });
     }
   }
 

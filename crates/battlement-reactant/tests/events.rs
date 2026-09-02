@@ -79,7 +79,7 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
       UiEvent::click(button_id, ClickEvent::NavigationSubmit),
     )
     .expect("brief click dispatches");
-  self::apply(&mut world, brief);
+  self::apply(&mut world, brief.into_commit());
   assert_eq!(game.status, "brief-last");
   assert_eq!(world.element(label_id).unwrap().text(), Some("brief-last"));
 
@@ -96,7 +96,7 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
       UiEvent::click(button_id, ClickEvent::NavigationSubmit),
     )
     .expect("event-aware click dispatches");
-  self::apply(&mut world, aware);
+  self::apply(&mut world, aware.into_commit());
   assert_eq!(game.status, "event-last");
 
   game.status = "dirty but unrecognized".to_owned();

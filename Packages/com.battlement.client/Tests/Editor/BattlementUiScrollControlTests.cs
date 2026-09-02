@@ -30,7 +30,7 @@ namespace Battlement.Tests
                 value =>
                 {
                     events.Add(value);
-                    return true;
+                    return UiEventDisposition.Continue;
                 },
                 now: () => now
             );
@@ -217,7 +217,7 @@ namespace Battlement.Tests
             var documents = new BattlementUiDocuments(value =>
             {
                 events.Add(value);
-                return true;
+                return UiEventDisposition.Continue;
             });
             try
             {

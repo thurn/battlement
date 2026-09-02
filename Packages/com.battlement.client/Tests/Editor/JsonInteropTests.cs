@@ -563,11 +563,11 @@ namespace Battlement.Tests
         [Test]
         public void ScalarUnionDefaultsRemainScalarPayloads()
         {
-            byte[] bytes = BattlementJson.SerializeAction(
-                new Action(
+            byte[] bytes = BattlementJson.SerializeUiEventAction(
+                new UiEventAction(
                     new ActionId(JSONFixtureData.GuidAt(440)),
                     new SessionId(JSONFixtureData.SessionGuid),
-                    new ActionBody.VisualElement(
+                    new UiEvent(
                         new ObjectId(JSONFixtureData.GuidAt(441)),
                         new UiEventBody.ValueCommitted(
                             new ValueCommitEvent(new UiValue.Bool(false), new UiValue.Bool(true))
@@ -578,7 +578,7 @@ namespace Battlement.Tests
             JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
 
             Assert.That(
-                root.SelectToken("Action.body.VisualElement.body.ValueCommitted.previous.Bool"),
+                root.SelectToken("event.body.ValueCommitted.previous.Bool"),
                 Is.EqualTo(new JValue(false))
             );
         }

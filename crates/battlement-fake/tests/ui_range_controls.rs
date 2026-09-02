@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, F32Range, GameObject, LowerLimit,
-  ObjectId, ParentScene, PreparedAsset, Prop, Response, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiElement, UiEventBody, UiEventKind, UiMinMaxSlider, UiNode, UiProgressBar, UiValue,
-  UpperLimit,
+  CameraState, ClientMessage, Command, Connect, F32Range, GameObject, LowerLimit, ObjectId,
+  ParentScene, PreparedAsset, Prop, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiElement, UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse,
+  UiMinMaxSlider, UiNode, UiProgressBar, UiValue, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -27,38 +27,51 @@ impl Engine for RangeEngine {
     ))
   }
 
-  fn submit(&mut self, message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = message else {
-      return Err(EngineError::new("unexpected client failure"));
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Ok(Response::empty(self.session_id))
+  }
+
+  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+    let disposition = if action.event.default_prevented {
+      UiEventDisposition::PreventDefault
+    } else {
+      UiEventDisposition::Continue
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Err(EngineError::new("unexpected non-UI action"));
-    };
+    let event = action.event;
     self
       .events
       .borrow_mut()
       .push((event.target_id, event.body.clone()));
     let UiEventBody::ValueCommitted(commit) = event.body else {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     };
     if event.target_id != self.accepted_id {
-      return Ok(Response::empty(self.session_id));
+      return Ok(UiEventResponse::new(
+        disposition,
+        Response::empty(self.session_id),
+      ));
     }
     let UiValue::F32Range(proposed) = commit.proposed else {
       return Err(EngineError::new("unexpected range proposal"));
     };
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      vec![
-        Command::update_visual_element(
-          event.target_id,
-          UiMinMaxSlider::new()
-            .min_value(proposed.min)
-            .max_value(proposed.max),
-        )
-        .body,
-      ],
+    Ok(UiEventResponse::new(
+      disposition,
+      Response::commands_for_action(
+        self.session_id,
+        action.action_id,
+        vec![
+          Command::update_visual_element(
+            event.target_id,
+            UiMinMaxSlider::new()
+              .min_value(proposed.min)
+              .max_value(proposed.max),
+          )
+          .body,
+        ],
+      ),
     ))
   }
 

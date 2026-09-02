@@ -1,12 +1,12 @@
 use battlement::{
   CameraState, Choice, ClickEvent, F32Range, FocusEvent, GameObject, GameObjectKind, GeometryEvent,
   KeyEvent, LifecycleEvent, LinkEvent, NavigationEvent, NavigationMoveEvent, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PointerButtonEvent, PointerCancelEvent,
-  PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset, Prop, Scene, SceneId,
-  ScrollEvent, SelectionEvent, SessionId, Snapshot, TabCloseEvent, TabReorderEvent,
-  TabSelectionEvent, TextInputEvent, TransitionEvent, UiDocument, UiDocumentState, UiEvent,
-  UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiValue, UiVisualElementProperties,
-  ValueChangingEvent, ValueCommitEvent, WheelEvent,
+  PanelScaleMode, PanelSettings, ParentScene, PointerBoundaryEvent, PointerButtonEvent,
+  PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset,
+  Prop, Scene, SceneId, ScrollEvent, SelectionEvent, SessionId, Snapshot, TabCloseEvent,
+  TabReorderEvent, TabSelectionEvent, TextInputEvent, TransitionEvent, UiDocument, UiDocumentState,
+  UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiValue,
+  UiVisualElementProperties, ValueChangingEvent, ValueCommitEvent, WheelEvent,
 };
 use battlement_reactant::{
   event::ReactantEvent,
@@ -229,13 +229,13 @@ fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
     value,
     on_pointer_enter,
     on_pointer_enter_event,
-    PointerCrossingEvent
+    PointerBoundaryEvent
   );
   let value = target_only!(
     value,
     on_pointer_leave,
     on_pointer_leave_event,
-    PointerCrossingEvent
+    PointerBoundaryEvent
   );
   let value = target_only!(
     value,
@@ -298,6 +298,10 @@ fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
       .visual_element()
       .event_subscriptions,
     Prop::Set(vec![
+      UiEventSubscription::target(UiEventKind::PointerEnter),
+      UiEventSubscription::target(UiEventKind::PointerLeave),
+      UiEventSubscription::target(UiEventKind::Focus),
+      UiEventSubscription::target(UiEventKind::Blur),
       UiEventSubscription::target(UiEventKind::GeometryChanged),
       UiEventSubscription::target(UiEventKind::AttachToPanel),
       UiEventSubscription::target(UiEventKind::DetachFromPanel),
@@ -328,6 +332,8 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     &mut ledger,
     UiEvent {
       target_id: ids[0],
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::Input(TextInputEvent {
         value: "draft".to_owned(),
       }),
@@ -338,6 +344,8 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     &mut ledger,
     UiEvent {
       target_id: ids[1],
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::ValueChanging(ValueChangingEvent {
         proposed: UiValue::F32(2.5),
       }),
@@ -348,6 +356,8 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     &mut ledger,
     UiEvent {
       target_id: ids[2],
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::ValueCommitted(ValueCommitEvent {
         previous: UiValue::Bool(false),
         proposed: UiValue::Bool(true),
@@ -359,6 +369,8 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     &mut ledger,
     UiEvent {
       target_id: ids[3],
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::ValueCommitted(ValueCommitEvent {
         previous: UiValue::Choice(Choice::none()),
         proposed: UiValue::Choice(Choice::selected(1, "B")),
@@ -370,6 +382,8 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     &mut ledger,
     UiEvent {
       target_id: ids[4],
+      cancelable: true,
+      default_prevented: false,
       body: UiEventBody::TabSelectionRequested(TabSelectionEvent {
         previous_index: 0,
         proposed_index: 1,
@@ -443,6 +457,8 @@ fn change_aliases_replace_their_native_handlers_in_either_order() {
       &mut ledger,
       UiEvent {
         target_id: object_id,
+        cancelable: true,
+        default_prevented: false,
         body: UiEventBody::Input(TextInputEvent {
           value: "draft".to_owned(),
         }),
@@ -455,6 +471,8 @@ fn change_aliases_replace_their_native_handlers_in_either_order() {
       &mut ledger,
       UiEvent {
         target_id: object_id,
+        cancelable: true,
+        default_prevented: false,
         body: UiEventBody::ValueChanging(ValueChangingEvent {
           proposed: UiValue::F32(2.5),
         }),

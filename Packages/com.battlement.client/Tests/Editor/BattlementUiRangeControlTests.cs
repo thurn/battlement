@@ -169,7 +169,7 @@ namespace Battlement.Tests
                 Documents = new BattlementUiDocuments(value =>
                 {
                     Events.Add(value);
-                    return true;
+                    return UiEventDisposition.Continue;
                 });
                 Documents.Replace(
                     new[]
