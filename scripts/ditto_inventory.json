@@ -1,7 +1,7 @@
 {
   "schema": 2,
-  "sha256": "d06ad63d4756e409fb2becb511f7bb413e5348de01aaefa7c9b26e7547b698bf",
-  "scenarios": 34,
+  "sha256": "fb3ee470bfd0927fd4638331beacbbb89f60aafac4e7e10526dc73ab7fd75355",
+  "scenarios": 35,
   "screenshots": 89,
   "selection": {
     "basic": [
@@ -29,6 +29,7 @@
       "composition",
       "assets",
       "composed effects",
+      "layout gallery",
       "layout and reorder",
       "presence and lifecycle",
       "resources and boundaries",

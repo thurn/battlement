@@ -31,17 +31,21 @@ pub enum Screen {
   ValuesTimeControls,
   /// Unity-local gestures, constrained drag, momentum, scroll, and viewport state.
   GesturesDrag,
+  /// Public Flex, Grid, Stack, sticky, popover, and modal application flow.
+  LayoutGallery,
   /// Native layout projection, shared handoffs, and drag reorder.
   LayoutReorder,
   /// Complex public Motion compositions and reduced-motion behavior.
   ComposedEffects,
+  /// Fixed mixed-layout release workload and native layout diagnostics.
+  LayoutPerformance,
   /// Fixed release workloads and runtime diagnostics.
   MotionPerformance,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 18] = [
+  pub const ALL: [Self; 20] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -57,8 +61,10 @@ impl Screen {
     Self::PresenceLifecycle,
     Self::ValuesTimeControls,
     Self::GesturesDrag,
+    Self::LayoutGallery,
     Self::LayoutReorder,
     Self::ComposedEffects,
+    Self::LayoutPerformance,
     Self::MotionPerformance,
   ];
 
@@ -80,8 +86,10 @@ impl Screen {
       Self::PresenceLifecycle => "presence-lifecycle",
       Self::ValuesTimeControls => "values-time-controls",
       Self::GesturesDrag => "gestures-drag",
+      Self::LayoutGallery => "layout-gallery",
       Self::LayoutReorder => "layout-reorder",
       Self::ComposedEffects => "composed-effects",
+      Self::LayoutPerformance => "layout-performance",
       Self::MotionPerformance => "motion-performance",
     }
   }

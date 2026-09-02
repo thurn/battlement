@@ -5,11 +5,11 @@ use battlement::{
   DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryEvent,
   GeometryGeneration, GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
-  KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
-  PointerCrossingEvent, PointerType, PreparedAsset, Projective2, Prop, Rect, Response,
-  ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElementKind, UiEvent, UiEventBody,
-  UiVisualElementProperties, VariantWhen, Vector, ViewportGeometry, ViewportPoint, ViewportRect,
-  WorldBoundsGeometry, WorldPointGeometry,
+  GridTrack, KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint,
+  PointerButton, PointerButtonEvent, PointerCrossingEvent, PointerType, PreparedAsset, Projective2,
+  Prop, Rect, Response, ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElement,
+  UiElementKind, UiEvent, UiEventBody, UiVisualElementProperties, VariantWhen, Vector,
+  ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -877,7 +877,7 @@ fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
     Connect::new("test", "test", ScreenSize::new(360, 800)),
   );
   let next = find_named(&client.ui(), ROOT_ID, "next-navigation");
-  for _ in 0..16 {
+  for _ in 0..17 {
     client.ui().click(next);
   }
 
@@ -934,6 +934,180 @@ fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
 }
 
 #[test]
+fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  navigate_brand(
+    &mut client,
+    &[
+      "targets-timelines-navigation",
+      "values-navigation",
+      "gestures-navigation",
+      "layout-gallery-navigation",
+    ],
+  );
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "layout-gallery-canvas");
+  let tabs = find_named(&client.ui(), canvas, "layout-gallery-tabs");
+  let tabs_columns = {
+    let ui = client.ui();
+    let UiElement::Grid(tabs_element) = ui.element(tabs).element() else {
+      panic!("gallery tabs should use the public Grid host");
+    };
+    tabs_element.columns.clone()
+  };
+  assert_eq!(
+    tabs_columns,
+    Prop::Set(vec![
+      GridTrack::px(132.0),
+      GridTrack::px(132.0),
+      GridTrack::px(132.0),
+    ])
+  );
+
+  let value = find_named(&client.ui(), canvas, "layout-setting-value-music");
+  client.ui().click(value);
+  assert_eq!(client.ui().element(value).text(), Some("VALUE 1"));
+  let settings = find_named(&client.ui(), canvas, "layout-gallery-settings");
+  let initial_columns = {
+    let ui = client.ui();
+    let UiElement::Grid(initial_settings) = ui.element(settings).element() else {
+      panic!("gallery settings should use the public Grid host");
+    };
+    initial_settings.columns.clone()
+  };
+  assert!(matches!(
+    initial_columns,
+    Prop::Set(ref columns) if columns.len() == 3
+  ));
+
+  let tracks = find_named(&client.ui(), canvas, "layout-gallery-tracks");
+  client.ui().click(tracks);
+  assert_eq!(
+    find_named(&client.ui(), ROOT_ID, "layout-setting-value-music"),
+    value,
+    "responsive tracks must preserve keyed component state"
+  );
+  assert_eq!(client.ui().element(value).text(), Some("VALUE 1"));
+  let settings = find_named(&client.ui(), ROOT_ID, "layout-gallery-settings");
+  let compact_columns = {
+    let ui = client.ui();
+    let UiElement::Grid(compact_settings) = ui.element(settings).element() else {
+      panic!("gallery settings should remain a Grid host");
+    };
+    compact_settings.columns.clone()
+  };
+  assert!(matches!(
+    compact_columns,
+    Prop::Set(ref columns) if columns.len() == 2
+  ));
+
+  let header = find_named(&client.ui(), ROOT_ID, "layout-gallery-table-header");
+  assert!(matches!(
+    client.ui().element(header).element().visual_element().sticky,
+    Prop::Set(ref sticky) if sticky.top == Some(0.0) && sticky.order == 4
+  ));
+
+  let trigger = find_named(&client.ui(), ROOT_ID, "layout-gallery-menu-trigger");
+  client.ui().click(trigger);
+  let menu = find_named(&client.ui(), ROOT_ID, "layout-gallery-menu");
+  assert!(matches!(
+    client.ui().element(menu).element().visual_element().overlay_placement,
+    Prop::Set(OverlayPlacement::Popover { anchor, .. }) if anchor == trigger
+  ));
+  let status = find_named(&client.ui(), ROOT_ID, "layout-gallery-status");
+  assert!(
+    client
+      .ui()
+      .element(status)
+      .text()
+      .is_some_and(|text| text.contains("CAPTURE > ANCHOR > BUBBLE"))
+  );
+  let action = find_named(&client.ui(), menu, "layout-gallery-menu-action");
+  client.ui().click(action);
+  assert!(!client.ui().contains(menu));
+  let status = find_named(&client.ui(), ROOT_ID, "layout-gallery-status");
+  assert!(
+    client
+      .ui()
+      .element(status)
+      .text()
+      .is_some_and(|text| text.contains("CAPTURE > TARGET > BUBBLE"))
+  );
+
+  let modal_trigger = find_named(&client.ui(), ROOT_ID, "layout-gallery-modal");
+  client.ui().click(modal_trigger);
+  let modal = find_named(&client.ui(), ROOT_ID, "layout-gallery-modal-scope");
+  let close = find_named(&client.ui(), modal, "layout-gallery-modal-close");
+  assert!(matches!(
+    client.ui().element(modal).element().visual_element().overlay_placement,
+    Prop::Set(OverlayPlacement::Modal {
+      initial_focus: Some(initial),
+      restore_focus: Some(restore),
+    }) if initial == close && restore == modal_trigger
+  ));
+  client.ui().click(close);
+  assert!(!client.ui().contains(modal));
+
+  let reconnect = find_named(&client.ui(), ROOT_ID, "layout-gallery-reconnect");
+  client.ui().click(reconnect);
+  assert_eq!(
+    find_named(&client.ui(), ROOT_ID, "layout-setting-value-music"),
+    value
+  );
+  let status = find_named(&client.ui(), ROOT_ID, "layout-gallery-status");
+  assert!(
+    client
+      .ui()
+      .element(status)
+      .text()
+      .is_some_and(|text| text.contains("RECONNECTS 1"))
+  );
+}
+
+#[test]
+fn layout_performance_builds_the_exact_mixed_workload() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  navigate_brand(
+    &mut client,
+    &[
+      "targets-timelines-navigation",
+      "values-navigation",
+      "gestures-navigation",
+      "layout-gallery-navigation",
+      "layout-reorder-navigation",
+      "composed-effects-navigation",
+      "layout-performance-navigation",
+    ],
+  );
+
+  let grid = find_named(&client.ui(), ROOT_ID, "layout-performance-grid");
+  assert_eq!(client.ui().element(grid).kind(), UiElementKind::Grid);
+  assert_eq!(client.ui().element(grid).children().len(), 1_000);
+  let stacks = find_named(&client.ui(), ROOT_ID, "layout-performance-stacks");
+  assert_eq!(client.ui().element(stacks).children().len(), 12);
+  let sticky_scroll = find_named(&client.ui(), ROOT_ID, "layout-performance-sticky-scroll");
+  assert_eq!(count_sticky(&client.ui(), sticky_scroll), 100);
+  for index in 0..10 {
+    let overlay = find_named(
+      &client.ui(),
+      ROOT_ID,
+      &format!("layout-performance-overlay-{index}"),
+    );
+    assert!(matches!(
+      client
+        .ui()
+        .element(overlay)
+        .element()
+        .visual_element()
+        .overlay_placement,
+      Prop::Set(OverlayPlacement::Popover { .. })
+    ));
+  }
+}
+
+#[test]
 fn motion_performance_builds_the_exact_transform_workload() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
@@ -941,9 +1115,11 @@ fn motion_performance_builds_the_exact_transform_workload() {
     "targets-timelines-navigation",
     "values-navigation",
     "gestures-navigation",
-    "targets-timelines-navigation",
-    "targets-timelines-navigation",
-    "targets-timelines-navigation",
+    "layout-gallery-navigation",
+    "layout-reorder-navigation",
+    "composed-effects-navigation",
+    "layout-performance-navigation",
+    "motion-performance-navigation",
   ] {
     let target = find_named(&client.ui(), ROOT_ID, navigation);
     client.ui().send_event(UiEvent::click(
@@ -1001,6 +1177,38 @@ fn motion_performance_builds_the_exact_transform_workload() {
     let grid = find_named(&client.ui(), ROOT_ID, "motion-performance-grid");
     assert_eq!(client.ui().element(grid).children().len(), 200);
   }
+}
+
+fn navigate_brand(client: &mut FakeClient<ReactantEngine>, navigation_names: &[&str]) {
+  for navigation in navigation_names {
+    let target = find_named(&client.ui(), ROOT_ID, navigation);
+    client.ui().send_event(UiEvent::click(
+      target,
+      battlement::ClickEvent::pointer(
+        0,
+        PanelPoint::default(),
+        PointerButton::Left,
+        1,
+        KeyModifiers::default(),
+      ),
+    ));
+  }
+}
+
+fn count_sticky<E>(ui: &UiClient<'_, E>, root: ObjectId) -> usize
+where
+  E: Engine<Command = Command>,
+{
+  let mut count = 0;
+  let mut pending = vec![root];
+  while let Some(object_id) = pending.pop() {
+    let element = ui.element(object_id);
+    if matches!(element.element().visual_element().sticky, Prop::Set(_)) {
+      count += 1;
+    }
+    pending.extend(element.children());
+  }
+  count
 }
 
 fn catalog() -> Arc<FakeAssetCatalog> {

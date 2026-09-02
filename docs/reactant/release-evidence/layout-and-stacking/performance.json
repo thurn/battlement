@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-01",
+  "measurementMode": "Unity EditMode deterministic fixed-workload counters",
+  "fixture": {
+    "gridChildren": 1000,
+    "stickyRows": 100,
+    "nestedStacks": 12,
+    "anchoredOverlays": 10
+  },
+  "dirtyFrame": {
+    "frameCount": 1,
+    "dirtyContainers": 1,
+    "layoutPasses": 1,
+    "measuredItemAxes": 2000,
+    "maximumMeasurementsPerItemAxis": 1
+  },
+  "stableFrames": {
+    "frameCount": 100,
+    "layoutPasses": 0,
+    "dirtyPollingManagedAllocationBytes": 0,
+    "overlayRefreshManagedAllocationBytes": 0,
+    "rustTrafficBytes": 0
+  },
+  "owner": "BattlementLayoutPerformanceTests",
+  "passed": true
+}

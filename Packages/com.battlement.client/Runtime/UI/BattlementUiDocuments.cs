@@ -181,7 +181,7 @@ namespace Battlement.UI
                         );
                         tabControls.Insert(root, created);
                         logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
-                        ApplyStickyAfterAttachment(created);
+                        ApplyStickySubtree(created);
                         ApplyOverlaySubtree(created);
                     }
                 }
@@ -397,7 +397,7 @@ namespace Battlement.UI
                 choiceControls.BeginHierarchyMutation(command.ParentId);
                 InsertNativeChild(parent, created, command.ChildIndex is null ? null : index);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
-                ApplyStickyAfterAttachment(created);
+                ApplyStickySubtree(created);
                 ApplyOverlaySubtree(created);
                 RefreshStickyOrdinals();
                 RefreshOverlayOrdinals();
@@ -726,15 +726,23 @@ namespace Battlement.UI
             rangeControls.ApplyCreate(value, node.ObjectId, node.Element);
             partProperties.Apply(value, node.ObjectId, node.Element);
             preparedMotion?.Commit();
-            foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+            BattlementLayoutContainer? updatingLayout = value as BattlementLayoutContainer;
+            updatingLayout?.BeginUpdate();
+            try
             {
-                InsertNativeChild(
-                    value,
-                    CreateElement(child, documentRoot, node.ObjectId.Value),
-                    null
-                );
-                logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
-                ApplyStickyAfterAttachment(elements[child.ObjectId.Value]);
+                foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+                {
+                    InsertNativeChild(
+                        value,
+                        CreateElement(child, documentRoot, node.ObjectId.Value),
+                        null
+                    );
+                    logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
+                }
+            }
+            finally
+            {
+                updatingLayout?.EndUpdate();
             }
             if (node.Element is UiElement.TabView tabView)
                 tabControls.Initialize(
@@ -1053,7 +1061,7 @@ namespace Battlement.UI
         {
             if (parent is BattlementLayoutContainer layout)
             {
-                layout.Adapter.Insert(child, index ?? layout.Adapter.LogicalChildren.Count);
+                layout.Adapter.Insert(child, index ?? layout.Adapter.Count);
                 return;
             }
             tabControls.Insert(parent, child, index);
@@ -1095,6 +1103,15 @@ namespace Battlement.UI
                 Prop<Sticky>.Set(BattlementStickyItems.Get(target)),
                 SourceOrdinal(target)
             );
+        }
+
+        private void ApplyStickySubtree(UnityEngine.UIElements.VisualElement target)
+        {
+            ApplyStickyAfterAttachment(target);
+            if (!elementIds.TryGetValue(target, out Guid id))
+                return;
+            foreach (Guid child in logicalChildren[id])
+                ApplyStickySubtree(elements[child]);
         }
 
         private void RefreshStickyOrdinals() => stickyCoordinator.RefreshOrdinals(SourceOrdinal);

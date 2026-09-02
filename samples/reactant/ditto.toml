@@ -51,10 +51,16 @@ screenshot = { name = "initial" }
 click = { target = [0.38, 0.268] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "reordered" }
 
 [[scenarios.steps]]
 click = { target = [0.38, 0.268] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -69,6 +75,9 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.82] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
@@ -78,10 +87,16 @@ drag = { from = [0.98, 0.3], to = [0.98, 0.75] }
 click = { target = [0.47, 0.62] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "resized" }
 
 [[scenarios.steps]]
 click = { target = [0.47, 0.62] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -115,6 +130,9 @@ name = "composed effects"
 
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
 
 [[scenarios.steps]]
 click = { target = [0.13, 0.065] }
@@ -183,7 +201,82 @@ click = { target = [0.13, 0.065] }
 click = { target = [0.13, 0.065] }
 
 [[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
 video = { action = "start", name = "motion-performance-structural", motion = "controlled", max_duration = "2s" }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
+name = "layout gallery"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "layout-gallery", motion = "controlled", max_duration = "4s" }
+
+[[scenarios.steps]]
+click = { target = [0.35, 0.22] }
+
+[[scenarios.steps]]
+click = { target = [0.47, 0.22] }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
+name = "layout performance"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+video = { action = "start", name = "layout-performance-structural", motion = "controlled", max_duration = "2s" }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -196,6 +289,9 @@ name = "layout and reorder"
 
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
 
 [[scenarios.steps]]
 click = { target = [0.13, 0.065] }
@@ -504,10 +600,16 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.44] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.395, 0.676] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "value-changed" }
@@ -516,16 +618,25 @@ screenshot = { name = "value-changed" }
 click = { target = [0.395, 0.331] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "overridden" }
 
 [[scenarios.steps]]
 click = { target = [0.395, 0.676] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "memo-restored" }
 
 [[scenarios.steps]]
 click = { target = [0.395, 0.331] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -540,10 +651,16 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.535] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "effect-connected" }
@@ -555,10 +672,16 @@ click = { target = [0.41, 0.454] }
 click = { target = [0.656, 0.454] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "store-swapped" }
 
 [[scenarios.steps]]
 click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "connected-store-swapped" }
@@ -567,16 +690,25 @@ screenshot = { name = "connected-store-swapped" }
 click = { target = [0.656, 0.454] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "store-updated" }
 
 [[scenarios.steps]]
 click = { target = [0.41, 0.454] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "effect-disconnected" }
 
 [[scenarios.steps]]
 click = { target = [0.656, 0.454] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -591,10 +723,16 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.63] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.757, 0.396] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "boundary-error" }
@@ -603,10 +741,16 @@ screenshot = { name = "boundary-error" }
 click = { target = [0.757, 0.424] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "boundary-restored" }
 
 [[scenarios.steps]]
 click = { target = [0.422, 0.396] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "resource-ready" }
@@ -615,10 +759,16 @@ screenshot = { name = "resource-ready" }
 click = { target = [0.757, 0.396] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "resource-error" }
 
 [[scenarios.steps]]
 click = { target = [0.757, 0.424] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "resource-recovered" }
@@ -628,6 +778,9 @@ click = { target = [0.422, 0.396] }
 
 [[scenarios.steps]]
 click = { target = [0.13, 0.63] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -642,16 +795,25 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.725] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.784, 0.457] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "unavailable" }
 
 [[scenarios.steps]]
 click = { target = [0.784, 0.457] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -666,16 +828,25 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.25] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.805, 0.392] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "routed" }
 
 [[scenarios.steps]]
 click = { target = [0.805, 0.392] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -690,10 +861,16 @@ wait = { object = "root", state = "visible" }
 click = { target = [0.13, 0.345] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
 click = { target = [0.38, 0.208] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "changed", max_changed_percent = 0.2 }
@@ -702,10 +879,16 @@ screenshot = { name = "changed", max_changed_percent = 0.2 }
 click = { target = [0.38, 0.208] }
 
 [[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
 screenshot = { name = "reordered" }
 
 [[scenarios.steps]]
 click = { target = [0.38, 0.208] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }

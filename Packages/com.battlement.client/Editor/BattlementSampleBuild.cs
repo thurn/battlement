@@ -25,6 +25,7 @@ namespace Battlement.Editor
 #endif
         private const string WebPluginPath = "Assets/Plugins/WebGL/libbattlement_rules.a";
         private const string IosPluginPath = "Assets/Plugins/iOS/libbattlement_rules.a";
+        private const string WebStackSize = "-sSTACK_SIZE=2MB";
 
         // init.js selects a current-thread pool on mobile and reserves dedicated
         // Rayon workers on desktop. Emscripten evaluates this expression only after
@@ -74,9 +75,11 @@ namespace Battlement.Editor
                     "-sPTHREAD_POOL_SIZE_STRICT="
                 );
                 emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREADS_DEBUG=");
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sSTACK_SIZE=");
                 emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
                 emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
                 emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
+                emscriptenArgs = AppendArgument(emscriptenArgs, WebStackSize);
                 if (!release)
                 {
                     emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);

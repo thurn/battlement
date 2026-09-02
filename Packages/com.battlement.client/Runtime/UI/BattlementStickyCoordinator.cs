@@ -15,6 +15,8 @@ namespace Battlement.UI
 
         public int UpdateCount { get; private set; }
 
+        public int EntryCount => entries.Count;
+
         public void Apply(VisualElement target, Prop<Sticky> value, int sourceOrdinal)
         {
             BattlementStickyItems.Apply(target, value);
@@ -127,9 +129,8 @@ namespace Battlement.UI
                 BattlementStickyItems.Get(target),
                 sourceOrdinal,
                 surface,
-                surface.RefreshAll
+                surface.ScheduleRefresh
             );
-            slot.DetachHost();
             entries.Add(target, entry);
             surface.Add(entry);
         }
@@ -191,6 +192,7 @@ namespace Battlement.UI
             private readonly System.Action invalidated;
             private readonly System.Action<float> scrollChanged;
             private readonly EventCallback<GeometryChangedEvent> geometryChanged;
+            private bool refreshScheduled;
 
             public Surface(ScrollView scroll, System.Action invalidated)
             {
@@ -209,8 +211,8 @@ namespace Battlement.UI
                 Root.style.bottom = 0;
                 Root.style.overflow = Overflow.Hidden;
                 scroll.contentViewport.hierarchy.Add(Root);
-                scrollChanged = _ => RefreshAll();
-                geometryChanged = _ => RefreshAll();
+                scrollChanged = _ => ScheduleRefresh();
+                geometryChanged = _ => ScheduleRefresh();
                 scroll.horizontalScroller.valueChanged += scrollChanged;
                 scroll.verticalScroller.valueChanged += scrollChanged;
                 scroll.contentViewport.RegisterCallback(geometryChanged);
@@ -258,6 +260,14 @@ namespace Battlement.UI
                 RefreshAll();
             }
 
+            public void ScheduleRefresh()
+            {
+                if (refreshScheduled)
+                    return;
+                refreshScheduled = true;
+                Root.schedule.Execute(RefreshScheduled);
+            }
+
             public void Dispose()
             {
                 Scroll.horizontalScroller.valueChanged -= scrollChanged;
@@ -271,13 +281,27 @@ namespace Battlement.UI
                 int order = left.Descriptor.Order.CompareTo(right.Descriptor.Order);
                 return order != 0 ? order : left.SourceOrdinal.CompareTo(right.SourceOrdinal);
             }
+
+            private void RefreshScheduled()
+            {
+                refreshScheduled = false;
+                RefreshAll();
+            }
         }
 
         private sealed class Entry : IDisposable
         {
             private readonly System.Action invalidated;
             private readonly EventCallback<GeometryChangedEvent> geometryChanged;
+            private bool layoutObserved;
             private UnityEngine.Rect lastNormal;
+            private UnityEngine.Rect lastPresentation = new(
+                float.NaN,
+                float.NaN,
+                float.NaN,
+                float.NaN
+            );
+            private Vector2 lastSlotSize = new(float.NaN, float.NaN);
 
             public Entry(
                 VisualElement host,
@@ -304,8 +328,11 @@ namespace Battlement.UI
                     tabIndex = -1,
                 };
                 Presentation.style.position = Position.Absolute;
-                Presentation.hierarchy.Add(host);
-                geometryChanged = _ => invalidated();
+                geometryChanged = _ =>
+                {
+                    layoutObserved = true;
+                    invalidated();
+                };
             }
 
             public Sticky Descriptor { get; set; }
@@ -331,6 +358,8 @@ namespace Battlement.UI
 
             public void Refresh()
             {
+                if (!layoutObserved)
+                    return;
                 float width = Finite(Host.layout.width, lastNormal.width);
                 float height = Finite(Host.layout.height, lastNormal.height);
                 if (
@@ -339,8 +368,13 @@ namespace Battlement.UI
                         is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Flex }
                 )
                 {
-                    Slot.style.width = width;
-                    Slot.style.height = height;
+                    var slotSize = new Vector2(width, height);
+                    if (!Approximately(slotSize, lastSlotSize))
+                    {
+                        lastSlotSize = slotSize;
+                        Slot.style.width = width;
+                        Slot.style.height = height;
+                    }
                 }
                 UnityEngine.Rect normal = Slot.worldBound;
                 if (Finite(normal.width, 0) > 0 || Finite(normal.height, 0) > 0)
@@ -386,10 +420,24 @@ namespace Battlement.UI
                         )
                     : normal.yMin;
                 UnityEngine.Rect surface = Surface.Root.worldBound;
-                Presentation.style.left = left - surface.xMin;
-                Presentation.style.top = top - surface.yMin;
-                Presentation.style.width = width;
-                Presentation.style.height = height;
+                var presentation = new UnityEngine.Rect(
+                    left - surface.xMin,
+                    top - surface.yMin,
+                    width,
+                    height
+                );
+                if (Approximately(presentation, lastPresentation))
+                    return;
+                lastPresentation = presentation;
+                Presentation.style.left = presentation.x;
+                Presentation.style.top = presentation.y;
+                Presentation.style.width = presentation.width;
+                Presentation.style.height = presentation.height;
+                if (Host.parent == Slot)
+                {
+                    Slot.DetachHost();
+                    Presentation.hierarchy.Add(Host);
+                }
             }
 
             public void Dispose()
@@ -407,6 +455,15 @@ namespace Battlement.UI
 
             private static float Finite(float value, float fallback) =>
                 float.IsFinite(value) && value >= 0 ? value : fallback;
+
+            private static bool Approximately(UnityEngine.Rect left, UnityEngine.Rect right) =>
+                Mathf.Approximately(left.x, right.x)
+                && Mathf.Approximately(left.y, right.y)
+                && Mathf.Approximately(left.width, right.width)
+                && Mathf.Approximately(left.height, right.height);
+
+            private static bool Approximately(Vector2 left, Vector2 right) =>
+                Mathf.Approximately(left.x, right.x) && Mathf.Approximately(left.y, right.y);
         }
     }
 }

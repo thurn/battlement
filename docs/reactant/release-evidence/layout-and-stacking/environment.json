@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-01",
+  "baselineCommit": "7a1f7e92047caaea18360aae3573de562440bacc",
+  "finalCommit": "self",
+  "hardware": {
+    "model": "Mac17,6",
+    "processor": "Apple M5 Max",
+    "memoryBytes": 68719476736
+  },
+  "software": {
+    "macOS": "26.5.2 (25F84)",
+    "unity": "6000.5.8f1",
+    "chrome": "152.0.7977.65"
+  },
+  "profiles": [
+    {
+      "id": "macos-arm64-metal",
+      "release": true,
+      "development": false,
+      "framebuffer": "1280x720",
+      "renderer": "Metal"
+    },
+    {
+      "id": "webgl-chrome-desktop",
+      "release": true,
+      "development": false,
+      "framebuffer": "1280x720",
+      "webAssemblyThreads": false
+    }
+  ]
+}

@@ -15,6 +15,9 @@ mod design_system;
 mod effects_stores;
 mod events_portals;
 mod gestures_drag;
+mod layout_gallery;
+mod layout_gallery_styles;
+mod layout_performance;
 mod layout_reorder;
 mod motion_performance;
 mod physical_motion;
@@ -94,8 +97,12 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   let performance_profile = env::args().find_map(|argument| {
     argument
       .strip_prefix("--reactant-performance=")
-      .and_then(motion_performance::MotionPerformanceState::profiled)
+      .map(str::to_owned)
   });
+  let motion_profile = performance_profile
+    .as_deref()
+    .and_then(motion_performance::MotionPerformanceState::profiled);
+  let layout_profile = performance_profile.as_deref() == Some("layout-mixed");
   reactant.register_root(document.clone(), move |game: &Game| Shell {
     screen: game.screen,
     reversed: game.reversed,
@@ -117,8 +124,10 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     presence_lifecycle: game.presence_lifecycle.clone(),
     values_time_controls: game.values_time_controls.clone(),
     gestures_drag: game.gestures_drag.clone(),
+    layout_gallery: game.layout_gallery.clone(),
     layout_reorder: game.layout_reorder.clone(),
     composed_effects: game.composed_effects.clone(),
+    layout_performance: game.layout_performance,
     motion_performance: game.motion_performance.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
@@ -133,7 +142,9 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
     game: Game {
-      screen: if performance_profile.is_some() {
+      screen: if layout_profile {
+        Screen::LayoutPerformance
+      } else if motion_profile.is_some() {
         Screen::MotionPerformance
       } else {
         Screen::Composition
@@ -156,9 +167,11 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       presence_lifecycle: presence_lifecycle::PresenceLifecycleState::default(),
       values_time_controls: values_time_controls::ValuesTimeControlsState::default(),
       gestures_drag: gestures_drag::GesturesDragState::default(),
+      layout_gallery: layout_gallery::LayoutGalleryState::default(),
       layout_reorder: layout_reorder::LayoutReorderState::default(),
       composed_effects: composed_effects::ComposedEffectsState::default(),
-      motion_performance: performance_profile.unwrap_or_default(),
+      layout_performance: layout_performance::LayoutPerformanceState::default(),
+      motion_performance: motion_profile.unwrap_or_default(),
       pending_commands: Vec::new(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
@@ -229,7 +242,8 @@ impl Engine for ReactantEngine {
         .expect("sample Motion event dispatch should succeed"),
       _ => return Ok(Response::empty(self.session_id)),
     };
-    if self.game.presence_lifecycle.take_reconnect_request()
+    if self.game.layout_gallery.take_reconnect_request()
+      || self.game.presence_lifecycle.take_reconnect_request()
       || self.game.composed_effects.take_reconnect_request()
     {
       let _ = commit.into_groups();
@@ -319,8 +333,10 @@ struct Game {
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
+  layout_gallery: layout_gallery::LayoutGalleryState,
   layout_reorder: layout_reorder::LayoutReorderState,
   composed_effects: composed_effects::ComposedEffectsState,
+  layout_performance: layout_performance::LayoutPerformanceState,
   motion_performance: motion_performance::MotionPerformanceState,
   pending_commands: Vec<Command>,
   resource_resolution_requested: bool,
@@ -359,8 +375,10 @@ struct Shell {
   presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   values_time_controls: values_time_controls::ValuesTimeControlsState,
   gestures_drag: gestures_drag::GesturesDragState,
+  layout_gallery: layout_gallery::LayoutGalleryState,
   layout_reorder: layout_reorder::LayoutReorderState,
   composed_effects: composed_effects::ComposedEffectsState,
+  layout_performance: layout_performance::LayoutPerformanceState,
   motion_performance: motion_performance::MotionPerformanceState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
@@ -532,6 +550,11 @@ impl Component for Shell {
         state: self.gestures_drag.clone(),
         compact: self.compact,
       }),
+      Screen::LayoutGallery => Node::new(layout_gallery::LayoutGallery {
+        state: self.layout_gallery.clone(),
+        compact: self.compact,
+        overlay: self.event_overlay.clone(),
+      }),
       Screen::LayoutReorder => Node::new(layout_reorder::LayoutReorder {
         state: self.layout_reorder.clone(),
         compact: self.compact,
@@ -539,6 +562,10 @@ impl Component for Shell {
       Screen::ComposedEffects => Node::new(composed_effects::ComposedEffects {
         state: self.composed_effects.clone(),
         compact: self.compact,
+      }),
+      Screen::LayoutPerformance => Node::new(layout_performance::LayoutPerformance {
+        state: self.layout_performance,
+        overlay: self.event_overlay.clone(),
       }),
       Screen::MotionPerformance => Node::new(motion_performance::MotionPerformance {
         state: self.motion_performance.clone(),
@@ -615,6 +642,11 @@ impl Component for Navigation {
           .name(match self.screen {
             Screen::TargetsTimelines => "values-navigation",
             Screen::ValuesTimeControls => "gestures-navigation",
+            Screen::GesturesDrag => "layout-gallery-navigation",
+            Screen::LayoutGallery => "layout-reorder-navigation",
+            Screen::LayoutReorder => "composed-effects-navigation",
+            Screen::ComposedEffects => "layout-performance-navigation",
+            Screen::LayoutPerformance => "motion-performance-navigation",
             _ => "targets-timelines-navigation",
           })
           .style(design_system::brand(self.compact))
@@ -622,9 +654,11 @@ impl Component for Navigation {
             game.screen = match game.screen {
               Screen::TargetsTimelines => Screen::ValuesTimeControls,
               Screen::ValuesTimeControls => Screen::GesturesDrag,
-              Screen::GesturesDrag => Screen::LayoutReorder,
+              Screen::GesturesDrag => Screen::LayoutGallery,
+              Screen::LayoutGallery => Screen::LayoutReorder,
               Screen::LayoutReorder => Screen::ComposedEffects,
-              Screen::ComposedEffects => Screen::MotionPerformance,
+              Screen::ComposedEffects => Screen::LayoutPerformance,
+              Screen::LayoutPerformance => Screen::MotionPerformance,
               Screen::MotionPerformance => Screen::TargetsTimelines,
               _ => Screen::TargetsTimelines,
             };

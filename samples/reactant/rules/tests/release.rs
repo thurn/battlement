@@ -42,6 +42,18 @@ fn release_lab_navigates_every_focused_screen() {
   click_label(&mut client, gestures_navigation);
   let canvas = find_named(&client.ui(), ROOT_ID, "gestures-drag-canvas");
   assert!(!client.ui().element(canvas).children().is_empty());
+  for (navigation, canvas) in [
+    ("layout-gallery-navigation", "layout-gallery-canvas"),
+    ("layout-reorder-navigation", "layout-reorder-canvas"),
+    ("composed-effects-navigation", "composed-effects-canvas"),
+    ("layout-performance-navigation", "layout-performance-canvas"),
+    ("motion-performance-navigation", "motion-performance-canvas"),
+  ] {
+    let navigation = find_named(&client.ui(), ROOT_ID, navigation);
+    click_label(&mut client, navigation);
+    let canvas = find_named(&client.ui(), ROOT_ID, canvas);
+    assert!(!client.ui().element(canvas).children().is_empty());
+  }
 }
 
 #[test]

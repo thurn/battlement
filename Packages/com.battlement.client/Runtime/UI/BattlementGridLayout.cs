@@ -39,6 +39,8 @@ namespace Battlement.UI
 
         public int DiagnosticCount { get; private set; }
 
+        public int LastMeasuredItemAxes { get; private set; }
+
         public int PassCount { get; private set; }
 
         public void Apply(UiElement.Grid value)
@@ -67,6 +69,7 @@ namespace Battlement.UI
             VisualElement[] children = adapter
                 .LogicalChildren.Where(child => child.style.display.value != DisplayStyle.None)
                 .ToArray();
+            LastMeasuredItemAxes = children.Length * 2;
             try
             {
                 GridItem[] items = children.Select(BattlementGridItems.Get).ToArray();

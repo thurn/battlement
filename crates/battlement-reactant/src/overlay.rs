@@ -5,8 +5,8 @@
 use std::{any::TypeId, collections::HashMap};
 
 use battlement::{
-  Align, Overflow, OverlayLayer, OverlayPlacement, PickingMode, PopoverPlacement, Prop, StackItem,
-  Style, UiVisualElementProperties,
+  Align, LengthUnits, Overflow, OverlayLayer, OverlayPlacement, PickingMode, PopoverPlacement,
+  Prop, StackItem, Style, UiVisualElementProperties,
 };
 
 use crate::{
@@ -72,7 +72,12 @@ impl OverlayHost {
       host: Stack::new()
         .portal_target(target)
         .picking_mode(PickingMode::Ignore)
-        .style(Style::new().overflow(Overflow::Visible))
+        .style(
+          Style::new()
+            .width(100.0_f32.pct())
+            .height(100.0_f32.pct())
+            .overflow(Overflow::Visible),
+        )
         .stack_item(
           StackItem::new()
             .order(i32::MAX)

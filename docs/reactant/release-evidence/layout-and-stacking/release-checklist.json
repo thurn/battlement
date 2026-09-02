@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-01",
+  "platform": "macOS 26.5.2 arm64",
+  "unityVersion": "6000.5.8f1",
+  "checks": [
+    {
+      "name": "focused Rust and Unity matrices",
+      "command": "./scripts/ci.py",
+      "status": "passed"
+    },
+    {
+      "name": "clean-session and reconnect interaction flow",
+      "owners": ["release_lab_navigates_every_focused_screen", "layout_gallery_preserves_state_routes_portals_and_authors_modal_focus"],
+      "status": "passed"
+    },
+    {
+      "name": "standard fixed performance fixture",
+      "owner": "BattlementLayoutPerformanceTests",
+      "status": "passed"
+    },
+    {
+      "name": "local documentation links",
+      "scope": ["docs/reactant/layout-and-stacking.md", "docs/reactant/layout-and-stacking-implementation-plan.md"],
+      "status": "passed"
+    },
+    {
+      "name": "public Rust examples",
+      "command": "RUSTDOCFLAGS=-Dwarnings cargo test --doc --workspace",
+      "status": "passed"
+    },
+    {
+      "name": "full sample build and Ditto interaction evidence",
+      "command": "./scripts/ci.py --full --ditto",
+      "status": "passed"
+    }
+  ]
+}

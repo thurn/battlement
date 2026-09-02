@@ -46,8 +46,10 @@ mappings = [
   { state = "presence-lifecycle.lifecycle", scenario = "presence and lifecycle", video = "presence-lifecycle", owner = "presence::automatic_exit_retains_hooks_until_exact_generation_completion" },
   { state = "values-time-controls.lifecycle", scenario = "values time and controls", video = "values-time-controls", owner = "motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract" },
   { state = "gestures-drag.interaction", scenario = "gestures and drag", video = "gestures-drag", owner = "motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract" },
+  { state = "layout-gallery.flow", scenario = "layout gallery", video = "layout-gallery", owner = "composition::layout_gallery_preserves_state_routes_portals_and_authors_modal_focus" },
   { state = "layout-reorder.interaction", scenario = "layout and reorder", video = "layout-reorder", owner = "motion.rs::layout_projection_shared_handoff_and_reorder_lower_native_contract" },
   { state = "composed-effects.interaction", scenario = "composed effects", video = "composed-effects", owner = "motion.rs::motion_config_inherits_transition_and_reduced_motion_without_a_host" },
+  { state = "layout-performance.structural", scenario = "layout performance", video = "layout-performance-structural", owner = "composition::layout_performance_builds_the_exact_mixed_workload" },
   { state = "motion-performance.structural", scenario = "motion performance", video = "motion-performance-structural", owner = "motion_performance::tests::structural_workloads_are_exact" },
 ]
 

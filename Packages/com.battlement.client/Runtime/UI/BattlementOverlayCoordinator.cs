@@ -46,6 +46,8 @@ namespace Battlement.UI
 
         public int UpdateCount { get; private set; }
 
+        public int EntryCount => entries.Count;
+
         public void Validate(
             ObjectId targetId,
             OverlayPlacement placement,
@@ -249,11 +251,8 @@ namespace Battlement.UI
         private void Refresh(Surface surface)
         {
             surface.BindPanel();
-            Entry[] ordered = surface
-                .Entries.OrderBy(value => BattlementStackItems.Get(value.Wrapper).Order)
-                .ThenBy(value => value.SourceOrdinal)
-                .ToArray();
-            foreach (Entry entry in ordered)
+            surface.Entries.Sort(EntryComparer.Instance);
+            foreach (Entry entry in surface.Entries)
                 Present(entry);
             if (surface.Host is BattlementLayoutContainer stack)
                 stack.StackLayout?.Invalidate();
@@ -261,6 +260,7 @@ namespace Battlement.UI
 
         private void Present(Entry entry)
         {
+            SetHostFill(entry, entry.Placement is not OverlayPlacement.Popover);
             if (entry.Placement is OverlayPlacement.Popover popover)
             {
                 VisualElement? anchor = resolve(popover.Anchor);
@@ -300,13 +300,37 @@ namespace Battlement.UI
             UpdateCount++;
         }
 
+        private static void SetHostFill(Entry entry, bool fill)
+        {
+            if (entry.HostFill == fill)
+                return;
+            entry.HostFill = fill;
+            if (fill)
+            {
+                entry.Wrapper.style.position = Position.Absolute;
+                entry.Wrapper.style.top = 0;
+                entry.Wrapper.style.right = 0;
+                entry.Wrapper.style.bottom = 0;
+                entry.Wrapper.style.left = 0;
+                return;
+            }
+            entry.Wrapper.style.position = StyleKeyword.Null;
+            entry.Wrapper.style.top = StyleKeyword.Null;
+            entry.Wrapper.style.right = StyleKeyword.Null;
+            entry.Wrapper.style.bottom = StyleKeyword.Null;
+            entry.Wrapper.style.left = StyleKeyword.Null;
+        }
+
         private void RefreshFocus(Surface surface)
         {
-            Entry? next = surface
-                .Entries.Where(value => value.Placement is OverlayPlacement.Modal)
-                .OrderBy(value => BattlementStackItems.Get(value.Wrapper).Order)
-                .ThenBy(value => value.SourceOrdinal)
-                .LastOrDefault();
+            Entry? next = null;
+            foreach (Entry candidate in surface.Entries)
+            {
+                if (candidate.Placement is not OverlayPlacement.Modal)
+                    continue;
+                if (next is null || EntryComparer.Instance.Compare(next, candidate) < 0)
+                    next = candidate;
+            }
             if (next == surface.ActiveModal)
             {
                 if (next is not null && !next.FocusActivated && PresentationReady(next))
@@ -410,6 +434,25 @@ namespace Battlement.UI
 
         private Surface? SurfaceFor(VisualElement target) =>
             surfaces.Values.FirstOrDefault(value => value.Host.panel == target.panel);
+
+        private sealed class EntryComparer : IComparer<Entry>
+        {
+            public static readonly EntryComparer Instance = new();
+
+            public int Compare(Entry? left, Entry? right)
+            {
+                if (ReferenceEquals(left, right))
+                    return 0;
+                if (left is null)
+                    return -1;
+                if (right is null)
+                    return 1;
+                int order = BattlementStackItems
+                    .Get(left.Wrapper)
+                    .Order.CompareTo(BattlementStackItems.Get(right.Wrapper).Order);
+                return order != 0 ? order : left.SourceOrdinal.CompareTo(right.SourceOrdinal);
+            }
+        }
 
         private void ValidateFocusRef(
             ObjectId wrapper,
@@ -671,6 +714,7 @@ namespace Battlement.UI
             public bool Waiting { get; set; }
             public bool WrapperCurrent { get; set; }
             public bool FocusActivated { get; set; }
+            public bool HostFill { get; set; }
             public VisualElement? LastFocused { get; set; }
 
             public void RebindAnchor(Func<ObjectId, VisualElement?> resolve)

@@ -181,6 +181,11 @@ screen = "gestures-drag"
 transient = true
 
 [[states]]
+key = "layout-gallery.flow"
+screen = "layout-gallery"
+transient = true
+
+[[states]]
 key = "layout-reorder.interaction"
 screen = "layout-reorder"
 transient = true
@@ -188,6 +193,11 @@ transient = true
 [[states]]
 key = "composed-effects.interaction"
 screen = "composed-effects"
+transient = true
+
+[[states]]
+key = "layout-performance.structural"
+screen = "layout-performance"
 transient = true
 
 [[states]]

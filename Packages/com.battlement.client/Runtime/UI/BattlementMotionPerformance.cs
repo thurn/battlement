@@ -152,6 +152,13 @@ namespace Battlement.UI
             frame = 0;
         }
 
-        private static long AllocatedBytes() => GC.GetAllocatedBytesForCurrentThread();
+        private static long AllocatedBytes()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return 0;
+#else
+            return GC.GetAllocatedBytesForCurrentThread();
+#endif
+        }
     }
 }

@@ -660,7 +660,7 @@ ordinary Reactant events. The layout system performs no implicit dismissal.
 - Stage each independently valid slice and run `./scripts/ci.py` before marking
   the complete task `[DONE]`.
 
-## Task 9: Cross-system integration and reconstruction
+## Task 9 [DONE]: Cross-system integration and reconstruction
 
 **Prerequisites:** Tasks 3, 5, 6, 7, and 8 `[DONE]`.
 
@@ -713,7 +713,7 @@ may write authored child Style fields or serialize private native nodes.
   suites.
 - Stage the task and run `./scripts/ci.py`.
 
-## Task 10: Sample gallery, performance, and release evidence
+## Task 10 [DONE]: Sample gallery, performance, and release evidence
 
 **Prerequisites:** Task 9 `[DONE]`.
 

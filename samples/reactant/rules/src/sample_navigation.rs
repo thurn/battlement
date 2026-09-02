@@ -17,9 +17,11 @@ pub(crate) fn previous(screen: Screen) -> Screen {
     Screen::PresenceLifecycle => Screen::VariantsOrchestration,
     Screen::ValuesTimeControls => Screen::PresenceLifecycle,
     Screen::GesturesDrag => Screen::ValuesTimeControls,
-    Screen::LayoutReorder => Screen::GesturesDrag,
+    Screen::LayoutGallery => Screen::GesturesDrag,
+    Screen::LayoutReorder => Screen::LayoutGallery,
     Screen::ComposedEffects => Screen::LayoutReorder,
-    Screen::MotionPerformance => Screen::ComposedEffects,
+    Screen::LayoutPerformance => Screen::ComposedEffects,
+    Screen::MotionPerformance => Screen::LayoutPerformance,
   }
 }
 
@@ -39,9 +41,11 @@ pub(crate) fn next(screen: Screen) -> Screen {
     Screen::VariantsOrchestration => Screen::PresenceLifecycle,
     Screen::PresenceLifecycle => Screen::ValuesTimeControls,
     Screen::ValuesTimeControls => Screen::GesturesDrag,
-    Screen::GesturesDrag => Screen::LayoutReorder,
+    Screen::GesturesDrag => Screen::LayoutGallery,
+    Screen::LayoutGallery => Screen::LayoutReorder,
     Screen::LayoutReorder => Screen::ComposedEffects,
-    Screen::ComposedEffects => Screen::MotionPerformance,
+    Screen::ComposedEffects => Screen::LayoutPerformance,
+    Screen::LayoutPerformance => Screen::MotionPerformance,
     Screen::MotionPerformance => Screen::Composition,
   }
 }
@@ -63,8 +67,10 @@ pub(crate) fn phone_name(screen: Screen) -> &'static str {
     Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
     Screen::ValuesTimeControls => "14 VALUES, TIME & CONTROLS",
     Screen::GesturesDrag => "15 GESTURES & DRAG",
-    Screen::LayoutReorder => "16 LAYOUT & REORDER",
-    Screen::ComposedEffects => "17 COMPOSED EFFECTS",
-    Screen::MotionPerformance => "18 MOTION PERFORMANCE",
+    Screen::LayoutGallery => "16 LAYOUT GALLERY",
+    Screen::LayoutReorder => "17 LAYOUT & REORDER",
+    Screen::ComposedEffects => "18 COMPOSED EFFECTS",
+    Screen::LayoutPerformance => "19 LAYOUT PERFORMANCE",
+    Screen::MotionPerformance => "20 MOTION PERFORMANCE",
   }
 }

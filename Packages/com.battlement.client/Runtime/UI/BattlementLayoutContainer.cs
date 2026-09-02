@@ -49,6 +49,8 @@ namespace Battlement.UI
         private readonly BattlementGridLayout? gridLayout;
         private readonly BattlementStackLayout? stackLayout;
         private bool layoutDirty = true;
+        private bool refreshDeferred;
+        private int updateDepth;
 
         public BattlementLayoutContainer(BattlementLayoutContainerKind kind)
         {
@@ -75,6 +77,25 @@ namespace Battlement.UI
         public BattlementGridLayout? GridLayout => gridLayout;
 
         public BattlementStackLayout? StackLayout => stackLayout;
+
+        public void BeginUpdate()
+        {
+            updateDepth++;
+            Adapter.BeginUpdate();
+        }
+
+        public void EndUpdate()
+        {
+            if (updateDepth == 0)
+                throw new InvalidOperationException("Layout update scope is not active.");
+            Adapter.EndUpdate();
+            updateDepth--;
+            if (updateDepth == 0 && refreshDeferred)
+            {
+                refreshDeferred = false;
+                Refresh();
+            }
+        }
 
         public void ApplyFlex(UiElement.Flex value)
         {
@@ -116,6 +137,16 @@ namespace Battlement.UI
         private void MarkLayoutDirty()
         {
             layoutDirty = true;
+            if (updateDepth > 0)
+            {
+                refreshDeferred = true;
+                return;
+            }
+            Refresh();
+        }
+
+        private void Refresh()
+        {
             flexLayout?.Refresh();
             gridLayout?.Invalidate();
             stackLayout?.Invalidate();
@@ -130,6 +161,8 @@ namespace Battlement.UI
         private readonly List<VisualElement> directChildren = new();
         private readonly List<PortalChild> portalChildren = new();
         private readonly Dictionary<VisualElement, BattlementLayoutSlot> slots = new();
+        private bool presentationDeferred;
+        private int updateDepth;
 
         public BattlementLayoutContainerAdapter(
             VisualElement owner,
@@ -149,7 +182,24 @@ namespace Battlement.UI
         public IReadOnlyList<VisualElement> LogicalChildren =>
             directChildren.Concat(OrderedPortals().Select(value => value.Host)).ToArray();
 
+        public int Count => directChildren.Count + portalChildren.Count;
+
         public VisualElement? Measurement => measurement;
+
+        public void BeginUpdate() => updateDepth++;
+
+        public void EndUpdate()
+        {
+            if (updateDepth == 0)
+                throw new InvalidOperationException("Layout adapter update scope is not active.");
+            updateDepth--;
+            if (updateDepth == 0 && presentationDeferred)
+            {
+                presentationDeferred = false;
+                PresentLogicalOrder();
+                markDirty();
+            }
+        }
 
         public void Insert(VisualElement child, int index)
         {
@@ -158,8 +208,7 @@ namespace Battlement.UI
             RequireUnattached(child);
             directChildren.Insert(index, child);
             slots.Add(child, new BattlementLayoutSlot(child, owner));
-            PresentLogicalOrder();
-            markDirty();
+            InvalidatePresentation();
         }
 
         public void AttachPortal(VisualElement child, BattlementPortalSourceOrdinal source)
@@ -167,8 +216,7 @@ namespace Battlement.UI
             RequireUnattached(child);
             portalChildren.Add(new PortalChild(child, source));
             slots.Add(child, new BattlementLayoutSlot(child, owner));
-            PresentLogicalOrder();
-            markDirty();
+            InvalidatePresentation();
         }
 
         public void Reindex(VisualElement child, int index)
@@ -182,8 +230,7 @@ namespace Battlement.UI
                 throw new ArgumentOutOfRangeException(nameof(index));
             directChildren.RemoveAt(previous);
             directChildren.Insert(index, child);
-            PresentLogicalOrder();
-            markDirty();
+            InvalidatePresentation();
         }
 
         public void Detach(VisualElement child)
@@ -217,6 +264,17 @@ namespace Battlement.UI
             bool found = slots.TryGetValue(child, out BattlementLayoutSlot value);
             slot = found ? value : null;
             return found;
+        }
+
+        private void InvalidatePresentation()
+        {
+            if (updateDepth > 0)
+            {
+                presentationDeferred = true;
+                return;
+            }
+            PresentLogicalOrder();
+            markDirty();
         }
 
         public BattlementLayoutSlot SlotFor(VisualElement child) =>

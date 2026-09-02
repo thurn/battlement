@@ -77,10 +77,11 @@ namespace Battlement.Tests
                 Is.True
             );
             Assert.That(slot!.parent, Is.SameAs(parent));
-            Assert.That(slot.childCount, Is.Zero);
+            Assert.That(slot.childCount, Is.EqualTo(1));
             Assert.That(parent.IndexOf(slot), Is.EqualTo(1));
             Assert.That(coordinator.TryGetPresentation(host, out VisualElement? entry), Is.True);
-            Assert.That(host.parent, Is.SameAs(entry));
+            Assert.That(host.parent, Is.SameAs(slot));
+            Assert.That(entry!.childCount, Is.Zero);
 
             coordinator.Apply(host, Prop<Sticky>.Reset(), 1);
 
@@ -104,7 +105,7 @@ namespace Battlement.Tests
             coordinator.Apply(host, Sticky(left: 3), 0);
 
             Assert.That(grid.Adapter.SlotFor(host), Is.SameAs(slot));
-            Assert.That(slot.childCount, Is.Zero);
+            Assert.That(slot.childCount, Is.EqualTo(1));
 
             coordinator.Apply(host, Prop<Sticky>.Reset(), 0);
 
@@ -157,7 +158,8 @@ namespace Battlement.Tests
             coordinator.Apply(host, Sticky(right: 0), 0);
 
             Assert.That(coordinator.TryGetPresentation(host, out VisualElement? entry), Is.True);
-            Assert.That(host.parent, Is.SameAs(entry));
+            Assert.That(host.parent, Is.TypeOf<BattlementLayoutSlot>());
+            Assert.That(entry!.childCount, Is.Zero);
             Assert.That(entry!.parent!.parent, Is.SameAs(second.contentViewport));
         }
 
@@ -174,6 +176,65 @@ namespace Battlement.Tests
             );
             Assert.That(host.parent, Is.SameAs(parent));
             Assert.That(parent.childCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SnapshotAttachesNestedStickyAfterScrollHierarchyIsComplete()
+        {
+            ObjectId documentId = Id("7ad4602c-0ef5-49fc-949d-57bc5eb5b599");
+            ObjectId rootId = Id("25ddc31a-3629-43c5-be86-d2c6afb9087e");
+            ObjectId scrollId = Id("2edeb715-504d-4397-a46e-7039ea15354d");
+            ObjectId gridId = Id("4986c21d-aa36-4240-8896-fd7184a075e2");
+            ObjectId stickyId = Id("69ae8a2f-99a6-4cf5-81d3-0469d08c6d89");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    scrollId,
+                                    new UiElement.ScrollView(),
+                                    new UiNode[]
+                                    {
+                                        new(
+                                            gridId,
+                                            new UiElement.Grid(),
+                                            new UiNode[]
+                                            {
+                                                new(
+                                                    stickyId,
+                                                    new UiElement.VisualElement
+                                                    {
+                                                        Sticky = new Sticky(0, null, null, null, 1),
+                                                    }
+                                                ),
+                                            }
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(stickyId, out VisualElement? host), Is.True);
+                Assert.That(documents.TryGet(scrollId, out VisualElement? scroll), Is.True);
+                Assert.That(host!.GetFirstAncestorOfType<ScrollView>(), Is.SameAs(scroll));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
         }
 
         [Test]
