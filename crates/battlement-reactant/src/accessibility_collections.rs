@@ -14,7 +14,7 @@ pub fn use_listbox(name: LocalizedText) -> SemanticProps {
 
 /// Returns an option whose selection remains application-owned.
 pub fn use_option<G: 'static>(
-  options: ChoiceOptions<impl Fn(&mut G) + 'static>,
+  options: ChoiceOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   let mut behavior = accessibility::use_button(ButtonOptions {
     name: options.name,
@@ -37,7 +37,7 @@ pub fn use_option<G: 'static>(
 
 /// Returns a link; the application callback owns the external-URL request.
 pub fn use_link<G: 'static>(
-  options: ButtonOptions<impl Fn(&mut G) + 'static>,
+  options: ButtonOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, PressState> {
   let mut behavior = accessibility::use_button(options);
   behavior.semantic.role = SemanticRole::Link;

@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{env, fs, path::Path};
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct ResettableField {
@@ -9,7 +9,9 @@ struct ResettableField {
 
 #[test]
 fn every_resettable_field_has_fake_and_unity_routes() {
-  let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+  let root =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .join("../..");
   let fields = resettable_fields(&root.join("crates/battlement-ui/src/elements"));
   let unity_runtime = compact(
     &sources(

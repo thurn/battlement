@@ -31,12 +31,11 @@ struct NameSourceFixture;
 impl Component for NameSourceFixture {
   fn render(&self) -> impl Render {
     let source = use_element_ref();
-    let mut button = use_button(ButtonOptions {
-      name: text("ignored"),
+    let button = use_button(ButtonOptions {
+      name: AccessibleName::LabelledBy(source.clone()),
       is_disabled: false,
       on_press: |_game: &mut Game| {},
     });
-    button.semantic.name = Some(AccessibleName::LabelledBy(source.clone()));
     View::new().child((
       Label::new("Account settings").element_ref(source).semantic(
         SemanticProps::new(SemanticRole::StaticText)
@@ -62,12 +61,11 @@ fn complete_snapshot_resolves_contents_and_prunes_hidden_subtrees() {
   let document = document();
   let mut runtime = Reactant::new(IdleSpawner);
   runtime.register_root(document.clone(), |_game: &Game| {
-    let mut button = use_button(ButtonOptions {
-      name: text("ignored"),
+    let button = use_button(ButtonOptions {
+      name: AccessibleName::Contents,
       is_disabled: false,
       on_press: |_game: &mut Game| {},
     });
-    button.semantic.name = Some(AccessibleName::Contents);
     View::new()
       .semantic(SemanticProps::new(SemanticRole::Group))
       .child((View::new()

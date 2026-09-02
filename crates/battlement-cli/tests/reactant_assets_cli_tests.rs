@@ -1,5 +1,5 @@
 use std::{
-  fs,
+  env, fs,
   path::{Path, PathBuf},
   process::{Command, Output},
 };
@@ -148,10 +148,11 @@ fn empty_preview_uses_the_system_opener_without_a_renderer() {
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn declarations_are_discovered_across_modules_and_reachable_packages() {
   let fixture = Fixture::new();
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   fs::create_dir_all(fixture.project.join("rules/src/nested")).unwrap();
   fs::create_dir_all(fixture.project.join("rules/asset-pack/src")).unwrap();
   fs::write(
@@ -206,10 +207,11 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
   let fixture = Fixture::new();
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   let git_assets = fixture.root.join("git-assets");
   fs::create_dir_all(git_assets.join("src")).unwrap();
   fs::write(
@@ -271,10 +273,11 @@ fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
   let fixture = Fixture::new();
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
@@ -350,10 +353,11 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
   let fixture = Fixture::new();
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
@@ -395,10 +399,11 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
   let fixture = Fixture::new();
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
@@ -441,7 +446,7 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
   let textures = fixture.project.join("Assets/Textures");
   fs::create_dir_all(&textures).unwrap();
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Texture.png"),
     textures.join("panel.png"),
   )
@@ -467,7 +472,7 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
   let first_dependencies = field(&first_asset, "dependencies=");
 
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Cursor.png"),
     textures.join("panel.png"),
   )
@@ -498,7 +503,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   let fonts = fixture.project.join("Assets/Fonts");
   fs::create_dir_all(&fonts).unwrap();
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../Assets/TextMesh Pro/Fonts/LiberationSans.ttf"),
     fonts.join("face.ttf"),
   )
@@ -527,7 +532,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   assert!(stderr(&uncovered).contains("does not cover authored character U+10FFFF"));
 
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Texture.png"),
     fonts.join("face.ttf"),
   )
@@ -538,7 +543,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
 
   let outside = fixture.root.join("outside.png");
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Texture.png"),
     &outside,
   )
@@ -564,7 +569,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   let textures = fixture.project.join("Assets/Textures");
   fs::create_dir_all(&textures).unwrap();
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Texture.png"),
     textures.join("panel.png"),
   )
@@ -616,7 +621,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   assert_eq!(source_work["filesWritten"], 1);
 
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Cursor.png"),
     textures.join("panel.png"),
   )
@@ -637,7 +642,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   let generated_texture = fixture.generated_root().join("textures/cached.png");
   fs::create_dir_all(generated_texture.parent().unwrap()).unwrap();
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .join("../../samples/ui/Assets/Original/Signal Texture.png"),
     &generated_texture,
   )
@@ -896,10 +901,11 @@ fn write_rules(directory: &Path) {
 }
 
 fn write_asset_manifest(fixture: &Fixture) {
-  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("battlement-reactant");
+  let reactant =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .parent()
+      .unwrap()
+      .join("battlement-reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(

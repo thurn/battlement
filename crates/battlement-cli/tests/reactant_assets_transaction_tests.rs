@@ -1,6 +1,6 @@
 use std::{
   collections::BTreeMap,
-  fs,
+  env, fs,
   path::{Path, PathBuf},
   process::{Command, Output},
   time::SystemTime,
@@ -170,10 +170,11 @@ impl Fixture {
       "m_EditorVersion: fixture\n",
     )
     .unwrap();
-    let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-      .parent()
-      .unwrap()
-      .join("battlement-reactant");
+    let reactant =
+      Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+        .parent()
+        .unwrap()
+        .join("battlement-reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
@@ -183,7 +184,7 @@ impl Fixture {
     )
     .unwrap();
     fs::copy(
-      Path::new(env!("CARGO_MANIFEST_DIR"))
+      Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
         .join("../../samples/ui/Assets/Original/Signal Texture.png"),
       project.join("Assets/Textures/panel.png"),
     )

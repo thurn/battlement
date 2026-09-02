@@ -1,7 +1,7 @@
 #![cfg(target_os = "macos")]
 
 use std::{
-  fs,
+  env, fs,
   path::{Path, PathBuf},
   process::Command,
 };
@@ -36,7 +36,9 @@ fn install_and_restore_keep_the_application_validly_signed() {
 }
 
 fn build_fixture(temporary: &Path) -> PathBuf {
-  let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+  let workspace =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .join("../..");
   let target = temporary.join("fixture-target");
   let status = Command::new(env!("CARGO"))
     .args([

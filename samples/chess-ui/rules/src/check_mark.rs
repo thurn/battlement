@@ -13,6 +13,12 @@ pub(crate) struct CheckMark {
   pub(crate) scale: f32,
 }
 
+impl Default for CheckMark {
+  fn default() -> Self {
+    Self { scale: 1.0 }
+  }
+}
+
 impl Component for CheckMark {
   fn render(&self) -> impl Render {
     View::new()

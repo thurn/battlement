@@ -1,9 +1,4 @@
-use std::{
-  ffi::c_void,
-  path::{Path, PathBuf},
-  process::Command as ProcessCommand,
-  ptr,
-};
+use std::{env, ffi::c_void, path::PathBuf, process::Command as ProcessCommand, ptr};
 
 use battlement::{Connect, json};
 use battlement_native::{BattlementBuffer, ENGINE_ERROR, INVALID_ARGUMENT, OK, PANIC};
@@ -23,9 +18,12 @@ type VoidAction = unsafe extern "C" fn();
 type LogAction = unsafe extern "C" fn(*mut BattlementBuffer) -> i32;
 
 fn fixture_library_path() -> PathBuf {
-  let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+  let workspace = PathBuf::from(
+    env::var_os("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"),
+  )
+  .join("../..");
   let target = workspace.join("target/export-fixture-tests");
-  let status = ProcessCommand::new(env!("CARGO"))
+  let status = ProcessCommand::new(env::var_os("CARGO").expect("Cargo provides its executable"))
     .args([
       "build",
       "--quiet",

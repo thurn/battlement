@@ -56,15 +56,16 @@ impl Component for ToggleControl {
     let input = element_ref::use_element_ref();
     let aria_label = self.aria_label.as_ref().filter(|label| !label.is_empty());
     let on_change = Rc::clone(&self.on_change);
-    let mut checkbox = accessibility::use_checkbox(ToggleOptions {
-      name: text(aria_label.cloned().unwrap_or_default()),
+    let checkbox = accessibility::use_checkbox(ToggleOptions {
+      name: aria_label.map_or_else(
+        || AccessibleName::LabelledBy(label_id.clone()),
+        |name| AccessibleName::text(name.clone()),
+      ),
       checked: self.checked,
       is_disabled: false,
       on_change: move |_: &mut Game, checked| on_change(checked),
     });
-    if aria_label.is_none() {
-      checkbox.semantic.name = Some(AccessibleName::LabelledBy(label_id.clone()));
-    }
+    let label_interaction = checkbox.label_interaction(&input);
     let control = View::new()
       .name("toggle-control-box")
       .style(
@@ -92,14 +93,13 @@ impl Component for ToggleControl {
               .border_color(Color::rgb(75.0 / 255.0, 163.0 / 255.0, 1.0))
               .background_color(Color::rgb(2.0 / 255.0, 9.0 / 255.0, 26.0 / 255.0)),
           )
-          .child(self.checked.then_some(CheckMark { scale: 1.0 })),
+          .child(self.checked.then_some(CheckMark::default())),
         Button::new("")
           .name("toggle-control-input")
           .element_ref(input.clone())
           .semantic(checkbox.semantic)
           .focus_props(checkbox.focus)
           .interaction_props(checkbox.interaction)
-          .on_click_event(|_: &mut Game, event| event.stop_propagation())
           .style(
             Style::new()
               .position(Position::Absolute)
@@ -117,14 +117,9 @@ impl Component for ToggleControl {
     if let Some(height) = self.row_height {
       row = row.row_height(height);
     }
-    let on_change = Rc::clone(&self.on_change);
-    let next = !self.checked;
     let mut label = View::new()
       .name("toggle-control-label")
-      .on_click(move |_: &mut Game| {
-        input.focus();
-        on_change(next);
-      })
+      .interaction_props(label_interaction)
       .child(row);
     if let Some(height) = self.row_height {
       label = label.style(Style::new().height(height));

@@ -4,13 +4,12 @@ use std::rc::Rc;
 
 use battlement::{
   AccessibilityAction, AccessibilityRangeValue, AccessibilityScrollAxis,
-  AccessibilityScrollDirection, CheckedState, SemanticRole, SemanticState, UiEventBody,
-  UiEventKind,
+  AccessibilityScrollDirection, CheckedState, SemanticRole, SemanticState,
 };
 
 use crate::{
+  activation,
   element_ref::{ElementRef, use_element_ref},
-  event_handler::{Handler, HandlerPhase},
   focus::FocusProps,
   semantics::{
     AccessibleBehavior, AccessibleName, ActionDisposition, InteractionProps, LocalizedText,
@@ -28,9 +27,9 @@ pub struct PressState {
 }
 
 /// Options for [`use_button`].
-pub struct ButtonOptions<F> {
+pub struct ButtonOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Ordinary press callback.
@@ -38,9 +37,9 @@ pub struct ButtonOptions<F> {
 }
 
 /// Options for checkbox and switch patterns.
-pub struct ToggleOptions<F> {
+pub struct ToggleOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Current checked state.
   pub checked: bool,
   /// Whether activation is unavailable.
@@ -50,9 +49,9 @@ pub struct ToggleOptions<F> {
 }
 
 /// Options for [`use_slider`].
-pub struct SliderOptions<F> {
+pub struct SliderOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Current value.
   pub value: f64,
   /// Inclusive minimum.
@@ -70,9 +69,9 @@ pub struct SliderOptions<F> {
 }
 
 /// Options for a disclosure trigger.
-pub struct DisclosureOptions<F> {
+pub struct DisclosureOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Current expansion state.
   pub expanded: bool,
   /// Whether activation is unavailable.
@@ -82,9 +81,9 @@ pub struct DisclosureOptions<F> {
 }
 
 /// Options for a modal dialog wrapper.
-pub struct DialogOptions<F> {
+pub struct DialogOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Optional ordinary dismiss callback.
   pub on_dismiss: Option<F>,
 }
@@ -122,9 +121,9 @@ pub struct TabsBehavior {
 }
 
 /// Options for one radio or tab choice.
-pub struct ChoiceOptions<F> {
+pub struct ChoiceOptions<F, N = LocalizedText> {
   /// Accessible name.
-  pub name: LocalizedText,
+  pub name: N,
   /// Current selected state.
   pub selected: bool,
   /// Whether activation is unavailable.
@@ -144,10 +143,10 @@ pub struct SliderState {
 
 /// Returns button semantics, focus, and unified activation behavior.
 pub fn use_button<G: 'static>(
-  options: ButtonOptions<impl Fn(&mut G) + 'static>,
+  options: ButtonOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, PressState> {
   let callback: Rc<dyn Fn(&mut G)> = Rc::new(options.on_press);
-  let interaction = activation_interaction(options.is_disabled, callback);
+  let interaction = activation::interaction(options.is_disabled, callback);
   AccessibleBehavior {
     semantic: named(SemanticRole::Button, options.name)
       .state(disabled_state(options.is_disabled))
@@ -162,14 +161,14 @@ pub fn use_button<G: 'static>(
 
 /// Returns checkbox semantics and unified Boolean activation.
 pub fn use_checkbox<G: 'static>(
-  options: ToggleOptions<impl Fn(&mut G, bool) + 'static>,
+  options: ToggleOptions<impl Fn(&mut G, bool) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   use_toggle(options, SemanticRole::Checkbox)
 }
 
 /// Returns switch semantics and unified Boolean activation.
 pub fn use_switch<G: 'static>(
-  options: ToggleOptions<impl Fn(&mut G, bool) + 'static>,
+  options: ToggleOptions<impl Fn(&mut G, bool) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   use_toggle(options, SemanticRole::Switch)
 }
@@ -185,7 +184,7 @@ pub fn use_radio_group(name: LocalizedText) -> RadioGroupBehavior {
 /// Returns radio semantics, ordinary focus, and unified selection behavior.
 pub fn use_radio<G: 'static>(
   group: &RadioGroupBehavior,
-  options: ChoiceOptions<impl Fn(&mut G) + 'static>,
+  options: ChoiceOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   use_choice(
     SemanticRole::Radio,
@@ -206,7 +205,7 @@ pub fn use_tabs(name: LocalizedText) -> TabsBehavior {
 /// Returns tab semantics, ordinary focus, and unified selection behavior.
 pub fn use_tab<G: 'static>(
   tabs: &TabsBehavior,
-  options: ChoiceOptions<impl Fn(&mut G) + 'static>,
+  options: ChoiceOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   use_choice(
     SemanticRole::Tab,
@@ -229,7 +228,7 @@ pub fn use_tab_panel(tabs: &TabsBehavior, selected: bool) -> SemanticProps {
 
 /// Returns single-thumb slider semantics and direct range actions.
 pub fn use_slider<G: 'static>(
-  options: SliderOptions<impl Fn(&mut G, f64) + 'static>,
+  options: SliderOptions<impl Fn(&mut G, f64) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, SliderState> {
   assert!(
     options.minimum.is_finite()
@@ -295,7 +294,7 @@ pub fn use_busy_progress(name: LocalizedText) -> SemanticProps {
 
 /// Returns disclosure semantics and activation behavior.
 pub fn use_disclosure<G: 'static>(
-  options: DisclosureOptions<impl Fn(&mut G) + 'static>,
+  options: DisclosureOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   let callback: Rc<dyn Fn(&mut G)> = Rc::new(options.on_toggle);
   AccessibleBehavior {
@@ -307,14 +306,14 @@ pub fn use_disclosure<G: 'static>(
       })
       .action(AccessibilityAction::Activate),
     focus: ordinary_focus(options.is_disabled),
-    interaction: activation_interaction(options.is_disabled, callback),
+    interaction: activation::interaction(options.is_disabled, callback),
     state: options.expanded,
   }
 }
 
 /// Returns dialog semantics and optional dismiss behavior.
 pub fn use_dialog<G: 'static>(
-  options: DialogOptions<impl Fn(&mut G) + 'static>,
+  options: DialogOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, ()> {
   let mut semantic = named(SemanticRole::Dialog, options.name);
   let mut interaction = InteractionProps::new();
@@ -398,30 +397,15 @@ pub fn use_scroll_area<G: 'static>(
 }
 
 fn use_toggle<G: 'static>(
-  options: ToggleOptions<impl Fn(&mut G, bool) + 'static>,
+  options: ToggleOptions<impl Fn(&mut G, bool) + 'static, impl Into<AccessibleName>>,
   role: SemanticRole,
 ) -> AccessibleBehavior<G, bool> {
-  let callback: ToggleCallback<G> = Rc::new(options.on_change);
   let next = !options.checked;
   let disabled = options.is_disabled;
-  let click_callback = Rc::clone(&callback);
-  let mut interaction = InteractionProps::new();
-  if !disabled {
-    interaction.handlers.push(Handler::brief(
-      "toggle-click",
-      UiEventKind::Click,
-      HandlerPhase::Default,
-      click_event,
-      move |game| click_callback(game, next),
-    ));
-  }
-  interaction = interaction.accessibility("toggle-accessibility", move |game, action| {
-    if disabled || action != AccessibilityAction::Activate {
-      return ActionDisposition::Unhandled;
-    }
-    callback(game, next);
-    ActionDisposition::Handled
-  });
+  let interaction = activation::interaction(
+    disabled,
+    Rc::new(move |game| (options.on_change)(game, next)),
+  );
   AccessibleBehavior {
     semantic: named(role, options.name)
       .state(SemanticState {
@@ -444,7 +428,7 @@ fn use_choice<G: 'static>(
   role: SemanticRole,
   membership_ref: ElementRef,
   membership: fn(ElementRef) -> SemanticMembership,
-  options: ChoiceOptions<impl Fn(&mut G) + 'static>,
+  options: ChoiceOptions<impl Fn(&mut G) + 'static, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
   let selected = options.selected;
   let disabled = options.is_disabled;
@@ -459,44 +443,13 @@ fn use_choice<G: 'static>(
       .action(AccessibilityAction::Activate)
       .membership(membership(membership_ref)),
     focus: ordinary_focus(disabled),
-    interaction: activation_interaction(disabled, callback),
+    interaction: activation::interaction(disabled, callback),
     state: selected,
   }
 }
 
-fn activation_interaction<G: 'static>(
-  disabled: bool,
-  callback: Rc<dyn Fn(&mut G)>,
-) -> InteractionProps<G> {
-  let click_callback = Rc::clone(&callback);
-  let mut interaction = InteractionProps::new();
-  if !disabled {
-    interaction.handlers.push(Handler::brief(
-      "press-click",
-      UiEventKind::Click,
-      HandlerPhase::Default,
-      click_event,
-      move |game| click_callback(game),
-    ));
-  }
-  interaction.accessibility("press-accessibility", move |game, action| {
-    if disabled || action != AccessibilityAction::Activate {
-      return ActionDisposition::Unhandled;
-    }
-    callback(game);
-    ActionDisposition::Handled
-  })
-}
-
-fn click_event(body: &UiEventBody) -> &battlement::ClickEvent {
-  match body {
-    UiEventBody::Click(value) => value,
-    _ => panic!("Reactant activation handler received another event kind"),
-  }
-}
-
-fn named(role: SemanticRole, name: LocalizedText) -> SemanticProps {
-  SemanticProps::new(role).name(AccessibleName::Text(name))
+fn named(role: SemanticRole, name: impl Into<AccessibleName>) -> SemanticProps {
+  SemanticProps::new(role).name(name.into())
 }
 
 fn optionally_named(role: SemanticRole, name: Option<LocalizedText>) -> SemanticProps {
@@ -517,5 +470,4 @@ fn ordinary_focus(disabled: bool) -> FocusProps {
 }
 
 type ScrollCallback<G> = Rc<dyn Fn(&mut G, AccessibilityScrollDirection)>;
-type ToggleCallback<G> = Rc<dyn Fn(&mut G, bool)>;
 type ValueCallback<G> = Rc<dyn Fn(&mut G, f64)>;

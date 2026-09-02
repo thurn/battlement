@@ -30,6 +30,7 @@
 
 pub mod accessibility;
 pub mod accessibility_collections;
+mod activation;
 pub mod animation_controls;
 pub mod announcement;
 pub mod application;

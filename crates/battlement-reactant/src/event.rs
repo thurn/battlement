@@ -103,6 +103,14 @@ impl<E> ReactantEvent<E> {
     self.inner.propagation_stopped.set(true);
   }
 
+  pub(crate) fn activation_handled(&self) -> bool {
+    self.inner.activation_handled.get()
+  }
+
+  pub(crate) fn mark_activation_handled(&self) {
+    self.inner.activation_handled.set(true);
+  }
+
   pub(crate) fn new(
     inner: Rc<EventInner>,
     body: Rc<UiEventBody>,
@@ -150,6 +158,7 @@ pub(crate) struct EventInner {
   cancelable: bool,
   default_prevented: Cell<bool>,
   prevented_by_reactant: Cell<bool>,
+  activation_handled: Cell<bool>,
 }
 
 impl EventInner {
@@ -165,6 +174,7 @@ impl EventInner {
       cancelable,
       default_prevented: Cell::new(default_prevented),
       prevented_by_reactant: Cell::new(false),
+      activation_handled: Cell::new(false),
     }
   }
 

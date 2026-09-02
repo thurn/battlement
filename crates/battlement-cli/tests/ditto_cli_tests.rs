@@ -1,4 +1,4 @@
-use std::{fs, path::Path, process::Command};
+use std::{env, fs, path::Path, process::Command};
 
 #[test]
 fn direct_and_cargo_delegated_list_output_is_identical() {
@@ -66,7 +66,9 @@ fn direct_ditto(directory: &Path) -> std::process::Output {
 }
 
 fn direct_ditto_with(directory: &Path, arguments: &[&str]) -> std::process::Output {
-  let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+  let workspace =
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .join("../..");
   let mut command = Command::new(env!("CARGO"));
   command
     .args([

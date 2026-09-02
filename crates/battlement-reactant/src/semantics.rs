@@ -7,7 +7,9 @@ use battlement::{
   AccessibilityScrollDirection, SemanticRole, SemanticState,
 };
 
-use crate::{element_ref::ElementRef, event_handler::Handler, focus::FocusProps};
+use crate::{
+  activation::Activation, element_ref::ElementRef, event_handler::Handler, focus::FocusProps,
+};
 
 /// Already-localized application text.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +74,7 @@ pub struct SemanticProps {
 /// Ordinary interaction callbacks returned by an accessible behavior hook.
 pub struct InteractionProps<G> {
   pub(crate) handlers: Vec<Handler>,
+  pub(crate) activation: Option<Activation<G>>,
   _model: PhantomData<fn(&mut G)>,
 }
 
@@ -101,6 +104,27 @@ pub(crate) enum SemanticMembership {
   Radio(ElementRef),
   Tab(ElementRef),
   TabPanel(ElementRef),
+}
+
+impl<G: 'static, S> AccessibleBehavior<G, S> {
+  /// Binds a visible label or wrapper to this control's activation and focus.
+  /// Attach `control` to the same host as this behavior's interaction props.
+  /// Child activations and prevented clicks do not activate the label again.
+  #[must_use]
+  pub fn label_interaction(&self, control: &ElementRef) -> InteractionProps<G> {
+    self
+      .interaction
+      .activation
+      .as_ref()
+      .expect("label interaction requires an activation behavior")
+      .label_interaction(control)
+  }
+}
+
+impl From<LocalizedText> for AccessibleName {
+  fn from(value: LocalizedText) -> Self {
+    Self::Text(value)
+  }
 }
 
 impl LocalizedText {
@@ -231,6 +255,7 @@ impl<G> Default for InteractionProps<G> {
   fn default() -> Self {
     Self {
       handlers: Vec::new(),
+      activation: None,
       _model: PhantomData,
     }
   }
@@ -257,6 +282,7 @@ impl<G> Clone for InteractionProps<G> {
   fn clone(&self) -> Self {
     Self {
       handlers: self.handlers.clone(),
+      activation: self.activation.clone(),
       _model: PhantomData,
     }
   }

@@ -1,6 +1,6 @@
 use std::{
   collections::BTreeMap,
-  fs,
+  env, fs,
   io::Cursor,
   path::{Path, PathBuf},
   process::{Command, Output},
@@ -87,7 +87,8 @@ fn real_browser_batch_emits_deterministic_rgba_png_metadata_for_every_paint_fami
   );
 
   fs::copy(
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples/ui/Assets/Original/Rocket Emoji.png"),
+    Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+      .join("../../samples/ui/Assets/Original/Rocket Emoji.png"),
     fixture.project.join("Assets/Textures/source.png"),
   )
   .unwrap();
@@ -282,10 +283,11 @@ impl Fixture {
       "m_EditorVersion: fixture\n",
     )
     .unwrap();
-    let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
-      .parent()
-      .unwrap()
-      .join("battlement-reactant");
+    let reactant =
+      Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+        .parent()
+        .unwrap()
+        .join("battlement-reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
@@ -304,7 +306,9 @@ impl Fixture {
   fn install_dependencies(&self) {
     fs::create_dir_all(self.project.join("Assets/Textures")).unwrap();
     fs::create_dir_all(self.project.join("Assets/Fonts")).unwrap();
-    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let repository =
+      Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
+        .join("../..");
     fs::copy(
       repository.join("samples/ui/Assets/Original/Signal Texture.png"),
       self.project.join("Assets/Textures/source.png"),
