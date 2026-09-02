@@ -102,6 +102,36 @@ size_bytes = 235798
 source = "3a774dfdf5e2fa8872249d673386eceba2481d803007651684e48f900679a9a2"
 
 [[baselines]]
+profile = "design"
+scenario = "toggle control"
+checkpoint = "changed"
+sha256 = "67ace66843b469d4dff2e5db4f180ddf86328349f98610b66e673bfdd2bfa785"
+width = 1440
+height = 1584
+size_bytes = 241793
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+
+[[baselines]]
+profile = "design"
+scenario = "toggle control"
+checkpoint = "initial"
+sha256 = "592e8868a18112527b8919356283bf46cb921cbfc117e80888405d8fa587cea5"
+width = 1440
+height = 1584
+size_bytes = 240948
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+
+[[baselines]]
+profile = "design"
+scenario = "toggle control"
+checkpoint = "reset"
+sha256 = "592e8868a18112527b8919356283bf46cb921cbfc117e80888405d8fa587cea5"
+width = 1440
+height = 1584
+size_bytes = 240948
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+
+[[baselines]]
 profile = "macos"
 scenario = "gallery navigation first"
 checkpoint = "selected"
@@ -200,3 +230,33 @@ width = 1280
 height = 800
 size_bytes = 106731
 source = "3a774dfdf5e2fa8872249d673386eceba2481d803007651684e48f900679a9a2"
+
+[[baselines]]
+profile = "macos"
+scenario = "toggle control"
+checkpoint = "changed"
+sha256 = "f0777c7ba2484052f44fbcd4a6781899fb40cab9458732cc29c44d7e099ca449"
+width = 1280
+height = 800
+size_bytes = 109418
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+
+[[baselines]]
+profile = "macos"
+scenario = "toggle control"
+checkpoint = "initial"
+sha256 = "6b76381f3759c3d8dcc40de62b59a4cbf2a032bf93b1ca14baff2fe1299f0810"
+width = 1280
+height = 800
+size_bytes = 109000
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+
+[[baselines]]
+profile = "macos"
+scenario = "toggle control"
+checkpoint = "reset"
+sha256 = "6b76381f3759c3d8dcc40de62b59a4cbf2a032bf93b1ca14baff2fe1299f0810"
+width = 1280
+height = 800
+size_bytes = 109000
+source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"

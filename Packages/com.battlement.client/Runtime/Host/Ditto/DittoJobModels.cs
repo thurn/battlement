@@ -137,6 +137,7 @@ namespace Battlement
         SemanticRole Role,
         string Name,
         bool? Selected = null,
+        bool? Checked = null,
         bool? Disabled = null,
         bool? CurrentPage = null,
         DittoAccessibilityTarget? Parent = null

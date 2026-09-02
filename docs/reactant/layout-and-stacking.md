@@ -1257,3 +1257,7 @@ and complete restoration to the baseline.
 13. Run the mixed 1,000-item performance fixture. Confirm stable frames are
     silent, dirty work is coalesced, scrolling allocates no managed objects,
     and diagnostics identify only public container and item IDs.
+
+Grid item margins participate once in alignment and sizing. A fixed-size item
+keeps its authored border-box size; an item with automatic width fills the
+cell width remaining after its margins.

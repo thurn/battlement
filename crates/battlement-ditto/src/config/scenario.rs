@@ -212,6 +212,7 @@ fn step_value(
         assertion.name,
       )?,
       selected: assertion.selected,
+      checked: assertion.checked,
       disabled: assertion.disabled,
       current_page: assertion.current_page,
       parent: assertion

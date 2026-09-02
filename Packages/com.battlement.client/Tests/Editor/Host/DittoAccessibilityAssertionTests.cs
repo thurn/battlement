@@ -13,6 +13,7 @@ namespace Battlement.Tests
     public sealed class DittoAccessibilityAssertionTests
     {
         [TestCase("selected")]
+        [TestCase("checked")]
         [TestCase("disabled")]
         [TestCase("current_page")]
         [TestCase("parent")]
@@ -92,7 +93,11 @@ namespace Battlement.Tests
                             SemanticRole.Button,
                             "Controls",
                             null,
-                            new SemanticState(Selected: false, Current: CurrentPage.Page),
+                            new SemanticState(
+                                Selected: false,
+                                Checked: CheckedState.False,
+                                Current: CurrentPage.Page
+                            ),
                             null,
                             new AccessibilityActionSet(Activate: true)
                         ),
@@ -139,7 +144,7 @@ namespace Battlement.Tests
                 @"{
                 'target': {'role': 'button', 'name': 'Controls'},
                 'role': 'button', 'name': 'Controls',
-                'selected': false, 'disabled': false, 'current_page': true,
+                'selected': false, 'checked': false, 'disabled': false, 'current_page': true,
                 'parent': {'role': 'navigation', 'name': 'Pages'}
             }"
             );
@@ -151,7 +156,16 @@ namespace Battlement.Tests
                     : new JValue(!(bool)assertion[field]!);
             Assert.That(targets.Evaluate(Decode(assertion)).Matches, Is.False, field);
 
-            foreach (string optional in new[] { "selected", "disabled", "current_page", "parent" })
+            foreach (
+                string optional in new[]
+                {
+                    "selected",
+                    "checked",
+                    "disabled",
+                    "current_page",
+                    "parent",
+                }
+            )
                 assertion[optional] = JValue.CreateNull();
             Assert.That(targets.Evaluate(Decode(assertion)).Matches, Is.True);
         }

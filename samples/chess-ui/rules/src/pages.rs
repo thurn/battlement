@@ -1,6 +1,6 @@
 use battlement_reactant::prelude::*;
 
-use crate::{frame_harness, gallery, portrait_harness, setting_row_harness};
+use crate::{frame_harness, gallery, portrait_harness, setting_row_harness, toggle_harness};
 
 /// One review page and its capture contract.
 pub struct Page {
@@ -55,7 +55,7 @@ pub const ALL: [Page; 40] = [
     number: 5,
     title: "ToggleControl layout and state",
     description: "ToggleControl renders label, checkbox, and controlled toggling; focus, animation, and help remain unasserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: toggle_harness::render,
     semantic_target: "5. ToggleControl layout and state",
     capture_states: &["initial", "changed", "reset"],
   },

@@ -123,6 +123,10 @@ namespace Battlement
                 && string.Equals(node.Label, assertion.Name, StringComparison.Ordinal);
             if (assertion.Selected.HasValue)
                 matched &= node.State.Selected == assertion.Selected;
+            if (assertion.Checked.HasValue)
+                matched &=
+                    node.State.Checked
+                    == (assertion.Checked.Value ? CheckedState.True : CheckedState.False);
             if (assertion.Disabled.HasValue)
                 matched &= node.State.Disabled == assertion.Disabled;
             if (assertion.CurrentPage.HasValue)

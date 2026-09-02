@@ -1,4 +1,5 @@
 mod assets;
+mod check_mark;
 pub mod clipped_inset;
 pub mod concept_frame;
 pub mod engine;
@@ -21,3 +22,5 @@ pub mod setting_row;
 mod setting_row_harness;
 #[cfg(test)]
 mod tests;
+pub mod toggle_control;
+mod toggle_harness;

@@ -173,6 +173,7 @@ pub(super) struct RawAccessibilityAssertion {
   pub role: RawAccessibilityRole,
   pub name: String,
   pub selected: Option<bool>,
+  pub checked: Option<bool>,
   pub disabled: Option<bool>,
   pub current_page: Option<bool>,
   pub parent: Option<RawAccessibilityTarget>,

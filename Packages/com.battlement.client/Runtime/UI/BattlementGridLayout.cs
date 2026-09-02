@@ -220,10 +220,10 @@ namespace Battlement.UI
                 AuthoredExtent(child.style.height, height).HasValue
             );
             slot.style.position = Position.Absolute;
-            slot.style.left = left;
-            slot.style.top = top;
-            slot.style.width = width;
-            slot.style.height = height;
+            slot.style.left = left - marginLeft;
+            slot.style.top = top - marginTop;
+            slot.style.width = width + marginLeft + marginRight;
+            slot.style.height = height + marginTop + marginBottom;
         }
 
         private static (float Position, float Size) Align(

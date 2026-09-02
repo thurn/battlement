@@ -1,5 +1,7 @@
 use battlement::{
-  AccessibilitySnapshot, CommandBody, CurrentPage, ObjectId, SemanticRole, object_id,
+  AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, KeyModifiers,
+  ObjectId, PanelPoint, PointerButton, SemanticRole, UiAccessibilityAction,
+  UiAccessibilityActionEvent, UiEvent, UiEventBody, object_id,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -53,6 +55,100 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   self::assert_page(&mut client, 0);
   let count = self::named(&client.ui(), "demonstration-count");
   assert_eq!(client.ui().element(count).text(), Some("Changes: 0"));
+}
+
+#[test]
+fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("chess-ui/content");
+  assets.add_textures(assets::addresses());
+  assets.add_ui_font(crate::setting_row::DISPLAY_FONT);
+  let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
+  client.poll();
+  let page = self::named(&client.ui(), "review-page-5");
+  client.ui().click(page);
+  client.poll();
+  let checkbox = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Checkbox && node.label.as_deref() == Some("VSync"))
+    .unwrap()
+    .object_id;
+  self::assert_checkbox(&client, false, 0);
+  client.ui().click(checkbox);
+  client.poll();
+  self::assert_checkbox(&client, true, 1);
+  client.ui().send_event(UiEvent::new(
+    checkbox,
+    true,
+    false,
+    UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action: UiAccessibilityAction::Activate,
+    }),
+  ));
+  client.poll();
+  self::assert_checkbox(&client, false, 2);
+  let external = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Change VSync from parent"))
+    .unwrap()
+    .object_id;
+  client.ui().click(external);
+  client.poll();
+  self::assert_checkbox(&client, true, 2);
+  let mut label = checkbox;
+  while client.ui().element(label).name() != Some("toggle-control-label") {
+    label = client.ui().element(label).parent_id().unwrap();
+  }
+  client.ui().send_event(UiEvent::click(
+    label,
+    ClickEvent::pointer(
+      0,
+      PanelPoint::default(),
+      PointerButton::Left,
+      1,
+      KeyModifiers::default(),
+    ),
+  ));
+  client.poll();
+  assert_eq!(client.ui().focused(), Some(checkbox));
+  self::assert_checkbox(&client, false, 3);
+  client.ui().click(page);
+  client.poll();
+  self::assert_checkbox(&client, false, 0);
+  assert!(!client.ui().contains(checkbox));
+}
+
+fn assert_checkbox(client: &FakeClient<ChessUiEngine>, checked: bool, changes: u32) {
+  let snapshot = self::snapshot(client);
+  let checkbox = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Checkbox && node.label.as_deref() == Some("VSync"))
+    .unwrap();
+  assert_eq!(checkbox.role, SemanticRole::Checkbox);
+  assert_eq!(
+    checkbox.state.checked,
+    Some(if checked {
+      CheckedState::True
+    } else {
+      CheckedState::False
+    })
+  );
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some(&format!("VSync changes: {changes}")))
+  );
+  let second = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Screen shake"))
+    .unwrap();
+  assert_eq!(second.state.checked, Some(CheckedState::True));
 }
 
 fn assert_page(client: &mut FakeClient<ChessUiEngine>, index: usize) {

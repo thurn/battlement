@@ -211,6 +211,7 @@ fn resolved_step(
           role: accessibility_role(assertion.role),
           name: assertion.name.clone(),
           selected: assertion.selected,
+          checked: assertion.checked,
           disabled: assertion.disabled,
           current_page: assertion.current_page,
           parent: assertion.parent.as_ref().map(accessibility_target),

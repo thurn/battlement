@@ -69,3 +69,29 @@ state = "setting_row.static"
 scenario = "setting row"
 checkpoint = "static"
 owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "toggle.initial"
+scenario = "toggle control"
+checkpoint = "initial"
+owner = "tests::checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively"
+
+[[mappings]]
+state = "toggle.changed"
+scenario = "toggle control"
+checkpoint = "changed"
+owner = "tests::checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively"
+
+[[mappings]]
+state = "toggle.reset"
+scenario = "toggle control"
+checkpoint = "reset"
+owner = "tests::checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively"
+
+[[transitions]]
+from = "toggle.initial"
+to = "toggle.changed"
+
+[[transitions]]
+from = "toggle.changed"
+to = "toggle.reset"

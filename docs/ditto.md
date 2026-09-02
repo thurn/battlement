@@ -9,6 +9,10 @@ Ditto runs on Apple silicon macOS. Its targets are native macOS, Unity WebGL,
 and iOS Simulator. The [technical design](ditto-technical-design.md) is the
 normative reference for wire formats, storage transactions, and failure rules.
 
+Semantic assertions can include `checked = true` or `checked = false` for a
+checkbox or switch. Omitting `checked` leaves that state unconstrained; mixed
+and absent checked states do not satisfy either Boolean assertion.
+
 ## Install and inspect
 
 Install either entry point from this checkout:

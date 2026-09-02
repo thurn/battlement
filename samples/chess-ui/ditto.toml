@@ -1145,3 +1145,54 @@ accessibility_assert = { target = { role = "static-text", name = "Borderless" },
 
 [[scenarios.steps]]
 screenshot = { name = "static" }
+
+[[scenarios]]
+name = "toggle control"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Screen shake" }, role = "checkbox", name = "Screen shake", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "VSync" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "VSync changes: 1" }, role = "static-text", name = "VSync changes: 1" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change VSync from parent" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Screen shake" }, role = "checkbox", name = "Screen shake", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "VSync changes: 0" }, role = "static-text", name = "VSync changes: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }

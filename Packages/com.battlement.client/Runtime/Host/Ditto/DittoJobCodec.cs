@@ -185,6 +185,7 @@ namespace Battlement
                 "role",
                 "name",
                 "selected",
+                "checked",
                 "disabled",
                 "current_page",
                 "parent"
@@ -194,6 +195,7 @@ namespace Battlement
                 AccessibilityRole(Field(value, "role")),
                 String(Field(value, "name")),
                 NullableBoolean(Field(value, "selected")),
+                NullableBoolean(Field(value, "checked")),
                 NullableBoolean(Field(value, "disabled")),
                 NullableBoolean(Field(value, "current_page")),
                 value["parent"]!.Type == JTokenType.Null

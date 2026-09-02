@@ -154,7 +154,7 @@ namespace Battlement.Tests
             );
             container.Adapter.Insert(child, 0);
 
-            AssertRect(container.Adapter.SlotFor(child), 39, 20, 20, 10);
+            AssertRect(container.Adapter.SlotFor(child), 34, 17, 32, 13);
         }
 
         [Test]

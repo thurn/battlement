@@ -1,10 +1,13 @@
-use std::{fs, path::Path};
+use std::{
+  env, fs,
+  path::{Path, PathBuf},
+};
 
 use battlement_ditto::coverage_ledger::{self, SampleStatus};
 
 #[test]
 fn repository_report_discovers_every_pending_migration() {
-  let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+  let repository = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../..");
   let report = coverage_ledger::check_repository(&repository).unwrap();
   assert_eq!(
     report
@@ -15,7 +18,7 @@ fn repository_report_discovers_every_pending_migration() {
     vec![
       ("basic", 7, &SampleStatus::Complete),
       ("chess", 17, &SampleStatus::Complete),
-      ("chess-ui", 10, &SampleStatus::Complete),
+      ("chess-ui", 13, &SampleStatus::Complete),
       ("reactant", 48, &SampleStatus::Complete),
       ("tictactoe", 7, &SampleStatus::Complete),
       ("ui", 88, &SampleStatus::Complete),

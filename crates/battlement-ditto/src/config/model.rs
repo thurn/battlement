@@ -182,6 +182,7 @@ pub struct AccessibilityAssertion {
   pub role: AccessibilityRole,
   pub name: String,
   pub selected: Option<bool>,
+  pub checked: Option<bool>,
   pub disabled: Option<bool>,
   pub current_page: Option<bool>,
   pub parent: Option<AccessibilityTarget>,

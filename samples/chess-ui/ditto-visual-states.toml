@@ -47,3 +47,23 @@ screen = "frame"
 [[states]]
 key = "setting_row.static"
 screen = "setting_row"
+
+[[states]]
+key = "toggle.initial"
+screen = "toggle"
+
+[[states]]
+key = "toggle.changed"
+screen = "toggle"
+
+[[states]]
+key = "toggle.reset"
+screen = "toggle"
+
+[[transitions]]
+from = "toggle.initial"
+to = "toggle.changed"
+
+[[transitions]]
+from = "toggle.changed"
+to = "toggle.reset"
