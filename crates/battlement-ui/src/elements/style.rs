@@ -1349,7 +1349,7 @@ pub struct Style {
   /// Main-axis packing and free-space distribution for this container's children.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_content: Prop<StyleValue<Justify>>,
-  /// Additional advance inserted between adjacent glyphs; negative values tighten text.
+  /// Inherited additional logical-pixel advance between glyphs; percentages use font size.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub letter_spacing: Prop<StyleValue<Length>>,
   /// Left offset from normal flow or the containing block, depending on position mode.

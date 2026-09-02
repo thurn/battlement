@@ -208,7 +208,10 @@ fn rust_leases_use_both_legacy_slots_without_overbooking() {
 #[test]
 fn rust_and_python_clients_exclude_each_other() {
   let temporary = TempDir::new().unwrap();
-  let scripts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts");
+  let scripts = PathBuf::from(
+    env::var_os("CARGO_MANIFEST_DIR").expect("Cargo must provide the active manifest directory"),
+  )
+  .join("../../scripts");
   let code = r#"
 import os
 from pathlib import Path

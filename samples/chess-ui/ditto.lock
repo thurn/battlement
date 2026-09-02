@@ -95,11 +95,11 @@ source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
 profile = "design"
 scenario = "setting row"
 checkpoint = "static"
-sha256 = "3eb0e18212da08efea434bb36317c71860725c0ec3e437171e8cf95c585a9841"
+sha256 = "a1ca6a55513a714f83248c3a57f3c45089a51cd7d6dc3389a2659041d06ead07"
 width = 1440
 height = 1584
-size_bytes = 235807
-source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+size_bytes = 235798
+source = "3a774dfdf5e2fa8872249d673386eceba2481d803007651684e48f900679a9a2"
 
 [[baselines]]
 profile = "macos"
@@ -195,8 +195,8 @@ source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 profile = "macos"
 scenario = "setting row"
 checkpoint = "static"
-sha256 = "43803fc5ad395565ddeffade196679d0f2fd7b7fbbb8ca45107117e82b692033"
+sha256 = "28662854d0648d29694d3902bc68c1ef4f5b0d0fbfcce13e05be2077e078f75a"
 width = 1280
 height = 800
-size_bytes = 106660
-source = "d6f9f83f898f9c8550667af83b86e85b2285135f9de137040dae8a99a7db91a1"
+size_bytes = 106731
+source = "3a774dfdf5e2fa8872249d673386eceba2481d803007651684e48f900679a9a2"

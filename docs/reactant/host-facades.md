@@ -38,6 +38,19 @@ public conversions bridge the two authoring models.
 - [Animations implementation plan](animations-implementation-plan.md) treats
   the migration as a completed prerequisite.
 
+## Text spacing
+
+`Style::letter_spacing` inserts additional logical pixels between glyphs. The
+value inherits through containers and remains constant when a descendant changes
+font size or font asset. For example, `.letter_spacing(1.3)` adds 1.3 design pixels
+at both 30px and 60px font sizes. A percentage uses the receiving text host's
+font size: `10.pct()` adds 3px at a 30px font size. Negative values tighten text.
+
+Reset removes the local override and restores inheritance; `Initial` supplies
+zero spacing. Native standard and advanced text generators receive their own
+tracking units from the renderer. Components do not need font sampling metadata.
+Text, accessible names, and host identity are unaffected.
+
 ## Namespace boundary
 
 Concrete native host structs in `battlement-ui` receive a mechanical `Ui`

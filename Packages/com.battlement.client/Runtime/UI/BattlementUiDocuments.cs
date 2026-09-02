@@ -340,6 +340,8 @@ namespace Battlement.UI
         /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
         public void Advance()
         {
+            foreach (Guid root in rootIds)
+                BattlementTextSpacing.Refresh(elements[root]);
             lifecycleEvents.Advance();
             scrollControls.Advance();
             textFieldControls.Advance();

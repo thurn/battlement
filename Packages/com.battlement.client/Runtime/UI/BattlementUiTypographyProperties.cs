@@ -136,11 +136,12 @@ namespace Battlement.UI
         }
 
         public static void ApplyStyle(
-            IStyle target,
+            VisualElement element,
             UiStyle value,
             BattlementUiStyleFontProperties.FontLeases? fonts
         )
         {
+            IStyle target = element.style;
             Apply(
                 value.FontSize,
                 item => target.fontSize = ToUnity(item),
@@ -148,8 +149,8 @@ namespace Battlement.UI
             );
             Apply(
                 value.LetterSpacing,
-                item => target.letterSpacing = ToUnity(item),
-                keyword => target.letterSpacing = keyword
+                item => BattlementTextSpacing.Set(element, ToUnity(item)),
+                keyword => BattlementTextSpacing.Set(element, keyword)
             );
             Apply(
                 value.TextOverflow,

@@ -855,11 +855,11 @@ source = "370e9499ab611650311dcc781312643a55fcbf0a8e1072e9cfff02c38d0a4891"
 profile = "macos"
 scenario = "typography foundation"
 checkpoint = "initial"
-sha256 = "ab9d0f3639098168b08ef8694fae4b9d679478d037af0f11d1d6be89c1c73f41"
+sha256 = "757b4239d56a2573015e0b481c34addc745dfd408108ca20c3ee1cda61de358e"
 width = 1280
 height = 720
-size_bytes = 161788
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 161878
+source = "acb7875602b885caa99682e525c23fe3f4ddf824e6c92dc7ca080927f942905e"
 
 [[baselines]]
 profile = "macos"

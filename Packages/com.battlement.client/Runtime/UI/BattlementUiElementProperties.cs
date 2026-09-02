@@ -422,7 +422,7 @@ namespace Battlement.UI
             if (value is null)
                 return;
             IStyle target = element.style;
-            BattlementUiTypographyProperties.ApplyStyle(target, value, fonts);
+            BattlementUiTypographyProperties.ApplyStyle(element, value, fonts);
             Apply(
                 value.AlignContent,
                 item => target.alignContent = ToUnity(item),

@@ -161,7 +161,7 @@ namespace Battlement.UI
                 ),
                 MotionProperty.LetterSpacing => Change(
                     style.LetterSpacing,
-                    () => target.style.letterSpacing = Keyword(style.LetterSpacing)
+                    () => BattlementTextSpacing.Set(target, Keyword(style.LetterSpacing))
                 ),
                 MotionProperty.Left => Change(
                     style.Left,

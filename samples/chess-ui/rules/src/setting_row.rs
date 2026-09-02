@@ -10,7 +10,6 @@ use battlement_reactant::{
   semantics::{AccessibleName, SemanticProps, SemanticVisibility},
 };
 
-const DISPLAY_FONT_POINT_SIZE: f32 = 90.0;
 const LABEL_FONT_SIZE: f32 = 61.0;
 
 /// Default minimum height of a settings row in portrait design pixels.
@@ -71,7 +70,7 @@ impl Component for SettingRow {
           .color(Color::rgb(245.0 / 255.0, 245.0 / 255.0, 248.0 / 255.0))
           .unity_font_definition(DISPLAY_FONT)
           .font_size(LABEL_FONT_SIZE)
-          .letter_spacing(1.3 * DISPLAY_FONT_POINT_SIZE / LABEL_FONT_SIZE)
+          .letter_spacing(1.3)
           .scale(Scale::new(1.045, 1.0))
           .transform_origin(TransformOrigin::two_dimensional(
             Length::Px(0.0),

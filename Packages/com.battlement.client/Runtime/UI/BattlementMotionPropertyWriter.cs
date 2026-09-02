@@ -360,8 +360,8 @@ namespace Battlement.UI
                 ),
                 MotionProperty.Left => ReadLength(target.style.left, target.resolvedStyle.left),
                 MotionProperty.LetterSpacing => ReadLength(
-                    target.style.letterSpacing,
-                    target.resolvedStyle.letterSpacing
+                    BattlementTextSpacing.ReadStyle(target),
+                    BattlementTextSpacing.ReadPixels(target)
                 ),
                 MotionProperty.MarginBottom => ReadLength(
                     target.style.marginBottom,
@@ -682,7 +682,7 @@ namespace Battlement.UI
             else if (property == MotionProperty.Left)
                 target.style.left = value;
             else if (property == MotionProperty.LetterSpacing)
-                target.style.letterSpacing = value;
+                BattlementTextSpacing.Set(target, value);
             else if (property == MotionProperty.MarginBottom)
                 target.style.marginBottom = value;
             else if (property == MotionProperty.MarginLeft)
