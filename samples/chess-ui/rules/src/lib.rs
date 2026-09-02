@@ -8,9 +8,16 @@ mod gallery;
 pub mod pages;
 mod portrait_harness;
 pub mod portrait_viewport;
+pub mod review_button;
+pub mod review_navigation;
+pub mod review_page;
+pub mod review_panel;
+pub mod review_stage;
+pub mod review_surface;
+pub mod review_text;
+mod review_theme;
 pub mod screen_frame;
 pub mod setting_row;
 mod setting_row_harness;
-mod styles;
 #[cfg(test)]
 mod tests;

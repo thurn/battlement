@@ -1,6 +1,6 @@
 use battlement::application::ApplicationState;
 use battlement::{
-  ActionBody, CameraClearMode, CameraState, ClientMessage, Color, Command, Connect, CoreErrorCode,
+  ActionBody, CameraClearMode, CameraState, ClientMessage, Command, Connect, CoreErrorCode,
   GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PickingMode,
   PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
   UiEventAction, UiEventResponse, object_id, scene_id,
@@ -13,7 +13,9 @@ use battlement_reactant::{
   runtime::{Reactant, ResponseReactantExt},
 };
 
-use crate::{gallery::Gallery, setting_row::DISPLAY_FONT, styles};
+use crate::{
+  gallery::Gallery, review_surface::ReviewSurface, review_theme, setting_row::DISPLAY_FONT,
+};
 
 const CAMERA_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000001");
 const DOCUMENT_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000002");
@@ -39,10 +41,11 @@ struct IdleSpawner;
 
 /// Creates the standalone review gallery.
 pub fn create_engine() -> Result<ChessUiEngine, EngineError> {
-  let document = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
-    .name("chess-ui")
-    .picking_mode(PickingMode::Ignore)
-    .style(styles::root());
+  let document = ReviewSurface::document(
+    UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
+      .name("chess-ui")
+      .picking_mode(PickingMode::Ignore),
+  );
   let mut runtime = Reactant::new(IdleSpawner);
   runtime.register_root(document.clone(), |game: &Game| {
     application::provider(game.application).child(
@@ -145,7 +148,7 @@ impl ChessUiEngine {
           CAMERA_ID,
           CameraState::new()
             .clear_mode(CameraClearMode::SolidColor)
-            .clear_color(Color::rgb(0.035, 0.047, 0.067)),
+            .clear_color(review_theme::BACKGROUND),
         )
         .parent_scene(ParentScene::Persistent),
         GameObject::new(

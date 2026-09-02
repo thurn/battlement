@@ -1,10 +1,16 @@
-use battlement::{CurrentPage, FlexDirection, ScrollViewMode, ScrollerVisibility};
+use battlement::CurrentPage;
 use battlement_reactant::{accessibility_collections as collections, prelude::*};
 
 use crate::{
   engine::Game,
   pages::{self, Page, Registration},
-  styles,
+  review_button::{ReviewButton, ReviewButtonKind},
+  review_navigation::ReviewNavigation,
+  review_page::ReviewPage,
+  review_panel::ReviewPanel,
+  review_stage::ReviewStage,
+  review_surface::ReviewSurface,
+  review_text::{ReviewText, ReviewTextKind},
 };
 
 pub(crate) struct Gallery {
@@ -39,33 +45,22 @@ impl Component for Gallery {
     let scale = ((self.width - 392.0) / 1024.0)
       .min((self.height - 48.0) / 1536.0)
       .clamp(0.0, 1.0);
-    View::new()
-      .name("gallery")
-      .style(styles::gallery())
-      .on_geometry_changed_event(|game: &mut Game, event| {
-        game.width = event.payload().current.width as f32;
-        game.height = event.payload().current.height as f32;
-      })
-      .child((
-        View::new().style(styles::navigation_column()).child((
-          Label::new("CHESS UI").style(styles::brand()),
-          Label::new("40 review pages").style(styles::navigation_caption()),
-          ScrollView::new()
-            .name("review-navigation")
-            .element_ref(scroll.clone())
-            .mode(ScrollViewMode::Vertical)
-            .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
-            .vertical_scroller_visibility(ScrollerVisibility::Auto)
-            .vertical_scroller_style(styles::scrollbar())
-            .vertical_low_button_style(styles::scroll_button())
-            .vertical_high_button_style(styles::scroll_button())
-            .vertical_track_style(styles::scroll_track())
-            .vertical_dragger_style(styles::scroll_thumb())
-            .vertical_dragger_border_style(styles::scroll_thumb())
-            .semantic(collections::use_navigation(text("Chess UI review pages")))
-            .style(styles::navigation_scroll())
-            .content_container_style(styles::navigation_content())
-            .child(
+    ReviewSurface {
+      view: View::new()
+        .name("gallery")
+        .on_geometry_changed_event(|game: &mut Game, event| {
+          game.width = event.payload().current.width as f32;
+          game.height = event.payload().current.height as f32;
+        })
+        .child((
+          ReviewNavigation {
+            title: "CHESS UI".to_owned(),
+            caption: format!("{} review pages", pages::ALL.len()),
+            scroll: ScrollView::new()
+              .name("review-navigation")
+              .element_ref(scroll.clone())
+              .semantic(collections::use_navigation(text("Chess UI review pages"))),
+            children: Node::new(
               pages::ALL
                 .iter()
                 .map(|page| {
@@ -79,28 +74,19 @@ impl Component for Gallery {
                 })
                 .collect::<Vec<_>>(),
             ),
+          },
+          ReviewStage {
+            scale,
+            children: Node::new(
+              PageHarness(Registration {
+                page: &pages::ALL[selection.index],
+                reset_generation: selection.generation,
+              })
+              .key((selection.index, selection.generation)),
+            ),
+          },
         )),
-        Flex::new()
-          .direction(FlexDirection::Column)
-          .style(styles::stage_area())
-          .child(
-            View::new()
-              .name("design-stage-bounds")
-              .style(styles::stage_bounds(scale))
-              .child(
-                View::new()
-                  .name("design-stage")
-                  .style(styles::stage(scale))
-                  .child(
-                    PageHarness(Registration {
-                      page: &pages::ALL[selection.index],
-                      reset_generation: selection.generation,
-                    })
-                    .key((selection.index, selection.generation)),
-                  ),
-              ),
-          ),
-      ))
+    }
   }
 }
 
@@ -131,14 +117,15 @@ impl Component for NavigationItem {
       },
     });
     button.semantic.state.current = selected.then_some(CurrentPage::Page);
-    Button::new(self.page.semantic_target)
-      .element_ref(reference)
-      .name(format!("review-page-{}", self.page.number))
-      .semantic(button.semantic)
-      .focus_props(button.focus)
-      .interaction_props(button.interaction)
-      .style(styles::navigation_item(selected))
-      .while_focus_visible(styles::focus_visible())
+    ReviewButton::new(
+      Button::new(self.page.semantic_target)
+        .element_ref(reference)
+        .name(format!("review-page-{}", self.page.number))
+        .semantic(button.semantic)
+        .focus_props(button.focus)
+        .interaction_props(button.interaction),
+      ReviewButtonKind::Navigation { selected },
+    )
   }
 }
 
@@ -148,30 +135,13 @@ impl Component for PageHarness {
     let focus = heading.clone();
     use_effect(move || focus.focus(), self.0.reset_generation);
     let page = self.0.page;
-    let mut region = collections::use_region(text(page.title));
-    region.name = Some(AccessibleName::LabelledBy(heading.clone()));
-    View::new()
-      .name("page-content")
-      .style(styles::page())
-      .semantic(region)
-      .child((
-        Label::new(format!("REVIEW {:02} / 40", page.number)).style(styles::eyebrow()),
-        Label::new(page.title)
-          .name("page-heading")
-          .element_ref(heading)
-          .semantic(use_heading(text(page.title), 1))
-          .focus_props(FocusProps::new().focusable(true).tab_index(-1))
-          .style(styles::heading())
-          .while_focus_visible(
-            MotionStyle::new()
-              .background_color(battlement::MotionColor::new(0.12, 0.23, 0.28, 1.0)),
-          ),
-        Label::new(page.description)
-          .name("page-description")
-          .semantic(use_static_text(text(page.description)))
-          .style(styles::description()),
-        (page.render_harness)(),
-      ))
+    ReviewPage {
+      eyebrow: format!("REVIEW {:02} / {}", page.number, pages::ALL.len()),
+      title: page.title.to_owned(),
+      description: page.description.to_owned(),
+      heading,
+      children: (page.render_harness)(),
+    }
   }
 }
 
@@ -191,20 +161,30 @@ impl Component for Demonstration {
       is_disabled: false,
       on_press: move |_: &mut Game| set_count.update(|value| value + 1),
     });
-    View::new().style(styles::demonstration()).child((
-      Label::new("One page. A fresh start.").style(styles::demonstration_title()),
-      Label::new("Select a page to explore it. Select it again to reset its demonstration.")
-        .style(styles::description()),
-      Label::new(format!("Changes: {count}"))
-        .name("demonstration-count")
-        .semantic(use_static_text(text(format!("Changes: {count}"))))
-        .style(styles::demonstration_title()),
-      Button::new("Change demonstration")
-        .semantic(button.semantic)
-        .focus_props(button.focus)
-        .interaction_props(button.interaction)
-        .style(styles::action())
-        .while_focus_visible(styles::focus_visible()),
-    ))
+    ReviewPanel {
+      children: Node::new((
+        ReviewText::new(
+          Label::new("One page. A fresh start."),
+          ReviewTextKind::Title,
+        ),
+        ReviewText::new(
+          Label::new("Select a page to explore it. Select it again to reset its demonstration."),
+          ReviewTextKind::Description,
+        ),
+        ReviewText::new(
+          Label::new(format!("Changes: {count}"))
+            .name("demonstration-count")
+            .semantic(use_static_text(text(format!("Changes: {count}")))),
+          ReviewTextKind::Title,
+        ),
+        ReviewButton::new(
+          Button::new("Change demonstration")
+            .semantic(button.semantic)
+            .focus_props(button.focus)
+            .interaction_props(button.interaction),
+          ReviewButtonKind::Action,
+        ),
+      )),
+    }
   }
 }
