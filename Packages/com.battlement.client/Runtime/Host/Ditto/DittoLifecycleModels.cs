@@ -57,6 +57,8 @@ namespace Battlement
         Key,
         Wait,
         Assert,
+        AccessibilityAssert,
+        AccessibilityAction,
         Screenshot,
         Video,
     }

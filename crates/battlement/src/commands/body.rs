@@ -2,10 +2,10 @@ use battlement_cloud::diagnostics::DiagnosticsCommand;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  GameObject, GeometryObservationUpdate, MotionControlOperation, MotionControlledClockOperation,
-  MotionDragControlOperation, MotionPlaybackOperation, MotionScopeOperation, MotionValueOperation,
-  MotionValuePlaybackOperation, ObjectId, VisualElementCreate, VisualElementDestroy,
-  VisualElementPerformAction, VisualElementUpdate,
+  AccessibilityUpdate, GameObject, GeometryObservationUpdate, MotionControlOperation,
+  MotionControlledClockOperation, MotionDragControlOperation, MotionPlaybackOperation,
+  MotionScopeOperation, MotionValueOperation, MotionValuePlaybackOperation, ObjectId,
+  VisualElementCreate, VisualElementDestroy, VisualElementPerformAction, VisualElementUpdate,
 };
 
 use super::*;
@@ -206,6 +206,8 @@ pub enum CommandBody {
   MotionDragControl(MotionDragControlOperation),
   /// Atomically update the native geometry observation registry.
   GeometryObservationUpdate(GeometryObservationUpdate),
+  /// Atomically replace canonical accessibility semantics and submit announcements.
+  AccessibilityUpdate(AccessibilityUpdate),
 }
 
 impl CommandBody {

@@ -167,11 +167,86 @@ namespace Battlement
                 "key" => Key(body),
                 "wait" => new DittoStepAction.Wait(Wait(body)),
                 "assert" => new DittoStepAction.Assert(Condition(body)),
+                "accessibility-assert" => new DittoStepAction.AccessibilityAssert(
+                    AccessibilityAssertion(body)
+                ),
+                "accessibility-action" => AccessibilityActionStep(body),
                 "screenshot" => new DittoStepAction.Screenshot(Screenshot(body)),
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
             };
         }
+
+        private static DittoAccessibilityAssertion AccessibilityAssertion(JObject value)
+        {
+            Exact(value, "target", "role", "name");
+            return new DittoAccessibilityAssertion(
+                AccessibilityTarget(Object(Field(value, "target"), "target")),
+                AccessibilityRole(Field(value, "role")),
+                String(Field(value, "name"))
+            );
+        }
+
+        private static DittoStepAction.AccessibilityAction AccessibilityActionStep(JObject value)
+        {
+            Exact(value, "target", "action");
+            return new DittoStepAction.AccessibilityAction(
+                AccessibilityTarget(Object(Field(value, "target"), "target")),
+                AccessibilityActionValue(Field(value, "action"))
+            );
+        }
+
+        private static DittoAccessibilityTarget AccessibilityTarget(JObject value)
+        {
+            Exact(value, "role", "name");
+            return new DittoAccessibilityTarget(
+                AccessibilityRole(Field(value, "role")),
+                String(Field(value, "name"))
+            );
+        }
+
+        private static SemanticRole AccessibilityRole(JToken value) =>
+            String(value) switch
+            {
+                "button" => SemanticRole.Button,
+                "checkbox" => SemanticRole.Checkbox,
+                "switch" => SemanticRole.Switch,
+                "radio" => SemanticRole.Radio,
+                "radio-group" => SemanticRole.RadioGroup,
+                "slider" => SemanticRole.Slider,
+                "progress" => SemanticRole.Progress,
+                "disclosure" => SemanticRole.Disclosure,
+                "scroll-area" => SemanticRole.ScrollArea,
+                "tab" => SemanticRole.Tab,
+                "tab-list" => SemanticRole.TabList,
+                "tab-panel" => SemanticRole.TabPanel,
+                "dialog" => SemanticRole.Dialog,
+                "heading" => SemanticRole.Heading,
+                "image" => SemanticRole.Image,
+                "static-text" => SemanticRole.StaticText,
+                "group" => SemanticRole.Group,
+                var unknown => throw new JsonSerializationException(
+                    $"Unknown accessibility role {unknown}."
+                ),
+            };
+
+        private static AccessibilityAction AccessibilityActionValue(JToken value) =>
+            String(value) switch
+            {
+                "activate" => new AccessibilityAction.Activate(),
+                "increment" => new AccessibilityAction.Increment(),
+                "decrement" => new AccessibilityAction.Decrement(),
+                "dismiss" => new AccessibilityAction.Dismiss(),
+                "scroll-forward" => new AccessibilityAction.Scroll(
+                    AccessibilityScrollDirection.Forward
+                ),
+                "scroll-backward" => new AccessibilityAction.Scroll(
+                    AccessibilityScrollDirection.Backward
+                ),
+                var unknown => throw new JsonSerializationException(
+                    $"Unknown accessibility action {unknown}."
+                ),
+            };
 
         private static DittoStepAction.Click Click(JObject value)
         {

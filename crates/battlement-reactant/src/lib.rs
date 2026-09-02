@@ -28,7 +28,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod accessibility;
 pub mod animation_controls;
+pub mod announcement;
 pub mod asset_generator;
 mod commit;
 pub mod component;
@@ -92,6 +94,9 @@ mod root_view;
 pub mod runtime;
 mod runtime_document;
 mod runtime_motion;
+mod semantic_projection;
+mod semantic_validation;
+pub mod semantics;
 pub mod suspense;
 mod variant_map;
 

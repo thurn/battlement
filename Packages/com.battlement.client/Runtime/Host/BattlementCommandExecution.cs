@@ -444,6 +444,9 @@ namespace Battlement
                     CommandBody.GeometryObservation geometry => ExecuteUi(() =>
                         updateGeometry(geometry.Value)
                     ),
+                    CommandBody.AccessibilityUpdate accessibility => ExecuteUi(() =>
+                        uiDocuments.Apply(accessibility.Value)
+                    ),
                     CommandBody.Diagnostics diagnostics => ExecuteModule(() =>
                         modules.Execute(diagnostics.Command)
                     ),

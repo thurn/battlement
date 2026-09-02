@@ -142,14 +142,78 @@ pub struct Step {
 /// A supported scenario action.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StepKind {
-  Click { target: InputTarget, settle: bool },
-  Hover { target: InputTarget },
-  Drag { from: InputTarget, to: InputTarget },
-  Key { key: String, action: KeyAction },
+  Click {
+    target: InputTarget,
+    settle: bool,
+  },
+  Hover {
+    target: InputTarget,
+  },
+  Drag {
+    from: InputTarget,
+    to: InputTarget,
+  },
+  Key {
+    key: String,
+    action: KeyAction,
+  },
   Wait(WaitStep),
   Assert(ObjectCondition),
+  AccessibilityAssert(AccessibilityAssertion),
+  AccessibilityAction {
+    target: AccessibilityTarget,
+    action: AccessibilityAction,
+  },
   Screenshot(ScreenshotStep),
   Video(VideoStep),
+}
+
+/// A semantic node selected by role and accessible name.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AccessibilityTarget {
+  pub role: AccessibilityRole,
+  pub name: String,
+}
+
+/// Expected semantic values for one selected node.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AccessibilityAssertion {
+  pub target: AccessibilityTarget,
+  pub role: AccessibilityRole,
+  pub name: String,
+}
+
+/// A role supported by Battlement's accessibility surface.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AccessibilityRole {
+  Button,
+  Checkbox,
+  Switch,
+  Radio,
+  RadioGroup,
+  Slider,
+  Progress,
+  Disclosure,
+  ScrollArea,
+  Tab,
+  TabList,
+  TabPanel,
+  Dialog,
+  Heading,
+  Image,
+  StaticText,
+  Group,
+}
+
+/// A direct action supported by the accessibility callback adapter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AccessibilityAction {
+  Activate,
+  Increment,
+  Decrement,
+  Dismiss,
+  ScrollForward,
+  ScrollBackward,
 }
 
 /// A production input target.

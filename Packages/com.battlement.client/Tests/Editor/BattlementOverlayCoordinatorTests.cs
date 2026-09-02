@@ -159,6 +159,30 @@ namespace Battlement.UI.Tests
             );
         }
 
+        [Test]
+        public void ModalValidationAcceptsAPendingInitialFocusDescendant()
+        {
+            ObjectId wrapper = new(Guid.NewGuid());
+            ObjectId initialFocus = new(Guid.NewGuid());
+            var coordinator = new BattlementOverlayCoordinator(
+                _ => null,
+                _ => 0,
+                (_, _) => false,
+                _ => Array.Empty<VisualElement>()
+            );
+
+            Assert.DoesNotThrow(() =>
+                coordinator.Validate(
+                    wrapper,
+                    new OverlayPlacement.Modal(initialFocus, null),
+                    new BattlementLayoutContainer(BattlementLayoutContainerKind.Stack),
+                    (candidate, ancestor) =>
+                        candidate == initialFocus.Value && ancestor == wrapper.Value,
+                    id => id == initialFocus
+                )
+            );
+        }
+
         private static BattlementPopoverResult Place(PlacementSide side, PlacementAlign align) =>
             BattlementOverlayCoordinator.ResolvePopover(
                 new UnityRect(0, 0, 100, 100),

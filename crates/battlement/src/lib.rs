@@ -18,6 +18,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod accessibility;
 pub mod assets;
 mod command_builders;
 pub mod commands;
@@ -29,6 +30,7 @@ mod object_builders;
 pub mod objects;
 pub mod validation;
 
+pub use accessibility::*;
 pub use assets::*;
 pub use battlement_types::*;
 pub use battlement_ui::*;

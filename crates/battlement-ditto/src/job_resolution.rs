@@ -15,6 +15,7 @@ use crate::{
   },
   selection::{Disposition, Selection},
   wire::job::{
+    AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
     Capability, Command, Comparison, Display, FrameWait, InputTarget, Job, KeyAction, Motion,
     ObjectCondition, ObjectState, Platform, ResolvedProfile, ResolvedScenario, ResolvedStep,
     ScreenshotStep, StepKind, VideoStep, WaitStep,
@@ -204,6 +205,17 @@ fn resolved_step(
       AuthoredStepKind::Assert(condition) => {
         StepKind::Assert(object_condition(condition, aliases)?)
       }
+      AuthoredStepKind::AccessibilityAssert(assertion) => {
+        StepKind::AccessibilityAssert(AccessibilityAssertion {
+          target: accessibility_target(&assertion.target),
+          role: accessibility_role(assertion.role),
+          name: assertion.name.clone(),
+        })
+      }
+      AuthoredStepKind::AccessibilityAction { target, action } => StepKind::AccessibilityAction {
+        target: accessibility_target(target),
+        action: accessibility_action(*action),
+      },
       AuthoredStepKind::Screenshot(screenshot) => StepKind::Screenshot(ScreenshotStep {
         name: screenshot.name.clone(),
         comparison: comparison(&screenshot.comparison),
@@ -220,6 +232,48 @@ fn resolved_step(
       AuthoredStepKind::Video(AuthoredVideoStep::Stop) => StepKind::Video(VideoStep::Stop),
     },
   })
+}
+
+fn accessibility_target(target: &crate::config::model::AccessibilityTarget) -> AccessibilityTarget {
+  AccessibilityTarget {
+    role: accessibility_role(target.role),
+    name: target.name.clone(),
+  }
+}
+
+fn accessibility_role(value: crate::config::model::AccessibilityRole) -> AccessibilityRole {
+  match value {
+    crate::config::model::AccessibilityRole::Button => AccessibilityRole::Button,
+    crate::config::model::AccessibilityRole::Checkbox => AccessibilityRole::Checkbox,
+    crate::config::model::AccessibilityRole::Switch => AccessibilityRole::Switch,
+    crate::config::model::AccessibilityRole::Radio => AccessibilityRole::Radio,
+    crate::config::model::AccessibilityRole::RadioGroup => AccessibilityRole::RadioGroup,
+    crate::config::model::AccessibilityRole::Slider => AccessibilityRole::Slider,
+    crate::config::model::AccessibilityRole::Progress => AccessibilityRole::Progress,
+    crate::config::model::AccessibilityRole::Disclosure => AccessibilityRole::Disclosure,
+    crate::config::model::AccessibilityRole::ScrollArea => AccessibilityRole::ScrollArea,
+    crate::config::model::AccessibilityRole::Tab => AccessibilityRole::Tab,
+    crate::config::model::AccessibilityRole::TabList => AccessibilityRole::TabList,
+    crate::config::model::AccessibilityRole::TabPanel => AccessibilityRole::TabPanel,
+    crate::config::model::AccessibilityRole::Dialog => AccessibilityRole::Dialog,
+    crate::config::model::AccessibilityRole::Heading => AccessibilityRole::Heading,
+    crate::config::model::AccessibilityRole::Image => AccessibilityRole::Image,
+    crate::config::model::AccessibilityRole::StaticText => AccessibilityRole::StaticText,
+    crate::config::model::AccessibilityRole::Group => AccessibilityRole::Group,
+  }
+}
+
+fn accessibility_action(value: crate::config::model::AccessibilityAction) -> AccessibilityAction {
+  match value {
+    crate::config::model::AccessibilityAction::Activate => AccessibilityAction::Activate,
+    crate::config::model::AccessibilityAction::Increment => AccessibilityAction::Increment,
+    crate::config::model::AccessibilityAction::Decrement => AccessibilityAction::Decrement,
+    crate::config::model::AccessibilityAction::Dismiss => AccessibilityAction::Dismiss,
+    crate::config::model::AccessibilityAction::ScrollForward => AccessibilityAction::ScrollForward,
+    crate::config::model::AccessibilityAction::ScrollBackward => {
+      AccessibilityAction::ScrollBackward
+    }
+  }
 }
 
 fn input_target(

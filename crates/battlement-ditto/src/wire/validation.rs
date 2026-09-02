@@ -4,8 +4,8 @@ use anyhow::{Result, ensure};
 use uuid::Uuid;
 
 use crate::wire::job::{
-  Capability, Comparison, Display, InputTarget, Job, KeyAction, Motion, ObjectCondition, Platform,
-  ResolvedScenario, ResolvedStep, StepKind, VideoStep, WaitStep,
+  AccessibilityTarget, Capability, Comparison, Display, InputTarget, Job, KeyAction, Motion,
+  ObjectCondition, Platform, ResolvedScenario, ResolvedStep, StepKind, VideoStep, WaitStep,
 };
 
 pub(super) fn validate_job(job: &Job) -> Result<()> {
@@ -218,6 +218,15 @@ fn validate_step<'a>(
     }
     StepKind::Wait(wait) => wait_step(scenario.motion, wait),
     StepKind::Assert(condition) => object_condition(condition),
+    StepKind::AccessibilityAssert(assertion) => {
+      accessibility_target(&assertion.target)?;
+      ensure!(
+        !assertion.name.trim().is_empty(),
+        "accessible name must not be empty"
+      );
+      Ok(())
+    }
+    StepKind::AccessibilityAction { target, .. } => accessibility_target(target),
     StepKind::Screenshot(screenshot) => {
       capability(job, Capability::Png)?;
       name("screenshot.name", &screenshot.name)?;
@@ -232,6 +241,14 @@ fn validate_step<'a>(
       video_step(video, state)
     }
   }
+}
+
+fn accessibility_target(target: &AccessibilityTarget) -> Result<()> {
+  ensure!(
+    !target.name.trim().is_empty(),
+    "accessible target name must not be empty"
+  );
+  Ok(())
 }
 
 fn capability(job: &Job, required: Capability) -> Result<()> {

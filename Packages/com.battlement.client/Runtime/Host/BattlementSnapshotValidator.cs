@@ -512,7 +512,8 @@ namespace Battlement
 
         private static bool Propagates(UiEventKind kind) =>
             kind
-                is UiEventKind.PointerDown
+                is UiEventKind.AccessibilityAction
+                    or UiEventKind.PointerDown
                     or UiEventKind.PointerMove
                     or UiEventKind.PointerUp
                     or UiEventKind.PointerCancel

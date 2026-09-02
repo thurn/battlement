@@ -52,6 +52,7 @@ use crate::{
   portal::PortalTarget,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
+  semantics::{InteractionProps, SemanticProps},
   variant_map::{VariantData, VariantKey, Variants},
 };
 
@@ -275,6 +276,7 @@ macro_rules! facade {
             element_ref: None,
             portal_target: None,
             motion: MotionProps::new(),
+            semantic: None,
             overlay_reference: None,
           },
         }
@@ -350,6 +352,33 @@ macro_rules! facade {
       #[must_use]
       pub fn inert(mut self, value: bool) -> Self {
         self.state.host.visual_element_mut().inert = Prop::Set(value);
+        self
+      }
+
+      /// Attaches this host's single semantic declaration.
+      #[must_use]
+      pub fn semantic(mut self, value: SemanticProps) -> Self {
+        assert!(
+          self.state.semantic.replace(value).is_none(),
+          "a Reactant host accepts at most one SemanticProps bundle"
+        );
+        self
+      }
+
+      /// Merges ordinary callbacks returned by an accessible behavior hook.
+      #[must_use]
+      pub fn interaction_props<G: 'static>(mut self, value: InteractionProps<G>) -> Self {
+        for handler in value.handlers {
+          assert!(
+            !self
+              .state
+              .handlers
+              .iter()
+              .any(|candidate| candidate.same_slot(&handler)),
+            "duplicate Reactant interaction callback slot"
+          );
+          self.state.handlers.push(handler);
+        }
         self
       }
 

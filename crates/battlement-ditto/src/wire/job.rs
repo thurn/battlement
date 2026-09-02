@@ -132,14 +132,82 @@ pub struct ResolvedStep {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub enum StepKind {
-  Click { target: InputTarget, settle: bool },
-  Hover { target: InputTarget },
-  Drag { from: InputTarget, to: InputTarget },
-  Key { key: String, action: KeyAction },
+  Click {
+    target: InputTarget,
+    settle: bool,
+  },
+  Hover {
+    target: InputTarget,
+  },
+  Drag {
+    from: InputTarget,
+    to: InputTarget,
+  },
+  Key {
+    key: String,
+    action: KeyAction,
+  },
   Wait(WaitStep),
   Assert(ObjectCondition),
+  AccessibilityAssert(AccessibilityAssertion),
+  AccessibilityAction {
+    target: AccessibilityTarget,
+    action: AccessibilityAction,
+  },
   Screenshot(ScreenshotStep),
   Video(VideoStep),
+}
+
+/// A semantic node selected by role and accessible name.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccessibilityTarget {
+  pub role: AccessibilityRole,
+  pub name: String,
+}
+
+/// Expected semantic values for one selected node.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccessibilityAssertion {
+  pub target: AccessibilityTarget,
+  pub role: AccessibilityRole,
+  pub name: String,
+}
+
+/// A role supported by the runtime semantic mirror.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AccessibilityRole {
+  Button,
+  Checkbox,
+  Switch,
+  Radio,
+  RadioGroup,
+  Slider,
+  Progress,
+  Disclosure,
+  ScrollArea,
+  Tab,
+  TabList,
+  TabPanel,
+  Dialog,
+  Heading,
+  Image,
+  StaticText,
+  Group,
+}
+
+/// A direct action supported by the runtime callback adapter.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AccessibilityAction {
+  Activate,
+  Increment,
+  Decrement,
+  Dismiss,
+  ScrollForward,
+  ScrollBackward,
 }
 
 /// An object UUID or normalized render coordinate.

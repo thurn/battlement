@@ -117,10 +117,26 @@ namespace Battlement
 
         internal sealed record Assert(DittoObjectCondition Condition) : DittoStepAction;
 
+        internal sealed record AccessibilityAssert(DittoAccessibilityAssertion Value)
+            : DittoStepAction;
+
+        internal sealed record AccessibilityAction(
+            DittoAccessibilityTarget Target,
+            global::Battlement.AccessibilityAction Action
+        ) : DittoStepAction;
+
         internal sealed record Screenshot(DittoScreenshot Value) : DittoStepAction;
 
         internal sealed record Video(DittoVideo Value) : DittoStepAction;
     }
+
+    internal sealed record DittoAccessibilityTarget(SemanticRole Role, string Name);
+
+    internal sealed record DittoAccessibilityAssertion(
+        DittoAccessibilityTarget Target,
+        SemanticRole Role,
+        string Name
+    );
 
     internal abstract record DittoInputTarget
     {

@@ -153,8 +153,65 @@ pub(super) struct RawStep {
   pub wait: Option<RawWait>,
   #[serde(rename = "assert")]
   pub assertion: Option<RawCondition>,
+  pub accessibility_assert: Option<RawAccessibilityAssertion>,
+  pub accessibility_action: Option<RawAccessibilityActionStep>,
   pub screenshot: Option<RawScreenshot>,
   pub video: Option<RawVideo>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawAccessibilityTarget {
+  pub role: RawAccessibilityRole,
+  pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawAccessibilityAssertion {
+  pub target: RawAccessibilityTarget,
+  pub role: RawAccessibilityRole,
+  pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawAccessibilityActionStep {
+  pub target: RawAccessibilityTarget,
+  pub action: RawAccessibilityAction,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum RawAccessibilityRole {
+  Button,
+  Checkbox,
+  Switch,
+  Radio,
+  RadioGroup,
+  Slider,
+  Progress,
+  Disclosure,
+  ScrollArea,
+  Tab,
+  TabList,
+  TabPanel,
+  Dialog,
+  Heading,
+  Image,
+  StaticText,
+  Group,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum RawAccessibilityAction {
+  Activate,
+  Increment,
+  Decrement,
+  Dismiss,
+  ScrollForward,
+  ScrollBackward,
 }
 
 #[derive(Debug, Deserialize)]

@@ -106,6 +106,43 @@ namespace Battlement
             return Present(condition.State, exists, visible, id);
         }
 
+        public DittoConditionResult Evaluate(DittoAccessibilityAssertion assertion)
+        {
+            AccessibilityNodeSnapshot[] matches = AccessibilityMatches(assertion.Target);
+            if (matches.Length != 1)
+            {
+                return new DittoConditionResult(
+                    false,
+                    true,
+                    $"Accessibility target matched {matches.Length} nodes."
+                );
+            }
+            AccessibilityNodeSnapshot node = matches[0];
+            bool matched =
+                node.Role == assertion.Role
+                && string.Equals(node.Label, assertion.Name, StringComparison.Ordinal);
+            return new DittoConditionResult(
+                matched,
+                true,
+                matched ? null : "Accessibility assertion failed."
+            );
+        }
+
+        public bool AccessibilityAction(DittoAccessibilityTarget target, AccessibilityAction action)
+        {
+            AccessibilityNodeSnapshot[] matches = AccessibilityMatches(target);
+            return matches.Length == 1
+                && documents.DispatchAccessibility(matches[0].ObjectId, action);
+        }
+
+        private AccessibilityNodeSnapshot[] AccessibilityMatches(DittoAccessibilityTarget target) =>
+            documents
+                .ActiveAccessibility.Where(node =>
+                    node.Role == target.Role
+                    && string.Equals(node.Label, target.Name, StringComparison.Ordinal)
+                )
+                .ToArray();
+
         public DittoInputResolution Resolve(DittoInputTarget target)
         {
             if (target is DittoInputTarget.Coordinates coordinates)

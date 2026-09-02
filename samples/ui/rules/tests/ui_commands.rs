@@ -1743,14 +1743,21 @@ fn enum_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> 
     .expect("authoritative enum declaration must exist")
     .1;
   let mut depth = 1_i32;
+  let mut hidden = false;
   let mut values = Vec::new();
   for line in source.lines() {
     let candidate = line.trim_start();
+    if depth == 1 && candidate == "#[doc(hidden)]" {
+      hidden = true;
+    }
     if depth == 1 && candidate.starts_with(char::is_uppercase) {
       let end = candidate
         .find(|character: char| !character.is_alphanumeric())
         .unwrap_or(candidate.len());
-      values.push(&candidate[..end]);
+      if !hidden {
+        values.push(&candidate[..end]);
+      }
+      hidden = false;
     }
     depth += line.matches('{').count() as i32;
     depth -= line.matches('}').count() as i32;

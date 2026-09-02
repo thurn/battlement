@@ -5,12 +5,14 @@ use uuid::Uuid;
 use crate::config::{
   diagnostic::{ConfigError, invalid},
   model::{
+    AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
     InputTarget, KeyAction, Motion, ObjectCondition, ObjectState, Scenario, ScreenshotStep, Step,
     StepKind, VideoStep, WaitStep,
   },
   raw::{
-    RawComparison, RawCondition, RawInputTarget, RawKeyAction, RawMotion, RawObjectState,
-    RawScenario, RawStep, RawVideo, RawVideoAction, RawWait,
+    RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
+    RawCondition, RawInputTarget, RawKeyAction, RawMotion, RawObjectState, RawScenario, RawStep,
+    RawVideo, RawVideoAction, RawWait,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -164,6 +166,8 @@ fn step_value(
     raw.key.is_some(),
     raw.wait.is_some(),
     raw.assertion.is_some(),
+    raw.accessibility_assert.is_some(),
+    raw.accessibility_action.is_some(),
     raw.screenshot.is_some(),
     raw.video.is_some(),
   ]
@@ -198,6 +202,21 @@ fn step_value(
     StepKind::Wait(wait_step(validation, &key, scenario_motion, wait)?)
   } else if let Some(assertion) = raw.assertion.take() {
     StepKind::Assert(condition(validation, &format!("{key}.assert"), assertion)?)
+  } else if let Some(assertion) = raw.accessibility_assert.take() {
+    StepKind::AccessibilityAssert(AccessibilityAssertion {
+      target: accessibility_target(validation, &key, assertion.target)?,
+      role: accessibility_role(assertion.role),
+      name: required_accessible_name(
+        validation,
+        &format!("{key}.accessibility_assert.name"),
+        assertion.name,
+      )?,
+    })
+  } else if let Some(action) = raw.accessibility_action.take() {
+    StepKind::AccessibilityAction {
+      target: accessibility_target(validation, &key, action.target)?,
+      action: accessibility_action(action.action),
+    }
   } else if let Some(screenshot) = raw.screenshot.take() {
     name(
       validation.path,
@@ -239,6 +258,66 @@ fn step_value(
     timeout,
     action,
   })
+}
+
+fn accessibility_target(
+  validation: &Validation<'_>,
+  key: &str,
+  target: RawAccessibilityTarget,
+) -> Result<AccessibilityTarget, ConfigError> {
+  Ok(AccessibilityTarget {
+    role: accessibility_role(target.role),
+    name: required_accessible_name(validation, &format!("{key}.target.name"), target.name)?,
+  })
+}
+
+fn required_accessible_name(
+  validation: &Validation<'_>,
+  key: &str,
+  value: String,
+) -> Result<String, ConfigError> {
+  if value.trim().is_empty() {
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      key,
+      "accessible name must not be empty",
+    ));
+  }
+  Ok(value)
+}
+
+fn accessibility_role(value: RawAccessibilityRole) -> AccessibilityRole {
+  match value {
+    RawAccessibilityRole::Button => AccessibilityRole::Button,
+    RawAccessibilityRole::Checkbox => AccessibilityRole::Checkbox,
+    RawAccessibilityRole::Switch => AccessibilityRole::Switch,
+    RawAccessibilityRole::Radio => AccessibilityRole::Radio,
+    RawAccessibilityRole::RadioGroup => AccessibilityRole::RadioGroup,
+    RawAccessibilityRole::Slider => AccessibilityRole::Slider,
+    RawAccessibilityRole::Progress => AccessibilityRole::Progress,
+    RawAccessibilityRole::Disclosure => AccessibilityRole::Disclosure,
+    RawAccessibilityRole::ScrollArea => AccessibilityRole::ScrollArea,
+    RawAccessibilityRole::Tab => AccessibilityRole::Tab,
+    RawAccessibilityRole::TabList => AccessibilityRole::TabList,
+    RawAccessibilityRole::TabPanel => AccessibilityRole::TabPanel,
+    RawAccessibilityRole::Dialog => AccessibilityRole::Dialog,
+    RawAccessibilityRole::Heading => AccessibilityRole::Heading,
+    RawAccessibilityRole::Image => AccessibilityRole::Image,
+    RawAccessibilityRole::StaticText => AccessibilityRole::StaticText,
+    RawAccessibilityRole::Group => AccessibilityRole::Group,
+  }
+}
+
+fn accessibility_action(value: RawAccessibilityAction) -> AccessibilityAction {
+  match value {
+    RawAccessibilityAction::Activate => AccessibilityAction::Activate,
+    RawAccessibilityAction::Increment => AccessibilityAction::Increment,
+    RawAccessibilityAction::Decrement => AccessibilityAction::Decrement,
+    RawAccessibilityAction::Dismiss => AccessibilityAction::Dismiss,
+    RawAccessibilityAction::ScrollForward => AccessibilityAction::ScrollForward,
+    RawAccessibilityAction::ScrollBackward => AccessibilityAction::ScrollBackward,
+  }
 }
 
 fn input_target(

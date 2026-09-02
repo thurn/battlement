@@ -60,6 +60,7 @@ namespace Battlement
     /// <summary>UI event kinds that Rust-authored elements can request.</summary>
     public enum UiEventKind
     {
+        AccessibilityAction,
         PointerDown,
         PointerMove,
         PointerUp,
@@ -151,6 +152,8 @@ namespace Battlement
     {
         private UiEventBody() { }
 
+        public sealed record AccessibilityAction(AccessibilityActionEvent Value) : UiEventBody;
+
         public sealed record PointerDown(UiPointerButtonEvent Value) : UiEventBody;
 
         public sealed record PointerMove(UiPointerMoveEvent Value) : UiEventBody;
@@ -229,6 +232,30 @@ namespace Battlement
 
         public sealed record TabReorderRequested(TabReorderEvent Value) : UiEventBody;
     }
+
+    /// <summary>Normalized direct accessibility action sent to Rust.</summary>
+    public abstract record UiAccessibilityAction
+    {
+        private UiAccessibilityAction() { }
+
+        public sealed record Activate : UiAccessibilityAction;
+
+        public sealed record Increment : UiAccessibilityAction;
+
+        public sealed record Decrement : UiAccessibilityAction;
+
+        public sealed record Dismiss : UiAccessibilityAction;
+
+        public sealed record ScrollForward : UiAccessibilityAction;
+
+        public sealed record ScrollBackward : UiAccessibilityAction;
+    }
+
+    /// <summary>Backend generation and normalized direct action.</summary>
+    public sealed record AccessibilityActionEvent(
+        ulong BackendGeneration,
+        UiAccessibilityAction Action
+    );
 
     /// <summary>Native pointer-device category.</summary>
     public enum UiPointerType

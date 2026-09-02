@@ -10,11 +10,13 @@ use std::{
 };
 
 use battlement::{
-  self, ActionId, CommandBody, GeometryGeneration, GeometryObservationBatch, MotionEventBatch,
-  MotionSequence, ObjectId, UiDocument, UiEvent, UiEventDisposition,
+  self, AccessibilitySnapshot, AccessibilityUpdate, ActionId, CommandBody, GeometryGeneration,
+  GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId, UiDocument, UiEvent,
+  UiEventDisposition,
 };
 
 use crate::{
+  announcement,
   commit::DeliveryReceipt,
   context,
   effect::EffectOperation,
@@ -35,7 +37,7 @@ use crate::{
   resource_cache::{FrozenCompletions, PanicPayload},
   resource_runtime::ResourceRuntime,
   root_view::RootRegistration,
-  runtime_document, runtime_motion,
+  runtime_document, runtime_motion, semantic_projection,
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -135,6 +137,8 @@ pub struct Reactant<G: 'static> {
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
   last_motion_sequence: Option<MotionSequence>,
+  semantic_commit_sequence: u64,
+  last_accessibility: Option<AccessibilitySnapshot>,
   pub(crate) resources: Rc<ResourceRuntime>,
 }
 
@@ -158,6 +162,8 @@ impl<G: 'static> Reactant<G> {
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
       last_motion_sequence: None,
+      semantic_commit_sequence: 0,
+      last_accessibility: None,
       resources: ResourceRuntime::new(spawner),
     }
   }
@@ -602,20 +608,51 @@ impl<G: 'static> Reactant<G> {
           .borrow()
           .command_groups(frozen_motion_commands),
       );
-      Ok((rendered, groups, attachments, geometry))
+      let accessibility = semantic_projection::build(
+        &rendered,
+        self.runtime_id,
+        &attachments,
+        self.semantic_commit_sequence + 1,
+      );
+      let accessibility_changed = self
+        .last_accessibility
+        .as_ref()
+        .map_or(!accessibility.nodes.is_empty(), |previous| {
+          !same_accessibility(previous, &accessibility)
+        });
+      Ok((
+        rendered,
+        groups,
+        attachments,
+        geometry,
+        accessibility,
+        accessibility_changed,
+      ))
     }));
-    let (mut rendered, groups, attachments, geometry) = match planned {
-      Ok(Ok(value)) => value,
-      Ok(Err(error)) => return Err(error),
-      Err(payload) => {
-        self.state = RuntimeState::Poisoned;
-        panic::resume_unwind(payload);
-      }
-    };
+    let (mut rendered, mut groups, attachments, geometry, accessibility, accessibility_changed) =
+      match planned {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => return Err(error),
+        Err(payload) => {
+          self.state = RuntimeState::Poisoned;
+          panic::resume_unwind(payload);
+        }
+      };
     if geometry.generation() != rendered_generation {
       let preview = self.geometry.borrow().preview(&geometry);
       let _geometry_runtime = geometry::enter_preview(&preview, &self.geometry);
       return self.render_geometry(game, geometry.generation(), retry + 1, resources);
+    }
+    let announcements = announcement::take();
+    let sent_accessibility = accessibility_changed || !announcements.is_empty();
+    let next_accessibility = (!accessibility.nodes.is_empty()).then(|| accessibility.clone());
+    if sent_accessibility {
+      groups.push(vec![CommandBody::AccessibilityUpdate(
+        AccessibilityUpdate {
+          snapshot: accessibility_changed.then_some(accessibility),
+          announcements,
+        },
+      )]);
     }
     if let Some(resources) = &mut resources {
       self.apply_resources_transaction(resources);
@@ -628,6 +665,10 @@ impl<G: 'static> Reactant<G> {
       frozen_actions,
       frozen_motion_commands,
     );
+    if accessibility_changed {
+      self.semantic_commit_sequence += 1;
+      self.last_accessibility = next_accessibility;
+    }
     Ok(self.create_commit(groups))
   }
 
@@ -1040,6 +1081,10 @@ impl<G: 'static> Drop for Reactant<G> {
   }
 }
 
+fn same_accessibility(previous: &AccessibilitySnapshot, current: &AccessibilitySnapshot) -> bool {
+  previous.roots == current.roots && previous.nodes == current.nodes
+}
+
 pub(crate) trait SessionRuntime {
   fn commit_session(
     &mut self,
@@ -1068,6 +1113,12 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       FrozenResources::from_frozen(Rc::clone(&self.resources), resource_completions);
     let mut geometry = Some(geometry);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      let accessibility = semantic_projection::build(
+        committed,
+        self.runtime_id,
+        &attachments,
+        self.semantic_commit_sequence + 1,
+      );
       self.install_rendered(committed, attachments, true);
       self
         .element_refs
@@ -1077,11 +1128,25 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         .external_portals
         .commit(external.take().expect("external session is committed once"));
       let geometry = geometry.take().expect("geometry session is committed once");
-      let groups = geometry.command_groups(groups);
+      let mut groups = geometry.command_groups(groups);
+      let has_accessibility = !accessibility.nodes.is_empty();
+      if has_accessibility {
+        groups.push(vec![CommandBody::AccessibilityUpdate(
+          AccessibilityUpdate {
+            snapshot: Some(accessibility.clone()),
+            announcements: Vec::new(),
+          },
+        )]);
+      }
+      let _discarded_announcements = announcement::take();
       self.geometry.borrow_mut().commit(geometry);
       self.apply_resources_transaction(&mut resources);
       self.last_motion_sequence = None;
       self.state = RuntimeState::Active;
+      if has_accessibility {
+        self.semantic_commit_sequence += 1;
+      }
+      self.last_accessibility = has_accessibility.then_some(accessibility);
       groups
     }));
     match completed {

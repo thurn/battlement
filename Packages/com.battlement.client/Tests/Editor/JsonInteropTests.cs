@@ -584,6 +584,32 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void AccessibilityScrollActionsUseTheNormalizedUiEventShape()
+        {
+            byte[] bytes = BattlementJson.SerializeUiEventAction(
+                new UiEventAction(
+                    new ActionId(JSONFixtureData.GuidAt(442)),
+                    new SessionId(JSONFixtureData.SessionGuid),
+                    new UiEvent(
+                        new ObjectId(JSONFixtureData.GuidAt(443)),
+                        new UiEventBody.AccessibilityAction(
+                            new AccessibilityActionEvent(
+                                7,
+                                new UiAccessibilityAction.ScrollForward()
+                            )
+                        )
+                    )
+                )
+            );
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
+
+            Assert.That(
+                root.SelectToken("event.body.AccessibilityAction.action"),
+                Is.EqualTo(new JValue("ScrollForward"))
+            );
+        }
+
+        [Test]
         public void MalformedInputIsRejected()
         {
             byte[] connect = BattlementJson.SerializeConnect(JSONFixtureData.Connect());

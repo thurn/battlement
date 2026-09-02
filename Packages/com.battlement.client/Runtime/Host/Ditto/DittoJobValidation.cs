@@ -194,6 +194,16 @@ namespace Battlement
                 case DittoStepAction.Assert assertion:
                     Identifier("object condition", assertion.Condition.Object);
                     break;
+                case DittoStepAction.AccessibilityAssert assertion:
+                    AccessibilityTarget(assertion.Value.Target);
+                    Require(
+                        !string.IsNullOrWhiteSpace(assertion.Value.Name),
+                        "accessible name must not be empty"
+                    );
+                    break;
+                case DittoStepAction.AccessibilityAction action:
+                    AccessibilityTarget(action.Target);
+                    break;
                 case DittoStepAction.Screenshot screenshot:
                     Capability(job, DittoCapability.Png);
                     Screenshot(screenshot.Value, state);
@@ -206,6 +216,12 @@ namespace Battlement
                     throw new JsonSerializationException("Unknown Ditto step action.");
             }
         }
+
+        private static void AccessibilityTarget(DittoAccessibilityTarget target) =>
+            Require(
+                !string.IsNullOrWhiteSpace(target.Name),
+                "accessible target name must not be empty"
+            );
 
         private static void Capability(DittoJob job, DittoCapability required) =>
             Require(

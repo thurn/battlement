@@ -167,6 +167,9 @@ impl KeyModifiers {
 /// unsubscribed events remain entirely inside Unity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UiEventKind {
+  /// A direct action from the active accessibility backend.
+  #[doc(hidden)]
+  AccessibilityAction,
   /// A pointer button was pressed.
   PointerDown,
   /// A pointer moved over the panel.
@@ -258,7 +261,8 @@ impl UiEventKind {
   pub const fn propagates(self) -> bool {
     matches!(
       self,
-      Self::PointerDown
+      Self::AccessibilityAction
+        | Self::PointerDown
         | Self::PointerMove
         | Self::PointerUp
         | Self::PointerCancel
@@ -371,6 +375,7 @@ impl UiEvent {
   #[must_use]
   pub const fn kind(&self) -> UiEventKind {
     match self.body {
+      UiEventBody::AccessibilityAction(_) => UiEventKind::AccessibilityAction,
       UiEventBody::PointerDown(_) => UiEventKind::PointerDown,
       UiEventBody::PointerMove(_) => UiEventKind::PointerMove,
       UiEventBody::PointerUp(_) => UiEventKind::PointerUp,
@@ -417,6 +422,8 @@ impl UiEvent {
 /// Payloads for the native UI event families supported by Battlement.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum UiEventBody {
+  /// Direct action from the active accessibility backend.
+  AccessibilityAction(UiAccessibilityActionEvent),
   /// Pointer-button press metadata.
   PointerDown(PointerButtonEvent),
   /// Pointer-motion metadata.
@@ -495,6 +502,32 @@ pub enum UiEventBody {
   TabCloseRequested(TabCloseEvent),
   /// Proposed controlled reorder in a tab view.
   TabReorderRequested(TabReorderEvent),
+}
+
+/// One normalized direct accessibility action.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum UiAccessibilityAction {
+  /// Invoke the target.
+  Activate,
+  /// Increment a range.
+  Increment,
+  /// Decrement a range.
+  Decrement,
+  /// Dismiss a dialog.
+  Dismiss,
+  /// Increase a logical scroll offset.
+  ScrollForward,
+  /// Decrease a logical scroll offset.
+  ScrollBackward,
+}
+
+/// Backend generation and normalized action for one semantic callback.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UiAccessibilityActionEvent {
+  /// Live backend generation.
+  pub backend_generation: u64,
+  /// Direct action.
+  pub action: UiAccessibilityAction,
 }
 
 /// Proposed active-tab change reported by a controlled tab view.

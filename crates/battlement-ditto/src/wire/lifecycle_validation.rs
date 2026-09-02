@@ -280,6 +280,8 @@ pub(super) fn step_name(kind: &StepKind) -> StepName {
     StepKind::Key { .. } => StepName::Key,
     StepKind::Wait(_) => StepName::Wait,
     StepKind::Assert(_) => StepName::Assert,
+    StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
+    StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

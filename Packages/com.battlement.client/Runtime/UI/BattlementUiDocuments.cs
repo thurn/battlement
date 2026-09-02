@@ -30,6 +30,7 @@ namespace Battlement.UI
         private readonly BattlementStickyCoordinator stickyCoordinator = new();
         private readonly BattlementOverlayCoordinator overlayCoordinator;
         private readonly BattlementFocusCoordinator focusCoordinator;
+        private readonly BattlementAccessibilityManager accessibility;
         private readonly BattlementPresentationLayout presentationLayout;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiActions actions;
@@ -103,6 +104,13 @@ namespace Battlement.UI
             );
             focusCoordinator.SetModalResolver(overlayCoordinator.ActiveModal);
             events.SetInertPredicate(focusCoordinator.IsEffectivelyInert);
+            accessibility = new BattlementAccessibilityManager(
+                emitUiEvent,
+                id => elements.TryGetValue(id, out VisualElement value) ? value : null,
+                element => elementIds.TryGetValue(element, out Guid id) ? id : null,
+                focusCoordinator.IsEffectivelyInert,
+                focusCoordinator.ActiveModal
+            );
             presentationLayout = new BattlementPresentationLayout(
                 stickyCoordinator,
                 overlayCoordinator
@@ -166,6 +174,7 @@ namespace Battlement.UI
                 stickyCoordinator.Clear();
                 overlayCoordinator.Clear();
                 focusCoordinator.Clear();
+                accessibility.Clear(reconnect: preserveMotion);
                 foreach (VisualElement root in previousRoots)
                     root.Clear();
                 elements.Clear();
@@ -211,6 +220,7 @@ namespace Battlement.UI
                 }
                 RefreshOverlayOrdinals();
                 focusCoordinator.Refresh();
+                accessibility.Refresh();
                 lifecycleEvents.SetInputEnabled(true);
                 if (preserveMotion)
                     motionWorld.EndReconnect();
@@ -255,6 +265,16 @@ namespace Battlement.UI
         internal IEnumerable<UIDocument> InputDocuments => rootDocuments.Values;
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
+
+        internal BattlementAccessibilityManager AccessibilityForTests => accessibility;
+
+        internal IReadOnlyCollection<AccessibilityNodeSnapshot> ActiveAccessibility =>
+            accessibility.Active;
+
+        internal bool DispatchAccessibility(ObjectId target, AccessibilityAction action) =>
+            accessibility.Dispatch(
+                new AccessibilityEvent(accessibility.Generation, target, action)
+            );
 
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
         public BattlementMotionPerformanceSnapshot MotionPerformance => motionWorld.Performance;
@@ -344,9 +364,19 @@ namespace Battlement.UI
             actions.CancelAll(elements);
         }
 
-        internal void BeginCommit() => focusCoordinator.BeginCommit();
+        internal void BeginCommit()
+        {
+            accessibility.Suspend();
+            focusCoordinator.BeginCommit();
+        }
 
-        internal void EndCommit() => focusCoordinator.EndCommit();
+        internal void EndCommit()
+        {
+            focusCoordinator.EndCommit();
+            accessibility.Resume();
+        }
+
+        internal void Apply(AccessibilityUpdatePayload update) => accessibility.Apply(update);
 
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
@@ -357,6 +387,7 @@ namespace Battlement.UI
             stickyCoordinator.Clear();
             overlayCoordinator.Clear();
             focusCoordinator.Clear();
+            accessibility.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
             elementIds.Clear();
@@ -382,6 +413,7 @@ namespace Battlement.UI
         public void Dispose()
         {
             Clear();
+            accessibility.Dispose();
             motionWorld.Dispose();
         }
 
@@ -391,7 +423,6 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement parent = Require(command.ParentId);
             RequireContainer(parent, command.ParentId);
             ValidatePlacement(command.Node.Element, parent);
-            ValidateOverlayPlacement(command.Node.ObjectId, command.Node.Element, parent);
             ValidateOverlayContexts(
                 command.Node,
                 parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack }
@@ -412,6 +443,12 @@ namespace Battlement.UI
 
             var ids = new HashSet<Guid>();
             ValidateDetached(command.Node, ids, 0);
+            ValidateOverlayPlacement(
+                command.Node.ObjectId,
+                command.Node.Element,
+                parent,
+                command.Node
+            );
             int parentDepth = DepthOf(command.ParentId.Value);
             if (parentDepth + SubtreeDepth(command.Node) + 1 > MaximumHierarchyDepth)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
@@ -458,7 +495,11 @@ namespace Battlement.UI
                 case VisualElementUpdate.Properties properties:
                 {
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
-                    RequireElementKind(target, properties.Element, properties.ObjectId);
+                    bool genericRootUpdate =
+                        rootIds.Contains(properties.ObjectId.Value)
+                        && properties.Element is UiElement.VisualElement;
+                    if (!genericRootUpdate)
+                        RequireElementKind(target, properties.Element, properties.ObjectId);
                     ValidateLayoutUpdate(target, properties.Element);
                     ValidateStickyUpdate(target, properties.ObjectId, properties.Element);
                     ValidateOverlayUpdate(target, properties.ObjectId, properties.Element);
@@ -1190,7 +1231,8 @@ namespace Battlement.UI
         private void ValidateOverlayPlacement(
             ObjectId objectId,
             UiElement element,
-            UnityEngine.UIElements.VisualElement parent
+            UnityEngine.UIElements.VisualElement parent,
+            UiNode? pendingTree = null
         )
         {
             if (!element.OverlayPlacement.IsSet)
@@ -1200,8 +1242,43 @@ namespace Battlement.UI
                 objectId,
                 element.OverlayPlacement.Value,
                 parent,
-                IsDescendant
+                (candidate, ancestor) =>
+                    pendingTree is not null && ContainsDetached(pendingTree, ancestor)
+                        ? IsDetachedDescendant(pendingTree, candidate, ancestor)
+                        : IsDescendant(candidate, ancestor),
+                id => pendingTree is not null && ContainsDetached(pendingTree, id.Value)
             );
+        }
+
+        private static bool ContainsDetached(UiNode node, Guid candidate)
+        {
+            if (node.ObjectId.Value == candidate)
+                return true;
+            foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+            {
+                if (ContainsDetached(child, candidate))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsDetachedDescendant(UiNode node, Guid candidate, Guid ancestor)
+        {
+            if (node.ObjectId.Value == ancestor)
+            {
+                foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+                {
+                    if (ContainsDetached(child, candidate))
+                        return true;
+                }
+                return false;
+            }
+            foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+            {
+                if (IsDetachedDescendant(child, candidate, ancestor))
+                    return true;
+            }
+            return false;
         }
 
         private void ValidateOverlayUpdate(

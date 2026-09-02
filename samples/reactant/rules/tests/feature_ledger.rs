@@ -3,6 +3,10 @@ use std::collections::BTreeSet;
 const LEDGER: &str = include_str!("../../../../docs/reactant/feature-ledger.md");
 const LIBRARY: &str = include_str!("../../../../crates/battlement-reactant/src/lib.rs");
 const PROOF_SOURCES: &[(&str, &str)] = &[
+  (
+    "accessibility.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/accessibility.rs"),
+  ),
   ("composition.rs", include_str!("composition.rs")),
   (
     "element_refs.rs",

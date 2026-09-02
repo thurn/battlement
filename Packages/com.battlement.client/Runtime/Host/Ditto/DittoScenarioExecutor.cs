@@ -386,6 +386,26 @@ namespace Battlement
                 case DittoStepAction.Assert assertion:
                     Assert(step, assertion.Condition);
                     break;
+                case DittoStepAction.AccessibilityAssert assertion:
+                    AccessibilityAssert(step, assertion.Value);
+                    break;
+                case DittoStepAction.AccessibilityAction action:
+                    presentationReady = false;
+                    if (targets.AccessibilityAction(action.Target, action.Action))
+                    {
+                        motion.RestartQuietWindow();
+                        phase = Phase.Settle;
+                        phaseStarted = now();
+                    }
+                    else
+                    {
+                        FailStep(
+                            step,
+                            DittoErrorCode.InputUnreachable,
+                            "Accessibility target or action is unavailable."
+                        );
+                    }
+                    break;
                 case DittoStepAction.Screenshot:
                     if (presentationReady)
                     {
@@ -545,6 +565,26 @@ namespace Battlement
             else
             {
                 FinishStep(step, DittoStepStatus.Passed, null, null, assertion, null);
+            }
+        }
+
+        private void AccessibilityAssert(
+            DittoResolvedStep step,
+            DittoAccessibilityAssertion assertion
+        )
+        {
+            DittoConditionResult observed = targets.Evaluate(assertion);
+            if (!observed.Matches)
+            {
+                FailStep(
+                    step,
+                    DittoErrorCode.AssertionFailed,
+                    observed.Diagnostic ?? "Accessibility assertion failed."
+                );
+            }
+            else
+            {
+                PassStep(step);
             }
         }
 

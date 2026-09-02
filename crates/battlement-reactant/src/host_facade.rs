@@ -16,6 +16,7 @@ use crate::{
   portal::PortalTarget,
   render::{Node, RenderSink},
   render_value::Sealed,
+  semantics::SemanticProps,
 };
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub(crate) struct HostState<H> {
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) motion: MotionProps,
+  pub(crate) semantic: Option<SemanticProps>,
   pub(crate) overlay_reference: Option<OverlayReference>,
 }
 
@@ -36,6 +38,7 @@ pub(crate) struct FacadeMetadata {
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) handlers: Vec<Handler>,
   pub(crate) motion: MotionProps,
+  pub(crate) semantic: Option<SemanticProps>,
   pub(crate) retained_render: Option<Node>,
   pub(crate) overlay_reference: Option<OverlayReference>,
 }
@@ -53,6 +56,7 @@ pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
     element_ref,
     portal_target,
     motion,
+    semantic,
     overlay_reference,
   } = state;
   let element = host.into();
@@ -68,6 +72,7 @@ pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
       portal_target,
       handlers,
       motion,
+      semantic,
       retained_render,
       overlay_reference,
     },

@@ -31,8 +31,9 @@
 //! ```
 
 pub use battlement::{
+  AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
   MotionColor, MotionLength, MotionProperty, PlacementAlign, PlacementSide, PopoverPlacement, Prop,
-  StepPosition, Style, Visibility,
+  SemanticRole, SemanticState, StepPosition, Style, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -41,10 +42,18 @@ pub use crate::motion_css::{
   StyleProperty, StyleTransition,
 };
 pub use crate::{
+  accessibility::{
+    ButtonOptions, ChoiceOptions, DialogOptions, DisclosureOptions, PressState, RadioGroupBehavior,
+    ScrollAreaOptions, SliderOptions, SliderState, TabsBehavior, ToggleOptions, use_busy_progress,
+    use_button, use_checkbox, use_dialog, use_disclosure, use_group, use_heading, use_image,
+    use_progress, use_radio, use_radio_group, use_scroll_area, use_slider, use_static_text,
+    use_switch, use_tab, use_tab_panel, use_tabs,
+  },
   animation_controls::{
     AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionSelector,
     SequencePosition, use_animation_controls, use_animation_scope,
   },
+  announcement::{Announce, use_announce},
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},
@@ -95,6 +104,10 @@ pub use crate::{
   required_props,
   resource::{Resource, ResourceRead, ResourceStatus, use_resource},
   runtime::RenderError,
+  semantics::{
+    AccessibleBehavior, AccessibleDescription, AccessibleName, ActionDisposition, InteractionProps,
+    LocalizedText, SemanticProps, SemanticVisibility, text,
+  },
   suspense::Suspense,
   variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},
 };

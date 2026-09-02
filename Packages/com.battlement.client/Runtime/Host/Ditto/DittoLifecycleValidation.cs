@@ -240,6 +240,8 @@ namespace Battlement
                 DittoStepAction.Key => DittoStepName.Key,
                 DittoStepAction.Wait => DittoStepName.Wait,
                 DittoStepAction.Assert => DittoStepName.Assert,
+                DittoStepAction.AccessibilityAssert => DittoStepName.AccessibilityAssert,
+                DittoStepAction.AccessibilityAction => DittoStepName.AccessibilityAction,
                 DittoStepAction.Screenshot => DittoStepName.Screenshot,
                 DittoStepAction.Video => DittoStepName.Video,
                 _ => throw new JsonSerializationException("Unknown job step action."),

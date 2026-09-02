@@ -17,6 +17,7 @@ use crate::{
   render::RenderTree,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
+  semantics::{InteractionProps, SemanticProps},
 };
 
 /// Deferred overlay references resolved against the complete desired tree.
@@ -256,6 +257,20 @@ impl Overlay {
   pub fn focus_props(mut self, value: FocusProps) -> Self {
     value.apply(self.wrapper.state.host.visual_element_mut());
     self.validate_modal_focus_properties();
+    self
+  }
+
+  /// Attaches the wrapper's single semantic declaration.
+  #[must_use]
+  pub fn semantic(mut self, value: SemanticProps) -> Self {
+    self.wrapper = self.wrapper.semantic(value);
+    self
+  }
+
+  /// Merges ordinary callbacks returned by an accessible behavior hook.
+  #[must_use]
+  pub fn interaction_props<G: 'static>(mut self, value: InteractionProps<G>) -> Self {
+    self.wrapper = self.wrapper.interaction_props(value);
     self
   }
 

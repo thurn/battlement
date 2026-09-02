@@ -21,6 +21,41 @@ namespace Battlement.Tests
     public sealed class BattlementUiDocumentTests
     {
         [Test]
+        public void DocumentRootAcceptsGenericVisualElementUpdates()
+        {
+            ObjectId documentId = Id("209879cc-0ff1-489a-b11a-cc1790c24220");
+            ObjectId rootId = Id("406f3450-d2c4-43ec-b0d3-c80773756e60");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[] { new UiDocument(documentId, rootId) },
+                    id => id == documentId ? owned : null
+                );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            rootId,
+                            new UiVisualElement { Name = "updated-root" }
+                        )
+                    )
+                );
+
+                Assert.That(documents.TryGet(rootId, out VisualElement? root), Is.True);
+                Assert.That(root!.name, Is.EqualTo("updated-root"));
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void GroupAndPopupContentSurvivesConditionalTitleUpdates()
         {
             ObjectId documentId = Id("2517c5f9-a2fa-479c-a15d-7994cf349d15");

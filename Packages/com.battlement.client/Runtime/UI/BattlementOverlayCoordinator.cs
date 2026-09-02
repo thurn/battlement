@@ -60,7 +60,8 @@ namespace Battlement.UI
             ObjectId targetId,
             OverlayPlacement placement,
             VisualElement physicalParent,
-            Func<Guid, Guid, bool> isDescendant
+            Func<Guid, Guid, bool> isDescendant,
+            Func<ObjectId, bool>? isPending = null
         )
         {
             VisualElement host = RequireOverlayHost(physicalParent);
@@ -98,13 +99,15 @@ namespace Battlement.UI
                         targetId,
                         modal.InitialFocus,
                         requireDescendant: true,
-                        isDescendant
+                        isDescendant,
+                        isPending
                     );
                     ValidateFocusRef(
                         targetId,
                         modal.RestoreFocus,
                         requireDescendant: false,
-                        isDescendant
+                        isDescendant,
+                        isPending
                     );
                     break;
                 default:
@@ -473,19 +476,24 @@ namespace Battlement.UI
             ObjectId wrapper,
             ObjectId? reference,
             bool requireDescendant,
-            Func<Guid, Guid, bool> isDescendant
+            Func<Guid, Guid, bool> isDescendant,
+            Func<ObjectId, bool>? isPending
         )
         {
             if (reference is not ObjectId id)
                 return;
-            if (resolve(id) is not VisualElement target)
+            VisualElement? target = resolve(id);
+            bool pending = target is null && isPending?.Invoke(id) == true;
+            if (target is null && !pending)
                 throw Failure($"Modal {wrapper} focus ref {id} does not exist.");
             if (requireDescendant && !isDescendant(id.Value, wrapper.Value))
                 throw Failure($"Modal {wrapper} initial focus {id} is outside its scope.");
+            if (pending)
+                return;
             VisualElement? wrapperElement = resolve(wrapper);
             if (
                 wrapperElement?.panel != null
-                && target.panel != null
+                && target!.panel != null
                 && wrapperElement.panel != target.panel
             )
                 throw Failure($"Modal {wrapper} focus ref {id} belongs to another panel.");

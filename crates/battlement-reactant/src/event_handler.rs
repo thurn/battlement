@@ -17,6 +17,29 @@ pub(crate) struct Handler {
 }
 
 impl Handler {
+  pub(crate) fn accessibility<G: 'static>(
+    slot: &'static str,
+    callback: impl Fn(&mut G, battlement::AccessibilityAction) -> crate::semantics::ActionDisposition
+    + 'static,
+  ) -> Self {
+    Self::event(
+      slot,
+      UiEventKind::AccessibilityAction,
+      HandlerPhase::Default,
+      |body| match body {
+        UiEventBody::AccessibilityAction(value) => value,
+        _ => panic!("Reactant accessibility handler received another event kind"),
+      },
+      move |game, event| {
+        if callback(game, crate::semantics::to_ui_action(event.payload().action))
+          == crate::semantics::ActionDisposition::Handled
+        {
+          event.prevent_default();
+        }
+      },
+    )
+  }
+
   pub(crate) fn brief<G: 'static, E: 'static>(
     slot: &'static str,
     native_kind: UiEventKind,

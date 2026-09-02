@@ -13,6 +13,8 @@ pub enum StepName {
   Key,
   Wait,
   Assert,
+  AccessibilityAssert,
+  AccessibilityAction,
   Screenshot,
   Video,
 }

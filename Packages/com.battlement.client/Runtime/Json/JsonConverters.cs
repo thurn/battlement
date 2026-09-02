@@ -913,6 +913,7 @@ namespace Battlement
         private static bool IsDirectPayload(Type type) =>
             type == typeof(CommandBody.VisualElement.Update)
             || type == typeof(CommandBody.GeometryObservation)
+            || type == typeof(CommandBody.AccessibilityUpdate)
             || type == typeof(CommandBody.Diagnostics)
             || type == typeof(CommandBody.Motion.DragControl)
             || type == typeof(ActionBody.GeometryObservations)
@@ -966,6 +967,8 @@ namespace Battlement
             || baseType == typeof(InteractionDistance)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
+            || baseType == typeof(UiAccessibilityAction)
+            || baseType == typeof(AccessibilityAction)
             || baseType == typeof(GridTrack)
             || baseType == typeof(UiEventBody);
 
@@ -1287,6 +1290,7 @@ namespace Battlement
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(
+                    ("AccessibilityAction", typeof(UiEventBody.AccessibilityAction)),
                     ("PointerDown", typeof(UiEventBody.PointerDown)),
                     ("PointerMove", typeof(UiEventBody.PointerMove)),
                     ("PointerUp", typeof(UiEventBody.PointerUp)),
@@ -1415,6 +1419,21 @@ namespace Battlement
                     "Current",
                     "Unavailable"
                 ),
+                [typeof(AccessibilityAction)] = Nested<AccessibilityAction>(
+                    "Activate",
+                    "Increment",
+                    "Decrement",
+                    "Dismiss",
+                    "Scroll"
+                ),
+                [typeof(UiAccessibilityAction)] = Nested<UiAccessibilityAction>(
+                    "Activate",
+                    "Increment",
+                    "Decrement",
+                    "Dismiss",
+                    "ScrollForward",
+                    "ScrollBackward"
+                ),
                 [typeof(ParticleSpawnLocation)] = Fixed(
                     ("GameObject", typeof(ParticleSpawnLocation.AtGameObject)),
                     ("WorldPosition", typeof(ParticleSpawnLocation.AtWorldPosition))
@@ -1525,6 +1544,7 @@ namespace Battlement
                 ("MotionScope", typeof(CommandBody.Motion.Scope)),
                 ("MotionDragControl", typeof(CommandBody.Motion.DragControl)),
                 ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation)),
+                ("AccessibilityUpdate", typeof(CommandBody.AccessibilityUpdate)),
                 ("Diagnostics", typeof(CommandBody.Diagnostics))
             );
         }

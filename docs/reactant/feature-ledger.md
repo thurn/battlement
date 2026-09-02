@@ -9,20 +9,13 @@ The screen is a focused specimen, not an exhaustive API catalog. The listed
 tests remain the authoritative behavior proof when a capability is broader
 than the specimen.
 
-## Planned accessibility
-
-The [accessibility design](accessibility-technical-design.md) begins only after
-the reduced focus and navigation project above has shipped. Its companion
-[implementation plan](accessibility-implementation-plan.md) owns semantic and
-assistive-technology behavior while consuming the completed focus coordinator.
-It does not add a ledger row until its public APIs, specimen, and black-box
-proof exist together.
-
 ## Shipped modules
 
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
+| `accessibility` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees`, `accessibility.rs::accessibility_activation_uses_the_ordinary_logical_event_path` |
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
+| `announcement` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees` |
 | `asset_generator` | Assets | `composition.rs::assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
 | `component` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `primitives.rs` |
 | `context` | Context & Memo | `composition.rs::context_screen_overrides_only_the_nested_descendant_and_restores`, `refs_context.rs` |
@@ -49,6 +42,7 @@ proof exist together.
 | `render` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `runtime.rs`, `identity.rs` |
 | `resource` | Resources & Boundaries | `composition.rs::resources_screen_catches_resets_and_restores`, `resources.rs` |
 | `runtime` | Effects & Stores | `composition.rs::effects_screen_defers_connection_until_poll_and_restores`, `runtime.rs`, `lifecycle.rs` |
+| `semantics` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees`, `accessibility.rs::protocol_round_trips_direct_actions_and_complete_snapshot` |
 | `suspense` | Resources & Boundaries | `composition.rs::resources_screen_catches_resets_and_restores`, `resources.rs` |
 
 The remaining focused screens exercise the same public surface from another
