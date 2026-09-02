@@ -89,6 +89,8 @@ The design must provide:
 - nested overlay behavior tied to visible stacking;
 - deterministic handling of hidden, exiting, removed, and reconnected hosts;
 - distinct Tab and directional navigation behavior;
+- controller-only operation from initial focus through directional movement,
+  submit, cancel, held repeat, and reconnect;
 - native automatic neighbors and declarative explicit neighbors;
 - roving focus for tabs, menus, radio groups, toolbars, listboxes, and trees;
 - keyboard/controller-only focus-visible styling;
@@ -105,6 +107,8 @@ The following constraints determine the architecture:
 - Backward compatibility and protocol version negotiation are not required.
 - Cross-panel focus scopes and roving groups are rejected. Reactant does not
   invent a process-wide focus controller above UI Toolkit.
+- Controller UI navigation uses one active `Gamepad.current`. Reactant does not
+  provide independent focus, selection, or navigation state per controller.
 
 ## System Terms
 
@@ -287,11 +291,13 @@ part of the host contract for Unity `6000.5.8f1`.
 
 The concrete interception paths are:
 
-| Input | Root callback | Policy use |
+| Input | Interception path | Policy use |
 |---|---|---|
 | Tab / Shift+Tab | bubble `KeyDownEvent` after target default-at-target | query native Next/Previous; apply only a scope boundary |
 | arrows, D-pad, stick | bubble `NavigationMoveEvent` | roving, neighbor, or directional containment |
 | Home / End | bubble `KeyDownEvent` after target default-at-target | first/last item in the current roving group |
+| controller submit | native `NavigationSubmitEvent` target path | native activation; no generic focus move |
+| controller cancel | root Reactant coverage path | logical cancel handling; no implicit scope close |
 
 The callback runs only when the event reached the root and is not already
 prevented. Tab outside a scope boundary is untouched. Home or End outside a
@@ -1166,10 +1172,10 @@ new committed logical tree.
 
 ## Initial and Programmatic Focus
 
-Initial focus runs only when a modal is newly created or revived, a non-modal
-becomes available, a root receives its first plan, or reconnect cannot restore
-a bookmark. Reactivating an occluded outer modal uses opener restoration and
-fallback, not its initial or `auto_focus` candidates.
+Commit-time initial focus runs only when a modal is newly created or revived, a
+non-modal becomes available, a root receives its first plan, or reconnect cannot
+restore a bookmark. Reactivating an occluded outer modal uses opener restoration
+and fallback, not its initial or `auto_focus` candidates.
 
 The ordered candidate list is:
 
@@ -1183,6 +1189,14 @@ The ordered candidate list is:
 Unity calls `canGrabFocus` immediately before focusing each candidate. A stale
 or currently ineligible candidate is skipped rather than treated as a batch
 failure.
+
+A controller directional action arriving while the panel has no focused
+element is the one input-time use of this ladder. The initiating action has
+already set `Controller` modality. Unity skips the retained and newly mounted
+`auto_focus` steps, then tries the active scope's explicit initial target, first
+eligible ring member, and anchor. Success handles the action with reason
+`Initial`; failure leaves it unhandled. Submit and cancel do not run this
+recovery ladder.
 
 An active modal may not be focusless. Its anchor must be authored
 `focusable(true)` and prospectively attached, visible, enabled, and non-inert.
@@ -1457,7 +1471,48 @@ focused presentation from its captured target.
 
 ## Tab, Keyboard, and Controller Navigation
 
-Tab navigation and directional navigation are separate native paths.
+Reactant consumes logical UI actions after the Input System has interpreted the
+physical device. Keyboard supplies sequential Tab actions, directional arrows,
+Home, End, submit, and cancel. A controller supplies directional move, submit,
+and cancel. Controller input never synthesizes Tab, Shift+Tab, Home, or End.
+
+### Controller input contract
+
+The Battlement Input System bridge owns raw controller processing. It converts
+the D-pad and left stick into cardinal `NavigationMoveEvent` values and converts
+the configured UI submit and cancel bindings into `NavigationSubmitEvent` and
+`NavigationCancelEvent`. The focus coordinator consumes those normalized Unity
+events; it does not read raw axes, buttons, controller glyphs, or platform names.
+
+Dead-zone selection, dominant-axis diagonal resolution, D-pad precedence,
+initial-tilt emission, held repeat, input gating, and held-state synchronization
+use the controller contract in the
+[Battlement technical design](../technical-design.md#pointer-keyboard-and-controller-input).
+Every repeated move resolves from the then-current focused element and live
+focus plan. It does not retain the origin or destination from the first tilt.
+
+Exactly one controller participates in UI navigation: Unity's current gamepad.
+When `Gamepad.current` changes, the bridge suppresses already-held buttons and
+directions until they return to rest, then the new current gamepad continues the
+same panel focus state. Events from two controllers are never merged into
+independent cursors or focus positions. Per-controller focus, simultaneous local
+multiplayer navigation, controller-to-panel assignment, and controller identity
+in focus events or reports are outside this design.
+
+Physical submit and cancel bindings remain host configuration. The focus plan
+depends only on their normalized Unity events, so rebinding does not change
+Reactant focus semantics. Preventing a UI event does not suppress Battlement's
+separate global gameplay controller action; applications needing exclusive
+capture use the input-capture contract from the events design.
+
+The first focus plan runs the normal initial-focus ladder before input is
+exposed. A controller-first screen therefore starts with its explicit initial
+target, `auto_focus` target, or first eligible native ring member. Authors use an
+explicit initial target when visual order is not the intended controller entry.
+If focus is later cleared and a controller move arrives, the coordinator reruns
+that ladder for the active scope with `Controller` modality, handles the move,
+and reports reason `Initial`; it does not also apply a directional step from an
+undefined origin. If no eligible target exists, the move remains unhandled.
 
 ### Tab and Shift+Tab
 
@@ -1477,7 +1532,8 @@ The resolution order for an unconsumed event is:
 
 1. the current roving group rule;
 2. an eligible explicit neighbor;
-3. UI Toolkit's native automatic destination;
+3. UI Toolkit's native automatic destination, adopting the destination as its
+   group's roving position when entering a group;
 4. scope directional containment or looping; and
 5. no focus change.
 
@@ -1492,6 +1548,31 @@ events then use the normal Reactant event path.
 
 Keyboard arrows set modality to `Keyboard`. D-pad and stick events set it to
 `Controller`. The existing native repeat cadence remains authoritative.
+
+Keyboard arrows, D-pad moves, and stick moves use the same directional policy
+after normalization. The event's source affects modality, diagnostics, and test
+coverage, but never changes neighbor, containment, geometry, or roving order.
+
+### Controller submit and cancel
+
+Native controls receive controller submit and cancel before generic Reactant
+behavior. A native button converts an unprevented submit into the same logical
+`Click::NavigationSubmit` used by keyboard submit. Text and composite controls
+may consume submit or cancel according to their native contract.
+
+Manual roving focus means that moving focus does not select or activate the new
+item. A manual tab, menu item, toolbar item, or listbox item must therefore use
+an activatable host, normally a button with a logical click handler. Controller
+submit activates that host through its native submit-to-click path. The focus
+coordinator does not synthesize a second activation or selection request.
+Automatic roving groups continue to request selection when focus moves and do
+not need a separate submit to accept that move.
+
+An unconsumed cancel follows the normal Reactant `NavigationCancel` logical
+route. A handler may prevent its remaining native default and close an overlay
+in the later deferred response. Cancel never closes a focus scope by itself.
+Submit or cancel with no eligible focused target does not invent one; a
+controller-first surface relies on the initial-focus rule above.
 
 ### Automatic spatial candidates
 
@@ -1526,6 +1607,13 @@ scope or group changes, portal moves, scroll-offset changes, and Motion
 transform updates. Animation can mark the cache dirty each frame, but no scan
 or rebuild occurs until navigation needs it.
 
+For an origin outside a roving group, every enabled member remains an automatic
+spatial candidate. When UI Toolkit or the contained fallback chooses one, the
+coordinator adopts that destination as the group's roving position before focus
+settles and updates the old and new effective `tabIndex` values. Controller
+entry therefore follows visible geometry, while keyboard Tab still enters only
+through the group's current sequential stop.
+
 A panel may contain at most 16,384 automatic directional candidates. The scan
 uses reusable storage. This fallback is not used for ordinary unconstrained
 navigation and is not a replacement global navigation engine.
@@ -1559,9 +1647,17 @@ restore all groups without inferring position from the currently focused host.
 The authored `tabIndex` values are retained underneath the effective layer and
 restored when an item leaves the group.
 
-Directional movement skips disabled items. Home selects the first enabled item
-and End selects the last. A non-looped edge keeps focus on the current item. A
-looped edge wraps.
+Whenever an enabled group item receives native focus through pointer input,
+programmatic focus, an explicit neighbor, or another native path, Unity adopts
+that item as the ephemeral roving position before reporting the settled state.
+It updates the previous and new effective `tabIndex` values even when focus did
+not arrive through the group's own movement rule. An automatic group then emits
+its ordinary selection request; a manual group waits for activation.
+
+Directional movement from keyboard or controller skips disabled items. Home
+selects the first enabled item and End selects the last for keyboard input;
+controller input has no First or Last action. A non-looped edge keeps focus on
+the current item. A looped edge wraps.
 
 For automatic activation Unity emits a `UiRovingSelectionRequested` application
 event after focusing the new item:
@@ -1722,7 +1818,8 @@ text field, slider, list view, radio group, tab view, or other native control
 may consume navigation first. Reactant does not move focus when the event was
 stopped or its default was prevented.
 
-Submit and cancel events retain existing behavior:
+Keyboard and current-gamepad submit and cancel events retain the same normalized
+behavior:
 
 - a native button converts submit into its logical click;
 - a text field may consume submit;
@@ -1791,6 +1888,7 @@ Developer tracing records:
 - plan ID and generation;
 - focused object before and after finalization;
 - modality, reason, and focus-visible decision;
+- D-pad or stick source for controller moves and current-gamepad replacement;
 - governing scope stack and physical topmost modal;
 - candidate rejection reasons;
 - fallback step selected;
@@ -1906,10 +2004,14 @@ No one oracle is claimed to prove all layers.
 ### Ordinary form
 
 - Render two text fields, a toggle, a slider, and a submit button.
+- Start a fresh session with only a controller connected and observe initial
+  focus on the declared first field before any pointer or keyboard input.
 - Tab follows the native physical ring.
 - Arrow keys edit or adjust the focused native control when it consumes them.
 - Shift+Tab reverses native order.
-- Submit on the button produces the existing logical click.
+- D-pad and stick movement use directional geometry between controls, while a
+  focused slider retains controller moves it consumes for adjustment.
+- Keyboard or controller submit on the button produces the same logical click.
 - No Reactant policy report changes the native value by itself.
 
 ### Open and close a modal
@@ -1920,9 +2022,11 @@ No one oracle is claimed to prove all layers.
   observation is true.
 - A pointer attempt leaves its activation counter unchanged.
 - Tab and Shift+Tab loop across the modal controls.
+- Controller directional movement remains inside the modal, submit activates
+  the focused button, and cancel follows the overlay's logical cancel handler.
 - Closing restores the opener when it remains eligible.
-- Opening from keyboard gives the initial button focus-visible styling; opening
-  from pointer does not.
+- Opening from keyboard or controller gives the initial button focus-visible
+  styling; opening from pointer does not.
 
 ### Nested overlays
 
@@ -1930,6 +2034,8 @@ No one oracle is claimed to prove all layers.
 - The inner modal is the active modal and makes the outer modal inert.
 - Closing the picker does not steal focus if focus moved elsewhere in the inner
   modal.
+- Controller cancel closes only the top overlay whose handler accepts it; it
+  does not implicitly close every active scope.
 - Remove the inner modal's opener while the inner modal is open.
 - Closing the inner modal uses deterministic outer-scope fallback.
 - Closing the outer modal clears all nested restoration entries.
@@ -1937,10 +2043,14 @@ No one oracle is claimed to prove all layers.
 ### Tablist with roving focus
 
 - Tab enters on the one active tab.
+- Controller spatial navigation entering from outside lands on the enabled tab
+  selected by visible geometry and adopts it as the new roving position.
 - Right and Left move focus and roving `tabIndex`, wrapping at edges.
 - Home and End select the first and last enabled tabs.
 - A disabled tab is skipped.
 - Automatic activation emits a selection request after focus moves.
+- In manual activation mode, controller movement changes only focus and
+  controller submit activates the focused tab through its logical click.
 - The event journal records focus events before the selection request.
 - Tab then leaves the group from its current roving item.
 
@@ -1956,11 +2066,26 @@ No one oracle is claimed to prove all layers.
 
 ### Controller navigation
 
-- D-pad or stick input moves through native automatic geometry.
+- Begin from a fresh controller-only session and verify the initial-focus ladder
+  establishes an eligible focused target before input.
+- D-pad and stick input independently move through the same native automatic
+  geometry and produce `Controller` modality.
 - A declared right neighbor overrides the automatic destination.
 - A text or range control that consumes the move retains native behavior.
 - A missing explicit target falls back to the native destination.
-- Controller focus is focus-visible and uses native repeat timing.
+- Holding a direction follows the configured delay and interval; every repeat
+  resolves from the latest focused element and plan.
+- Submit activates the focused native button exactly once. Cancel reaches the
+  nearest subscribed logical overlay handler and does not close an unhandled
+  scope.
+- Clearing focus and then moving reruns initial focus without also taking a
+  directional step.
+- Disconnecting or replacing `Gamepad.current` while a direction or button is
+  held emits no synthetic transition; after controls return to rest, the current
+  gamepad continues the same focus state.
+- No controller API, event, report, or test step exposes an independent
+  per-controller focus position.
+- Controller focus is focus-visible and uses the controller reveal policy.
 
 ### Focused-node removal
 
@@ -1990,7 +2115,7 @@ No one oracle is claimed to prove all layers.
 - The rejected rebind produces the cross-panel session diagnostic and never
   exposes input against the replacement panel.
 
-### Pointer and keyboard styling
+### Pointer, keyboard, and controller styling
 
 - Pointer-focus a text field and observe native focus without focus-visible
   styling.
@@ -2058,6 +2183,13 @@ Public EditMode fixtures inspect actual UI Toolkit state:
 - native focus-event order and related targets are preserved;
 - ordinary Tab order matches the native focus ring;
 - text, range, list, radio, tab, submit, and cancel defaults remain native;
+- a fresh controller-only session establishes initial focus before input;
+- D-pad and stick moves produce the same directional result while retaining
+  distinct test sources, and held repeats resolve from current focus;
+- controller submit produces one native activation, unconsumed cancel follows
+  logical propagation, and native controls retain first refusal;
+- changing `Gamepad.current` synchronizes held state and preserves the one shared
+  focus position without creating per-controller state;
 - modal exclusion, trapping, looping, stacking, and restoration work;
 - reparent repair does not flash focus-visible styling;
 - explicit, native automatic, and contained directional paths are distinct;
@@ -2084,7 +2216,14 @@ by the released player:
 
 ```toml
 navigate = { direction = "right", source = "d-pad" }
+navigate = { direction = "down", source = "stick" }
+controller = { action = "submit" }
+controller = { action = "cancel" }
 ```
+
+The controller step has no controller ID because the product contract admits
+only the virtual current gamepad. Ditto fails setup if a scenario attempts to
+create simultaneous controller focus or route one controller independently.
 
 `focused` reads the production panel's actual focused element.
 `focus-visible` reads the production coordinator's public observable state.
@@ -2094,9 +2233,11 @@ The focus suite also observes activation counters, application event journals,
 effective inertness, and scroll offsets through existing public Ditto
 object-state adapters. These are observations, not coordinator commands.
 
-Retained scenarios cover ordinary forms, modal open and close, nested overlays,
-roving tabs, explicit and automatic controller neighbors, node removal, exit
-presence, portal reconnect, nested scrolling, and modality styling.
+Retained scenarios cover controller-only initial focus, ordinary forms, modal
+open and close through submit and cancel, nested overlays, manual and automatic
+roving tabs, D-pad and stick movement, held repeat, explicit and automatic
+neighbors, current-gamepad replacement, node removal, exit presence, portal
+reconnect, nested scrolling, and modality styling.
 
 ## Operational Safeguards
 
@@ -2150,6 +2291,11 @@ The following approaches conflict with the ownership or timing requirements.
   ring and disagree with physical UI and browser portal behavior.
 - **Support cross-panel scopes.** Enforcing them requires a focus authority
   above UI Toolkit's panel controllers.
+- **Maintain focus per controller.** UI Toolkit exposes one focused element per
+  panel, and Reactant does not add virtual controller cursors or per-player
+  selection state above it. Exactly one current gamepad drives the shared UI
+  focus stream. Independent local-multiplayer navigation requires a separate UI
+  and input-routing architecture.
 - **Keep exiting UI interactive.** Logical removal would leave ghost controls
   reachable during Motion retention.
 - **Let a successor subsystem call `VisualElement.Focus()` directly.** That
@@ -2168,6 +2314,11 @@ true:
 - Keyed reconciliation preserves focus without a visible style flash.
 - Modal, non-modal, nested, portal, presence, and reconnect scenarios pass.
 - Tab, directional keyboard, and controller paths follow their distinct rules.
+- A controller-only session supports deterministic initial focus, D-pad and
+  stick movement, held repeat, native submit, logical cancel, composite entry,
+  manual activation, reveal, and reconnect without pointer or keyboard input.
+- Controller navigation uses only the current gamepad and creates no
+  per-controller focus or selection state.
 - Every roving preset passes focus and selection-request scenarios.
 - Focus-visible styling changes locally with modality.
 - Nested scrolling reveals the final focused target without Rust geometry.
@@ -2186,17 +2337,27 @@ keyboard input, a controller, and the specimen's reconnect action.
 
 1. Open the ordinary form. Tab forward and backward through every control.
    Edit text, adjust the slider with arrows, toggle the checkbox, and submit.
-   Confirm native behavior and physical order remain intact.
-2. Open the modal once with pointer and once with keyboard. Confirm initial
-   focus, focus-visible styling, outside exclusion, looping, and restoration.
+   Restart without touching pointer or keyboard; use only a controller and
+   confirm initial focus, directional movement, slider consumption, submit, and
+   focus-visible styling.
+2. Open the modal once with pointer, once with keyboard, and once with
+   controller submit. Confirm initial focus, focus-visible styling, outside
+   exclusion, directional trapping, Tab looping, cancel handling, and
+   restoration.
 3. Open nested modal and non-modal overlays. Move focus, invalidate an opener,
    and close in reverse order. Confirm the documented fallback and no focus
    theft from the non-modal overlay.
-4. Exercise tabs, menu, composed radio group, toolbar, and listbox. Verify one
-   Tab stop, arrow orientation, Home/End, disabled-item skipping, looping, and
-   manual versus automatic activation.
-5. Connect a controller. Test D-pad and stick navigation, held repeat, explicit
-   neighbors, native automatic geometry, and control-consumed moves.
+4. Exercise tabs, menu, composed radio group, toolbar, and listbox with keyboard
+   and controller. Verify one Tab stop, geometric controller entry that adopts
+   the chosen roving item, directional orientation, keyboard Home/End,
+   disabled-item skipping, looping, controller submit, and manual versus
+   automatic activation.
+5. Test D-pad and stick navigation separately, held repeat, explicit neighbors,
+   native automatic geometry, and control-consumed moves. While holding a
+   direction, disconnect the current gamepad; confirm no synthetic move or
+   activation. Connect a replacement, return its controls to rest, and continue
+   from the same focus. Confirm no controller ID or second focus state is
+   exposed.
 6. Focus keyed list items, reorder them, portal them, remove the focused item,
    and remove the complete list. Confirm stable identity and fallback order.
 7. Focus content that exits through Motion. Confirm focus moves before the
@@ -2205,8 +2366,9 @@ keyboard input, a controller, and the specimen's reconnect action.
 8. Focus off-screen content through keyboard and controller navigation. Confirm
    nested scroll views reveal it and pointer focus does not change offsets.
 9. Reconnect with a modal and roving group active, including an external portal
-   rebind. Confirm focus restores after reconstruction with no input window
-   before policy activation.
+   rebind. Without using pointer or keyboard, confirm controller focus restores
+   after reconstruction with no input window before policy activation and that
+   the next D-pad or stick repeat continues from the restored item.
 10. Repeat pointer, keyboard, programmatic, and controller focus transitions.
     Confirm exact focus and focus-visible presentation remain distinguishable.
 11. Use UI Toolkit Debugger and structured diagnostics to verify the native
