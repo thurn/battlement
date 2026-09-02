@@ -41,6 +41,12 @@ namespace Battlement.UI
                 entry.Surface.RefreshAll();
         }
 
+        public void RefreshAll()
+        {
+            foreach (Surface surface in surfaces.Values)
+                surface.RefreshAll();
+        }
+
         public void RefreshOrdinals(Func<VisualElement, int> ordinal)
         {
             foreach (Entry entry in entries.Values)

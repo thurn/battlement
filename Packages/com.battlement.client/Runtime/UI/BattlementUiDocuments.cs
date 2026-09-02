@@ -29,6 +29,7 @@ namespace Battlement.UI
         private readonly BattlementUiLifecycleEvents lifecycleEvents;
         private readonly BattlementStickyCoordinator stickyCoordinator = new();
         private readonly BattlementOverlayCoordinator overlayCoordinator;
+        private readonly BattlementPresentationLayout presentationLayout;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiActions actions;
         private readonly BattlementUiTabControls tabControls;
@@ -87,6 +88,10 @@ namespace Battlement.UI
                 IsOverlayScopeMember,
                 OverlayScopeTraversal
             );
+            presentationLayout = new BattlementPresentationLayout(
+                stickyCoordinator,
+                overlayCoordinator
+            );
             motionWorld = new BattlementMotionWorld(
                 assetLookup: assetLookup,
                 audioTime: audioTime is null
@@ -101,7 +106,8 @@ namespace Battlement.UI
                     },
                 resolveElement: id =>
                     elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
-                gestureTime: now
+                gestureTime: now,
+                presentationChanged: presentationLayout.Refresh
             );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
@@ -121,6 +127,12 @@ namespace Battlement.UI
             bool preserveMotion = false
         )
         {
+            (UiDocument Description, UIDocument Document)[] resolved =
+                BattlementDocumentReconstruction.Resolve(
+                    descriptions ?? Array.Empty<UiDocument>(),
+                    resolveGameObject
+                );
+            VisualElement[] previousRoots = rootIds.Select(value => elements[value]).ToArray();
             if (preserveMotion)
                 motionWorld.BeginReconnect();
             else
@@ -131,6 +143,8 @@ namespace Battlement.UI
                 lifecycleEvents.Clear();
                 stickyCoordinator.Clear();
                 overlayCoordinator.Clear();
+                foreach (VisualElement root in previousRoots)
+                    root.Clear();
                 elements.Clear();
                 elementIds.Clear();
                 properties.Clear();
@@ -149,21 +163,8 @@ namespace Battlement.UI
                 logicalChildren.Clear();
                 rootIds.Clear();
                 repeatControls.Clear();
-                foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
+                foreach ((UiDocument description, UIDocument document) in resolved)
                 {
-                    GameObject? gameObject = resolveGameObject(description.DocumentId);
-                    if (gameObject == null)
-                    {
-                        throw new InvalidOperationException(
-                            $"UI document {description.DocumentId} has no owning GameObject."
-                        );
-                    }
-                    if (!gameObject.TryGetComponent(out UIDocument document))
-                    {
-                        throw new InvalidOperationException(
-                            $"UI document {description.DocumentId} has no UIDocument component."
-                        );
-                    }
                     UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
                     root.Clear();
                     properties.ApplyRoot(root, description.RootId, description);

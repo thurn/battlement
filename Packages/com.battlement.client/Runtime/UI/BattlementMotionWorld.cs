@@ -29,6 +29,7 @@ namespace Battlement.UI
         private readonly Func<ObjectId, VisualElement?> resolveElement;
         private readonly Func<TimeSpan> gestureTime;
         private readonly Func<bool> reducedMotion;
+        private readonly System.Action? presentationChanged;
         private readonly BattlementMotionGraph graph;
         private readonly BattlementMotionPerformance performance = new();
         private readonly bool enablePlayerLoop;
@@ -44,7 +45,8 @@ namespace Battlement.UI
             Func<ObjectId, MotionClockSample>? audioTime = null,
             Func<ObjectId, VisualElement?>? resolveElement = null,
             Func<TimeSpan>? gestureTime = null,
-            Func<bool>? reducedMotion = null
+            Func<bool>? reducedMotion = null,
+            System.Action? presentationChanged = null
         )
         {
             this.unscaledTime = unscaledTime ?? (() => Time.unscaledTimeAsDouble);
@@ -54,6 +56,7 @@ namespace Battlement.UI
             this.gestureTime =
                 gestureTime ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             this.reducedMotion = reducedMotion ?? BattlementReducedMotion.Read;
+            this.presentationChanged = presentationChanged;
             enablePlayerLoop = registerPlayerLoop;
             assets = assetLookup;
             graph = new BattlementMotionGraph(ClockSample, IsReduced);
@@ -636,6 +639,7 @@ namespace Battlement.UI
                     ClockMicros(descriptor.Descriptor.Clock),
                     IsReduced(descriptor.Descriptor)
                 );
+            presentationChanged?.Invoke();
             foreach (DescriptorState descriptor in descriptors.Values)
                 descriptor.CompleteSlots(this);
             CompleteImperativePlaybacks();
