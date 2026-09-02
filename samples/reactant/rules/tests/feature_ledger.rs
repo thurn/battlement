@@ -81,6 +81,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/motion.rs"),
   ),
   (
+    "paint.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/paint.rs"),
+  ),
+  (
     "portals.rs",
     include_str!("../../../../crates/battlement-reactant/tests/portals.rs"),
   ),
@@ -159,6 +163,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
     rows.iter().map(|row| row[1]).collect::<BTreeSet<_>>(),
     BTreeSet::from([
       "Assets",
+      "Chess UI: ScreenFrame",
       "Composition",
       "Context & Memo",
       "Effects & Stores",

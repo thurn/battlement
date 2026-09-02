@@ -106,7 +106,11 @@ impl PreparedFacade {
         previous_motion.as_ref(),
       );
       node.element.visual_element_mut().motion =
-        if previous_motion.as_ref() == Some(&same_generation) {
+        if previous_motion.as_ref().is_some_and(|previous| {
+          let mut presentation = same_generation.clone();
+          presentation.static_baseline = previous.static_baseline.clone();
+          &presentation == previous
+        }) {
           Prop::Set(same_generation)
         } else {
           let generation = previous_motion

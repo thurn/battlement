@@ -1,9 +1,14 @@
-use battlement::{MotionGradient, MotionLength, MotionShadow, PickingMode, Position, Style};
-use battlement_reactant::{component::Component, host::View, motion::MotionStyle, render::Render};
+use battlement::{MotionLength, MotionShadow, PickingMode, Position, Style};
+use battlement_reactant::{
+  component::Component,
+  host::View,
+  paint::{PaintFill, PaintStyle},
+  render::Render,
+};
 
 /// A non-interactive clipped background inset from its containing control.
 pub struct ClippedInset {
-  pub background: MotionGradient,
+  pub background: PaintFill,
   pub box_shadow: Option<Vec<MotionShadow>>,
   pub clip_path: Vec<[MotionLength; 2]>,
   pub inset: f32,
@@ -22,10 +27,9 @@ impl Component for ClippedInset {
           .bottom(self.inset)
           .left(self.inset),
       )
-      .initial(false)
-      .animate(
-        MotionStyle::new()
-          .background_gradient(self.background.clone())
+      .paint(
+        PaintStyle::new()
+          .background(self.background.clone())
           .clip_polygon(self.clip_path.clone())
           .box_shadow(self.box_shadow.clone().unwrap_or_default()),
       )

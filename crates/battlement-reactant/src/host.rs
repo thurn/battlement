@@ -49,6 +49,7 @@ use crate::{
   key::ErasedKey,
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   motion_css::{Animation, Decoration, IntoPseudoStyle, StyleTransition},
+  paint::PaintStyle,
   portal::PortalTarget,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
@@ -462,6 +463,12 @@ macro_rules! facade {
           .retain(|existing| !existing.same_slot(&handler));
         self.state.handlers.push(handler);
         self
+      }
+
+      /// Paints a static clipped background without animation slots.
+      #[must_use]
+      pub fn paint(self, value: PaintStyle) -> Self {
+        self.motion(MotionProps::new().paint(value))
       }
 
       /// Applies a complete Motion authoring value.

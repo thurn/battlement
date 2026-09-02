@@ -153,32 +153,69 @@ namespace Battlement.UI
                 MotionProperty.Opacity => Scalar(
                     Inline(target.style.opacity, target.resolvedStyle.opacity)
                 ),
-                MotionProperty.AspectRatio => Scalar(target.resolvedStyle.aspectRatio),
-                MotionProperty.FlexGrow => Scalar(target.resolvedStyle.flexGrow),
-                MotionProperty.FlexShrink => Scalar(target.resolvedStyle.flexShrink),
-                MotionProperty.UnitySliceBottom => Scalar(target.resolvedStyle.unitySliceBottom),
-                MotionProperty.UnitySliceLeft => Scalar(target.resolvedStyle.unitySliceLeft),
-                MotionProperty.UnitySliceRight => Scalar(target.resolvedStyle.unitySliceRight),
-                MotionProperty.UnitySliceScale => Scalar(target.resolvedStyle.unitySliceScale),
-                MotionProperty.UnitySliceTop => Scalar(target.resolvedStyle.unitySliceTop),
+                MotionProperty.AspectRatio => Scalar(
+                    Inline(target.style.aspectRatio, target.resolvedStyle.aspectRatio)
+                ),
+                MotionProperty.FlexGrow => Scalar(
+                    Inline(target.style.flexGrow, target.resolvedStyle.flexGrow)
+                ),
+                MotionProperty.FlexShrink => Scalar(
+                    Inline(target.style.flexShrink, target.resolvedStyle.flexShrink)
+                ),
+                MotionProperty.UnitySliceBottom => Scalar(
+                    Inline(target.style.unitySliceBottom, target.resolvedStyle.unitySliceBottom)
+                ),
+                MotionProperty.UnitySliceLeft => Scalar(
+                    Inline(target.style.unitySliceLeft, target.resolvedStyle.unitySliceLeft)
+                ),
+                MotionProperty.UnitySliceRight => Scalar(
+                    Inline(target.style.unitySliceRight, target.resolvedStyle.unitySliceRight)
+                ),
+                MotionProperty.UnitySliceScale => Scalar(
+                    Inline(target.style.unitySliceScale, target.resolvedStyle.unitySliceScale)
+                ),
+                MotionProperty.UnitySliceTop => Scalar(
+                    Inline(target.style.unitySliceTop, target.resolvedStyle.unitySliceTop)
+                ),
                 MotionProperty.UnityTextOutlineWidth => Scalar(
-                    target.resolvedStyle.unityTextOutlineWidth
+                    Inline(
+                        target.style.unityTextOutlineWidth,
+                        target.resolvedStyle.unityTextOutlineWidth
+                    )
                 ),
-                MotionProperty.BackgroundColor => Color(
-                    Inline(target.style.backgroundColor, target.resolvedStyle.backgroundColor)
+                MotionProperty.BackgroundColor => Stored(
+                    target,
+                    property,
+                    Color(
+                        Inline(target.style.backgroundColor, target.resolvedStyle.backgroundColor)
+                    )
                 ),
-                MotionProperty.BorderBottomColor => Color(target.resolvedStyle.borderBottomColor),
-                MotionProperty.BorderLeftColor => Color(target.resolvedStyle.borderLeftColor),
-                MotionProperty.BorderRightColor => Color(target.resolvedStyle.borderRightColor),
-                MotionProperty.BorderTopColor => Color(target.resolvedStyle.borderTopColor),
+                MotionProperty.BorderBottomColor => Color(
+                    Inline(target.style.borderBottomColor, target.resolvedStyle.borderBottomColor)
+                ),
+                MotionProperty.BorderLeftColor => Color(
+                    Inline(target.style.borderLeftColor, target.resolvedStyle.borderLeftColor)
+                ),
+                MotionProperty.BorderRightColor => Color(
+                    Inline(target.style.borderRightColor, target.resolvedStyle.borderRightColor)
+                ),
+                MotionProperty.BorderTopColor => Color(
+                    Inline(target.style.borderTopColor, target.resolvedStyle.borderTopColor)
+                ),
                 MotionProperty.Color => Color(
                     Inline(target.style.color, target.resolvedStyle.color)
                 ),
                 MotionProperty.UnityBackgroundImageTintColor => Color(
-                    target.resolvedStyle.unityBackgroundImageTintColor
+                    Inline(
+                        target.style.unityBackgroundImageTintColor,
+                        target.resolvedStyle.unityBackgroundImageTintColor
+                    )
                 ),
                 MotionProperty.UnityTextOutlineColor => Color(
-                    target.resolvedStyle.unityTextOutlineColor
+                    Inline(
+                        target.style.unityTextOutlineColor,
+                        target.resolvedStyle.unityTextOutlineColor
+                    )
                 ),
                 MotionProperty.Scale => new MotionValue.Vector2(
                     new double[]
@@ -193,10 +230,17 @@ namespace Battlement.UI
                 MotionProperty.ScaleY => Scalar(
                     Inline(target.style.scale, target.resolvedStyle.scale).value.y
                 ),
-                MotionProperty.X => Length(target.resolvedStyle.translate.x),
-                MotionProperty.Y => Length(target.resolvedStyle.translate.y),
+                MotionProperty.X => Length(
+                    Inline(target.style.translate, target.resolvedStyle.translate).x
+                ),
+                MotionProperty.Y => Length(
+                    Inline(target.style.translate, target.resolvedStyle.translate).y
+                ),
                 MotionProperty.Z => new MotionValue.Length(
-                    new MotionLength(target.resolvedStyle.translate.z, 0)
+                    new MotionLength(
+                        Inline(target.style.translate, target.resolvedStyle.translate).z,
+                        0
+                    )
                 ),
                 MotionProperty.Rotate => new MotionValue.Angle(
                     Inline(target.style.rotate, target.resolvedStyle.rotate).angle.value
@@ -266,47 +310,118 @@ namespace Battlement.UI
                 MotionProperty.Visibility => new MotionValue.Discrete(
                     target.resolvedStyle.visibility == Visibility.Visible ? "visible" : "hidden"
                 ),
-                MotionProperty.BorderBottomLeftRadius => Length(
+                MotionProperty.BorderBottomLeftRadius => ReadLength(
+                    target.style.borderBottomLeftRadius,
                     target.resolvedStyle.borderBottomLeftRadius
                 ),
-                MotionProperty.BorderBottomRightRadius => Length(
+                MotionProperty.BorderBottomRightRadius => ReadLength(
+                    target.style.borderBottomRightRadius,
                     target.resolvedStyle.borderBottomRightRadius
                 ),
-                MotionProperty.BorderBottomWidth => Length(target.resolvedStyle.borderBottomWidth),
-                MotionProperty.BorderLeftWidth => Length(target.resolvedStyle.borderLeftWidth),
-                MotionProperty.BorderRightWidth => Length(target.resolvedStyle.borderRightWidth),
-                MotionProperty.BorderTopLeftRadius => Length(
+                MotionProperty.BorderBottomWidth => ReadLength(
+                    target.style.borderBottomWidth,
+                    target.resolvedStyle.borderBottomWidth
+                ),
+                MotionProperty.BorderLeftWidth => ReadLength(
+                    target.style.borderLeftWidth,
+                    target.resolvedStyle.borderLeftWidth
+                ),
+                MotionProperty.BorderRightWidth => ReadLength(
+                    target.style.borderRightWidth,
+                    target.resolvedStyle.borderRightWidth
+                ),
+                MotionProperty.BorderTopLeftRadius => ReadLength(
+                    target.style.borderTopLeftRadius,
                     target.resolvedStyle.borderTopLeftRadius
                 ),
-                MotionProperty.BorderTopRightRadius => Length(
+                MotionProperty.BorderTopRightRadius => ReadLength(
+                    target.style.borderTopRightRadius,
                     target.resolvedStyle.borderTopRightRadius
                 ),
-                MotionProperty.BorderTopWidth => Length(target.resolvedStyle.borderTopWidth),
-                MotionProperty.Bottom => Length(target.resolvedStyle.bottom),
-                MotionProperty.FlexBasis => Length(target.resolvedStyle.flexBasis.value),
-                MotionProperty.FontSize => Length(target.resolvedStyle.fontSize),
-                MotionProperty.Height => Length(target.resolvedStyle.height),
-                MotionProperty.Left => Length(target.resolvedStyle.left),
-                MotionProperty.LetterSpacing => Length(target.resolvedStyle.letterSpacing),
-                MotionProperty.MarginBottom => Length(target.resolvedStyle.marginBottom),
-                MotionProperty.MarginLeft => Length(target.resolvedStyle.marginLeft),
-                MotionProperty.MarginRight => Length(target.resolvedStyle.marginRight),
-                MotionProperty.MarginTop => Length(target.resolvedStyle.marginTop),
-                MotionProperty.MaxHeight => Length(target.resolvedStyle.maxHeight.value),
-                MotionProperty.MaxWidth => Length(target.resolvedStyle.maxWidth.value),
-                MotionProperty.MinHeight => Length(target.resolvedStyle.minHeight.value),
-                MotionProperty.MinWidth => Length(target.resolvedStyle.minWidth.value),
-                MotionProperty.PaddingBottom => Length(target.resolvedStyle.paddingBottom),
-                MotionProperty.PaddingLeft => Length(target.resolvedStyle.paddingLeft),
-                MotionProperty.PaddingRight => Length(target.resolvedStyle.paddingRight),
-                MotionProperty.PaddingTop => Length(target.resolvedStyle.paddingTop),
-                MotionProperty.Right => Length(target.resolvedStyle.right),
-                MotionProperty.Top => Length(target.resolvedStyle.top),
-                MotionProperty.UnityParagraphSpacing => Length(
+                MotionProperty.BorderTopWidth => ReadLength(
+                    target.style.borderTopWidth,
+                    target.resolvedStyle.borderTopWidth
+                ),
+                MotionProperty.Bottom => ReadLength(
+                    target.style.bottom,
+                    target.resolvedStyle.bottom
+                ),
+                MotionProperty.FlexBasis => ReadLength(
+                    target.style.flexBasis,
+                    target.resolvedStyle.flexBasis.value
+                ),
+                MotionProperty.FontSize => ReadLength(
+                    target.style.fontSize,
+                    target.resolvedStyle.fontSize
+                ),
+                MotionProperty.Height => ReadLength(
+                    target.style.height,
+                    target.resolvedStyle.height
+                ),
+                MotionProperty.Left => ReadLength(target.style.left, target.resolvedStyle.left),
+                MotionProperty.LetterSpacing => ReadLength(
+                    target.style.letterSpacing,
+                    target.resolvedStyle.letterSpacing
+                ),
+                MotionProperty.MarginBottom => ReadLength(
+                    target.style.marginBottom,
+                    target.resolvedStyle.marginBottom
+                ),
+                MotionProperty.MarginLeft => ReadLength(
+                    target.style.marginLeft,
+                    target.resolvedStyle.marginLeft
+                ),
+                MotionProperty.MarginRight => ReadLength(
+                    target.style.marginRight,
+                    target.resolvedStyle.marginRight
+                ),
+                MotionProperty.MarginTop => ReadLength(
+                    target.style.marginTop,
+                    target.resolvedStyle.marginTop
+                ),
+                MotionProperty.MaxHeight => ReadLength(
+                    target.style.maxHeight,
+                    target.resolvedStyle.maxHeight.value
+                ),
+                MotionProperty.MaxWidth => ReadLength(
+                    target.style.maxWidth,
+                    target.resolvedStyle.maxWidth.value
+                ),
+                MotionProperty.MinHeight => ReadLength(
+                    target.style.minHeight,
+                    target.resolvedStyle.minHeight.value
+                ),
+                MotionProperty.MinWidth => ReadLength(
+                    target.style.minWidth,
+                    target.resolvedStyle.minWidth.value
+                ),
+                MotionProperty.PaddingBottom => ReadLength(
+                    target.style.paddingBottom,
+                    target.resolvedStyle.paddingBottom
+                ),
+                MotionProperty.PaddingLeft => ReadLength(
+                    target.style.paddingLeft,
+                    target.resolvedStyle.paddingLeft
+                ),
+                MotionProperty.PaddingRight => ReadLength(
+                    target.style.paddingRight,
+                    target.resolvedStyle.paddingRight
+                ),
+                MotionProperty.PaddingTop => ReadLength(
+                    target.style.paddingTop,
+                    target.resolvedStyle.paddingTop
+                ),
+                MotionProperty.Right => ReadLength(target.style.right, target.resolvedStyle.right),
+                MotionProperty.Top => ReadLength(target.style.top, target.resolvedStyle.top),
+                MotionProperty.UnityParagraphSpacing => ReadLength(
+                    target.style.unityParagraphSpacing,
                     target.resolvedStyle.unityParagraphSpacing
                 ),
-                MotionProperty.Width => Length(target.resolvedStyle.width),
-                MotionProperty.WordSpacing => Length(target.resolvedStyle.wordSpacing),
+                MotionProperty.Width => ReadLength(target.style.width, target.resolvedStyle.width),
+                MotionProperty.WordSpacing => ReadLength(
+                    target.style.wordSpacing,
+                    target.resolvedStyle.wordSpacing
+                ),
                 _ => throw Unsupported(property),
             };
 
@@ -397,6 +512,24 @@ namespace Battlement.UI
             Advanced
                 .GetValue(target, element => new BattlementAdvancedPaint(element))
                 .Configure(assets);
+
+        public static bool HasStaticFill(VisualElement target) =>
+            Advanced.TryGetValue(target, out BattlementAdvancedPaint paint) && paint.HasStaticFill;
+
+        public static void CommitAuthoredStyle(VisualElement target, UiStyle style)
+        {
+            if (Advanced.TryGetValue(target, out BattlementAdvancedPaint paint))
+                paint.CommitAuthoredStyle(style);
+        }
+
+        public static void ReplaceStaticPaint(
+            VisualElement target,
+            IReadOnlyList<MotionPropertyValue> previous,
+            IReadOnlyList<MotionPropertyValue> next
+        ) =>
+            Advanced
+                .GetValue(target, element => new BattlementAdvancedPaint(element))
+                .ReplaceStatic(previous, next);
 
         public static void Release(VisualElement target)
         {
@@ -489,7 +622,15 @@ namespace Battlement.UI
         )
         {
             if (property == MotionProperty.BackgroundColor)
-                target.style.backgroundColor = value;
+            {
+                if (
+                    Advanced.TryGetValue(target, out BattlementAdvancedPaint paint)
+                    && paint.HasStaticFill
+                )
+                    paint.Write(property, Color(value));
+                else
+                    target.style.backgroundColor = value;
+            }
             else if (property == MotionProperty.BorderBottomColor)
                 target.style.borderBottomColor = value;
             else if (property == MotionProperty.BorderLeftColor)
@@ -606,6 +747,34 @@ namespace Battlement.UI
             Advanced.TryGetValue(target, out BattlementAdvancedPaint paint)
                 ? paint.Read(property, fallback)
                 : fallback;
+
+        private static MotionValue ReadLength(StyleLength value, float resolved) =>
+            value.keyword == StyleKeyword.Undefined
+                ? new MotionValue.Length(
+                    value.value.unit == LengthUnit.Percent
+                        ? new MotionLength(0, value.value.value)
+                        : new MotionLength(value.value.value, 0)
+                )
+                : Length(resolved);
+
+        private static MotionValue ReadLength(StyleFloat value, float resolved) =>
+            Length(Inline(value, resolved));
+
+        private static float Inline(StyleRatio value, float resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
+
+        private static MotionValue Length(Length value) =>
+            new MotionValue.Length(
+                value.unit == LengthUnit.Percent
+                    ? new MotionLength(0, value.value)
+                    : new MotionLength(value.value, 0)
+            );
+
+        private static float Inline(StyleInt value, float resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
+
+        private static Translate Inline(StyleTranslate value, Translate resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
 
         private static float Inline(StyleFloat value, float resolved) =>
             value.keyword == StyleKeyword.Undefined ? value.value : resolved;

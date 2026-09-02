@@ -56,13 +56,6 @@ pub(crate) fn metal() -> MotionGradient {
   }
 }
 
-pub(crate) fn solid(color: u32) -> MotionGradient {
-  MotionGradient::Linear {
-    angle: 0.0,
-    stops: vec![self::stop(0.0, color), self::stop(1.0, color)],
-  }
-}
-
 pub(crate) fn interior() -> MotionGradient {
   MotionGradient::Radial {
     center: [0.5, 0.43],
@@ -78,14 +71,18 @@ pub(crate) fn interior() -> MotionGradient {
   }
 }
 
+pub(crate) fn color(value: u32) -> MotionColor {
+  MotionColor::new(
+    ((value >> 16) & 255) as f32 / 255.0,
+    ((value >> 8) & 255) as f32 / 255.0,
+    (value & 255) as f32 / 255.0,
+    1.0,
+  )
+}
+
 fn stop(position: f32, color: u32) -> MotionGradientStop {
   MotionGradientStop {
-    color: MotionColor::new(
-      ((color >> 16) & 255) as f32 / 255.0,
-      ((color >> 8) & 255) as f32 / 255.0,
-      (color & 255) as f32 / 255.0,
-      1.0,
-    ),
+    color: self::color(color),
     position,
   }
 }

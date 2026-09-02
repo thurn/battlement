@@ -377,3 +377,37 @@ Use the Reactant sample and one direct Battlement UI fixture.
 5. Inspect generated Rust documentation and autocomplete. Confirm Reactant
    authors see unprefixed façades, mirrored properties retain their useful
    core explanations and Unity links, and protocol authors see prefixed hosts.
+
+## Static decorative paint
+
+`View::paint(PaintStyle)` paints a solid or gradient background, polygon clip,
+and optional shadows without creating Animate or Exit slots:
+
+```rust
+use battlement::{MotionColor, MotionLength};
+use battlement_reactant::{host::View, paint::{PaintFill, PaintStyle}};
+
+View::new().paint(
+  PaintStyle::new()
+    .background(PaintFill::Color(MotionColor::new(0.02, 0.04, 0.08, 1.0)))
+    .clip_polygon([
+      [MotionLength::percent(10.0), MotionLength::percent(0.0)],
+      [MotionLength::percent(90.0), MotionLength::percent(0.0)],
+      [MotionLength::percent(50.0), MotionLength::percent(100.0)],
+    ]),
+);
+```
+
+Paint coordinates use the host's border box. Padding changes child layout without
+moving the painted polygon. Polygon clipping applies to this decorative paint;
+it does not clip arbitrary descendant content. Solid fills use the same polygon
+as gradients, without an additional rectangular background.
+
+Paint is the underlying presentation for motion and gesture overrides. Updating
+only paint preserves host identity, active gestures, and running animation
+clocks. Omitted fields in a replacement `PaintStyle` remove the corresponding
+static paint; an empty value clears it. Removing a static fill restores the
+latest ordinary `Style::background_color`, including updates made while paint
+was active. Ordinary style updates likewise replace their own underlying motion
+values while preserving focus or hover feedback. Reset restores the native
+style keyword so defaults and inherited values remain live.

@@ -13,6 +13,7 @@ use crate::{
   motion_lifecycle::MotionCallbacks,
   motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
+  paint::PaintStyle,
   variant_map::{ErasedVariantData, ErasedVariantSelection, ErasedVariants},
 };
 
@@ -41,6 +42,7 @@ pub struct MotionTarget {
 /// Complete Motion props forwarded to one host façade.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MotionProps {
+  pub(crate) paint: Option<PaintStyle>,
   pub(crate) initial: Option<InitialTarget>,
   pub(crate) animate: Option<MotionTarget>,
   pub(crate) exit: Option<MotionTarget>,
@@ -797,6 +799,7 @@ impl MotionProps {
   #[must_use]
   pub const fn new() -> Self {
     Self {
+      paint: None,
       initial: None,
       animate: None,
       exit: None,
@@ -821,6 +824,13 @@ impl MotionProps {
         root: false,
       },
     }
+  }
+
+  /// Sets static paint without creating animation slots.
+  #[must_use]
+  pub fn paint(mut self, value: PaintStyle) -> Self {
+    self.paint = Some(value);
+    self
   }
 
   /// Selects the mount origin.
@@ -879,6 +889,9 @@ impl MotionProps {
   }
 
   pub(crate) fn merge(mut self, value: Self) -> Self {
+    if value.paint.is_some() {
+      self.paint = value.paint;
+    }
     if value.initial.is_some() {
       self.initial = value.initial;
     }

@@ -2,7 +2,7 @@ use battlement::{Color, Length, Overflow, PickingMode, Position, Style, Transfor
 use battlement_reactant::{
   component::Component,
   host::View,
-  motion::MotionStyle,
+  paint::{PaintFill, PaintStyle},
   render::{Node, Render},
 };
 
@@ -52,11 +52,10 @@ impl Component for ScreenFrame {
                   .right(frame_styles::OUTER_INSET + frame_styles::BORDER_THICKNESS)
                   .bottom(frame_styles::OUTER_BOTTOM + frame_styles::BORDER_THICKNESS),
               )
-              .initial(false)
-              .animate(
-                MotionStyle::new()
+              .paint(
+                PaintStyle::new()
                   .clip_polygon(frame_styles::clip())
-                  .background_gradient(frame_styles::interior()),
+                  .background(PaintFill::Gradient(frame_styles::interior())),
               ),
             ConceptFrame,
           )),

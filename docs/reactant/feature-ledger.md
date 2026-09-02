@@ -1,6 +1,6 @@
 # Reactant V1 Feature Ledger
 
-This ledger maps every public `battlement-reactant` module to the focused lab
+This ledger maps every public `battlement-reactant` module to the sample
 screen that teaches its purpose and to black-box tests that prove its public
 behavior. The release test reads the crate module declarations and this table,
 so an added public module cannot ship without a screen and test mapping.
@@ -36,6 +36,7 @@ than the specimen.
 | `motion_config` | Composed Effects | `motion.rs::motion_config_inherits_transition_and_reduced_motion_without_a_host` |
 | `motion_value` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
 | `overlay` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `composition.rs::layout_gallery_preserves_state_routes_portals_and_authors_modal_focus`, `primitives.rs::overlay_helpers_resolve_first_mount_refs_and_wrap_fragment_children` |
+| `paint` | Chess UI: ScreenFrame | `paint.rs::static_paint_updates_and_removal_preserve_the_host_and_gesture_generation`, `paint.rs::static_only_paint_has_no_animation_slots_or_entrance_target` |
 | `portal` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `portals.rs`, `external_portals.rs` |
 | `prelude` | Composition | `composition.rs::sample_opens_on_an_accessible_composition_screen`, `primitives.rs` |
 | `presence` | Presence & Lifecycle | `presence.rs::automatic_exit_retains_hooks_until_exact_generation_completion`, `presence.rs::manual_hold_reconnect_and_rapid_reopen_preserve_one_mount` |

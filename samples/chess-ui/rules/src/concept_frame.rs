@@ -1,7 +1,12 @@
-use battlement::{PickingMode, Position, Style};
-use battlement_reactant::{component::Component, host::View, motion::MotionStyle, render::Render};
+use battlement::{Length, PickingMode, Position, Style};
+use battlement_reactant::{
+  component::Component,
+  host::View,
+  paint::{PaintFill, PaintStyle},
+  render::Render,
+};
 
-use crate::{clipped_inset::ClippedInset, frame_styles};
+use crate::frame_styles;
 
 /// Decorative arcade bezel with its clipped inner surface.
 pub struct ConceptFrame;
@@ -44,19 +49,28 @@ impl Component for FrameLayer {
               .bottom
               .unwrap_or(frame_styles::OUTER_BOTTOM + self.inset - frame_styles::OUTER_INSET),
           )
-          .opacity(self.opacity),
+          .opacity(self.opacity)
+          .padding(self.thickness),
       )
-      .initial(false)
-      .animate(
-        MotionStyle::new()
+      .paint(
+        PaintStyle::new()
           .clip_polygon(frame_styles::clip())
-          .background_gradient(frame_styles::metal()),
+          .background(PaintFill::Gradient(frame_styles::metal())),
       )
-      .child(ClippedInset {
-        inset: self.thickness,
-        clip_path: frame_styles::clip(),
-        background: frame_styles::solid(0x020713),
-        box_shadow: None,
-      })
+      .child(
+        View::new()
+          .name("frame-layer-inner")
+          .picking_mode(PickingMode::Ignore)
+          .style(
+            Style::new()
+              .width(Length::Percent(100.0))
+              .height(Length::Percent(100.0)),
+          )
+          .paint(
+            PaintStyle::new()
+              .clip_polygon(frame_styles::clip())
+              .background(PaintFill::Color(frame_styles::color(0x020713))),
+          ),
+      )
   }
 }

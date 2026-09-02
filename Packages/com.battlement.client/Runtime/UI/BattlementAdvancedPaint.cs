@@ -17,6 +17,8 @@ namespace Battlement.UI
         private IBattlementUiAssetLease? backgroundLease;
         private IBattlementUiAssetLease? maskLease;
         private IBattlementUiAssetLease? materialLease;
+        private StyleColor authoredBackground;
+        public bool HasStaticFill { get; private set; }
 
         public BattlementAdvancedPaint(VisualElement target)
         {
@@ -29,9 +31,49 @@ namespace Battlement.UI
 
         public void Configure(IBattlementUiAssetLookup? lookup) => assets = lookup;
 
+        public void ReplaceStatic(
+            IReadOnlyList<MotionPropertyValue> previous,
+            IReadOnlyList<MotionPropertyValue> next
+        )
+        {
+            bool fill = false;
+            foreach (MotionPropertyValue value in next)
+                if (
+                    value.Property
+                    is MotionProperty.BackgroundColor
+                        or MotionProperty.BackgroundGradient
+                )
+                    fill = true;
+            if (fill && !HasStaticFill)
+                authoredBackground = target.style.backgroundColor;
+            if (!fill && HasStaticFill)
+                target.style.backgroundColor = authoredBackground;
+            HasStaticFill = fill;
+            if (fill)
+                target.style.backgroundColor = UnityColor.clear;
+            foreach (MotionPropertyValue value in previous)
+                if (BattlementStaticPaint.Owns(value.Property))
+                    values.Remove(value.Property);
+            foreach (MotionPropertyValue value in next)
+                if (BattlementStaticPaint.Owns(value.Property))
+                    Write(value.Property, value.Value);
+            target.MarkDirtyRepaint();
+        }
+
+        public void CommitAuthoredStyle(UiStyle style)
+        {
+            if (!HasStaticFill || style.BackgroundColor.IsUnset)
+                return;
+            authoredBackground = target.style.backgroundColor;
+            target.style.backgroundColor = UnityColor.clear;
+        }
+
         public void Write(MotionProperty property, MotionValue value)
         {
-            values[property] = value;
+            if (EmptyPaint(value))
+                values.Remove(property);
+            else
+                values[property] = value;
             if (property == MotionProperty.BackgroundImage)
                 WriteTexture(value, false);
             if (property == MotionProperty.Mask)
@@ -48,6 +90,8 @@ namespace Battlement.UI
         public void Dispose()
         {
             target.generateVisualContent -= Paint;
+            if (HasStaticFill)
+                target.style.backgroundColor = authoredBackground;
             backgroundLease?.Dispose();
             maskLease?.Dispose();
             materialLease?.Dispose();
@@ -57,7 +101,7 @@ namespace Battlement.UI
         {
             if (!HasPaint())
                 return;
-            UnityRect rect = target.contentRect;
+            UnityRect rect = new(0, 0, target.layout.width, target.layout.height);
             if (rect.width <= 0 || rect.height <= 0)
                 return;
             IReadOnlyList<Vector2> points = Geometry(rect);
@@ -93,8 +137,21 @@ namespace Battlement.UI
                 );
         }
 
+        private static bool EmptyPaint(MotionValue value) =>
+            value switch
+            {
+                MotionValue.ClipPolygon polygon => polygon.Value.Count == 0,
+                MotionValue.Gradient { Value: MotionGradient.Linear linear } => linear.Stops.Count
+                    == 0,
+                MotionValue.Gradient { Value: MotionGradient.Radial radial } => radial.Stops.Count
+                    == 0,
+                MotionValue.ShadowList shadows => shadows.Value.Count == 0,
+                _ => false,
+            };
+
         private bool HasPaint() =>
-            values.ContainsKey(MotionProperty.BackgroundGradient)
+            values.ContainsKey(MotionProperty.BackgroundColor)
+            || values.ContainsKey(MotionProperty.BackgroundGradient)
             || values.ContainsKey(MotionProperty.BoxShadow)
             || values.ContainsKey(MotionProperty.ClipInset)
             || values.ContainsKey(MotionProperty.ClipPolygon)
@@ -303,7 +360,11 @@ namespace Battlement.UI
                 painter.fillGradient = FillGradient(gradient.Value, rect);
                 return;
             }
-            painter.fillColor = target.resolvedStyle.backgroundColor;
+            painter.fillColor =
+                values.TryGetValue(MotionProperty.BackgroundColor, out MotionValue color)
+                && color is MotionValue.Color solid
+                    ? ToUnityColor(solid.Value)
+                    : target.resolvedStyle.backgroundColor;
         }
 
         private void DrawOuterShadows(Painter2D painter, IReadOnlyList<Vector2> points)

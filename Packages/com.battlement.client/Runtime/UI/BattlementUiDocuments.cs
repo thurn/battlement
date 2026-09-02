@@ -525,7 +525,12 @@ namespace Battlement.UI
                         properties.ObjectId,
                         properties.Element.Motion
                     );
+                    System.Action? commitMotionStyle = motionWorld.PrepareStyle(
+                        properties.ObjectId,
+                        properties.Element.Style
+                    );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    commitMotionStyle?.Invoke();
                     focusCoordinator.ApplyUpdate(target, properties.Element);
                     BattlementGridItems.Apply(target, properties.Element.GridItem);
                     BattlementStackItems.Apply(target, properties.Element.StackItem);

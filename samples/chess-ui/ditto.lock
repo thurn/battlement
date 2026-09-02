@@ -5,41 +5,41 @@ namespace = "battlement/chess-ui"
 profile = "macos"
 scenario = "gallery navigation first"
 checkpoint = "selected"
-sha256 = "fcc47e6612cd7657a34971c9d2c7a1508247f20e272eb44cc4fe8a6107f67b49"
+sha256 = "ba41d9a26d18acb573e58dd7c5104554b111c39819fad772f728c68c2a5a8ab7"
 width = 1280
 height = 800
-size_bytes = 91465
-source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+size_bytes = 91303
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
 scenario = "gallery navigation fourth"
 checkpoint = "selected"
-sha256 = "540c954e43af527813dba523153c2b18e42c8aeda6fdea42c53ace5db832965d"
+sha256 = "98fdf859147e59335c55315f5e521b3b3e98401df65d232dd2506da521e98afe"
 width = 1280
 height = 800
-size_bytes = 102796
-source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+size_bytes = 102644
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
 scenario = "gallery navigation second"
 checkpoint = "selected"
-sha256 = "3a5c4cf162bcc71e9273fc55cbab251689b7537d94b5571048c1d4848eb4a5a3"
+sha256 = "54b81607fb43dc52bd1d3156401d110c6de54413d2dc85128d8fcd572acfb6eb"
 width = 1280
 height = 800
-size_bytes = 100469
-source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+size_bytes = 100361
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
 scenario = "gallery navigation third"
 checkpoint = "selected"
-sha256 = "a24cf872f6a28e01644c75ffa351dfdd4e88cd77acfb9b2623def965a0f05679"
+sha256 = "b2ca493f159e8a5aac9c96d16c2d35d5b6a5d8304ed401a8a40d5437f51be192"
 width = 1280
 height = 800
-size_bytes = 99077
-source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+size_bytes = 98987
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
@@ -75,18 +75,18 @@ source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
 profile = "macos"
 scenario = "portrait viewport"
 checkpoint = "static"
-sha256 = "c8975eafb8aa863d4bd4b735816c978cc6eed6922f54c3c078e6b68c24fd53b5"
+sha256 = "742d578623b61e443bf94093ab68363d6ea501c5adf843b92f1a160c3be3ce1b"
 width = 1280
 height = 800
-size_bytes = 95173
-source = "1b84bca32f32c9d5ee2a269fd362d9ad4bf52fcb08739a478d26f9e39b1cb378"
+size_bytes = 95217
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
 scenario = "screen frame"
 checkpoint = "static"
-sha256 = "5c6e684a552ae690e152e31c80f67d12a41fa37dbc3931013b77f39c21295a0a"
+sha256 = "2c973ae8743720fe459455f10b72a5bf9044892f31c664fb6a4143b3e13f2f28"
 width = 1280
 height = 800
-size_bytes = 110354
-source = "c3e19ddc58f9716897739d0d561abd9fe5cf527f90ea10489de561985c43b47b"
+size_bytes = 110118
+source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"

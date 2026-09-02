@@ -57,6 +57,7 @@ namespace Battlement.UI
         private readonly Dictionary<MotionProperty, MotionValue> preparedPresentation = new();
         private readonly Dictionary<MotionProperty, MotionValue> transitionOrigins = new();
         private readonly List<TrackState> tracks = new();
+        private readonly Dictionary<MotionProperty, System.Action> resets = new();
         private readonly EventCallback<PointerEnterEvent> pointerEnter;
         private readonly EventCallback<PointerLeaveEvent> pointerLeave;
         private readonly EventCallback<PointerDownEvent> pointerDown;
@@ -64,7 +65,7 @@ namespace Battlement.UI
         private readonly EventCallback<PointerCancelEvent> pointerCancel;
         private readonly EventCallback<FocusInEvent> focusIn;
         private readonly EventCallback<FocusOutEvent> focusOut;
-        private ulong anchorMicros;
+        private readonly Dictionary<MotionProperty, ulong> trackAnchors = new();
         private ulong currentMicros;
         private bool pendingStaticSync = true;
         private readonly BattlementPseudoStyleState? previous;
@@ -143,19 +144,24 @@ namespace Battlement.UI
                 disabled = nextDisabled;
                 Resolve(animate: true);
             }
+            foreach ((MotionProperty property, System.Action reset) in resets)
+                if (!HasPseudoOverride(property))
+                    reset();
             foreach ((MotionProperty property, MotionValue value) in resolved)
                 if (
-                    BattlementMotionPropertyWriter.IsLayout(property) == layout
+                    !UsesReset(property)
+                    && BattlementMotionPropertyWriter.IsLayout(property) == layout
                     && !tracks.Exists(track => track.Definition.Property == property)
                 )
                     BattlementMotionPropertyWriter.Write(target, property, value);
-            ulong elapsed = clockMicros >= anchorMicros ? clockMicros - anchorMicros : 0;
             foreach (TrackState track in tracks)
             {
                 if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) == layout)
                     track.Sample(
                         target,
-                        elapsed,
+                        clockMicros >= trackAnchors[track.Definition.Property]
+                            ? clockMicros - trackAnchors[track.Definition.Property]
+                            : 0,
                         MotionPlaybackDirection.Forward,
                         reducedMotion
                             && BattlementMotionPropertyWriter.IsSpatial(track.Definition.Property)
@@ -175,6 +181,96 @@ namespace Battlement.UI
         }
 
         public void SynchronizeStaticStyles() => SyncStaticBaseline();
+
+        public System.Action PrepareStyle(UiStyle style)
+        {
+            var origins = new Dictionary<MotionProperty, MotionValue>();
+            foreach (MotionProperty property in baseline.Keys)
+                if (BattlementAuthoredMotionStyle.Changed(style, property, target, out _))
+                    origins[property] = BattlementMotionPropertyWriter.Read(target, property);
+            return () => CommitStyle(style, origins);
+        }
+
+        private void CommitStyle(
+            UiStyle style,
+            IReadOnlyDictionary<MotionProperty, MotionValue> origins
+        )
+        {
+            bool changed = false;
+            foreach (MotionProperty property in new List<MotionProperty>(baseline.Keys))
+            {
+                if (
+                    !BattlementAuthoredMotionStyle.Changed(
+                        style,
+                        property,
+                        target,
+                        out System.Action? reset
+                    )
+                )
+                    continue;
+                if (
+                    property == MotionProperty.BackgroundColor
+                    && BattlementMotionPropertyWriter.HasStaticFill(target)
+                )
+                    continue;
+                changed = true;
+                if (reset is null)
+                    resets.Remove(property);
+                else
+                    resets[property] = reset;
+                baseline[property] = BattlementMotionPropertyWriter.Read(target, property);
+                transitionOrigins[property] = origins[property];
+            }
+            if (changed)
+                Resolve(animate: true);
+        }
+
+        public void CommitPaint(
+            IReadOnlyList<MotionPropertyValue> previous,
+            IReadOnlyList<MotionPropertyValue> next
+        )
+        {
+            foreach (MotionPropertyValue value in previous)
+            {
+                if (
+                    !BattlementStaticPaint.Owns(value.Property)
+                    || !baseline.ContainsKey(value.Property)
+                )
+                    continue;
+                baseline[value.Property] = BattlementMotionPropertyWriter.Read(
+                    target,
+                    value.Property
+                );
+            }
+            foreach (MotionPropertyValue value in next)
+                if (baseline.ContainsKey(value.Property))
+                    baseline[value.Property] = value.Value;
+            Resolve(animate: false);
+        }
+
+        private bool UsesReset(MotionProperty property) =>
+            resets.ContainsKey(property) && !HasPseudoOverride(property);
+
+        private bool HasPseudoOverride(MotionProperty property)
+        {
+            foreach (MotionPseudoStyle style in styles)
+            {
+                bool enabled = style.State switch
+                {
+                    MotionPseudoState.Hover => hover,
+                    MotionPseudoState.Focus => focus,
+                    MotionPseudoState.Active => active,
+                    MotionPseudoState.Disabled => disabled,
+                    _ => false,
+                };
+                if (!enabled)
+                    continue;
+                foreach (MotionPropertyValue value in style.Values)
+                    if (value.Property == property)
+                        return true;
+            }
+            return false;
+        }
 
         public void SetState(MotionPseudoState state, bool value)
         {
@@ -213,17 +309,25 @@ namespace Battlement.UI
             Overlay(next, MotionPseudoState.Focus, focus);
             Overlay(next, MotionPseudoState.Active, active);
             Overlay(next, MotionPseudoState.Disabled, disabled);
-            tracks.Clear();
             foreach ((MotionProperty property, MotionValue value) in next)
             {
+                if (UsesReset(property))
+                {
+                    tracks.RemoveAll(track => track.Definition.Property == property);
+                    trackAnchors.Remove(property);
+                    continue;
+                }
                 if (resolved.TryGetValue(property, out MotionValue old) && Equal(old, value))
                     continue;
+                tracks.RemoveAll(track => track.Definition.Property == property);
+                trackAnchors.Remove(property);
                 TransitionDefinition? timing = animate ? Timing(property, old, value) : null;
                 if (timing is null)
                 {
                     BattlementMotionPropertyWriter.Write(target, property, value);
                     continue;
                 }
+                trackAnchors[property] = currentMicros;
                 tracks.Add(
                     new TrackState(
                         new MotionPropertyTrack(property, new[] { value }, timing),
@@ -237,7 +341,6 @@ namespace Battlement.UI
             resolved.Clear();
             foreach ((MotionProperty property, MotionValue value) in next)
                 resolved[property] = value;
-            anchorMicros = currentMicros;
             transitionOrigins.Clear();
         }
 
@@ -263,7 +366,13 @@ namespace Battlement.UI
                         transitionOrigins[property] = prepared;
                 }
                 else
+                {
                     baseline[property] = prior;
+                    if (previous.resets.TryGetValue(property, out System.Action reset))
+                        resets[property] = reset;
+                    else
+                        resets.Remove(property);
+                }
             }
             Resolve(animate: previous is not null);
         }

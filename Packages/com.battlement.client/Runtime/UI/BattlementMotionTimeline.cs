@@ -173,7 +173,7 @@ namespace Battlement.UI
                 reconnectPresentation = CapturePresentation(previous);
         }
 
-        public MotionDescriptor Descriptor { get; }
+        public MotionDescriptor Descriptor { get; private set; }
 
         public VisualElement Target { get; }
 
@@ -264,7 +264,35 @@ namespace Battlement.UI
                 BattlementMotionPropertyWriter.Write(Target, property, value);
         }
 
-        public void SynchronizeStaticStyles() => pseudoStyles?.SynchronizeStaticStyles();
+        public void SynchronizeStaticStyles()
+        {
+            pseudoStyles?.SynchronizeStaticStyles();
+            pseudoStyles?.CommitPaint(
+                Array.Empty<MotionPropertyValue>(),
+                Descriptor.StaticBaseline
+            );
+        }
+
+        public System.Action PrepareStyle(UiStyle style)
+        {
+            System.Action? commit = pseudoStyles?.PrepareStyle(style);
+            return () =>
+            {
+                BattlementMotionPropertyWriter.CommitAuthoredStyle(Target, style);
+                commit?.Invoke();
+            };
+        }
+
+        public void UpdateStaticPaint(MotionDescriptor descriptor)
+        {
+            BattlementMotionPropertyWriter.ReplaceStaticPaint(
+                Target,
+                Descriptor.StaticBaseline,
+                descriptor.StaticBaseline
+            );
+            pseudoStyles?.CommitPaint(Descriptor.StaticBaseline, descriptor.StaticBaseline);
+            Descriptor = descriptor;
+        }
 
         public void CaptureLayoutTarget() => layoutProjection?.CaptureDestination();
 
