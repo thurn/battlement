@@ -29,6 +29,9 @@ behavior impossible.
 - [Focus and navigation](focus-and-navigation.md) defines UI Toolkit-owned
   focus, declarative scopes, portals, restoration, directional and roving
   navigation, focus-visible behavior, and reconnect recovery.
+- [Accessibility](accessibility-technical-design.md) defines the successor
+  semantic tree, assistive-technology focus, action policies, pattern hooks,
+  and Unity accessibility projection built on completed focus and navigation.
 - [Layout and stacking](layout-and-stacking.md) defines explicit Flex, Grid,
   Stack, sticky, and portal-based overlay behavior beyond native UI Toolkit
   flex layout.

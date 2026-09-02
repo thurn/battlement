@@ -18,6 +18,17 @@ independently testable work. The design is not a shipped module or sample
 mapping, so it does not add a row to this release ledger until the public API,
 specimen, and black-box proof exist together.
 
+## Planned accessibility
+
+The [accessibility design](accessibility-technical-design.md) begins only after
+the complete focus and navigation project above has shipped. Its companion
+[implementation plan](accessibility-implementation-plan.md) owns semantic and
+assistive-technology behavior while consuming the completed focus coordinator.
+It does not add a ledger row until its public APIs, specimen, and black-box proof
+exist together.
+
+## Shipped modules
+
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |

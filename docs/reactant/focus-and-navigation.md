@@ -1,8 +1,8 @@
 # Reactant Focus and Navigation
 
-Reactant needs a declarative focus and navigation layer that can coordinate
-components, portals, overlays, reconciliation, Motion presence, accessibility,
-and reconnects without replacing Unity UI Toolkit's focus engine.
+Reactant needs a declarative input-focus and navigation layer that can
+coordinate components, portals, overlays, reconciliation, Motion presence, and
+reconnects without replacing Unity UI Toolkit's focus engine.
 
 The design keeps UI Toolkit's `FocusController`, focused element, focus ring,
 focus events, and built-in control behavior authoritative. Rust describes
@@ -12,13 +12,19 @@ deferred until event dispatch is safe.
 
 This division is the central invariant:
 
-- Rust decides which elements belong to scopes and composite widgets.
+- Rust decides which elements belong to scopes and generic roving groups.
 - Rust declares initial targets, restoration targets, explicit neighbors, and
-  accessibility relationships.
+  navigation policy.
 - Unity decides whether a live element can actually receive focus.
 - Unity performs focus changes, default actions, and scrolling.
 - Rust may synchronously return a default-action disposition without directly
   mutating Unity's focus tree during the callback.
+
+This project is the complete prerequisite for
+[Reactant accessibility](accessibility-technical-design.md). Accessibility
+later composes these focus APIs and reads the coordinator's settled state. It
+does not add another input-focus owner, scope stack, modality tracker,
+navigation engine, or focus wire protocol.
 
 ## Related Information
 
@@ -32,6 +38,15 @@ This division is the central invariant:
   synchronous event disposition and deferred response boundary.
 - [Reactant animations](animations.md) defines Motion gestures, presence,
   physical overlays, and reconnect reconstruction.
+- [Reactant accessibility](accessibility-technical-design.md) defines the
+  successor semantic and assistive-technology layer that consumes this
+  completed focus foundation.
+- The [focus and navigation implementation
+  plan](focus-and-navigation-implementation-plan.md) delivers this design
+  before accessibility implementation begins.
+- The [accessibility implementation
+  plan](accessibility-implementation-plan.md) records that strict dependency
+  and does not reopen this project's contracts.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines `ElementRef`,
   queued host actions, geometry observation, and scrolling actions.
 - [Host facades](host-facades.md) defines order-independent Reactant host
@@ -51,17 +66,12 @@ This division is the central invariant:
   [navigation events][unity-navigation-events], and
   [runtime input FAQ][unity-input] define the native behavior preserved by this
   design.
-- Unity's [accessibility roles][unity-accessibility-role] and
-  [accessibility states][unity-accessibility-state] define the baseline's
-  intentionally limited platform projection.
 
 [mockup]: https://github.com/thurn/mockups/tree/2451ea9cc6f76b356b1102ee37b82c478853122a
 [unity-focus-order]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-focus-order.html
 [unity-focus-events]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-Focus-Events.html
 [unity-navigation-events]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-Navigation-Events.html
 [unity-input]: https://docs.unity3d.com/6000.0/Documentation/Manual/UIE-faq-event-and-input-system.html
-[unity-accessibility-role]: https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Accessibility.AccessibilityRole.html
-[unity-accessibility-state]: https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Accessibility.AccessibilityState.html
 
 ## Goals and Constraints
 
@@ -80,10 +90,9 @@ The design must provide:
 - deterministic handling of hidden, exiting, removed, and reconnected hosts;
 - distinct Tab and directional navigation behavior;
 - native automatic neighbors and declarative explicit neighbors;
-- roving focus for tabs, menus, radio groups, toolbars, and listboxes;
+- roving focus for tabs, menus, radio groups, toolbars, listboxes, and trees;
 - keyboard/controller-only focus-visible styling;
 - automatic reveal through nested scroll views;
-- accessibility state and relationships for the supported composites; and
 - black-box observability in Rust, Unity, and Ditto.
 
 The following constraints determine the architecture:
@@ -137,10 +146,16 @@ implementer does not need to infer these terms.
   fallback renders, but its physical hosts use hidden display and are inert.
 - A **Motion presence exit** begins after logical removal. Hosts may remain
   physically attached for animation, but handlers, focus, picking, and
-  accessibility participation end at logical removal.
+  navigation participation end at logical removal. Successor subsystems use
+  the same logical-removal boundary.
 - A **settle boundary** is the end of the Unity update in which a commit or
   input event finishes native default actions, focus changes, reveal scrolling,
   and one coalesced focus report.
+
+The later accessibility subsystem consumes only committed focus state. It may
+query effective inertness, the active modal scope, the focused host, modality,
+and focus-visible state at this boundary. Those queries are read-only and do
+not make accessibility a focus authority.
 
 Focus metadata outside an authored scope belongs to an implicit panel-root
 scope. It has no anchor, containment, exclusion, or opener restoration. It
@@ -151,6 +166,17 @@ bookmarks without adding a synthetic native focus target.
 
 Reactant supplies policy that UI Toolkit does not know, while UI Toolkit keeps
 all low-level focus state.
+
+The project boundary is exact:
+
+| Area | Focus and navigation | Accessibility successor |
+|---|---|---|
+| UI Toolkit input focus | Owns focus eligibility, movement, reports, and reconnect | Observes and submits validated requests |
+| Tab and directional navigation | Owns native-ring boundaries, neighbors, geometry, and roving position | Selects completed focus declarations in pattern hooks |
+| Scopes and overlays | Owns activation, stacking, effective inertness, restoration, and fallback | Maps semantic presentation to the active scope |
+| Semantic tree | Exposes no roles, names, states, relationships, or semantic wire fields | Owns canonical semantics and Unity projection |
+| Assistive-technology focus and actions | Exposes only the coordinator request surface | Owns accessibility focus, actions, proposals, and notifications |
+| Session protocol | Owns `UiFocusSnapshot`, plan updates, reports, and bookmarks | Carries a separate snapshot that depends on one focus generation |
 
 ### Unity remains authoritative
 
@@ -181,7 +207,6 @@ Rust owns:
 - trapping, looping, outside exclusion, and restoration policy;
 - initial, fallback, and explicit neighbor references;
 - the application-selected item that seeds a roving group;
-- accessibility roles, state, and element relationships;
 - whether a focused element should be revealed by scrolling; and
 - the complete focus plan sent in a reconnect snapshot.
 
@@ -207,6 +232,13 @@ The coordinator:
 - tracks input modality and focus-visible state;
 - reveals focused elements in native scroll views; and
 - reports the final native state to Rust.
+
+The coordinator also exposes a Unity-internal, read-only integration surface
+for successor subsystems. It resolves current focus eligibility, effective
+inertness, active modal membership, modality, and settled focused host. A
+successor may request focus through the same validated coordinator operation
+used by `ElementRef::focus_with`; it may not call `VisualElement.Focus()` or
+maintain parallel focus state.
 
 The coordinator calls `VisualElement.Focus()` or `Blur()`. It never assigns a
 parallel focused-element field or synthesizes a replacement focus event.
@@ -306,9 +338,46 @@ visibility, disabled hierarchy, explicit inertness, and detached panels do.
 
 ## Public Rust API
 
-The public API separates scope policy, one-shot focus options, directional
-neighbors, roving composites, and accessibility semantics. The types have
+The public API separates reusable focus properties, scope policy, one-shot
+focus options, directional neighbors, and roving navigation. The types have
 private fields and fluent builders.
+
+### Composable focus properties
+
+`FocusProps` is the single reusable bundle for host-level focus authoring. It
+exists in this project so later behavior hooks can return focus configuration
+without creating another focus abstraction.
+
+```rust
+pub struct FocusProps;
+
+impl FocusProps {
+    pub fn new() -> Self;
+    pub fn focusable(self, value: bool) -> Self;
+    pub fn tab_index(self, value: i32) -> Self;
+    pub fn delegates_focus(self, value: bool) -> Self;
+    pub fn auto_focus(self, value: bool) -> Self;
+    pub fn inert(self, value: bool) -> Self;
+    pub fn scroll_on_focus(self, value: bool) -> Self;
+    pub fn layout_direction(self, value: LayoutDirection) -> Self;
+    pub fn navigation_neighbors(self, value: NavigationNeighbors) -> Self;
+    pub fn roving_item(self, value: RovingFocusItem) -> Self;
+}
+```
+
+Every compatible host facade exposes `.focus_props(FocusProps)`. Existing
+single-purpose builders such as `.focusable(true)` and `.inert(true)` are
+convenience forms that merge into the same bundle. Two bundles that assign
+different values to one exclusive property are a developer error.
+
+`FocusProps` does not contain semantic roles, accessible names, actions, or
+assistive-technology focus. The successor accessibility project returns this
+same type from pattern hooks and composes it beside its own semantic and
+interaction bundles.
+
+`layout_direction` is inherited through the logical focus tree and defaults to
+`LeftToRight`. It affects horizontal roving interpretation only; it does not
+rewrite physical neighbor references or sequential Tab order.
 
 ### Focus scope types
 
@@ -358,7 +427,6 @@ View::new()
     .element_ref(&dialog)
     .focusable(true)
     .focus_scope(FocusScope::modal().initial(&cancel))
-    .semantics(Semantics::dialog().labelled_by(&title))
     .child(contents)
 ```
 
@@ -369,7 +437,7 @@ Unity prospectively validates attachment, panel ownership, visibility, enabled
 hierarchy, and effective inertness before activation.
 
 Only container facades expose `focus_scope`. Every host facade exposes the
-remaining common focus and semantics builders.
+remaining common focus builders.
 
 ### Programmatic and initial focus
 
@@ -421,8 +489,9 @@ At most one mounted `auto_focus` candidate may exist in one scope. A nested
 scope owns its candidate separately. Duplicate candidates panic during desired
 tree validation.
 
-`inert` excludes the logical subtree from focus, picking, accessibility, and
-Reactant input subscriptions. Unity stores and restores authored native values
+`inert` excludes the logical subtree from focus, picking, and Reactant input
+subscriptions. The coordinator also exposes effective inertness to the later
+accessibility subsystem. Unity stores and restores authored native values
 rather than losing them when effective inertness changes.
 
 `scroll_on_focus` defaults to `true` for keyboard, controller, initial,
@@ -449,7 +518,7 @@ Every host facade exposes:
 pub fn navigation_neighbors(self, value: NavigationNeighbors) -> Self;
 ```
 
-References resolve against the same desired Reactant tree. A foreign runtime,
+References resolve against the same desired Reactant tree. A foreign runtime
 is a Rust developer error. A detached target, cross-panel target, or target
 outside the active modal scope is ineligible at use. An absent or ineligible
 explicit target falls back to UI Toolkit's ordinary automatic directional
@@ -467,11 +536,17 @@ pub enum RovingKind {
     RadioGroup,
     Toolbar,
     Listbox,
+    Tree,
 }
 
 pub enum Orientation {
     Horizontal,
     Vertical,
+}
+
+pub enum LayoutDirection {
+    LeftToRight,
+    RightToLeft,
 }
 
 pub enum RovingActivation {
@@ -492,6 +567,7 @@ impl RovingFocusGroup {
     pub fn radio_group(orientation: Orientation) -> Self;
     pub fn toolbar(orientation: Orientation) -> Self;
     pub fn listbox() -> Self;
+    pub fn tree() -> Self;
     pub fn orientation(self, value: Orientation) -> Self;
     pub fn looped(self, value: bool) -> Self;
     pub fn activation(self, value: RovingActivation) -> Self;
@@ -544,6 +620,18 @@ request for user or programmatic moves; a programmatic move uses direction
 `None`. Plan seeding, initial focus, fallback, and reconnect do not request
 selection because they restore already-declared application state.
 
+Horizontal roving movement follows the nearest inherited `LayoutDirection`.
+Right advances in `LeftToRight`; Left advances in `RightToLeft`. Vertical
+movement, Home, End, logical item order, and Tab order do not reverse. A tree is
+a vertical one-dimensional group; hierarchy, expanded state, and semantics are
+declared by the later accessibility project.
+
+A menu group handles only its configured roving axis. Submenu patterns declare
+ordinary `NavigationNeighbors` from the trigger to the first submenu item and
+from submenu items back to the trigger. The later accessibility hook chooses
+physical Left or Right from `LayoutDirection`; the completed coordinator still
+owns and executes the move.
+
 The presets are:
 
 - `Tabs`: horizontal, looped, manual activation by default; Left/Right and
@@ -553,6 +641,8 @@ The presets are:
 - `Toolbar`: authored orientation and non-looped by default.
 - `Listbox`: vertical and non-looped by default; automatic activation controls
   the active option. Type-ahead is outside this design.
+- `Tree`: vertical and non-looped by default; hierarchy and expansion do not
+  change the one-dimensional roving order.
 
 An unsupported axis does not move focus and is not prevented; UI Toolkit or an
 ancestor may handle it. Home, End, and a non-looped edge are handled by the
@@ -579,110 +669,14 @@ true. Unity changes the gesture layer immediately without a Rust render.
 Reactant does not expose or promise a USS pseudo-class for this state. Authors
 use `while_focus_visible`; Ditto observes the coordinator's reported Boolean.
 
-### Accessibility semantics
-
-Focus behavior and accessibility state must describe the same interaction. The
-minimum semantics surface is typed and relationship targets use `ElementRef`.
+Rust behavior hooks can subscribe to the same settled signal:
 
 ```rust
-pub enum SemanticRole {
-    Dialog, Tab, TabList, TabPanel, Menu, MenuItem,
-    Radio, RadioGroup, Toolbar, ListBox, Option,
-}
-
-pub struct Semantics;
+pub fn use_focus_visible(target: &ElementRef) -> bool;
 ```
 
-```rust
-impl Semantics {
-    pub fn role(role: SemanticRole) -> Self;
-    pub fn label(self, value: impl Into<String>) -> Self;
-    pub fn labelled_by(self, target: &ElementRef) -> Self;
-    pub fn described_by(self, target: &ElementRef) -> Self;
-    pub fn controls(self, target: &ElementRef) -> Self;
-    pub fn active_descendant(self, target: &ElementRef) -> Self;
-    pub fn selected(self, value: bool) -> Self;
-    pub fn checked(self, value: bool) -> Self;
-    pub fn expanded(self, value: bool) -> Self;
-    pub fn hidden(self, value: bool) -> Self;
-    pub fn modal(self, value: bool) -> Self;
-}
-```
-
-Every host facade exposes `semantics`. Role-specific constructors such as
-`Semantics::dialog()` are brief aliases for `Semantics::role`.
-
-Rust validates that relationship targets exist in the desired tree and share a
-runtime. `controls` may cross a same-panel portal. `labelled_by`,
-`described_by`, and `active_descendant` must resolve to the same native panel as
-the source. Hidden and effectively inert content is excluded from Unity's
-accessibility hierarchy.
-
-The accessibility surface is sufficient to support `use_id`'s relationship
-purpose without exposing browser string IDs. `use_id` remains reserved; stable
-`ElementRef` relationships are the Reactant API.
-
-The Unity host projects semantics through
-`UnityEngine.Accessibility.AccessibilityHierarchy` and `AccessibilityNode`.
-Native controls keep their native invoke, dismiss, scroll, value, and focus
-actions. Authored `None` fields preserve the native role, label, value, and
-state; authored `Some` fields replace only that field. The host never creates a
-second actionable node for a native control.
-
-Unity `6000.5.8f1` exposes fewer roles and states than Reactant. The projection
-is explicit:
-
-| Reactant semantic | Unity projection |
-|---|---|
-| `TabList` | `AccessibilityRole.TabBar` |
-| `Tab`, `MenuItem`, `Option` | `AccessibilityRole.Button` plus label/state |
-| `Radio` | `AccessibilityRole.Toggle` plus checked value |
-| `Dialog`, `TabPanel`, `Menu`, `RadioGroup`, `Toolbar`, `ListBox` | structural `AccessibilityRole.None` node |
-| `selected(true)` | `AccessibilityState.Selected` |
-| `checked` | native toggle value, or composed node value text |
-| `expanded` | node value and hint text |
-| effective disabled | `AccessibilityState.Disabled` |
-| `hidden` or modal exclusion | node removed from the active hierarchy |
-| `modal(true)` | one active hierarchy rooted at the modal node |
-
-`labelled_by` resolves the target's effective label into `label`.
-`described_by` resolves its effective text into `hint`. The baseline has no
-public OS relationship field for `controls` or `active_descendant`; the host
-retains those typed relationships for validation, Ditto observation, and
-future Unity projection. For a roving group, the host moves the accessibility
-focused node with the Unity-owned position rather than claiming a nonexistent
-platform active-descendant link.
-
-Presets derive item/container roles and the group's dynamic active descendant
-only when the author omitted them. They cannot infer application-owned panel
-targets, selected state, or checked state. A conflicting authored role is a
-developer error. Authors may not set `active_descendant` on a roving group.
-Native controls with their own composite semantics reject a generic preset.
-
-Required semantic constraints are:
-
-- a modal scope anchor is a modal `Dialog`;
-- `TabList` owns `Tab` items, each `Tab` explicitly authors
-  `Semantics::controls(&panel)`, and one item explicitly authors selected state;
-- `Menu` owns `MenuItem` items;
-- `RadioGroup` owns `Radio` items and exactly one enabled item explicitly
-  authors checked state;
-- `Toolbar` owns its roving items without changing their native roles; and
-- `ListBox` owns `Option` items and selection state remains application-owned.
-
-`RovingFocusItem::active` seeds Unity's focus position only. It never derives
-`selected` or `checked`; those values remain controlled application semantics.
-
-A required target that is absent in the desired tree is a Rust validation
-error. A target made hidden during a live commit makes the relationship
-temporarily ineffective and removes it from the active hierarchy; it does not
-reuse stale label text. A cross-panel relationship is rejected except
-`controls`, which may cross a same-panel portal but never a native panel.
-
-This projection is a deliberate baseline limitation, not a claim that Unity's
-accessibility API can express browser ARIA byte for byte. Release evidence
-inspects the production `AccessibilityHierarchy`, the retained typed
-relationships, and screen-reader output for the projected fields.
+The hook reads acknowledged coordinator state. It does not infer modality or
+install another input listener.
 
 ## Focus Plan Wire Contract
 
@@ -704,9 +698,9 @@ pub struct UiFocusPlan {
 One Reactant runtime owns one stable `plan_id`. A snapshot contains the complete
 plan after every referenced document and external portal container has been
 declared. One plan may contain independent nodes on multiple panels; Unity
-partitions it among panel coordinators. Each scope, roving group, required
-relationship, and reconnect bookmark must remain inside one panel. A plan with
-no focus metadata is omitted.
+partitions it among panel coordinators. Each scope, roving group, explicit
+neighbor, and reconnect bookmark must remain inside one panel. A plan with no
+focus metadata is omitted.
 
 ```rust
 pub struct UiFocusNode {
@@ -716,23 +710,24 @@ pub struct UiFocusNode {
     pub auto_focus: bool,
     pub inert: bool,
     pub scroll_on_focus: bool,
+    pub layout_direction: LayoutDirection,
     pub neighbors: UiNavigationNeighbors,
     pub roving_group_id: Option<ObjectId>,
     pub roving_item: Option<UiRovingItem>,
-    pub semantics: Option<UiSemantics>,
 }
 ```
 
 Every host logically inside an authored scope appears, including non-focusable
 backdrops, layout containers, and portal fragments. Every host affected by
-explicit inertness, every roving member, every semantic host, every navigation
-source, and all logical paths needed to connect those records also appear.
-Hosts in the implicit root with no such policy may be omitted.
+explicit inertness, every roving member, every navigation source, and all
+logical paths needed to connect those records also appear. Hosts in the
+implicit root with no such policy may be omitted.
 
 This complete authored-scope membership drives physical stacking intervals,
-modal picking exclusion, and accessibility exclusion; it is not inferred from
-focusability. `logical_parent_id` is independent of physical Unity parentage.
-Unity validates that every included object exists before activating the plan.
+modal picking exclusion, and the effective-inert state later consumed by
+accessibility; it is not inferred from focusability. `logical_parent_id` is
+independent of physical Unity parentage. Unity validates that every included
+object exists before activating the plan.
 
 The supporting node records are complete wire values:
 
@@ -788,37 +783,6 @@ pub struct UiRovingGroup {
 Group identity is also the keyed anchor host ID. `item_ids` is logical order.
 `seed_revision` changes only when Rust changes the desired active item, not on
 an unrelated render. Unity ignores a seed revision it has already applied.
-
-Semantics use closed wire enums rather than platform strings:
-
-```rust
-pub struct UiSemantics {
-    pub role: Option<UiSemanticRole>,
-    pub label: Option<String>,
-    pub selected: Option<bool>,
-    pub checked: Option<bool>,
-    pub expanded: Option<bool>,
-    pub hidden: Option<bool>,
-    pub modal: Option<bool>,
-    pub relationships: Vec<UiSemanticRelationship>,
-}
-
-pub enum UiSemanticRole {
-    Dialog, Tab, TabList, TabPanel, Menu, MenuItem,
-    Radio, RadioGroup, Toolbar, ListBox, Option,
-}
-
-pub enum UiSemanticRelationship {
-    LabelledBy { target_id: ObjectId },
-    DescribedBy { target_id: ObjectId },
-    Controls { target_id: ObjectId },
-    ActiveDescendant { target_id: ObjectId },
-}
-```
-
-`None` leaves the native control's value authoritative. `Some` is an authored
-override, except that effective hiddenness always wins over authored
-`hidden(false)`.
 
 ### Snapshot and reconnect state
 
@@ -1123,12 +1087,12 @@ prospective shadow graph and:
 1. validates the complete focus-plan update against the prospective object set;
 2. resolves every hard reference, document, portal target, and panel and
    indexes resolvable soft references;
-3. rejects cross-panel scopes, groups, and required relationships;
+3. rejects cross-panel scopes, groups, and explicit neighbors;
 4. captures `focusedElement`, its nearest owned `ObjectId`, and modality;
 5. captures each affected panel's native sequential focus-ring order;
 6. captures scope states, roving positions, and restoration entries; and
-7. records authored focusability, picking, semantics, and `tabIndex` values
-   that effective policy may temporarily override.
+7. records authored focusability, picking, and `tabIndex` values that effective
+   policy may temporarily override.
 
 Preflight validates every structural command, legal parent/child relationship,
 focus reference, panel relationship, modal anchor, and hard limit that can be
@@ -1306,7 +1270,6 @@ The logical tree controls:
 
 - focus-scope and roving-group membership;
 - parent scope and restoration nesting;
-- accessibility relationships;
 - Reactant capture and bubble routes; and
 - which application handlers remain mounted.
 
@@ -1350,7 +1313,7 @@ propagation. Reactant does not cancel an event already delivered to them.
 For one input-caused move, transport order is deterministic:
 
 1. synchronously submit the original pointer or navigation application event;
-2. apply a synchronous declared move, if any;
+2. if its disposition is `Continue`, apply a synchronous declared move, if any;
 3. synchronously submit `FocusOut`, `FocusIn`, `Blur`, and `Focus` as Unity
    emits them in native before-change then after-change order;
 4. submit a roving selection request after the focus events; and
@@ -1381,7 +1344,7 @@ the player actually display.
 The active modal:
 
 - excludes all outside panel content from effective focusability;
-- excludes outside content from picking and accessibility;
+- excludes outside content from picking and Reactant input subscriptions;
 - loops sequential focus by default;
 - traps directional focus by default;
 - receives initial focus before input resumes; and
@@ -1390,10 +1353,11 @@ The active modal:
 The modal backdrop belongs inside the scope when it must receive an outside
 click that closes the modal. Content beneath the backdrop is outside and inert.
 
-Effective exclusion records original focusability, `tabIndex`, picking, and
-semantics values. Closing the modal restores those authored values. A concurrent
-Rust property update changes the stored authored value, not the temporary
-effective override.
+Effective exclusion records original focusability, `tabIndex`, and picking
+values. Closing the modal restores those authored values. A concurrent Rust
+property update changes the stored authored value, not the temporary effective
+override. Accessibility later reads the same effective-inert decision instead
+of implementing another modal stack.
 
 ### Non-modal scopes
 
@@ -1451,13 +1415,13 @@ Logical participation ends before physical presence when Suspense or Motion
 retains hosts.
 
 Suspense-retained primary content is already rendered with `display: none`.
-The focus plan marks it inert as well so no programmatic or relationship target
+The focus plan marks it inert as well so no programmatic or navigation target
 can reach it while fallback content is active.
 
 When `AnimatePresence` retains a removed child:
 
 - the child keeps its component state, effects, host IDs, and physical hosts;
-- the child immediately leaves scopes, roving groups, and accessibility;
+- the child immediately leaves scopes and roving groups;
 - effective picking and focusability are disabled for the retained subtree;
 - focused content runs fallback before exit descriptors begin; and
 - final physical removal performs no focus restoration.
@@ -1497,10 +1461,13 @@ The resolution order for an unconsumed event is:
 4. scope directional containment or looping; and
 5. no focus change.
 
-The coordinator observes the event during bubble propagation. When it applies a
-destination, it focuses the native element and calls `PreventDefault` in Unity.
-It then forwards the navigation event and resulting focus events through the
-normal Reactant event path.
+The coordinator observes the event during bubble propagation. It first forwards
+the original navigation event through the normal Reactant event path. If Rust
+returns `PreventDefault`, the coordinator makes no generic move. Otherwise, when
+the event remains unconsumed and a declared destination applies, the coordinator
+focuses the native element and calls `PreventDefault` in Unity so the remaining
+native default cannot move focus a second time. Resulting focus events then use
+the normal Reactant event path.
 
 Keyboard arrows set modality to `Keyboard`. D-pad and stick events set it to
 `Controller`. The existing native repeat cadence remains authoritative.
@@ -1680,8 +1647,8 @@ Before `begin_session`, Reactant retains:
 The replacement `UiFocusSnapshot` contains the complete plan and
 `UiFocusResume`. Rust sends only data from the highest acknowledged report in
 the named source session. Unity keeps input disabled until documents, external
-portal children, focus policy, accessibility state, and Motion reconstruction
-are installed.
+portal children, focus policy, Motion reconstruction, and any successor
+session subsystems are installed.
 
 Unity validates each panel's scope bookmarks from outer to inner against final
 availability and physical stacking. It discards a bookmark at the first missing
@@ -1706,7 +1673,7 @@ A stale bookmark is an ordinary fallback, not an error. A missing external
 portal target, cross-panel scope, foreign object ID, or invalid focus-plan
 generation remains a session validation failure.
 
-## Stacking, Picking, and Accessibility
+## Stacking and Picking Integration
 
 Focus policy must agree with the interface users can see and reach.
 
@@ -1715,22 +1682,15 @@ same panel and visual-tree order that pointer picking uses, after accounting for
 document sort order. Style opacity does not change stacking eligibility;
 display and panel attachment do.
 
-Modal outside exclusion applies three effective layers together:
+Modal outside exclusion applies these effective layers together:
 
 - focus eligibility and sequential membership;
 - pointer picking and Reactant input subscriptions; and
-- Unity accessibility visibility.
+- the effective-inert snapshot exposed at the settle boundary.
 
-Applying only one layer is invalid because it would create content reachable by
-one input or assistive path but not the others.
-
-Semantics relationships remain logical but must resolve to live hosts. An
-active-descendant relationship changes with the Unity-owned roving position and
-is reported without waiting for controlled selection to render.
-
-When Rust later renders accepted selection, the declarative selected or checked
-state replaces the proposal. Accessibility never claims application selection
-changed merely because focus moved in a manual-activation composite.
+Applying only one layer is invalid because pointer and focus input would
+disagree. The successor accessibility manager consumes the settled
+effective-inert snapshot and never determines modal presentation on its own.
 
 ## Input Default Actions
 
@@ -1768,13 +1728,13 @@ Rust rejects:
 - incompatible nested roving groups;
 - a scope on a leaf host;
 - a generic roving policy on a native control owning that policy; and
-- missing required accessibility relationships.
+- a foreign-runtime or structurally invalid focus reference.
 
 Unity rejects:
 
 - missing plan objects after prospective host mutations;
 - skipped, stale, or duplicate plan generations;
-- cross-panel scopes, groups, or required relationships;
+- cross-panel scopes, groups, or explicit neighbors;
 - a plan ID owned by another runtime;
 - impossible restoration-stack structure; and
 - configured hard-limit violations.
@@ -1786,22 +1746,20 @@ candidates. Existing response-byte and hierarchy-depth limits still apply.
 
 Reference handling depends on what Rust can know:
 
-Scope anchors, group anchors and items, logical parents, and required semantic
-relationships are **hard references**. Initial, fallback, and neighbor targets
-are **soft references** because their host may be conditional or disappear
-between authoring and use. A dangling hard reference fails validation. A
-dangling soft reference remains encoded and is skipped when evaluated.
+Scope anchors, group anchors and items, and logical parents are **hard
+references**. Initial, fallback, and neighbor targets are **soft references**
+because their host may be conditional or disappear between authoring and use.
+A dangling hard reference fails validation. A dangling soft reference remains
+encoded and is skipped when evaluated.
 
 | Reference and discovery time | Result |
 |---|---|
 | foreign runtime, any builder or ref action | Rust developer panic |
-| required semantic target absent from the desired tree | Rust developer panic |
 | scope initial/fallback target absent or live-ineligible | encode ID, then skip live candidate |
 | resolved initial/fallback outside its declared scope or panel | plan validation failure |
 | neighbor absent, cross-panel, or live-ineligible | native automatic fallback |
 | queued focus target detached after a valid queue | `Detached` request result |
-| same-panel relationship target hidden after activation | relationship becomes ineffective |
-| scope/group/required relation resolved cross-panel | plan validation failure |
+| scope or group resolved cross-panel | plan validation failure |
 
 Rust validates stable identity and desired topology. Unity validates prospective
 panel ownership and final live eligibility. A diagnostic names which layer made
@@ -1820,18 +1778,19 @@ Developer tracing records:
 - plan bytes, update counts, and validation time; and
 - focus-event and report sequences.
 
-Production diagnostics avoid displayed text and accessibility labels. Object
-IDs and enum reasons are sufficient for correlation.
+Production diagnostics avoid displayed text. Object IDs and enum reasons are
+sufficient for correlation.
 
 ## Performance Requirements
 
 Input-event handling must not allocate managed memory after a plan is installed.
-Object, scope, group, item, and relationship lookup uses prepared dictionaries
-and reusable scratch buffers.
+Object, scope, group, and item lookup uses prepared dictionaries and reusable
+scratch buffers.
 
 The performance contract is:
 
-- no Rust call or transport wait during one Unity input event;
+- focus coordination adds no Rust call or transport wait beyond the existing
+  synchronous application-event exchange;
 - no per-frame focus message or geometry sampling;
 - no managed allocation for steady-state Tab, arrow, D-pad, or stick movement;
 - O(1) direct policy lookup by object ID;
@@ -1852,8 +1811,9 @@ bytes, and managed allocations.
 On the pinned Apple Silicon CI host in a non-development player build, the
 release gates are:
 
-- direct Tab, explicit-neighbor, and roving dispatch: 99th percentile at or
-  below `0.25 ms` over 10,000 warm events;
+- local direct Tab, explicit-neighbor, and roving policy resolution after the
+  existing event disposition returns: 99th percentile at or below `0.25 ms`
+  over 10,000 warm events;
 - a contained automatic scan at the 16,384-candidate limit: 99th percentile at
   or below `4 ms` over 1,000 warm events;
 - validation and indexing of a 100,000-node complete plan: at or below `50 ms`;
@@ -1887,11 +1847,13 @@ the Rust-to-Unity boundary cannot provide it.
 - `FocusIn` and `FocusOut` use Reactant logical propagation. `Focus` and `Blur`
   remain target-only, and all four retain UI Toolkit timing.
 - Browser `inert` inspires Reactant's behavior, but Reactant applies it through
-  native focus, picking, subscriptions, and accessibility layers.
+  native focus, picking, and subscription layers. Accessibility later consumes
+  the same effective-inert result.
 - Positive `tabIndex` retains Unity's order even where a browser implementation
   differs in details.
-- Roving active-descendant behavior uses actual focused UI Toolkit elements by
-  default. It does not require browser DOM focus to remain on a container.
+- Roving focus behavior uses actual focused UI Toolkit elements. A later
+  accessibility active-descendant policy may keep input focus on its owner
+  without changing this coordinator contract.
 
 ## Behavioral Acceptance Scenarios
 
@@ -1904,16 +1866,14 @@ oracles:
 
 - Ditto `focused` and `focus-visible` object states;
 - the specimen's application values and public logical event journal;
-- actual `AccessibilityHierarchy` nodes and their role, label, value, state,
-  and active membership;
 - pointer activation counters and native `ScrollView` offsets;
 - Motion presence state plus rendered host visibility; and
 - named session or plan validation diagnostics for rejected commits.
 
-Unity EditMode tests own native focus-event order, accessibility hierarchy,
-picking, scroll offsets, and the no-input-window assertion. Ditto owns
-production input and visible focus/application outcomes. Rust owns logical
-event routes and failure values. No one oracle is claimed to prove all layers.
+Unity EditMode tests own native focus-event order, picking, scroll offsets, and
+the no-input-window assertion. Ditto owns production input and visible
+focus/application outcomes. Rust owns logical event routes and failure values.
+No one oracle is claimed to prove all layers.
 
 ### Ordinary form
 
@@ -1928,9 +1888,9 @@ event routes and failure values. No one oracle is claimed to prove all layers.
 
 - Pointer-activate an opener behind a modal portal.
 - Opening captures the opener and focuses the explicit cancel button.
-- Outside content is not focusable, pickable, or accessible.
-- Its accessibility node is absent and a pointer attempt leaves its activation
-  counter unchanged.
+- Outside content is not focusable or pickable, and the effective-inert
+  observation is true.
+- A pointer attempt leaves its activation counter unchanged.
 - Tab and Shift+Tab loop across the modal controls.
 - Closing restores the opener when it remains eligible.
 - Opening from keyboard gives the initial button focus-visible styling; opening
@@ -1956,6 +1916,16 @@ event routes and failure values. No one oracle is claimed to prove all layers.
 - The event journal records focus events before the selection request.
 - Tab then leaves the group from its current roving item.
 
+### RTL roving, tree, and submenu neighbors
+
+- In a right-to-left horizontal group, Left advances and Right retreats without
+  changing logical item order or the surrounding Tab ring.
+- A tree uses Up/Down and Home/End in one logical sequence while accessibility
+  remains responsible for hierarchy and expanded state.
+- A vertical menu leaves its cross axis unconsumed.
+- Explicit physical Left/Right neighbors move between a submenu trigger and its
+  submenu in the direction chosen from inherited layout direction.
+
 ### Controller navigation
 
 - D-pad or stick input moves through native automatic geometry.
@@ -1979,7 +1949,7 @@ event routes and failure values. No one oracle is claimed to prove all layers.
 - Focus moves before the exit animation begins.
 - In the first retained frame, the host is still rendered, Motion reports
   exiting, and `focused` already names the fallback.
-- The exiting subtree cannot receive pointer, focus, or accessibility input.
+- The exiting subtree cannot receive pointer or focus input.
 - Physical exit completion causes no later restoration or focus event.
 
 ### Portal reconnect
@@ -2033,7 +2003,7 @@ Black-box Rust and fake-host coverage includes:
 
 - façade authoring and exact focus-plan lowering;
 - deterministic sparse updates and generation increments;
-- duplicate candidate, invalid relationship, and roving validation panics;
+- duplicate candidate, invalid focus reference, and roving validation panics;
 - keyed identity preserving plan IDs and refs;
 - logical scope and event routes through same-panel portals;
 - focused-node removal producing the documented fallback inputs;
@@ -2046,7 +2016,7 @@ Black-box Rust and fake-host coverage includes:
 - no-op renders emitting no focus update.
 
 Shared Rust/C# JSON fixtures cover every union case, focus snapshot and resume
-field, default omission, unknown field, invalid ID relationship, generation
+field, default omission, unknown field, invalid ID reference, generation
 gap, request result, selection request, acknowledgement, and hard limit.
 
 ### Unity tests
@@ -2066,8 +2036,8 @@ Public EditMode fixtures inspect actual UI Toolkit state:
 - roving `tabIndex` changes occur before the next input event;
 - same-panel portals work and cross-panel plans fail before activation;
 - nested scroll views reveal only the final target;
-- accessibility roles, values, state, hierarchy exclusion, and retained typed
-  relationships follow the baseline projection;
+- effective inertness and active modal membership are exposed at the settle
+  boundary;
 - reconnect applies focus after portal creation;
 - state reports coalesce and retransmit idempotently; and
 - steady-state navigation allocates no managed memory.
@@ -2092,10 +2062,9 @@ navigate = { direction = "right", source = "d-pad" }
 `focus-visible` reads the production coordinator's public observable state.
 Neither state invokes `Focus()` or a private test hook.
 
-The focus suite also observes production accessibility nodes, activation
-counters, application event journals, and scroll offsets through existing
-public Ditto object-state adapters. These are observations, not coordinator
-commands.
+The focus suite also observes activation counters, application event journals,
+effective inertness, and scroll offsets through existing public Ditto
+object-state adapters. These are observations, not coordinator commands.
 
 Retained scenarios cover ordinary forms, modal open and close, nested overlays,
 roving tabs, explicit and automatic controller neighbors, node removal, exit
@@ -2151,8 +2120,8 @@ The following approaches conflict with the ownership or timing requirements.
   above UI Toolkit's panel controllers.
 - **Keep exiting UI interactive.** Logical removal would leave ghost controls
   reachable during Motion retention.
-- **Expose raw accessibility string IDs.** Stable typed `ElementRef`
-  relationships already match Reactant identity and reconnect rules.
+- **Let a successor subsystem call `VisualElement.Focus()` directly.** That
+  would bypass scope, eligibility, modality, reporting, and reconnect rules.
 
 ## Completion Criteria
 
@@ -2166,7 +2135,7 @@ true:
 - Keyed reconciliation preserves focus without a visible style flash.
 - Modal, non-modal, nested, portal, presence, and reconnect scenarios pass.
 - Tab, directional keyboard, and controller paths follow their distinct rules.
-- Every roving preset passes focus, selection, and accessibility scenarios.
+- Every roving preset passes focus and selection-request scenarios.
 - Focus-visible styling changes locally with modality.
 - Nested scrolling reveals the final focused target without Rust geometry.
 - Rust and C# accept the same complete and sparse wire fixtures.

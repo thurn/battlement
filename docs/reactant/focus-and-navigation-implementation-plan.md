@@ -9,7 +9,16 @@ task begins.
 This plan does not relax Reactant's central ownership rule. Unity UI Toolkit
 remains the low-level focus engine. Rust authors policy, Unity installs that
 policy before input begins, and Unity reports the result after native focus has
-settled. No task may introduce a Rust round trip into an input event.
+settled. No task may require a new Rust round trip to choose a predeclared focus
+move; the existing synchronous event dispatch may still prevent the current
+event's remaining cancelable default.
+
+All tasks in this plan finish before any task in the
+[accessibility implementation plan](accessibility-implementation-plan.md)
+starts. This plan deliberately delivers no semantic tree, accessibility role,
+accessible relationship, assistive-technology focus, or platform accessibility
+projection. It does deliver the one focus coordinator and the settled
+effective-inert state that accessibility will consume.
 
 ## Related information
 
@@ -23,6 +32,8 @@ settled. No task may introduce a Rust round trip into an input event.
   completed foundation on which these tasks build.
 - [Feature ledger](feature-ledger.md) maps shipped Reactant modules to their
   sample and black-box proof.
+- [Reactant accessibility](accessibility-technical-design.md) defines the
+  successor project and its dependency on this completed plan.
 - [Unity focus order][unity-focus-order], [navigation events][unity-navigation],
   and [runtime input][unity-runtime-input] define the native baseline.
 
@@ -43,11 +54,12 @@ Implementation work follows these rules:
 
 - Keep native `FocusController`, `focusedElement`, focus ring, focus events,
   control default actions, and navigation events authoritative.
-- Install synchronous decisions in Unity before enabling input. Rust callbacks
-  may observe outcomes but cannot retroactively prevent native defaults.
+- Install focus-policy decisions in Unity before enabling input. Rust callbacks
+  may prevent the current event's remaining cancelable default, but cannot undo
+  a completed default or synchronously mutate Unity's focus tree.
 - Use stable `ObjectId` and desired-tree `ElementRef` identity. Never derive
   focus identity from render position or native instance IDs.
-- Treat invalid scope, group, relationship, and panel topology as developer
+- Treat invalid scope, group, focus reference, and panel topology as developer
   errors. Do not recover by creating a second focus engine.
 - Add no protocol version, compatibility adapter, legacy branch, or migration
   path.
@@ -89,7 +101,7 @@ platform, panel size, and candidate count.
 | 3. Reactant authoring | F07-F09 | Public focus APIs lower, validate, queue, and reconnect |
 | 4. Scopes and overlays | F10-F12 | Portalled scopes, nesting, exclusion, and exits work |
 | 5. Navigation behavior | F13-F15 | Tab, directional input, scrolling, and modality work |
-| 6. Roving composites | F16-F18 | Composite focus and accessibility presets work |
+| 6. Roving navigation | F16-F18 | Composite focus and selection requests work |
 | 7. Release proof | F19-F21 | Sample, Ditto, and measured release evidence are complete |
 
 The dependency graph is mostly linear. Within a phase, tasks may be developed
@@ -110,24 +122,23 @@ events, `ObjectId`, and Rust/C# fixture generation.
 **API slice:**
 
 - Add `UiFocusPlan`, `UiFocusScope`, `UiFocusNode`, `UiRovingGroup`, and their
-  supporting enums and relationship records.
+  supporting enums and focus-reference records.
 - Add `UiFocusPlanUpdate`, `UiFocusPlanChange`, `UiFocusState`,
   `UiFocusSnapshot`, `UiFocusResume`, `UiFocusRequest`, request results,
   panel identity, roving positions, acknowledgements, `InputModality`, and
   `FocusReason`.
 - Extend focus-event payloads with modality and reason while preserving native
   related-target and navigation-direction fields.
-- Add the typed accessibility role, state, and relationship fields required by
-  the normative design.
 - Embed one complete plan in a UI snapshot and sparse updates in live commit
   batches.
 
 **Implementation notes:** Keep the schema closed and generated like the
-existing UI protocol. Define hard limits for plan nodes, scopes, groups,
-neighbors, and accessibility relationships. Reject duplicate IDs and dangling
-hard references during decode or validation. Preserve dangling initial,
-fallback, and neighbor soft references for their normative live fallback. Add
-no protocol version field.
+existing UI protocol. Define hard limits for plan nodes, scopes, groups, and
+neighbors. Reject duplicate IDs and dangling hard references during decode or
+validation. Validate hard structural ownership and membership references
+immediately. Preserve unresolved initial, fallback, and neighbor soft
+references for their normative live evaluation and fallback. Add no protocol
+version field.
 
 **Rust proof:** Round-trip every enum and optional field, reject each invalid
 reference class, prove omission when no focus metadata or resume state exists,
@@ -218,8 +229,9 @@ native behavior and adds only the policy UI Toolkit cannot infer by itself.
 
 **API slice:** Add the Unity focus coordinator, O(1) object/scope/group lookup
 tables, plan validation, panel ownership, input gating, state-report
-coalescing, coordinator diagnostics, and Ditto's public `focused` object-state
-observation.
+coalescing, coordinator diagnostics, Ditto's public `focused` object-state
+observation, and a Unity-internal read-only view of settled focused host,
+eligibility, modality, and focus-visible state.
 
 **Implementation notes:** Register native focus and navigation callbacks on the
 panel without synthesizing focus events. Read `FocusController.focusedElement`
@@ -262,7 +274,8 @@ transient focus loss. Otherwise apply the normative fallback ladder exactly
 once. Report only the settled outcome.
 
 **Rust proof:** A keyed move lowers to retained host identity, while replacement
-lowers to a new host and an explicit fallback request.
+lowers to a new host and lets the coordinator apply its declared fallback
+ladder.
 
 **Unity proof:** Move a focused keyed control, remove the focused middle member,
 remove the last member, invalidate an explicit fallback, and assert actual
@@ -287,11 +300,12 @@ virtual Input System.
 
 **Implementation notes:** Native text editing, selection, submit, cancel,
 toggle, and control-specific directional behavior receive first refusal. Do
-not add general key handlers to controls. Rust handler results never change the
-already-completed native default.
+not add general key handlers to controls. A synchronous Rust handler may prevent
+the current event's remaining cancelable default, but cannot mutate the Unity
+focus tree or replace declarative focus policy during its callback.
 
-**Rust proof:** Event types expose observation but no browser-style synchronous
-`prevent_default` API.
+**Rust proof:** Event types use the existing synchronous `prevent_default` API
+and expose no immediate Unity mutation channel.
 
 **Unity proof:** Arrow keys edit or move within text and native composite
 controls before generic navigation. Enter, Space, submit, and cancel retain
@@ -313,22 +327,23 @@ the coordinator installed and with an empty focus plan.
 This phase exposes declarative focus policy only after the transport and native
 engine can honor it. It also connects focus state to sessions and queued refs.
 
-### Task F07 - Add focus, scope, inert, and accessibility authoring
+### Task F07 - Add composable focus, scope, and inert authoring
 
 **Prerequisites:** Phase 2 and the existing opaque host-façade builders.
 
-**API slice:** Add `FocusScopeMode`, `FocusContainment`, `FocusRestore`,
-`FocusScope`, and the typed accessibility semantics from the design. Add façade
-builders for `focus_scope`, `auto_focus`, and `inert`.
+**API slice:** Add `FocusProps`, `LayoutDirection`, `FocusScopeMode`,
+`FocusContainment`, `FocusRestore`, and `FocusScope`. Add `.focus_props(...)`
+and façade builders for `focus_scope`, `auto_focus`, `inert`, and inherited
+layout direction.
 
 **Implementation notes:** Lower authoring through the desired tree into the
 complete plan. Preserve native positive, zero, and negative `tab_index`
-semantics. Do not invent a Rust numeric-ordering algorithm. Relationship
+semantics. Do not invent a Rust numeric-ordering algorithm. Focus-reference
 builders resolve stable `ElementRef` identities after the desired tree exists.
 
 **Rust proof:** Public black-box tests cover every builder in arbitrary call
-order, absent/default fields, accessibility relationships, and exact plan
-lowering. Compile-fail tests reject builders on unsupported façades.
+order, absent/default fields, focus-reference resolution, bundle conflicts, and
+exact plan lowering. Compile-fail tests reject builders on unsupported façades.
 
 **Unity proof:** A lowered ordinary form follows the same native focus ring as
 an equivalent hand-authored UI Toolkit form.
@@ -339,16 +354,16 @@ fixture.
 **Performance proof:** Unchanged subtrees reuse lowered policy, and an unrelated
 render emits no focus update.
 
-**Completion condition:** Authors can fully declare ordinary focusability,
-initial focus, one scope, inertness, and relationships without accessing wire
-types.
+**Completion condition:** Authors and successor behavior hooks can fully
+declare ordinary focusability, initial focus, one scope, and inertness without
+accessing wire types.
 
 ### Task F08 - Validate desired-tree focus topology
 
 **Prerequisites:** F07 and existing portal binding validation.
 
 **API slice:** Add validation for duplicate scope/group membership, incompatible
-nested groups, multiple eligible `auto_focus` descendants, dangling refs,
+nested groups, multiple eligible `auto_focus` descendants, invalid hard refs,
 invalid active items, and cross-panel scopes or groups.
 
 **Implementation notes:** Logical ancestry determines scope and group
@@ -358,8 +373,9 @@ logical IDs and panel targets without leaking native instance IDs.
 
 **Rust proof:** Validate same-panel portals, reject cross-panel portals,
 duplicate membership, multiple `auto_focus` nodes, a scope with no possible
-anchor, a modal anchor without authored `focusable(true)`, and relationships
-to destroyed refs.
+anchor, a modal anchor without authored `focusable(true)`, and destroyed hard
+membership refs. Preserve unresolved initial, fallback, and neighbor soft refs
+for Unity's documented live eligibility and fallback rules.
 
 **Unity proof:** Reject a malformed externally supplied plan before it can
 alter active focus.
@@ -415,22 +431,23 @@ event ancestry and physical Unity stacking.
 
 **API slice:** Implement initial-focus selection, `NonModal` and `Modal`
 activation, `None`/`Trap`/`Loop` containment, scope anchors, outside exclusion,
-and `None`/`Opener` restoration.
+`None`/`Opener` restoration, and a settled read-only view of active scope and
+effective inertness.
 
 **Implementation notes:** Initial focus tries retained focus, explicit target,
 one eligible `auto_focus`, first native ring member, and the focusable anchor.
 Modal defaults trap and loop sequential navigation, contain directional input,
-exclude outside picking and accessibility, and restore the opener. Non-modal
-scopes do none of those by default and restore only when focus remains inside
-at close. Use the startup-bound native focus-ring adapter and root bubble event
-ordering defined by the design. Reject a modal whose prospective anchor cannot
-provide the mandatory live fallback.
+exclude outside picking, publish settled effective inertness, and restore the
+opener. Non-modal scopes do none of those by default and restore only when
+focus remains inside at close. Use the startup-bound native focus-ring adapter
+and root bubble event ordering defined by the design. Reject a modal whose
+prospective anchor cannot provide the mandatory live fallback.
 
 **Rust proof:** Lower all default and explicit combinations and validate that
 outside exclusion is modal-only.
 
 **Unity proof:** Open and close modal and non-modal fixtures; assert initial
-focus, actual ring traversal, picking, accessibility exclusion, and restoration.
+focus, actual ring traversal, picking, effective inertness, and restoration.
 
 **Ditto proof:** Production pointer and keyboard input opens and closes one
 modal, loops at both Tab boundaries, and cannot activate outside content.
@@ -570,7 +587,7 @@ panel-local, and synchronous without asking Rust for geometry.
 **Prerequisites:** F13-F14 and existing Motion gestures and geometry hooks.
 
 **API slice:** Add the `scroll_on_focus` façade builder, Unity-local modality
-state, `while_focus_visible`, reported `focus_visible`, and
+state, `while_focus_visible`, `use_focus_visible`, reported `focus_visible`, and
 `FocusScroll::Nearest` through nested physical `ScrollView` ancestors. Add
 Ditto's public `focus-visible` object-state observation.
 
@@ -598,7 +615,7 @@ no managed allocation, plan traffic, or Rust render.
 **Completion condition:** Focus-visible styling and reveal behavior follow the
 documented modality heuristic through production input.
 
-## Phase 6: roving composites and accessibility
+## Phase 6: roving navigation and selection requests
 
 This phase adds Unity-owned ephemeral position for composite widgets while
 keeping application selection in Rust.
@@ -638,27 +655,30 @@ items and emits one coalesced state report.
 **Completion condition:** Generic roving focus is synchronous, panel-local,
 and independent of a Rust selection render.
 
-### Task F17 - Add tabs, menus, toolbars, and listboxes
+### Task F17 - Add roving behavior presets
 
-**Prerequisites:** F16 and typed accessibility semantics from F07.
+**Prerequisites:** F16.
 
-**API slice:** Implement exact presets for tabs, menus, toolbars, and listboxes,
-including roles, selected state, controls relationships, active descendant,
-orientation, Home/End, looping, and optional automatic tab activation.
+**API slice:** Implement exact presets for tabs, menus, toolbars, listboxes, and
+one-dimensional trees, including orientation, inherited `LayoutDirection`,
+Home/End, looping, and optional automatic activation.
 
-**Implementation notes:** Tabs default horizontal. Menus and listboxes default
-vertical. Toolbars require authored orientation. Type-ahead remains outside
-this design. Automatic tab activation reports an activation request after the
-native focus move; Rust owns the selected panel content.
+**Implementation notes:** Tabs default horizontal. Menus, listboxes, and trees
+default vertical. Toolbars require authored orientation. Horizontal roving
+reverses advance/retreat in right-to-left layout without changing logical or
+Tab order. Menu cross-axis input remains available for explicit submenu
+neighbors. Type-ahead remains outside this design. Automatic tab activation
+reports an activation request after the native focus move; Rust owns the
+selected panel content.
 
-**Rust proof:** Validate each preset's derived role and dynamic active
-descendant, manual versus automatic tabs, item removal, and relationship
-resolution. Reject a tab without explicit `controls`, missing selected state,
-and conflicts with derived semantics.
+**Rust proof:** Validate each preset's exact focus policy, manual versus
+automatic activation, keyed item removal, disabled membership, and selection
+request routing.
 
-**Unity proof:** Exercise all keys and controller directions, inspect the
-production `AccessibilityHierarchy` projection and retained typed
-relationships, and prove manual tabs do not activate on focus.
+**Unity proof:** Exercise all keys and controller directions, prove manual tabs
+do not request activation on focus, mirror horizontal roving in RTL, keep tree
+movement vertical, and leave menu cross-axis input available to explicit
+submenu neighbors.
 
 **Ditto proof:** A tablist scenario covers arrows, Home/End, looping, automatic
 activation, selected panel content, and one sequential stop.
@@ -666,28 +686,27 @@ activation, selected panel content, and one sequential stop.
 **Performance proof:** A move in a 1,000-item listbox stays within the bounded
 candidate scan and emits no complete-plan update.
 
-**Completion condition:** Each preset has exact keyboard/controller behavior
-and matching typed accessibility semantics.
+**Completion condition:** Each preset has exact keyboard/controller focus
+behavior without assigning any semantic role or accessibility state.
 
 ### Task F18 - Integrate radio groups and selection reporting
 
 **Prerequisites:** F16-F17.
 
 **API slice:** Preserve native `RadioButtonGroup` behavior and add the composed
-radio-item roving preset with checked semantics and selection requests.
+radio-item roving preset with selection requests.
 
 **Implementation notes:** Native groups receive no duplicate roving key logic.
-Composed groups use Unity-owned focus position and Rust-owned checked state.
+Composed groups use Unity-owned focus position and Rust-owned selected state.
 Selection reports use the normative `UiRovingSelectionRequested` schema,
 including plan generation, event sequence, previous and proposed items,
 direction, modality, and reason.
 
 **Rust proof:** Lower native and composed variants distinctly, validate one
-checked and one active eligible item as separate authored facts, and ignore
-stale selection reports by generation.
+active eligible item, and ignore stale selection reports by generation.
 
 **Unity proof:** Compare native `RadioButtonGroup` interaction with the same
-control outside Reactant. For composed radios, prove arrow movement, checked
+control outside Reactant. For composed radios, prove arrow movement, selection
 request ordering, disabled skipping, and one Tab stop.
 
 **Ditto proof:** Controller and keyboard select a composed radio while a native
@@ -709,7 +728,8 @@ evidence. It adds no new foundational focus semantics.
 **Prerequisites:** Phases 1-6.
 
 **API slice:** Add one sample screen or tightly related screen set covering an
-ordinary form, modal and nested overlays, a same-panel portal, a tablist,
+ordinary form, modal and nested overlays, a same-panel portal, a tablist, an
+RTL horizontal group, a one-dimensional tree, submenu neighbor declarations,
 controller navigation, presence exit, nested scrolling, reconnect controls,
 and pointer-versus-keyboard focus-visible styling.
 
@@ -736,8 +756,8 @@ the sample using only public Reactant APIs and ordinary input.
 
 **Prerequisites:** F19 and the existing Ditto production-input path.
 
-**API slice:** Reuse the `focused`, `focus-visible`, and controller primitives
-from F04, F06, and F15. Add production accessibility and scroll-offset
+**API slice:** Reuse the `focused`, `focus-visible`, effective-inert, and
+controller primitives from F04, F06, F10, and F15. Add production scroll-offset
 observations needed by the complete acceptance suite. Add no private focus
 coordinator commands.
 
@@ -753,17 +773,18 @@ clear failures for missing or ambiguous objects.
 path as a real controller and never calls the coordinator directly.
 
 **Ditto proof:** Add scenarios for ordinary forms, modal open/close, nested
-overlays, tabs, directional navigation, focused removal, exit animation,
-portal reconnect, modality styling, nested scrolling, and reconnect inside a
-nested modal with an active roving group.
+overlays, tabs, RTL horizontal roving, a tree, submenu neighbors, directional
+navigation, focused removal, exit animation, portal reconnect, modality
+styling, nested scrolling, and reconnect inside a nested modal with an active
+roving group.
 
 **Performance proof:** Scenario observation adds no per-frame focus polling; it
 samples only at explicit settle points.
 
 **Completion condition:** All normative acceptance scenarios run through their
 assigned public oracle. Ditto proves production input and player-visible state;
-Unity proves native event order, accessibility, picking, offsets, and input
-gating; Rust proves logical routes and validation failures.
+Unity proves native event order, picking, offsets, effective inertness, and
+input gating; Rust proves logical routes and validation failures.
 
 ### Task F21 - Record release performance and failure evidence
 
@@ -794,14 +815,17 @@ defined below. A failed budget blocks completion or requires an explicit design
 revision; it cannot be waived in this plan.
 
 **Completion condition:** A clean checkout reproduces the functional,
-reconnect, diagnostic, allocation, payload, and latency evidence.
+reconnect, diagnostic, allocation, payload, and latency evidence. The read-only
+coordinator view and validated focus request operation are complete for the
+successor accessibility project without importing semantic types.
 
 ## Performance budgets
 
 These are release gates, not aspirational targets. F21 records exact values and
 environment details.
 
-- No Rust request or response is required to finish one input event.
+- No additional Rust request or response is required to finish one predeclared
+  focus move beyond the existing synchronous application-event exchange.
 - Warm focus, Tab, explicit-neighbor, and roving dispatch allocate zero managed
   bytes in Unity.
 - Focus policy emits no per-frame traffic and no repeated unchanged state
@@ -817,8 +841,9 @@ environment details.
   initial-focus resolution, and emits one settled state report.
 
 On the pinned Apple Silicon CI host, use the normative release gates: `0.25 ms`
-99th-percentile direct dispatch, `4 ms` 99th-percentile automatic dispatch at
-16,384 candidates, `50 ms` complete-plan validation at 100,000 nodes, `16 ms`
+99th-percentile local direct policy resolution after the existing event
+disposition returns, `4 ms` 99th-percentile automatic dispatch at 16,384
+candidates, `50 ms` complete-plan validation at 100,000 nodes, `16 ms`
 focus-only reconnect finalization at 10,000 nodes, and `16 MiB` encoded focus
 data subject to lower transport limits. Measure zero allocation after 100 warm
 events. A hardware-baseline change is approved and recorded before results are
@@ -829,10 +854,9 @@ collected; observed implementation performance cannot choose its own gate.
 The following hazards receive tests and named diagnostics in the task that
 first encounters them:
 
-- Unity 6000.5.8f1 may not expose every focus-ring or accessibility operation
-  through a stable public API. Prefer documented APIs, isolate the smallest
-  required adapter, and fail explicitly if the native behavior cannot be
-  preserved.
+- Unity 6000.5.8f1 may not expose every focus-ring operation through a stable
+  public API. Prefer documented APIs, isolate the smallest required adapter,
+  and fail explicitly if the native behavior cannot be preserved.
 - Structural reparenting may emit transient native focus events. Gate input and
   application delivery during the transaction, retain native events for host
   bookkeeping, and report only the settled logical outcome.
@@ -845,9 +869,10 @@ first encounters them:
   updates, indexed lookup, and measured cold-plan budgets.
 - Application selection can lag Unity-owned roving position by one exchange.
   Keep focused/active styling Unity-local and treat Rust selection as a later
-  semantic state update.
-- Outside-content exclusion spans focus, picking, and accessibility. Test all
-  three surfaces so a visual modal cannot leak interaction through one of them.
+  application state update.
+- Outside-content exclusion spans focus, picking, subscriptions, and the
+  effective-inert observation. Test all four surfaces so a visual modal cannot
+  leak interaction through one of them.
 
 ## Completion criteria mapped to tasks
 
@@ -858,7 +883,7 @@ observable in a clean checkout.
 |---|---|
 | UI Toolkit remains authoritative and ordinary controls keep defaults | F04-F06, F21 |
 | Complete plans, sparse updates, reports, limits, and stale handling work | F01-F05, F21 |
-| Public Rust focus, scope, ref, relationship, and accessibility APIs work | F07-F09 |
+| Public Rust focus, scope, ref, and navigation APIs work | F07-F09 |
 | Keyed focus retention and deterministic removal fallback work | F05, F09, F20 |
 | Logical events and same-panel portals preserve scope membership | F08, F11, F20 |
 | Modal, non-modal, nested, exclusion, and restoration rules work | F10-F12, F20 |
@@ -874,4 +899,5 @@ Completion also requires all public API documentation, shared fixtures,
 diagnostics, sample restoration flows, EditMode tests, Ditto reports, and
 performance records to be checked in. There must be no compatibility shim,
 protocol version, per-control key-handler workaround, synthetic focus engine,
-or input-event round trip.
+or additional focus-policy round trip beyond the existing synchronous event
+exchange.

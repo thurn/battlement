@@ -1,4 +1,4 @@
-# Reactant Accessibility Technical Design and Phased Implementation Plan
+# Reactant Accessibility
 
 Status: Proposed
 
@@ -12,17 +12,24 @@ conventions. The Unity capability matrix is required v1 coverage. The only v1
 assistive-technology integration substrate is `UnityEngine.Accessibility`;
 custom native plugins and WebGL DOM/ARIA projection are explicitly out of scope.
 
-The phased plan is delivery guidance. It may be split into smaller tasks without
-changing a phase's dependencies or exit criteria.
-
 ## Decision
 
-Reactant will own a platform-neutral semantic tree that is reconciled beside the
-visual tree. Rust declares accessible meaning and finite interaction policies.
-Unity owns the live semantic mirror, geometry, input modality, focus scopes, and
-all operations that a Unity accessibility callback must complete synchronously.
-The Unity host lowers the mirror into `AccessibilityHierarchy` and
-`AccessibilityNode` on platforms where Unity supports `AssistiveSupport`.
+Reactant will own a platform-neutral semantic tree that is reconciled beside
+the visual tree. Rust declares accessible meaning and finite accessibility
+action policies. Unity owns the live semantic mirror, geometry, accessibility
+focus, and all operations that a Unity accessibility callback must complete
+synchronously. The Unity host lowers the mirror into
+`AccessibilityHierarchy` and `AccessibilityNode` on platforms where Unity
+supports `AssistiveSupport`.
+
+The complete [focus and navigation design](focus-and-navigation.md) is a
+prerequisite, not a parallel proposal. Its focus coordinator remains the only
+owner of UI Toolkit input focus, focus scopes, effective inertness, restoration,
+input modality, focus-visible state, Tab traversal, directional navigation,
+roving position, and focus wire messages. Accessibility composes its public
+`FocusProps`, `FocusScope`, and roving declarations, reads settled coordinator
+state, and requests input focus through the coordinator's validated operation.
+It never calls `VisualElement.Focus()` directly or maintains matching state.
 
 The public Rust API follows the lower-level React Aria model: state, accessible
 behavior, interaction, rendering, and styling remain separate. A hook may return
@@ -42,6 +49,20 @@ V1 preserves semantics that Unity cannot currently publish so applications are
 ready to benefit when Unity expands its accessibility surface; Reactant does not
 work around those limitations by calling platform accessibility APIs directly.
 
+## Responsibility boundary
+
+The two projects have one owner for every overlapping area:
+
+| Area | Completed focus and navigation project | Accessibility project |
+|---|---|---|
+| UI Toolkit input focus | Owns focus eligibility, movement, reports, and reconnect | Observes and submits validated requests |
+| Tab and directional navigation | Owns native-ring boundaries, neighbors, geometry, and roving position | Selects completed focus declarations in pattern hooks |
+| Active-descendant interaction | Keeps native input focus on the owning host | Owns finite item navigation that changes only semantic active descendant |
+| Scopes and overlays | Owns activation, stacking, effective inertness, restoration, and fallback | Maps semantic presentation to the active scope |
+| Semantic tree | Exposes no roles, names, states, relationships, or semantic wire fields | Owns canonical semantics and Unity projection |
+| Assistive-technology focus and actions | Exposes only the coordinator request surface | Owns accessibility focus, actions, proposals, and notifications |
+| Session protocol | Owns `UiFocusSnapshot`, plan updates, reports, and bookmarks | Carries a separate snapshot that depends on one focus generation |
+
 ## Related information
 
 Repository designs:
@@ -52,6 +73,13 @@ Repository designs:
 - [Reconciliation, events, and portals][reconciliation-design]
 - [Refs, geometry, and floating UI][refs-design]
 - [Animations and presence](animations.md)
+- [Focus and navigation](focus-and-navigation.md), the completed input-focus
+  and navigation foundation used by this design
+- [Focus and navigation implementation
+  plan](focus-and-navigation-implementation-plan.md), which must be complete
+  before accessibility work starts
+- [Accessibility implementation plan](accessibility-implementation-plan.md),
+  which delivers this design without reopening the focus foundation
 - [Battlement UI technical design](../battlement-ui-technical-design.md)
 - [Ditto technical design](../ditto-technical-design.md)
 - [Ditto scenario guide](../ditto.md)
@@ -110,7 +138,7 @@ The subsystem must:
 - expose roles, names, descriptions, values, states, relationships, grouping,
   reading order, headings, landmarks, and collection metadata;
 - keep semantic accessibility distinct from input focus, navigation, event
-  propagation, and default-action ownership;
+  propagation, and UI Toolkit default-action ownership;
 - support keyboard, controller, touch, pointer, switch-control, and screen-reader
   activation through one declared interaction contract;
 - remain correct across portals, nested overlays, virtualization, reconnects,
@@ -123,9 +151,10 @@ The subsystem must:
   boundary tests and targeted assistive-technology spot-checks.
 
 This design does not create a Reactant component library or a visual design
-system. It does not select host elements, draw focus rings, localize application
-content, or make game-world content automatically accessible. It provides the
-primitives with which those layers are built.
+system. It does not select host elements, draw focus rings, redefine focus
+scopes or navigation, localize application content, or make game-world content
+automatically accessible. It provides the semantic and
+assistive-technology-facing primitives with which those layers are built.
 
 ## Existing contracts that constrain the design
 
@@ -141,9 +170,11 @@ draft, send a proposal, restore the committed value without notification, and
 later apply the Rust-authoritative response.
 
 Unity also owns the live `VisualElement` index, geometry, hit testing, capture,
-focus, and deferred response gate. `ElementRef` actions are queued after structural
-mutations. Reconnect preserves Rust logical identities while recreating Unity
-hosts and invalidating attachment and geometry.
+and deferred response gate. The completed focus coordinator owns input focus
+and exposes settled focus state and validated focus requests to accessibility.
+`ElementRef` actions are queued after structural mutations. Reconnect preserves
+Rust logical identities while recreating Unity hosts and invalidating
+attachment and geometry.
 
 `AnimatePresence` deliberately retains removed hosts, hook state, handlers, and
 object IDs until exit completion. Accessibility cannot inherit that physical
@@ -154,15 +185,17 @@ Ditto creates a fresh engine per scenario and drives the production input path.
 It can prove semantic snapshots and actions, but it cannot prove what VoiceOver
 or TalkBack actually speaks through Unity's mobile integration.
 
-These contracts lead to four rules:
+These contracts lead to five rules:
 
 1. Rust declares semantics and bounded policies; it does not issue platform API
    calls.
 2. Unity applies a semantic commit and accessibility callbacks on the engine
    thread.
 3. Logical Reactant ancestry is authoritative for semantics and relationships.
-4. A Unity default that must happen during an input callback is owned by Unity,
-   based on a policy already declared by Rust.
+4. Input-focus and navigation behavior uses the completed focus coordinator;
+   accessibility does not register a competing input callback or focus policy.
+5. A Unity accessibility callback that requires a synchronous action uses
+   accessibility policy already declared by Rust.
 
 ### Repository dependency contract
 
@@ -171,8 +204,9 @@ This document uses the following Reactant terms with fixed meanings:
 - `ObjectId` is the stable logical identity assigned to a reconciled host. It is
   preserved while the keyed logical host survives and across reconnect, even
   though the corresponding Unity object is recreated.
-- `UiDocument` is a physical UI Toolkit panel root. Moving a host between portal
-  targets may change its document without changing its logical ancestry.
+- `UiDocument` owns one logical UI Toolkit tree. Multiple documents may share a
+  physical panel and its `FocusController`. Moving a host between portal targets
+  may change its document without changing its logical ancestry.
 - the synchronous runtime call starts with a Unity event, dispatches it through
   the committed logical Rust tree, renders resulting state, and returns one
   response before the call completes;
@@ -221,10 +255,10 @@ or listbox. They do not choose markup or styling.
 
 ### Interaction
 
-Interaction hooks declare press, hover, focus-visible, typeahead, directional
-navigation, dismissal, drag, and keyboard/controller policy. Unity executes the
-bounded synchronous part. Rust receives logical intent events through the normal
-committed event tree.
+Interaction hooks declare press, hover, typeahead, dismissal, drag, and
+controlled action policy. They compose focus-visible and navigation behavior
+from the completed focus APIs. Unity executes the bounded synchronous part.
+Rust receives logical intent events through the normal committed event tree.
 
 ### Rendering
 
@@ -262,6 +296,52 @@ pub enum AccessibilitySlot {
 
 pub struct AccessibilityRef(AccessibilityId);
 
+pub struct LocaleId(String);
+
+pub struct NodeIncarnation(u64);
+
+pub struct FocusRequestId(u64);
+
+pub struct AnnouncementId(u64);
+
+pub struct ProposalId {
+    pub backend_generation: u64,
+    pub sequence: u64,
+}
+
+pub enum AccessibilityCapability {
+    Roles,
+    States,
+    Relations,
+    Ranges,
+    Collections,
+    CustomActions,
+    LiveAnnouncements,
+    Geometry,
+    ModalPresentation,
+    VirtualContinuation,
+}
+
+pub enum AccessibilityCoverage {
+    Explicit,
+    Required,
+}
+
+pub struct RequiredCapabilities(BTreeSet<AccessibilityCapability>);
+
+pub struct NumberFormatter;
+
+pub struct ValidationStrings {
+    pub required: LocalizedText,
+    pub invalid: LocalizedText,
+}
+
+pub struct AccessibilityContext {
+    pub locale: LocaleId,
+    pub number_formatter: NumberFormatter,
+    pub default_validation_strings: Option<ValidationStrings>,
+}
+
 pub struct SemanticProps {
     pub role: SemanticRole,
     pub name: AccessibleName,
@@ -274,13 +354,21 @@ pub struct SemanticProps {
     pub visibility: SemanticVisibility,
     pub actions: ActionSet,
     pub reading_order: ReadingOrder,
+    pub focus_host: Option<ElementRef>,
+    pub input_focus: InputFocusCorrelation,
     pub geometry: GeometrySource,
+    pub reveal: Option<AccessibilityRevealRoute>,
     pub fallback: FallbackPolicy,
     pub alias: Option<SemanticAlias>,
     pub inert: bool,
     pub content: SemanticContent,
 }
 ```
+
+`LayoutDirection` is the inherited focus/navigation type delivered by the
+completed focus project. Accessibility reads it for localization, semantic
+direction, and mirrored pattern declarations; it does not implement horizontal
+focus movement.
 
 `AccessibilitySlot::Host` identifies the semantic node attached to a host.
 `Hook` slots identify unkeyed virtual nodes owned by that same logical host, such
@@ -326,12 +414,12 @@ the same key creates a new logical lifetime with a new node incarnation, so the
 complete structured ID changes and stale Unity accessibility callbacks cannot
 reach it.
 
-`NodeIncarnation` is a nonzero session-local counter allocated whenever a
+`NodeIncarnation` is a nonzero runtime-local counter allocated whenever a
 semantic slot enters a new logical lifetime. It remains stable through reorder,
 rendering through an unchanged portal target, and reconnect. Removing and
 recreating the same keyed slot gets a new incarnation, so a stale callback cannot
 reach the replacement. Rust retains the last counter for removed
-`(identity_owner, slot)` pairs until the session ends; counters are never reused.
+`(identity_owner, slot)` pairs until the runtime ends; counters are never reused.
 
 `ObjectId` stability follows logical host reconciliation: a surviving keyed host
 keeps its ID through reorder, an unchanged portal target, and reconnect; an
@@ -346,7 +434,7 @@ resolved snapshot. Attachment checks, input focus, hit testing, and
 implicitly. A virtual node can therefore be logically owned by one host and use
 another named host ref for geometry/focus.
 
-`AccessibilityRef` is typed and session-local. It cannot be created from an
+`AccessibilityRef` is typed and runtime-local. It cannot be created from an
 arbitrary UUID or platform identifier. Relationship-specific wrappers such as
 `LabelRef`, `DescriptionRef`, `ControlRef`, and `ErrorMessageRef` prevent common
 miswiring at compile time. The wire format uses the underlying structured ID.
@@ -363,7 +451,6 @@ pub enum SemanticParent {
 pub struct VirtualSemanticNode<G> {
     pub parent: SemanticParent,
     pub semantic: SemanticProps,
-    pub focus: FocusProps,
     pub interaction: InteractionProps<G>,
 }
 
@@ -508,6 +595,56 @@ pub enum GeometrySource {
     None,
 }
 
+pub enum InputFocusCorrelation {
+    None,
+    OnAccessibilityFocus,
+    OnActivate,
+}
+
+pub enum ActiveDescendantInput {
+    Previous,
+    Next,
+    First,
+    Last,
+    PagePrevious,
+    PageNext,
+}
+
+pub struct ActiveDescendantPolicy {
+    pub items: Vec<AccessibilityRef>,
+    pub active: AccessibilityRef,
+    pub orientation: Orientation,
+    pub looped: bool,
+    pub page_size: u32,
+    pub accepted_inputs: BTreeSet<ActiveDescendantInput>,
+}
+
+pub struct ActiveDescendantNavigationRequested {
+    pub previous: AccessibilityId,
+    pub proposed: AccessibilityId,
+    pub direction: NavigationDirection,
+}
+
+pub struct AccessibilityRevealRoute {
+    pub scroll_container: ElementRef,
+    pub alignment: RevealAlignment,
+    pub axis: ScrollAxis,
+    pub maximum_distance: f32,
+}
+
+pub enum RevealAlignment {
+    Nearest,
+    Start,
+    Center,
+    End,
+}
+
+pub enum ScrollAxis {
+    Horizontal,
+    Vertical,
+    Both,
+}
+
 pub enum FallbackPolicy {
     Inherit,
     AllowAll,
@@ -554,12 +691,14 @@ description sources produce no such relation. There are no duplicate relation
 fields that can disagree with name computation.
 
 All `SemanticState` booleans default to false; all options default to `None`.
-Relations and actions default empty, reading order defaults natural, geometry
-defaults to the focus host, fallback defaults to `Inherit`, alias defaults absent,
-inert defaults false, and content fields default absent. The semantic root must
-choose `AllowAll` or `Forbid`; descendants inherit from the nearest explicit
-ancestor policy. `CollectionSize` is `Known(NonZeroUsize)` or `Unknown`.
-Position, level, row, column, and heading level are one-based.
+Relations and actions default empty, reading order defaults natural,
+`focus_host` defaults to the composed host when one exists, input-focus
+correlation defaults to `None`, geometry defaults to that focus host, reveal
+defaults absent, fallback defaults to `Inherit`, alias defaults absent, inert
+defaults false, and content fields default absent. The semantic root must choose
+`AllowAll` or `Forbid`; descendants inherit from the nearest explicit ancestor
+policy. `CollectionSize` is `Known(NonZeroUsize)` or `Unknown`. Position, level,
+row, column, and heading level are one-based.
 
 A collection window exists only on a collection container. Its first and last
 positions are both absent for an empty window or both present with first no later
@@ -726,49 +865,26 @@ a host to assistive technology. Interaction properties do not imply either.
 Pattern hooks usually return all three because a standard control requires them,
 but lower-level hooks can be composed independently.
 
-The focus and interaction bundles use this closed public contract:
+`FocusProps` is the exact type defined by the completed
+[focus and navigation design](focus-and-navigation.md#composable-focus-properties).
+Accessibility does not wrap, extend, or serialize a second focus bundle.
+Pattern hooks construct that type using its existing focusability, tab index,
+autofocus, inertness, neighbor, scrolling, and roving-item builders.
+
+Accessibility owns only semantic action and controlled-value policy:
 
 ```rust
-pub struct FocusProps {
-    pub host: FocusHostBinding,
-    pub tab_stop: TabStop,
-    pub autofocus: bool,
-    pub sync_from_accessibility: bool,
-    pub restore_key: Option<FocusRestoreKey>,
-    pub scroll_route: Option<ScrollRoute>,
-}
-
-pub enum FocusHostBinding {
-    None,
-    AttachedHost,
-    Element(ElementRef),
-}
-
-pub enum TabStop {
-    Auto,
-    Excluded,
-    CompositeMember,
-}
-
 pub struct InteractionProps<G> {
     pub handlers: InteractionHandlers<G>,
     pub press: Option<PressPolicy>,
-    pub navigation: Option<NavigationPolicy>,
+    pub typeahead: Option<TypeaheadPolicy>,
     pub range: Option<RangeInteractionPolicy>,
     pub text: Option<TextInteractionPolicy>,
     pub dismiss: Option<DismissPolicy>,
     pub input_capture: Option<InputCapturePolicy>,
+    pub active_descendant: Option<ActiveDescendantPolicy>,
 }
 ```
-
-All fields default to absent/false. `host` defaults to `AttachedHost` for an
-interactive bundle composed on a physical host and `None` for a virtual or
-structural node. A focusable virtual node must explicitly use
-`Element(ElementRef)`; `AttachedHost` is invalid outside host composition.
-`tab_stop` defaults to `Auto` for a pattern's primary interactive node and
-`Excluded` for structural nodes. There is no positive tab-index API. An explicit
-direct-child reading order is the only author mechanism that changes both reading
-and ordinary Tab order.
 
 Each policy mutation is `Install { owner, complete_policy }` or
 `Remove { owner, policy_kind }`. Installing another policy of the same kind on
@@ -777,13 +893,9 @@ set of routed intent kinds; the finite policy data is serialized separately.
 
 The finite policy enums are closed:
 
-- `NavigationKind` is roving one-dimensional, active-descendant, grid, or tree.
-  A policy includes current member, member eligibility, orientation, wrap,
-  direction behavior, selection-follows-focus, page size, and optional typeahead.
-- `DirectionBehavior` is logical or spatial. Hooks in this design use spatial for
-  horizontal visual movement and logical for direction-independent hierarchy.
 - `TypeaheadPolicy` contains locale, timeout milliseconds, search mode
-  (prefix or contains), and ordered `(member, resolved_name)` entries.
+  (prefix or contains), and ordered `(focus_host, resolved_name)` entries. A
+  match requests focus through the existing focus coordinator.
 - `PressPolicy` contains accepted devices/keys, press-on-release versus
   press-on-down, repeat policy, and whether release outside cancels.
 - `RangeInteractionPolicy` contains range, step, page size, orientation,
@@ -795,76 +907,31 @@ The finite policy enums are closed:
   separate press policy.
 - `InputCapturePolicy` contains the eligible input-device/control set and reserved
   cancel controls. Rebind is its standard constructor, not a wire enum shortcut.
-- `ScrollRoute` contains the scroll-container `ElementRef`, reveal alignment,
-  axis, and maximum one-frame reveal distance.
+- `ActiveDescendantPolicy` contains the ordered semantic item refs, current
+  active ref, orientation, loop policy, page size, and exact keys/controller
+  moves it consumes while installed. It emits an ordinary typed application
+  event and never changes UI Toolkit input focus.
+
+Arrow, D-pad, Home, End, Tab, explicit-neighbor, automatic-directional, and
+roving behavior come from the focus project. Accessibility pattern hooks select
+and compose `RovingFocusGroup`, `RovingFocusItem`, `NavigationNeighbors`, and
+`FocusScope`; they do not install a private navigation policy in the
+accessibility manager. Typeahead is the only pattern search policy here, and
+its resulting focus move goes through the coordinator's validated request
+surface.
 
 `FallbackClass` is role, relation, state, value/range, collection, custom action,
 live announcement, geometry, modal, or virtual continuation. Every Unity
 lowering records zero or more of these classes. The record explains what Unity
 could not publish; it does not remove that information from the canonical tree.
 
-`FocusRestoreKey` is an application key scoped to the nearest focus scope. It is
-stable through keyed reorder and reconnect, unique among live descendants of that
-scope, and never exposed through Unity. Restoration resolves the key to the current
-eligible semantic node; it does not retain a Unity object reference.
-
-Focus scopes and presentation promotion use this closed declaration:
-
-```rust
-pub struct FocusScopeProps {
-    pub owner: AccessibilityRef,
-    pub kind: FocusScopeKind,
-    pub trap: bool,
-    pub inert_outside: bool,
-    pub initial_focus: FocusTarget,
-    pub restore: FocusRestoration,
-    pub presentation: PresentationPolicy,
-}
-
-pub enum FocusTarget {
-    None,
-    Explicit(AccessibilityRef),
-    RestoreKey(FocusRestoreKey),
-    FirstEligible,
-    ScopeOwner,
-}
-
-pub struct FocusRestoration {
-    pub candidates: Vec<FocusRestoreTarget>,
-}
-
-pub enum FocusRestoreTarget {
-    Invoker,
-    Target(FocusTarget),
-    NearestEligibleLogicalAncestor,
-    FirstEligibleInParentScope,
-}
-
-pub enum PresentationPolicy {
-    Inline,
-    PromoteNonmodal,
-    PromoteModal,
-}
-```
-
-`FocusScopeKind` is application, composite, overlay, or rebind capture. Scope
-owners must be nested by canonical ancestry; partially intersecting scopes are
-invalid. Promoted scopes are ordered by activation commit, then canonical order
-within one commit. A modal scope must set `trap` and `inert_outside`; a nonmodal
-scope must not set `inert_outside`.
-
-At most one `autofocus` declaration may exist in an activating scope. A scope's
-non-`None` `initial_focus` wins over descendant autofocus. Descendant autofocus
-applies only when the scope has no current focus and is not behind a modal. At
-application startup, canonical order breaks ties only after validation has
-reported multiple autofocus declarations as an error.
-
-`FocusScopeProps` is attached with `.focus_scope(...)`, independent of semantic,
-focus, and interaction bundles. Its complete snapshot and install/remove mutation
-cross the wire. Restoration tries candidates once in vector order and clears
-input focus if none is eligible. Empty restoration is valid and means clear.
-`use_dialog` builds invoker, nearest eligible logical ancestor, optional explicit
-scope fallback, then first eligible in the parent scope.
+Dialog and overlay hooks return the existing `FocusScope`. Its modal
+containment, initial target, fallback, opener restoration, physical stacking,
+effective inertness, and reconnect behavior remain exactly as specified by the
+focus design. Accessibility adds dialog semantics, dismiss actions, and modal
+presentation roots keyed to that scope's stable anchor ID. The accessibility
+manager reads the focus coordinator's active scope stack; it does not order or
+activate scopes itself.
 
 Plain visual descendants do not need semantic props. Text and images only enter
 the accessible name-from-content walk when the owning role permits it and their
@@ -916,20 +983,18 @@ exposed child exactly once. It cannot reparent nodes or reach across a modal
 scope. This keeps visual overlays and unusual layouts expressible without making
 arbitrary global ordering normal.
 
-Ordinary Tab traversal uses one deterministic projection. Start at the active
-presentation roots, walk active semantic nodes depth-first in effective reading
-order, and collect nodes whose `FocusProps.tab_stop` is `Auto`, whose focus host
-is attached, and which are neither disabled nor inert. `Excluded` nodes are
-skipped.
-For each composite, only the policy's current `CompositeMember` is inserted; all
-other members are navigated internally. Portals have no effect because the walk
-is logical. A modal scope replaces the page roots with the top modal presentation
-root. Shift-Tab reverses the resulting sequence.
+Reading order never determines ordinary Tab order. The completed focus system
+keeps UI Toolkit's physical native focus ring authoritative, including portal
+placement and authored `tab_index`. Accessibility validates a useful mismatch:
+an exposed interactive semantic node should normally name a focus host that is
+programmatically focusable, but it does not rewrite that host's sequential
+position.
 
-There is no separate author-supplied numeric focus order. This prevents reading
-and Tab order from drifting. Programmatic and accessibility focus may target an
-eligible `Excluded` node, such as a text field managed by active descendant, but
-ordinary Tab cannot.
+Composite pattern hooks return the existing roving declarations so the focus
+coordinator admits one current item into the native Tab sequence. The semantic
+tree independently preserves its logical reading order and active-descendant
+relationship. This separation is intentional: portals may change physical Tab
+order without changing semantic ancestry.
 
 ### Portals
 
@@ -946,16 +1011,18 @@ root from Unity traversal, without cloning the node. Relations such as
 `controls`, `labelled_by`, and `described_by` continue to resolve through stable
 IDs.
 
-For a top modal, the active presentation forest contains only that dialog subtree
-and any nested overlay roots. For a nonmodal overlay, page and overlay roots are
-both active in declared presentation order. Closing an overlay removes its
-promotion before Unity focus restoration.
+For the active modal reported by the focus coordinator, the active presentation
+forest contains only that dialog subtree and any nested overlay roots. For a
+nonmodal overlay, page and overlay roots remain active in canonical order.
+Closing an overlay removes its presentation root in the same commit in which
+the focus coordinator performs restoration.
 
 Changing a portal's target follows the existing Reactant remount contract. The
-old subtree and semantic IDs are removed, new hosts receive new `ObjectId` and
-node incarnations, and focus restoration uses an explicit restore key if the
-application wants continuity. Reconnect rebinding is different: all UI Toolkit
-hosts are recreated while surviving logical portal state and semantic IDs remain.
+old subtree and semantic IDs are removed, and new hosts receive new `ObjectId`
+and node incarnations. Input-focus restoration follows the focus design's
+opener and fallback rules. Reconnect rebinding is different: all UI Toolkit
+hosts are recreated while surviving logical portal state and semantic IDs
+remain.
 
 ### Names and descriptions
 
@@ -987,6 +1054,12 @@ required, invalid, busy, checked, pressed, selected, expanded, current, modal,
 multiselectable, orientation, and sort direction. Invalid state may reference an
 `ErrorMessageRef`; it does not automatically announce the error.
 
+`modal = true` describes a dialog to assistive technology; it never activates
+focus containment or outside inertness. A modal dialog must be a presentation
+root linked to an existing `FocusScope::modal()` anchor. Rust validates the
+semantic link, and Unity accepts the presentation only when the focus
+coordinator reports that scope active.
+
 Range values are numeric first. `value.text` is an optional localized speech
 override such as “Quiet” or “75 percent.” The Unity adapter uses the `Slider` role
 and increment/decrement events for supported ranges and retains the text in
@@ -1016,17 +1089,18 @@ graph only. Opacity alone never hides semantics. The author must hide a purely
 visual zero-opacity duplicate explicitly.
 
 When presence removes a logical child, Reactant removes that subtree from the
-semantic tree in the same commit that starts its exit animation. Unity first
-moves accessibility and input focus to the declared restoration target or an
-eligible ancestor. The retained physical hosts then animate with input disabled
-and no semantic nodes. There is no option to keep an interactive exiting subtree
-accessible.
+semantic tree in the same commit that starts its exit animation. Accessibility
+clears or relocates accessibility focus, while the focus coordinator performs
+its existing input-focus fallback. The retained physical hosts then animate
+with input disabled and no semantic nodes. There is no option to keep an
+interactive exiting subtree accessible.
 
-An element may remain visually mounted but semantic-inert by declaring `inert` on
-any semantic ancestor or focus scope. Inert is inherited and disables Unity
-publication, accessibility actions, input focus, and focus navigation. Disabled is
-not the same as hidden or inert: disabled controls remain discoverable and expose
-their disabled state.
+An element may remain visually mounted but semantic-inert by declaring `inert`
+on any semantic ancestor. The accessibility manager also consumes effective
+inertness from the focus coordinator. Either source disables Unity publication
+and accessibility actions. The focus coordinator independently disables input
+focus and navigation. Disabled is not the same as hidden or inert: disabled
+controls remain discoverable and expose their disabled state.
 
 ### Dynamic content and announcements
 
@@ -1097,41 +1171,34 @@ action, it exposes the current window and reports the total size in the adapted
 collection summary. It must not claim that the last materialized item is the last
 item in the collection.
 
-## Focus, navigation, events, and default actions
+## Accessibility focus, events, and default actions
 
-Accessibility integrates four systems that remain separately observable.
+Accessibility integrates with the completed focus system while keeping
+assistive-technology focus separately observable.
 
 ### Focus kinds
 
 Reactant distinguishes:
 
 - **input focus**, the UI Toolkit element that receives keyboard and controller
-  input;
+  input and is owned by the focus coordinator;
 - **accessibility focus**, the canonical semantic node selected by assistive
   technology;
 - **navigation focus**, the current item in a composite or directional focus
-  scope; and
-- **focus-visible state**, the styling signal derived from input modality.
+  scope and is owned by the focus coordinator; and
+- **focus-visible state**, the focus coordinator's styling signal derived from
+  input modality.
 
 Moving one does not universally move the others. Accessibility focus on static
 text does not move input focus. Accessibility focus or activation of an
-interactive control requests input focus when its `FocusProps` says
-`sync_from_accessibility: true`. Input focus normally updates accessibility focus
-only after keyboard or controller navigation, not after a pointer click.
+interactive node requests input focus only when its
+`InputFocusCorrelation` policy requires it. The request names the semantic
+node's `focus_host` and enters the focus coordinator's existing validated
+request path. Accessibility focus never calls `VisualElement.Focus()`.
 
-Unity tracks the last meaningful modality synchronously:
-
-- pointer, touch, keyboard, controller, accessibility, or programmatic;
-- synthetic mouse events following touch do not change modality;
-- programmatic focus preserves the preceding modality unless the request carries
-  an explicit reason; and
-- reconnect starts with `Programmatic` and no focus-visible ring until an actual
-  user modality or a restored keyboard/controller focus is known.
-
-`use_focus_visible` returns focused and focus-visible state without styling it.
-Keyboard, controller, and accessibility focus are focus-visible. Pointer and
-touch focus are not, unless the platform accessibility setting or author policy
-requests an always-visible indicator.
+`use_focus_visible` is the existing focus hook. Accessibility behavior hooks
+may return or read its state, but the accessibility manager does not infer
+modality, change focus-visible state, or serialize either value.
 
 Accessibility focus requests use one Unity state machine:
 
@@ -1150,8 +1217,8 @@ Accessibility focus requests use one Unity state machine:
    comes first, for nonempty visible geometry.
 5. Successful reveal continues through `FocusRequestPending`. An exact
    `AccessibilityNode.focusChanged(true)` or `AssistiveSupport.nodeFocusChanged`
-   callback for the requested node moves to `FocusNow`, optionally correlates
-   input focus, and emits `Focused`.
+   callback for the requested node moves to `FocusNow`, optionally submits one
+   coordinator input-focus request, and emits `Focused`.
 6. Reveal failure, screen-reader deactivation, focus moving to another node, or
    no confirming Unity focus event within one second moves to `Failed`, preserves
    the last confirmed focus, and reports a diagnostic/result event.
@@ -1164,40 +1231,47 @@ request wins; cancellation prevents the older request from setting focus or
 emitting `Focused`, even if its layout becomes visible or a delayed notification
 arrives later.
 
-### Declared navigation policies
+### Navigation integration
 
-Ordinary Tab traversal follows the active reading-order algorithm defined above.
-Composite patterns install a bounded `NavigationPolicy` in Unity:
+Ordinary Tab traversal, focus scopes, explicit directional neighbors,
+automatic directional movement, Home/End roving behavior, controller movement,
+and right-to-left focus direction are already implemented by the focus project.
+Accessibility pattern hooks compose those declarations on each pattern's focus
+hosts.
 
-```rust
-pub struct NavigationPolicy {
-    pub kind: NavigationKind,
-    pub orientation: Orientation,
-    pub wrap: bool,
-    pub direction: DirectionBehavior,
-    pub selection_follows_focus: bool,
-    pub typeahead: Option<TypeaheadPolicy>,
-    pub members: Vec<AccessibilityRef>,
-}
-```
+The mapping is explicit:
 
-Unity can therefore handle arrows, Home, End, Page Up, Page Down, controller
-direction, submit, and cancel before UI Toolkit performs an unrelated default.
-The policy is data, not remotely executable Rust code. Unity moves focus
-synchronously, updates a controlled local draft when appropriate, and emits a
-typed logical intent afterward.
+- tabs, menus, radio groups, toolbars, listboxes, and one-dimensional trees use
+  the appropriate completed `RovingFocusGroup` preset and
+  `RovingFocusItem` values;
+- submenu hooks choose physical Left/Right neighbor declarations from the
+  inherited `LayoutDirection`; the focus coordinator executes those moves;
+- grids declare stable directional neighbors between materialized cells;
+- active-descendant patterns keep UI Toolkit input focus on their owning host
+  and use accessibility's finite `ActiveDescendantPolicy` to request only a
+  semantic active-descendant change;
+- typeahead selects a predeclared matching focus host and requests focus through
+  the coordinator; and
+- selection-follows-focus handles the focus project's ordinary
+  `UiRovingSelectionRequested` application event and renders the resulting
+  controlled selection in the later response. Only an assistive-technology
+  action uses the accessibility proposal path.
 
-Tab enters a composite at its active or first eligible member, then leaves the
-composite on the next Tab. Arrow keys move within radio groups, tab lists, menus,
-listboxes, grids, and trees. Disabled members are skipped for focus except in a
-menu policy that explicitly permits discoverable disabled items.
+The accessibility manager never intercepts Tab or directional input to move UI
+Toolkit focus itself. `ActiveDescendantPolicy` is distinct: it consumes only
+the declared composite-owner inputs, emits `ActiveDescendantNavigationRequested`,
+and leaves the owner's native focus unchanged. A pattern that cannot express an
+actual input-focus move with the completed focus APIs is rejected during
+authoring rather than gaining a private navigation engine.
 
-Horizontal spatial navigation mirrors in right-to-left layouts. `ArrowRight`
-moves visually right and `ArrowLeft` visually left; the logical next and previous
-key selected by that motion therefore reverse. Home and End remain first and last
-in declared collection order. Horizontal range controls reverse increment and
-decrement so the larger value follows the visual increasing direction. Vertical
-controls are unchanged.
+When the policy owner has input focus, Unity resolves the previous and proposed
+semantic IDs from the installed ordered policy before forwarding the event. A
+valid handled move prevents the remaining native default and submits the typed
+application event through normal logical routing. Unity does not mutate the
+semantic mirror locally. The later safe-gated Rust response renders the
+authoritative active-descendant relation; rendering the previous or another
+valid item is an application decision. A stale policy, invalid item, or runtime
+failure leaves both input focus and the committed semantic relation unchanged.
 
 ### Event ownership
 
@@ -1241,13 +1315,13 @@ Every standard interaction declares one default-action owner:
 
 | Interaction | Class | Synchronous owner | Rust result |
 | --- | --- | --- | --- |
-| Move composite focus | Unity-owned | navigation policy | focus observation |
+| Move composite focus | Unity-owned | focus coordinator | focus observation |
 | Activate/press/show help/custom | admission-backed | action adapter | handler admission |
 | Toggle/select/change tab | proposal-backed | controlled adapter | boolean/key resolution |
 | Increment/decrement/set range | proposal-backed | range adapter | numeric resolution |
 | Edit text/selection | proposal-backed | text adapter | text/selection resolution |
 | Expand/collapse | proposal-backed | disclosure adapter | expanded resolution |
-| Dismiss overlay | proposal-backed | overlay stack | open=false resolution |
+| Dismiss overlay | proposal-backed | action adapter plus active focus scope | open=false resolution |
 | Continue virtual window | proposal-backed | collection adapter | window/key resolution |
 | Raw application shortcut | post-default event | UI Toolkit | key observation |
 
@@ -1296,9 +1370,10 @@ key. An incorrect variant rejects the response before commit.
 
 ### Input disable and rebinding
 
-Global `input_disabled` disables input focus, accessibility actions, focus
-navigation, controlled drafts, capture, and overlay dismissal. The semantic tree
-remains readable with a busy or disabled state supplied by the application.
+Global `input_disabled` asks the focus coordinator to disable input focus and
+navigation, while accessibility disables actions, controlled drafts, capture,
+and overlay dismissal. The semantic tree remains readable with a busy or
+disabled state supplied by the application.
 
 An input-rebinding scope declares `InputCapturePolicy::rebind(...)`. Unity routes
 the
@@ -1393,8 +1468,9 @@ form or supports mixed state uses checkbox semantics.
 ### Radio groups
 
 `use_radio_group` returns group semantics, orientation, one group-level
-description/error bundle, and a roving navigation policy. `use_radio` returns each
-radio's semantics, position, selected state, focus props, and selection proposal.
+description/error bundle, and the focus project's radio-group roving
+declaration. `use_radio` returns each radio's semantics, position, selected
+state, `FocusProps`, `RovingFocusItem`, and selection proposal.
 Only one eligible radio is in the Tab sequence. Arrows move and select by default;
 an explicit manual-selection option is allowed only for product requirements that
 conflict with the APG convention.
@@ -1457,11 +1533,12 @@ PanelHost::new()
     .children(audio_settings())
 ```
 
-`use_tabs` returns tab-list semantics and roving navigation. Each tab owns a typed
-`controls` relation to exactly one panel; each panel is labelled by its tab. The
-default is automatic activation because Reactant panels are local. Applications
-may choose manual activation for expensive content, in which case arrows move
-focus and Enter, Space, or controller submit selects.
+`use_tabs` returns tab-list semantics and the focus project's tabs roving
+declaration. Each tab owns a typed `controls` relation to exactly one panel;
+each panel is labelled by its tab. The default is automatic activation because
+Reactant panels are local. Applications may choose manual activation for
+expensive content, in which case arrows move focus and Enter, Space, or
+controller submit selects.
 
 Only the selected panel is exposed. A panel retained by presence becomes hidden
 and inert at deselection before its visual exit. Removing the selected tab chooses
@@ -1478,7 +1555,8 @@ let dialog = use_dialog(
         name: labelled_by(title_ref),
         description: described_by(instructions_ref),
         modality: DialogModality::Modal,
-        initial_focus: FocusTarget::FirstEligible,
+        initial_focus: &cancel_ref,
+        fallback_focus: &cancel_ref,
         dismiss: DismissPolicy::EscapeAndControllerCancel,
     },
 );
@@ -1486,6 +1564,7 @@ let dialog = use_dialog(
 Portal::new(overlay_root())
     .child(
         VisualElement::new()
+            .focus_props(dialog.focus)
             .semantic(dialog.semantic)
             .focus_scope(dialog.focus_scope)
             .interaction_props(dialog.interaction)
@@ -1493,22 +1572,25 @@ Portal::new(overlay_root())
     )
 ```
 
-`use_dialog` returns dialog semantics and a `FocusScopeProps`, not a backdrop,
-title, close button, layout, or portal. A modal scope:
+`use_dialog` returns dialog semantics, a completed `FocusProps` value with
+`focusable(true)`, and the completed focus project's `FocusScope`, not a
+backdrop, title, close button, layout, or portal. A modal dialog:
 
-- hides and makes inert every sibling scope below it in the overlay stack;
-- moves focus after the dialog's semantic nodes and hosts are committed;
-- traps Tab and controller navigation within eligible descendants;
-- routes Escape, controller cancel, and Unity accessibility dismiss to the top scope;
-- preserves a typed invoker/restoration target; and
-- restores focus only after the closing subtree becomes semantic-inert.
+- relies on the focus coordinator to make outside hosts effectively inert;
+- relies on the focus coordinator to move focus after hosts are committed;
+- relies on the focus coordinator to trap Tab and directional navigation;
+- routes Escape, controller cancel, and Unity accessibility dismiss only when
+  its focus scope is the active modal;
+- uses opener restoration and deterministic fallback from the focus design;
+  and
+- removes the semantic subtree before any visual presence exit begins.
 
-Nested overlays form a Unity-resident stack. Closing the top overlay restores the
-previous overlay's focus, not the underlying page. If the invoker no longer
-exists, restoration tries the nearest eligible logical ancestor, then the
-scope's explicit fallback, then the first page control. Failure clears input
-focus and sends a screen-changed notification; it never focuses an arbitrary
-physical portal sibling.
+Nested overlays use the focus coordinator's existing Unity-resident scope
+stack. Closing the top overlay restores the previous overlay's opener when it
+is still eligible, then runs the focus design's deterministic fallback. The
+accessibility manager observes the resulting active scope and sends the
+corresponding screen-change notification; it does not choose the input-focus
+target.
 
 An alert dialog additionally requires a concise name and an initial-focus target
 that does not cause long static content to be skipped. Backdrop click is an
@@ -1529,9 +1611,9 @@ items.
 ### Listboxes and comboboxes
 
 `use_listbox` returns collection semantics, selection policy, typeahead, and
-focus policy. `use_option` returns option semantics, selected/disabled state,
-position metadata, and selection intent. Single and multiple selection are
-distinct state interfaces.
+the completed focus project's roving declarations. `use_option` returns option
+semantics, selected/disabled state, position metadata, and selection intent.
+Single and multiple selection are distinct state interfaces.
 
 `use_combobox` composes text-input, trigger-button, and listbox bundles:
 
@@ -1542,10 +1624,11 @@ distinct state interfaces.
 - active descendant identifies the currently navigated option; and
 - input value, selected key, and open state remain independently controlled.
 
-Typing filters through Rust state. Unity owns arrows, Home, End, page movement,
-Escape, and controller navigation while the popup is open. Enter or submit commits
-the active option. On close, accessibility focus returns to the field and input
-focus remains there.
+Typing filters through Rust state. While the popup is open, the installed
+`ActiveDescendantPolicy` translates arrows, Home, End, page movement, and
+controller navigation into typed active-descendant requests; Escape remains an
+overlay dismissal policy. Enter or submit commits the active option. On close,
+accessibility focus returns to the field and input focus remains there.
 
 ### Tooltips
 
@@ -1569,8 +1652,7 @@ Other low-level hooks include:
 - `use_text_field`, `use_search_field`, and `use_validation`;
 - `use_disclosure`, `use_table`, `use_grid`, `use_tree`, and their keyed item
   hooks;
-- `use_collection`, `use_roving_focus`, `use_typeahead`, and
-  `use_active_descendant`;
+- `use_collection`, `use_typeahead`, and `use_active_descendant`;
 - `use_press`, `use_hover`, `use_focus_visible`, `use_drag`, and
   `use_long_press`; and
 - `use_live_region` and `use_announce`.
@@ -1590,7 +1672,8 @@ children and before either tree is committed. It performs these passes:
 1. collect host and virtual semantic declarations with source locations;
 2. resolve logical semantic parentage through transparent nodes and portals;
 3. resolve typed relationships and accessible names/descriptions;
-4. derive modal visibility, inertness, reading order, and collection metadata;
+4. derive author inertness, reading order, collection metadata, and each
+   presentation root's focus-scope anchor;
 5. validate the complete candidate semantic tree;
 6. diff it against the committed semantic tree; and
 7. add its mutation stages to the same `ReactantCommit` as visual mutations.
@@ -1605,16 +1688,21 @@ application.
 
 ### Ordered Unity application
 
-The Unity executor stages the complete response, validates references against the
-post-commit object index, then applies these barriers:
+The Unity executor stages the complete response, validates references against
+the post-commit object index and required focus-plan generation, then applies
+these barriers:
 
-1. deactivate semantic nodes that become hidden, inert, or removed;
-2. move accessibility/input focus away from those nodes;
-3. create and reparent visual hosts that new semantic nodes require;
-4. update host properties and semantic nodes;
-5. install navigation, controlled-action, and overlay policies;
-6. execute focus and scroll actions;
-7. submit supported layout, screen, value, and announcement notifications to
+1. deactivate semantic nodes that become author-hidden, author-inert, or
+   removed and clear accessibility focus when it is among them;
+3. create, update, and reparent visual hosts;
+4. update the canonical semantic mirror and controlled-action policies;
+5. let the focus coordinator finalize input focus, scope activation,
+   effective inertness, modality, and scrolling;
+6. derive active semantic presentation from that settled focus state;
+7. relocate accessibility focus when the settled focus state newly excludes
+   its node, then execute accessibility-focus requests and submit supported
+   layout, screen,
+   value, and announcement notifications to
    `UnityEngine.Accessibility`; and
 8. destroy visual hosts no longer retained by presence.
 
@@ -1633,14 +1721,18 @@ does not mutate semantic content.
 ### Reconnect
 
 The reconnect snapshot includes the complete resolved semantic tree, action
-policies, modal stack, current logical input focus, accessibility focus when
-known, locale, direction, and unacknowledged assertive announcements.
+policies, accessibility focus when known, locale, direction, and
+unacknowledged assertive announcements. The separate completed focus snapshot
+contains input focus, scope stack, modality, roving position, and restoration
+bookmarks.
 
 Unity recreates visual hosts first, then semantic nodes with the same structured
-IDs. It restores modal inertness and focus only after all referenced hosts exist.
-If the previously focused node is no longer eligible, it runs the normal logical
-restoration algorithm. A reconnect sends one screen-changed notification after
-the complete tree is active; it does not announce every recreated node.
+IDs. It installs the focus snapshot and waits for settled effective inertness
+before publishing the semantic presentation. If the previous accessibility
+focus is no longer eligible, accessibility focus clears; input-focus fallback
+remains entirely in the focus coordinator. A reconnect sends one screen-changed
+notification after the complete tree is active; it does not announce every
+recreated node.
 
 Unity node IDs and objects may change across reconstruction. Only
 `AccessibilityId` is stable across reconnect. An incoming Unity callback resolves
@@ -1657,17 +1749,16 @@ The initial `Snapshot` gains:
 ```rust
 pub struct AccessibilitySnapshot {
     pub commit_sequence: u64,
+    pub required_focus_generation: Option<u64>,
     pub logical_roots: Vec<AccessibilityId>,
     pub presentation_roots: Vec<PresentationRootSnapshot>,
     pub nodes: Vec<AccessibilityNodeSnapshot>,
     pub relationship_sources: Vec<RelationshipSourceSnapshot>,
     pub policies: Vec<AccessibilityPolicySnapshot>,
-    pub focus_scopes: Vec<FocusScopeSnapshot>,
-    pub modal_stack: Vec<AccessibilityId>,
     pub locale: LocaleId,
     pub direction: LayoutDirection,
-    pub input_focus: Option<AccessibilityId>,
     pub accessibility_focus: Option<AccessibilityId>,
+    pub announcements: Vec<AnnouncementSnapshot>,
 }
 
 pub struct AccessibilityNodeSnapshot {
@@ -1676,6 +1767,8 @@ pub struct AccessibilityNodeSnapshot {
     pub canonical_children: Vec<AccessibilityId>,
     pub declared_exposure: DeclaredExposure,
     pub focus_host: Option<ObjectId>,
+    pub input_focus: InputFocusCorrelation,
+    pub layout_direction: LayoutDirection,
     pub role: SemanticRole,
     pub name: LocalizedText,
     pub description: Option<LocalizedText>,
@@ -1686,9 +1779,17 @@ pub struct AccessibilityNodeSnapshot {
     pub collection_window: Option<CollectionWindowInfo>,
     pub actions: ActionSet,
     pub geometry: ResolvedGeometrySource,
+    pub reveal: Option<ResolvedAccessibilityRevealRoute>,
     pub fallback: FallbackPolicy,
     pub alias: Option<SemanticAlias>,
     pub content: SemanticContent,
+}
+
+pub struct ResolvedAccessibilityRevealRoute {
+    pub scroll_container_id: ObjectId,
+    pub alignment: RevealAlignment,
+    pub axis: ScrollAxis,
+    pub maximum_distance: f32,
 }
 
 pub struct RelationshipSourceSnapshot {
@@ -1696,15 +1797,87 @@ pub struct RelationshipSourceSnapshot {
     pub text: LocalizedText,
 }
 
+pub struct ResolvedSemanticRelations {
+    pub error_message: Option<AccessibilityId>,
+    pub controls: Vec<AccessibilityId>,
+    pub details: Vec<AccessibilityId>,
+    pub flow_to: Vec<AccessibilityId>,
+    pub active_descendant: Option<AccessibilityId>,
+    pub invoker: Option<AccessibilityId>,
+}
+
+pub enum ResolvedGeometrySource {
+    FocusHost,
+    Element(ObjectId),
+    Union(Vec<ObjectId>),
+    None,
+}
+
+pub enum InteractionPolicyKind {
+    Typeahead,
+    Press,
+    Range,
+    Text,
+    Dismiss,
+    InputCapture,
+    ActiveDescendant,
+}
+
+pub enum InteractionPolicySnapshot {
+    Typeahead(TypeaheadPolicy),
+    Press(PressPolicy),
+    Range(RangeInteractionPolicy),
+    Text(TextInteractionPolicy),
+    Dismiss(DismissPolicy),
+    InputCapture(InputCapturePolicy),
+    ActiveDescendant(ActiveDescendantPolicy),
+}
+
+pub struct AccessibilityPolicySnapshot {
+    pub owner: ObjectId,
+    pub policy: InteractionPolicySnapshot,
+}
+
+pub enum AccessibilityPolicyMutation {
+    Install(AccessibilityPolicySnapshot),
+    Remove {
+        owner: ObjectId,
+        kind: InteractionPolicyKind,
+    },
+}
+
+pub struct AccessibilityFocusCommand {
+    pub request_id: FocusRequestId,
+    pub target: AccessibilityId,
+}
+
+pub enum AccessibilityNotification {
+    LayoutChanged { root: AccessibilityId },
+    ScreenChanged { root: AccessibilityId },
+    PageScrolled { root: AccessibilityId },
+    ValueChanged { target: AccessibilityId },
+}
+
+pub struct Announcement {
+    pub id: AnnouncementId,
+    pub locale: LocaleId,
+    pub politeness: Politeness,
+    pub text: LocalizedText,
+}
+
+pub struct AnnouncementSnapshot {
+    pub announcement: Announcement,
+    pub acknowledged: bool,
+}
+
 pub enum DeclaredExposure {
     Eligible,
-    InactiveModalBackground,
     AuthorInert,
 }
 
 pub enum PresentationExposure {
     Active,
-    InactiveModalBackground,
+    FocusExcluded,
     AuthorInert,
     RenderHidden,
     Detached,
@@ -1712,15 +1885,7 @@ pub enum PresentationExposure {
 
 pub struct PresentationRootSnapshot {
     pub id: AccessibilityId,
-    pub policy: PresentationPolicy,
-    pub activation_order: u64,
-}
-
-pub struct FocusScopeSnapshot {
-    pub props: FocusScopeProps,
-    pub active: bool,
-    pub navigation_focus: Option<AccessibilityId>,
-    pub resolved_restore_target: Option<AccessibilityId>,
+    pub focus_scope_anchor: Option<ObjectId>,
 }
 ```
 
@@ -1731,7 +1896,7 @@ described-by, details, and error-message IDs for canonical inspection and future
 Unity mappings. Unity v1 flattens the same source text under the explicit
 fallback rule. `Hidden` declarations are absent.
 
-Rust declares eligible, modal-background, or author-inert exposure. Unity
+Rust declares eligible or author-inert exposure. Unity
 combines that with live attachment and computed UI Toolkit visibility to produce
 `PresentationExposure`. Nodes remain in the Unity mirror while render-hidden or
 detached so they can reactivate atomically. The Unity adapter publishes only
@@ -1750,6 +1915,7 @@ pub enum AccessibilityCommand {
 
 pub struct AccessibilityMutationBatch {
     pub commit_sequence: u64,
+    pub required_focus_generation: Option<u64>,
     pub removals: Vec<AccessibilityId>,
     pub upserts: Vec<AccessibilityNodeSnapshot>,
     pub source_removals: Vec<AccessibilityId>,
@@ -1757,8 +1923,6 @@ pub struct AccessibilityMutationBatch {
     pub logical_roots: Option<Vec<AccessibilityId>>,
     pub presentation_roots: Option<Vec<PresentationRootSnapshot>>,
     pub policies: Vec<AccessibilityPolicyMutation>,
-    pub focus_scopes: Vec<FocusScopeMutation>,
-    pub modal_stack: Option<Vec<AccessibilityId>>,
 }
 ```
 
@@ -1769,6 +1933,21 @@ children before parents; upserts are parents before children. Relationship sourc
 upserts are available before dependent node upserts. A source removal follows all
 node removals/updates that drop its last reference. The staged post-batch graph
 must contain no dangling relationship ID.
+
+`required_focus_generation = Some(generation)` requires that exact settled focus
+plan before semantic presentation is derived. `None` is valid only when the
+corresponding complete Reactant candidate contains no focus plan; it means the
+implicit coordinator root with no authored scope, roving, neighbor, or inert
+policy. A commit that adds or removes the focus plan changes this field in the
+same atomic visual/semantic transaction. Accessibility therefore supports a
+static semantic tree without inventing an explicit empty focus plan.
+
+The snapshot and each node copy the completed focus tree's resolved
+`LayoutDirection`; they do not declare it. When the focus section is absent,
+the only valid resolved direction is the focus project's implicit
+`LeftToRight` default. Authoring any right-to-left root or descendant uses
+`FocusProps::layout_direction`, which creates the corresponding focus metadata
+and therefore requires `Some(generation)`.
 
 Unity-to-Rust events gain:
 
@@ -1806,14 +1985,38 @@ pub struct ProposalResolution {
     pub result: IntentResult,
     pub authoritative: ControlValue,
 }
+
+pub enum IntentResult {
+    Accept,
+    Reject,
+}
+
+pub enum ControlValue {
+    Unit,
+    Boolean(CheckedState),
+    SelectedKey(Option<SemanticKey>),
+    SelectedKeys(Vec<SemanticKey>),
+    Number(f64),
+    Text {
+        text: String,
+        selection_start: u32,
+        selection_end: u32,
+    },
+    Expanded(bool),
+    VirtualWindow {
+        start: u64,
+        end: u64,
+        focus_key: SemanticKey,
+    },
+}
 ```
 
 `FocusFailure` is stale generation, stale incarnation, inactive, disabled,
 screen reader inactive, missing focus host, reveal rejected, reveal target
 removed, reveal timeout, Unity focus timeout, superseded focus, or adapter
-failure. `FocusScopeMutation` installs a complete scope snapshot or
-removes it by owner. `PresentationRootSnapshot.activation_order` is assigned by
-Rust commit sequence and never by physical portal order.
+failure. A presentation root associated with `focus_scope_anchor` is active
+only when the focus coordinator reports that scope active. Physical stacking
+and activation order never cross the accessibility wire.
 
 `ControlValue` is a closed tagged value: unit, boolean/mixed, selected semantic
 key or key set, number, text with selection, expanded boolean, or virtual-window
@@ -1911,15 +2114,16 @@ One manager per Reactant runtime owns:
 - indexes by `AccessibilityId`, identity owner, and physical focus host;
 - staged mutation validation and commit barriers;
 - accessibility/input focus correlation;
-- modality and focus-visible state;
-- the overlay and restoration stack;
-- navigation, typeahead, press, range, and collection policy adapters;
+- accessibility-focus requests and confirmation;
+- typeahead, press, range, text, dismiss, and collection policy adapters;
 - frame invalidation and Unity notifications; and
 - backend lifecycle and capability diagnostics.
 
-The manager depends on `BattlementUiDocuments` and the live object index for
-geometry and input focus. UI code may query semantic state for diagnostics, but
-does not mutate it directly.
+The manager depends on `BattlementUiDocuments`, the live object index, and the
+completed focus coordinator for geometry, settled effective inertness, active
+scope membership, input-focus observations, and validated input-focus requests.
+UI code may query semantic state for diagnostics, but does not mutate it
+directly.
 
 ### Backend interface
 
@@ -1980,11 +2184,12 @@ For a host-owned semantic node, the manager resolves its screen-space frame from
 the current `worldBound`, panel scaling, player viewport, and platform coordinate
 origin. Clipping intersects the frame with all physical clipping ancestors even
 though semantic ancestry is logical. A fully clipped interactive node validates
-only when `FocusProps.scroll_route` names an attached scroll container and a
-bounded reveal action. It remains in the tree with an offscreen frame; Unity
-focus first executes the reveal route, waits for safe-gate layout, requests focus
-through Unity's notification dispatcher, and waits for a confirming focus event.
-Without that route, an actionable fully clipped node is invalid.
+only when `AccessibilityRevealRoute` names an attached scroll container and a
+bounded reveal action. It remains in the tree with an offscreen frame;
+accessibility focus first executes the reveal route, waits for safe-gate layout,
+requests focus through Unity's notification dispatcher, and waits for a
+confirming accessibility-focus event. Without that route, an actionable fully
+clipped node is invalid.
 
 Virtual nodes choose one geometry source:
 
@@ -2013,11 +2218,12 @@ state, and only then submits the typed event. Increment, decrement, select,
 toggle, and text-set callbacks use the same controlled proposal semantics as
 Unity UI events.
 
-A Unity focus callback enters the focus state machine. An already visible
-target updates accessibility focus during `FocusNow`; a clipped target remains at
-the old focus through `RevealPending`. Input focus changes only through declared
-`FocusProps`. A stale, hidden, inactive, timed-out, or reveal-failed target returns
-the defined failure and does not fall back to an ancestor action.
+A Unity focus callback enters the accessibility-focus state machine. An already
+visible target updates accessibility focus during `FocusNow`; a clipped target
+remains at the old focus through `RevealPending`. Input focus changes only when
+`InputFocusCorrelation` requests the focus coordinator operation. A stale,
+hidden, inactive, timed-out, or reveal-failed target returns the defined failure
+and does not fall back to an ancestor action.
 
 ## Unity mapping and capability policy
 
@@ -2031,7 +2237,7 @@ inspection and future lowering but does not publish it through Unity.
 The table describes the documented API surface of the repository's pinned Unity
 6000.5.8f1 version in
 [`ProjectSettings/ProjectVersion.txt`](../../ProjectSettings/ProjectVersion.txt).
-Phase 0 verifies the observable VoiceOver and TalkBack result; an operating
+A01 pins the observable VoiceOver and TalkBack assumptions; an operating
 system may still phrase or navigate the mapped node differently.
 
 | Canonical capability | Unity v1 lowering |
@@ -2111,11 +2317,11 @@ or browser backend.
 
 ## Localization and layout direction
 
-`AccessibilityContext` carries the resolved application locale, layout direction,
-number formatter, and optional default strings for hook-authored validation. A
-semantic commit records its locale for canonical inspection, navigation, and
-fallback formatting. Unity v1 has no node-language field, so the adapter records
-the resulting capability limitation when it materially affects a published node.
+`AccessibilityContext` carries the resolved application locale, number
+formatter, and optional default strings for hook-authored validation. A semantic
+commit records its locale for canonical inspection, typeahead, and fallback
+formatting. Unity v1 has no node-language field, so the adapter records the
+resulting capability limitation when it materially affects a published node.
 
 Hooks do not concatenate localized sentences. Application content supplies
 complete localized names, descriptions, errors, and value text. Collection
@@ -2123,10 +2329,12 @@ position phrases used by a fallback come from a small Reactant Unity catalog
 selected by locale. Role and action words are left to Unity and the operating
 system. The adapter reports when the catalog lacks the requested locale.
 
-Direction is inherited from the nearest Reactant language-direction context, not
-from the physical portal target. An explicit direction on a semantic subtree may
-override it. The same resolved direction configures visual host direction,
-navigation policy, and typeahead collation.
+Direction is inherited through the completed logical focus tree, not from the
+physical portal target. A descendant override uses
+`FocusProps::layout_direction`; accessibility introduces no second direction
+context. The same resolved direction supplies typeahead collation, semantic
+inspection, and the focus declarations returned by pattern hooks. The focus
+coordinator remains responsible for directional movement.
 
 Typeahead uses locale-aware case folding and grapheme boundaries. It searches
 resolved accessible names, skips disabled or hidden items according to the
@@ -2157,8 +2365,8 @@ Validation errors include:
 - an option outside its listbox, tab outside its tab list, radio outside its
   group, or panel without exactly one owning tab;
 - an active descendant outside the declared owned collection;
-- an unnamed modal dialog, a modal scope with no eligible restoration policy, or
-  intersecting modal scopes that are not nested;
+- an unnamed modal dialog, a modal semantic root not linked to its focus-scope
+  anchor, or conflicting semantic roots linked to one scope;
 - a focusable or actionable node hidden by semantic visibility or an inert
   ancestor;
 - an interactive virtual node without usable geometry or a scroll-to-reveal
@@ -2250,7 +2458,8 @@ The focused Rust suite covers representative cases for:
 - name resolution and one invalid relationship cycle;
 - role/state/value validation and representative fallback classification;
 - stable identity through keyed reorder, reconnect, and one portal move;
-- one controlled action, one focus restoration path, and modal inertness;
+- one controlled action, one coordinator focus-correlation path, and modal
+  exposure derived from settled effective inertness;
 - live-announcement deduplication; and
 - a virtual window whose work is proportional to its visible items.
 
@@ -2313,18 +2522,30 @@ Semantic settle requires no pending Reactant work, no pending safe-gate batch,
 and no unacknowledged inspector-backend notification. Snapshot normalization
 removes Unity node IDs and frames unless a scenario asks for geometry.
 
-V1 does not add a Ditto accessibility scenario to routine CI. Product scenarios
-may use these primitives later, but they are not a completion gate for the
-accessibility subsystem. Ditto does not assert spoken phrases or replace a manual
-device spot-check.
+The focused Ditto accessibility suite is a release gate but does not run in
+routine CI. It covers the acceptance families through the inspector backend and
+production action adapter. Ditto does not assert spoken phrases or replace a
+manual device spot-check.
 
 ### Performance checks
 
-Routine CI asserts only that a virtualized update visits the materialized window
-rather than the declared collection size. Dedicated benchmarks, large fixtures,
-allocation measurements, release-player runs, and machine-specific latency gates
-are out of scope for v1. Developers profile a representative screen when an
-observed regression justifies it.
+Routine CI asserts that a virtualized update visits only the materialized window
+and keeps small regression fixtures under the shared budget. Dedicated release
+checks use these normative gates on the pinned Apple Silicon CI host:
+
+- 100,000-node Rust semantic projection completes within `20 ms`;
+- a 10,000-node semantic diff completes within `8 ms`;
+- a 1,000-visible-node Unity batch completes within `12 ms`;
+- direct action dispatch is at most `0.5 ms` at the 99th percentile;
+- semantic reconnect finalization for 10,000 nodes completes within `16 ms`;
+- warm callbacks allocate zero managed bytes after 100 warm-up calls;
+- a virtualized operation is linear in materialized entries, not total size;
+- one changed node emits one complete-node upsert, not a full snapshot; and
+- accessibility emits no per-frame semantic traffic.
+
+The [implementation plan](accessibility-implementation-plan.md#performance-budgets)
+assigns the evidence, payload, and failure-limit work. These checks are release
+completion gates but do not add the large fixtures to routine pull-request CI.
 
 ## Acceptance scenarios
 
@@ -2334,6 +2555,11 @@ Reactant result unless a Unity node is named explicitly. Rust tests own canonica
 semantics and interactions. Unity Editor tests own direct or best-effort mapping
 and hierarchy lifecycle. A scenario needs end-to-end coverage only when a defect
 cannot be reproduced at either of those layers.
+
+Whenever a scenario mentions input focus, Tab, directional movement, roving
+position, modal inertness, or restoration, the completed focus coordinator owns
+that behavior. Accessibility only composes its declarations, consumes its
+settled state, and verifies that semantic presentation and actions agree.
 
 ### Labeled controls
 
@@ -2508,9 +2734,11 @@ or renaming the action invalidates stale test callbacks by generation.
 
 Screen-reader reading moves accessibility focus across a heading and static text
 without moving UI Toolkit input focus. Activating the following button moves
-input focus only because its focus props request correlation. Pointer focus does
-not show a focus-visible ring; keyboard, controller, and accessibility focus do.
-The diagnostics inspector shows all four focus/modality values throughout.
+input focus only because its `InputFocusCorrelation` requests the coordinator.
+Static accessibility focus does not create an input-focus ring. A correlated
+accessibility request uses visible focus through the coordinator; pointer focus
+does not. The diagnostics inspector shows accessibility focus beside the
+coordinator's input focus, roving position, modality, and focus-visible state.
 
 ### Backend fallback and validation recovery
 
@@ -2581,304 +2809,12 @@ No acceptance scenario must be repeated in every column. iOS and Android player
 builds are not CI gates. Unsupported-player selection is proved with Editor/unit
 fixtures rather than builds for every target.
 
-## Phased implementation plan
-
-Each phase ends in an independently reviewable commit series during
-implementation. Later phases may add mappings but must not redefine the canonical
-semantics established in Phase 1.
-
-### Phase 0: Unity accessibility fixtures and Editor spike
-
-Purpose: measure the pinned `UnityEngine.Accessibility` surface before its
-best-effort mapping tables harden.
-
-Tasks:
-
-- Create a small canonical fixture covering a labelled button, checkbox, slider,
-  tabs, modal dialog, listbox, live region, and one virtual item.
-- Use the Unity Editor to inspect the fixture and exercise label, value, role,
-  state, action, focus, notification, replacement, and teardown behavior.
-- Verify that layout and screen notifications request focus without synchronously
-  confirming it, and record the exact focus callback that confirms the request.
-- Verify that screen-reader off/on clears, reconstructs, and reassigns the active
-  hierarchy without a Reactant rerender or reuse of old Unity nodes.
-- Record the actual Unity mappings, minimum player requirements, callback-thread
-  behavior, and unsupported concepts in checked-in mapping tables.
-- Verify unsupported-platform selection with compile-symbol and backend-factory
-  Editor tests rather than building every player target.
-- Confirm that no target loads a custom accessibility plugin or creates a WebGL
-  semantic DOM.
-
-Exit criteria:
-
-- the Editor fixture exposes supported mappings without duplicate nodes;
-- Unity callback threading and hierarchy activation are proven;
-- focus request/confirmation and screen-reader off/on reconstruction are proven;
-- relationships, active descendant, virtual continuation, promoted modal roots,
-  synchronous actions, live announcements, and animated geometry each have an
-  explicit Unity mapping or fallback decision;
-- unsupported player targets deterministically report `Unavailable` through the
-  selected backend.
-
-### Phase 1: Canonical Rust model and validation
-
-Purpose: establish semantics independent of Unity and individual widgets.
-
-Tasks:
-
-- Add IDs, roles, name/description sources, state, values, relations, actions,
-  collection metadata, visibility, locale, direction, and source diagnostics.
-- Add the complete declarations for content metadata, focus scopes, presentation
-  promotion, fallback policy, geometry source, and finite interaction policies,
-  even where runtime behavior lands in later phases.
-- Add host and virtual-slot declaration APIs plus typed relationship refs.
-- Project a candidate semantic tree from the logical Reactant tree, preserving
-  portal ancestry and transparent nodes.
-- Implement canonical name/description computation and validation.
-- Add modal/inert projection, reading order, heading/landmark rules, and
-  presence-removal semantics.
-- Store the committed semantic tree and diff complete-node upserts/removals.
-- Extend the fake host and add property, invalid-composition, portal, presence,
-  and reconnect tests.
-
-Exit criteria:
-
-- the fake host produces a deterministic standalone semantic snapshot;
-- every invalid identity, role/state/content, name, relation, visibility,
-  ancestry, reading-order, and fallback-policy composition fails before visual
-  commit;
-- keyed nodes retain IDs through reorder and an unchanged portal target, while a
-  portal-target change remounts with new IDs; and
-- semantic presence removal and reconnect snapshot identity pass without Unity;
-  no focus restoration is required in this phase.
-
-### Phase 2: Protocol, Unity mirror, and inspector backend
-
-Purpose: carry the canonical model into the existing atomic response lifecycle.
-
-Tasks:
-
-- Add snapshot, mutation, policy, focus, notification, announcement, event, and
-  capability messages to Rust and C# protocol types.
-- Add one compact shared golden conversation and an unknown-schema failure test.
-- Generate the pure Rust/C# fallback classifier from Phase 0 mapping tables and
-  implement immutable capability generations and reclassification.
-- Implement `BattlementAccessibilityManager`, its indexes, generation checks,
-  staged validation, commit barriers, and inspector backend.
-- Resolve UI Toolkit host geometry, clipping, virtual geometry, and Motion frame
-  invalidation.
-- Integrate semantic deactivation with host destruction and presence retention.
-- Enforce attachment, computed exposure, geometry-source, scroll-route, commit
-  sequence, and node-incarnation validation.
-- Add the editor Accessibility inspector and strict/degraded health reporting.
-- Implement reconnect tree activation and announcement acknowledgement, leaving
-  operational focus restoration to Phase 3.
-
-Exit criteria:
-
-- a real UI Toolkit panel is reflected exactly in the inspector backend;
-- visual and semantic mutations fail or commit together;
-- focused Motion, portal, reconnect, and stale-callback tests pass at their
-  owning Rust or Unity layer; and
-- the compact protocol conversation round-trips to semantic equality.
-
-### Phase 3: Synchronous interaction and focus primitives
-
-Purpose: create the reusable behavior layer before high-level pattern hooks.
-
-Tasks:
-
-- Implement modality and `use_focus_visible`.
-- Implement `FocusProps`, focus correlation, queued focus commands, restoration,
-  and focus-scope infrastructure.
-- Implement layout/screen focus requests, exact Unity-event confirmation,
-  supersession, one-second timeout, and screen-reader-deactivation failure.
-- Implement Unity navigation policies for Tab, arrows, Home/End, Page keys,
-  controller direction, submit, and cancel.
-- Implement admission-backed `use_press` activation, controlled
-  toggle/select/range proposals, hover, long press, drag, typeahead, and active
-  descendant.
-- Route accessibility actions through committed logical event ancestry.
-- Integrate `input_disabled` and rebind capture policy.
-- Complete reconnect input/accessibility focus restoration on top of the Phase 2
-  tree activation.
-- Enforce focus-scope nesting, autofocus arbitration, action ownership,
-  proposal-value, callback cancellation, and reveal-state validation.
-- Add LTR, RTL, duplicate-activation, rejected-proposal, and raw-event ownership
-  tests.
-
-Exit criteria:
-
-- all standard defaults in the ownership table execute synchronously in Unity;
-- Rust receives one typed intent per physical or supported Unity action;
-- no public API implies late default cancellation; and
-- focus-visible state agrees across pointer, touch, keyboard, controller,
-  accessibility, and programmatic transitions.
-
-### Phase 4: Core control hooks
-
-Purpose: deliver common controls on top of the stable primitives.
-
-Tasks:
-
-- Implement state adapters and hooks for buttons, links, toggle buttons,
-  checkboxes, switches, radios, sliders, text/search fields, validation, progress,
-  headings, landmarks, images, groups, and separators.
-- Implement native-control adapters without making native hosts mandatory.
-- Add black-box Rust examples for a native host and a custom visual host producing
-  equivalent semantics and behavior.
-- Add localized range text, read-only/required/invalid behavior, and error
-  relationships.
-- Implement `use_live_region`, `use_announce`, custom-action admission, queue
-  state/acknowledgement, deduplication, failure, and reconnect replay behavior.
-- Add Ditto semantic assertion and action primitives backed by the inspector
-  backend.
-
-Exit criteria:
-
-- labelled controls, sliders, text-field validation, progress, custom-action,
-  announcement-queue, and primitive LTR/RTL behavior pass focused Rust tests;
-- a standalone rebind capture policy works without requiring a dialog, and
-  semantic reconnect works without asserting overlay restoration;
-- custom and native visual implementations produce equivalent canonical trees;
-  and
-- the public examples compile as documentation tests.
-
-### Phase 5: Collections, composites, and overlays
-
-Purpose: implement patterns whose correctness depends on relationships, focus
-scopes, and keyed data.
-
-Tasks:
-
-- Implement collection state, item keys, selection state, roving focus,
-  virtualization metadata, and continuation actions.
-- Implement tabs, listboxes, comboboxes, menus/submenus, tooltips, disclosures,
-  tables, grids, and trees.
-- Implement dialogs, alert dialogs, overlay-stack inertness, initial focus,
-  dismissal, nested restoration, and portaled relationships.
-- Enforce tab/panel, group/item, active-descendant, table/header, tree-level,
-  collection-window, overlay, and composite-member validation.
-- Extend Ditto with semantic snapshot and action primitives, tested below the
-  scenario layer.
-- Add a bounded Rust test proving collection diffing visits only the materialized
-  window.
-
-Exit criteria:
-
-- focused Rust tests cover the state machines for dialogs, composites, overlays,
-  and virtualized collections;
-- a 10,000-item virtual collection emits work proportional to the materialized
-  window and changed metadata; and
-- nested overlay closure restores focus correctly under invoker removal and
-  presence animation.
-
-### Phase 6: Unity accessibility backend
-
-Purpose: expose the proven canonical model through Unity's supported
-assistive-technology integration.
-
-Tasks:
-
-- Implement `UnityAccessibilityBackend` with `AccessibilityHierarchy`,
-  `AccessibilityNode`, `AssistiveSupport`, and Unity's notification dispatcher.
-- Add fast Unity Editor tests for hierarchy activation, replacement, teardown,
-  callbacks, and capability health.
-- Rebuild and reassign the complete hierarchy with fresh nodes after a
-  screen-reader off/on transition, without requiring a Rust rerender.
-- Implement the generated Unity mapping tables, best-effort fallbacks,
-  notification coalescing, and strict-profile enforcement.
-- Map the complete pinned Unity 6000.5 role, state, action, focus, and notification
-  surface, including a diagnosed live-announcement fallback for lost politeness.
-- Add unsupported-player tests proving deterministic inspector selection and
-  `Unavailable` health without platform API calls.
-- Document Unity's minimum mobile OS versions from the pinned engine
-  documentation; do not add per-OS player builds to CI.
-
-Exit criteria:
-
-- every cell marked Full or Adapted in the Unity capability matrix behaves as
-  specified or records the exact documented fallback;
-- the active Unity hierarchy contains no duplicate Reactant nodes;
-- screen-reader reactivation publishes the retained canonical mirror through a
-  new backend generation and rejects old-generation callbacks;
-- Unity's hierarchy inspector matches the generated mapping fixture; and
-- all Unity node action callbacks use the production controlled/default-action
-  path.
-
-### Phase 7: Product adoption and mobile spot-check
-
-Purpose: apply the subsystem to real Reactant surfaces and close gaps that only a
-screen reader reveals.
-
-Tasks:
-
-- Migrate representative Battlement settings, input rebinding, overlays, tabs,
-  sliders, validation, and dynamic status surfaces.
-- Enable `AccessibilityCoverage::Required` at migrated roots.
-- Run one short representative path with VoiceOver and TalkBack before the
-  initial release and after a pinned Unity accessibility upgrade.
-- Record the tested OS, player, and screen-reader version plus any observed
-  Unity limitation.
-
-Exit criteria:
-
-- the representative mobile path exposes a labelled control, an adjustable
-  value, an announcement, and a focus transition on iOS and Android;
-- no release-blocking inspector or screen-reader issue remains;
-- required roots contain no unlabeled actionable nodes or undocumented fallback.
-
-## Delivery risks and mitigations
-
-### Unity mappings differ by mobile platform and engine version
-
-The same Unity role, state, or notification can produce different VoiceOver and
-TalkBack behavior, and Unity may expand or change its mapping between engine
-versions. Phase 0 measures the pinned version. Canonical Rust tests remain
-stable, while Unity Editor fixtures record every intentional fallback. A short
-mobile spot-check catches gross presentation differences.
-
-### Unity callbacks contend with Reactant dispatch
-
-Unity accessibility events run on the engine thread and may arrive while other
-UI work is settling. The adapter rejects recursive dispatch, validates generation
-and incarnation before invoking Rust, and admits resulting mutations through the
-existing safe gate. It does not add an off-thread native-provider bridge.
-
-### Accessibility and input focus can diverge
-
-Conflating them would make static reading move keyboard focus and make modal
-restoration unpredictable. The manager stores both, applies explicit correlation
-rules, and shows both in diagnostics. Acceptance tests cover their divergence.
-
-### Controlled state can cause misleading assistive feedback
-
-Unity or the operating-system service may announce a local value before Rust
-accepts it. The controlled proposal
-adapter restores committed state and sends a corrective value notification only
-when needed. Tests cover accepted, rejected, delayed-safe-gate, and disconnected
-responses.
-
-### Geometry churn can overwhelm Unity accessibility
-
-Motion and scroll can change many frames each update. Live getters, dirty-owner
-tracking, one notification per root per frame, and windowed collections bound the
-work. A bounded Rust test checks that work follows the visible window; profiling
-is reserved for an observed regression.
-
-### A rich canonical tree can hide degraded output
-
-Capability negotiation, per-node fallback diagnostics, strict profiles, and
-Unity hierarchy tests keep degradation visible. Fallback never changes the
-Rust canonical snapshot, so tests can distinguish author errors from backend
-limitations.
-
-### Screen-reader and Unity behavior change outside the repository
-
-Automation cannot guarantee spoken order, rotor behavior, gesture conventions,
-or verbosity. The small mobile spot-check records exact external versions. A
-Unity accessibility upgrade repeats that spot-check rather than the full
-acceptance catalog.
+## Implementation plan
+
+The [Reactant accessibility implementation
+plan](accessibility-implementation-plan.md) delivers this design only after
+the complete focus and navigation plan has finished. It owns semantic and
+assistive-technology work and does not reopen the completed focus contracts.
 
 ## Rejected alternatives
 
@@ -2917,9 +2853,11 @@ through explicit contracts but remain distinct.
 
 ### Ask Rust to cancel every Unity default
 
-The current event reaches Rust after UI Toolkit default behavior. A remote
-prevent-default flag would be too late and race Unity accessibility callbacks.
-Finite declared Unity policies make required defaults synchronous and observable.
+The existing event bridge can prevent only the current event's remaining
+cancelable default. It cannot synchronously mutate Unity, undo control-local
+state, or satisfy an accessibility callback whose handled result is due before a
+later declarative commit. Finite declared Unity policies make those required
+actions synchronous and observable.
 
 ### Keep exiting elements accessible until Motion completes
 
@@ -2964,18 +2902,20 @@ The subsystem is complete when all of the following are true:
 
 - public APIs preserve the five-layer separation and compile the button,
   checkbox, slider, tabs, and dialog examples in this design;
-- every listed common pattern has typed semantics, interactions, focus policy,
-  state integration, diagnostics, and developer-authored rendering examples;
+- every listed common pattern has typed semantics, interactions, completed
+  focus declarations, state integration, diagnostics, and developer-authored
+  rendering examples;
 - the canonical tree covers every role, name, description, state, value,
   relationship, order, grouping, collection, visibility, action, locale, and live
   behavior specified here;
 - visual and semantic candidates validate and commit atomically;
-- portals preserve logical semantics, presence removes semantics at logical exit,
-  and reconnect restores stable IDs and valid focus;
-- Unity executes all supported accessibility callback and standard navigation
-  defaults synchronously from Rust-declared finite policies;
-- Rust receives exactly one typed logical intent for every standard input and
-  supported Unity accessibility action;
+- portals preserve logical semantics, presence removes semantics at logical
+  exit, and reconnect restores stable IDs and independently valid accessibility
+  focus;
+- Unity executes all supported accessibility callbacks synchronously from
+  Rust-declared finite action policies;
+- Rust receives exactly one typed logical intent for every supported Unity
+  accessibility action and controlled proposal;
 - the Unity backend passes focused Editor mapping and lifecycle tests, while
   unsupported players select an `Unavailable` backend;
 - Ditto can inspect and act on the production semantic mirror without calling
@@ -2987,11 +2927,17 @@ The subsystem is complete when all of the following are true:
   visible window, not the total item count;
 - a Motion frame emits at most one coalesced layout notification per affected
   semantic root;
+- all dedicated release projection, diff, Unity batch, action, reconnect, and
+  allocation budgets pass;
 - strict roots contain no unlabeled actionable nodes, invalid compositions,
   unapproved fallback, duplicate Unity nodes, or unavailable required backend;
   and
 - the accessibility feature adds no more than ten seconds to routine CI, with a
   five-second target on a warm worker.
+
+Completion also requires the accessibility subsystem to contain no second
+`FocusProps`, focus-scope protocol, input-focus state, modality tracker,
+navigation engine, restoration stack, or direct `VisualElement.Focus()` call.
 
 ## Manual QA
 
