@@ -34,7 +34,7 @@ def main() -> None:
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
         _verify_unity_project_regeneration(root)
-        for name in ("tictactoe", "basic", "chess"):
+        for name in ("tictactoe", "basic", "chess", "chess-ui"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
             (sample / "sample.toml").write_text(f'executable = "{name}"\n')
@@ -51,7 +51,7 @@ def main() -> None:
         _manifest(root / "samples/quoted-workspace", "['workspace'] # standalone\n")
 
         ci.REPOSITORY_ROOT = root
-        assert ci.sample_names() == ["basic", "chess", "tictactoe"]
+        assert ci.sample_names() == ["basic", "chess", "chess-ui", "tictactoe"]
         assert ci.sample_rust_workspaces() == [
             Path("samples/basic/rules/Cargo.toml"),
             Path("samples/quoted-workspace/Cargo.toml"),

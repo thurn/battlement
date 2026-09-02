@@ -1,0 +1,37 @@
+version = 1
+
+[[states]]
+key = "gallery.initial"
+screen = "gallery"
+
+[[states]]
+key = "gallery.changed"
+screen = "gallery"
+
+[[states]]
+key = "gallery.reset"
+screen = "gallery"
+
+[[transitions]]
+from = "gallery.initial"
+to = "gallery.changed"
+
+[[transitions]]
+from = "gallery.changed"
+to = "gallery.reset"
+
+[[states]]
+key = "navigation.first"
+screen = "gallery"
+
+[[states]]
+key = "navigation.second"
+screen = "gallery"
+
+[[states]]
+key = "navigation.third"
+screen = "gallery"
+
+[[states]]
+key = "navigation.fourth"
+screen = "gallery"

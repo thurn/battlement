@@ -1,11 +1,11 @@
 use std::{fs, path::Path};
 
-use battlement_ditto::coverage_ledger::{SampleStatus, check_repository};
+use battlement_ditto::coverage_ledger::{self, SampleStatus};
 
 #[test]
 fn repository_report_discovers_every_pending_migration() {
   let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-  let report = check_repository(&repository).unwrap();
+  let report = coverage_ledger::check_repository(&repository).unwrap();
   assert_eq!(
     report
       .samples
@@ -15,11 +15,39 @@ fn repository_report_discovers_every_pending_migration() {
     vec![
       ("basic", 7, &SampleStatus::Complete),
       ("chess", 17, &SampleStatus::Complete),
+      ("chess-ui", 7, &SampleStatus::Complete),
       ("reactant", 48, &SampleStatus::Complete),
       ("tictactoe", 7, &SampleStatus::Complete),
       ("ui", 88, &SampleStatus::Complete),
     ]
   );
+}
+
+#[test]
+fn canonical_capture_dimensions_follow_the_declared_profile() {
+  let fixture = Fixture::new();
+  fixture.replace(
+    "samples/fixture/ditto.toml",
+    "width = 1280, height = 720",
+    "width = 1024, height = 1536",
+  );
+  let error = coverage_ledger::check_repository(fixture.root())
+    .unwrap_err()
+    .to_string();
+  assert!(error.contains("dimensions must match"), "{error}");
+  for _ in 0..2 {
+    fixture.replace(
+      "samples/fixture/ditto.lock",
+      "width = 1280\nheight = 720",
+      "width = 1024\nheight = 1536",
+    );
+  }
+  fixture.check();
+  fixture.replace("samples/fixture/ditto.toml", "scale = 1.0", "scale = 2.0");
+  let error = coverage_ledger::check_repository(fixture.root())
+    .unwrap_err()
+    .to_string();
+  assert!(error.contains("must be macOS at scale 1"), "{error}");
 }
 
 #[test]
@@ -108,7 +136,10 @@ fn synthetic_gap_matrix_names_every_missing_or_duplicate_fact() {
   for (path, original, replacement, expected) in cases {
     let fixture = Fixture::new();
     fixture.replace(path, original, replacement);
-    let error = format!("{:#}", check_repository(fixture.root()).unwrap_err());
+    let error = format!(
+      "{:#}",
+      coverage_ledger::check_repository(fixture.root()).unwrap_err()
+    );
     assert!(
       error.contains(expected),
       "expected {expected:?} in {error:?}"
@@ -132,7 +163,10 @@ reason = "state is not exposed"
   )
   .unwrap();
 
-  let error = format!("{:#}", check_repository(fixture.root()).unwrap_err());
+  let error = format!(
+    "{:#}",
+    coverage_ledger::check_repository(fixture.root()).unwrap_err()
+  );
   assert!(
     error.contains("pending ledger contains conditional omissions"),
     "{error}"
@@ -154,7 +188,9 @@ fn a_new_convention_sample_requires_both_registry_and_ledger() {
     "application = 'new'\nscene = 'new'\n",
   )
   .unwrap();
-  let error = check_repository(fixture.root()).unwrap_err().to_string();
+  let error = coverage_ledger::check_repository(fixture.root())
+    .unwrap_err()
+    .to_string();
   assert!(error.contains("ditto-visual-states.toml"), "{error}");
 }
 
@@ -214,7 +250,7 @@ impl Fixture {
   }
 
   fn check(&self) {
-    let report = check_repository(self.root()).unwrap();
+    let report = coverage_ledger::check_repository(self.root()).unwrap();
     assert_eq!(report.samples[0].status, SampleStatus::Complete);
   }
 }

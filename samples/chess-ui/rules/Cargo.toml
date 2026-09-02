@@ -1,0 +1,21 @@
+[package]
+name = "battlement-chess-ui-rules"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "battlement_rules"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+battlement = { path = "../../../crates/battlement" }
+battlement-native = { path = "../../../crates/battlement-native" }
+battlement-reactant = { path = "../../../crates/battlement-reactant" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+
+[dev-dependencies]
+battlement-fake = { path = "../../../crates/battlement-fake" }
+
+[workspace]

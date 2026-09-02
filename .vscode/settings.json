@@ -2,6 +2,7 @@
   "rust-analyzer.linkedProjects": [
     "Cargo.toml",
     "samples/basic/rules/Cargo.toml",
+    "samples/chess-ui/rules/Cargo.toml",
     "samples/chess/rules/Cargo.toml",
     "samples/reactant/rules/Cargo.toml",
     "samples/tictactoe/rules/Cargo.toml",

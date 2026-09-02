@@ -1,2 +1,2 @@
 version = 1
-samples = ["basic", "chess", "reactant", "tictactoe", "ui"]
+samples = ["basic", "chess", "chess-ui", "reactant", "tictactoe", "ui"]

@@ -223,3 +223,10 @@ A change that cannot affect a player records `Ditto: not applicable` followed
 by a concrete reason. Agents use Ditto's inputs, screenshots, logs, timings,
 and result object as the evidence; host-window captures and terminal-text
 scraping are not substitutes.
+
+## Sample coverage
+
+A sample's `ditto-coverage.toml` selects a canonical macOS profile at device
+scale 1. Its declared width and height define the capture size; every canonical
+baseline must have those dimensions. The coverage ledger checks that each
+registered visual state has an owned scenario checkpoint and accepted baseline.

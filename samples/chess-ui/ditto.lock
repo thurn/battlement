@@ -1,0 +1,72 @@
+suite = "chess-ui"
+namespace = "battlement/chess-ui"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery navigation first"
+checkpoint = "selected"
+sha256 = "fcc47e6612cd7657a34971c9d2c7a1508247f20e272eb44cc4fe8a6107f67b49"
+width = 1280
+height = 800
+size_bytes = 91465
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery navigation fourth"
+checkpoint = "selected"
+sha256 = "540c954e43af527813dba523153c2b18e42c8aeda6fdea42c53ace5db832965d"
+width = 1280
+height = 800
+size_bytes = 102796
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery navigation second"
+checkpoint = "selected"
+sha256 = "3a5c4cf162bcc71e9273fc55cbab251689b7537d94b5571048c1d4848eb4a5a3"
+width = 1280
+height = 800
+size_bytes = 100469
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery navigation third"
+checkpoint = "selected"
+sha256 = "a24cf872f6a28e01644c75ffa351dfdd4e88cd77acfb9b2623def965a0f05679"
+width = 1280
+height = 800
+size_bytes = 99077
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery reset"
+checkpoint = "changed"
+sha256 = "cd1b61e7dd481c52d69a0cb6e6989996ef70d116c160b253347d3254f791e64a"
+width = 1280
+height = 800
+size_bytes = 107166
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery reset"
+checkpoint = "initial"
+sha256 = "5f143a22e3c88f40013c17314d31a4b27c91b450241327973443bf29aabfe1aa"
+width = 1280
+height = 800
+size_bytes = 107374
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"
+
+[[baselines]]
+profile = "macos"
+scenario = "gallery reset"
+checkpoint = "reset"
+sha256 = "5f143a22e3c88f40013c17314d31a4b27c91b450241327973443bf29aabfe1aa"
+width = 1280
+height = 800
+size_bytes = 107374
+source = "f6e477110ec2b0d83be1ff7a61faddc961ed0adb0fc7b503c0f6e7c55fbf27cf"

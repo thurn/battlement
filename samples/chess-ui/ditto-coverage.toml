@@ -1,0 +1,53 @@
+version = 1
+sample = "chess-ui"
+canonical_profile = "macos"
+
+[[mappings]]
+state = "gallery.initial"
+scenario = "gallery reset"
+checkpoint = "initial"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "gallery.changed"
+scenario = "gallery reset"
+checkpoint = "changed"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "gallery.reset"
+scenario = "gallery reset"
+checkpoint = "reset"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[transitions]]
+from = "gallery.initial"
+to = "gallery.changed"
+
+[[transitions]]
+from = "gallery.changed"
+to = "gallery.reset"
+
+[[mappings]]
+state = "navigation.first"
+scenario = "gallery navigation first"
+checkpoint = "selected"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "navigation.second"
+scenario = "gallery navigation second"
+checkpoint = "selected"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "navigation.third"
+scenario = "gallery navigation third"
+checkpoint = "selected"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "navigation.fourth"
+scenario = "gallery navigation fourth"
+checkpoint = "selected"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"

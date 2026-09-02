@@ -43,7 +43,7 @@ DEFAULT_ODIFF = (
     Path.home()
     / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"
 )
-SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui")
+SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui", "chess-ui")
 ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
     "ios": "ios_simulator_tests",
@@ -298,7 +298,7 @@ def validate_inventory() -> tuple[dict[str, list[str]], int, int]:
         unknown = [name for name in names if name not in by_name]
         if unknown:
             raise RuntimeError(f"Ditto CI inventory has unknown {sample} scenarios: {unknown}")
-        missing_benchmarks = sorted(benchmark_scenarios[sample] - set(names))
+        missing_benchmarks = sorted(benchmark_scenarios.get(sample, set()) - set(names))
         if missing_benchmarks:
             raise RuntimeError(
                 f"Ditto CI inventory omits benchmark {sample} scenarios: {missing_benchmarks}"

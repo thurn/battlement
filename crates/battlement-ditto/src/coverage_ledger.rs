@@ -318,7 +318,7 @@ fn validate_complete(
   );
   ensure!(
     facts.canonical_profiles.contains(profile),
-    "sample {sample} canonical profile {profile} must be 1280x720 macOS at scale 1"
+    "sample {sample} canonical profile {profile} must be macOS at scale 1"
   );
   let expected_states = registry
     .states
@@ -523,18 +523,33 @@ fn validate_skips(
 fn suite_facts(directory: &Path) -> Result<SuiteFacts> {
   let suite = config::load(Some(&directory.join("ditto.toml")))?;
   let snapshot = ManifestSnapshot::read(&directory.join("ditto.lock"))?;
-  let canonical_profiles = suite
+  let canonical_profiles: BTreeSet<String> = suite
     .profiles
     .iter()
     .filter_map(|(name, profile)| match profile {
-      Profile::Macos { display }
-        if display.width == 1280 && display.height == 720 && display.scale == 1.0 =>
-      {
-        Some(name.clone())
-      }
+      Profile::Macos { display } if display.scale == 1.0 => Some(name.clone()),
       _ => None,
     })
     .collect();
+  for entry in snapshot
+    .manifest
+    .iter()
+    .flat_map(|manifest| &manifest.baselines)
+  {
+    if !canonical_profiles.contains(&entry.profile) {
+      continue;
+    }
+    let Some(Profile::Macos { display }) = suite.profiles.get(&entry.profile) else {
+      unreachable!("canonical profiles are macOS");
+    };
+    ensure!(
+      entry.width == display.width && entry.height == display.height,
+      "baseline {}/{}/{} dimensions must match its declared profile",
+      entry.profile,
+      entry.scenario,
+      entry.checkpoint
+    );
+  }
   Ok(SuiteFacts {
     profiles: suite.profiles.into_keys().collect(),
     canonical_profiles,

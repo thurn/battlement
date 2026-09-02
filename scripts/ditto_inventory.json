@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "sha256": "6428dec8faa700c324c10bc4c73cb3e3dc246c059cf0e7f58e00e57ab577119b",
-  "scenarios": 36,
-  "screenshots": 89,
+  "sha256": "a1fca676d4a24523f2a1057ddbccfb29ac352efc10c7dbbdbf9e7927fbb3c534",
+  "scenarios": 38,
+  "screenshots": 93,
   "selection": {
     "basic": [
       "connected",
@@ -49,6 +49,10 @@
       "actions and authority",
       "world space",
       "release coverage"
+    ],
+    "chess-ui": [
+      "gallery reset",
+      "gallery navigation fourth"
     ]
   }
 }

@@ -95,7 +95,7 @@ CARGO_WORKSPACE_TABLE = re.compile(
     r'''(?m)^[ \t]*\[[ \t]*(?:workspace|"workspace"|'workspace')[ \t]*\]'''
     r"[ \t]*(?:#[^\r\n]*)?$"
 )
-DITTO_SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui")
+DITTO_SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui", "chess-ui")
 DITTO_ADAPTERS = ("webgl", "ios")
 
 

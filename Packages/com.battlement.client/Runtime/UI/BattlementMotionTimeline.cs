@@ -119,18 +119,32 @@ namespace Battlement.UI
             );
             IReadOnlyList<MotionPseudoStyle> pseudo =
                 descriptor.PseudoStyles ?? Array.Empty<MotionPseudoStyle>();
-            var cssProperties = new HashSet<MotionProperty>();
+            var baselineProperties = new HashSet<MotionProperty>();
             foreach (CssAnimationDescriptor animation in cssAnimations)
             foreach (CssPropertyTrack track in animation.Tracks)
-                cssProperties.Add(track.Property);
+                baselineProperties.Add(track.Property);
+            var boundProperties = new HashSet<MotionProperty>();
+            foreach (
+                MotionValueBinding binding in descriptor.ValueBindings
+                    ?? Array.Empty<MotionValueBinding>()
+            )
+                boundProperties.Add(binding.Property);
+            foreach (MotionSlotDescriptor slot in descriptor.Slots)
+            {
+                if (slot.Layer is MotionLayer.Animate or MotionLayer.Exit)
+                    continue;
+                foreach (MotionPropertyTrack track in slot.Target.Tracks)
+                    if (!boundProperties.Contains(track.Property))
+                        baselineProperties.Add(track.Property);
+            }
             StyleTransitionDescriptor? styleTransition = descriptor.StyleTransition;
             bool hasStyleTransition =
                 styleTransition?.All is not null || styleTransition?.Properties.Count > 0;
-            if (pseudo.Count != 0 || hasStyleTransition || cssProperties.Count != 0)
+            if (pseudo.Count != 0 || hasStyleTransition || baselineProperties.Count != 0)
                 pseudoStyles = new BattlementPseudoStyleState(
                     target,
                     pseudo,
-                    cssProperties,
+                    baselineProperties,
                     styleTransition,
                     clockMicros,
                     previous?.pseudoStyles
@@ -297,6 +311,14 @@ namespace Battlement.UI
                         ? slot.CaptureValues(Target, layout)
                         : null;
                 slot.Sample(Target, clockMicros, layout, reducedMotion);
+                if (slot.AllTracksDone && !slot.Paused && !slot.Cancelled)
+                    foreach (MotionPropertyValue value in slot.Definition.Target.TransitionEnd)
+                        if (BattlementMotionPropertyWriter.IsLayout(value.Property) == layout)
+                            BattlementMotionPropertyWriter.Write(
+                                Target,
+                                value.Property,
+                                value.Value
+                            );
                 if (lower is null)
                     continue;
                 if (noForwardsFill.Contains(slot.Definition.Slot) && slot.AllTracksDone)
@@ -330,8 +352,6 @@ namespace Battlement.UI
                 }
                 if (slot.Terminal || slot.Paused || !slot.AllTracksDone)
                     continue;
-                foreach (MotionPropertyValue value in slot.Definition.Target.TransitionEnd)
-                    BattlementMotionPropertyWriter.Write(Target, value.Property, value.Value);
                 slot.MarkCompleted();
                 if (slot.Definition.Callbacks.Complete)
                     world.Emit(this, slot, new MotionEventKind.Completed(), slot.LastElapsedMicros);
@@ -417,6 +437,7 @@ namespace Battlement.UI
     internal sealed class SlotState
     {
         private readonly TrackState[] tracks;
+        private readonly Dictionary<MotionProperty, MotionValue> presentation = new();
         private uint emittedIteration;
         private bool emittedStart;
 
@@ -542,6 +563,8 @@ namespace Battlement.UI
                 if (oldTrack is not null)
                     track.Adopt(oldTrack);
             }
+            foreach ((MotionProperty property, MotionValue value) in previous.presentation)
+                presentation[property] = value;
         }
 
         public void Reset(ulong clockMicros)
@@ -615,13 +638,29 @@ namespace Battlement.UI
         public void ApplyTerminal(VisualElement target)
         {
             foreach (TrackState track in tracks)
+            {
                 track.ApplyTerminal(target);
+                presentation[track.Definition.Property] = BattlementMotionPropertyWriter.Read(
+                    target,
+                    track.Definition.Property
+                );
+            }
         }
 
         public void Sample(VisualElement target, ulong clockMicros, bool layout, bool reducedMotion)
         {
-            if (Cancelled || (Terminal && !Paused))
+            if (Cancelled)
                 return;
+            if (Terminal && !Paused)
+            {
+                foreach ((MotionProperty property, MotionValue value) in presentation)
+                    if (BattlementMotionPropertyWriter.IsLayout(property) == layout)
+                        BattlementMotionPropertyWriter.Write(target, property, value);
+                foreach (MotionPropertyValue value in Definition.Target.TransitionEnd)
+                    if (BattlementMotionPropertyWriter.IsLayout(value.Property) == layout)
+                        BattlementMotionPropertyWriter.Write(target, value.Property, value.Value);
+                return;
+            }
             LastElapsedMicros = Elapsed(clockMicros);
             foreach (TrackState track in tracks)
             {
@@ -633,6 +672,10 @@ namespace Battlement.UI
                     Direction,
                     reducedMotion
                         && BattlementMotionPropertyWriter.IsSpatial(track.Definition.Property)
+                );
+                presentation[track.Definition.Property] = BattlementMotionPropertyWriter.Read(
+                    target,
+                    track.Definition.Property
                 );
             }
         }
@@ -773,178 +816,6 @@ namespace Battlement.UI
             Terminal = true;
             foreach (TrackState track in tracks)
                 track.Freeze();
-        }
-    }
-
-    internal sealed class TrackState
-    {
-        private MotionValue origin;
-        private double incomingVelocity;
-
-        public TrackState(
-            MotionPropertyTrack definition,
-            MotionValue origin,
-            double incomingVelocity
-        )
-        {
-            Definition = definition;
-            this.origin = origin;
-            this.incomingVelocity = incomingVelocity;
-        }
-
-        public MotionPropertyTrack Definition { get; }
-
-        public double Velocity { get; private set; }
-
-        public bool Done { get; private set; }
-
-        public uint Iteration { get; private set; }
-
-        public bool Suppressed { get; private set; }
-
-        public MotionValue Origin => origin;
-
-        public MotionValue End => EndValue();
-
-        public void Adopt(TrackState previous)
-        {
-            Velocity = previous.Velocity;
-            Done = previous.Done;
-            Iteration = previous.Iteration;
-        }
-
-        public void Reset()
-        {
-            Velocity = incomingVelocity;
-            Done = false;
-            Iteration = 0;
-            Suppressed = false;
-        }
-
-        public void Retarget(VisualElement target)
-        {
-            origin = BattlementMotionPropertyWriter.Read(target, Definition.Property);
-            incomingVelocity = Velocity;
-            Reset();
-        }
-
-        public void Freeze()
-        {
-            Velocity = 0;
-            Done = true;
-        }
-
-        public void ApplyOrigin(VisualElement target) =>
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, origin);
-
-        public void ApplyTerminal(VisualElement target) =>
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, EndValue());
-
-        public void Sample(
-            VisualElement target,
-            ulong elapsedMicros,
-            MotionPlaybackDirection direction,
-            bool suppressed
-        )
-        {
-            Suppressed = suppressed;
-            bool reverse =
-                direction
-                is MotionPlaybackDirection.Reverse
-                    or MotionPlaybackDirection.AlternateReverse;
-            MotionValue from = reverse ? EndValue() : origin;
-            MotionValue to = reverse ? origin : EndValue();
-            double velocity = reverse ? -incomingVelocity : incomingVelocity;
-            TransitionDefinition transition = DirectedTransition(direction);
-            if (
-                from is MotionValue.Scalar left
-                && to is MotionValue.Scalar right
-                && Definition.Values.Count <= 1
-            )
-            {
-                MotionScalarSample scalar = BattlementMotionScalarSampler.Sample(
-                    left.Value,
-                    right.Value,
-                    velocity,
-                    transition,
-                    elapsedMicros
-                );
-                BattlementMotionPropertyWriter.WriteScalar(
-                    target,
-                    Definition.Property,
-                    scalar.Value
-                );
-                Velocity = scalar.Velocity;
-                Done = scalar.Done;
-                Iteration = scalar.Iteration;
-                if (suppressed)
-                    Suppress(target);
-                return;
-            }
-            bool reverseSequence =
-                direction
-                is MotionPlaybackDirection.Reverse
-                    or MotionPlaybackDirection.AlternateReverse;
-            MotionPropertyTrack definition = new(
-                Definition.Property,
-                reverseSequence ? Reverse(Definition.Values) : Definition.Values,
-                transition,
-                reverseSequence ? ReverseTimes(Definition.Times) : Definition.Times
-            );
-            MotionTrackSample sample = BattlementMotionValueSampler.Sample(
-                definition,
-                from,
-                velocity,
-                elapsedMicros
-            );
-            BattlementMotionPropertyWriter.Write(target, Definition.Property, sample.Value);
-            Velocity = sample.Velocity;
-            Done = sample.Done;
-            Iteration = sample.Iteration;
-            if (suppressed)
-                Suppress(target);
-        }
-
-        private void Suppress(VisualElement target)
-        {
-            ApplyTerminal(target);
-            Velocity = 0;
-            if (Definition.Transition.Repeat is not MotionRepeat.Forever)
-                Done = true;
-        }
-
-        private MotionValue EndValue() =>
-            Definition.Values.Count == 0 ? origin : Definition.Values[^1];
-
-        private TransitionDefinition DirectedTransition(MotionPlaybackDirection direction)
-        {
-            if (direction is MotionPlaybackDirection.Forward or MotionPlaybackDirection.Reverse)
-                return Definition.Transition;
-            return new TransitionDefinition(
-                Definition.Transition.Generator,
-                Definition.Transition.DelayMicros,
-                Definition.Transition.Repeat,
-                Definition.Transition.RepeatDelayMicros,
-                MotionRepeatType.Reverse
-            );
-        }
-
-        private static IReadOnlyList<MotionValue> Reverse(IReadOnlyList<MotionValue> values)
-        {
-            var result = new MotionValue[values.Count];
-            for (int index = 0; index < result.Length; index++)
-                result[index] = values[values.Count - index - 1];
-            return result;
-        }
-
-        private static IReadOnlyList<double>? ReverseTimes(IReadOnlyList<double>? times)
-        {
-            if (times is null)
-                return null;
-            var result = new double[times.Count];
-            for (int index = 0; index < result.Length; index++)
-                result[index] = 1 - times[times.Count - index - 1];
-            return result;
         }
     }
 }

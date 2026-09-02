@@ -1313,9 +1313,12 @@ documents is diagnosed and treated as two independent layout animations.
 
 ### Gesture layers
 
-Every host supports `while_hover`, `while_tap`, `while_focus`, and
-`while_drag`, with target or named-variant forms. Corresponding start, end, and
-cancel callbacks use ordinary Reactant event handlers.
+Every host supports `while_hover`, `while_tap`, `while_focus`,
+`while_focus_visible`, and `while_drag`, with target or named-variant forms. Corresponding start, end, and
+cancel callbacks use ordinary Reactant event handlers. When a gesture ends, its
+properties reveal the current lower animation or value binding, or the latest
+authored static style. A focus-visible highlight therefore clears on blur or
+a pointer modality change without requiring an explicit `animate` target.
 
 ```rust
 Button::new("Apply")

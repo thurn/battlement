@@ -127,11 +127,11 @@ def main() -> None:
             (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
         )
         assert gate["status"] == "passed"
-        assert len(gate["samples"]) == 5
+        assert len(gate["samples"]) == 6
         assert gate["budget_seconds"] == 120
         assert gate["added_budget_seconds"] == 120
-        assert gate["scenario_count"] == 36
-        assert gate["screenshot_count"] == 89
+        assert gate["scenario_count"] == 38
+        assert gate["screenshot_count"] == 93
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)
@@ -197,7 +197,7 @@ def main() -> None:
         environment["DITTO_CI_BRANCH"] = "master"
         published = run(["publish"], environment)
         assert published.returncode == 0, published.stderr
-        assert len((root / "published").read_text().splitlines()) == 5
+        assert len((root / "published").read_text().splitlines()) == 6
 
         environment["DITTO_CI_BRANCH"] = "feature"
         skipped = run(["publish"], environment)

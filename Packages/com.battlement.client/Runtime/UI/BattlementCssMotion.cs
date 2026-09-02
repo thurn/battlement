@@ -76,7 +76,7 @@ namespace Battlement.UI
         public BattlementPseudoStyleState(
             VisualElement target,
             IReadOnlyList<MotionPseudoStyle> styles,
-            IReadOnlyCollection<MotionProperty> cssProperties,
+            IReadOnlyCollection<MotionProperty> baselineProperties,
             StyleTransitionDescriptor? transition,
             ulong clockMicros,
             BattlementPseudoStyleState? previous
@@ -98,7 +98,7 @@ namespace Battlement.UI
                 CaptureBaseline(value.Property);
             foreach (StylePropertyTransition value in this.transition.Properties)
                 CaptureBaseline(value.Property);
-            foreach (MotionProperty property in cssProperties)
+            foreach (MotionProperty property in baselineProperties)
                 CaptureBaseline(property);
             if (this.transition.All is not null)
                 foreach (MotionProperty property in Enum.GetValues(typeof(MotionProperty)))
