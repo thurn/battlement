@@ -7,6 +7,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     "accessibility.rs",
     include_str!("../../../../crates/battlement-reactant/tests/accessibility.rs"),
   ),
+  (
+    "application.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/application.rs"),
+  ),
   ("composition.rs", include_str!("composition.rs")),
   (
     "element_refs.rs",

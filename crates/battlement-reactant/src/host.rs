@@ -30,7 +30,7 @@
 
 #![allow(private_interfaces)]
 
-use std::{any::TypeId, hash::Hash, num::NonZeroU32, rc::Rc};
+use std::{any::TypeId, boxed::Box as Boxed, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
   GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
@@ -256,7 +256,7 @@ macro_rules! facade {
     #[doc = $docs]
     #[derive(Clone)]
     pub struct $name {
-      pub(crate) state: HostState<$native>,
+      pub(crate) state: Boxed<HostState<$native>>,
     }
 
     impl Default for $name {
@@ -268,7 +268,7 @@ macro_rules! facade {
     impl $name {
       pub(crate) fn from_native(host: $native) -> Self {
         Self {
-          state: HostState {
+          state: Boxed::new(HostState {
             host,
             children: Vec::new(),
             handlers: Vec::new(),
@@ -278,7 +278,7 @@ macro_rules! facade {
             motion: MotionProps::new(),
             semantic: None,
             overlay_reference: None,
-          },
+          }),
         }
       }
 
@@ -789,7 +789,7 @@ macro_rules! facade {
       }
 
       fn render_into(&self, sink: &mut RenderSink<'_>) {
-        host_facade::lower::<Self, $native>(self.state.clone(), None, sink);
+        host_facade::lower::<Self, $native>(self.state.as_ref().clone(), None, sink);
       }
 
       fn render_owned(self, sink: &mut RenderSink<'_>) {
@@ -801,7 +801,7 @@ macro_rules! facade {
           render: Rc::clone(&self) as Rc<dyn crate::render_value::ErasedRender>,
           descriptor: TypeId::of::<Self>(),
         });
-        host_facade::lower::<Self, $native>(self.state.clone(), retained_render, sink);
+        host_facade::lower::<Self, $native>(self.state.as_ref().clone(), retained_render, sink);
       }
     }
   };

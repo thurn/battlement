@@ -568,7 +568,8 @@ namespace Battlement.Tests
                         BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
                     if (message is ClientMessage<CoreErrorCode, byte>.ActionMessage action)
                     {
-                        actions.Add(action.Action);
+                        if (action.Action.Body is not ActionBody.ApplicationStateChanged)
+                            actions.Add(action.Action);
                     }
                 }
                 catch (JsonSerializationException) { }

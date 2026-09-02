@@ -32,6 +32,7 @@ pub mod accessibility;
 pub mod accessibility_collections;
 pub mod animation_controls;
 pub mod announcement;
+pub mod application;
 pub mod asset_generator;
 mod commit;
 pub mod component;

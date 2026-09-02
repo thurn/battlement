@@ -48,7 +48,7 @@ namespace Battlement
                         $"No JSON property matches {objectType.Name}.{parameter.Name}."
                     );
                 }
-                bool optional = CanOmit(parameter);
+                bool optional = property.Required != Required.Always && CanOmit(parameter);
                 bool allowsNull = property.Required == Required.AllowNull;
                 property.Required =
                     allowsNull ? Required.AllowNull

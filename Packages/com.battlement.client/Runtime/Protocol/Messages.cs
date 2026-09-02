@@ -24,6 +24,9 @@ namespace Battlement
         IReadOnlyList<string>? Modules = null
     )
     {
+        /// <summary>Initial application focus and pause observations.</summary>
+        public ApplicationState ApplicationState { get; init; } = new();
+
         public Connect(string platform, string unityVersion, ScreenSize screen)
             : this(platform, unityVersion, screen, Array.Empty<string>()) { }
     }
@@ -287,6 +290,9 @@ namespace Battlement
 
         /// <summary>Ordered Motion lifecycle boundaries and coalesced samples.</summary>
         public sealed record MotionEvents(MotionEventBatch Value) : ActionBody;
+
+        /// <summary>Application focus or suspension changed independently of input.</summary>
+        public sealed record ApplicationStateChanged(ApplicationState Value) : ActionBody;
     }
 
     /// <summary>A game-specific action using Battlement's shared action format.</summary>

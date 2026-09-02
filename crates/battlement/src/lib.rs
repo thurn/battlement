@@ -19,6 +19,7 @@
 #![warn(missing_docs)]
 
 pub mod accessibility;
+pub mod application;
 pub mod assets;
 mod command_builders;
 pub mod commands;

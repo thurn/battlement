@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::application::ApplicationState;
+
 use crate::{
   ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
   ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject,
@@ -19,6 +21,8 @@ pub struct Connect {
   pub unity_version: String,
   /// Current screen dimensions in physical pixels.
   pub screen: ScreenSize,
+  /// Initial application focus and suspension observations.
+  pub application_state: ApplicationState,
   /// Sorted list of custom command types compiled into the build.
   pub custom_command_types: Vec<String>,
   /// Selected module identifiers in serialized Inspector order.
@@ -45,6 +49,7 @@ impl Connect {
       platform: platform.into(),
       unity_version: unity_version.into(),
       screen,
+      application_state: ApplicationState::default(),
       custom_command_types: Vec::new(),
       modules: Vec::new(),
       persistent_data_path: None,
@@ -383,6 +388,8 @@ impl Action {
 /// The exact union of built-in pointer, key, and controller actions.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ActionBody {
+  /// Application focus or suspension changed, independently of input availability.
+  ApplicationStateChanged(ApplicationState),
   /// Pointer began hovering an enabled game object.
   PointerEnter(PointerPayload),
   /// Pointer stopped hovering an enabled game object.

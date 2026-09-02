@@ -34,6 +34,7 @@ mod tests;
 mod values_time_controls;
 mod variants_orchestration;
 
+use battlement::application::ApplicationState;
 use battlement::{
   ActionBody, ActionId, Batch, BatchId, CameraClearMode, CameraProjection, CameraState,
   ClientMessage, Color, Command, Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId,
@@ -43,6 +44,7 @@ use battlement::{
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
+  application,
   executor::{BoxFuture, SpawnedTask, Spawner},
   prelude::*,
   runtime::{Reactant, ReactantCommit, ResponseReactantExt},
@@ -104,45 +106,48 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     .as_deref()
     .and_then(motion_performance::MotionPerformanceState::profiled);
   let layout_profile = performance_profile.as_deref() == Some("layout-mixed");
-  reactant.register_root(document.clone(), move |game: &Game| Shell {
-    screen: game.screen,
-    reversed: game.reversed,
-    event_active: game.event_active,
-    event_trace: game.event_trace.clone(),
-    event_overlay: event_overlay.clone(),
-    context_overridden: game.context_overridden,
-    context_unrelated: game.context_unrelated,
-    effects_enabled: game.effects_enabled,
-    boundary_failed: game.boundary_failed,
-    boundary_retry_revision: game.boundary_retry_revision,
-    refs_active: game.refs_active,
-    geometry_effect_runs: game.geometry_effect_runs,
-    assets_resized: game.assets_resized,
-    animation_validation: game.animation_validation.clone(),
-    physical_motion: game.physical_motion.clone(),
-    styles_decorations: game.styles_decorations.clone(),
-    variants_orchestration: game.variants_orchestration.clone(),
-    presence_lifecycle: game.presence_lifecycle.clone(),
-    values_time_controls: game.values_time_controls.clone(),
-    gestures_drag: game.gestures_drag.clone(),
-    layout_gallery: game.layout_gallery.clone(),
-    layout_reorder: game.layout_reorder.clone(),
-    composed_effects: game.composed_effects.clone(),
-    layout_performance: game.layout_performance,
-    motion_performance: game.motion_performance.clone(),
-    preview_resource: view_resource.clone(),
-    store: match game.store_phase {
-      effects_stores::StorePhase::Primary => game.primary_store.clone(),
-      _ => game.secondary_store.clone(),
-    },
-    store_phase: game.store_phase,
-    interaction: game.interaction,
-    compact: game.compact,
-    phone: game.phone,
+  reactant.register_root(document.clone(), move |game: &Game| {
+    application::provider(game.application_state).child(Shell {
+      screen: game.screen,
+      reversed: game.reversed,
+      event_active: game.event_active,
+      event_trace: game.event_trace.clone(),
+      event_overlay: event_overlay.clone(),
+      context_overridden: game.context_overridden,
+      context_unrelated: game.context_unrelated,
+      effects_enabled: game.effects_enabled,
+      boundary_failed: game.boundary_failed,
+      boundary_retry_revision: game.boundary_retry_revision,
+      refs_active: game.refs_active,
+      geometry_effect_runs: game.geometry_effect_runs,
+      assets_resized: game.assets_resized,
+      animation_validation: game.animation_validation.clone(),
+      physical_motion: game.physical_motion.clone(),
+      styles_decorations: game.styles_decorations.clone(),
+      variants_orchestration: game.variants_orchestration.clone(),
+      presence_lifecycle: game.presence_lifecycle.clone(),
+      values_time_controls: game.values_time_controls.clone(),
+      gestures_drag: game.gestures_drag.clone(),
+      layout_gallery: game.layout_gallery.clone(),
+      layout_reorder: game.layout_reorder.clone(),
+      composed_effects: game.composed_effects.clone(),
+      layout_performance: game.layout_performance,
+      motion_performance: game.motion_performance.clone(),
+      preview_resource: view_resource.clone(),
+      store: match game.store_phase {
+        effects_stores::StorePhase::Primary => game.primary_store.clone(),
+        _ => game.secondary_store.clone(),
+      },
+      store_phase: game.store_phase,
+      interaction: game.interaction,
+      compact: game.compact,
+      phone: game.phone,
+    })
   });
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
     game: Game {
+      application_state: ApplicationState::default(),
       screen: if layout_profile {
         Screen::LayoutPerformance
       } else if motion_profile.is_some() {
@@ -260,6 +265,7 @@ impl Engine for ReactantEngine {
 
   fn connect(&mut self, message: Connect) -> Result<Response, EngineError> {
     self.session_id = SessionId::new_v4();
+    self.game.application_state = message.application_state;
     self.game.compact = message.screen.width < 1_100;
     self.game.phone = message.screen.width < 600;
     Ok(
@@ -279,6 +285,13 @@ impl Engine for ReactantEngine {
       return Ok(Response::empty(self.session_id));
     };
     let commit = match action.body {
+      ActionBody::ApplicationStateChanged(state) => {
+        self.game.application_state = state;
+        self
+          .reactant
+          .refresh(&mut self.game)
+          .expect("application observation should render")
+      }
       ActionBody::GeometryObservations(batch) => self
         .reactant
         .observe_geometry(&mut self.game, batch)
@@ -331,6 +344,7 @@ impl Drop for ReactantEngine {
 }
 
 struct Game {
+  application_state: ApplicationState,
   screen: Screen,
   reversed: bool,
   event_active: bool,

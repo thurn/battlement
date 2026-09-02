@@ -215,6 +215,11 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
             Assert.That(harness.Transport.Calls, Is.EqualTo(new[] { "connect", "stop" }));
 
+            var session = new SessionId(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
+            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
+                new Response(session, Array.Empty<ResponseMessage<Command>>())
+            );
             harness.Runner.Reconnect();
             LogAssert.ignoreFailingMessages = true;
             try
@@ -228,8 +233,8 @@ namespace Battlement.Tests
 
                 harness.Runner.SendMessage("OnApplicationPause", true);
                 harness.Runner.SendMessage("OnApplicationPause", false);
-                Assert.That(harness.Runner.IsInputAvailable, Is.False);
-                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+                Assert.That(harness.Runner.IsInputAvailable, Is.True);
+                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("submit"));
 
                 harness.Runner.Reconnect();
                 harness.Runner.SendMessage("OnApplicationQuit");

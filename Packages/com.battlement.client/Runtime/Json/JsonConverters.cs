@@ -918,6 +918,7 @@ namespace Battlement
             || type == typeof(CommandBody.Motion.DragControl)
             || type == typeof(ActionBody.GeometryObservations)
             || type == typeof(ActionBody.MotionEvents)
+            || type == typeof(ActionBody.ApplicationStateChanged)
             || type == typeof(CameraTarget.Object)
             || type == typeof(GeometryValue.Element)
             || type == typeof(GeometryValue.Viewport)
@@ -1398,7 +1399,8 @@ namespace Battlement
                     "ControllerButtonUp",
                     "ControllerNavigate",
                     "GeometryObservations",
-                    "MotionEvents"
+                    "MotionEvents",
+                    "ApplicationStateChanged"
                 ),
                 [typeof(DiagnosticsCommand)] = Nested<DiagnosticsCommand>("SetMetadata"),
                 [typeof(CameraTarget)] = Nested<CameraTarget>("Input", "Object"),
@@ -1545,7 +1547,8 @@ namespace Battlement
                 ("MotionDragControl", typeof(CommandBody.Motion.DragControl)),
                 ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation)),
                 ("AccessibilityUpdate", typeof(CommandBody.AccessibilityUpdate)),
-                ("Diagnostics", typeof(CommandBody.Diagnostics))
+                ("Diagnostics", typeof(CommandBody.Diagnostics)),
+                ("ApplicationOpenUrl", typeof(CommandBody.ApplicationOpenUrl))
             );
         }
 

@@ -253,6 +253,7 @@ namespace Battlement.Tests
             harness
                 .Transport.SubmitMessages.Select(TryDeserializeAction)
                 .OfType<Action>()
+                .Where(action => action.Body is not ActionBody.ApplicationStateChanged)
                 .ToArray();
 
         private static Action? TryDeserializeAction(byte[] bytes)

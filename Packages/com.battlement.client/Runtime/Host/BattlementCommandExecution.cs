@@ -21,6 +21,7 @@ namespace Battlement
         private readonly BattlementUiDocuments uiDocuments;
         private readonly Action<GeometryObservationUpdate> updateGeometry;
         private readonly BattlementModules modules;
+        private readonly Action<string> openExternalUrl;
 
         public BattlementCommandExecutor(
             BattlementWorld world,
@@ -36,7 +37,8 @@ namespace Battlement
             Action<bool> setInputEnabled,
             BattlementUiDocuments uiDocuments,
             Action<GeometryObservationUpdate> updateGeometry,
-            BattlementModules modules
+            BattlementModules modules,
+            Action<string> openExternalUrl
         )
         {
             this.world = world;
@@ -53,6 +55,7 @@ namespace Battlement
             this.uiDocuments = uiDocuments;
             this.updateGeometry = updateGeometry;
             this.modules = modules;
+            this.openExternalUrl = openExternalUrl;
         }
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
@@ -447,6 +450,11 @@ namespace Battlement
                     CommandBody.AccessibilityUpdate accessibility => ExecuteUi(() =>
                         uiDocuments.Apply(accessibility.Value)
                     ),
+                    CommandBody.ApplicationOpenUrl request => ExecuteUi(() =>
+                    {
+                        _ = new Uri(request.Url, UriKind.Absolute);
+                        openExternalUrl(request.Url);
+                    }),
                     CommandBody.Diagnostics diagnostics => ExecuteModule(() =>
                         modules.Execute(diagnostics.Command)
                     ),

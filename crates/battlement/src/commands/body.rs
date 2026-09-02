@@ -8,11 +8,15 @@ use crate::{
   VisualElementCreate, VisualElementDestroy, VisualElementPerformAction, VisualElementUpdate,
 };
 
+use crate::application::ExternalUrlRequest;
+
 use super::*;
 
 /// The exact union of built-in Battlement command bodies.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CommandBody {
+  /// Request the platform's external handler for an absolute URL.
+  ApplicationOpenUrl(ExternalUrlRequest),
   /// Enrich future Unity Diagnostics reports through the selected module.
   ///
   /// Execution is local and synchronous. Success does not acknowledge report

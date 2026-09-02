@@ -18,7 +18,7 @@ fn encodes_minified_natural_json() {
 
   assert_eq!(
         json::to_vec(&connect).unwrap(),
-        br#"{"platform":"Linux","unity_version":"6000.5.8f1","screen":{"width":1920,"height":1080},"custom_command_types":[]}"#
+        br#"{"platform":"Linux","unity_version":"6000.5.8f1","screen":{"width":1920,"height":1080},"application_state":{"focused":true,"paused":false},"custom_command_types":[]}"#
     );
   assert_eq!(
     json::from_slice::<Connect>(&json::to_vec(&connect).unwrap()).unwrap(),

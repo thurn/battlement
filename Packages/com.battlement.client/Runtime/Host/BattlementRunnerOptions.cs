@@ -22,9 +22,11 @@ namespace Battlement
             IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
             bool suppressDevelopmentErrorDialogs = false,
-            IBattlementCaughtFailureReporter? caughtFailureReporter = null
+            IBattlementCaughtFailureReporter? caughtFailureReporter = null,
+            Action<string>? openExternalUrl = null
         )
         {
+            OpenExternalUrl = openExternalUrl ?? Application.OpenURL;
             Transport = Preconditions.CheckNotNull(transport, nameof(transport));
             AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
             ProtocolCodec = Preconditions.CheckNotNull(protocolCodec, nameof(protocolCodec));
@@ -39,6 +41,9 @@ namespace Battlement
                 .ToArray();
             CaughtFailureReporter = caughtFailureReporter ?? new UnityCaughtFailureReporter();
         }
+
+        /// <summary>Dispatches an absolute URL to the platform external handler.</summary>
+        public Action<string> OpenExternalUrl { get; }
 
         public IBattlementTransport Transport { get; }
 

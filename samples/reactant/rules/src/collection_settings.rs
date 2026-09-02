@@ -1,5 +1,5 @@
-use battlement::{CurrentPage, FlexDirection};
-use battlement_reactant::{accessibility_collections as collections, prelude::*};
+use battlement::{Command, CurrentPage, FlexDirection};
+use battlement_reactant::{accessibility_collections as collections, application, prelude::*};
 
 use crate::{Game, layout_gallery_styles as styles};
 
@@ -10,13 +10,29 @@ pub(crate) struct CollectionSettings {
 
 impl Component for CollectionSettings {
   fn render(&self) -> impl Render {
+    let application_state = application::use_application_state();
+    let status = if application_state.is_active() {
+      "APPLICATION ACTIVE"
+    } else {
+      "APPLICATION INACTIVE"
+    };
     let link = collections::use_link(ButtonOptions {
       name: text("Documentation link"),
       is_disabled: false,
       on_press: |game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED"),
     });
+    let external_link = collections::use_link(ButtonOptions {
+      name: text("Open Unity documentation"),
+      is_disabled: false,
+      on_press: |game: &mut Game| {
+        game.pending_commands.push(Command::open_external_url(
+          "https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Application.OpenURL.html",
+        ))
+      },
+    });
     View::new().style(styles::section()).child((
       Label::new("COLLECTION SEMANTICS").style(styles::section_heading()),
+      Label::new(status).semantic(use_static_text(text(status))),
       Flex::new()
         .direction(FlexDirection::Row)
         .gap(8.0)
@@ -84,6 +100,10 @@ impl Component for CollectionSettings {
                   Label::new("W").semantic(collections::use_cell(text("W"))),
                 )),
             )),
+          Button::new("OPEN UNITY DOCUMENTATION")
+            .semantic(external_link.semantic)
+            .focus_props(external_link.focus)
+            .interaction_props(external_link.interaction),
           Button::new("DOCUMENTATION LINK")
             .semantic(link.semantic)
             .focus_props(link.focus)

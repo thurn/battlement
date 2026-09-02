@@ -560,6 +560,7 @@ where
         .apply_update(value)
         .unwrap_or_else(|error| panic!("geometry registry update failed: {error:?}")),
       CommandBody::AccessibilityUpdate(_) => {}
+      CommandBody::ApplicationOpenUrl(_) => {}
     }
   }
 

@@ -47,7 +47,7 @@ fn fixture_library_path() -> PathBuf {
 }
 
 fn connect_bytes(platform: &str) -> Vec<u8> {
-  let mut connect: Connect = json::from_slice(br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#).unwrap();
+  let mut connect: Connect = json::from_slice(br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"application_state":{"focused":true,"paused":false},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#).unwrap();
   connect.platform = platform.to_owned();
   json::to_vec(&connect).unwrap()
 }

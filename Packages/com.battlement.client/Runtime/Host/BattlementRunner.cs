@@ -61,8 +61,9 @@ namespace Battlement
         private BattlementFailureSurface? failureSurface;
         private BattlementErrorReporter? errors;
         private IDisposable? unityErrorSubscription;
-        private bool wasPaused;
+        private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
+        private ApplicationState? publishedApplicationState;
         private bool isDisposed;
         private bool isNativePanicRecovery;
         private bool isRuntimePoisoned;
@@ -179,7 +180,6 @@ namespace Battlement
             completedInitialSnapshot = false;
             isNativePanicRecovery = false;
             isRuntimePoisoned = false;
-            wasPaused = false;
             dittoMotionClock?.Reset();
             dittoStateVersion++;
             if (failure is not null)
@@ -344,7 +344,8 @@ namespace Battlement
                 SetInputEnabled,
                 uiDocuments,
                 ApplyGeometryObservations,
-                modules
+                modules,
+                checkedOptions.OpenExternalUrl
             );
             batchScheduler = new BattlementBatchScheduler(
                 dittoMotionClock,
@@ -792,6 +793,7 @@ namespace Battlement
 
             batchScheduler?.Advance();
             uiDocuments?.Advance();
+            PublishApplicationState();
             pointerInput?.Update(CanEmitInput);
             keyboardInput?.Update(CanEmitInput);
             controllerInput?.Update(CanEmitInput, dittoMotionClock!.Elapsed);
@@ -925,15 +927,14 @@ namespace Battlement
 
         private void OnApplicationPause(bool pauseStatus)
         {
+            isApplicationPaused = pauseStatus;
             if (pauseStatus)
             {
-                wasPaused = true;
+                pointerInput?.CancelPresses();
+                keyboardInput?.Reset();
+                controllerInput?.Reset();
             }
-            else if (wasPaused)
-            {
-                wasPaused = false;
-                Stop();
-            }
+            PublishApplicationState();
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -950,6 +951,21 @@ namespace Battlement
                     "Pointer presses were cancelled after application focus loss."
                 );
             }
+            PublishApplicationState();
+        }
+
+        private void PublishApplicationState()
+        {
+            var state = new ApplicationState(hasApplicationFocus, isApplicationPaused);
+            if (
+                session.Phase != BattlementSessionPhase.Running
+                || state == publishedApplicationState
+            )
+                return;
+            publishedApplicationState = state;
+            Submit(
+                SerializeAction(RequireOptions(), new ActionBody.ApplicationStateChanged(state))
+            );
         }
 
         private void OnApplicationQuit() => Stop();
@@ -1290,6 +1306,8 @@ namespace Battlement
                 commandTypes.UnionWith(customCommands.Types);
             }
 
+            var state = new ApplicationState(hasApplicationFocus, isApplicationPaused);
+            publishedApplicationState = state;
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
@@ -1298,7 +1316,10 @@ namespace Battlement
                 Path.GetFullPath(Application.persistentDataPath),
                 Path.GetFullPath(Application.streamingAssetsPath),
                 modules!.ModuleIds
-            );
+            )
+            {
+                ApplicationState = state,
+            };
         }
 
         private void ApplySnapshot(
@@ -1968,9 +1989,10 @@ namespace Battlement
             checked((ulong)Math.Max(0, duration.Ticks / 10));
 
         private bool CanEmitInput =>
-            pendingUiFailure is null
-            && session.IsInputAvailable
-            && (hasApplicationFocus || Application.isBatchMode);
+            pendingUiFailure is null && session.IsInputAvailable && ApplicationAcceptsInput;
+
+        private bool ApplicationAcceptsInput =>
+            !isApplicationPaused && (hasApplicationFocus || Application.isBatchMode);
 
         private void RecordUiFailure(
             string message,

@@ -25,7 +25,8 @@ namespace Battlement.Tests
             IBattlementProtocolCodec? protocolCodec,
             IBattlementErrorSink? errorSink,
             IBattlementFailurePresenter? failurePresenter,
-            bool suppressDevelopmentErrorDialogs
+            bool suppressDevelopmentErrorDialogs,
+            Action<string>? openExternalUrl
         )
         {
             Scene = scene;
@@ -48,7 +49,8 @@ namespace Battlement.Tests
                     ErrorSink,
                     failurePresenter,
                     suppressDevelopmentErrorDialogs,
-                    new FakeCaughtFailureReporter()
+                    new FakeCaughtFailureReporter(),
+                    openExternalUrl
                 )
             );
         }
@@ -73,7 +75,8 @@ namespace Battlement.Tests
             IBattlementProtocolCodec? protocolCodec = null,
             IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
-            bool suppressDevelopmentErrorDialogs = true
+            bool suppressDevelopmentErrorDialogs = true,
+            Action<string>? openExternalUrl = null
         )
         {
             Scene scene = EditorSceneManager.NewScene(
@@ -93,7 +96,8 @@ namespace Battlement.Tests
                 protocolCodec,
                 errorSink,
                 failurePresenter,
-                suppressDevelopmentErrorDialogs
+                suppressDevelopmentErrorDialogs,
+                openExternalUrl
             );
         }
 
