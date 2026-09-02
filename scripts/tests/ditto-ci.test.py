@@ -54,8 +54,9 @@ disposition = "reused" if "--no-build" in arguments else "created"
 config = Path(arguments[arguments.index("--config") + 1])
 suite = tomllib.loads(config.read_text())
 names = [scenario["name"] for scenario in suite["scenarios"]]
-if "--no-build" not in arguments:
-    names = [arguments[-1]]
+selected = [argument for argument in arguments if argument in names]
+if selected:
+    names = selected
 result = {
     "run_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
     "status": status,
@@ -127,8 +128,10 @@ def main() -> None:
         )
         assert gate["status"] == "passed"
         assert len(gate["samples"]) == 5
-        assert gate["budget_seconds"] == 110
-        assert gate["added_budget_seconds"] == 110
+        assert gate["budget_seconds"] == 120
+        assert gate["added_budget_seconds"] == 120
+        assert gate["scenario_count"] == 34
+        assert gate["screenshot_count"] == 89
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)

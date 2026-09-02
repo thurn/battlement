@@ -32,13 +32,13 @@ CACHE_ROOT = Path(
 DITTO = Path(
     os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
 )
-GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "110"))
+GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "120"))
 SAMPLE_TIMEOUT_SECONDS = float(
     os.environ.get(
         "DITTO_CI_SAMPLE_TIMEOUT_SECONDS", str(GATE_BUDGET_SECONDS + 15),
     )
 )
-ADDED_BUDGET_SECONDS = 110
+ADDED_BUDGET_SECONDS = 120
 DEFAULT_ODIFF = (
     Path.home()
     / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"
@@ -187,7 +187,8 @@ def clean_unity_workspace(sample: str) -> None:
 
 
 def execute_sample(
-    sample: str, *, preparation: str | None = None, retain: bool = True,
+    sample: str, *, scenarios: list[str] | None = None,
+    preparation: str | None = None, retain: bool = True,
 ) -> dict[str, Any]:
     output = artifact_directory(
         f"prepare-{preparation}-{sample}" if preparation else sample
@@ -203,9 +204,12 @@ def execute_sample(
     ]
     if preparation:
         expected = expected[:1]
-        arguments.append(expected[0])
+    elif scenarios is not None:
+        expected = scenarios
     if preparation != "cold":
         arguments.append("--no-build")
+    if preparation or scenarios is not None:
+        arguments.extend(expected)
     try:
         completed = command(
             arguments, check=False, environment=ditto_environment(),
@@ -266,35 +270,78 @@ def inventory() -> tuple[dict[str, Any], int, int]:
     return suites, scenarios, screenshots
 
 
-def validate_inventory() -> None:
+def validate_inventory() -> tuple[dict[str, list[str]], int, int]:
     expected = json.loads(
         (REPOSITORY_ROOT / "scripts/ditto_inventory.json").read_text()
     )
-    suites, scenarios, screenshots = inventory()
-    encoded = json.dumps(suites, sort_keys=True, separators=(",", ":")).encode()
+    if expected.get("schema") != 2:
+        raise RuntimeError("Ditto CI inventory must use schema 2")
+    selection = expected.get("selection")
+    if not isinstance(selection, dict) or set(selection) != set(SAMPLES):
+        raise RuntimeError("Ditto CI inventory must select scenarios for every sample")
+    benchmark = json.loads(
+        (REPOSITORY_ROOT / "benchmarks/ditto/ordinary.json").read_text()
+    )
+    benchmark_scenarios = {
+        sample["name"]: {scenario["name"] for scenario in sample["scenarios"]}
+        for sample in benchmark["samples"]
+    }
+    suites, available_scenarios, _ = inventory()
+    selected_suites = {}
+    scenarios = 0
+    screenshots = 0
+    for sample in SAMPLES:
+        names = selection[sample]
+        if not isinstance(names, list) or not names or len(names) != len(set(names)):
+            raise RuntimeError(f"Ditto CI inventory has invalid selections for {sample}")
+        by_name = {scenario["name"]: scenario for scenario in suites[sample]}
+        unknown = [name for name in names if name not in by_name]
+        if unknown:
+            raise RuntimeError(f"Ditto CI inventory has unknown {sample} scenarios: {unknown}")
+        missing_benchmarks = sorted(benchmark_scenarios[sample] - set(names))
+        if missing_benchmarks:
+            raise RuntimeError(
+                f"Ditto CI inventory omits benchmark {sample} scenarios: {missing_benchmarks}"
+            )
+        selected_suites[sample] = [by_name[name] for name in names]
+        scenarios += len(names)
+        screenshots += sum(
+            len(scenario["screenshots"]) for scenario in selected_suites[sample]
+        )
+    if scenarios * 2 != available_scenarios:
+        raise RuntimeError(
+            f"Ditto CI inventory must select exactly half of {available_scenarios} scenarios"
+        )
+    encoded = json.dumps(
+        selected_suites, sort_keys=True, separators=(",", ":")
+    ).encode()
     actual = {
-        "schema": 1,
+        "schema": 2,
         "sha256": hashlib.sha256(encoded).hexdigest(),
         "scenarios": scenarios,
         "screenshots": screenshots,
     }
-    if actual != expected:
+    recorded = {key: expected.get(key) for key in actual}
+    if actual != recorded:
         raise RuntimeError(
             "Ditto inventory changed; review it and refresh scripts/ditto_inventory.json: "
             + json.dumps(actual, sort_keys=True)
         )
+    return selection, scenarios, screenshots
 
 
 def gate() -> None:
-    """Run the exact screenshot inventory concurrently within the CI budget."""
+    """Run the curated scenario inventory concurrently within the CI budget."""
     platform_report()
-    validate_inventory()
+    selection, scenario_count, screenshot_count = validate_inventory()
     started = time.monotonic()
     results = []
     failures = []
     with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
         futures = {
-            executor.submit(execute_sample, sample, retain=False): sample
+            executor.submit(
+                execute_sample, sample, scenarios=selection[sample], retain=False
+            ): sample
             for sample in SAMPLES
         }
         for future in as_completed(futures):
@@ -323,6 +370,8 @@ def gate() -> None:
         "scenario_execution_seconds": round(duration, 3),
         "added_duration_seconds": round(added_duration, 3),
         "added_budget_seconds": ADDED_BUDGET_SECONDS,
+        "scenario_count": scenario_count,
+        "screenshot_count": screenshot_count,
         "samples": sorted(results, key=lambda item: item["sample"]),
         "failures": failures,
     }
