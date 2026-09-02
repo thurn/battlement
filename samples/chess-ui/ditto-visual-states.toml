@@ -43,3 +43,7 @@ screen = "portrait"
 [[states]]
 key = "frame.static"
 screen = "frame"
+
+[[states]]
+key = "setting_row.static"
+screen = "setting_row"

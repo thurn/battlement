@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "sha256": "8ab2824208c2947358fdf46be975610c289efc2357125697c281ae6c947fee09",
-  "scenarios": 39,
-  "screenshots": 94,
+  "sha256": "df78caa92650dd9f0debea87fd3bf429132a4fd35134cd1847ed04bf2b980383",
+  "scenarios": 40,
+  "screenshots": 95,
   "selection": {
     "basic": [
       "connected",
@@ -53,7 +53,8 @@
     "chess-ui": [
       "gallery reset",
       "portrait viewport",
-      "screen frame"
+      "screen frame",
+      "setting row"
     ]
   }
 }

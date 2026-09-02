@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 91afc1ceaa0164399a2164b5a40f76cb
+    m_Address: chess-ui/fonts/display
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: ce4b1a568c5c4a7db99683e87c567fe8, type: 2}
   m_SchemaSet:

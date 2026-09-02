@@ -158,6 +158,18 @@ namespace Battlement.UI
                 if (weights[index] > 0)
                     sizes[index] = unit * weights[index];
 
+            if (available is float autoExtent && totalWeight == 0)
+            {
+                int automatic = tracks.Count(track => track is GridTrack.Auto);
+                if (automatic > 0)
+                {
+                    float share = Math.Max(0, autoExtent - sizes.Sum() - gaps) / automatic;
+                    for (int index = 0; index < count; index++)
+                        if (tracks[index] is GridTrack.Auto)
+                            sizes[index] += share;
+                }
+            }
+
             var positions = new float[count];
             float cursor = 0;
             for (int index = 0; index < count; index++)

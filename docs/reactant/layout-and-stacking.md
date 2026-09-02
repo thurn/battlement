@@ -201,7 +201,9 @@ corresponding container value. Grid `justify` values resolve on the physical
 horizontal x axis, and `align` values resolve on the physical vertical y axis.
 Their other valid values are `FlexStart`, `Center`, `FlexEnd`, and `Stretch`.
 Margins and authored width or height remain child properties and participate
-inside the resolved grid area.
+inside the resolved grid area. Percentage child dimensions resolve against
+that area after track sizing; a 100% height label therefore fills its row even
+when the container centers other children.
 
 A Grid or Stack **placement child** means either a direct logical child or a
 top-level portal attachment in that target adapter's merged logical stream.
@@ -793,6 +795,9 @@ size is **bounded** when UI Toolkit supplied a finite available size and
    fractional track to `u * w`. When none exist, skip this division. If the
    intrinsic unit consumes more than `R`, the grid overflows by that finite
    difference.
+7. When a bounded axis has no fractional tracks, distribute its positive
+   remainder equally among automatic tracks. Pixel tracks retain their exact
+   size. This lets a minimum-height grid center its children in the full row.
 
 There is one shared fractional unit per axis, so every fractional track always
 preserves its authored weight ratio. For example, two `1fr` tracks with a

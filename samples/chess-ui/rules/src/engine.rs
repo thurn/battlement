@@ -13,7 +13,7 @@ use battlement_reactant::{
   runtime::{Reactant, ResponseReactantExt},
 };
 
-use crate::{gallery::Gallery, styles};
+use crate::{gallery::Gallery, setting_row::DISPLAY_FONT, styles};
 
 const CAMERA_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000001");
 const DOCUMENT_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000002");
@@ -135,7 +135,10 @@ impl ChessUiEngine {
   fn snapshot(&self) -> Snapshot {
     Snapshot::new(
       self.session,
-      vec![PreparedAsset::scene("chess-ui/content")],
+      vec![
+        PreparedAsset::scene("chess-ui/content"),
+        PreparedAsset::UiFont(DISPLAY_FONT),
+      ],
       vec![Scene::new(SCENE_ID, "chess-ui/content")],
       vec![
         GameObject::new(

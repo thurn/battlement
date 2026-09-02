@@ -199,12 +199,26 @@ namespace Battlement.UI
             top += marginTop;
             width = Math.Max(0, width - marginLeft - marginRight);
             height = Math.Max(0, height - marginTop - marginBottom);
-            float preferredWidth = PreferredWidth(child);
-            float preferredHeight = PreferredHeight(child, width);
+            float preferredWidth =
+                AuthoredExtent(child.style.width, width) ?? PreferredWidth(child);
+            float preferredHeight =
+                AuthoredExtent(child.style.height, height) ?? PreferredHeight(child, width);
             UiAlign horizontal = item.JustifySelf == UiAlign.Auto ? justifyItems : item.JustifySelf;
             UiAlign vertical = item.AlignSelf == UiAlign.Auto ? alignItems : item.AlignSelf;
-            (left, width) = Align(left, width, preferredWidth, horizontal, HasWidth(child));
-            (top, height) = Align(top, height, preferredHeight, vertical, HasHeight(child));
+            (left, width) = Align(
+                left,
+                width,
+                preferredWidth,
+                horizontal,
+                AuthoredExtent(child.style.width, width).HasValue
+            );
+            (top, height) = Align(
+                top,
+                height,
+                preferredHeight,
+                vertical,
+                AuthoredExtent(child.style.height, height).HasValue
+            );
             slot.style.position = Position.Absolute;
             slot.style.left = left;
             slot.style.top = top;
@@ -272,25 +286,80 @@ namespace Battlement.UI
                 if (FinitePositive(measured.y) is float textHeight)
                     return textHeight;
             }
+            if (child.style.height.value.unit == LengthUnit.Percent)
+                return IntrinsicContentHeight(child);
             return FinitePositive(child.layout.height)
                 ?? FinitePositive(child.resolvedStyle.height)
                 ?? 0;
         }
 
+        private static float IntrinsicContentHeight(VisualElement child)
+        {
+            float[] heights = child
+                .Children()
+                .Where(item => item.resolvedStyle.position != Position.Absolute)
+                .Select(item => PreferredOuterHeight(item, child.contentRect.width))
+                .ToArray();
+            bool row =
+                child.resolvedStyle.flexDirection is FlexDirection.Row or FlexDirection.RowReverse;
+            float content = row ? heights.DefaultIfEmpty().Max() : heights.Sum();
+            return content + Insets(child, horizontal: false);
+        }
+
         private static float? Available(VisualElement value, bool horizontal)
         {
-            float? authored = AuthoredPixels(horizontal ? value.style.width : value.style.height);
-            if (authored.HasValue)
-                return authored;
+            StyleLength dimension = horizontal ? value.style.width : value.style.height;
+            float insets = Insets(value, horizontal);
+            if (AuthoredPixels(dimension) is float authored)
+                return Math.Max(0, authored - insets);
+            if (dimension.value.unit != LengthUnit.Percent && IntrinsicAxis(value, horizontal))
+            {
+                float? minimum = AuthoredPixels(
+                    horizontal ? value.style.minWidth : value.style.minHeight
+                );
+                return minimum.HasValue ? Math.Max(0, minimum.Value - insets) : null;
+            }
             float resolved = horizontal ? value.contentRect.width : value.contentRect.height;
             return value.panel is null ? null : FinitePositive(resolved);
         }
 
-        private static bool HasWidth(VisualElement value) =>
-            AuthoredPixels(value.style.width).HasValue;
+        private static bool IntrinsicAxis(VisualElement value, bool horizontal)
+        {
+            if (value.parent is null)
+                return true;
+            IResolvedStyle parent = value.parent.resolvedStyle;
+            bool row = parent.flexDirection is FlexDirection.Row or FlexDirection.RowReverse;
+            if (horizontal == row)
+                return value.resolvedStyle.flexGrow == 0;
+            UnityEngine.UIElements.Align alignment = value.resolvedStyle.alignSelf;
+            if (alignment == UnityEngine.UIElements.Align.Auto)
+                alignment = parent.alignItems;
+            return alignment != UnityEngine.UIElements.Align.Stretch;
+        }
 
-        private static bool HasHeight(VisualElement value) =>
-            AuthoredPixels(value.style.height).HasValue;
+        private static float Insets(VisualElement value, bool horizontal)
+        {
+            IResolvedStyle style = value.resolvedStyle;
+            float extent = horizontal
+                ? style.paddingLeft
+                    + style.paddingRight
+                    + style.borderLeftWidth
+                    + style.borderRightWidth
+                : style.paddingTop
+                    + style.paddingBottom
+                    + style.borderTopWidth
+                    + style.borderBottomWidth;
+            return float.IsFinite(extent) ? extent : 0;
+        }
+
+        private static float? AuthoredExtent(StyleLength value, float available)
+        {
+            if (value.keyword != StyleKeyword.Undefined || !float.IsFinite(value.value.value))
+                return null;
+            return value.value.unit == LengthUnit.Percent
+                ? Math.Max(0, available * value.value.value / 100)
+                : value.value.value;
+        }
 
         private static float? AuthoredPixels(StyleLength value) =>
             value.keyword == StyleKeyword.Undefined

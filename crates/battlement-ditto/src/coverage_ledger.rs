@@ -421,7 +421,12 @@ fn validate_complete(
         .map(move |checkpoint| (scenario.clone(), checkpoint.clone()))
     })
     .collect();
-  exact_set(sample, "checkpoint", suite_checkpoints, mapped_checkpoints)?;
+  exact_set(
+    sample,
+    "checkpoint",
+    suite_checkpoints,
+    mapped_checkpoints.clone(),
+  )?;
   let suite_videos = facts
     .scenarios
     .iter()
@@ -433,11 +438,26 @@ fn validate_complete(
     })
     .collect();
   exact_set(sample, "video", suite_videos, mapped_videos)?;
+  for (baseline_profile, scenario, checkpoint) in &facts.baselines {
+    ensure!(
+      facts.profiles.contains(baseline_profile),
+      "sample {sample} baseline has unknown profile {baseline_profile}"
+    );
+    ensure!(
+      mapped_checkpoints.contains(&(scenario.clone(), checkpoint.clone())),
+      "sample {sample} orphan baseline {baseline_profile}/{scenario}/{checkpoint}"
+    );
+  }
   exact_set(
     sample,
     "baseline",
     mapped_baselines,
-    facts.baselines.clone(),
+    facts
+      .baselines
+      .iter()
+      .filter(|(baseline_profile, _, _)| baseline_profile == profile)
+      .cloned()
+      .collect(),
   )?;
   exact_set(
     sample,

@@ -2,6 +2,106 @@ suite = "chess-ui"
 namespace = "battlement/chess-ui"
 
 [[baselines]]
+profile = "design"
+scenario = "gallery navigation first"
+checkpoint = "selected"
+sha256 = "6cba7e5b9517c114fe74bbab102f0424412d9592819a45ddc4dfd59506566890"
+width = 1440
+height = 1584
+size_bytes = 205085
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery navigation fourth"
+checkpoint = "selected"
+sha256 = "090a81b9d8545f2adb7c30e9e1c28515bcab44269bbc3fb69d94d4314bcb6301"
+width = 1440
+height = 1584
+size_bytes = 218787
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery navigation second"
+checkpoint = "selected"
+sha256 = "2a1bddd5654f3398ee73dcc1fe605da7cd4b7af1fcf28b0933df47bf880de202"
+width = 1440
+height = 1584
+size_bytes = 206429
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery navigation third"
+checkpoint = "selected"
+sha256 = "345ae204cf1bbac6585b385379f877cd2fc6b69390cf24b003bfd28c3316a5b4"
+width = 1440
+height = 1584
+size_bytes = 209918
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery reset"
+checkpoint = "changed"
+sha256 = "2f9a34e262577cd282306a39062c1dc434315e6f74fe99eb24b287a6f4571fc1"
+width = 1440
+height = 1584
+size_bytes = 241203
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery reset"
+checkpoint = "initial"
+sha256 = "7ea91b42d9b14feedfdd1b94669078d3e754477a7cbe3edae909dcb11bb66c0f"
+width = 1440
+height = 1584
+size_bytes = 241721
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "gallery reset"
+checkpoint = "reset"
+sha256 = "7ea91b42d9b14feedfdd1b94669078d3e754477a7cbe3edae909dcb11bb66c0f"
+width = 1440
+height = 1584
+size_bytes = 241721
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "portrait viewport"
+checkpoint = "static"
+sha256 = "cfc08e81c87813c1a08cb9e2c82d62d4a3372be5aa15fea999d28c90500620bc"
+width = 1440
+height = 1584
+size_bytes = 212361
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "screen frame"
+checkpoint = "static"
+sha256 = "d3ccd40912a29b4ce5af923692cceed9eae9a247ba3cda70d1b2b6ee27c7af82"
+width = 1440
+height = 1584
+size_bytes = 249223
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
+profile = "design"
+scenario = "setting row"
+checkpoint = "static"
+sha256 = "3eb0e18212da08efea434bb36317c71860725c0ec3e437171e8cf95c585a9841"
+width = 1440
+height = 1584
+size_bytes = 235807
+source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
+
+[[baselines]]
 profile = "macos"
 scenario = "gallery navigation first"
 checkpoint = "selected"
@@ -90,3 +190,13 @@ width = 1280
 height = 800
 size_bytes = 110118
 source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
+
+[[baselines]]
+profile = "macos"
+scenario = "setting row"
+checkpoint = "static"
+sha256 = "43803fc5ad395565ddeffade196679d0f2fd7b7fbbb8ca45107117e82b692033"
+width = 1280
+height = 800
+size_bytes = 106660
+source = "d6f9f83f898f9c8550667af83b86e85b2285135f9de137040dae8a99a7db91a1"

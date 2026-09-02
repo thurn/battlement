@@ -38,6 +38,10 @@ secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 target = "macos"
 display = { width = 1280, height = 800, scale = 1.0 }
 
+[profiles.design]
+target = "macos"
+display = { width = 1440, height = 1584, scale = 1.0 }
+
 [[scenarios]]
 name = "gallery reset"
 
@@ -1108,6 +1112,36 @@ accessibility_assert = { target = { role = "heading", name = "ScreenFrame and Co
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "Arcade frame content" }, role = "static-text", name = "Arcade frame content", parent = { role = "region", name = "Main content" } }
+
+[[scenarios.steps]]
+screenshot = { name = "static" }
+
+[[scenarios]]
+name = "setting row"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "4. SettingRow" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "SettingRow" }, role = "heading", name = "SettingRow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Resolution" }, role = "static-text", name = "Resolution", parent = { role = "region", name = "SettingRow" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Max Framerate" }, role = "static-text", name = "Max Framerate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Display Mode" }, role = "static-text", name = "Display Mode" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "group", name = "Display Mode" }, role = "group", name = "Display Mode", parent = { role = "region", name = "SettingRow" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Borderless" }, role = "static-text", name = "Borderless", parent = { role = "group", name = "Display Mode" } }
 
 [[scenarios.steps]]
 screenshot = { name = "static" }

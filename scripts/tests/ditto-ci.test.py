@@ -130,8 +130,11 @@ def main() -> None:
         assert len(gate["samples"]) == 6
         assert gate["budget_seconds"] == 120
         assert gate["added_budget_seconds"] == 120
-        assert gate["scenario_count"] == 39
-        assert gate["screenshot_count"] == 94
+        inventory = json.loads(
+            (REPOSITORY_ROOT / "scripts/ditto_inventory.json").read_text()
+        )
+        assert gate["scenario_count"] == inventory["scenarios"]
+        assert gate["screenshot_count"] == inventory["screenshots"]
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)

@@ -15,7 +15,7 @@ fn repository_report_discovers_every_pending_migration() {
     vec![
       ("basic", 7, &SampleStatus::Complete),
       ("chess", 17, &SampleStatus::Complete),
-      ("chess-ui", 9, &SampleStatus::Complete),
+      ("chess-ui", 10, &SampleStatus::Complete),
       ("reactant", 48, &SampleStatus::Complete),
       ("tictactoe", 7, &SampleStatus::Complete),
       ("ui", 88, &SampleStatus::Complete),
@@ -48,6 +48,45 @@ fn canonical_capture_dimensions_follow_the_declared_profile() {
     .unwrap_err()
     .to_string();
   assert!(error.contains("must be macOS at scale 1"), "{error}");
+}
+
+#[test]
+fn supplemental_baselines_require_known_profiles_and_keep_canonical_coverage() {
+  let fixture = Fixture::new();
+  let extra = LOCK
+    .split("[[baselines]]")
+    .nth(1)
+    .unwrap()
+    .replace("profile = \"macos\"", "profile = \"web\"");
+  fs::write(
+    fixture.root().join("samples/fixture/ditto.lock"),
+    format!("{LOCK}\n[[baselines]]{extra}"),
+  )
+  .unwrap();
+  fixture.check();
+  fixture.replace(
+    "samples/fixture/ditto.lock",
+    "profile = \"web\"",
+    "profile = \"unknown\"",
+  );
+  let error = coverage_ledger::check_repository(fixture.root())
+    .unwrap_err()
+    .to_string();
+  assert!(error.contains("unknown profile"), "{error}");
+  fixture.replace(
+    "samples/fixture/ditto.lock",
+    "profile = \"unknown\"",
+    "profile = \"web\"",
+  );
+  fixture.replace(
+    "samples/fixture/ditto.lock",
+    "profile = \"macos\"\nscenario = \"initial\"",
+    "profile = \"macos\"\nscenario = \"absent\"",
+  );
+  let error = coverage_ledger::check_repository(fixture.root())
+    .unwrap_err()
+    .to_string();
+  assert!(error.contains("missing baseline"), "{error}");
 }
 
 #[test]

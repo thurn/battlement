@@ -63,3 +63,9 @@ state = "frame.static"
 scenario = "screen frame"
 checkpoint = "static"
 owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "setting_row.static"
+scenario = "setting row"
+checkpoint = "static"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"

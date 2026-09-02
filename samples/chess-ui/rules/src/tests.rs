@@ -19,6 +19,7 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("chess-ui/content");
   assets.add_textures(assets::addresses());
+  assets.add_ui_font(crate::setting_row::DISPLAY_FONT);
   let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
   client.poll();
   self::assert_page(&mut client, 0);

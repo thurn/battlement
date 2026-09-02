@@ -140,6 +140,11 @@ missing local baseline objects automatically.
 
 ## Baselines and review
 
+The coverage ledger requires every registered checkpoint in its canonical
+profile. Additional profiles may retain baselines for those same checkpoints;
+they must name a declared profile and cannot replace canonical coverage.
+
+
 `ditto.lock` is the checked-in manifest mapping profile, scenario, and
 checkpoint identities to immutable PNG objects. Hydrate selected objects with
 `ditto fetch <glob>` or the entire lock with `ditto fetch --all`.

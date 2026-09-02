@@ -1,6 +1,6 @@
 use battlement_reactant::prelude::*;
 
-use crate::{frame_harness, gallery, portrait_harness};
+use crate::{frame_harness, gallery, portrait_harness, setting_row_harness};
 
 /// One review page and its capture contract.
 pub struct Page {
@@ -47,7 +47,7 @@ pub const ALL: [Page; 40] = [
     number: 4,
     title: "SettingRow",
     description: "SettingRow aligns label and child horizontally; responsive reflow and interactive controls are not asserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: setting_row_harness::render,
     semantic_target: "4. SettingRow",
     capture_states: &["static"],
   },
