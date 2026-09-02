@@ -1,6 +1,3 @@
-#[cfg(test)]
-use battlement::TextureAddress;
-
 battlement_reactant::asset_generator::generate! {
   @background ARCADE_SCREEN_FRAME {
     @canvas 1024px 1536px;
@@ -290,30 +287,4 @@ battlement_reactant::asset_generator::generate! {
     clip-path: polygon(23% 0%, 77% 0%, 100% 17%, 100% 83%, 77% 100%, 23% 100%, 0% 83%, 0% 17%);
     filter: drop-shadow(0 0 7px #1479ff);
   }
-}
-
-#[cfg(test)]
-pub(crate) fn addresses() -> Vec<TextureAddress> {
-  [
-    ARCADE_SCREEN_FRAME.texture_address(),
-    SETTINGS_PANEL_FRAME.texture_address(),
-    ACTION_BUTTON_FRAME.texture_address(),
-    SMALL_CONTROL_FRAME.texture_address(),
-    SETTINGS_TAB_ACTIVE.texture_address(),
-    SETTINGS_TAB_INACTIVE.texture_address(),
-    GAME_LOGO.texture_address(),
-    ACTION_LABEL_PLAY.texture_address(),
-    ACTION_LABEL_SETTINGS.texture_address(),
-    ACTION_LABEL_ABOUT.texture_address(),
-    ACTION_LABEL_QUIT.texture_address(),
-    ACTION_LABEL_RETURN.texture_address(),
-    CHECKBOX_UNCHECKED.texture_address(),
-    CHECKBOX_CHECK.texture_address(),
-    VOLUME_SLIDER_TRACK.texture_address(),
-    VOLUME_SLIDER_FILL.texture_address(),
-    VOLUME_SLIDER_TICKS.texture_address(),
-    VOLUME_SLIDER_HANDLE.texture_address(),
-  ]
-  .into_iter()
-  .collect()
 }

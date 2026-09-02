@@ -20,7 +20,5 @@ mod review_theme;
 pub mod screen_frame;
 pub mod setting_row;
 mod setting_row_harness;
-#[cfg(test)]
-mod tests;
 pub mod toggle_control;
 mod toggle_harness;

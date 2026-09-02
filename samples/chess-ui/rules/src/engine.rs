@@ -17,10 +17,10 @@ use crate::{
   gallery::Gallery, review_surface::ReviewSurface, review_theme, setting_row::DISPLAY_FONT,
 };
 
-const CAMERA_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000001");
-const DOCUMENT_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000002");
-const ROOT_ID: ObjectId = object_id!("25310000-0000-4000-8000-000000000003");
-const SCENE_ID: SceneId = scene_id!("25310000-0000-4000-8000-000000000004");
+const CAMERA_ID: ObjectId = object_id!("a5572d68-1d85-448e-b233-b490b36222b9");
+const DOCUMENT_ID: ObjectId = object_id!("182c5de9-22be-4ffd-806f-cdb05eaa5d80");
+const ROOT_ID: ObjectId = object_id!("4ceeebde-e265-4bc5-b7ab-e64b8d5f2074");
+const SCENE_ID: SceneId = scene_id!("35f67948-4d26-4f3c-9641-eb89a2406805");
 
 /// Standalone Chess UI rules engine.
 pub struct ChessUiEngine {

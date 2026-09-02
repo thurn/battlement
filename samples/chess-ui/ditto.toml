@@ -23,7 +23,7 @@ scene = "Assets/Scenes/ChessUi.unity"
 rust_manifest = "rules/Cargo.toml"
 
 [aliases]
-root = "25310000-0000-4000-8000-000000000003"
+root = "4ceeebde-e265-4bc5-b7ab-e64b8d5f2074"
 
 [baseline]
 kind = "r2"

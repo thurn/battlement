@@ -1,31 +1,20 @@
 use battlement::{
-  AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, KeyModifiers,
-  ObjectId, PanelPoint, PointerButton, SemanticRole, UiAccessibilityAction,
-  UiAccessibilityActionEvent, UiEvent, UiEventBody, object_id,
+  AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, GameObjectKind,
+  KeyModifiers, ObjectId, PanelPoint, PointerButton, SemanticRole, UiAccessibilityAction,
+  UiAccessibilityActionEvent, UiEvent, UiEventBody,
 };
-use battlement_fake::{
-  assets::FakeAssetCatalog,
-  client::{FakeClient, ui::UiClient},
-};
-
-use crate::{
-  assets,
+use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+use battlement_reactant::asset_generator;
+use battlement_rules::{
   engine::{self, ChessUiEngine},
-  pages,
+  pages, setting_row,
 };
-
-const ROOT: ObjectId = object_id!("25310000-0000-4000-8000-000000000003");
 
 #[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
-  let mut assets = FakeAssetCatalog::new();
-  assets.add_scene("chess-ui/content");
-  assets.add_textures(assets::addresses());
-  assets.add_ui_font(crate::setting_row::DISPLAY_FONT);
-  let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
-  client.poll();
+  let mut client = self::client();
   self::assert_page(&mut client, 0);
-  let change = self::named(&client.ui(), "demonstration-count");
+  let change = self::named(&mut client, "demonstration-count");
   assert_eq!(client.ui().element(change).text(), Some("Changes: 0"));
   let button = self::snapshot(&client)
     .nodes
@@ -38,8 +27,8 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   assert_eq!(client.ui().element(change).text(), Some("Changes: 1"));
   for index in 0..40 {
     for _ in 0..2 {
-      let old_heading = self::named(&client.ui(), "page-heading");
-      let target = self::named(&client.ui(), &format!("review-page-{}", index + 1));
+      let old_heading = self::named(&mut client, "page-heading");
+      let target = self::named(&mut client, &format!("review-page-{}", index + 1));
       client.ui().click(target);
       client.poll();
       self::assert_page(&mut client, index);
@@ -53,19 +42,14 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   client.reconnect();
   client.poll();
   self::assert_page(&mut client, 0);
-  let count = self::named(&client.ui(), "demonstration-count");
+  let count = self::named(&mut client, "demonstration-count");
   assert_eq!(client.ui().element(count).text(), Some("Changes: 0"));
 }
 
 #[test]
 fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
-  let mut assets = FakeAssetCatalog::new();
-  assets.add_scene("chess-ui/content");
-  assets.add_textures(assets::addresses());
-  assets.add_ui_font(crate::setting_row::DISPLAY_FONT);
-  let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
-  client.poll();
-  let page = self::named(&client.ui(), "review-page-5");
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-5");
   client.ui().click(page);
   client.poll();
   let checkbox = self::snapshot(&client)
@@ -152,7 +136,7 @@ fn assert_checkbox(client: &FakeClient<ChessUiEngine>, checked: bool, changes: u
 }
 
 fn assert_page(client: &mut FakeClient<ChessUiEngine>, index: usize) {
-  let heading = self::named(&client.ui(), "page-heading");
+  let heading = self::named(client, "page-heading");
   assert_eq!(client.ui().focused(), Some(heading));
   let semantics = self::snapshot(client);
   let current = semantics
@@ -204,8 +188,16 @@ fn snapshot(client: &FakeClient<ChessUiEngine>) -> &AccessibilitySnapshot {
     .expect("gallery semantics")
 }
 
-fn named(ui: &UiClient<'_, ChessUiEngine>, name: &str) -> ObjectId {
-  let mut pending = vec![ROOT];
+fn named(client: &mut FakeClient<ChessUiEngine>, name: &str) -> ObjectId {
+  let mut pending = client
+    .world()
+    .objects()
+    .filter_map(|object| match object.kind() {
+      GameObjectKind::UiDocument(document) => Some(document.root_id()),
+      _ => None,
+    })
+    .collect::<Vec<_>>();
+  let ui = client.ui();
   while let Some(id) = pending.pop() {
     let element = ui.element(id);
     if element.name() == Some(name) {
@@ -214,4 +206,14 @@ fn named(ui: &UiClient<'_, ChessUiEngine>, name: &str) -> ObjectId {
     pending.extend(element.children());
   }
   panic!("missing {name}");
+}
+
+fn client() -> FakeClient<ChessUiEngine> {
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("chess-ui/content");
+  assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
+  assets.add_ui_font(setting_row::DISPLAY_FONT);
+  let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
+  client.poll();
+  client
 }
