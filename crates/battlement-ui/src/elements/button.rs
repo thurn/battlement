@@ -15,9 +15,8 @@ use crate::{
 ///
 /// Unity renders [`Self::text`] using the button's internal text element and
 /// supplies the standard `.unity-button` appearance and interaction states.
-/// Battlement models `UiButton` as a leaf, so additional logical [`UiNode`]
-/// children are rejected. Use [`UiVisualElement`] or [`UiBox`] to compose content
-/// that needs its own child hierarchy.
+/// Logical [`UiNode`] children can supply styled text, icons, and decoration
+/// within the button. They participate in ordinary logical event propagation.
 ///
 /// See Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
 /// for native activation, content, and styling behavior.
@@ -36,7 +35,6 @@ use crate::{
 /// assert!(save.children.is_empty());
 /// ```
 ///
-/// [`UiBox`]: crate::UiBox
 /// [`UiEventKind::Click`]: crate::UiEventKind::Click
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -67,7 +65,7 @@ pub struct UiButton {
 }
 
 impl UiButton {
-  /// Creates a leaf button displaying `text` without an event subscription.
+  /// Creates a button displaying `text` without an event subscription.
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
     Self {

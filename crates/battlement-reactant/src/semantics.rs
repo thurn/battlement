@@ -20,8 +20,8 @@ pub struct LocalizedText(String);
 pub enum AccessibleName {
   /// Explicit already-localized text.
   Text(LocalizedText),
-  /// Text resolved from one live host.
-  LabelledBy(ElementRef),
+  /// Text resolved from live hosts in the authored order.
+  LabelledBy(Vec<ElementRef>),
   /// Text gathered from eligible logical descendants.
   Contents,
 }

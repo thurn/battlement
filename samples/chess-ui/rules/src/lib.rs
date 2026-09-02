@@ -1,4 +1,5 @@
 mod assets;
+mod caret;
 mod check_mark;
 pub mod clipped_inset;
 pub mod concept_frame;
@@ -18,6 +19,8 @@ pub mod review_surface;
 pub mod review_text;
 mod review_theme;
 pub mod screen_frame;
+pub mod select_control;
+mod select_harness;
 pub mod setting_row;
 mod setting_row_harness;
 pub mod toggle_control;

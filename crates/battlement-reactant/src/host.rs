@@ -16,7 +16,7 @@
 //! ```compile_fail
 //! use battlement_reactant::prelude::*;
 //!
-//! let _ = Button::new("Save").child(Label::new("invalid"));
+//! let _ = Label::new("Caption").child(Label::new("invalid"));
 //! ```
 //!
 //! Façades expose no conversion from native protocol hosts.
@@ -882,7 +882,7 @@ facade!(
 facade!(
   Button,
   UiButton,
-  "A Unity UI Toolkit control for a discrete pointer or navigation-submit command.\n\nUnity supplies standard button appearance and interaction states. Reactant forwards activations only when an `on_click` handler is authored. This host is a logical leaf.\n\nSee Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)."
+  "A Unity UI Toolkit control for a discrete pointer or navigation-submit command.\n\nUnity supplies standard button appearance and interaction states. Reactant forwards activations only when an `on_click` handler is authored. Logical children can supply styled labels and decorative content.\n\nSee Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)."
 );
 facade!(
   RepeatButton,
@@ -1038,6 +1038,7 @@ macro_rules! container {
 }
 
 container!(
+  Button,
   View,
   Flex,
   Grid,

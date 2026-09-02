@@ -266,7 +266,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
     name: if game.explicit {
       AccessibleName::text("Explicit sound")
     } else {
-      AccessibleName::LabelledBy(label.clone())
+      AccessibleName::LabelledBy(vec![label.clone()])
     },
     checked: game.checked,
     is_disabled: game.disabled,

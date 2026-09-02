@@ -10,7 +10,6 @@ pub(crate) fn require_container(kind: UiElementKind) -> Result<(), UiWorldError>
     kind,
     UiElementKind::Label
       | UiElementKind::TextElement
-      | UiElementKind::Button
       | UiElementKind::RepeatButton
       | UiElementKind::Scroller
       | UiElementKind::Slider

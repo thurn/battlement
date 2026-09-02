@@ -1,6 +1,8 @@
 use battlement_reactant::prelude::*;
 
-use crate::{frame_harness, gallery, portrait_harness, setting_row_harness, toggle_harness};
+use crate::{
+  frame_harness, gallery, portrait_harness, select_harness, setting_row_harness, toggle_harness,
+};
 
 /// One review page and its capture contract.
 pub struct Page {
@@ -63,7 +65,7 @@ pub const ALL: [Page; 40] = [
     number: 6,
     title: "SelectControl closed state",
     description: "SelectControl renders changing controlled values and its caret; opening, options, focus, and animation remain unasserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: select_harness::render,
     semantic_target: "6. SelectControl closed state",
     capture_states: &["initial", "changed", "reset"],
   },

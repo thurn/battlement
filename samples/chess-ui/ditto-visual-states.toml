@@ -67,3 +67,23 @@ to = "toggle.changed"
 [[transitions]]
 from = "toggle.changed"
 to = "toggle.reset"
+
+[[states]]
+key = "select.initial"
+screen = "select"
+
+[[states]]
+key = "select.changed"
+screen = "select"
+
+[[states]]
+key = "select.reset"
+screen = "select"
+
+[[transitions]]
+from = "select.initial"
+to = "select.changed"
+
+[[transitions]]
+from = "select.changed"
+to = "select.reset"

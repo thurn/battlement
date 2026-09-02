@@ -285,7 +285,7 @@ pub enum UiElement {
   ToggleButtonGroup(UiToggleButtonGroup),
   /// A controlled single-choice popup selector.
   DropdownField(UiDropdownField),
-  /// A leaf control that can forward pointer or navigation activation.
+  /// A control with optional child content and pointer or navigation activation.
   Button(UiButton),
   /// A leaf control that repeatedly activates while held.
   RepeatButton(UiRepeatButton),
@@ -377,8 +377,8 @@ impl UiElement {
 ///
 /// `object_id` is the stable address used by commands and events. Children are
 /// stored in visual order and are added to the native element's logical content
-/// container. [`UiVisualElement`] and [`Box`] are containers; [`UiLabel`] and
-/// [`UiButton`] and [`UiImage`] are leaves and make a document invalid when given children.
+/// container. [`UiVisualElement`], [`Box`], and [`UiButton`] accept children;
+/// [`UiLabel`] and [`UiImage`] are leaves and reject children.
 ///
 /// # Example
 ///

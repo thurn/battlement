@@ -33,7 +33,7 @@ pub enum UiValidationError {
 /// The returned set contains each document host ID, document root ID, and node
 /// ID. Validation rejects duplicate identities across the complete collection;
 /// empty or duplicate USS classes; duplicate event subscriptions; nonfinite
-/// style numbers or colors; labels or buttons with children; more than 100,000
+/// style numbers or colors; leaf controls with children; more than 100,000
 /// children on one node; and hierarchy depth beyond 256 edges.
 ///
 /// # Errors
@@ -233,7 +233,6 @@ fn validate_node(
       | UiElement::SliderInt(_)
       | UiElement::MinMaxSlider(_)
       | UiElement::ProgressBar(_)
-      | UiElement::Button(_)
       | UiElement::RepeatButton(_)
       | UiElement::Image(_)
   ) && !node.children.is_empty()

@@ -889,7 +889,6 @@ namespace Battlement.UI
             if (
                 value
                 is UnityEngine.UIElements.Label
-                    or UnityEngine.UIElements.Button
                     or UnityEngine.UIElements.RepeatButton
                     or UnityEngine.UIElements.Toggle
                     or UnityEngine.UIElements.RadioButton
@@ -925,7 +924,6 @@ namespace Battlement.UI
                     is UiElement.Label
                         or UiElement.TextElement
                         or UiElement.RepeatButton
-                        or UiElement.Button
                         or UiElement.Scroller
                         or UiElement.TextField
                         or UiElement.Toggle

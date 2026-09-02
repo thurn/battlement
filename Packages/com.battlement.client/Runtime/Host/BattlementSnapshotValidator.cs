@@ -480,7 +480,6 @@ namespace Battlement
                     child.Element
                         is UiElement.Label
                             or UiElement.TextElement
-                            or UiElement.Button
                             or UiElement.RepeatButton
                             or UiElement.Toggle
                             or UiElement.RadioButton

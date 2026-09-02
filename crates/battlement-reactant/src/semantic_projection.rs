@@ -201,19 +201,23 @@ fn resolve_name(
   );
   let result = match name {
     AccessibleName::Text(value) => value.resolved(),
-    AccessibleName::LabelledBy(element_ref) => {
-      let target = attachments.reference_target(runtime_id, element_ref);
-      let target = sources
-        .get(&target)
-        .copied()
-        .expect("accessible name source must be a live exposed or name-source host");
-      let name = target
-        .semantic
-        .name
-        .as_ref()
-        .expect("accessible name source must declare text");
-      resolve_name(name, target, sources, runtime_id, attachments, resolving)
-    }
+    AccessibleName::LabelledBy(references) => references
+      .iter()
+      .map(|element_ref| {
+        let target = attachments.reference_target(runtime_id, element_ref);
+        let target = sources
+          .get(&target)
+          .copied()
+          .expect("accessible name source must be a live exposed or name-source host");
+        let name = target
+          .semantic
+          .name
+          .as_ref()
+          .expect("accessible name source must declare text");
+        resolve_name(name, target, sources, runtime_id, attachments, resolving)
+      })
+      .collect::<Vec<_>>()
+      .join(" "),
     AccessibleName::Contents => contents_text(&owner.position.children),
   };
   resolving.remove(&owner.id);

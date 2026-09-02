@@ -93,6 +93,36 @@ source = "d8d8f096cd4cf2d9f1b8af15d743df565db5ccaffe49686c329ed0cfd214214c"
 
 [[baselines]]
 profile = "design"
+scenario = "select closed"
+checkpoint = "changed"
+sha256 = "19d0c7069c469753dfa3c880acfb3ce072ed6d3e215abd22d452ac870980c537"
+width = 1440
+height = 1584
+size_bytes = 253434
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "design"
+scenario = "select closed"
+checkpoint = "initial"
+sha256 = "083d4d90d75ce1be29c26dfbf790784bb35c17a9c1a7d8240930c7c2c498d73c"
+width = 1440
+height = 1584
+size_bytes = 253397
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "design"
+scenario = "select closed"
+checkpoint = "reset"
+sha256 = "083d4d90d75ce1be29c26dfbf790784bb35c17a9c1a7d8240930c7c2c498d73c"
+width = 1440
+height = 1584
+size_bytes = 253397
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "design"
 scenario = "setting row"
 checkpoint = "static"
 sha256 = "a1ca6a55513a714f83248c3a57f3c45089a51cd7d6dc3389a2659041d06ead07"
@@ -223,6 +253,36 @@ source = "caed5faa54d339ce218bff743b25c5f815ce25e4e6fbb6b44fa26f9a66960681"
 
 [[baselines]]
 profile = "macos"
+scenario = "select closed"
+checkpoint = "changed"
+sha256 = "fa8198e4c4bb8e6dd6525e726be03b87ed9c14ec80c7191822b9960242553379"
+width = 1280
+height = 800
+size_bytes = 115043
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "macos"
+scenario = "select closed"
+checkpoint = "initial"
+sha256 = "1c3d3a57557b444db77050385f8f44b15ba69aea3b5d5524e49bf8f0afcf7c47"
+width = 1280
+height = 800
+size_bytes = 114993
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "macos"
+scenario = "select closed"
+checkpoint = "reset"
+sha256 = "1c3d3a57557b444db77050385f8f44b15ba69aea3b5d5524e49bf8f0afcf7c47"
+width = 1280
+height = 800
+size_bytes = 114993
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "macos"
 scenario = "setting row"
 checkpoint = "static"
 sha256 = "28662854d0648d29694d3902bc68c1ef4f5b0d0fbfcce13e05be2077e078f75a"
@@ -235,28 +295,28 @@ source = "3a774dfdf5e2fa8872249d673386eceba2481d803007651684e48f900679a9a2"
 profile = "macos"
 scenario = "toggle control"
 checkpoint = "changed"
-sha256 = "f0777c7ba2484052f44fbcd4a6781899fb40cab9458732cc29c44d7e099ca449"
+sha256 = "eb75cc2e260f3d6ea582050d3d999f53e923a61c949cae5e4d34baa11d4cad34"
 width = 1280
 height = 800
-size_bytes = 109418
-source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+size_bytes = 109414
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
 
 [[baselines]]
 profile = "macos"
 scenario = "toggle control"
 checkpoint = "initial"
-sha256 = "6b76381f3759c3d8dcc40de62b59a4cbf2a032bf93b1ca14baff2fe1299f0810"
+sha256 = "f5ae07b813593ec4432cea522985301056460831f363157135d5ca90a9607b6a"
 width = 1280
 height = 800
 size_bytes = 109000
-source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
 
 [[baselines]]
 profile = "macos"
 scenario = "toggle control"
 checkpoint = "reset"
-sha256 = "6b76381f3759c3d8dcc40de62b59a4cbf2a032bf93b1ca14baff2fe1299f0810"
+sha256 = "f5ae07b813593ec4432cea522985301056460831f363157135d5ca90a9607b6a"
 width = 1280
 height = 800
 size_bytes = 109000
-source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
+source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"

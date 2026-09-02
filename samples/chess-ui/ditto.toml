@@ -1196,3 +1196,51 @@ accessibility_assert = { target = { role = "static-text", name = "VSync changes:
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "select closed"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "disclosure", name = "Resolution 1920 × 1080" }, role = "disclosure", name = "Resolution 1920 × 1080", parent = { role = "region", name = "SelectControl closed state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "disclosure", name = "Display Mode Borderless" }, role = "disclosure", name = "Display Mode Borderless", parent = { role = "region", name = "SelectControl closed state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change resolution from parent" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "disclosure", name = "Resolution 2560 × 1440" }, role = "disclosure", name = "Resolution 2560 × 1440", parent = { role = "region", name = "SelectControl closed state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "disclosure", name = "Resolution 1920 × 1080" }, role = "disclosure", name = "Resolution 1920 × 1080", parent = { role = "region", name = "SelectControl closed state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "disclosure", name = "Display Mode Borderless" }, role = "disclosure", name = "Display Mode Borderless", parent = { role = "region", name = "SelectControl closed state" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }

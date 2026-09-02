@@ -35,7 +35,7 @@ impl Component for SettingRowHarness {
           View::new()
             .semantic(
               SemanticProps::new(SemanticRole::Group)
-                .name(AccessibleName::LabelledBy(label.clone())),
+                .name(AccessibleName::LabelledBy(vec![label.clone()])),
             )
             .child(self::value("Borderless")),
         )

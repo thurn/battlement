@@ -1,6 +1,6 @@
 use battlement::{
-  AccessibilityAction, AccessibilityUpdate, CameraState, CommandBody, CurrentPage, GameObject,
-  ObjectId, PreparedAsset, Scene, SceneId, SemanticRole, SessionId, Snapshot,
+  AccessibilityAction, AccessibilityUpdate, CameraState, ClickEvent, CommandBody, CurrentPage,
+  GameObject, ObjectId, PreparedAsset, Scene, SceneId, SemanticRole, SessionId, Snapshot,
   UiAccessibilityAction, UiAccessibilityActionEvent, UiDocument, UiDocumentState, UiEvent,
   UiEventBody, UiEventDisposition,
 };
@@ -10,7 +10,7 @@ use battlement_reactant::{
   component::Component,
   element_ref::use_element_ref,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  host::{Label, View},
+  host::{Button, Label, View},
   render::Render,
   runtime::Reactant,
   semantics::{AccessibleName, SemanticProps, SemanticVisibility, text},
@@ -32,7 +32,7 @@ impl Component for NameSourceFixture {
   fn render(&self) -> impl Render {
     let source = use_element_ref();
     let button = use_button(ButtonOptions {
-      name: AccessibleName::LabelledBy(source.clone()),
+      name: AccessibleName::LabelledBy(vec![source.clone()]),
       is_disabled: false,
       on_press: |_game: &mut Game| {},
     });
@@ -48,6 +48,94 @@ impl Component for NameSourceFixture {
         .interaction_props(button.interaction),
     ))
   }
+}
+
+struct MultiNameFixture {
+  value: &'static str,
+}
+
+impl Component for MultiNameFixture {
+  fn render(&self) -> impl Render {
+    let title = use_element_ref();
+    let value = use_element_ref();
+    let behavior = use_button(ButtonOptions {
+      name: AccessibleName::LabelledBy(vec![title.clone(), value.clone()]),
+      is_disabled: false,
+      on_press: |game: &mut Game| game.presses += 1,
+    });
+    View::new().child((
+      Label::new("Quality").element_ref(title).semantic(
+        SemanticProps::new(SemanticRole::StaticText)
+          .name(AccessibleName::text(" Quality "))
+          .visibility(SemanticVisibility::NameSourceOnly),
+      ),
+      Button::new("")
+        .semantic(behavior.semantic)
+        .focus_props(behavior.focus)
+        .interaction_props(behavior.interaction)
+        .child(
+          Label::new(self.value).element_ref(value).semantic(
+            SemanticProps::new(SemanticRole::StaticText)
+              .name(AccessibleName::text(self.value))
+              .visibility(SemanticVisibility::NameSourceOnly),
+          ),
+        ),
+    ))
+  }
+}
+
+#[test]
+fn button_children_resolve_ordered_names_and_keep_activation_when_values_update() {
+  let document = document();
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), |game: &Game| MultiNameFixture {
+    value: if game.selection == 0 {
+      " High "
+    } else {
+      " Low "
+    },
+  });
+  let mut game = Game::default();
+  let (initial, commit) = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_parts(snapshot(&document));
+  let groups = commit.into_groups();
+  let semantic = accessibility_update(&groups).snapshot.as_ref().unwrap();
+  assert_eq!(semantic.nodes.len(), 1);
+  assert_eq!(semantic.nodes[0].label.as_deref(), Some("Quality High"));
+  let button = semantic.nodes[0].object_id;
+  let wrapper = &initial.ui[0].children[0];
+  let child = wrapper.children[1].children[0].object_id;
+  let _ = runtime
+    .dispatch(
+      &mut game,
+      UiEvent::click(child, ClickEvent::NavigationSubmit),
+    )
+    .unwrap()
+    .into_commit()
+    .into_groups();
+  assert_eq!(game.presses, 1);
+  game.selection = 1;
+  let groups = runtime.refresh(&mut game).unwrap().into_groups();
+  let semantic = accessibility_update(&groups).snapshot.as_ref().unwrap();
+  assert_eq!(semantic.nodes.len(), 1);
+  assert_eq!(semantic.nodes[0].object_id, button);
+  assert_eq!(semantic.nodes[0].label.as_deref(), Some("Quality Low"));
+  assert!(!groups.iter().flatten().any(|body| matches!(
+    body,
+    CommandBody::VisualElementCreate(_) | CommandBody::VisualElementDestroy(_)
+  )));
+  let _ = runtime
+    .dispatch(
+      &mut game,
+      UiEvent::click(child, ClickEvent::NavigationSubmit),
+    )
+    .unwrap()
+    .into_commit()
+    .into_groups();
+  assert_eq!(game.presses, 2);
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 impl Spawner for IdleSpawner {

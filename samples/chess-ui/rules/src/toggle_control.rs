@@ -58,7 +58,7 @@ impl Component for ToggleControl {
     let on_change = Rc::clone(&self.on_change);
     let checkbox = accessibility::use_checkbox(ToggleOptions {
       name: aria_label.map_or_else(
-        || AccessibleName::LabelledBy(label_id.clone()),
+        || AccessibleName::LabelledBy(vec![label_id.clone()]),
         |name| AccessibleName::text(name.clone()),
       ),
       checked: self.checked,

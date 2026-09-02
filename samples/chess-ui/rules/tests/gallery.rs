@@ -7,7 +7,7 @@ use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::asset_generator;
 use battlement_rules::{
   engine::{self, ChessUiEngine},
-  pages, setting_row,
+  pages, select_control, setting_row,
 };
 
 #[test]
@@ -103,6 +103,65 @@ fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
   client.poll();
   self::assert_checkbox(&client, false, 0);
   assert!(!client.ui().contains(checkbox));
+}
+
+#[test]
+fn closed_selection_uses_parent_value_and_resets_without_proposals() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-6");
+  client.ui().click(page);
+  client.poll();
+  let trigger = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Resolution 1920 × 1080"))
+    .unwrap()
+    .object_id;
+  let update = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Change resolution from parent"))
+    .unwrap()
+    .object_id;
+  client.ui().click(update);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  let selected = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.object_id == trigger)
+    .unwrap();
+  assert_eq!(selected.role, SemanticRole::Disclosure);
+  assert_eq!(selected.state.expanded, Some(false));
+  assert_eq!(selected.label.as_deref(), Some("Resolution 2560 × 1440"));
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Selection changes: 0"))
+  );
+  assert!(
+    !snapshot
+      .nodes
+      .iter()
+      .any(|node| node.role == SemanticRole::ListBox)
+  );
+  client.ui().click(page);
+  client.poll();
+  assert!(!client.ui().contains(trigger));
+  let snapshot = self::snapshot(&client);
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Resolution 1920 × 1080"))
+  );
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Selection changes: 0"))
+  );
 }
 
 fn assert_checkbox(client: &FakeClient<ChessUiEngine>, checked: bool, changes: u32) {
@@ -213,6 +272,7 @@ fn client() -> FakeClient<ChessUiEngine> {
   assets.add_scene("chess-ui/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   assets.add_ui_font(setting_row::DISPLAY_FONT);
+  assets.add_ui_font(select_control::VALUE_FONT);
   let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
   client.poll();
   client

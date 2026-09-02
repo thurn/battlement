@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "sha256": "df78caa92650dd9f0debea87fd3bf429132a4fd35134cd1847ed04bf2b980383",
-  "scenarios": 40,
-  "screenshots": 95,
+  "sha256": "59edbe6e0201a188d2f4c13006d6b2642cf0637f0ec55f5befe0f69fb5d681f0",
+  "scenarios": 41,
+  "screenshots": 100,
   "selection": {
     "basic": [
       "connected",
@@ -54,7 +54,8 @@
       "gallery reset",
       "portrait viewport",
       "screen frame",
-      "setting row"
+      "toggle control",
+      "select closed"
     ]
   }
 }

@@ -1,8 +1,9 @@
 # Accessible control labels
 
 Named control hooks accept either `LocalizedText` or `AccessibleName`. Use
-`text("Sound")` for literal text, `AccessibleName::LabelledBy(label_ref)` for
-a visible label, or `AccessibleName::Contents` for eligible descendants.
+`text("Sound")` for literal text, `AccessibleName::LabelledBy(vec![label_ref])` for
+one or more visible label hosts, or `AccessibleName::Contents` for eligible descendants.
+References are concatenated in their authored order with normalized whitespace.
 Name-source-only labels remain available for references without creating
 duplicate spoken nodes. Explicit names do not inherit later label changes.
 
@@ -16,7 +17,7 @@ host, semantic node, or local control state.
 let label_ref = element_ref::use_element_ref();
 let input_ref = element_ref::use_element_ref();
 let checkbox = accessibility::use_checkbox(ToggleOptions {
-    name: AccessibleName::LabelledBy(label_ref.clone()),
+    name: AccessibleName::LabelledBy(vec![label_ref.clone()]),
     checked,
     is_disabled: false,
     on_change,
@@ -52,3 +53,8 @@ Public runtime tests in `accessibility_labels.rs` exercise committed semantic
 state, nested clicks, focus commands, parent updates, rejection, cancellation,
 disabled state, detached refs, and ancestor propagation. `accessibility.rs`
 covers referenced and contents-based names through the public hook options.
+
+`Button` accepts logical child content through `child` and `children`. Use an
+empty caption when the children provide the complete visible label. Descendant
+clicks follow the ordinary logical route to the button, and updating text
+preserves the child hosts and references.

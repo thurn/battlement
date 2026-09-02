@@ -23,7 +23,7 @@ pub struct ReviewPage {
 impl Component for ReviewPage {
   fn render(&self) -> impl Render {
     let mut region = collections::use_region(semantics::text(self.title.clone()));
-    region.name = Some(AccessibleName::LabelledBy(self.heading.clone()));
+    region.name = Some(AccessibleName::LabelledBy(vec![self.heading.clone()]));
     View::new()
       .name("page-content")
       .style(Style::new().width(100.pct()).height(100.pct()).padding(64))

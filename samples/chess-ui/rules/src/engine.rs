@@ -14,7 +14,8 @@ use battlement_reactant::{
 };
 
 use crate::{
-  gallery::Gallery, review_surface::ReviewSurface, review_theme, setting_row::DISPLAY_FONT,
+  gallery::Gallery, review_surface::ReviewSurface, review_theme, select_control::VALUE_FONT,
+  setting_row::DISPLAY_FONT,
 };
 
 const CAMERA_ID: ObjectId = object_id!("a5572d68-1d85-448e-b233-b490b36222b9");
@@ -141,6 +142,7 @@ impl ChessUiEngine {
       vec![
         PreparedAsset::scene("chess-ui/content"),
         PreparedAsset::UiFont(DISPLAY_FONT),
+        PreparedAsset::UiFont(VALUE_FONT),
       ],
       vec![Scene::new(SCENE_ID, "chess-ui/content")],
       vec![

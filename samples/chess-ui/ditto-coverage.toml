@@ -95,3 +95,29 @@ to = "toggle.changed"
 [[transitions]]
 from = "toggle.changed"
 to = "toggle.reset"
+
+[[mappings]]
+state = "select.initial"
+scenario = "select closed"
+checkpoint = "initial"
+owner = "gallery::closed_selection_uses_parent_value_and_resets_without_proposals"
+
+[[mappings]]
+state = "select.changed"
+scenario = "select closed"
+checkpoint = "changed"
+owner = "gallery::closed_selection_uses_parent_value_and_resets_without_proposals"
+
+[[mappings]]
+state = "select.reset"
+scenario = "select closed"
+checkpoint = "reset"
+owner = "gallery::closed_selection_uses_parent_value_and_resets_without_proposals"
+
+[[transitions]]
+from = "select.initial"
+to = "select.changed"
+
+[[transitions]]
+from = "select.changed"
+to = "select.reset"
