@@ -20,7 +20,10 @@ use std::{
   thread,
 };
 
+use battlement::ActionId;
+
 use crate::{
+  action_context,
   executor::{BoxFuture, SpawnedTask, Spawner},
   resource::Resource,
 };
@@ -33,6 +36,7 @@ pub(crate) struct ResourceCache {
   completions: Receiver<Completion>,
   completion_sender: Sender<Completion>,
   deferred: VecDeque<Completion>,
+  pub(crate) attributed: bool,
 }
 
 pub(crate) struct FrozenCompletions {
@@ -132,6 +136,7 @@ impl ResourceCache {
       completions,
       completion_sender,
       deferred: VecDeque::new(),
+      attributed: false,
     }
   }
 
@@ -192,7 +197,7 @@ impl ResourceCache {
     let tasks = self
       .buckets
       .drain()
-      .flat_map(|(_, mut bucket)| bucket.take_tasks(false))
+      .flat_map(|(_, mut bucket)| bucket.take_tasks(true))
       .collect::<Vec<_>>();
     self::cancel_tasks(tasks)
   }
@@ -200,15 +205,31 @@ impl ResourceCache {
   pub(crate) fn freeze(&mut self) -> FrozenCompletions {
     let mut operations = mem::take(&mut self.deferred);
     operations.extend(self.completions.try_iter());
+    if self.attributed {
+      let (current, deferred) = operations
+        .into_iter()
+        .partition(|completion| completion.action() == action_context::current());
+      self.deferred = deferred;
+      return FrozenCompletions {
+        operations: current,
+      };
+    }
     FrozenCompletions { operations }
   }
 
+  pub(crate) fn next_action(&mut self) -> Option<Option<ActionId>> {
+    let mut deferred = mem::take(&mut self.deferred);
+    deferred.extend(self.completions.try_iter());
+    deferred.retain(|completion| completion.is_current(self));
+    let action = deferred.front().map(|completion| completion.action());
+    self.deferred = deferred;
+    action
+  }
+
   pub(crate) fn restore(&mut self, frozen: FrozenCompletions) {
-    assert!(
-      self.deferred.is_empty(),
-      "Reactant has only one resource completion transaction"
-    );
-    self.deferred = frozen.operations;
+    let mut operations = frozen.operations;
+    operations.append(&mut self.deferred);
+    self.deferred = operations;
   }
 
   pub(crate) fn current_panic(&self, frozen: &mut FrozenCompletions) -> Option<PanicPayload> {
@@ -330,12 +351,19 @@ impl ResourceCache {
     let id = resource.id();
     let completion_key = key.clone();
     let sender = self.completion_sender.clone();
+    let action = action_context::current();
     let spawned = panic::catch_unwind(AssertUnwindSafe(|| {
       spawner.spawn(Box::pin(async move {
         let outcome = CatchPanic::new(future)
           .await
           .map(|outcome| outcome.map(Arc::new).map_err(Arc::new));
-        let _ = sender.send(self::completion(id, completion_key, generation, outcome));
+        let _ = sender.send(self::completion(
+          id,
+          completion_key,
+          generation,
+          action,
+          outcome,
+        ));
       }))
     }));
     let task = match spawned {
@@ -562,6 +590,7 @@ trait ErasedBucket: Any {
 }
 
 trait CompletionOperation: Send {
+  fn action(&self) -> Option<ActionId>;
   fn is_current(&self, cache: &ResourceCache) -> bool;
   fn mark_consumers(&self, cache: &ResourceCache);
   fn take_panic(&mut self) -> Option<PanicPayload>;
@@ -574,6 +603,7 @@ trait OverlayValue {
 }
 
 struct ResourceCompletion<K, T, E> {
+  action: Option<ActionId>,
   id: u64,
   key: K,
   generation: u64,
@@ -599,6 +629,10 @@ where
   T: Send + Sync + 'static,
   E: Send + Sync + 'static,
 {
+  fn action(&self) -> Option<ActionId> {
+    self.action
+  }
+
   fn is_current(&self, cache: &ResourceCache) -> bool {
     let Some(bucket) = cache.buckets.get(&self.id) else {
       return false;
@@ -727,6 +761,7 @@ fn completion<K, T, E>(
   id: u64,
   key: K,
   generation: u64,
+  action: Option<ActionId>,
   outcome: CompletionOutcome<T, E>,
 ) -> Completion
 where
@@ -735,6 +770,7 @@ where
   E: Send + Sync + 'static,
 {
   Box::new(ResourceCompletion {
+    action,
     id,
     key,
     generation,

@@ -270,58 +270,79 @@ impl Component for ValuesTimeControls {
 }
 
 fn audio_controls(audio: AudioPlayback) -> View {
+  let app = use_app();
   View::new()
     .style(control_row())
-    .child(action("PLAY", "audio-play", move |game| {
-      game.pending_commands.push(audio.play_command(
-        AUDIO_CLIP,
-        AudioPlaybackOptions::new().looping(game.values_time_controls.looping),
-      ));
-      game.values_time_controls.audio_playing = true;
-      game.values_time_controls.audio_paused = false;
-      game.values_time_controls.trace.push("audio play");
+    .child(action("PLAY", "audio-play", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.play_command(
+          AUDIO_CLIP,
+          AudioPlaybackOptions::new().looping(game.values_time_controls.looping),
+        ));
+        game.values_time_controls.audio_playing = true;
+        game.values_time_controls.audio_paused = false;
+        game.values_time_controls.trace.push("audio play");
+      }
     }))
-    .child(action("PAUSE", "audio-pause", move |game| {
-      game.pending_commands.push(audio.pause());
-      game.values_time_controls.audio_paused = true;
-      game.values_time_controls.trace.push("audio pause");
+    .child(action("PAUSE", "audio-pause", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.pause());
+        game.values_time_controls.audio_paused = true;
+        game.values_time_controls.trace.push("audio pause");
+      }
     }))
-    .child(action("RESUME", "audio-resume", move |game| {
-      game.pending_commands.push(audio.resume());
-      game.values_time_controls.audio_paused = false;
-      game.values_time_controls.trace.push("audio resume");
+    .child(action("RESUME", "audio-resume", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.resume());
+        game.values_time_controls.audio_paused = false;
+        game.values_time_controls.trace.push("audio resume");
+      }
     }))
-    .child(action("BUFFER", "audio-buffer", move |game| {
-      game.values_time_controls.buffering = !game.values_time_controls.buffering;
-      game
-        .pending_commands
-        .push(audio.set_buffering(game.values_time_controls.buffering));
-      game.values_time_controls.trace.push("buffer boundary");
+    .child(action("BUFFER", "audio-buffer", {
+      let app = app.clone();
+      move |game| {
+        game.values_time_controls.buffering = !game.values_time_controls.buffering;
+        app.send(audio.set_buffering(game.values_time_controls.buffering));
+        game.values_time_controls.trace.push("buffer boundary");
+      }
     }))
-    .child(action("SEEK", "audio-seek", move |game| {
-      game
-        .pending_commands
-        .push(audio.seek(Duration::from_millis(350)));
-      game.values_time_controls.trace.push("seek discontinuity");
+    .child(action("SEEK", "audio-seek", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.seek(Duration::from_millis(350)));
+        game.values_time_controls.trace.push("seek discontinuity");
+      }
     }))
-    .child(action("LOOP", "audio-loop", move |game| {
-      game.values_time_controls.looping = !game.values_time_controls.looping;
-      game.pending_commands.push(audio.replace(AUDIO_CLIP));
-      game
-        .values_time_controls
-        .trace
-        .push("loop / replace discontinuity");
+    .child(action("LOOP", "audio-loop", {
+      let app = app.clone();
+      move |game| {
+        game.values_time_controls.looping = !game.values_time_controls.looping;
+        app.send(audio.replace(AUDIO_CLIP));
+        game
+          .values_time_controls
+          .trace
+          .push("loop / replace discontinuity");
+      }
     }))
-    .child(action("REPLACE", "audio-replace", move |game| {
-      game.pending_commands.push(audio.replace(AUDIO_CLIP));
-      game.values_time_controls.replacements += 1;
-      game.values_time_controls.trace.push("clip replaced");
+    .child(action("REPLACE", "audio-replace", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.replace(AUDIO_CLIP));
+        game.values_time_controls.replacements += 1;
+        game.values_time_controls.trace.push("clip replaced");
+      }
     }))
-    .child(action("STOP", "audio-stop", move |game| {
-      game.pending_commands.push(audio.stop(Duration::ZERO));
-      game.values_time_controls.audio_playing = false;
-      game.values_time_controls.audio_paused = false;
-      game.values_time_controls.trace.push("audio stopped");
+    .child(action("STOP", "audio-stop", {
+      let app = app.clone();
+      move |game| {
+        app.send(audio.stop(Duration::ZERO));
+        game.values_time_controls.audio_playing = false;
+        game.values_time_controls.audio_paused = false;
+        game.values_time_controls.trace.push("audio stopped");
+      }
     }))
 }
 

@@ -95,13 +95,26 @@ impl SessionUi<'_> {
   }
 
   /// Adds this session UI to a snapshot and returns the minimal commit path.
-  pub fn into_parts(mut self, mut snapshot: Snapshot) -> (Snapshot, ReactantCommit) {
+  pub fn into_parts(self, snapshot: Snapshot) -> (Snapshot, ReactantCommit) {
+    self.complete(snapshot, false)
+  }
+
+  pub(crate) fn into_app_response(self, snapshot: Snapshot) -> Response {
+    let (snapshot, commit) = self.complete(snapshot, true);
+    Response::snapshot(snapshot).append_reactant(commit)
+  }
+
+  fn complete(
+    mut self,
+    mut snapshot: Snapshot,
+    discover_assets: bool,
+  ) -> (Snapshot, ReactantCommit) {
     asset_generator::merge_into_snapshot(&mut snapshot);
     let external = self
       .external
       .take()
       .expect("Reactant session external plan was already consumed")
-      .prepare(&mut snapshot, &self.documents);
+      .prepare(&mut snapshot, &self.documents, discover_assets);
     let commit = self.runtime.commit_session(
       &mut self.committed,
       external,

@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use battlement::asset_dependencies::AssetDependencies;
 use battlement::{
   self, CommandBody, ObjectId, Snapshot, UiDocument, UiElementKind, UiNode, Validate,
 };
@@ -171,6 +172,7 @@ impl SessionExternal {
     self,
     snapshot: &mut Snapshot,
     documents: &[UiDocument],
+    discover_assets: bool,
   ) -> PreparedExternal {
     let caller_ui = snapshot.ui.clone();
     let prefixes = self
@@ -197,6 +199,12 @@ impl SessionExternal {
         &self::find_children(&snapshot.ui, *id).expect("external target exists")[..prefix.len()],
         prefix
       );
+    }
+    if discover_assets {
+      let mut dependencies = AssetDependencies::default();
+      dependencies.snapshot(&prospective);
+      snapshot.prepared_assets = dependencies.assets();
+      prospective.prepared_assets = snapshot.prepared_assets.clone();
     }
     if let Err(error) = prospective.validate() {
       panic!("Reactant session snapshot is invalid: {error}");

@@ -10,6 +10,7 @@ pub mod ios_build;
 pub mod macos_build;
 pub mod odiff_binary;
 pub mod unity_lease;
+pub mod web_archive;
 pub mod webgl_build;
 
 mod build_cache_cleanup;

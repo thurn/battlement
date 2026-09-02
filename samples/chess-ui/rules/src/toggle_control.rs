@@ -3,7 +3,7 @@ use std::rc::Rc;
 use battlement::{Align, Color, Length, PickingMode, Position, Style, Translate};
 use battlement_reactant::{accessibility, element_ref, prelude::*};
 
-use crate::{check_mark::CheckMark, engine::Game, setting_row::SettingRow};
+use crate::{check_mark::CheckMark, setting_row::SettingRow};
 
 /// A controlled checkbox with an associated, clickable settings label.
 pub struct ToggleControl {
@@ -63,7 +63,7 @@ impl Component for ToggleControl {
       ),
       checked: self.checked,
       is_disabled: false,
-      on_change: move |_: &mut Game, checked| on_change(checked),
+      on_change: move |checked| on_change(checked),
     });
     let label_interaction = checkbox.label_interaction(&input);
     let control = View::new()

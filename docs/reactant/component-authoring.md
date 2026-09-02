@@ -6,6 +6,61 @@ assumes the protocol hosts from the
 [Battlement UI technical design](../battlement-ui-technical-design.md) and the
 Reactant authoring types from [Host façades](host-facades.md).
 
+## Start an application
+
+Give `App` the packaged scene address and an owned component:
+
+```rust
+use battlement_reactant::{app::App, prelude::*};
+
+struct Counter;
+
+impl Component for Counter {
+    fn render(&self) -> impl Render {
+        let (count, set_count) = use_state(0);
+        Button::new(format!("Count: {count}"))
+            .on_click(move || set_count.update(|value| value + 1))
+    }
+}
+
+pub fn create_engine() -> App {
+    App::new("my-game/content", Counter)
+}
+
+battlement_native::export_engine!(self::create_engine);
+```
+
+The component need not implement `Clone`. `App` owns the full-window document,
+constant-pixel panel, camera, generated identities, protocol sessions, resource
+executor, event delivery, and shutdown. The scene address names an asset packaged
+by the build. Asset preparation follows references in the completed snapshot and
+subsequent commands, including private-part styles and generated assets.
+
+For genuine game state, use `App::with_model("my-game/content", Game::new())`
+and `.root(|game| Board { position: game.position.clone() })`. `App<Game>` stores
+that model separately from framework observations. Model-aware controls can use
+`.on_click(|game: &mut Game| game.advance())`; reusable controls use `.on_click(||
+...)` and accessible callbacks such as `on_change: move |checked| ...` in either
+kind of application. Event-aware callbacks use `.on_click_event(|event| ...)` or
+`.on_click_event_with_model(|game: &mut Game, event| ...)`.
+
+Use `.document(...)`, `.panel(...)`, `.background(...)`, `.camera(...)`,
+`.object(...)`, and `.additional_root(...)` to customize presentation. Explicit
+object identities remain available when another object deliberately refers to
+them. Portals use targets created with `app.create_portal_target()`.
+
+Reconnect creates a new session and presentation while retaining model and
+component state. `.reset_on_reconnect()` remounts components. Pending resources
+are canceled and reloaded for the replacement session; obsolete events and
+session-bound application handles cannot affect it. `use_app().refresh_snapshot()`
+requests a presentation rebuild without resetting state.
+
+See [Application environment](application-environment.md) for physical viewport
+measurements and native commands, and [Resources and Suspense](resources-and-suspense.md)
+for cooperative loading. Specialized integrations may own `runtime::Reactant<G>`
+directly and provide their own native `Engine`, session delivery, and `Spawner`.
+That lower-level API requires delivering every commit and calling shutdown.
+
 ## Related information
 
 - [React: describing the UI](https://react.dev/learn/describing-the-ui) explains

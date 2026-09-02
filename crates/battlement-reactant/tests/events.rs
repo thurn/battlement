@@ -251,13 +251,13 @@ fn view(game: &Game) -> impl Render + use<> {
   let button = match game.form {
     Form::BriefLast => Some(Node::new(
       battlement_reactant::host::Button::new("Activate")
-        .on_click_event(|game: &mut Game, _event| game.status = "event-first".to_owned())
+        .on_click_event_with_model(|game: &mut Game, _event| game.status = "event-first".to_owned())
         .on_click(|game: &mut Game| game.status = "brief-last".to_owned()),
     )),
     Form::EventLast => Some(Node::new(
       battlement_reactant::host::Button::new("Activate")
         .on_click(|game: &mut Game| game.status = "brief-first".to_owned())
-        .on_click_event(|game: &mut Game, event| {
+        .on_click_event_with_model(|game: &mut Game, event| {
           assert_eq!(event.phase(), EventPhase::Target);
           assert_eq!(event.target(), event.current_target());
           assert!(matches!(event.payload(), ClickEvent::NavigationSubmit));

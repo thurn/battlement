@@ -289,6 +289,13 @@ impl UiDocumentState {
     }
   }
 
+  /// Links these panel settings to another document root.
+  #[must_use]
+  pub fn with_root_id(mut self, root_id: ObjectId) -> Self {
+    self.root_id = root_id;
+    self
+  }
+
   /// Returns the identity of the document's visual root.
   #[must_use]
   pub fn root_id(&self) -> ObjectId {

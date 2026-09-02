@@ -2,7 +2,6 @@ use battlement::CurrentPage;
 use battlement_reactant::{accessibility_collections as collections, prelude::*};
 
 use crate::{
-  engine::Game,
   pages::{self, Page, Registration},
   review_button::{ReviewButton, ReviewButtonKind},
   review_navigation::ReviewNavigation,
@@ -13,10 +12,7 @@ use crate::{
   review_text::{ReviewText, ReviewTextKind},
 };
 
-pub(crate) struct Gallery {
-  pub(crate) width: f32,
-  pub(crate) height: f32,
-}
+pub(crate) struct Gallery;
 
 #[derive(Clone, Copy, PartialEq)]
 struct Selection {
@@ -42,50 +38,49 @@ impl Component for Gallery {
       generation: 0,
     });
     let scroll = use_element_ref();
-    let scale = ((self.width - 392.0) / 1024.0)
-      .min((self.height - 48.0) / 1536.0)
+    let viewport = use_viewport_size();
+    let reference = use_element_ref();
+    let measured = use_geometry(reference.clone()).measurements.latest;
+    let width = measured.map_or(viewport.width as f32, |value| value.layout.width as f32);
+    let height = measured.map_or(viewport.height as f32, |value| value.layout.height as f32);
+    let scale = ((width - 392.0) / 1024.0)
+      .min((height - 48.0) / 1536.0)
       .clamp(0.0, 1.0);
     ReviewSurface {
-      view: View::new()
-        .name("gallery")
-        .on_geometry_changed_event(|game: &mut Game, event| {
-          game.width = event.payload().current.width as f32;
-          game.height = event.payload().current.height as f32;
-        })
-        .child((
-          ReviewNavigation {
-            title: "CHESS UI".to_owned(),
-            caption: format!("{} review pages", pages::ALL.len()),
-            scroll: ScrollView::new()
-              .name("review-navigation")
-              .element_ref(scroll.clone())
-              .semantic(collections::use_navigation(text("Chess UI review pages"))),
-            children: Node::new(
-              pages::ALL
-                .iter()
-                .map(|page| {
-                  NavigationItem {
-                    page,
-                    selection,
-                    select: select.clone(),
-                    scroll: scroll.clone(),
-                  }
-                  .key(page.number)
-                })
-                .collect::<Vec<_>>(),
-            ),
-          },
-          ReviewStage {
-            scale,
-            children: Node::new(
-              PageHarness(Registration {
-                page: &pages::ALL[selection.index],
-                reset_generation: selection.generation,
+      view: View::new().name("gallery").element_ref(reference).child((
+        ReviewNavigation {
+          title: "CHESS UI".to_owned(),
+          caption: format!("{} review pages", pages::ALL.len()),
+          scroll: ScrollView::new()
+            .name("review-navigation")
+            .element_ref(scroll.clone())
+            .semantic(collections::use_navigation(text("Chess UI review pages"))),
+          children: Node::new(
+            pages::ALL
+              .iter()
+              .map(|page| {
+                NavigationItem {
+                  page,
+                  selection,
+                  select: select.clone(),
+                  scroll: scroll.clone(),
+                }
+                .key(page.number)
               })
-              .key((selection.index, selection.generation)),
-            ),
-          },
-        )),
+              .collect::<Vec<_>>(),
+          ),
+        },
+        ReviewStage {
+          scale,
+          children: Node::new(
+            PageHarness(Registration {
+              page: &pages::ALL[selection.index],
+              reset_generation: selection.generation,
+            })
+            .key((selection.index, selection.generation)),
+          ),
+        },
+      )),
     }
   }
 }
@@ -109,7 +104,7 @@ impl Component for NavigationItem {
     let mut button = use_button(ButtonOptions {
       name: text(self.page.semantic_target),
       is_disabled: false,
-      on_press: move |_: &mut Game| {
+      on_press: move || {
         select.update(move |old| Selection {
           index,
           generation: old.generation + 1,
@@ -159,7 +154,7 @@ impl Component for Demonstration {
     let button = use_button(ButtonOptions {
       name: text("Change demonstration"),
       is_disabled: false,
-      on_press: move |_: &mut Game| set_count.update(|value| value + 1),
+      on_press: move || set_count.update(|value| value + 1),
     });
     ReviewPanel {
       children: Node::new((

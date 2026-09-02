@@ -2,12 +2,12 @@ use std::{error::Error, fmt};
 
 use battlement_reactant::prelude::*;
 
-use crate::{Control, Interaction, design_system};
+use crate::{Control, Interaction, design_system, preview_resource::Preview};
 
 pub(crate) struct ResourcesBoundaries {
   pub(crate) failed: bool,
   pub(crate) retry_revision: u32,
-  pub(crate) preview_resource: Resource<u32, u32>,
+  pub(crate) preview_resource: Preview,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,
 }
@@ -25,7 +25,7 @@ struct BoundaryFallback {
 }
 
 struct ResourcePreview {
-  resource: Resource<u32, u32>,
+  resource: Preview,
   interaction: Interaction,
   compact: bool,
 }
@@ -36,6 +36,7 @@ struct BoundaryFailure;
 impl Component for ResourcesBoundaries {
   fn render(&self) -> impl Render {
     let compact = self.compact;
+    let preview = self.preview_resource.clone();
     battlement_reactant::host::View::new()
       .name("resources-canvas")
       .style(design_system::canvas(self.compact))
@@ -70,7 +71,7 @@ impl Component for ResourcesBoundaries {
                     self.compact,
                   ),
                   Control::ResourceAction,
-                  |game| game.resource_resolution_requested = true,
+                  move |_| preview.resolve(),
                 )),
             )
             .child(ResourcePreview {
@@ -103,7 +104,8 @@ impl Component for ResourcePreview {
   fn render(&self) -> impl Render {
     let compact = self.compact;
     let interaction = self.interaction;
-    use_resource(&self.resource, 1).then(move |_| {
+    let control = use_resource_control(&self.resource.resource);
+    use_resource(&self.resource.resource, 1).then(move |_| {
       battlement_reactant::host::View::new()
         .name("resource-ready")
         .style(design_system::boundary_card(false, compact))
@@ -120,7 +122,7 @@ impl Component for ResourcePreview {
             compact,
           ),
           Control::ResourceAction,
-          |game| game.resource_invalidation_requested = true,
+          move |_| control.invalidate(1),
         ))
     })
   }

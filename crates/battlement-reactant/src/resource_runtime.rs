@@ -1,16 +1,20 @@
 //! Render-scoped access to one runtime resource cache.
 
 use std::{
-  cell::RefCell,
+  cell::{Cell, RefCell},
   error::Error,
   hash::Hash,
+  mem, panic,
   rc::{Rc, Weak},
 };
 
+use battlement::ActionId;
+
 use crate::{
+  action_context,
   executor::Spawner,
   resource::Resource,
-  resource_cache::{ResourceCache, ResourceOverlay, ResourceSnapshot, ResourceWake},
+  resource_cache::{PanicPayload, ResourceCache, ResourceOverlay, ResourceSnapshot, ResourceWake},
 };
 
 thread_local! {
@@ -20,6 +24,8 @@ thread_local! {
 pub(crate) struct ResourceRuntime {
   pub(crate) cache: RefCell<ResourceCache>,
   pub(crate) spawner: Box<dyn Spawner>,
+  pub(crate) operations: RefCell<Vec<ResourceOperation>>,
+  pub(crate) generation: Cell<u64>,
 }
 
 pub(crate) struct ResourceObservation<T, E> {
@@ -44,10 +50,43 @@ struct ResourceContext {
 }
 
 impl ResourceRuntime {
+  pub(crate) fn flush(&self) {
+    let operations = mem::take(&mut *self.operations.borrow_mut());
+    for operation in operations {
+      if self.cache.borrow().attributed && operation.action != action_context::current() {
+        self.operations.borrow_mut().push(operation);
+        continue;
+      }
+      (operation.run)(&mut self.cache.borrow_mut())
+        .unwrap_or_else(|payload| panic::resume_unwind(payload));
+    }
+  }
+
+  pub(crate) fn next_action(&self) -> Option<Option<ActionId>> {
+    self
+      .operations
+      .borrow()
+      .first()
+      .map(|operation| operation.action)
+      .or_else(|| self.cache.borrow_mut().next_action())
+  }
+
+  pub(crate) fn reset(&self) {
+    self.generation.set(self.generation.get() + 1);
+    self.operations.borrow_mut().clear();
+    self
+      .cache
+      .borrow_mut()
+      .cancel_all()
+      .unwrap_or_else(|payload| panic::resume_unwind(payload));
+  }
+
   pub(crate) fn new(spawner: impl Spawner) -> Rc<Self> {
     Rc::new(Self {
       cache: RefCell::new(ResourceCache::new()),
       spawner: Box::new(spawner),
+      operations: RefCell::new(Vec::new()),
+      generation: Cell::new(0),
     })
   }
 }
@@ -199,4 +238,23 @@ impl Drop for Restore {
   fn drop(&mut self) {
     CURRENT.with(|current| current.replace(self.0.take()));
   }
+}
+
+type ResourceMutation = Box<dyn FnOnce(&mut ResourceCache) -> Result<(), PanicPayload>>;
+
+pub(crate) struct ResourceOperation {
+  pub(crate) action: Option<ActionId>,
+  pub(crate) run: ResourceMutation,
+}
+
+pub(crate) fn current() -> Rc<ResourceRuntime> {
+  CURRENT.with(|current| {
+    Rc::clone(
+      &current
+        .borrow()
+        .as_ref()
+        .expect("resource control requires a render")
+        .runtime,
+    )
+  })
 }

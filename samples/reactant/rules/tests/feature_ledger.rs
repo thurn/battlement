@@ -4,6 +4,22 @@ const LEDGER: &str = include_str!("../../../../docs/reactant/feature-ledger.md")
 const LIBRARY: &str = include_str!("../../../../crates/battlement-reactant/src/lib.rs");
 const PROOF_SOURCES: &[(&str, &str)] = &[
   (
+    "app_lifecycle.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/app_lifecycle.rs"),
+  ),
+  (
+    "app_resources.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/app_resources.rs"),
+  ),
+  (
+    "app_assets.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/app_assets.rs"),
+  ),
+  (
+    "cooperative_executor.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/cooperative_executor.rs"),
+  ),
+  (
     "accessibility.rs",
     include_str!("../../../../crates/battlement-reactant/tests/accessibility.rs"),
   ),

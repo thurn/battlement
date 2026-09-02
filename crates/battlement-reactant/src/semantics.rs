@@ -74,7 +74,7 @@ pub struct SemanticProps {
 /// Ordinary interaction callbacks returned by an accessible behavior hook.
 pub struct InteractionProps<G> {
   pub(crate) handlers: Vec<Handler>,
-  pub(crate) activation: Option<Activation<G>>,
+  pub(crate) activation: Option<Activation>,
   _model: PhantomData<fn(&mut G)>,
 }
 
@@ -266,15 +266,6 @@ impl<G: 'static> InteractionProps<G> {
   #[must_use]
   pub fn new() -> Self {
     Self::default()
-  }
-
-  pub(crate) fn accessibility(
-    mut self,
-    slot: &'static str,
-    callback: impl Fn(&mut G, AccessibilityAction) -> ActionDisposition + 'static,
-  ) -> Self {
-    self.handlers.push(Handler::accessibility(slot, callback));
-    self
   }
 }
 

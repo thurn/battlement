@@ -429,7 +429,7 @@ model.
 Payload-aware methods also supply `ReactantEvent<E>`.
 
 ```rust
-.on_pointer_down_event(|game: &mut Game, event| {
+.on_pointer_down_event_with_model(|game: &mut Game, event| {
     game.select_at(event.payload().position)
 })
 ```
@@ -440,7 +440,7 @@ event kind has a payload-free `on_<kind>` method and an event-aware
 `on_<kind>_capture_event`.
 
 ```rust
-.on_click_capture_event(|game: &mut Game, event| {
+.on_click_capture_event_with_model(|game: &mut Game, event| {
     game.note_capture();
     game.note_target(event.target())
 })

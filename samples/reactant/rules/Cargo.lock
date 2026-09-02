@@ -97,6 +97,7 @@ name = "battlement-reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-native",
  "battlement-reactant-asset-macros",
  "inventory",
  "serde_json",
@@ -129,6 +130,7 @@ dependencies = [
  "battlement-fake",
  "battlement-native",
  "battlement-reactant",
+ "futures-channel",
  "serde",
  "serde_json",
 ]
@@ -260,6 +262,15 @@ name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
+name = "futures-channel"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
+dependencies = [
+ "futures-core",
+]
 
 [[package]]
 name = "futures-core"

@@ -22,9 +22,6 @@ unity_project = "."
 scene = "Assets/Scenes/ChessUi.unity"
 rust_manifest = "rules/Cargo.toml"
 
-[aliases]
-root = "4ceeebde-e265-4bc5-b7ab-e64b8d5f2074"
-
 [baseline]
 kind = "r2"
 namespace = "battlement/chess-ui"
@@ -44,9 +41,6 @@ display = { width = 1440, height = 1584, scale = 1.0 }
 
 [[scenarios]]
 name = "gallery reset"
-
-[[scenarios.steps]]
-wait = { object = "root", state = "visible" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
@@ -85,7 +79,7 @@ screenshot = { name = "reset" }
 name = "gallery navigation first"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "1. Gallery shell" }, action = "activate" }
@@ -334,7 +328,7 @@ screenshot = { name = "selected" }
 name = "gallery navigation second"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "11. useInteraction" }, action = "activate" }
@@ -583,7 +577,7 @@ screenshot = { name = "selected" }
 name = "gallery navigation third"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "21. Keyboard rebinding" }, action = "activate" }
@@ -832,7 +826,7 @@ screenshot = { name = "selected" }
 name = "gallery navigation fourth"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "31. BackgroundMusicProvider" }, action = "activate" }
@@ -1081,7 +1075,7 @@ screenshot = { name = "selected" }
 name = "portrait viewport"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "2. PortraitViewport" }, action = "activate" }
@@ -1102,7 +1096,7 @@ screenshot = { name = "static" }
 name = "screen frame"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, action = "activate" }
@@ -1120,7 +1114,7 @@ screenshot = { name = "static" }
 name = "setting row"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "4. SettingRow" }, action = "activate" }
@@ -1150,7 +1144,7 @@ screenshot = { name = "static" }
 name = "toggle control"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
@@ -1201,7 +1195,7 @@ screenshot = { name = "reset" }
 name = "select closed"
 
 [[scenarios.steps]]
-wait = { object = "root", state = "visible" }
+accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }

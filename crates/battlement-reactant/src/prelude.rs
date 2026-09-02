@@ -54,6 +54,8 @@ pub use crate::{
     SequencePosition, use_animation_controls, use_animation_scope,
   },
   announcement::{Announce, use_announce},
+  app_context::{AppHandle, use_app, use_viewport_size},
+  application::use_application_state,
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},
@@ -103,6 +105,7 @@ pub use crate::{
   render::{Either, Fragment, Node, Render},
   required_props,
   resource::{Resource, ResourceRead, ResourceStatus, use_resource},
+  resource_control::{ResourceControl, use_resource_control},
   runtime::RenderError,
   semantics::{
     AccessibleBehavior, AccessibleDescription, AccessibleName, ActionDisposition, InteractionProps,

@@ -21,11 +21,12 @@ impl Component for CollectionSettings {
       is_disabled: false,
       on_press: |game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED"),
     });
+    let app = use_app();
     let external_link = collections::use_link(ButtonOptions {
       name: text("Open Unity documentation"),
       is_disabled: false,
-      on_press: |game: &mut Game| {
-        game.pending_commands.push(Command::open_external_url(
+      on_press: move || {
+        app.send(Command::open_external_url(
           "https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Application.OpenURL.html",
         ))
       },

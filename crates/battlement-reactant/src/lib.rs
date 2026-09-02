@@ -3,10 +3,11 @@
 //! Reactant renders Rust component structs into Battlement UI documents,
 //! reconciles them with the last committed tree, and emits the host mutation
 //! groups required to update Unity. Ordinary component code starts
-//! with the focused [`prelude`] while engine integration uses [`runtime`].
+//! with the focused [`prelude`] and [`app::App`] owns engine integration.
+//! Specialized hosts can integrate [`runtime::Reactant`] directly.
 //!
 //! ```
-//! use battlement_reactant::prelude::*;
+//! use battlement_reactant::{app::App, prelude::*};
 //!
 //! struct Greeting;
 //!
@@ -16,7 +17,11 @@
 //!     }
 //! }
 //!
-//! let _view = Fragment::new((Greeting, ()));
+//! fn create_engine() -> App {
+//!     App::new("my-game/content", Greeting)
+//! }
+//!
+//! battlement_native::export_engine!(create_engine);
 //! ```
 //!
 //! Reactant uses React-compatible names only where Battlement can preserve the
@@ -30,14 +35,22 @@
 
 pub mod accessibility;
 pub mod accessibility_collections;
+mod action_context;
 mod activation;
 pub mod animation_controls;
 pub mod announcement;
+pub mod app;
+pub mod app_context;
+mod app_delivery;
+mod app_engine;
+mod app_root;
 pub mod application;
 pub mod asset_generator;
+pub mod callback;
 mod commit;
 pub mod component;
 pub mod context;
+pub mod cooperative_executor;
 mod effect;
 pub mod element_ref;
 pub mod error_boundary;
@@ -92,6 +105,7 @@ mod render_value;
 pub mod resource;
 mod resource_admin;
 mod resource_cache;
+pub mod resource_control;
 mod resource_runtime;
 #[cfg(test)]
 mod resource_tests;

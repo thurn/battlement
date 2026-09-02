@@ -603,7 +603,7 @@ A custom slider can use current application state instead of installing a
 policy during an earlier commit:
 
 ```rust
-.on_key_down_event(|game, event| {
+.on_key_down_event_with_model(|game, event| {
     if event.payload().physical_key == PhysicalKey::ArrowRight {
         event.prevent_default();
         game.volume = (game.volume + 1).min(100);
@@ -621,7 +621,7 @@ An input notification describes text that the native text field has already
 edited. It still uses the synchronous channel, but prevention is ineffective:
 
 ```rust
-.on_input_event(|game, event| {
+.on_input_event_with_model(|game, event| {
     assert!(!event.cancelable());
     game.draft = event.payload().value.clone();
 })

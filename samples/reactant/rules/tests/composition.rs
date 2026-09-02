@@ -2,8 +2,8 @@ use std::{cell::RefCell, collections::BTreeSet, num::NonZeroU64, rc::Rc, sync::A
 
 use battlement::{
   ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, DisplayId,
-  DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryEvent,
-  GeometryGeneration, GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
+  DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryGeneration,
+  GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
   GridTrack, KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint,
   PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PreparedAsset, Projective2,
@@ -98,8 +98,8 @@ impl Engine for CorrelationEngine {
 
 #[test]
 fn sample_opens_on_an_accessible_composition_screen() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
-  assert_eq!(engine.screen(), Screen::Composition);
+  let engine = create_engine();
+  assert_eq!(engine.model().screen(), Screen::Composition);
   let mut client = FakeClient::connect(engine, catalog());
   let ui = client.ui();
   let shell = find_named(&ui, ROOT_ID, "sample-shell");
@@ -131,7 +131,7 @@ fn sample_opens_on_an_accessible_composition_screen() {
 
 #[test]
 fn sample_uses_top_navigation_for_narrow_connections() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect_with(
     engine,
     catalog(),
@@ -153,7 +153,7 @@ fn sample_uses_top_navigation_for_narrow_connections() {
 
 #[test]
 fn resources_screen_uses_phone_safe_navigation_and_cards() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect_with(
     engine,
     catalog(),
@@ -188,19 +188,11 @@ fn resources_screen_uses_phone_safe_navigation_and_cards() {
 
 #[test]
 fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let shell = find_named(&client.ui(), ROOT_ID, "sample-shell");
 
-  client.ui().send_event(UiEvent {
-    target_id: shell,
-    cancelable: false,
-    default_prevented: false,
-    body: UiEventBody::GeometryChanged(GeometryEvent {
-      previous: Rect::new(0.0, 0.0, 1_280.0, 720.0),
-      current: Rect::new(0.0, 0.0, 500.0, 700.0),
-    }),
-  });
+  self::resize_viewport(&mut client, 1, 500.0, 700.0);
   assert_eq!(
     client.ui().element(shell).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Column))
@@ -209,15 +201,7 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
   let current = find_named(&client.ui(), navigation, "phone-current-screen");
   assert_eq!(client.ui().element(current).text(), Some("01 COMPOSITION"));
 
-  client.ui().send_event(UiEvent {
-    target_id: shell,
-    cancelable: false,
-    default_prevented: false,
-    body: UiEventBody::GeometryChanged(GeometryEvent {
-      previous: Rect::new(0.0, 0.0, 500.0, 700.0),
-      current: Rect::new(0.0, 0.0, 1_280.0, 720.0),
-    }),
-  });
+  self::resize_viewport(&mut client, 2, 1_280.0, 720.0);
   assert_eq!(
     client.ui().element(shell).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Row))
@@ -229,7 +213,7 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
 
 #[test]
 fn assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let addresses = generated_asset_addresses();
   assert_eq!(addresses.len(), 18);
@@ -302,7 +286,7 @@ fn assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_fram
 
 #[test]
 fn variants_screen_propagates_ordered_snapshotted_targets_and_reverses_cleanly() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect_with(
     engine,
     catalog(),
@@ -369,7 +353,7 @@ fn variants_screen_propagates_ordered_snapshotted_targets_and_reverses_cleanly()
 fn composition_action_reorders_and_restores_the_badges() {
   let correlations = Rc::new(RefCell::new(Vec::new()));
   let engine = CorrelationEngine {
-    inner: create_engine().expect("Reactant sample engine should initialize"),
+    inner: create_engine(),
     correlations: Rc::clone(&correlations),
   };
   let mut client = FakeClient::connect(engine, catalog());
@@ -407,7 +391,7 @@ fn composition_action_reorders_and_restores_the_badges() {
 
 #[test]
 fn events_screen_runs_and_restores_one_logical_event_path() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "events-navigation");
   client.ui().click(navigation);
@@ -450,7 +434,7 @@ fn events_screen_runs_and_restores_one_logical_event_path() {
 
 #[test]
 fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "state-navigation");
   client.ui().click(navigation);
@@ -527,7 +511,7 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
 
 #[test]
 fn context_screen_overrides_only_the_nested_descendant_and_restores() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "context-navigation");
   client.ui().click(navigation);
@@ -604,7 +588,7 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
 
 #[test]
 fn effects_screen_defers_connection_until_poll_and_restores() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
   client.ui().click(navigation);
@@ -633,7 +617,7 @@ fn effects_screen_defers_connection_until_poll_and_restores() {
 
 #[test]
 fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
   client.ui().click(navigation);
@@ -661,7 +645,7 @@ fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
 
 #[test]
 fn resources_screen_catches_resets_and_restores() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
   client.ui().click(navigation);
@@ -746,7 +730,7 @@ fn resources_screen_catches_resets_and_restores() {
 
 #[test]
 fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "refs-navigation");
   client.ui().click(navigation);
@@ -819,7 +803,7 @@ fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
 
 #[test]
 fn buttons_render_distinct_hover_pressed_and_focus_states() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "composition-navigation");
   let selected = style_color(&client.ui().element(navigation).style().background_color)
@@ -914,7 +898,7 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 
 #[test]
 fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect_with(
     engine,
     catalog(),
@@ -979,7 +963,7 @@ fn composed_effects_preserve_finite_ambient_reduced_and_reconnect_contracts() {
 
 #[test]
 fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   navigate_brand(
     &mut client,
@@ -1147,7 +1131,7 @@ fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
 
 #[test]
 fn layout_performance_builds_the_exact_mixed_workload() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   navigate_brand(
     &mut client,
@@ -1189,7 +1173,7 @@ fn layout_performance_builds_the_exact_mixed_workload() {
 
 #[test]
 fn motion_performance_builds_the_exact_transform_workload() {
-  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let engine = create_engine();
   let mut client = FakeClient::connect(engine, catalog());
   for navigation in [
     "targets-timelines-navigation",
@@ -1594,4 +1578,31 @@ fn linear_channel(value: f64) -> f64 {
   } else {
     ((value + 0.055) / 1.055).powf(2.4)
   }
+}
+
+fn resize_viewport(
+  client: &mut FakeClient<ReactantEngine>,
+  generation: u64,
+  width: f64,
+  height: f64,
+) {
+  let observation = self::added_observations(client.commands())
+    .into_iter()
+    .find(|observation| {
+      matches!(
+        observation.target,
+        GeometryObservationTarget::Viewport { .. }
+      )
+    })
+    .expect("application viewport observation");
+  let mut value = self::sample_geometry(&observation);
+  if let GeometryObservationResult::Current(GeometryValue::Viewport(geometry)) = &mut value.result {
+    geometry.viewport.width = width;
+    geometry.viewport.height = height;
+    geometry.safe_area = geometry.viewport;
+  }
+  client.submit_geometry(GeometryObservationBatch {
+    generation: self::generation(generation),
+    changed: vec![value],
+  });
 }

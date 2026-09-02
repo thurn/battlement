@@ -5,11 +5,15 @@ use std::{
 
 use battlement::{UiEventBody, UiEventKind};
 
-use crate::event::{ElementTarget, EventInner, EventPhase, ReactantEvent};
+use crate::{
+  callback::Callback,
+  event::{ElementTarget, EventInner, EventPhase, ReactantEvent},
+  semantics,
+};
 
 #[derive(Clone)]
 pub(crate) struct Handler {
-  model: TypeId,
+  model: Option<TypeId>,
   slot: &'static str,
   native_kind: UiEventKind,
   phase: HandlerPhase,
@@ -17,122 +21,109 @@ pub(crate) struct Handler {
 }
 
 impl Handler {
-  pub(crate) fn accessibility<G: 'static>(
+  pub(crate) fn brief_callback<E: 'static>(
     slot: &'static str,
-    callback: impl Fn(&mut G, battlement::AccessibilityAction) -> crate::semantics::ActionDisposition
-    + 'static,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(&UiEventBody) -> &E,
+    callback: Callback<()>,
   ) -> Self {
-    Self::event(
+    Self {
+      model: callback.model,
       slot,
-      UiEventKind::AccessibilityAction,
-      HandlerPhase::Default,
-      |body| match body {
-        UiEventBody::AccessibilityAction(value) => value,
-        _ => panic!("Reactant accessibility handler received another event kind"),
-      },
-      move |game, event| {
-        if callback(game, crate::semantics::to_ui_action(event.payload().action))
-          == crate::semantics::ActionDisposition::Handled
-        {
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, _, _, _, body| {
+        let _payload = extract(body.as_ref());
+        callback.call(game, ());
+      }),
+    }
+  }
+
+  pub(crate) fn event_callback<E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(&UiEventBody) -> &E,
+    callback: Callback<ReactantEvent<E>>,
+  ) -> Self {
+    Self {
+      model: callback.model,
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, target, phase, event, body| {
+        callback.call(
+          game,
+          ReactantEvent::new(event, body, extract, target, phase),
+        );
+      }),
+    }
+  }
+
+  pub(crate) fn brief_owned_callback<E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(UiEventBody) -> E,
+    callback: Callback<()>,
+  ) -> Self {
+    Self {
+      model: callback.model,
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, _, _, _, body| {
+        let _payload = extract(body.as_ref().clone());
+        callback.call(game, ());
+      }),
+    }
+  }
+
+  pub(crate) fn event_owned_callback<E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(UiEventBody) -> E,
+    callback: Callback<ReactantEvent<E>>,
+  ) -> Self {
+    Self {
+      model: callback.model,
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, target, phase, event, body| {
+        callback.call(
+          game,
+          ReactantEvent::new_owned(event, extract(body.as_ref().clone()), target, phase),
+        );
+      }),
+    }
+  }
+
+  pub(crate) fn accessibility_callback(
+    slot: &'static str,
+    callback: Callback<battlement::AccessibilityAction>,
+  ) -> Self {
+    Self {
+      model: callback.model,
+      slot,
+      native_kind: UiEventKind::AccessibilityAction,
+      phase: HandlerPhase::Default,
+      callback: Rc::new(move |game, target, phase, event, body| {
+        let event = ReactantEvent::new(
+          event,
+          body,
+          |body| match body {
+            UiEventBody::AccessibilityAction(value) => value,
+            _ => panic!("accessibility callback received another event"),
+          },
+          target,
+          phase,
+        );
+        if callback.call(game, semantics::to_ui_action(event.payload().action)) {
           event.prevent_default();
         }
-      },
-    )
-  }
-
-  pub(crate) fn brief<G: 'static, E: 'static>(
-    slot: &'static str,
-    native_kind: UiEventKind,
-    phase: HandlerPhase,
-    extract: fn(&UiEventBody) -> &E,
-    callback: impl Fn(&mut G) + 'static,
-  ) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      slot,
-      native_kind,
-      phase,
-      callback: Rc::new(move |game, _current_target, _event_phase, _event, body| {
-        let _payload = extract(body.as_ref());
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-        );
-      }),
-    }
-  }
-
-  pub(crate) fn event<G: 'static, E: 'static>(
-    slot: &'static str,
-    native_kind: UiEventKind,
-    phase: HandlerPhase,
-    extract: fn(&UiEventBody) -> &E,
-    callback: impl Fn(&mut G, ReactantEvent<E>) + 'static,
-  ) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      slot,
-      native_kind,
-      phase,
-      callback: Rc::new(move |game, current_target, event_phase, event, body| {
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-          ReactantEvent::new(event, body, extract, current_target, event_phase),
-        );
-      }),
-    }
-  }
-
-  pub(crate) fn brief_owned<G: 'static, E: 'static>(
-    slot: &'static str,
-    native_kind: UiEventKind,
-    phase: HandlerPhase,
-    extract: fn(UiEventBody) -> E,
-    callback: impl Fn(&mut G) + 'static,
-  ) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      slot,
-      native_kind,
-      phase,
-      callback: Rc::new(move |game, _current_target, _event_phase, _event, body| {
-        let _payload = extract(body.as_ref().clone());
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-        );
-      }),
-    }
-  }
-
-  pub(crate) fn event_owned<G: 'static, E: 'static>(
-    slot: &'static str,
-    native_kind: UiEventKind,
-    phase: HandlerPhase,
-    extract: fn(UiEventBody) -> E,
-    callback: impl Fn(&mut G, ReactantEvent<E>) + 'static,
-  ) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      slot,
-      native_kind,
-      phase,
-      callback: Rc::new(move |game, current_target, event_phase, event, body| {
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-          ReactantEvent::new_owned(
-            event,
-            extract(body.as_ref().clone()),
-            current_target,
-            event_phase,
-          ),
-        );
       }),
     }
   }
@@ -148,7 +139,7 @@ impl Handler {
     (self.callback)(game, current_target, phase, event, body);
   }
 
-  pub(crate) fn model(&self) -> TypeId {
+  pub(crate) fn model(&self) -> Option<TypeId> {
     self.model
   }
 

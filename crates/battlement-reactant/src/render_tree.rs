@@ -339,7 +339,7 @@ impl RenderTree {
         position
           .handlers
           .iter()
-          .all(|handler| handler.model() == model),
+          .all(|handler| handler.model().is_none_or(|expected| expected == model)),
         "Reactant handler model type does not match its runtime"
       );
       position.motion_callbacks.validate_model(model);

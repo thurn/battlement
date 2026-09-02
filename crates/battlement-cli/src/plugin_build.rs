@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::web_archive;
 
 #[cfg(target_os = "macos")]
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
@@ -149,7 +150,7 @@ pub(crate) fn web_rules_plugin(
   if !plugin.is_file() {
     bail!("Rust WebAssembly build omitted {}", plugin.display());
   }
-  Ok(plugin)
+  web_archive::retain_constructors(&plugin, &emscripten.join("llvm"))
 }
 
 fn target_directory(package: &str) -> Result<PathBuf> {

@@ -287,17 +287,17 @@ fn propagation_view(_ledger: &Ledger) -> impl battlement_reactant::render::Rende
         .child(
           battlement_reactant::host::TextField::new()
             .name("target")
-            .on_click_capture_event(self::record_click("target-capture"))
-            .on_click_event(self::record_click("target"))
-            .on_focus_in_event(self::record_focus("target-focus")),
+            .on_click_capture_event_with_model(self::record_click("target-capture"))
+            .on_click_event_with_model(self::record_click("target"))
+            .on_focus_in_event_with_model(self::record_focus("target-focus")),
         )
-        .on_click_capture_event(self::record_click("middle-capture"))
-        .on_click_event(self::record_click("middle"))
-        .on_focus_in_event(self::record_focus("middle-focus")),
+        .on_click_capture_event_with_model(self::record_click("middle-capture"))
+        .on_click_event_with_model(self::record_click("middle"))
+        .on_focus_in_event_with_model(self::record_focus("middle-focus")),
     )
-    .on_click_capture_event(self::record_click("outer-capture"))
-    .on_click_event(self::record_click("outer"))
-    .on_focus_in_event(self::record_focus("outer-focus"))
+    .on_click_capture_event_with_model(self::record_click("outer-capture"))
+    .on_click_event_with_model(self::record_click("outer"))
+    .on_focus_in_event_with_model(self::record_focus("outer-focus"))
 }
 
 fn crossing_view(
@@ -311,28 +311,28 @@ fn crossing_view(
     .child(
       battlement_reactant::host::View::new()
         .name("a-leaf")
-        .on_pointer_enter_event(self::record_boundary("a-leaf-enter"))
-        .on_pointer_leave_event(self::record_boundary("a-leaf-leave")),
+        .on_pointer_enter_event_with_model(self::record_boundary("a-leaf-enter"))
+        .on_pointer_leave_event_with_model(self::record_boundary("a-leaf-leave")),
     )
-    .on_pointer_enter_event(self::record_boundary("a-parent-enter"))
-    .on_pointer_leave_event(self::record_boundary("a-parent-leave"));
+    .on_pointer_enter_event_with_model(self::record_boundary("a-parent-enter"))
+    .on_pointer_leave_event_with_model(self::record_boundary("a-parent-leave"));
   let b = battlement_reactant::host::View::new()
     .name("b-parent")
     .child(
       battlement_reactant::host::View::new()
         .name("b-leaf")
-        .on_pointer_enter_event(self::record_boundary("b-leaf-enter"))
-        .on_pointer_leave_event(self::record_boundary("b-leaf-leave")),
+        .on_pointer_enter_event_with_model(self::record_boundary("b-leaf-enter"))
+        .on_pointer_leave_event_with_model(self::record_boundary("b-leaf-leave")),
     )
-    .on_pointer_enter_event(self::record_boundary("b-parent-enter"))
-    .on_pointer_leave_event(self::record_boundary("b-parent-leave"));
+    .on_pointer_enter_event_with_model(self::record_boundary("b-parent-enter"))
+    .on_pointer_leave_event_with_model(self::record_boundary("b-parent-leave"));
   Ok(
     battlement_reactant::host::View::new()
       .name("crossing-outer")
       .child(a)
       .child(b)
-      .on_pointer_enter_event(self::record_boundary("outer-enter"))
-      .on_pointer_leave_event(self::record_boundary("outer-leave")),
+      .on_pointer_enter_event_with_model(self::record_boundary("outer-enter"))
+      .on_pointer_leave_event_with_model(self::record_boundary("outer-leave")),
   )
 }
 
@@ -341,19 +341,19 @@ fn raw_crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Rend
     .child(
       battlement_reactant::host::View::new()
         .name("raw-a")
-        .on_pointer_out_capture_event(self::record_crossing("target-out-capture"))
-        .on_pointer_out_event(self::record_crossing("target-out")),
+        .on_pointer_out_capture_event_with_model(self::record_crossing("target-out-capture"))
+        .on_pointer_out_event_with_model(self::record_crossing("target-out")),
     )
     .child(
       battlement_reactant::host::View::new()
         .name("raw-b")
-        .on_pointer_over_capture_event(self::record_crossing("target-over-capture"))
-        .on_pointer_over_event(self::record_crossing("target-over")),
+        .on_pointer_over_capture_event_with_model(self::record_crossing("target-over-capture"))
+        .on_pointer_over_event_with_model(self::record_crossing("target-over")),
     )
-    .on_pointer_out_capture_event(self::record_crossing("root-out-capture"))
-    .on_pointer_out_event(self::record_crossing("root-out"))
-    .on_pointer_over_capture_event(self::record_crossing("root-over-capture"))
-    .on_pointer_over_event(self::record_crossing("root-over"))
+    .on_pointer_out_capture_event_with_model(self::record_crossing("root-out-capture"))
+    .on_pointer_out_event_with_model(self::record_crossing("root-out"))
+    .on_pointer_over_capture_event_with_model(self::record_crossing("root-over-capture"))
+    .on_pointer_over_event_with_model(self::record_crossing("root-over"))
 }
 
 fn record_click(label: &'static str) -> impl Fn(&mut Ledger, ReactantEvent<ClickEvent>) + 'static {

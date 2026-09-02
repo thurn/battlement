@@ -72,14 +72,39 @@ pub trait EngineFactory: Sized {
   fn create(self) -> Result<Self::Engine, EngineError>;
 }
 
-impl<E, F> EngineFactory for F
-where
-  E: Engine,
-  F: FnOnce() -> Result<E, EngineError>,
-{
+/// Converts an infallible or fallible factory result into an engine.
+pub trait IntoEngine {
+  /// The constructed engine.
+  type Engine: Engine;
+
+  /// Returns the engine or its initialization error.
+  fn into_engine(self) -> Result<Self::Engine, EngineError>;
+}
+
+impl<E: Engine> IntoEngine for E {
   type Engine = E;
 
+  fn into_engine(self) -> Result<E, EngineError> {
+    Ok(self)
+  }
+}
+
+impl<E: Engine> IntoEngine for Result<E, EngineError> {
+  type Engine = E;
+
+  fn into_engine(self) -> Result<E, EngineError> {
+    self
+  }
+}
+
+impl<E, F> EngineFactory for F
+where
+  E: IntoEngine,
+  F: FnOnce() -> E,
+{
+  type Engine = E::Engine;
+
   fn create(self) -> Result<Self::Engine, EngineError> {
-    self()
+    self().into_engine()
   }
 }

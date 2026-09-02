@@ -12,9 +12,10 @@ name = "cargo-battlement"
 path = "src/main.rs"
 
 [dependencies]
-anyhow.workspace = true
 battlement-ditto.workspace = true
 battlement-reactant-assets.workspace = true
+battlement-tooling.workspace = true
+anyhow.workspace = true
 clap.workspace = true
 ctrlc.workspace = true
 serde.workspace = true

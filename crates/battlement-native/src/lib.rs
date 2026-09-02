@@ -23,11 +23,12 @@ pub use logging::*;
 /// Exports the fixed Battlement C symbols for one concrete engine factory.
 ///
 /// The factory expression must implement [`EngineFactory`], typically a
-/// zero-argument function returning `Result<YourEngine, EngineError>`.
+/// zero-argument function returning an engine directly. Construction that can
+/// fail may return `Result<YourEngine, EngineError>`.
 ///
 /// ```ignore
-/// fn create_engine() -> Result<MyEngine, battlement_native::EngineError> {
-///     Ok(MyEngine::default())
+/// fn create_engine() -> MyEngine {
+///     MyEngine::default()
 /// }
 ///
 /// battlement_native::export_engine!(create_engine);

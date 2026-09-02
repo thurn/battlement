@@ -284,7 +284,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
   });
   let associated = checkbox.label_interaction(&input);
   View::new()
-    .on_click_capture_event(|game: &mut Game, event| {
+    .on_click_capture_event_with_model(|game: &mut Game, event| {
       if game.prevent {
         event.prevent_default();
       }

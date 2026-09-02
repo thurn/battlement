@@ -20,6 +20,7 @@
 
 pub mod accessibility;
 pub mod application;
+pub mod asset_dependencies;
 pub mod assets;
 mod command_builders;
 pub mod commands;
@@ -27,6 +28,7 @@ pub mod geometry;
 pub mod json;
 mod message_builders;
 pub mod messages;
+mod motion_asset_dependencies;
 mod object_builders;
 pub mod objects;
 pub mod validation;

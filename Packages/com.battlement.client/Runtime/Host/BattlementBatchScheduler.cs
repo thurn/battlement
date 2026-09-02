@@ -248,13 +248,36 @@ namespace Battlement
         }
 
         private bool HasEarlierBlockingWork(ScheduledBatch scheduled) =>
-            scheduled.Admission.WaitsThroughSequence is long through
-            && batches.Any(batch =>
-                batch.Admission.Sequence <= through && batch.Outcome == BatchOutcome.Pending
+            batches.Any(batch =>
+                IsDependency(scheduled, batch) && batch.Outcome == BatchOutcome.Pending
             );
+
+        private static bool IsDependency(ScheduledBatch scheduled, ScheduledBatch earlier)
+        {
+            if (earlier.Admission.Sequence >= scheduled.Admission.Sequence)
+            {
+                return false;
+            }
+            if (scheduled.Batch.Start == BatchStart.AfterEarlierAssetPreparation)
+            {
+                return earlier.Batch.Groups.Any(group =>
+                    group.Commands.Any(command =>
+                        command is Command { Body: CommandBody.Assets.ReplaceSet }
+                    )
+                );
+            }
+            return scheduled.Admission.WaitsThroughSequence is long through
+                && earlier.Admission.Sequence <= through;
+        }
 
         private bool DependsOnFailedPredecessor(ScheduledBatch scheduled)
         {
+            if (scheduled.Batch.Start == BatchStart.AfterEarlierAssetPreparation)
+            {
+                return batches.Any(batch =>
+                    IsDependency(scheduled, batch) && batch.Outcome == BatchOutcome.Failed
+                );
+            }
             if (scheduled.Admission.WaitsThroughSequence is null)
             {
                 return false;

@@ -6,6 +6,27 @@ is part of the
 copies React Suspense behavior while using explicit Rust values instead of
 throwing promises or panicking for control flow.
 
+## Loading in an application
+
+`App` services a wake-driven cooperative executor automatically. Futures may
+remain pending and wake later; each servicing pass has a bounded polling budget.
+Use asynchronous I/O or externally completed futures, without blocking the engine
+thread. `.spawner(custom_spawner)` selects a specialized executor when needed.
+
+A component can invalidate a resource through its owning runtime:
+
+```rust
+let control = use_resource_control(&self.cards);
+let player_id = self.player_id;
+Button::new("Refetch").on_click(move || control.invalidate(player_id))
+```
+
+Invalidation cancels the pending value and schedules a fresh read through the
+application's work queue. Reconnect discards obsolete resource work; application
+destruction cancels owned tasks and runs component effect cleanup. A resource's
+loader supplies application data, so a deterministic demonstration can await a
+channel completed by its Resolve button.
+
 ## Related information
 
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines

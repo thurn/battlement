@@ -1,80 +1,74 @@
-use std::rc::Rc;
-
 use battlement::{AccessibilityAction, ClickEvent, UiEventBody, UiEventKind};
 
 use crate::{
+  callback::Callback,
   element_ref::ElementRef,
+  event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
-  semantics::{ActionDisposition, InteractionProps},
+  semantics::InteractionProps,
 };
 
-pub(crate) struct Activation<G> {
+#[derive(Clone)]
+pub(crate) struct Activation {
   disabled: bool,
-  callback: Rc<dyn Fn(&mut G)>,
+  callback: Callback<()>,
 }
 
 pub(crate) fn interaction<G: 'static>(
   disabled: bool,
-  callback: Rc<dyn Fn(&mut G)>,
+  callback: Callback<()>,
 ) -> InteractionProps<G> {
   let activation = Activation { disabled, callback };
-  let click = activation.clone();
-  let action = activation.clone();
   let mut interaction = InteractionProps::new();
-  interaction.activation = Some(activation);
-  interaction.handlers.push(Handler::event(
+  interaction.activation = Some(activation.clone());
+  interaction.handlers.push(Handler::event_callback(
     "press-click",
     UiEventKind::Click,
     HandlerPhase::Default,
     self::click_event,
-    move |game, event| {
-      event.mark_activation_handled();
-      if !click.disabled && !event.default_prevented() {
-        (click.callback)(game);
-      }
-    },
+    activation
+      .callback
+      .clone()
+      .map(move |event: ReactantEvent<ClickEvent>| {
+        event.mark_activation_handled();
+        (!disabled && !event.default_prevented()).then_some(())
+      }),
   ));
-  interaction.accessibility("press-accessibility", move |game, requested| {
-    if action.disabled || requested != AccessibilityAction::Activate {
-      return ActionDisposition::Unhandled;
-    }
-    (action.callback)(game);
-    ActionDisposition::Handled
-  })
+  interaction.handlers.push(Handler::accessibility_callback(
+    "press-accessibility",
+    activation.callback.map(move |requested| {
+      (!disabled && requested == AccessibilityAction::Activate).then_some(())
+    }),
+  ));
+  interaction
 }
 
-impl<G: 'static> Activation<G> {
-  pub(crate) fn label_interaction(&self, control: &ElementRef) -> InteractionProps<G> {
-    let activation = self.clone();
+impl Activation {
+  pub(crate) fn label_interaction<G: 'static>(&self, control: &ElementRef) -> InteractionProps<G> {
+    let disabled = self.disabled;
     let control = control.clone();
     let mut interaction = InteractionProps::new();
-    interaction.handlers.push(Handler::event(
+    interaction.handlers.push(Handler::event_callback(
       "associated-label-click",
       UiEventKind::Click,
       HandlerPhase::Default,
       self::click_event,
-      move |game, event| {
-        if event.activation_handled() || event.default_prevented() {
-          return;
-        }
-        if activation.disabled || !control.is_attached() {
-          return;
-        }
-        event.mark_activation_handled();
-        control.focus();
-        (activation.callback)(game);
-      },
+      self
+        .callback
+        .clone()
+        .map(move |event: ReactantEvent<ClickEvent>| {
+          if event.activation_handled() || event.default_prevented() {
+            return None;
+          }
+          if disabled || !control.is_attached() {
+            return None;
+          }
+          event.mark_activation_handled();
+          control.focus();
+          Some(())
+        }),
     ));
     interaction
-  }
-}
-
-impl<G> Clone for Activation<G> {
-  fn clone(&self) -> Self {
-    Self {
-      disabled: self.disabled,
-      callback: Rc::clone(&self.callback),
-    }
   }
 }
 

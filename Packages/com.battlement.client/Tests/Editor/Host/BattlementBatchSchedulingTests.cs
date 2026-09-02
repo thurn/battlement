@@ -199,6 +199,108 @@ namespace Battlement.Tests
             );
         }
 
+        [Test]
+        public void AssetPreparationOrdersResponsesWithoutBlockingCancellationOrUnrelatedWork()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            Command wait = Wait(TimeSpan.FromHours(1));
+            var independent = new ObjectId(Guid.NewGuid());
+            var afterCancel = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(wait),
+                        Group(Create(afterCancel))
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(Create(independent))
+                    )
+                )
+            );
+            Assert.That(HasIdentity(independent), Is.True);
+            Assert.That(HasIdentity(afterCancel), Is.False);
+
+            PreparedAsset first = new PreparedAsset.Texture(new TextureAddress("app/first"));
+            PreparedAsset second = new PreparedAsset.Texture(new TextureAddress("app/second"));
+            PreparedAsset[] initial = harness.AssetStorage.PrepareCalls.ToArray();
+            harness.AssetStorage.EnqueuePending();
+            var firstObject = new ObjectId(Guid.NewGuid());
+            var secondObject = new ObjectId(Guid.NewGuid());
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(
+                            new Command(
+                                new CommandId(Guid.NewGuid()),
+                                new CommandBody.Assets.ReplaceSet(initial.Append(first).ToArray())
+                            )
+                        )
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(Create(firstObject))
+                    )
+                )
+            );
+            FakeAssetHandle pending = harness.AssetStorage.Handles.Last();
+            SubmitResponse(
+                harness,
+                Response(
+                    session,
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(
+                            new Command(
+                                new CommandId(Guid.NewGuid()),
+                                new CommandBody.Assets.ReplaceSet(
+                                    initial.Append(first).Append(second).ToArray()
+                                )
+                            )
+                        )
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.AfterEarlierAssetPreparation,
+                        Group(Create(secondObject))
+                    ),
+                    BatchWithGroups(
+                        session,
+                        BatchStart.Now,
+                        Group(
+                            new Command(
+                                new CommandId(Guid.NewGuid()),
+                                new CommandBody.Operation.Cancel(wait.Id)
+                            )
+                        )
+                    )
+                )
+            );
+            Assert.That(HasIdentity(afterCancel), Is.True);
+            Assert.That(HasIdentity(firstObject), Is.False);
+            Assert.That(HasIdentity(secondObject), Is.False);
+            Assert.That(harness.AssetStorage.PrepareCalls.Contains(second), Is.False);
+            pending.Complete();
+            harness.Runner.RunFrame();
+            Assert.That(HasIdentity(firstObject), Is.True);
+            Assert.That(HasIdentity(secondObject), Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(first, out _), Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(second, out _), Is.True);
+            Assert.That(Failures(harness), Is.Empty);
+        }
+
         private static SessionId Connect(BattlementTestHarness harness)
         {
             var session = new SessionId(Guid.NewGuid());
@@ -267,7 +369,7 @@ namespace Battlement.Tests
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>
             harness
-                .Transport.SubmitMessages.Skip(1)
+                .Transport.SubmitMessages.Where(bytes => bytes.Length > 1)
                 .Select(Decode)
                 .OfType<ClientMessage<CoreErrorCode, byte>.BatchFailedMessage>()
                 .Select(message => message.Failure)

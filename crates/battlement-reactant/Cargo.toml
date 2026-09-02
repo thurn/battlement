@@ -9,11 +9,11 @@ rust-version.workspace = true
 
 [dependencies]
 battlement = { path = "../battlement" }
+battlement-native = { path = "../battlement-native" }
 battlement-reactant-asset-macros = { path = "../battlement-reactant-asset-macros" }
 inventory.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 battlement-fake = { path = "../battlement-fake" }
-battlement-native = { path = "../battlement-native" }
 uuid.workspace = true

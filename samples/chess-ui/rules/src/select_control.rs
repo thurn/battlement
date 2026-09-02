@@ -10,9 +10,7 @@ use battlement_reactant::{
   prelude::*,
 };
 
-use crate::{
-  caret::Caret, clipped_inset::ClippedInset, engine::Game, frame_styles, setting_row::SettingRow,
-};
+use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row::SettingRow};
 
 /// Native TextCore face for selected control values.
 pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/control");
@@ -69,7 +67,7 @@ impl Component for SelectControl {
       name: AccessibleName::LabelledBy(vec![label_id.clone(), value_id.clone()]),
       expanded: false,
       is_disabled: false,
-      on_toggle: |_: &mut Game| {},
+      on_toggle: || {},
     });
     let control = View::new()
       .name("select-control")

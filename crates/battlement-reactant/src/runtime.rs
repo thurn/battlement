@@ -826,6 +826,7 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn freeze_resources(&mut self) -> FrozenResources {
+    self.resources.flush();
     match FrozenResources::freeze(Rc::clone(&self.resources)) {
       Ok(resources) => resources,
       Err(payload) => panic::resume_unwind(payload),

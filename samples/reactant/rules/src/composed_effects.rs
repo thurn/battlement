@@ -23,7 +23,6 @@ pub(crate) struct ComposedEffectsState {
   slider: usize,
   reduced_motion: ReducedMotion,
   reconnects: u32,
-  reconnect_requested: bool,
 }
 
 impl Default for ComposedEffectsState {
@@ -38,16 +37,11 @@ impl Default for ComposedEffectsState {
       slider: 1,
       reduced_motion: ReducedMotion::User,
       reconnects: 0,
-      reconnect_requested: false,
     }
   }
 }
 
-impl ComposedEffectsState {
-  pub(crate) fn take_reconnect_request(&mut self) -> bool {
-    std::mem::take(&mut self.reconnect_requested)
-  }
-}
+impl ComposedEffectsState {}
 
 pub(crate) struct ComposedEffects {
   pub(crate) state: ComposedEffectsState,
@@ -114,6 +108,7 @@ impl Component for ComposedEffects {
 }
 
 fn controls(audio: AudioPlayback) -> View {
+  let app = use_app();
   View::new()
     .style(control_row())
     .child(action("DROPDOWN", "composed-dropdown", |game| {
@@ -135,14 +130,18 @@ fn controls(audio: AudioPlayback) -> View {
         ReducedMotion::Never => ReducedMotion::User,
       };
     }))
-    .child(action("RECONNECT", "composed-reconnect", |game| {
-      game.composed_effects.reconnects = game.composed_effects.reconnects.wrapping_add(1);
-      game.composed_effects.reconnect_requested = true;
+    .child(action("RECONNECT", "composed-reconnect", {
+      let app = app.clone();
+      move |game| {
+        game.composed_effects.reconnects = game.composed_effects.reconnects.wrapping_add(1);
+        app.refresh_snapshot();
+      }
     }))
-    .child(action("AUDIO", "composed-audio", move |game| {
-      game
-        .pending_commands
-        .push(audio.play_command(AUDIO_CLIP, AudioPlaybackOptions::new().looping(true)));
+    .child(action("AUDIO", "composed-audio", {
+      let app = app.clone();
+      move |_game| {
+        app.send(audio.play_command(AUDIO_CLIP, AudioPlaybackOptions::new().looping(true)));
+      }
     }))
 }
 

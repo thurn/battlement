@@ -21,7 +21,6 @@ pub(crate) struct PresenceLifecycleState {
   manual_hold: Rc<Cell<bool>>,
   exit_waves: u32,
   reconnects: u32,
-  reconnect_requested: bool,
   events: Vec<String>,
   holds: Rc<RefCell<BTreeMap<u32, Presence>>>,
 }
@@ -55,7 +54,6 @@ impl Default for PresenceLifecycleState {
       manual_hold: Rc::new(Cell::new(false)),
       exit_waves: 0,
       reconnects: 0,
-      reconnect_requested: false,
       events: vec!["boundary mounted".to_owned()],
       holds: Rc::new(RefCell::new(BTreeMap::new())),
     }
@@ -72,7 +70,6 @@ impl fmt::Debug for PresenceLifecycleState {
       .field("manual_hold", &self.manual_hold.get())
       .field("exit_waves", &self.exit_waves)
       .field("reconnects", &self.reconnects)
-      .field("reconnect_requested", &self.reconnect_requested)
       .field("events", &self.events)
       .finish()
   }
@@ -86,7 +83,6 @@ impl PartialEq for PresenceLifecycleState {
       && self.manual_hold.get() == other.manual_hold.get()
       && self.exit_waves == other.exit_waves
       && self.reconnects == other.reconnects
-      && self.reconnect_requested == other.reconnect_requested
       && self.events == other.events
   }
 }
@@ -134,12 +130,7 @@ impl PresenceLifecycleState {
 
   fn reconnect(&mut self) {
     self.reconnects = self.reconnects.wrapping_add(1);
-    self.reconnect_requested = true;
     self.events.push("reconnect snapshot requested".to_owned());
-  }
-
-  pub(crate) fn take_reconnect_request(&mut self) -> bool {
-    std::mem::take(&mut self.reconnect_requested)
   }
 
   fn reset(&mut self) {
@@ -324,6 +315,7 @@ impl Component for RetainedPanel {
 }
 
 fn controls() -> View {
+  let app = use_app();
   View::new()
     .style(control_row())
     .child(action("OPEN / CLOSE", "presence-toggle", |game| {
@@ -341,8 +333,9 @@ fn controls() -> View {
     .child(action("RELEASE", "presence-release", |game| {
       game.presence_lifecycle.release()
     }))
-    .child(action("RECONNECT", "presence-reconnect", |game| {
-      game.presence_lifecycle.reconnect()
+    .child(action("RECONNECT", "presence-reconnect", move |game| {
+      game.presence_lifecycle.reconnect();
+      app.refresh_snapshot();
     }))
     .child(action("RESET", "presence-reset", |game| {
       game.presence_lifecycle.reset()

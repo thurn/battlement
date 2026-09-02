@@ -1,22 +1,19 @@
 # Application environment
 
-`battlement::application::ApplicationState` carries Unity's `focused` and
-`paused` observations. `Connect.application_state` seeds the engine's model.
-`ActionBody::ApplicationStateChanged` delivers subsequent changes, including
-while ordinary input is disabled. Duplicate observations are coalesced.
-Suspending and resuming preserves the session and component state.
+`App` provides `ApplicationState` automatically, seeded from `Connect` and
+updated by Unity's focus and pause observations. Components read it with
+`use_application_state()` from the Reactant prelude. Updates reach memoized
+consumers and preserve the session and component state. An isolated preview can
+nest `application::provider(state)` with controlled observations.
 
-The engine stores each observation in its model and refreshes Reactant. Provide
-that model value around the application:
+`use_viewport_size()` returns physical screen dimensions, seeded from the current
+connection and updated by geometry observations. Use `use_geometry(element_ref)`
+for logical element measurements inside containers; panel scaling can make those
+differ from physical screen pixels.
 
-```rust
-application::provider(game.application_state).child(Application { /* props */ })
-```
-
-Components read the nearest provider with
-`application::use_application_state()`. Context changes reach memoized
-consumers. An isolated preview can nest another provider with controlled
-observations. Reading without a provider is a developer error.
+For a specialized `runtime::Reactant` integration, supply an application provider
+and forward host observations yourself. Reading application hooks without the
+corresponding provider is a developer error.
 
 `is_active()` is true when focused and not paused. This is an application
 activity signal, not a measurement of desktop window occlusion. Applications
@@ -28,7 +25,18 @@ and [pause callback](https://docs.unity3d.com/ScriptReference/MonoBehaviour.OnAp
 
 `Command::open_external_url(url)` creates a typed
 `CommandBody::ApplicationOpenUrl` request. Issue it from the link's normal
-activation callback, using the engine's ordinary response command queue.
+activation callback with a captured application handle:
+
+```rust
+let app = use_app();
+Button::new("Documentation").on_click(move || {
+    app.send(Command::open_external_url("https://docs.unity3d.com/"));
+})
+```
+
+The handle queues commands after the UI commit and preserves the originating
+action's attribution. Asset-bearing commands automatically prepare their
+dependencies before execution.
 The accessibility layer declares the link and its activation; it does not
 perform platform work itself.
 

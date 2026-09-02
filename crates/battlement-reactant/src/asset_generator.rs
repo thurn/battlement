@@ -356,6 +356,17 @@ pub(crate) fn merge_into_snapshot(snapshot: &mut Snapshot) {
   );
 }
 
+pub(crate) fn validate_discovered_asset(asset: &PreparedAsset) {
+  let (_, address) = self::prepared_asset(asset);
+  if address.starts_with("battlement-reactant/generated/") {
+    assert!(
+      matches!(asset, PreparedAsset::Texture(_))
+        && self::registrations().any(|registration| registration.address == address),
+      "generated asset reference is not owned by the linked registry: {address}"
+    );
+  }
+}
+
 fn canonical_registrations() -> Vec<&'static AssetRegistration> {
   let mut registrations = self::registrations().collect::<Vec<_>>();
   registrations.sort_by(|left, right| {

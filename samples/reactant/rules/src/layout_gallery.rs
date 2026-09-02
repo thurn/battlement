@@ -23,14 +23,9 @@ pub(crate) struct LayoutGalleryState {
   pub(crate) spatial_audio: bool,
   pub(crate) trace: Vec<&'static str>,
   pub(crate) volume: u32,
-  reconnect_requested: bool,
 }
 
-impl LayoutGalleryState {
-  pub(crate) fn take_reconnect_request(&mut self) -> bool {
-    std::mem::take(&mut self.reconnect_requested)
-  }
-}
+impl LayoutGalleryState {}
 
 pub(crate) struct LayoutGallery {
   pub(crate) state: LayoutGalleryState,
@@ -114,6 +109,7 @@ impl Component for LayoutGallery {
 
 impl LayoutGallery {
   fn controls(&self, modal_trigger: ElementRef) -> Flex {
+    let app = use_app();
     let announce = use_announce();
     let reset = use_button(ButtonOptions {
       name: text("Reset settings"),
@@ -173,9 +169,9 @@ impl LayoutGallery {
       .child(
         Button::new("RECONNECT")
           .name("layout-gallery-reconnect")
-          .on_click(|game: &mut Game| {
+          .on_click(move |game: &mut Game| {
             game.layout_gallery.reconnects += 1;
-            game.layout_gallery.reconnect_requested = true;
+            app.refresh_snapshot();
           }),
       )
       .child(

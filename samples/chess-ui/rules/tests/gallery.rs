@@ -4,11 +4,8 @@ use battlement::{
   UiAccessibilityActionEvent, UiEvent, UiEventBody,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_reactant::asset_generator;
-use battlement_rules::{
-  engine::{self, ChessUiEngine},
-  pages, select_control, setting_row,
-};
+use battlement_reactant::{app::App, asset_generator};
+use battlement_rules::{engine, pages, select_control, setting_row};
 
 #[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
@@ -164,7 +161,7 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
   );
 }
 
-fn assert_checkbox(client: &FakeClient<ChessUiEngine>, checked: bool, changes: u32) {
+fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {
   let snapshot = self::snapshot(client);
   let checkbox = snapshot
     .nodes
@@ -194,7 +191,7 @@ fn assert_checkbox(client: &FakeClient<ChessUiEngine>, checked: bool, changes: u
   assert_eq!(second.state.checked, Some(CheckedState::True));
 }
 
-fn assert_page(client: &mut FakeClient<ChessUiEngine>, index: usize) {
+fn assert_page(client: &mut FakeClient<App>, index: usize) {
   let heading = self::named(client, "page-heading");
   assert_eq!(client.ui().focused(), Some(heading));
   let semantics = self::snapshot(client);
@@ -235,7 +232,7 @@ fn assert_page(client: &mut FakeClient<ChessUiEngine>, index: usize) {
   assert_eq!(region.label.as_deref(), Some(pages::ALL[index].title));
 }
 
-fn snapshot(client: &FakeClient<ChessUiEngine>) -> &AccessibilitySnapshot {
+fn snapshot(client: &FakeClient<App>) -> &AccessibilitySnapshot {
   client
     .commands()
     .iter()
@@ -247,7 +244,7 @@ fn snapshot(client: &FakeClient<ChessUiEngine>) -> &AccessibilitySnapshot {
     .expect("gallery semantics")
 }
 
-fn named(client: &mut FakeClient<ChessUiEngine>, name: &str) -> ObjectId {
+fn named(client: &mut FakeClient<App>, name: &str) -> ObjectId {
   let mut pending = client
     .world()
     .objects()
@@ -267,13 +264,13 @@ fn named(client: &mut FakeClient<ChessUiEngine>, name: &str) -> ObjectId {
   panic!("missing {name}");
 }
 
-fn client() -> FakeClient<ChessUiEngine> {
+fn client() -> FakeClient<App> {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("chess-ui/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   assets.add_ui_font(setting_row::DISPLAY_FONT);
   assets.add_ui_font(select_control::VALUE_FONT);
-  let mut client = FakeClient::connect(engine::create_engine().unwrap(), assets);
+  let mut client = FakeClient::connect(engine::create_engine(), assets);
   client.poll();
   client
 }

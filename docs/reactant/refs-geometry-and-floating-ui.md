@@ -183,7 +183,7 @@ let field = field_ref.clone();
 
 TextField::new()
     .value(self.name.clone())
-    .on_input_event(move |game: &mut Game, event| {
+    .on_input_event_with_model(move |game: &mut Game, event| {
         let value = normalize_name(&event.payload().value);
         let end = value.encode_utf16().count() as u32;
         game.name = value;

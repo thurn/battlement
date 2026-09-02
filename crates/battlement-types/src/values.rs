@@ -364,6 +364,8 @@ pub enum BatchStart {
   Now,
   /// Wait until blocking work in earlier batches has completed.
   AfterEarlierBlockingWork,
+  /// Wait for earlier batches that prepare assets, without waiting for unrelated operations.
+  AfterEarlierAssetPreparation,
 }
 
 /// What a property-writing command does when another operation controls the property.

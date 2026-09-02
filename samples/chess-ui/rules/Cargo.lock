@@ -109,6 +109,7 @@ name = "battlement-reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-native",
  "battlement-reactant-asset-macros",
  "inventory",
  "serde_json",

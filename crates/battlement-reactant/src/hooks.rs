@@ -7,7 +7,6 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use crate::context;
 use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::external_store::{ExternalStore, StoreSlot};
@@ -16,6 +15,7 @@ use crate::hook_storage::{
   ReducerSlot, RefSlot, StateQueue, StateSlot, StateUpdate,
 };
 use crate::presence::{self, Presence, PresenceCell};
+use crate::{action_context, context};
 
 const RENDER_RETRY_LIMIT: usize = 25;
 
@@ -738,7 +738,16 @@ where
   let mut attempt = current.borrow_mut();
   let index = attempt.cursor;
   attempt.cursor += 1;
-  let setup: EffectSetup = Box::new(move || setup().into_cleanup());
+  let action = action_context::current();
+  let setup: EffectSetup = Box::new(move || {
+    let _scope = action_context::enter(action);
+    setup().into_cleanup().map(|cleanup| {
+      Box::new(move || {
+        let _scope = action_context::enter(action);
+        cleanup();
+      }) as EffectCleanup
+    })
+  });
   let value_type = TypeId::of::<(D, C)>();
   if index == attempt.component.slots.len() {
     assert!(

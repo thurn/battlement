@@ -24,6 +24,7 @@ use crate::{
   fingerprint::{CaseSensitivity, FingerprintRequest, GeneratedInput, SourceManifest},
   macos_build_staging::ProjectStaging,
   unity_lease::UnityEditorLease,
+  web_archive,
 };
 
 const EDITOR_METHOD: &str = "Battlement.Editor.BattlementDittoBuild.BuildWebgl";
@@ -293,6 +294,8 @@ fn build_pending(
       now,
     );
   }
+
+  let plugin = web_archive::retain_constructors(&plugin, &emscripten.join("llvm"))?;
 
   let startup = self::startup_identity(request, pending.identity());
   let startup_bytes = self::json_bytes(&startup)?;

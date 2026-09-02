@@ -519,6 +519,7 @@ dependencies = [
  "anyhow",
  "battlement-ditto",
  "battlement-reactant-assets",
+ "battlement-tooling",
  "clap",
  "ctrlc",
  "png",

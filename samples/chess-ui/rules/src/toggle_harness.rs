@@ -2,7 +2,6 @@ use battlement::{Color, Style};
 use battlement_reactant::prelude::*;
 
 use crate::{
-  engine::Game,
   review_button::{ReviewButton, ReviewButtonKind},
   toggle_control::ToggleControl,
 };
@@ -22,7 +21,7 @@ impl Component for ToggleHarness {
     let toggle = use_button(ButtonOptions {
       name: text("Change VSync from parent"),
       is_disabled: false,
-      on_press: move |_: &mut Game| external.update(|value| !value),
+      on_press: move || external.update(|value| !value),
     });
     View::new()
       .name("toggle-specimen")

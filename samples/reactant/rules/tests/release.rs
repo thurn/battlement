@@ -13,10 +13,7 @@ use battlement_rules::{
 
 #[test]
 fn release_lab_navigates_every_focused_screen() {
-  let mut client = FakeClient::connect(
-    create_engine().expect("Reactant sample engine should initialize"),
-    catalog(),
-  );
+  let mut client = FakeClient::connect(create_engine(), catalog());
   for (navigation, canvas) in [
     ("composition-navigation", "composition-canvas"),
     ("events-navigation", "events-canvas"),

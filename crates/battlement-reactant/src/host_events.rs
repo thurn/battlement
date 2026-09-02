@@ -10,6 +10,7 @@ use battlement::{
 };
 
 use crate::{
+  callback::IntoCallback,
   event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
   host::{
@@ -20,32 +21,47 @@ use crate::{
 };
 
 macro_rules! event_methods {
-  ($(($brief:ident, $aware:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
+  ($(($brief:ident, $aware:ident, $aware_model:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
     $(
       #[doc = concat!("Replaces the `", stringify!($brief), "` handler.")]
-      pub fn $brief<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
-        self.with_handler(Handler::brief(
+      pub fn $brief<G: 'static>(self, callback: impl IntoCallback<(), G>) -> Self {
+        self.with_handler(Handler::brief_callback(
           $slot, UiEventKind::$kind, HandlerPhase::Default,
           |body| match body {
             UiEventBody::$variant(value) => value,
             _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
           },
-          callback,
+          callback.into_callback(),
         ))
       }
 
       #[doc = concat!("Replaces the typed `", stringify!($brief), "` handler.")]
-      pub fn $aware<G: 'static>(
+      pub fn $aware(
         self,
-        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+        callback: impl Fn(ReactantEvent<$payload>) + 'static,
       ) -> Self {
-        self.with_handler(Handler::event(
+        self.with_handler(Handler::event_callback(
           $slot, UiEventKind::$kind, HandlerPhase::Default,
           |body| match body {
             UiEventBody::$variant(value) => value,
             _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
           },
-          callback,
+          callback.into_callback(),
+        ))
+      }
+
+      #[doc = concat!("Replaces the typed `", stringify!($brief), "` handler.")]
+      pub fn $aware_model<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+      ) -> Self {
+        self.with_handler(Handler::event_callback(
+          $slot, UiEventKind::$kind, HandlerPhase::Default,
+          |body| match body {
+            UiEventBody::$variant(value) => value,
+            _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+          },
+          callback.into_callback(),
         ))
       }
     )+
@@ -53,33 +69,48 @@ macro_rules! event_methods {
 }
 
 macro_rules! propagating_event_methods {
-  ($(($brief:ident, $aware:ident, $capture:ident, $capture_aware:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
-    event_methods!($(($brief, $aware, $slot, $kind, $variant, $payload)),+);
+  ($(($brief:ident, $aware:ident, $aware_model:ident, $capture:ident, $capture_aware:ident, $capture_model:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
+    event_methods!($(($brief, $aware, $aware_model, $slot, $kind, $variant, $payload)),+);
     $(
       #[doc = concat!("Replaces the capture-phase `", stringify!($brief), "` handler.")]
-      pub fn $capture<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
-        self.with_handler(Handler::brief(
+      pub fn $capture<G: 'static>(self, callback: impl IntoCallback<(), G>) -> Self {
+        self.with_handler(Handler::brief_callback(
           $slot, UiEventKind::$kind, HandlerPhase::Capture,
           |body| match body {
             UiEventBody::$variant(value) => value,
             _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
           },
-          callback,
+          callback.into_callback(),
         ))
       }
 
       #[doc = concat!("Replaces the typed capture-phase `", stringify!($brief), "` handler.")]
-      pub fn $capture_aware<G: 'static>(
+      pub fn $capture_aware(
         self,
-        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+        callback: impl Fn(ReactantEvent<$payload>) + 'static,
       ) -> Self {
-        self.with_handler(Handler::event(
+        self.with_handler(Handler::event_callback(
           $slot, UiEventKind::$kind, HandlerPhase::Capture,
           |body| match body {
             UiEventBody::$variant(value) => value,
             _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
           },
-          callback,
+          callback.into_callback(),
+        ))
+      }
+
+      #[doc = concat!("Replaces the typed capture-phase `", stringify!($brief), "` handler.")]
+      pub fn $capture_model<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+      ) -> Self {
+        self.with_handler(Handler::event_callback(
+          $slot, UiEventKind::$kind, HandlerPhase::Capture,
+          |body| match body {
+            UiEventBody::$variant(value) => value,
+            _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+          },
+          callback.into_callback(),
         ))
       }
     )+
@@ -92,8 +123,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_down,
         on_pointer_down_event,
+        on_pointer_down_event_with_model,
         on_pointer_down_capture,
         on_pointer_down_capture_event,
+        on_pointer_down_capture_event_with_model,
         "pointer_down",
         PointerDown,
         PointerDown,
@@ -102,8 +135,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_move,
         on_pointer_move_event,
+        on_pointer_move_event_with_model,
         on_pointer_move_capture,
         on_pointer_move_capture_event,
+        on_pointer_move_capture_event_with_model,
         "pointer_move",
         PointerMove,
         PointerMove,
@@ -112,8 +147,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_up,
         on_pointer_up_event,
+        on_pointer_up_event_with_model,
         on_pointer_up_capture,
         on_pointer_up_capture_event,
+        on_pointer_up_capture_event_with_model,
         "pointer_up",
         PointerUp,
         PointerUp,
@@ -122,8 +159,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_cancel,
         on_pointer_cancel_event,
+        on_pointer_cancel_event_with_model,
         on_pointer_cancel_capture,
         on_pointer_cancel_capture_event,
+        on_pointer_cancel_capture_event_with_model,
         "pointer_cancel",
         PointerCancel,
         PointerCancel,
@@ -132,8 +171,10 @@ macro_rules! common_event_methods {
       (
         on_click,
         on_click_event,
+        on_click_event_with_model,
         on_click_capture,
         on_click_capture_event,
+        on_click_capture_event_with_model,
         "click",
         Click,
         Click,
@@ -142,8 +183,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_over,
         on_pointer_over_event,
+        on_pointer_over_event_with_model,
         on_pointer_over_capture,
         on_pointer_over_capture_event,
+        on_pointer_over_capture_event_with_model,
         "pointer_over",
         PointerOver,
         PointerOver,
@@ -152,8 +195,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_out,
         on_pointer_out_event,
+        on_pointer_out_event_with_model,
         on_pointer_out_capture,
         on_pointer_out_capture_event,
+        on_pointer_out_capture_event_with_model,
         "pointer_out",
         PointerOut,
         PointerOut,
@@ -162,8 +207,10 @@ macro_rules! common_event_methods {
       (
         on_wheel,
         on_wheel_event,
+        on_wheel_event_with_model,
         on_wheel_capture,
         on_wheel_capture_event,
+        on_wheel_capture_event_with_model,
         "wheel",
         Wheel,
         Wheel,
@@ -172,8 +219,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_capture,
         on_pointer_capture_event,
+        on_pointer_capture_event_with_model,
         on_pointer_capture_capture,
         on_pointer_capture_capture_event,
+        on_pointer_capture_capture_event_with_model,
         "pointer_capture",
         PointerCapture,
         PointerCapture,
@@ -182,8 +231,10 @@ macro_rules! common_event_methods {
       (
         on_pointer_capture_out,
         on_pointer_capture_out_event,
+        on_pointer_capture_out_event_with_model,
         on_pointer_capture_out_capture,
         on_pointer_capture_out_capture_event,
+        on_pointer_capture_out_capture_event_with_model,
         "pointer_capture_out",
         PointerCaptureOut,
         PointerCaptureOut,
@@ -192,8 +243,10 @@ macro_rules! common_event_methods {
       (
         on_key_down,
         on_key_down_event,
+        on_key_down_event_with_model,
         on_key_down_capture,
         on_key_down_capture_event,
+        on_key_down_capture_event_with_model,
         "key_down",
         KeyDown,
         KeyDown,
@@ -202,8 +255,10 @@ macro_rules! common_event_methods {
       (
         on_key_up,
         on_key_up_event,
+        on_key_up_event_with_model,
         on_key_up_capture,
         on_key_up_capture_event,
+        on_key_up_capture_event_with_model,
         "key_up",
         KeyUp,
         KeyUp,
@@ -212,8 +267,10 @@ macro_rules! common_event_methods {
       (
         on_navigation_move,
         on_navigation_move_event,
+        on_navigation_move_event_with_model,
         on_navigation_move_capture,
         on_navigation_move_capture_event,
+        on_navigation_move_capture_event_with_model,
         "navigation_move",
         NavigationMove,
         NavigationMove,
@@ -222,8 +279,10 @@ macro_rules! common_event_methods {
       (
         on_navigation_cancel,
         on_navigation_cancel_event,
+        on_navigation_cancel_event_with_model,
         on_navigation_cancel_capture,
         on_navigation_cancel_capture_event,
+        on_navigation_cancel_capture_event_with_model,
         "navigation_cancel",
         NavigationCancel,
         NavigationCancel,
@@ -232,8 +291,10 @@ macro_rules! common_event_methods {
       (
         on_focus_in,
         on_focus_in_event,
+        on_focus_in_event_with_model,
         on_focus_in_capture,
         on_focus_in_capture_event,
+        on_focus_in_capture_event_with_model,
         "focus_in",
         FocusIn,
         FocusIn,
@@ -242,8 +303,10 @@ macro_rules! common_event_methods {
       (
         on_focus_out,
         on_focus_out_event,
+        on_focus_out_event_with_model,
         on_focus_out_capture,
         on_focus_out_capture_event,
+        on_focus_out_capture_event_with_model,
         "focus_out",
         FocusOut,
         FocusOut,
@@ -252,8 +315,10 @@ macro_rules! common_event_methods {
       (
         on_focus,
         on_focus_event,
+        on_focus_event_with_model,
         on_focus_capture,
         on_focus_capture_event,
+        on_focus_capture_event_with_model,
         "focus",
         Focus,
         Focus,
@@ -262,8 +327,10 @@ macro_rules! common_event_methods {
       (
         on_blur,
         on_blur_event,
+        on_blur_event_with_model,
         on_blur_capture,
         on_blur_capture_event,
+        on_blur_capture_event_with_model,
         "blur",
         Blur,
         Blur,
@@ -272,8 +339,10 @@ macro_rules! common_event_methods {
       (
         on_link_enter,
         on_link_enter_event,
+        on_link_enter_event_with_model,
         on_link_enter_capture,
         on_link_enter_capture_event,
+        on_link_enter_capture_event_with_model,
         "link_enter",
         LinkEnter,
         LinkEnter,
@@ -282,8 +351,10 @@ macro_rules! common_event_methods {
       (
         on_link_leave,
         on_link_leave_event,
+        on_link_leave_event_with_model,
         on_link_leave_capture,
         on_link_leave_capture_event,
+        on_link_leave_capture_event_with_model,
         "link_leave",
         LinkLeave,
         LinkLeave,
@@ -292,8 +363,10 @@ macro_rules! common_event_methods {
       (
         on_link_down,
         on_link_down_event,
+        on_link_down_event_with_model,
         on_link_down_capture,
         on_link_down_capture_event,
+        on_link_down_capture_event_with_model,
         "link_down",
         LinkDown,
         LinkDown,
@@ -302,8 +375,10 @@ macro_rules! common_event_methods {
       (
         on_link_up,
         on_link_up_event,
+        on_link_up_event_with_model,
         on_link_up_capture,
         on_link_up_capture_event,
+        on_link_up_capture_event_with_model,
         "link_up",
         LinkUp,
         LinkUp,
@@ -314,6 +389,7 @@ macro_rules! common_event_methods {
       (
         on_pointer_enter,
         on_pointer_enter_event,
+        on_pointer_enter_event_with_model,
         "pointer_enter",
         PointerEnter,
         PointerEnter,
@@ -322,6 +398,7 @@ macro_rules! common_event_methods {
       (
         on_pointer_leave,
         on_pointer_leave_event,
+        on_pointer_leave_event_with_model,
         "pointer_leave",
         PointerLeave,
         PointerLeave,
@@ -330,6 +407,7 @@ macro_rules! common_event_methods {
       (
         on_geometry_changed,
         on_geometry_changed_event,
+        on_geometry_changed_event_with_model,
         "geometry_changed",
         GeometryChanged,
         GeometryChanged,
@@ -338,6 +416,7 @@ macro_rules! common_event_methods {
       (
         on_attach_to_panel,
         on_attach_to_panel_event,
+        on_attach_to_panel_event_with_model,
         "attach_to_panel",
         AttachToPanel,
         AttachToPanel,
@@ -346,6 +425,7 @@ macro_rules! common_event_methods {
       (
         on_detach_from_panel,
         on_detach_from_panel_event,
+        on_detach_from_panel_event_with_model,
         "detach_from_panel",
         DetachFromPanel,
         DetachFromPanel,
@@ -354,6 +434,7 @@ macro_rules! common_event_methods {
       (
         on_transition_start,
         on_transition_start_event,
+        on_transition_start_event_with_model,
         "transition_start",
         TransitionStart,
         TransitionStart,
@@ -362,6 +443,7 @@ macro_rules! common_event_methods {
       (
         on_transition_end,
         on_transition_end_event,
+        on_transition_end_event_with_model,
         "transition_end",
         TransitionEnd,
         TransitionEnd,
@@ -370,6 +452,7 @@ macro_rules! common_event_methods {
       (
         on_transition_cancel,
         on_transition_cancel_event,
+        on_transition_cancel_event_with_model,
         "transition_cancel",
         TransitionCancel,
         TransitionCancel,
@@ -385,6 +468,7 @@ macro_rules! text_event_methods {
       (
         on_input,
         on_input_event,
+        on_input_event_with_model,
         "input",
         Input,
         Input,
@@ -393,6 +477,7 @@ macro_rules! text_event_methods {
       (
         on_selection_changed,
         on_selection_changed_event,
+        on_selection_changed_event_with_model,
         "selection_changed",
         SelectionChanged,
         SelectionChanged,
@@ -408,6 +493,7 @@ macro_rules! scroll_event_methods {
       (
         on_scroll_settled,
         on_scroll_settled_event,
+        on_scroll_settled_event_with_model,
         "scroll_settled",
         ScrollSettled,
         ScrollSettled,
@@ -416,6 +502,7 @@ macro_rules! scroll_event_methods {
       (
         on_scroll_changed,
         on_scroll_changed_event,
+        on_scroll_changed_event_with_model,
         "scroll_changed",
         ScrollChanged,
         ScrollChanged,
@@ -431,6 +518,7 @@ macro_rules! tab_event_methods {
       (
         on_tab_selection_requested,
         on_tab_selection_requested_event,
+        on_tab_selection_requested_event_with_model,
         "tab_selection_requested",
         TabSelectionRequested,
         TabSelectionRequested,
@@ -439,6 +527,7 @@ macro_rules! tab_event_methods {
       (
         on_tab_close_requested,
         on_tab_close_requested_event,
+        on_tab_close_requested_event_with_model,
         "tab_close_requested",
         TabCloseRequested,
         TabCloseRequested,
@@ -447,6 +536,7 @@ macro_rules! tab_event_methods {
       (
         on_tab_reorder_requested,
         on_tab_reorder_requested_event,
+        on_tab_reorder_requested_event_with_model,
         "tab_reorder_requested",
         TabReorderRequested,
         TabReorderRequested,
@@ -461,6 +551,7 @@ macro_rules! value_changing_methods {
     event_methods!((
       on_value_changing,
       on_value_changing_event,
+      on_value_changing_event_with_model,
       "value_changing",
       ValueChanging,
       ValueChanging,
@@ -474,6 +565,7 @@ macro_rules! value_committed_methods {
     event_methods!((
       on_value_committed,
       on_value_committed_event,
+      on_value_committed_event_with_model,
       "value_committed",
       ValueCommitted,
       ValueCommitted,
@@ -543,28 +635,40 @@ macro_rules! change_host {
     impl $host {
       /// Replaces the payload-free change handler.
       #[must_use]
-      pub fn on_change<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
-        self.with_handler(Handler::brief_owned(
+      pub fn on_change<G: 'static>(self, callback: impl IntoCallback<(), G>) -> Self {
+        self.with_handler(Handler::brief_owned_callback(
           $slot,
           UiEventKind::$kind,
           HandlerPhase::Default,
           |$body| $payload,
-          callback,
+          callback.into_callback(),
         ))
       }
 
       /// Replaces the typed change handler.
       #[must_use]
-      pub fn on_change_event<G: 'static>(
-        self,
-        callback: impl Fn(&mut G, ReactantEvent<$value>) + 'static,
-      ) -> Self {
-        self.with_handler(Handler::event_owned(
+      pub fn on_change_event(self, callback: impl Fn(ReactantEvent<$value>) + 'static) -> Self {
+        self.with_handler(Handler::event_owned_callback(
           $slot,
           UiEventKind::$kind,
           HandlerPhase::Default,
           |$body| $payload,
-          callback,
+          callback.into_callback(),
+        ))
+      }
+
+      /// Replaces the typed change handler.
+      #[must_use]
+      pub fn on_change_event_with_model<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$value>) + 'static,
+      ) -> Self {
+        self.with_handler(Handler::event_owned_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          callback.into_callback(),
         ))
       }
     }
