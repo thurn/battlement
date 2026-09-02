@@ -28,11 +28,12 @@ trees, custom actions, live regions, or a general capability-policy system.
 Adding one of those areas requires a separate design based on a demonstrated
 product need.
 
-The complete [focus and navigation design](focus-and-navigation.md) is a
-prerequisite. Its coordinator remains the only owner of input focus, focus
-scopes, effective inertness, restoration, input modality, focus-visible state,
-Tab traversal, directional navigation, and roving position. Accessibility
-composes those public APIs and never creates matching state.
+The completed [focus and navigation design](focus-and-navigation.md) is a
+prerequisite. UI Toolkit remains the only owner of native input focus and
+navigation. Reactant's coordinator adds modal containment, restoration,
+effective inertness, and local focus-visible presentation. Accessibility
+composes the reduced `FocusProps` API and reads active-modal and inertness
+state; it never creates matching focus or navigation state.
 
 ## Related information
 
@@ -45,8 +46,8 @@ composes those public APIs and never creates matching state.
   ancestry and event routing.
 - [Animations and presence](animations.md) defines retained physical hosts
   after logical removal.
-- [Focus and navigation](focus-and-navigation.md) owns every input-focus and
-  keyboard/controller navigation behavior used here.
+- [Focus and navigation](focus-and-navigation.md) exposes ordinary focus
+  authoring and owns modal focus containment used here.
 - [Accessibility implementation plan](accessibility-implementation-plan.md)
   breaks this design into reviewable tasks.
 - [Unity mobile accessibility][unity-mobile] documents the only version-one
@@ -68,16 +69,16 @@ Each overlapping behavior has one owner.
 
 | Area | Focus and navigation | Accessibility |
 | --- | --- | --- |
-| Input focus | Moves and restores focus | Composes focus properties |
-| Navigation | Owns the ring and roving | Selects declarations |
-| Scopes | Owns inertness and restoration | Publishes active dialogs |
+| Input focus | Exposes native focus and restores modals | Composes properties |
+| Navigation | Preserves native UI Toolkit behavior | Adds no navigation |
+| Modals | Owns inertness and restoration | Publishes active dialogs |
 | Semantic tree | Owns no semantics | Owns the resolved host tree |
 | Actions | Owns no callbacks | Routes Unity actions |
-| Accessibility focus | No ownership | Observes Unity focus for diagnostics |
+| Accessibility focus | No ownership | Observes platform focus diagnostics |
 
-Accessibility does not call VisualElement.Focus. An accessibility activation may
-cause ordinary application state to render a focus request, but that request
-still enters through the focus coordinator.
+Accessibility does not call `VisualElement.Focus()`. An accessibility action
+may cause ordinary application state to queue an existing `ElementRef::focus`
+action, but accessibility has no private input-focus path.
 
 ## Existing runtime contracts
 
@@ -92,9 +93,9 @@ The design uses these repository contracts:
 - The **safe response gate** admits a complete Unity response only after the
   current UI Toolkit event stack unwinds and before the next repaint.
 - **Effective inertness** is the focus coordinator's settled decision that a
-  host cannot receive input because of its active scope or an inert ancestor.
-- A **focus-scope anchor** is the stable ObjectId by which a dialog associates
-  its semantic host with an existing FocusScope.
+  host cannot receive input because of the active modal or an inert ancestor.
+- A **modal wrapper** is the host created by `Overlay::modal`; a dialog attaches
+  its semantic declaration to that same stable `ObjectId`.
 - A **backend generation** identifies one live Unity accessibility hierarchy.
   Reconnect and screen-reader reactivation create a new generation.
 - **Presence exit** is the interval in which a logically removed host remains
@@ -147,6 +148,14 @@ pub struct AccessibleBehavior<G, S> {
 FocusProps is the existing focus type. InteractionProps contains ordinary Rust
 handlers and the small Unity-local press or range policy already needed by the
 visual interaction. Accessibility adds no general interaction-policy registry.
+
+Each `ActionSet` bit is derived from a matching target-default handler in
+`InteractionProps`; applications do not set action bits independently. Rust
+projection rejects a declared action without its handler. Unity dispatch uses
+the synchronous disposition contract from
+[Events and default actions](events-and-default-actions.md): the matching
+handler returns `Handled` or `Unhandled`, and observers do not determine that
+result.
 
 Hosts compose the bundles explicitly:
 
@@ -240,7 +249,7 @@ The complete validation matrix is:
 | Tab | Name, tab list, and selected | Disabled | Activate required |
 | Tab list | Name and at least one tab | None | None |
 | Tab panel | Live tabs handle | Optional description | None |
-| Dialog | Name and scope anchor | Dismiss handler | Dismiss only with handler |
+| Dialog | Modal-wrapper name | Optional dismiss handler | Dismiss if present |
 | Disclosure | Name and expanded | Disabled | Activate required |
 | Heading | Text name and level | None | None |
 | Image | Text name | None | None |
@@ -262,6 +271,15 @@ in the canonical snapshot, but Unity rejects those callbacks while disabled.
 
 Names and descriptions are resolved in Rust and cross the wire as strings.
 Unity never receives semantic relationship IDs.
+
+`SemanticVisibility` controls participation before names are resolved:
+
+- `Exposed` publishes the host as a semantic node and permits contents-derived
+  text.
+- `NameSourceOnly` contributes text only when an explicit `LabelledBy` or
+  `DescribedBy` reference names it; it is never published.
+- `Hidden` contributes neither a node nor text and prunes its complete logical
+  subtree from the canonical semantic snapshot.
 
 ~~~rust
 pub enum AccessibleName {
@@ -289,8 +307,7 @@ Text is resolved as follows:
 2. LabelledBy resolves the target using the same rules and records the
    dependency for cycle detection.
 3. Contents walks logical descendants in depth-first child order.
-4. The walk appends the Text name from StaticText declarations that are Exposed
-   or NameSourceOnly.
+4. The walk appends the Text name from Exposed StaticText declarations.
 5. The walk skips Hidden declarations and does not enter an actionable
    descendant's subtree.
 
@@ -301,13 +318,6 @@ reference the node currently being named or described.
 Heading, Image, and StaticText require AccessibleName::Text. Their resolved text
 crosses the wire in label; there is no separate semantic text field. Group and
 ScrollArea encode an absent optional name as name None and wire label None.
-
-SemanticVisibility has three values:
-
-- Exposed publishes the host as a semantic node.
-- NameSourceOnly contributes text through an explicit reference but is not
-  published.
-- Hidden neither publishes nor contributes text.
 
 Text resolution collapses whitespace and trims the result. Reactant does not
 append role words such as "button" because Unity and the operating system own
@@ -320,7 +330,9 @@ focusable or actionable part requires an independently rendered host.
 
 This rule applies directly to composite visuals:
 
-- a slider thumb is a host with slider semantics;
+- a native slider uses its public slider host for semantics and focus;
+- a custom slider uses an author-owned thumb or proxy host for semantics and
+  focus;
 - each tab is a host with tab semantics;
 - each radio is a host with radio semantics; and
 - a dialog container is a host with dialog semantics.
@@ -377,13 +389,15 @@ Disabled controls remain readable and reject activation.
 
 ### Radio groups
 
-use_radio_group returns group semantics and the focus project's radio roving
-declaration. use_radio returns one host's radio semantics, focus properties,
-roving item declaration, and selection callback.
+`use_radio_group` returns group semantics and a runtime-local membership handle.
+`use_radio` returns one host's radio semantics, ordinary focus properties, and a
+selection callback.
 
-Only one eligible radio enters the Tab sequence. Arrow and controller movement
-remain focus-coordinator behavior. Selection follows the settled roving request
-through the ordinary application event path.
+Native `RadioButtonGroup` controls retain their built-in arrow and controller
+behavior. A custom radio host is an ordinary sequential focus target and changes
+selection only when activated. The accessibility hook does not install roving
+position or selection-follows-focus state. Its returned `FocusProps` set
+`focusable = true` and `tab_index = 0` while the radio is enabled.
 
 Each radio must:
 
@@ -398,14 +412,15 @@ group to be the radio's nearest semantic radio-group ancestor. The handle is
 never serialized.
 
 A radio group may contain zero or one selected radio. Multiple selected radios
-are invalid. When none is selected, the focus coordinator's radio preset chooses
-the first eligible radio as the group's Tab entry without changing selection.
+are invalid. When none is selected, every enabled custom radio remains an
+ordinary focus and activation target.
 
 ### Slider and progress
 
-Version one supports a single-thumb slider. The semantic node belongs to the
-thumb host and contains the range, localized display text, and increment and
-decrement actions.
+Version one supports a single-thumb slider. A native slider uses its public
+control host as the semantic and focus host. A custom slider uses one
+author-owned thumb or proxy host. That host contains the range, localized
+display text, and increment and decrement actions.
 
 ~~~rust
 let slider = use_slider(SliderOptions {
@@ -430,9 +445,9 @@ actions and does not announce every value change.
 
 ### Tabs
 
-use_tabs returns tab-list semantics and the focus project's tab roving
-declaration. Each use_tab call returns tab semantics, selected state, focus
-properties, and activation. use_tab_panel returns the panel's semantics and
+`use_tabs` returns tab-list semantics and a runtime-local membership handle.
+Each `use_tab` call returns tab semantics, selected state, ordinary focus
+properties, and activation. `use_tab_panel` returns the panel's semantics and
 visibility state.
 
 ~~~rust
@@ -457,32 +472,45 @@ A nonempty tab list has exactly one selected, enabled tab and exactly one
 Exposed panel for its handle. Multiple selected tabs or panels, a missing
 selected panel, and a panel with a stale or cross-root handle are invalid.
 
+Native `TabView` controls retain their built-in navigation. Every enabled custom
+tab is an ordinary sequential focus target and changes selection only when
+activated. Its returned `FocusProps` set `focusable = true` and `tab_index = 0`.
+The hook does not add arrow-key roving behavior.
+
 ### Dialog and disclosure
 
-use_dialog composes dialog semantics with the completed FocusScope API.
+`use_dialog` returns dialog semantics and dismiss interaction for an existing
+modal overlay wrapper.
 
 ~~~rust
 let dialog = use_dialog(DialogOptions {
     name: text("Settings"),
-    scope: FocusScope::modal(),
-    on_dismiss: close_settings,
+    on_dismiss: Some(close_settings),
 });
+
+Overlay::modal(overlay_root)
+    .initial_focus(cancel_button)
+    .restore_focus(settings_button)
+    .semantic(dialog.semantic)
+    .interaction_props(dialog.interaction)
+    .child(dialog_contents)
 ~~~
 
 The focus coordinator owns initial focus, containment, outside inertness,
 restoration, and fallback. Accessibility:
 
-- associates the dialog host with the scope anchor;
+- requires the dialog semantic host to be the modal wrapper itself;
 - publishes only the active modal subtree;
 - exposes Unity dismiss when the active dialog declares it; and
 - sends one screen-change notification when presentation changes.
 
-The hook does not create a backdrop, title, close button, portal, layout, or
-style.
+`on_dismiss` is optional. When absent, the semantic node declares no Dismiss
+action and Unity dismissal returns unhandled. The hook does not create a
+backdrop, title, close button, portal, layout, or style.
 
-use_disclosure returns button-like activation plus expanded state. Collapsing a
-disclosure relies on the focus coordinator to move focus out before hidden
-descendants are removed from presentation.
+`use_disclosure` returns button-like activation plus expanded state. If focus is
+inside content being collapsed, the application focuses the disclosure trigger
+through the existing queued ref action before or with the closing render.
 
 ### Structural hooks
 
@@ -550,14 +578,19 @@ A canonical semantic host contributes:
 - ordered exposed children;
 - resolved role, name, description, state, value, and actions;
 - its physical host for geometry; and
-- an optional active focus-scope anchor for a dialog.
+- whether the host is the wrapper of an authored modal overlay.
 
 Components, fragments, and hosts without SemanticProps are transparent.
 NameSourceOnly declarations participate only in name resolution. Hidden
-declarations do not participate. The canonical snapshot otherwise retains
-Exposed declarations even when their VisualElement is detached, render-hidden,
-effectively inert, or outside the active modal. Unity owns those runtime
-presentation filters.
+declarations prune themselves and their logical descendants. The canonical
+snapshot otherwise retains Exposed declarations even when their VisualElement
+is detached, render-hidden, effectively inert, or outside the active modal.
+Unity owns those runtime presentation filters.
+
+A **canonical semantic root** is an Exposed host with no Exposed logical
+semantic ancestor after transparent and hidden hosts are resolved. Radio and
+tab membership handles must remain within one canonical root. Promoting a modal
+to an active presentation root does not change this validation boundary.
 
 Default reading order is depth-first logical child order. The design has no
 authored reading-order override. Reading order never controls Tab order.
@@ -578,14 +611,14 @@ ObjectId values.
 
 ### Visibility, inertness, and presence
 
-A semantic node is not published when it or a logical ancestor:
+A canonical semantic node is not published by Unity when it or a retained
+logical ancestor:
 
-- is semantically hidden;
 - has display none;
 - has UI Toolkit visibility hidden;
 - is detached;
 - is effectively inert according to the focus coordinator; or
-- is outside the active modal scope.
+- is outside the active modal subtree.
 
 Opacity alone does not hide semantics. Disabled is also distinct from hidden:
 disabled controls remain readable.
@@ -594,16 +627,16 @@ Logical removal removes semantics in the same response that begins presence
 exit. The retained VisualElement may continue drawing, but it has no
 AccessibilityNode callback route.
 
-When a modal scope is active, Unity promotes its associated dialog to the only
-active root. It omits the dialog's canonical parent edge and filters every node
-outside the dialog subtree. Descendants keep their canonical parent edges.
-Closing the modal restores the canonical roots after the focus coordinator
-settles restoration and effective inertness.
+When a modal overlay is active, Unity promotes the dialog declaration on that
+same wrapper host to the only active root. It omits the dialog's canonical
+parent edge and filters every node outside the dialog subtree. Descendants keep
+their canonical parent edges. Closing the modal restores the canonical roots
+after the focus coordinator settles restoration and effective inertness.
 
-Each dialog scope anchor is unique. A dialog host must be inside the anchored
-scope's logical subtree. Every active modal scope has exactly one Exposed dialog
-associated with its anchor; a missing dialog or duplicate association rejects
-the candidate before Unity derives presentation.
+In a runtime with accessibility declarations enabled, every authored modal
+wrapper has exactly one Exposed dialog declaration on the wrapper itself. A
+missing declaration, a dialog on a non-modal host, or more than one semantic
+bundle on the host rejects the candidate before Unity derives presentation.
 
 ### Geometry
 
@@ -675,9 +708,10 @@ back.
 
 Reactant distinguishes input focus from accessibility focus:
 
-- the focus coordinator owns input focus;
+- UI Toolkit owns input focus and the coordinator enforces modal policy;
 - the operating system and Unity own accessibility focus; and
-- the accessibility manager observes Unity focus changes for diagnostics.
+- the accessibility manager observes platform accessibility-focus callbacks for
+  diagnostics only.
 
 Version one does not expose a Rust command for moving accessibility focus. It
 does not reveal clipped nodes, await focus confirmation, or correlate
@@ -700,9 +734,10 @@ before either tree commits:
 1. Collect each host's semantic declaration.
 2. Validate local role, state, value, action, and live handle declarations.
 3. Resolve logical semantic parentage through transparent hosts and portals.
-4. Validate radio/tab ancestry, tab-panel roots, and dialog scope associations.
+4. Validate radio/tab ancestry, tab-panel roots, and modal dialog hosts.
 5. Resolve names and descriptions and reject dependency cycles.
-6. Omit Hidden and NameSourceOnly declarations from the canonical snapshot.
+6. Prune Hidden subtrees and omit NameSourceOnly declarations from the canonical
+   snapshot.
 7. Validate parent, child, and host references.
 8. Build a complete ordered canonical snapshot.
 
@@ -738,7 +773,6 @@ pub struct AccessibilityNodeSnapshot {
     pub state: SemanticState,
     pub value: Option<RangeValue>,
     pub actions: ActionSet,
-    pub focus_scope_anchor: Option<ObjectId>,
 }
 ~~~
 
@@ -776,7 +810,7 @@ then applies it in this order:
 The existing safe response gate prevents mutation during UI Toolkit event
 propagation. A failed preflight applies none of these stages. Presentation is
 re-derived even when the response has no semantic snapshot because visual
-visibility, attachment, or focus-scope state may have changed.
+visibility, attachment, or active-modal state may have changed.
 
 Preflight makes the remaining semantic operations non-failing. An unexpected
 post-mutation exception deactivates the hierarchy, keeps input gated, and asks
@@ -785,14 +819,15 @@ updated hierarchy.
 
 ### Reconnect
 
-Reconnect sends the same complete visual, focus, and semantic snapshots used for
-ordinary state reconstruction.
+Reconnect sends the same complete visual and semantic snapshots used for
+ordinary state reconstruction. Focus has no separate snapshot.
 
 Unity:
 
 - increments the backend generation;
 - recreates visual hosts;
-- installs the focus snapshot;
+- lets the focus coordinator select the current active modal and run its
+  initial-focus fallback;
 - rebuilds the semantic mirror with surviving ObjectId values;
 - derives active presentation after focus settles; and
 - assigns one complete AccessibilityHierarchy.
@@ -849,8 +884,9 @@ phrase.
 The mapping must never add an action that Reactant did not declare. When an
 exact state is unavailable, the adapter emits a bounded diagnostic and uses the
 mapping above. It does not reject the semantic commit or run a cross-language
-capability classifier. If A01 disproves a mapping against the pinned Unity
-version, the design and mapping fixture must be amended before A10 begins.
+capability classifier. If the pinned platform fixture disproves a mapping, the
+design and mapping fixture must be amended before Unity backend implementation
+begins.
 
 ### Notification policy
 
@@ -917,8 +953,8 @@ Validation rejects:
 - a tab list without exactly one selected enabled tab and one Exposed panel;
 - a stale or cross-root tab-panel handle;
 - a Hidden or NameSourceOnly declaration with state, value, or actions;
-- a dialog outside its scope or without a unique live focus-scope anchor;
-- an active modal scope without exactly one Exposed dialog; and
+- a dialog declaration on a host that is not an authored modal wrapper;
+- an authored modal wrapper without exactly one Exposed dialog; and
 - a snapshot whose parent, child, or host reference is inconsistent.
 
 Warnings cover:
@@ -1021,9 +1057,10 @@ announces every frame.
 
 ### Tabs and radio groups
 
-A settings tab list and radio group each have one native Tab entry point through
-the existing roving focus system. Directional movement remains focus-coordinator
-behavior. Settled selection updates the semantic selected state.
+A native settings tab list and radio group retain their UI Toolkit composite
+navigation. Custom tabs and radios are ordinary sequential focus targets and
+change selection only when activated. Accessibility adds no navigation state in
+either case. Settled application selection updates semantic selected state.
 
 Only the selected tab panel is published. A deselected panel leaves the semantic
 tree before its exit animation.
@@ -1035,7 +1072,7 @@ physical host for geometry. Opening it publishes only the active modal subtree
 and sends one screen-change notification.
 
 Escape, controller cancel, an authored close button, and Unity dismiss request
-the same Rust close intent through their owning systems. The focus coordinator
+the same Rust close intent through their owning systems. The modal coordinator
 owns initial focus, containment, and restoration.
 
 Closing removes dialog semantics before its retained visual hosts animate out.
@@ -1062,7 +1099,7 @@ The subsystem is complete when:
   actions on iOS and Android and diagnoses canonical-only Mixed and busy state;
 - every accessibility callback targets the current ObjectId and backend
   generation;
-- accessibility uses no second input-focus, scope, restoration, navigation, or
+- accessibility uses no second input-focus, modal, restoration, navigation, or
   focus-visible system;
 - presence removes semantics at logical exit;
 - reconnect restores one complete hierarchy without replaying announcements;
@@ -1117,8 +1154,10 @@ TalkBack. On each device:
    scroll area, and progress indicator in plausible logical order. Confirm the
    group improves structure without creating an extra action.
 3. Activate the button and toggle, select a radio and tab, and adjust the
-   slider. Expand the disclosure and scroll the scroll area in both available
-   directions. Confirm each action changes application state exactly once.
+   slider. For custom radios and tabs, confirm each item is an ordinary Tab
+   target and selection changes only on activation. Expand the disclosure and
+   scroll the scroll area in both available directions. Confirm each action
+   changes application state exactly once.
 4. Open the portaled dialog. Confirm background nodes disappear from traversal,
    dismiss works, and input focus remains contained by the focus coordinator.
 5. Close the dialog while its exit animation runs. Confirm it is no longer

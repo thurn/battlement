@@ -17,8 +17,8 @@ tables, grids, trees, custom actions, live regions, or capability policies.
 
 - [Accessibility technical design](accessibility-technical-design.md) is the
   normative behavior and ownership contract.
-- [Focus and navigation](focus-and-navigation.md) supplies every focus,
-  navigation, scope, restoration, and inertness API composed here.
+- [Focus and navigation](focus-and-navigation.md) supplies ordinary focus
+  authoring plus modal containment, restoration, and inertness.
 - [Focus and navigation implementation
   plan](focus-and-navigation-implementation-plan.md) must be complete before
   accessibility implementation begins.
@@ -34,7 +34,8 @@ Each task must leave the repository in a valid state and prove its observable
 result through public or production-backed behavior.
 
 - Implement against the pinned Unity version.
-- Use the completed focus APIs without adding accessibility-owned input focus.
+- Use the completed reduced focus APIs without adding accessibility-owned input
+  focus or navigation.
 - Keep one semantic node per live logical host.
 - Keep Rust and C# protocol fixtures synchronized.
 - Test behavior at the lowest layer that owns it.
@@ -60,8 +61,8 @@ only when their interfaces are already fixed by an earlier completed task.
 
 ### Task A01 - Pin the minimal Unity accessibility surface
 
-**Prerequisites:** Complete focus and navigation implementation; pinned Unity
-version installed.
+**Prerequisites:** Complete reduced focus and navigation implementation; pinned
+Unity version installed.
 
 **API slice:** Add small fixtures for AccessibilityHierarchy,
 AccessibilityNode, AssistiveSupport, host geometry, screen-reader status, direct
@@ -89,7 +90,12 @@ evidence and a normative documented mapping.
 
 **API slice:** Add SemanticProps, the retained role/state/value/action enums,
 SemanticVisibility, AccessibleName, AccessibleDescription, host semantic
-composition, source locations, and an optional dialog focus-scope anchor.
+composition, source locations, action-handler validation, and modal-wrapper
+validation for dialogs.
+
+Dialog semantics may be authored only on the host created by
+`Overlay::modal`. No separate focus-scope or modal-association identifier is
+added to the semantic protocol.
 
 One host accepts at most one semantic bundle. The host ObjectId is the semantic
 identity; there are no slots, virtual nodes, semantic keys, or incarnations.
@@ -111,10 +117,11 @@ the retained patterns without allocating an independent semantic identity.
 **API slice:** Validate local declarations and live membership handles; project
 exposed hosts through transparent logical ancestors; preserve logical ancestry
 across portals; validate radio/tab ancestry, panel roots, selection cardinality,
-and dialog scope association; resolve explicit, content, and reference names
-and descriptions; omit Hidden and NameSourceOnly declarations from the
-canonical snapshot; and build the ordered canonical host tree. Unity consumes
-settled effective inertness when it derives active presentation.
+and modal dialog hosts; resolve explicit, content, and reference names and
+descriptions; omit Hidden and NameSourceOnly declarations from the canonical
+snapshot, pruning complete Hidden subtrees; and build the ordered canonical
+host tree. Unity consumes settled effective inertness when it derives active
+presentation.
 
 Default reading order is logical child order. No reading-order override or
 relationship graph is introduced.
@@ -125,7 +132,7 @@ relationship graph is introduced.
 - Tests reject an empty required name, one name cycle, a foreign reference, and
   representative invalid role/state/value/action pairs.
 - Tests reject invalid radio/tab ancestry, duplicate selection, stale or
-  cross-root panel handles, duplicate dialog anchors, and a missing modal
+  cross-root panel handles, a dialog on a non-modal host, and a modal without a
   dialog.
 - Portals retain logical semantic parentage.
 - Hidden declarations are absent from the canonical snapshot.
@@ -183,7 +190,7 @@ snapshot.
 **Proof:**
 
 - An injected preflight failure leaves visual and semantic state unchanged.
-- Unity active presentation publishes only the active modal scope.
+- Unity active presentation publishes only the active modal subtree.
 - Presence removal disables semantic callbacks before physical destruction.
 - Reconnect preserves surviving ObjectId values and rejects an old generation.
 
@@ -221,7 +228,7 @@ the current host action without a controlled proposal protocol.
 
 ### Task A07 - Add button, checkbox, switch, and radio hooks
 
-**Prerequisites:** A06 and completed focus roving APIs.
+**Prerequisites:** A06 and completed reduced `FocusProps` authoring.
 
 **API slice:** Add use_button, use_checkbox, use_switch, use_radio_group, and
 use_radio. Return SemanticProps, existing FocusProps, ordinary
@@ -233,14 +240,15 @@ InteractionProps, and styling state.
 - Pointer, touch, keyboard, controller, and accessibility activation produce
   one logical intent.
 - Disabled controls remain readable and reject actions.
-- Switch rejects Mixed; radio movement and one Tab stop remain focus-owned.
+- Switch rejects Mixed; native radio controls retain native movement, while
+  custom radios are ordinary focus and activation targets.
 
 **Completion condition:** Core activation and choice controls are accessible
 without choosing a host type or style.
 
 ### Task A08 - Add slider, progress, and tabs
 
-**Prerequisites:** A07 and completed tabs roving behavior.
+**Prerequisites:** A07 and completed reduced `FocusProps` authoring.
 
 **API slice:** Add a single-thumb use_slider, use_progress, use_tabs, use_tab,
 and use_tab_panel. Slider exposes increment/decrement only; it has no set-value
@@ -252,7 +260,8 @@ accessibility action or multi-thumb semantic representation.
 - Accessibility and ordinary input changes produce the same authoritative
   semantic value.
 - Progress exposes determinate value or busy state with no action.
-- Tabs preserve one Tab stop and publish only the selected panel.
+- Native tabs preserve native navigation; custom tabs are ordinary focus and
+  activation targets; both publish only the selected panel.
 - Deselection hides a panel before presence exit.
 
 **Completion condition:** Range and selection patterns compose existing
@@ -260,13 +269,14 @@ interaction and focus behavior without accessibility-owned navigation.
 
 ### Task A09 - Add dialog, disclosure, structure, and announcements
 
-**Prerequisites:** A07-A08 and completed focus-scope behavior.
+**Prerequisites:** A07-A08 and completed modal overlay behavior.
 
 **API slice:** Add use_dialog, use_disclosure, use_heading, use_image,
 use_static_text, use_group, use_scroll_area, and use_announce.
 
-Dialog associates its host with an existing FocusScope anchor. Announcements are
-one-shot strings with no politeness, deduplication, acknowledgement, or replay.
+Dialog semantics must be authored on an existing `Overlay::modal` wrapper.
+Announcements are one-shot strings with no politeness, deduplication,
+acknowledgement, or replay.
 The current runtime transaction owns their ordered queue and discards it when
 rendering, preflight, or safe-gate admission fails. Unsubmitted messages are
 also discarded after an unexpected application failure.

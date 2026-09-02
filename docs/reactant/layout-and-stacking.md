@@ -31,6 +31,8 @@ closed contract whose behavior can be tested exactly.
   defines logical ancestry and physical portal placement preserved by overlays.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines the committed
   element and viewport measurements used by responsive authoring.
+- [Focus and navigation](focus-and-navigation.md) owns modal focus,
+  containment, Tab order, and restoration.
 - [Reactant animations](animations.md) defines decoration layers, Motion
   ownership, layout projection, presence, and scroll-local work composed with
   this system.
@@ -366,15 +368,16 @@ content has rank zero. A Modal presentation key is `(rank, 0, source_ordinal)`.
 A Popover inherits the rank of its nearest logical Modal ancestor, or zero when
 it has none, and uses `(rank, 1, source_ordinal)`. Sorting by this key places a
 root popover below every modal, a modal-local popover above its owning modal,
-and both below the next higher modal. A popover cannot escape a higher modal
-scope. The highest-ranked Modal is the active focus scope. Conditional
-insertion or reordering recomputes keys without changing retained keyed host
-identity.
+and both below the next higher modal. A popover cannot escape a higher modal.
+The highest-ranked logically mounted Modal wrapper is the active modal consumed
+by the focus coordinator. A wrapper retained only for Motion exit is absent
+from this order. Conditional insertion or reordering recomputes keys without
+changing retained keyed host identity.
 `Overlay::popover` and `Overlay::modal` select those layers automatically.
 `Overlay::layer(target)` creates an unanchored, host-filling Popover-layer
 wrapper for application-defined overlay content. Only `Overlay::modal` creates
-a Modal-layer wrapper and focus scope. An application needing alignment or
-different ordering uses an ordinary nested `Stack` inside the wrapper.
+a Modal-layer wrapper. An application needing alignment or different ordering
+uses an ordinary nested `Stack` inside the wrapper.
 
 `Overlay` owns one ordinary wrapper host around its child. The wrapper provides
 a single physical stack item even when the child is a component, fragment, or
@@ -392,9 +395,11 @@ and min/max constraints: their private Stack slot always fills the host. Their
 authored padding, border, and paint render inside that fixed border box. Bounded
 dialog content belongs in an ordinary child or nested Stack.
 Every overlay wrapper ignores picking on itself; only authored descendants are
-pickable. A modal without an authored picking backdrop therefore does not block
-pointer input to lower layers. The programmatically focusable modal wrapper is
-still a focus target because focusability is independent from picking mode.
+pickable. The focus coordinator makes content outside the active modal
+effectively non-pickable. An authored backdrop remains necessary only when the
+application wants a visible click target for dismissal. The programmatically
+focusable modal wrapper remains a focus target because focusability is
+independent from picking mode.
 
 ### Anchored popovers
 
@@ -496,71 +501,25 @@ Overlay::modal(self.overlay.clone())
     .child(ArcadeModal::new())
 ```
 
-The modal wrapper supplies a native focus scope with these rules:
+Modal focus behavior is owned exclusively by
+[Focus and navigation](focus-and-navigation.md#modal-coordination). This layout
+design supplies only the wrapper, resolved overlay order, logical membership,
+and final physical placement consumed by that coordinator.
 
-- After each complete mutation group, the panel controller recomputes the
-  active final Modal item before performing any modal focus action.
-- When the panel's modal stack changes from empty to nonempty, the controller
-  records the current focus as the application return target. It retains that
-  target until the stack becomes empty, regardless of later modal insertion,
-  reordering, activation, or removal.
-- Attaching a modal below the active item records no focus and moves no focus.
-- After a modal's first valid active layout, it focuses a focus-eligible
-  explicit initial ref, otherwise the first traversal-eligible descendant,
-  otherwise the wrapper itself.
-- Tab and Shift+Tab wrap within traversal-eligible logical descendants.
-  Positive tab indices sort first in ascending numeric order, with committed
-  logical preorder as the tie. Zero tab indices follow in logical preorder.
-- Focus attempts outside the active topmost modal return to its last focused
-  focus-eligible descendant, then the initial-focus sequence above.
-- When the final modal detaches, the controller focuses its focus-eligible
-  explicit restore ref, otherwise the application return target when focus
-  eligible. If neither is eligible, focus is left to the panel's ordinary focus
-  controller.
-- Nested modals suspend the scope below them. Removing the top modal restores
-  the preceding modal scope before considering application content.
+Logical ancestry determines whether a host belongs to a modal, including a
+same-panel portaled descendant. Physical Unity traversal determines sequential
+Tab order within that membership. A logical descendant presented in another
+panel is ineligible because no single `FocusController` can contain it.
 
-Removing an inactive modal while a higher modal remains active performs no
-focus operation. Its stored focus state is discarded with the scope, and the
-active modal retains containment.
+An initial-focus ref must be a logical descendant of the modal wrapper. Private
+layout nodes are never eligible. An attached initial ref outside that modal, or
+any attached initial or restore ref in another panel, rejects the complete
+mutation group during Unity preflight. An unavailable, hidden, disabled,
+detached, or otherwise ineligible ref uses the focus design's fallback. A
+restore ref may be anywhere in the same panel.
 
-If source-order reconciliation changes the active item without attaching or
-detaching it, the old active scope suspends. A newly active scope restores its
-last focused eligible descendant when it was active before; otherwise it runs
-the first-activation sequence. An inactive scope never steals focus. Reordering
-without changing the final Modal item performs no focus operation.
-
-A **focus-eligible** host is an attached, displayed, visible, enabled, focusable
-public host in the same panel. A **traversal-eligible** host is focus eligible
-and has a nonnegative tab index. A negative-tab-index descendant may be an
-explicit initial target, retain last focus, or be an explicit restore target,
-but it is skipped by fallback search and Tab traversal.
-
-Scope membership follows committed logical ancestry, not physical parentage. A
-same-panel portaled logical descendant participates at its logical preorder
-position, and focusing it does not leave the scope. A logical descendant
-presented in another panel is not focus eligible; focus in that other panel is
-outside this panel's modal scope.
-
-An initial-focus ref must also be a logical descendant of the modal wrapper.
-Private layout nodes are never eligible. An attached initial ref outside that
-scope, or any attached initial or restore ref in another panel, rejects the
-complete mutation group during Unity preflight. An unavailable, hidden,
-disabled, detached, or otherwise ineligible ref uses the fallback because those
-conditions can change between render and native layout. A restore ref may be
-anywhere in the same panel and follows the same runtime eligibility check.
-
-The modal wrapper is a public host made programmatically focusable with a
-negative tab index. It is excluded from ordinary Tab traversal while eligible
-descendants exist. With none, Tab and Shift+Tab retain focus on the wrapper.
-
-When another modal scope remains below the removed modal, restoration is first
-restricted to focus-eligible descendants of that newly active scope. An
-explicit or recorded target outside it is skipped in favor of that scope's
-last-focused, initial, first-traversal-eligible, and wrapper fallback sequence.
-The panel-level application return target is never replaced by focus inside a
-departing modal. Application content is considered only after the final modal
-is removed.
+The modal wrapper is a public host with reserved effective focus values defined
+by the focus design. Layout authoring cannot make an active wrapper ineligible.
 
 Escape never closes a modal implicitly. The modal or a logical ancestor handles
 the existing keyboard event and updates application state. A full-size picking
@@ -1029,10 +988,9 @@ bounds from that matrix without changing the layer order. A local animation
 tick invalidates the anchored wrapper in the same frame. The popover's own
 projection and Motion still apply later on top of its newly resolved slot.
 
-Modal focus scopes are ordered by overlay presentation order. Only the highest
-attached modal scope is active. The client registers one focus-navigation
-handler per panel while at least one modal exists and removes it with the last
-modal. Private layout nodes never enter the focus ring.
+Modal wrappers are ordered by overlay presentation order. The focus coordinator
+consumes the highest logically mounted wrapper and owns its panel callbacks.
+Private layout nodes never enter the focus ring.
 
 Portal context and events remain logical. A click inside a popover reaches its
 source component ancestors, not the OverlayHost's unrelated logical ancestors.
@@ -1068,8 +1026,8 @@ for pointer, keyboard, focus, and geometry events.
 
 Stack presentation order determines which overlapping actual host UI Toolkit
 picks. Reactant dispatch still follows the committed logical path. Moving a
-focused host between private slots does not blur or refocus it. Modal focus
-changes are the only focus operations added by this design.
+focused host between private slots preserves the same actual host. Focus repair
+and modal focus changes follow the focus design rather than this layout design.
 
 ### Refs and geometry
 
@@ -1104,8 +1062,8 @@ logical host or layout participation.
 
 An authoritative snapshot contains every public layout container and item
 descriptor but no private native nodes. Unity reconstructs slots, measurement
-elements, sticky surfaces, overlay placement, and modal scopes from that
-snapshot.
+elements, sticky surfaces, and overlay placement from that snapshot. The focus
+coordinator then derives current modal state from the reconstructed wrappers.
 
 Reactant reconnect preserves logical component and hook state under its
 existing rules. Old native measurements, recorded focused native instances,
@@ -1243,7 +1201,7 @@ Unity EditMode coverage uses actual resolved geometry and picking:
 - Stack intrinsic sizing, insets, order ties, nested isolation, and hit target;
 - sticky top, bottom, two-axis, containing-block, and detach behavior;
 - popover side, alignment, flip, shift, oversize, waiting, and scrolling;
-- modal initial focus, wrapping, nesting, restoration, and destruction;
+- modal wrapper order, focus-design integration, and destruction;
 - layout projection and Motion transforms over every placement kind; and
 - snapshot reconstruction without leaked private nodes or handlers.
 
@@ -1281,9 +1239,9 @@ and complete restoration to the baseline.
 9. Remove and recreate a popover anchor while the menu is open. Confirm the menu
    waits without accepting input, returns when geometry is valid, and never
    flashes at stale coordinates.
-10. Open one modal and then a nested modal. Confirm backdrop blocking, initial
-    focus, Tab and Shift+Tab wrapping, Escape event delivery, nested-scope
-    restoration, and final focus restoration.
+10. Open one modal and then a nested modal. Confirm backdrop input, initial
+    focus, Tab and Shift+Tab wrapping, Escape event delivery, nested-modal
+    restoration, and final focus restoration from the focus design.
 11. Trigger Motion, presence, layout projection, and shared-layout handoffs on
     Flex, Grid, Stack, sticky, and overlay children. Confirm no snap, double
     transform, stretched decoration, lost pointer capture, or animation

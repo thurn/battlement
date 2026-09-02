@@ -22,6 +22,8 @@ must cover.
   defines logical ancestry and physical portal placement.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines ref attachment
   and next-frame geometry observations.
+- [Focus and navigation](focus-and-navigation.md) owns modal focus,
+  containment, Tab order, and restoration.
 - [Reactant animations](animations.md) defines Motion, layout projection,
   presence, and native transform ownership.
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
@@ -44,7 +46,9 @@ landed together.
 - Extract shared facade and descriptor support from
   `crates/battlement-reactant/src/host.rs` before adding the three facades.
 - Keep Unity container adaptation, measurement, sticky coordination, overlay
-  placement, and focus scope in separate focused types.
+  placement, and modal focus coordination in separate focused types. The
+  focus behavior follows the focus-and-navigation design rather than being
+  redefined here.
 - Do not record task history, transitional architecture, or plan language in
   source comments or public documentation.
 - Stage every intended change before running `./scripts/ci.py`.
@@ -559,8 +563,8 @@ Build overlays on the existing portal contract:
 - anchored popover side, alignment, offsets, padding, flip, and shift;
 - local placement invalidation for layout, scrolling, and panel scale;
 - waiting behavior for unavailable anchors;
-- modal viewport filling, native focus containment, nested scopes, and focus
-  restoration; and
+- modal viewport filling plus the wrapper and ordering inputs required by the
+  focus-and-navigation coordinator; and
 - picking behavior in which an empty overlay host is transparent while a modal
   backdrop blocks lower content.
 
@@ -612,7 +616,7 @@ ordinary Reactant events. The layout system performs no implicit dismissal.
 - Host-filling overlay wrappers ignore picking. A modal without an authored
   backdrop passes empty-space pointer input to lower layers.
 - Initial modal focus, Tab wrapping, nested containment, and restoration follow
-  the normative eligibility and fallback order.
+  the normative rules in the focus-and-navigation design.
 - A modal with no eligible descendants focuses its negative-tab-index wrapper
   and retains focus there during Tab traversal.
 - A negative-tab-index descendant may be an explicit or last-focused target but
@@ -628,15 +632,16 @@ ordinary Reactant events. The layout system performs no implicit dismissal.
   A modal-local popover paints above its owner and below every higher modal.
   Only Modal items participate in active-modal order.
 - Attaching an inactive lower modal does not move focus. Keyed source-order
-  changes suspend and activate existing scopes using the documented transfer
-  sequence.
+  changes make the highest logically mounted Modal wrapper active using the
+  documented focus-coordinator transfer sequence.
 - Removing an inactive modal performs no focus operation while a higher modal
   remains active.
 - The panel-level application return target survives insertion of a lower
   inactive modal and removal of the higher modal, then restores when the final
   modal closes.
-- Same-panel portaled logical descendants remain inside the modal focus scope
-  and use logical preorder for Tab ties; cross-panel descendants are outside it.
+- Same-panel portaled logical descendants remain members of the modal. Physical
+  Unity traversal determines sequential Tab order; cross-panel descendants are
+  outside the modal.
 - An attached out-of-scope initial ref, cross-panel focus ref, or cyclic
   popover anchor rejects the complete mutation group and preserves native state.
 - Resetting popover placement restores `bottom_start` defaults, and removing
@@ -650,7 +655,8 @@ ordinary Reactant events. The layout system performs no implicit dismissal.
 - Unity placement matrices for side, alignment, flip, shift, oversize, and
   waiting states.
 - Portal event traces and picking fixtures.
-- Modal keyboard, nesting, destruction, and focus-restoration fixtures.
+- Modal ordering and wrapper fixtures, plus integration fixtures required by
+  the focus-and-navigation design.
 - A no-round-trip scroll journal for anchored content.
 
 **Verification**
@@ -786,16 +792,16 @@ overlays.
    requested placement, flip, shift, waiting behavior, logical events, and focus
    restoration.
 7. Open nested modals. Verify the backdrop blocks lower input, initial focus and
-   Tab wrapping stay in the active scope, Escape reaches the application, and
+   Tab wrapping stay in the active modal, Escape reaches the application, and
    closing restores the correct prior focus.
 8. Trigger Motion, layout projection, presence, and shared-layout handoffs on
    every layout primitive. Verify placement and authored animation compose
    without snaps, double transforms, or restarts.
 9. Reorder keyed children and remove layout descriptors. Verify public identity
    and native control state remain stable while presentation resets correctly.
-10. Reconnect while sticky content, a popover, and nested modal scopes are
-    present. Verify reconstruction reaches the same visible and interactive
-    result without retired focus, geometry, handlers, or private nodes.
+10. Reconnect while sticky content, a popover, and nested modals are present.
+    Verify reconstruction reaches the same visible and interactive result
+    without retired focus, geometry, handlers, or private nodes.
 11. Run the mixed performance scenario. Verify stable-frame silence, bounded
     passes, one measurement per dirty item per axis per native generation, zero
     steady managed allocation, and no scrolling round trip.

@@ -21,11 +21,11 @@ specimen, and black-box proof exist together.
 ## Planned accessibility
 
 The [accessibility design](accessibility-technical-design.md) begins only after
-the complete focus and navigation project above has shipped. Its companion
+the reduced focus and navigation project above has shipped. Its companion
 [implementation plan](accessibility-implementation-plan.md) owns semantic and
 assistive-technology behavior while consuming the completed focus coordinator.
-It does not add a ledger row until its public APIs, specimen, and black-box proof
-exist together.
+It does not add a ledger row until its public APIs, specimen, and black-box
+proof exist together.
 
 ## Shipped modules
 

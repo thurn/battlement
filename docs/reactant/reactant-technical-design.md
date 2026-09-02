@@ -27,8 +27,8 @@ behavior impossible.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines Unity element
   attachment, batched measurement, coordinate conversion, and host actions.
 - [Focus and navigation](focus-and-navigation.md) defines UI Toolkit-owned
-  focus, declarative scopes, portals, restoration, directional and roving
-  navigation, focus-visible behavior, and reconnect recovery.
+  focus, host properties and refs, modal containment and restoration,
+  focus-visible behavior, and reconnect initialization.
 - [Accessibility](accessibility-technical-design.md) defines the successor
   semantic tree, assistive-technology focus, action policies, pattern hooks,
   and Unity accessibility projection built on completed focus and navigation.

@@ -53,6 +53,48 @@ was not part of the original requested document list. Sliders, listboxes,
 modals, tabs, and input rebinding cannot preserve native default behavior
 without it.
 
+The current accessibility design deliberately stops before listboxes, tables,
+links, landmarks, and current-page state. The chess UI demonstrates a product
+need for those semantics. Before Task 1 begins, a focused accessibility
+extension must be designed, implemented, and certified. It adds only these
+host-backed patterns:
+
+- listbox and option semantics for `SelectControl`;
+- table, row, header, and cell semantics for the input bindings;
+- link semantics whose activation uses the existing external-URL request;
+- navigation and region landmarks for the review gallery; and
+- current-page state for its selected review-page button.
+
+The extension composes the existing `SemanticProps`, `InteractionProps`, and
+ordinary `FocusProps` contracts. It does not add virtual semantic nodes,
+programmatic accessibility focus, a roving-focus engine, or a second input
+navigation model. It is prerequisite work rather than a forty-first review
+page.
+
+The separate extension design may choose its public type names, but it cannot
+weaken these behavior contracts:
+
+- A listbox is one host-backed named container. Each logical option descendant
+  is a host-backed named option with application-owned selected and disabled
+  state. Option activation requests selection through its target-default
+  handler. Arrow, Home, End, typeahead, and focus movement remain
+  `SelectControl` handlers using queued ref actions.
+- A table is one host-backed named container whose logical children are rows.
+  Header cells identify their column or row scope, data cells remain in their
+  containing row, and logical ancestry supplies the relationships. These nodes
+  have no input-focus behavior unless the rendered host is independently
+  interactive.
+- A link is one named, ordinarily focusable host with an Activate action. The
+  Privacy Policy handler issues the existing typed external-URL request; the
+  semantic layer does not open URLs itself.
+- Navigation and region landmarks are named host-backed containers with no
+  actions and no implied input focus.
+- Current-page state has the exact value `Page`, is valid on a button or link,
+  and appears on exactly one review-page button in the gallery navigation.
+- Rust validation, Unity mapping, **Ditto** black-box sample inspection, and
+  VoiceOver and TalkBack evidence cover every added role, relationship, state,
+  and action. Ditto is the repository's sample scenario runner.
+
 The declarations in `samples/reactant/rules/src/assets.rs` are the source for
 the 18 existing generated assets. The
 [animation coverage ledger](animations.md#coverage-ledger) is the source for
@@ -60,11 +102,13 @@ motion timing, easing, direction, interruption, seed, and reduced-motion
 requirements. This plan uses those as pinned starting evidence instead of
 duplicating or rediscovering either design.
 
-A **certified release** is the repository's `release` ref after Tollgate has
-validated and promoted the exact candidate. Implementation begins from the
-first certified release containing every prerequisite named above. Each later
-task records its exact starting release commit in its handoff, because those
-future commit identifiers do not exist while this plan is written.
+**Tollgate** is the repository's validation and exact-promotion service. A
+**candidate** is one immutable source commit submitted to it. A **certified
+release** is the repository's `release` ref after Tollgate has validated and
+promoted that exact candidate. Implementation begins from the first certified
+release containing every prerequisite named above. Each later task records its
+exact starting release commit in its handoff, because those future commit
+identifiers do not exist while this plan is written.
 
 ## Research Basis
 
@@ -76,9 +120,10 @@ dependency order for a port. They reached these conclusions:
   lifecycle are more significant obstacles than static layout.
 - Existing generated assets should be copied into the new sample instead of
   being shared with or referenced from the Reactant rules sample.
-- Callback props, behavior-bundle forwarding, asset families, application
-  visibility, external links, and stable semantic test targeting are likely
-  Reactant improvement opportunities.
+- Application visibility, external links, and stable semantic test targeting
+  are prerequisite Reactant capabilities. Callback props, behavior-bundle
+  forwarding, and asset families may still expose authoring friction during the
+  port.
 - Browser-only diagnostics should not be ported unless they expose a
   generalized requirement that also applies to Unity applications.
 - The source contains intentional prototype behavior, including inert actions
@@ -89,10 +134,10 @@ Before the first migration, compile and runtime probes verify that the certified
 release supplies:
 
 - Flex, grid, stack, scroll, sticky, overlay, and anchored-popover layout
-- Focus scopes, focus restoration, focus-visible modality, and directional
-  navigation
+- Programmatic focus, authored inertness, modal focus containment and
+  restoration, focus-visible modality, and native directional navigation
 - Accessible custom buttons, checkboxes, sliders, tabs, listboxes, dialogs,
-  tables, and links
+  tables, links, navigation landmarks, regions, and current-page state
 - Pointer capture, committed default actions, and input-capture policies
 - Keyboard and normalized controller actions
 - Presence, keyed animation, interruption, reduced motion, and audio time
@@ -100,9 +145,10 @@ release supplies:
 - External-URL activation
 - Stable semantic targeting for black-box tests
 
-A missing capability that blocks a page is implemented as a generalized
-Reactant feature in that page's base change. Sample-specific framework adapters
-are not permitted.
+A later missing capability that blocks a page is implemented as a generalized
+Reactant feature in that page's base change. The known accessibility extension
+above must already be certified before Task 1. Sample-specific framework
+adapters are not permitted.
 
 ## Port Contract
 
@@ -118,7 +164,7 @@ The result is a routinely discoverable `samples/chess-ui` sample with:
 - Unity scene `Assets/Scenes/ChessUi.unity`
 - Rules crate `battlement-chess-ui-rules`
 - No sample-specific C# scripts
-- Standard Unity serialization, Addressables, **Ditto** black-box sample
+- Standard Unity serialization, Addressables, Ditto black-box sample
   scenarios, and sample discovery metadata
 - `chess-ui` included in the hard-coded Ditto sample list in `scripts/ci.py`
 
@@ -246,11 +292,10 @@ The following substitutions are part of the port rather than parity failures:
   `useAppleTouchWebKit` are excluded as browser diagnostic scaffolding.
 
 Potential public Reactant improvements include cloneable callback props,
-behavior-bundle forwarding, generated asset families, application visibility,
-external-link activation, and stable semantic test identifiers. Add one only
-when a page demonstrates a generalized need. Each addition includes public
-black-box tests, concise public documentation, and a refactor proving that the
-sample uses the improved API.
+behavior-bundle forwarding, and generated asset families. Add one only when a
+page demonstrates a generalized need beyond the certified prerequisite
+capability. Each addition includes public black-box tests, concise public
+documentation, and a refactor proving that the sample uses the improved API.
 
 Backward compatibility and versioning do not constrain these improvements.
 
@@ -276,16 +321,18 @@ semantic_target, capture_states
 `capture_states` is either `static` or an ordered list of named initial,
 changed, and reset states. The container is a navigation landmark named
 `Chess UI review pages`. Each item is a button named `<number>. <title>`; the
-selected button exposes `aria-current="page"`. The content is a region labelled
-by its visible page heading. Selection recreates the harness and moves focus to
-that heading. Directional controller input moves focus among navigation buttons
-without selecting; Submit activates the focused button.
+selected button exposes the extension's current-page state. The content is a
+region labelled by its visible page heading. Selection recreates the harness
+and queues focus on that heading. Directional controller input uses native
+navigation to move focus among navigation buttons without selecting; Submit
+activates the focused button.
 
 The gallery navigation:
 
 - Is vertically scrollable and remains outside the 1024x1536 design stage.
-- Scrolls the selected entry into view.
-- Exposes selected-state semantics.
+- Uses the navigation ScrollView ref's explicit `scroll_to` action to reveal the
+  selected entry.
+- Exposes current-page state on the selected review-page button.
 - Supports pointer, keyboard, and controller activation.
 - Mounts the current shared component implementations, so earlier pages improve
   as shared components and Reactant evolve.
@@ -307,7 +354,7 @@ generation and fully recreates the page harness. Re-entry, application reload,
 and relaunch reset:
 
 - Component and provider state
-- Focus and focus-visible modality
+- Focus target
 - Dropdowns, dialogs, input capture, and overlays
 - Audio playback and playhead
 - Animation clocks and keyed effect generations
@@ -323,11 +370,24 @@ time and heartbeat phase are zero, and audio is stopped at time zero. Audio
 begins only when the page or full app explicitly activates its playback
 behavior.
 
+Focus-visible presentation always follows the panel's current physical input
+modality. A pointer selection hides the heading's focus-visible treatment;
+keyboard or controller selection retains it. Resetting a page does not clear or
+replace that panel-local modality.
+
+For the review shell, an action is **unconsumed** when the focused control,
+input-capture policy, open listbox, active dialog, and application router all
+return it as unhandled.
+
 Page 40 first displays its title, description, and a launcher. Activating the
-launcher opens the complete app in a full-screen overlay without gallery chrome
-or sample-only controls. An unconsumed Escape or controller Cancel returns to
-the gallery. Pointer-only exit is intentionally absent from this temporary
-review overlay; application reload remains available.
+launcher opens the complete app in an unanchored full-screen `Overlay::layer`
+without gallery chrome or sample-only controls. The review shell authors its
+gallery-content root inert while the app is open and queues focus on the app's
+initial heading. The layer is a logical sibling of that inert root, so portal
+ancestry does not make the app inert. This layer is not a dialog and must not
+use `Overlay::modal`. An unconsumed Escape or controller Cancel closes the
+layer, removes authored inertness, and restores launcher focus. Pointer-only
+exit is intentionally absent; application reload remains available.
 
 The pages remain committed until the user explicitly accepts Task 40's final
 parity candidate and every resulting Reactant follow-up has been promoted.
@@ -378,16 +438,15 @@ approval in the candidate handoff.
 Each numbered migration is an independently promoted task. Work begins from the
 certified release containing all earlier migrations and reviewer follow-ups.
 
-**Tollgate** is the repository's validation and exact-candidate promotion
-service. A **candidate** is one immutable source commit submitted for validation
-without promotion authority. A **`wt` worktree** is the isolated checkout
-created and owned through Tollgate for one task.
+A **`wt` worktree** is the isolated checkout created and owned through Tollgate
+for one task. Initial candidate submission never grants promotion authority.
 
 The base-task workflow is:
 
 1. Create a fresh Tollgate-owned `wt` worktree from the current release.
-2. Implement one page, its resettable harness, semantic fixture, focused tests,
-   and visual evidence. Target roughly 500 non-test lines or fewer.
+2. Implement one page, its resettable harness, **semantic fixture** containing
+   its expected roles, names, states, and relationships, focused tests, and
+   visual evidence. Target roughly 500 non-test lines or fewer.
 3. Rerun smoke and reset checks for all registered pages. Recapture earlier
    pages whose shared components changed.
 4. Stage all intended changes, run focused checks and `./scripts/ci.py`, create
@@ -434,7 +493,7 @@ counterpart and produces:
 - A written no-follow-up rationale when no improvement has merit
 
 Task 1 has no TypeScript counterpart. Its reviewer instead examines gallery
-registration, scrolling, reset, selected-state semantics, and authoring
+registration, scrolling, reset, current-page state, and authoring
 ergonomics.
 
 Every confirmed sample defect is corrected before the next migration. All
@@ -498,8 +557,8 @@ player interaction. The approximate 500-line task target still applies.
 
 6. **SelectControl closed state**
 
-   "SelectControl renders selected value and caret; opening, options, focus,
-   and animation remain unasserted."
+   "SelectControl renders changing controlled values and its caret; opening,
+   options, focus, and animation remain unasserted."
 
 7. **VolumeControl layout**
 
@@ -530,8 +589,9 @@ player interaction. The approximate 500-line task target still applies.
 
 12. **Focus-visible behavior**
 
-    "Keyboard and controller focus-visible states render correctly; pointer
-    focus rings and complete controls remain unasserted."
+    "Keyboard and controller focus-visible states render correctly while
+    pointer focus hides the keyboard-only ring; complete controls remain
+    unasserted."
 
 13. **ToggleControl accessibility**
 
@@ -546,7 +606,8 @@ player interaction. The approximate 500-line task target still applies.
 15. **SelectControl keyboard and controller behavior**
 
     "SelectControl supports arrows, Home, End, typeahead, Escape, restoration,
-    and semantics; animation remains unasserted."
+    and listbox semantics through handlers and queued ref focus; animation
+    remains unasserted."
 
 16. **VolumeControl input**
 
@@ -556,12 +617,14 @@ player interaction. The approximate 500-line task target still applies.
 17. **SettingsTabs navigation**
 
     "SettingsTabs preserves four Tab stops and adds arrow and controller
-    selection; animated panels remain unasserted."
+    selection through handlers and queued ref focus; animated panels remain
+    unasserted."
 
 18. **ArcadeModal behavior**
 
     "ArcadeModal traps focus, dismisses safely, restores its opener, and
-    exposes dialog semantics; animation remains unasserted."
+    exposes dialog semantics on its modal wrapper; animation remains
+    unasserted."
 
 19. **InfoBadge and Privacy Policy**
 
@@ -716,8 +779,12 @@ player interaction. The approximate 500-line task target still applies.
     player-visible behavior remains outside this page's scope."
 
     Before this candidate, run the project's single permitted independent
-    review over the complete port. After promotion, run the ordinary required
-    port-ergonomics reviewer and the final source-coverage audit.
+    review and final source-coverage audit over the complete port. After
+    promotion, run the ordinary required port-ergonomics reviewer. If that
+    review produces a Reactant follow-up, refresh every affected source-coverage
+    and correspondence entry before the follow-up candidate. The port is not
+    complete until the final promoted follow-up, or the no-follow-up rationale,
+    retains a complete terminal audit.
 
 ## Behavioral Acceptance
 
@@ -790,7 +857,10 @@ not invent a second dialog.
 
 At 100%, settings use the source's two-column rows. At 150% and 200%, each row
 stacks its label above its control, grows by the source scale formulas, remains
-scrollable, and scrolls the focused control fully into view.
+scrollable, and scrolls the focused control fully into view. Each focusable
+control retains an `ElementRef`; its focus handler calls the containing
+ScrollView ref's explicit `scroll_to` action. The focus coordinator does not
+perform automatic reveal.
 
 Audio volume is `(master / 100) * (music / 100)`. Sound mute takes precedence,
 followed by background mute while the application is hidden. Losing focus while
@@ -840,7 +910,7 @@ All four settings tabs remain sequential Tab stops, matching the source rather
 than adopting an accessibility-guideline roving-tab-stop variation.
 
 - Arrow keys and Reactant directional controller actions wrap, move focus, and
-  select the destination tab.
+  select the destination tab through application handlers and queued ref focus.
 - Home and End select and focus the first and last tabs.
 - Tab and Shift-Tab follow ordinary document order.
 - D-pad and left stick use Reactant's normalized direction and repeat policy.
@@ -857,22 +927,19 @@ route is a no-op. The first successful navigation sets `has_navigated`, causing
 later replacements to use `ArcadeMenuTransition`. Browser history and URL state
 never participate.
 
-An action is **unconsumed** when the focused control, input-capture policy,
-open listbox, dialog scope, and application router all return it as unhandled.
-Only then may the review shell interpret Escape or controller Cancel as an exit
-from Page 40.
+Only an unconsumed action may reach the review shell, where Escape or controller
+Cancel exits Page 40.
 
 ## Automated Validation
 
 Tests should describe player-visible behavior rather than private Rust
 structure. A **fake host** is Reactant's deterministic non-Unity renderer used
-to inspect committed UI output. A **semantic fixture** is its expected roles,
-names, states, and relationships. Add focused unit tests only for genuinely
+to inspect committed UI output. Add focused unit tests only for genuinely
 complex algorithms.
 
-Pages 1--4, 10, 20, 23, and 24 are static for capture purposes. Every other
-page is interactive or time-varying and supplies named initial, changed, and
-reset states. All pages receive Ditto smoke and reset coverage; pages with a
+Pages 2--4, 10, 23, and 24 are static for capture purposes. Every other page is
+interactive or time-varying and supplies named initial, changed, and reset
+states. All pages receive Ditto smoke and reset coverage; pages with a
 meaningful interaction also receive a changed-state scenario.
 
 Every task supplies validation appropriate to its page:
@@ -888,12 +955,15 @@ Every task supplies validation appropriate to its page:
 - Ditto initial, changed, and reset scenarios for each applicable page
 - Smoke and reset checks for every previously registered page
 - Targeted screenshot recapture whenever a shared component changes
-- Unity-backend assertions for roles, names, states, relationships, table
-  semantics, dialog isolation, live announcements, and external links
+- Unity-backend assertions for roles, names, states, relationships, listbox and
+  table semantics, landmarks, current-page state, dialog isolation, live
+  announcements, and external links
 - At Task 40, a VoiceOver path through the macOS player and a TalkBack path
   through an Android player: launch, open Settings, change one tab and control,
   open and close each dialog, activate Return, and dismiss the full app
-- A Task 40 audit assigning every source line a terminal disposition
+- A Task 40 audit assigning every source line a terminal disposition; each
+  resulting Reactant follow-up refreshes its affected audit entries before
+  candidate submission
 
 The per-page smoke check opens the registered entry, finds its semantic target,
 and asserts that no error or warning was emitted. The reset check mutates every
@@ -903,14 +973,16 @@ and expected focus target.
 
 Task 40 receives the project's single independent-review pass before candidate
 submission. The required post-promotion port-ergonomics reviewer remains a
-separate review and may produce one final Reactant follow-up.
+separate review and may produce one final Reactant follow-up. That follow-up
+cannot promote until its affected source-coverage and correspondence entries
+are current and the complete audit remains terminal.
 
 ## Manual QA
 
 1. Launch `chess-ui`. Count 40 entries, read every description, navigate the
    full list with pointer, keyboard, and controller, and reselect entries. Pass
-   when selection, focus, independent scrolling, and every reset value match the
-   gallery contract.
+   when the named navigation and region, current-page state, selection, focus,
+   explicit scrolling, and every reset value match the gallery contract.
 2. Compare every visually applicable initial, changed, and reset state with its
    unchanged source crop at 1024x1536. Then capture the 2560x1440 integration
    view. Pass when geometry and pixel evidence meet the documented tolerances.
@@ -920,7 +992,8 @@ separate review and may produce one final Reactant follow-up.
    keyboard-only ring.
 4. Tab and Shift-Tab across all four settings tabs, then use every arrow,
    Home, and End. Test dropdown outside-click dismissal, Escape, typeahead, and
-   focus restoration. Pass when focus and selection follow the defined order.
+   focus restoration. Pass when focus and selection follow the defined order
+   and the dropdown publishes one listbox with the expected options.
 5. Drag sliders and use arrows, Page Up, Page Down, Home, and End. Capture a new
    shortcut, reject a conflict, cancel capture, and reset the binding. Pass when
    values, announcements, modal state, and display-only controller cells match
@@ -930,8 +1003,8 @@ separate review and may produce one final Reactant follow-up.
    content is revealed, and no text or control is clipped.
 7. With VoiceOver and TalkBack, follow the Task 40 accessibility path. Activate
    Privacy Policy through a test host. Pass when roles, names, states,
-   relationships, table semantics, dialog isolation, announcements, exact URL,
-   and focus restoration are correct.
+   relationships, listbox and table semantics, link activation, dialog
+   isolation, announcements, exact URL, and focus restoration are correct.
 8. Observe each animation normally, with reduced motion, and while interrupted.
    Toggle sound, simulate unavailable playback, change visibility, background
    mute, and volume. Pass when timing follows the ledger and heartbeat, mute,
@@ -941,5 +1014,6 @@ separate review and may produce one final Reactant follow-up.
    neither exit invokes gameplay or host shutdown and both finish on black.
 10. Confirm the full-screen app contains no gallery chrome. After dismissal,
     press an otherwise unhandled Escape or controller Cancel. Pass when the
-    review shell returns with Page 40 reset and no player-visible sample control
-    was added.
+    app layer makes gallery content inert without publishing a dialog, the
+    launcher regains focus, the review shell returns with Page 40 reset, and no
+    player-visible sample control was added.

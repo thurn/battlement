@@ -1015,18 +1015,17 @@ input capture, and pointer capture retain their specialized designs.
 
 ### Focus and navigation
 
-The focus system continues to install declarative scope membership, containment,
-restoration, and accessibility state in Unity. This lets Unity maintain valid
-focus even when no application handler runs.
+The focus system continues to install modal overlay containment, restoration,
+effective inertness, and local focus-visible state in Unity. This lets Unity
+keep an active modal valid even when no application handler runs.
 
 A synchronous key or navigation handler may call `prevent_default()` when the
 application dynamically decides that the current native navigation default
 must not run. That decision does not replace:
 
 - modal focus containment;
-- focus restoration after removal;
+- modal focus restoration after close;
 - portal-aware focus membership;
-- roving focus and explicit neighbors; or
 - native accessibility traversal.
 
 The focus design must no longer claim that Rust can never participate during an
