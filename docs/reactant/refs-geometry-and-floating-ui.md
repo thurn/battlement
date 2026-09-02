@@ -349,6 +349,10 @@ would prevent useful UI layout.
 
 ## Reactive target sets
 
+Geometry consumers retain their runtime context when native motion callbacks
+trigger a render. They read the latest coherent snapshot, just as they do after
+UI events or application-state refreshes.
+
 `use_geometry` consumes one positional hook slot regardless of target count.
 
 ```rust

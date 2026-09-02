@@ -35,3 +35,7 @@ screen = "gallery"
 [[states]]
 key = "navigation.fourth"
 screen = "gallery"
+
+[[states]]
+key = "portrait.static"
+screen = "portrait"

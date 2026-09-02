@@ -1,6 +1,6 @@
 use battlement_reactant::prelude::*;
 
-use crate::gallery;
+use crate::{gallery, portrait_harness};
 
 /// One review page and its capture contract.
 pub struct Page {
@@ -31,7 +31,7 @@ pub const ALL: [Page; 40] = [
     number: 2,
     title: "PortraitViewport",
     description: "Fixed stage scales to fit available space; responsive content reflow is not asserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: portrait_harness::render,
     semantic_target: "2. PortraitViewport",
     capture_states: &["static"],
   },

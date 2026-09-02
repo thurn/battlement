@@ -438,6 +438,9 @@ impl<G: 'static> Reactant<G> {
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
     self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
       runtime_motion::validate_batch(runtime.last_motion_sequence, &batch);
       let mut changed = false;
       for event in &batch.events {

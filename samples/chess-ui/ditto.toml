@@ -1072,3 +1072,24 @@ accessibility_assert = { target = { role = "heading", name = "ArcadeScreenRouter
 
 [[scenarios.steps]]
 screenshot = { name = "selected" }
+
+[[scenarios]]
+name = "portrait viewport"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "2. PortraitViewport" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "PortraitViewport" }, role = "heading", name = "PortraitViewport" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Main content" }, role = "region", name = "Main content", parent = { role = "region", name = "PortraitViewport" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Portrait canvas, 1024 by 1536 logical pixels" }, role = "static-text", name = "Portrait canvas, 1024 by 1536 logical pixels", parent = { role = "region", name = "Main content" } }
+
+[[scenarios.steps]]
+screenshot = { name = "static" }

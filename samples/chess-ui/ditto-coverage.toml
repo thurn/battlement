@@ -51,3 +51,9 @@ state = "navigation.fourth"
 scenario = "gallery navigation fourth"
 checkpoint = "selected"
 owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"
+
+[[mappings]]
+state = "portrait.static"
+scenario = "portrait viewport"
+checkpoint = "static"
+owner = "tests::gallery_selection_recreates_each_harness_and_restores_heading_focus"

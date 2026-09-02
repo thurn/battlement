@@ -130,8 +130,8 @@ def main() -> None:
         assert len(gate["samples"]) == 6
         assert gate["budget_seconds"] == 120
         assert gate["added_budget_seconds"] == 120
-        assert gate["scenario_count"] == 38
-        assert gate["screenshot_count"] == 93
+        assert gate["scenario_count"] == 39
+        assert gate["screenshot_count"] == 94
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)
