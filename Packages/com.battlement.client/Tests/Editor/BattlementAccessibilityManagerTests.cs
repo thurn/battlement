@@ -12,6 +12,15 @@ namespace Battlement.Tests
     public sealed class BattlementAccessibilityManagerTests
     {
         [Test]
+        public void UnnamedRowsRemainInTheirNamedTable()
+        {
+            using var fixture = new Fixture();
+            fixture.ApplySnapshot(SemanticRole.Table, SemanticRole.Row);
+            Assert.That(fixture.Manager.Mirror, Has.Count.EqualTo(2));
+            Assert.That(fixture.Manager.Active, Has.Count.EqualTo(2));
+        }
+
+        [Test]
         public void CompleteMirrorFiltersInertHostsAndRejectsStaleActions()
         {
             using var fixture = new Fixture();
@@ -92,7 +101,10 @@ namespace Battlement.Tests
             public List<UiEvent> Events { get; }
             public BattlementAccessibilityManager Manager => Documents.AccessibilityForTests;
 
-            public void ApplySnapshot() =>
+            public void ApplySnapshot(
+                SemanticRole containerRole = SemanticRole.Group,
+                SemanticRole childRole = SemanticRole.Button
+            ) =>
                 Documents.Apply(
                     new AccessibilityUpdatePayload(
                         new AccessibilitySnapshot(
@@ -104,16 +116,16 @@ namespace Battlement.Tests
                                     containerId,
                                     null,
                                     new[] { buttonId },
-                                    SemanticRole.Group,
-                                    null,
+                                    containerRole,
+                                    containerRole == SemanticRole.Table ? "Bindings" : null,
                                     new AccessibilityActionSet()
                                 ),
                                 Node(
                                     buttonId,
                                     containerId,
                                     Array.Empty<ObjectId>(),
-                                    SemanticRole.Button,
-                                    "Save changes",
+                                    childRole,
+                                    childRole == SemanticRole.Row ? null : "Save changes",
                                     new AccessibilityActionSet(Activate: true)
                                 ),
                             }

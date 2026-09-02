@@ -8,6 +8,8 @@ use crate::{Game, design_system, layout_gallery_styles as styles};
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LayoutGalleryState {
   pub(crate) active_tab: usize,
+  pub(crate) collection_choice: usize,
+  pub(crate) collection_page: usize,
   pub(crate) alternate_tracks: bool,
   pub(crate) captions_enabled: bool,
   pub(crate) disclosure_open: bool,
@@ -86,6 +88,10 @@ impl Component for LayoutGallery {
       )
       .child(self.settings())
       .child(self.accessible_settings())
+      .child(crate::collection_settings::CollectionSettings {
+        choice: self.state.collection_choice,
+        page: self.state.collection_page,
+      })
       .child(self.table())
       .child(self.dropdown(menu_anchor))
       .child(self.layers())
@@ -109,6 +115,14 @@ impl Component for LayoutGallery {
 impl LayoutGallery {
   fn controls(&self, modal_trigger: ElementRef) -> Flex {
     let announce = use_announce();
+    let reset = use_button(ButtonOptions {
+      name: text("Reset settings"),
+      is_disabled: false,
+      on_press: move |game: &mut Game| {
+        game.layout_gallery = LayoutGalleryState::default();
+        announce.send(text("Settings reset"));
+      },
+    });
     let tracks = use_button(ButtonOptions {
       name: text("Responsive tracks"),
       is_disabled: false,
@@ -167,10 +181,9 @@ impl LayoutGallery {
       .child(
         Button::new("RESET")
           .name("layout-gallery-reset")
-          .on_click(move |game: &mut Game| {
-            game.layout_gallery = LayoutGalleryState::default();
-            announce.send(text("Settings reset"));
-          }),
+          .semantic(reset.semantic)
+          .focus_props(reset.focus)
+          .interaction_props(reset.interaction),
       )
   }
 

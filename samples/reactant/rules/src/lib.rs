@@ -9,6 +9,7 @@ use std::{
 
 mod animation_validation;
 mod assets;
+mod collection_settings;
 mod composed_effects;
 mod context_memo;
 mod design_system;

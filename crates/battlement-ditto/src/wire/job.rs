@@ -173,6 +173,10 @@ pub struct AccessibilityAssertion {
   pub target: AccessibilityTarget,
   pub role: AccessibilityRole,
   pub name: String,
+  pub selected: Option<bool>,
+  pub disabled: Option<bool>,
+  pub current_page: Option<bool>,
+  pub parent: Option<AccessibilityTarget>,
 }
 
 /// A role supported by the runtime semantic mirror.
@@ -196,6 +200,16 @@ pub enum AccessibilityRole {
   Image,
   StaticText,
   Group,
+  ListBox,
+  Option,
+  Table,
+  Row,
+  ColumnHeader,
+  RowHeader,
+  Cell,
+  Link,
+  Navigation,
+  Region,
 }
 
 /// A direct action supported by the runtime callback adapter.

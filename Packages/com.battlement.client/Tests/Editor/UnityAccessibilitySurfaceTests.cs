@@ -1,6 +1,9 @@
 #nullable enable
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using Battlement.UI;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -46,6 +49,122 @@ namespace Battlement.Tests
             );
             Assert.That(typeof(AssistiveSupport).GetProperty("isScreenReaderEnabled"), Is.Not.Null);
             Assert.That(typeof(AssistiveSupport).GetProperty("activeHierarchy"), Is.Not.Null);
+        }
+
+        [TestCase(SemanticRole.ListBox, "Listbox")]
+        [TestCase(SemanticRole.Option, "Option")]
+        [TestCase(SemanticRole.Table, "Table")]
+        [TestCase(SemanticRole.Row, "Row")]
+        [TestCase(SemanticRole.ColumnHeader, "Column header")]
+        [TestCase(SemanticRole.RowHeader, "Row header")]
+        [TestCase(SemanticRole.Cell, "Cell")]
+        [TestCase(SemanticRole.Link, "Link")]
+        [TestCase(SemanticRole.Navigation, "Navigation")]
+        [TestCase(SemanticRole.Region, "Region")]
+        public void ExtendedRolesRetainMeaningInTheUnityPresentation(SemanticRole role, string hint)
+        {
+            var snapshot = new AccessibilityNodeSnapshot(
+                new ObjectId(Guid.NewGuid()),
+                null,
+                Array.Empty<ObjectId>(),
+                role,
+                "Named host",
+                "Description",
+                new SemanticState(),
+                null,
+                new AccessibilityActionSet()
+            );
+            var hierarchy = new AccessibilityHierarchy();
+            AccessibilityNode node = hierarchy.AddNode();
+            node.role = UnityAccessibilityMapping.Role(role);
+            node.label = UnityAccessibilityMapping.Label(
+                snapshot,
+                new Dictionary<Guid, AccessibilityNodeSnapshot>()
+            );
+            node.hint = snapshot.Hint;
+            Assert.That(node.hint, Is.EqualTo("Description"));
+            Assert.That(node.label, Is.EqualTo($"Named host, {hint.ToLowerInvariant()}"));
+            Assert.That(node.role, Is.Not.EqualTo(AccessibilityRole.Button));
+            hierarchy.Clear();
+        }
+
+        [Test]
+        public void DataCellLabelsIncludeTheirRowAndColumnHeaders()
+        {
+            ObjectId table = new(Guid.NewGuid());
+            ObjectId headings = new(Guid.NewGuid());
+            ObjectId row = new(Guid.NewGuid());
+            ObjectId action = new(Guid.NewGuid());
+            ObjectId keyboard = new(Guid.NewGuid());
+            ObjectId move = new(Guid.NewGuid());
+            ObjectId key = new(Guid.NewGuid());
+            var nodes = new[]
+            {
+                CellNode(table, null, SemanticRole.Table, "Bindings", headings, row),
+                CellNode(headings, table, SemanticRole.Row, null, action, keyboard),
+                CellNode(row, table, SemanticRole.Row, null, move, key),
+                CellNode(action, headings, SemanticRole.ColumnHeader, "Action"),
+                CellNode(keyboard, headings, SemanticRole.ColumnHeader, "Keyboard"),
+                CellNode(move, row, SemanticRole.RowHeader, "Move"),
+                CellNode(key, row, SemanticRole.Cell, "W"),
+            }.ToDictionary(node => node.ObjectId.Value);
+            Assert.That(
+                UnityAccessibilityMapping.Label(nodes[key.Value], nodes),
+                Is.EqualTo("W, Move, Keyboard, cell")
+            );
+            nodes.Remove(keyboard.Value);
+            Assert.That(
+                UnityAccessibilityMapping.Label(nodes[key.Value], nodes),
+                Is.EqualTo("W, Move, cell")
+            );
+        }
+
+        private static AccessibilityNodeSnapshot CellNode(
+            ObjectId id,
+            ObjectId? parent,
+            SemanticRole role,
+            string? label,
+            params ObjectId[] children
+        ) =>
+            new(
+                id,
+                parent,
+                children,
+                role,
+                label,
+                null,
+                new SemanticState(),
+                null,
+                new AccessibilityActionSet()
+            );
+
+        [Test]
+        public void CurrentPageIsDistinctFromSelectedAndSurvivesProtocolDecoding()
+        {
+            var snapshot = new AccessibilityNodeSnapshot(
+                new ObjectId(Guid.NewGuid()),
+                null,
+                Array.Empty<ObjectId>(),
+                SemanticRole.Button,
+                "Gallery",
+                null,
+                new SemanticState(Current: CurrentPage.Page),
+                null,
+                new AccessibilityActionSet(Activate: true)
+            );
+            Assert.That(
+                UnityAccessibilityMapping.Label(
+                    snapshot,
+                    new Dictionary<Guid, AccessibilityNodeSnapshot>()
+                ),
+                Is.EqualTo("Gallery, current page")
+            );
+            Assert.That(snapshot.State.Selected, Is.Null);
+            SemanticState decoded = JsonConvert.DeserializeObject<SemanticState>(
+                "{\"Current\":\"Page\"}",
+                new StringEnumConverter { AllowIntegerValues = false }
+            )!;
+            Assert.That(decoded.Current, Is.EqualTo(CurrentPage.Page));
         }
 
         [Test]

@@ -25,6 +25,22 @@ namespace Battlement
         Image,
         StaticText,
         Group,
+        ListBox,
+        Option,
+        Table,
+        Row,
+        ColumnHeader,
+        RowHeader,
+        Cell,
+        Link,
+        Navigation,
+        Region,
+    }
+
+    /// <summary>The current location represented by a button or link.</summary>
+    public enum CurrentPage
+    {
+        Page,
     }
 
     /// <summary>Canonical checked state.</summary>
@@ -55,7 +71,8 @@ namespace Battlement
         CheckedState? Checked = null,
         bool? Selected = null,
         bool? Expanded = null,
-        bool Busy = false
+        bool Busy = false,
+        CurrentPage? Current = null
     );
 
     /// <summary>Resolved finite range value.</summary>

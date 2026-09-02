@@ -308,9 +308,9 @@ def validate_inventory() -> tuple[dict[str, list[str]], int, int]:
         screenshots += sum(
             len(scenario["screenshots"]) for scenario in selected_suites[sample]
         )
-    if scenarios * 2 != available_scenarios:
+    if scenarios != (available_scenarios + 1) // 2:
         raise RuntimeError(
-            f"Ditto CI inventory must select exactly half of {available_scenarios} scenarios"
+            f"Ditto CI inventory must select half of {available_scenarios} scenarios, rounded up"
         )
     encoded = json.dumps(
         selected_suites, sort_keys=True, separators=(",", ":")

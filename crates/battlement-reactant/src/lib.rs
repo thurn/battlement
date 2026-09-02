@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 
 pub mod accessibility;
+pub mod accessibility_collections;
 pub mod animation_controls;
 pub mod announcement;
 pub mod asset_generator;

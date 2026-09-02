@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
 using NUnit.Framework;
@@ -11,6 +12,31 @@ namespace Battlement.Tests
 {
     public sealed class BattlementStackLayoutTests
     {
+        [TestCase(true)]
+        [TestCase(false)]
+        public void DetachedTextDoesNotAttemptPanelDependentMeasurement(bool grid)
+        {
+            var warnings = new List<string>();
+            void Record(string message, string trace, LogType type)
+            {
+                if (type == LogType.Warning)
+                    warnings.Add(message);
+            }
+            Application.logMessageReceived += Record;
+            try
+            {
+                var container = new BattlementLayoutContainer(
+                    grid ? BattlementLayoutContainerKind.Grid : BattlementLayoutContainerKind.Stack
+                );
+                container.Adapter.Insert(new Label("Readable settings"), 0);
+                Assert.That(warnings, Is.Empty);
+            }
+            finally
+            {
+                Application.logMessageReceived -= Record;
+            }
+        }
+
         [Test]
         public void PresentationSortsByOrderThenCurrentLogicalIndex()
         {

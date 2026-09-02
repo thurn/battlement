@@ -135,7 +135,11 @@ namespace Battlement
     internal sealed record DittoAccessibilityAssertion(
         DittoAccessibilityTarget Target,
         SemanticRole Role,
-        string Name
+        string Name,
+        bool? Selected = null,
+        bool? Disabled = null,
+        bool? CurrentPage = null,
+        DittoAccessibilityTarget? Parent = null
     );
 
     internal abstract record DittoInputTarget

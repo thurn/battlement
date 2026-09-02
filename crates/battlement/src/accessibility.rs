@@ -41,6 +41,33 @@ pub enum SemanticRole {
   StaticText,
   /// A structural group.
   Group,
+  /// A named single-selection list.
+  ListBox,
+  /// One listbox choice.
+  Option,
+  /// A named table of rows.
+  Table,
+  /// One table row.
+  Row,
+  /// A header identifying a table column.
+  ColumnHeader,
+  /// A header identifying a table row.
+  RowHeader,
+  /// One table data cell.
+  Cell,
+  /// An activatable link.
+  Link,
+  /// A named navigation landmark.
+  Navigation,
+  /// A named content landmark.
+  Region,
+}
+
+/// The current location represented by a button or link.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum CurrentPage {
+  /// The currently displayed page.
+  Page,
 }
 
 /// Canonical checked state.
@@ -85,6 +112,8 @@ pub struct SemanticState {
   pub expanded: Option<bool>,
   /// Whether a progress indicator is indeterminate.
   pub busy: bool,
+  /// Whether this button or link represents the current page.
+  pub current: Option<CurrentPage>,
 }
 
 /// Resolved finite range value.

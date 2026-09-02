@@ -65,6 +65,7 @@ pub(crate) fn build(
     }
   }
   validate_memberships(&drafts, runtime_id, attachments, &indexes, &roots);
+  validate_collections(&drafts, &indexes);
   let mut nodes = Vec::with_capacity(drafts.len());
   for draft in &drafts {
     let mut resolving = HashSet::new();
@@ -430,7 +431,7 @@ fn canonical_root(
 fn requires_name(role: SemanticRole) -> bool {
   !matches!(
     role,
-    SemanticRole::Group | SemanticRole::TabPanel | SemanticRole::ScrollArea
+    SemanticRole::Group | SemanticRole::TabPanel | SemanticRole::ScrollArea | SemanticRole::Row
   )
 }
 
@@ -440,4 +441,55 @@ fn is_actionable(value: &SemanticProps) -> bool {
 
 fn normalize(value: &str) -> String {
   value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn validate_collections(drafts: &[Draft<'_>], indexes: &HashMap<ObjectId, usize>) {
+  let mut selections = HashSet::new();
+  let mut current_pages = HashSet::new();
+  for draft in drafts {
+    let role = draft.semantic.role;
+    let parent = draft.parent.map(|id| &drafts[indexes[&id]]);
+    let expected = match role {
+      SemanticRole::Option => Some(SemanticRole::ListBox),
+      SemanticRole::Row => Some(SemanticRole::Table),
+      SemanticRole::Cell | SemanticRole::ColumnHeader | SemanticRole::RowHeader => {
+        Some(SemanticRole::Row)
+      }
+      _ => None,
+    };
+    if let Some(expected) = expected {
+      assert_eq!(
+        parent.map(|value| value.semantic.role),
+        Some(expected),
+        "collection item must belong to its semantic container"
+      );
+    }
+    if let Some(parent) = parent {
+      let valid_child = match parent.semantic.role {
+        SemanticRole::ListBox => role == SemanticRole::Option,
+        SemanticRole::Table => role == SemanticRole::Row,
+        SemanticRole::Row => matches!(
+          role,
+          SemanticRole::Cell | SemanticRole::ColumnHeader | SemanticRole::RowHeader
+        ),
+        _ => true,
+      };
+      assert!(valid_child, "invalid semantic collection child");
+      if role == SemanticRole::Option && draft.semantic.state.selected == Some(true) {
+        assert!(
+          selections.insert(parent.id),
+          "listbox cannot contain multiple selected options"
+        );
+      }
+    }
+    if draft.semantic.state.current.is_some()
+      && let Some(navigation) =
+        nearest_role(draft.parent, SemanticRole::Navigation, drafts, indexes)
+    {
+      assert!(
+        current_pages.insert(navigation),
+        "navigation cannot contain multiple current pages"
+      );
+    }
+  }
 }

@@ -976,3 +976,87 @@ click = { target = [0.836, 0.308] }
 
 [[scenarios.steps]]
 video = { action = "stop" }
+
+[[scenarios]]
+name = "collection accessibility"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.065] }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "navigation", name = "Settings pages" }, role = "navigation", name = "Settings pages" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Collection settings" }, role = "region", name = "Collection settings" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "list-box", name = "Display quality" }, role = "list-box", name = "Display quality" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "table", name = "Keyboard bindings" }, role = "table", name = "Keyboard bindings" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "column-header", name = "Keyboard" }, role = "column-header", name = "Keyboard" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "row-header", name = "Move" }, role = "row-header", name = "Move" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "W" }, role = "cell", name = "W" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "link", name = "Documentation link" }, role = "link", name = "Documentation link" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Controls page" }, role = "button", name = "Controls page", current_page = true, parent = { role = "navigation", name = "Settings pages" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Standard" }, role = "option", name = "Standard", selected = true, disabled = false, parent = { role = "list-box", name = "Display quality" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Unavailable" }, role = "option", name = "Unavailable", selected = false, disabled = true }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "High" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Bindings page" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "link", name = "Documentation link" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "High" }, role = "option", name = "High", selected = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Standard" }, role = "option", name = "Standard", selected = false }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Controls page" }, role = "button", name = "Controls page", current_page = false }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Bindings page" }, role = "button", name = "Bindings page", current_page = true }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reset settings" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Standard" }, role = "option", name = "Standard", selected = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Controls page" }, role = "button", name = "Controls page", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Bindings page" }, role = "button", name = "Bindings page", current_page = false }

@@ -121,6 +121,17 @@ namespace Battlement
             bool matched =
                 node.Role == assertion.Role
                 && string.Equals(node.Label, assertion.Name, StringComparison.Ordinal);
+            if (assertion.Selected.HasValue)
+                matched &= node.State.Selected == assertion.Selected;
+            if (assertion.Disabled.HasValue)
+                matched &= node.State.Disabled == assertion.Disabled;
+            if (assertion.CurrentPage.HasValue)
+                matched &= (node.State.Current == CurrentPage.Page) == assertion.CurrentPage;
+            if (assertion.Parent is not null)
+            {
+                AccessibilityNodeSnapshot[] parents = AccessibilityMatches(assertion.Parent);
+                matched &= parents.Length == 1 && node.ParentId == parents[0].ObjectId;
+            }
             return new DittoConditionResult(
                 matched,
                 true,

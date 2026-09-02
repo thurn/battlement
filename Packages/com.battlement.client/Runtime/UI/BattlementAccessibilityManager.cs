@@ -285,7 +285,8 @@ namespace Battlement.UI
             role
                 is not SemanticRole.Group
                     and not SemanticRole.TabPanel
-                    and not SemanticRole.ScrollArea;
+                    and not SemanticRole.ScrollArea
+                    and not SemanticRole.Row;
 
         private static BattlementUiException Failure(string message) =>
             new(CoreErrorCode.InvalidProperty, message);

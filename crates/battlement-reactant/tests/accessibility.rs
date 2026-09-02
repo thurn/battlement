@@ -1,11 +1,12 @@
 use battlement::{
-  AccessibilityAction, AccessibilityUpdate, CameraState, CommandBody, GameObject, ObjectId,
-  PreparedAsset, Scene, SceneId, SemanticRole, SessionId, Snapshot, UiAccessibilityAction,
-  UiAccessibilityActionEvent, UiDocument, UiDocumentState, UiEvent, UiEventBody,
-  UiEventDisposition,
+  AccessibilityAction, AccessibilityUpdate, CameraState, CommandBody, CurrentPage, GameObject,
+  ObjectId, PreparedAsset, Scene, SceneId, SemanticRole, SessionId, Snapshot,
+  UiAccessibilityAction, UiAccessibilityActionEvent, UiDocument, UiDocumentState, UiEvent,
+  UiEventBody, UiEventDisposition,
 };
 use battlement_reactant::{
-  accessibility::{ButtonOptions, use_button},
+  accessibility::{ButtonOptions, ChoiceOptions, use_button},
+  accessibility_collections as collections,
   component::Component,
   element_ref::use_element_ref,
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -18,6 +19,7 @@ use battlement_reactant::{
 #[derive(Default)]
 struct Game {
   presses: usize,
+  selection: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -206,6 +208,196 @@ fn protocol_round_trips_direct_actions_and_complete_snapshot() {
     battlement::json::from_slice::<AccessibilityAction>(&bytes).unwrap(),
     action
   );
+}
+
+#[test]
+fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
+  let document = document();
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), collection_fixture);
+  let mut game = Game::default();
+  let groups = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_parts(snapshot(&document))
+    .1
+    .into_groups();
+  let initial = accessibility_update(&groups).snapshot.as_ref().unwrap();
+  let by_name = |name: &str| {
+    initial
+      .nodes
+      .iter()
+      .find(|node| node.label.as_deref() == Some(name))
+      .unwrap()
+  };
+  let navigation = by_name("Review pages");
+  assert_eq!(navigation.role, SemanticRole::Navigation);
+  let page = by_name("Gallery shell");
+  assert_eq!(page.state.current, Some(CurrentPage::Page));
+  assert_eq!(page.parent_id, Some(navigation.object_id));
+  let region = by_name("Settings");
+  assert_eq!(region.role, SemanticRole::Region);
+  let table = by_name("Bindings");
+  let row = initial
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Row)
+    .unwrap();
+  assert_eq!(row.parent_id, Some(table.object_id));
+  for (name, role) in [
+    ("Keyboard", SemanticRole::ColumnHeader),
+    ("Move", SemanticRole::RowHeader),
+    ("W", SemanticRole::Cell),
+  ] {
+    assert_eq!(by_name(name).parent_id, Some(row.object_id));
+    assert_eq!(by_name(name).role, role);
+    assert!(!by_name(name).actions.activate);
+  }
+  let listbox = by_name("Quality");
+  let selected = by_name("Standard");
+  assert_eq!(selected.parent_id, Some(listbox.object_id));
+  assert_eq!(selected.state.selected, Some(true));
+  let high = by_name("High").object_id;
+  let unavailable = by_name("Unavailable").object_id;
+  let link = by_name("Privacy policy").object_id;
+  assert_eq!(by_name("Privacy policy").role, SemanticRole::Link);
+  assert!(by_name("Privacy policy").actions.activate);
+  let result = runtime.dispatch(&mut game, activation(high)).unwrap();
+  assert_eq!(game.selection, 1);
+  let groups = result.into_groups();
+  let changed = accessibility_update(&groups).snapshot.as_ref().unwrap();
+  assert_eq!(
+    changed
+      .nodes
+      .iter()
+      .filter(|node| node.state.selected == Some(true))
+      .count(),
+    1
+  );
+  assert_eq!(
+    changed
+      .nodes
+      .iter()
+      .find(|node| node.object_id == high)
+      .unwrap()
+      .state
+      .selected,
+    Some(true)
+  );
+  let _ = runtime
+    .dispatch(&mut game, activation(unavailable))
+    .unwrap()
+    .into_groups();
+  assert_eq!(game.selection, 1);
+  let _ = runtime
+    .dispatch(&mut game, activation(link))
+    .unwrap()
+    .into_groups();
+  assert_eq!(game.presses, 1);
+  let bytes = battlement::json::to_vec(initial).unwrap();
+  assert_eq!(
+    battlement::json::from_slice::<battlement::AccessibilitySnapshot>(&bytes).unwrap(),
+    *initial
+  );
+  let _ = runtime.shutdown(&mut game).into_groups();
+}
+
+#[test]
+fn invalid_collection_relationships_and_page_states_fail_before_commit() {
+  let cases = [
+    View::new().semantic(collections::use_row()),
+    View::new()
+      .semantic(collections::use_listbox(text("Quality")))
+      .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
+    View::new()
+      .semantic(collections::use_table(text("Bindings")))
+      .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
+    View::new().semantic(collections::use_region(text("Settings")).state(
+      battlement::SemanticState {
+        current: Some(CurrentPage::Page),
+        ..Default::default()
+      },
+    )),
+  ];
+  for view in cases {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      let mut runtime = Reactant::new(IdleSpawner);
+      runtime.register_root(document(), move |_game: &Game| view.clone());
+      runtime.begin_session(&mut Game::default()).is_err()
+    }));
+    assert!(result.is_err() || result.unwrap());
+  }
+}
+
+fn collection_fixture(game: &Game) -> View {
+  let mut page = use_button(ButtonOptions {
+    name: text("Gallery shell"),
+    is_disabled: false,
+    on_press: |_game: &mut Game| {},
+  });
+  page.semantic.state.current = Some(CurrentPage::Page);
+  let link = collections::use_link(ButtonOptions {
+    name: text("Privacy policy"),
+    is_disabled: false,
+    on_press: |game: &mut Game| game.presses += 1,
+  });
+  View::new().child((
+    View::new()
+      .semantic(collections::use_navigation(text("Review pages")))
+      .child(
+        View::new()
+          .semantic(page.semantic)
+          .focus_props(page.focus)
+          .interaction_props(page.interaction),
+      ),
+    View::new()
+      .semantic(collections::use_region(text("Settings")))
+      .child((
+        View::new()
+          .semantic(collections::use_listbox(text("Quality")))
+          .child(
+            ["Standard", "High", "Unavailable"]
+              .into_iter()
+              .enumerate()
+              .map(|(index, name)| {
+                let option = collections::use_option(ChoiceOptions {
+                  name: text(name),
+                  selected: game.selection == index,
+                  is_disabled: index == 2,
+                  on_select: move |game: &mut Game| game.selection = index,
+                });
+                View::new()
+                  .semantic(option.semantic)
+                  .focus_props(option.focus)
+                  .interaction_props(option.interaction)
+              })
+              .collect::<Vec<_>>(),
+          ),
+        View::new()
+          .semantic(collections::use_table(text("Bindings")))
+          .child(View::new().semantic(collections::use_row()).child((
+            Label::new("Keyboard").semantic(collections::use_column_header(text("Keyboard"))),
+            Label::new("Move").semantic(collections::use_row_header(text("Move"))),
+            Label::new("W").semantic(collections::use_cell(text("W"))),
+          ))),
+        View::new()
+          .semantic(link.semantic)
+          .focus_props(link.focus)
+          .interaction_props(link.interaction),
+      )),
+  ))
+}
+
+fn activation(target: ObjectId) -> UiEvent {
+  UiEvent::new(
+    target,
+    true,
+    false,
+    UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action: UiAccessibilityAction::Activate,
+    }),
+  )
 }
 
 fn accessibility_update(groups: &[Vec<CommandBody>]) -> &AccessibilityUpdate {

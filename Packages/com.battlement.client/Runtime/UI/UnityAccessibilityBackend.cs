@@ -5,13 +5,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Accessibility;
 using UnityEngine.UIElements;
-using NativeRole = UnityEngine.Accessibility.AccessibilityRole;
 using NativeScrollDirection = UnityEngine.Accessibility.AccessibilityScrollDirection;
 using NativeState = UnityEngine.Accessibility.AccessibilityState;
 
 namespace Battlement.UI
 {
-    /// <summary>Publishes the active semantic mirror through Unity mobile accessibility.</summary>
+    /// <summary>Publishes the active semantic mirror through Unity accessibility.</summary>
     internal sealed class UnityAccessibilityBackend : IDisposable
     {
         private readonly Func<AccessibilityEvent, bool> dispatch;
@@ -32,7 +31,7 @@ namespace Battlement.UI
             AssistiveSupport.screenReaderStatusChanged += OnStatusChanged;
         }
 
-        public bool Available => IsMobilePlayer && AssistiveSupport.isScreenReaderEnabled;
+        public bool Available => IsSupportedPlayer && AssistiveSupport.isScreenReaderEnabled;
 
         public void Dispose()
         {
@@ -83,7 +82,7 @@ namespace Battlement.UI
 
         public void Clear()
         {
-            if (ReferenceEquals(AssistiveSupport.activeHierarchy, hierarchy))
+            if (IsSupportedPlayer && ReferenceEquals(AssistiveSupport.activeHierarchy, hierarchy))
                 AssistiveSupport.activeHierarchy = null;
             hierarchy?.Clear();
             hierarchy = null;
@@ -102,10 +101,10 @@ namespace Battlement.UI
             AccessibilityNodeSnapshot snapshot = snapshots[id];
             AccessibilityNode node = targetHierarchy.AddNode(id.ToString("D"), parent);
             targetNodes.Add(id, node);
-            node.label = snapshot.Label ?? string.Empty;
+            node.label = UnityAccessibilityMapping.Label(snapshot, snapshots);
             node.hint = snapshot.Hint ?? string.Empty;
-            node.value = snapshot.Value?.Text ?? snapshot.Value?.Current.ToString() ?? string.Empty;
-            node.role = MapRole(snapshot.Role);
+            node.value = UnityAccessibilityMapping.Value(snapshot);
+            node.role = UnityAccessibilityMapping.Role(snapshot.Role);
             node.state = MapState(snapshot.State);
             node.frameGetter = () => resolveElement(id)?.worldBound ?? default;
             BindActions(node, snapshot, generation);
@@ -207,22 +206,6 @@ namespace Battlement.UI
                 );
         }
 
-        private static NativeRole MapRole(SemanticRole role) =>
-            role switch
-            {
-                SemanticRole.Button or SemanticRole.Disclosure => NativeRole.Button,
-                SemanticRole.Checkbox or SemanticRole.Switch or SemanticRole.Radio =>
-                    NativeRole.Toggle,
-                SemanticRole.Slider => NativeRole.Slider,
-                SemanticRole.TabList => NativeRole.TabBar,
-                SemanticRole.Tab => NativeRole.TabButton,
-                SemanticRole.Heading => NativeRole.Header,
-                SemanticRole.Image => NativeRole.Image,
-                SemanticRole.StaticText or SemanticRole.Progress => NativeRole.StaticText,
-                SemanticRole.ScrollArea => NativeRole.ScrollView,
-                _ => NativeRole.Container,
-            };
-
         private static NativeState MapState(SemanticState state)
         {
             NativeState result = NativeState.None;
@@ -237,7 +220,11 @@ namespace Battlement.UI
 
         private void OnStatusChanged(bool available) => statusChanged(available);
 
-        private static bool IsMobilePlayer =>
-            Application.platform is RuntimePlatform.IPhonePlayer or RuntimePlatform.Android;
+        private static bool IsSupportedPlayer =>
+            Application.platform
+                is RuntimePlatform.IPhonePlayer
+                    or RuntimePlatform.Android
+                    or RuntimePlatform.OSXPlayer
+                    or RuntimePlatform.WindowsPlayer;
     }
 }

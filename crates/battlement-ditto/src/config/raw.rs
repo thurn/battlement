@@ -172,6 +172,10 @@ pub(super) struct RawAccessibilityAssertion {
   pub target: RawAccessibilityTarget,
   pub role: RawAccessibilityRole,
   pub name: String,
+  pub selected: Option<bool>,
+  pub disabled: Option<bool>,
+  pub current_page: Option<bool>,
+  pub parent: Option<RawAccessibilityTarget>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -201,6 +205,16 @@ pub(super) enum RawAccessibilityRole {
   Image,
   StaticText,
   Group,
+  ListBox,
+  Option,
+  Table,
+  Row,
+  ColumnHeader,
+  RowHeader,
+  Cell,
+  Link,
+  Navigation,
+  Region,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]

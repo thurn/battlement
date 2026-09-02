@@ -14,6 +14,7 @@ than the specimen.
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
 | `accessibility` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees`, `accessibility.rs::accessibility_activation_uses_the_ordinary_logical_event_path` |
+| `accessibility_collections` | Layout Gallery | `accessibility.rs::collections_preserve_roles_ancestry_current_page_and_controlled_selection`, `accessibility.rs::invalid_collection_relationships_and_page_states_fail_before_commit` |
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
 | `announcement` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees` |
 | `asset_generator` | Assets | `composition.rs::assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |

@@ -179,13 +179,31 @@ namespace Battlement
 
         private static DittoAccessibilityAssertion AccessibilityAssertion(JObject value)
         {
-            Exact(value, "target", "role", "name");
+            Exact(
+                value,
+                "target",
+                "role",
+                "name",
+                "selected",
+                "disabled",
+                "current_page",
+                "parent"
+            );
             return new DittoAccessibilityAssertion(
                 AccessibilityTarget(Object(Field(value, "target"), "target")),
                 AccessibilityRole(Field(value, "role")),
-                String(Field(value, "name"))
+                String(Field(value, "name")),
+                NullableBoolean(Field(value, "selected")),
+                NullableBoolean(Field(value, "disabled")),
+                NullableBoolean(Field(value, "current_page")),
+                value["parent"]!.Type == JTokenType.Null
+                    ? null
+                    : AccessibilityTarget(Object(Field(value, "parent"), "parent"))
             );
         }
+
+        private static bool? NullableBoolean(JToken value) =>
+            value.Type == JTokenType.Null ? null : Boolean(value);
 
         private static DittoStepAction.AccessibilityAction AccessibilityActionStep(JObject value)
         {
@@ -225,6 +243,16 @@ namespace Battlement
                 "image" => SemanticRole.Image,
                 "static-text" => SemanticRole.StaticText,
                 "group" => SemanticRole.Group,
+                "list-box" => SemanticRole.ListBox,
+                "option" => SemanticRole.Option,
+                "table" => SemanticRole.Table,
+                "row" => SemanticRole.Row,
+                "column-header" => SemanticRole.ColumnHeader,
+                "row-header" => SemanticRole.RowHeader,
+                "cell" => SemanticRole.Cell,
+                "link" => SemanticRole.Link,
+                "navigation" => SemanticRole.Navigation,
+                "region" => SemanticRole.Region,
                 var unknown => throw new JsonSerializationException(
                     $"Unknown accessibility role {unknown}."
                 ),

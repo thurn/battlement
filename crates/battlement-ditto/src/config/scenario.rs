@@ -211,6 +211,13 @@ fn step_value(
         &format!("{key}.accessibility_assert.name"),
         assertion.name,
       )?,
+      selected: assertion.selected,
+      disabled: assertion.disabled,
+      current_page: assertion.current_page,
+      parent: assertion
+        .parent
+        .map(|target| accessibility_target(validation, &key, target))
+        .transpose()?,
     })
   } else if let Some(action) = raw.accessibility_action.take() {
     StepKind::AccessibilityAction {
@@ -306,6 +313,16 @@ fn accessibility_role(value: RawAccessibilityRole) -> AccessibilityRole {
     RawAccessibilityRole::Image => AccessibilityRole::Image,
     RawAccessibilityRole::StaticText => AccessibilityRole::StaticText,
     RawAccessibilityRole::Group => AccessibilityRole::Group,
+    RawAccessibilityRole::ListBox => AccessibilityRole::ListBox,
+    RawAccessibilityRole::Option => AccessibilityRole::Option,
+    RawAccessibilityRole::Table => AccessibilityRole::Table,
+    RawAccessibilityRole::Row => AccessibilityRole::Row,
+    RawAccessibilityRole::ColumnHeader => AccessibilityRole::ColumnHeader,
+    RawAccessibilityRole::RowHeader => AccessibilityRole::RowHeader,
+    RawAccessibilityRole::Cell => AccessibilityRole::Cell,
+    RawAccessibilityRole::Link => AccessibilityRole::Link,
+    RawAccessibilityRole::Navigation => AccessibilityRole::Navigation,
+    RawAccessibilityRole::Region => AccessibilityRole::Region,
   }
 }
 

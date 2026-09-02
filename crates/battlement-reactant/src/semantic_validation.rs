@@ -56,8 +56,14 @@ fn validate_role(value: &SemanticProps) {
       "scroll axis is only valid for scroll-area semantics"
     );
   }
+  if !matches!(value.role, SemanticRole::Button | SemanticRole::Link) {
+    assert!(
+      value.state.current.is_none(),
+      "current page requires a button or link"
+    );
+  }
   match value.role {
-    SemanticRole::Button => {
+    SemanticRole::Button | SemanticRole::Link => {
       validate_disabled_only_state(value);
       assert!(
         value.value.is_none(),
@@ -84,7 +90,7 @@ fn validate_role(value: &SemanticProps) {
       );
       assert_activate_only(actions);
     }
-    SemanticRole::Radio | SemanticRole::Tab => {
+    SemanticRole::Radio | SemanticRole::Tab | SemanticRole::Option => {
       validate_disabled_only_state_except_selected(value);
       assert!(
         value.state.selected.is_some(),
@@ -148,7 +154,15 @@ fn validate_role(value: &SemanticProps) {
     | SemanticRole::TabPanel
     | SemanticRole::Image
     | SemanticRole::StaticText
-    | SemanticRole::Group => validate_passive(value),
+    | SemanticRole::Group
+    | SemanticRole::ListBox
+    | SemanticRole::Table
+    | SemanticRole::Row
+    | SemanticRole::ColumnHeader
+    | SemanticRole::RowHeader
+    | SemanticRole::Cell
+    | SemanticRole::Navigation
+    | SemanticRole::Region => validate_passive(value),
   }
 }
 

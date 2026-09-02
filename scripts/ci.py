@@ -769,11 +769,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         "Test CI Cache",
         [sys.executable, "scripts/tests/ci-cache.test.py"],
     )
-    if full:
-        run_step(
-            "Test Ditto CI",
-            [sys.executable, "scripts/tests/ditto-ci.test.py"],
-        )
+    run_step(
+        "Test Ditto CI",
+        [sys.executable, "scripts/tests/ditto-ci.test.py"],
+    )
     if full and ditto:
         run_step(
             "Test Ditto performance benchmark",

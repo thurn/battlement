@@ -210,6 +210,10 @@ fn resolved_step(
           target: accessibility_target(&assertion.target),
           role: accessibility_role(assertion.role),
           name: assertion.name.clone(),
+          selected: assertion.selected,
+          disabled: assertion.disabled,
+          current_page: assertion.current_page,
+          parent: assertion.parent.as_ref().map(accessibility_target),
         })
       }
       AuthoredStepKind::AccessibilityAction { target, action } => StepKind::AccessibilityAction {
@@ -260,6 +264,16 @@ fn accessibility_role(value: crate::config::model::AccessibilityRole) -> Accessi
     crate::config::model::AccessibilityRole::Image => AccessibilityRole::Image,
     crate::config::model::AccessibilityRole::StaticText => AccessibilityRole::StaticText,
     crate::config::model::AccessibilityRole::Group => AccessibilityRole::Group,
+    crate::config::model::AccessibilityRole::ListBox => AccessibilityRole::ListBox,
+    crate::config::model::AccessibilityRole::Option => AccessibilityRole::Option,
+    crate::config::model::AccessibilityRole::Table => AccessibilityRole::Table,
+    crate::config::model::AccessibilityRole::Row => AccessibilityRole::Row,
+    crate::config::model::AccessibilityRole::ColumnHeader => AccessibilityRole::ColumnHeader,
+    crate::config::model::AccessibilityRole::RowHeader => AccessibilityRole::RowHeader,
+    crate::config::model::AccessibilityRole::Cell => AccessibilityRole::Cell,
+    crate::config::model::AccessibilityRole::Link => AccessibilityRole::Link,
+    crate::config::model::AccessibilityRole::Navigation => AccessibilityRole::Navigation,
+    crate::config::model::AccessibilityRole::Region => AccessibilityRole::Region,
   }
 }
 

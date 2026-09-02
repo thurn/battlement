@@ -265,7 +265,11 @@ namespace Battlement.UI
             float value;
             if (AuthoredPixels(child.style.height) is float authored)
                 value = authored;
-            else if (child is TextElement text && !string.IsNullOrEmpty(text.text))
+            else if (
+                child is TextElement text
+                && !string.IsNullOrEmpty(text.text)
+                && child.panel is not null
+            )
                 value = text.MeasureTextSize(
                     text.text,
                     Math.Max(0, width),
@@ -286,7 +290,11 @@ namespace Battlement.UI
 
         private static float? MeasuredTextWidth(VisualElement child)
         {
-            if (child is not TextElement text || string.IsNullOrEmpty(text.text))
+            if (
+                child is not TextElement text
+                || string.IsNullOrEmpty(text.text)
+                || child.panel is null
+            )
                 return null;
             return FinitePositive(
                 text.MeasureTextSize(

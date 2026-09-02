@@ -256,7 +256,11 @@ namespace Battlement.UI
         {
             if (AuthoredPixels(child.style.height) is float authored)
                 return authored;
-            if (child is TextElement text && !string.IsNullOrEmpty(text.text))
+            if (
+                child is TextElement text
+                && !string.IsNullOrEmpty(text.text)
+                && child.panel is not null
+            )
             {
                 Vector2 measured = text.MeasureTextSize(
                     text.text,
