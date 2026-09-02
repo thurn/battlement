@@ -211,8 +211,26 @@ Rust owns:
 - the complete focus plan sent in a reconnect snapshot.
 
 Rust must finish these decisions before returning the command batch whose
-result can receive input. An ordinary focus or navigation event cannot ask Rust
-what to do and wait for the answer.
+result can receive input. Resolution of a predeclared focus move does not depend
+on a fresh Rust policy decision. A subscribed application handler may still run
+synchronously in Rust and return the current event's default-action disposition.
+
+This is an ownership and event-phase rule, not a claim that calling Rust is too
+slow. The live decision occurs after native controls have had first refusal and
+depends on the current `FocusController`, native focus-ring or geometry
+candidate, effective eligibility, and Unity-owned roving position. Keeping that
+state in the panel coordinator avoids a second focus authority and also works
+when no application handler is subscribed.
+
+A future application requirement may justify a narrowly typed synchronous
+focus proposal alongside the event disposition. Such a proposal would name one
+target; it would not carry arbitrary response commands. Unity would retain it
+until the root bubble callback, discard it if a native control consumed or
+prevented the event, and validate the originating focus, plan generation,
+same-panel ownership, active scope, and live target eligibility. Only after the
+Rust call returned would the coordinator call `Focus()` and prevent the later
+native default. This design adds no such proposal because its current APIs need
+only synchronous prevention and predeclared navigation policy.
 
 ### Unity owns synchronous coordination
 
@@ -253,16 +271,18 @@ part of the host contract for Unity `6000.5.8f1`.
 2. The existing Input System bridge stamps keyboard or controller source before
    it dispatches `NavigationMoveEvent`, `NavigationSubmitEvent`, or
    `NavigationCancelEvent`.
-3. Native target callbacks and `ExecuteDefaultActionAtTarget` run before root
+3. The Reactant coverage callback synchronously submits a subscribed application
+   event during root trickle-down and applies its default-action disposition.
+4. Native target callbacks and `ExecuteDefaultActionAtTarget` run before root
    bubble callbacks. Built-in controls may stop propagation or prevent the
    default there.
-4. A root bubble `NavigationMoveEvent` callback sees only events that reached
+5. A root bubble `NavigationMoveEvent` callback sees only events that reached
    it. It applies a roving, explicit-neighbor, or containment rule only when the
    event is not already prevented.
-5. When the coordinator focuses a declared destination, it calls
+6. When the coordinator focuses a declared destination, it calls
    `PreventDefault()` before the later UI Toolkit default action. Otherwise it
    does nothing and UI Toolkit completes ordinary navigation.
-6. Native focus events complete through UI Toolkit. Reactant observes them and
+7. Native focus events complete through UI Toolkit. Reactant observes them and
    reads `FocusController.focusedElement` at the settle boundary.
 
 The concrete interception paths are:
@@ -1461,13 +1481,14 @@ The resolution order for an unconsumed event is:
 4. scope directional containment or looping; and
 5. no focus change.
 
-The coordinator observes the event during bubble propagation. It first forwards
-the original navigation event through the normal Reactant event path. If Rust
-returns `PreventDefault`, the coordinator makes no generic move. Otherwise, when
-the event remains unconsumed and a declared destination applies, the coordinator
-focuses the native element and calls `PreventDefault` in Unity so the remaining
-native default cannot move focus a second time. Resulting focus events then use
-the normal Reactant event path.
+The Reactant coverage callback forwards the original navigation event during
+root trickle-down. If Rust returns `PreventDefault`, Unity applies that
+disposition before native target default actions and the coordinator makes no
+generic move. Otherwise, the coordinator observes the event later during bubble
+propagation. When it remains unconsumed and a declared destination applies, the
+coordinator focuses the native element and calls `PreventDefault` in Unity so
+the remaining native default cannot move focus a second time. Resulting focus
+events then use the normal Reactant event path.
 
 Keyboard arrows set modality to `Keyboard`. D-pad and stick events set it to
 `Controller`. The existing native repeat cadence remains authoritative.
@@ -1800,6 +1821,13 @@ The performance contract is:
 - one candidate-cache rebuild per dirty panel after layout; and
 - one coalesced focus report for the final state of one input update.
 
+The first requirement preserves panel-local authority and navigation when no
+application handler is subscribed. It is not based on an assumption that the
+managed-to-Rust call is slow. The existing synchronous exchange is measured by
+the complete callback-latency gates in the events and default-actions design;
+focus benchmarks separately measure the coordinator work that follows its
+disposition.
+
 Rust diffs focus metadata with the desired tree during normal reconciliation.
 An unchanged render emits no focus command. A snapshot sends the complete plan
 once because reconnect correctness is more important than sparse reconstruction.
@@ -2100,9 +2128,13 @@ controllers.
 
 The following approaches conflict with the ownership or timing requirements.
 
-- **Centralize focus in Rust.** Rust can synchronously answer only with a
-  default-action disposition. Applying arbitrary focus commands during the
-  callback would race native controls and mutate the active propagation path.
+- **Centralize focus resolution in Rust.** A synchronous Rust query is fast
+  enough to be technically plausible, but it would need Unity to serialize or
+  mirror live native eligibility, control consumption, focus-ring and geometry
+  candidates, and ephemeral roving state. Unity would still have to validate
+  the answer and perform the move, splitting authority without adding a required
+  capability. A future narrowly typed focus proposal remains possible under the
+  validation and event-phase rules above; arbitrary focus commands do not.
 - **Replace UI Toolkit's focus ring.** A second ring would diverge from native
   control defaults, delegation, panel behavior, and future Unity fixes.
 - **Apply a complete Rust response during the event.** Tree, focus, and ref
@@ -2130,7 +2162,8 @@ true:
 
 - UI Toolkit remains the sole native focus authority.
 - Every persistent focus decision is present in Unity before its input event;
-  dynamic Rust participation is limited to the default-action disposition.
+  current APIs limit dynamic Rust participation to the default-action
+  disposition, without treating Rust call latency as an architectural barrier.
 - Ordinary controls pass native default-action conformance tests.
 - Keyed reconciliation preserves focus without a visible style flash.
 - Modal, non-modal, nested, portal, presence, and reconnect scenarios pass.
