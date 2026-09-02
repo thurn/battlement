@@ -23,6 +23,10 @@ Reactant authoring types from [Host façades](host-facades.md).
 
 [react-error-boundaries]: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 
+Host preparation finishes before descendant rendering begins. Nested host
+compositions use ordinary runtime thread stacks; applications do not need to
+flatten component boundaries or configure larger stacks.
+
 ## Component structs
 
 `Render` is a sealed trait for values Reactant can lower into an internal node

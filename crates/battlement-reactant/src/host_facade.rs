@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::{any::TypeId, boxed::Box as Boxed};
 
 use battlement::UiElement;
 
@@ -43,46 +43,41 @@ pub(crate) struct FacadeMetadata {
   pub(crate) overlay_reference: Option<OverlayReference>,
 }
 
-pub(crate) fn lower<R: 'static, H: Into<UiElement>>(
-  state: HostState<H>,
+pub(crate) fn lower<R: 'static, H: Clone + Into<UiElement>>(
+  state: &HostState<H>,
   retained_render: Option<Node>,
   sink: &mut RenderSink<'_>,
 ) {
-  let HostState {
-    host,
-    children,
-    handlers,
-    key,
-    element_ref,
-    portal_target,
-    motion,
-    semantic,
-    overlay_reference,
-  } = state;
-  let element = host.into();
+  let (metadata, element) = self::prepare_input(state, retained_render);
   assert_eq!(
     TypeId::of::<R>(),
     self::facade_descriptor(&element),
     "Reactant facade lowered through the wrong native host catalog entry"
   );
-  sink.push_facade::<R>(
-    FacadeMetadata {
-      key,
-      element_ref,
-      portal_target,
-      handlers,
-      motion,
-      semantic,
+  sink.push_facade::<R>(metadata, element, |sink| {
+    for child in &state.children {
+      child.render_into(sink);
+    }
+  });
+}
+
+fn prepare_input<H: Clone + Into<UiElement>>(
+  state: &HostState<H>,
+  retained_render: Option<Node>,
+) -> (Boxed<FacadeMetadata>, Boxed<UiElement>) {
+  (
+    Boxed::new(FacadeMetadata {
+      key: state.key.clone(),
+      element_ref: state.element_ref.clone(),
+      portal_target: state.portal_target.clone(),
+      handlers: state.handlers.clone(),
+      motion: state.motion.clone(),
+      semantic: state.semantic.clone(),
       retained_render,
-      overlay_reference,
-    },
-    element,
-    |sink| {
-      for child in children {
-        child.render_owned(sink);
-      }
-    },
-  );
+      overlay_reference: state.overlay_reference.clone(),
+    }),
+    Boxed::new(state.host.clone().into()),
+  )
 }
 
 fn facade_descriptor(element: &UiElement) -> TypeId {

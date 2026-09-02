@@ -80,3 +80,13 @@ width = 1280
 height = 800
 size_bytes = 95173
 source = "1b84bca32f32c9d5ee2a269fd362d9ad4bf52fcb08739a478d26f9e39b1cb378"
+
+[[baselines]]
+profile = "macos"
+scenario = "screen frame"
+checkpoint = "static"
+sha256 = "5c6e684a552ae690e152e31c80f67d12a41fa37dbc3931013b77f39c21295a0a"
+width = 1280
+height = 800
+size_bytes = 110354
+source = "c3e19ddc58f9716897739d0d561abd9fe5cf527f90ea10489de561985c43b47b"

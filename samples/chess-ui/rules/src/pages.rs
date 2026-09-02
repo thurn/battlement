@@ -1,6 +1,6 @@
 use battlement_reactant::prelude::*;
 
-use crate::{gallery, portrait_harness};
+use crate::{frame_harness, gallery, portrait_harness};
 
 /// One review page and its capture contract.
 pub struct Page {
@@ -39,7 +39,7 @@ pub const ALL: [Page; 40] = [
     number: 3,
     title: "ScreenFrame and ConceptFrame",
     description: "Arcade frame and clipped interior render; pulses, exits, generated skin, and controls are not asserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: frame_harness::render,
     semantic_target: "3. ScreenFrame and ConceptFrame",
     capture_states: &["static"],
   },

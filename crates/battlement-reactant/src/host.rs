@@ -789,7 +789,7 @@ macro_rules! facade {
       }
 
       fn render_into(&self, sink: &mut RenderSink<'_>) {
-        host_facade::lower::<Self, $native>(self.state.as_ref().clone(), None, sink);
+        host_facade::lower::<Self, $native>(self.state.as_ref(), None, sink);
       }
 
       fn render_owned(self, sink: &mut RenderSink<'_>) {
@@ -801,7 +801,7 @@ macro_rules! facade {
           render: Rc::clone(&self) as Rc<dyn crate::render_value::ErasedRender>,
           descriptor: TypeId::of::<Self>(),
         });
-        host_facade::lower::<Self, $native>(self.state.as_ref().clone(), retained_render, sink);
+        host_facade::lower::<Self, $native>(self.state.as_ref(), retained_render, sink);
       }
     }
   };

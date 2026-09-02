@@ -63,7 +63,7 @@ pub(crate) struct ResolvedVariants {
 
 #[derive(Clone, Debug)]
 pub(crate) struct ExitBlueprint {
-  props: MotionProps,
+  props: Box<MotionProps>,
   scope: VariantScope,
 }
 
@@ -586,7 +586,10 @@ impl ExitBlueprint {
     let has_exit = props.exit.is_some()
       || props.exit_variant_selection.is_some()
       || scope.exit_selection.is_some();
-    has_exit.then_some(Self { props, scope })
+    has_exit.then(|| Self {
+      props: Box::new(props),
+      scope,
+    })
   }
 
   pub(crate) fn descriptor(

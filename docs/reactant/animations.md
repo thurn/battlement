@@ -2460,3 +2460,7 @@ not use direct C# animation calls.
     profiles. Confirm CPU p95 below `4ms`, at least `59` average fps, interval
     gates, zero steady-state managed allocations, and the calculated lifecycle
     traffic bound. Record the environment and retain the profiler captures.
+
+Linear background gradients preserve every authored stop. The native painter
+divides gradients longer than Unity’s eight-key limit into adjacent clipped
+sections without discarding colors.

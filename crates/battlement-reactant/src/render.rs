@@ -5,10 +5,7 @@ use std::{
   rc::Rc,
 };
 
-use battlement::{
-  MotionGeneration, ObjectId, Prop, UiElement, UiEventSubscription, UiNode,
-  UiVisualElementProperties,
-};
+use battlement::{ObjectId, Prop, UiElement, UiNode, UiVisualElementProperties};
 
 use crate::{
   context::ProviderValue,
@@ -21,12 +18,12 @@ use crate::{
   key::ErasedKey,
   motion::MotionProps,
   motion_component::MotionComponent,
-  motion_lifecycle::{self, MotionCallbackRegistration, MotionCallbacks},
+  motion_lifecycle::{MotionCallbackRegistration, MotionCallbacks},
   motion_variants::{ExitBlueprint, VariantScope},
   overlay::OverlayReference,
   portal::PortalTarget,
   presence::{PresenceBoundaryState, PresenceConfig},
-  presence_render, reconcile,
+  presence_render, render_facade,
   render_value::{ErasedRender, Sealed},
   resource_runtime::ResourceToken,
   runtime::RenderError,
@@ -483,8 +480,8 @@ impl<'a> RenderSink<'a> {
 
   pub(crate) fn push_facade<R: 'static>(
     &mut self,
-    metadata: FacadeMetadata,
-    element: UiElement,
+    metadata: Box<FacadeMetadata>,
+    element: Box<UiElement>,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
     if self.error.is_some() {
@@ -509,38 +506,15 @@ impl<'a> RenderSink<'a> {
         .filter(|position| position.descriptor == descriptor),
       None => self.matching_position(descriptor),
     };
-    let previous = matching.and_then(|position| position.host.as_ref());
-    let mut node = UiNode::new(
-      previous.map_or_else(ObjectId::new_v4, |value| value.object_id),
-      element,
-    );
-    let remount =
-      previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element));
-    if remount {
-      node.object_id = ObjectId::new_v4();
-    }
-    let resolved_variants = self.variant_scope.resolve(&metadata.motion);
-    let drag_constraint_ref = metadata.motion.drag_constraint_ref().cloned();
-    let motion_callbacks = metadata.motion.callbacks(&resolved_variants);
-    let exit_blueprint = ExitBlueprint::new(metadata.motion.clone(), self.variant_scope.clone());
-    let previous_motion = previous.and_then(|value| match &value.element.visual_element().motion {
-      Prop::Set(value) => Some(value.clone()),
-      Prop::Unset | Prop::Reset => None,
-    });
-    let motion_callback_history = matching.map_or_else(Vec::new, |position| {
-      motion_lifecycle::carry_registrations(
-        &position.motion_callback_history,
-        previous_motion.as_ref(),
-        &position.motion_callbacks,
-      )
-    });
+    let prepared =
+      render_facade::prepare(descriptor, metadata, element, matching, &self.variant_scope);
     let empty = RenderTree::default();
-    let committed = if remount {
+    let committed = if prepared.remount {
       &empty
     } else {
       matching.map_or(&empty, |position| &position.children)
     };
-    let mut children = sink_with_scope(committed, resolved_variants.child_scope.clone());
+    let mut children = sink_with_scope(committed, prepared.resolved_variants.child_scope.clone());
     render(&mut children);
     let (children, pending) = match Self::finish_child(children) {
       Ok(attempt) => attempt,
@@ -550,82 +524,9 @@ impl<'a> RenderSink<'a> {
       }
     };
     self.pending.extend(pending);
-    let duration_micros = metadata.motion.resolved_duration_micros(&resolved_variants);
-    resolved_variants.complete(&self.variant_scope, duration_micros);
-    if metadata.motion != MotionProps::new() || resolved_variants.descriptor.is_some() {
-      let prior_generation = previous_motion
-        .as_ref()
-        .map_or(MotionGeneration(1), |value| value.generation);
-      let same_generation = metadata.motion.descriptor(
-        node.object_id,
-        prior_generation,
-        &resolved_variants,
-        previous_motion.as_ref(),
-      );
-      node.element.visual_element_mut().motion =
-        if previous_motion.as_ref() == Some(&same_generation) {
-          Prop::Set(same_generation)
-        } else {
-          let generation = previous_motion
-            .as_ref()
-            .map_or(MotionGeneration(1), |value| {
-              MotionGeneration(
-                value
-                  .generation
-                  .0
-                  .checked_add(1)
-                  .expect("motion generation exhausted"),
-              )
-            });
-          Prop::Set(metadata.motion.descriptor(
-            node.object_id,
-            generation,
-            &resolved_variants,
-            previous_motion.as_ref(),
-          ))
-        };
-    } else if previous_motion.is_some() {
-      node.element.visual_element_mut().motion = Prop::Reset;
-    }
-    node.children = children.hosts();
-    let mut kinds = metadata
-      .handlers
-      .iter()
-      .map(Handler::native_kind)
-      .filter(|kind| !kind.propagates())
-      .collect::<Vec<_>>();
-    kinds.sort_by_key(|kind| *kind as usize);
-    kinds.dedup();
-    let visual = node.element.visual_element_mut();
-    visual.events = Prop::Unset;
-    visual.event_subscriptions = if kinds.is_empty() {
-      Prop::Unset
-    } else {
-      Prop::Set(kinds.into_iter().map(UiEventSubscription::target).collect())
-    };
-    self.positions.push(RenderPosition {
-      descriptor,
-      key: metadata.key,
-      host: Some(node),
-      handlers: metadata.handlers,
-      motion_callbacks,
-      motion_callback_history,
-      component: None,
-      memo_value: None,
-      provider: None,
-      portal: None,
-      portal_target: metadata.portal_target,
-      error_boundary: None,
-      element_ref: metadata.element_ref,
-      drag_constraint_ref,
-      overlay_reference: metadata.overlay_reference,
-      semantic: metadata.semantic,
-      suspense: None,
-      retained_render: metadata.retained_render,
-      exit_blueprint,
-      presence: None,
-      children,
-    });
+    self
+      .positions
+      .push(prepared.finish(children, &self.variant_scope));
   }
 
   pub(crate) fn push_portal<R: 'static>(

@@ -84,6 +84,7 @@ mod reconcile;
 mod reconcile_tests;
 pub mod render;
 mod render_error;
+mod render_facade;
 mod render_tree;
 mod render_value;
 pub mod resource;

@@ -39,3 +39,7 @@ screen = "gallery"
 [[states]]
 key = "portrait.static"
 screen = "portrait"
+
+[[states]]
+key = "frame.static"
+screen = "frame"

@@ -63,13 +63,34 @@ namespace Battlement.UI
             IReadOnlyList<Vector2> points = Geometry(rect);
             Painter2D painter = context.painter2D;
             DrawOuterShadows(painter, points);
-            painter.BeginPath();
-            Path(painter, points);
-            ApplyFill(painter, rect);
             if (maskLease?.Value is Texture2D mask)
                 painter.fillTexture = mask;
-            painter.Fill(FillRule.NonZero);
+            if (!PaintGradientSegments(painter, points, rect))
+            {
+                painter.BeginPath();
+                Path(painter, points);
+                ApplyFill(painter, rect);
+                painter.Fill(FillRule.NonZero);
+            }
             DrawInsetShadows(painter, points);
+        }
+
+        private bool PaintGradientSegments(
+            Painter2D painter,
+            IReadOnlyList<Vector2> points,
+            UnityRect rect
+        )
+        {
+            if (!values.TryGetValue(MotionProperty.BackgroundGradient, out MotionValue value))
+                return false;
+            return value is MotionValue.Gradient gradient
+                && BattlementGradientSegments.Paint(
+                    painter,
+                    points,
+                    rect,
+                    gradient.Value,
+                    FillGradient
+                );
         }
 
         private bool HasPaint() =>
@@ -391,13 +412,11 @@ namespace Battlement.UI
             Gradient gradient = Gradient(value);
             if (value is MotionGradient.Linear linear)
             {
-                float radians = checked((float)linear.Angle) * Mathf.Deg2Rad;
-                Vector2 axis = new(Mathf.Cos(radians), Mathf.Sin(radians));
-                float radius = Mathf.Sqrt(rect.width * rect.width + rect.height * rect.height) / 2;
+                (Vector2 start, Vector2 end) = BattlementGradientSegments.Line(rect, linear.Angle);
                 return UnityEngine.UIElements.FillGradient.MakeLinearGradient(
                     gradient,
-                    rect.center - axis * radius,
-                    rect.center + axis * radius,
+                    start,
+                    end,
                     AddressMode.Clamp
                 );
             }

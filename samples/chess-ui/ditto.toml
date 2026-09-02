@@ -1093,3 +1093,21 @@ accessibility_assert = { target = { role = "static-text", name = "Portrait canva
 
 [[scenarios.steps]]
 screenshot = { name = "static" }
+
+[[scenarios]]
+name = "screen frame"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ScreenFrame and ConceptFrame" }, role = "heading", name = "ScreenFrame and ConceptFrame" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Arcade frame content" }, role = "static-text", name = "Arcade frame content", parent = { role = "region", name = "Main content" } }
+
+[[scenarios.steps]]
+screenshot = { name = "static" }

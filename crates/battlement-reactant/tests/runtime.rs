@@ -8,6 +8,7 @@ use std::{
     Arc,
     atomic::{AtomicUsize, Ordering},
   },
+  thread,
 };
 
 use battlement::{
@@ -22,6 +23,8 @@ use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
+  host::{Label, View},
+  motion::MotionStyle,
   render::{Either, Fragment, Node, Render},
   runtime::Reactant,
 };
@@ -428,6 +431,51 @@ fn idle_spawner() -> IdleSpawner {
 
 fn document(document: u128, root: u128) -> UiDocument {
   UiDocument::with_root_id(object_id(document), object_id(root))
+}
+
+#[test]
+fn nested_host_composition_renders_and_refreshes_on_a_normal_stack() {
+  thread::Builder::new()
+    .stack_size(2 * 1024 * 1024)
+    .spawn(|| {
+      let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
+      let mut reactant = Reactant::new(IdleSpawner {
+        calls: Rc::new(Cell::new(0)),
+      });
+      reactant.register_root(document.clone(), |value: &u32| {
+        let mut content = Node::new(Label::new(format!("Nested value: {value}")));
+        for _ in 0..24 {
+          content = Node::new(
+            View::new()
+              .initial(false)
+              .animate(MotionStyle::new().opacity(1.0))
+              .child(content),
+          );
+        }
+        content
+      });
+      let mut value = 0;
+      let (mounted, commit) = reactant
+        .begin_session(&mut value)
+        .unwrap()
+        .into_parts(snapshot(SessionId::new_v4(), &[document]));
+      let _ = commit.into_groups();
+      assert!(
+        serde_json::to_string(&mounted)
+          .unwrap()
+          .contains("Nested value: 0")
+      );
+      value = 1;
+      assert!(
+        serde_json::to_string(&reactant.refresh(&mut value).unwrap().into_groups())
+          .unwrap()
+          .contains("Nested value: 1")
+      );
+      let _ = reactant.shutdown(&mut value).into_groups();
+    })
+    .unwrap()
+    .join()
+    .unwrap();
 }
 
 fn snapshot(session_id: SessionId, documents: &[UiDocument]) -> Snapshot {
