@@ -4,6 +4,10 @@ const LEDGER: &str = include_str!("../../../../docs/reactant/feature-ledger.md")
 const LIBRARY: &str = include_str!("../../../../crates/battlement-reactant/src/lib.rs");
 const PROOF_SOURCES: &[(&str, &str)] = &[
   (
+    "accessibility_popup.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/accessibility_popup.rs"),
+  ),
+  (
     "app_lifecycle.rs",
     include_str!("../../../../crates/battlement-reactant/tests/app_lifecycle.rs"),
   ),
@@ -180,6 +184,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
     BTreeSet::from([
       "Assets",
       "Chess UI: ScreenFrame",
+      "Chess UI: SelectControl",
       "Composition",
       "Context & Memo",
       "Effects & Stores",

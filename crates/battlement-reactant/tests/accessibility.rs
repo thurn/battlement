@@ -104,6 +104,8 @@ fn button_children_resolve_ordered_names_and_keep_activation_when_values_update(
   let semantic = accessibility_update(&groups).snapshot.as_ref().unwrap();
   assert_eq!(semantic.nodes.len(), 1);
   assert_eq!(semantic.nodes[0].label.as_deref(), Some("Quality High"));
+  assert_eq!(semantic.nodes[0].state.popup, None);
+  assert_eq!(semantic.nodes[0].state.expanded, None);
   let button = semantic.nodes[0].object_id;
   let wrapper = &initial.ui[0].children[0];
   let child = wrapper.children[1].children[0].object_id;

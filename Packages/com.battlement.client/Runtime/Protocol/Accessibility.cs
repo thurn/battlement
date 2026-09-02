@@ -43,6 +43,12 @@ namespace Battlement
         Page,
     }
 
+    /// <summary>Kind of popup controlled by a semantic button.</summary>
+    public enum PopupKind
+    {
+        ListBox,
+    }
+
     /// <summary>Canonical checked state.</summary>
     public enum CheckedState
     {
@@ -72,7 +78,8 @@ namespace Battlement
         bool? Selected = null,
         bool? Expanded = null,
         bool Busy = false,
-        CurrentPage? Current = null
+        CurrentPage? Current = null,
+        PopupKind? Popup = null
     );
 
     /// <summary>Resolved finite range value.</summary>

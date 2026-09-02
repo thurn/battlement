@@ -6,7 +6,6 @@ using UnityEngine;
 using UnityEngine.Accessibility;
 using UnityEngine.UIElements;
 using NativeScrollDirection = UnityEngine.Accessibility.AccessibilityScrollDirection;
-using NativeState = UnityEngine.Accessibility.AccessibilityState;
 
 namespace Battlement.UI
 {
@@ -101,11 +100,7 @@ namespace Battlement.UI
             AccessibilityNodeSnapshot snapshot = snapshots[id];
             AccessibilityNode node = targetHierarchy.AddNode(id.ToString("D"), parent);
             targetNodes.Add(id, node);
-            node.label = UnityAccessibilityMapping.Label(snapshot, snapshots);
-            node.hint = snapshot.Hint ?? string.Empty;
-            node.value = UnityAccessibilityMapping.Value(snapshot);
-            node.role = UnityAccessibilityMapping.Role(snapshot.Role);
-            node.state = MapState(snapshot.State);
+            UnityAccessibilityMapping.Apply(node, snapshot, snapshots);
             node.frameGetter = () => resolveElement(id)?.worldBound ?? default;
             BindActions(node, snapshot, generation);
             foreach (ObjectId child in snapshot.Children)
@@ -204,18 +199,6 @@ namespace Battlement.UI
                         new AccessibilityAction.Scroll(value)
                     )
                 );
-        }
-
-        private static NativeState MapState(SemanticState state)
-        {
-            NativeState result = NativeState.None;
-            if (state.Disabled)
-                result |= NativeState.Disabled;
-            if (state.Expanded == true)
-                result |= NativeState.Expanded;
-            if (state.Selected == true || state.Checked == CheckedState.True)
-                result |= NativeState.Selected;
-            return result;
         }
 
         private void OnStatusChanged(bool available) => statusChanged(available);

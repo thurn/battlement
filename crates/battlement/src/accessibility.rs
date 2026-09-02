@@ -70,6 +70,13 @@ pub enum CurrentPage {
   Page,
 }
 
+/// Kind of popup controlled by a semantic button.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum PopupKind {
+  /// A selection list.
+  ListBox,
+}
+
 /// Canonical checked state.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum CheckedState {
@@ -110,6 +117,8 @@ pub struct SemanticState {
   pub selected: Option<bool>,
   /// Expansion state when relevant.
   pub expanded: Option<bool>,
+  /// Kind of popup controlled by this button. Requires expansion state.
+  pub popup: Option<PopupKind>,
   /// Whether a progress indicator is indeterminate.
   pub busy: bool,
   /// Whether this button or link represents the current page.

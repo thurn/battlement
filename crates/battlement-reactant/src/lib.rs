@@ -35,6 +35,7 @@
 
 pub mod accessibility;
 pub mod accessibility_collections;
+pub mod accessibility_popup;
 mod action_context;
 mod activation;
 pub mod animation_controls;

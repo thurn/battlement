@@ -275,6 +275,16 @@ namespace Battlement.UI
                 if (value.Minimum > value.Current || value.Current > value.Maximum)
                     throw Failure("Accessibility range value is outside its bounds.");
             }
+            if (node.State.Popup is not null)
+            {
+                if (node.Role != SemanticRole.Button || node.State.Expanded is null)
+                    throw Failure("Popup context requires a button with expansion state.");
+            }
+            if (node.Role == SemanticRole.Button && node.State.Popup is null)
+            {
+                if (node.State.Expanded is not null)
+                    throw Failure("Button expansion state requires popup context.");
+            }
             if (node.Role == SemanticRole.Switch && node.State.Checked == CheckedState.Mixed)
                 throw Failure("Switch accessibility state cannot be mixed.");
             if (node.Role == SemanticRole.Heading && node.HeadingLevel is not (>= 1 and <= 6))

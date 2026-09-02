@@ -89,6 +89,55 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PopupButtonPresentationRetainsContextAcrossRepeatedStateUpdates()
+        {
+            var hierarchy = new AccessibilityHierarchy();
+            AccessibilityNode target = hierarchy.AddNode();
+            var source = CellNode(
+                new ObjectId(Guid.NewGuid()),
+                null,
+                SemanticRole.Button,
+                "Resolution 1920 × 1080"
+            );
+            var snapshots = new Dictionary<Guid, AccessibilityNodeSnapshot>();
+            UnityAccessibilityMapping.Apply(target, source, snapshots);
+            Assert.That(target.role, Is.EqualTo(AccessibilityRole.Button));
+            Assert.That(target.label, Is.EqualTo("Resolution 1920 × 1080"));
+            Assert.That(target.state, Is.EqualTo(AccessibilityState.None));
+            foreach (bool expanded in new[] { false, true, false, false })
+            {
+                SemanticState state = JsonConvert.DeserializeObject<SemanticState>(
+                    "{\"popup\":\"ListBox\",\"expanded\":"
+                        + expanded.ToString().ToLowerInvariant()
+                        + "}",
+                    new StringEnumConverter { AllowIntegerValues = false }
+                )!;
+                source = source with { State = state };
+                UnityAccessibilityMapping.Apply(target, source, snapshots);
+                Assert.That(source.Label, Is.EqualTo("Resolution 1920 × 1080"));
+                Assert.That(
+                    target.label,
+                    Is.EqualTo(
+                        "Resolution 1920 × 1080, listbox popup, "
+                            + (expanded ? "expanded" : "collapsed")
+                    )
+                );
+                Assert.That(target.role, Is.EqualTo(AccessibilityRole.Button));
+                Assert.That(
+                    target.state.HasFlag(AccessibilityState.Expanded),
+                    Is.EqualTo(expanded)
+                );
+            }
+            source = source with { Label = "Resolution 2560 × 1440" };
+            UnityAccessibilityMapping.Apply(target, source, snapshots);
+            Assert.That(
+                target.label,
+                Is.EqualTo("Resolution 2560 × 1440, listbox popup, collapsed")
+            );
+            hierarchy.Clear();
+        }
+
+        [Test]
         public void DataCellLabelsIncludeTheirRowAndColumnHeaders()
         {
             ObjectId table = new(Guid.NewGuid());

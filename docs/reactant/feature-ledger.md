@@ -15,6 +15,7 @@ than the specimen.
 |---|---|---|
 | `accessibility` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees`, `accessibility.rs::accessibility_activation_uses_the_ordinary_logical_event_path` |
 | `accessibility_collections` | Layout Gallery | `accessibility.rs::collections_preserve_roles_ancestry_current_page_and_controlled_selection`, `accessibility.rs::invalid_collection_relationships_and_page_states_fail_before_commit` |
+| `accessibility_popup` | Chess UI: SelectControl | `accessibility_popup.rs::popup_button_keeps_one_host_and_controlled_context_across_updates_and_activation`, `accessibility_popup.rs::malformed_popup_declarations_fail_as_developer_errors` |
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
 | `announcement` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees` |
 | `app` | Composition | `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `app_assets.rs::consecutive_responses_wait_for_preparation_and_keep_prior_dependencies` |

@@ -4,13 +4,28 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using UnityEngine.Accessibility;
 using NativeRole = UnityEngine.Accessibility.AccessibilityRole;
+using NativeState = UnityEngine.Accessibility.AccessibilityState;
 
 namespace Battlement.UI
 {
     /// <summary>Maps canonical semantics to the pinned Unity screen-reader surface.</summary>
     internal static class UnityAccessibilityMapping
     {
+        internal static void Apply(
+            AccessibilityNode target,
+            AccessibilityNodeSnapshot source,
+            IReadOnlyDictionary<Guid, AccessibilityNodeSnapshot> snapshots
+        )
+        {
+            target.label = Label(source, snapshots);
+            target.hint = source.Hint ?? string.Empty;
+            target.value = Value(source);
+            target.role = Role(source.Role);
+            target.state = State(source.State);
+        }
+
         internal static NativeRole Role(SemanticRole role) =>
             role switch
             {
@@ -58,6 +73,10 @@ namespace Battlement.UI
             );
             if (node.State.Current == CurrentPage.Page)
                 Add(parts, "current page");
+            if (node.State.Popup == PopupKind.ListBox)
+                Add(parts, "listbox popup");
+            if (node.State.Expanded is bool expanded)
+                Add(parts, expanded ? "expanded" : "collapsed");
             return string.Join(", ", parts);
         }
 
@@ -65,6 +84,18 @@ namespace Battlement.UI
             node.Value?.Text
             ?? node.Value?.Current.ToString(CultureInfo.InvariantCulture)
             ?? string.Empty;
+
+        internal static NativeState State(SemanticState state)
+        {
+            NativeState result = NativeState.None;
+            if (state.Disabled)
+                result |= NativeState.Disabled;
+            if (state.Expanded == true)
+                result |= NativeState.Expanded;
+            if (state.Selected == true || state.Checked == CheckedState.True)
+                result |= NativeState.Selected;
+            return result;
+        }
 
         private static void AddHeaders(
             List<string> parts,

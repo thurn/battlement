@@ -32,8 +32,8 @@
 
 pub use battlement::{
   AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
-  MotionColor, MotionLength, MotionProperty, PlacementAlign, PlacementSide, PopoverPlacement, Prop,
-  SemanticRole, SemanticState, StepPosition, Style, Visibility,
+  MotionColor, MotionLength, MotionProperty, PlacementAlign, PlacementSide, PopoverPlacement,
+  PopupKind, Prop, SemanticRole, SemanticState, StepPosition, Style, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -49,6 +49,7 @@ pub use crate::{
     use_progress, use_radio, use_radio_group, use_scroll_area, use_slider, use_static_text,
     use_switch, use_tab, use_tab_panel, use_tabs,
   },
+  accessibility_popup::{PopupButtonOptions, use_popup_button},
   animation_controls::{
     AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionSelector,
     SequencePosition, use_animation_controls, use_animation_scope,

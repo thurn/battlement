@@ -58,3 +58,16 @@ covers referenced and contents-based names through the public hook options.
 empty caption when the children provide the complete visible label. Descendant
 clicks follow the ordinary logical route to the button, and updating text
 preserves the child hosts and references.
+
+A popup trigger uses `accessibility_popup::use_popup_button(PopupButtonOptions {
+name, popup: PopupKind::ListBox, expanded, is_disabled, on_press })`. It retains
+canonical Button semantics and ordinary button focus and activation. Popup kind
+requires explicit expansion state; it neither mounts a popup nor changes that
+state. The parent supplies both expansion and value updates. Ordered label refs
+can combine a field label and current value without extra spoken stops.
+
+Unity preserves the canonical name in the semantic mirror and appends `listbox
+popup` and `collapsed` or `expanded` in the native label. Expanded controls also
+set Unity's Expanded state. Every update rebuilds this presentation from the
+canonical name, so context never accumulates. Ordinary buttons carry neither
+popup nor expansion context.

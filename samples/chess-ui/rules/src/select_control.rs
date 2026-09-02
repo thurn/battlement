@@ -5,7 +5,7 @@ use battlement::{
   Translate, UiFontAddress,
 };
 use battlement_reactant::{
-  accessibility, element_ref,
+  accessibility, accessibility_popup, element_ref,
   paint::{PaintFill, PaintStyle},
   prelude::*,
 };
@@ -63,11 +63,12 @@ impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let label_id = element_ref::use_element_ref();
     let value_id = element_ref::use_element_ref();
-    let trigger = accessibility::use_disclosure(DisclosureOptions {
+    let trigger = accessibility_popup::use_popup_button(PopupButtonOptions {
       name: AccessibleName::LabelledBy(vec![label_id.clone(), value_id.clone()]),
+      popup: PopupKind::ListBox,
       expanded: false,
       is_disabled: false,
-      on_toggle: || {},
+      on_press: || {},
     });
     let control = View::new()
       .name("select-control")

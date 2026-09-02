@@ -1,7 +1,7 @@
 use battlement::{
   AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, GameObjectKind,
-  KeyModifiers, ObjectId, PanelPoint, PointerButton, SemanticRole, UiAccessibilityAction,
-  UiAccessibilityActionEvent, UiEvent, UiEventBody,
+  KeyModifiers, ObjectId, PanelPoint, PointerButton, PopupKind, SemanticRole,
+  UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{app::App, asset_generator};
@@ -120,6 +120,26 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
     .find(|node| node.label.as_deref() == Some("Change resolution from parent"))
     .unwrap()
     .object_id;
+  let initial = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.object_id == trigger)
+    .unwrap();
+  assert_eq!(initial.role, SemanticRole::Button);
+  assert_eq!(initial.state.popup, Some(PopupKind::ListBox));
+  assert_eq!(initial.state.expanded, Some(false));
+  client.ui().click(trigger);
+  client.poll();
+  client.ui().send_event(UiEvent::new(
+    trigger,
+    true,
+    false,
+    UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action: UiAccessibilityAction::Activate,
+    }),
+  ));
+  client.poll();
   client.ui().click(update);
   client.poll();
   let snapshot = self::snapshot(&client);
@@ -128,7 +148,8 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
     .iter()
     .find(|node| node.object_id == trigger)
     .unwrap();
-  assert_eq!(selected.role, SemanticRole::Disclosure);
+  assert_eq!(selected.role, SemanticRole::Button);
+  assert_eq!(selected.state.popup, Some(PopupKind::ListBox));
   assert_eq!(selected.state.expanded, Some(false));
   assert_eq!(selected.label.as_deref(), Some("Resolution 2560 × 1440"));
   assert!(
@@ -147,12 +168,14 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
   client.poll();
   assert!(!client.ui().contains(trigger));
   let snapshot = self::snapshot(&client);
-  assert!(
-    snapshot
-      .nodes
-      .iter()
-      .any(|node| node.label.as_deref() == Some("Resolution 1920 × 1080"))
-  );
+  let reset = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Resolution 1920 × 1080"))
+    .unwrap();
+  assert_eq!(reset.role, SemanticRole::Button);
+  assert_eq!(reset.state.popup, Some(PopupKind::ListBox));
+  assert_eq!(reset.state.expanded, Some(false));
   assert!(
     snapshot
       .nodes

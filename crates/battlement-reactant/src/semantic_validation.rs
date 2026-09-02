@@ -62,9 +62,24 @@ fn validate_role(value: &SemanticProps) {
       "current page requires a button or link"
     );
   }
+  if value.state.popup.is_some() {
+    assert_eq!(
+      value.role,
+      SemanticRole::Button,
+      "popup context requires a button"
+    );
+    assert!(
+      value.state.expanded.is_some(),
+      "popup buttons require expansion state"
+    );
+  }
   match value.role {
     SemanticRole::Button | SemanticRole::Link => {
-      validate_disabled_only_state(value);
+      if value.state.popup.is_some() {
+        self::validate_disabled_only_state_except_expanded(value);
+      } else {
+        self::validate_disabled_only_state(value);
+      }
       assert!(
         value.value.is_none(),
         "button semantics cannot expose a range"
