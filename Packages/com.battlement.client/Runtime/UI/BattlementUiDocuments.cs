@@ -29,6 +29,7 @@ namespace Battlement.UI
         private readonly BattlementUiLifecycleEvents lifecycleEvents;
         private readonly BattlementStickyCoordinator stickyCoordinator = new();
         private readonly BattlementOverlayCoordinator overlayCoordinator;
+        private readonly BattlementFocusCoordinator focusCoordinator;
         private readonly BattlementPresentationLayout presentationLayout;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiActions actions;
@@ -87,12 +88,21 @@ namespace Battlement.UI
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             partProperties = new BattlementUiPartProperties(assetLookup);
             repeatControls = new BattlementUiRepeatControls(events, Route);
+            focusCoordinator = new BattlementFocusCoordinator(
+                () => elements.Values,
+                IsOverlayScopeMember,
+                OverlayScopeTraversal,
+                id => elements.TryGetValue(id, out VisualElement value) ? value : null
+            );
             overlayCoordinator = new BattlementOverlayCoordinator(
                 id => elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
                 SourceOrdinal,
                 IsOverlayScopeMember,
-                OverlayScopeTraversal
+                PhysicalOverlayScopeTraversal,
+                focusCoordinator.RefreshModalBoundary
             );
+            focusCoordinator.SetModalResolver(overlayCoordinator.ActiveModal);
+            events.SetInertPredicate(focusCoordinator.IsEffectivelyInert);
             presentationLayout = new BattlementPresentationLayout(
                 stickyCoordinator,
                 overlayCoordinator
@@ -113,6 +123,13 @@ namespace Battlement.UI
                     elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
                 gestureTime: now,
                 presentationChanged: presentationLayout.Refresh
+            );
+            focusCoordinator.SetFocusVisibleWriter(
+                (target, visible) =>
+                {
+                    if (elementIds.TryGetValue(target, out Guid id))
+                        motionWorld.SetFocusVisible(new ObjectId(id), visible);
+                }
             );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
@@ -148,6 +165,7 @@ namespace Battlement.UI
                 lifecycleEvents.Clear();
                 stickyCoordinator.Clear();
                 overlayCoordinator.Clear();
+                focusCoordinator.Clear();
                 foreach (VisualElement root in previousRoots)
                     root.Clear();
                 elements.Clear();
@@ -174,6 +192,7 @@ namespace Battlement.UI
                     root.Clear();
                     properties.ApplyRoot(root, description.RootId, description);
                     Reserve(description.RootId, root, description.RootId.Value);
+                    focusCoordinator.ApplyRoot(root, description);
                     rootDocuments.Add(description.RootId.Value, document);
                     rootIds.Add(description.RootId.Value);
                     eventObserver.RegisterRoot(root);
@@ -191,6 +210,7 @@ namespace Battlement.UI
                     }
                 }
                 RefreshOverlayOrdinals();
+                focusCoordinator.Refresh();
                 lifecycleEvents.SetInputEnabled(true);
                 if (preserveMotion)
                     motionWorld.EndReconnect();
@@ -310,6 +330,7 @@ namespace Battlement.UI
         /// <summary>Clears transient interaction state when user input is disabled.</summary>
         public void SetInputEnabled(bool enabled)
         {
+            focusCoordinator.SetInputEnabled(enabled);
             events.SetInputEnabled(enabled);
             lifecycleEvents.SetInputEnabled(enabled);
             if (enabled)
@@ -323,6 +344,10 @@ namespace Battlement.UI
             actions.CancelAll(elements);
         }
 
+        internal void BeginCommit() => focusCoordinator.BeginCommit();
+
+        internal void EndCommit() => focusCoordinator.EndCommit();
+
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
@@ -331,6 +356,7 @@ namespace Battlement.UI
             lifecycleEvents.Clear();
             stickyCoordinator.Clear();
             overlayCoordinator.Clear();
+            focusCoordinator.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
             elementIds.Clear();
@@ -406,6 +432,7 @@ namespace Battlement.UI
                 ApplyOverlaySubtree(created);
                 RefreshStickyOrdinals();
                 RefreshOverlayOrdinals();
+                focusCoordinator.Refresh();
                 choiceControls.Insert(
                     command.ParentId,
                     index,
@@ -458,6 +485,7 @@ namespace Battlement.UI
                         properties.Element.Motion
                     );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    focusCoordinator.ApplyUpdate(target, properties.Element);
                     BattlementGridItems.Apply(target, properties.Element.GridItem);
                     BattlementStackItems.Apply(target, properties.Element.StackItem);
                     BattlementStickyItems.Apply(target, properties.Element.Sticky);
@@ -500,6 +528,7 @@ namespace Battlement.UI
                             repeat
                         );
                     overlayCoordinator.RefreshAll();
+                    focusCoordinator.Refresh();
                     break;
                 }
                 case VisualElementUpdate.Parent parent:
@@ -536,7 +565,6 @@ namespace Battlement.UI
             int removedIndex = logicalChildren[parentId].IndexOf(command.ObjectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
             stickyCoordinator.PrepareHierarchyChange(target);
-            overlayCoordinator.PrepareHierarchyChange(target);
             RemoveNativeChild(elements[parentId], target);
             logicalChildren[parentId].Remove(command.ObjectId.Value);
             choiceControls.Remove(
@@ -548,6 +576,7 @@ namespace Battlement.UI
                 RemoveIdentity(id);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
+            focusCoordinator.Refresh();
             releaseIdentities?.Invoke(removed);
             eventObserver.Clear();
         }
@@ -704,6 +733,7 @@ namespace Battlement.UI
                 node.Element.Motion
             );
             properties.ApplyElement(value, node.ObjectId, node.Element);
+            focusCoordinator.ApplyCreate(value, node.Element);
             BattlementGridItems.Apply(value, node.Element.GridItem);
             BattlementStackItems.Apply(value, node.Element.StackItem);
             BattlementStickyItems.Apply(value, node.Element.Sticky);
@@ -996,6 +1026,7 @@ namespace Battlement.UI
             choiceControls.BeginHierarchyMutation(parentId);
             stickyCoordinator.PrepareHierarchyChange(target);
             overlayCoordinator.PrepareHierarchyChange(target);
+            focusCoordinator.PrepareHierarchyChange(target);
             RemoveNativeChild(elements[oldParent], target);
             InsertNativeChild(parent, target, newIndex);
             logicalChildren[oldParent].Remove(objectId.Value);
@@ -1005,6 +1036,8 @@ namespace Battlement.UI
             ApplyOverlayAfterAttachment(target);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
+            focusCoordinator.Refresh();
+            focusCoordinator.CompleteHierarchyChange();
             if (oldParent == parentId.Value)
                 choiceControls.Reorder(parentId, oldIndex, newIndex);
             else
@@ -1055,6 +1088,7 @@ namespace Battlement.UI
             ApplyOverlayAfterAttachment(target);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
+            focusCoordinator.Refresh();
             choiceControls.Reorder(new ObjectId(parentId), previousIndex, index);
         }
 
@@ -1176,6 +1210,14 @@ namespace Battlement.UI
             UiElement element
         )
         {
+            OverlayPlacement? current = BattlementOverlayItems.HasAuthored(target)
+                ? BattlementOverlayItems.Get(target)
+                : null;
+            bool modal = element.OverlayPlacement.IsSet
+                ? element.OverlayPlacement.Value is OverlayPlacement.Modal
+                : element.OverlayPlacement.IsUnset && current is OverlayPlacement.Modal;
+            if (modal)
+                ValidateModalFocusProperties(element);
             if (!element.OverlayPlacement.IsSet)
             {
                 if (element.OverlayPlacement.IsUnset && BattlementOverlayItems.HasAuthored(target))
@@ -1198,6 +1240,21 @@ namespace Battlement.UI
                 parent,
                 IsDescendant
             );
+        }
+
+        private static void ValidateModalFocusProperties(UiElement element)
+        {
+            if (element.Enabled.IsSet && !element.Enabled.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be enabled.");
+            if (element.Focusable.IsSet && !element.Focusable.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be focusable.");
+            if (element.TabIndex.IsSet && element.TabIndex.Value != -1)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "A modal wrapper must use tab index -1."
+                );
+            if (element.Inert.IsSet && element.Inert.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper cannot be inert.");
         }
 
         private static void ValidateOverlayContexts(UiNode node, bool parentIsStack)
@@ -1284,6 +1341,38 @@ namespace Battlement.UI
                 yield break;
             foreach (Guid id in LogicalPreorder(scopeId))
                 yield return elements[id];
+        }
+
+        private IEnumerable<UnityEngine.UIElements.VisualElement> PhysicalOverlayScopeTraversal(
+            UnityEngine.UIElements.VisualElement scope
+        )
+        {
+            if (!elementIds.TryGetValue(scope, out Guid scopeId) || scope.panel is null)
+                yield break;
+            foreach (
+                UnityEngine.UIElements.VisualElement candidate in PhysicalPreorder(
+                    scope.panel.visualTree
+                )
+            )
+            {
+                if (
+                    elementIds.TryGetValue(candidate, out Guid candidateId)
+                    && IsDescendant(candidateId, scopeId)
+                )
+                    yield return candidate;
+            }
+        }
+
+        private static IEnumerable<UnityEngine.UIElements.VisualElement> PhysicalPreorder(
+            UnityEngine.UIElements.VisualElement parent
+        )
+        {
+            yield return parent;
+            foreach (UnityEngine.UIElements.VisualElement child in parent.Children())
+            {
+                foreach (UnityEngine.UIElements.VisualElement descendant in PhysicalPreorder(child))
+                    yield return descendant;
+            }
         }
 
         private IEnumerable<Guid> LogicalPreorder(Guid objectId)
@@ -1608,6 +1697,7 @@ namespace Battlement.UI
             {
                 stickyCoordinator.Remove(value);
                 overlayCoordinator.Remove(value);
+                focusCoordinator.Remove(value);
                 if (value is BattlementLayoutContainer layout)
                     layout.Adapter.Clear();
                 actions.Remove(new ObjectId(objectId), value);

@@ -54,6 +54,11 @@ namespace Battlement.UI
             );
             if (element.Motion.IsSet)
                 BattlementMotionValidator.Validate(element.Motion.Value);
+            if (
+                element.OverlayPlacement.IsSet
+                && element.OverlayPlacement.Value is OverlayPlacement.Modal
+            )
+                ValidateModalFocusProperties(element);
             ValidateLayout(element);
             ValidateParts(element);
             switch (element)
@@ -216,6 +221,21 @@ namespace Battlement.UI
                 default:
                     break;
             }
+        }
+
+        private static void ValidateModalFocusProperties(UiElement element)
+        {
+            if (element.Enabled.IsSet && !element.Enabled.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be enabled.");
+            if (element.Focusable.IsSet && !element.Focusable.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be focusable.");
+            if (element.TabIndex.IsSet && element.TabIndex.Value != -1)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "A modal wrapper must use tab index -1."
+                );
+            if (element.Inert.IsSet && element.Inert.Value)
+                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper cannot be inert.");
         }
 
         private static void ValidateLayout(UiElement element)

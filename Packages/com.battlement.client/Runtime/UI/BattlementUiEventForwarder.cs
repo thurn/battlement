@@ -13,6 +13,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, SubscriptionState> subscriptions = new();
         private readonly Func<UiEvent, UiEventDisposition?>? emit;
         private readonly System.Action? preventionApplied;
+        private Func<Guid, bool> isEffectivelyInert = _ => false;
         private bool inputEnabled = true;
 
         public BattlementUiEventForwarder(
@@ -21,6 +22,8 @@ namespace Battlement.UI
         ) => (emit, preventionApplied) = (emitUiEvent, uiEventPreventionApplied);
 
         public void SetInputEnabled(bool enabled) => inputEnabled = enabled;
+
+        public void SetInertPredicate(Func<Guid, bool> value) => isEffectivelyInert = value;
 
         public void SetSubscriptions(
             Guid objectId,
@@ -593,7 +596,8 @@ namespace Battlement.UI
             IsSubscribed(objectId, kind, UiEventPhase.Target);
 
         private bool IsSubscribed(Guid objectId, UiEventKind kind, UiEventPhase phase) =>
-            subscriptions.TryGetValue(objectId, out SubscriptionState state)
+            !isEffectivelyInert(objectId)
+            && subscriptions.TryGetValue(objectId, out SubscriptionState state)
             && (
                 state.Routed.Contains(new UiEventSubscription(kind, phase))
                 || (phase == UiEventPhase.Target && state.Target.Contains(kind))

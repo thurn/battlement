@@ -25,6 +25,16 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/external_stores.rs"),
   ),
   (
+    "focus_protocol_tests.rs",
+    include_str!("../../../../crates/battlement-ui/tests/focus_protocol_tests.rs"),
+  ),
+  (
+    "BattlementFocusCoordinatorTests.cs",
+    include_str!(
+      "../../../../Packages/com.battlement.client/Tests/Editor/BattlementFocusCoordinatorTests.cs"
+    ),
+  ),
+  (
     "geometry.rs",
     include_str!("../../../../crates/battlement-reactant/tests/geometry.rs"),
   ),
@@ -147,6 +157,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Events & Portals",
       "Gestures & Drag",
       "Layout & Reorder",
+      "Layout Gallery",
       "Composed Effects",
       "Presence & Lifecycle",
       "Refs & Geometry",

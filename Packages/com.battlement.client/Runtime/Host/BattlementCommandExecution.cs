@@ -72,6 +72,10 @@ namespace Battlement
             );
         }
 
+        public void BeginBatch() => uiDocuments.BeginCommit();
+
+        public void EndBatch() => uiDocuments.EndCommit();
+
         private IBattlementCommandOperation? LaunchCore(Command command, TimeSpan now)
         {
             try

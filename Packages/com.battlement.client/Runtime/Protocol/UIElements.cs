@@ -121,6 +121,14 @@ namespace Battlement
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public Prop<bool> DelegatesFocus { get; init; }
 
+        /// <summary>Whether this host requests focus once when it is mounted.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<bool> AutoFocus { get; init; }
+
+        /// <summary>Whether this logical subtree is excluded from user interaction.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<bool> Inert { get; init; }
+
         /// <summary>Authored USS classes; reset removes them but retains native classes.</summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public Prop<IReadOnlyList<string>> Classes { get; init; }

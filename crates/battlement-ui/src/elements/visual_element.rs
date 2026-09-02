@@ -139,6 +139,12 @@ pub struct UiVisualElement {
   /// native element constructor's delegation behavior.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub delegates_focus: Prop<bool>,
+  /// Whether this host requests focus once when it is mounted.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub auto_focus: Prop<bool>,
+  /// Whether this logical subtree is excluded from focus, picking, and input.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub inert: Prop<bool>,
   /// USS classes applied to this element in list order.
   ///
   /// Class names are matched by `.class-name` selectors. Empty or duplicate
@@ -222,6 +228,12 @@ impl UiVisualElement {
     }
     if !value.delegates_focus.is_unset() {
       self.delegates_focus = value.delegates_focus;
+    }
+    if !value.auto_focus.is_unset() {
+      self.auto_focus = value.auto_focus;
+    }
+    if !value.inert.is_unset() {
+      self.inert = value.inert;
     }
     if !value.classes.is_unset() {
       self.classes = value.classes.clone();

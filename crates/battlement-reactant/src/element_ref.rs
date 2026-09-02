@@ -56,7 +56,6 @@ struct ElementAttachment {
 struct ElementRefInner {
   runtime_id: u64,
   identity: u64,
-  reference_id: ObjectId,
   runtime: Weak<RefCell<ElementRefRuntime>>,
   geometry: Weak<RefCell<GeometryRuntime>>,
   attachment: Cell<Option<ElementAttachment>>,
@@ -333,7 +332,7 @@ impl AttachmentSet {
           .get()
           .map(|attachment| attachment.object_id)
       })
-      .unwrap_or(element_ref.inner.reference_id)
+      .unwrap_or_else(|| panic!("Reactant overlay refs must be attached to a public host"))
   }
 
   pub(crate) fn geometry_target(
@@ -526,7 +525,6 @@ fn create_ref() -> ElementRef {
       inner: Rc::new(ElementRefInner {
         runtime_id: current.runtime_id,
         identity,
-        reference_id: ObjectId::new_v4(),
         runtime: Rc::downgrade(&runtime_rc),
         geometry: current.geometry.clone(),
         attachment: Cell::new(None),

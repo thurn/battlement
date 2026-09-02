@@ -11,6 +11,7 @@ use battlement::{
 
 use crate::{
   element_ref::ElementRef,
+  focus::FocusProps,
   host::{Stack, View},
   portal::{PortalTarget, create_portal},
   render::RenderTree,
@@ -199,6 +200,17 @@ impl Overlay {
   /// Sets whether the wrapper subtree is locally enabled.
   #[must_use]
   pub fn enabled(mut self, value: impl Into<Prop<bool>>) -> Self {
+    let value = value.into();
+    if matches!(
+      self.wrapper.state.overlay_reference,
+      Some(OverlayReference::Modal { .. })
+    ) {
+      assert_ne!(
+        value,
+        Prop::Set(false),
+        "a modal wrapper must remain enabled"
+      );
+    }
     self.wrapper = self.wrapper.enabled(value);
     self
   }
@@ -206,6 +218,17 @@ impl Overlay {
   /// Sets whether the wrapper may receive programmatic focus.
   #[must_use]
   pub fn focusable(mut self, value: impl Into<Prop<bool>>) -> Self {
+    let value = value.into();
+    if matches!(
+      self.wrapper.state.overlay_reference,
+      Some(OverlayReference::Modal { .. })
+    ) {
+      assert_eq!(
+        value,
+        Prop::Set(true),
+        "a modal wrapper must remain focusable"
+      );
+    }
     self.wrapper = self.wrapper.focusable(value);
     self
   }
@@ -213,7 +236,40 @@ impl Overlay {
   /// Sets the wrapper's focus-ring position.
   #[must_use]
   pub fn tab_index(mut self, value: impl Into<Prop<i32>>) -> Self {
+    let value = value.into();
+    if matches!(
+      self.wrapper.state.overlay_reference,
+      Some(OverlayReference::Modal { .. })
+    ) {
+      assert_eq!(
+        value,
+        Prop::Set(-1),
+        "a modal wrapper must retain tab index -1"
+      );
+    }
     self.wrapper = self.wrapper.tab_index(value);
+    self
+  }
+
+  /// Merges a composable focus declaration bundle into the wrapper.
+  #[must_use]
+  pub fn focus_props(mut self, value: FocusProps) -> Self {
+    value.apply(self.wrapper.state.host.visual_element_mut());
+    self.validate_modal_focus_properties();
+    self
+  }
+
+  /// Sets authored inertness on a non-modal overlay wrapper.
+  #[must_use]
+  pub fn inert(mut self, value: bool) -> Self {
+    assert!(
+      !matches!(
+        self.wrapper.state.overlay_reference,
+        Some(OverlayReference::Modal { .. })
+      ) || !value,
+      "a modal wrapper cannot be inert"
+    );
+    self.wrapper = self.wrapper.inert(value);
     self
   }
 
@@ -242,6 +298,36 @@ impl Overlay {
       .overlay_placement(placement);
     wrapper.state.overlay_reference = reference;
     Self { target, wrapper }
+  }
+
+  fn validate_modal_focus_properties(&self) {
+    if !matches!(
+      self.wrapper.state.overlay_reference,
+      Some(OverlayReference::Modal { .. })
+    ) {
+      return;
+    }
+    let visual = self.wrapper.state.host.visual_element();
+    assert_ne!(
+      visual.enabled,
+      Prop::Set(false),
+      "a modal wrapper must remain enabled"
+    );
+    assert_eq!(
+      visual.focusable,
+      Prop::Set(true),
+      "a modal wrapper must remain focusable"
+    );
+    assert_eq!(
+      visual.tab_index,
+      Prop::Set(-1),
+      "a modal wrapper must retain tab index -1"
+    );
+    assert_ne!(
+      visual.inert,
+      Prop::Set(true),
+      "a modal wrapper cannot be inert"
+    );
   }
 }
 

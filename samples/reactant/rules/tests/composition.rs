@@ -1026,6 +1026,36 @@ fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
   ));
 
   let tracks = find_named(&client.ui(), canvas, "layout-gallery-tracks");
+  assert_eq!(
+    client
+      .ui()
+      .element(tracks)
+      .element()
+      .visual_element()
+      .auto_focus,
+    Prop::Set(true)
+  );
+  let inert_region = find_named(&client.ui(), canvas, "layout-gallery-inert-region");
+  assert_eq!(
+    client
+      .ui()
+      .element(inert_region)
+      .element()
+      .visual_element()
+      .inert,
+    Prop::Set(false)
+  );
+  let inert_toggle = find_named(&client.ui(), canvas, "layout-gallery-inert-toggle");
+  client.ui().click(inert_toggle);
+  assert_eq!(
+    client
+      .ui()
+      .element(inert_region)
+      .element()
+      .visual_element()
+      .inert,
+    Prop::Set(true)
+  );
   client.ui().click(tracks);
   assert_eq!(
     find_named(&client.ui(), ROOT_ID, "layout-setting-value-music"),
@@ -1090,6 +1120,12 @@ fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
       restore_focus: Some(restore),
     }) if initial == close && restore == modal_trigger
   ));
+  assert!(
+    motion_descriptor(&client.ui(), close)
+      .slots
+      .iter()
+      .any(|slot| slot.layer == battlement::MotionLayer::FocusVisible)
+  );
   client.ui().click(close);
   assert!(!client.ui().contains(modal));
 

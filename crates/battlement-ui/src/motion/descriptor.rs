@@ -152,6 +152,8 @@ pub enum MotionLayer {
   InView,
   /// Exact-focus layer.
   Focus,
+  /// Exact focus entered through keyboard or controller modality.
+  FocusVisible,
   /// Pointer hover layer.
   Hover,
   /// Pointer/submit tap layer.

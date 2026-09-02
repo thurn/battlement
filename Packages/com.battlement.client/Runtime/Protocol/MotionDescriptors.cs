@@ -28,6 +28,7 @@ namespace Battlement
         Animate,
         InView,
         Focus,
+        FocusVisible,
         Hover,
         Tap,
         Drag,

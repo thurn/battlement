@@ -42,6 +42,7 @@ mod event_handler;
 pub mod executor;
 mod external_portal;
 pub mod external_store;
+pub mod focus;
 pub mod geometry;
 mod geometry_effect;
 mod geometry_runtime;

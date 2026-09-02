@@ -44,6 +44,7 @@ use crate::{
   animation_controls::{AnimationControls, AnimationScope},
   element_ref::ElementRef,
   event_handler::Handler,
+  focus::FocusProps,
   host_facade::{self, HostState},
   key::ErasedKey,
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
@@ -66,6 +67,12 @@ macro_rules! gesture_methods {
     #[must_use]
     pub fn while_focus(self, value: impl Into<MotionTarget>) -> Self {
       self.motion(MotionProps::new().while_focus(value))
+    }
+
+    /// Sets the target activated by keyboard- or controller-visible focus.
+    #[must_use]
+    pub fn while_focus_visible(self, value: impl Into<MotionTarget>) -> Self {
+      self.motion(MotionProps::new().while_focus_visible(value))
     }
 
     /// Sets the locally activated tap target.
@@ -322,6 +329,27 @@ macro_rules! facade {
       #[must_use]
       pub fn delegates_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
         self.state.host.visual_element_mut().delegates_focus = value.into();
+        self
+      }
+
+      /// Merges one composable focus declaration bundle into this host.
+      #[must_use]
+      pub fn focus_props(mut self, value: FocusProps) -> Self {
+        value.apply(self.state.host.visual_element_mut());
+        self
+      }
+
+      /// Requests focus once when this keyed host is mounted.
+      #[must_use]
+      pub fn auto_focus(mut self, value: bool) -> Self {
+        self.state.host.visual_element_mut().auto_focus = Prop::Set(value);
+        self
+      }
+
+      /// Sets whether this logical subtree is unavailable to user interaction.
+      #[must_use]
+      pub fn inert(mut self, value: bool) -> Self {
+        self.state.host.visual_element_mut().inert = Prop::Set(value);
         self
       }
 

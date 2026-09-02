@@ -51,6 +51,7 @@ pub use crate::{
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
   event::{ElementTarget, EventPhase, ReactantEvent},
   external_store::{ExternalStore, StoreNotify, Subscription},
+  focus::FocusProps,
   geometry::{
     GeometrySnapshot, GeometryTargets, IntoGeometryEffectCleanup, Measurement, MeasurementStatus,
     ViewportRef, WorldGeometry, WorldRef, use_geometry, use_geometry_effect,

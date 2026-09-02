@@ -662,6 +662,19 @@ namespace Battlement.UI
             disposed = true;
         }
 
+        public void SetFocusVisible(ObjectId hostId, bool value)
+        {
+            if (!descriptorByHost.TryGetValue(hostId.Value, out Guid descriptorId))
+                return;
+            if (!descriptors.TryGetValue(descriptorId, out DescriptorState descriptor))
+                return;
+            descriptor.SetGestureLayer(
+                MotionLayer.FocusVisible,
+                value,
+                ClockMicros(descriptor.Descriptor.Clock)
+            );
+        }
+
         internal void Commit(Guid hostId, DescriptorState? prepared)
         {
             if (prepared is null)

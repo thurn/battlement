@@ -114,6 +114,7 @@ pub(crate) struct GestureProps {
   pub(crate) hover: Option<MotionTarget>,
   pub(crate) tap: Option<MotionTarget>,
   pub(crate) focus: Option<MotionTarget>,
+  pub(crate) focus_visible: Option<MotionTarget>,
   pub(crate) drag_target: Option<MotionTarget>,
   pub(crate) in_view_target: Option<MotionTarget>,
   pub(crate) config: GestureConfig,
@@ -338,6 +339,13 @@ impl MotionProps {
     self
   }
 
+  /// Sets the target activated by keyboard- or controller-visible focus.
+  #[must_use]
+  pub fn while_focus_visible(mut self, value: impl Into<MotionTarget>) -> Self {
+    self.gestures.focus_visible = Some(value.into());
+    self
+  }
+
   /// Sets the locally activated tap target.
   #[must_use]
   pub fn while_tap(mut self, value: impl Into<MotionTarget>) -> Self {
@@ -510,6 +518,7 @@ impl MotionProps {
     [
       (2, MotionLayer::Hover, &self.gestures.hover),
       (3, MotionLayer::Focus, &self.gestures.focus),
+      (7, MotionLayer::FocusVisible, &self.gestures.focus_visible),
       (4, MotionLayer::Tap, &self.gestures.tap),
       (5, MotionLayer::Drag, &self.gestures.drag_target),
       (6, MotionLayer::InView, &self.gestures.in_view_target),
@@ -611,6 +620,7 @@ impl GestureProps {
       hover: None,
       tap: None,
       focus: None,
+      focus_visible: None,
       drag_target: None,
       in_view_target: None,
       config: GestureConfig {
@@ -638,6 +648,9 @@ impl GestureProps {
     }
     if value.focus.is_some() {
       self.focus = value.focus;
+    }
+    if value.focus_visible.is_some() {
+      self.focus_visible = value.focus_visible;
     }
     if value.drag_target.is_some() {
       self.drag_target = value.drag_target;

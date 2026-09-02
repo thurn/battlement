@@ -128,6 +128,7 @@ namespace Battlement
                 }
 
                 scheduled.HasStarted = true;
+                executor.BeginBatch();
                 if (DependsOnFailedPredecessor(scheduled))
                 {
                     Fail(
@@ -186,6 +187,7 @@ namespace Battlement
             if (scheduled.NextGroup >= scheduled.Batch.Groups.Count)
             {
                 scheduled.Outcome = BatchOutcome.Succeeded;
+                executor.EndBatch();
                 return true;
             }
 
@@ -279,6 +281,7 @@ namespace Battlement
 
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
+            executor.EndBatch();
             reportFailure(
                 new BatchFailed<CoreErrorCode>(
                     scheduled.SessionId,
@@ -304,6 +307,7 @@ namespace Battlement
 
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
+            executor.EndBatch();
             reportCustomFailure(exception, scheduled.SessionId, scheduled.Batch.Id, commandId);
         }
 

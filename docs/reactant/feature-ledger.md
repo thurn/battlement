@@ -9,15 +9,6 @@ The screen is a focused specimen, not an exhaustive API catalog. The listed
 tests remain the authoritative behavior proof when a capability is broader
 than the specimen.
 
-## Planned focus and navigation
-
-The [focus and navigation design](focus-and-navigation.md) specifies the next
-Reactant focus contract. Its companion [implementation
-plan](focus-and-navigation-implementation-plan.md) maps that contract to
-independently testable work. The design is not a shipped module or sample
-mapping, so it does not add a row to this release ledger until the public API,
-specimen, and black-box proof exist together.
-
 ## Planned accessibility
 
 The [accessibility design](accessibility-technical-design.md) begins only after
@@ -40,6 +31,7 @@ proof exist together.
 | `event` | Events & Portals | `composition.rs::events_screen_runs_and_restores_one_logical_event_path`, `event_catalog.rs`, `propagation.rs` |
 | `executor` | Resources & Boundaries | `composition.rs::resources_screen_catches_resets_and_restores`, `resources.rs` |
 | `external_store` | Effects & Stores | `composition.rs::effects_store_swaps_updates_and_restores_its_external_snapshot`, `external_stores.rs` |
+| `focus` | Layout Gallery | `focus_protocol_tests.rs::complete_tree_accepts_one_auto_focus_and_inertness`, `BattlementFocusCoordinatorTests.cs` |
 | `geometry` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `geometry.rs`, `geometry_effects.rs` |
 | `gesture` | Gestures & Drag | `motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract` |
 | `hooks` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `hook_scheduling.rs`, `state.rs` |

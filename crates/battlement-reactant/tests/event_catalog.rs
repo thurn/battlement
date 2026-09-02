@@ -48,6 +48,15 @@ macro_rules! target_only {
 
 #[test]
 fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
+  std::thread::Builder::new()
+    .stack_size(8 * 1024 * 1024)
+    .spawn(common_builder_catalog)
+    .unwrap()
+    .join()
+    .unwrap();
+}
+
+fn common_builder_catalog() {
   let value = battlement_reactant::host::View::new();
   let value = propagating!(
     value,

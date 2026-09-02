@@ -30,23 +30,31 @@ namespace Battlement.UI
         private readonly Func<VisualElement, int> sourceOrdinal;
         private readonly Func<VisualElement, VisualElement, bool> isScopeMember;
         private readonly Func<VisualElement, IEnumerable<VisualElement>> scopeTraversal;
+        private readonly SystemAction focusBoundaryChanged;
 
         public BattlementOverlayCoordinator(
             Func<ObjectId, VisualElement?> resolve,
             Func<VisualElement, int> sourceOrdinal,
             Func<VisualElement, VisualElement, bool> isScopeMember,
-            Func<VisualElement, IEnumerable<VisualElement>> scopeTraversal
+            Func<VisualElement, IEnumerable<VisualElement>> scopeTraversal,
+            SystemAction? focusBoundaryChanged = null
         )
         {
             this.resolve = resolve;
             this.sourceOrdinal = sourceOrdinal;
             this.isScopeMember = isScopeMember;
             this.scopeTraversal = scopeTraversal;
+            this.focusBoundaryChanged = focusBoundaryChanged ?? (() => { });
         }
 
         public int UpdateCount { get; private set; }
 
         public int EntryCount => entries.Count;
+
+        public VisualElement? ActiveModal(IPanel? panel) =>
+            surfaces
+                .Values.FirstOrDefault(value => value.Host.panel == panel)
+                ?.ActiveModal?.Wrapper;
 
         public void Validate(
             ObjectId targetId,
@@ -345,6 +353,7 @@ namespace Battlement.UI
                 surface.ApplicationReturn =
                     next.Wrapper.panel?.focusController.focusedElement as VisualElement;
             surface.ActiveModal = next;
+            focusBoundaryChanged();
             if (next is null)
             {
                 if (IsFocusEligible(surface.PendingRestore))
@@ -367,7 +376,7 @@ namespace Battlement.UI
                 && isScopeMember(entry.LastFocused!, entry.Wrapper)
             )
             {
-                entry.LastFocused!.Focus();
+                FocusRequired(entry, entry.LastFocused!);
                 return;
             }
             var modal = (OverlayPlacement.Modal)entry.Placement;
@@ -378,13 +387,13 @@ namespace Battlement.UI
                 && isScopeMember(requested, entry.Wrapper)
             )
             {
-                requested.Focus();
+                FocusRequired(entry, requested);
                 entry.LastFocused = requested;
                 entry.FocusActivated = true;
                 return;
             }
-            VisualElement? fallback = Traversal(entry).FirstOrDefault();
-            (fallback ?? entry.Wrapper).Focus();
+            VisualElement? fallback = SequentialTraversal(entry).FirstOrDefault();
+            FocusRequired(entry, fallback ?? entry.Wrapper);
             entry.LastFocused = fallback ?? entry.Wrapper;
             entry.FocusActivated = true;
         }
@@ -396,9 +405,9 @@ namespace Battlement.UI
             Surface? surface = SurfaceFor(target);
             if (surface?.ActiveModal is not Entry activeModal)
                 return;
-            if (isScopeMember(target, activeModal.Wrapper))
+            if (ScopeHost(target, activeModal) is VisualElement focused)
             {
-                activeModal.LastFocused = target;
+                activeModal.LastFocused = focused;
                 return;
             }
             FocusModal(activeModal);
@@ -411,25 +420,31 @@ namespace Battlement.UI
             Surface? surface = SurfaceFor(target);
             if (surface?.ActiveModal is not Entry activeModal)
                 return;
-            VisualElement[] traversal = Traversal(activeModal)
-                .OrderBy(value => value.tabIndex > 0 ? value.tabIndex : int.MaxValue)
-                .ThenBy(sourceOrdinal)
-                .ToArray();
+            VisualElement[] traversal = SequentialTraversal(activeModal).ToArray();
             if (traversal.Length == 0)
             {
                 activeModal.Wrapper.Focus();
-                eventValue.StopImmediatePropagation();
+                ConsumeTab(activeModal, eventValue);
                 return;
             }
             VisualElement? focused =
                 activeModal.Wrapper.panel?.focusController.focusedElement as VisualElement;
             int index = Array.IndexOf(traversal, focused);
-            int next = eventValue.shiftKey
-                ? (index <= 0 ? traversal.Length - 1 : index - 1)
-                : (index + 1) % traversal.Length;
+            bool boundary = eventValue.shiftKey
+                ? index <= 0
+                : index < 0 || index == traversal.Length - 1;
+            if (!boundary)
+                return;
+            int next = eventValue.shiftKey ? traversal.Length - 1 : 0;
             traversal[next].Focus();
             activeModal.LastFocused = traversal[next];
-            eventValue.StopImmediatePropagation();
+            ConsumeTab(activeModal, eventValue);
+        }
+
+        private static void ConsumeTab(Entry activeModal, KeyDownEvent eventValue)
+        {
+            activeModal.Wrapper.panel?.focusController.IgnoreEvent(eventValue);
+            eventValue.StopPropagation();
         }
 
         private Surface? SurfaceFor(VisualElement target) =>
@@ -461,8 +476,10 @@ namespace Battlement.UI
             Func<Guid, Guid, bool> isDescendant
         )
         {
-            if (reference is not ObjectId id || resolve(id) is not VisualElement target)
+            if (reference is not ObjectId id)
                 return;
+            if (resolve(id) is not VisualElement target)
+                throw Failure($"Modal {wrapper} focus ref {id} does not exist.");
             if (requireDescendant && !isDescendant(id.Value, wrapper.Value))
                 throw Failure($"Modal {wrapper} initial focus {id} is outside its scope.");
             VisualElement? wrapperElement = resolve(wrapper);
@@ -605,9 +622,29 @@ namespace Battlement.UI
                     value != entry.Wrapper && value.tabIndex >= 0 && IsFocusEligible(value)
                 );
 
+        private IEnumerable<VisualElement> SequentialTraversal(Entry entry) =>
+            Traversal(entry).OrderBy(value => value.tabIndex > 0 ? value.tabIndex : int.MaxValue);
+
         private bool ContainsFocus(Entry entry) =>
             entry.Wrapper.panel?.focusController.focusedElement is VisualElement focused
-            && isScopeMember(focused, entry.Wrapper);
+            && ScopeHost(focused, entry) is not null;
+
+        private VisualElement? ScopeHost(VisualElement focused, Entry entry)
+        {
+            for (VisualElement? current = focused; current is not null; current = current.parent)
+            {
+                if (current == entry.Wrapper || isScopeMember(current, entry.Wrapper))
+                    return current;
+            }
+            return null;
+        }
+
+        private void FocusRequired(Entry entry, VisualElement target)
+        {
+            target.Focus();
+            if (!ContainsFocus(entry))
+                throw Failure("An active modal must retain focus inside its scope.");
+        }
 
         private static void FocusIfEligible(VisualElement? value)
         {
@@ -666,7 +703,7 @@ namespace Battlement.UI
                 UnbindPanel();
                 panelRoot = next;
                 panelRoot?.RegisterCallback(focusIn, TrickleDown.TrickleDown);
-                panelRoot?.RegisterCallback(keyDown, TrickleDown.TrickleDown);
+                panelRoot?.RegisterCallback(keyDown);
             }
 
             public void Dispose()
@@ -678,7 +715,7 @@ namespace Battlement.UI
             private void UnbindPanel()
             {
                 panelRoot?.UnregisterCallback(focusIn, TrickleDown.TrickleDown);
-                panelRoot?.UnregisterCallback(keyDown, TrickleDown.TrickleDown);
+                panelRoot?.UnregisterCallback(keyDown);
                 panelRoot = null;
             }
         }

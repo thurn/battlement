@@ -55,7 +55,30 @@ pub fn validate_documents(
       validate_node(child, &mut identities, 1, None, false, false)?;
     }
   }
+  if documents.iter().map(auto_focus_count).sum::<usize>() > 1 {
+    return Err(UiValidationError::InvalidProperty);
+  }
   Ok(identities)
+}
+
+fn auto_focus_count(document: &UiDocument) -> usize {
+  usize::from(matches!(document.element.auto_focus, Prop::Set(true)))
+    + document
+      .children
+      .iter()
+      .map(node_auto_focus_count)
+      .sum::<usize>()
+}
+
+fn node_auto_focus_count(node: &UiNode) -> usize {
+  usize::from(matches!(
+    node.element.visual_element().auto_focus,
+    Prop::Set(true)
+  )) + node
+    .children
+    .iter()
+    .map(node_auto_focus_count)
+    .sum::<usize>()
 }
 
 /// Validates a detached element subtree before a create command is executed.

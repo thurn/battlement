@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use battlement::{MotionLayer, Prop, UiVisualElementProperties};
+use battlement::{MotionLayer, OverlayLayer, OverlayPlacement, Prop, UiVisualElementProperties};
 
 use crate::{
   motion_lifecycle::{self, MotionCallbacks},
@@ -91,6 +91,7 @@ pub(crate) fn push<R: 'static>(
     let existing = state.exits.iter().find(|exit| &exit.key == key).cloned();
     let exit_generation = existing.as_ref().map_or(generation, |exit| exit.generation);
     let mut exiting = rerender_retained(prior, exit_generation, &sink.variant_scope);
+    mark_inert(&mut exiting);
     if config.mode == PresenceMode::PopLayout {
       mark_pop_layout(&mut exiting);
     }
@@ -181,6 +182,24 @@ fn mark_pop_layout(position: &mut RenderPosition) {
   }
   for child in &mut position.children.positions {
     mark_pop_layout(child);
+  }
+}
+
+fn mark_inert(position: &mut RenderPosition) {
+  if let Some(host) = &mut position.host {
+    let visual = host.element.visual_element_mut();
+    visual.auto_focus = Prop::Set(false);
+    visual.inert = Prop::Set(true);
+    if matches!(
+      visual.overlay_placement,
+      Prop::Set(OverlayPlacement::Modal { .. })
+    ) {
+      visual.overlay_placement = Prop::Set(OverlayPlacement::Layer(OverlayLayer::Modal));
+      position.overlay_reference = None;
+    }
+  }
+  for child in &mut position.children.positions {
+    mark_inert(child);
   }
 }
 

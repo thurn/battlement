@@ -131,6 +131,20 @@ impl UiDocument {
     self
   }
 
+  /// Requests focus once when the document root is installed.
+  #[must_use]
+  pub fn auto_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.element.auto_focus = value.into();
+    self
+  }
+
+  /// Sets whether the document root subtree is unavailable to user interaction.
+  #[must_use]
+  pub fn inert(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.element.inert = value.into();
+    self
+  }
+
   /// Appends one USS class name used to style the document root.
   ///
   /// Empty or duplicate class names make the document invalid.

@@ -17,6 +17,8 @@ namespace Battlement
     /// <param name="Focusable">Whether the root can receive focus.</param>
     /// <param name="TabIndex">Root ordering in the keyboard focus ring.</param>
     /// <param name="DelegatesFocus">Whether root focus transfers to a descendant.</param>
+    /// <param name="AutoFocus">Whether the root requests focus after installation.</param>
+    /// <param name="Inert">Whether the root subtree is unavailable to user interaction.</param>
     /// <param name="Classes">USS classes applied to the root in the supplied order.</param>
     /// <param name="Style">Inline overrides applied directly to the root.</param>
     /// <param name="Events">Subscribed UI event kinds forwarded to Rust.</param>
@@ -38,7 +40,9 @@ namespace Battlement
         UiStyle? Style = null,
         Prop<IReadOnlyList<UiEventKind>> Events = default,
         IReadOnlyList<UiNode>? Children = null,
-        Prop<IReadOnlyList<UiEventSubscription>> EventSubscriptions = default
+        Prop<IReadOnlyList<UiEventSubscription>> EventSubscriptions = default,
+        Prop<bool> AutoFocus = default,
+        Prop<bool> Inert = default
     );
 
     /// <summary>One identified node in a logical UI hierarchy.</summary>

@@ -9,6 +9,7 @@ use crate::{Game, design_system, layout_gallery_styles as styles};
 pub(crate) struct LayoutGalleryState {
   pub(crate) active_tab: usize,
   pub(crate) alternate_tracks: bool,
+  pub(crate) inert_content: bool,
   pub(crate) large_text: bool,
   pub(crate) menu_open: bool,
   pub(crate) modal_open: bool,
@@ -55,6 +56,16 @@ impl Component for LayoutGallery {
       )
       .child(self.controls(modal_trigger.clone()))
       .child(self.tabs())
+      .child(
+        View::new()
+          .name("layout-gallery-inert-region")
+          .inert(self.state.inert_content)
+          .child(
+            Button::new("INERT TARGET")
+              .name("layout-gallery-inert-target")
+              .on_click(|game: &mut Game| game.layout_gallery.trace.push("INERT")),
+          ),
+      )
       .child(self.settings())
       .child(self.table())
       .child(self.dropdown(menu_anchor))
@@ -87,6 +98,12 @@ impl LayoutGallery {
       .child(
         Button::new("RESPONSIVE TRACKS")
           .name("layout-gallery-tracks")
+          .focus_props(
+            FocusProps::new()
+              .focusable(true)
+              .tab_index(0)
+              .auto_focus(true),
+          )
           .on_click(|game: &mut Game| {
             game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
           }),
@@ -96,6 +113,13 @@ impl LayoutGallery {
           .name("layout-gallery-text")
           .on_click(|game: &mut Game| {
             game.layout_gallery.large_text = !game.layout_gallery.large_text;
+          }),
+      )
+      .child(
+        Button::new("TOGGLE INERT")
+          .name("layout-gallery-inert-toggle")
+          .on_click(|game: &mut Game| {
+            game.layout_gallery.inert_content = !game.layout_gallery.inert_content;
           }),
       )
       .child(
@@ -376,6 +400,7 @@ impl LayoutGallery {
                 Button::new("CLOSE MODAL")
                   .name("layout-gallery-modal-close")
                   .element_ref(initial)
+                  .while_focus_visible(MotionStyle::new().scale(1.06))
                   .on_click(|game: &mut Game| game.layout_gallery.modal_open = false),
               ),
           ),

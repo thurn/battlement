@@ -17,7 +17,7 @@ use std::{
 use battlement::{
   ClickEvent, CommandBody, Display, GameObject, GameObjectKind, ObjectId, ParentScene,
   PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument,
-  UiDocumentState, UiEvent,
+  UiDocumentState, UiEvent, UiVisualElementProperties,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -732,6 +732,15 @@ fn suspended_portal_hosts_remain_mounted_but_hidden() {
     world.element(portaled).unwrap().style().display,
     Prop::Set(StyleValue::Value(Display::None))
   );
+  assert_eq!(
+    world
+      .element(portaled)
+      .unwrap()
+      .element()
+      .visual_element()
+      .inert,
+    Prop::Set(true)
+  );
 
   spawner.run_next();
   self::apply_without_recreating(&mut world, reactant.poll(&mut ()).unwrap(), portaled);
@@ -739,6 +748,15 @@ fn suspended_portal_hosts_remain_mounted_but_hidden() {
   assert_ne!(
     world.element(portaled).unwrap().style().display,
     Prop::Set(StyleValue::Value(Display::None))
+  );
+  assert_ne!(
+    world
+      .element(portaled)
+      .unwrap()
+      .element()
+      .visual_element()
+      .inert,
+    Prop::Set(true)
   );
   let _ = reactant.shutdown(&mut ()).into_groups();
 }

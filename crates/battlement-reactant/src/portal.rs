@@ -401,7 +401,10 @@ fn physical_hosts(
 
 fn hide_roots(hosts: &mut [UiNode]) {
   for host in hosts {
-    host.element.visual_element_mut().style.display = Prop::Set(StyleValue::Value(Display::None));
+    let visual = host.element.visual_element_mut();
+    visual.auto_focus = Prop::Set(false);
+    visual.inert = Prop::Set(true);
+    visual.style.display = Prop::Set(StyleValue::Value(Display::None));
   }
 }
 
