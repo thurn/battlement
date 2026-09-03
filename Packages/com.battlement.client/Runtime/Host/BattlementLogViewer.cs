@@ -56,6 +56,19 @@ namespace Battlement
 
         public void RequestRefresh() => refreshRequested = true;
 
+        public void ShowErrors()
+        {
+            if (!dialog.IsVisible)
+            {
+                dialog.SourceFilter.SetValueWithoutNotify("All");
+                dialog.SeverityFilter.SetValueWithoutNotify("error");
+                dialog.Search.SetValueWithoutNotify(string.Empty);
+            }
+
+            SetVisible(true);
+            RequestRefresh();
+        }
+
         public void Update()
         {
             if (!dialog.IsVisible)
@@ -231,7 +244,8 @@ namespace Battlement
                 );
             }
             panelSettings = Object.Instantiate(template);
-            panelSettings.scaleMode = NativePanelScaleMode.ConstantPixelSize;
+            panelSettings.scaleMode = NativePanelScaleMode.ConstantPhysicalSize;
+            panelSettings.sortingOrder = 9_998;
 
             host = new GameObject("Battlement Log Viewer");
             host.SetActive(false);

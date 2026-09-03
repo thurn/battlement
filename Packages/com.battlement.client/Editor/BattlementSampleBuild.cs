@@ -33,8 +33,8 @@ namespace Battlement.Editor
         private const string WebThreadPool =
             "-sPTHREAD_POOL_SIZE=globalThis.battlementWebThreads.pthreadPoolSize";
 
-        // Make development builds fail loudly if code exceeds the prestarted pool;
-        // release builds avoid the debug instrumentation and its console overhead.
+        // Make debug-profile Web builds fail loudly if code exceeds the prestarted pool;
+        // release profiles avoid the thread instrumentation and its console overhead.
         private const string WebThreadPoolStrict = "-sPTHREAD_POOL_SIZE_STRICT=2";
         private const string WebThreadDebug = "-sPTHREADS_DEBUG=1";
         private const string WebScriptStart = "    <script>\n      var canvas =";
@@ -103,7 +103,9 @@ namespace Battlement.Editor
                             scenes = new[] { scene },
                             locationPathName = output,
                             target = target,
-                            options = release ? BuildOptions.None : BuildOptions.Development,
+                            // Intentionally retain Unity diagnostics and the log viewer for
+                            // every sample player, including --release builds.
+                            options = BuildOptions.Development,
                         }
                     );
                     if (report.summary.result != BuildResult.Succeeded)

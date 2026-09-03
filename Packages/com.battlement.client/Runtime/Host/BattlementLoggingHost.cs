@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -8,15 +9,21 @@ namespace Battlement
 {
     internal sealed class BattlementLoggingHost : MonoBehaviour
     {
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
         private BattlementLogViewer? viewer;
+#endif
+#if !UNITY_EDITOR && DEVELOPMENT_BUILD
+        private BattlementDevelopmentConsole? developmentConsole;
 #endif
         private BattlementFpsViewer? fpsViewer;
 
         public void Initialize()
         {
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer = new BattlementLogViewer(transform);
+#endif
+#if !UNITY_EDITOR && DEVELOPMENT_BUILD
+            developmentConsole = new BattlementDevelopmentConsole(() => viewer!.ShowErrors());
 #endif
             fpsViewer = new BattlementFpsViewer(transform);
             BattlementDebugUi.Register(this);
@@ -31,8 +38,8 @@ namespace Battlement
             {
                 if (keyboard.lKey.wasPressedThisFrame)
                 {
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
-                    SetVisible(DebugUiSurface.LogViewer, viewer?.IsVisible != true);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
+                    ToggleLogViewer();
 #endif
                 }
                 if (keyboard.fKey.wasPressedThisFrame)
@@ -41,17 +48,26 @@ namespace Battlement
                 }
             }
 
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if !UNITY_EDITOR && DEVELOPMENT_BUILD
+            developmentConsole?.Update();
+#endif
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer?.Update();
 #endif
             fpsViewer?.Update();
         }
 
+        public void ToggleLogViewer() =>
+            SetVisible(DebugUiSurface.LogViewer, !IsVisible(DebugUiSurface.LogViewer));
+
         private void OnDestroy()
         {
             Application.logMessageReceivedThreaded -= ReceiveUnityLog;
             BattlementDebugUi.Unregister(this);
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if !UNITY_EDITOR && DEVELOPMENT_BUILD
+            developmentConsole?.Dispose();
+#endif
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer?.Dispose();
 #endif
             fpsViewer?.Dispose();
@@ -86,7 +102,7 @@ namespace Battlement
             );
             if (severity == BattlementLogSeverity.Error)
             {
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
                 viewer?.RequestRefresh();
 #endif
             }
@@ -97,7 +113,7 @@ namespace Battlement
             switch (surface)
             {
                 case DebugUiSurface.LogViewer:
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
                     viewer?.SetVisible(visible);
 #endif
                     break;
@@ -119,7 +135,7 @@ namespace Battlement
 
         private bool LogViewerVisible()
         {
-#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || BATTLEMENT_DITTO_DIAGNOSTICS
             return viewer?.IsVisible == true;
 #else
             return false;
@@ -136,6 +152,43 @@ namespace Battlement
             bool command = keyboard.leftMetaKey.isPressed || keyboard.rightMetaKey.isPressed;
             bool control = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
             return command || control;
+        }
+    }
+
+    internal sealed class BattlementDevelopmentConsole : IDisposable
+    {
+        private readonly System.Action showErrors;
+        private readonly bool developerConsoleWasEnabled;
+        private int showRequested;
+
+        public BattlementDevelopmentConsole(System.Action showErrors)
+        {
+            this.showErrors = showErrors;
+            developerConsoleWasEnabled = Debug.developerConsoleEnabled;
+            Debug.developerConsoleEnabled = false;
+            Application.logMessageReceivedThreaded += Receive;
+        }
+
+        public void Update()
+        {
+            if (Interlocked.Exchange(ref showRequested, 0) != 0)
+            {
+                showErrors();
+            }
+        }
+
+        public void Dispose()
+        {
+            Application.logMessageReceivedThreaded -= Receive;
+            Debug.developerConsoleEnabled = developerConsoleWasEnabled;
+        }
+
+        private void Receive(string condition, string stackTrace, LogType type)
+        {
+            if (type is LogType.Error or LogType.Assert or LogType.Exception)
+            {
+                Interlocked.Exchange(ref showRequested, 1);
+            }
         }
     }
 

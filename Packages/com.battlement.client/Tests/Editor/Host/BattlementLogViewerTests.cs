@@ -2,6 +2,7 @@
 
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
@@ -10,14 +11,45 @@ namespace Battlement.Tests
     public sealed class BattlementLogViewerTests
     {
         [Test]
+        public void DevelopmentConsoleReplacesUnityConsoleAndOpensForErrors()
+        {
+            bool previous = Debug.developerConsoleEnabled;
+            int openings = 0;
+            try
+            {
+                using var console = new BattlementDevelopmentConsole(() => openings++);
+                Assert.That(Debug.developerConsoleEnabled, Is.False);
+
+                Debug.Log("informational message");
+                console.Update();
+                Assert.That(openings, Is.Zero);
+
+                LogAssert.Expect(LogType.Error, "visible development error");
+                Debug.LogError("visible development error");
+                console.Update();
+                Assert.That(openings, Is.EqualTo(1));
+            }
+            finally
+            {
+                Debug.developerConsoleEnabled = previous;
+            }
+        }
+
+        [Test]
         public void LogDialogFollowsGrowthUntilTheScrollbarIsUsed()
         {
             var parent = new GameObject("Battlement Log Viewer Test");
             try
             {
                 using var dialog = new BattlementLogDialog(parent.transform);
-                ScrollView scroll = dialog.Details.GetFirstAncestorOfType<ScrollView>();
+                UIDocument document = parent.GetComponentInChildren<UIDocument>(true);
+                Assert.That(
+                    document.panelSettings.scaleMode,
+                    Is.EqualTo(UnityEngine.UIElements.PanelScaleMode.ConstantPhysicalSize)
+                );
+                Assert.That(document.panelSettings.sortingOrder, Is.GreaterThan(0));
                 dialog.Show();
+                ScrollView scroll = dialog.Details.GetFirstAncestorOfType<ScrollView>();
                 Assert.That(dialog.AutoScroll.value, Is.True);
 
                 scroll.verticalScroller.highValue = 100;

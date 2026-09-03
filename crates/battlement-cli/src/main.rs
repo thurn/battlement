@@ -82,7 +82,7 @@ enum SampleCommand {
     /// Build a browser player with the Rust engine embedded in WebAssembly.
     #[arg(long)]
     web: bool,
-    /// Build a non-Development release player.
+    /// Build release Rust rules while retaining Unity development diagnostics.
     #[arg(long)]
     release: bool,
   },
@@ -96,7 +96,7 @@ enum SampleCommand {
     /// Local static-server port for a Web player.
     #[arg(long, requires = "web")]
     port: Option<u16>,
-    /// Build a non-Development release player.
+    /// Build release Rust rules while retaining Unity development diagnostics.
     #[arg(long)]
     release: bool,
   },

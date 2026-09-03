@@ -42,6 +42,17 @@ The script builds threaded release WebGL players, stages the ignored site under
 deploys the `samples` Worker, and checks the live sample URLs. Build or
 validation failures leave the current deployment untouched.
 
+## Release build diagnostics
+
+Sample builds intentionally retain Unity's **Development Build** option even
+when `cargo battlement sample build` or `sample run` uses `--release`. This keeps
+`DEVELOPMENT_BUILD` defined and preserves runtime diagnostics and Battlement's
+readable log viewer in deployed samples.
+
+`--release` selects optimized Rust rules and disables extra Web thread
+instrumentation; it does not produce a non-Development Unity player. Unity's
+development instrumentation and profiler support remain enabled by design.
+
 ## Inspect or roll back
 
 Open **Workers & Pages > samples** in the Cloudflare dashboard to inspect
