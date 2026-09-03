@@ -87,3 +87,23 @@ to = "select.changed"
 [[transitions]]
 from = "select.changed"
 to = "select.reset"
+
+[[states]]
+key = "volume.initial"
+screen = "volume"
+
+[[states]]
+key = "volume.changed"
+screen = "volume"
+
+[[states]]
+key = "volume.reset"
+screen = "volume"
+
+[[transitions]]
+from = "volume.initial"
+to = "volume.changed"
+
+[[transitions]]
+from = "volume.changed"
+to = "volume.reset"

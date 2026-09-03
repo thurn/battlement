@@ -121,3 +121,29 @@ to = "select.changed"
 [[transitions]]
 from = "select.changed"
 to = "select.reset"
+
+[[mappings]]
+state = "volume.initial"
+scenario = "volume layout"
+checkpoint = "initial"
+owner = "gallery::volume_uses_parent_values_and_resets_without_retaining_proposals"
+
+[[mappings]]
+state = "volume.changed"
+scenario = "volume layout"
+checkpoint = "changed"
+owner = "gallery::volume_uses_parent_values_and_resets_without_retaining_proposals"
+
+[[mappings]]
+state = "volume.reset"
+scenario = "volume layout"
+checkpoint = "reset"
+owner = "gallery::volume_uses_parent_values_and_resets_without_retaining_proposals"
+
+[[transitions]]
+from = "volume.initial"
+to = "volume.changed"
+
+[[transitions]]
+from = "volume.changed"
+to = "volume.reset"

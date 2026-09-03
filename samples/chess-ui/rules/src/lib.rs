@@ -25,3 +25,6 @@ pub mod setting_row;
 mod setting_row_harness;
 pub mod toggle_control;
 mod toggle_harness;
+pub mod volume_control;
+mod volume_harness;
+mod volume_skin;

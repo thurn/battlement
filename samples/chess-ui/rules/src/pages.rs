@@ -2,6 +2,7 @@ use battlement_reactant::prelude::*;
 
 use crate::{
   frame_harness, gallery, portrait_harness, select_harness, setting_row_harness, toggle_harness,
+  volume_harness,
 };
 
 /// One review page and its capture contract.
@@ -73,7 +74,7 @@ pub const ALL: [Page; 40] = [
     number: 7,
     title: "VolumeControl layout",
     description: "VolumeControl renders track, fill, thumb, value, and controlled changes; rich input and effects remain unasserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: volume_harness::render,
     semantic_target: "7. VolumeControl layout",
     capture_states: &["initial", "changed", "reset"],
   },

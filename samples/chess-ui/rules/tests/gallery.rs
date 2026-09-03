@@ -184,6 +184,89 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
   );
 }
 
+#[test]
+fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-7");
+  client.ui().click(page);
+  client.poll();
+  let slider = self::assert_volume(&client, "Master Volume", 80);
+  self::assert_volume(&client, "Minimum", 0);
+  let maximum = self::assert_volume(&client, "Maximum", 100);
+  self::range_action(&mut client, slider, UiAccessibilityAction::Increment);
+  self::assert_volume(&client, "Master Volume", 85);
+  self::range_action(&mut client, maximum, UiAccessibilityAction::Decrement);
+  self::assert_volume(&client, "Maximum", 100);
+  let update = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Change volume from parent"))
+    .unwrap()
+    .object_id;
+  client.ui().click(update);
+  client.poll();
+  self::assert_volume(&client, "Master Volume", 25);
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Volume changes: 1"))
+  );
+  self::range_action(&mut client, slider, UiAccessibilityAction::Decrement);
+  self::assert_volume(&client, "Master Volume", 20);
+  client.ui().click(page);
+  client.poll();
+  self::assert_volume(&client, "Master Volume", 80);
+  self::assert_volume(&client, "Minimum", 0);
+  self::assert_volume(&client, "Maximum", 100);
+  assert!(!client.ui().contains(slider));
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Volume changes: 0"))
+  );
+  self::assert_page(&mut client, 6);
+}
+
+fn assert_volume(client: &FakeClient<App>, label: &str, expected: u32) -> ObjectId {
+  let snapshot = self::snapshot(client);
+  let slider = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Slider && node.label.as_deref() == Some(label))
+    .unwrap();
+  let range = slider.value.as_ref().unwrap();
+  assert_eq!(
+    (range.minimum, range.maximum, range.current),
+    (0.0, 100.0, f64::from(expected))
+  );
+  assert_eq!(
+    range.text.as_deref(),
+    Some(format!("{expected} percent").as_str())
+  );
+  let region = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Region)
+    .unwrap();
+  assert_eq!(slider.parent_id, Some(region.object_id));
+  slider.object_id
+}
+
+fn range_action(client: &mut FakeClient<App>, target: ObjectId, action: UiAccessibilityAction) {
+  client.ui().send_event(UiEvent::new(
+    target,
+    true,
+    false,
+    UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 1,
+      action,
+    }),
+  ));
+  client.poll();
+}
+
 fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {
   let snapshot = self::snapshot(client);
   let checkbox = snapshot

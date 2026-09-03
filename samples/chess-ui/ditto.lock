@@ -320,3 +320,33 @@ width = 1280
 height = 800
 size_bytes = 109000
 source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume layout"
+checkpoint = "changed"
+sha256 = "37fcb3ea5246335023a6c330168f6bc2b389e3fb0ab20511a6ad2c29c99375ca"
+width = 1280
+height = 800
+size_bytes = 115824
+source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume layout"
+checkpoint = "initial"
+sha256 = "2b1ee767a75413b6b89adf84dc000b474e046aea75f2ee448913b399d3eba23c"
+width = 1280
+height = 800
+size_bytes = 116017
+source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume layout"
+checkpoint = "reset"
+sha256 = "2b1ee767a75413b6b89adf84dc000b474e046aea75f2ee448913b399d3eba23c"
+width = 1280
+height = 800
+size_bytes = 116017
+source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
