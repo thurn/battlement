@@ -7,11 +7,19 @@ application using **Reactant**, Battlement's declarative Rust component runtime.
 The result is a standalone `chess-ui` sample whose appearance and behavior
 match the pinned TypeScript source at desktop resolution.
 
-The sample is also a deliberate Reactant refinement project. Each small
-migration is reviewed for unnecessary differences from TypeScript and for
-general framework improvements. The sample matters primarily as evidence that
-Reactant can express a polished application with React-like component
-boundaries, controlled props, hooks, accessibility, focus, assets, and motion.
+The sample is a deliberate challenge to Reactant's API and architecture. Every
+migration must strongly question why Reactant cannot express the source as
+directly as React can. Consider major public API changes, replacement of
+existing abstractions, and changes to runtime responsibilities when they make
+application code simpler and preserve the source's behavior. The current
+Reactant API is an implementation to improve, not a constraint to defend.
+
+An audit that finds only naming, formatting, or small local cleanups while
+leaving unexplained architectural differences has not fulfilled this plan.
+Visual parity and passing tests are necessary, but insufficient: the sample
+must demonstrate that ordinary application authors can express the same
+component boundaries, controlled props, inline composition, labels, controls,
+focus, accessibility, assets, and motion without unnecessary framework wiring.
 
 The port is developed through exactly 40 selectable review pages. Each page
 isolates one responsibility, states what must work, and states what that page
@@ -152,9 +160,19 @@ adapters are not permitted.
 
 ## Port Contract
 
-The port targets player-visible experience, not browser implementation details.
+Preserve both the player-visible experience and the source's authoring model.
 Component names, prop meaning, controlled state ownership, and high-level
-composition remain aligned with TypeScript wherever the Unity host permits.
+composition must remain aligned with TypeScript. Browser mechanisms may become
+Unity mechanisms inside Reactant; their replacement must not automatically
+become additional work for every application component.
+
+For every difference, first ask: "Why can't Reactant work this way, and what
+would we change in Reactant to make it possible?" Do not substitute the easier
+question of how to fit the source into today's API. A limitation of the current
+builder, hook, host facade, semantic model, or runtime is a candidate framework
+defect. Only a demonstrated language or platform constraint can justify a
+necessary divergence, and the reviewer must still consider hiding its mechanics
+inside a reusable abstraction.
 
 ### Runnable sample
 
@@ -212,7 +230,14 @@ Preserve these source-level component, provider, hook, and helper boundaries:
   `useBackgroundMusic`, `useFontScale`, and `useArcadeNavigation`
 
 Rust fields use idiomatic `snake_case`, but preserve the source prop boundary
-and required or optional status. Important control contracts are:
+and required or optional status. Inspect how each prop is actually used, not
+just its declaration. A prop accepted through a shared TypeScript type but
+ignored by the component must remain behaviorally inert. For example,
+`ToggleControl` accepts `first` through `BaseProps` but does not forward it to
+`SettingRow`; making it suppress a separator would introduce a feature absent
+from the source. Do not complete inert callbacks, add convenient behavior, or
+"fix" prototype choices under the guise of porting. Important control contracts
+are:
 
 ```text
 ActionButton { children, disabled = false, max_text_scale?, on_click? }
@@ -244,9 +269,13 @@ The initial application hierarchy remains `BackgroundMusicProvider` containing
 `FontScaleProvider`, containing `PortraitViewport`, containing `ScreenFrame`,
 containing `ArcadeRouteTransition`, containing `ArcadeScreenRouter`.
 
-The Rust implementation may introduce host elements required by UI Toolkit,
-but each extra element needs a line-level explanation. "Rust is different" is
-not a sufficient explanation for changing a component boundary or prop.
+Every extra host, hook, ref, state value, callback adapter, mutation, and
+intermediate render variable needs scrutiny. Show why it is necessary at the
+application call site, not merely why the current implementation uses it.
+"Rust is different," "the borrow checker requires it," "Unity is not the DOM,"
+"accessibility needs it," and "this follows the existing architecture" are not
+sufficient explanations. Investigate the concrete constraint and a simpler API
+before accepting the difference.
 
 Primary source ownership is assigned as follows. A boundary can appear in more
 than one task when its layout, behavior, and animation are reviewed separately.
@@ -291,13 +320,31 @@ The following substitutions are part of the port rather than parity failures:
 - `UiRenderModeProvider`, `DebugRenderModeToggle`, `useUiRenderMode`, and
   `useAppleTouchWebKit` are excluded as browser diagnostic scaffolding.
 
-Potential public Reactant improvements include cloneable callback props,
-behavior-bundle forwarding, and generated asset families. Add one only when a
-page demonstrates a generalized need beyond the certified prerequisite
-capability. Each addition includes public black-box tests, concise public
-documentation, and a refactor proving that the sample uses the improved API.
+The listed platform substitutions do not exempt their application-facing APIs
+from review. A different backend does not by itself require a more complicated
+component.
 
-Backward compatibility and versioning do not constrain these improvements.
+Framework improvements are not limited to small helpers around existing APIs.
+Consider redesigning builders, control primitives, label and ID associations,
+callback ownership, behavior composition, semantic defaults, and the division
+of work between Rust and Unity. Inspect existing native controls and their
+styling and event facilities before recreating their behavior. A need exposed
+by one page is sufficient when the capability belongs in a general UI framework;
+do not demand several applications before addressing obvious authoring friction.
+
+Existing Reactant design documents explain current decisions; they do not prove
+those decisions remain appropriate. Challenge and revise them when the source
+demonstrates a better authoring contract. Preserve the underlying correctness
+requirements, including controlled state, lifecycle safety, focus behavior, and
+accessible meaning, while changing where that work is performed. Each accepted
+change includes focused public black-box coverage where behavior warrants it,
+concise public documentation, and the sample refactor that proves the API works.
+
+Major breaking API changes are explicitly in scope. Backward compatibility,
+versioning, sunk implementation effort, and the size of the existing API are
+not reasons to retain an inferior authoring model. Large changes still receive
+proportionate correctness review and validation; they must not be reduced to
+cosmetic fixes merely to keep the diff small.
 
 ## Review Gallery
 
@@ -446,7 +493,10 @@ The base-task workflow is:
 1. Create a fresh Tollgate-owned `wt` worktree from the current release.
 2. Implement one page, its resettable harness, **semantic fixture** containing
    its expected roles, names, states, and relationships, focused tests, and
-   visual evidence. Target roughly 500 non-test lines or fewer.
+   visual evidence. Apply the architectural questions below during
+   implementation, before accepting extra application wiring. Target roughly
+   500 non-test lines or fewer, but do not use this target to reject a necessary
+   framework redesign; keep that redesign cohesive and reviewable.
 3. Rerun smoke and reset checks for all registered pages. Recapture earlier
    pages whose shared components changed.
 4. Stage all intended changes, run focused checks and `./scripts/ci.py`, create
@@ -467,6 +517,8 @@ The reviewer receives:
 - The complete relevant TypeScript files
 - The current source-line ownership table
 - The Reactant documentation and public tests used by the implementation
+- The relevant Reactant implementation and native Unity API evidence, which
+  the reviewer inspects independently of the implementer's explanation
 
 Several source files are intentionally divided across pages. The reviewer still
 receives the complete file, but every line has one disposition:
@@ -480,25 +532,110 @@ A later-task disposition is valid only when the current page description makes
 that behavior out of scope. Task 40 audits every source line and requires a
 terminal disposition.
 
-The reviewer asks why each TypeScript line cannot have a direct Rust
-counterpart and produces:
+### Mandatory architectural challenge
 
+Review the largest differences in responsibility and composition before minor
+style issues. First run a separate, fresh-context subagent using the
+[blind idealized Rust port prompt](idealized-rust-port-prompt.md). Give it only
+the selected TypeScript snapshots and the prompt's fixed authoring guide,
+including its brief generated-asset and Motion API context. It must not read
+other Reactant project files, the existing port, this plan, or earlier audits.
+The reviewer may inspect the implementation, but must not pass that context to
+the blind subagent.
+
+Record the independent draft and its proposed API contracts before comparing
+them with the actual port. Then investigate what prevents that simpler version
+and what changes would make it possible. Use typed Rust styles throughout;
+runtime CSS strings or a CSS-string styling API are not acceptable. The existing
+static asset-generator declaration grammar remains available for generated
+PNGs, and runtime animation uses typed Motion builders. The goal is equivalent
+expressive power and behavior, not matching token counts or manufacturing a
+one-to-one translation of JSX syntax.
+
+For every relevant component, answer these questions with concrete evidence:
+
+1. **Are we preserving the source's actual behavior?** Trace defaults, ignored
+   props, callbacks, state ownership, and event propagation. Identify every
+   behavior added or changed by the port, even when it seems useful or harmless.
+2. **What does React or the browser already do for the source?** Identify the
+   work supplied by native elements and built-in relationships. Ask why
+   Reactant or Unity cannot own the equivalent work. Do not compare a native
+   HTML control with a hand-built Rust control and declare the extra wiring
+   inevitable.
+3. **Does Unity already provide this control or behavior?** Inspect native
+   controls, styling of their internal parts, value events, and Reactant's
+   existing facades. For a checkbox, examine `Toggle` before accepting a
+   `Button` plus manually attached toggle behavior. If the native control is
+   unsuitable, identify the exact missing capability and consider improving
+   its Reactant facade before rebuilding it.
+4. **Why is each hook, ID, ref, or association authored here?** Compare
+   `use_label()` with the source's `useId()` and label relationship. Compare
+   explicit focus and activation wiring with the source's wrapping `<label>`.
+   Could a stable ID API, associated-label primitive, or composed control own
+   these mechanics? Distinguish required internal bookkeeping from a required
+   public call. A low-level React Aria hook is one API option, not proof that
+   every application needs low-level hooks.
+5. **Why can't the render tree be written inline and declaratively?** Challenge
+   one-use `control` and `row` variables, mutable builders, conditional setters,
+   callback adapters, and repeated clones. Try existing option-aware setters,
+   consuming builders, and direct child expressions. If those are insufficient,
+   propose the API or ownership change that would remove the friction. Retain
+   a local binding when it adds clear meaning or supports real reuse, not
+   because the first implementation happened to introduce it.
+6. **What major API change would remove the largest remaining difference?**
+   Consider replacing an abstraction, moving responsibility into Reactant, or
+   revisiting an earlier design decision. Compare a concrete simpler call site
+   with the current one. Do not stop at extracting boilerplate into a
+   sample-specific helper, renaming a hook, or making a cumbersome pattern
+   reusable when a better primitive would eliminate the pattern.
+
+Every claimed unavoidable difference carries a burden of proof. Cite the exact
+Rust rule or Unity API constraint, show the relevant implementation, and use a
+minimal compile or runtime probe when feasibility is uncertain. Explain which
+simpler alternatives were considered and why each fails. A missing Reactant
+feature is not a Unity limitation. An ownership issue in the present callback
+API is not automatically a language limitation. A design document that mandates
+explicit semantics does not rule out a control abstraction that supplies those
+semantics internally.
+
+Unverified explanations remain unresolved findings. The reviewer must not mark
+them justified, classify them as unavoidable, or issue a no-follow-up result.
+Passing CI, matching screenshots, prior promotion, and fixing several trivial
+issues do not discharge this architectural review.
+
+### Required evidence and follow-up
+
+The reviewer produces:
+
+- The blind subagent's complete Rust draft, proposed contracts, supplied prompt,
+  and TypeScript source revision, preserved before the feasibility review
 - A line-by-line TypeScript-to-Rust correspondence table
 - A reason for every source line without a direct counterpart
-- A list of extra Rust hosts, state, or glue absent from TypeScript
+- An inventory of extra Rust hosts, hooks, refs, state, mutation, and glue,
+  including whether each belongs in application code or inside Reactant
 - A classification of each divergence as a sample defect, generalized Reactant
-  friction, Unity limitation, or language-only difference
-- A concrete Reactant improvement for every generalized divergence
+  friction, proven Unity limitation, proven language constraint, or unresolved
+- Answers to the architectural questions above, led by the most consequential
+  differences; explain any question that is not applicable
+- A concrete simpler Rust call-site sketch and Reactant improvement for every
+  generalized divergence, including major API changes where appropriate
+- Evidence and rejected alternatives for every claimed unavoidable difference
 - Black-box acceptance evidence for the page
-- A written no-follow-up rationale when no improvement has merit
+- A written no-follow-up rationale only when there are no unresolved findings
+  and the strongest simpler designs have been investigated and ruled out
 
 Task 1 has no TypeScript counterpart. Its reviewer instead examines gallery
 registration, scrolling, reset, current-page state, and authoring
 ergonomics.
 
-Every confirmed sample defect is corrected before the next migration. All
-meritorious improvements from one page are grouped into zero or one immediate
-follow-up commit containing:
+Every confirmed sample defect is corrected before the next migration. Resolve
+architectural findings before advancing; do not carry them forward as optional
+cleanup or defer them to an unspecified redesign. Accept an improvement when
+it removes unnecessary application work while preserving the source contract
+and framework correctness. Reject it only with a concrete explanation of why
+the proposed authoring model is worse or infeasible. Implementation effort alone
+is not a rejection reason. All accepted improvements from one page are grouped
+into zero or one immediate follow-up commit containing:
 
 - The generalized Reactant change
 - Its public tests and documentation
@@ -510,12 +647,13 @@ and a separate explicit promotion. It does not receive another specialized
 port-ergonomics review. This prevents recursive review while ensuring every
 confirmed improvement lands before the next page begins.
 
-Correspondence tables, line ownership, and no-follow-up rationales are Markdown
+Correspondence tables, line ownership, architectural findings, simpler API
+sketches, constraint evidence, and no-follow-up rationales are Markdown
 attachments to the Tollgate candidate handoff. Screenshots are PNG attachments,
-and automated evidence is the named Ditto result plus CI run. The handoff stores
-the source and tested commit IDs so a later reviewer can retrieve the exact
-artifact set. Do not embed planning or historical migration commentary in code
-or repository documentation.
+and the blind draft is a Rust source attachment. Automated evidence is the named
+Ditto result plus CI run. The handoff stores the source and tested commit IDs so
+a later reviewer can retrieve the exact artifact set. Do not embed planning or
+historical migration commentary in code or repository documentation.
 
 ## Migration Pages
 
@@ -964,6 +1102,9 @@ Every task supplies validation appropriate to its page:
 - A Task 40 audit assigning every source line a terminal disposition; each
   resulting Reactant follow-up refreshes its affected audit entries before
   candidate submission
+- A complete architectural challenge over the assembled application, including
+  earlier components; prior per-page approval does not exempt accumulated glue,
+  repeated associations, or inconsistent control APIs from redesign
 
 The per-page smoke check opens the registered entry, finds its semantic target,
 and asserts that no error or warning was emitted. The reset check mutates every
