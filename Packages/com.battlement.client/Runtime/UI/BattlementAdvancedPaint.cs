@@ -70,6 +70,10 @@ namespace Battlement.UI
                 staticValues[MotionProperty.BackgroundGradient] = new MotionValue.Gradient(
                     gradient.Value
                 );
+            if (next?.PaintFilter is not null)
+                staticValues[MotionProperty.PaintFilter] = new MotionValue.FilterList(
+                    next.PaintFilter
+                );
             if (next?.ClipPolygon is not null)
                 staticValues[MotionProperty.ClipPolygon] = new MotionValue.ClipPolygon(
                     next.ClipPolygon
@@ -90,6 +94,7 @@ namespace Battlement.UI
             maskLease = null;
             materialLease?.Dispose();
             materialLease = null;
+            target.style.backgroundImage = StyleKeyword.None;
             target.MarkDirtyRepaint();
         }
 
@@ -109,6 +114,9 @@ namespace Battlement.UI
 
         public void Write(MotionProperty property, MotionValue value)
         {
+            if (property == MotionProperty.PaintFilter && !EmptyPaint(value))
+                if (!HasStaticFill)
+                    throw Failure("Motion paint filters require an owned PaintStyle background.");
             if (EmptyPaint(value))
                 motionValues.Remove(property);
             else
@@ -147,6 +155,7 @@ namespace Battlement.UI
             if (points.Count < 3)
                 return;
             Painter2D painter = context.painter2D;
+            DrawFilterShadows(painter, points);
             DrawOuterShadows(painter, points);
             if (maskLease?.Value is Texture2D mask)
                 painter.fillTexture = mask;
@@ -184,6 +193,7 @@ namespace Battlement.UI
                 MotionValue.ClipPolygon polygon => polygon.Value.Count == 0,
                 MotionValue.Gradient { Value: Gradient.Linear linear } => linear.Stops.Count == 0,
                 MotionValue.Gradient { Value: Gradient.Radial radial } => radial.Stops.Count == 0,
+                MotionValue.FilterList filters => filters.Value.Count == 0,
                 MotionValue.ShadowList shadows => shadows.Value.Count == 0,
                 _ => false,
             };
@@ -191,6 +201,7 @@ namespace Battlement.UI
         private bool HasPaint() =>
             HasValue(MotionProperty.BackgroundColor)
             || HasValue(MotionProperty.BackgroundGradient)
+            || HasValue(MotionProperty.PaintFilter)
             || HasValue(MotionProperty.BoxShadow)
             || HasValue(MotionProperty.ClipInset)
             || HasValue(MotionProperty.ClipPolygon)
@@ -216,14 +227,14 @@ namespace Battlement.UI
             IBattlementUiAssetLease lease = assets.Acquire(
                 new PreparedAsset.Texture(new TextureAddress(address))
             );
-            if (lease.Value is not Texture2D texture)
+            if (lease.Value is not Texture2D)
             {
                 lease.Dispose();
                 throw Failure($"Prepared motion texture '{address}' is not a Texture2D.");
             }
             ReplaceLease(mask, lease);
             if (!mask)
-                target.style.backgroundImage = Background.FromTexture2D(texture);
+                target.style.backgroundImage = Background.FromTexture2D((Texture2D)lease.Value);
         }
 
         private void WriteMaterial(MotionValue value)
@@ -384,35 +395,76 @@ namespace Battlement.UI
                 painter.fillGradient = FillGradient(gradient.Value, rect);
                 return;
             }
-            painter.fillColor =
+            painter.fillColor = Brightened(
                 TryValue(MotionProperty.BackgroundColor, out MotionValue color)
                 && color is MotionValue.Color solid
                     ? ToUnityColor(solid.Value)
-                    : target.resolvedStyle.backgroundColor;
+                    : target.resolvedStyle.backgroundColor
+            );
+        }
+
+        private void DrawFilterShadows(Painter2D painter, IReadOnlyList<Vector2> points)
+        {
+            IReadOnlyList<UiFilterFunction> filters = PaintFilters();
+            for (int index = 0; index < filters.Count; index++)
+                if (filters[index] is UiFilterFunction.DropShadow dropShadow)
+                    DrawOuterShadow(painter, points, Brightened(dropShadow.Value, index + 1));
         }
 
         private void DrawOuterShadows(Painter2D painter, IReadOnlyList<Vector2> points)
         {
             foreach (Shadow shadow in Shadows(false))
-            {
-                painter.fillGradient = default;
-                painter.fillColor = ToUnityColor(shadow.Color);
-                painter.BeginPath();
-                Path(painter, Offset(points, shadow));
-                painter.Fill(FillRule.NonZero);
-            }
+                DrawOuterShadow(painter, points, shadow);
         }
 
         private void DrawInsetShadows(Painter2D painter, IReadOnlyList<Vector2> points)
         {
             foreach (Shadow shadow in Shadows(true))
             {
-                painter.strokeColor = ToUnityColor(shadow.Color);
-                painter.lineWidth = checked((float)Math.Max(1, shadow.Blur + shadow.Spread));
-                painter.BeginPath();
-                Path(painter, Offset(points, shadow));
-                painter.Stroke();
+                int layers = ShadowLayers(shadow.Blur);
+                for (int index = layers; index >= 1; index--)
+                {
+                    float progress = (float)index / layers;
+                    painter.strokeColor = ShadowColor(shadow.Color, layers, progress);
+                    painter.lineWidth = checked(
+                        (float)Math.Max(1, 2 * (shadow.Spread + shadow.Blur * progress))
+                    );
+                    painter.BeginPath();
+                    Path(painter, Offset(points, shadow with { Spread = 0 }));
+                    painter.Stroke();
+                }
             }
+        }
+
+        private static void DrawOuterShadow(
+            Painter2D painter,
+            IReadOnlyList<Vector2> points,
+            Shadow shadow
+        )
+        {
+            int layers = ShadowLayers(shadow.Blur);
+            painter.fillGradient = default;
+            for (int index = layers; index >= 1; index--)
+            {
+                float progress = (float)index / layers;
+                painter.fillColor = ShadowColor(shadow.Color, layers, progress);
+                painter.BeginPath();
+                Path(
+                    painter,
+                    Offset(points, shadow with { Spread = shadow.Spread + shadow.Blur * progress })
+                );
+                painter.Fill(FillRule.NonZero);
+            }
+        }
+
+        private static int ShadowLayers(double blur) =>
+            Math.Clamp((int)Math.Ceiling(Math.Max(blur, 1)), 1, 24);
+
+        private static UnityColor ShadowColor(Color color, int layers, float progress)
+        {
+            UnityColor result = ToUnityColor(color);
+            result.a *= 1 - progress + 1f / layers;
+            return result;
         }
 
         private IEnumerable<Shadow> Shadows(bool inset)
@@ -424,6 +476,37 @@ namespace Battlement.UI
                 foreach (Shadow shadow in shadows.Value)
                     if (shadow.Inset == inset)
                         yield return shadow;
+        }
+
+        private IReadOnlyList<UiFilterFunction> PaintFilters() =>
+            HasStaticFill
+            && TryValue(MotionProperty.PaintFilter, out MotionValue value)
+            && value is MotionValue.FilterList filters
+                ? filters.Value
+                : Array.Empty<UiFilterFunction>();
+
+        private UnityColor Brightened(UnityColor color)
+        {
+            return Brightened(color, 0);
+        }
+
+        private UnityColor Brightened(UnityColor color, int startIndex)
+        {
+            float brightness = 1;
+            IReadOnlyList<UiFilterFunction> filters = PaintFilters();
+            for (int index = startIndex; index < filters.Count; index++)
+                if (filters[index] is UiFilterFunction.Brightness value)
+                    brightness *= checked((float)value.Value);
+            color.r *= brightness;
+            color.g *= brightness;
+            color.b *= brightness;
+            return color;
+        }
+
+        private Shadow Brightened(Shadow shadow, int startIndex)
+        {
+            UnityColor color = Brightened(ToUnityColor(shadow.Color), startIndex);
+            return shadow with { Color = new Color(color.r, color.g, color.b, color.a) };
         }
 
         private static IReadOnlyList<Vector2> Offset(IReadOnlyList<Vector2> points, Shadow shadow)
@@ -514,7 +597,7 @@ namespace Battlement.UI
             return result;
         }
 
-        private static FillGradient FillGradient(Gradient value, UnityRect rect)
+        private FillGradient FillGradient(Gradient value, UnityRect rect)
         {
             UnityGradient gradient = ToUnityGradient(value);
             if (value is Gradient.Linear linear)
@@ -545,7 +628,7 @@ namespace Battlement.UI
             throw new InvalidOperationException("Unknown motion gradient.");
         }
 
-        private static UnityGradient ToUnityGradient(Gradient value)
+        private UnityGradient ToUnityGradient(Gradient value)
         {
             IReadOnlyList<GradientStop> stops = value switch
             {
@@ -558,7 +641,7 @@ namespace Battlement.UI
             for (int index = 0; index < stops.Count; index++)
             {
                 GradientStop stop = stops[index];
-                UnityColor color = ToUnityColor(stop.Color);
+                UnityColor color = Brightened(ToUnityColor(stop.Color));
                 float time = checked((float)stop.Position);
                 colors[index] = new GradientColorKey(color, time);
                 alpha[index] = new GradientAlphaKey(color.a, time);

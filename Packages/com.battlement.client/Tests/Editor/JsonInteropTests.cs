@@ -98,12 +98,13 @@ namespace Battlement.Tests
         {
             PaintStyle value = BattlementJson.Deserialize<PaintStyle>(
                 Encoding.UTF8.GetBytes(
-                    "{\"background\":null,\"clip_polygon\":null,"
+                    "{\"background\":null,\"paint_filter\":null,\"clip_polygon\":null,"
                         + "\"box_shadow\":null,\"clip_inset\":null}"
                 )
             );
 
             Assert.That(value.Background, Is.Null);
+            Assert.That(value.PaintFilter, Is.Null);
             Assert.That(value.ClipPolygon, Is.Null);
             Assert.That(value.BoxShadow, Is.Null);
             Assert.That(value.ClipInset, Is.Null);

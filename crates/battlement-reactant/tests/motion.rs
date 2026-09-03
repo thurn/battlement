@@ -409,6 +409,74 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
 }
 
 #[test]
+fn owned_paint_filters_and_blurred_shadows_lower_to_distinct_tracks() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    let shadow = Shadow {
+      x: 0.0,
+      y: 2.0,
+      blur: 9.0,
+      spread: 1.0,
+      color: Color::rgba(0.1, 0.5, 1.0, 0.8),
+      inset: false,
+    };
+    View::new().animate(
+      StyleTarget::new()
+        .paint_filter(
+          PaintFilterList::default()
+            .brightness(1.15)
+            .drop_shadow(PaintDropShadow::new(
+              shadow.x,
+              shadow.y,
+              shadow.blur,
+              shadow.spread,
+              shadow.color,
+            ))
+            .brightness(0.75),
+        )
+        .box_shadow([shadow]),
+    )
+  });
+  let rendered = start(&mut reactant, &mut (), &document);
+  let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+    panic!("public Motion props did not lower");
+  };
+  descriptor.validate().unwrap();
+  let tracks = &descriptor.slots[0].target.tracks;
+  assert!(
+    tracks
+      .iter()
+      .any(|track| track.property == MotionProperty::PaintFilter)
+  );
+  assert!(
+    tracks
+      .iter()
+      .any(|track| track.property == MotionProperty::BoxShadow)
+  );
+  let paint_filter = tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::PaintFilter)
+    .unwrap();
+  let MotionValue::FilterList(filters) = &paint_filter.values[0] else {
+    panic!("paint filter did not lower to a filter list");
+  };
+  assert!(matches!(
+    filters.as_slice()[0],
+    FilterFunction::Brightness(1.15)
+  ));
+  assert!(matches!(
+    filters.as_slice()[1],
+    FilterFunction::DropShadow(_)
+  ));
+  assert!(matches!(
+    filters.as_slice()[2],
+    FilterFunction::Brightness(0.75)
+  ));
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
 fn public_physical_transitions_lower_every_configuration_form() {
   let document = document();
   let mut reactant = Reactant::new(IdleSpawner);

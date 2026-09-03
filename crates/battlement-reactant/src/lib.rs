@@ -87,6 +87,7 @@ pub mod motion;
 mod motion_component;
 pub mod motion_config;
 mod motion_css;
+mod motion_filter;
 mod motion_lifecycle;
 mod motion_transition;
 pub mod motion_value;

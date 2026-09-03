@@ -1,8 +1,11 @@
 use std::time::Duration;
 
-use battlement::{Color, FilterFunction, FilterList, Length, TransformOperation};
+use battlement::{Color, Gradient, GradientStop, Length, Shadow, TransformOperation};
 
-use crate::motion_value::{MotionValueType, SpringValue, private};
+use crate::{
+  motion_filter::{MotionFilterList, PaintFilterList},
+  motion_value::{MotionValueType, SpringValue, private},
+};
 
 macro_rules! scalar_value_type {
   ($type:ty, $into:expr, $pattern:pat => $from:expr, $scalar:expr) => {
@@ -122,19 +125,76 @@ impl MotionValueType for Vec<TransformOperation> {
   }
 }
 
-impl private::MotionValueTypeSealed for FilterList {}
-impl MotionValueType for FilterList {
+impl private::MotionValueTypeSealed for MotionFilterList {}
+impl MotionValueType for MotionFilterList {
   fn into_motion_value(self) -> battlement::MotionValue {
-    battlement::MotionValue::FilterList(self)
+    battlement::MotionValue::FilterList(self.into())
   }
   fn from_motion_value(value: &battlement::MotionValue) -> Option<Self> {
     match value {
-      battlement::MotionValue::FilterList(value) => Some(value.clone()),
+      battlement::MotionValue::FilterList(value) => Self::from_protocol(value),
       _ => None,
     }
   }
   fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    FilterList::new(mix_filters(from.as_slice(), to.as_slice(), progress))
+    Self::mix(from, to, progress)
+  }
+  fn range_scalar(&self) -> Option<f64> {
+    None
+  }
+}
+
+impl private::MotionValueTypeSealed for PaintFilterList {}
+impl MotionValueType for PaintFilterList {
+  fn into_motion_value(self) -> battlement::MotionValue {
+    battlement::MotionValue::FilterList(self.into())
+  }
+  fn from_motion_value(value: &battlement::MotionValue) -> Option<Self> {
+    match value {
+      battlement::MotionValue::FilterList(value) => Self::from_protocol(value),
+      _ => None,
+    }
+  }
+  fn mix(from: &Self, to: &Self, progress: f64) -> Self {
+    Self::mix(from, to, progress)
+  }
+  fn range_scalar(&self) -> Option<f64> {
+    None
+  }
+}
+
+impl private::MotionValueTypeSealed for Vec<Shadow> {}
+impl MotionValueType for Vec<Shadow> {
+  fn into_motion_value(self) -> battlement::MotionValue {
+    battlement::MotionValue::ShadowList(self)
+  }
+  fn from_motion_value(value: &battlement::MotionValue) -> Option<Self> {
+    match value {
+      battlement::MotionValue::ShadowList(value) => Some(value.clone()),
+      _ => None,
+    }
+  }
+  fn mix(from: &Self, to: &Self, progress: f64) -> Self {
+    mix_shadows(from, to, progress)
+  }
+  fn range_scalar(&self) -> Option<f64> {
+    None
+  }
+}
+
+impl private::MotionValueTypeSealed for Gradient {}
+impl MotionValueType for Gradient {
+  fn into_motion_value(self) -> battlement::MotionValue {
+    battlement::MotionValue::Gradient(self)
+  }
+  fn from_motion_value(value: &battlement::MotionValue) -> Option<Self> {
+    match value {
+      battlement::MotionValue::Gradient(value) => Some(value.clone()),
+      _ => None,
+    }
+  }
+  fn mix(from: &Self, to: &Self, progress: f64) -> Self {
+    mix_gradients(from, to, progress)
   }
   fn range_scalar(&self) -> Option<f64> {
     None
@@ -183,53 +243,6 @@ fn mix_transforms(
     .collect()
 }
 
-fn mix_filters(
-  from: &[FilterFunction],
-  to: &[FilterFunction],
-  progress: f64,
-) -> Vec<FilterFunction> {
-  if from.len() != to.len() {
-    return if progress < 0.5 { from } else { to }.to_vec();
-  }
-  from
-    .iter()
-    .zip(to)
-    .map(|(from, to)| match (from, to) {
-      (FilterFunction::Blur(from), FilterFunction::Blur(to)) => {
-        FilterFunction::Blur(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Brightness(from), FilterFunction::Brightness(to)) => {
-        FilterFunction::Brightness(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Saturate(from), FilterFunction::Saturate(to)) => {
-        FilterFunction::Saturate(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Contrast(from), FilterFunction::Contrast(to)) => {
-        FilterFunction::Contrast(f32::mix(from, to, progress))
-      }
-      (FilterFunction::HueRotate(from), FilterFunction::HueRotate(to)) => {
-        FilterFunction::HueRotate(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Opacity(from), FilterFunction::Opacity(to)) => {
-        FilterFunction::Opacity(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Invert(from), FilterFunction::Invert(to)) => {
-        FilterFunction::Invert(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Grayscale(from), FilterFunction::Grayscale(to)) => {
-        FilterFunction::Grayscale(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Sepia(from), FilterFunction::Sepia(to)) => {
-        FilterFunction::Sepia(f32::mix(from, to, progress))
-      }
-      (FilterFunction::Tint(from), FilterFunction::Tint(to)) => {
-        FilterFunction::Tint(mix_color(from, to, progress))
-      }
-      _ => *if progress < 0.5 { from } else { to },
-    })
-    .collect()
-}
-
 fn mix_color(from: &Color, to: &Color, progress: f64) -> Color {
   Color::rgba(
     from.r + (to.r - from.r) * progress,
@@ -237,4 +250,81 @@ fn mix_color(from: &Color, to: &Color, progress: f64) -> Color {
     from.b + (to.b - from.b) * progress,
     from.a + (to.a - from.a) * progress,
   )
+}
+
+fn mix_shadows(from: &[Shadow], to: &[Shadow], progress: f64) -> Vec<Shadow> {
+  if from.len() != to.len() {
+    return if progress < 0.5 { from } else { to }.to_vec();
+  }
+  from
+    .iter()
+    .zip(to)
+    .map(|(from, to)| {
+      if from.inset != to.inset {
+        return *if progress < 0.5 { from } else { to };
+      }
+      Shadow {
+        x: f32::mix(&from.x, &to.x, progress),
+        y: f32::mix(&from.y, &to.y, progress),
+        blur: f32::mix(&from.blur, &to.blur, progress),
+        spread: f32::mix(&from.spread, &to.spread, progress),
+        color: mix_color(&from.color, &to.color, progress),
+        inset: to.inset,
+      }
+    })
+    .collect()
+}
+
+fn mix_gradients(from: &Gradient, to: &Gradient, progress: f64) -> Gradient {
+  match (from, to) {
+    (
+      Gradient::Linear {
+        angle: from_angle,
+        stops: from_stops,
+      },
+      Gradient::Linear {
+        angle: to_angle,
+        stops: to_stops,
+      },
+    ) if from_stops.len() == to_stops.len() => Gradient::Linear {
+      angle: f32::mix(from_angle, to_angle, progress),
+      stops: mix_gradient_stops(from_stops, to_stops, progress),
+    },
+    (
+      Gradient::Radial {
+        center: from_center,
+        radius: from_radius,
+        stops: from_stops,
+      },
+      Gradient::Radial {
+        center: to_center,
+        radius: to_radius,
+        stops: to_stops,
+      },
+    ) if from_stops.len() == to_stops.len() => Gradient::Radial {
+      center: std::array::from_fn(|index| {
+        f32::mix(&from_center[index], &to_center[index], progress)
+      }),
+      radius: std::array::from_fn(|index| {
+        f32::mix(&from_radius[index], &to_radius[index], progress)
+      }),
+      stops: mix_gradient_stops(from_stops, to_stops, progress),
+    },
+    _ => if progress < 0.5 { from } else { to }.clone(),
+  }
+}
+
+fn mix_gradient_stops(
+  from: &[GradientStop],
+  to: &[GradientStop],
+  progress: f64,
+) -> Vec<GradientStop> {
+  from
+    .iter()
+    .zip(to)
+    .map(|(from, to)| GradientStop {
+      color: mix_color(&from.color, &to.color, progress),
+      position: f32::mix(&from.position, &to.position, progress),
+    })
+    .collect()
 }

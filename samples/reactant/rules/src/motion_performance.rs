@@ -264,7 +264,7 @@ fn mixed_hosts(phase: u32) -> Vec<View> {
           StyleTarget::new()
             .background_color(Color::rgba(0.1, 0.72, 0.86, 1.0))
             .filter(
-              FilterList::default().contrast(if target_side(index, phase) {
+              MotionFilterList::default().contrast(if target_side(index, phase) {
                 1.35
               } else {
                 0.72

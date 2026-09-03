@@ -20,6 +20,7 @@ namespace Battlement.UI
         public static bool Owns(MotionProperty property) =>
             property
                 is MotionProperty.BackgroundColor
+                    or MotionProperty.PaintFilter
                     or MotionProperty.BackgroundGradient
                     or MotionProperty.BoxShadow
                     or MotionProperty.ClipInset
@@ -31,6 +32,9 @@ namespace Battlement.UI
             {
                 MotionProperty.BackgroundColor =>
                     BattlementMotionPropertyWriter.ReadNativeBackgroundColor(target),
+                MotionProperty.PaintFilter => new MotionValue.FilterList(
+                    Array.Empty<UiFilterFunction>()
+                ),
                 MotionProperty.BackgroundGradient => new MotionValue.Gradient(
                     new Gradient.Linear(0, Array.Empty<GradientStop>())
                 ),
@@ -63,6 +67,31 @@ namespace Battlement.UI
                 ValidateColor(color.Value);
             if (paint.Background is PaintFill.Gradient gradient)
                 ValidateGradient(gradient.Value);
+            if (paint.PaintFilter is not null && paint.Background is null)
+                throw Invalid("Paint filters require an owned background.");
+            int dropShadows = 0;
+            foreach (
+                UiFilterFunction filter in paint.PaintFilter ?? Array.Empty<UiFilterFunction>()
+            )
+            {
+                if (filter is UiFilterFunction.Brightness brightness)
+                {
+                    Finite(brightness.Value);
+                    if (brightness.Value < 0)
+                        throw Invalid("Paint brightness must be nonnegative.");
+                }
+                else if (filter is UiFilterFunction.DropShadow shadow)
+                {
+                    if (shadow.Value.Inset)
+                        throw Invalid("Paint drop-shadow cannot be inset.");
+                    ValidateShadow(shadow.Value);
+                    dropShadows++;
+                    if (dropShadows > 1)
+                        throw Invalid("Paint filters support one drop-shadow.");
+                }
+                else
+                    throw Invalid("Paint filter received an unsupported operation.");
+            }
             if (paint.ClipPolygon is not null)
             {
                 if (paint.ClipPolygon.Count == 0)
@@ -84,15 +113,7 @@ namespace Battlement.UI
                         throw Invalid("Paint clip insets must be finite.");
             }
             foreach (Shadow shadow in paint.BoxShadow ?? Array.Empty<Shadow>())
-            {
-                if (!Finite(shadow.X, shadow.Y, shadow.Blur, shadow.Spread))
-                    throw Invalid("Paint shadows must be finite.");
-                ValidateColor(shadow.Color);
-                if (shadow.Blur != 0)
-                    throw Invalid(
-                        "Paint shadow blur is unsupported by Unity; use generated paint."
-                    );
-            }
+                ValidateShadow(shadow);
         }
 
         private static void ValidateGradient(Gradient value)
@@ -130,6 +151,15 @@ namespace Battlement.UI
         {
             if (!Finite(value.Red, value.Green, value.Blue, value.Alpha))
                 throw Invalid("Paint colors must be finite.");
+        }
+
+        private static void ValidateShadow(Shadow value)
+        {
+            if (!Finite(value.X, value.Y, value.Blur, value.Spread))
+                throw Invalid("Paint shadows must be finite.");
+            if (value.Blur < 0)
+                throw Invalid("Paint shadow blur must be nonnegative.");
+            ValidateColor(value.Color);
         }
 
         private static bool Finite(params double[] values)

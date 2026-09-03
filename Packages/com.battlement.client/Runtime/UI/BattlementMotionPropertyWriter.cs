@@ -41,6 +41,7 @@ namespace Battlement.UI
                     or MotionProperty.SkewY
                     or MotionProperty.TransformList
                     or MotionProperty.Filter
+                    or MotionProperty.PaintFilter
                     or MotionProperty.BackgroundImage
                     or MotionProperty.BackgroundGradient
                     or MotionProperty.BoxShadow
@@ -131,6 +132,7 @@ namespace Battlement.UI
                     and not MotionProperty.SkewY
                     and not MotionProperty.TransformList
                     and not MotionProperty.Filter
+                    and not MotionProperty.PaintFilter
                     and not MotionProperty.BackgroundImage
                     and not MotionProperty.BackgroundGradient
                     and not MotionProperty.BoxShadow
@@ -249,6 +251,11 @@ namespace Battlement.UI
                     new MotionValue.TransformList(Array.Empty<TransformOperation>())
                 ),
                 MotionProperty.Filter => Stored(
+                    target,
+                    property,
+                    new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
+                ),
+                MotionProperty.PaintFilter => Stored(
                     target,
                     property,
                     new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
@@ -462,6 +469,7 @@ namespace Battlement.UI
                     or MotionProperty.SkewY
                     or MotionProperty.TransformList
                     or MotionProperty.Filter
+                    or MotionProperty.PaintFilter
                     or MotionProperty.BackgroundImage
                     or MotionProperty.BackgroundGradient
                     or MotionProperty.BoxShadow

@@ -2,11 +2,13 @@
 
 use crate::{clipped_inset::ClippedInset, frame_styles};
 use battlement::{
-  Gradient, GradientStop, Length, LengthUnits, PickingMode, Position, Style, Translate,
+  Color, Gradient, GradientStop, Length, LengthUnits, PickingMode, Position, Shadow, Style,
+  Translate,
 };
 use battlement_reactant::{
   host::View,
   paint::{PaintFill, PaintStyle},
+  prelude::{PaintDropShadow, PaintFilterList},
 };
 
 /// Paints the filled portion of a zero-to-one-hundred slider track.
@@ -24,20 +26,27 @@ pub fn track(value: u32) -> View {
         .padding(3)
         .border_radius(8),
     )
-    .paint(self::gradient(
-      0.0,
-      &[
-        (0.0, 0x13e7ff),
-        (0.47, 0x735cff),
-        (0.76, 0xff43c7),
-        (1.0, 0xff326e),
-      ],
-    ))
+    .paint(
+      self::gradient(
+        0.0,
+        &[
+          (0.0, 0x13e7ff),
+          (0.47, 0x735cff),
+          (0.76, 0xff43c7),
+          (1.0, 0xff326e),
+        ],
+      )
+      .box_shadow([self::shadow(0.0, 0.0, 9.0, 0.0, 0x1868ff, 0.72, false)]),
+    )
     .child(
       View::new()
         .name("volume-track-interior")
         .style(Style::new().width(100.pct()).height(20).border_radius(5))
-        .paint(PaintStyle::new().background(PaintFill::Color(frame_styles::color(0x061125))))
+        .paint(
+          PaintStyle::new()
+            .background(PaintFill::Color(frame_styles::color(0x061125)))
+            .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x000000, 0.69, true)]),
+        )
         .child(
           View::new()
             .name("volume-fill")
@@ -47,16 +56,19 @@ pub fn track(value: u32) -> View {
                 .height(20)
                 .border_radius(4),
             )
-            .paint(self::gradient(
-              0.0,
-              &[
-                (0.0, 0x17e9ff),
-                (0.35, 0x286fff),
-                (0.62, 0x8f5dff),
-                (0.86, 0xff3abe),
-                (1.0, 0xff326d),
-              ],
-            )),
+            .paint(
+              self::gradient(
+                0.0,
+                &[
+                  (0.0, 0x17e9ff),
+                  (0.35, 0x286fff),
+                  (0.62, 0x8f5dff),
+                  (0.86, 0xff3abe),
+                  (1.0, 0xff326d),
+                ],
+              )
+              .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x2d84ff, 0.8, false)]),
+            ),
         ),
     )
 }
@@ -110,7 +122,14 @@ pub fn thumb(value: u32) -> View {
     )
     .paint(
       self::gradient(45.0, &[(0.0, 0xc8ffff), (0.55, 0x599cff), (1.0, 0x875fff)])
-        .clip_polygon(self::clip()),
+        .clip_polygon(self::clip())
+        .paint_filter(PaintFilterList::default().drop_shadow(PaintDropShadow::new(
+          0.0,
+          0.0,
+          7.0,
+          0.0,
+          self::color_with_alpha(0x1479ff, 1.0),
+        ))),
     )
     .child(
       ClippedInset::new()
@@ -119,7 +138,10 @@ pub fn thumb(value: u32) -> View {
           stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
         }))
         .inset(4.0)
-        .clip_path(self::clip()),
+        .clip_path(self::clip())
+        .box_shadow(vec![self::shadow(
+          0.0, 0.0, 12.0, 0.0, 0x000000, 0.69, true,
+        )]),
     )
 }
 
@@ -138,6 +160,22 @@ fn stop(position: f32, color: u32) -> GradientStop {
     position,
     color: frame_styles::color(color),
   }
+}
+
+fn shadow(x: f32, y: f32, blur: f32, spread: f32, color: u32, alpha: f64, inset: bool) -> Shadow {
+  Shadow {
+    x,
+    y,
+    blur,
+    spread,
+    color: self::color_with_alpha(color, alpha),
+    inset,
+  }
+}
+
+fn color_with_alpha(value: u32, alpha: f64) -> Color {
+  let color = frame_styles::color(value);
+  Color::rgba(color.r, color.g, color.b, alpha)
 }
 
 fn clip() -> Vec<[Length; 2]> {

@@ -270,10 +270,10 @@ fn advanced_specimen(elapsed: f64) -> View {
         "styles-filter-clip",
         Animation::new(Keyframes::new([
           StyleTarget::new()
-            .filter(FilterList::default().blur(0.0).contrast(0.8))
+            .filter(MotionFilterList::default().blur(0.0).contrast(0.8))
             .clip_inset([Length::px(0.0); 4]),
           StyleTarget::new()
-            .filter(FilterList::default().blur(4.0).contrast(1.3))
+            .filter(MotionFilterList::default().blur(4.0).contrast(1.3))
             .clip_inset([Length::px(7.0); 4]),
         ])),
         elapsed,

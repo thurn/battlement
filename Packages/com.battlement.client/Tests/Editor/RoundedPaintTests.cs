@@ -168,7 +168,11 @@ namespace Battlement.Tests
                                     )
                                 ),
                                 Paint = paintChanged
-                                    ? new PaintStyle(background, clipPolygon, null, clipInset)
+                                    ? new PaintStyle(
+                                        Background: background,
+                                        ClipPolygon: clipPolygon,
+                                        ClipInset: clipInset
+                                    )
                                     : default(Prop<PaintStyle>),
                             }
                         )

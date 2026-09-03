@@ -51,7 +51,7 @@ impl MotionPropertyTrack {
       ));
     }
     for value in &self.values {
-      value.validate().map_err(str::to_owned)?;
+      value.validate_for(self.property).map_err(str::to_owned)?;
       if !value_matches(self.property.metadata().value_kind, value) {
         return Err(format!(
           "motion property {} received an incompatible value shape",
@@ -132,7 +132,10 @@ pub struct MotionPropertyValue {
 impl MotionPropertyValue {
   /// Validates the value and catalog-declared shape.
   pub fn validate(&self) -> Result<(), String> {
-    self.value.validate().map_err(str::to_owned)?;
+    self
+      .value
+      .validate_for(self.property)
+      .map_err(str::to_owned)?;
     if !value_matches(self.property.metadata().value_kind, &self.value) {
       return Err(format!(
         "motion property {} received an incompatible value shape",
@@ -770,7 +773,7 @@ fn validate_css_track(track: &crate::CssPropertyTrack) -> Result<(), String> {
     prior = time;
   }
   for value in &track.values {
-    value.validate().map_err(str::to_owned)?;
+    value.validate_for(track.property).map_err(str::to_owned)?;
     if !value_matches(track.property.metadata().value_kind, value) {
       return Err(format!(
         "motion property {} received an incompatible value shape",
@@ -1124,12 +1127,12 @@ fn validate_times(values: &[f64]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-  use battlement_types::ObjectId;
+  use battlement_types::{Color, ObjectId};
 
   use crate::{
-    MotionClockSource, MotionDescriptor, MotionGeneration, MotionProperty, MotionPropertyTrack,
-    MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor, MotionValue, ReducedMotionPolicy,
-    TransitionDefinition,
+    FilterFunction, FilterList, MotionClockSource, MotionDescriptor, MotionGeneration,
+    MotionProperty, MotionPropertyTrack, MotionSlotDescriptor, MotionSlotId,
+    MotionTargetDescriptor, MotionValue, ReducedMotionPolicy, Shadow, TransitionDefinition,
   };
 
   #[test]
@@ -1183,6 +1186,96 @@ mod tests {
         .validate()
         .unwrap_err()
         .contains("incompatible value shape")
+    );
+  }
+
+  #[test]
+  fn filter_capabilities_are_property_specific() {
+    let shadow = Shadow {
+      x: 0.0,
+      y: 2.0,
+      blur: 8.0,
+      spread: 1.0,
+      color: Color::rgba(0.1, 0.4, 1.0, 0.8),
+      inset: false,
+    };
+    let track = |property, filter| MotionPropertyTrack {
+      property,
+      values: vec![MotionValue::FilterList(FilterList::new([filter]))],
+      times: None,
+      transition: TransitionDefinition::tween(),
+    };
+    assert!(
+      track(MotionProperty::PaintFilter, FilterFunction::Brightness(1.2))
+        .validate()
+        .is_ok()
+    );
+    assert!(
+      track(
+        MotionProperty::PaintFilter,
+        FilterFunction::DropShadow(shadow)
+      )
+      .validate()
+      .is_ok()
+    );
+    assert!(
+      track(MotionProperty::Filter, FilterFunction::Brightness(1.2))
+        .validate()
+        .is_err()
+    );
+    assert!(
+      track(MotionProperty::PaintFilter, FilterFunction::Saturate(1.2))
+        .validate()
+        .is_err()
+    );
+    assert!(
+      track(MotionProperty::Filter, FilterFunction::Blur(-1.0))
+        .validate()
+        .is_err()
+    );
+    assert!(
+      track(
+        MotionProperty::PaintFilter,
+        FilterFunction::Brightness(-0.1)
+      )
+      .validate()
+      .is_err()
+    );
+    assert!(
+      MotionPropertyTrack {
+        property: MotionProperty::PaintFilter,
+        values: vec![MotionValue::FilterList(FilterList::new([
+          FilterFunction::DropShadow(shadow),
+          FilterFunction::DropShadow(shadow),
+        ]))],
+        times: None,
+        transition: TransitionDefinition::tween(),
+      }
+      .validate()
+      .is_err()
+    );
+    assert!(
+      MotionPropertyTrack {
+        property: MotionProperty::BoxShadow,
+        values: vec![MotionValue::ShadowList(vec![shadow])],
+        times: None,
+        transition: TransitionDefinition::tween(),
+      }
+      .validate()
+      .is_ok()
+    );
+    assert!(
+      MotionPropertyTrack {
+        property: MotionProperty::BoxShadow,
+        values: vec![MotionValue::ShadowList(vec![Shadow {
+          blur: -1.0,
+          ..shadow
+        }])],
+        times: None,
+        transition: TransitionDefinition::tween(),
+      }
+      .validate()
+      .is_err()
     );
   }
 }

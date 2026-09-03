@@ -1,7 +1,7 @@
 use battlement_types::Color;
 use serde::{Deserialize, Serialize};
 
-use crate::Length;
+use crate::{FilterFunction, FilterList, Length};
 
 /// A solid or gradient background painted inside an element's clip geometry.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -16,6 +16,7 @@ pub enum PaintFill {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PaintStyle {
   background: Option<PaintFill>,
+  paint_filter: Option<FilterList>,
   clip_polygon: Option<Vec<[Length; 2]>>,
   box_shadow: Option<Vec<Shadow>>,
   clip_inset: Option<[Length; 4]>,
@@ -27,6 +28,7 @@ impl PaintStyle {
   pub const fn new() -> Self {
     Self {
       background: None,
+      paint_filter: None,
       clip_polygon: None,
       box_shadow: None,
       clip_inset: None,
@@ -37,6 +39,13 @@ impl PaintStyle {
   #[must_use]
   pub fn background(mut self, value: PaintFill) -> Self {
     self.background = Some(value);
+    self
+  }
+
+  /// Filters only this host's owned decorative paint.
+  #[must_use]
+  pub fn paint_filter(mut self, value: impl Into<FilterList>) -> Self {
+    self.paint_filter = Some(value.into());
     self
   }
 
@@ -67,6 +76,12 @@ impl PaintStyle {
     self.background.as_ref()
   }
 
+  /// Returns filters applied to the owned decorative paint.
+  #[must_use]
+  pub fn paint_filters(&self) -> Option<&FilterList> {
+    self.paint_filter.as_ref()
+  }
+
   /// Returns the configured clip polygon.
   #[must_use]
   pub fn clip_polygon_value(&self) -> Option<&[[Length; 2]]> {
@@ -95,7 +110,24 @@ impl PaintStyle {
     let clip_valid = self.clip_polygon.as_ref().is_none_or(|value| {
       !value.is_empty() && value.iter().flatten().all(|value| value.is_finite())
     });
+    let filters_valid = self.paint_filter.as_ref().is_none_or(|filters| {
+      let mut drop_shadows = 0;
+      filters.as_slice().iter().all(|filter| match filter {
+        FilterFunction::Brightness(value) => value.is_finite() && *value >= 0.0,
+        FilterFunction::DropShadow(value) => {
+          drop_shadows += 1;
+          if !shadow_is_finite(*value) || value.inset {
+            return false;
+          }
+          drop_shadows == 1
+        }
+        _ => false,
+      })
+    });
     if !background_valid || !clip_valid {
+      return false;
+    }
+    if !filters_valid || (self.paint_filter.is_some() && self.background.is_none()) {
       return false;
     }
     if self
@@ -104,11 +136,10 @@ impl PaintStyle {
     {
       return false;
     }
-    self.box_shadow.as_ref().is_none_or(|values| {
-      values
-        .iter()
-        .all(|value| shadow_is_finite(*value) && value.blur == 0.0)
-    })
+    self
+      .box_shadow
+      .as_ref()
+      .is_none_or(|values| values.iter().all(|value| shadow_is_finite(*value)))
   }
 }
 
@@ -192,9 +223,10 @@ fn gradient_is_valid(value: &Gradient) -> bool {
 }
 
 fn shadow_is_finite(value: Shadow) -> bool {
-  [value.x, value.y, value.blur, value.spread]
-    .into_iter()
-    .all(f32::is_finite)
+  value.blur >= 0.0
+    && [value.x, value.y, value.blur, value.spread]
+      .into_iter()
+      .all(f32::is_finite)
     && [value.color.r, value.color.g, value.color.b, value.color.a]
       .into_iter()
       .all(f64::is_finite)

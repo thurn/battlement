@@ -1,7 +1,7 @@
 use crate::{Game, design_system};
 use battlement::{
-  Align, AudioClipAddress, Color, FilterFunction, FilterList, FlexDirection, FlexWrap, Length,
-  LengthUnits, ObjectId, ScrollViewMode, ScrollerVisibility, Style, TransformOperation, object_id,
+  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, ObjectId,
+  ScrollViewMode, ScrollerVisibility, Style, TransformOperation, object_id,
 };
 use battlement_reactant::prelude::*;
 use std::time::Duration;
@@ -72,8 +72,8 @@ impl Component for ValuesTimeControls {
       source.clone(),
       InputRange::new([0.0, 1.0]),
       OutputRange::new([
-        FilterList::new([FilterFunction::Blur(0.0), FilterFunction::Contrast(0.7)]),
-        FilterList::new([FilterFunction::Blur(3.0), FilterFunction::Contrast(1.4)]),
+        MotionFilterList::default().blur(0.0).contrast(0.7),
+        MotionFilterList::default().blur(3.0).contrast(1.4),
       ]),
     );
     let transforms = use_transform(

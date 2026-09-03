@@ -61,9 +61,6 @@ impl MotionValue {
       Self::ShadowList(values) if values.iter().any(|value| !shadow_is_finite(*value)) => {
         Err("motion shadow must be finite")
       }
-      Self::ShadowList(values) if values.iter().any(|value| value.blur != 0.0) => {
-        Err("motion box-shadow blur is unsupported by Unity; use generated paint")
-      }
       Self::Gradient(value) => validate_gradient(value),
       Self::ClipInset(values) if values.iter().any(|value| !value.is_finite()) => {
         Err("motion clip inset must be finite")
@@ -75,6 +72,47 @@ impl MotionValue {
       }
       _ => Ok(()),
     }
+  }
+
+  pub(crate) fn validate_for(&self, property: crate::MotionProperty) -> Result<(), &'static str> {
+    self.validate()?;
+    let Self::FilterList(values) = self else {
+      return Ok(());
+    };
+    let mut paint_drop_shadows = 0;
+    for value in values.as_slice() {
+      let supported = match property {
+        crate::MotionProperty::Filter => matches!(
+          value,
+          FilterFunction::Tint(_)
+            | FilterFunction::Opacity(_)
+            | FilterFunction::Invert(_)
+            | FilterFunction::Grayscale(_)
+            | FilterFunction::Sepia(_)
+            | FilterFunction::Blur(_)
+            | FilterFunction::Contrast(_)
+            | FilterFunction::HueRotate(_)
+        ),
+        crate::MotionProperty::PaintFilter => matches!(
+          value,
+          FilterFunction::Brightness(_)
+            | FilterFunction::DropShadow(crate::Shadow { inset: false, .. })
+        ),
+        _ => true,
+      };
+      if !supported {
+        return Err("motion property received an unsupported filter operation");
+      }
+      if property == crate::MotionProperty::PaintFilter
+        && matches!(value, FilterFunction::DropShadow(_))
+      {
+        paint_drop_shadows += 1;
+        if paint_drop_shadows > 1 {
+          return Err("motion paint filter supports one drop-shadow");
+        }
+      }
+    }
+    Ok(())
   }
 }
 
@@ -97,12 +135,9 @@ fn validate_transforms(values: &[TransformOperation]) -> Result<(), &'static str
 fn validate_filters(values: &[FilterFunction]) -> Result<(), &'static str> {
   for value in values {
     let finite = match value {
-      FilterFunction::Brightness(_) => return Err("motion brightness is unsupported by Unity"),
-      FilterFunction::Saturate(_) => return Err("motion saturation is unsupported by Unity"),
-      FilterFunction::DropShadow(_) => {
-        return Err("motion filter drop-shadow is unsupported by Unity");
-      }
       FilterFunction::Blur(value)
+      | FilterFunction::Brightness(value)
+      | FilterFunction::Saturate(value)
       | FilterFunction::Contrast(value)
       | FilterFunction::HueRotate(value)
       | FilterFunction::Opacity(value)
@@ -112,9 +147,16 @@ fn validate_filters(values: &[FilterFunction]) -> Result<(), &'static str> {
       FilterFunction::Tint(value) => [value.r, value.g, value.b, value.a]
         .into_iter()
         .all(f64::is_finite),
+      FilterFunction::DropShadow(value) => shadow_is_finite(*value),
     };
     if !finite {
       return Err("motion filter must be finite");
+    }
+    if matches!(value, FilterFunction::Blur(value) if *value < 0.0) {
+      return Err("motion filter blur must be nonnegative");
+    }
+    if matches!(value, FilterFunction::Brightness(value) if *value < 0.0) {
+      return Err("motion paint brightness must be nonnegative");
     }
   }
   Ok(())
@@ -144,9 +186,10 @@ fn validate_gradient(value: &Gradient) -> Result<(), &'static str> {
 }
 
 fn shadow_is_finite(value: Shadow) -> bool {
-  [value.x, value.y, value.blur, value.spread]
-    .into_iter()
-    .all(f32::is_finite)
+  value.blur >= 0.0
+    && [value.x, value.y, value.blur, value.spread]
+      .into_iter()
+      .all(f32::is_finite)
     && [value.color.r, value.color.g, value.color.b, value.color.a]
       .into_iter()
       .all(f64::is_finite)

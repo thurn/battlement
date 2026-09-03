@@ -155,7 +155,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
       .hover_style(
         StyleTarget::new()
           .scale(1.03)
-          .filter(FilterList::default().contrast(1.15)),
+          .filter(MotionFilterList::default().contrast(1.15)),
       )
       .active_style(StyleTarget::new().scale(0.97))
       .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12))),
@@ -226,13 +226,13 @@ fn modal(state: &ComposedEffectsState) -> View {
                   StyleTarget::new()
                     .y(28.0)
                     .scale(0.88)
-                    .filter(FilterList::default().blur(8.0).contrast(0.6)),
+                    .filter(MotionFilterList::default().blur(8.0).contrast(0.6)),
                 )
                 .animate(
                   StyleTarget::new()
                     .y(0.0)
                     .scale(1.0)
-                    .filter(FilterList::default().blur(0.0).contrast(1.0)),
+                    .filter(MotionFilterList::default().blur(0.0).contrast(1.0)),
                 )
                 .exit(StyleTarget::new().y(18.0).scale(0.92).opacity(0.0))
                 .after(

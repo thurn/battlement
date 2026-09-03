@@ -52,6 +52,7 @@ namespace Battlement
     /// <summary>Static decorative paint in element border-box coordinates.</summary>
     public sealed record PaintStyle(
         PaintFill? Background = null,
+        IReadOnlyList<UiFilterFunction>? PaintFilter = null,
         IReadOnlyList<IReadOnlyList<UiLength>>? ClipPolygon = null,
         IReadOnlyList<Shadow>? BoxShadow = null,
         IReadOnlyList<UiLength>? ClipInset = null

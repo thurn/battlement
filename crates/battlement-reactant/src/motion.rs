@@ -1,15 +1,15 @@
 //! Typed Motion authoring for Reactant hosts and forwarding components.
 
 use battlement::{
-  Color, FilterList, Gradient, Length, MotionProperty, MotionPropertyTrack, MotionPropertyValue,
-  MotionRepeat, MotionRepeatType, MotionTargetDescriptor, MotionValue, ObjectId, Shadow,
-  SpringConfiguration, StepPosition, TransformOperation, TransitionDefinition, TransitionGenerator,
-  Visibility,
+  Color, Gradient, Length, MotionProperty, MotionPropertyTrack, MotionPropertyValue, MotionRepeat,
+  MotionRepeatType, MotionTargetDescriptor, MotionValue, ObjectId, Shadow, SpringConfiguration,
+  StepPosition, TransformOperation, TransitionDefinition, TransitionGenerator, Visibility,
 };
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
   gesture::GestureProps,
+  motion_filter::{MotionFilterList, PaintFilterList},
   motion_lifecycle::MotionCallbacks,
   motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
@@ -358,8 +358,26 @@ impl StyleTarget {
 
   /// Binds the ordered filter list to a native motion value.
   #[must_use]
-  pub fn filter_value(self, value: TypedMotionValue<FilterList>) -> Self {
+  pub fn filter_value(self, value: TypedMotionValue<MotionFilterList>) -> Self {
     self.bind(MotionProperty::Filter, value.erase())
+  }
+
+  /// Binds owned decorative-paint filters to a native motion value.
+  #[must_use]
+  pub fn paint_filter_value(self, value: TypedMotionValue<PaintFilterList>) -> Self {
+    self.bind(MotionProperty::PaintFilter, value.erase())
+  }
+
+  /// Binds the decorative background gradient to a native motion value.
+  #[must_use]
+  pub fn background_gradient_value(self, value: TypedMotionValue<Gradient>) -> Self {
+    self.bind(MotionProperty::BackgroundGradient, value.erase())
+  }
+
+  /// Binds decorative-surface shadows to a native motion value.
+  #[must_use]
+  pub fn box_shadow_value(self, value: TypedMotionValue<Vec<Shadow>>) -> Self {
+    self.bind(MotionProperty::BoxShadow, value.erase())
   }
 
   /// Sets panel-plane rotation in degrees.
@@ -419,23 +437,47 @@ impl StyleTarget {
 
   /// Sets ordered filter operations.
   #[must_use]
-  pub fn filter(self, value: FilterList) -> Self {
+  pub fn filter(self, value: MotionFilterList) -> Self {
     self.set(
       MotionProperty::Filter,
-      vec![MotionValue::FilterList(value)],
+      vec![MotionValue::FilterList(value.into())],
       None,
     )
   }
 
   /// Sets filter-list keyframes.
   #[must_use]
-  pub fn filter_keyframes(self, value: Keyframes<FilterList>) -> Self {
+  pub fn filter_keyframes(self, value: Keyframes<MotionFilterList>) -> Self {
     self.set(
       MotionProperty::Filter,
       value
         .values
         .into_iter()
-        .map(MotionValue::FilterList)
+        .map(|value| MotionValue::FilterList(value.into()))
+        .collect(),
+      value.times,
+    )
+  }
+
+  /// Sets filters evaluated only against this host's owned decorative paint.
+  #[must_use]
+  pub fn paint_filter(self, value: PaintFilterList) -> Self {
+    self.set(
+      MotionProperty::PaintFilter,
+      vec![MotionValue::FilterList(value.into())],
+      None,
+    )
+  }
+
+  /// Sets owned decorative-paint filter keyframes.
+  #[must_use]
+  pub fn paint_filter_keyframes(self, value: Keyframes<PaintFilterList>) -> Self {
+    self.set(
+      MotionProperty::PaintFilter,
+      value
+        .values
+        .into_iter()
+        .map(|value| MotionValue::FilterList(value.into()))
         .collect(),
       value.times,
     )
@@ -453,7 +495,7 @@ impl StyleTarget {
 
   /// Sets outer or inset decorative-surface shadows.
   ///
-  /// Unity supports zero blur; nonzero blur is rejected. Use generated paint for blur.
+  /// Blur, spread, offsets, color, alpha, and inset state belong to the owned paint surface.
   #[must_use]
   pub fn box_shadow(self, value: impl IntoIterator<Item = Shadow>) -> Self {
     self.set(

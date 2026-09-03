@@ -224,6 +224,7 @@ properties! {
   SkewX => ("skew_x", Angle, "degrees", "0deg", Numeric, None, Sum),
   SkewY => ("skew_y", Angle, "degrees", "0deg", Numeric, None, Sum),
   TransformList => ("transform_list", TransformList, "transform-list", "none", Structured, SelfWidth, Transform),
+  PaintFilter => ("paint_filter", FilterList, "filter-list", "none", Structured, None, None),
   BackgroundGradient => ("background_gradient", Gradient, "gradient", "none", Structured, SelfWidth, None),
   BoxShadow => ("box_shadow", ShadowList, "shadow-list", "none", Structured, None, None),
   ClipInset => ("clip_inset", ClipInset, "calc", "0px", Structured, SelfWidth, None),

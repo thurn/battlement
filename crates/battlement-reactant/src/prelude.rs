@@ -101,6 +101,7 @@ pub use crate::{
   },
   motion_component::{MotionComponent, MotionComponentExt},
   motion_config::{MotionConfig, ReducedMotion, use_reduced_motion, use_reduced_motion_preference},
+  motion_filter::{MotionFilter, MotionFilterList, PaintDropShadow, PaintFilterList},
   motion_value::{
     AnimationPlayback, AudioPlayback, AudioPlaybackOptions, ControlledMotionClock, InputRange,
     MotionExpression, MotionTimeSource, MotionValue as TypedMotionValue, MotionValueEvent,

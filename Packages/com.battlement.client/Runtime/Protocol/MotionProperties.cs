@@ -145,6 +145,7 @@ namespace Battlement
         SkewX,
         SkewY,
         TransformList,
+        PaintFilter,
         BackgroundGradient,
         BoxShadow,
         ClipInset,

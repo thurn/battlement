@@ -104,6 +104,20 @@ namespace Battlement.Tests
             AssertColor(fixture.Target, 1, 1, 0);
         }
 
+        [Test]
+        public void EmptyPaintFilterResetsAnOrdinaryHost()
+        {
+            var target = new VisualElement();
+
+            Assert.DoesNotThrow(() =>
+                BattlementMotionPropertyWriter.Write(
+                    target,
+                    MotionProperty.PaintFilter,
+                    new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
+                )
+            );
+        }
+
         private static void AssertColor(VisualElement target, double red, double green, double blue)
         {
             var color = (MotionValue.Color)
@@ -140,8 +154,8 @@ namespace Battlement.Tests
 
         private static PaintStyle Paint(double red, double green, double blue) =>
             new(
-                new PaintFill.Color(new Color(red, green, blue, 1)),
-                new IReadOnlyList<UiLength>[]
+                Background: new PaintFill.Color(new Color(red, green, blue, 1)),
+                ClipPolygon: new IReadOnlyList<UiLength>[]
                 {
                     new[] { UiLength.FromComponents(0, 20), UiLength.FromComponents(0, 0) },
                     new[] { UiLength.FromComponents(0, 80), UiLength.FromComponents(0, 0) },
@@ -149,8 +163,7 @@ namespace Battlement.Tests
                     new[] { UiLength.FromComponents(0, 80), UiLength.FromComponents(0, 100) },
                     new[] { UiLength.FromComponents(0, 20), UiLength.FromComponents(0, 100) },
                     new[] { UiLength.FromComponents(0, 0), UiLength.FromComponents(0, 50) },
-                },
-                null
+                }
             );
 
         private sealed class Fixture : IDisposable
