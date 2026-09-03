@@ -1,34 +1,23 @@
 use battlement::{Color, Style};
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions},
+  accessibility,
   component::Component,
   hooks,
-  host::{Button, Label, View},
-  render::{Node, Render},
+  host::{Label, View},
+  render::Render,
   semantics,
 };
 
-use crate::{
-  review_button::{ReviewButton, ReviewButtonKind},
-  volume_control::VolumeControl,
-};
+use crate::{review_button::ReviewButton, volume_control::VolumeControl};
 
-struct VolumeHarness;
-
-pub(crate) fn render() -> Node {
-  Node::new(VolumeHarness)
-}
+/// Owns slider percentages and demonstrates accepted and rejected changes.
+pub struct VolumeHarness;
 
 impl Component for VolumeHarness {
   fn render(&self) -> impl Render {
     let (value, set_value) = hooks::use_state(80_u32);
     let (changes, set_changes) = hooks::use_state(0_u32);
     let external = set_value.clone();
-    let update = accessibility::use_button(ButtonOptions {
-      name: semantics::text("Change volume from parent"),
-      is_disabled: false,
-      on_press: move || external.update(|value| if value == 25 { 80 } else { 25 }),
-    });
     View::new()
       .name("volume-specimen")
       .style(
@@ -55,13 +44,8 @@ impl Component for VolumeHarness {
               .color(Color::rgb(0.75, 0.86, 0.97))
               .margin_top(30),
           ),
-        ReviewButton::new(
-          Button::new("Change volume from parent")
-            .semantic(update.semantic)
-            .focus_props(update.focus)
-            .interaction_props(update.interaction),
-          ReviewButtonKind::Action,
-        ),
+        ReviewButton::new("Change volume from parent")
+          .on_press(move || external.update(|value| if value == 25 { 80 } else { 25 })),
       ))
   }
 }

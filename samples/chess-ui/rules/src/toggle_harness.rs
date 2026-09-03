@@ -1,28 +1,17 @@
 use battlement::{Color, Style};
-use battlement_reactant::prelude::*;
+use battlement_reactant::{hooks, prelude::*};
 
-use crate::{
-  review_button::{ReviewButton, ReviewButtonKind},
-  toggle_control::ToggleControl,
-};
+use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
 
-struct ToggleHarness;
-
-pub(crate) fn render() -> Node {
-  Node::new(ToggleHarness)
-}
+/// Owns checkbox values and counts proposals accepted from the controls.
+pub struct ToggleHarness;
 
 impl Component for ToggleHarness {
   fn render(&self) -> impl Render {
-    let (checked, set_checked) = use_state(false);
-    let (changes, set_changes) = use_state(0_u32);
-    let (screenshake, set_screenshake) = use_state(true);
+    let (checked, set_checked) = hooks::use_state(false);
+    let (changes, set_changes) = hooks::use_state(0_u32);
+    let (screenshake, set_screenshake) = hooks::use_state(true);
     let external = set_checked.clone();
-    let toggle = use_button(ButtonOptions {
-      name: text("Change VSync from parent"),
-      is_disabled: false,
-      on_press: move || external.update(|value| !value),
-    });
     View::new()
       .name("toggle-specimen")
       .style(
@@ -50,13 +39,8 @@ impl Component for ToggleHarness {
               .color(Color::rgb(0.75, 0.86, 0.97))
               .margin_top(30),
           ),
-        ReviewButton::new(
-          Button::new("Change VSync from parent")
-            .semantic(toggle.semantic)
-            .focus_props(toggle.focus)
-            .interaction_props(toggle.interaction),
-          ReviewButtonKind::Action,
-        ),
+        ReviewButton::new("Change VSync from parent")
+          .on_press(move || external.update(|value| !value)),
       ))
   }
 }

@@ -1,10 +1,13 @@
+//! Shared geometry and material recipes for the arcade bezel.
+
 use battlement::{MotionColor, MotionGradient, MotionGradientStop, MotionLength, Position, Style};
 
-pub(crate) const OUTER_INSET: f32 = 21.0;
-pub(crate) const BORDER_THICKNESS: f32 = 8.0;
-pub(crate) const OUTER_BOTTOM: f32 = 111.0;
+pub const OUTER_INSET: f32 = 21.0;
+pub const BORDER_THICKNESS: f32 = 8.0;
+pub const OUTER_BOTTOM: f32 = 111.0;
 
-pub(crate) fn cover() -> Style {
+/// Pins a decorative layer to every edge of its parent.
+pub fn cover() -> Style {
   Style::new()
     .position(Position::Absolute)
     .top(0)
@@ -13,7 +16,8 @@ pub(crate) fn cover() -> Style {
     .left(0)
 }
 
-pub(crate) fn clip() -> Vec<[MotionLength; 2]> {
+/// Builds the frame polygon, including the bottom Return cutout.
+pub fn clip() -> Vec<[MotionLength; 2]> {
   [
     [4.5, 0.0],
     [14.7, 0.0],
@@ -36,7 +40,8 @@ pub(crate) fn clip() -> Vec<[MotionLength; 2]> {
   .to_vec()
 }
 
-pub(crate) fn metal() -> MotionGradient {
+/// Returns the bright metal gradient around the bezel.
+pub fn metal() -> MotionGradient {
   MotionGradient::Linear {
     angle: 110.0,
     stops: [
@@ -56,7 +61,8 @@ pub(crate) fn metal() -> MotionGradient {
   }
 }
 
-pub(crate) fn interior() -> MotionGradient {
+/// Returns the dark interior gradient.
+pub fn interior() -> MotionGradient {
   MotionGradient::Radial {
     center: [0.5, 0.43],
     radius: [0.959, 0.667],
@@ -71,7 +77,8 @@ pub(crate) fn interior() -> MotionGradient {
   }
 }
 
-pub(crate) fn color(value: u32) -> MotionColor {
+/// Converts an RGB hexadecimal color to opaque motion paint.
+pub fn color(value: u32) -> MotionColor {
   MotionColor::new(
     ((value >> 16) & 255) as f32 / 255.0,
     ((value >> 8) & 255) as f32 / 255.0,

@@ -1,84 +1,68 @@
-use battlement::{
-  Align, Color, Justify, Length, LengthUnits, Overflow, Position, Scale, Style, TransformOrigin,
-};
-use battlement_reactant::{
-  accessibility_collections as collections,
-  component::Component,
-  element_ref, geometry,
-  host::View,
-  render::{Node, Render},
-  semantics,
-};
+//! The arcade design canvas and its parent-relative fitting policy.
+
+use battlement::{Align, Color, Justify, LengthUnits, Overflow};
+use battlement_reactant::{accessibility_collections, semantics};
+use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
 
 /// Logical width of the portrait canvas before viewport scaling.
 pub const PORTRAIT_DESIGN_WIDTH: f32 = 1024.0;
 /// Logical height of the portrait canvas before viewport scaling.
 pub const PORTRAIT_DESIGN_HEIGHT: f32 = 1536.0;
 
-/// Centers a fixed portrait canvas within its available viewport.
-pub struct PortraitViewport {
-  pub children: Node,
+/// Fits the arcade canvas into its parent while preserving design coordinates.
+/// The shared fit component owns measurement, scaling, and centering.
+pub struct PortraitViewport<R = ()> {
+  fit: ScaleToFit<R>,
 }
 
-impl Component for PortraitViewport {
+impl PortraitViewport {
+  /// Creates a centered arcade canvas with extra space on wide viewports.
+  pub fn new() -> Self {
+    Self {
+      fit: ScaleToFit::new(PORTRAIT_DESIGN_WIDTH, PORTRAIT_DESIGN_HEIGHT)
+        .bounds_name("portrait-bounds")
+        .viewport(|view| {
+          view
+            .name("portrait-viewport")
+            .semantic(accessibility_collections::use_region(semantics::text(
+              "Main content",
+            )))
+        })
+        .viewport_style(|style| {
+          style
+            .width(100.pct())
+            .background_color(Color::rgb(0.0, 0.0, 0.0))
+        })
+        .roomy_scale(1024.0, 0.75)
+        .canvas(|view| view.name("portrait-canvas"))
+        .canvas_style(|style| {
+          style
+            .overflow(Overflow::Hidden)
+            .align_items(Align::Center)
+            .justify_content(Justify::Center)
+            .background_color(Color::rgb(0.0, 0.0, 0.0))
+        }),
+    }
+  }
+}
+
+impl Default for PortraitViewport {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+impl<R: Render> PortraitViewport<R> {
+  /// Sets content authored at the portrait design size.
+  pub fn child<C: Render>(self, child: C) -> PortraitViewport<C> {
+    PortraitViewport {
+      fit: self.fit.child(child),
+    }
+  }
+}
+
+impl<R: Render> Component for PortraitViewport<R> {
   fn render(&self) -> impl Render {
-    let viewport = element_ref::use_element_ref();
-    let scale = geometry::use_geometry(viewport.clone())
-      .measurements
-      .latest
-      .map_or(1.0, |geometry| {
-        let width = geometry.layout.width as f32;
-        let height = geometry.layout.height as f32;
-        let fit = (width / PORTRAIT_DESIGN_WIDTH)
-          .min(height / PORTRAIT_DESIGN_HEIGHT)
-          .clamp(0.0, 1.0);
-        fit * if width >= 1024.0 { 0.75 } else { 1.0 }
-      });
-    View::new()
-      .name("portrait-viewport")
-      .element_ref(viewport)
-      .semantic(collections::use_region(semantics::text("Main content")))
-      .style(
-        Style::new()
-          .width(100.pct())
-          .height(100.pct())
-          .overflow(Overflow::Hidden)
-          .align_items(Align::Center)
-          .justify_content(Justify::Center)
-          .background_color(Color::rgb(0.0, 0.0, 0.0)),
-      )
-      .child(
-        View::new()
-          .name("portrait-bounds")
-          .style(
-            Style::new()
-              .position(Position::Relative)
-              .width(PORTRAIT_DESIGN_WIDTH * scale)
-              .height(PORTRAIT_DESIGN_HEIGHT * scale)
-              .flex_shrink(0),
-          )
-          .child(
-            View::new()
-              .name("portrait-canvas")
-              .style(
-                Style::new()
-                  .position(Position::Absolute)
-                  .left(0)
-                  .top(0)
-                  .width(PORTRAIT_DESIGN_WIDTH)
-                  .height(PORTRAIT_DESIGN_HEIGHT)
-                  .overflow(Overflow::Hidden)
-                  .align_items(Align::Center)
-                  .justify_content(Justify::Center)
-                  .scale(Scale::uniform(scale))
-                  .transform_origin(TransformOrigin::two_dimensional(
-                    Length::Px(0.0),
-                    Length::Px(0.0),
-                  ))
-                  .background_color(Color::rgb(0.0, 0.0, 0.0)),
-              )
-              .child(self.children.clone()),
-          ),
-      )
+    self.fit.render()
   }
 }

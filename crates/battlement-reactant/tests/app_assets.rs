@@ -43,7 +43,7 @@ impl Component for Browser {
 
 #[test]
 fn references_prepare_initial_and_later_assets_without_author_lists() {
-  let app = App::new("app/content", Browser);
+  let app = App::new("app/content").ui(Browser);
   let root = app.root_document().root_id;
   let mut catalog = app_support::catalog();
   catalog.add_texture("app/icon");
@@ -118,7 +118,7 @@ fn references_prepare_initial_and_later_assets_without_author_lists() {
 
 #[test]
 fn consecutive_responses_wait_for_preparation_and_keep_prior_dependencies() {
-  let mut app = App::new("app/content", Browser);
+  let mut app = App::new("app/content").ui(Browser);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
@@ -179,11 +179,8 @@ fn assert_preparation(response: &Response, action: ActionId, fonts: &[&str]) {
 #[test]
 #[should_panic(expected = "generated asset reference is not owned by the linked registry")]
 fn automatic_preparation_cannot_claim_unregistered_generated_addresses() {
-  let mut app = App::new(
-    "app/content",
-    Image::new().source(battlement::ImageSource::Texture(
-      TextureAddress::from_static("battlement-reactant/generated/unregistered.png"),
-    )),
-  );
+  let mut app = App::new("app/content").ui(Image::new().source(battlement::ImageSource::Texture(
+    TextureAddress::from_static("battlement-reactant/generated/unregistered.png"),
+  )));
   let _ = app.connect(app_support::connect());
 }

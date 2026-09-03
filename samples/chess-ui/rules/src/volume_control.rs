@@ -1,3 +1,6 @@
+//! A controlled integer-percentage slider with a painted track and value.
+
+use battlement_reactant::label_binding;
 use std::rc::Rc;
 
 use battlement::{
@@ -6,10 +9,9 @@ use battlement::{
 use battlement_reactant::{
   accessibility::{self, SliderOptions},
   component::Component,
-  element_ref,
   host::{Flex, TextElement, View},
   render::Render,
-  semantics::{self, AccessibleName, SemanticVisibility},
+  semantics::{self, SemanticVisibility},
 };
 
 use crate::{
@@ -19,13 +21,14 @@ use crate::{
 
 /// A labelled volume slider whose parent owns its integer percentage.
 pub struct VolumeControl {
-  pub label: String,
-  pub value: u32,
-  pub on_change: Rc<dyn Fn(u32)>,
-  pub first: bool,
+  label: String,
+  value: u32,
+  on_change: Rc<dyn Fn(u32)>,
+  first: bool,
 }
 
 impl VolumeControl {
+  /// Creates a percentage slider with a label, current value, and value-change callback.
   pub fn new(label: impl Into<String>, value: u32, on_change: impl Fn(u32) + 'static) -> Self {
     Self {
       label: label.into(),
@@ -35,6 +38,7 @@ impl VolumeControl {
     }
   }
 
+  /// Omits the separator above the first row.
   pub fn first(mut self, value: bool) -> Self {
     self.first = value;
     self
@@ -43,10 +47,10 @@ impl VolumeControl {
 
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
-    let label_id = element_ref::use_element_ref();
+    let label = label_binding::use_label();
     let on_change = Rc::clone(&self.on_change);
     let slider = accessibility::use_slider(SliderOptions {
-      name: AccessibleName::LabelledBy(vec![label_id.clone()]),
+      name: label.name(),
       value: f64::from(self.value),
       minimum: 0.0,
       maximum: 100.0,
@@ -117,7 +121,7 @@ impl Component for VolumeControl {
             ),
         )),
     )
-    .label_id(label_id)
+    .label_binding(label)
     .first(self.first)
   }
 }

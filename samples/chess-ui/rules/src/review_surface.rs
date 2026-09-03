@@ -1,3 +1,5 @@
+//! Window-level layout and theme for the review application.
+
 use battlement::{FlexDirection, LengthUnits, Overflow, Style, UiDocument};
 use battlement_reactant::{component::Component, host::View, render::Render};
 
@@ -5,10 +7,23 @@ use crate::review_theme;
 
 /// A full-window review surface with navigation beside its content.
 pub struct ReviewSurface {
-  pub view: View,
+  view: View,
 }
 
 impl ReviewSurface {
+  /// Creates the full-window review surface.
+  pub fn new() -> Self {
+    Self {
+      view: View::new().name("gallery"),
+    }
+  }
+
+  /// Adds navigation and content to the full-window surface.
+  pub fn child(mut self, content: impl Render) -> Self {
+    self.view = self.view.child(content);
+    self
+  }
+
   /// Applies the surface's sizing and theme to its native document root.
   pub fn document(document: UiDocument) -> UiDocument {
     document.style(Self::style())
@@ -30,5 +45,11 @@ impl Component for ReviewSurface {
       .view
       .clone()
       .style(Self::style().flex_direction(FlexDirection::Row).padding(24))
+  }
+}
+
+impl Default for ReviewSurface {
+  fn default() -> Self {
+    Self::new()
   }
 }

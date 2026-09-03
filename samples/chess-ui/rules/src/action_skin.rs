@@ -1,12 +1,14 @@
+//! Paint recipes for the beveled outline and dark interior of arcade actions.
+
 use battlement::{MotionColor, MotionGradient, MotionGradientStop, MotionLength};
 use battlement_reactant::paint::PaintFill;
 
 use crate::frame_styles;
 
-pub(crate) const INTERIOR: MotionColor =
-  MotionColor::new(2.0 / 255.0, 6.0 / 255.0, 19.0 / 255.0, 1.0);
+pub const INTERIOR: MotionColor = MotionColor::new(2.0 / 255.0, 6.0 / 255.0, 19.0 / 255.0, 1.0);
 
-pub(crate) fn clip(x: f32, y: f32) -> Vec<[MotionLength; 2]> {
+/// Builds the beveled action outline from horizontal and vertical corner cuts.
+pub fn clip(x: f32, y: f32) -> Vec<[MotionLength; 2]> {
   let left = MotionLength::px(x);
   let right = MotionLength::calc(-x, 100.0);
   let top = MotionLength::px(y);
@@ -25,7 +27,8 @@ pub(crate) fn clip(x: f32, y: f32) -> Vec<[MotionLength; 2]> {
   ]
 }
 
-pub(crate) fn border() -> PaintFill {
+/// Returns the bright metallic border paint.
+pub fn border() -> PaintFill {
   PaintFill::Gradient(MotionGradient::Linear {
     angle: 110.0,
     stops: [

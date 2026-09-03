@@ -5,7 +5,7 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{app::App, asset_generator};
-use battlement_rules::{action_button, engine, pages, select_control, setting_row};
+use battlement_rules::{action_button, engine, select_control, setting_row};
 
 #[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
@@ -363,6 +363,7 @@ fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {
 fn assert_page(client: &mut FakeClient<App>, index: usize) {
   let heading = self::named(client, "page-heading");
   assert_eq!(client.ui().focused(), Some(heading));
+  let title = client.ui().element(heading).text().unwrap().to_owned();
   let semantics = self::snapshot(client);
   let current = semantics
     .nodes
@@ -372,7 +373,7 @@ fn assert_page(client: &mut FakeClient<App>, index: usize) {
   assert_eq!(current.len(), 1);
   assert_eq!(
     current[0].label.as_deref(),
-    Some(pages::ALL[index].semantic_target)
+    Some(format!("{}. {title}", index + 1).as_str())
   );
   assert_eq!(
     semantics
@@ -398,7 +399,7 @@ fn assert_page(client: &mut FakeClient<App>, index: usize) {
     .iter()
     .find(|node| node.role == SemanticRole::Region)
     .unwrap();
-  assert_eq!(region.label.as_deref(), Some(pages::ALL[index].title));
+  assert_eq!(region.label.as_deref(), Some(title.as_str()));
 }
 
 fn snapshot(client: &FakeClient<App>) -> &AccessibilitySnapshot {

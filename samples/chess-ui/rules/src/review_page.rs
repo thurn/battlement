@@ -1,55 +1,75 @@
-use battlement::{LengthUnits, Style};
-use battlement_reactant::{
-  accessibility, accessibility_collections as collections,
-  component::Component,
-  element_ref::ElementRef,
-  focus::FocusProps,
-  host::{Label, View},
-  render::{Node, Render},
-  semantics::{self, AccessibleName},
-};
+//! The title, explanation, and example content of one gallery visit.
 
 use crate::review_text::{ReviewText, ReviewTextKind};
+use battlement::{LengthUnits, Style};
+use battlement_reactant::{
+  accessibility_collections,
+  component::Component,
+  host::View,
+  render::{Fragment, Render},
+  semantics,
+};
 
-/// A labeled review region with a focusable heading and arbitrary content.
+/// A named review region whose heading receives focus when the page mounts.
+///
+/// Key this component by the visit identity to reset its example and focus.
+#[derive(Clone)]
 pub struct ReviewPage {
-  pub eyebrow: String,
-  pub title: String,
-  pub description: String,
-  pub heading: ElementRef,
-  pub children: Node,
+  eyebrow: String,
+  title: String,
+  description: String,
+  content: Fragment,
+}
+
+impl ReviewPage {
+  /// Creates a review region with a level-one heading.
+  pub fn new(title: impl Into<String>) -> Self {
+    Self {
+      title: title.into(),
+      eyebrow: String::new(),
+      description: String::new(),
+      content: Fragment::empty(),
+    }
+  }
+  /// The heading also used to label this page in gallery navigation.
+  pub fn title(&self) -> &str {
+    &self.title
+  }
+
+  /// Sets the page identifier above the heading.
+  pub fn eyebrow(mut self, text: impl Into<String>) -> Self {
+    self.eyebrow = text.into();
+    self
+  }
+  /// Explains what the example demonstrates.
+  pub fn description(mut self, text: impl Into<String>) -> Self {
+    self.description = text.into();
+    self
+  }
+  /// Adds the live example below the page explanation.
+  pub fn child(mut self, content: impl Render) -> Self {
+    self.content = self.content.child(content);
+    self
+  }
 }
 
 impl Component for ReviewPage {
   fn render(&self) -> impl Render {
-    let mut region = collections::use_region(semantics::text(self.title.clone()));
-    region.name = Some(AccessibleName::LabelledBy(vec![self.heading.clone()]));
     View::new()
       .name("page-content")
       .style(Style::new().width(100.pct()).height(100.pct()).padding(64))
-      .semantic(region)
+      .semantic(accessibility_collections::use_region(semantics::text(
+        self.title.clone(),
+      )))
       .child((
-        ReviewText::new(Label::new(self.eyebrow.clone()), ReviewTextKind::Eyebrow),
-        ReviewText::new(
-          Label::new(self.title.clone())
-            .name("page-heading")
-            .element_ref(self.heading.clone())
-            .semantic(accessibility::use_heading(
-              semantics::text(self.title.clone()),
-              1,
-            ))
-            .focus_props(FocusProps::new().focusable(true).tab_index(-1)),
-          ReviewTextKind::Heading,
-        ),
-        ReviewText::new(
-          Label::new(self.description.clone())
-            .name("page-description")
-            .semantic(accessibility::use_static_text(semantics::text(
-              self.description.clone(),
-            ))),
-          ReviewTextKind::Description,
-        ),
-        self.children.clone(),
+        (!self.eyebrow.is_empty())
+          .then(|| ReviewText::new(self.eyebrow.clone()).kind(ReviewTextKind::Eyebrow)),
+        ReviewText::new(self.title.clone())
+          .name("page-heading")
+          .kind(ReviewTextKind::Heading),
+        (!self.description.is_empty())
+          .then(|| ReviewText::new(self.description.clone()).name("page-description")),
+        self.content.clone(),
       ))
   }
 }

@@ -82,7 +82,7 @@ fn pending_resources_wake_refetch_and_cancel_without_an_author_executor() {
       completed: false,
     }
   });
-  let app = App::new("app/content", memo(Screen { resource }));
+  let app = App::new("app/content").ui(memo(Screen { resource }));
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   client.poll();
@@ -131,7 +131,7 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
       source: Arc::clone(&loader),
       completed: false,
     });
-    let mut app = App::new("app/content", memo(Screen { resource }));
+    let mut app = App::new("app/content").ui(memo(Screen { resource }));
     let initial = app.connect(app_support::connect()).unwrap();
     let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
       panic!("snapshot")

@@ -1,3 +1,5 @@
+//! A painted check glyph that never intercepts pointer input.
+
 use battlement::{
   Length, LengthUnits, MotionColor, MotionLength, PickingMode, Position, Scale, Style, Translate,
 };
@@ -9,8 +11,20 @@ use battlement_reactant::{
 };
 
 /// The clipped check glyph used by settings checkboxes and selected options.
-pub(crate) struct CheckMark {
-  pub(crate) scale: f32,
+pub struct CheckMark {
+  scale: f32,
+}
+
+impl CheckMark {
+  /// Creates a check glyph at its authored size.
+  pub fn new() -> Self {
+    Self { scale: 1.0 }
+  }
+  /// Scales the glyph uniformly around its center.
+  pub fn scale(mut self, value: f32) -> Self {
+    self.scale = value;
+    self
+  }
 }
 
 impl Default for CheckMark {

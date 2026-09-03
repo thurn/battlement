@@ -18,7 +18,7 @@
 //! }
 //!
 //! fn create_engine() -> App {
-//!     App::new("my-game/content", Greeting)
+//!     App::new("my-game/content").ui(Greeting)
 //! }
 //!
 //! battlement_native::export_engine!(create_engine);
@@ -127,3 +127,9 @@ macro_rules! __register_generated_asset {
     $crate::asset_generator::__private::submit! { $registration }
   };
 }
+
+pub mod element_behavior;
+
+pub mod label_binding;
+
+pub mod scale_to_fit;

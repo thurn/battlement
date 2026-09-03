@@ -1,3 +1,5 @@
+//! Decorative slider paint; input behavior belongs to VolumeControl.
+
 use battlement::{
   Length, LengthUnits, MotionGradient, MotionGradientStop, MotionLength, PickingMode, Position,
   Style, Translate,
@@ -9,7 +11,8 @@ use battlement_reactant::{
 
 use crate::{clipped_inset::ClippedInset, frame_styles};
 
-pub(crate) fn track(value: u32) -> View {
+/// Paints the filled portion of a zero-to-one-hundred slider track.
+pub fn track(value: u32) -> View {
   View::new()
     .name("volume-track")
     .picking_mode(PickingMode::Ignore)
@@ -60,7 +63,8 @@ pub(crate) fn track(value: u32) -> View {
     )
 }
 
-pub(crate) fn ticks() -> View {
+/// Paints evenly spaced decorative scale marks.
+pub fn ticks() -> View {
   View::new()
     .name("volume-ticks")
     .picking_mode(PickingMode::Ignore)
@@ -89,7 +93,8 @@ pub(crate) fn ticks() -> View {
     )
 }
 
-pub(crate) fn thumb(value: u32) -> View {
+/// Positions the decorative thumb at an integer percentage.
+pub fn thumb(value: u32) -> View {
   View::new()
     .name("volume-thumb")
     .picking_mode(PickingMode::Ignore)
@@ -109,15 +114,14 @@ pub(crate) fn thumb(value: u32) -> View {
       self::gradient(45.0, &[(0.0, 0xc8ffff), (0.55, 0x599cff), (1.0, 0x875fff)])
         .clip_polygon(self::clip()),
     )
-    .child(ClippedInset {
-      inset: 4.0,
-      clip_path: self::clip(),
-      background: PaintFill::Gradient(MotionGradient::Linear {
+    .child(
+      ClippedInset::new(PaintFill::Gradient(MotionGradient::Linear {
         angle: 90.0,
         stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
-      }),
-      box_shadow: None,
-    })
+      }))
+      .inset(4.0)
+      .clip_path(self::clip()),
+    )
 }
 
 fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {

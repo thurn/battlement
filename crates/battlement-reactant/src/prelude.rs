@@ -116,3 +116,9 @@ pub use crate::{
   variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},
 };
 pub use battlement::{StaggerDirection, VariantWhen};
+
+pub use crate::{
+  element_behavior::{use_focus_on_mount, use_scroll_reveal},
+  label_binding::{LabelBinding, use_label},
+  scale_to_fit::ScaleToFit,
+};

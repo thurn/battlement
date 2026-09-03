@@ -4,17 +4,14 @@ use battlement_reactant::{
   component::Component,
   hooks,
   host::{Flex, Label, TextElement, View},
-  render::{Node, Render},
+  render::Render,
   semantics::{self, SemanticVisibility},
 };
 
 use crate::{action_button::ActionButton, return_button::ReturnButton};
 
-struct ActionHarness;
-
-pub(crate) fn render() -> Node {
-  Node::new(ActionHarness)
-}
+/// Counts action and Return presses, including a disabled action.
+pub struct ActionHarness;
 
 impl Component for ActionHarness {
   fn render(&self) -> impl Render {
@@ -68,7 +65,7 @@ impl Component for ActionHarness {
   }
 }
 
-fn slot(button: ActionButton) -> impl Render {
+fn slot<R: Render>(button: ActionButton<R>) -> impl Render {
   View::new()
     .style(Style::new().width(760).height(140).margin_bottom(28))
     .child(button)

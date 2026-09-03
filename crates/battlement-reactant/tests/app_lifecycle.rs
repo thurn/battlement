@@ -109,13 +109,10 @@ fn reconnect_policy_controls_remounts_and_drop_runs_cleanup_once() {
   for reset in [false, true] {
     let cleanups = Rc::new(Cell::new(0));
     let handle = Rc::new(RefCell::new(None));
-    let app = App::new(
-      "app/content",
-      Counter {
-        cleanups: Rc::clone(&cleanups),
-        handle: Rc::clone(&handle),
-      },
-    );
+    let app = App::new("app/content").ui(Counter {
+      cleanups: Rc::clone(&cleanups),
+      handle: Rc::clone(&handle),
+    });
     let root = app.root_document().root_id;
     let app = if reset { app.reset_on_reconnect() } else { app };
     let mut client = FakeClient::connect(app, app_support::catalog());
@@ -143,13 +140,10 @@ fn reconnect_policy_controls_remounts_and_drop_runs_cleanup_once() {
 
 #[test]
 fn ui_disposition_is_synchronous_and_old_session_events_are_rejected() {
-  let mut app = App::new(
-    "app/content",
-    Counter {
-      cleanups: Rc::default(),
-      handle: Rc::default(),
-    },
-  );
+  let mut app = App::new("app/content").ui(Counter {
+    cleanups: Rc::default(),
+    handle: Rc::default(),
+  });
   let response = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &response.messages[0] else {
     panic!("initial snapshot");
@@ -201,7 +195,7 @@ impl Component for Commands {
 
 #[test]
 fn native_commands_keep_action_attribution_through_deferred_effects() {
-  let mut app = App::new("app/content", Commands);
+  let mut app = App::new("app/content").ui(Commands);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
@@ -246,7 +240,7 @@ fn assert_command_action(response: &battlement::Response, action: ActionId) {
 
 #[test]
 fn back_to_back_actions_do_not_steal_deferred_effect_attribution() {
-  let mut app = App::new("app/content", Commands);
+  let mut app = App::new("app/content").ui(Commands);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot")
@@ -311,7 +305,7 @@ impl Component for RefreshFocus {
 
 #[test]
 fn snapshot_refresh_delivers_focus_after_the_replacement_document() {
-  let app = App::new("app/content", RefreshFocus);
+  let app = App::new("app/content").ui(RefreshFocus);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   let refresh = app_support::named(&mut client, root, "refresh");

@@ -1,10 +1,13 @@
+//! Native entry point and application configuration for the gallery.
+
 use battlement_reactant::app::App;
 
-use crate::{gallery::Gallery, review_surface::ReviewSurface, review_theme};
+use crate::{pages, review_surface::ReviewSurface, review_theme};
 
 /// Creates the Chess UI gallery.
 pub fn create_engine() -> App {
-  App::new("chess-ui/content", Gallery)
+  App::new("chess-ui/content")
+    .ui(pages::gallery())
     .background(review_theme::BACKGROUND)
     .document(ReviewSurface::document)
     .reset_on_reconnect()

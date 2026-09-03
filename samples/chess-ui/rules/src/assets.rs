@@ -1,3 +1,5 @@
+//! Build-time image and font recipes consumed by the chess design system.
+
 battlement_reactant::asset_generator::generate! {
   @background ARCADE_SCREEN_FRAME {
     @canvas 1024px 1536px;

@@ -18,7 +18,7 @@ than the specimen.
 | `accessibility_popup` | Chess UI: SelectControl | `accessibility_popup.rs::popup_button_keeps_one_host_and_controlled_context_across_updates_and_activation`, `accessibility_popup.rs::malformed_popup_declarations_fail_as_developer_errors` |
 | `animation_controls` | Values, Time & Controls | `motion.rs::typed_motion_values_controls_and_scopes_lower_closed_native_contract` |
 | `announcement` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees` |
-| `app` | Composition | `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `app_assets.rs::consecutive_responses_wait_for_preparation_and_keep_prior_dependencies` |
+| `app` | Composition | `app_composition.rs::scene_only_app_connects_and_reconnects_without_creating_a_ui_document`, `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `app_assets.rs::consecutive_responses_wait_for_preparation_and_keep_prior_dependencies` |
 | `app_context` | Layout Gallery | `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `composition.rs::sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint` |
 | `callback` | Layout Gallery | `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::ui_disposition_is_synchronous_and_old_session_events_are_rejected` |
 | `cooperative_executor` | Resources & Boundaries | `cooperative_executor.rs::self_waking_work_is_bounded_and_cancellation_prevents_further_polls` |
@@ -26,6 +26,9 @@ than the specimen.
 | `application` | Layout Gallery | `application.rs::lifecycle_context_updates_memoized_consumers_and_preserves_preview_overrides` |
 | `asset_generator` | Assets | `composition.rs::assets_screen_prepares_mockup_paint_and_resizes_then_restores_the_action_frame`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
 | `component` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `primitives.rs` |
+| `element_behavior` | Chess UI: Gallery shell | `chess_gallery.rs::gallery_selection_recreates_each_harness_and_restores_heading_focus` |
+| `label_binding` | Chess UI: ToggleControl | `chess_gallery.rs::checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively`, `chess_gallery.rs::closed_selection_uses_parent_value_and_resets_without_proposals` |
+| `scale_to_fit` | Chess UI: PortraitViewport | `app_composition.rs::fitted_content_uses_the_area_inside_viewport_decoration_without_remounting` |
 | `context` | Context & Memo | `composition.rs::context_screen_overrides_only_the_nested_descendant_and_restores`, `refs_context.rs` |
 | `element_ref` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `element_refs.rs` |
 | `error_boundary` | Resources & Boundaries | `composition.rs::resources_screen_catches_resets_and_restores`, `error_boundaries.rs` |

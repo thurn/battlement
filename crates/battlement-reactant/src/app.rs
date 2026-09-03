@@ -1,4 +1,4 @@
-//! Batteries-included Reactant applications hosted by Battlement.
+//! Application entry point for Battlement scenes, objects, and optional Reactant UI.
 
 use std::{cell::RefCell, rc::Rc};
 
@@ -19,7 +19,24 @@ use crate::{
   runtime::Reactant,
 };
 
-/// Owns the rendering, sessions, native integration, and lifetime of an application.
+/// A Battlement application with a scene, camera, game model, and optional UI.
+///
+/// `App` implements the native `Engine` lifecycle: connecting creates a scene
+/// snapshot, input updates the model and component tree, and polling settles
+/// effects and asynchronous work. Applications start with a camera and no UI
+/// documents. Add scene objects with [`Self::object`] and a component with
+/// [`Self::ui`], or use [`Self::with_model`] and [`Self::root`] for model-driven UI.
+///
+/// Configure the builder before the first connection. The app owns identities,
+/// document hosts, session replacement, resource delivery, and its executor;
+/// demo code only supplies its content and behavior. Component state survives
+/// reconnects unless [`Self::reset_on_reconnect`] is selected.
+///
+/// ```
+/// use battlement_reactant::{app::App, host::Label};
+/// let app = App::new("my-game/content").ui(Label::new("Welcome"));
+/// let scene_only = App::new("my-game/content");
+/// ```
 pub struct App<G: 'static = ()> {
   pub(crate) model: G,
   pub(crate) runtime: Reactant<G>,
@@ -38,10 +55,9 @@ pub struct App<G: 'static = ()> {
 }
 
 impl App {
-  /// Creates a full-window application from a scene address and root component.
-  pub fn new(scene: impl Into<SceneAddress>, component: impl Render) -> Self {
-    let component = Node::new(component);
-    Self::with_model(scene, ()).root(move |_| component.clone())
+  /// Creates a scene and camera; add UI with [`Self::ui`] when needed.
+  pub fn new(scene: impl Into<SceneAddress>) -> Self {
+    Self::with_model(scene, ())
   }
 }
 
@@ -55,7 +71,7 @@ impl<G: 'static> App<G> {
     Self {
       model,
       runtime,
-      roots: vec![AppRoot::new(|_| ())],
+      roots: Vec::new(),
       scene: Scene::new(SceneId::new_v4(), scene),
       camera: GameObject::new(
         ObjectId::new_v4(),
@@ -80,17 +96,31 @@ impl<G: 'static> App<G> {
     }
   }
 
-  /// Sets the primary document's component factory.
+  /// Adds the primary UI, whose component props do not depend on the game model.
+  pub fn ui(self, component: impl Render) -> Self {
+    let component = Rc::new(component);
+    self.root(move |_| Rc::clone(&component))
+  }
+
+  /// Adds or replaces the primary document's model-driven component factory.
   pub fn root<R: Render>(mut self, view: impl Fn(&G) -> R + 'static) -> Self {
     self.require_configuring();
-    self.roots[0].view = Rc::new(move |model| Node::new(view(model)));
+    if let Some(root) = self.roots.first_mut() {
+      root.view = Rc::new(move |model| Node::new(view(model)));
+    } else {
+      self.roots.push(AppRoot::new(view));
+    }
     self
   }
 
   /// Customizes the primary document without creating its identities or native host.
   pub fn document(mut self, configure: impl FnOnce(UiDocument) -> UiDocument) -> Self {
     self.require_configuring();
-    self.roots[0].document = configure(self.roots[0].document.clone());
+    let root = self
+      .roots
+      .first_mut()
+      .expect("add UI before configuring its document");
+    root.document = configure(root.document.clone());
     self
   }
 
@@ -126,7 +156,11 @@ impl<G: 'static> App<G> {
   /// Customizes the primary document's native panel settings.
   pub fn panel(mut self, configure: impl FnOnce(UiDocumentState) -> UiDocumentState) -> Self {
     self.require_configuring();
-    self.roots[0].state = configure(self.roots[0].state.clone());
+    let root = self
+      .roots
+      .first_mut()
+      .expect("add UI before configuring its panel");
+    root.state = configure(root.state.clone());
     self
   }
 
@@ -172,7 +206,11 @@ impl<G: 'static> App<G> {
 
   /// Returns the generated primary document for inspection and test discovery.
   pub fn root_document(&self) -> &UiDocument {
-    &self.roots[0].document
+    &self
+      .roots
+      .first()
+      .expect("application has no UI document")
+      .document
   }
 
   pub(crate) fn require_configuring(&self) {

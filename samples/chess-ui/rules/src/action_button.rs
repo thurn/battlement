@@ -1,3 +1,5 @@
+//! Arcade actions with composed labels and parent-owned callbacks.
+
 use std::rc::Rc;
 
 use battlement::{
@@ -9,7 +11,7 @@ use battlement_reactant::{
   component::Component,
   host::{Button, View},
   paint::{PaintFill, PaintStyle},
-  render::{Node, Render},
+  render::Render,
   semantics::AccessibleName,
 };
 
@@ -19,41 +21,44 @@ use crate::{action_skin, clipped_inset::ClippedInset};
 pub const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
 
 /// A parent-sized arcade button with arbitrary non-interactive label content.
-pub struct ActionButton {
-  pub children: Node,
-  pub disabled: bool,
-  pub max_text_scale: Option<f32>,
-  pub on_click: Option<Rc<dyn Fn()>>,
+pub struct ActionButton<R> {
+  children: Rc<R>,
+  disabled: bool,
+  max_text_scale: Option<f32>,
+  on_click: Option<Rc<dyn Fn()>>,
 }
 
-impl ActionButton {
+impl<R: Render> ActionButton<R> {
   /// Creates a button named by its children's static-text semantics.
-  pub fn new(children: impl Render) -> Self {
+  pub fn new(children: R) -> Self {
     Self {
-      children: Node::new(children),
+      children: Rc::new(children),
       disabled: false,
       max_text_scale: None,
       on_click: None,
     }
   }
 
+  /// Disables activation while retaining the control’s place in the layout.
   pub fn disabled(mut self, value: bool) -> Self {
     self.disabled = value;
     self
   }
 
+  /// Caps the label size relative to its authored arcade typography.
   pub fn max_text_scale(mut self, value: f32) -> Self {
     self.max_text_scale = Some(value);
     self
   }
 
+  /// Handles an accepted button activation.
   pub fn on_click(mut self, callback: impl Fn() + 'static) -> Self {
     self.on_click = Some(Rc::new(callback));
     self
   }
 }
 
-impl Component for ActionButton {
+impl<R: Render> Component for ActionButton<R> {
   fn render(&self) -> impl Render {
     let on_click = self.on_click.clone();
     let button = accessibility::use_button(ButtonOptions {
@@ -97,12 +102,9 @@ impl Component for ActionButton {
               .clip_polygon(action_skin::clip(18.0, 17.0)),
           )
           .child((
-            ClippedInset {
-              inset: 6.0,
-              clip_path: action_skin::clip(14.0, 13.0),
-              background: PaintFill::Color(action_skin::INTERIOR),
-              box_shadow: None,
-            },
+            ClippedInset::new(PaintFill::Color(action_skin::INTERIOR))
+              .inset(6.0)
+              .clip_path(action_skin::clip(14.0, 13.0)),
             View::new()
               .name("action-label")
               .style(

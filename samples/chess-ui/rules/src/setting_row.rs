@@ -1,13 +1,16 @@
+//! Two-column settings layout and optional visible-label associations.
+
+use std::rc::Rc;
+
 use battlement::{
-  Align, Color, FlexDirection, GridTrack, Length, LengthUnits, Position, Scale, SemanticRole,
-  Style, TransformOrigin, UiFontAddress,
+  Align, Color, FlexDirection, GridTrack, Length, LengthUnits, Position, Scale, Style,
+  TransformOrigin, UiFontAddress,
 };
 use battlement_reactant::{
   component::Component,
-  element_ref::ElementRef,
   host::{Grid, View},
-  render::{Node, Render},
-  semantics::{AccessibleName, SemanticProps, SemanticVisibility},
+  label_binding::LabelBinding,
+  render::Render,
 };
 
 const LABEL_FONT_SIZE: f32 = 61.0;
@@ -18,44 +21,46 @@ pub const SETTINGS_ROW_HEIGHT: f32 = 159.0;
 pub const DISPLAY_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/display");
 
 /// A display label and its content in fixed and flexible columns.
-pub struct SettingRow {
-  pub label: Node,
-  pub label_id: Option<ElementRef>,
-  pub children: Node,
-  pub first: bool,
-  pub row_height: Option<f32>,
+pub struct SettingRow<L, R> {
+  label: Rc<L>,
+  label_binding: Option<LabelBinding>,
+  children: Rc<R>,
+  first: bool,
+  row_height: Option<f32>,
 }
 
-impl SettingRow {
+impl<L: Render, R: Render> SettingRow<L, R> {
   /// Creates a row with required label and content.
-  pub fn new(label: impl Render, children: impl Render) -> Self {
+  pub fn new(label: L, children: R) -> Self {
     Self {
-      label: Node::new(label),
-      label_id: None,
-      children: Node::new(children),
+      label: Rc::new(label),
+      label_binding: None,
+      children: Rc::new(children),
       first: false,
       row_height: None,
     }
   }
 
+  /// Omits the separator above the first row.
   pub fn first(mut self, value: bool) -> Self {
     self.first = value;
     self
   }
 
-  /// Exposes the label host for semantic name references.
-  pub fn label_id(mut self, value: ElementRef) -> Self {
-    self.label_id = Some(value);
+  /// Associates the visible label with the control that uses this binding.
+  pub fn label_binding(mut self, value: LabelBinding) -> Self {
+    self.label_binding = Some(value);
     self
   }
 
+  /// Sets the minimum row height in portrait design pixels.
   pub fn row_height(mut self, value: f32) -> Self {
     self.row_height = Some(value);
     self
   }
 }
 
-impl Component for SettingRow {
+impl<L: Render, R: Render> Component for SettingRow<L, R> {
   fn render(&self) -> impl Render {
     let mut label = View::new()
       .name("setting-row-label")
@@ -78,12 +83,10 @@ impl Component for SettingRow {
           )),
       )
       .child(self.label.clone());
-    if let Some(reference) = &self.label_id {
-      label = label.element_ref(reference.clone()).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::Contents)
-          .visibility(SemanticVisibility::NameSourceOnly),
-      );
+    if let Some(binding) = &self.label_binding {
+      label = label
+        .element_ref(binding.reference())
+        .semantic(binding.semantic());
     }
     Grid::new()
       .name("setting-row")

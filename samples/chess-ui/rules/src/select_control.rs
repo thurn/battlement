@@ -1,3 +1,6 @@
+//! A closed selector specimen with a visible value and combined accessible name.
+
+use battlement_reactant::label_binding;
 use std::rc::Rc;
 
 use battlement::{
@@ -5,7 +8,7 @@ use battlement::{
   Translate, UiFontAddress,
 };
 use battlement_reactant::{
-  accessibility, accessibility_popup, element_ref,
+  accessibility, accessibility_popup,
   paint::{PaintFill, PaintStyle},
   prelude::*,
 };
@@ -15,56 +18,53 @@ use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row
 /// Native TextCore face for selected control values.
 pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/control");
 
-/// A controlled settings selection with a labelled trigger and decorative caret.
-pub struct SelectControl {
-  pub label: Node,
-  pub first: bool,
-  pub offset_y: f32,
-  pub row_height: Option<f32>,
-  pub options: Vec<String>,
-  pub value: String,
-  pub on_change: Rc<dyn Fn(String)>,
+/// A closed settings selector showing its parent-owned value and decorative caret.
+///
+/// This specimen demonstrates trigger layout and accessible naming. It does not
+/// offer a menu or propose new values; the parent supplies the displayed value.
+pub struct SelectControl<R> {
+  label: Rc<R>,
+  first: bool,
+  offset_y: f32,
+  row_height: Option<f32>,
+  value: String,
 }
 
-impl SelectControl {
-  /// Creates a selection whose value remains owned by its parent.
-  pub fn new(
-    label: impl Render,
-    options: impl IntoIterator<Item = impl Into<String>>,
-    value: impl Into<String>,
-    on_change: impl Fn(String) + 'static,
-  ) -> Self {
+impl<R: Render> SelectControl<R> {
+  /// Creates a closed selector with visible label content and a selected value.
+  pub fn new(label: R, value: impl Into<String>) -> Self {
     Self {
-      label: Node::new(label),
+      label: Rc::new(label),
       first: false,
       offset_y: 0.0,
       row_height: None,
-      options: options.into_iter().map(Into::into).collect(),
       value: value.into(),
-      on_change: Rc::new(on_change),
     }
   }
 
+  /// Omits the separator above the first row.
   pub fn first(mut self, value: bool) -> Self {
     self.first = value;
     self
   }
+  /// Offsets the control vertically without moving its row label.
   pub fn offset_y(mut self, value: f32) -> Self {
     self.offset_y = value;
     self
   }
+  /// Sets the minimum row height in portrait design pixels.
   pub fn row_height(mut self, value: f32) -> Self {
     self.row_height = Some(value);
     self
   }
 }
 
-impl Component for SelectControl {
+impl<R: Render> Component for SelectControl<R> {
   fn render(&self) -> impl Render {
-    let label_id = element_ref::use_element_ref();
-    let value_id = element_ref::use_element_ref();
+    let label = label_binding::use_label();
+    let value_label = label_binding::use_label();
     let trigger = accessibility_popup::use_popup_button(PopupButtonOptions {
-      name: AccessibleName::LabelledBy(vec![label_id.clone(), value_id.clone()]),
+      name: label.name_with(&value_label),
       popup: PopupKind::ListBox,
       expanded: false,
       is_disabled: false,
@@ -124,25 +124,22 @@ impl Component for SelectControl {
                   .clip_polygon(self::clip(10.0)),
               )
               .child((
-                ClippedInset {
-                  inset: 3.0,
-                  clip_path: self::clip(7.0),
-                  background: PaintFill::Color(frame_styles::color(0x020611)),
-                  box_shadow: None,
-                },
+                ClippedInset::new(PaintFill::Color(frame_styles::color(0x020611)))
+                  .inset(3.0)
+                  .clip_path(self::clip(7.0)),
                 TextElement::new(self.value.clone())
                   .name("select-value")
-                  .element_ref(value_id)
+                  .element_ref(value_label.reference())
                   .semantic(
                     accessibility::use_static_text(text(self.value.clone()))
                       .visibility(SemanticVisibility::NameSourceOnly),
                   ),
-                Caret { is_open: false },
+                Caret::new().open(false),
               )),
           ),
       );
     let mut row = SettingRow::new(self.label.clone(), control)
-      .label_id(label_id)
+      .label_binding(label)
       .first(self.first);
     if let Some(height) = self.row_height {
       row = row.row_height(height);

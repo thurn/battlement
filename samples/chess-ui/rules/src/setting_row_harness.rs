@@ -1,24 +1,21 @@
 use battlement::{Color, SemanticRole, Style, TextAnchor};
+use battlement_reactant::label_binding;
 use battlement_reactant::{
   accessibility,
   component::Component,
-  element_ref,
   host::{Label, TextElement, View},
-  render::{Node, Render},
-  semantics::{self, AccessibleName, SemanticProps},
+  render::Render,
+  semantics::{self, SemanticProps},
 };
 
 use crate::setting_row::SettingRow;
 
-struct SettingRowHarness;
-
-pub(crate) fn render() -> Node {
-  Node::new(SettingRowHarness)
-}
+/// Compares settings row heights and visible label associations.
+pub struct SettingRowHarness;
 
 impl Component for SettingRowHarness {
   fn render(&self) -> impl Render {
-    let label = element_ref::use_element_ref();
+    let label = label_binding::use_label();
     View::new()
       .name("setting-row-specimen")
       .style(
@@ -33,13 +30,10 @@ impl Component for SettingRowHarness {
         SettingRow::new(
           self::label("Display Mode"),
           View::new()
-            .semantic(
-              SemanticProps::new(SemanticRole::Group)
-                .name(AccessibleName::LabelledBy(vec![label.clone()])),
-            )
+            .semantic(SemanticProps::new(SemanticRole::Group).name(label.name()))
             .child(self::value("Borderless")),
         )
-        .label_id(label)
+        .label_binding(label)
         .row_height(190.0),
       ))
   }

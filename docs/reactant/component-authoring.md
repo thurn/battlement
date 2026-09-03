@@ -24,7 +24,7 @@ impl Component for Counter {
 }
 
 pub fn create_engine() -> App {
-    App::new("my-game/content", Counter)
+    App::new("my-game/content").ui(Counter)
 }
 
 battlement_native::export_engine!(self::create_engine);
@@ -981,3 +981,39 @@ instance the key is supposed to identify.
     Confirm the boundary keeps its identity, clears the latch, and mounts a
     fresh primary subtree. Catch errors in two sibling boundaries and confirm
     their `on_error` callbacks run in logical left-to-right catch order.
+
+## Typed demo composition
+
+`App::new(scene)` creates the application scene and camera. Add objects with
+`.object(...)`, a component with `.ui(...)`, or a model-driven root with
+`App::with_model(scene, model).root(...)`. A scene-only app creates no UI document.
+Configure document and panel settings after adding the UI.
+
+Components accept typed children; callers can pass components, tuples, and keyed
+collections directly. `Rc<R>` can retain immutable generic children without
+requiring them to implement `Clone`. `Node` is an escape hatch for infrastructure
+that genuinely needs erased types, not a required wrapper at composition sites.
+A gallery can register ordinary component values inside review pages:
+
+```rust
+Gallery::new()
+  .page(ReviewPage::new("Toggle").child(ToggleControl::new(label, checked, on_change)))
+  .page(ReviewPage::new("Welcome").child(Label::new("Hello")))
+```
+
+The page groups its children with `Fragment::empty().child(content)`, which
+adds no layout box and keeps type erasure inside Reactant. The gallery stores
+those pages without requiring default constructors or render factories.
+Key the selected page by a visit identity to reset its local state on each visit.
+
+Use `ScaleToFit::new(width, height).child(content)` for a fixed design canvas.
+It measures its own flex/grid allocation and reserves the scaled dimensions,
+so surrounding navigation and padding need not be duplicated in sizing math.
+It starts at zero scale until measured and caps magnification at one by default.
+
+Use `LabelBinding` from `label_binding::use_label()` when composed visible labels
+name controls. Attach its reference and semantic props to the label host, then
+pass `binding.name()` to the control behavior. Use `use_focus_on_mount` or
+`use_scroll_reveal` for committed focus and reveal requests. Keep raw element
+refs for relationships that require a concrete host, such as label-click focus
+and a scroll container shared by its descendants.

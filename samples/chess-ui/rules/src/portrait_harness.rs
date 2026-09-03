@@ -3,24 +3,21 @@ use battlement_reactant::{
   accessibility,
   component::Component,
   host::{Label, View},
-  render::{Node, Render},
+  render::Render,
   semantics,
 };
 
 use crate::portrait_viewport::PortraitViewport;
 
-struct PortraitHarness;
-
-pub(crate) fn render() -> Node {
-  Node::new(PortraitHarness)
-}
+/// Marks the corners of a fixed canvas to demonstrate fitting.
+pub struct PortraitHarness;
 
 impl Component for PortraitHarness {
   fn render(&self) -> impl Render {
     View::new()
       .style(Style::new().flex_grow(1).min_height(0).margin_top(48))
-      .child(PortraitViewport {
-        children: Node::new(
+      .child(
+        PortraitViewport::new().child(
           View::new()
             .name("portrait-specimen")
             .style(
@@ -55,6 +52,6 @@ impl Component for PortraitHarness {
               ),
             )),
         ),
-      })
+      )
   }
 }

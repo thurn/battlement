@@ -1,28 +1,54 @@
+//! Typography roles that also provide the appropriate text semantics.
+
 use battlement::{MotionColor, Style, WhiteSpace};
 use battlement_reactant::{component::Component, host::Label, motion::MotionStyle, render::Render};
+
+use battlement_reactant::{accessibility, element_behavior, focus::FocusProps, semantics};
 
 use crate::review_theme;
 
 /// Typography roles within a review surface.
 #[derive(Clone, Copy)]
 pub enum ReviewTextKind {
+  /// Application identity above the navigation.
   Brand,
+  /// Small supporting navigation text.
   Caption,
+  /// Page number above the main heading.
   Eyebrow,
+  /// Level-one page heading, focused when mounted.
   Heading,
+  /// Wrapping explanatory body text.
   Description,
+  /// Emphasized text inside an example.
   Title,
 }
 
-/// Applies review typography while preserving a label's semantics and references.
+/// Review typography and accessible text, with automatic focus for page headings.
 pub struct ReviewText {
-  pub label: Label,
-  pub kind: ReviewTextKind,
+  text: String,
+  name: String,
+  kind: ReviewTextKind,
 }
 
 impl ReviewText {
-  pub fn new(label: Label, kind: ReviewTextKind) -> Self {
-    Self { label, kind }
+  /// Creates accessible description text in the gallery theme.
+  pub fn new(text: impl Into<String>) -> Self {
+    Self {
+      text: text.into(),
+      name: String::new(),
+      kind: ReviewTextKind::Description,
+    }
+  }
+  /// Selects a typography role and its matching accessibility behavior.
+  pub fn kind(mut self, kind: ReviewTextKind) -> Self {
+    self.kind = kind;
+    self
+  }
+  /// Sets the stable host name used for inspection and capture discovery.
+  pub fn name(mut self, name: impl Into<String>) -> Self {
+    self.name = name.into();
+    self
   }
 }
 
@@ -56,13 +82,26 @@ impl Component for ReviewText {
         .color(review_theme::TEXT)
         .margin_bottom(24),
     };
-    let label = self.label.clone().style(style);
+    let label = Label::new(self.text.clone())
+      .name(self.name.clone())
+      .style(style);
+    let heading =
+      element_behavior::use_focus_when(matches!(self.kind, ReviewTextKind::Heading).then_some(()));
     if matches!(self.kind, ReviewTextKind::Heading) {
-      label.while_focus_visible(
-        MotionStyle::new().background_color(MotionColor::new(0.12, 0.23, 0.28, 1.0)),
-      )
-    } else {
       label
+        .element_ref(heading)
+        .semantic(accessibility::use_heading(
+          semantics::text(self.text.clone()),
+          1,
+        ))
+        .focus_props(FocusProps::new().focusable(true).tab_index(-1))
+        .while_focus_visible(
+          MotionStyle::new().background_color(MotionColor::new(0.12, 0.23, 0.28, 1.0)),
+        )
+    } else {
+      label.semantic(accessibility::use_static_text(semantics::text(
+        self.text.clone(),
+      )))
     }
   }
 }

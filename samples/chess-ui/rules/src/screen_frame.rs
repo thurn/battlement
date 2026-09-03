@@ -1,9 +1,13 @@
+//! An arcade frame and content canvas at the portrait design size.
+
+use std::rc::Rc;
+
 use battlement::{Color, Length, Overflow, PickingMode, Position, Style, TransformOrigin};
 use battlement_reactant::{
   component::Component,
   host::View,
   paint::{PaintFill, PaintStyle},
-  render::{Node, Render},
+  render::Render,
 };
 
 use crate::{
@@ -13,11 +17,20 @@ use crate::{
 };
 
 /// Fixed portrait frame surrounding application content.
-pub struct ScreenFrame {
-  pub children: Node,
+pub struct ScreenFrame<R> {
+  children: Rc<R>,
 }
 
-impl Component for ScreenFrame {
+impl<R: Render> ScreenFrame<R> {
+  /// Creates a themed container around typed child content.
+  pub fn new(children: R) -> Self {
+    Self {
+      children: Rc::new(children),
+    }
+  }
+}
+
+impl<R: Render> Component for ScreenFrame<R> {
   fn render(&self) -> impl Render {
     View::new()
       .name("screen-frame")
@@ -57,7 +70,7 @@ impl Component for ScreenFrame {
                   .clip_polygon(frame_styles::clip())
                   .background(PaintFill::Gradient(frame_styles::interior())),
               ),
-            ConceptFrame,
+            ConceptFrame::new(),
           )),
         self.children.clone(),
       ))

@@ -54,7 +54,11 @@ use crate::{
 pub trait Render: Sealed + 'static {}
 
 /// Groups children without introducing a native host.
-pub struct Fragment<R> {
+///
+/// Use `new` for a typed tuple or collection, or `empty().child(...)` to append
+/// differently typed children through a builder. Neither form adds a layout box.
+#[derive(Clone)]
+pub struct Fragment<R = Vec<Node>> {
   pub(crate) children: R,
 }
 
@@ -71,6 +75,21 @@ pub enum Either<L, R> {
 pub struct Node {
   pub(crate) render: Rc<dyn ErasedRender>,
   pub(crate) descriptor: TypeId,
+}
+
+impl Fragment {
+  /// Creates an empty hostless group for incrementally registered children.
+  pub fn empty() -> Self {
+    Self {
+      children: Vec::new(),
+    }
+  }
+
+  /// Appends a render value without requiring callers to erase its concrete type.
+  pub fn child(mut self, child: impl Render) -> Self {
+    self.children.push(Node::new(child));
+    self
+  }
 }
 
 impl<R> Fragment<R> {
