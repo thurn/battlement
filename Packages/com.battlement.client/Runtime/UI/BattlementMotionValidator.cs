@@ -18,7 +18,6 @@ namespace Battlement.UI
                 throw Invalid("Motion descriptor host identity does not match its UI element.");
             if (descriptor.InitialDisabled && descriptor.Initial is not null)
                 throw Invalid("A disabled initial target cannot carry tracks.");
-            ValidatePropertyValues(descriptor.StaticBaseline, "static baseline");
             if (descriptor.Initial is not null)
                 ValidateTarget(descriptor.Initial);
             ValidateGestures(descriptor);
@@ -236,8 +235,8 @@ namespace Battlement.UI
         }
 
         private static bool CompatibleTransforms(
-            IReadOnlyList<MotionTransform> left,
-            IReadOnlyList<MotionTransform> right
+            IReadOnlyList<TransformOperation> left,
+            IReadOnlyList<TransformOperation> right
         )
         {
             if (left.Count != right.Count)
@@ -468,7 +467,7 @@ namespace Battlement.UI
             if (value is MotionValue.Scalar scalar)
                 Finite(scalar.Value);
             else if (value is MotionValue.Length length)
-                Finite(length.Value.Px, length.Value.Percent);
+                Finite(length.Value.Pixels, length.Value.Percentage);
             else if (value is MotionValue.Color color)
                 ValidateColor(color.Value);
             else if (value is MotionValue.Vector2 vector2)
@@ -586,57 +585,65 @@ namespace Battlement.UI
                 _ => MotionValueKind.Discrete,
             };
 
-        private static void ValidateTransforms(IReadOnlyList<MotionTransform> values)
+        private static void ValidateTransforms(IReadOnlyList<TransformOperation> values)
         {
-            foreach (MotionTransform value in values)
-                if (value is MotionTransform.Translate translate)
-                    foreach (MotionLength length in translate.Value)
-                        Finite(length.Px, length.Percent);
-                else if (value is MotionTransform.Rotate rotate)
+            foreach (TransformOperation value in values)
+                if (value is TransformOperation.Translate translate)
+                    foreach (UiLength length in translate.Value)
+                        Finite(length.Pixels, length.Percentage);
+                else if (value is TransformOperation.Rotate rotate)
                     Finite(rotate.Value);
-                else if (value is MotionTransform.Skew skew)
+                else if (value is TransformOperation.Skew skew)
                     Finite(skew.Value);
-                else if (value is MotionTransform.Scale scale)
+                else if (value is TransformOperation.Scale scale)
                     Finite(scale.Value);
         }
 
-        private static void ValidateFilters(IReadOnlyList<MotionFilter> values)
+        private static void ValidateFilters(IReadOnlyList<UiFilterFunction> values)
         {
-            foreach (MotionFilter value in values)
-                if (value is MotionFilter.Blur blur)
+            foreach (UiFilterFunction value in values)
+                if (value is UiFilterFunction.Blur blur)
                     Finite(blur.Value);
-                else if (value is MotionFilter.Brightness)
+                else if (value is UiFilterFunction.Tint tint)
+                    ValidateColor(tint.Value);
+                else if (value is UiFilterFunction.Brightness)
                     throw Invalid("Motion brightness is unsupported by the Unity adapter.");
-                else if (value is MotionFilter.Saturate)
+                else if (value is UiFilterFunction.Saturate)
                     throw Invalid("Motion saturation is unsupported by the Unity adapter.");
-                else if (value is MotionFilter.Contrast contrast)
+                else if (value is UiFilterFunction.Contrast contrast)
                     Finite(contrast.Value);
-                else if (value is MotionFilter.HueRotate hueRotate)
+                else if (value is UiFilterFunction.HueRotate hueRotate)
                     Finite(hueRotate.Value);
-                else if (value is MotionFilter.Opacity opacity)
+                else if (value is UiFilterFunction.Opacity opacity)
                     Finite(opacity.Value);
-                else if (value is MotionFilter.DropShadow)
+                else if (value is UiFilterFunction.Invert invert)
+                    Finite(invert.Value);
+                else if (value is UiFilterFunction.Grayscale grayscale)
+                    Finite(grayscale.Value);
+                else if (value is UiFilterFunction.Sepia sepia)
+                    Finite(sepia.Value);
+                else if (value is UiFilterFunction.DropShadow)
                     throw Invalid("Motion filter drop-shadow is unsupported by the Unity adapter.");
         }
 
-        private static void ValidateGradient(MotionGradient value)
+        private static void ValidateGradient(Gradient value)
         {
-            IReadOnlyList<MotionGradientStop> stops = value switch
+            IReadOnlyList<GradientStop> stops = value switch
             {
-                MotionGradient.Linear item => item.Stops,
-                MotionGradient.Radial item => item.Stops,
-                _ => Array.Empty<MotionGradientStop>(),
+                Gradient.Linear item => item.Stops,
+                Gradient.Radial item => item.Stops,
+                _ => Array.Empty<GradientStop>(),
             };
             if (stops.Count < 2)
                 throw Invalid("A motion gradient requires at least two stops.");
-            foreach (MotionGradientStop stop in stops)
+            foreach (GradientStop stop in stops)
             {
                 ValidateColor(stop.Color);
                 Finite(stop.Position);
             }
         }
 
-        private static void ValidateShadow(MotionShadow value)
+        private static void ValidateShadow(Shadow value)
         {
             Finite(value.X, value.Y, value.Blur, value.Spread);
             if (value.Blur != 0)
@@ -644,7 +651,7 @@ namespace Battlement.UI
             ValidateColor(value.Color);
         }
 
-        private static void ValidateColor(MotionColor value) =>
+        private static void ValidateColor(Color value) =>
             Finite(value.Red, value.Green, value.Blue, value.Alpha);
 
         private static void ValidateVector(IReadOnlyList<double> values, int count)
@@ -682,30 +689,30 @@ namespace Battlement.UI
             }
         }
 
-        private static void ValidateShadows(IReadOnlyList<MotionShadow> shadows)
+        private static void ValidateShadows(IReadOnlyList<Shadow> shadows)
         {
-            foreach (MotionShadow shadow in shadows)
+            foreach (Shadow shadow in shadows)
                 ValidateShadow(shadow);
         }
 
-        private static void ValidateInset(IReadOnlyList<MotionLength> value)
+        private static void ValidateInset(IReadOnlyList<UiLength> value)
         {
             if (value.Count != 4)
                 throw Invalid("A clip inset requires four lengths.");
-            foreach (MotionLength length in value)
-                Finite(length.Px, length.Percent);
+            foreach (UiLength length in value)
+                Finite(length.Pixels, length.Percentage);
         }
 
-        private static void ValidatePolygon(IReadOnlyList<IReadOnlyList<MotionLength>> value)
+        private static void ValidatePolygon(IReadOnlyList<IReadOnlyList<UiLength>> value)
         {
             if (value.Count < 3)
                 throw Invalid("A clip polygon requires at least three vertices.");
-            foreach (IReadOnlyList<MotionLength> vertex in value)
+            foreach (IReadOnlyList<UiLength> vertex in value)
             {
                 if (vertex.Count != 2)
                     throw Invalid("A clip polygon vertex requires two lengths.");
-                foreach (MotionLength length in vertex)
-                    Finite(length.Px, length.Percent);
+                foreach (UiLength length in vertex)
+                    Finite(length.Pixels, length.Percentage);
             }
         }
 

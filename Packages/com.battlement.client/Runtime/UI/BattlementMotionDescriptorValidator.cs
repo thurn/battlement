@@ -11,8 +11,6 @@ namespace Battlement.UI
             ValidateTarget(descriptor.Initial);
             foreach (MotionSlotDescriptor slot in descriptor.Slots)
                 ValidateTarget(slot.Target);
-            foreach (MotionPropertyValue value in descriptor.StaticBaseline)
-                RequireWriter(value.Property);
             foreach (
                 MotionPseudoStyle style in descriptor.PseudoStyles
                     ?? Array.Empty<MotionPseudoStyle>()

@@ -261,9 +261,9 @@ impl Component for RetainedPanel {
     View::new()
       .name(format!("presence-panel-{}", self.route))
       .style(panel())
-      .animate(MotionStyle::new().opacity(1.0))
+      .animate(StyleTarget::new().opacity(1.0))
       .exit(
-        MotionTarget::new(MotionStyle::new().opacity(0.0))
+        MotionTarget::new(StyleTarget::new().opacity(0.0))
           .transition(
             Transition::tween()
               .duration_secs(0.32)
@@ -305,9 +305,9 @@ impl Component for RetainedPanel {
         View::new()
           .name("presence-nested-exit")
           .style(nested())
-          .animate(MotionStyle::new().opacity(1.0).scale(1.0))
+          .animate(StyleTarget::new().opacity(1.0).scale(1.0))
           .exit(
-            MotionTarget::new(MotionStyle::new().opacity(0.0).scale(0.55))
+            MotionTarget::new(StyleTarget::new().opacity(0.0).scale(0.55))
               .transition(Transition::tween().duration_secs(0.46)),
           ),
       )

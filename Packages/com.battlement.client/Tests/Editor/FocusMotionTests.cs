@@ -114,7 +114,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 1,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 new[] { Slot(1, MotionLayer.FocusVisible, 0.9) },
                 new MotionClockSource.Controlled(clock),

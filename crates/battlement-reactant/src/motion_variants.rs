@@ -292,10 +292,6 @@ impl MotionProps {
       descriptor_id: host_id,
       host_id,
       generation,
-      static_baseline: self
-        .paint
-        .as_ref()
-        .map_or_else(Vec::new, |paint| paint.values()),
       initial,
       initial_disabled,
       slots,

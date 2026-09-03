@@ -144,9 +144,9 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
           .rest_speed(6.0),
       )
       .drag_motion_values(drag_x, drag_y)
-      .while_hover(MotionStyle::new().scale(1.05))
-      .while_tap(MotionStyle::new().scale(0.94))
-      .while_drag(MotionStyle::new().scale(1.08))
+      .while_hover(StyleTarget::new().scale(1.05))
+      .while_tap(StyleTarget::new().scale(0.94))
+      .while_drag(StyleTarget::new().scale(1.08))
       .on_hover_start(record)
       .on_hover_end(record)
       .on_tap_start(record)
@@ -178,7 +178,7 @@ fn momentum_drag() -> Node {
       .drag_constraints(DragConstraints::bounds(-110.0, 110.0, 0.0, 0.0))
       .drag_momentum(true)
       .drag_snap_to_origin(DragAxis::X)
-      .while_drag(MotionStyle::new().scale(1.1))
+      .while_drag(StyleTarget::new().scale(1.1))
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_momentum_complete(record)
@@ -202,7 +202,7 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .drag_listener(false)
       .drag_controls(controls)
       .drag_constraints(DragConstraints::bounds(-110.0, 110.0, -40.0, 40.0))
-      .while_drag(MotionStyle::new().scale(1.08))
+      .while_drag(StyleTarget::new().scale(1.08))
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_cancel(record)
@@ -234,7 +234,7 @@ fn drag_gallery(
     View::new()
       .name("drag-motion-value-meter")
       .style(field())
-      .animate(MotionStyle::new().scale_value(energy))
+      .animate(StyleTarget::new().scale_value(energy))
       .child(Label::new("MOTION VALUE OUTPUT").style(caption())),
   );
   Node::new(
@@ -266,7 +266,7 @@ fn scroll_meter(progress: MotionValue<f32>) -> Node {
     View::new()
       .name("scroll-progress-meter")
       .style(field())
-      .animate(MotionStyle::new().opacity_value(progress))
+      .animate(StyleTarget::new().opacity_value(progress))
       .child(Label::new("SCROLL PROGRESS").style(caption())),
   )
 }
@@ -277,8 +277,8 @@ fn in_view_specimen(in_view: MotionValue<f32>) -> Node {
       .name("gesture-in-view-specimen")
       .style(field())
       .in_view_motion_value(in_view.clone())
-      .while_in_view(MotionStyle::new().scale(1.08).opacity(1.0))
-      .animate(MotionStyle::new().scale_value(in_view).opacity(0.45))
+      .while_in_view(StyleTarget::new().scale(1.08).opacity(1.0))
+      .animate(StyleTarget::new().scale_value(in_view).opacity(0.45))
       .on_viewport_enter(record)
       .on_viewport_leave(record)
       .child(Label::new("IN-VIEW VALUE").style(caption())),

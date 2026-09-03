@@ -1,7 +1,5 @@
 use crate::{Game, design_system};
-use battlement::{
-  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionLength, Overflow, Style,
-};
+use battlement::{Align, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow, Style};
 use battlement_reactant::prelude::*;
 
 const HOST_COUNT: usize = 200;
@@ -214,13 +212,13 @@ fn transform_hosts(phase: u32) -> Vec<View> {
       let host = probe(index);
       if index < 60 {
         host
-          .initial(MotionStyle::new().x(-5.0).y(-3.0).scale(0.92).opacity(0.55))
+          .initial(StyleTarget::new().x(-5.0).y(-3.0).scale(0.92).opacity(0.55))
           .animate(target)
           .transition(repeating_tween(index))
       } else if index < 120 {
         host
-          .initial(MotionStyle::new().x(-6.0))
-          .animate(MotionStyle::new().x(if target_side(index, phase) { 6.0 } else { -6.0 }))
+          .initial(StyleTarget::new().x(-6.0))
+          .animate(StyleTarget::new().x(if target_side(index, phase) { 6.0 } else { -6.0 }))
           .transition(
             Transition::spring()
               .stiffness(180.0)
@@ -242,12 +240,12 @@ fn mixed_hosts(phase: u32) -> Vec<View> {
       let host = probe(index);
       if index < 50 {
         host
-          .initial(MotionStyle::new().x(-4.0).opacity(0.55))
+          .initial(StyleTarget::new().x(-4.0).opacity(0.55))
           .animate(alternating_target(index, phase))
           .transition(repeating_tween(index))
       } else if index < 100 {
         host
-          .animate(MotionStyle::new().scale(if target_side(index, phase) {
+          .animate(StyleTarget::new().scale(if target_side(index, phase) {
             1.08
           } else {
             0.92
@@ -263,35 +261,37 @@ fn mixed_hosts(phase: u32) -> Vec<View> {
           .animate(alternating_target(index, phase))
       } else if index < 170 {
         host.animate(
-          MotionStyle::new()
-            .background_color(MotionColor::new(0.1, 0.72, 0.86, 1.0))
-            .filter(MotionFilters::new().contrast(if target_side(index, phase) {
-              1.35
-            } else {
-              0.72
-            })),
+          StyleTarget::new()
+            .background_color(Color::rgba(0.1, 0.72, 0.86, 1.0))
+            .filter(
+              FilterList::default().contrast(if target_side(index, phase) {
+                1.35
+              } else {
+                0.72
+              }),
+            ),
         )
       } else if index < 180 {
         host.animate(
-          MotionStyle::new()
-            .clip_inset([MotionLength::px(if target_side(index, phase) { 1.0 } else { 5.0 }); 4]),
+          StyleTarget::new()
+            .clip_inset([Length::px(if target_side(index, phase) { 1.0 } else { 5.0 }); 4]),
         )
       } else if index < 190 {
         host.animate(
-          MotionStyle::new()
-            .box_shadow([battlement::MotionShadow {
+          StyleTarget::new()
+            .box_shadow([battlement::Shadow {
               x: 0.0,
               y: 2.0,
               blur: 0.0,
               spread: 1.0,
-              color: MotionColor::new(0.0, 0.8, 0.9, 0.5),
+              color: Color::rgba(0.0, 0.8, 0.9, 0.5),
               inset: false,
             }])
             .opacity(0.9),
         )
       } else {
         host.animate(
-          MotionStyle::new()
+          StyleTarget::new()
             .rotate_x(if target_side(index, phase) {
               14.0
             } else {
@@ -310,21 +310,21 @@ fn interaction_hosts(phase: u32) -> Vec<View> {
       let family = index % 7;
       let host = probe(index)
         .key((index, phase % 4))
-        .initial(MotionStyle::new().opacity(0.35).scale(0.82))
+        .initial(StyleTarget::new().opacity(0.35).scale(0.82))
         .transition(repeating_tween(index));
       match family {
         0 => host
           .layout(Layout::Position)
-          .animate(MotionStyle::new().x(if phase.is_multiple_of(2) { -6.0 } else { 6.0 })),
-        1 => host.animate(MotionStyle::new().y(if phase.is_multiple_of(3) { -5.0 } else { 5.0 })),
+          .animate(StyleTarget::new().x(if phase.is_multiple_of(2) { -6.0 } else { 6.0 })),
+        1 => host.animate(StyleTarget::new().y(if phase.is_multiple_of(3) { -5.0 } else { 5.0 })),
         2 => {
-          host.animate(MotionStyle::new().opacity(if phase.is_multiple_of(2) { 0.45 } else { 1.0 }))
+          host.animate(StyleTarget::new().opacity(if phase.is_multiple_of(2) { 0.45 } else { 1.0 }))
         }
         3 => gesture_probe(host, index),
         4 => {
-          host.animate(MotionStyle::new().scale(if phase.is_multiple_of(2) { 0.8 } else { 1.15 }))
+          host.animate(StyleTarget::new().scale(if phase.is_multiple_of(2) { 0.8 } else { 1.15 }))
         }
-        5 => host.animate(MotionStyle::new().rotate(if phase.is_multiple_of(2) {
+        5 => host.animate(StyleTarget::new().rotate(if phase.is_multiple_of(2) {
           -10.0
         } else {
           10.0
@@ -349,7 +349,7 @@ fn graph_probe(host: View, index: usize, phase: u32) -> View {
   let spring = use_spring(mapped, SpringOptions::new().stiffness(160.0).damping(19.0));
   host
     .animate(
-      MotionStyle::new()
+      StyleTarget::new()
         .x_value(spring)
         .opacity(if target_side(index, phase) {
           0.95
@@ -366,10 +366,10 @@ fn gesture_probe(host: View, index: usize) -> View {
     .drag(DragAxis::Both)
     .drag_constraints(DragConstraints::bounds(-8.0, 8.0, -6.0, 6.0))
     .drag_momentum(false)
-    .while_hover(MotionStyle::new().scale(1.08))
-    .while_tap(MotionStyle::new().scale(0.9))
-    .while_drag(MotionStyle::new().opacity(0.7))
-    .animate(MotionStyle::new().rotate(if index.is_multiple_of(2) { 4.0 } else { -4.0 }))
+    .while_hover(StyleTarget::new().scale(1.08))
+    .while_tap(StyleTarget::new().scale(0.9))
+    .while_drag(StyleTarget::new().opacity(0.7))
+    .animate(StyleTarget::new().rotate(if index.is_multiple_of(2) { 4.0 } else { -4.0 }))
     .transition(repeating_tween(index))
 }
 
@@ -380,9 +380,9 @@ fn probe(index: usize) -> View {
     .style(probe_style(index))
 }
 
-fn alternating_target(index: usize, phase: u32) -> MotionStyle {
+fn alternating_target(index: usize, phase: u32) -> StyleTarget {
   let positive = target_side(index, phase);
-  MotionStyle::new()
+  StyleTarget::new()
     .x(if positive { 5.0 } else { -5.0 })
     .y(if positive { -3.0 } else { 3.0 })
     .scale(if positive { 1.06 } else { 0.94 })

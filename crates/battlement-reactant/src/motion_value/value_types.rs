@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use battlement::{MotionColor, MotionFilter, MotionLength, MotionTransform};
+use battlement::{Color, FilterFunction, FilterList, Length, TransformOperation};
 
 use crate::motion_value::{MotionValueType, SpringValue, private};
 
@@ -56,9 +56,9 @@ impl MotionValueType for Duration {
   }
 }
 
-impl private::MotionValueTypeSealed for MotionLength {}
-impl private::SpringValueSealed for MotionLength {}
-impl MotionValueType for MotionLength {
+impl private::MotionValueTypeSealed for Length {}
+impl private::SpringValueSealed for Length {}
+impl MotionValueType for Length {
   fn into_motion_value(self) -> battlement::MotionValue {
     battlement::MotionValue::Length(self)
   }
@@ -70,19 +70,22 @@ impl MotionValueType for MotionLength {
   }
   fn mix(from: &Self, to: &Self, progress: f64) -> Self {
     let progress = progress as f32;
-    MotionLength::calc(
-      from.px + (to.px - from.px) * progress,
-      from.percent + (to.percent - from.percent) * progress,
+    let [from_px, from_percent] = from.components();
+    let [to_px, to_percent] = to.components();
+    Length::calc(
+      from_px + (to_px - from_px) * progress,
+      from_percent + (to_percent - from_percent) * progress,
     )
   }
   fn range_scalar(&self) -> Option<f64> {
-    (self.percent == 0.0).then_some(f64::from(self.px))
+    let [px, percent] = self.components();
+    (percent == 0.0).then_some(f64::from(px))
   }
 }
 
-impl private::MotionValueTypeSealed for MotionColor {}
-impl private::SpringValueSealed for MotionColor {}
-impl MotionValueType for MotionColor {
+impl private::MotionValueTypeSealed for Color {}
+impl private::SpringValueSealed for Color {}
+impl MotionValueType for Color {
   fn into_motion_value(self) -> battlement::MotionValue {
     battlement::MotionValue::Color(self)
   }
@@ -93,21 +96,15 @@ impl MotionValueType for MotionColor {
     }
   }
   fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    let progress = progress as f32;
-    MotionColor::new(
-      from.red + (to.red - from.red) * progress,
-      from.green + (to.green - from.green) * progress,
-      from.blue + (to.blue - from.blue) * progress,
-      from.alpha + (to.alpha - from.alpha) * progress,
-    )
+    mix_color(from, to, progress)
   }
   fn range_scalar(&self) -> Option<f64> {
     None
   }
 }
 
-impl private::MotionValueTypeSealed for Vec<MotionTransform> {}
-impl MotionValueType for Vec<MotionTransform> {
+impl private::MotionValueTypeSealed for Vec<TransformOperation> {}
+impl MotionValueType for Vec<TransformOperation> {
   fn into_motion_value(self) -> battlement::MotionValue {
     battlement::MotionValue::TransformList(self)
   }
@@ -125,8 +122,8 @@ impl MotionValueType for Vec<MotionTransform> {
   }
 }
 
-impl private::MotionValueTypeSealed for Vec<MotionFilter> {}
-impl MotionValueType for Vec<MotionFilter> {
+impl private::MotionValueTypeSealed for FilterList {}
+impl MotionValueType for FilterList {
   fn into_motion_value(self) -> battlement::MotionValue {
     battlement::MotionValue::FilterList(self)
   }
@@ -137,7 +134,7 @@ impl MotionValueType for Vec<MotionFilter> {
     }
   }
   fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    mix_filters(from, to, progress)
+    FilterList::new(mix_filters(from.as_slice(), to.as_slice(), progress))
   }
   fn range_scalar(&self) -> Option<f64> {
     None
@@ -146,14 +143,14 @@ impl MotionValueType for Vec<MotionFilter> {
 
 impl private::SpringValueSealed for f32 {}
 impl SpringValue for f32 {}
-impl SpringValue for MotionLength {}
-impl SpringValue for MotionColor {}
+impl SpringValue for Length {}
+impl SpringValue for Color {}
 
 fn mix_transforms(
-  from: &[MotionTransform],
-  to: &[MotionTransform],
+  from: &[TransformOperation],
+  to: &[TransformOperation],
   progress: f64,
-) -> Vec<MotionTransform> {
+) -> Vec<TransformOperation> {
   if from.len() != to.len() {
     return if progress < 0.5 { from } else { to }.to_vec();
   }
@@ -161,23 +158,23 @@ fn mix_transforms(
     .iter()
     .zip(to)
     .map(|(from, to)| match (from, to) {
-      (MotionTransform::Translate(from), MotionTransform::Translate(to)) => {
-        MotionTransform::Translate(std::array::from_fn(|index| {
-          MotionLength::mix(&from[index], &to[index], progress)
+      (TransformOperation::Translate(from), TransformOperation::Translate(to)) => {
+        TransformOperation::Translate(std::array::from_fn(|index| {
+          Length::mix(&from[index], &to[index], progress)
         }))
       }
-      (MotionTransform::Rotate(from), MotionTransform::Rotate(to)) => {
-        MotionTransform::Rotate(std::array::from_fn(|index| {
+      (TransformOperation::Rotate(from), TransformOperation::Rotate(to)) => {
+        TransformOperation::Rotate(std::array::from_fn(|index| {
           f32::mix(&from[index], &to[index], progress)
         }))
       }
-      (MotionTransform::Skew(from), MotionTransform::Skew(to)) => {
-        MotionTransform::Skew(std::array::from_fn(|index| {
+      (TransformOperation::Skew(from), TransformOperation::Skew(to)) => {
+        TransformOperation::Skew(std::array::from_fn(|index| {
           f32::mix(&from[index], &to[index], progress)
         }))
       }
-      (MotionTransform::Scale(from), MotionTransform::Scale(to)) => {
-        MotionTransform::Scale(std::array::from_fn(|index| {
+      (TransformOperation::Scale(from), TransformOperation::Scale(to)) => {
+        TransformOperation::Scale(std::array::from_fn(|index| {
           f32::mix(&from[index], &to[index], progress)
         }))
       }
@@ -186,7 +183,11 @@ fn mix_transforms(
     .collect()
 }
 
-fn mix_filters(from: &[MotionFilter], to: &[MotionFilter], progress: f64) -> Vec<MotionFilter> {
+fn mix_filters(
+  from: &[FilterFunction],
+  to: &[FilterFunction],
+  progress: f64,
+) -> Vec<FilterFunction> {
   if from.len() != to.len() {
     return if progress < 0.5 { from } else { to }.to_vec();
   }
@@ -194,25 +195,46 @@ fn mix_filters(from: &[MotionFilter], to: &[MotionFilter], progress: f64) -> Vec
     .iter()
     .zip(to)
     .map(|(from, to)| match (from, to) {
-      (MotionFilter::Blur(from), MotionFilter::Blur(to)) => {
-        MotionFilter::Blur(f32::mix(from, to, progress))
+      (FilterFunction::Blur(from), FilterFunction::Blur(to)) => {
+        FilterFunction::Blur(f32::mix(from, to, progress))
       }
-      (MotionFilter::Brightness(from), MotionFilter::Brightness(to)) => {
-        MotionFilter::Brightness(f32::mix(from, to, progress))
+      (FilterFunction::Brightness(from), FilterFunction::Brightness(to)) => {
+        FilterFunction::Brightness(f32::mix(from, to, progress))
       }
-      (MotionFilter::Saturate(from), MotionFilter::Saturate(to)) => {
-        MotionFilter::Saturate(f32::mix(from, to, progress))
+      (FilterFunction::Saturate(from), FilterFunction::Saturate(to)) => {
+        FilterFunction::Saturate(f32::mix(from, to, progress))
       }
-      (MotionFilter::Contrast(from), MotionFilter::Contrast(to)) => {
-        MotionFilter::Contrast(f32::mix(from, to, progress))
+      (FilterFunction::Contrast(from), FilterFunction::Contrast(to)) => {
+        FilterFunction::Contrast(f32::mix(from, to, progress))
       }
-      (MotionFilter::HueRotate(from), MotionFilter::HueRotate(to)) => {
-        MotionFilter::HueRotate(f32::mix(from, to, progress))
+      (FilterFunction::HueRotate(from), FilterFunction::HueRotate(to)) => {
+        FilterFunction::HueRotate(f32::mix(from, to, progress))
       }
-      (MotionFilter::Opacity(from), MotionFilter::Opacity(to)) => {
-        MotionFilter::Opacity(f32::mix(from, to, progress))
+      (FilterFunction::Opacity(from), FilterFunction::Opacity(to)) => {
+        FilterFunction::Opacity(f32::mix(from, to, progress))
       }
-      _ => if progress < 0.5 { from } else { to }.clone(),
+      (FilterFunction::Invert(from), FilterFunction::Invert(to)) => {
+        FilterFunction::Invert(f32::mix(from, to, progress))
+      }
+      (FilterFunction::Grayscale(from), FilterFunction::Grayscale(to)) => {
+        FilterFunction::Grayscale(f32::mix(from, to, progress))
+      }
+      (FilterFunction::Sepia(from), FilterFunction::Sepia(to)) => {
+        FilterFunction::Sepia(f32::mix(from, to, progress))
+      }
+      (FilterFunction::Tint(from), FilterFunction::Tint(to)) => {
+        FilterFunction::Tint(mix_color(from, to, progress))
+      }
+      _ => *if progress < 0.5 { from } else { to },
     })
     .collect()
+}
+
+fn mix_color(from: &Color, to: &Color, progress: f64) -> Color {
+  Color::rgba(
+    from.r + (to.r - from.r) * progress,
+    from.g + (to.g - from.g) * progress,
+    from.b + (to.b - from.b) * progress,
+    from.a + (to.a - from.a) * progress,
+  )
 }

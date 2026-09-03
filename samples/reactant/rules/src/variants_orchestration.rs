@@ -131,7 +131,7 @@ impl Component for VariantsOrchestration {
         View::new()
           .name("variant-parent")
           .style(parent())
-          .initial(MotionStyle::new().opacity(0.4).scale(0.96))
+          .initial(StyleTarget::new().opacity(0.4).scale(0.96))
           .variants(parent_variants())
           .custom(self.state.custom_offset)
           .animate_variants(names)
@@ -178,7 +178,7 @@ impl Component for RouteChild {
     View::new()
       .name(format!("variant-child-{}", self.index))
       .style(child())
-      .initial(MotionStyle::new().opacity(0.25).scale(0.88))
+      .initial(StyleTarget::new().opacity(0.25).scale(0.88))
       .variants(child_variants(self.index))
       .inherit_variants(!opted_out)
       .child(Label::new(CHILD_NAMES[self.index as usize]).style(child_name()))
@@ -199,13 +199,13 @@ impl Component for RouteChild {
 
 fn parent_variants() -> Variants<RouteVariant, i32> {
   Variants::new()
-    .target(RouteVariant::East, MotionStyle::new().x(18.0).opacity(0.72))
+    .target(RouteVariant::East, StyleTarget::new().x(18.0).opacity(0.72))
     .target(
       RouteVariant::West,
-      MotionStyle::new().x(-18.0).opacity(0.72),
+      StyleTarget::new().x(-18.0).opacity(0.72),
     )
     .resolver(RouteVariant::Custom, |value| {
-      VariantTarget::new(MotionStyle::new().y(*value as f32).opacity(0.88))
+      VariantTarget::new(StyleTarget::new().y(*value as f32).opacity(0.88))
     })
     .target(
       RouteVariant::Forward,
@@ -222,34 +222,34 @@ fn child_variants(index: u32) -> Variants<RouteVariant, i32> {
   Variants::new()
     .target(
       RouteVariant::East,
-      MotionStyle::new().x(distance).opacity(0.66),
+      StyleTarget::new().x(distance).opacity(0.66),
     )
     .target(
       RouteVariant::West,
-      MotionStyle::new().x(-distance).opacity(0.66),
+      StyleTarget::new().x(-distance).opacity(0.66),
     )
     .resolver(RouteVariant::Custom, move |value| {
       VariantTarget::new(
-        MotionStyle::new()
+        StyleTarget::new()
           .y((*value as f32 + index as f32 * 2.0) * 0.25)
           .opacity(0.84),
       )
     })
     .target(
       RouteVariant::Forward,
-      MotionTarget::new(MotionStyle::new().scale(1.0).opacity(1.0))
+      MotionTarget::new(StyleTarget::new().scale(1.0).opacity(1.0))
         .transition(Transition::tween().duration_secs(0.22)),
     )
     .target(
       RouteVariant::Reverse,
-      MotionTarget::new(MotionStyle::new().scale(0.96).opacity(1.0))
+      MotionTarget::new(StyleTarget::new().scale(0.96).opacity(1.0))
         .transition(Transition::tween().duration_secs(0.22)),
     )
 }
 
 fn orchestrated_target(direction: StaggerDirection) -> VariantTarget {
   VariantTarget::new(
-    MotionTarget::new(MotionStyle::new().scale(1.0).opacity(1.0)).transition(
+    MotionTarget::new(StyleTarget::new().scale(1.0).opacity(1.0)).transition(
       Transition::tween()
         .duration_secs(0.24)
         .delay_children_secs(0.08)

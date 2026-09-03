@@ -48,7 +48,7 @@ namespace Battlement.UI
         public static List<Vector2> Inset(
             List<Vector2> points,
             UnityRect rect,
-            IReadOnlyList<MotionLength> inset
+            IReadOnlyList<UiLength> inset
         )
         {
             points = Clip(
@@ -108,8 +108,8 @@ namespace Battlement.UI
 
         private static float Fit(float length, float radii) => radii > 0 ? length / radii : 1;
 
-        private static float Resolve(MotionLength value, float reference) =>
-            checked((float)(value.Px + value.Percent * reference / 100));
+        private static float Resolve(UiLength value, float reference) =>
+            checked((float)(value.Pixels + value.Percentage * reference / 100));
 
         private static void Arc(List<Vector2> points, Vector2 center, float radius, float degrees)
         {

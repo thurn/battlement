@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-  motion::{MotionStyle, MotionTarget, Transition},
+  motion::{MotionTarget, StyleTarget, Transition},
   motion_variants::VariantOrchestration,
 };
 
@@ -262,8 +262,8 @@ impl From<MotionTarget> for VariantTarget {
   }
 }
 
-impl From<MotionStyle> for VariantTarget {
-  fn from(value: MotionStyle) -> Self {
+impl From<StyleTarget> for VariantTarget {
+  fn from(value: StyleTarget) -> Self {
     Self::new(value)
   }
 }

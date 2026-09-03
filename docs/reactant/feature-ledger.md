@@ -111,14 +111,14 @@ specimen; several related declarations intentionally share one composition.
 | `SettingsControls.tsx:245` | `hover_style`, `active_style`, `StyleTransition` | `composed-dropdown-specimen` |
 | `SettingsControls.tsx:268` | `AnimatePresence`, `initial`, `animate`, `exit` | `composed-dropdown-specimen` |
 | `SettingsControls.tsx:317` | `key`, `Transition::delay_secs` | `composed-dropdown-specimen` |
-| `SettingsControls.tsx:377` | `MotionStyle`, gesture target builders | `composed-dropdown-specimen` |
-| `SettingsControls.tsx:417` | `StyleTransition`, `MotionFilter`, `MotionShadow` | `composed-dropdown-specimen` |
-| `SettingsControls.tsx:423` | `AnimatePresence`, `key`, `MotionStyle` | `selection-flash` |
+| `SettingsControls.tsx:377` | `StyleTarget`, gesture target builders | `composed-dropdown-specimen` |
+| `SettingsControls.tsx:417` | `StyleTransition`, `FilterFunction`, `Shadow` | `composed-dropdown-specimen` |
+| `SettingsControls.tsx:423` | `AnimatePresence`, `key`, `StyleTarget` | `selection-flash` |
 | `SettingsControls.tsx:478` | `StyleTransition::property` | `composed-interactions-specimen` |
 | `SettingsControls.tsx:588` | `StyleTransition::all`, typed pseudo styles | `composed-checkbox` |
 | `SettingsControls.tsx:664` | `active_style`, `StyleTransition` | `composed-interactions-specimen` |
-| `SoundSettings.tsx:179` | `MotionStyle`, `StyleTransition` | `composed-slider` |
-| `SoundSettings.tsx:240` | typed pseudo styles, `MotionFilter` | `composed-slider` |
+| `SoundSettings.tsx:179` | `StyleTarget`, `StyleTransition` | `composed-slider` |
+| `SoundSettings.tsx:240` | typed pseudo styles, `FilterFunction` | `composed-slider` |
 | `InputSettings.tsx:237` | `Animation`, `Keyframes`, `AnimationIterations::Forever` | `composed-binding` |
 | `InputSettings.tsx:334` | `StyleTransition` | `composed-interactions-specimen` |
 | `ActionButton.tsx:87` | `hover_style`, `focus_style`, `while_tap` | `composed-checkbox` |
@@ -127,14 +127,14 @@ specimen; several related declarations intentionally share one composition.
 | `ArcadeAttractMode.tsx:169` | keyed `Decoration`, negative `delay_secs` | `composed-particle` |
 | `ArcadeFramePulse.tsx:111` | shared `Keyframes`, keyed `Decoration` | `composed-comet` |
 | `ArcadeMenuTransition.tsx:88` | `AnimatePresence`, `PresenceMode` | `composed-routes-specimen` |
-| `ArcadeMenuTransition.tsx:138` | `Decoration`, `MotionStyle` | `route-beam` |
+| `ArcadeMenuTransition.tsx:138` | `Decoration`, `StyleTarget` | `route-beam` |
 | `ArcadeMenuTransition.tsx:177` | `clip_inset`, opacity keyframes | `composed-routes-specimen` |
 | `ArcadeMenuTransition.tsx:208` | `Decoration`, `Keyframes` | `route-beam` |
 | `ArcadeTabTransition.tsx:77` | `LayoutGroup`, `AnimatePresence`, `PresenceMode::PopLayout` | `composed-routes-specimen` |
-| `ArcadeTabTransition.tsx:108` | directional `MotionStyle`, keyed `Decoration` | `route-beam` |
+| `ArcadeTabTransition.tsx:108` | directional `StyleTarget`, keyed `Decoration` | `route-beam` |
 | `ArcadeTabTransition.tsx:140` | `Decoration`, `Keyframes` | `composed-routes-specimen` |
 | `ArcadeModal.tsx:82` | `AnimatePresence`, `ReducedMotion` | `composed-modal-specimen` |
-| `ArcadeModal.tsx:104` | `MotionStyle`, `MotionFilter`, keyframes | `composed-modal-specimen` |
+| `ArcadeModal.tsx:104` | `StyleTarget`, `FilterFunction`, keyframes | `composed-modal-specimen` |
 | `ArcadeModal.tsx:168` | `Decoration`, `AnimationIterations::Forever` | `modal-shine` |
 | `ArcadeCheckboxEffect.tsx:33` | keyed presence root | `composed-checkbox` |
 | `ArcadeCheckboxEffect.tsx:40` | keyed `Decoration`, transform keyframes | `composed-checkbox` |

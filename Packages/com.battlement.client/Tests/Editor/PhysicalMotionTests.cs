@@ -229,7 +229,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 generation,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 new[]
                 {

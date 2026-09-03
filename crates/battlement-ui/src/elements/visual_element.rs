@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  GridItem, MotionDescriptor, OverlayPlacement, Prop, StackItem, Sticky, Style,
+  GridItem, MotionDescriptor, OverlayPlacement, PaintStyle, Prop, StackItem, Sticky, Style,
   UiVisualElementProperties,
 };
 
@@ -166,6 +166,9 @@ pub struct UiVisualElement {
   /// counterparts and unpopulated fields preserve the current value.
   #[serde(default, skip_serializing_if = "Style::is_empty")]
   pub style: Style,
+  /// Static decorative paint rendered in this element's border box.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub paint: Prop<PaintStyle>,
   /// Native event kinds that Unity forwards to the Rust rules engine.
   ///
   /// Subscriptions are opt-in. Repeating an event kind is invalid; ordering is
@@ -239,6 +242,9 @@ impl UiVisualElement {
       self.classes = value.classes.clone();
     }
     self.style = self.style.clone().merge(value.style.clone());
+    if !value.paint.is_unset() {
+      self.paint = value.paint.clone();
+    }
     if !value.events.is_unset() {
       self.events = value.events.clone();
     }

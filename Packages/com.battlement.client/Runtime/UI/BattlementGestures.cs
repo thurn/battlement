@@ -631,7 +631,7 @@ namespace Battlement.UI
 
         private float ReadPixels(MotionProperty property) =>
             BattlementMotionPropertyWriter.Read(target, property) is MotionValue.Length value
-                ? (float)value.Value.Px
+                ? (float)value.Value.Pixels
                 : 0;
 
         private Vector2 ScrollOffset() =>

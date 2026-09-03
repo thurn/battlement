@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
-    internal static class BattlementAuthoredMotionStyle
+    internal static class BattlementAuthoredStyle
     {
         public static bool Changed(
             UiStyle style,

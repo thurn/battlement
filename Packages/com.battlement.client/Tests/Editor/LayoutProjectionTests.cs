@@ -186,7 +186,6 @@ namespace Battlement.Tests
                 new ObjectId(Guid.NewGuid()),
                 host,
                 generation,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 Array.Empty<MotionSlotDescriptor>(),
                 new MotionClockSource.Controlled(Id("75200000-0000-4000-8000-000000000099")),

@@ -1,7 +1,7 @@
 use crate::{Game, design_system};
 use battlement::{
-  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionLength,
-  MotionShadow, Overflow, ScrollViewMode, ScrollerVisibility, Style, WhiteSpace, object_id,
+  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow,
+  ScrollViewMode, ScrollerVisibility, Shadow, Style, WhiteSpace, object_id,
 };
 use battlement_reactant::prelude::*;
 use std::time::Duration;
@@ -153,11 +153,11 @@ fn dropdown(state: &ComposedEffectsState) -> View {
     Button::new(options[state.selected])
       .style(probe())
       .hover_style(
-        MotionStyle::new()
+        StyleTarget::new()
           .scale(1.03)
-          .filter(MotionFilters::new().contrast(1.15)),
+          .filter(FilterList::default().contrast(1.15)),
       )
-      .active_style(MotionStyle::new().scale(0.97))
+      .active_style(StyleTarget::new().scale(0.97))
       .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12))),
   )
   .child(AnimatePresence::new().child(state.dropdown_open.then(|| {
@@ -165,9 +165,9 @@ fn dropdown(state: &ComposedEffectsState) -> View {
       View::new()
         .key("dropdown-menu")
         .style(menu())
-        .initial(MotionStyle::new().y(-12.0).opacity(0.0).scale_y(0.86))
-        .animate(MotionStyle::new().y(0.0).opacity(1.0).scale_y(1.0))
-        .exit(MotionStyle::new().y(-8.0).opacity(0.0).scale_y(0.92))
+        .initial(StyleTarget::new().y(-12.0).opacity(0.0).scale_y(0.86))
+        .animate(StyleTarget::new().y(0.0).opacity(1.0).scale_y(1.0))
+        .exit(StyleTarget::new().y(-8.0).opacity(0.0).scale_y(0.92))
         .child(
           options
             .into_iter()
@@ -177,8 +177,8 @@ fn dropdown(state: &ComposedEffectsState) -> View {
                 .key(label)
                 .name(format!("composed-option-{index}"))
                 .style(option())
-                .initial(MotionStyle::new().x(-18.0).opacity(0.0))
-                .animate(MotionStyle::new().x(0.0).opacity(1.0))
+                .initial(StyleTarget::new().x(-18.0).opacity(0.0))
+                .animate(StyleTarget::new().x(0.0).opacity(1.0))
                 .transition(
                   Transition::tween()
                     .duration_secs(0.18)
@@ -195,8 +195,8 @@ fn dropdown(state: &ComposedEffectsState) -> View {
           View::new()
             .key(("selection-flash", state.selected, state.burst))
             .style(flash())
-            .initial(MotionStyle::new().opacity(0.9).scale(0.5))
-            .animate(MotionStyle::new().opacity(0.0).scale(1.3)),
+            .initial(StyleTarget::new().opacity(0.9).scale(0.5))
+            .animate(StyleTarget::new().opacity(0.0).scale(1.3)),
         ),
     )
   })))
@@ -216,32 +216,32 @@ fn modal(state: &ComposedEffectsState) -> View {
           View::new()
             .key("settings-modal")
             .style(backdrop())
-            .initial(MotionStyle::new().opacity(0.0))
-            .animate(MotionStyle::new().opacity(1.0))
-            .exit(MotionStyle::new().opacity(0.0))
+            .initial(StyleTarget::new().opacity(0.0))
+            .animate(StyleTarget::new().opacity(1.0))
+            .exit(StyleTarget::new().opacity(0.0))
             .child(
               View::new()
                 .style(modal_panel())
                 .initial(
-                  MotionStyle::new()
+                  StyleTarget::new()
                     .y(28.0)
                     .scale(0.88)
-                    .filter(MotionFilters::new().blur(8.0).contrast(0.6)),
+                    .filter(FilterList::default().blur(8.0).contrast(0.6)),
                 )
                 .animate(
-                  MotionStyle::new()
+                  StyleTarget::new()
                     .y(0.0)
                     .scale(1.0)
-                    .filter(MotionFilters::new().blur(0.0).contrast(1.0)),
+                    .filter(FilterList::default().blur(0.0).contrast(1.0)),
                 )
-                .exit(MotionStyle::new().y(18.0).scale(0.92).opacity(0.0))
+                .exit(StyleTarget::new().y(18.0).scale(0.92).opacity(0.0))
                 .after(
                   Decoration::new()
                     .key("modal-shine")
                     .style(shine())
                     .animation(loop_animation(
-                      MotionStyle::new().x(-150.0).skew_x(-18.0).opacity(0.0),
-                      MotionStyle::new().x(150.0).skew_x(-18.0).opacity(0.7),
+                      StyleTarget::new().x(-150.0).skew_x(-18.0).opacity(0.0),
+                      StyleTarget::new().x(150.0).skew_x(-18.0).opacity(0.7),
                       1.8,
                     )),
                 )
@@ -287,26 +287,26 @@ fn routes(state: &ComposedEffectsState) -> View {
           .key(state.route)
           .layout(Layout::Both)
           .style(route_panel())
-          .initial(MotionStyle::new().x(70.0).opacity(0.0).clip_inset([
-            MotionLength::px(0.0),
-            MotionLength::percent(100.0),
-            MotionLength::px(0.0),
-            MotionLength::px(0.0),
+          .initial(StyleTarget::new().x(70.0).opacity(0.0).clip_inset([
+            Length::px(0.0),
+            Length::percent(100.0),
+            Length::px(0.0),
+            Length::px(0.0),
           ]))
           .animate(
-            MotionStyle::new()
+            StyleTarget::new()
               .x(0.0)
               .opacity(1.0)
-              .clip_inset([MotionLength::px(0.0); 4]),
+              .clip_inset([Length::px(0.0); 4]),
           )
-          .exit(MotionStyle::new().x(-70.0).opacity(0.0))
+          .exit(StyleTarget::new().x(-70.0).opacity(0.0))
           .after(
             Decoration::new()
               .key(("route-beam", state.route))
               .style(beam())
               .animation(loop_animation(
-                MotionStyle::new().x(-160.0).opacity(0.1),
-                MotionStyle::new().x(160.0).opacity(0.9),
+                StyleTarget::new().x(-160.0).opacity(0.1),
+                StyleTarget::new().x(160.0).opacity(0.9),
                 1.35,
               )),
           )
@@ -322,8 +322,8 @@ fn interactions(state: &ComposedEffectsState) -> View {
       .style(particle(index))
       .animation(
         Animation::new(Keyframes::new([
-          MotionStyle::new().scale(0.4).opacity(0.9),
-          MotionStyle::new().scale(1.8).opacity(0.0),
+          StyleTarget::new().scale(0.4).opacity(0.9),
+          StyleTarget::new().scale(1.8).opacity(0.0),
         ]))
         .duration_secs(0.55)
         .delay_secs(index as f64 * 0.035)
@@ -345,20 +345,20 @@ fn interactions(state: &ComposedEffectsState) -> View {
     .name("composed-checkbox")
     .style(probe())
     .hover_style(
-      MotionStyle::new()
+      StyleTarget::new()
         .scale(1.04)
-        .background_color(MotionColor::new(0.18, 0.72, 0.76, 1.0))
-        .box_shadow([MotionShadow {
+        .background_color(Color::rgba(0.18, 0.72, 0.76, 1.0))
+        .box_shadow([Shadow {
           x: 0.0,
           y: 5.0,
           blur: 0.0,
           spread: 1.0,
-          color: MotionColor::new(0.0, 0.9, 1.0, 0.4),
+          color: Color::rgba(0.0, 0.9, 1.0, 0.4),
           inset: false,
         }]),
     )
-    .active_style(MotionStyle::new().scale(0.94).rotate(-1.5))
-    .focus_style(MotionStyle::new().color(MotionColor::new(1.0, 0.72, 0.2, 1.0)))
+    .active_style(StyleTarget::new().scale(0.94).rotate(-1.5))
+    .focus_style(StyleTarget::new().color(Color::rgba(1.0, 0.72, 0.2, 1.0)))
     .style_transition(
       StyleTransition::new().all(
         Transition::tween()
@@ -405,7 +405,7 @@ fn ambient(
           .key(("audio", generation))
           .name("composed-audio-pulse")
           .style(audio_probe())
-          .animate(MotionStyle::new().scale_value(audio_scale)),
+          .animate(StyleTarget::new().scale_value(audio_scale)),
       ),
   )
 }
@@ -416,15 +416,15 @@ fn ambient_probe(name: &'static str, duration: f64, delay: f64) -> View {
     .style(dot())
     .animation(
       loop_animation(
-        MotionStyle::new().x(-55.0).opacity(0.22).scale(0.65),
-        MotionStyle::new().x(55.0).opacity(1.0).scale(1.1),
+        StyleTarget::new().x(-55.0).opacity(0.22).scale(0.65),
+        StyleTarget::new().x(55.0).opacity(1.0).scale(1.1),
         duration,
       )
       .delay_secs(delay),
     )
 }
 
-fn loop_animation(from: MotionStyle, to: MotionStyle, duration: f64) -> Animation {
+fn loop_animation(from: StyleTarget, to: StyleTarget, duration: f64) -> Animation {
   Animation::new(Keyframes::new([from, to]))
     .duration_secs(duration)
     .iterations(AnimationIterations::Forever)

@@ -99,7 +99,7 @@ impl From<Cursor> for StyleValue<Cursor> {
   }
 }
 
-/// A finite UI Toolkit length in pixels or as a parent-relative percentage.
+/// A finite UI Toolkit length preserving pixel and percentage components.
 ///
 /// Percentages are not clamped to `0..=100`; oversize dimensions and offsets
 /// are useful layout inputs. Property-specific validation can still reject
@@ -110,6 +110,60 @@ pub enum Length {
   Px(f32),
   /// A percentage of the property's containing dimension.
   Percent(f32),
+  /// A typed `calc(px + percent)` length.
+  Calc {
+    /// Absolute UI Toolkit panel pixels.
+    px: f32,
+    /// Parent- or self-relative percentage points.
+    percent: f32,
+  },
+}
+
+impl Length {
+  /// Creates a pure pixel length.
+  #[must_use]
+  pub const fn px(value: f32) -> Self {
+    Self::Px(value)
+  }
+
+  /// Creates a pure percentage length.
+  #[must_use]
+  pub const fn percent(value: f32) -> Self {
+    Self::Percent(value)
+  }
+
+  /// Creates a typed `calc(px + percent)` length.
+  #[must_use]
+  pub const fn calc(px: f32, percent: f32) -> Self {
+    if px == 0.0 {
+      Self::Percent(percent)
+    } else if percent == 0.0 {
+      Self::Px(px)
+    } else {
+      Self::Calc { px, percent }
+    }
+  }
+
+  /// Returns the independent pixel and percentage components.
+  #[must_use]
+  pub const fn components(self) -> [f32; 2] {
+    match self {
+      Self::Px(px) => [px, 0.0],
+      Self::Percent(percent) => [0.0, percent],
+      Self::Calc { px, percent } => [px, percent],
+    }
+  }
+
+  /// Resolves this length against the property-specific reference dimension.
+  #[must_use]
+  pub fn resolve(self, reference: f64) -> f64 {
+    let [px, percent] = self.components();
+    f64::from(px) + f64::from(percent) * reference / 100.0
+  }
+
+  pub(crate) fn is_finite(self) -> bool {
+    self.components().into_iter().all(f32::is_finite)
+  }
 }
 
 impl From<i32> for Length {
@@ -164,6 +218,7 @@ impl From<Length> for LengthOrAuto {
     match value {
       Length::Px(value) => Self::Px(value),
       Length::Percent(value) => Self::Percent(value),
+      Length::Calc { .. } => panic!("calc lengths are unsupported by automatic layout values"),
     }
   }
 }
@@ -793,8 +848,14 @@ pub enum FilterFunction {
   Blur(f32),
   /// Adjusts contrast by a unitless factor.
   Contrast(f32),
+  /// Adjusts brightness by a unitless factor.
+  Brightness(f32),
+  /// Adjusts saturation by a unitless factor.
+  Saturate(f32),
   /// Rotates rendered hue by degrees.
   HueRotate(f32),
+  /// Applies one painted drop shadow.
+  DropShadow(crate::Shadow),
 }
 
 /// Ordered standard filter functions applied after an element is rendered.
@@ -813,6 +874,59 @@ impl FilterList {
   #[must_use]
   pub fn as_slice(&self) -> &[FilterFunction] {
     &self.0
+  }
+
+  /// Appends one operation, preserving duplicates and authored order.
+  #[must_use]
+  pub fn operation(mut self, value: FilterFunction) -> Self {
+    self.0.push(value);
+    self
+  }
+
+  /// Appends Gaussian blur in pixels.
+  #[must_use]
+  pub fn blur(self, radius: f32) -> Self {
+    self.operation(FilterFunction::Blur(radius))
+  }
+
+  /// Appends a contrast multiplier.
+  #[must_use]
+  pub fn contrast(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Contrast(amount))
+  }
+
+  /// Appends hue rotation in degrees.
+  #[must_use]
+  pub fn hue_rotate(self, degrees: f32) -> Self {
+    self.operation(FilterFunction::HueRotate(degrees))
+  }
+
+  /// Appends an opacity multiplier.
+  #[must_use]
+  pub fn opacity(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Opacity(amount))
+  }
+
+  /// Appends another ordered filter list.
+  #[must_use]
+  pub fn then(mut self, value: Self) -> Self {
+    self.0.extend(value.0);
+    self
+  }
+}
+
+impl IntoIterator for FilterList {
+  type Item = FilterFunction;
+  type IntoIter = std::vec::IntoIter<FilterFunction>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+
+impl FromIterator<FilterFunction> for FilterList {
+  fn from_iter<T: IntoIterator<Item = FilterFunction>>(iter: T) -> Self {
+    Self(iter.into_iter().collect())
   }
 }
 

@@ -283,7 +283,6 @@ namespace Battlement.Tests
                 descriptorId,
                 host,
                 generation,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 Array.Empty<MotionSlotDescriptor>(),
                 new MotionClockSource.Unscaled(),
@@ -334,7 +333,6 @@ namespace Battlement.Tests
                 descriptorId,
                 host,
                 1,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 Array.Empty<MotionSlotDescriptor>(),
                 new MotionClockSource.Unscaled(),
@@ -365,7 +363,6 @@ namespace Battlement.Tests
                 descriptorId,
                 host,
                 1,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 Array.Empty<MotionSlotDescriptor>(),
                 new MotionClockSource.Unscaled(),
@@ -398,7 +395,7 @@ namespace Battlement.Tests
 
         private static float ReadPixels(VisualElement target, MotionProperty property) =>
             BattlementMotionPropertyWriter.Read(target, property) is MotionValue.Length value
-                ? (float)value.Value.Px
+                ? (float)value.Value.Pixels
                 : 0;
 
         private static void PointerDown(VisualElement target, Vector2 position)

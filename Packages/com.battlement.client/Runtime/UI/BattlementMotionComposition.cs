@@ -55,7 +55,10 @@ namespace Battlement.UI
                     a.Value + b.Value
                 ),
                 (MotionValue.Length a, MotionValue.Length b) => new MotionValue.Length(
-                    new MotionLength(a.Value.Px + b.Value.Px, a.Value.Percent + b.Value.Percent)
+                    UiLength.FromComponents(
+                        a.Value.Pixels + b.Value.Pixels,
+                        a.Value.Percentage + b.Value.Percentage
+                    )
                 ),
                 (MotionValue.Angle a, MotionValue.Angle b) => new MotionValue.Angle(
                     a.Value + b.Value
@@ -79,7 +82,10 @@ namespace Battlement.UI
                     a.Value - b.Value
                 ),
                 (MotionValue.Length a, MotionValue.Length b) => new MotionValue.Length(
-                    new MotionLength(a.Value.Px - b.Value.Px, a.Value.Percent - b.Value.Percent)
+                    UiLength.FromComponents(
+                        a.Value.Pixels - b.Value.Pixels,
+                        a.Value.Percentage - b.Value.Percentage
+                    )
                 ),
                 (MotionValue.Angle a, MotionValue.Angle b) => new MotionValue.Angle(
                     a.Value - b.Value
@@ -98,7 +104,10 @@ namespace Battlement.UI
             {
                 MotionValue.Scalar item => new MotionValue.Scalar(item.Value * count),
                 MotionValue.Length item => new MotionValue.Length(
-                    new MotionLength(item.Value.Px * count, item.Value.Percent * count)
+                    UiLength.FromComponents(
+                        item.Value.Pixels * count,
+                        item.Value.Percentage * count
+                    )
                 ),
                 MotionValue.Angle item => new MotionValue.Angle(item.Value * count),
                 MotionValue.Vector2 item => new MotionValue.Vector2(Scale(item.Value, count)),
@@ -130,41 +139,38 @@ namespace Battlement.UI
                 _ => throw Invalid("CSS multiplicative composition requires scale values."),
             };
 
-        private static IReadOnlyList<MotionTransform> CombineTransforms(
-            IReadOnlyList<MotionTransform> left,
-            IReadOnlyList<MotionTransform> right
+        private static IReadOnlyList<TransformOperation> CombineTransforms(
+            IReadOnlyList<TransformOperation> left,
+            IReadOnlyList<TransformOperation> right
         )
         {
             if (left.Count != right.Count)
                 throw Invalid("Additive transform lists must have compatible operations.");
-            var result = new MotionTransform[left.Count];
+            var result = new TransformOperation[left.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = CombineTransform(left[index], right[index]);
             return result;
         }
 
-        private static MotionTransform CombineTransform(
-            MotionTransform left,
-            MotionTransform right
+        private static TransformOperation CombineTransform(
+            TransformOperation left,
+            TransformOperation right
         ) =>
             (left, right) switch
             {
-                (MotionTransform.Translate a, MotionTransform.Translate b) =>
-                    new MotionTransform.Translate(AddLengths(a.Value, b.Value)),
-                (MotionTransform.Rotate a, MotionTransform.Rotate b) => new MotionTransform.Rotate(
-                    Add(a.Value, b.Value)
-                ),
-                (MotionTransform.Skew a, MotionTransform.Skew b) => new MotionTransform.Skew(
-                    Add(a.Value, b.Value)
-                ),
-                (MotionTransform.Scale a, MotionTransform.Scale b) => new MotionTransform.Scale(
-                    Multiply(a.Value, b.Value, 1)
-                ),
+                (TransformOperation.Translate a, TransformOperation.Translate b) =>
+                    new TransformOperation.Translate(AddLengths(a.Value, b.Value)),
+                (TransformOperation.Rotate a, TransformOperation.Rotate b) =>
+                    new TransformOperation.Rotate(Add(a.Value, b.Value)),
+                (TransformOperation.Skew a, TransformOperation.Skew b) =>
+                    new TransformOperation.Skew(Add(a.Value, b.Value)),
+                (TransformOperation.Scale a, TransformOperation.Scale b) =>
+                    new TransformOperation.Scale(Multiply(a.Value, b.Value, 1)),
                 _ => throw Invalid("Additive transform lists must have compatible operations."),
             };
 
-        private static IReadOnlyList<MotionTransform> AccumulateTransforms(
-            IReadOnlyList<MotionTransform> sample,
+        private static IReadOnlyList<TransformOperation> AccumulateTransforms(
+            IReadOnlyList<TransformOperation> sample,
             MotionValue origin,
             MotionValue target,
             uint iteration
@@ -177,7 +183,7 @@ namespace Battlement.UI
                 throw Invalid("Transform accumulation requires transform-list endpoints.");
             if (sample.Count != a.Value.Count || sample.Count != b.Value.Count)
                 throw Invalid("Accumulated transform lists must have compatible operations.");
-            var result = new MotionTransform[sample.Count];
+            var result = new TransformOperation[sample.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = AccumulateTransform(
                     sample[index],
@@ -188,39 +194,45 @@ namespace Battlement.UI
             return result;
         }
 
-        private static MotionTransform AccumulateTransform(
-            MotionTransform sample,
-            MotionTransform origin,
-            MotionTransform target,
+        private static TransformOperation AccumulateTransform(
+            TransformOperation sample,
+            TransformOperation origin,
+            TransformOperation target,
             uint iteration
         ) =>
             (sample, origin, target) switch
             {
                 (
-                    MotionTransform.Translate value,
-                    MotionTransform.Translate a,
-                    MotionTransform.Translate b
-                ) => new MotionTransform.Translate(
+                    TransformOperation.Translate value,
+                    TransformOperation.Translate a,
+                    TransformOperation.Translate b
+                ) => new TransformOperation.Translate(
                     AddLengths(
                         value.Value,
                         ScaleLengths(SubtractLengths(b.Value, a.Value), iteration)
                     )
                 ),
                 (
-                    MotionTransform.Rotate value,
-                    MotionTransform.Rotate a,
-                    MotionTransform.Rotate b
-                ) => new MotionTransform.Rotate(
+                    TransformOperation.Rotate value,
+                    TransformOperation.Rotate a,
+                    TransformOperation.Rotate b
+                ) => new TransformOperation.Rotate(
                     Add(value.Value, Scale(Subtract(b.Value, a.Value), iteration))
                 ),
-                (MotionTransform.Skew value, MotionTransform.Skew a, MotionTransform.Skew b) =>
-                    new MotionTransform.Skew(
-                        Add(value.Value, Scale(Subtract(b.Value, a.Value), iteration))
-                    ),
-                (MotionTransform.Scale value, MotionTransform.Scale a, MotionTransform.Scale b) =>
-                    new MotionTransform.Scale(
-                        Multiply(value.Value, Ratio(b.Value, a.Value), iteration)
-                    ),
+                (
+                    TransformOperation.Skew value,
+                    TransformOperation.Skew a,
+                    TransformOperation.Skew b
+                ) => new TransformOperation.Skew(
+                    Add(value.Value, Scale(Subtract(b.Value, a.Value), iteration))
+                ),
+                (
+                    TransformOperation.Scale value,
+                    TransformOperation.Scale a,
+                    TransformOperation.Scale b
+                ) => new TransformOperation.Scale(
+                    Multiply(value.Value, Ratio(b.Value, a.Value), iteration)
+                ),
                 _ => throw Invalid("Accumulated transform lists must have compatible operations."),
             };
 
@@ -275,41 +287,49 @@ namespace Battlement.UI
             return result;
         }
 
-        private static IReadOnlyList<MotionLength> AddLengths(
-            IReadOnlyList<MotionLength> left,
-            IReadOnlyList<MotionLength> right
+        private static IReadOnlyList<UiLength> AddLengths(
+            IReadOnlyList<UiLength> left,
+            IReadOnlyList<UiLength> right
         ) =>
-            ZipLengths(left, right, (a, b) => new MotionLength(a.Px + b.Px, a.Percent + b.Percent));
+            ZipLengths(
+                left,
+                right,
+                (a, b) => UiLength.FromComponents(a.Pixels + b.Pixels, a.Percentage + b.Percentage)
+            );
 
-        private static IReadOnlyList<MotionLength> SubtractLengths(
-            IReadOnlyList<MotionLength> left,
-            IReadOnlyList<MotionLength> right
+        private static IReadOnlyList<UiLength> SubtractLengths(
+            IReadOnlyList<UiLength> left,
+            IReadOnlyList<UiLength> right
         ) =>
-            ZipLengths(left, right, (a, b) => new MotionLength(a.Px - b.Px, a.Percent - b.Percent));
+            ZipLengths(
+                left,
+                right,
+                (a, b) => UiLength.FromComponents(a.Pixels - b.Pixels, a.Percentage - b.Percentage)
+            );
 
-        private static IReadOnlyList<MotionLength> ScaleLengths(
-            IReadOnlyList<MotionLength> values,
+        private static IReadOnlyList<UiLength> ScaleLengths(
+            IReadOnlyList<UiLength> values,
             uint count
         )
         {
-            var result = new MotionLength[values.Count];
+            var result = new UiLength[values.Count];
             for (int index = 0; index < result.Length; index++)
-                result[index] = new MotionLength(
-                    values[index].Px * count,
-                    values[index].Percent * count
+                result[index] = UiLength.FromComponents(
+                    values[index].Pixels * count,
+                    values[index].Percentage * count
                 );
             return result;
         }
 
-        private static IReadOnlyList<MotionLength> ZipLengths(
-            IReadOnlyList<MotionLength> left,
-            IReadOnlyList<MotionLength> right,
-            Func<MotionLength, MotionLength, MotionLength> combine
+        private static IReadOnlyList<UiLength> ZipLengths(
+            IReadOnlyList<UiLength> left,
+            IReadOnlyList<UiLength> right,
+            Func<UiLength, UiLength, UiLength> combine
         )
         {
             if (left.Count != right.Count)
                 throw Invalid("Additive transform channels must have matching dimensions.");
-            var result = new MotionLength[left.Count];
+            var result = new UiLength[left.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = combine(left[index], right[index]);
             return result;

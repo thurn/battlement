@@ -207,7 +207,7 @@ fn pop_layout(show: bool) -> Node {
               .key(index)
               .layout(Layout::Both)
               .style(pop_item())
-              .exit(MotionStyle::new().opacity(0.0).scale(0.7))
+              .exit(StyleTarget::new().opacity(0.0).scale(0.7))
               .child(Label::new(format!("P{}", index + 1)))
           })
           .collect::<Vec<_>>(),

@@ -958,8 +958,8 @@ namespace Battlement
             || baseType == typeof(IconSource)
             || baseType == typeof(UiValue)
             || baseType == typeof(MotionValue)
-            || baseType == typeof(MotionTransform)
-            || baseType == typeof(MotionFilter)
+            || baseType == typeof(TransformOperation)
+            || baseType == typeof(PaintFill)
             || baseType == typeof(MotionRepeat)
             || baseType == typeof(MotionClockSource)
             || baseType == typeof(MotionDragConstraint)
@@ -1061,7 +1061,8 @@ namespace Battlement
                 ),
                 [typeof(UiLength)] = Fixed(
                     ("Px", typeof(UiLength.Px)),
-                    ("Percent", typeof(UiLength.Percent))
+                    ("Percent", typeof(UiLength.Percent)),
+                    ("Calc", typeof(UiLength.Calc))
                 ),
                 [typeof(UiLengthOrAuto)] = Fixed(
                     ("Px", typeof(UiLengthOrAuto.Px)),
@@ -1080,7 +1081,10 @@ namespace Battlement
                     ("Sepia", typeof(UiFilterFunction.Sepia)),
                     ("Blur", typeof(UiFilterFunction.Blur)),
                     ("Contrast", typeof(UiFilterFunction.Contrast)),
-                    ("HueRotate", typeof(UiFilterFunction.HueRotate))
+                    ("Brightness", typeof(UiFilterFunction.Brightness)),
+                    ("Saturate", typeof(UiFilterFunction.Saturate)),
+                    ("HueRotate", typeof(UiFilterFunction.HueRotate)),
+                    ("DropShadow", typeof(UiFilterFunction.DropShadow))
                 ),
                 [typeof(ParentScene)] = Fixed(
                     ("PrimaryScene", typeof(ParentScene.Primary)),
@@ -1102,24 +1106,19 @@ namespace Battlement
                     ("Light", typeof(GameObjectKind.Light)),
                     ("Prefab", typeof(GameObjectKind.Prefab))
                 ),
-                [typeof(MotionTransform)] = Fixed(
-                    ("Translate", typeof(MotionTransform.Translate)),
-                    ("Rotate", typeof(MotionTransform.Rotate)),
-                    ("Skew", typeof(MotionTransform.Skew)),
-                    ("Scale", typeof(MotionTransform.Scale))
+                [typeof(TransformOperation)] = Fixed(
+                    ("Translate", typeof(TransformOperation.Translate)),
+                    ("Rotate", typeof(TransformOperation.Rotate)),
+                    ("Skew", typeof(TransformOperation.Skew)),
+                    ("Scale", typeof(TransformOperation.Scale))
                 ),
-                [typeof(MotionFilter)] = Fixed(
-                    ("Blur", typeof(MotionFilter.Blur)),
-                    ("Brightness", typeof(MotionFilter.Brightness)),
-                    ("Saturate", typeof(MotionFilter.Saturate)),
-                    ("Contrast", typeof(MotionFilter.Contrast)),
-                    ("HueRotate", typeof(MotionFilter.HueRotate)),
-                    ("Opacity", typeof(MotionFilter.Opacity)),
-                    ("DropShadow", typeof(MotionFilter.DropShadow))
+                [typeof(Gradient)] = Fixed(
+                    ("Linear", typeof(Gradient.Linear)),
+                    ("Radial", typeof(Gradient.Radial))
                 ),
-                [typeof(MotionGradient)] = Fixed(
-                    ("Linear", typeof(MotionGradient.Linear)),
-                    ("Radial", typeof(MotionGradient.Radial))
+                [typeof(PaintFill)] = Fixed(
+                    ("Color", typeof(PaintFill.Color)),
+                    ("Gradient", typeof(PaintFill.Gradient))
                 ),
                 [typeof(MotionValue)] = Fixed(
                     ("Scalar", typeof(MotionValue.Scalar)),

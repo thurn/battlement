@@ -151,7 +151,7 @@ pub enum MotionValueCommand {
     /// Playback generation.
     generation: u32,
     /// Typed terminal value.
-    target: MotionValue,
+    target: Box<MotionValue>,
     /// Sampling transition.
     transition: TransitionDefinition,
   },

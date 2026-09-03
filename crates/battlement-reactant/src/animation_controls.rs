@@ -16,7 +16,7 @@ use crate::{
   element_ref::ElementRef,
   hook_storage::{HookKind, HookSlot},
   hooks,
-  motion::{MotionStyle, MotionTarget},
+  motion::{MotionTarget, StyleTarget},
   motion_value::{AnimationPlayback, MotionValueRuntimeHandle},
   variant_map::{VariantKey, variant_label},
 };
@@ -179,8 +179,8 @@ impl<Name: VariantKey> From<MotionTarget> for ControlTarget<Name> {
   }
 }
 
-impl<Name: VariantKey> From<MotionStyle> for ControlTarget<Name> {
-  fn from(value: MotionStyle) -> Self {
+impl<Name: VariantKey> From<StyleTarget> for ControlTarget<Name> {
+  fn from(value: StyleTarget) -> Self {
     Self::Target(Box::new(value.into()))
   }
 }
@@ -214,7 +214,7 @@ impl AnimationScope {
   }
 
   /// Applies one target immediately to a selector snapshot.
-  pub fn set(&self, selector: MotionSelector, target: MotionStyle) {
+  pub fn set(&self, selector: MotionSelector, target: StyleTarget) {
     self.queue(MotionScopeCommand::Set {
       selector: selector.into_protocol(),
       target: MotionTarget::new(target).descriptor(None, 0),
@@ -279,7 +279,7 @@ impl AnimationSequence {
   pub fn animate(
     mut self,
     selector: MotionSelector,
-    target: MotionStyle,
+    target: StyleTarget,
     transition: crate::motion::Transition,
   ) -> Self {
     let target = MotionTarget::new(target).transition(transition);
@@ -301,7 +301,7 @@ impl AnimationSequence {
   pub fn then(
     self,
     selector: MotionSelector,
-    target: MotionStyle,
+    target: StyleTarget,
     transition: crate::motion::Transition,
   ) -> Self {
     self.animate(selector, target, transition)

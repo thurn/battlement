@@ -2,8 +2,8 @@
 
 use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row::SettingRow};
 use battlement::{
-  Align, Color, FlexDirection, Length, LengthUnits, MotionLength, Position, Style, TextAnchor,
-  Translate, UiFontAddress,
+  Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
+  UiFontAddress,
 };
 use battlement_reactant::label_binding;
 use battlement_reactant::{
@@ -120,11 +120,11 @@ impl<R: Render> Component for SelectControl<R> {
   }
 }
 
-fn clip(cut: f32) -> Vec<[MotionLength; 2]> {
-  let near = MotionLength::px(cut);
-  let far = MotionLength::calc(-cut, 100.0);
-  let zero = MotionLength::px(0.0);
-  let full = MotionLength::percent(100.0);
+fn clip(cut: f32) -> Vec<[Length; 2]> {
+  let near = Length::px(cut);
+  let far = Length::calc(-cut, 100.0);
+  let zero = Length::px(0.0);
+  let full = Length::percent(100.0);
   vec![
     [near, zero],
     [far, zero],

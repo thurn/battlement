@@ -2,18 +2,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
     internal static class BattlementMotionPropertyWriter
     {
-        private static readonly ConditionalWeakTable<
-            VisualElement,
-            BattlementAdvancedPaint
-        > Advanced = new();
-
         public static bool Supports(MotionProperty property) =>
             property
                 is MotionProperty.Opacity
@@ -237,7 +231,7 @@ namespace Battlement.UI
                     Inline(target.style.translate, target.resolvedStyle.translate).y
                 ),
                 MotionProperty.Z => new MotionValue.Length(
-                    new MotionLength(
+                    UiLength.FromComponents(
                         Inline(target.style.translate, target.resolvedStyle.translate).z,
                         0
                     )
@@ -252,12 +246,12 @@ namespace Battlement.UI
                 MotionProperty.TransformList => Stored(
                     target,
                     property,
-                    new MotionValue.TransformList(Array.Empty<MotionTransform>())
+                    new MotionValue.TransformList(Array.Empty<TransformOperation>())
                 ),
                 MotionProperty.Filter => Stored(
                     target,
                     property,
-                    new MotionValue.FilterList(Array.Empty<MotionFilter>())
+                    new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
                 ),
                 MotionProperty.BackgroundImage => Stored(
                     target,
@@ -267,14 +261,12 @@ namespace Battlement.UI
                 MotionProperty.BackgroundGradient => Stored(
                     target,
                     property,
-                    new MotionValue.Gradient(
-                        new MotionGradient.Linear(0, Array.Empty<MotionGradientStop>())
-                    )
+                    new MotionValue.Gradient(new Gradient.Linear(0, Array.Empty<GradientStop>()))
                 ),
                 MotionProperty.BoxShadow => Stored(
                     target,
                     property,
-                    new MotionValue.ShadowList(Array.Empty<MotionShadow>())
+                    new MotionValue.ShadowList(Array.Empty<Shadow>())
                 ),
                 MotionProperty.ClipInset => Stored(
                     target,
@@ -282,17 +274,17 @@ namespace Battlement.UI
                     new MotionValue.ClipInset(
                         new[]
                         {
-                            new MotionLength(0, 0),
-                            new MotionLength(0, 0),
-                            new MotionLength(0, 0),
-                            new MotionLength(0, 0),
+                            UiLength.FromComponents(0, 0),
+                            UiLength.FromComponents(0, 0),
+                            UiLength.FromComponents(0, 0),
+                            UiLength.FromComponents(0, 0),
                         }
                     )
                 ),
                 MotionProperty.ClipPolygon => Stored(
                     target,
                     property,
-                    new MotionValue.ClipPolygon(Array.Empty<IReadOnlyList<MotionLength>>())
+                    new MotionValue.ClipPolygon(Array.Empty<IReadOnlyList<UiLength>>())
                 ),
                 MotionProperty.Mask => Stored(
                     target,
@@ -425,6 +417,9 @@ namespace Battlement.UI
                 _ => throw Unsupported(property),
             };
 
+        public static MotionValue ReadNativeBackgroundColor(VisualElement target) =>
+            Color(Inline(target.style.backgroundColor, target.resolvedStyle.backgroundColor));
+
         public static void Write(VisualElement target, MotionProperty property, MotionValue value)
         {
             if (value is MotionValue.Scalar scalar)
@@ -476,9 +471,7 @@ namespace Battlement.UI
                     or MotionProperty.UnityMaterial
             )
             {
-                Advanced
-                    .GetValue(target, element => new BattlementAdvancedPaint(element))
-                    .Write(property, value);
+                BattlementAdvancedPaint.For(target).Write(property, value);
                 return;
             }
             if (value is MotionValue.Discrete discrete && property == MotionProperty.Visibility)
@@ -509,33 +502,25 @@ namespace Battlement.UI
         }
 
         public static void Configure(VisualElement target, IBattlementUiAssetLookup? assets) =>
-            Advanced
-                .GetValue(target, element => new BattlementAdvancedPaint(element))
-                .Configure(assets);
+            BattlementAdvancedPaint.For(target).Configure(assets);
 
         public static bool HasStaticFill(VisualElement target) =>
-            Advanced.TryGetValue(target, out BattlementAdvancedPaint paint) && paint.HasStaticFill;
+            BattlementAdvancedPaint.TryGet(target, out BattlementAdvancedPaint paint)
+            && paint.HasStaticFill;
 
         public static void CommitAuthoredStyle(VisualElement target, UiStyle style)
         {
-            if (Advanced.TryGetValue(target, out BattlementAdvancedPaint paint))
+            if (BattlementAdvancedPaint.TryGet(target, out BattlementAdvancedPaint paint))
                 paint.CommitAuthoredStyle(style);
         }
 
-        public static void ReplaceStaticPaint(
-            VisualElement target,
-            IReadOnlyList<MotionPropertyValue> previous,
-            IReadOnlyList<MotionPropertyValue> next
-        ) =>
-            Advanced
-                .GetValue(target, element => new BattlementAdvancedPaint(element))
-                .ReplaceStatic(previous, next);
-
         public static void Release(VisualElement target)
         {
-            if (Advanced.TryGetValue(target, out BattlementAdvancedPaint paint))
-                paint.Dispose();
-            Advanced.Remove(target);
+            if (!BattlementAdvancedPaint.TryGet(target, out BattlementAdvancedPaint paint))
+                return;
+            paint.ClearMotion();
+            if (!paint.HasStaticPaint)
+                BattlementAdvancedPaint.Release(target);
         }
 
         public static void WriteScalar(VisualElement target, MotionProperty property, double value)
@@ -624,12 +609,16 @@ namespace Battlement.UI
             if (property == MotionProperty.BackgroundColor)
             {
                 if (
-                    Advanced.TryGetValue(target, out BattlementAdvancedPaint paint)
+                    BattlementAdvancedPaint.TryGet(target, out BattlementAdvancedPaint paint)
                     && paint.HasStaticFill
                 )
                     paint.Write(property, Color(value));
                 else
+                {
+                    if (paint is not null)
+                        paint.ClearMotionValue(property);
                     target.style.backgroundColor = value;
+                }
             }
             else if (property == MotionProperty.BorderBottomColor)
                 target.style.borderBottomColor = value;
@@ -744,7 +733,7 @@ namespace Battlement.UI
             MotionProperty property,
             MotionValue fallback
         ) =>
-            Advanced.TryGetValue(target, out BattlementAdvancedPaint paint)
+            BattlementAdvancedPaint.TryGet(target, out BattlementAdvancedPaint paint)
                 ? paint.Read(property, fallback)
                 : fallback;
 
@@ -752,8 +741,8 @@ namespace Battlement.UI
             value.keyword == StyleKeyword.Undefined
                 ? new MotionValue.Length(
                     value.value.unit == LengthUnit.Percent
-                        ? new MotionLength(0, value.value.value)
-                        : new MotionLength(value.value.value, 0)
+                        ? UiLength.FromComponents(0, value.value.value)
+                        : UiLength.FromComponents(value.value.value, 0)
                 )
                 : Length(resolved);
 
@@ -766,8 +755,8 @@ namespace Battlement.UI
         private static MotionValue Length(Length value) =>
             new MotionValue.Length(
                 value.unit == LengthUnit.Percent
-                    ? new MotionLength(0, value.value)
-                    : new MotionLength(value.value, 0)
+                    ? UiLength.FromComponents(0, value.value)
+                    : UiLength.FromComponents(value.value, 0)
             );
 
         private static float Inline(StyleInt value, float resolved) =>
@@ -791,10 +780,10 @@ namespace Battlement.UI
         private static MotionValue Scalar(float value) => new MotionValue.Scalar(value);
 
         private static MotionValue Color(UnityEngine.Color value) =>
-            new MotionValue.Color(new MotionColor(value.r, value.g, value.b, value.a));
+            new MotionValue.Color(new Color(value.r, value.g, value.b, value.a));
 
         private static MotionValue Length(float value) =>
-            new MotionValue.Length(new MotionLength(value, 0));
+            new MotionValue.Length(UiLength.FromComponents(value, 0));
 
         private static UnityEngine.Color UnityColor(MotionValue value) =>
             value is MotionValue.Color color
@@ -810,14 +799,14 @@ namespace Battlement.UI
         {
             if (value is not MotionValue.Length length)
                 throw new InvalidOperationException("Motion writer expected a length.");
-            if (length.Value.Px != 0 && length.Value.Percent != 0)
+            if (length.Value.Pixels != 0 && length.Value.Percentage != 0)
                 throw new InvalidOperationException(
                     "A mixed motion length must be resolved first."
                 );
-            return length.Value.Percent == 0
-                ? new StyleLength(new Length(checked((float)length.Value.Px), LengthUnit.Pixel))
+            return length.Value.Percentage == 0
+                ? new StyleLength(new Length(checked((float)length.Value.Pixels), LengthUnit.Pixel))
                 : new StyleLength(
-                    new Length(checked((float)length.Value.Percent), LengthUnit.Percent)
+                    new Length(checked((float)length.Value.Percentage), LengthUnit.Percent)
                 );
         }
 

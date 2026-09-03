@@ -2,8 +2,7 @@
 
 use crate::{clipped_inset::ClippedInset, frame_styles};
 use battlement::{
-  Length, LengthUnits, MotionGradient, MotionGradientStop, MotionLength, PickingMode, Position,
-  Style, Translate,
+  Gradient, GradientStop, Length, LengthUnits, PickingMode, Position, Style, Translate,
 };
 use battlement_reactant::{
   host::View,
@@ -115,7 +114,7 @@ pub fn thumb(value: u32) -> View {
     )
     .child(
       ClippedInset::new()
-        .background(PaintFill::Gradient(MotionGradient::Linear {
+        .background(PaintFill::Gradient(Gradient::Linear {
           angle: 90.0,
           stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
         }))
@@ -125,7 +124,7 @@ pub fn thumb(value: u32) -> View {
 }
 
 fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {
-  PaintStyle::new().background(PaintFill::Gradient(MotionGradient::Linear {
+  PaintStyle::new().background(PaintFill::Gradient(Gradient::Linear {
     angle,
     stops: colors
       .iter()
@@ -134,14 +133,14 @@ fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {
   }))
 }
 
-fn stop(position: f32, color: u32) -> MotionGradientStop {
-  MotionGradientStop {
+fn stop(position: f32, color: u32) -> GradientStop {
+  GradientStop {
     position,
     color: frame_styles::color(color),
   }
 }
 
-fn clip() -> Vec<[MotionLength; 2]> {
+fn clip() -> Vec<[Length; 2]> {
   [
     [23.0, 0.0],
     [77.0, 0.0],
@@ -152,6 +151,6 @@ fn clip() -> Vec<[MotionLength; 2]> {
     [0.0, 83.0],
     [0.0, 17.0],
   ]
-  .map(|point| point.map(MotionLength::percent))
+  .map(|point| point.map(Length::percent))
   .to_vec()
 }

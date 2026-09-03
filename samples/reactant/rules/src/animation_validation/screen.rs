@@ -432,8 +432,8 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     View::new()
       .name("timeline-linear-probe")
       .style(protocol_probe())
-      .initial(MotionStyle::new().opacity(0.0))
-      .animate(MotionStyle::new().opacity(1.0))
+      .initial(StyleTarget::new().opacity(0.0))
+      .animate(StyleTarget::new().opacity(1.0))
       .transition(
         Transition::tween()
           .duration_secs(1.0)
@@ -447,8 +447,8 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     "expected · start 0.00 · midpoint 0.50 · end 1.00",
     View::new()
       .style(protocol_probe())
-      .initial(MotionStyle::new().opacity(0.0))
-      .animate(MotionStyle::new().opacity(1.0))
+      .initial(StyleTarget::new().opacity(0.0))
+      .animate(StyleTarget::new().opacity(1.0))
       .transition(
         Transition::tween()
           .duration_secs(1.0)
@@ -462,9 +462,9 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     "expected · 0%=0.00 · 25%=0.80 · 75%=0.20 · 100%=1.00",
     View::new()
       .style(protocol_probe())
-      .initial(MotionStyle::new().opacity(0.0).x(0.0))
+      .initial(StyleTarget::new().opacity(0.0).x(0.0))
       .animate(
-        MotionStyle::new()
+        StyleTarget::new()
           .opacity_keyframes(Keyframes::new([0.0, 0.8, 0.2, 1.0]).times([0.0, 0.25, 0.75, 1.0]))
           .x(48.0),
       )
@@ -488,8 +488,8 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     "expected · delay=0 · reverse midpoint=1 · finite end=0",
     View::new()
       .style(protocol_probe())
-      .initial(MotionStyle::new().x(0.0).scale(0.75))
-      .animate(MotionStyle::new().x(64.0).scale(1.2))
+      .initial(StyleTarget::new().x(0.0).scale(0.75))
+      .animate(StyleTarget::new().x(64.0).scale(1.2))
       .transition(
         Transition::tween()
           .duration_secs(0.5)
@@ -515,12 +515,12 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     View::new()
       .style(protocol_probe())
       .initial(
-        MotionStyle::new()
+        StyleTarget::new()
           .scale(0.75)
           .visibility(Visibility::Visible),
       )
       .animate(
-        MotionStyle::new()
+        StyleTarget::new()
           .scale_keyframes(Keyframes::new([0.75, 1.25, 1.0]))
           .visibility_keyframes(Keyframes::new([
             Visibility::Visible,
@@ -537,9 +537,9 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
   );
   let target_scale = if retargeted { 0.72 } else { 1.28 };
   let target_color = if retargeted {
-    MotionColor::new(0.98, 0.4, 0.16, 1.0)
+    Color::rgba(0.98, 0.4, 0.16, 1.0)
   } else {
-    MotionColor::new(0.13, 0.78, 0.88, 1.0)
+    Color::rgba(0.13, 0.78, 0.88, 1.0)
   };
   let retarget = specimen(
     "timeline-retarget",
@@ -548,17 +548,17 @@ fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
     View::new()
       .style(protocol_probe())
       .initial(
-        MotionStyle::new()
+        StyleTarget::new()
           .scale(1.0)
-          .background_color(MotionColor::new(0.12, 0.18, 0.22, 1.0)),
+          .background_color(Color::rgba(0.12, 0.18, 0.22, 1.0)),
       )
       .animate(
         MotionTarget::new(
-          MotionStyle::new()
+          StyleTarget::new()
             .scale(target_scale)
             .background_color(target_color),
         )
-        .transition_end(MotionStyle::new().opacity(0.96)),
+        .transition_end(StyleTarget::new().opacity(0.96)),
       )
       .transition(
         Transition::tween()

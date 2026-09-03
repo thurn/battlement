@@ -1,7 +1,6 @@
 use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
-  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionGradient,
-  MotionGradientStop, MotionLength, MotionShadow, Style,
+  Align, Color, FlexDirection, FlexWrap, Gradient, GradientStop, Length, LengthUnits, Shadow, Style,
 };
 use battlement_reactant::prelude::*;
 
@@ -110,17 +109,17 @@ fn pseudo_specimen() -> View {
       .focusable(true)
       .style(probe().background_color(Color::rgb(0.05, 0.20, 0.23)))
       .hover_style(
-        MotionStyle::new()
+        StyleTarget::new()
           .background_color(motion_color(0.10, 0.46, 0.50))
           .scale(1.03),
       )
-      .focus_style(MotionStyle::new().background_color(motion_color(0.20, 0.37, 0.84)))
+      .focus_style(StyleTarget::new().background_color(motion_color(0.20, 0.37, 0.84)))
       .active_style(
-        MotionStyle::new()
+        StyleTarget::new()
           .background_color(motion_color(0.92, 0.31, 0.17))
           .scale(0.96),
       )
-      .disabled_style(MotionStyle::new().opacity(0.35))
+      .disabled_style(StyleTarget::new().opacity(0.35))
       .style_transition(
         StyleTransition::new()
           .property(
@@ -155,8 +154,8 @@ fn fill_specimen(elapsed: f64, paused: bool) -> View {
       .style(probe())
       .animation(
         Animation::new(Keyframes::new([
-          MotionStyle::new().x(-38.0).opacity(0.28),
-          MotionStyle::new().x(38.0).opacity(1.0),
+          StyleTarget::new().x(-38.0).opacity(0.28),
+          StyleTarget::new().x(38.0).opacity(1.0),
         ]))
         .duration_secs(1.0)
         .delay_secs(-elapsed)
@@ -189,8 +188,8 @@ fn loop_specimen() -> View {
 fn loop_probe(name: &'static str, delay: f64, duration: f64) -> View {
   View::new().name(name).style(dot()).animation(
     Animation::new(Keyframes::new([
-      MotionStyle::new().scale(0.72).opacity(0.35),
-      MotionStyle::new().scale(1.18).opacity(1.0),
+      StyleTarget::new().scale(0.72).opacity(0.35),
+      StyleTarget::new().scale(1.18).opacity(1.0),
     ]))
     .duration_secs(duration)
     .delay_secs(delay)
@@ -213,8 +212,8 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
       )
       .animation(
         Animation::new(Keyframes::new([
-          MotionStyle::new().scale(0.5).opacity(0.9),
-          MotionStyle::new().scale(1.35).opacity(0.0),
+          StyleTarget::new().scale(0.5).opacity(0.9),
+          StyleTarget::new().scale(1.35).opacity(0.0),
         ]))
         .duration_secs(0.7)
         .delay_secs(-(elapsed + f64::from(index) * 0.03))
@@ -236,25 +235,25 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
 }
 
 fn advanced_specimen(elapsed: f64) -> View {
-  let gradient = MotionGradient::Linear {
+  let gradient = Gradient::Linear {
     angle: 35.0,
     stops: vec![
-      MotionGradientStop {
+      GradientStop {
         color: motion_color(0.10, 0.85, 0.88),
         position: 0.0,
       },
-      MotionGradientStop {
+      GradientStop {
         color: motion_color(0.58, 0.22, 0.92),
         position: 1.0,
       },
     ],
   };
-  let shadow = MotionShadow {
+  let shadow = Shadow {
     x: 0.0,
     y: 6.0,
     blur: 0.0,
     spread: 2.0,
-    color: MotionColor::new(0.0, 0.8, 0.9, 0.5),
+    color: Color::rgba(0.0, 0.8, 0.9, 0.5),
     inset: false,
   };
   specimen(
@@ -270,12 +269,12 @@ fn advanced_specimen(elapsed: f64) -> View {
         "FILTER / RECT CLIP",
         "styles-filter-clip",
         Animation::new(Keyframes::new([
-          MotionStyle::new()
-            .filter(MotionFilters::new().blur(0.0).contrast(0.8))
-            .clip_inset([MotionLength::px(0.0); 4]),
-          MotionStyle::new()
-            .filter(MotionFilters::new().blur(4.0).contrast(1.3))
-            .clip_inset([MotionLength::px(7.0); 4]),
+          StyleTarget::new()
+            .filter(FilterList::default().blur(0.0).contrast(0.8))
+            .clip_inset([Length::px(0.0); 4]),
+          StyleTarget::new()
+            .filter(FilterList::default().blur(4.0).contrast(1.3))
+            .clip_inset([Length::px(7.0); 4]),
         ])),
         elapsed,
       ))
@@ -283,20 +282,20 @@ fn advanced_specimen(elapsed: f64) -> View {
         "QUAD / POLYGON",
         "styles-quad-polygon",
         Animation::new(Keyframes::new([
-          MotionStyle::new()
+          StyleTarget::new()
             .rotate_x(-18.0)
             .skew_x(-8.0)
             .clip_polygon([
-              [MotionLength::percent(8.0), MotionLength::percent(0.0)],
-              [MotionLength::percent(100.0), MotionLength::percent(12.0)],
-              [MotionLength::percent(92.0), MotionLength::percent(100.0)],
-              [MotionLength::percent(0.0), MotionLength::percent(88.0)],
+              [Length::percent(8.0), Length::percent(0.0)],
+              [Length::percent(100.0), Length::percent(12.0)],
+              [Length::percent(92.0), Length::percent(100.0)],
+              [Length::percent(0.0), Length::percent(88.0)],
             ]),
-          MotionStyle::new().rotate_x(18.0).skew_x(8.0).clip_polygon([
-            [MotionLength::percent(0.0), MotionLength::percent(12.0)],
-            [MotionLength::percent(92.0), MotionLength::percent(0.0)],
-            [MotionLength::percent(100.0), MotionLength::percent(88.0)],
-            [MotionLength::percent(8.0), MotionLength::percent(100.0)],
+          StyleTarget::new().rotate_x(18.0).skew_x(8.0).clip_polygon([
+            [Length::percent(0.0), Length::percent(12.0)],
+            [Length::percent(92.0), Length::percent(0.0)],
+            [Length::percent(100.0), Length::percent(88.0)],
+            [Length::percent(8.0), Length::percent(100.0)],
           ]),
         ])),
         elapsed,
@@ -305,11 +304,11 @@ fn advanced_specimen(elapsed: f64) -> View {
         "GRADIENT / SHADOW",
         "styles-gradient-shadow",
         Animation::new(Keyframes::new([
-          MotionStyle::new()
+          StyleTarget::new()
             .box_shadow([shadow])
             .background_gradient(gradient.clone()),
-          MotionStyle::new()
-            .box_shadow([MotionShadow {
+          StyleTarget::new()
+            .box_shadow([Shadow {
               blur: 0.0,
               spread: 5.0,
               ..shadow
@@ -322,11 +321,11 @@ fn advanced_specimen(elapsed: f64) -> View {
         "MASK / TEXTURE / SHADER",
         "styles-prepared-paint",
         Animation::new(Keyframes::new([
-          MotionStyle::new()
+          StyleTarget::new()
             .prepared_texture(MOTION_TEXTURE)
             .mask(MOTION_TEXTURE)
             .shader_material(MOTION_MATERIAL),
-          MotionStyle::new()
+          StyleTarget::new()
             .prepared_texture(MOTION_TEXTURE)
             .mask(MOTION_TEXTURE)
             .shader_material(MOTION_MATERIAL),
@@ -377,8 +376,8 @@ fn action(
     .on_click(callback)
 }
 
-fn motion_color(r: f32, g: f32, b: f32) -> MotionColor {
-  MotionColor::new(r, g, b, 1.0)
+fn motion_color(r: f32, g: f32, b: f32) -> Color {
+  Color::rgba(f64::from(r), f64::from(g), f64::from(b), 1.0)
 }
 
 fn content() -> Style {

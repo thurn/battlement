@@ -161,7 +161,7 @@ namespace Battlement.Tests
             world.Install(
                 target,
                 host,
-                CompoundDescriptor(host, clock, 1, new MotionColor(0.1, 0.2, 0.3, 1))
+                CompoundDescriptor(host, clock, 1, new Color(0.1, 0.2, 0.3, 1))
             );
             world.SetControlledClock(clock, 500_000);
             world.PostLayout();
@@ -186,7 +186,7 @@ namespace Battlement.Tests
             world.Install(
                 target,
                 host,
-                RetargetDescriptor(host, clock, 1, 1.5, new MotionColor(0.1, 0.8, 0.9, 1))
+                RetargetDescriptor(host, clock, 1, 1.5, new Color(0.1, 0.8, 0.9, 1))
             );
             world.SetControlledClock(clock, 500_000);
             world.PostLayout();
@@ -196,7 +196,7 @@ namespace Battlement.Tests
             world.Install(
                 target,
                 host,
-                RetargetDescriptor(host, clock, 2, 0.7, new MotionColor(0.95, 0.3, 0.1, 1))
+                RetargetDescriptor(host, clock, 2, 0.7, new Color(0.95, 0.3, 0.1, 1))
             );
             Assert.That(target.style.scale.value.value.x, Is.EqualTo(scale).Within(0.00001));
             Assert.That(target.style.backgroundColor.value, Is.EqualTo(color));
@@ -618,6 +618,7 @@ namespace Battlement.Tests
             ObjectId scope = Id("bce2847e-981e-4647-b8bd-7442cc000042");
             ObjectId playback = Id("bce2847e-981e-4647-b8bd-7442cc000043");
             var controlled = new VisualElement();
+            controlled.style.opacity = 0;
             using var world = new BattlementMotionWorld(registerPlayerLoop: false);
             world.Apply(
                 new MotionControlOperation(
@@ -750,10 +751,6 @@ namespace Battlement.Tests
                 descriptorId,
                 hostId,
                 descriptorGeneration,
-                new[]
-                {
-                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0.2)),
-                },
                 false,
                 new[]
                 {
@@ -804,14 +801,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 1,
-                new[]
-                {
-                    new MotionPropertyValue(
-                        MotionProperty.X,
-                        new MotionValue.Length(new MotionLength(0, 0))
-                    ),
-                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0)),
-                },
                 false,
                 new[]
                 {
@@ -826,7 +815,7 @@ namespace Battlement.Tests
                                     MotionProperty.X,
                                     new MotionValue[]
                                     {
-                                        new MotionValue.Length(new MotionLength(100, 0)),
+                                        new MotionValue.Length(UiLength.FromComponents(100, 0)),
                                     },
                                     LinearTween()
                                 ),
@@ -864,14 +853,14 @@ namespace Battlement.Tests
 
         private static float ReadPixels(VisualElement target, MotionProperty property) =>
             BattlementMotionPropertyWriter.Read(target, property) is MotionValue.Length value
-                ? (float)value.Value.Px
+                ? (float)value.Value.Pixels
                 : 0;
 
         private static MotionDescriptor CompoundDescriptor(
             ObjectId host,
             ObjectId clock,
             uint generation,
-            MotionColor color
+            Color color
         )
         {
             TransitionDefinition tween = new(
@@ -889,7 +878,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 generation,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 new[]
                 {
@@ -959,7 +947,7 @@ namespace Battlement.Tests
             ObjectId clock,
             uint generation,
             double scale,
-            MotionColor color
+            Color color
         )
         {
             TransitionDefinition tween = new(
@@ -977,7 +965,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 generation,
-                Array.Empty<MotionPropertyValue>(),
                 false,
                 new[]
                 {
@@ -1030,10 +1017,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 1,
-                new[]
-                {
-                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0)),
-                },
                 false,
                 Array.Empty<MotionSlotDescriptor>(),
                 new MotionClockSource.Controlled(clock),

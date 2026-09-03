@@ -15,7 +15,7 @@ impl Component for Browser {
     let (index, select) = use_state(0_usize);
     let app = use_app();
     let font = ["app/font-zero", "app/font-one", "app/font-two"][index];
-    let paint = MotionStyle::new()
+    let paint = StyleTarget::new()
       .prepared_texture(format!("app/paint-{index}"))
       .mask("app/mask")
       .shader_material("app/shader");

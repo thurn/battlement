@@ -177,6 +177,8 @@ namespace Battlement.UI
                 accessibility.Clear(reconnect: preserveMotion);
                 foreach (VisualElement root in previousRoots)
                     root.Clear();
+                foreach (VisualElement element in elements.Values)
+                    BattlementPaintProperties.Release(element);
                 elements.Clear();
                 elementIds.Clear();
                 properties.Clear();
@@ -396,6 +398,8 @@ namespace Battlement.UI
             focusCoordinator.Clear();
             accessibility.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
+            foreach (VisualElement element in elements.Values)
+                BattlementPaintProperties.Release(element);
             elements.Clear();
             elementIds.Clear();
             properties.Clear();
@@ -532,12 +536,15 @@ namespace Battlement.UI
                         properties.ObjectId,
                         properties.Element.Motion
                     );
-                    System.Action? commitMotionStyle = motionWorld.PrepareStyle(
+                    System.Action? commitStyle = motionWorld.PrepareStyle(
                         properties.ObjectId,
                         properties.Element.Style
                     );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    commitMotionStyle?.Invoke();
+                    commitStyle?.Invoke();
+                    BattlementPaintProperties.Apply(target, properties.Element.Paint);
+                    if (!properties.Element.Paint.IsUnset)
+                        motionWorld.CommitPaint(properties.ObjectId);
                     focusCoordinator.ApplyUpdate(target, properties.Element);
                     BattlementGridItems.Apply(target, properties.Element.GridItem);
                     BattlementStackItems.Apply(target, properties.Element.StackItem);
@@ -786,6 +793,7 @@ namespace Battlement.UI
                 node.Element.Motion
             );
             properties.ApplyElement(value, node.ObjectId, node.Element);
+            BattlementPaintProperties.Apply(value, node.Element.Paint);
             focusCoordinator.ApplyCreate(value, node.Element);
             BattlementGridItems.Apply(value, node.Element.GridItem);
             BattlementStackItems.Apply(value, node.Element.StackItem);
@@ -1799,6 +1807,7 @@ namespace Battlement.UI
                 rangeControls.Remove(objectId);
                 partProperties.Remove(objectId);
                 motionWorld.RemoveHost(new ObjectId(objectId));
+                BattlementPaintProperties.Release(value);
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);

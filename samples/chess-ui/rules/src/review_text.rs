@@ -1,10 +1,10 @@
 //! Typography roles that also provide the appropriate text semantics.
 
 use crate::review_theme;
-use battlement::{MotionColor, Style, WhiteSpace};
+use battlement::{Color, Style, WhiteSpace};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{accessibility, element_behavior, focus::FocusProps, semantics};
-use battlement_reactant::{component::Component, host::Label, motion::MotionStyle, render::Render};
+use battlement_reactant::{component::Component, host::Label, motion::StyleTarget, render::Render};
 
 /// Typography roles within a review surface.
 #[derive(Clone, Copy)]
@@ -79,7 +79,7 @@ impl Component for ReviewText {
         ))
         .focus_props(FocusProps::new().focusable(true).tab_index(-1))
         .while_focus_visible(
-          MotionStyle::new().background_color(MotionColor::new(0.12, 0.23, 0.28, 1.0)),
+          StyleTarget::new().background_color(Color::rgba(0.12, 0.23, 0.28, 1.0)),
         )
     } else {
       label.semantic(accessibility::use_static_text(semantics::text(

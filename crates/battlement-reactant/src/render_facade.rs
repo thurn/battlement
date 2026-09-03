@@ -105,32 +105,30 @@ impl PreparedFacade {
         &resolved_variants,
         previous_motion.as_ref(),
       );
-      node.element.visual_element_mut().motion =
-        if previous_motion.as_ref().is_some_and(|previous| {
-          let mut presentation = same_generation.clone();
-          presentation.static_baseline = previous.static_baseline.clone();
-          &presentation == previous
-        }) {
-          Prop::Set(same_generation)
-        } else {
-          let generation = previous_motion
-            .as_ref()
-            .map_or(MotionGeneration(1), |value| {
-              MotionGeneration(
-                value
-                  .generation
-                  .0
-                  .checked_add(1)
-                  .expect("motion generation exhausted"),
-              )
-            });
-          Prop::Set(metadata.motion.descriptor(
-            node.object_id,
-            generation,
-            &resolved_variants,
-            previous_motion.as_ref(),
-          ))
-        };
+      node.element.visual_element_mut().motion = if previous_motion
+        .as_ref()
+        .is_some_and(|previous| &same_generation == previous)
+      {
+        Prop::Set(same_generation)
+      } else {
+        let generation = previous_motion
+          .as_ref()
+          .map_or(MotionGeneration(1), |value| {
+            MotionGeneration(
+              value
+                .generation
+                .0
+                .checked_add(1)
+                .expect("motion generation exhausted"),
+            )
+          });
+        Prop::Set(metadata.motion.descriptor(
+          node.object_id,
+          generation,
+          &resolved_variants,
+          previous_motion.as_ref(),
+        ))
+      };
     } else if previous_motion.is_some() {
       node.element.visual_element_mut().motion = Prop::Reset;
     }

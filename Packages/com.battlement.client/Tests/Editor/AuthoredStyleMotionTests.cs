@@ -137,13 +137,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 1,
-                new[]
-                {
-                    new MotionPropertyValue(
-                        MotionProperty.X,
-                        new MotionValue.Length(new MotionLength(0, 0))
-                    ),
-                },
                 false,
                 new[]
                 {
@@ -158,7 +151,7 @@ namespace Battlement.Tests
                                     MotionProperty.X,
                                     new MotionValue[]
                                     {
-                                        new MotionValue.Length(new MotionLength(100, 0)),
+                                        new MotionValue.Length(UiLength.FromComponents(100, 0)),
                                     },
                                     new TransitionDefinition(
                                         new TransitionGenerator.Tween(

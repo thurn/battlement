@@ -182,11 +182,25 @@ namespace Battlement.UI
 
         public void SynchronizeStaticStyles() => SyncStaticBaseline();
 
+        public void CommitPaint()
+        {
+            bool changed = false;
+            foreach (MotionProperty property in new List<MotionProperty>(baseline.Keys))
+            {
+                if (!BattlementPaintProperties.Owns(property))
+                    continue;
+                baseline[property] = BattlementPaintProperties.Read(target, property);
+                changed = true;
+            }
+            if (changed)
+                Resolve(animate: false);
+        }
+
         public System.Action PrepareStyle(UiStyle style)
         {
             var origins = new Dictionary<MotionProperty, MotionValue>();
             foreach (MotionProperty property in baseline.Keys)
-                if (BattlementAuthoredMotionStyle.Changed(style, property, target, out _))
+                if (BattlementAuthoredStyle.Changed(style, property, target, out _))
                     origins[property] = BattlementMotionPropertyWriter.Read(target, property);
             return () => CommitStyle(style, origins);
         }
@@ -200,7 +214,7 @@ namespace Battlement.UI
             foreach (MotionProperty property in new List<MotionProperty>(baseline.Keys))
             {
                 if (
-                    !BattlementAuthoredMotionStyle.Changed(
+                    !BattlementAuthoredStyle.Changed(
                         style,
                         property,
                         target,
@@ -223,29 +237,6 @@ namespace Battlement.UI
             }
             if (changed)
                 Resolve(animate: true);
-        }
-
-        public void CommitPaint(
-            IReadOnlyList<MotionPropertyValue> previous,
-            IReadOnlyList<MotionPropertyValue> next
-        )
-        {
-            foreach (MotionPropertyValue value in previous)
-            {
-                if (
-                    !BattlementStaticPaint.Owns(value.Property)
-                    || !baseline.ContainsKey(value.Property)
-                )
-                    continue;
-                baseline[value.Property] = BattlementMotionPropertyWriter.Read(
-                    target,
-                    value.Property
-                );
-            }
-            foreach (MotionPropertyValue value in next)
-                if (baseline.ContainsKey(value.Property))
-                    baseline[value.Property] = value.Value;
-            Resolve(animate: false);
         }
 
         private bool UsesReset(MotionProperty property) =>

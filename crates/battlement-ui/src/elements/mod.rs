@@ -17,6 +17,7 @@ pub use layout::{
 };
 pub use min_max_slider::{LowerLimit, UiMinMaxSlider, UpperLimit};
 pub use popup_window::UiPopupWindow;
+pub use presentation::{Gradient, GradientStop, PaintFill, PaintStyle, Shadow, TransformOperation};
 pub use progress_bar::UiProgressBar;
 pub use prop::Prop;
 pub use radio_button::UiRadioButton;
@@ -192,6 +193,13 @@ macro_rules! impl_common_visual_element_methods {
       self
     }
 
+    /// Sets static decorative paint for this element.
+    #[must_use]
+    pub fn paint(mut self, value: impl Into<$crate::Prop<$crate::PaintStyle>>) -> Self {
+      self.visual_element_mut().paint = value.into();
+      self
+    }
+
     /// Installs a complete validated animation descriptor beside this host.
     #[must_use]
     pub fn motion_descriptor(
@@ -216,6 +224,7 @@ mod layout;
 mod min_max_slider;
 pub(crate) mod parts;
 mod popup_window;
+mod presentation;
 mod progress_bar;
 mod prop;
 mod radio_button;

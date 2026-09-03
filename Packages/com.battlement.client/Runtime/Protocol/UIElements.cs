@@ -139,6 +139,10 @@ namespace Battlement
         /// <summary>The style values on this visual element.</summary>
         public UiStyle? Style { get; init; }
 
+        /// <summary>Static decorative paint rendered in this element's border box.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<PaintStyle> Paint { get; init; }
+
         /// <summary>
         /// UI events forwarded to Rust; reset removes every shorthand subscription.
         /// </summary>

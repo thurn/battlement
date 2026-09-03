@@ -77,12 +77,12 @@ impl Component for ValueContract {
           .motion_name("controlled")
           .variants(
             Variants::<ValueVariant, ()>::new()
-              .target(ValueVariant::Rest, MotionStyle::new().opacity(0.3))
-              .target(ValueVariant::Active, MotionStyle::new().opacity(1.0)),
+              .target(ValueVariant::Rest, StyleTarget::new().opacity(0.3))
+              .target(ValueVariant::Active, StyleTarget::new().opacity(1.0)),
           )
           .animate_variant(ValueVariant::Rest),
       )
-      .child(View::new().animate(MotionStyle::new().opacity_value(derived)))
+      .child(View::new().animate(StyleTarget::new().opacity_value(derived)))
   }
 }
 
@@ -95,11 +95,11 @@ impl Component for GestureContract {
     let in_view = use_motion_value(0.0_f32);
     let controls = use_drag_controls();
     View::new()
-      .while_hover(MotionStyle::new().scale(1.04))
-      .while_tap(MotionStyle::new().scale(0.96))
-      .while_focus(MotionStyle::new().opacity(1.0))
-      .while_drag(MotionStyle::new().scale(1.08))
-      .while_in_view(MotionStyle::new().opacity(0.9))
+      .while_hover(StyleTarget::new().scale(1.04))
+      .while_tap(StyleTarget::new().scale(0.96))
+      .while_focus(StyleTarget::new().opacity(1.0))
+      .while_drag(StyleTarget::new().scale(1.08))
+      .while_in_view(StyleTarget::new().opacity(0.9))
       .pan(true)
       .drag(DragAxis::Both)
       .drag_constraints(DragConstraints::bounds(-40.0, 80.0, -20.0, 60.0))
@@ -169,7 +169,7 @@ impl Component for MotionConfigContract {
   fn render(&self) -> impl Render {
     MotionConfig::new(MotionConfig::new(
       View::new()
-        .animate(MotionStyle::new().x(24.0).opacity(1.0))
+        .animate(StyleTarget::new().x(24.0).opacity(1.0))
         .transition(Transition::tween().duration_secs(0.45)),
     ))
     .transition(Transition::tween().duration_secs(0.9).property(
@@ -251,9 +251,9 @@ fn host_methods_interleave_without_restarting_or_adding_a_host() {
   reactant.register_root(document.clone(), |order: &bool| {
     if *order {
       View::new()
-        .initial(MotionStyle::new().opacity(0.0))
+        .initial(StyleTarget::new().opacity(0.0))
         .name("probe")
-        .animate(MotionStyle::new().opacity(1.0))
+        .animate(StyleTarget::new().opacity(1.0))
         .class("card")
         .style(Style::new().width(120.0))
         .transition(Transition::tween().duration_secs(1.0))
@@ -265,8 +265,8 @@ fn host_methods_interleave_without_restarting_or_adding_a_host() {
         .transition(Transition::tween().duration_secs(1.0))
         .child(Label::new("same"))
         .name("probe")
-        .initial(MotionStyle::new().opacity(0.0))
-        .animate(MotionStyle::new().opacity(1.0))
+        .initial(StyleTarget::new().opacity(0.0))
+        .animate(StyleTarget::new().opacity(1.0))
     }
   });
   let rendered = start(&mut reactant, &mut order, &document);
@@ -285,16 +285,16 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
-      .initial(MotionStyle::new().opacity(0.0).x(-12.0))
+      .initial(StyleTarget::new().opacity(0.0).x(-12.0))
       .animate(
         MotionTarget::new(
-          MotionStyle::new()
+          StyleTarget::new()
             .opacity_keyframes(Keyframes::new([0.0, 0.8, 1.0]).times([0.0, 0.2, 1.0]))
             .x(24.0),
         )
-        .transition_end(MotionStyle::new().opacity(0.7)),
+        .transition_end(StyleTarget::new().opacity(0.7)),
       )
-      .exit(MotionStyle::new().opacity(0.0))
+      .exit(StyleTarget::new().opacity(0.0))
       .transition(
         Transition::tween()
           .duration_secs(1.2)
@@ -353,14 +353,14 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new().animate(
-      MotionStyle::new()
+      StyleTarget::new()
         .opacity(0.7)
         .x(20.0)
         .scale(0.0)
         .background_color_keyframes(Keyframes::new([
-          MotionColor::new(0.0, 0.0, 0.0, 1.0),
-          MotionColor::new(0.5, 0.5, 0.5, 1.0),
-          MotionColor::new(1.0, 1.0, 1.0, 1.0),
+          Color::rgba(0.0, 0.0, 0.0, 1.0),
+          Color::rgba(0.5, 0.5, 0.5, 1.0),
+          Color::rgba(1.0, 1.0, 1.0, 1.0),
         ])),
     )
   });
@@ -415,7 +415,7 @@ fn public_physical_transitions_lower_every_configuration_form() {
   reactant.register_root(document.clone(), |(): &()| {
     Fragment::new((
       View::new().animate(
-        MotionTarget::new(MotionStyle::new().x(120.0)).transition(
+        MotionTarget::new(StyleTarget::new().x(120.0)).transition(
           Transition::spring()
             .stiffness(420.0)
             .damping(32.0)
@@ -426,7 +426,7 @@ fn public_physical_transitions_lower_every_configuration_form() {
         ),
       ),
       View::new().animate(
-        MotionTarget::new(MotionStyle::new().scale(1.2)).transition(
+        MotionTarget::new(StyleTarget::new().scale(1.2)).transition(
           Transition::spring()
             .duration_secs(0.65)
             .bounce(0.42)
@@ -434,7 +434,7 @@ fn public_physical_transitions_lower_every_configuration_form() {
         ),
       ),
       View::new().animate(
-        MotionTarget::new(MotionStyle::new().opacity(1.0)).transition(
+        MotionTarget::new(StyleTarget::new().opacity(1.0)).transition(
           Transition::inertia()
             .initial_velocity(180.0)
             .power(0.7)
@@ -514,9 +514,9 @@ fn forwarding_component_collects_complete_props_without_a_wrapper_host() {
     ForwardingCard {
       motion: MotionProps::new(),
     }
-    .animate(MotionStyle::new().opacity(1.0))
-    .initial(MotionStyle::new().opacity(0.0))
-    .exit(MotionStyle::new().opacity(0.0))
+    .animate(StyleTarget::new().opacity(1.0))
+    .initial(StyleTarget::new().opacity(0.0))
+    .exit(StyleTarget::new().opacity(0.0))
     .transition(Transition::tween().duration_secs(0.5))
   });
   let rendered = start(&mut reactant, &mut (), &document);
@@ -538,7 +538,7 @@ fn forwarding_component_rejects_missing_or_multiple_hosts() {
     MissingForwardingCard {
       motion: MotionProps::new(),
     }
-    .animate(MotionStyle::new().opacity(1.0))
+    .animate(StyleTarget::new().opacity(1.0))
   });
   let result = panic::catch_unwind(AssertUnwindSafe(|| start(&mut missing, &mut (), &document)));
   assert!(result.is_err());
@@ -548,7 +548,7 @@ fn forwarding_component_rejects_missing_or_multiple_hosts() {
     MultipleForwardingCard {
       motion: MotionProps::new(),
     }
-    .animate(MotionStyle::new().opacity(1.0))
+    .animate(StyleTarget::new().opacity(1.0))
   });
   let result = panic::catch_unwind(AssertUnwindSafe(|| {
     start(&mut multiple, &mut (), &document)
@@ -562,7 +562,7 @@ fn same_frame_retargets_advance_generation_without_recreating_the_host() {
   let mut target = 0.2_f32;
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |target: &f32| {
-    View::new().animate(MotionStyle::new().opacity(*target))
+    View::new().animate(StyleTarget::new().opacity(*target))
   });
   let rendered = start(&mut reactant, &mut target, &document);
   let host_id = rendered.children[0].object_id;
@@ -592,11 +592,11 @@ fn variants_propagate_merge_in_order_and_schedule_logical_children() {
     View::new()
       .variants(
         Variants::<TestVariant>::new()
-          .target(TestVariant::Open, MotionStyle::new().x(8.0).opacity(0.4))
+          .target(TestVariant::Open, StyleTarget::new().x(8.0).opacity(0.4))
           .target(
             TestVariant::Emphasis,
             VariantTarget::new(
-              MotionTarget::new(MotionStyle::new().opacity(1.0))
+              MotionTarget::new(StyleTarget::new().opacity(1.0))
                 .transition(Transition::tween().duration_secs(0.2)),
             )
             .orchestration(
@@ -611,24 +611,24 @@ fn variants_propagate_merge_in_order_and_schedule_logical_children() {
       .child(
         View::new().variants(
           Variants::<TestVariant>::new()
-            .target(TestVariant::Open, MotionStyle::new().x(20.0).opacity(0.5))
-            .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.9)),
+            .target(TestVariant::Open, StyleTarget::new().x(20.0).opacity(0.5))
+            .target(TestVariant::Emphasis, StyleTarget::new().opacity(0.9)),
         ),
       )
       .child(
         View::new()
           .variants(
             Variants::<TestVariant>::new()
-              .target(TestVariant::Open, MotionStyle::new().x(40.0))
-              .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.8)),
+              .target(TestVariant::Open, StyleTarget::new().x(40.0))
+              .target(TestVariant::Emphasis, StyleTarget::new().opacity(0.8)),
           )
           .inherit_variants(false),
       )
       .child(
         View::new().variants(
           Variants::<TestVariant>::new()
-            .target(TestVariant::Open, MotionStyle::new().x(60.0))
-            .target(TestVariant::Emphasis, MotionStyle::new().opacity(0.7)),
+            .target(TestVariant::Open, StyleTarget::new().x(60.0))
+            .target(TestVariant::Emphasis, StyleTarget::new().opacity(0.7)),
         ),
       )
   });
@@ -695,11 +695,11 @@ fn computed_variant_custom_data_is_snapshotted_until_selection_changes() {
     View::new()
       .variants(
         Variants::<RouteVariant, RouteData>::new()
-          .target(RouteVariant::Enter, MotionStyle::new().x(-12.0))
+          .target(RouteVariant::Enter, StyleTarget::new().x(-12.0))
           .resolver(RouteVariant::Route, |snapshot| {
-            VariantTarget::new(MotionStyle::new().x(snapshot.offset as f32))
+            VariantTarget::new(StyleTarget::new().x(snapshot.offset as f32))
           })
-          .target(RouteVariant::Exit, MotionStyle::new().x(12.0)),
+          .target(RouteVariant::Exit, StyleTarget::new().x(12.0)),
       )
       .custom(data.clone())
       .initial_variant(RouteVariant::Enter)
@@ -714,7 +714,7 @@ fn computed_variant_custom_data_is_snapshotted_until_selection_changes() {
   let MotionValue::Length(initial_x) = first.initial.as_ref().unwrap().tracks[0].values[0] else {
     panic!("initial variant did not lower a length");
   };
-  assert_eq!(initial_x.px, -12.0);
+  assert_eq!(initial_x.components(), [-12.0, 0.0]);
   data.offset = 96;
   assert!(reactant.refresh(&mut data).unwrap().is_empty());
   let _ = reactant.shutdown(&mut data).into_groups();
@@ -732,8 +732,8 @@ fn invalid_variant_maps_and_selections_panic_before_commit() {
   assert!(
     panic::catch_unwind(|| {
       Variants::<TestVariant>::new()
-        .target(TestVariant::Open, MotionStyle::new().opacity(1.0))
-        .target(TestVariant::Open, MotionStyle::new().opacity(0.5))
+        .target(TestVariant::Open, StyleTarget::new().opacity(1.0))
+        .target(TestVariant::Open, StyleTarget::new().opacity(0.5))
     })
     .is_err()
   );
@@ -751,7 +751,7 @@ fn invalid_variant_maps_and_selections_panic_before_commit() {
         View::new()
           .variants(
             Variants::<TestVariant>::new()
-              .target(TestVariant::Open, MotionStyle::new().opacity(1.0)),
+              .target(TestVariant::Open, StyleTarget::new().opacity(1.0)),
           )
           .animate_variant(TestVariant::Missing)
       });
@@ -776,15 +776,15 @@ fn css_authoring_lowers_pseudo_animation_and_keyed_decorations() {
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
       .hover_style(Style::new().opacity(0.8))
-      .focus_style(MotionStyle::new().scale(1.1))
+      .focus_style(StyleTarget::new().scale(1.1))
       .style_transition(StyleTransition::new().property(
         StyleProperty::Opacity,
         Transition::tween().duration_secs(0.2),
       ))
       .animation(
         Animation::new(Keyframes::new([
-          MotionStyle::new().x(0.0).scale(0.9),
-          MotionStyle::new().x(40.0).scale(1.1),
+          StyleTarget::new().x(0.0).scale(0.9),
+          StyleTarget::new().x(40.0).scale(1.1),
         ]))
         .duration_secs(2.0)
         .iterations(AnimationIterations::Count(3))
@@ -823,7 +823,7 @@ fn css_and_motion_property_conflicts_fail_atomically() {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
-      .animate(MotionStyle::new().opacity(1.0))
+      .animate(StyleTarget::new().opacity(1.0))
       .style_transition(StyleTransition::new().property(
         StyleProperty::Opacity,
         Transition::tween().duration_secs(0.2),

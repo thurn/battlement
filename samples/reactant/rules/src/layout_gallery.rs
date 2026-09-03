@@ -599,9 +599,9 @@ impl LayoutGallery {
             Label::new("LAYER ORDER CHANGED")
               .key("layout-gallery-layer-presence")
               .semantic(use_static_text(text("Layer order changed")))
-              .initial(MotionStyle::new().opacity(0.0).y(-8.0))
-              .animate(MotionStyle::new().opacity(1.0).y(0.0))
-              .exit(MotionStyle::new().opacity(0.0).y(8.0)),
+              .initial(StyleTarget::new().opacity(0.0).y(-8.0))
+              .animate(StyleTarget::new().opacity(1.0).y(0.0))
+              .exit(StyleTarget::new().opacity(0.0).y(8.0)),
           )
         })),
       )
@@ -636,7 +636,7 @@ impl LayoutGallery {
                 Button::new("CLOSE MODAL")
                   .name("layout-gallery-modal-close")
                   .element_ref(initial)
-                  .while_focus_visible(MotionStyle::new().scale(1.06))
+                  .while_focus_visible(StyleTarget::new().scale(1.06))
                   .on_click(|game: &mut Game| {
                     game.layout_gallery.modal_open = false;
                   }),

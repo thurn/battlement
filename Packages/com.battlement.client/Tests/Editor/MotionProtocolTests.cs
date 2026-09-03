@@ -265,10 +265,6 @@ namespace Battlement.Tests
                 Id("9b23ca44-42f2-498d-8037-0e4158765c23"),
                 hostId,
                 9,
-                new[]
-                {
-                    new MotionPropertyValue(MotionProperty.Opacity, new MotionValue.Scalar(0.2)),
-                },
                 false,
                 new[]
                 {
@@ -325,7 +321,10 @@ namespace Battlement.Tests
                     {
                         new MotionPropertyTrack(
                             MotionProperty.X,
-                            new MotionValue[] { new MotionValue.Length(new MotionLength(-12, 0)) },
+                            new MotionValue[]
+                            {
+                                new MotionValue.Length(UiLength.FromComponents(-12, 0)),
+                            },
                             Immediate(),
                             null
                         ),

@@ -2,16 +2,21 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityColor = UnityEngine.Color;
+using UnityGradient = UnityEngine.Gradient;
 using UnityRect = UnityEngine.Rect;
 
 namespace Battlement.UI
 {
     internal sealed class BattlementAdvancedPaint : IDisposable
     {
-        private readonly Dictionary<MotionProperty, MotionValue> values = new();
+        private static readonly ConditionalWeakTable<VisualElement, BattlementAdvancedPaint> All =
+            new();
+        private readonly Dictionary<MotionProperty, MotionValue> motionValues = new();
+        private readonly Dictionary<MotionProperty, MotionValue> staticValues = new();
         private readonly VisualElement target;
         private IBattlementUiAssetLookup? assets;
         private IBattlementUiAssetLease? backgroundLease;
@@ -19,6 +24,20 @@ namespace Battlement.UI
         private IBattlementUiAssetLease? materialLease;
         private StyleColor authoredBackground;
         public bool HasStaticFill { get; private set; }
+        public bool HasStaticPaint => staticValues.Count > 0;
+
+        public static BattlementAdvancedPaint For(VisualElement target) =>
+            All.GetValue(target, element => new BattlementAdvancedPaint(element));
+
+        public static bool TryGet(VisualElement target, out BattlementAdvancedPaint paint) =>
+            All.TryGetValue(target, out paint);
+
+        public static void Release(VisualElement target)
+        {
+            if (All.TryGetValue(target, out BattlementAdvancedPaint paint))
+                paint.Dispose();
+            All.Remove(target);
+        }
 
         public BattlementAdvancedPaint(VisualElement target)
         {
@@ -27,23 +46,16 @@ namespace Battlement.UI
         }
 
         public MotionValue Read(MotionProperty property, MotionValue fallback) =>
-            values.TryGetValue(property, out MotionValue value) ? value : fallback;
+            TryValue(property, out MotionValue value) ? value : fallback;
+
+        public MotionValue ReadStatic(MotionProperty property, MotionValue fallback) =>
+            staticValues.TryGetValue(property, out MotionValue value) ? value : fallback;
 
         public void Configure(IBattlementUiAssetLookup? lookup) => assets = lookup;
 
-        public void ReplaceStatic(
-            IReadOnlyList<MotionPropertyValue> previous,
-            IReadOnlyList<MotionPropertyValue> next
-        )
+        public void ReplaceStatic(PaintStyle? next)
         {
-            bool fill = false;
-            foreach (MotionPropertyValue value in next)
-                if (
-                    value.Property
-                    is MotionProperty.BackgroundColor
-                        or MotionProperty.BackgroundGradient
-                )
-                    fill = true;
+            bool fill = next?.Background is not null;
             if (fill && !HasStaticFill)
                 authoredBackground = target.style.backgroundColor;
             if (!fill && HasStaticFill)
@@ -51,13 +63,40 @@ namespace Battlement.UI
             HasStaticFill = fill;
             if (fill)
                 target.style.backgroundColor = UnityColor.clear;
-            foreach (MotionPropertyValue value in previous)
-                if (BattlementStaticPaint.Owns(value.Property))
-                    values.Remove(value.Property);
-            foreach (MotionPropertyValue value in next)
-                if (BattlementStaticPaint.Owns(value.Property))
-                    Write(value.Property, value.Value);
+            staticValues.Clear();
+            if (next?.Background is PaintFill.Color color)
+                staticValues[MotionProperty.BackgroundColor] = new MotionValue.Color(color.Value);
+            if (next?.Background is PaintFill.Gradient gradient)
+                staticValues[MotionProperty.BackgroundGradient] = new MotionValue.Gradient(
+                    gradient.Value
+                );
+            if (next?.ClipPolygon is not null)
+                staticValues[MotionProperty.ClipPolygon] = new MotionValue.ClipPolygon(
+                    next.ClipPolygon
+                );
+            if (next?.BoxShadow is not null)
+                staticValues[MotionProperty.BoxShadow] = new MotionValue.ShadowList(next.BoxShadow);
+            if (next?.ClipInset is not null)
+                staticValues[MotionProperty.ClipInset] = new MotionValue.ClipInset(next.ClipInset);
             target.MarkDirtyRepaint();
+        }
+
+        public void ClearMotion()
+        {
+            motionValues.Clear();
+            backgroundLease?.Dispose();
+            backgroundLease = null;
+            maskLease?.Dispose();
+            maskLease = null;
+            materialLease?.Dispose();
+            materialLease = null;
+            target.MarkDirtyRepaint();
+        }
+
+        public void ClearMotionValue(MotionProperty property)
+        {
+            if (motionValues.Remove(property))
+                target.MarkDirtyRepaint();
         }
 
         public void CommitAuthoredStyle(UiStyle style)
@@ -71,9 +110,9 @@ namespace Battlement.UI
         public void Write(MotionProperty property, MotionValue value)
         {
             if (EmptyPaint(value))
-                values.Remove(property);
+                motionValues.Remove(property);
             else
-                values[property] = value;
+                motionValues[property] = value;
             if (property == MotionProperty.BackgroundImage)
                 WriteTexture(value, false);
             if (property == MotionProperty.Mask)
@@ -127,7 +166,7 @@ namespace Battlement.UI
             UnityRect rect
         )
         {
-            if (!values.TryGetValue(MotionProperty.BackgroundGradient, out MotionValue value))
+            if (!TryValue(MotionProperty.BackgroundGradient, out MotionValue value))
                 return false;
             return value is MotionValue.Gradient gradient
                 && BattlementGradientSegments.Paint(
@@ -143,26 +182,24 @@ namespace Battlement.UI
             value switch
             {
                 MotionValue.ClipPolygon polygon => polygon.Value.Count == 0,
-                MotionValue.Gradient { Value: MotionGradient.Linear linear } => linear.Stops.Count
-                    == 0,
-                MotionValue.Gradient { Value: MotionGradient.Radial radial } => radial.Stops.Count
-                    == 0,
+                MotionValue.Gradient { Value: Gradient.Linear linear } => linear.Stops.Count == 0,
+                MotionValue.Gradient { Value: Gradient.Radial radial } => radial.Stops.Count == 0,
                 MotionValue.ShadowList shadows => shadows.Value.Count == 0,
                 _ => false,
             };
 
         private bool HasPaint() =>
-            values.ContainsKey(MotionProperty.BackgroundColor)
-            || values.ContainsKey(MotionProperty.BackgroundGradient)
-            || values.ContainsKey(MotionProperty.BoxShadow)
-            || values.ContainsKey(MotionProperty.ClipInset)
-            || values.ContainsKey(MotionProperty.ClipPolygon)
-            || values.ContainsKey(MotionProperty.RotateX)
-            || values.ContainsKey(MotionProperty.RotateY)
-            || values.ContainsKey(MotionProperty.SkewX)
-            || values.ContainsKey(MotionProperty.SkewY)
-            || values.ContainsKey(MotionProperty.TransformList)
-            || values.ContainsKey(MotionProperty.Mask);
+            HasValue(MotionProperty.BackgroundColor)
+            || HasValue(MotionProperty.BackgroundGradient)
+            || HasValue(MotionProperty.BoxShadow)
+            || HasValue(MotionProperty.ClipInset)
+            || HasValue(MotionProperty.ClipPolygon)
+            || HasValue(MotionProperty.RotateX)
+            || HasValue(MotionProperty.RotateY)
+            || HasValue(MotionProperty.SkewX)
+            || HasValue(MotionProperty.SkewY)
+            || HasValue(MotionProperty.TransformList)
+            || HasValue(MotionProperty.Mask);
 
         private void WriteTexture(MotionValue value, bool mask)
         {
@@ -236,7 +273,7 @@ namespace Battlement.UI
         private IReadOnlyList<Vector2> Geometry(UnityRect rect)
         {
             List<Vector2> points =
-                values.TryGetValue(MotionProperty.ClipPolygon, out MotionValue polygonValue)
+                TryValue(MotionProperty.ClipPolygon, out MotionValue polygonValue)
                 && polygonValue is MotionValue.ClipPolygon polygon
                 && polygon.Value.Count >= 3
                     ? Polygon(rect, polygon.Value)
@@ -249,7 +286,7 @@ namespace Battlement.UI
         {
             List<Vector2> points = BattlementPaintContour.RoundedBox(rect, target.resolvedStyle);
             return
-                values.TryGetValue(MotionProperty.ClipInset, out MotionValue value)
+                TryValue(MotionProperty.ClipInset, out MotionValue value)
                 && value is MotionValue.ClipInset inset
                 && inset.Value.Count == 4
                 ? BattlementPaintContour.Inset(points, rect, inset.Value)
@@ -258,11 +295,11 @@ namespace Battlement.UI
 
         private static List<Vector2> Polygon(
             UnityRect rect,
-            IReadOnlyList<IReadOnlyList<MotionLength>> source
+            IReadOnlyList<IReadOnlyList<UiLength>> source
         )
         {
             var points = new List<Vector2>(source.Count);
-            foreach (IReadOnlyList<MotionLength> point in source)
+            foreach (IReadOnlyList<UiLength> point in source)
             {
                 if (point.Count != 2)
                     throw new InvalidOperationException("A motion polygon point needs two axes.");
@@ -295,18 +332,18 @@ namespace Battlement.UI
                     );
             }
             if (
-                !values.TryGetValue(MotionProperty.TransformList, out MotionValue value)
+                !TryValue(MotionProperty.TransformList, out MotionValue value)
                 || value is not MotionValue.TransformList transforms
             )
                 return;
-            foreach (MotionTransform transform in transforms.Value)
+            foreach (TransformOperation transform in transforms.Value)
                 ApplyTransform(points, origin, transform);
         }
 
         private static void ApplyTransform(
             List<Vector2> points,
             Vector2 origin,
-            MotionTransform transform
+            TransformOperation transform
         )
         {
             for (int index = 0; index < points.Count; index++)
@@ -314,11 +351,11 @@ namespace Battlement.UI
                 Vector2 offset = points[index] - origin;
                 points[index] = transform switch
                 {
-                    MotionTransform.Translate translate => points[index]
+                    TransformOperation.Translate translate => points[index]
                         + Translation(translate.Value),
-                    MotionTransform.Rotate rotate => origin
+                    TransformOperation.Rotate rotate => origin
                         + Rotate(offset, checked((float)rotate.Value[2])),
-                    MotionTransform.Skew skew => origin
+                    TransformOperation.Skew skew => origin
                         + new Vector2(
                             offset.x
                                 + Mathf.Tan(checked((float)skew.Value[0]) * Mathf.Deg2Rad)
@@ -327,7 +364,7 @@ namespace Battlement.UI
                                 + Mathf.Tan(checked((float)skew.Value[1]) * Mathf.Deg2Rad)
                                     * offset.x
                         ),
-                    MotionTransform.Scale scale => origin
+                    TransformOperation.Scale scale => origin
                         + new Vector2(
                             offset.x * checked((float)scale.Value[0]),
                             offset.y * checked((float)scale.Value[1])
@@ -340,7 +377,7 @@ namespace Battlement.UI
         private void ApplyFill(Painter2D painter, UnityRect rect)
         {
             if (
-                values.TryGetValue(MotionProperty.BackgroundGradient, out MotionValue value)
+                TryValue(MotionProperty.BackgroundGradient, out MotionValue value)
                 && value is MotionValue.Gradient gradient
             )
             {
@@ -348,7 +385,7 @@ namespace Battlement.UI
                 return;
             }
             painter.fillColor =
-                values.TryGetValue(MotionProperty.BackgroundColor, out MotionValue color)
+                TryValue(MotionProperty.BackgroundColor, out MotionValue color)
                 && color is MotionValue.Color solid
                     ? ToUnityColor(solid.Value)
                     : target.resolvedStyle.backgroundColor;
@@ -356,7 +393,7 @@ namespace Battlement.UI
 
         private void DrawOuterShadows(Painter2D painter, IReadOnlyList<Vector2> points)
         {
-            foreach (MotionShadow shadow in Shadows(false))
+            foreach (Shadow shadow in Shadows(false))
             {
                 painter.fillGradient = default;
                 painter.fillColor = ToUnityColor(shadow.Color);
@@ -368,7 +405,7 @@ namespace Battlement.UI
 
         private void DrawInsetShadows(Painter2D painter, IReadOnlyList<Vector2> points)
         {
-            foreach (MotionShadow shadow in Shadows(true))
+            foreach (Shadow shadow in Shadows(true))
             {
                 painter.strokeColor = ToUnityColor(shadow.Color);
                 painter.lineWidth = checked((float)Math.Max(1, shadow.Blur + shadow.Spread));
@@ -378,21 +415,18 @@ namespace Battlement.UI
             }
         }
 
-        private IEnumerable<MotionShadow> Shadows(bool inset)
+        private IEnumerable<Shadow> Shadows(bool inset)
         {
             if (
-                values.TryGetValue(MotionProperty.BoxShadow, out MotionValue value)
+                TryValue(MotionProperty.BoxShadow, out MotionValue value)
                 && value is MotionValue.ShadowList shadows
             )
-                foreach (MotionShadow shadow in shadows.Value)
+                foreach (Shadow shadow in shadows.Value)
                     if (shadow.Inset == inset)
                         yield return shadow;
         }
 
-        private static IReadOnlyList<Vector2> Offset(
-            IReadOnlyList<Vector2> points,
-            MotionShadow shadow
-        )
+        private static IReadOnlyList<Vector2> Offset(IReadOnlyList<Vector2> points, Shadow shadow)
         {
             float spread = checked((float)shadow.Spread);
             Vector2 center = Vector2.zero;
@@ -419,27 +453,42 @@ namespace Battlement.UI
         }
 
         private float Angle(MotionProperty property) =>
-            values.TryGetValue(property, out MotionValue value) && value is MotionValue.Angle angle
+            TryValue(property, out MotionValue value) && value is MotionValue.Angle angle
                 ? checked((float)angle.Value)
                 : 0;
 
-        private static StyleList<FilterFunction> NativeFilters(IReadOnlyList<MotionFilter> filters)
+        private static StyleList<FilterFunction> NativeFilters(
+            IReadOnlyList<UiFilterFunction> filters
+        )
         {
             var result = new List<FilterFunction>();
-            foreach (MotionFilter filter in filters)
+            foreach (UiFilterFunction filter in filters)
             {
                 FilterFunction converted = filter switch
                 {
-                    MotionFilter.Blur blur => Function(FilterFunctionType.Blur, blur.Value),
-                    MotionFilter.Contrast contrast => Function(
+                    UiFilterFunction.Tint tint => Tint(tint.Value),
+                    UiFilterFunction.Blur blur => Function(FilterFunctionType.Blur, blur.Value),
+                    UiFilterFunction.Contrast contrast => Function(
                         FilterFunctionType.Contrast,
                         contrast.Value
                     ),
-                    MotionFilter.HueRotate hue => Function(FilterFunctionType.HueRotate, hue.Value),
-                    MotionFilter.Opacity opacity => Function(
+                    UiFilterFunction.HueRotate hue => Function(
+                        FilterFunctionType.HueRotate,
+                        hue.Value
+                    ),
+                    UiFilterFunction.Opacity opacity => Function(
                         FilterFunctionType.Opacity,
                         opacity.Value
                     ),
+                    UiFilterFunction.Invert invert => Function(
+                        FilterFunctionType.Invert,
+                        invert.Value
+                    ),
+                    UiFilterFunction.Grayscale grayscale => Function(
+                        FilterFunctionType.Grayscale,
+                        grayscale.Value
+                    ),
+                    UiFilterFunction.Sepia sepia => Function(FilterFunctionType.Sepia, sepia.Value),
                     _ => throw new BattlementUiException(
                         CoreErrorCode.InvalidProperty,
                         $"Motion filter {filter.GetType().Name} is unsupported "
@@ -458,10 +507,17 @@ namespace Battlement.UI
             return result;
         }
 
-        private static FillGradient FillGradient(MotionGradient value, UnityRect rect)
+        private static FilterFunction Tint(Color value)
         {
-            Gradient gradient = Gradient(value);
-            if (value is MotionGradient.Linear linear)
+            var result = new FilterFunction(FilterFunctionType.Tint);
+            result.AddParameter(new FilterParameter(ToUnityColor(value)));
+            return result;
+        }
+
+        private static FillGradient FillGradient(Gradient value, UnityRect rect)
+        {
+            UnityGradient gradient = ToUnityGradient(value);
+            if (value is Gradient.Linear linear)
             {
                 (Vector2 start, Vector2 end) = BattlementGradientSegments.Line(rect, linear.Angle);
                 return UnityEngine.UIElements.FillGradient.MakeLinearGradient(
@@ -471,7 +527,7 @@ namespace Battlement.UI
                     AddressMode.Clamp
                 );
             }
-            if (value is MotionGradient.Radial radial)
+            if (value is Gradient.Radial radial)
             {
                 Vector2 center = new(
                     rect.xMin + checked((float)radial.Center[0]) * rect.width,
@@ -489,31 +545,41 @@ namespace Battlement.UI
             throw new InvalidOperationException("Unknown motion gradient.");
         }
 
-        private static Gradient Gradient(MotionGradient value)
+        private static UnityGradient ToUnityGradient(Gradient value)
         {
-            IReadOnlyList<MotionGradientStop> stops = value switch
+            IReadOnlyList<GradientStop> stops = value switch
             {
-                MotionGradient.Linear linear => linear.Stops,
-                MotionGradient.Radial radial => radial.Stops,
+                Gradient.Linear linear => linear.Stops,
+                Gradient.Radial radial => radial.Stops,
                 _ => throw new InvalidOperationException("Unknown motion gradient."),
             };
             var colors = new GradientColorKey[stops.Count];
             var alpha = new GradientAlphaKey[stops.Count];
             for (int index = 0; index < stops.Count; index++)
             {
-                MotionGradientStop stop = stops[index];
+                GradientStop stop = stops[index];
                 UnityColor color = ToUnityColor(stop.Color);
                 float time = checked((float)stop.Position);
                 colors[index] = new GradientColorKey(color, time);
                 alpha[index] = new GradientAlphaKey(color.a, time);
             }
-            var gradient = new Gradient();
+            var gradient = new UnityGradient();
             gradient.SetKeys(colors, alpha);
             return gradient;
         }
 
-        private static Vector2 Translation(IReadOnlyList<MotionLength> value) =>
-            new(checked((float)value[0].Px), checked((float)value[1].Px));
+        private static Vector2 Translation(IReadOnlyList<UiLength> value) =>
+            new(checked((float)value[0].Pixels), checked((float)value[1].Pixels));
+
+        private bool HasValue(MotionProperty property) =>
+            motionValues.ContainsKey(property) || staticValues.ContainsKey(property);
+
+        private bool TryValue(MotionProperty property, out MotionValue value)
+        {
+            if (motionValues.TryGetValue(property, out value))
+                return true;
+            return staticValues.TryGetValue(property, out value);
+        }
 
         private static Vector2 Rotate(Vector2 value, float degrees)
         {
@@ -526,10 +592,10 @@ namespace Battlement.UI
             );
         }
 
-        private static float Resolve(MotionLength value, float reference) =>
-            checked((float)(value.Px + value.Percent * reference / 100));
+        private static float Resolve(UiLength value, float reference) =>
+            checked((float)(value.Pixels + value.Percentage * reference / 100));
 
-        private static UnityColor ToUnityColor(MotionColor value) =>
+        private static UnityColor ToUnityColor(Color value) =>
             new(
                 checked((float)value.Red),
                 checked((float)value.Green),

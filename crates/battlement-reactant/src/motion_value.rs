@@ -458,7 +458,7 @@ impl<T: MotionValueType> MotionValue<T> {
     self.command(MotionValueCommand::Animate {
       playback_id: playback.inner.playback_id,
       generation: playback.inner.generation,
-      target: value.into_motion_value(),
+      target: Box::new(value.into_motion_value()),
       transition: transition.default,
     });
     playback

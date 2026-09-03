@@ -438,8 +438,6 @@ pub struct MotionDescriptor {
   pub host_id: ObjectId,
   /// Committed descriptor generation.
   pub generation: MotionGeneration,
-  /// Static values beneath every animated layer.
-  pub static_baseline: Vec<MotionPropertyValue>,
   /// Optional mount origin; omission starts at current presentation.
   pub initial: Option<MotionTargetDescriptor>,
   /// Whether initial animation is explicitly disabled.
@@ -502,16 +500,6 @@ impl MotionDescriptor {
   pub fn validate(&self) -> Result<(), String> {
     if self.initial_disabled && self.initial.is_some() {
       return Err("disabled initial target cannot also carry tracks".to_owned());
-    }
-    let mut baseline = HashSet::new();
-    for value in &self.static_baseline {
-      value.validate()?;
-      if !baseline.insert(value.property) {
-        return Err(format!(
-          "static baseline repeats property {}",
-          value.property.metadata().wire_name
-        ));
-      }
     }
     if let Some(initial) = &self.initial {
       initial.validate()?;
@@ -1166,7 +1154,6 @@ mod tests {
       descriptor_id: ObjectId::new_v4(),
       host_id: ObjectId::new_v4(),
       generation: MotionGeneration(1),
-      static_baseline: Vec::new(),
       initial: None,
       initial_disabled: false,
       slots: vec![slot.clone(), slot],

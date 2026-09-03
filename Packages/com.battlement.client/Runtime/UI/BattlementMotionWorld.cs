@@ -101,16 +101,6 @@ namespace Battlement.UI
             )
                 ? value
                 : null;
-            if (
-                previous is not null
-                && BattlementStaticPaint.IsOnlyChange(descriptor, previous.Descriptor)
-            )
-                return new BattlementPreparedMotionAdmission(
-                    this,
-                    hostId.Value,
-                    previous,
-                    descriptor
-                );
             if (previous is not null && descriptor.Generation <= previous.Descriptor.Generation)
             {
                 bool sameReconnectGeneration =
@@ -137,6 +127,22 @@ namespace Battlement.UI
 
         public void Install(VisualElement target, ObjectId hostId, Prop<MotionDescriptor> motion) =>
             Prepare(target, hostId, motion)?.Commit();
+
+        public void SynchronizeStaticStyles(ObjectId hostId)
+        {
+            if (!descriptorByHost.TryGetValue(hostId.Value, out Guid descriptorId))
+                return;
+            if (descriptors.TryGetValue(descriptorId, out DescriptorState descriptor))
+                descriptor.SynchronizeStaticStyles();
+        }
+
+        public void CommitPaint(ObjectId hostId)
+        {
+            if (!descriptorByHost.TryGetValue(hostId.Value, out Guid descriptorId))
+                return;
+            if (descriptors.TryGetValue(descriptorId, out DescriptorState descriptor))
+                descriptor.CommitPaint();
+        }
 
         public void RemoveHost(ObjectId hostId)
         {
@@ -726,18 +732,6 @@ namespace Battlement.UI
             descriptorByHost[hostId] = prepared.Descriptor.DescriptorId.Value;
             graph.Replace(prepared.Descriptor, prepared.Target);
             EnsurePlayerLoop();
-            BattlementMotionPropertyWriter.ReplaceStaticPaint(
-                prepared.Target,
-                previous?.Descriptor.StaticBaseline ?? Array.Empty<MotionPropertyValue>(),
-                prepared.Descriptor.StaticBaseline
-            );
-            foreach (MotionPropertyValue value in prepared.Descriptor.StaticBaseline)
-                if (!BattlementStaticPaint.Owns(value.Property))
-                    BattlementMotionPropertyWriter.Write(
-                        prepared.Target,
-                        value.Property,
-                        value.Value
-                    );
             prepared.SynchronizeStaticStyles();
             if (reconnect.Active)
                 prepared.ApplyReconnectPresentation();

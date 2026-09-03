@@ -1,7 +1,7 @@
 use crate::{Game, design_system};
 use battlement::{
-  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter,
-  MotionLength, MotionTransform, ObjectId, ScrollViewMode, ScrollerVisibility, Style, object_id,
+  Align, AudioClipAddress, Color, FilterFunction, FilterList, FlexDirection, FlexWrap, Length,
+  LengthUnits, ObjectId, ScrollViewMode, ScrollerVisibility, Style, TransformOperation, object_id,
 };
 use battlement_reactant::prelude::*;
 use std::time::Duration;
@@ -58,30 +58,30 @@ impl Component for ValuesTimeControls {
     let length = use_transform(
       source.clone(),
       InputRange::new([0.0, 1.0]),
-      OutputRange::new([MotionLength::px(-42.0), MotionLength::px(42.0)]),
+      OutputRange::new([Length::px(-42.0), Length::px(42.0)]),
     );
     let color = use_transform(
       source.clone(),
       InputRange::new([0.0, 1.0]),
       OutputRange::new([
-        MotionColor::new(0.12, 0.78, 0.95, 1.0),
-        MotionColor::new(0.95, 0.3, 0.55, 1.0),
+        Color::rgba(0.12, 0.78, 0.95, 1.0),
+        Color::rgba(0.95, 0.3, 0.55, 1.0),
       ]),
     );
     let filters = use_transform(
       source.clone(),
       InputRange::new([0.0, 1.0]),
       OutputRange::new([
-        vec![MotionFilter::Blur(0.0), MotionFilter::Contrast(0.7)],
-        vec![MotionFilter::Blur(3.0), MotionFilter::Contrast(1.4)],
+        FilterList::new([FilterFunction::Blur(0.0), FilterFunction::Contrast(0.7)]),
+        FilterList::new([FilterFunction::Blur(3.0), FilterFunction::Contrast(1.4)]),
       ]),
     );
     let transforms = use_transform(
       source.clone(),
       InputRange::new([0.0, 1.0]),
       OutputRange::new([
-        vec![MotionTransform::Rotate([0.0, 0.0, -8.0])],
-        vec![MotionTransform::Rotate([0.0, 0.0, 8.0])],
+        vec![TransformOperation::Rotate([0.0, 0.0, -8.0])],
+        vec![TransformOperation::Rotate([0.0, 0.0, 8.0])],
       ]),
     );
     let spring = use_spring(
@@ -183,12 +183,12 @@ impl Component for ValuesTimeControls {
               AnimationSequence::new()
                 .animate(
                   MotionSelector::Children,
-                  MotionStyle::new().opacity(1.0).x(28.0),
+                  StyleTarget::new().opacity(1.0).x(28.0),
                   Transition::tween().duration_secs(0.24),
                 )
                 .then(
                   MotionSelector::name("sequence-b"),
-                  MotionStyle::new().opacity(0.45).x(-18.0),
+                  StyleTarget::new().opacity(0.45).x(-18.0),
                   Transition::spring().stiffness(170.0).damping(18.0),
                 )
                 .at(SequencePosition::WithPrevious(0.08)),
@@ -206,30 +206,30 @@ impl Component for ValuesTimeControls {
           .style(gallery())
           .child(probe(
             "RANGE · LENGTH",
-            MotionStyle::new().x_length_value(length),
+            StyleTarget::new().x_length_value(length),
           ))
           .child(probe(
             "COLOR",
-            MotionStyle::new().background_color_value(color),
+            StyleTarget::new().background_color_value(color),
           ))
-          .child(probe("FILTER", MotionStyle::new().filter_value(filters)))
+          .child(probe("FILTER", StyleTarget::new().filter_value(filters)))
           .child(probe(
             "TRANSFORM",
-            MotionStyle::new().transform_list_value(transforms),
+            StyleTarget::new().transform_list_value(transforms),
           ))
-          .child(probe("SPRING", MotionStyle::new().scale_value(spring)))
-          .child(probe("VELOCITY", MotionStyle::new().x_value(velocity))),
+          .child(probe("SPRING", StyleTarget::new().scale_value(spring)))
+          .child(probe("VELOCITY", StyleTarget::new().x_value(velocity))),
       )
       .child(
         View::new()
           .style(gallery())
           .child(probe(
             "CONTROLLED TIME",
-            MotionStyle::new().x_value(controlled_x),
+            StyleTarget::new().x_value(controlled_x),
           ))
           .child(probe(
             "AUDIO PLAYHEAD",
-            MotionStyle::new().scale_value(audio_scale),
+            StyleTarget::new().scale_value(audio_scale),
           ))
           .child(
             View::new()
@@ -239,11 +239,11 @@ impl Component for ValuesTimeControls {
                 Variants::<ControlVariant, ()>::new()
                   .target(
                     ControlVariant::Rest,
-                    MotionStyle::new().opacity(0.45).x(0.0),
+                    StyleTarget::new().opacity(0.45).x(0.0),
                   )
                   .target(
                     ControlVariant::Active,
-                    MotionStyle::new().opacity(1.0).x(34.0),
+                    StyleTarget::new().opacity(1.0).x(34.0),
                   ),
               )
               .animate_variant(ControlVariant::Rest)
@@ -346,7 +346,7 @@ fn audio_controls(audio: AudioPlayback) -> View {
     }))
 }
 
-fn probe(label: &'static str, motion: MotionStyle) -> View {
+fn probe(label: &'static str, motion: StyleTarget) -> View {
   View::new()
     .style(probe_style())
     .animate(motion)

@@ -194,7 +194,6 @@ namespace Battlement
         ObjectId DescriptorId,
         ObjectId HostId,
         uint Generation,
-        IReadOnlyList<MotionPropertyValue> StaticBaseline,
         bool InitialDisabled,
         IReadOnlyList<MotionSlotDescriptor> Slots,
         MotionClockSource Clock,

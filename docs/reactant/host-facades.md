@@ -393,25 +393,26 @@ Use the Reactant sample and one direct Battlement UI fixture.
 
 ## Static decorative paint
 
-`View::paint(PaintStyle)` paints a solid or gradient background, polygon clip,
-and optional shadows without creating Animate or Exit slots.
+`View::paint(PaintStyle)` paints a solid or gradient background, polygon or inset clip,
+and optional shadows as an ordinary visual-element property. A paint-only host has no
+motion descriptor and does not register with the motion player loop.
 
 Fills follow the host's resolved per-corner radii, including style updates.
 Overlapping radii shrink proportionally to fit the border box. An explicit
-polygon supplies its own contour; a motion inset clips the ordinary rounded
+polygon supplies its own contour; a paint inset clips the ordinary rounded
 contour without changing layout or hit targeting.
 
 ```rust
-use battlement::{MotionColor, MotionLength};
-use battlement_reactant::{host::View, paint::{PaintFill, PaintStyle}};
+use battlement::{Color, Length, PaintFill, PaintStyle};
+use battlement_reactant::host::View;
 
 View::new().paint(
   PaintStyle::new()
-    .background(PaintFill::Color(MotionColor::new(0.02, 0.04, 0.08, 1.0)))
+    .background(PaintFill::Color(Color::new(0.02, 0.04, 0.08, 1.0)))
     .clip_polygon([
-      [MotionLength::percent(10.0), MotionLength::percent(0.0)],
-      [MotionLength::percent(90.0), MotionLength::percent(0.0)],
-      [MotionLength::percent(50.0), MotionLength::percent(100.0)],
+      [Length::percent(10.0), Length::percent(0.0)],
+      [Length::percent(90.0), Length::percent(0.0)],
+      [Length::percent(50.0), Length::percent(100.0)],
     ]),
 );
 ```

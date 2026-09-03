@@ -385,6 +385,13 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
     return Err(UiValidationError::InvalidProperty);
   }
   if visual
+    .paint
+    .set_value()
+    .is_some_and(|value| !value.is_valid())
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
+  if visual
     .grid_item
     .set_value()
     .is_some_and(|value| !valid_grid_item(value))
@@ -1022,8 +1029,9 @@ fn insert_identity(
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {
   validate_prop_length(&value.font_size, true)?;
-  if prop_concrete(&value.font_size).is_some_and(|length| match length {
-    crate::Length::Px(number) | crate::Length::Percent(number) => *number <= 0.0,
+  if prop_concrete(&value.font_size).is_some_and(|length| {
+    let [px, percent] = length.components();
+    px <= 0.0 && percent <= 0.0
   }) {
     return Err(UiValidationError::InvalidProperty);
   }
@@ -1185,6 +1193,11 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
             return Err(UiValidationError::InvalidProperty);
           }
         }
+        crate::FilterFunction::Brightness(_)
+        | crate::FilterFunction::Saturate(_)
+        | crate::FilterFunction::DropShadow(_) => {
+          return Err(UiValidationError::InvalidProperty);
+        }
       }
     }
   }
@@ -1293,10 +1306,13 @@ fn validate_concrete_length(
   value: &crate::Length,
   nonnegative: bool,
 ) -> Result<(), UiValidationError> {
-  let number = match value {
-    crate::Length::Px(value) | crate::Length::Percent(value) => *value,
+  let [px, percent] = value.components();
+  let negative = match value {
+    crate::Length::Px(_) => px < 0.0,
+    crate::Length::Percent(_) => percent < 0.0,
+    crate::Length::Calc { .. } => return Err(UiValidationError::InvalidProperty),
   };
-  if !number.is_finite() || nonnegative && number < 0.0 {
+  if !px.is_finite() || !percent.is_finite() || nonnegative && negative {
     return Err(UiValidationError::InvalidProperty);
   }
   Ok(())

@@ -52,6 +52,7 @@ namespace Battlement.UI
                 element.Style,
                 message => Failure(CoreErrorCode.InvalidProperty, message)
             );
+            BattlementPaintProperties.Validate(element.Paint);
             if (element.Motion.IsSet)
                 BattlementMotionValidator.Validate(element.Motion.Value);
             if (

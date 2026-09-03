@@ -203,16 +203,16 @@ paint already expressible through ordinary typed styles.
 
 ### Motion entry point
 
-Reactant hosts expose Motion builders directly. Use `MotionStyle` for typed
+Reactant hosts expose Motion builders directly. Use `StyleTarget` for typed
 targets and `Transition` for timing; an animation does not require another
 layout element or a `Motion::new(...)` wrapper:
 
 ```rust
 View::new()
-  .initial(MotionStyle::new().opacity(0.0))
-  .animate(MotionStyle::new().opacity(1.0).scale(1.0))
-  .while_hover(MotionStyle::new().scale(1.045))
-  .while_tap(MotionStyle::new().scale(0.88))
+  .initial(StyleTarget::new().opacity(0.0))
+  .animate(StyleTarget::new().opacity(1.0).scale(1.0))
+  .while_hover(StyleTarget::new().scale(1.045))
+  .while_tap(StyleTarget::new().scale(0.88))
   .transition(Transition::tween().duration_secs(0.09))
 ```
 

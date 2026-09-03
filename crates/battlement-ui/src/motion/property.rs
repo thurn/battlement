@@ -7,7 +7,7 @@ pub enum MotionValueKind {
   Scalar,
   /// One finite pixel/percentage/calc length.
   Length,
-  /// Four Motion-compatible RGBA channels.
+  /// Four linear RGBA channels.
   Color,
   /// A two-dimensional vector.
   Vector2,

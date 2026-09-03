@@ -12,41 +12,31 @@ use battlement::{
   Style, StylePropertyTransition, StyleTransitionDescriptor, StyleValue, TransitionGenerator,
 };
 
-use crate::motion::{Easing, Keyframes, MotionStyle, Transition};
+use crate::motion::{Easing, Keyframes, StyleTarget, Transition};
 
 /// A typed pseudo-state style input.
 pub trait IntoPseudoStyle {
   #[doc(hidden)]
-  fn into_pseudo_style(self) -> MotionStyle;
+  fn into_pseudo_style(self) -> StyleTarget;
 }
 
-impl IntoPseudoStyle for MotionStyle {
-  fn into_pseudo_style(self) -> MotionStyle {
+impl IntoPseudoStyle for StyleTarget {
+  fn into_pseudo_style(self) -> StyleTarget {
     self
   }
 }
 
 impl IntoPseudoStyle for Style {
-  fn into_pseudo_style(self) -> MotionStyle {
-    let mut result = MotionStyle::new();
+  fn into_pseudo_style(self) -> StyleTarget {
+    let mut result = StyleTarget::new();
     if let Prop::Set(StyleValue::Value(value)) = self.opacity {
       result = result.opacity(value.0);
     }
     if let Prop::Set(StyleValue::Value(value)) = self.background_color {
-      result = result.background_color(battlement::MotionColor::new(
-        value.r as f32,
-        value.g as f32,
-        value.b as f32,
-        value.a as f32,
-      ));
+      result = result.background_color(value);
     }
     if let Prop::Set(StyleValue::Value(value)) = self.color {
-      result = result.color(battlement::MotionColor::new(
-        value.r as f32,
-        value.g as f32,
-        value.b as f32,
-        value.a as f32,
-      ));
+      result = result.color(value);
     }
     if let Prop::Set(StyleValue::Value(value)) = self.scale {
       result = result.scale_x(value.x).scale_y(value.y);
@@ -91,7 +81,7 @@ pub struct StyleTransition {
 /// One reusable CSS-style keyframe animation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Animation {
-  frames: Keyframes<MotionStyle>,
+  frames: Keyframes<StyleTarget>,
   duration_micros: u64,
   delay_micros: i64,
   easings: Vec<Easing>,
@@ -116,10 +106,10 @@ pub struct Decoration {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct CssProps {
-  pub(crate) hover: Option<MotionStyle>,
-  pub(crate) focus: Option<MotionStyle>,
-  pub(crate) active: Option<MotionStyle>,
-  pub(crate) disabled: Option<MotionStyle>,
+  pub(crate) hover: Option<StyleTarget>,
+  pub(crate) focus: Option<StyleTarget>,
+  pub(crate) active: Option<StyleTarget>,
+  pub(crate) disabled: Option<StyleTarget>,
   pub(crate) transition: StyleTransition,
   pub(crate) animations: Vec<Animation>,
   pub(crate) before: Vec<Decoration>,
@@ -161,7 +151,7 @@ impl StyleTransition {
 impl Animation {
   /// Creates a one-second, once-running keyframe animation.
   #[must_use]
-  pub fn new(frames: Keyframes<MotionStyle>) -> Self {
+  pub fn new(frames: Keyframes<StyleTarget>) -> Self {
     assert!(
       frames.values.len() >= 2,
       "CSS keyframes require at least two frames"

@@ -1503,7 +1503,7 @@ fn motion_scalar(
     .expect("motion property should be present");
   match value {
     battlement::MotionValue::Scalar(value) => *value,
-    battlement::MotionValue::Length(value) if value.percent == 0.0 => value.px,
+    battlement::MotionValue::Length(value) if value.components()[1] == 0.0 => value.components()[0],
     value => panic!("motion property is not scalar-like: {value:?}"),
   }
 }

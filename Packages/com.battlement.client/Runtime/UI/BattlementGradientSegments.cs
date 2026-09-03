@@ -14,11 +14,11 @@ namespace Battlement.UI
             Painter2D painter,
             IReadOnlyList<Vector2> points,
             UnityRect rect,
-            MotionGradient value,
-            Func<MotionGradient, UnityRect, FillGradient> makeGradient
+            Gradient value,
+            Func<Gradient, UnityRect, FillGradient> makeGradient
         )
         {
-            if (value is not MotionGradient.Linear linear || linear.Stops.Count <= 8)
+            if (value is not Gradient.Linear linear || linear.Stops.Count <= 8)
                 return false;
             (Vector2 start, Vector2 end) = Line(rect, linear.Angle);
             Vector2 direction = end - start;
@@ -44,13 +44,10 @@ namespace Battlement.UI
                     );
                 if (clipped.Count < 3)
                     continue;
-                var stops = new List<MotionGradientStop>();
+                var stops = new List<GradientStop>();
                 for (int index = first; index <= last; index++)
                     stops.Add(linear.Stops[index]);
-                painter.fillGradient = makeGradient(
-                    new MotionGradient.Linear(linear.Angle, stops),
-                    rect
-                );
+                painter.fillGradient = makeGradient(new Gradient.Linear(linear.Angle, stops), rect);
                 painter.BeginPath();
                 painter.MoveTo(clipped[0]);
                 for (int index = 1; index < clipped.Count; index++)

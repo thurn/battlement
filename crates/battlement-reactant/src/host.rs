@@ -479,8 +479,9 @@ macro_rules! facade {
 
       /// Paints a static clipped background without animation slots.
       #[must_use]
-      pub fn paint(self, value: PaintStyle) -> Self {
-        self.motion(MotionProps::new().paint(value))
+      pub fn paint(mut self, value: PaintStyle) -> Self {
+        self.state.host.visual_element_mut().paint = Prop::Set(value);
+        self
       }
 
       /// Applies a complete Motion authoring value.

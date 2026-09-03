@@ -6,7 +6,6 @@ use crate::{
 
 impl AssetDependencies {
   pub(crate) fn motion(&mut self, descriptor: &MotionDescriptor) {
-    self.motion_properties(&descriptor.static_baseline);
     if let Some(initial) = &descriptor.initial {
       self.motion_target(initial);
     }

@@ -1,10 +1,10 @@
 //! Typed Motion authoring for Reactant hosts and forwarding components.
 
 use battlement::{
-  MotionColor, MotionFilter, MotionGradient, MotionLength, MotionProperty, MotionPropertyTrack,
-  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionShadow, MotionTargetDescriptor,
-  MotionTransform, MotionValue, ObjectId, SpringConfiguration, StepPosition, TransitionDefinition,
-  TransitionGenerator, Visibility,
+  Color, FilterList, Gradient, Length, MotionProperty, MotionPropertyTrack, MotionPropertyValue,
+  MotionRepeat, MotionRepeatType, MotionTargetDescriptor, MotionValue, ObjectId, Shadow,
+  SpringConfiguration, StepPosition, TransformOperation, TransitionDefinition, TransitionGenerator,
+  Visibility,
 };
 
 use crate::{
@@ -13,7 +13,6 @@ use crate::{
   motion_lifecycle::MotionCallbacks,
   motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
-  paint::PaintStyle,
   variant_map::{ErasedVariantData, ErasedVariantSelection, ErasedVariants},
 };
 
@@ -26,23 +25,22 @@ pub struct Keyframes<T> {
 
 /// A collection of typed property targets.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct MotionStyle {
-  pub(crate) entries: Vec<MotionStyleEntry>,
+pub struct StyleTarget {
+  pub(crate) entries: Vec<StyleTargetEntry>,
 }
 
 /// A style target with optional timing and terminal assignments.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MotionTarget {
-  style: MotionStyle,
+  style: StyleTarget,
   transition: Option<Transition>,
-  transition_end: MotionStyle,
+  transition_end: StyleTarget,
   pub(crate) callbacks: MotionCallbacks,
 }
 
 /// Complete Motion props forwarded to one host façade.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MotionProps {
-  pub(crate) paint: Option<PaintStyle>,
   pub(crate) initial: Option<InitialTarget>,
   pub(crate) animate: Option<MotionTarget>,
   pub(crate) exit: Option<MotionTarget>,
@@ -161,7 +159,7 @@ pub struct Transition {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct MotionStyleEntry {
+pub(crate) struct StyleTargetEntry {
   pub(crate) property: MotionProperty,
   pub(crate) values: Vec<MotionValue>,
   pub(crate) times: Option<Vec<f64>>,
@@ -195,7 +193,7 @@ impl<T> Keyframes<T> {
   }
 }
 
-impl MotionStyle {
+impl StyleTarget {
   /// Creates an empty target style.
   #[must_use]
   pub const fn new() -> Self {
@@ -238,7 +236,7 @@ impl MotionStyle {
   /// Sets horizontal translation keyframes in panel pixels.
   #[must_use]
   pub fn x_keyframes(self, value: Keyframes<f32>) -> Self {
-    self.length_keyframes(MotionProperty::X, map_keyframes(value, MotionLength::px))
+    self.length_keyframes(MotionProperty::X, map_keyframes(value, Length::px))
   }
 
   /// Binds horizontal translation to a scalar pixel motion value.
@@ -249,7 +247,7 @@ impl MotionStyle {
 
   /// Binds horizontal translation to a typed length value.
   #[must_use]
-  pub fn x_length_value(self, value: TypedMotionValue<MotionLength>) -> Self {
+  pub fn x_length_value(self, value: TypedMotionValue<Length>) -> Self {
     self.bind(MotionProperty::X, value.erase())
   }
 
@@ -262,7 +260,7 @@ impl MotionStyle {
   /// Sets vertical translation keyframes in panel pixels.
   #[must_use]
   pub fn y_keyframes(self, value: Keyframes<f32>) -> Self {
-    self.length_keyframes(MotionProperty::Y, map_keyframes(value, MotionLength::px))
+    self.length_keyframes(MotionProperty::Y, map_keyframes(value, Length::px))
   }
 
   /// Binds vertical translation to a scalar pixel motion value.
@@ -324,43 +322,43 @@ impl MotionStyle {
 
   /// Sets the background color.
   #[must_use]
-  pub fn background_color(self, value: MotionColor) -> Self {
+  pub fn background_color(self, value: Color) -> Self {
     self.color_property(MotionProperty::BackgroundColor, value)
   }
 
   /// Sets background-color keyframes.
   #[must_use]
-  pub fn background_color_keyframes(self, value: Keyframes<MotionColor>) -> Self {
+  pub fn background_color_keyframes(self, value: Keyframes<Color>) -> Self {
     self.color_keyframes(MotionProperty::BackgroundColor, value)
   }
 
   /// Binds background color to a color motion value.
   #[must_use]
-  pub fn background_color_value(self, value: TypedMotionValue<MotionColor>) -> Self {
+  pub fn background_color_value(self, value: TypedMotionValue<Color>) -> Self {
     self.bind(MotionProperty::BackgroundColor, value.erase())
   }
 
   /// Sets text color.
   #[must_use]
-  pub fn color(self, value: MotionColor) -> Self {
+  pub fn color(self, value: Color) -> Self {
     self.color_property(MotionProperty::Color, value)
   }
 
   /// Binds text color to a color motion value.
   #[must_use]
-  pub fn color_value(self, value: TypedMotionValue<MotionColor>) -> Self {
+  pub fn color_value(self, value: TypedMotionValue<Color>) -> Self {
     self.bind(MotionProperty::Color, value.erase())
   }
 
   /// Binds the ordered transform list to a native motion value.
   #[must_use]
-  pub fn transform_list_value(self, value: TypedMotionValue<Vec<MotionTransform>>) -> Self {
+  pub fn transform_list_value(self, value: TypedMotionValue<Vec<TransformOperation>>) -> Self {
     self.bind(MotionProperty::TransformList, value.erase())
   }
 
   /// Binds the ordered filter list to a native motion value.
   #[must_use]
-  pub fn filter_value(self, value: TypedMotionValue<Vec<MotionFilter>>) -> Self {
+  pub fn filter_value(self, value: TypedMotionValue<FilterList>) -> Self {
     self.bind(MotionProperty::Filter, value.erase())
   }
 
@@ -411,7 +409,7 @@ impl MotionStyle {
   /// Operations act on painted points from first to last.
   /// This does not transform descendants or their picking geometry.
   #[must_use]
-  pub fn transform_list(self, value: impl IntoIterator<Item = MotionTransform>) -> Self {
+  pub fn transform_list(self, value: impl IntoIterator<Item = TransformOperation>) -> Self {
     self.set(
       MotionProperty::TransformList,
       vec![MotionValue::TransformList(value.into_iter().collect())],
@@ -421,17 +419,17 @@ impl MotionStyle {
 
   /// Sets ordered filter operations.
   #[must_use]
-  pub fn filter(self, value: impl IntoIterator<Item = MotionFilter>) -> Self {
+  pub fn filter(self, value: FilterList) -> Self {
     self.set(
       MotionProperty::Filter,
-      vec![MotionValue::FilterList(value.into_iter().collect())],
+      vec![MotionValue::FilterList(value)],
       None,
     )
   }
 
   /// Sets filter-list keyframes.
   #[must_use]
-  pub fn filter_keyframes(self, value: Keyframes<Vec<MotionFilter>>) -> Self {
+  pub fn filter_keyframes(self, value: Keyframes<FilterList>) -> Self {
     self.set(
       MotionProperty::Filter,
       value
@@ -445,7 +443,7 @@ impl MotionStyle {
 
   /// Sets a typed background gradient.
   #[must_use]
-  pub fn background_gradient(self, value: MotionGradient) -> Self {
+  pub fn background_gradient(self, value: Gradient) -> Self {
     self.set(
       MotionProperty::BackgroundGradient,
       vec![MotionValue::Gradient(value)],
@@ -457,7 +455,7 @@ impl MotionStyle {
   ///
   /// Unity supports zero blur; nonzero blur is rejected. Use generated paint for blur.
   #[must_use]
-  pub fn box_shadow(self, value: impl IntoIterator<Item = MotionShadow>) -> Self {
+  pub fn box_shadow(self, value: impl IntoIterator<Item = Shadow>) -> Self {
     self.set(
       MotionProperty::BoxShadow,
       vec![MotionValue::ShadowList(value.into_iter().collect())],
@@ -467,7 +465,7 @@ impl MotionStyle {
 
   /// Sets rectangular clip insets in top-right-bottom-left order.
   #[must_use]
-  pub fn clip_inset(self, value: [MotionLength; 4]) -> Self {
+  pub fn clip_inset(self, value: [Length; 4]) -> Self {
     self.set(
       MotionProperty::ClipInset,
       vec![MotionValue::ClipInset(value)],
@@ -479,7 +477,7 @@ impl MotionStyle {
   ///
   /// This does not clip descendants or change picking geometry.
   #[must_use]
-  pub fn clip_polygon(self, value: impl IntoIterator<Item = [MotionLength; 2]>) -> Self {
+  pub fn clip_polygon(self, value: impl IntoIterator<Item = [Length; 2]>) -> Self {
     self.set(
       MotionProperty::ClipPolygon,
       vec![MotionValue::ClipPolygon(value.into_iter().collect())],
@@ -553,11 +551,11 @@ impl MotionStyle {
     )
   }
 
-  fn length(self, property: MotionProperty, value: MotionLength) -> Self {
+  fn length(self, property: MotionProperty, value: Length) -> Self {
     self.set(property, vec![MotionValue::Length(value)], None)
   }
 
-  fn length_keyframes(self, property: MotionProperty, value: Keyframes<MotionLength>) -> Self {
+  fn length_keyframes(self, property: MotionProperty, value: Keyframes<Length>) -> Self {
     self.set(
       property,
       value.values.into_iter().map(MotionValue::Length).collect(),
@@ -577,11 +575,11 @@ impl MotionStyle {
     )
   }
 
-  fn color_property(self, property: MotionProperty, value: MotionColor) -> Self {
+  fn color_property(self, property: MotionProperty, value: Color) -> Self {
     self.set(property, vec![MotionValue::Color(value)], None)
   }
 
-  fn color_keyframes(self, property: MotionProperty, value: Keyframes<MotionColor>) -> Self {
+  fn color_keyframes(self, property: MotionProperty, value: Keyframes<Color>) -> Self {
     self.set(
       property,
       value.values.into_iter().map(MotionValue::Color).collect(),
@@ -595,7 +593,7 @@ impl MotionStyle {
     values: Vec<MotionValue>,
     times: Option<Vec<f64>>,
   ) -> Self {
-    let entry = MotionStyleEntry {
+    let entry = StyleTargetEntry {
       property,
       values,
       times,
@@ -614,7 +612,7 @@ impl MotionStyle {
   }
 
   fn bind(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
-    let entry = MotionStyleEntry {
+    let entry = StyleTargetEntry {
       property,
       values: Vec::new(),
       times: None,
@@ -712,11 +710,11 @@ impl MotionStyle {
 impl MotionTarget {
   /// Creates a target from typed style values.
   #[must_use]
-  pub fn new(style: MotionStyle) -> Self {
+  pub fn new(style: StyleTarget) -> Self {
     Self {
       style,
       transition: None,
-      transition_end: MotionStyle::new(),
+      transition_end: StyleTarget::new(),
       callbacks: MotionCallbacks::new(),
     }
   }
@@ -730,7 +728,7 @@ impl MotionTarget {
 
   /// Assigns values atomically after successful finite completion.
   #[must_use]
-  pub fn transition_end(mut self, value: MotionStyle) -> Self {
+  pub fn transition_end(mut self, value: StyleTarget) -> Self {
     self.transition_end = value;
     self
   }
@@ -793,8 +791,8 @@ impl MotionTarget {
   }
 }
 
-impl From<MotionStyle> for MotionTarget {
-  fn from(value: MotionStyle) -> Self {
+impl From<StyleTarget> for MotionTarget {
+  fn from(value: StyleTarget) -> Self {
     Self::new(value)
   }
 }
@@ -808,7 +806,6 @@ impl MotionProps {
   #[must_use]
   pub const fn new() -> Self {
     Self {
-      paint: None,
       initial: None,
       animate: None,
       exit: None,
@@ -833,13 +830,6 @@ impl MotionProps {
         root: false,
       },
     }
-  }
-
-  /// Sets static paint without creating animation slots.
-  #[must_use]
-  pub fn paint(mut self, value: PaintStyle) -> Self {
-    self.paint = Some(value);
-    self
   }
 
   /// Selects the mount origin.
@@ -898,9 +888,6 @@ impl MotionProps {
   }
 
   pub(crate) fn merge(mut self, value: Self) -> Self {
-    if value.paint.is_some() {
-      self.paint = value.paint;
-    }
     if value.initial.is_some() {
       self.initial = value.initial;
     }
@@ -963,7 +950,7 @@ impl InitialValue for bool {
   }
 }
 
-impl InitialValue for MotionStyle {
+impl InitialValue for StyleTarget {
   fn into_initial(self) -> InitialTarget {
     InitialTarget::Target(Box::new(self.into()))
   }
@@ -982,7 +969,7 @@ fn map_keyframes<T, U>(value: Keyframes<T>, map: impl Fn(T) -> U) -> Keyframes<U
   }
 }
 
-fn implicit_transition(entry: &MotionStyleEntry) -> TransitionDefinition {
+fn implicit_transition(entry: &StyleTargetEntry) -> TransitionDefinition {
   if entry.values.len() > 2 {
     return Transition::tween().duration_secs(0.8).default;
   }
@@ -1027,7 +1014,7 @@ fn physical_default(stiffness: f64, damping: f64) -> TransitionDefinition {
   }
 }
 
-fn targets_zero(entry: &MotionStyleEntry) -> bool {
+fn targets_zero(entry: &StyleTargetEntry) -> bool {
   match entry.values.last() {
     Some(MotionValue::Scalar(value)) => *value == 0.0,
     Some(MotionValue::Vector2(value)) => value.iter().all(|value| *value == 0.0),
@@ -1105,6 +1092,6 @@ mod private {
   pub trait InitialValueSealed {}
 
   impl InitialValueSealed for bool {}
-  impl InitialValueSealed for super::MotionStyle {}
+  impl InitialValueSealed for super::StyleTarget {}
   impl InitialValueSealed for super::MotionTarget {}
 }

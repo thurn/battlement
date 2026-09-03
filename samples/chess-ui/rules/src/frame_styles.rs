@@ -1,6 +1,6 @@
 //! Shared geometry and material recipes for the arcade bezel.
 
-use battlement::{MotionColor, MotionGradient, MotionGradientStop, MotionLength, Position, Style};
+use battlement::{Color, Gradient, GradientStop, Length, Position, Style};
 
 pub const OUTER_INSET: f32 = 21.0;
 pub const BORDER_THICKNESS: f32 = 8.0;
@@ -17,7 +17,7 @@ pub fn cover() -> Style {
 }
 
 /// Builds the frame polygon, including the bottom Return cutout.
-pub fn clip() -> Vec<[MotionLength; 2]> {
+pub fn clip() -> Vec<[Length; 2]> {
   [
     [4.5, 0.0],
     [14.7, 0.0],
@@ -36,13 +36,13 @@ pub fn clip() -> Vec<[MotionLength; 2]> {
     [0.0, 18.7],
     [0.0, 3.2],
   ]
-  .map(|point| point.map(MotionLength::percent))
+  .map(|point| point.map(Length::percent))
   .to_vec()
 }
 
 /// Returns the bright metal gradient around the bezel.
-pub fn metal() -> MotionGradient {
-  MotionGradient::Linear {
+pub fn metal() -> Gradient {
+  Gradient::Linear {
     angle: 110.0,
     stops: [
       (0.0, 0xf4ffff),
@@ -62,8 +62,8 @@ pub fn metal() -> MotionGradient {
 }
 
 /// Returns the dark interior gradient.
-pub fn interior() -> MotionGradient {
-  MotionGradient::Radial {
+pub fn interior() -> Gradient {
+  Gradient::Radial {
     center: [0.5, 0.43],
     radius: [0.959, 0.667],
     stops: [
@@ -78,17 +78,17 @@ pub fn interior() -> MotionGradient {
 }
 
 /// Converts an RGB hexadecimal color to opaque motion paint.
-pub fn color(value: u32) -> MotionColor {
-  MotionColor::new(
-    ((value >> 16) & 255) as f32 / 255.0,
-    ((value >> 8) & 255) as f32 / 255.0,
-    (value & 255) as f32 / 255.0,
+pub fn color(value: u32) -> Color {
+  Color::rgba(
+    f64::from((value >> 16) & 255) / 255.0,
+    f64::from((value >> 8) & 255) / 255.0,
+    f64::from(value & 255) / 255.0,
     1.0,
   )
 }
 
-fn stop(position: f32, color: u32) -> MotionGradientStop {
-  MotionGradientStop {
+fn stop(position: f32, color: u32) -> GradientStop {
+  GradientStop {
     color: self::color(color),
     position,
   }

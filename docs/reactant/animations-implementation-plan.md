@@ -404,7 +404,7 @@ plus one intentionally failing native-player record.
 Define the typed values shared by Rust and Unity:
 
 - exhaustive animation-property metadata and interpolation categories;
-- `MotionStyle`, property keyframes, targets, transitions, repeats, and easing;
+- `StyleTarget`, property keyframes, targets, transitions, repeats, and easing;
 - normalized descriptors, stable slot identities, generations, and callbacks;
 - lifecycle, playback, checkpoint, and controlled-clock protocol values; and
 - renderer-capability validation for each supported value shape.

@@ -24,7 +24,7 @@ use battlement_reactant::{
   component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::{Label, View},
-  motion::MotionStyle,
+  motion::StyleTarget,
   render::{Either, Fragment, Node, Render},
   runtime::Reactant,
 };
@@ -448,7 +448,7 @@ fn nested_host_composition_renders_and_refreshes_on_a_normal_stack() {
           content = Node::new(
             View::new()
               .initial(false)
-              .animate(MotionStyle::new().opacity(1.0))
+              .animate(StyleTarget::new().opacity(1.0))
               .child(content),
           );
         }

@@ -1,16 +1,14 @@
 //! The gallery’s actions and navigation entries, including keyboard behavior.
 
 use crate::{review_navigation, review_theme};
-use battlement::{
-  Align, Color, CurrentPage, FontStyle, MotionColor, Style, TextAnchor, WhiteSpace,
-};
+use battlement::{Align, Color, CurrentPage, FontStyle, Style, TextAnchor, WhiteSpace};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
   element_behavior, hooks, semantics,
 };
 use battlement_reactant::{
-  component::Component, host::Button, motion::MotionStyle, render::Render,
+  component::Component, host::Button, motion::StyleTarget, render::Render,
 };
 use std::rc::Rc;
 
@@ -101,7 +99,7 @@ impl Component for ReviewButton {
       .behavior(behavior);
     match self.kind {
       ReviewButtonKind::Navigation { .. } => button.style(style).while_focus_visible(
-        MotionStyle::new().background_color(MotionColor::new(0.18, 0.37, 0.38, 1.0)),
+        StyleTarget::new().background_color(Color::rgba(0.18, 0.37, 0.38, 1.0)),
       ),
       ReviewButtonKind::Action => button
         .style(
@@ -120,18 +118,18 @@ impl Component for ReviewButton {
             .background_color(review_theme::ACCENT)
             .color(review_theme::BACKGROUND),
         )
-        .hover_style(MotionStyle::new().background_color(MotionColor::new(0.60, 1.0, 0.96, 1.0)))
+        .hover_style(StyleTarget::new().background_color(Color::rgba(0.60, 1.0, 0.96, 1.0)))
         .active_style(
-          MotionStyle::new()
-            .background_color(MotionColor::new(0.28, 0.78, 0.74, 1.0))
+          StyleTarget::new()
+            .background_color(Color::rgba(0.28, 0.78, 0.74, 1.0))
             .y(3.0),
         )
         .while_focus_visible(
-          MotionStyle::new()
-            .background_color(MotionColor::new(0.94, 1.0, 1.0, 1.0))
+          StyleTarget::new()
+            .background_color(Color::rgba(0.94, 1.0, 1.0, 1.0))
             .scale(1.02),
         )
-        .disabled_style(MotionStyle::new().opacity(0.4)),
+        .disabled_style(StyleTarget::new().opacity(0.4)),
     }
   }
 }

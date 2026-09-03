@@ -39,8 +39,9 @@ pub use battlement_builder::builder;
 
 pub use battlement::{
   AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
-  MotionColor, MotionFilters, MotionLength, MotionProperty, PlacementAlign, PlacementSide,
-  PopoverPlacement, PopupKind, Prop, SemanticRole, SemanticState, StepPosition, Style, Visibility,
+  Color, FilterFunction, FilterList, Gradient, GradientStop, Length, MotionProperty,
+  PlacementAlign, PlacementSide, PopoverPlacement, PopupKind, Prop, SemanticRole, SemanticState,
+  Shadow, StepPosition, Style, TransformOperation, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -95,8 +96,8 @@ pub use crate::{
   key::{KeyRenderExt, Keyed},
   layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},
   motion::{
-    Easing, InertiaTarget, InitialTarget, Keyframes, MotionProps, MotionStyle, MotionTarget,
-    Repeat, RepeatType, Transition,
+    Easing, InertiaTarget, InitialTarget, Keyframes, MotionProps, MotionTarget, Repeat, RepeatType,
+    StyleTarget, Transition,
   },
   motion_component::{MotionComponent, MotionComponentExt},
   motion_config::{MotionConfig, ReducedMotion, use_reduced_motion, use_reduced_motion_preference},

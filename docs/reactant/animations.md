@@ -142,9 +142,9 @@ host node.
 
 ```rust
 Button::new("Settings")
-    .animate(MotionStyle::new().y(0.0).scale(1.0))
-    .while_hover(MotionStyle::new().y(-1.0))
-    .while_tap(MotionStyle::new().scale(0.955))
+    .animate(StyleTarget::new().y(0.0).scale(1.0))
+    .while_hover(StyleTarget::new().y(-1.0))
+    .while_tap(StyleTarget::new().scale(0.955))
     .transition(
         Transition::spring()
             .stiffness(520.0)
@@ -162,11 +162,11 @@ specialization retains the complete ordinary and Reactant host API.
 ```rust
 View::new()
     .child(Label::new("Settings"))
-    .animate(MotionStyle::new().opacity(1.0))
+    .animate(StyleTarget::new().opacity(1.0))
     .style(panel_style())
     .element_ref(panel_ref)
     .on_pointer_down(handle_pointer_down)
-    .exit(MotionStyle::new().opacity(0.0))
+    .exit(StyleTarget::new().opacity(0.0))
     .key("settings-panel")
 ```
 
@@ -214,18 +214,18 @@ host expose their own narrower builders instead of implementing
 
 ```rust
 SettingsCard::new(settings)
-    .animate(MotionStyle::new().opacity(1.0).y(0.0))
-    .exit(MotionStyle::new().opacity(0.0).y(-8.0))
+    .animate(StyleTarget::new().opacity(1.0).y(0.0))
+    .exit(StyleTarget::new().opacity(0.0).y(-8.0))
 ```
 
 ### Motion targets
 
-`MotionStyle` contains optional typed target values. A missing property does
-not participate in that target layer. `MotionTarget` combines a style with an
-optional transition and orchestration metadata.
+`StyleTarget` contains optional typed presentation values for animation. A
+missing property does not participate in that target layer. `MotionTarget`
+combines a style with an optional transition and orchestration metadata.
 
 ```rust
-pub struct MotionStyle { /* private fields */ }
+pub struct StyleTarget { /* private fields */ }
 pub struct MotionTarget { /* private fields */ }
 pub enum InitialTarget<Name = NoVariant> {
     Target(MotionTarget),
@@ -234,16 +234,16 @@ pub enum InitialTarget<Name = NoVariant> {
 }
 
 impl MotionTarget {
-    pub fn new(style: MotionStyle) -> Self;
+    pub fn new(style: StyleTarget) -> Self;
     pub fn transition(self, value: Transition) -> Self;
-    pub fn transition_end(self, value: MotionStyle) -> Self;
+    pub fn transition_end(self, value: StyleTarget) -> Self;
 }
 ```
 
 `animate`, `exit`, and gesture target builders accept
-`impl Into<MotionTarget>`, and `MotionStyle` converts directly. `initial`
+`impl Into<MotionTarget>`, and `StyleTarget` converts directly. `initial`
 accepts `impl InitialValue`, a sealed input implemented only for `bool`,
-`MotionStyle`, and `MotionTarget`. The distinct `initial_variant(name)` builder
+`StyleTarget`, and `MotionTarget`. The distinct `initial_variant(name)` builder
 selects `InitialTarget::Variant`, avoiding overlapping generic
 `From<MotionTarget>` and
 `From<Name>` implementations. `false` selects `Disabled`; `true` is a developer
@@ -258,10 +258,10 @@ unconstrained generic at the call site.
 
 ```rust
 View::new()
-    .initial(MotionStyle::new().opacity(0.0).x(-17.0))
-    .animate(MotionStyle::new().opacity(1.0).x(0.0))
+    .initial(StyleTarget::new().opacity(0.0).x(-17.0))
+    .animate(StyleTarget::new().opacity(1.0).x(0.0))
     .exit(
-        MotionTarget::new(MotionStyle::new().opacity(0.0).x(10.0))
+        MotionTarget::new(StyleTarget::new().opacity(0.0).x(10.0))
             .transition(Transition::tween().duration_secs(0.15)),
     )
 ```
@@ -446,7 +446,7 @@ let opacity = Keyframes::new([0.0, 0.38, 0.22, 0.0])
 
 View::new()
     .animate(
-        MotionStyle::new()
+        StyleTarget::new()
             .y(1_000.0)
             .opacity_keyframes(opacity),
     )
@@ -533,7 +533,7 @@ immediately.
 
 ### Reusable CSS-style animations
 
-`Keyframes<MotionStyle>` is an ordinary cloneable Rust value. `Animation`
+`Keyframes<StyleTarget>` is an ordinary cloneable Rust value. `Animation`
 applies it with CSS-style playback settings. There is no global string registry
 and no runtime lookup by animation name.
 
@@ -544,13 +544,13 @@ zero or one, Reactant inserts the resolved underlying property value at that
 endpoint. The underlying value is captured from lower-priority layers when the
 animation generation is installed. A property omitted from every frame creates
 no track. This matches the CSS keyframe rule without turning a missing
-`MotionStyle` field into an implicit hold.
+`StyleTarget` field into an implicit hold.
 
 ```rust
-fn grid_breathe() -> Keyframes<MotionStyle> {
+fn grid_breathe() -> Keyframes<StyleTarget> {
     Keyframes::new([
-        MotionStyle::new().y(-6.0).scale_y(0.96).opacity(0.58),
-        MotionStyle::new().y(12.0).scale_y(1.02).opacity(1.0),
+        StyleTarget::new().y(-6.0).scale_y(0.96).opacity(0.58),
+        StyleTarget::new().y(12.0).scale_y(1.02).opacity(1.0),
     ])
 }
 
@@ -642,7 +642,7 @@ lists for particles, grid lines, and similar effects. List position identifies
 a stable decoration by default. `.key(value)` gives a dynamic decoration the
 same owned key identity guarantees as a Reactant child.
 
-Decorations support `Style`, `MotionStyle`, `StyleTransition`, `Animation`, and
+Decorations support `Style`, `StyleTarget`, `StyleTransition`, `Animation`, and
 motion-value bindings. They do not support children, refs, handlers, focus, or
 layout projection. Generated textures are valid backgrounds. Their texture
 selection is discrete, while opacity, transform, tint, clip, and other host
@@ -670,7 +670,7 @@ enum TabVariant {
 let variants = Variants::<TabVariant, i32>::new()
     .resolver(TabVariant::Enter, |direction| {
         MotionTarget::new(
-            MotionStyle::new()
+            StyleTarget::new()
                 .opacity(0.0)
                 .x(*direction as f32 * 58.0)
                 .scale(0.99),
@@ -679,7 +679,7 @@ let variants = Variants::<TabVariant, i32>::new()
     .target(
         TabVariant::Center,
         MotionTarget::new(
-            MotionStyle::new().opacity(1.0).x(0.0).scale(1.0),
+            StyleTarget::new().opacity(1.0).x(0.0).scale(1.0),
         )
         .transition(
             Transition::tween()
@@ -689,7 +689,7 @@ let variants = Variants::<TabVariant, i32>::new()
     )
     .resolver(TabVariant::Exit, |direction| {
         MotionTarget::new(
-            MotionStyle::new()
+            StyleTarget::new()
                 .opacity(0.0)
                 .x(*direction as f32 * -34.0)
                 .scale(1.01),
@@ -752,14 +752,13 @@ Transition::tween()
 propagation. Infinite tracks do not block orchestration and produce a developer
 diagnostic if used as the only track in a blocking phase. Stagger order is
 logical child order after reconciliation; reverse starts from the last child.
-
 ## Value model and interpolation
 
 ### Typed property catalog
 
-`MotionStyle` can syntactically represent every public Battlement UI style
-property plus Motion aliases and the additional visual values required by the
-mockup. A particular host still accepts only the property and value-shape
+`StyleTarget` can syntactically represent every public Battlement UI style
+property plus Motion aliases and the additional core presentation values required
+by the mockup. A particular host still accepts only the property and value-shape
 combinations declared by its renderer capability; descriptor validation rejects
 unsupported combinations before activation. Implementation establishes one
 authoritative animation-property metadata catalog. Every entry
@@ -773,12 +772,12 @@ Interpolated values include:
 
 - finite scalars, opacity, flex values, and numeric text metrics;
 - lengths, percentages, angles, transform origins, and radii;
-- Motion-compatible RGBA colors;
+- core RGBA colors that Motion can interpolate;
 - translate, rotate, scale, skew, and ordered transform lists;
 - compatible gradients, shadows, filters, clips, and masks; and
 - layout insets, sizes, gaps, padding, margins, and border widths.
 
-`MotionLength` preserves `Px`, `Percent`, and typed `Calc` components. Mixed
+`Length` preserves `Px`, `Percent`, and typed `Calc` components. Mixed
 lengths interpolate in component form and resolve against the property-specific
 reference box at sample time. Reactant never converts a percentage to pixels
 once at animation start and then ignores resize.
@@ -891,7 +890,7 @@ let opacity = use_transform(
 
 View::new()
     .motion_style(
-        MotionStyle::new()
+        StyleTarget::new()
             .x_value(x.clone())
             .opacity_value(opacity),
     )
@@ -1083,8 +1082,8 @@ let opacity = use_transform(
 
 View::new()
     .element_ref(target)
-    .motion_style(MotionStyle::new().opacity_value(opacity))
-    .while_in_view(MotionStyle::new().y(0.0).opacity(1.0))
+    .motion_style(StyleTarget::new().opacity_value(opacity))
+    .while_in_view(StyleTarget::new().y(0.0).opacity(1.0))
     .viewport(
         ViewportOptions::new()
             .once(true)
@@ -1132,8 +1131,8 @@ AnimatePresence::new()
     .child(open.then(|| {
         Panel::new()
             .key("settings")
-            .animate(MotionStyle::new().opacity(1.0))
-            .exit(MotionStyle::new().opacity(0.0))
+            .animate(StyleTarget::new().opacity(1.0))
+            .exit(StyleTarget::new().opacity(0.0))
     }))
 ```
 
@@ -1308,7 +1307,6 @@ Shared layout is limited to one physical UI Toolkit panel. Portals into the same
 panel remain eligible because matching follows logical groups and measurements
 carry physical panel identity. A match spanning panels, displays, or world-space
 documents is diagnosed and treated as two independent layout animations.
-
 ## Gestures, drag, and reorder
 
 ### Gesture layers
@@ -1322,8 +1320,8 @@ a pointer modality change without requiring an explicit `animate` target.
 
 ```rust
 Button::new("Apply")
-    .while_hover(MotionStyle::new().y(-1.0).filter_brightness(1.08))
-    .while_tap(MotionStyle::new().scale(0.96))
+    .while_hover(StyleTarget::new().y(-1.0).filter_brightness(1.08))
+    .while_tap(StyleTarget::new().scale(0.96))
     .on_hover_start(move |_game: &mut Game, event| {
         log.hover(event.pointer_type)
     })
@@ -1387,7 +1385,7 @@ View::new()
             .drag_elastic(DragElastic::sides(0.12, 0.12, 0.08, 0.08))
             .drag_momentum(true)
             .drag_direction_lock(true)
-            .while_drag(MotionStyle::new().scale(1.03))
+            .while_drag(StyleTarget::new().scale(1.03))
             .on_drag_end(move |game: &mut Game, event| {
                 game.commit_position(event.offset());
             })
@@ -1496,7 +1494,7 @@ Button::new("Replay")
     .on_click(move |_game: &mut Game| {
         click_controls.start(
             MotionTarget::new(
-                MotionStyle::new()
+                StyleTarget::new()
                     .scale_keyframes(Keyframes::new([1.0, 1.08, 1.0])),
             )
             .transition(Transition::tween().duration_secs(0.28)),
@@ -1505,7 +1503,7 @@ Button::new("Replay")
 
 View::new()
     .animation_controls(controls)
-    .animate(MotionStyle::new().scale(1.0))
+    .animate(StyleTarget::new().scale(1.0))
 ```
 
 Controls may start a target or named variant, set a presentation value without
@@ -1560,7 +1558,7 @@ impl AnimationScope {
     pub fn set(
         &self,
         selector: MotionSelector,
-        target: MotionStyle,
+        target: StyleTarget,
     );
     pub fn stop(&self, selector: MotionSelector);
 }
@@ -1579,12 +1577,12 @@ use_effect(
             AnimationSequence::new()
                 .animate(
                     MotionSelector::name("row"),
-                    MotionStyle::new().opacity(1.0).x(0.0),
+                    StyleTarget::new().opacity(1.0).x(0.0),
                     Transition::tween().duration_secs(0.2),
                 )
                 .then(
                     MotionSelector::name("badge"),
-                    MotionStyle::new().scale(1.0),
+                    StyleTarget::new().scale(1.0),
                     Transition::spring().stiffness(420.0),
                 )
                 .at(SequencePosition::WithPrevious(0.06)),
@@ -1706,9 +1704,9 @@ animation explicitly.
 let reduce_motion = use_reduced_motion();
 
 Panel::new().animate(if reduce_motion {
-    MotionStyle::new().opacity(1.0)
+    StyleTarget::new().opacity(1.0)
 } else {
-    MotionStyle::new().opacity(1.0).x(0.0)
+    StyleTarget::new().opacity(1.0).x(0.0)
 })
 ```
 
@@ -1985,7 +1983,7 @@ Tasks 01–15, 18, and 19 likewise provide no prerequisite for this design.
 The animation design does not add runtime inputs to asset generation and does
 not accept arbitrary shader-property strings. A custom renderer exposes typed
 properties through the same property catalog before those values can
-participate in `MotionStyle`.
+participate in `StyleTarget`.
 
 The properties required by the settings mockup have concrete runtime paths:
 
@@ -2024,7 +2022,6 @@ incompatible prepared-asset kinds, unsupported value shapes, or an unavailable
 renderer binding reject the descriptor transaction as host contract failures.
 A supported approximation must visibly respond to the requested channel;
 Reactant never accepts a track and then silently omits its paint.
-
 ## Mockup translation coverage
 
 The acceptance source is `~/Documents/mockups` at Git commit
@@ -2400,7 +2397,8 @@ Unity tests run the `MotionWorld` under a controlled clock. They cover:
 - spring convergence, velocity handoff, interruption, and long-frame stability;
 - inertia constraints and drag momentum;
 - finite, reverse, mirror, alternate, delayed, and negative-delay repeats;
-- Motion-compatible color, filter, discrete, and structured interpolation;
+- core presentation color, filter, discrete, and structured interpolation used
+  by Motion;
 - layer priority and transform composition;
 - graph evaluation and dirty propagation;
 - pan, drag, hover, tap, and focus across mouse, pen, keyboard, and gamepad;

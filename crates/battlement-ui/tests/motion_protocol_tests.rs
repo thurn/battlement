@@ -15,17 +15,10 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
     descriptor_id: ObjectId::new_v4(),
     host_id,
     generation: MotionGeneration(9),
-    static_baseline: vec![MotionPropertyValue {
-      property: MotionProperty::Opacity,
-      value: MotionValue::Scalar(0.2),
-    }],
     initial: Some(MotionTargetDescriptor {
       tracks: vec![MotionPropertyTrack {
         property: MotionProperty::X,
-        values: vec![MotionValue::Length(battlement_ui::MotionLength {
-          px: -12.0,
-          percent: 0.0,
-        })],
+        values: vec![MotionValue::Length(battlement_ui::Length::px(-12.0))],
         times: None,
         transition: TransitionDefinition {
           generator: TransitionGenerator::Immediate,
@@ -152,7 +145,6 @@ fn gesture_descriptor_round_trips_constraints_values_and_inertia() {
     descriptor_id: host_id,
     host_id,
     generation: MotionGeneration(4),
-    static_baseline: Vec::new(),
     initial: None,
     initial_disabled: false,
     slots: Vec::new(),

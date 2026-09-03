@@ -314,13 +314,10 @@ namespace Battlement.UI
             MotionProperty property
         )
         {
-            foreach (MotionPropertyValue baseline in descriptor.StaticBaseline)
-                if (baseline.Property == property)
-                    return baseline.Value;
             return property switch
             {
                 MotionProperty.X or MotionProperty.Y or MotionProperty.Z => new MotionValue.Length(
-                    new MotionLength(0, 0)
+                    UiLength.FromComponents(0, 0)
                 ),
                 MotionProperty.Translate => new MotionValue.Vector2(new double[] { 0, 0 }),
                 MotionProperty.Scale => new MotionValue.Vector2(new double[] { 1, 1 }),
@@ -331,7 +328,7 @@ namespace Battlement.UI
                 or MotionProperty.SkewX
                 or MotionProperty.SkewY => new MotionValue.Angle(0),
                 MotionProperty.TransformList => new MotionValue.TransformList(
-                    Array.Empty<MotionTransform>()
+                    Array.Empty<TransformOperation>()
                 ),
                 _ => throw Invalid("Reduced motion received a non-spatial binding."),
             };
@@ -408,7 +405,7 @@ namespace Battlement.UI
                 or MotionProperty.MinHeight
                 or MotionProperty.MaxWidth
                 or MotionProperty.MaxHeight => new MotionValue.Length(
-                    new MotionLength(scalar.Value, 0)
+                    UiLength.FromComponents(scalar.Value, 0)
                 ),
                 MotionProperty.Scale => new MotionValue.Vector2(
                     new[] { scalar.Value, scalar.Value }
@@ -866,8 +863,8 @@ namespace Battlement.UI
                 value switch
                 {
                     MotionValue.Scalar => new MotionValue.Scalar(0),
-                    MotionValue.Length => new MotionValue.Length(new MotionLength(0, 0)),
-                    MotionValue.Color => new MotionValue.Color(new MotionColor(0, 0, 0, 0)),
+                    MotionValue.Length => new MotionValue.Length(UiLength.FromComponents(0, 0)),
+                    MotionValue.Color => new MotionValue.Color(new Color(0, 0, 0, 0)),
                     MotionValue.Vector2 => new MotionValue.Vector2(new double[] { 0, 0 }),
                     MotionValue.Vector3 => new MotionValue.Vector3(new double[] { 0, 0, 0 }),
                     MotionValue.Angle => new MotionValue.Angle(0),

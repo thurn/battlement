@@ -78,8 +78,8 @@ namespace Battlement.Tests
             fixture.Focus(true);
             fixture.Sample();
             AssertColor(fixture.Target, 0, 0, 1);
-            MotionDescriptor green = fixture.Descriptor with { StaticBaseline = Paint(0, 1, 0) };
-            fixture.Update(new UiView { Motion = green });
+            PaintStyle green = Paint(0, 1, 0);
+            fixture.Update(new UiView { Paint = green });
             fixture.Sample();
             AssertColor(fixture.Target, 0, 0, 1);
             fixture.Focus(false);
@@ -93,12 +93,7 @@ namespace Battlement.Tests
             );
             fixture.Sample();
             AssertColor(fixture.Target, 0, 1, 0);
-            fixture.Update(
-                new UiView
-                {
-                    Motion = green with { StaticBaseline = Array.Empty<MotionPropertyValue>() },
-                }
-            );
+            fixture.Update(new UiView { Paint = Prop<PaintStyle>.Reset() });
             fixture.Sample();
             AssertColor(fixture.Target, 1, 1, 0);
             fixture.Focus(true);
@@ -143,28 +138,20 @@ namespace Battlement.Tests
             }
         }
 
-        private static MotionPropertyValue[] Paint(double red, double green, double blue) =>
-            new[]
-            {
-                new MotionPropertyValue(
-                    MotionProperty.BackgroundColor,
-                    new MotionValue.Color(new MotionColor(red, green, blue, 1))
-                ),
-                new MotionPropertyValue(
-                    MotionProperty.ClipPolygon,
-                    new MotionValue.ClipPolygon(
-                        new IReadOnlyList<MotionLength>[]
-                        {
-                            new[] { new MotionLength(0, 20), new MotionLength(0, 0) },
-                            new[] { new MotionLength(0, 80), new MotionLength(0, 0) },
-                            new[] { new MotionLength(0, 100), new MotionLength(0, 50) },
-                            new[] { new MotionLength(0, 80), new MotionLength(0, 100) },
-                            new[] { new MotionLength(0, 20), new MotionLength(0, 100) },
-                            new[] { new MotionLength(0, 0), new MotionLength(0, 50) },
-                        }
-                    )
-                ),
-            };
+        private static PaintStyle Paint(double red, double green, double blue) =>
+            new(
+                new PaintFill.Color(new Color(red, green, blue, 1)),
+                new IReadOnlyList<UiLength>[]
+                {
+                    new[] { UiLength.FromComponents(0, 20), UiLength.FromComponents(0, 0) },
+                    new[] { UiLength.FromComponents(0, 80), UiLength.FromComponents(0, 0) },
+                    new[] { UiLength.FromComponents(0, 100), UiLength.FromComponents(0, 50) },
+                    new[] { UiLength.FromComponents(0, 80), UiLength.FromComponents(0, 100) },
+                    new[] { UiLength.FromComponents(0, 20), UiLength.FromComponents(0, 100) },
+                    new[] { UiLength.FromComponents(0, 0), UiLength.FromComponents(0, 50) },
+                },
+                null
+            );
 
         private sealed class Fixture : IDisposable
         {
@@ -190,7 +177,6 @@ namespace Battlement.Tests
                     Host,
                     Host,
                     1,
-                    Paint(1, 0, 0),
                     false,
                     new[]
                     {
@@ -205,7 +191,7 @@ namespace Battlement.Tests
                                         MotionProperty.BackgroundColor,
                                         new MotionValue[]
                                         {
-                                            new MotionValue.Color(new MotionColor(0, 0, 1, 1)),
+                                            new MotionValue.Color(new Color(0, 0, 1, 1)),
                                         },
                                         new TransitionDefinition(
                                             new TransitionGenerator.Tween(
@@ -249,6 +235,7 @@ namespace Battlement.Tests
                                     {
                                         Focusable = true,
                                         Motion = Descriptor,
+                                        Paint = Paint(1, 0, 0),
                                         Style = new UiStyle(
                                             Width: UiStyle.Set<UiLengthOrAuto>(
                                                 new UiLengthOrAuto.Px(100)

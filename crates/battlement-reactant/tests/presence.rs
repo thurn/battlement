@@ -66,9 +66,9 @@ impl Component for RetainedCard {
     View::new()
       .name(self.label)
       .layout(Layout::Both)
-      .animate(MotionStyle::new().opacity(1.0))
+      .animate(StyleTarget::new().opacity(1.0))
       .exit(
-        MotionTarget::new(MotionStyle::new().opacity(0.0))
+        MotionTarget::new(StyleTarget::new().opacity(0.0))
           .transition(Transition::tween().duration_secs(0.2))
           .on_complete(|game: &mut Game| game.slot_completed += 1)
           .on_cancel(|game: &mut Game| game.slot_cancelled += 1),

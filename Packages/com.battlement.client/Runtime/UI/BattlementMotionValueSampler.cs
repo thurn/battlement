@@ -207,10 +207,13 @@ namespace Battlement.UI
             return times.Count - 2;
         }
 
-        private static MotionLength Mix(MotionLength left, MotionLength right, double progress) =>
-            new(Lerp(left.Px, right.Px, progress), Lerp(left.Percent, right.Percent, progress));
+        private static UiLength Mix(UiLength left, UiLength right, double progress) =>
+            UiLength.FromComponents(
+                Lerp(left.Pixels, right.Pixels, progress),
+                Lerp(left.Percentage, right.Percentage, progress)
+            );
 
-        private static MotionColor Mix(MotionColor left, MotionColor right, double progress) =>
+        private static Color Mix(Color left, Color right, double progress) =>
             new(
                 RootMix(left.Red, right.Red, progress),
                 RootMix(left.Green, right.Green, progress),
@@ -226,25 +229,25 @@ namespace Battlement.UI
         {
             if (left.Value.Count != right.Value.Count)
                 return progress < 0.5 ? left : right;
-            var result = new MotionTransform[left.Value.Count];
+            var result = new TransformOperation[left.Value.Count];
             for (int index = 0; index < result.Length; index++)
             {
                 result[index] = (left.Value[index], right.Value[index]) switch
                 {
-                    (MotionTransform.Translate a, MotionTransform.Translate b)
-                        when a.Value.Count == b.Value.Count => new MotionTransform.Translate(
+                    (TransformOperation.Translate a, TransformOperation.Translate b)
+                        when a.Value.Count == b.Value.Count => new TransformOperation.Translate(
                         MixLengths(a.Value, b.Value, progress)
                     ),
-                    (MotionTransform.Rotate a, MotionTransform.Rotate b)
-                        when a.Value.Count == b.Value.Count => new MotionTransform.Rotate(
+                    (TransformOperation.Rotate a, TransformOperation.Rotate b)
+                        when a.Value.Count == b.Value.Count => new TransformOperation.Rotate(
                         MixNumbers(a.Value, b.Value, progress)
                     ),
-                    (MotionTransform.Skew a, MotionTransform.Skew b)
-                        when a.Value.Count == b.Value.Count => new MotionTransform.Skew(
+                    (TransformOperation.Skew a, TransformOperation.Skew b)
+                        when a.Value.Count == b.Value.Count => new TransformOperation.Skew(
                         MixNumbers(a.Value, b.Value, progress)
                     ),
-                    (MotionTransform.Scale a, MotionTransform.Scale b)
-                        when a.Value.Count == b.Value.Count => new MotionTransform.Scale(
+                    (TransformOperation.Scale a, TransformOperation.Scale b)
+                        when a.Value.Count == b.Value.Count => new TransformOperation.Scale(
                         MixNumbers(a.Value, b.Value, progress)
                     ),
                     _ => null!,
@@ -263,12 +266,12 @@ namespace Battlement.UI
         {
             if (right.Value.Count == 0)
                 return progress < 0.5 ? left : right;
-            var result = new MotionFilter[right.Value.Count];
+            var result = new UiFilterFunction[right.Value.Count];
             int source = 0;
             for (int index = 0; index < result.Length; index++)
             {
-                MotionFilter? origin = source < left.Value.Count ? left.Value[source++] : null;
-                MotionFilter target = right.Value[index];
+                UiFilterFunction? origin = source < left.Value.Count ? left.Value[source++] : null;
+                UiFilterFunction target = right.Value[index];
                 result[index] = MixFilter(origin, target, progress);
                 if (result[index] is null)
                     return progress < 0.5 ? left : right;
@@ -276,48 +279,61 @@ namespace Battlement.UI
             return new MotionValue.FilterList(result);
         }
 
-        private static MotionFilter MixFilter(
-            MotionFilter? origin,
-            MotionFilter target,
+        private static UiFilterFunction MixFilter(
+            UiFilterFunction? origin,
+            UiFilterFunction target,
             double progress
         )
         {
             double from = origin switch
             {
-                MotionFilter.Blur filter => filter.Value,
-                MotionFilter.Brightness filter => filter.Value,
-                MotionFilter.Saturate filter => filter.Value,
-                MotionFilter.Contrast filter => filter.Value,
-                MotionFilter.HueRotate filter => filter.Value,
-                MotionFilter.Opacity filter => filter.Value,
+                UiFilterFunction.Blur filter => filter.Value,
+                UiFilterFunction.Brightness filter => filter.Value,
+                UiFilterFunction.Saturate filter => filter.Value,
+                UiFilterFunction.Contrast filter => filter.Value,
+                UiFilterFunction.HueRotate filter => filter.Value,
+                UiFilterFunction.Opacity filter => filter.Value,
+                UiFilterFunction.Invert filter => filter.Value,
+                UiFilterFunction.Grayscale filter => filter.Value,
+                UiFilterFunction.Sepia filter => filter.Value,
                 null => 0,
                 _ => double.NaN,
             };
-            if (target is MotionFilter.DropShadow shadow)
-                return origin is MotionFilter.DropShadow source
-                    ? new MotionFilter.DropShadow(Mix(source.Value, shadow.Value, progress))
+            if (target is UiFilterFunction.Tint tint)
+                return origin is UiFilterFunction.Tint source
+                    ? new UiFilterFunction.Tint(Mix(source.Value, tint.Value, progress))
+                    : null!;
+            if (target is UiFilterFunction.DropShadow shadow)
+                return origin is UiFilterFunction.DropShadow source
+                    ? new UiFilterFunction.DropShadow(Mix(source.Value, shadow.Value, progress))
                     : null!;
             if (!double.IsFinite(from))
                 return null!;
             double to = target switch
             {
-                MotionFilter.Blur filter => filter.Value,
-                MotionFilter.Brightness filter => filter.Value,
-                MotionFilter.Saturate filter => filter.Value,
-                MotionFilter.Contrast filter => filter.Value,
-                MotionFilter.HueRotate filter => filter.Value,
-                MotionFilter.Opacity filter => filter.Value,
+                UiFilterFunction.Blur filter => filter.Value,
+                UiFilterFunction.Brightness filter => filter.Value,
+                UiFilterFunction.Saturate filter => filter.Value,
+                UiFilterFunction.Contrast filter => filter.Value,
+                UiFilterFunction.HueRotate filter => filter.Value,
+                UiFilterFunction.Opacity filter => filter.Value,
+                UiFilterFunction.Invert filter => filter.Value,
+                UiFilterFunction.Grayscale filter => filter.Value,
+                UiFilterFunction.Sepia filter => filter.Value,
                 _ => double.NaN,
             };
-            double mixed = Lerp(from, to, progress);
+            float mixed = checked((float)Lerp(from, to, progress));
             return target switch
             {
-                MotionFilter.Blur => new MotionFilter.Blur(mixed),
-                MotionFilter.Brightness => new MotionFilter.Brightness(mixed),
-                MotionFilter.Saturate => new MotionFilter.Saturate(mixed),
-                MotionFilter.Contrast => new MotionFilter.Contrast(mixed),
-                MotionFilter.HueRotate => new MotionFilter.HueRotate(mixed),
-                MotionFilter.Opacity => new MotionFilter.Opacity(mixed),
+                UiFilterFunction.Blur => new UiFilterFunction.Blur(mixed),
+                UiFilterFunction.Brightness => new UiFilterFunction.Brightness(mixed),
+                UiFilterFunction.Saturate => new UiFilterFunction.Saturate(mixed),
+                UiFilterFunction.Contrast => new UiFilterFunction.Contrast(mixed),
+                UiFilterFunction.HueRotate => new UiFilterFunction.HueRotate(mixed),
+                UiFilterFunction.Opacity => new UiFilterFunction.Opacity(mixed),
+                UiFilterFunction.Invert => new UiFilterFunction.Invert(mixed),
+                UiFilterFunction.Grayscale => new UiFilterFunction.Grayscale(mixed),
+                UiFilterFunction.Sepia => new UiFilterFunction.Sepia(mixed),
                 _ => null!,
             };
         }
@@ -330,7 +346,7 @@ namespace Battlement.UI
         {
             if (left.Value.Count != right.Value.Count)
                 return progress < 0.5 ? left : right;
-            var result = new MotionShadow[left.Value.Count];
+            var result = new Shadow[left.Value.Count];
             for (int index = 0; index < result.Length; index++)
             {
                 if (left.Value[index].Inset != right.Value[index].Inset)
@@ -340,7 +356,7 @@ namespace Battlement.UI
             return new MotionValue.ShadowList(result);
         }
 
-        private static MotionShadow Mix(MotionShadow left, MotionShadow right, double progress) =>
+        private static Shadow Mix(Shadow left, Shadow right, double progress) =>
             new(
                 Lerp(left.X, right.X, progress),
                 Lerp(left.Y, right.Y, progress),
@@ -356,22 +372,22 @@ namespace Battlement.UI
             double progress
         )
         {
-            if (left.Value is MotionGradient.Linear a && right.Value is MotionGradient.Linear b)
+            if (left.Value is Gradient.Linear a && right.Value is Gradient.Linear b)
                 return a.Stops.Count == b.Stops.Count
                         ? new MotionValue.Gradient(
-                            new MotionGradient.Linear(
+                            new Gradient.Linear(
                                 Lerp(a.Angle, b.Angle, progress),
                                 MixStops(a.Stops, b.Stops, progress)
                             )
                         )
                     : progress < 0.5 ? left
                     : right;
-            if (left.Value is MotionGradient.Radial c && right.Value is MotionGradient.Radial d)
+            if (left.Value is Gradient.Radial c && right.Value is Gradient.Radial d)
                 return c.Stops.Count == d.Stops.Count
                     && c.Center.Count == d.Center.Count
                     && c.Radius.Count == d.Radius.Count
                         ? new MotionValue.Gradient(
-                            new MotionGradient.Radial(
+                            new Gradient.Radial(
                                 MixNumbers(c.Center, d.Center, progress),
                                 MixNumbers(c.Radius, d.Radius, progress),
                                 MixStops(c.Stops, d.Stops, progress)
@@ -382,15 +398,15 @@ namespace Battlement.UI
             return progress < 0.5 ? left : right;
         }
 
-        private static IReadOnlyList<MotionGradientStop> MixStops(
-            IReadOnlyList<MotionGradientStop> left,
-            IReadOnlyList<MotionGradientStop> right,
+        private static IReadOnlyList<GradientStop> MixStops(
+            IReadOnlyList<GradientStop> left,
+            IReadOnlyList<GradientStop> right,
             double progress
         )
         {
-            var result = new MotionGradientStop[left.Count];
+            var result = new GradientStop[left.Count];
             for (int index = 0; index < result.Length; index++)
-                result[index] = new MotionGradientStop(
+                result[index] = new GradientStop(
                     Mix(left[index].Color, right[index].Color, progress),
                     Lerp(left[index].Position, right[index].Position, progress)
                 );
@@ -409,21 +425,21 @@ namespace Battlement.UI
             return result;
         }
 
-        private static IReadOnlyList<MotionLength> MixLengths(
-            IReadOnlyList<MotionLength> left,
-            IReadOnlyList<MotionLength> right,
+        private static IReadOnlyList<UiLength> MixLengths(
+            IReadOnlyList<UiLength> left,
+            IReadOnlyList<UiLength> right,
             double progress
         )
         {
-            var result = new MotionLength[left.Count];
+            var result = new UiLength[left.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = Mix(left[index], right[index], progress);
             return result;
         }
 
         private static bool CompatiblePolygon(
-            IReadOnlyList<IReadOnlyList<MotionLength>> left,
-            IReadOnlyList<IReadOnlyList<MotionLength>> right
+            IReadOnlyList<IReadOnlyList<UiLength>> left,
+            IReadOnlyList<IReadOnlyList<UiLength>> right
         )
         {
             if (left.Count != right.Count)
@@ -434,13 +450,13 @@ namespace Battlement.UI
             return true;
         }
 
-        private static IReadOnlyList<IReadOnlyList<MotionLength>> MixPolygon(
-            IReadOnlyList<IReadOnlyList<MotionLength>> left,
-            IReadOnlyList<IReadOnlyList<MotionLength>> right,
+        private static IReadOnlyList<IReadOnlyList<UiLength>> MixPolygon(
+            IReadOnlyList<IReadOnlyList<UiLength>> left,
+            IReadOnlyList<IReadOnlyList<UiLength>> right,
             double progress
         )
         {
-            var result = new IReadOnlyList<MotionLength>[left.Count];
+            var result = new IReadOnlyList<UiLength>[left.Count];
             for (int index = 0; index < result.Length; index++)
                 result[index] = MixLengths(left[index], right[index], progress);
             return result;

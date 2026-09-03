@@ -110,13 +110,6 @@ namespace Battlement.Tests
                 host,
                 host,
                 1,
-                new[]
-                {
-                    new MotionPropertyValue(
-                        MotionProperty.X,
-                        new MotionValue.Length(new MotionLength(0, 0))
-                    ),
-                },
                 false,
                 new[]
                 {
@@ -131,7 +124,7 @@ namespace Battlement.Tests
                                     MotionProperty.X,
                                     new MotionValue[]
                                     {
-                                        new MotionValue.Length(new MotionLength(100, 0)),
+                                        new MotionValue.Length(UiLength.FromComponents(100, 0)),
                                     },
                                     new TransitionDefinition(
                                         new TransitionGenerator.Tween(
@@ -159,7 +152,7 @@ namespace Battlement.Tests
         private static float ReadX(VisualElement target) =>
             BattlementMotionPropertyWriter.Read(target, MotionProperty.X)
                 is MotionValue.Length value
-                ? (float)value.Value.Px
+                ? (float)value.Value.Pixels
                 : 0;
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));

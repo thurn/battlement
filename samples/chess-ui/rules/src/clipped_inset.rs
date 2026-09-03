@@ -1,6 +1,6 @@
 //! Shared inset paint for clipped control interiors.
 
-use battlement::{MotionLength, MotionShadow, PickingMode, Position, Style};
+use battlement::{Length, PickingMode, Position, Shadow, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
@@ -15,9 +15,9 @@ pub struct ClippedInset {
   #[builder(required)]
   background: PaintFill,
   /// Adds painted shadows inside the clipped surface.
-  box_shadow: Option<Vec<MotionShadow>>,
+  box_shadow: Option<Vec<Shadow>>,
   /// Sets the polygon used to clip the painted interior.
-  clip_path: Vec<[MotionLength; 2]>,
+  clip_path: Vec<[Length; 2]>,
   /// Moves each edge inward by this many design pixels.
   inset: f32,
 }

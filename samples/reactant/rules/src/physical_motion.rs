@@ -233,8 +233,8 @@ fn gallery(elapsed: f64, interrupted: bool) -> View {
       "retarget keeps rendered position + signed velocity",
       View::new()
         .style(probe())
-        .initial(MotionStyle::new().x(0.0))
-        .animate(MotionStyle::new().x(if interrupted { -44.0 } else { 64.0 }))
+        .initial(StyleTarget::new().x(0.0))
+        .animate(StyleTarget::new().x(if interrupted { -44.0 } else { 64.0 }))
         .transition(
           Transition::spring()
             .stiffness(140.0)
@@ -261,8 +261,8 @@ fn inertia_probes(elapsed: f64) -> View {
     .child(
       View::new()
         .style(probe().width(74.0))
-        .initial(MotionStyle::new().scale_x(0.7))
-        .animate(MotionStyle::new().scale_x(1.0))
+        .initial(StyleTarget::new().scale_x(0.7))
+        .animate(StyleTarget::new().scale_x(1.0))
         .transition(
           Transition::inertia()
             .initial_velocity(0.9)
@@ -273,8 +273,8 @@ fn inertia_probes(elapsed: f64) -> View {
     .child(
       View::new()
         .style(probe().width(74.0))
-        .initial(MotionStyle::new().scale_x(0.7))
-        .animate(MotionStyle::new().scale_x(1.0))
+        .initial(StyleTarget::new().scale_x(0.7))
+        .animate(StyleTarget::new().scale_x(1.0))
         .transition(
           Transition::inertia()
             .initial_velocity(0.9)
@@ -292,8 +292,8 @@ fn inertia_probes(elapsed: f64) -> View {
 fn spring_probe(transition: Transition, elapsed: f64) -> View {
   View::new()
     .style(probe())
-    .initial(MotionStyle::new().x(0.0))
-    .animate(MotionStyle::new().x(58.0))
+    .initial(StyleTarget::new().x(0.0))
+    .animate(StyleTarget::new().x(58.0))
     .transition(transition.delay_secs(-elapsed))
 }
 

@@ -74,7 +74,6 @@ namespace Battlement.Tests
             private readonly RenderTexture texture = new(128, 128, 24);
             private readonly PanelSettings panel;
             private (bool Gradient, bool Inset, bool Polygon)? paintState;
-            private uint generation;
 
             public Fixture()
             {
@@ -113,59 +112,35 @@ namespace Battlement.Tests
                 bool polygon = false
             )
             {
-                var values = new List<MotionPropertyValue>();
-                if (gradient)
-                    values.Add(
-                        new MotionPropertyValue(
-                            MotionProperty.BackgroundGradient,
-                            new MotionValue.Gradient(
-                                new MotionGradient.Linear(
-                                    0,
-                                    new[]
-                                    {
-                                        new MotionGradientStop(new MotionColor(1, 0, 0, 1), 0),
-                                        new MotionGradientStop(new MotionColor(0, 0, 1, 1), 1),
-                                    }
-                                )
-                            )
+                PaintFill background = gradient
+                    ? new PaintFill.Gradient(
+                        new Gradient.Linear(
+                            0,
+                            new[]
+                            {
+                                new GradientStop(new Color(1, 0, 0, 1), 0),
+                                new GradientStop(new Color(0, 0, 1, 1), 1),
+                            }
                         )
-                    );
-                else
-                    values.Add(
-                        new MotionPropertyValue(
-                            MotionProperty.BackgroundColor,
-                            new MotionValue.Color(new MotionColor(1, 0, 0, 1))
-                        )
-                    );
-                if (inset)
-                    values.Add(
-                        new MotionPropertyValue(
-                            MotionProperty.ClipInset,
-                            new MotionValue.ClipInset(
-                                new[]
-                                {
-                                    new MotionLength(10, 0),
-                                    new MotionLength(10, 0),
-                                    new MotionLength(10, 0),
-                                    new MotionLength(10, 0),
-                                }
-                            )
-                        )
-                    );
-                if (polygon)
-                    values.Add(
-                        new MotionPropertyValue(
-                            MotionProperty.ClipPolygon,
-                            new MotionValue.ClipPolygon(
-                                new IReadOnlyList<MotionLength>[]
-                                {
-                                    new[] { new MotionLength(0, 0), new MotionLength(0, 0) },
-                                    new[] { new MotionLength(0, 100), new MotionLength(0, 0) },
-                                    new[] { new MotionLength(0, 0), new MotionLength(0, 100) },
-                                }
-                            )
-                        )
-                    );
+                    )
+                    : new PaintFill.Color(new Color(1, 0, 0, 1));
+                IReadOnlyList<UiLength>? clipInset = inset
+                    ? new[]
+                    {
+                        UiLength.FromComponents(10, 0),
+                        UiLength.FromComponents(10, 0),
+                        UiLength.FromComponents(10, 0),
+                        UiLength.FromComponents(10, 0),
+                    }
+                    : null;
+                IReadOnlyList<IReadOnlyList<UiLength>>? clipPolygon = polygon
+                    ? new IReadOnlyList<UiLength>[]
+                    {
+                        new[] { UiLength.FromComponents(0, 0), UiLength.FromComponents(0, 0) },
+                        new[] { UiLength.FromComponents(0, 100), UiLength.FromComponents(0, 0) },
+                        new[] { UiLength.FromComponents(0, 0), UiLength.FromComponents(0, 100) },
+                    }
+                    : null;
                 bool paintChanged = paintState != (gradient, inset, polygon);
                 paintState = (gradient, inset, polygon);
                 documents.Update(
@@ -192,18 +167,9 @@ namespace Battlement.Tests
                                         new UiLength.Px(radius)
                                     )
                                 ),
-                                Motion = paintChanged
-                                    ? new MotionDescriptor(
-                                        host,
-                                        host,
-                                        ++generation,
-                                        values,
-                                        false,
-                                        Array.Empty<MotionSlotDescriptor>(),
-                                        new MotionClockSource.Controlled(host),
-                                        ReducedMotionPolicy.Never
-                                    )
-                                    : default(Prop<MotionDescriptor>),
+                                Paint = paintChanged
+                                    ? new PaintStyle(background, clipPolygon, null, clipInset)
+                                    : default(Prop<PaintStyle>),
                             }
                         )
                     )

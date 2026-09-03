@@ -262,6 +262,38 @@ namespace Battlement
 
         /// <summary>A parent-relative percentage length.</summary>
         public sealed record Percent(float Value) : UiLength;
+
+        /// <summary>A typed pixel-plus-percentage length.</summary>
+        public sealed record Calc(
+            [property: Newtonsoft.Json.JsonProperty("px")] float PixelComponent,
+            [property: Newtonsoft.Json.JsonProperty("percent")] float PercentageComponent
+        ) : UiLength;
+
+        /// <summary>Gets the absolute pixel component.</summary>
+        public float Pixels =>
+            this switch
+            {
+                Px value => value.Value,
+                Percent => 0,
+                Calc value => value.PixelComponent,
+                _ => throw new System.InvalidOperationException("Unknown UI length."),
+            };
+
+        /// <summary>Gets the relative percentage component.</summary>
+        public float Percentage =>
+            this switch
+            {
+                Px => 0,
+                Percent value => value.Value,
+                Calc value => value.PercentageComponent,
+                _ => throw new System.InvalidOperationException("Unknown UI length."),
+            };
+
+        /// <summary>Creates a length from independent pixel and percentage components.</summary>
+        public static UiLength FromComponents(double pixels, double percentage) =>
+            pixels == 0 ? new Percent(checked((float)percentage))
+            : percentage == 0 ? new Px(checked((float)pixels))
+            : new Calc(checked((float)pixels), checked((float)percentage));
     }
 
     /// <summary>A UI Toolkit length with an automatic layout case.</summary>
@@ -429,7 +461,13 @@ namespace Battlement
 
         public sealed record Contrast(float Value) : UiFilterFunction;
 
+        public sealed record Brightness(float Value) : UiFilterFunction;
+
+        public sealed record Saturate(float Value) : UiFilterFunction;
+
         public sealed record HueRotate(float Value) : UiFilterFunction;
+
+        public sealed record DropShadow(Shadow Value) : UiFilterFunction;
     }
 
     /// <summary>UI Toolkit easing curve used by a transition.</summary>
