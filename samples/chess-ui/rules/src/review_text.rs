@@ -39,11 +39,11 @@ impl Component for ReviewText {
   fn render(&self) -> impl Render {
     let style = match self.kind {
       ReviewTextKind::Brand => Style::new()
-        .font_size(28)
+        .font_size(56)
         .color(review_theme::ACCENT)
         .margin_bottom(6),
       ReviewTextKind::Caption => Style::new()
-        .font_size(14)
+        .font_size(28)
         .color(review_theme::MUTED)
         .margin_bottom(24),
       ReviewTextKind::Eyebrow => Style::new()

@@ -1,7 +1,9 @@
 //! The gallery’s actions and navigation entries, including keyboard behavior.
 
 use crate::{review_navigation, review_theme};
-use battlement::{Color, CurrentPage, MotionColor, Style, TextAnchor, WhiteSpace};
+use battlement::{
+  Align, Color, CurrentPage, FontStyle, MotionColor, Style, TextAnchor, WhiteSpace,
+};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
@@ -69,10 +71,10 @@ impl Component for ReviewButton {
     });
     behavior.semantic.state.current = current.then_some(CurrentPage::Page);
     let style = Style::new()
-      .min_height(48)
-      .padding((12, 14))
-      .margin((0, 0, 6, 0))
-      .font_size(16)
+      .min_height(72)
+      .padding((16, 14))
+      .margin((0, 0, 8, 0))
+      .font_size(32)
       .white_space(WhiteSpace::Normal)
       .unity_text_align(TextAnchor::MiddleLeft)
       .border_radius(6)
@@ -93,16 +95,43 @@ impl Component for ReviewButton {
         review_theme::TEXT
       })
       .flex_shrink(0);
-    Button::new(self.label.clone())
+    let button = Button::new(self.label.clone())
       .name(self.name.clone())
       .element_ref(reference)
-      .behavior(behavior)
-      .style(match self.kind {
-        ReviewButtonKind::Navigation { .. } => style,
-        ReviewButtonKind::Action => style.font_size(28).min_height(72).margin_top(16),
-      })
-      .while_focus_visible(
+      .behavior(behavior);
+    match self.kind {
+      ReviewButtonKind::Navigation { .. } => button.style(style).while_focus_visible(
         MotionStyle::new().background_color(MotionColor::new(0.18, 0.37, 0.38, 1.0)),
-      )
+      ),
+      ReviewButtonKind::Action => button
+        .style(
+          style
+            .align_self(Align::FlexStart)
+            .font_size(36)
+            .unity_font_style_and_weight(FontStyle::Bold)
+            .unity_text_align(TextAnchor::MiddleCenter)
+            .min_height(88)
+            .padding((18, 32))
+            .margin_top(20)
+            .border_radius(14)
+            .border_width(2)
+            .border_bottom_width(6)
+            .border_color(Color::rgb(0.18, 0.54, 0.52))
+            .background_color(review_theme::ACCENT)
+            .color(review_theme::BACKGROUND),
+        )
+        .hover_style(MotionStyle::new().background_color(MotionColor::new(0.60, 1.0, 0.96, 1.0)))
+        .active_style(
+          MotionStyle::new()
+            .background_color(MotionColor::new(0.28, 0.78, 0.74, 1.0))
+            .y(3.0),
+        )
+        .while_focus_visible(
+          MotionStyle::new()
+            .background_color(MotionColor::new(0.94, 1.0, 1.0, 1.0))
+            .scale(1.02),
+        )
+        .disabled_style(MotionStyle::new().opacity(0.4)),
+    }
   }
 }
