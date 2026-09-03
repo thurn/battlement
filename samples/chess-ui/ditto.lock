@@ -163,6 +163,36 @@ source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
 
 [[baselines]]
 profile = "macos"
+scenario = "action buttons"
+checkpoint = "changed"
+sha256 = "d087de70523df3673c8c618effe833202b70cbb68ba119c250880dc9a0b15866"
+width = 1280
+height = 800
+size_bytes = 131744
+source = "3caa0aa2770e443e451566805dd2a6bc071db840b38214824ec54fcebd0afe42"
+
+[[baselines]]
+profile = "macos"
+scenario = "action buttons"
+checkpoint = "initial"
+sha256 = "50869cb7aa145b69fd7df9c337a1605ed2040a880b5278301cc9838f813f5f23"
+width = 1280
+height = 800
+size_bytes = 131901
+source = "3caa0aa2770e443e451566805dd2a6bc071db840b38214824ec54fcebd0afe42"
+
+[[baselines]]
+profile = "macos"
+scenario = "action buttons"
+checkpoint = "reset"
+sha256 = "50869cb7aa145b69fd7df9c337a1605ed2040a880b5278301cc9838f813f5f23"
+width = 1280
+height = 800
+size_bytes = 131901
+source = "3caa0aa2770e443e451566805dd2a6bc071db840b38214824ec54fcebd0afe42"
+
+[[baselines]]
+profile = "macos"
 scenario = "gallery navigation first"
 checkpoint = "selected"
 sha256 = "ba41d9a26d18acb573e58dd7c5104554b111c39819fad772f728c68c2a5a8ab7"

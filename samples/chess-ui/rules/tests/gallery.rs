@@ -5,7 +5,7 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{app::App, asset_generator};
-use battlement_rules::{engine, pages, select_control, setting_row};
+use battlement_rules::{action_button, engine, pages, select_control, setting_row};
 
 #[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
@@ -229,6 +229,69 @@ fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
   self::assert_page(&mut client, 6);
 }
 
+#[test]
+fn action_children_activate_once_and_reselection_resets_callbacks() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-8");
+  client.ui().click(page);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  let region = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Region)
+    .unwrap();
+  let mut targets = Vec::new();
+  for name in ["PLAY", "COMPOSED LABEL", "ABOUT", "DISABLED", "RETURN"] {
+    let node = snapshot
+      .nodes
+      .iter()
+      .find(|node| node.label.as_deref() == Some(name))
+      .unwrap();
+    assert_eq!(node.role, SemanticRole::Button);
+    assert_eq!(node.parent_id, Some(region.object_id));
+    assert_eq!(node.state.disabled, name == "DISABLED");
+    targets.push(node.object_id);
+  }
+  for target in &targets {
+    client.ui().click(*target);
+    client.poll();
+  }
+  self::assert_actions(&client, 2, 1);
+  for target in &targets {
+    client
+      .ui()
+      .send_event(UiEvent::click(*target, ClickEvent::NavigationSubmit));
+    client.poll();
+  }
+  self::assert_actions(&client, 4, 2);
+  for target in &targets {
+    self::range_action(&mut client, *target, UiAccessibilityAction::Activate);
+  }
+  self::assert_actions(&client, 6, 3);
+  client.ui().click(page);
+  client.poll();
+  self::assert_actions(&client, 0, 0);
+  for target in targets {
+    assert!(!client.ui().contains(target));
+  }
+  self::assert_page(&mut client, 7);
+}
+
+fn assert_actions(client: &FakeClient<App>, clicks: u32, returns: u32) {
+  for name in [
+    format!("Action clicks: {clicks}"),
+    format!("Return clicks: {returns}"),
+  ] {
+    assert!(
+      self::snapshot(client)
+        .nodes
+        .iter()
+        .any(|node| node.label.as_deref() == Some(&name))
+    );
+  }
+}
+
 fn assert_volume(client: &FakeClient<App>, label: &str, expected: u32) -> ObjectId {
   let snapshot = self::snapshot(client);
   let slider = snapshot
@@ -376,6 +439,7 @@ fn client() -> FakeClient<App> {
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   assets.add_ui_font(setting_row::DISPLAY_FONT);
   assets.add_ui_font(select_control::VALUE_FONT);
+  assets.add_ui_font(action_button::ACTION_FONT);
   let mut client = FakeClient::connect(engine::create_engine(), assets);
   client.poll();
   client

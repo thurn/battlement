@@ -1,3 +1,6 @@
+pub mod action_button;
+mod action_harness;
+mod action_skin;
 mod assets;
 mod caret;
 mod check_mark;
@@ -10,6 +13,7 @@ mod gallery;
 pub mod pages;
 mod portrait_harness;
 pub mod portrait_viewport;
+pub mod return_button;
 pub mod review_button;
 pub mod review_navigation;
 pub mod review_page;

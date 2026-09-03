@@ -1,8 +1,8 @@
 use battlement_reactant::prelude::*;
 
 use crate::{
-  frame_harness, gallery, portrait_harness, select_harness, setting_row_harness, toggle_harness,
-  volume_harness,
+  action_harness, frame_harness, gallery, portrait_harness, select_harness, setting_row_harness,
+  toggle_harness, volume_harness,
 };
 
 /// One review page and its capture contract.
@@ -82,7 +82,7 @@ pub const ALL: [Page; 40] = [
     number: 8,
     title: "ActionButton",
     description: "ActionButton renders typed children and invokes clicks; interaction states, particles, and navigation remain unasserted.",
-    render_harness: gallery::empty_harness,
+    render_harness: action_harness::render,
     semantic_target: "8. ActionButton",
     capture_states: &["initial", "changed", "reset"],
   },

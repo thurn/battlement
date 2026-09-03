@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "sha256": "59edbe6e0201a188d2f4c13006d6b2642cf0637f0ec55f5befe0f69fb5d681f0",
-  "scenarios": 41,
-  "screenshots": 100,
+  "sha256": "04ae292d0d65a7b1b44b1d0b7051c8c088d044e44257fe628e4f380b8f50a2f2",
+  "scenarios": 42,
+  "screenshots": 103,
   "selection": {
     "basic": [
       "connected",
@@ -55,7 +55,8 @@
       "portrait viewport",
       "screen frame",
       "toggle control",
-      "select closed"
+      "select closed",
+      "action buttons"
     ]
   }
 }

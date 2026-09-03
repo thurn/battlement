@@ -147,3 +147,29 @@ to = "volume.changed"
 [[transitions]]
 from = "volume.changed"
 to = "volume.reset"
+
+[[mappings]]
+state = "action.initial"
+scenario = "action buttons"
+checkpoint = "initial"
+owner = "gallery::action_children_activate_once_and_reselection_resets_callbacks"
+
+[[mappings]]
+state = "action.changed"
+scenario = "action buttons"
+checkpoint = "changed"
+owner = "gallery::action_children_activate_once_and_reselection_resets_callbacks"
+
+[[mappings]]
+state = "action.reset"
+scenario = "action buttons"
+checkpoint = "reset"
+owner = "gallery::action_children_activate_once_and_reselection_resets_callbacks"
+
+[[transitions]]
+from = "action.initial"
+to = "action.changed"
+
+[[transitions]]
+from = "action.changed"
+to = "action.reset"

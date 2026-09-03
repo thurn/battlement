@@ -1292,3 +1292,69 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "action buttons"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY", disabled = false, parent = { role = "region", name = "ActionButton" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "COMPOSED LABEL" }, role = "button", name = "COMPOSED LABEL", disabled = false, parent = { role = "region", name = "ActionButton" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "ABOUT" }, role = "button", name = "ABOUT", disabled = false, parent = { role = "region", name = "ActionButton" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "DISABLED" }, role = "button", name = "DISABLED", disabled = true, parent = { role = "region", name = "ActionButton" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "RETURN" }, role = "button", name = "RETURN", disabled = false, parent = { role = "region", name = "ActionButton" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Action clicks: 0" }, role = "static-text", name = "Action clicks: 0" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Return clicks: 0" }, role = "static-text", name = "Return clicks: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "COMPOSED LABEL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ABOUT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Action clicks: 2" }, role = "static-text", name = "Action clicks: 2" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Return clicks: 1" }, role = "static-text", name = "Return clicks: 1" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Action clicks: 0" }, role = "static-text", name = "Action clicks: 0" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Return clicks: 0" }, role = "static-text", name = "Return clicks: 0" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ActionButton" }, role = "heading", name = "ActionButton" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
