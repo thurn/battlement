@@ -394,7 +394,12 @@ Use the Reactant sample and one direct Battlement UI fixture.
 ## Static decorative paint
 
 `View::paint(PaintStyle)` paints a solid or gradient background, polygon clip,
-and optional shadows without creating Animate or Exit slots:
+and optional shadows without creating Animate or Exit slots.
+
+Fills follow the host's resolved per-corner radii, including style updates.
+Overlapping radii shrink proportionally to fit the border box. An explicit
+polygon supplies its own contour; a motion inset clips the ordinary rounded
+contour without changing layout or hit targeting.
 
 ```rust
 use battlement::{MotionColor, MotionLength};

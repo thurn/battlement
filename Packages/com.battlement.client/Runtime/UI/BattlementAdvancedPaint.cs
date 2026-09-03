@@ -105,6 +105,8 @@ namespace Battlement.UI
             if (rect.width <= 0 || rect.height <= 0)
                 return;
             IReadOnlyList<Vector2> points = Geometry(rect);
+            if (points.Count < 3)
+                return;
             Painter2D painter = context.painter2D;
             DrawOuterShadows(painter, points);
             if (maskLease?.Value is Texture2D mask)
@@ -245,28 +247,13 @@ namespace Battlement.UI
 
         private List<Vector2> Inset(UnityRect rect)
         {
-            float top = 0;
-            float right = 0;
-            float bottom = 0;
-            float left = 0;
-            if (
+            List<Vector2> points = BattlementPaintContour.RoundedBox(rect, target.resolvedStyle);
+            return
                 values.TryGetValue(MotionProperty.ClipInset, out MotionValue value)
                 && value is MotionValue.ClipInset inset
                 && inset.Value.Count == 4
-            )
-            {
-                top = Resolve(inset.Value[0], rect.height);
-                right = Resolve(inset.Value[1], rect.width);
-                bottom = Resolve(inset.Value[2], rect.height);
-                left = Resolve(inset.Value[3], rect.width);
-            }
-            return new List<Vector2>
-            {
-                new(rect.xMin + left, rect.yMin + top),
-                new(rect.xMax - right, rect.yMin + top),
-                new(rect.xMax - right, rect.yMax - bottom),
-                new(rect.xMin + left, rect.yMax - bottom),
-            };
+                ? BattlementPaintContour.Inset(points, rect, inset.Value)
+                : points;
         }
 
         private static List<Vector2> Polygon(

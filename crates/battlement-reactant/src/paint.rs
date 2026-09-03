@@ -15,6 +15,7 @@ pub enum PaintFill {
 }
 
 /// Static paint in host border-box coordinates, below animated presentation.
+/// Fills follow the host's resolved corner radii unless an explicit polygon is supplied.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PaintStyle {
   background: Option<PaintFill>,

@@ -325,28 +325,28 @@ source = "911f3bda3b40498676eb0b1700acb5f19c8797d03bb5943c9e510435b917fb88"
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "changed"
-sha256 = "37fcb3ea5246335023a6c330168f6bc2b389e3fb0ab20511a6ad2c29c99375ca"
+sha256 = "920b2480d4e56afbc940221bd357c80e36af4e1467c9581015ca2aadb70af457"
 width = 1280
 height = 800
-size_bytes = 115824
-source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
+size_bytes = 116178
+source = "54d7329026b6d554ced1cd3ba0b98ee83ad738335868c761758f4edaf0c3d9c4"
 
 [[baselines]]
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "initial"
-sha256 = "2b1ee767a75413b6b89adf84dc000b474e046aea75f2ee448913b399d3eba23c"
+sha256 = "1c8f9043add2b6a82f923d58bf2daeefa8a1fbd1444baba51ed39a4017818702"
 width = 1280
 height = 800
-size_bytes = 116017
-source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
+size_bytes = 116365
+source = "54d7329026b6d554ced1cd3ba0b98ee83ad738335868c761758f4edaf0c3d9c4"
 
 [[baselines]]
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "reset"
-sha256 = "2b1ee767a75413b6b89adf84dc000b474e046aea75f2ee448913b399d3eba23c"
+sha256 = "1c8f9043add2b6a82f923d58bf2daeefa8a1fbd1444baba51ed39a4017818702"
 width = 1280
 height = 800
-size_bytes = 116017
-source = "607731706a5cdcefe4ad60a169918131e262b1d9ba2f6690ebf0017d819a9145"
+size_bytes = 116365
+source = "54d7329026b6d554ced1cd3ba0b98ee83ad738335868c761758f4edaf0c3d9c4"

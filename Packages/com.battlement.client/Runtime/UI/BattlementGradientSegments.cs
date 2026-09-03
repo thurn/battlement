@@ -29,9 +29,19 @@ namespace Battlement.UI
                 int last = Math.Min(first + 7, linear.Stops.Count - 1);
                 var clipped = new List<Vector2>(points);
                 if (first > 0)
-                    clipped = Clip(clipped, Project, (float)linear.Stops[first].Position, true);
+                    clipped = BattlementPaintContour.Clip(
+                        clipped,
+                        Project,
+                        (float)linear.Stops[first].Position,
+                        true
+                    );
                 if (last < linear.Stops.Count - 1)
-                    clipped = Clip(clipped, Project, (float)linear.Stops[last].Position, false);
+                    clipped = BattlementPaintContour.Clip(
+                        clipped,
+                        Project,
+                        (float)linear.Stops[last].Position,
+                        false
+                    );
                 if (clipped.Count < 3)
                     continue;
                 var stops = new List<MotionGradientStop>();
@@ -57,40 +67,6 @@ namespace Battlement.UI
             Vector2 axis = new(Mathf.Cos(radians), Mathf.Sin(radians));
             float radius = Mathf.Sqrt(rect.width * rect.width + rect.height * rect.height) / 2;
             return (rect.center - axis * radius, rect.center + axis * radius);
-        }
-
-        private static List<Vector2> Clip(
-            IReadOnlyList<Vector2> points,
-            Func<Vector2, float> project,
-            float boundary,
-            bool greater
-        )
-        {
-            var result = new List<Vector2>();
-            if (points.Count == 0)
-                return result;
-            Vector2 previous = points[points.Count - 1];
-            float previousDistance = project(previous) - boundary;
-            bool previousInside = greater ? previousDistance >= 0 : previousDistance <= 0;
-            foreach (Vector2 current in points)
-            {
-                float distance = project(current) - boundary;
-                bool inside = greater ? distance >= 0 : distance <= 0;
-                if (inside != previousInside)
-                    result.Add(
-                        Vector2.LerpUnclamped(
-                            previous,
-                            current,
-                            previousDistance / (previousDistance - distance)
-                        )
-                    );
-                if (inside)
-                    result.Add(current);
-                previous = current;
-                previousDistance = distance;
-                previousInside = inside;
-            }
-            return result;
         }
     }
 }
