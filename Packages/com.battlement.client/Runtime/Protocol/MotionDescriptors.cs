@@ -106,7 +106,8 @@ namespace Battlement
         bool MomentumComplete,
         bool ConstraintsMeasured,
         bool Scroll,
-        bool InView
+        bool InView,
+        bool FocusVisible = false
     );
 
     /// <summary>Unity-local gesture recognition and presentation configuration.</summary>
@@ -406,6 +407,8 @@ namespace Battlement
         TapCancel,
         FocusStart,
         FocusEnd,
+        FocusVisibleStart,
+        FocusVisibleEnd,
         PanSessionStart,
         PanStart,
         Pan,

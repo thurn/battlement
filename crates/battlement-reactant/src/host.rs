@@ -53,7 +53,7 @@ use crate::{
   portal::PortalTarget,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
-  semantics::{InteractionProps, SemanticProps},
+  semantics::{AccessibleBehavior, InteractionProps, SemanticProps},
   variant_map::{VariantData, VariantKey, Variants},
 };
 
@@ -218,6 +218,8 @@ macro_rules! gesture_methods {
       on_tap_cancel;
       on_focus_start;
       on_focus_end;
+      on_focus_visible_start;
+      on_focus_visible_end;
       on_pan_session_start;
       on_pan_start;
       on_pan;
@@ -381,6 +383,16 @@ macro_rules! facade {
           self.state.handlers.push(handler);
         }
         self
+      }
+
+      /// Attaches one accessible behavior's semantics, focus, and interaction atomically.
+      #[must_use]
+      pub fn behavior<G: 'static, S>(self, value: AccessibleBehavior<G, S>) -> Self {
+        self
+          .semantic(value.semantic)
+          .focus_props(value.focus)
+          .interaction_props(value.interaction)
+          .motion(value.motion)
       }
 
       /// Appends one USS class name.

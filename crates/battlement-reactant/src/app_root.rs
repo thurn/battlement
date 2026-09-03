@@ -9,6 +9,7 @@ use crate::{
   app_context::{self, AppHandle, AppQueue, Observations},
   application,
   key::KeyRenderExt,
+  motion_config,
   render::{Node, Render},
   runtime::Reactant,
 };
@@ -45,10 +46,12 @@ impl<G: 'static> AppRoot<G> {
     runtime.register_root(self.document.clone(), move |model| {
       let observed = observations.borrow();
       application::provider(observed.application).child(
-        app_context::VIEWPORT.provider(observed.screen).child(
-          app_context::APP
-            .provider(AppHandle::new(&queue))
-            .child(view(model).key(observed.remount)),
+        motion_config::preference_provider(observed.reduced_motion).child(
+          app_context::VIEWPORT.provider(observed.screen).child(
+            app_context::APP
+              .provider(AppHandle::new(&queue))
+              .child(view(model).key(observed.remount)),
+          ),
         ),
       )
     });

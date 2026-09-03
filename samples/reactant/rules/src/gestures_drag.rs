@@ -33,6 +33,8 @@ impl GesturesDragState {
       MotionGestureEventKind::TapCancel => "TAP CANCEL",
       MotionGestureEventKind::FocusStart => "FOCUS",
       MotionGestureEventKind::FocusEnd => "FOCUS END",
+      MotionGestureEventKind::FocusVisibleStart => "FOCUS VISIBLE",
+      MotionGestureEventKind::FocusVisibleEnd => "FOCUS VISIBLE END",
       MotionGestureEventKind::PanSessionStart => "PAN SESSION",
       MotionGestureEventKind::PanStart => "PAN START",
       MotionGestureEventKind::PanEnd => "PAN END",

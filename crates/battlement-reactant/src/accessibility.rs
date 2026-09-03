@@ -11,7 +11,11 @@ use crate::{
   element_ref::{ElementRef, use_element_ref},
   event_handler::Handler,
   focus::FocusProps,
-  semantics::{AccessibleBehavior, AccessibleName, InteractionProps, LocalizedText, SemanticProps},
+  host::{Label, TextElement},
+  motion::MotionProps,
+  semantics::{
+    self, AccessibleBehavior, AccessibleName, InteractionProps, LocalizedText, SemanticProps,
+  },
 };
 
 use crate::semantics::{SemanticMembership, SemanticVisibility};
@@ -150,10 +154,34 @@ pub fn use_button<G: 'static>(
       .action(AccessibilityAction::Activate),
     focus: ordinary_focus(options.is_disabled),
     interaction,
+    motion: MotionProps::new(),
     state: PressState {
       disabled: options.is_disabled,
     },
   }
+}
+
+/// Creates visible text with an exposed static-text semantic declaration.
+#[must_use]
+pub fn static_text(value: impl Into<String>) -> TextElement {
+  let value = value.into();
+  TextElement::new(value.clone()).semantic(self::use_static_text(semantics::text(value)))
+}
+
+/// Creates a native label with an exposed static-text semantic declaration.
+#[must_use]
+pub fn static_label(value: impl Into<String>) -> Label {
+  let value = value.into();
+  Label::new(value.clone()).semantic(self::use_static_text(semantics::text(value)))
+}
+
+/// Creates visible text that participates only in names derived from content.
+#[must_use]
+pub fn name_source_text(value: impl Into<String>) -> TextElement {
+  let value = value.into();
+  TextElement::new(value.clone()).semantic(
+    self::use_static_text(semantics::text(value)).visibility(SemanticVisibility::NameSourceOnly),
+  )
 }
 
 /// Returns checkbox semantics and unified Boolean activation.
@@ -273,6 +301,7 @@ pub fn use_slider<G: 'static>(
       .action(AccessibilityAction::Decrement),
     focus: ordinary_focus(disabled),
     interaction,
+    motion: MotionProps::new(),
     state: SliderState { value, disabled },
   }
 }
@@ -305,6 +334,7 @@ pub fn use_disclosure<G: 'static>(
       .action(AccessibilityAction::Activate),
     focus: ordinary_focus(options.is_disabled),
     interaction: activation::interaction(options.is_disabled, callback),
+    motion: MotionProps::new(),
     state: options.expanded,
   }
 }
@@ -327,6 +357,7 @@ pub fn use_dialog<G: 'static>(
     semantic,
     focus: FocusProps::new(),
     interaction,
+    motion: MotionProps::new(),
     state: (),
   }
 }
@@ -389,6 +420,7 @@ pub fn use_scroll_area<G: 'static>(
     semantic,
     focus: FocusProps::new(),
     interaction,
+    motion: MotionProps::new(),
     state: (),
   }
 }
@@ -415,6 +447,7 @@ fn use_toggle<G: 'static>(
       .action(AccessibilityAction::Activate),
     focus: ordinary_focus(disabled),
     interaction,
+    motion: MotionProps::new(),
     state: options.checked,
   }
 }
@@ -439,6 +472,7 @@ fn use_choice<G: 'static>(
       .membership(membership(membership_ref)),
     focus: ordinary_focus(disabled),
     interaction: activation::interaction(disabled, callback),
+    motion: MotionProps::new(),
     state: selected,
   }
 }

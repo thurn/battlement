@@ -81,6 +81,8 @@ pub trait InitialValue: private::InitialValueSealed {
 /// Tween easing functions.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Easing {
+  /// CSS `ease`, equivalent to `cubic-bezier(0.25, 0.1, 0.25, 1)`.
+  Ease,
   /// Constant normalized velocity.
   Linear,
   /// Motion's accelerating curve.
@@ -404,7 +406,10 @@ impl MotionStyle {
     self.set(MotionProperty::SkewY, vec![MotionValue::Angle(value)], None)
   }
 
-  /// Sets an ordered transform operation list.
+  /// Sets an ordered transform list on this host's decorative painted surface.
+  ///
+  /// Operations act on painted points from first to last.
+  /// This does not transform descendants or their picking geometry.
   #[must_use]
   pub fn transform_list(self, value: impl IntoIterator<Item = MotionTransform>) -> Self {
     self.set(
@@ -448,7 +453,9 @@ impl MotionStyle {
     )
   }
 
-  /// Sets outer or inset box shadows.
+  /// Sets outer or inset decorative-surface shadows.
+  ///
+  /// Unity supports zero blur; nonzero blur is rejected. Use generated paint for blur.
   #[must_use]
   pub fn box_shadow(self, value: impl IntoIterator<Item = MotionShadow>) -> Self {
     self.set(
@@ -468,7 +475,9 @@ impl MotionStyle {
     )
   }
 
-  /// Sets polygon clip geometry with a stable vertex count.
+  /// Clips this host's decorative painted surface to a stable polygon.
+  ///
+  /// This does not clip descendants or change picking geometry.
   #[must_use]
   pub fn clip_polygon(self, value: impl IntoIterator<Item = [MotionLength; 2]>) -> Self {
     self.set(

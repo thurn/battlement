@@ -7,7 +7,7 @@ use battlement_reactant::{
   component::Component,
   host::{Label, TextElement, View},
   render::Render,
-  semantics::{self, SemanticProps},
+  semantics::SemanticProps,
 };
 
 /// Compares settings row heights and visible label associations.
@@ -47,16 +47,14 @@ impl Component for SettingRowHarness {
 }
 
 fn value(text: &'static str) -> Label {
-  Label::new(text)
-    .semantic(accessibility::use_static_text(semantics::text(text)))
-    .style(
-      Style::new()
-        .font_size(40)
-        .color(Color::rgb(0.75, 0.86, 0.97))
-        .unity_text_align(TextAnchor::MiddleCenter),
-    )
+  accessibility::static_label(text).style(
+    Style::new()
+      .font_size(40)
+      .color(Color::rgb(0.75, 0.86, 0.97))
+      .unity_text_align(TextAnchor::MiddleCenter),
+  )
 }
 
 fn label(text: &'static str) -> TextElement {
-  TextElement::new(text).semantic(accessibility::use_static_text(semantics::text(text)))
+  accessibility::static_text(text)
 }

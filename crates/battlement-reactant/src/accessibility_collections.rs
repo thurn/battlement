@@ -32,6 +32,7 @@ pub fn use_option<G: 'static>(
     semantic: behavior.semantic,
     focus: behavior.focus,
     interaction: behavior.interaction,
+    motion: behavior.motion,
     state: options.selected,
   }
 }

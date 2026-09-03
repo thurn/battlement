@@ -6,24 +6,30 @@ use battlement::{
   Action, ActionBody, ActionId, ClientMessage, CommandBody, DisplayId, DisplayOrientation,
   GeometryGeneration, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationValue, GeometryValue, ResponseMessage, ScreenSize, ViewportGeometry,
-  ViewportRect, application::ApplicationState,
+  ViewportRect, application::ApplicationState, application::ReducedMotionPreference,
 };
 use battlement_native::Engine;
 use battlement_reactant::{app::App, prelude::*};
 
+type Observation = (ScreenSize, ApplicationState, ReducedMotionPreference, bool);
+
 #[derive(PartialEq)]
-struct Observed(Rc<RefCell<Vec<(ScreenSize, ApplicationState)>>>);
+struct Observed(Rc<RefCell<Vec<Observation>>>);
 
 impl Component for Observed {
   fn render(&self) -> impl Render {
     let screen = use_viewport_size();
     let application = use_application_state();
+    let reduced_motion = use_reduced_motion_preference();
+    let effective_motion = use_reduced_motion();
     let values = Rc::clone(&self.0);
     use_effect(
       move || {
-        values.borrow_mut().push((screen, application));
+        values
+          .borrow_mut()
+          .push((screen, application, reduced_motion, effective_motion));
       },
-      (screen, application),
+      (screen, application, reduced_motion, effective_motion),
     );
     Label::new(format!(
       "{}x{} {}",
@@ -99,12 +105,31 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     .unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().1, inactive);
+  app
+    .submit(ClientMessage::Action(Action::new(
+      ActionId::new_v4(),
+      initial.session_id,
+      ActionBody::ReducedMotionPreferenceChanged(ReducedMotionPreference::Reduce),
+    )))
+    .unwrap();
+  let _ = app.poll().unwrap();
+  assert_eq!(
+    values.borrow().last().unwrap().2,
+    ReducedMotionPreference::Reduce
+  );
+  assert!(values.borrow().last().unwrap().3);
   let mut connect = app_support::connect();
   connect.screen = ScreenSize::new(400, 300);
+  connect.reduced_motion_preference = ReducedMotionPreference::NoPreference;
   app.connect(connect).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(
     *values.borrow().last().unwrap(),
-    (ScreenSize::new(400, 300), ApplicationState::default())
+    (
+      ScreenSize::new(400, 300),
+      ApplicationState::default(),
+      ReducedMotionPreference::NoPreference,
+      false,
+    )
   );
 }

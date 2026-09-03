@@ -14,7 +14,7 @@ use battlement_reactant::{
   component::Component,
   host::{Flex, TextElement, View},
   render::Render,
-  semantics::{self, SemanticVisibility},
+  semantics,
 };
 use std::rc::Rc;
 
@@ -46,12 +46,7 @@ impl Component for VolumeControl {
       on_change: move |value| on_change(value as u32),
     });
     SettingRow::new()
-      .label(
-        TextElement::new(self.label.clone()).semantic(
-          accessibility::use_static_text(semantics::text(self.label.clone()))
-            .visibility(SemanticVisibility::NameSourceOnly),
-        ),
-      )
+      .label(accessibility::name_source_text(self.label.clone()))
       .children(
         Flex::new()
           .direction(FlexDirection::Row)
@@ -79,19 +74,14 @@ impl Component for VolumeControl {
                 volume_skin::track(self.value),
                 volume_skin::ticks(),
                 volume_skin::thumb(self.value),
-                View::new()
-                  .name("volume-input")
-                  .semantic(slider.semantic)
-                  .focus_props(slider.focus)
-                  .interaction_props(slider.interaction)
-                  .style(
-                    Style::new()
-                      .position(Position::Absolute)
-                      .left(-42)
-                      .top(-34)
-                      .width(368)
-                      .height(132),
-                  ),
+                View::new().name("volume-input").behavior(slider).style(
+                  Style::new()
+                    .position(Position::Absolute)
+                    .left(-42)
+                    .top(-34)
+                    .width(368)
+                    .height(132),
+                ),
               )),
             TextElement::new(format!("{}%", self.value))
               .name("volume-value")

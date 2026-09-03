@@ -1,8 +1,7 @@
 use crate::{Game, design_system};
 use battlement::{
-  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter,
-  MotionLength, MotionShadow, Overflow, ScrollViewMode, ScrollerVisibility, Style, WhiteSpace,
-  object_id,
+  Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionLength,
+  MotionShadow, Overflow, ScrollViewMode, ScrollerVisibility, Style, WhiteSpace, object_id,
 };
 use battlement_reactant::prelude::*;
 use std::time::Duration;
@@ -156,7 +155,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
       .hover_style(
         MotionStyle::new()
           .scale(1.03)
-          .filter([MotionFilter::Brightness(1.15)]),
+          .filter(MotionFilters::new().contrast(1.15)),
       )
       .active_style(MotionStyle::new().scale(0.97))
       .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12))),
@@ -227,13 +226,13 @@ fn modal(state: &ComposedEffectsState) -> View {
                   MotionStyle::new()
                     .y(28.0)
                     .scale(0.88)
-                    .filter([MotionFilter::Blur(8.0), MotionFilter::Saturate(0.6)]),
+                    .filter(MotionFilters::new().blur(8.0).contrast(0.6)),
                 )
                 .animate(
                   MotionStyle::new()
                     .y(0.0)
                     .scale(1.0)
-                    .filter([MotionFilter::Blur(0.0), MotionFilter::Saturate(1.0)]),
+                    .filter(MotionFilters::new().blur(0.0).contrast(1.0)),
                 )
                 .exit(MotionStyle::new().y(18.0).scale(0.92).opacity(0.0))
                 .after(
@@ -352,7 +351,7 @@ fn interactions(state: &ComposedEffectsState) -> View {
         .box_shadow([MotionShadow {
           x: 0.0,
           y: 5.0,
-          blur: 18.0,
+          blur: 0.0,
           spread: 1.0,
           color: MotionColor::new(0.0, 0.9, 1.0, 0.4),
           inset: false,

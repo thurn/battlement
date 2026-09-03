@@ -561,6 +561,7 @@ impl Transition {
 impl Easing {
   fn into_motion(self) -> MotionEasing {
     match self {
+      Self::Ease => MotionEasing::CubicBezier([0.25, 0.1, 0.25, 1.0]),
       Self::Linear => MotionEasing::Linear,
       Self::EaseIn => MotionEasing::EaseIn,
       Self::EaseOut => MotionEasing::EaseOut,

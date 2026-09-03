@@ -34,12 +34,13 @@
 
 #[doc(hidden)]
 pub use crate::builder_support as __builder_support;
+pub use battlement::application::ReducedMotionPreference;
 pub use battlement_builder::builder;
 
 pub use battlement::{
   AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
-  MotionColor, MotionLength, MotionProperty, PlacementAlign, PlacementSide, PopoverPlacement,
-  PopupKind, Prop, SemanticRole, SemanticState, StepPosition, Style, Visibility,
+  MotionColor, MotionFilters, MotionLength, MotionProperty, PlacementAlign, PlacementSide,
+  PopoverPlacement, PopupKind, Prop, SemanticRole, SemanticState, StepPosition, Style, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -63,6 +64,7 @@ pub use crate::{
   announcement::{Announce, use_announce},
   app_context::{AppHandle, use_app, use_viewport_size},
   application::use_application_state,
+  button_state::{ButtonState, use_button_state},
   callback::Callback as EventCallback,
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
@@ -97,7 +99,7 @@ pub use crate::{
     Repeat, RepeatType, Transition,
   },
   motion_component::{MotionComponent, MotionComponentExt},
-  motion_config::{MotionConfig, ReducedMotion, use_reduced_motion},
+  motion_config::{MotionConfig, ReducedMotion, use_reduced_motion, use_reduced_motion_preference},
   motion_value::{
     AnimationPlayback, AudioPlayback, AudioPlaybackOptions, ControlledMotionClock, InputRange,
     MotionExpression, MotionTimeSource, MotionValue as TypedMotionValue, MotionValueEvent,

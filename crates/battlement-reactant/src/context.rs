@@ -303,7 +303,7 @@ pub(crate) struct ProviderValue {
 }
 
 impl ProviderValue {
-  fn new<T: 'static>(identity: ContextIdentity, value: Rc<T>) -> Self {
+  pub(crate) fn new<T: 'static>(identity: ContextIdentity, value: Rc<T>) -> Self {
     Self { identity, value }
   }
 

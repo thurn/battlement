@@ -11,25 +11,29 @@ namespace Battlement.UI
 {
     internal static class BattlementReducedMotion
     {
-        public static bool Read()
+        public static bool Read() => Preference() == ReducedMotionPreference.Reduce;
+
+        public static ReducedMotionPreference Preference()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            return BattlementPrefersReducedMotion() != 0;
+            return BattlementPrefersReducedMotion() switch
+            {
+                1 => ReducedMotionPreference.Reduce,
+                0 => ReducedMotionPreference.NoPreference,
+                _ => ReducedMotionPreference.Unavailable,
+            };
 #elif UNITY_STANDALONE_OSX && !UNITY_EDITOR
             IntPtr workspace = SendObject(
                 ObjectiveCClass("NSWorkspace"),
                 ObjectiveCSelector("sharedWorkspace")
             );
             if (workspace == IntPtr.Zero)
-                throw Unavailable();
-            return SendBool(
-                workspace,
-                ObjectiveCSelector("accessibilityDisplayShouldReduceMotion")
-            );
-#elif UNITY_EDITOR
-            return false;
+                return ReducedMotionPreference.Unavailable;
+            return SendBool(workspace, ObjectiveCSelector("accessibilityDisplayShouldReduceMotion"))
+                ? ReducedMotionPreference.Reduce
+                : ReducedMotionPreference.NoPreference;
 #else
-            throw Unavailable();
+            return ReducedMotionPreference.Unavailable;
 #endif
         }
 
@@ -52,11 +56,5 @@ namespace Battlement.UI
         [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
         private static extern bool SendBool(IntPtr receiver, IntPtr selector);
 #endif
-
-        private static BattlementUiException Unavailable() =>
-            new(
-                CoreErrorCode.InvalidProperty,
-                "The platform reduced-motion preference is unavailable."
-            );
     }
 }

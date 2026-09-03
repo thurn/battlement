@@ -1,6 +1,6 @@
 use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
 use battlement::{Color, Style};
-use battlement_reactant::{hooks, prelude::*};
+use battlement_reactant::{accessibility, hooks, prelude::*};
 
 /// Owns checkbox values and counts proposals accepted from the controls.
 #[builder]
@@ -35,14 +35,12 @@ impl Component for ToggleHarness {
           .aria_label("Screen shake")
           .row_height(190.0)
           .offset_y(-8.0),
-        Label::new(format!("VSync changes: {changes}"))
-          .semantic(use_static_text(text(format!("VSync changes: {changes}"))))
-          .style(
-            Style::new()
-              .font_size(28)
-              .color(Color::rgb(0.75, 0.86, 0.97))
-              .margin_top(30),
-          ),
+        accessibility::static_label(format!("VSync changes: {changes}")).style(
+          Style::new()
+            .font_size(28)
+            .color(Color::rgb(0.75, 0.86, 0.97))
+            .margin_top(30),
+        ),
         ReviewButton::new()
           .label("Change VSync from parent")
           .on_press(move || external.update(|value| !value)),
@@ -51,6 +49,5 @@ impl Component for ToggleHarness {
 }
 
 fn label(value: &'static str) -> TextElement {
-  TextElement::new(value)
-    .semantic(use_static_text(text(value)).visibility(SemanticVisibility::NameSourceOnly))
+  accessibility::name_source_text(value)
 }

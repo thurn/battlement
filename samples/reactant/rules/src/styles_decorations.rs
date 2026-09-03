@@ -1,6 +1,6 @@
 use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
-  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter, MotionGradient,
+  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionGradient,
   MotionGradientStop, MotionLength, MotionShadow, Style,
 };
 use battlement_reactant::prelude::*;
@@ -252,7 +252,7 @@ fn advanced_specimen(elapsed: f64) -> View {
   let shadow = MotionShadow {
     x: 0.0,
     y: 6.0,
-    blur: 18.0,
+    blur: 0.0,
     spread: 2.0,
     color: MotionColor::new(0.0, 0.8, 0.9, 0.5),
     inset: false,
@@ -271,10 +271,10 @@ fn advanced_specimen(elapsed: f64) -> View {
         "styles-filter-clip",
         Animation::new(Keyframes::new([
           MotionStyle::new()
-            .filter([MotionFilter::Blur(0.0), MotionFilter::Contrast(0.8)])
+            .filter(MotionFilters::new().blur(0.0).contrast(0.8))
             .clip_inset([MotionLength::px(0.0); 4]),
           MotionStyle::new()
-            .filter([MotionFilter::Blur(4.0), MotionFilter::Contrast(1.3)])
+            .filter(MotionFilters::new().blur(4.0).contrast(1.3))
             .clip_inset([MotionLength::px(7.0); 4]),
         ])),
         elapsed,
@@ -310,7 +310,7 @@ fn advanced_specimen(elapsed: f64) -> View {
             .background_gradient(gradient.clone()),
           MotionStyle::new()
             .box_shadow([MotionShadow {
-              blur: 28.0,
+              blur: 0.0,
               spread: 5.0,
               ..shadow
             }])

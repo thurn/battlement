@@ -96,9 +96,7 @@ impl Component for ReviewButton {
     Button::new(self.label.clone())
       .name(self.name.clone())
       .element_ref(reference)
-      .semantic(behavior.semantic)
-      .focus_props(behavior.focus)
-      .interaction_props(behavior.interaction)
+      .behavior(behavior)
       .style(match self.kind {
         ReviewButtonKind::Navigation { .. } => style,
         ReviewButtonKind::Action => style.font_size(28).min_height(72).margin_top(16),

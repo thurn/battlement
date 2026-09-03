@@ -5,9 +5,8 @@ use battlement_reactant::{
   accessibility,
   component::Component,
   hooks,
-  host::{Flex, Label, TextElement, View},
+  host::{Flex, TextElement, View},
   render::Render,
-  semantics::{self, SemanticVisibility},
 };
 
 /// Counts action and Return presses, including a disabled action.
@@ -77,19 +76,14 @@ fn slot<R: Render>(button: ActionButton<R>) -> impl Render {
 }
 
 fn status(value: String) -> impl Render {
-  Label::new(value.clone())
-    .semantic(accessibility::use_static_text(semantics::text(value)))
-    .style(
-      Style::new()
-        .font_size(28)
-        .color(Color::rgb(0.75, 0.86, 0.97))
-        .margin_top(16),
-    )
+  accessibility::static_label(value).style(
+    Style::new()
+      .font_size(28)
+      .color(Color::rgb(0.75, 0.86, 0.97))
+      .margin_top(16),
+  )
 }
 
 fn text(value: &str) -> TextElement {
-  TextElement::new(value).semantic(
-    accessibility::use_static_text(semantics::text(value))
-      .visibility(SemanticVisibility::NameSourceOnly),
-  )
+  accessibility::name_source_text(value)
 }

@@ -27,6 +27,10 @@ namespace Battlement
         /// <summary>Initial application focus and pause observations.</summary>
         public ApplicationState ApplicationState { get; init; } = new();
 
+        /// <summary>Initial host-reported reduced-motion preference.</summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public ReducedMotionPreference ReducedMotionPreference { get; init; }
+
         public Connect(string platform, string unityVersion, ScreenSize screen)
             : this(platform, unityVersion, screen, Array.Empty<string>()) { }
     }
@@ -293,6 +297,10 @@ namespace Battlement
 
         /// <summary>Application focus or suspension changed independently of input.</summary>
         public sealed record ApplicationStateChanged(ApplicationState Value) : ActionBody;
+
+        /// <summary>The host's reduced-motion preference changed.</summary>
+        public sealed record ReducedMotionPreferenceChanged(ReducedMotionPreference Value)
+            : ActionBody;
     }
 
     /// <summary>A game-specific action using Battlement's shared action format.</summary>

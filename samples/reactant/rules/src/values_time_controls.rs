@@ -72,8 +72,8 @@ impl Component for ValuesTimeControls {
       source.clone(),
       InputRange::new([0.0, 1.0]),
       OutputRange::new([
-        vec![MotionFilter::Blur(0.0), MotionFilter::Saturate(0.7)],
-        vec![MotionFilter::Blur(3.0), MotionFilter::Saturate(1.4)],
+        vec![MotionFilter::Blur(0.0), MotionFilter::Contrast(0.7)],
+        vec![MotionFilter::Blur(3.0), MotionFilter::Contrast(1.4)],
       ]),
     );
     let transforms = use_transform(

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::application::ApplicationState;
+use crate::application::{ApplicationState, ReducedMotionPreference};
 
 use crate::{
   ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
@@ -23,6 +23,9 @@ pub struct Connect {
   pub screen: ScreenSize,
   /// Initial application focus and suspension observations.
   pub application_state: ApplicationState,
+  /// Initial host-reported reduced-motion preference.
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  pub reduced_motion_preference: ReducedMotionPreference,
   /// Sorted list of custom command types compiled into the build.
   pub custom_command_types: Vec<String>,
   /// Selected module identifiers in serialized Inspector order.
@@ -50,6 +53,7 @@ impl Connect {
       unity_version: unity_version.into(),
       screen,
       application_state: ApplicationState::default(),
+      reduced_motion_preference: ReducedMotionPreference::Unavailable,
       custom_command_types: Vec::new(),
       modules: Vec::new(),
       persistent_data_path: None,
@@ -390,6 +394,8 @@ impl Action {
 pub enum ActionBody {
   /// Application focus or suspension changed, independently of input availability.
   ApplicationStateChanged(ApplicationState),
+  /// The host's reduced-motion preference changed.
+  ReducedMotionPreferenceChanged(ReducedMotionPreference),
   /// Pointer began hovering an enabled game object.
   PointerEnter(PointerPayload),
   /// Pointer stopped hovering an enabled game object.

@@ -94,14 +94,14 @@ pub enum MotionTransform {
   Scale([f32; 3]),
 }
 
-/// One supported filter operation.
+/// One typed filter operation; Unity support is checked during validation.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MotionFilter {
   /// Gaussian blur radius in pixels.
   Blur(f32),
-  /// Brightness multiplier.
+  /// Brightness multiplier. Unsupported by the Unity adapter; rejected during validation.
   Brightness(f32),
-  /// Saturation multiplier.
+  /// Saturation multiplier. Unsupported by the Unity adapter; rejected during validation.
   Saturate(f32),
   /// Contrast multiplier.
   Contrast(f32),
@@ -109,8 +109,79 @@ pub enum MotionFilter {
   HueRotate(f32),
   /// Opacity multiplier.
   Opacity(f32),
-  /// Motion-compatible drop shadow.
+  /// Motion-compatible drop shadow. The Unity adapter currently rejects this operation.
   DropShadow(MotionShadow),
+}
+
+/// An ordered list of filter operations with explicit concatenation.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct MotionFilters(Vec<MotionFilter>);
+
+impl MotionFilters {
+  /// Creates an empty filter list.
+  #[must_use]
+  pub const fn new() -> Self {
+    Self(Vec::new())
+  }
+
+  /// Appends one operation, preserving duplicates and authored order.
+  #[must_use]
+  pub fn operation(mut self, value: MotionFilter) -> Self {
+    self.0.push(value);
+    self
+  }
+
+  /// Appends Gaussian blur in pixels.
+  #[must_use]
+  pub fn blur(self, radius: f32) -> Self {
+    self.operation(MotionFilter::Blur(radius))
+  }
+
+  /// Appends a contrast multiplier.
+  #[must_use]
+  pub fn contrast(self, amount: f32) -> Self {
+    self.operation(MotionFilter::Contrast(amount))
+  }
+
+  /// Appends hue rotation in degrees.
+  #[must_use]
+  pub fn hue_rotate(self, degrees: f32) -> Self {
+    self.operation(MotionFilter::HueRotate(degrees))
+  }
+
+  /// Appends an opacity multiplier.
+  #[must_use]
+  pub fn opacity(self, amount: f32) -> Self {
+    self.operation(MotionFilter::Opacity(amount))
+  }
+
+  /// Appends another ordered filter list.
+  #[must_use]
+  pub fn then(mut self, value: Self) -> Self {
+    self.0.extend(value.0);
+    self
+  }
+
+  /// Returns the authored operations in order.
+  #[must_use]
+  pub fn as_slice(&self) -> &[MotionFilter] {
+    &self.0
+  }
+}
+
+impl IntoIterator for MotionFilters {
+  type Item = MotionFilter;
+  type IntoIter = std::vec::IntoIter<MotionFilter>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+
+impl FromIterator<MotionFilter> for MotionFilters {
+  fn from_iter<T: IntoIterator<Item = MotionFilter>>(iter: T) -> Self {
+    Self(iter.into_iter().collect())
+  }
 }
 
 /// One outer or inset shadow.
@@ -120,7 +191,7 @@ pub struct MotionShadow {
   pub x: f32,
   /// Vertical offset in pixels.
   pub y: f32,
-  /// Blur radius in pixels.
+  /// Blur radius in pixels. Unity supports only zero; use generated paint for blur.
   pub blur: f32,
   /// Spread radius in pixels.
   pub spread: f32,
@@ -212,6 +283,9 @@ impl MotionValue {
       Self::ShadowList(values) if values.iter().any(|value| !shadow_is_finite(*value)) => {
         Err("motion shadow must be finite")
       }
+      Self::ShadowList(values) if values.iter().any(|value| value.blur != 0.0) => {
+        Err("motion box-shadow blur is unsupported by Unity; use generated paint")
+      }
       Self::Gradient(value) => validate_gradient(value),
       Self::ClipInset(values) if values.iter().any(|value| !value.is_finite()) => {
         Err("motion clip inset must be finite")
@@ -245,13 +319,15 @@ fn validate_transforms(values: &[MotionTransform]) -> Result<(), &'static str> {
 fn validate_filters(values: &[MotionFilter]) -> Result<(), &'static str> {
   for value in values {
     let finite = match value {
+      MotionFilter::Brightness(_) => return Err("motion brightness is unsupported by Unity"),
+      MotionFilter::Saturate(_) => return Err("motion saturation is unsupported by Unity"),
+      MotionFilter::DropShadow(_) => {
+        return Err("motion filter drop-shadow is unsupported by Unity");
+      }
       MotionFilter::Blur(value)
-      | MotionFilter::Brightness(value)
-      | MotionFilter::Saturate(value)
       | MotionFilter::Contrast(value)
       | MotionFilter::HueRotate(value)
       | MotionFilter::Opacity(value) => value.is_finite(),
-      MotionFilter::DropShadow(value) => shadow_is_finite(*value),
     };
     if !finite {
       return Err("motion filter must be finite");

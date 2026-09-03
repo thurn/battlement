@@ -17,12 +17,12 @@
 //! the checkbox input that must receive focus when its label is activated.
 //!
 //! ```
-//! use battlement_reactant::{app::App, host::TextElement};
+//! use battlement_reactant::{accessibility, app::App};
 //! use battlement_rules::{pages, toggle_control::ToggleControl};
 //!
 //! let app = App::new("chess-ui/content").ui(pages::gallery());
 //! let toggle = ToggleControl::new()
-//!   .label(TextElement::new("VSync"))
+//!   .label(accessibility::name_source_text("VSync"))
 //!   .checked(false)
 //!   .on_change(|checked| {
 //!     // Store the accepted value in parent state and render it again.

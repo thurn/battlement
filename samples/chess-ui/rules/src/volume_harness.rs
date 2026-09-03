@@ -1,14 +1,7 @@
 use crate::{review_button::ReviewButton, volume_control::VolumeControl};
 use battlement::{Color, Style};
 use battlement_reactant::prelude::builder;
-use battlement_reactant::{
-  accessibility,
-  component::Component,
-  hooks,
-  host::{Label, View},
-  render::Render,
-  semantics,
-};
+use battlement_reactant::{accessibility, component::Component, hooks, host::View, render::Render};
 
 /// Owns slider percentages and demonstrates accepted and rejected changes.
 #[builder]
@@ -44,16 +37,12 @@ impl Component for VolumeHarness {
           .label("Maximum")
           .value(100)
           .on_change(|_| {}),
-        Label::new(format!("Volume changes: {changes}"))
-          .semantic(accessibility::use_static_text(semantics::text(format!(
-            "Volume changes: {changes}"
-          ))))
-          .style(
-            Style::new()
-              .font_size(28)
-              .color(Color::rgb(0.75, 0.86, 0.97))
-              .margin_top(30),
-          ),
+        accessibility::static_label(format!("Volume changes: {changes}")).style(
+          Style::new()
+            .font_size(28)
+            .color(Color::rgb(0.75, 0.86, 0.97))
+            .margin_top(30),
+        ),
         ReviewButton::new()
           .label("Change volume from parent")
           .on_press(move || external.update(|value| if value == 25 { 80 } else { 25 })),

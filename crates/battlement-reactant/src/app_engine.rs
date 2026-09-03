@@ -34,6 +34,7 @@ impl<G: 'static> Engine for App<G> {
       queue.snapshot_action = None;
       let mut observations = self.observations.borrow_mut();
       observations.application = message.application_state;
+      observations.reduced_motion = message.reduced_motion_preference;
       observations.screen = message.screen;
       if self.reset {
         observations.remount = queue.generation;
@@ -55,6 +56,10 @@ impl<G: 'static> Engine for App<G> {
     self.healthy = false;
     let _action = action_context::enter(Some(action.action_id));
     let commit = match action.body {
+      ActionBody::ReducedMotionPreferenceChanged(preference) => {
+        self.observations.borrow_mut().reduced_motion = preference;
+        self.runtime.refresh(&mut self.model)
+      }
       ActionBody::ApplicationStateChanged(state) => {
         self.observations.borrow_mut().application = state;
         self.runtime.refresh(&mut self.model)

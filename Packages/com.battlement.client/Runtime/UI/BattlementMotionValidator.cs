@@ -605,18 +605,18 @@ namespace Battlement.UI
             foreach (MotionFilter value in values)
                 if (value is MotionFilter.Blur blur)
                     Finite(blur.Value);
-                else if (value is MotionFilter.Brightness brightness)
-                    Finite(brightness.Value);
-                else if (value is MotionFilter.Saturate saturate)
-                    Finite(saturate.Value);
+                else if (value is MotionFilter.Brightness)
+                    throw Invalid("Motion brightness is unsupported by the Unity adapter.");
+                else if (value is MotionFilter.Saturate)
+                    throw Invalid("Motion saturation is unsupported by the Unity adapter.");
                 else if (value is MotionFilter.Contrast contrast)
                     Finite(contrast.Value);
                 else if (value is MotionFilter.HueRotate hueRotate)
                     Finite(hueRotate.Value);
                 else if (value is MotionFilter.Opacity opacity)
                     Finite(opacity.Value);
-                else if (value is MotionFilter.DropShadow shadow)
-                    ValidateShadow(shadow.Value);
+                else if (value is MotionFilter.DropShadow)
+                    throw Invalid("Motion filter drop-shadow is unsupported by the Unity adapter.");
         }
 
         private static void ValidateGradient(MotionGradient value)
@@ -639,6 +639,8 @@ namespace Battlement.UI
         private static void ValidateShadow(MotionShadow value)
         {
             Finite(value.X, value.Y, value.Blur, value.Spread);
+            if (value.Blur != 0)
+                throw Invalid("Motion box-shadow blur is unsupported; use generated paint.");
             ValidateColor(value.Color);
         }
 

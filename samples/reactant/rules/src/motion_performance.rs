@@ -1,7 +1,6 @@
 use crate::{Game, design_system};
 use battlement::{
-  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter, MotionLength,
-  Overflow, Style,
+  Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionLength, Overflow, Style,
 };
 use battlement_reactant::prelude::*;
 
@@ -266,11 +265,11 @@ fn mixed_hosts(phase: u32) -> Vec<View> {
         host.animate(
           MotionStyle::new()
             .background_color(MotionColor::new(0.1, 0.72, 0.86, 1.0))
-            .filter([MotionFilter::Brightness(if target_side(index, phase) {
+            .filter(MotionFilters::new().contrast(if target_side(index, phase) {
               1.35
             } else {
               0.72
-            })]),
+            })),
         )
       } else if index < 180 {
         host.animate(
@@ -283,7 +282,7 @@ fn mixed_hosts(phase: u32) -> Vec<View> {
             .box_shadow([battlement::MotionShadow {
               x: 0.0,
               y: 2.0,
-              blur: if target_side(index, phase) { 10.0 } else { 3.0 },
+              blur: 0.0,
               spread: 1.0,
               color: MotionColor::new(0.0, 0.8, 0.9, 0.5),
               inset: false,

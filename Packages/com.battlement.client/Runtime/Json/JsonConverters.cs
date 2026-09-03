@@ -1400,7 +1400,8 @@ namespace Battlement
                     "ControllerNavigate",
                     "GeometryObservations",
                     "MotionEvents",
-                    "ApplicationStateChanged"
+                    "ApplicationStateChanged",
+                    "ReducedMotionPreferenceChanged"
                 ),
                 [typeof(DiagnosticsCommand)] = Nested<DiagnosticsCommand>("SetMetadata"),
                 [typeof(CameraTarget)] = Nested<CameraTarget>("Input", "Object"),

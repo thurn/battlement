@@ -13,6 +13,18 @@ pub struct ApplicationState {
   pub paused: bool,
 }
 
+/// Host-reported preference for reducing nonessential motion.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum ReducedMotionPreference {
+  /// The current Unity target cannot report a preference.
+  #[default]
+  Unavailable,
+  /// The host requests reduced motion.
+  Reduce,
+  /// The host reports no reduced-motion preference.
+  NoPreference,
+}
+
 /// Requests the platform's external handler for an absolute URL.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ExternalUrlRequest {

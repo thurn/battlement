@@ -50,6 +50,7 @@ pub mod application;
 pub mod asset_generator;
 #[doc(hidden)]
 pub mod builder_support;
+mod button_state;
 pub mod callback;
 mod commit;
 pub mod component;

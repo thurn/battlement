@@ -1,15 +1,23 @@
 //! Hostless inherited Motion configuration.
 
-use std::{any::TypeId, cell::RefCell};
+use std::{any::TypeId, cell::RefCell, rc::Rc};
 
+use battlement::application::ReducedMotionPreference;
 use battlement::{MotionClockSource, ReducedMotionPolicy};
 
 use crate::{
+  context::{Context, ContextProvider, ProviderValue},
+  hooks,
   motion::Transition,
   motion_value::MotionTimeSource,
   render::{Render, RenderSink},
   render_value::Sealed,
 };
+
+static REDUCED_MOTION_PREFERENCE: Context<ReducedMotionPreference> =
+  Context::new(|| ReducedMotionPreference::Unavailable);
+static REDUCED_MOTION_POLICY: Context<ReducedMotionPolicy> =
+  Context::new(|| ReducedMotionPolicy::User);
 
 thread_local! {
   static CONFIGS: RefCell<Vec<MotionConfigState>> = const { RefCell::new(Vec::new()) };
@@ -89,23 +97,54 @@ impl<R: Render> Sealed for MotionConfig<R> {
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    with_config(self.state(), || self.child.render_into(sink));
+    let state = self.state();
+    sink.push_provider::<MotionConfigMarker>(
+      ProviderValue::new(
+        REDUCED_MOTION_POLICY.identity(),
+        Rc::new(state.reduced_motion),
+      ),
+      |children| with_config(state, || self.child.render_into(children)),
+    );
   }
 
   fn render_owned(self, sink: &mut RenderSink<'_>) {
     let state = self.state();
-    with_config(state, || self.child.render_owned(sink));
+    sink.push_provider::<MotionConfigMarker>(
+      ProviderValue::new(
+        REDUCED_MOTION_POLICY.identity(),
+        Rc::new(state.reduced_motion),
+      ),
+      |children| with_config(state, || self.child.render_owned(children)),
+    );
   }
 }
 
-/// Returns whether the current explicit configuration forces reduced motion.
-///
-/// Platform-owned `User` policy is resolved by the host before sampling; Rust
-/// components that require a custom fallback should also expose an explicit
-/// application override when deterministic rendering is required.
+/// Resolves the inherited motion policy against the latest host preference.
+/// An unavailable host preference resolves to false under `User` policy.
 #[must_use]
 pub fn use_reduced_motion() -> bool {
-  current().reduced_motion == ReducedMotionPolicy::Always
+  let preference = self::use_reduced_motion_preference();
+  match hooks::use_context(&REDUCED_MOTION_POLICY) {
+    ReducedMotionPolicy::Always => true,
+    ReducedMotionPolicy::Never => false,
+    ReducedMotionPolicy::User => preference == ReducedMotionPreference::Reduce,
+  }
+}
+
+/// Returns the host's preference independently of the inherited motion policy.
+/// Host changes rerender applications; unsupported targets report `Unavailable`.
+#[must_use]
+pub fn use_reduced_motion_preference() -> ReducedMotionPreference {
+  hooks::use_context(&REDUCED_MOTION_PREFERENCE)
+}
+
+/// Provides host observations for a custom engine or an isolated preview.
+/// This reports a preference; use `MotionConfig` to select application policy.
+#[must_use]
+pub fn preference_provider(
+  value: ReducedMotionPreference,
+) -> ContextProvider<ReducedMotionPreference> {
+  REDUCED_MOTION_PREFERENCE.provider(value)
 }
 
 pub(crate) fn current() -> MotionConfigState {
@@ -113,7 +152,7 @@ pub(crate) fn current() -> MotionConfigState {
     .with(|configs| configs.borrow().last().cloned())
     .unwrap_or(MotionConfigState {
       transition: None,
-      reduced_motion: ReducedMotionPolicy::Never,
+      reduced_motion: ReducedMotionPolicy::User,
       clock: MotionClockSource::Unscaled,
     })
 }

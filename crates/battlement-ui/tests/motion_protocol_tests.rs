@@ -221,6 +221,7 @@ fn gesture_descriptor_round_trips_constraints_values_and_inertia() {
         hover: true,
         tap: true,
         focus: true,
+        focus_visible: false,
         pan: true,
         pan_update: true,
         drag: true,

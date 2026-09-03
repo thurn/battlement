@@ -5,7 +5,7 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use battlement::application::ApplicationState;
+use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::{ActionId, Command, DisplayId, ScreenSize};
 
 use crate::{
@@ -101,6 +101,7 @@ pub(crate) struct AppQueue {
 
 pub(crate) struct Observations {
   pub(crate) application: ApplicationState,
+  pub(crate) reduced_motion: ReducedMotionPreference,
   pub(crate) screen: ScreenSize,
   pub(crate) remount: u64,
 }

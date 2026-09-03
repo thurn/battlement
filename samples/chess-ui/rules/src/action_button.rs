@@ -55,9 +55,7 @@ impl<R: Render> Component for ActionButton<R> {
       .child(
         Button::new("")
           .name("action-button")
-          .semantic(button.semantic)
-          .focus_props(button.focus)
-          .interaction_props(button.interaction)
+          .behavior(button)
           .style(
             Style::new()
               .position(Position::Relative)

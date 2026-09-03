@@ -325,6 +325,15 @@ impl DragConstraints {
 }
 
 impl MotionProps {
+  pub(crate) fn gesture_brief(
+    mut self,
+    kind: MotionGestureEventKind,
+    callback: impl Fn() + 'static,
+  ) -> Self {
+    self.callbacks = self.callbacks.gesture_brief(kind, callback);
+    self
+  }
+
   /// Sets the locally activated hover target.
   #[must_use]
   pub fn while_hover(mut self, value: impl Into<MotionTarget>) -> Self {
@@ -493,6 +502,8 @@ impl MotionProps {
     on_tap_cancel => TapCancel,
     on_focus_start => FocusStart,
     on_focus_end => FocusEnd,
+    on_focus_visible_start => FocusVisibleStart,
+    on_focus_visible_end => FocusVisibleEnd,
     on_pan_session_start => PanSessionStart,
     on_pan_start => PanStart,
     on_pan => Pan,

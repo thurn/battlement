@@ -428,7 +428,7 @@ namespace Battlement.UI
             var result = new List<FilterFunction>();
             foreach (MotionFilter filter in filters)
             {
-                FilterFunction? converted = filter switch
+                FilterFunction converted = filter switch
                 {
                     MotionFilter.Blur blur => Function(FilterFunctionType.Blur, blur.Value),
                     MotionFilter.Contrast contrast => Function(
@@ -440,10 +440,13 @@ namespace Battlement.UI
                         FilterFunctionType.Opacity,
                         opacity.Value
                     ),
-                    _ => null,
+                    _ => throw new BattlementUiException(
+                        CoreErrorCode.InvalidProperty,
+                        $"Motion filter {filter.GetType().Name} is unsupported "
+                            + "by the Unity adapter."
+                    ),
                 };
-                if (converted is not null)
-                    result.Add(converted.Value);
+                result.Add(converted);
             }
             return new StyleList<FilterFunction>(result);
         }

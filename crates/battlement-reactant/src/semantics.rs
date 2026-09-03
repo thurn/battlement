@@ -9,6 +9,7 @@ use battlement::{
 
 use crate::{
   activation::Activation, element_ref::ElementRef, event_handler::Handler, focus::FocusProps,
+  motion::MotionProps,
 };
 
 /// Already-localized application text.
@@ -87,6 +88,8 @@ pub struct AccessibleBehavior<G, S> {
   pub focus: FocusProps,
   /// Ordinary logical interaction callbacks.
   pub interaction: InteractionProps<G>,
+  /// Native motion declarations owned by this behavior.
+  pub motion: MotionProps,
   /// Pattern styling state.
   pub state: S,
 }

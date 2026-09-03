@@ -285,6 +285,8 @@ pub struct MotionGestureSubscriptions {
   pub tap: bool,
   /// Exact focus changed.
   pub focus: bool,
+  /// Keyboard- or controller-visible focus changed.
+  pub focus_visible: bool,
   /// Pan session and threshold boundaries.
   pub pan: bool,
   /// Coalesced pan movement.
@@ -871,6 +873,10 @@ pub enum MotionGestureEventKind {
   FocusStart,
   /// The exact host lost focus.
   FocusEnd,
+  /// Keyboard- or controller-visible focus began.
+  FocusVisibleStart,
+  /// Keyboard- or controller-visible focus ended.
+  FocusVisibleEnd,
   /// A primary pointer established a pan session.
   PanSessionStart,
   /// Pan crossed its configured threshold.

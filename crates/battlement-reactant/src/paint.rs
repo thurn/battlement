@@ -41,14 +41,16 @@ impl PaintStyle {
     self
   }
 
-  /// Clips the painted surface to a polygon without changing child layout.
+  /// Clips the painted surface to a polygon.
+  /// This does not clip descendants or change picking geometry.
   #[must_use]
   pub fn clip_polygon(mut self, value: impl IntoIterator<Item = [MotionLength; 2]>) -> Self {
     self.clip_polygon = Some(value.into_iter().collect());
     self
   }
 
-  /// Sets outer or inset shadows.
+  /// Sets outer or inset decorative-surface shadows.
+  /// Unity supports zero blur; nonzero blur is rejected. Use generated paint for blur.
   #[must_use]
   pub fn box_shadow(mut self, value: impl IntoIterator<Item = MotionShadow>) -> Self {
     self.box_shadow = Some(value.into_iter().collect());

@@ -71,9 +71,7 @@ impl<R: Render> Component for SelectControl<R> {
           .child(
             Button::new("")
               .name("select-trigger")
-              .semantic(trigger.semantic)
-              .focus_props(trigger.focus)
-              .interaction_props(trigger.interaction)
+              .behavior(trigger)
               .style(
                 Style::new()
                   .position(Position::Relative)
@@ -103,13 +101,9 @@ impl<R: Render> Component for SelectControl<R> {
                   .background(PaintFill::Color(frame_styles::color(0x020611)))
                   .inset(3.0)
                   .clip_path(self::clip(7.0)),
-                TextElement::new(self.value.clone())
+                accessibility::name_source_text(self.value.clone())
                   .name("select-value")
-                  .element_ref(value_label.reference())
-                  .semantic(
-                    accessibility::use_static_text(text(self.value.clone()))
-                      .visibility(SemanticVisibility::NameSourceOnly),
-                  ),
+                  .element_ref(value_label.reference()),
                 Caret::new().is_open(false),
               )),
           ),

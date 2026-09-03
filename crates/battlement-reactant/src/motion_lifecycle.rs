@@ -35,7 +35,8 @@ pub(crate) struct MotionCallbacks {
   complete: Option<MotionHandler>,
   stop: Option<MotionHandler>,
   cancel: Option<MotionHandler>,
-  gestures: [Option<GestureHandler>; 22],
+  gestures: [Option<GestureHandler>; 24],
+  gesture_observers: [Option<Rc<dyn Fn()>>; 24],
 }
 
 #[derive(Clone)]
@@ -281,7 +282,8 @@ impl MotionCallbacks {
       complete: None,
       stop: None,
       cancel: None,
-      gestures: [const { None }; 22],
+      gestures: [const { None }; 24],
+      gesture_observers: [const { None }; 24],
     }
   }
 
@@ -342,6 +344,11 @@ impl MotionCallbacks {
         self.gestures[index] = handler;
       }
     }
+    for (index, observer) in value.gesture_observers.into_iter().enumerate() {
+      if observer.is_some() {
+        self.gesture_observers[index] = observer;
+      }
+    }
     self
   }
 
@@ -351,6 +358,15 @@ impl MotionCallbacks {
     callback: impl Fn(&mut G, &MotionGestureEvent) + 'static,
   ) -> Self {
     self.gestures[gesture_index(kind)] = Some(GestureHandler::new(callback));
+    self
+  }
+
+  pub(crate) fn gesture_brief(
+    mut self,
+    kind: MotionGestureEventKind,
+    callback: impl Fn() + 'static,
+  ) -> Self {
+    self.gesture_observers[gesture_index(kind)] = Some(Rc::new(callback));
     self
   }
 
@@ -379,6 +395,10 @@ impl MotionCallbacks {
       focus: self.has_any_gesture(&[
         MotionGestureEventKind::FocusStart,
         MotionGestureEventKind::FocusEnd,
+      ]),
+      focus_visible: self.has_any_gesture(&[
+        MotionGestureEventKind::FocusVisibleStart,
+        MotionGestureEventKind::FocusVisibleEnd,
       ]),
       pan: self.has_any_gesture(&[
         MotionGestureEventKind::PanSessionStart,
@@ -436,12 +456,14 @@ impl MotionCallbacks {
   }
 
   pub(crate) fn invoke_gesture(&self, game: &mut dyn Any, event: &MotionGestureEvent) -> bool {
-    if let Some(handler) = &self.gestures[gesture_index(event.kind)] {
-      handler.invoke(game, event);
-      true
-    } else {
-      false
+    let index = gesture_index(event.kind);
+    if let Some(observer) = &self.gesture_observers[index] {
+      observer();
     }
+    if let Some(handler) = &self.gestures[index] {
+      handler.invoke(game, event);
+    }
+    self.gesture_observers[index].is_some() || self.gestures[index].is_some()
   }
 
   pub(crate) fn validate_model(&self, model: TypeId) {
@@ -485,9 +507,10 @@ impl MotionCallbacks {
   }
 
   fn has_any_gesture(&self, kinds: &[MotionGestureEventKind]) -> bool {
-    kinds
-      .iter()
-      .any(|kind| self.gestures[gesture_index(*kind)].is_some())
+    kinds.iter().any(|kind| {
+      let index = gesture_index(*kind);
+      self.gestures[index].is_some() || self.gesture_observers[index].is_some()
+    })
   }
 }
 
@@ -500,6 +523,8 @@ const fn gesture_index(kind: MotionGestureEventKind) -> usize {
     MotionGestureEventKind::TapCancel => 4,
     MotionGestureEventKind::FocusStart => 5,
     MotionGestureEventKind::FocusEnd => 6,
+    MotionGestureEventKind::FocusVisibleStart => 22,
+    MotionGestureEventKind::FocusVisibleEnd => 23,
     MotionGestureEventKind::PanSessionStart => 7,
     MotionGestureEventKind::PanStart => 8,
     MotionGestureEventKind::Pan => 9,

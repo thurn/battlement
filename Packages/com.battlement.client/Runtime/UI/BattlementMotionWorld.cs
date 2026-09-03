@@ -692,6 +692,8 @@ namespace Battlement.UI
                 value,
                 ClockMicros(descriptor.Descriptor.Clock)
             );
+            if (gestures.TryGetValue(descriptorId, out BattlementGestureState state))
+                state.SetFocusVisible(value);
         }
 
         internal void Commit(Guid hostId, DescriptorState? prepared)

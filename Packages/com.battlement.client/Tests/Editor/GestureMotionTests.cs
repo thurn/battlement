@@ -13,6 +13,55 @@ namespace Battlement.Tests
     public sealed class GestureMotionTests
     {
         [Test]
+        public void ComposedButtonContentRecognizesTapsWithoutDragPropagation()
+        {
+            ObjectId host = Id("74400000-0000-4000-8000-000000000001");
+            using var panel = new PanelFixture();
+            var target = new Button();
+            var content = new VisualElement();
+            var image = new Image();
+            content.Add(image);
+            target.Add(content);
+            panel.Root.Add(target);
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                target,
+                host,
+                Descriptor(
+                    Id("74400000-0000-4000-8000-000000000002"),
+                    host,
+                    1,
+                    Id("74400000-0000-4000-8000-000000000003"),
+                    Id("74400000-0000-4000-8000-000000000004"),
+                    Id("74400000-0000-4000-8000-000000000005")
+                )
+            );
+
+            PointerDown(image, Vector2.zero);
+            IReadOnlyList<MotionGestureEventKind> started = Kinds(world);
+            Assert.That(started, Has.Some.EqualTo(MotionGestureEventKind.TapStart));
+            Assert.That(started, Has.None.EqualTo(MotionGestureEventKind.PanSessionStart));
+            PointerUp(image, Vector2.zero);
+            Assert.That(Kinds(world), Does.Contain(MotionGestureEventKind.Tap));
+
+            PointerDown(image, Vector2.zero);
+            _ = Kinds(world);
+            PointerMove(image, new Vector2(20, 0));
+            IReadOnlyList<MotionGestureEventKind> moved = Kinds(world);
+            Assert.That(moved, Has.Some.EqualTo(MotionGestureEventKind.TapCancel));
+            Assert.That(moved, Has.None.EqualTo(MotionGestureEventKind.PanStart));
+            Assert.That(moved, Has.None.EqualTo(MotionGestureEventKind.DragStart));
+            PointerUp(image, new Vector2(20, 0));
+            _ = Kinds(world);
+
+            var nestedControl = new Button();
+            content.Add(nestedControl);
+            PointerDown(nestedControl, Vector2.zero);
+            Assert.That(Kinds(world), Has.None.EqualTo(MotionGestureEventKind.TapStart));
+            PointerUp(nestedControl, Vector2.zero);
+        }
+
+        [Test]
         public void PointerThresholdDirectionConstraintAndMomentumStayNative()
         {
             double time = 0;

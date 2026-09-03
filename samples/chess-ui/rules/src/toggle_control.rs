@@ -69,9 +69,7 @@ impl<R: Render> Component for ToggleControl<R> {
         Button::new("")
           .name("toggle-control-input")
           .element_ref(input.clone())
-          .semantic(checkbox.semantic)
-          .focus_props(checkbox.focus)
-          .interaction_props(checkbox.interaction)
+          .behavior(checkbox)
           .style(
             Style::new()
               .position(Position::Absolute)

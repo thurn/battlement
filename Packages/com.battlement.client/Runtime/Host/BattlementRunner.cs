@@ -65,6 +65,7 @@ namespace Battlement
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
         private ApplicationState? publishedApplicationState;
+        private ReducedMotionPreference publishedReducedMotionPreference;
         private bool isDisposed;
         private bool isNativePanicRecovery;
         private bool isRuntimePoisoned;
@@ -813,6 +814,7 @@ namespace Battlement
             batchScheduler?.Advance();
             uiDocuments?.Advance();
             PublishApplicationState();
+            PublishReducedMotionPreference();
             pointerInput?.Update(CanEmitInput);
             keyboardInput?.Update(CanEmitInput);
             controllerInput?.Update(CanEmitInput, dittoMotionClock!.Elapsed);
@@ -989,6 +991,23 @@ namespace Battlement
             publishedApplicationState = state;
             Submit(
                 SerializeAction(RequireOptions(), new ActionBody.ApplicationStateChanged(state))
+            );
+        }
+
+        private void PublishReducedMotionPreference()
+        {
+            ReducedMotionPreference preference = BattlementReducedMotion.Preference();
+            if (
+                session.Phase != BattlementSessionPhase.Running
+                || preference == publishedReducedMotionPreference
+            )
+                return;
+            publishedReducedMotionPreference = preference;
+            Submit(
+                SerializeAction(
+                    RequireOptions(),
+                    new ActionBody.ReducedMotionPreferenceChanged(preference)
+                )
             );
         }
 
@@ -1335,6 +1354,7 @@ namespace Battlement
                 isApplicationPaused
             );
             publishedApplicationState = state;
+            publishedReducedMotionPreference = BattlementReducedMotion.Preference();
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
@@ -1346,6 +1366,7 @@ namespace Battlement
             )
             {
                 ApplicationState = state,
+                ReducedMotionPreference = publishedReducedMotionPreference,
             };
         }
 

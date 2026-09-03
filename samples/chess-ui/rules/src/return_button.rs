@@ -6,10 +6,9 @@ use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility,
   component::Component,
-  host::{TextElement, View},
+  host::View,
   paint::{PaintFill, PaintStyle},
   render::Render,
-  semantics::{self, SemanticVisibility},
 };
 use std::rc::Rc;
 
@@ -45,12 +44,7 @@ impl Component for ReturnButton {
               .clip_polygon(action_skin::clip(18.0, 17.0)),
           ),
         ActionButton::new()
-          .children(
-            TextElement::new("RETURN").semantic(
-              accessibility::use_static_text(semantics::text("RETURN"))
-                .visibility(SemanticVisibility::NameSourceOnly),
-            ),
-          )
+          .children(accessibility::name_source_text("RETURN"))
           .max_text_scale(1.35)
           .disabled(self.disabled)
           .on_click(move || on_click()),

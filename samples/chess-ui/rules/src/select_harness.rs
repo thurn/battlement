@@ -1,6 +1,6 @@
 use crate::{review_button::ReviewButton, select_control::SelectControl};
 use battlement::{Color, Style};
-use battlement_reactant::{hooks, prelude::*};
+use battlement_reactant::{accessibility, hooks, prelude::*};
 
 /// Owns selected values and demonstrates parent-driven updates.
 #[builder]
@@ -33,14 +33,12 @@ impl Component for SelectHarness {
           .value("Borderless")
           .row_height(190.0)
           .offset_y(-8.0),
-        Label::new("Selection changes: 0")
-          .semantic(use_static_text(text("Selection changes: 0")))
-          .style(
-            Style::new()
-              .font_size(28)
-              .color(Color::rgb(0.75, 0.86, 0.97))
-              .margin_top(30),
-          ),
+        accessibility::static_label("Selection changes: 0").style(
+          Style::new()
+            .font_size(28)
+            .color(Color::rgb(0.75, 0.86, 0.97))
+            .margin_top(30),
+        ),
         ReviewButton::new()
           .label("Change resolution from parent")
           .on_press(move || external.update(|value| !value)),
@@ -49,6 +47,5 @@ impl Component for SelectHarness {
 }
 
 fn label(value: &'static str) -> TextElement {
-  TextElement::new(value)
-    .semantic(use_static_text(text(value)).visibility(SemanticVisibility::NameSourceOnly))
+  accessibility::name_source_text(value)
 }

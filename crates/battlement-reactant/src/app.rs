@@ -85,6 +85,7 @@ impl<G: 'static> App<G> {
       spawner,
       observations: Rc::new(RefCell::new(Observations {
         application: Default::default(),
+        reduced_motion: Default::default(),
         screen: ScreenSize::new(0, 0),
         remount: 0,
       })),

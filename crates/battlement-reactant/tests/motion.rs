@@ -14,6 +14,7 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   prelude::*,
   runtime::{Reactant, ReactantCommit},
+  semantics,
 };
 
 struct IdleSpawner;
@@ -33,6 +34,24 @@ struct ElementConstraintContract;
 struct LayoutContract;
 
 struct MotionConfigContract;
+
+struct ButtonInteractionContract;
+
+impl Component for ButtonInteractionContract {
+  fn render(&self) -> impl Render {
+    let behavior = use_button_state(ButtonOptions {
+      name: semantics::text("Action"),
+      is_disabled: false,
+      on_press: || {},
+    });
+    let state = behavior.state;
+    Button::new(format!("focus-visible={}", state.focus_visible))
+      .behavior(behavior)
+      .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+  }
+}
 
 impl Spawner for IdleSpawner {
   fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
@@ -98,6 +117,9 @@ impl Component for GestureContract {
       .scroll_motion_values(scroll_x, scroll_y)
       .in_view_motion_value(in_view)
       .on_hover_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
+      .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
         events.push(event.kind);
       })
       .on_drag_start(|events: &mut Vec<MotionGestureEventKind>, event| {
@@ -891,6 +913,7 @@ fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
   assert_eq!(drag.transition.rest_speed, 5.0);
   assert_eq!(descriptor.values.len(), 5);
   assert!(gestures.subscriptions.hover);
+  assert!(gestures.subscriptions.focus_visible);
   assert!(gestures.subscriptions.drag);
   assert!(gestures.subscriptions.scroll);
   assert!(gestures.subscriptions.in_view);
@@ -923,6 +946,51 @@ fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
     )
     .unwrap();
   assert_eq!(events, [MotionGestureEventKind::DragStart]);
+  let _ = reactant.shutdown(&mut events).into_groups();
+}
+
+#[test]
+fn button_interaction_state_uses_native_focus_visible_events() {
+  let document = document();
+  let mut events = Vec::new();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &Vec<MotionGestureEventKind>| {
+    ButtonInteractionContract
+  });
+  let rendered = start(&mut reactant, &mut events, &document);
+  let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+    panic!("button interaction state did not install native subscriptions");
+  };
+  assert!(descriptor.gestures.unwrap().subscriptions.focus_visible);
+  let commit = reactant
+    .motion_events(
+      &mut events,
+      MotionEventBatch {
+        first_sequence: MotionSequence(0),
+        last_sequence: MotionSequence(0),
+        events: Vec::new(),
+        samples: Vec::new(),
+        value_samples: Vec::new(),
+        playback_events: Vec::new(),
+        gesture_events: vec![MotionGestureEvent {
+          descriptor_id: descriptor.descriptor_id,
+          generation: descriptor.generation,
+          kind: MotionGestureEventKind::FocusVisibleStart,
+          pointer_id: -1,
+          device: MotionPointerDevice::Keyboard,
+          point: MotionGestureVector::default(),
+          delta: MotionGestureVector::default(),
+          offset: MotionGestureVector::default(),
+          velocity: MotionGestureVector::default(),
+          axis: None,
+          momentum_generation: 0,
+          constrained: false,
+        }],
+      },
+    )
+    .unwrap();
+  assert!(!commit.into_groups().is_empty());
+  assert_eq!(events, [MotionGestureEventKind::FocusVisibleStart]);
   let _ = reactant.shutdown(&mut events).into_groups();
 }
 
@@ -1061,11 +1129,12 @@ fn start<G: 'static>(
   game: &mut G,
   document: &UiDocument,
 ) -> UiDocument {
-  reactant
+  let (snapshot, commit) = reactant
     .begin_session(game)
     .unwrap()
-    .into_parts(snapshot(document))
-    .0
+    .into_parts(snapshot(document));
+  let _ = commit.into_groups();
+  snapshot
     .ui
     .into_iter()
     .find(|value| value.document_id == document.document_id)

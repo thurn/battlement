@@ -43,8 +43,10 @@ namespace Battlement.UI
         private Vector2 priorScroll;
         private bool panStarted;
         private bool dragStarted;
+        private bool recognizesPanAndDrag;
         private bool momentum;
         private bool inView;
+        private bool focusVisible;
         private bool disposed;
         private bool ownsCapture;
         private uint momentumGeneration;
@@ -86,10 +88,10 @@ namespace Battlement.UI
             keyDown = SubmitKeyboard;
             target.RegisterCallback(pointerEnter);
             target.RegisterCallback(pointerLeave);
-            target.RegisterCallback(pointerDown);
-            target.RegisterCallback(pointerMove);
-            target.RegisterCallback(pointerUp);
-            target.RegisterCallback(pointerCancel);
+            target.RegisterCallback(pointerDown, TrickleDown.TrickleDown);
+            target.RegisterCallback(pointerMove, TrickleDown.TrickleDown);
+            target.RegisterCallback(pointerUp, TrickleDown.TrickleDown);
+            target.RegisterCallback(pointerCancel, TrickleDown.TrickleDown);
             target.RegisterCallback(captureOut);
             target.RegisterCallback(focusIn);
             target.RegisterCallback(focusOut);
@@ -160,6 +162,7 @@ namespace Battlement.UI
             lockedAxis = null;
             panStarted = false;
             dragStarted = true;
+            recognizesPanAndDrag = true;
             baseTranslation = new Vector2(
                 ReadPixels(MotionProperty.X),
                 ReadPixels(MotionProperty.Y)
@@ -183,10 +186,10 @@ namespace Battlement.UI
             disposed = true;
             target.UnregisterCallback(pointerEnter);
             target.UnregisterCallback(pointerLeave);
-            target.UnregisterCallback(pointerDown);
-            target.UnregisterCallback(pointerMove);
-            target.UnregisterCallback(pointerUp);
-            target.UnregisterCallback(pointerCancel);
+            target.UnregisterCallback(pointerDown, TrickleDown.TrickleDown);
+            target.UnregisterCallback(pointerMove, TrickleDown.TrickleDown);
+            target.UnregisterCallback(pointerUp, TrickleDown.TrickleDown);
+            target.UnregisterCallback(pointerCancel, TrickleDown.TrickleDown);
             target.UnregisterCallback(captureOut);
             target.UnregisterCallback(focusIn);
             target.UnregisterCallback(focusOut);
@@ -210,6 +213,19 @@ namespace Battlement.UI
             setLayer(MotionLayer.Focus, active);
             if (gestures.Subscriptions.Focus)
                 Emit(active ? MotionGestureEventKind.FocusStart : MotionGestureEventKind.FocusEnd);
+        }
+
+        public void SetFocusVisible(bool value)
+        {
+            if (focusVisible == value)
+                return;
+            focusVisible = value;
+            if (gestures.Subscriptions.FocusVisible)
+                Emit(
+                    value
+                        ? MotionGestureEventKind.FocusVisibleStart
+                        : MotionGestureEventKind.FocusVisibleEnd
+                );
         }
 
         private void SubmitKeyboard(KeyDownEvent value)
@@ -247,9 +263,11 @@ namespace Battlement.UI
                 return;
             MotionDragDescriptor? drag = gestures.Drag;
             bool directTarget = ReferenceEquals(value.target, target);
-            if (!directTarget && drag?.Propagation != true)
-                return;
             bool tap = gestures.Subscriptions.Tap || HasLayer(MotionLayer.Tap);
+            bool descendantTap = tap && OwnsTapTarget(value.target, value.pointerId);
+            recognizesPanAndDrag = directTarget || drag?.Propagation == true;
+            if (!recognizesPanAndDrag && !descendantTap)
+                return;
             if (!tap && !gestures.Pan && (drag is null || !drag.Listener))
                 return;
             if (momentum)
@@ -269,7 +287,7 @@ namespace Battlement.UI
                 ReadPixels(MotionProperty.Y)
             );
             ResolveBounds();
-            if (directTarget)
+            if (directTarget || descendantTap)
             {
                 target.CapturePointer(pointerId);
                 ownsCapture = true;
@@ -277,8 +295,24 @@ namespace Battlement.UI
             setLayer(MotionLayer.Tap, true);
             if (gestures.Subscriptions.Tap)
                 Emit(MotionGestureEventKind.TapStart);
-            if (gestures.Pan && gestures.Subscriptions.Pan)
+            if (recognizesPanAndDrag && gestures.Pan && gestures.Subscriptions.Pan)
                 Emit(MotionGestureEventKind.PanSessionStart);
+        }
+
+        private bool OwnsTapTarget(object eventTarget, int eventPointerId)
+        {
+            for (
+                VisualElement? element = eventTarget as VisualElement;
+                element is not null;
+                element = element.parent
+            )
+            {
+                if (ReferenceEquals(element, target))
+                    return true;
+                if (element.focusable || element.HasPointerCapture(eventPointerId))
+                    return false;
+            }
+            return false;
         }
 
         private void Move(PointerMoveEvent value)
@@ -296,8 +330,8 @@ namespace Battlement.UI
             raw = ApplyAxis(raw);
             if (!panStarted && raw.magnitude >= gestures.PanThreshold)
             {
-                panStarted = gestures.Pan;
-                dragStarted = gestures.Drag is not null;
+                panStarted = recognizesPanAndDrag && gestures.Pan;
+                dragStarted = recognizesPanAndDrag && gestures.Drag is not null;
                 setLayer(MotionLayer.Tap, false);
                 if (gestures.Subscriptions.Tap)
                     Emit(MotionGestureEventKind.TapCancel);
