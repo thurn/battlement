@@ -39,7 +39,7 @@ than the specimen.
 | `focus` | Layout Gallery | `focus_protocol_tests.rs::complete_tree_accepts_one_auto_focus_and_inertness`, `BattlementFocusCoordinatorTests.cs` |
 | `geometry` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `geometry.rs`, `geometry_effects.rs` |
 | `gesture` | Gestures & Drag | `motion.rs::gesture_drag_scroll_and_viewport_props_lower_native_contract` |
-| `hooks` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `hook_scheduling.rs`, `state.rs` |
+| `hooks` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `hook_scheduling.rs`, `state.rs`, `use_id.rs` |
 | `key` | State & Identity | `composition.rs::state_screen_batches_updates_preserves_keyed_state_and_restores`, `identity.rs`, `moves.rs` |
 | `layout` | Layout & Reorder | `motion.rs::layout_projection_shared_handoff_and_reorder_lower_native_contract`, `composition.rs::layout_gallery_preserves_state_routes_portals_and_authors_modal_focus`, `composition.rs::layout_performance_builds_the_exact_mixed_workload`, `LayoutProjectionTests.cs` |
 | `motion` | Targets & Timelines | `motion.rs::host_methods_interleave_without_restarting_or_adding_a_host`, `motion.rs::public_targets_serialize_keyframes_overrides_repeats_and_transition_end`, `motion.rs::forwarding_component_collects_complete_props_without_a_wrapper_host` |
@@ -167,6 +167,5 @@ APIs.
 | Reserved API | V1 status | Reason |
 |---|---|---|
 | `StrictMode` | Unsupported | Reactant does not perform development-only duplicate rendering or effects. |
-| `use_id` | Unsupported | Battlement UI cannot yet preserve accessible cross-element relationships. |
 | `use_layout_effect` | Unsupported | Unity cannot expose React's synchronous post-mutation, pre-paint timing boundary. |
 | `use_sync_external_store` | Unsupported | Reactant has no server snapshot or hydration contract; `use_external_store` names the supported client-only behavior. |

@@ -86,6 +86,7 @@ pub(crate) enum HookKind {
   Effect,
   Geometry,
   GeometryEffect,
+  Id,
   Memo,
   MotionValue,
   MotionValueEvent,

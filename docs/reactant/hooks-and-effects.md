@@ -88,6 +88,27 @@ its values remain in the engine-thread tree. Cross-thread delivery is limited
 to the explicitly thread-safe `StoreNotify`, resource loader, and completion
 interfaces.
 
+## Stable IDs
+
+`use_id() -> String` returns an opaque ID for one mounted hook slot. It is
+available through `hooks` and the prelude and requires no host attachment.
+
+```rust
+let menu_id = use_id();
+let option_id = format!("{menu_id}-option-{index}");
+```
+
+Use it to identify a component in coordination events or to namespace related
+identifiers. Every call occupies a distinct positional hook slot. IDs are unique
+across components, roots, and runtimes within the process and stay stable through
+rerenders, render-phase retries, keyed moves, and reconnects that retain state.
+A remount, including `reset_on_reconnect`, allocates a new ID. An uncommitted
+mount that is discarded has no identity guarantee on a later attempt.
+
+The string's format is unspecified. IDs are not persistent data identifiers,
+list reconciliation keys, or server/client hydration identifiers. Use data keys
+for lists and `ElementRef`/`LabelBinding` for typed host relationships.
+
 ## State snapshots
 
 `use_state` stores component-local state and returns an immutable clone plus a

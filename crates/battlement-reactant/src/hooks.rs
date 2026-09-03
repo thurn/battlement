@@ -15,7 +15,7 @@ use crate::hook_storage::{
   ReducerSlot, RefSlot, StateQueue, StateSlot, StateUpdate,
 };
 use crate::presence::{self, Presence, PresenceCell};
-use crate::{action_context, context};
+use crate::{action_context, context, hook_id};
 
 const RENDER_RETRY_LIMIT: usize = 25;
 
@@ -186,6 +186,18 @@ impl<F> Deref for Callback<F> {
   fn deref(&self) -> &Self::Target {
     &self.callback
   }
+}
+
+/// Returns a stable string ID for this mounted hook slot.
+///
+/// IDs are unique across hook slots, roots, and runtimes in this process. They
+/// survive rerenders, keyed moves, and reconnects that preserve the component;
+/// remounting allocates a new ID. No host attachment is required.
+/// Treat the string as opaque. It is not a persistent data key, list key, or
+/// server/client hydration identifier. Ordinary positional hook rules apply.
+#[must_use]
+pub fn use_id() -> String {
+  hook_id::read()
 }
 
 /// Returns component-local state and its stable setter.

@@ -81,9 +81,9 @@ pub use crate::{
   },
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,
-    use_context, use_effect, use_effect_always, use_external_store, use_is_present, use_memo,
-    use_presence, use_reducer, use_reducer_with, use_ref, use_ref_with, use_required_context,
-    use_state, use_state_with,
+    use_context, use_effect, use_effect_always, use_external_store, use_id, use_is_present,
+    use_memo, use_presence, use_reducer, use_reducer_with, use_ref, use_ref_with,
+    use_required_context, use_state, use_state_with,
   },
   host::{
     Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,

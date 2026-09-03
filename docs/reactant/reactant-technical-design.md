@@ -144,9 +144,9 @@ public contract rather than incidental implementation details.
   no per-root unmount operation.
 - **Context defaults:** a context stores a pure default factory and evaluates it
   once per runtime, rather than storing React's definition-time default value.
-- **Stable IDs:** V1 reserves React's `useId` name. Battlement UI has no
-  accessibility or cross-element relationship fields that could preserve its
-  purpose without overpromising.
+- **Stable IDs:** `use_id` returns a process-unique string for one mounted hook
+  slot, independent of host attachment. It survives rerenders and retained-state
+  reconnects; remounting allocates a new ID. It has no hydration contract.
 - **Suspense reveal timing:** ready content commits on the first successful
   Reactant entry. V1 has no transition, deferred-value, or timed reveal-batching
   API.

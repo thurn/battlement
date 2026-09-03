@@ -40,8 +40,8 @@ The following decisions were resolved while preparing this plan:
 - Rust strings, characters, numbers, and booleans are not render values.
   Authors use a text primitive or a component, preserving deliberate UI code
   and avoiding surprising implicit formatting.
-- V1 has no Strict Mode and no `use_id`. The latter remains reserved until the
-  host can preserve React's accessibility-relationship purpose.
+- V1 has no Strict Mode. `use_id` provides stable per-mount string identities
+  for component coordination and namespacing without requiring host attachment.
 - Explicit render errors that escape a root return `Err(RenderError)` before
   commit and do not poison the runtime. Actual Rust panics and a missing
   Suspense boundary are developer failures that poison it.
@@ -1017,7 +1017,7 @@ baseline.
 Polish the seven focused screens, remove temporary fixtures, complete public
 documentation and compile tests, and add a checked feature-to-screen/test
 ledger. The ledger maps only the approved V1 surface and explicitly marks
-reserved React APIs such as `useId` and `useLayoutEffect` as unsupported rather
+reserved React APIs such as `useLayoutEffect` as unsupported rather
 than planned sample features.
 
 **Black-box acceptance:** `FakeClient` navigates every screen and performs each

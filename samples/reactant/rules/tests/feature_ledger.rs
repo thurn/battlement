@@ -148,6 +148,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     "state.rs",
     include_str!("../../../../crates/battlement-reactant/tests/state.rs"),
   ),
+  (
+    "use_id.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/use_id.rs"),
+  ),
 ];
 
 #[test]
@@ -222,12 +226,7 @@ fn reserved_react_apis_are_explicitly_unsupported() {
       .iter()
       .map(|row| row[0].trim_matches('`'))
       .collect::<BTreeSet<_>>(),
-    BTreeSet::from([
-      "StrictMode",
-      "use_id",
-      "use_layout_effect",
-      "use_sync_external_store",
-    ])
+    BTreeSet::from(["StrictMode", "use_layout_effect", "use_sync_external_store",])
   );
   assert!(rows.iter().all(|row| row[1] == "Unsupported"));
 }
