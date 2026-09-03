@@ -1,6 +1,8 @@
 //! A decorative chevron whose orientation follows a selector’s open state.
 
+use crate::frame_styles;
 use battlement::{Length, MotionLength, PickingMode, Position, Rotate, Style, Translate};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::View,
@@ -8,23 +10,11 @@ use battlement_reactant::{
   render::Render,
 };
 
-use crate::frame_styles;
-
 /// The decorative direction indicator on a select trigger.
+#[builder]
 pub struct Caret {
-  is_open: bool,
-}
-
-impl Caret {
-  /// Creates a closed selector’s decorative caret.
-  pub fn new() -> Self {
-    Self { is_open: false }
-  }
   /// Points upward while the selector is open.
-  pub fn open(mut self, value: bool) -> Self {
-    self.is_open = value;
-    self
-  }
+  is_open: bool,
 }
 
 impl Component for Caret {

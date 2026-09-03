@@ -1,10 +1,9 @@
+use crate::{Game, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter, MotionLength,
   Overflow, Style,
 };
 use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
 
 const HOST_COUNT: usize = 200;
 
@@ -61,12 +60,15 @@ impl MotionPerformanceState {
   }
 }
 
+#[builder]
 pub(crate) struct MotionPerformance {
   pub(crate) state: MotionPerformanceState,
   pub(crate) compact: bool,
 }
 
+#[builder]
 struct PerformanceWorkload {
+  #[builder(required)]
   scenario: PerformanceScenario,
   phase: u32,
 }
@@ -96,11 +98,10 @@ impl Component for MotionPerformance {
       )
       .child(counter_strip(structure))
       .child(
-        PerformanceWorkload {
-          scenario: self.state.scenario,
-          phase: self.state.phase,
-        }
-        .key(self.state.scenario),
+        PerformanceWorkload::new()
+          .scenario(self.state.scenario)
+          .phase(self.state.phase)
+          .key(self.state.scenario),
       )
   }
 }

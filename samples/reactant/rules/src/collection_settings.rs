@@ -1,8 +1,8 @@
+use crate::{Game, layout_gallery_styles as styles};
 use battlement::{Command, CurrentPage, FlexDirection};
 use battlement_reactant::{accessibility_collections as collections, application, prelude::*};
 
-use crate::{Game, layout_gallery_styles as styles};
-
+#[builder]
 pub(crate) struct CollectionSettings {
   pub(crate) choice: usize,
   pub(crate) page: usize,
@@ -46,7 +46,9 @@ impl Component for CollectionSettings {
               let mut page = use_button(ButtonOptions {
                 name: text(name),
                 is_disabled: false,
-                on_press: move |game: &mut Game| game.layout_gallery.collection_page = index,
+                on_press: move |game: &mut Game| {
+                  game.layout_gallery.collection_page = index;
+                },
               });
               page.semantic.state.current = (self.page == index).then_some(CurrentPage::Page);
               Button::new(name)
@@ -72,7 +74,9 @@ impl Component for CollectionSettings {
                     name: text(name),
                     selected: self.choice == index,
                     is_disabled: index == 2,
-                    on_select: move |game: &mut Game| game.layout_gallery.collection_choice = index,
+                    on_select: move |game: &mut Game| {
+                      game.layout_gallery.collection_choice = index;
+                    },
                   });
                   Button::new(name)
                     .semantic(option.semantic)

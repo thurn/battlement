@@ -9,6 +9,7 @@
 //! ```
 //! use battlement_reactant::{app::App, prelude::*};
 //!
+//! #[builder]
 //! struct Greeting;
 //!
 //! impl Component for Greeting {
@@ -18,7 +19,7 @@
 //! }
 //!
 //! fn create_engine() -> App {
-//!     App::new("my-game/content").ui(Greeting)
+//!     App::new("my-game/content").ui(Greeting::new())
 //! }
 //!
 //! battlement_native::export_engine!(create_engine);
@@ -47,6 +48,8 @@ mod app_engine;
 mod app_root;
 pub mod application;
 pub mod asset_generator;
+#[doc(hidden)]
+pub mod builder_support;
 pub mod callback;
 mod commit;
 pub mod component;

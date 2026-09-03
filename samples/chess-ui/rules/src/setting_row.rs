@@ -1,63 +1,39 @@
 //! Two-column settings layout and optional visible-label associations.
 
-use std::rc::Rc;
-
 use battlement::{
   Align, Color, FlexDirection, GridTrack, Length, LengthUnits, Position, Scale, Style,
   TransformOrigin, UiFontAddress,
 };
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::{Grid, View},
   label_binding::LabelBinding,
   render::Render,
 };
+use std::rc::Rc;
 
 const LABEL_FONT_SIZE: f32 = 61.0;
 
 /// Default minimum height of a settings row in portrait design pixels.
 pub const SETTINGS_ROW_HEIGHT: f32 = 159.0;
+
 /// Native TextCore face for the display labels.
 pub const DISPLAY_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/display");
 
 /// A display label and its content in fixed and flexible columns.
+#[builder]
 pub struct SettingRow<L, R> {
+  #[builder(required, into)]
   label: Rc<L>,
-  label_binding: Option<LabelBinding>,
-  children: Rc<R>,
-  first: bool,
-  row_height: Option<f32>,
-}
-
-impl<L: Render, R: Render> SettingRow<L, R> {
-  /// Creates a row with required label and content.
-  pub fn new(label: L, children: R) -> Self {
-    Self {
-      label: Rc::new(label),
-      label_binding: None,
-      children: Rc::new(children),
-      first: false,
-      row_height: None,
-    }
-  }
-
-  /// Omits the separator above the first row.
-  pub fn first(mut self, value: bool) -> Self {
-    self.first = value;
-    self
-  }
-
   /// Associates the visible label with the control that uses this binding.
-  pub fn label_binding(mut self, value: LabelBinding) -> Self {
-    self.label_binding = Some(value);
-    self
-  }
-
+  label_binding: Option<LabelBinding>,
+  #[builder(required, into)]
+  children: Rc<R>,
+  /// Omits the separator above the first row.
+  first: bool,
   /// Sets the minimum row height in portrait design pixels.
-  pub fn row_height(mut self, value: f32) -> Self {
-    self.row_height = Some(value);
-    self
-  }
+  row_height: Option<f32>,
 }
 
 impl<L: Render, R: Render> Component for SettingRow<L, R> {

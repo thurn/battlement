@@ -7,7 +7,9 @@
 //! ```
 //! use battlement_reactant::prelude::*;
 //!
+//! #[builder]
 //! struct Greeting {
+//!     #[builder(required)]
 //!     name: String,
 //! }
 //!
@@ -19,7 +21,7 @@
 //!     }
 //! }
 //!
-//! let _view = Fragment::new((Greeting { name: "Ada".to_owned() }, ()));
+//! let _view = Fragment::new((Greeting::new().name("Ada"), ()));
 //! ```
 //!
 //! Runtime administration remains an explicit import.
@@ -29,6 +31,10 @@
 //!
 //! fn administer(_runtime: Reactant<()>) {}
 //! ```
+
+#[doc(hidden)]
+pub use crate::builder_support as __builder_support;
+pub use battlement_builder::builder;
 
 pub use battlement::{
   AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
@@ -57,6 +63,7 @@ pub use crate::{
   announcement::{Announce, use_announce},
   app_context::{AppHandle, use_app, use_viewport_size},
   application::use_application_state,
+  callback::Callback as EventCallback,
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},

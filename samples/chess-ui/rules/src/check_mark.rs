@@ -3,6 +3,7 @@
 use battlement::{
   Length, LengthUnits, MotionColor, MotionLength, PickingMode, Position, Scale, Style, Translate,
 };
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::View,
@@ -11,20 +12,11 @@ use battlement_reactant::{
 };
 
 /// The clipped check glyph used by settings checkboxes and selected options.
+#[builder]
 pub struct CheckMark {
-  scale: f32,
-}
-
-impl CheckMark {
-  /// Creates a check glyph at its authored size.
-  pub fn new() -> Self {
-    Self { scale: 1.0 }
-  }
   /// Scales the glyph uniformly around its center.
-  pub fn scale(mut self, value: f32) -> Self {
-    self.scale = value;
-    self
-  }
+  #[builder(default = 1.0)]
+  scale: f32,
 }
 
 impl Default for CheckMark {

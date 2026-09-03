@@ -1,7 +1,6 @@
+use crate::{Game, design_system};
 use battlement::{Color, FlexDirection, FlexWrap, ScrollViewMode, Style};
 use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct LayoutReorderState {
@@ -22,6 +21,7 @@ impl Default for LayoutReorderState {
   }
 }
 
+#[builder]
 pub(crate) struct LayoutReorder {
   pub(crate) state: LayoutReorderState,
   pub(crate) compact: bool,
@@ -226,27 +226,32 @@ fn specimen(label: &'static str, child: impl Render) -> View {
 fn content() -> Style {
   Style::new().padding(30.0)
 }
+
 fn eyebrow() -> Style {
   Style::new()
     .font_size(11.0)
     .letter_spacing(1.6)
     .color(Color::rgba(0.45, 0.7, 1.0, 1.0))
 }
+
 fn title() -> Style {
   Style::new()
     .font_size(34.0)
     .color(Color::rgb(1.0, 1.0, 1.0))
 }
+
 fn toolbar() -> Style {
   Style::new()
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn gallery() -> Style {
   Style::new()
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn card() -> Style {
   Style::new()
     .width(310.0)
@@ -256,12 +261,14 @@ fn card() -> Style {
     .background_color(Color::rgba(0.05, 0.08, 0.14, 1.0))
     .border_radius(10.0)
 }
+
 fn caption() -> Style {
   Style::new()
     .font_size(10.0)
     .letter_spacing(1.2)
     .color(Color::rgba(0.55, 0.65, 0.8, 1.0))
 }
+
 fn box_style() -> Style {
   Style::new()
     .width(132.0)
@@ -270,18 +277,22 @@ fn box_style() -> Style {
     .padding(12.0)
     .border_radius(8.0)
 }
+
 fn expanded_box() -> Style {
   box_style().width(240.0).height(92.0)
 }
+
 fn narrow_grid() -> Style {
   Style::new()
     .width(120.0)
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn wide_grid() -> Style {
   narrow_grid().width(250.0)
 }
+
 fn tile() -> Style {
   Style::new()
     .width(54.0)
@@ -289,21 +300,26 @@ fn tile() -> Style {
     .background_color(Color::rgba(0.15, 0.25, 0.4, 1.0))
     .padding(8.0)
 }
+
 fn row() -> Style {
   Style::new().flex_direction(FlexDirection::Row)
 }
+
 fn tab() -> Style {
   Style::new().width(110.0).padding(10.0)
 }
+
 fn indicator() -> Style {
   Style::new()
     .height(3.0)
     .width(90.0)
     .background_color(Color::rgba(0.2, 0.7, 1.0, 1.0))
 }
+
 fn handoff_slot() -> Style {
   Style::new().width(130.0).height(60.0).padding(8.0)
 }
+
 fn shared_box() -> Style {
   Style::new()
     .width(44.0)
@@ -311,15 +327,19 @@ fn shared_box() -> Style {
     .background_color(Color::rgba(0.65, 0.25, 1.0, 1.0))
     .border_radius(8.0)
 }
+
 fn scroll() -> Style {
   Style::new().width(275.0).height(68.0)
 }
+
 fn scroll_content() -> Style {
   Style::new().width(520.0).height(52.0).padding(4.0)
 }
+
 fn list() -> Style {
   Style::new()
 }
+
 fn item() -> Style {
   Style::new()
     .height(34.0)
@@ -327,6 +347,7 @@ fn item() -> Style {
     .background_color(Color::rgba(0.12, 0.18, 0.28, 1.0))
     .border_radius(5.0)
 }
+
 fn pop_item() -> Style {
   Style::new()
     .width(66.0)

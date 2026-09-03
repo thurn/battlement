@@ -1,33 +1,25 @@
 //! An arcade frame and content canvas at the portrait design size.
 
-use std::rc::Rc;
-
+use crate::{
+  concept_frame::ConceptFrame,
+  frame_styles,
+  portrait_viewport::{PORTRAIT_DESIGN_HEIGHT, PORTRAIT_DESIGN_WIDTH},
+};
 use battlement::{Color, Length, Overflow, PickingMode, Position, Style, TransformOrigin};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::View,
   paint::{PaintFill, PaintStyle},
   render::Render,
 };
-
-use crate::{
-  concept_frame::ConceptFrame,
-  frame_styles,
-  portrait_viewport::{PORTRAIT_DESIGN_HEIGHT, PORTRAIT_DESIGN_WIDTH},
-};
+use std::rc::Rc;
 
 /// Fixed portrait frame surrounding application content.
+#[builder]
 pub struct ScreenFrame<R> {
+  #[builder(required, into)]
   children: Rc<R>,
-}
-
-impl<R: Render> ScreenFrame<R> {
-  /// Creates a themed container around typed child content.
-  pub fn new(children: R) -> Self {
-    Self {
-      children: Rc::new(children),
-    }
-  }
 }
 
 impl<R: Render> Component for ScreenFrame<R> {

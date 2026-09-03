@@ -1,13 +1,15 @@
+use crate::Game;
 use battlement::{
   Color, FlexDirection, GridTrack, LengthUnits, ScrollViewMode, StackItem, Sticky, Style,
 };
 use battlement_reactant::prelude::*;
 
-use crate::Game;
-
 const GRID_CHILDREN: usize = 1_000;
+
 const STICKY_ROWS: usize = 100;
+
 const NESTED_STACKS: usize = 12;
+
 const ANCHORED_OVERLAYS: usize = 10;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -15,8 +17,10 @@ pub(crate) struct LayoutPerformanceState {
   phase: u32,
 }
 
+#[builder]
 pub(crate) struct LayoutPerformance {
   pub(crate) state: LayoutPerformanceState,
+  #[builder(required)]
   pub(crate) overlay: PortalTarget,
 }
 

@@ -1,18 +1,16 @@
 //! The gallery’s actions and navigation entries, including keyboard behavior.
 
-use std::rc::Rc;
-
+use crate::{review_navigation, review_theme};
 use battlement::{Color, CurrentPage, MotionColor, Style, TextAnchor, WhiteSpace};
-use battlement_reactant::{
-  component::Component, host::Button, motion::MotionStyle, render::Render,
-};
-
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
   element_behavior, hooks, semantics,
 };
-
-use crate::{review_navigation, review_theme};
+use battlement_reactant::{
+  component::Component, host::Button, motion::MotionStyle, render::Render,
+};
+use std::rc::Rc;
 
 /// Visual roles for review navigation and demonstration actions.
 #[derive(Clone, Copy)]
@@ -27,53 +25,27 @@ pub enum ReviewButtonKind {
 ///
 /// Callers supply intent (label, selection, disabled state, and callback). The
 /// component owns the host, keyboard behavior, focus treatment, and scroll reveal.
+#[builder]
 pub struct ReviewButton {
+  #[builder(required)]
   label: String,
+  /// Sets the stable host name used for inspection and capture discovery.
   name: String,
+  /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
+  /// Handles an accepted pointer, keyboard, or accessibility activation.
+  #[builder(default = Rc::new(||{}))]
   on_press: Rc<dyn Fn()>,
+  /// Reveals the current entry in its navigation column on each new visit.
   reveal_generation: Option<u64>,
+  #[builder(default = ReviewButtonKind::Action)]
   kind: ReviewButtonKind,
 }
 
 impl ReviewButton {
-  /// Creates an action with a visible and accessible label.
-  pub fn new(label: impl Into<String>) -> Self {
-    Self {
-      label: label.into(),
-      name: String::new(),
-      disabled: false,
-      on_press: Rc::new(|| {}),
-      reveal_generation: None,
-      kind: ReviewButtonKind::Action,
-    }
-  }
-
-  /// Sets the stable host name used for inspection and capture discovery.
-  pub fn name(mut self, name: impl Into<String>) -> Self {
-    self.name = name.into();
-    self
-  }
-  /// Disables activation while retaining the control’s place in the layout.
-  pub fn disabled(mut self, disabled: bool) -> Self {
-    self.disabled = disabled;
-    self
-  }
-  /// Handles an accepted pointer, keyboard, or accessibility activation.
-  pub fn on_press(mut self, callback: impl Fn() + 'static) -> Self {
-    self.on_press = Rc::new(callback);
-    self
-  }
-
   /// Styles and announces this button as a page selector.
   pub fn navigation(mut self, selected: bool) -> Self {
     self.kind = ReviewButtonKind::Navigation { selected };
-    self
-  }
-
-  /// Reveals the current entry in its navigation column on each new visit.
-  pub fn reveal_on(mut self, generation: u64) -> Self {
-    self.reveal_generation = Some(generation);
     self
   }
 }

@@ -1,10 +1,9 @@
+use crate::{Game, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionGestureEvent, MotionGestureEventKind,
   MotionPointerDevice, ScrollViewMode, ScrollerVisibility, Style,
 };
 use battlement_reactant::{motion_value::MotionValue, prelude::*};
-
-use crate::{Game, design_system};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct GesturesDragState {
@@ -59,6 +58,7 @@ impl GesturesDragState {
   }
 }
 
+#[builder]
 pub(crate) struct GesturesDrag {
   pub(crate) state: GesturesDragState,
   pub(crate) compact: bool,

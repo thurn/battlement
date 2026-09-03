@@ -1,10 +1,9 @@
+use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter, MotionGradient,
   MotionGradientStop, MotionLength, MotionShadow, Style,
 };
 use battlement_reactant::prelude::*;
-
-use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 
 const CHECKPOINTS: [f64; 5] = [0.0, 0.18, 0.5, 0.99, 1.0];
 
@@ -29,6 +28,7 @@ impl StylesDecorationsState {
   }
 }
 
+#[builder]
 pub(crate) struct StylesDecorations {
   pub(crate) state: StylesDecorationsState,
   pub(crate) compact: bool,
@@ -387,22 +387,26 @@ fn content() -> Style {
     .padding(28.0)
     .align_items(Align::FlexStart)
 }
+
 fn eyebrow() -> Style {
   Style::new()
     .font_size(20.0)
     .color(Color::rgb(0.98, 0.4, 0.16))
 }
+
 fn title() -> Style {
   Style::new()
     .font_size(40.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
     .margin((6, 0, 12, 0))
 }
+
 fn status() -> Style {
   Style::new()
     .font_size(18.0)
     .color(Color::rgb(0.68, 0.76, 0.78))
 }
+
 fn control_row() -> Style {
   Style::new()
     .width(100.0_f32.pct())
@@ -410,6 +414,7 @@ fn control_row() -> Style {
     .flex_wrap(FlexWrap::Wrap)
     .margin((10, 0))
 }
+
 fn action_style() -> Style {
   Style::new()
     .height(40.0)
@@ -421,12 +426,14 @@ fn action_style() -> Style {
     .font_size(14.0)
     .margin((0, 7, 7, 0))
 }
+
 fn gallery() -> Style {
   Style::new()
     .width(100.0_f32.pct())
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn specimen_style() -> Style {
   Style::new()
     .width(310.0)
@@ -437,27 +444,33 @@ fn specimen_style() -> Style {
     .border_color(Color::rgb(0.15, 0.28, 0.32))
     .border_width(1.0)
 }
+
 fn advanced_specimen_style() -> Style {
   specimen_style().width(636.0).min_height(330.0)
 }
+
 fn advanced_row() -> Style {
   Style::new()
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn paint_cell() -> Style {
   Style::new().width(285.0).margin((6, 8, 0, 0))
 }
+
 fn paint_label() -> Style {
   Style::new()
     .font_size(12.0)
     .color(Color::rgb(0.68, 0.76, 0.78))
 }
+
 fn specimen_title() -> Style {
   Style::new()
     .font_size(18.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
 }
+
 fn specimen_detail() -> Style {
   Style::new()
     .font_size(13.0)
@@ -465,6 +478,7 @@ fn specimen_detail() -> Style {
     .color(Color::rgb(0.68, 0.76, 0.78))
     .margin((6, 0))
 }
+
 fn probe() -> Style {
   Style::new()
     .width(190.0)
@@ -474,11 +488,13 @@ fn probe() -> Style {
     .border_radius(8.0)
     .color(Color::rgb(0.95, 0.99, 1.0))
 }
+
 fn loop_row() -> Style {
   Style::new()
     .flex_direction(FlexDirection::Row)
     .align_items(Align::Center)
 }
+
 fn dot() -> Style {
   Style::new()
     .width(42.0)

@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "crates/battlement",
+    "crates/battlement-builder",
+    "crates/battlement-builder-macros",
     "crates/battlement-cloud",
     "crates/battlement-cloud-fake",
     "crates/battlement-ditto",

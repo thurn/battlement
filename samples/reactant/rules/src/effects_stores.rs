@@ -1,3 +1,6 @@
+use crate::{Control, Game, design_system};
+use battlement::{ScrollViewMode, ScrollerVisibility};
+use battlement_reactant::prelude::*;
 use std::{
   collections::HashMap,
   sync::{
@@ -6,16 +9,16 @@ use std::{
   },
 };
 
-use battlement::{ScrollViewMode, ScrollerVisibility};
-use battlement_reactant::prelude::*;
-
-use crate::{Control, Game, design_system};
-
+#[builder]
 pub(crate) struct EffectsStores {
   pub(crate) enabled: bool,
+  #[builder(required)]
   pub(crate) effect_interaction: design_system::ControlState,
+  #[builder(required)]
   pub(crate) store: SampleStore,
+  #[builder(required)]
   pub(crate) store_phase: StorePhase,
+  #[builder(required)]
   pub(crate) store_interaction: design_system::ControlState,
   pub(crate) compact: bool,
 }
@@ -38,8 +41,6 @@ impl PartialEq for SampleStore {
     Arc::ptr_eq(&self.state, &other.state)
   }
 }
-
-impl Eq for SampleStore {}
 
 impl ExternalStore for SampleStore {
   type Snapshot = usize;
@@ -159,7 +160,9 @@ impl Component for EffectsStores {
                     "effects-action",
                     design_system::effect_action(self.effect_interaction, !self.enabled),
                     Control::EffectsAction,
-                    |game: &mut Game| game.effects_enabled = !game.effects_enabled,
+                    |game: &mut Game| {
+                      game.effects_enabled = !game.effects_enabled;
+                    },
                   )),
               )
               .child(
@@ -187,12 +190,16 @@ impl Component for EffectsStores {
                     ),
                     Control::StoreAction,
                     |game: &mut Game| match game.store_phase {
-                      StorePhase::Primary => game.store_phase = StorePhase::Secondary,
+                      StorePhase::Primary => {
+                        game.store_phase = StorePhase::Secondary;
+                      }
                       StorePhase::Secondary => {
                         game.secondary_store.publish(41);
                         game.store_phase = StorePhase::Updated;
                       }
-                      StorePhase::Updated => game.store_phase = StorePhase::Primary,
+                      StorePhase::Updated => {
+                        game.store_phase = StorePhase::Primary;
+                      }
                     },
                   )),
               ),
@@ -216,3 +223,5 @@ struct StoreState {
   next_listener: AtomicUsize,
   listeners: Mutex<HashMap<usize, StoreNotify>>,
 }
+
+impl Eq for SampleStore {}

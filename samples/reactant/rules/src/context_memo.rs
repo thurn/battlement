@@ -1,13 +1,15 @@
-use battlement_reactant::prelude::*;
-
 use crate::{Control, Game, design_system};
+use battlement_reactant::prelude::*;
 
 static THEME: Context<Theme> = Context::new(|| Theme::Outer);
 
+#[builder]
 pub(crate) struct ContextMemo {
   pub(crate) overridden: bool,
   pub(crate) unrelated: u8,
+  #[builder(required)]
   pub(crate) interaction: design_system::ControlState,
+  #[builder(required)]
   pub(crate) unrelated_interaction: design_system::ControlState,
   pub(crate) compact: bool,
 }
@@ -18,6 +20,7 @@ enum Theme {
   Overridden,
 }
 
+#[builder]
 #[derive(PartialEq)]
 struct ThemeCard {
   scope: &'static str,
@@ -35,10 +38,10 @@ impl Component for ContextMemo {
       Node::new(
         THEME
           .provider(Theme::Overridden)
-          .child(memo(ThemeCard { scope: "NESTED" })),
+          .child(memo(ThemeCard::new().scope("NESTED"))),
       )
     } else {
-      Node::new(memo(ThemeCard { scope: "NESTED" }))
+      Node::new(memo(ThemeCard::new().scope("NESTED")))
     };
     battlement_reactant::host::View::new()
       .name("context-canvas")
@@ -79,7 +82,7 @@ impl Component for ContextMemo {
             battlement_reactant::host::View::new()
               .name("context-cards")
               .style(design_system::context_row())
-              .child(memo(ThemeCard { scope: "OUTER" }))
+              .child(memo(ThemeCard::new().scope("OUTER")))
               .child(nested),
           ),
       )

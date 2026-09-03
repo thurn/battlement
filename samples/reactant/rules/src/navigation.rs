@@ -1,7 +1,10 @@
 use crate::controls;
 use crate::{Control, Game, Interaction, Screen, design_system, sample_navigation};
 use battlement_reactant::prelude::*;
+
+#[builder]
 pub(crate) struct Navigation {
+  #[builder(required)]
   pub(crate) screen: Screen,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,

@@ -1,15 +1,14 @@
-use std::time::Duration;
-
+use crate::{Game, design_system};
 use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter,
   MotionLength, MotionTransform, ObjectId, ScrollViewMode, ScrollerVisibility, Style, object_id,
 };
 use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
+use std::time::Duration;
 
 pub(crate) const AUDIO_CLIP: AudioClipAddress =
   AudioClipAddress::from_static("reactant/assets/clock-pulse");
+
 const AUDIO_PLAYBACK_ID: ObjectId = object_id!("35d40000-0000-4000-8000-000000000001");
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -43,6 +42,7 @@ impl Default for ValuesTimeControlsState {
   }
 }
 
+#[builder]
 pub(crate) struct ValuesTimeControls {
   pub(crate) state: ValuesTimeControlsState,
   pub(crate) compact: bool,

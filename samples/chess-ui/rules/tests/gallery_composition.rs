@@ -1,10 +1,12 @@
 use battlement::{GameObjectKind, ObjectId};
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   app::App, asset_generator, component::Component, hooks, host::Label, render::Render,
 };
 use battlement_rules::{gallery::Gallery, review_button::ReviewButton, review_page::ReviewPage};
 
+#[builder]
 struct Counter {
   initial: u32,
 }
@@ -14,7 +16,8 @@ impl Component for Counter {
     let (value, set_value) = hooks::use_state(self.initial);
     (
       Label::new(value.to_string()).name("counter"),
-      ReviewButton::new("Increment")
+      ReviewButton::new()
+        .label("Increment")
         .name("increment")
         .on_press(move || set_value.update(|old| old + 1)),
     )
@@ -24,14 +27,21 @@ impl Component for Counter {
 #[test]
 fn configured_component_values_keep_state_until_their_page_is_selected_again() {
   let gallery = Gallery::new()
-    .page(ReviewPage::new("Counter").child(Counter { initial: 7 }))
-    .page(ReviewPage::new("Greeting").child(Label::new("Welcome").name("greeting")));
+    .page(
+      ReviewPage::new()
+        .title("Counter")
+        .child(Counter::new().initial(7)),
+    )
+    .page(
+      ReviewPage::new()
+        .title("Greeting")
+        .child(Label::new("Welcome").name("greeting")),
+    );
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("gallery/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   let mut client = FakeClient::connect(App::new("gallery/content").ui(gallery), assets);
   client.poll();
-
   let counter = self::named(&mut client, "counter");
   assert_eq!(client.ui().element(counter).text(), Some("7"));
   let increment = self::named(&mut client, "increment");
@@ -40,21 +50,18 @@ fn configured_component_values_keep_state_until_their_page_is_selected_again() {
     client.poll();
     assert_eq!(client.ui().element(counter).text(), Some(expected));
   }
-
   let first = self::named(&mut client, "review-page-1");
   client.ui().click(first);
   client.poll();
   assert!(!client.ui().contains(counter));
   let fresh = self::named(&mut client, "counter");
   assert_eq!(client.ui().element(fresh).text(), Some("7"));
-
   let second = self::named(&mut client, "review-page-2");
   client.ui().click(second);
   client.poll();
   let greeting = self::named(&mut client, "greeting");
   assert_eq!(client.ui().element(greeting).text(), Some("Welcome"));
   assert!(!client.ui().contains(fresh));
-
   client.ui().click(first);
   client.poll();
   let returned = self::named(&mut client, "counter");

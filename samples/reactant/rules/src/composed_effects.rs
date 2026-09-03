@@ -1,15 +1,14 @@
-use std::time::Duration;
-
+use crate::{Game, design_system};
 use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, LengthUnits, MotionColor, MotionFilter,
   MotionLength, MotionShadow, Overflow, ScrollViewMode, ScrollerVisibility, Style, WhiteSpace,
   object_id,
 };
 use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
+use std::time::Duration;
 
 const AUDIO_PLAYBACK_ID: battlement::ObjectId = object_id!("72100000-0000-4000-8000-000000000001");
+
 const AUDIO_CLIP: AudioClipAddress = AudioClipAddress::from_static("reactant/assets/clock-pulse");
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,8 +40,7 @@ impl Default for ComposedEffectsState {
   }
 }
 
-impl ComposedEffectsState {}
-
+#[builder]
 pub(crate) struct ComposedEffects {
   pub(crate) state: ComposedEffectsState,
   pub(crate) compact: bool,
@@ -468,22 +466,26 @@ fn content() -> Style {
     .padding(28.0)
     .align_items(Align::FlexStart)
 }
+
 fn eyebrow() -> Style {
   Style::new()
     .font_size(20.0)
     .color(Color::rgb(0.98, 0.4, 0.16))
 }
+
 fn title() -> Style {
   Style::new()
     .font_size(40.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
     .margin((6, 0, 12, 0))
 }
+
 fn status() -> Style {
   Style::new()
     .font_size(18.0)
     .color(Color::rgb(0.68, 0.76, 0.78))
 }
+
 fn control_row() -> Style {
   Style::new()
     .width(100.0_f32.pct())
@@ -491,6 +493,7 @@ fn control_row() -> Style {
     .flex_wrap(FlexWrap::Wrap)
     .margin((10, 0))
 }
+
 fn action_style() -> Style {
   Style::new()
     .height(40.0)
@@ -502,12 +505,14 @@ fn action_style() -> Style {
     .font_size(14.0)
     .margin((0, 7, 7, 0))
 }
+
 fn gallery() -> Style {
   Style::new()
     .width(100.0_f32.pct())
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn specimen_style() -> Style {
   Style::new()
     .width(310.0)
@@ -518,11 +523,13 @@ fn specimen_style() -> Style {
     .border_color(Color::rgb(0.15, 0.28, 0.32))
     .border_width(1.0)
 }
+
 fn specimen_title() -> Style {
   Style::new()
     .font_size(18.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
 }
+
 fn specimen_detail() -> Style {
   Style::new()
     .font_size(13.0)
@@ -530,6 +537,7 @@ fn specimen_detail() -> Style {
     .color(Color::rgb(0.68, 0.76, 0.78))
     .margin((6, 0))
 }
+
 fn probe() -> Style {
   Style::new()
     .width(190.0)
@@ -541,11 +549,13 @@ fn probe() -> Style {
     .border_radius(8.0)
     .color(Color::rgb(0.95, 0.99, 1.0))
 }
+
 fn probe_label() -> Style {
   Style::new()
     .color(Color::rgb(0.95, 0.99, 1.0))
     .font_size(16.0)
 }
+
 fn menu() -> Style {
   Style::new()
     .width(210.0)
@@ -553,6 +563,7 @@ fn menu() -> Style {
     .background_color(Color::rgb(0.03, 0.1, 0.13))
     .overflow(Overflow::Hidden)
 }
+
 fn option() -> Style {
   Style::new()
     .height(34.0)
@@ -560,6 +571,7 @@ fn option() -> Style {
     .background_color(Color::rgb(0.05, 0.16, 0.19))
     .color(Color::rgb(0.9, 0.98, 1.0))
 }
+
 fn flash() -> Style {
   Style::new()
     .position(battlement::Position::Absolute)
@@ -569,6 +581,7 @@ fn flash() -> Style {
     .border_width(2.0)
     .border_radius(8.0)
 }
+
 fn backdrop() -> Style {
   Style::new()
     .width(270.0)
@@ -578,6 +591,7 @@ fn backdrop() -> Style {
     .align_items(Align::Center)
     .overflow(Overflow::Hidden)
 }
+
 fn modal_panel() -> Style {
   Style::new()
     .width(210.0)
@@ -588,14 +602,17 @@ fn modal_panel() -> Style {
     .border_width(1.0)
     .overflow(Overflow::Hidden)
 }
+
 fn shine() -> Style {
   Style::new()
     .width(52.0)
     .background_color(Color::rgba(0.65, 0.96, 1.0, 0.26))
 }
+
 fn row() -> Style {
   Style::new().flex_direction(FlexDirection::Row)
 }
+
 fn tab() -> Style {
   Style::new()
     .width(72.0)
@@ -604,6 +621,7 @@ fn tab() -> Style {
     .align_items(Align::Center)
     .background_color(Color::rgb(0.04, 0.12, 0.15))
 }
+
 fn indicator() -> Style {
   Style::new()
     .position(battlement::Position::Absolute)
@@ -613,6 +631,7 @@ fn indicator() -> Style {
     .bottom(0.0)
     .background_color(Color::rgb(0.98, 0.48, 0.18))
 }
+
 fn route_panel() -> Style {
   Style::new()
     .width(250.0)
@@ -622,11 +641,13 @@ fn route_panel() -> Style {
     .color(Color::rgb(0.95, 0.99, 1.0))
     .overflow(Overflow::Hidden)
 }
+
 fn beam() -> Style {
   Style::new()
     .width(28.0)
     .background_color(Color::rgba(0.25, 0.95, 1.0, 0.42))
 }
+
 fn particle(index: usize) -> Style {
   Style::new()
     .width(12.0 + index as f32 * 3.0)
@@ -635,11 +656,13 @@ fn particle(index: usize) -> Style {
     .border_color(Color::rgb(1.0, 0.58, 0.18))
     .border_width(1.0)
 }
+
 fn slider() -> Style {
   probe()
     .width(250.0)
     .background_color(Color::rgb(0.18, 0.12, 0.34))
 }
+
 fn ambient_stage() -> Style {
   Style::new()
     .width(270.0)
@@ -648,6 +671,7 @@ fn ambient_stage() -> Style {
     .overflow(Overflow::Hidden)
     .align_items(Align::Center)
 }
+
 fn dot() -> Style {
   Style::new()
     .width(30.0)
@@ -656,6 +680,7 @@ fn dot() -> Style {
     .background_color(Color::rgb(0.58, 0.25, 0.94))
     .margin((2, 0))
 }
+
 fn audio_probe() -> Style {
   Style::new()
     .width(42.0)

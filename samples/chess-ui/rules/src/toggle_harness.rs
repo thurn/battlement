@@ -1,9 +1,9 @@
+use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
 use battlement::{Color, Style};
 use battlement_reactant::{hooks, prelude::*};
 
-use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
-
 /// Owns checkbox values and counts proposals accepted from the controls.
+#[builder]
 pub struct ToggleHarness;
 
 impl Component for ToggleHarness {
@@ -21,16 +21,20 @@ impl Component for ToggleHarness {
           .background_color(Color::rgb(0.01, 0.035, 0.08)),
       )
       .child((
-        ToggleControl::new(self::label("VSync"), checked, move |value| {
-          set_checked.set(value);
-          set_changes.update(|count| count + 1);
-        }),
-        ToggleControl::new(self::label("Screenshake"), screenshake, move |value| {
-          set_screenshake.set(value)
-        })
-        .aria_label("Screen shake")
-        .row_height(190.0)
-        .offset_y(-8.0),
+        ToggleControl::new()
+          .label(self::label("VSync"))
+          .checked(checked)
+          .on_change(move |value| {
+            set_checked.set(value);
+            set_changes.update(|count| count + 1);
+          }),
+        ToggleControl::new()
+          .label(self::label("Screenshake"))
+          .checked(screenshake)
+          .on_change(move |value| set_screenshake.set(value))
+          .aria_label("Screen shake")
+          .row_height(190.0)
+          .offset_y(-8.0),
         Label::new(format!("VSync changes: {changes}"))
           .semantic(use_static_text(text(format!("VSync changes: {changes}"))))
           .style(
@@ -39,7 +43,8 @@ impl Component for ToggleHarness {
               .color(Color::rgb(0.75, 0.86, 0.97))
               .margin_top(30),
           ),
-        ReviewButton::new("Change VSync from parent")
+        ReviewButton::new()
+          .label("Change VSync from parent")
           .on_press(move || external.update(|value| !value)),
       ))
   }

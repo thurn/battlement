@@ -1,4 +1,6 @@
+use crate::portrait_viewport::PortraitViewport;
 use battlement::{Align, Color, Justify, LengthUnits, Style, TextAnchor};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility,
   component::Component,
@@ -7,9 +9,8 @@ use battlement_reactant::{
   semantics,
 };
 
-use crate::portrait_viewport::PortraitViewport;
-
 /// Marks the corners of a fixed canvas to demonstrate fitting.
+#[builder]
 pub struct PortraitHarness;
 
 impl Component for PortraitHarness {

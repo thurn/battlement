@@ -1,22 +1,28 @@
 use crate::controls;
 use crate::{Control, Interaction, design_system};
 use battlement_reactant::prelude::*;
+
+#[builder]
 pub(crate) struct Composition {
   pub(crate) reversed: bool,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,
 }
 
+#[builder]
 struct Badge {
   pub(crate) text: &'static str,
 }
 
-pub(crate) struct Specimen<Heading = Missing, Child = Missing> {
-  required: (Heading, Child),
-  optional: (),
+#[builder]
+pub(crate) struct Specimen {
+  /// Heading above the specimen's contents.
+  #[builder(required)]
+  heading: String,
+  /// Owned content shown inside the specimen.
+  #[builder(required)]
+  child: Node,
 }
-
-required_props!(Specimen, heading: String, child: Node);
 
 impl Component for Composition {
   fn render(&self) -> impl Render {
@@ -55,40 +61,25 @@ impl Component for Badge {
   }
 }
 
-impl Specimen<Missing, Missing> {
-  pub(crate) fn new() -> Self {
-    Self {
-      required: (Missing, Missing),
-      optional: (),
-    }
-  }
-}
-
-impl Component for Specimen<String, Node> {
+impl Component for Specimen {
   fn render(&self) -> impl Render {
     battlement_reactant::host::View::new()
       .name("composition-specimen")
       .style(design_system::specimen())
       .child(
-        battlement_reactant::host::Label::new(self.required.0.clone())
+        battlement_reactant::host::Label::new(self.heading.clone())
           .name("specimen-heading")
           .style(design_system::specimen_title()),
       )
-      .child(self.required.1.clone())
+      .child(self.child.clone())
   }
 }
 
 fn composition_badges(reversed: bool) -> Node {
   let mut badges = vec![
-    Badge {
-      text: "01  Required props",
-    },
-    Badge {
-      text: "02  Structural values",
-    },
-    Badge {
-      text: "03  Primitive children",
-    },
+    Badge::new().text("01  Required props"),
+    Badge::new().text("02  Structural values"),
+    Badge::new().text("03  Primitive children"),
   ];
   if reversed {
     badges.reverse();

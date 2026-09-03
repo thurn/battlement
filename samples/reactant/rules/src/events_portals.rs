@@ -1,11 +1,12 @@
+use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
 use battlement::{LengthUnits, PickingMode, ScrollViewMode, ScrollerVisibility};
 use battlement_reactant::prelude::*;
 
-use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
-
+#[builder]
 pub(crate) struct EventsPortals {
   pub(crate) active: bool,
   pub(crate) trace: Vec<&'static str>,
+  #[builder(required)]
   pub(crate) overlay: PortalTarget,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,

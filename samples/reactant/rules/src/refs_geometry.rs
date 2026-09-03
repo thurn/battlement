@@ -1,10 +1,10 @@
-use battlement::{CameraTarget, DisplayId, ScrollViewMode, ScrollerVisibility, ViewportRect};
-use battlement_reactant::prelude::*;
-
 use crate::{
   Control, GEOMETRY_TARGET_ID, Game, Interaction, MISSING_GEOMETRY_TARGET_ID, design_system,
 };
+use battlement::{CameraTarget, DisplayId, ScrollViewMode, ScrollerVisibility, ViewportRect};
+use battlement_reactant::prelude::*;
 
+#[builder]
 pub(crate) struct RefsGeometry {
   pub(crate) active: bool,
   pub(crate) effect_runs: u32,
@@ -186,30 +186,36 @@ fn screen_value(
   viewport: Option<ViewportRect>,
 ) -> String {
   match (field.latest, viewport) {
-    (Some(field), Some(viewport)) => format!(
-      "x {:>4.0}  y {:>4.0}\n{:>4.0} × {:>4.0} px",
-      field.viewport_bound.x, field.viewport_bound.y, viewport.width, viewport.height,
-    ),
+    (Some(field), Some(viewport)) => {
+      format!(
+        "x {:>4.0}  y {:>4.0}\n{:>4.0} × {:>4.0} px",
+        field.viewport_bound.x, field.viewport_bound.y, viewport.width, viewport.height,
+      )
+    }
     _ => self::status_text(field.status).to_owned(),
   }
 }
 
 fn point_value(point: Measurement<WorldGeometry>) -> String {
   match point.latest {
-    Some(WorldGeometry::Point(value)) if point.status == MeasurementStatus::Current => format!(
-      "x {:>4.0}  y {:>4.0}\ndepth {:>5.1}",
-      value.point.x, value.point.y, value.depth
-    ),
+    Some(WorldGeometry::Point(value)) if point.status == MeasurementStatus::Current => {
+      format!(
+        "x {:>4.0}  y {:>4.0}\ndepth {:>5.1}",
+        value.point.x, value.point.y, value.depth
+      )
+    }
     _ => self::status_text(point.status).to_owned(),
   }
 }
 
 fn bounds_value(bounds: Measurement<WorldGeometry>) -> String {
   match bounds.latest {
-    Some(WorldGeometry::Bounds(value)) if bounds.status == MeasurementStatus::Current => format!(
-      "{:>4.0} × {:>4.0} px\ndepth {:>4.1}–{:>4.1}",
-      value.bound.width, value.bound.height, value.nearest_depth, value.farthest_depth
-    ),
+    Some(WorldGeometry::Bounds(value)) if bounds.status == MeasurementStatus::Current => {
+      format!(
+        "{:>4.0} × {:>4.0} px\ndepth {:>4.1}–{:>4.1}",
+        value.bound.width, value.bound.height, value.nearest_depth, value.farthest_depth
+      )
+    }
     _ => self::status_text(bounds.status).to_owned(),
   }
 }

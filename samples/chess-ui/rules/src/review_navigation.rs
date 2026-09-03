@@ -1,50 +1,38 @@
 //! A themed navigation landmark whose entries share a scroll container.
 
-use battlement::{Display, LengthUnits, ScrollViewMode, ScrollerVisibility, Style};
-use battlement_reactant::{
-  component::Component,
-  host::{ScrollView, View},
-  render::Render,
+use crate::{
+  review_text::{ReviewText, ReviewTextKind},
+  review_theme,
 };
-
+use battlement::{Display, LengthUnits, ScrollViewMode, ScrollerVisibility, Style};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility_collections,
   context::Context,
   element_ref::{self, ElementRef},
   semantics,
 };
-
-use crate::{
-  review_text::{ReviewText, ReviewTextKind},
-  review_theme,
+use battlement_reactant::{
+  component::Component,
+  host::{ScrollView, View},
+  render::Render,
 };
 
 /// Scroll context shared by navigation entries so callers need no host references.
 pub static SCROLL: Context<Option<ElementRef>> = Context::new(|| None);
 
 /// A titled navigation column with a themed vertical scroll area.
+#[builder]
 pub struct ReviewNavigation {
+  #[builder(required)]
   title: String,
+  /// Sets the supporting text below the navigation title.
   caption: String,
+  #[builder(default = ScrollView::new().name("review-navigation"))]
   scroll: ScrollView,
 }
 
 impl ReviewNavigation {
-  /// Creates a navigation column with an application title.
-  pub fn new(title: impl Into<String>) -> Self {
-    Self {
-      title: title.into(),
-      caption: String::new(),
-      scroll: ScrollView::new().name("review-navigation"),
-    }
-  }
-
-  /// Sets the supporting text below the navigation title.
-  pub fn caption(mut self, caption: impl Into<String>) -> Self {
-    self.caption = caption.into();
-    self
-  }
-
   /// Appends entries in navigation order; key entries by their stable identity.
   pub fn children<R: Render>(mut self, children: impl IntoIterator<Item = R>) -> Self {
     self.scroll = self.scroll.children(children);
@@ -69,8 +57,12 @@ impl Component for ReviewNavigation {
             .flex_shrink(0),
         )
         .child((
-          ReviewText::new(self.title.clone()).kind(ReviewTextKind::Brand),
-          ReviewText::new(self.caption.clone()).kind(ReviewTextKind::Caption),
+          ReviewText::new()
+            .text(self.title.clone())
+            .kind(ReviewTextKind::Brand),
+          ReviewText::new()
+            .text(self.caption.clone())
+            .kind(ReviewTextKind::Caption),
           self
             .scroll
             .clone()

@@ -1,7 +1,6 @@
+use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
 use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
 
 const CHECKPOINTS: [u64; 4] = [0, 120_000, 320_000, 900_000];
 
@@ -106,6 +105,7 @@ impl PhysicalMotionState {
   }
 }
 
+#[builder]
 pub(crate) struct PhysicalMotion {
   pub(crate) state: PhysicalMotionState,
   pub(crate) compact: bool,

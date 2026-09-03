@@ -1,9 +1,8 @@
+use crate::{Game, design_system, layout_gallery_styles as styles};
 use battlement::{
   Align, Color, GridAutoFlow, GridItem, GridTrack, PickingMode, ScrollViewMode, StackItem, Sticky,
 };
 use battlement_reactant::{hooks, prelude::*};
-
-use crate::{Game, design_system, layout_gallery_styles as styles};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LayoutGalleryState {
@@ -25,14 +24,15 @@ pub(crate) struct LayoutGalleryState {
   pub(crate) volume: u32,
 }
 
-impl LayoutGalleryState {}
-
+#[builder]
 pub(crate) struct LayoutGallery {
   pub(crate) state: LayoutGalleryState,
   pub(crate) compact: bool,
+  #[builder(required)]
   pub(crate) overlay: PortalTarget,
 }
 
+#[builder]
 struct StatefulSetting {
   name: &'static str,
   row: u32,
@@ -83,10 +83,11 @@ impl Component for LayoutGallery {
       )
       .child(self.settings())
       .child(self.accessible_settings())
-      .child(crate::collection_settings::CollectionSettings {
-        choice: self.state.collection_choice,
-        page: self.state.collection_page,
-      })
+      .child(
+        crate::collection_settings::CollectionSettings::new()
+          .choice(self.state.collection_choice)
+          .page(self.state.collection_page),
+      )
       .child(self.table())
       .child(self.dropdown(menu_anchor))
       .child(self.layers())
@@ -182,7 +183,6 @@ impl LayoutGallery {
           .interaction_props(reset.interaction),
       )
   }
-
   fn tabs(&self) -> View {
     let tabs = ["GENERAL", "AUDIO", "ACCESS"];
     let tab_list = use_tabs(text("Settings sections"));
@@ -212,7 +212,9 @@ impl LayoutGallery {
                     name: text(label),
                     selected: index == self.state.active_tab,
                     is_disabled: false,
-                    on_select: move |game: &mut Game| game.layout_gallery.active_tab = index,
+                    on_select: move |game: &mut Game| {
+                      game.layout_gallery.active_tab = index;
+                    },
                   },
                 );
                 Button::new(label)
@@ -242,19 +244,22 @@ impl LayoutGallery {
           ),
       )
   }
-
   fn accessible_settings(&self) -> View {
     let checkbox = use_checkbox(ToggleOptions {
       name: text("Captions"),
       checked: self.state.captions_enabled,
       is_disabled: false,
-      on_change: |game: &mut Game, checked| game.layout_gallery.captions_enabled = checked,
+      on_change: |game: &mut Game, checked| {
+        game.layout_gallery.captions_enabled = checked;
+      },
     });
     let spatial_audio = use_switch(ToggleOptions {
       name: text("Spatial audio"),
       checked: self.state.spatial_audio,
       is_disabled: false,
-      on_change: |game: &mut Game, checked| game.layout_gallery.spatial_audio = checked,
+      on_change: |game: &mut Game, checked| {
+        game.layout_gallery.spatial_audio = checked;
+      },
     });
     let radio_group = use_radio_group(text("Audio quality"));
     let standard = use_radio(
@@ -302,7 +307,6 @@ impl LayoutGallery {
         announce.send(text("Settings saved"));
       },
     });
-
     View::new()
       .name("layout-gallery-accessibility")
       .semantic(use_group(Some(text("Accessible settings"))))
@@ -403,7 +407,6 @@ impl LayoutGallery {
           .interaction_props(save.interaction),
       )
   }
-
   fn settings(&self) -> View {
     let compact_tracks = self.state.alternate_tracks || self.compact;
     let columns = if compact_tracks {
@@ -438,12 +441,11 @@ impl LayoutGallery {
               .into_iter()
               .enumerate()
               .map(|(index, name)| {
-                StatefulSetting {
-                  name,
-                  row: index as u32 + 1,
-                  large_text: self.state.large_text,
-                }
-                .key(name)
+                StatefulSetting::new()
+                  .name(name)
+                  .row(index as u32 + 1)
+                  .large_text(self.state.large_text)
+                  .key(name)
               })
               .collect::<Vec<_>>(),
           )
@@ -463,7 +465,6 @@ impl LayoutGallery {
           ),
       )
   }
-
   fn table(&self) -> View {
     View::new()
       .style(styles::section())
@@ -502,7 +503,6 @@ impl LayoutGallery {
           ),
       )
   }
-
   fn dropdown(&self, anchor: ElementRef) -> View {
     let popover = self.state.menu_open.then(|| {
       Overlay::popover(self.overlay.clone(), anchor.clone())
@@ -548,7 +548,6 @@ impl LayoutGallery {
           .on_click(|game: &mut Game| game.layout_gallery.trace.push("BUBBLE")),
       )
   }
-
   fn layers(&self) -> View {
     let foreground_order = if self.state.layers_reversed { -1 } else { 2 };
     View::new()
@@ -607,12 +606,13 @@ impl LayoutGallery {
         })),
       )
   }
-
   fn modal(&self, trigger: ElementRef, initial: ElementRef) -> impl Render {
     self.state.modal_open.then(|| {
       let dialog = use_dialog(DialogOptions {
         name: text("Viewport modal"),
-        on_dismiss: Some(|game: &mut Game| game.layout_gallery.modal_open = false),
+        on_dismiss: Some(|game: &mut Game| {
+          game.layout_gallery.modal_open = false;
+        }),
       });
       Overlay::modal(self.overlay.clone())
         .name("layout-gallery-modal-scope")
@@ -637,7 +637,9 @@ impl LayoutGallery {
                   .name("layout-gallery-modal-close")
                   .element_ref(initial)
                   .while_focus_visible(MotionStyle::new().scale(1.06))
-                  .on_click(|game: &mut Game| game.layout_gallery.modal_open = false),
+                  .on_click(|game: &mut Game| {
+                    game.layout_gallery.modal_open = false;
+                  }),
               ),
           ),
         )

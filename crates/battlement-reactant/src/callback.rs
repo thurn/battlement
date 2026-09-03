@@ -12,11 +12,20 @@ pub trait IntoCallback<A, Signature>: 'static {
   fn into_callback(self) -> Callback<A>;
 }
 
-/// A callback's erased model requirement and invocation.
-#[doc(hidden)]
+/// A shared event callback retaining its optional application-model requirement.
 pub struct Callback<A> {
   pub(crate) model: Option<TypeId>,
   invoke: Rc<Invocation<A>>,
+}
+
+/// Distinguishes forwarding a stored callback from converting a closure.
+#[doc(hidden)]
+pub struct StoredCallback;
+
+impl<A: 'static> IntoCallback<A, StoredCallback> for Callback<A> {
+  fn into_callback(self) -> Callback<A> {
+    self
+  }
 }
 
 impl<A> Clone for Callback<A> {

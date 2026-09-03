@@ -1,4 +1,6 @@
+use crate::{action_button::ActionButton, return_button::ReturnButton};
 use battlement::{Color, FlexDirection, Position, Style};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility,
   component::Component,
@@ -8,9 +10,8 @@ use battlement_reactant::{
   semantics::{self, SemanticVisibility},
 };
 
-use crate::{action_button::ActionButton, return_button::ReturnButton};
-
 /// Counts action and Return presses, including a disabled action.
+#[builder]
 pub struct ActionHarness;
 
 impl Component for ActionHarness {
@@ -40,27 +41,31 @@ impl Component for ActionHarness {
           )
           .child((
             self::slot(
-              ActionButton::new(self::text("PLAY")).on_click(move || play.update(|n| n + 1)),
+              ActionButton::new()
+                .children(self::text("PLAY"))
+                .on_click(move || play.update(|n| n + 1)),
             ),
             self::slot(
-              ActionButton::new(
-                Flex::new()
-                  .direction(FlexDirection::Row)
-                  .gap(14.0)
-                  .child((self::text("COMPOSED"), self::text("LABEL"))),
-              )
-              .on_click(move || set_clicks.update(|n| n + 1)),
+              ActionButton::new()
+                .children(
+                  Flex::new()
+                    .direction(FlexDirection::Row)
+                    .gap(14.0)
+                    .child((self::text("COMPOSED"), self::text("LABEL"))),
+                )
+                .on_click(move || set_clicks.update(|n| n + 1)),
             ),
-            self::slot(ActionButton::new(self::text("ABOUT"))),
+            self::slot(ActionButton::new().children(self::text("ABOUT"))),
             self::slot(
-              ActionButton::new(self::text("DISABLED"))
+              ActionButton::new()
+                .children(self::text("DISABLED"))
                 .disabled(true)
                 .on_click(move || disabled.update(|n| n + 1)),
             ),
             self::status(format!("Action clicks: {clicks}")),
             self::status(format!("Return clicks: {returns}")),
           )),
-        ReturnButton::new(move || set_returns.update(|n| n + 1)),
+        ReturnButton::new().on_click(move || set_returns.update(|n| n + 1)),
       ))
   }
 }

@@ -1,5 +1,6 @@
 //! Decorative slider paint; input behavior belongs to VolumeControl.
 
+use crate::{clipped_inset::ClippedInset, frame_styles};
 use battlement::{
   Length, LengthUnits, MotionGradient, MotionGradientStop, MotionLength, PickingMode, Position,
   Style, Translate,
@@ -8,8 +9,6 @@ use battlement_reactant::{
   host::View,
   paint::{PaintFill, PaintStyle},
 };
-
-use crate::{clipped_inset::ClippedInset, frame_styles};
 
 /// Paints the filled portion of a zero-to-one-hundred slider track.
 pub fn track(value: u32) -> View {
@@ -115,12 +114,13 @@ pub fn thumb(value: u32) -> View {
         .clip_polygon(self::clip()),
     )
     .child(
-      ClippedInset::new(PaintFill::Gradient(MotionGradient::Linear {
-        angle: 90.0,
-        stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
-      }))
-      .inset(4.0)
-      .clip_path(self::clip()),
+      ClippedInset::new()
+        .background(PaintFill::Gradient(MotionGradient::Linear {
+          angle: 90.0,
+          stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
+        }))
+        .inset(4.0)
+        .clip_path(self::clip()),
     )
 }
 

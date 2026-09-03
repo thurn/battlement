@@ -1,14 +1,15 @@
-use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
-use battlement_reactant::prelude::*;
-
 use crate::animation_validation::{
   CaseId, FixtureAction, FixtureSession, ReducedMotionOverride, ValidationReport, fixture_registry,
   run_fixture_case,
 };
 use crate::{Game, animation_validation::runner, design_system};
+use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
+use battlement_reactant::prelude::*;
 
 const TWEEN_CASE: CaseId = CaseId("public-tween");
+
 const KEYFRAME_CASE: CaseId = CaseId("keyframe-boundary");
+
 const RETARGET_CASE: CaseId = CaseId("retarget-presentation");
 
 /// Interactive sample state for the shared animation validation strip.
@@ -91,6 +92,7 @@ impl ValidationUiState {
   }
 }
 
+#[builder]
 pub(crate) struct ValidationScreen {
   pub(crate) state: ValidationUiState,
   pub(crate) compact: bool,
@@ -120,117 +122,214 @@ impl Component for ValidationScreen {
         }
       });
     battlement_reactant::host::ScrollView::new()
-      .name("targets-timelines-canvas")
-      .style(canvas(self.compact))
-      .content_container_style(content())
-      .child(battlement_reactant::host::Label::new("MOTION AUTHORING").style(eyebrow()))
-      .child(
-        battlement_reactant::host::Label::new("Targets & Timelines")
-          .name("page-title")
-          .style(title()),
-      )
-      .child(
-        battlement_reactant::host::Label::new(format!(
-          "Case: validation-infrastructure/{} · t={}µs · generation={} · reconnects={} · actions={}",
-          self.state.selected_case.0,
-          self.state.session.elapsed_micros(),
-          self.state.session.generation(),
-          self.state.session.reconnects(),
-          self.state.session.actions().len(),
-        ))
-        .name("validation-selection")
-        .style(status()),
-      )
-      .child(
-        battlement_reactant::host::View::new()
-          .style(control_row())
-          .child(action("SELECT CASE", "validation-select", |game| {
-            game.animation_validation.select_next();
-          }))
-          .child(action("RESET", "validation-reset", |game| {
-            game.animation_validation.reset();
-          }))
-          .child(action("SEEK", "validation-seek", |game| {
-            game.animation_validation.seek_checkpoint();
-          }))
-          .child(action("CAPTURE", "validation-capture", |game| {
-            game.animation_validation.capture();
-          }))
-          .child(action("EXPORT", "validation-export", |game| {
-            game.animation_validation.toggle_export();
-          }))
-          .child(action("PHYSICAL MOTION", "validation-physical", |game| {
-            game.screen = crate::Screen::PhysicalMotion;
-          })),
-      )
-      .child(
-        battlement_reactant::host::View::new()
-          .style(control_row())
-          .child(action("TRIGGER", "validation-trigger", |game| {
-            game
-              .animation_validation
-              .dispatch(FixtureAction::Trigger);
-          }))
-          .child(action("PLAY", "validation-play", |game| {
-            game.animation_validation.dispatch(FixtureAction::Play);
-          }))
-          .child(action("PAUSE", "validation-pause", |game| {
-            game.animation_validation.dispatch(FixtureAction::Pause);
-          }))
-          .child(action("REPLAY", "validation-replay", |game| {
-            game.animation_validation.dispatch(FixtureAction::Replay);
-          }))
-          .child(action("SPEED", "validation-speed", |game| {
-            let speed = match game.animation_validation.session().speed() {
-              1.0 => 0.1,
-              0.1 => 0.25,
-              0.25 => 4.0,
-              _ => 1.0,
-            };
-            game
-              .animation_validation
-              .dispatch(FixtureAction::Speed(speed));
-          }))
-          .child(action("REDUCE", "validation-reduced", |game| {
-            let value = match game.animation_validation.session().reduced_motion() {
-              ReducedMotionOverride::System => ReducedMotionOverride::Always,
-              ReducedMotionOverride::Always => ReducedMotionOverride::Never,
-              ReducedMotionOverride::Never => ReducedMotionOverride::System,
-            };
-            game
-              .animation_validation
-              .dispatch(FixtureAction::ReducedMotion(value));
-          }))
-          .child(action("RECONNECT", "validation-reconnect", |game| {
-            game
-              .animation_validation
-              .dispatch(FixtureAction::Reconnect);
-          })),
-      )
-      .child(
-        battlement_reactant::host::Label::new(format!(
-          "{} · {} · {:.1}x · {:?}",
-          report_text,
-          if self.state.session.playing() {
-            "playing"
-          } else {
-            "paused"
-          },
-          self.state.session.speed(),
-          self.state.session.reduced_motion(),
-        ))
-        .name("validation-result")
-        .style(result(self.state.report.as_ref().is_some_and(ValidationReport::passed))),
-      )
-      .child(timeline_gallery(
-        self.state.session.elapsed_micros(),
-        self.state.session.retargeted(),
-      ))
-      .child(
-        battlement_reactant::host::Label::new(details)
-          .name("validation-details")
-          .style(details_style(self.compact)),
-      )
+            .name("targets-timelines-canvas")
+            .style(canvas(self.compact))
+            .content_container_style(content())
+            .child(
+                battlement_reactant::host::Label::new("MOTION AUTHORING")
+                    .style(eyebrow()),
+            )
+            .child(
+                battlement_reactant::host::Label::new("Targets & Timelines")
+                    .name("page-title")
+                    .style(title()),
+            )
+            .child(
+                battlement_reactant::host::Label::new(
+                        format!(
+                            "Case: validation-infrastructure/{} · t={}µs · generation={} · reconnects={} · actions={}",
+                            self.state.selected_case.0, self.state.session
+                            .elapsed_micros(), self.state.session.generation(), self
+                            .state.session.reconnects(), self.state.session.actions()
+                            .len(),
+                        ),
+                    )
+                    .name("validation-selection")
+                    .style(status()),
+            )
+            .child(
+                battlement_reactant::host::View::new()
+                    .style(control_row())
+                    .child(
+                        action(
+                            "SELECT CASE",
+                            "validation-select",
+                            |game| {
+                                game.animation_validation.select_next();
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "RESET",
+                            "validation-reset",
+                            |game| {
+                                game.animation_validation.reset();
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "SEEK",
+                            "validation-seek",
+                            |game| {
+                                game.animation_validation.seek_checkpoint();
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "CAPTURE",
+                            "validation-capture",
+                            |game| {
+                                game.animation_validation.capture();
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "EXPORT",
+                            "validation-export",
+                            |game| {
+                                game.animation_validation.toggle_export();
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "PHYSICAL MOTION",
+                            "validation-physical",
+                            |game| {
+                                game.screen = crate::Screen::PhysicalMotion;
+                            },
+                        ),
+                    ),
+            )
+            .child(
+                battlement_reactant::host::View::new()
+                    .style(control_row())
+                    .child(
+                        action(
+                            "TRIGGER",
+                            "validation-trigger",
+                            |game| {
+                                game.animation_validation.dispatch(FixtureAction::Trigger);
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "PLAY",
+                            "validation-play",
+                            |game| {
+                                game.animation_validation.dispatch(FixtureAction::Play);
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "PAUSE",
+                            "validation-pause",
+                            |game| {
+                                game.animation_validation.dispatch(FixtureAction::Pause);
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "REPLAY",
+                            "validation-replay",
+                            |game| {
+                                game.animation_validation.dispatch(FixtureAction::Replay);
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "SPEED",
+                            "validation-speed",
+                            |game| {
+                                let speed = match game
+                                    .animation_validation
+                                    .session()
+                                    .speed()
+                                {
+                                    1.0 => 0.1,
+                                    0.1 => 0.25,
+                                    0.25 => 4.0,
+                                    _ => 1.0,
+                                };
+                                game.animation_validation
+                                    .dispatch(FixtureAction::Speed(speed));
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "REDUCE",
+                            "validation-reduced",
+                            |game| {
+                                let value = match game
+                                    .animation_validation
+                                    .session()
+                                    .reduced_motion()
+                                {
+                                    ReducedMotionOverride::System => {
+                                        ReducedMotionOverride::Always
+                                    }
+                                    ReducedMotionOverride::Always => {
+                                        ReducedMotionOverride::Never
+                                    }
+                                    ReducedMotionOverride::Never => {
+                                        ReducedMotionOverride::System
+                                    }
+                                };
+                                game.animation_validation
+                                    .dispatch(FixtureAction::ReducedMotion(value));
+                            },
+                        ),
+                    )
+                    .child(
+                        action(
+                            "RECONNECT",
+                            "validation-reconnect",
+                            |game| {
+                                game.animation_validation
+                                    .dispatch(FixtureAction::Reconnect);
+                            },
+                        ),
+                    ),
+            )
+            .child(
+                battlement_reactant::host::Label::new(
+                        format!(
+                            "{} · {} · {:.1}x · {:?}", report_text, if self.state
+                            .session.playing() { "playing" } else { "paused" }, self
+                            .state.session.speed(), self.state.session.reduced_motion(),
+                        ),
+                    )
+                    .name("validation-result")
+                    .style(
+                        result(
+                            self
+                                .state
+                                .report
+                                .as_ref()
+                                .is_some_and(ValidationReport::passed),
+                        ),
+                    ),
+            )
+            .child(
+                timeline_gallery(
+                    self.state.session.elapsed_micros(),
+                    self.state.session.retargeted(),
+                ),
+            )
+            .child(
+                battlement_reactant::host::Label::new(details)
+                    .name("validation-details")
+                    .style(details_style(self.compact)),
+            )
   }
 }
 

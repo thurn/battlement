@@ -513,6 +513,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "battlement-builder"
+version = "0.1.0"
+dependencies = [
+ "battlement-builder-macros",
+]
+
+[[package]]
+name = "battlement-builder-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "battlement-cli"
 version = "0.1.0"
 dependencies = [
@@ -615,6 +631,7 @@ name = "battlement-reactant"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-builder",
  "battlement-fake",
  "battlement-native",
  "battlement-reactant-asset-macros",

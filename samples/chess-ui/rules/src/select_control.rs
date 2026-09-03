@@ -1,19 +1,17 @@
 //! A closed selector specimen with a visible value and combined accessible name.
 
-use battlement_reactant::label_binding;
-use std::rc::Rc;
-
+use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row::SettingRow};
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, MotionLength, Position, Style, TextAnchor,
   Translate, UiFontAddress,
 };
+use battlement_reactant::label_binding;
 use battlement_reactant::{
   accessibility, accessibility_popup,
   paint::{PaintFill, PaintStyle},
   prelude::*,
 };
-
-use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row::SettingRow};
+use std::rc::Rc;
 
 /// Native TextCore face for selected control values.
 pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/control");
@@ -22,41 +20,18 @@ pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts
 ///
 /// This specimen demonstrates trigger layout and accessible naming. It does not
 /// offer a menu or propose new values; the parent supplies the displayed value.
+#[builder]
 pub struct SelectControl<R> {
+  #[builder(required, into)]
   label: Rc<R>,
-  first: bool,
-  offset_y: f32,
-  row_height: Option<f32>,
-  value: String,
-}
-
-impl<R: Render> SelectControl<R> {
-  /// Creates a closed selector with visible label content and a selected value.
-  pub fn new(label: R, value: impl Into<String>) -> Self {
-    Self {
-      label: Rc::new(label),
-      first: false,
-      offset_y: 0.0,
-      row_height: None,
-      value: value.into(),
-    }
-  }
-
   /// Omits the separator above the first row.
-  pub fn first(mut self, value: bool) -> Self {
-    self.first = value;
-    self
-  }
+  first: bool,
   /// Offsets the control vertically without moving its row label.
-  pub fn offset_y(mut self, value: f32) -> Self {
-    self.offset_y = value;
-    self
-  }
+  offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
-  pub fn row_height(mut self, value: f32) -> Self {
-    self.row_height = Some(value);
-    self
-  }
+  row_height: Option<f32>,
+  #[builder(required)]
+  value: String,
 }
 
 impl<R: Render> Component for SelectControl<R> {
@@ -124,7 +99,8 @@ impl<R: Render> Component for SelectControl<R> {
                   .clip_polygon(self::clip(10.0)),
               )
               .child((
-                ClippedInset::new(PaintFill::Color(frame_styles::color(0x020611)))
+                ClippedInset::new()
+                  .background(PaintFill::Color(frame_styles::color(0x020611)))
                   .inset(3.0)
                   .clip_path(self::clip(7.0)),
                 TextElement::new(self.value.clone())
@@ -134,11 +110,13 @@ impl<R: Render> Component for SelectControl<R> {
                     accessibility::use_static_text(text(self.value.clone()))
                       .visibility(SemanticVisibility::NameSourceOnly),
                   ),
-                Caret::new().open(false),
+                Caret::new().is_open(false),
               )),
           ),
       );
-    let mut row = SettingRow::new(self.label.clone(), control)
+    let mut row = SettingRow::<R, _>::new()
+      .label(self.label.clone())
+      .children(control)
       .label_binding(label)
       .first(self.first);
     if let Some(height) = self.row_height {

@@ -1,10 +1,9 @@
+use crate::{Control, Game, Interaction, design_system};
 use battlement::{
   Align, FlexDirection, FlexWrap, ImageScaleMode, LengthUnits, ScrollViewMode, ScrollerVisibility,
   Style, TextAnchor, TextureAddress, WhiteSpace,
 };
 use battlement_reactant::prelude::*;
-
-use crate::{Control, Game, Interaction, design_system};
 
 battlement_reactant::asset_generator::generate! {
   @background ARCADE_SCREEN_FRAME {
@@ -297,6 +296,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
+#[builder]
 pub(crate) struct Assets {
   pub(crate) resized: bool,
   pub(crate) interaction: Interaction,

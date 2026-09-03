@@ -1,61 +1,28 @@
 //! A controlled checkbox whose label activates and focuses its input.
 
+use crate::{check_mark::CheckMark, setting_row::SettingRow};
+use battlement::{Align, Color, Length, PickingMode, Position, Style, Translate};
 use battlement_reactant::label_binding;
+use battlement_reactant::{accessibility, element_ref, prelude::*};
 use std::rc::Rc;
 
-use battlement::{Align, Color, Length, PickingMode, Position, Style, Translate};
-use battlement_reactant::{accessibility, element_ref, prelude::*};
-
-use crate::{check_mark::CheckMark, setting_row::SettingRow};
-
 /// A controlled checkbox with an associated, clickable settings label.
+#[builder]
 pub struct ToggleControl<R> {
+  #[builder(required, into)]
   label: Rc<R>,
-  first: bool,
-  offset_y: f32,
-  row_height: Option<f32>,
-  checked: bool,
-  aria_label: Option<String>,
-  on_change: Rc<dyn Fn(bool)>,
-}
-
-impl<R: Render> ToggleControl<R> {
-  /// Creates a checkbox whose parent accepts or rejects each proposed value.
-  pub fn new(label: R, checked: bool, on_change: impl Fn(bool) + 'static) -> Self {
-    Self {
-      label: Rc::new(label),
-      first: false,
-      offset_y: 0.0,
-      row_height: None,
-      checked,
-      aria_label: None,
-      on_change: Rc::new(on_change),
-    }
-  }
-
   /// Omits the top separator when this is the first row.
-  pub fn first(mut self, value: bool) -> Self {
-    self.first = value;
-    self
-  }
-
-  /// Overrides the accessible name when the visible wording needs clarification.
-  pub fn aria_label(mut self, value: impl Into<String>) -> Self {
-    self.aria_label = Some(value.into());
-    self
-  }
-
+  first: bool,
   /// Offsets the control vertically without moving its row label.
-  pub fn offset_y(mut self, value: f32) -> Self {
-    self.offset_y = value;
-    self
-  }
-
+  offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
-  pub fn row_height(mut self, value: f32) -> Self {
-    self.row_height = Some(value);
-    self
-  }
+  row_height: Option<f32>,
+  #[builder(required)]
+  checked: bool,
+  /// Overrides the accessible name when the visible wording needs clarification.
+  aria_label: Option<String>,
+  #[builder(required)]
+  on_change: Rc<dyn Fn(bool)>,
 }
 
 impl<R: Render> Component for ToggleControl<R> {
@@ -98,7 +65,7 @@ impl<R: Render> Component for ToggleControl<R> {
               .border_color(Color::rgb(75.0 / 255.0, 163.0 / 255.0, 1.0))
               .background_color(Color::rgb(2.0 / 255.0, 9.0 / 255.0, 26.0 / 255.0)),
           )
-          .child(self.checked.then_some(CheckMark::default())),
+          .child(self.checked.then_some(CheckMark::new())),
         Button::new("")
           .name("toggle-control-input")
           .element_ref(input.clone())
@@ -118,7 +85,9 @@ impl<R: Render> Component for ToggleControl<R> {
               .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0)),
           ),
       ));
-    let mut row = SettingRow::new(self.label.clone(), control)
+    let mut row = SettingRow::<R, _>::new()
+      .label(self.label.clone())
+      .children(control)
       .label_binding(label)
       .first(self.first);
     if let Some(height) = self.row_height {

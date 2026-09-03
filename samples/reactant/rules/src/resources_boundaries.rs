@@ -1,30 +1,34 @@
+use crate::{Control, Interaction, design_system, preview_resource::Preview};
+use battlement_reactant::prelude::*;
 use std::{error::Error, fmt};
 
-use battlement_reactant::prelude::*;
-
-use crate::{Control, Interaction, design_system, preview_resource::Preview};
-
+#[builder]
 pub(crate) struct ResourcesBoundaries {
   pub(crate) failed: bool,
   pub(crate) retry_revision: u32,
+  #[builder(required)]
   pub(crate) preview_resource: Preview,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,
 }
 
+#[builder]
 struct BoundaryPrimary {
   failed: bool,
   interaction: Interaction,
   compact: bool,
 }
 
+#[builder]
 struct BoundaryFallback {
   message: String,
   interaction: Interaction,
   compact: bool,
 }
 
+#[builder]
 struct ResourcePreview {
+  #[builder(required)]
   resource: Preview,
   interaction: Interaction,
   compact: bool,
@@ -74,27 +78,30 @@ impl Component for ResourcesBoundaries {
                   move |_| preview.resolve(),
                 )),
             )
-            .child(ResourcePreview {
-              resource: self.preview_resource.clone(),
-              interaction: self.interaction,
-              compact: self.compact,
-            }),
+            .child(
+              ResourcePreview::new()
+                .resource(self.preview_resource.clone())
+                .interaction(self.interaction)
+                .compact(self.compact),
+            ),
           )
           .child(
             ErrorBoundary::new({
               let interaction = self.interaction;
-              move |error: &RenderError| BoundaryFallback {
-                message: error.to_string(),
-                interaction,
-                compact,
+              move |error: &RenderError| {
+                BoundaryFallback::new()
+                  .message(error.to_string())
+                  .interaction(interaction)
+                  .compact(compact)
               }
             })
             .reset_on(self.retry_revision)
-            .child(BoundaryPrimary {
-              failed: self.failed,
-              interaction: self.interaction,
-              compact: self.compact,
-            }),
+            .child(
+              BoundaryPrimary::new()
+                .failed(self.failed)
+                .interaction(self.interaction)
+                .compact(self.compact),
+            ),
           ),
       )
   }

@@ -1,22 +1,15 @@
 //! A bordered container for an example’s explanation and controls.
 
+use battlement::{Color, Style};
+use battlement_reactant::prelude::builder;
+use battlement_reactant::{component::Component, host::View, render::Render};
 use std::rc::Rc;
 
-use battlement::{Color, Style};
-use battlement_reactant::{component::Component, host::View, render::Render};
-
 /// A bordered panel for a review page's demonstration content.
+#[builder]
 pub struct ReviewPanel<R> {
+  #[builder(required, into)]
   children: Rc<R>,
-}
-
-impl<R: Render> ReviewPanel<R> {
-  /// Creates a themed container around typed child content.
-  pub fn new(children: R) -> Self {
-    Self {
-      children: Rc::new(children),
-    }
-  }
 }
 
 impl<R: Render> Component for ReviewPanel<R> {

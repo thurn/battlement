@@ -1,11 +1,10 @@
 //! Typography roles that also provide the appropriate text semantics.
 
-use battlement::{MotionColor, Style, WhiteSpace};
-use battlement_reactant::{component::Component, host::Label, motion::MotionStyle, render::Render};
-
-use battlement_reactant::{accessibility, element_behavior, focus::FocusProps, semantics};
-
 use crate::review_theme;
+use battlement::{MotionColor, Style, WhiteSpace};
+use battlement_reactant::prelude::builder;
+use battlement_reactant::{accessibility, element_behavior, focus::FocusProps, semantics};
+use battlement_reactant::{component::Component, host::Label, motion::MotionStyle, render::Render};
 
 /// Typography roles within a review surface.
 #[derive(Clone, Copy)]
@@ -25,31 +24,15 @@ pub enum ReviewTextKind {
 }
 
 /// Review typography and accessible text, with automatic focus for page headings.
+#[builder]
 pub struct ReviewText {
+  #[builder(required)]
   text: String,
-  name: String,
-  kind: ReviewTextKind,
-}
-
-impl ReviewText {
-  /// Creates accessible description text in the gallery theme.
-  pub fn new(text: impl Into<String>) -> Self {
-    Self {
-      text: text.into(),
-      name: String::new(),
-      kind: ReviewTextKind::Description,
-    }
-  }
-  /// Selects a typography role and its matching accessibility behavior.
-  pub fn kind(mut self, kind: ReviewTextKind) -> Self {
-    self.kind = kind;
-    self
-  }
   /// Sets the stable host name used for inspection and capture discovery.
-  pub fn name(mut self, name: impl Into<String>) -> Self {
-    self.name = name.into();
-    self
-  }
+  name: String,
+  /// Selects a typography role and its matching accessibility behavior.
+  #[builder(default = ReviewTextKind::Description)]
+  kind: ReviewTextKind,
 }
 
 impl Component for ReviewText {

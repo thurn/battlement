@@ -1,11 +1,14 @@
 //! A controlled integer-percentage slider with a painted track and value.
 
-use battlement_reactant::label_binding;
-use std::rc::Rc;
-
+use crate::{
+  setting_row::{self, SettingRow},
+  volume_skin,
+};
 use battlement::{
   Align, Color, FlexDirection, PickingMode, Position, Style, TextAnchor, WhiteSpace,
 };
+use battlement_reactant::label_binding;
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility::{self, SliderOptions},
   component::Component,
@@ -13,36 +16,19 @@ use battlement_reactant::{
   render::Render,
   semantics::{self, SemanticVisibility},
 };
-
-use crate::{
-  setting_row::{self, SettingRow},
-  volume_skin,
-};
+use std::rc::Rc;
 
 /// A labelled volume slider whose parent owns its integer percentage.
+#[builder]
 pub struct VolumeControl {
+  #[builder(required)]
   label: String,
+  #[builder(required)]
   value: u32,
+  #[builder(required)]
   on_change: Rc<dyn Fn(u32)>,
-  first: bool,
-}
-
-impl VolumeControl {
-  /// Creates a percentage slider with a label, current value, and value-change callback.
-  pub fn new(label: impl Into<String>, value: u32, on_change: impl Fn(u32) + 'static) -> Self {
-    Self {
-      label: label.into(),
-      value,
-      on_change: Rc::new(on_change),
-      first: false,
-    }
-  }
-
   /// Omits the separator above the first row.
-  pub fn first(mut self, value: bool) -> Self {
-    self.first = value;
-    self
-  }
+  first: bool,
 }
 
 impl Component for VolumeControl {
@@ -59,69 +45,72 @@ impl Component for VolumeControl {
       is_disabled: false,
       on_change: move |value| on_change(value as u32),
     });
-    SettingRow::new(
-      TextElement::new(self.label.clone()).semantic(
-        accessibility::use_static_text(semantics::text(self.label.clone()))
-          .visibility(SemanticVisibility::NameSourceOnly),
-      ),
-      Flex::new()
-        .direction(FlexDirection::Row)
-        .gap(18.0)
-        .name("volume-control")
-        .style(
-          Style::new()
-            .position(Position::Relative)
-            .width(398)
-            .height(82)
-            .flex_shrink(0)
-            .align_items(Align::Center),
-        )
-        .child((
-          View::new()
-            .name("volume-track-area")
-            .style(
-              Style::new()
-                .position(Position::Relative)
-                .width(284)
-                .height(64)
-                .flex_shrink(0),
-            )
-            .child((
-              volume_skin::track(self.value),
-              volume_skin::ticks(),
-              volume_skin::thumb(self.value),
-              View::new()
-                .name("volume-input")
-                .semantic(slider.semantic)
-                .focus_props(slider.focus)
-                .interaction_props(slider.interaction)
-                .style(
-                  Style::new()
-                    .position(Position::Absolute)
-                    .left(-42)
-                    .top(-34)
-                    .width(368)
-                    .height(132),
-                ),
-            )),
-          TextElement::new(format!("{}%", self.value))
-            .name("volume-value")
-            .picking_mode(PickingMode::Ignore)
-            .style(
-              Style::new()
-                .width(96)
-                .height(55)
-                .flex_shrink(0)
-                .color(Color::rgb(245.0 / 255.0, 245.0 / 255.0, 248.0 / 255.0))
-                .unity_font_definition(setting_row::DISPLAY_FONT)
-                .font_size(55)
-                .white_space(WhiteSpace::NoWrap)
-                .letter_spacing(1)
-                .unity_text_align(TextAnchor::MiddleLeft),
-            ),
-        )),
-    )
-    .label_binding(label)
-    .first(self.first)
+    SettingRow::new()
+      .label(
+        TextElement::new(self.label.clone()).semantic(
+          accessibility::use_static_text(semantics::text(self.label.clone()))
+            .visibility(SemanticVisibility::NameSourceOnly),
+        ),
+      )
+      .children(
+        Flex::new()
+          .direction(FlexDirection::Row)
+          .gap(18.0)
+          .name("volume-control")
+          .style(
+            Style::new()
+              .position(Position::Relative)
+              .width(398)
+              .height(82)
+              .flex_shrink(0)
+              .align_items(Align::Center),
+          )
+          .child((
+            View::new()
+              .name("volume-track-area")
+              .style(
+                Style::new()
+                  .position(Position::Relative)
+                  .width(284)
+                  .height(64)
+                  .flex_shrink(0),
+              )
+              .child((
+                volume_skin::track(self.value),
+                volume_skin::ticks(),
+                volume_skin::thumb(self.value),
+                View::new()
+                  .name("volume-input")
+                  .semantic(slider.semantic)
+                  .focus_props(slider.focus)
+                  .interaction_props(slider.interaction)
+                  .style(
+                    Style::new()
+                      .position(Position::Absolute)
+                      .left(-42)
+                      .top(-34)
+                      .width(368)
+                      .height(132),
+                  ),
+              )),
+            TextElement::new(format!("{}%", self.value))
+              .name("volume-value")
+              .picking_mode(PickingMode::Ignore)
+              .style(
+                Style::new()
+                  .width(96)
+                  .height(55)
+                  .flex_shrink(0)
+                  .color(Color::rgb(245.0 / 255.0, 245.0 / 255.0, 248.0 / 255.0))
+                  .unity_font_definition(setting_row::DISPLAY_FONT)
+                  .font_size(55)
+                  .white_space(WhiteSpace::NoWrap)
+                  .letter_spacing(1)
+                  .unity_text_align(TextAnchor::MiddleLeft),
+              ),
+          )),
+      )
+      .label_binding(label)
+      .first(self.first)
   }
 }

@@ -2,6 +2,7 @@
 
 use crate::review_text::{ReviewText, ReviewTextKind};
 use battlement::{LengthUnits, Style};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility_collections,
   component::Component,
@@ -13,38 +14,23 @@ use battlement_reactant::{
 /// A named review region whose heading receives focus when the page mounts.
 ///
 /// Key this component by the visit identity to reset its example and focus.
+#[builder]
 #[derive(Clone)]
 pub struct ReviewPage {
+  /// Sets the page identifier above the heading.
   eyebrow: String,
+  #[builder(required)]
   title: String,
+  /// Explains what the example demonstrates.
   description: String,
+  #[builder(default = Fragment::empty())]
   content: Fragment,
 }
 
 impl ReviewPage {
-  /// Creates a review region with a level-one heading.
-  pub fn new(title: impl Into<String>) -> Self {
-    Self {
-      title: title.into(),
-      eyebrow: String::new(),
-      description: String::new(),
-      content: Fragment::empty(),
-    }
-  }
   /// The heading also used to label this page in gallery navigation.
-  pub fn title(&self) -> &str {
+  pub fn title_text(&self) -> &str {
     &self.title
-  }
-
-  /// Sets the page identifier above the heading.
-  pub fn eyebrow(mut self, text: impl Into<String>) -> Self {
-    self.eyebrow = text.into();
-    self
-  }
-  /// Explains what the example demonstrates.
-  pub fn description(mut self, text: impl Into<String>) -> Self {
-    self.description = text.into();
-    self
   }
   /// Adds the live example below the page explanation.
   pub fn child(mut self, content: impl Render) -> Self {
@@ -62,13 +48,20 @@ impl Component for ReviewPage {
         self.title.clone(),
       )))
       .child((
-        (!self.eyebrow.is_empty())
-          .then(|| ReviewText::new(self.eyebrow.clone()).kind(ReviewTextKind::Eyebrow)),
-        ReviewText::new(self.title.clone())
+        (!self.eyebrow.is_empty()).then(|| {
+          ReviewText::new()
+            .text(self.eyebrow.clone())
+            .kind(ReviewTextKind::Eyebrow)
+        }),
+        ReviewText::new()
+          .text(self.title.clone())
           .name("page-heading")
           .kind(ReviewTextKind::Heading),
-        (!self.description.is_empty())
-          .then(|| ReviewText::new(self.description.clone()).name("page-description")),
+        (!self.description.is_empty()).then(|| {
+          ReviewText::new()
+            .text(self.description.clone())
+            .name("page-description")
+        }),
         self.content.clone(),
       ))
   }

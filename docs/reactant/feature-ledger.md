@@ -20,6 +20,7 @@ than the specimen.
 | `announcement` | Layout Gallery | `accessibility.rs::complete_snapshot_resolves_contents_and_prunes_hidden_subtrees` |
 | `app` | Composition | `app_composition.rs::scene_only_app_connects_and_reconnects_without_creating_a_ui_document`, `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `app_assets.rs::consecutive_responses_wait_for_preparation_and_keep_prior_dependencies` |
 | `app_context` | Layout Gallery | `app_lifecycle.rs::reconnect_policy_controls_remounts_and_drop_runs_cleanup_once`, `composition.rs::sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint` |
+| `builder_support` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges` |
 | `callback` | Layout Gallery | `app_lifecycle.rs::generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine`, `app_lifecycle.rs::ui_disposition_is_synchronous_and_old_session_events_are_rejected` |
 | `cooperative_executor` | Resources & Boundaries | `cooperative_executor.rs::self_waking_work_is_bounded_and_cancellation_prevents_further_polls` |
 | `resource_control` | Resources & Boundaries | `app_resources.rs::pending_resources_wake_refetch_and_cancel_without_an_author_executor` |

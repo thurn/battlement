@@ -1,5 +1,7 @@
+use crate::setting_row::SettingRow;
 use battlement::{Color, SemanticRole, Style, TextAnchor};
 use battlement_reactant::label_binding;
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility,
   component::Component,
@@ -8,9 +10,8 @@ use battlement_reactant::{
   semantics::{self, SemanticProps},
 };
 
-use crate::setting_row::SettingRow;
-
 /// Compares settings row heights and visible label associations.
+#[builder]
 pub struct SettingRowHarness;
 
 impl Component for SettingRowHarness {
@@ -25,16 +26,22 @@ impl Component for SettingRowHarness {
           .background_color(Color::rgb(0.01, 0.035, 0.08)),
       )
       .child((
-        SettingRow::new(self::label("Resolution"), self::value("1920 × 1080")).first(true),
-        SettingRow::new(self::label("Max Framerate"), self::value("144 FPS")),
-        SettingRow::new(
-          self::label("Display Mode"),
-          View::new()
-            .semantic(SemanticProps::new(SemanticRole::Group).name(label.name()))
-            .child(self::value("Borderless")),
-        )
-        .label_binding(label)
-        .row_height(190.0),
+        SettingRow::new()
+          .label(self::label("Resolution"))
+          .children(self::value("1920 × 1080"))
+          .first(true),
+        SettingRow::new()
+          .label(self::label("Max Framerate"))
+          .children(self::value("144 FPS")),
+        SettingRow::new()
+          .label(self::label("Display Mode"))
+          .children(
+            View::new()
+              .semantic(SemanticProps::new(SemanticRole::Group).name(label.name()))
+              .child(self::value("Borderless")),
+          )
+          .label_binding(label)
+          .row_height(190.0),
       ))
   }
 }

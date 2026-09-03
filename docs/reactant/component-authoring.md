@@ -13,6 +13,7 @@ Give `App` the packaged scene address and an owned component:
 ```rust
 use battlement_reactant::{app::App, prelude::*};
 
+#[builder]
 struct Counter;
 
 impl Component for Counter {
@@ -24,7 +25,7 @@ impl Component for Counter {
 }
 
 pub fn create_engine() -> App {
-    App::new("my-game/content").ui(Counter)
+    App::new("my-game/content").ui(Counter::new())
 }
 
 battlement_native::export_engine!(self::create_engine);
@@ -416,8 +417,9 @@ impl<F, D, O> ErrorBoundary<F, Missing, D, O> {
 
 The complete boundary implements `Render` when `C: Render`,
 `F: Fn(&RenderError) -> R + 'static`, and `R: Render`. The incomplete boundary
-does not implement `Render`; `Missing` is the same public incomplete-builder
-marker defined under [Required props](#required-props). `child` exists only on
+does not implement `Render`; `Missing` is the boundary's public incomplete-state
+marker from `props`. It is distinct from the generated component builder's
+internal typed marker. `child` exists only on
 the incomplete specialization, so supplying it twice does not silently replace
 the first child. The fallback is `Fn` because Reactant may render it more than
 once across resets.
@@ -625,14 +627,14 @@ Button::new("End turn")
     .class("primary")
 ```
 
-Required props use either hand-written typestate or the narrow helper described
-below. A component with no required props returns `Self` from `new`.
+Application components use `#[builder]` from the Reactant prelude. A component
+with no required props returns `Self` from `new`.
 
 ```rust
-impl Badge {
-    pub fn new() -> Self {
-        Self { color: Color::WHITE }
-    }
+#[builder]
+struct Badge {
+    #[builder(default = Color::WHITE)]
+    color: Color,
 }
 ```
 
@@ -646,155 +648,69 @@ Dialog::new()
     .child(ConfirmationButtons::new())
 ```
 
-## Prop reuse with struct update
+## Prop reuse
 
-Reactant adds no prop-spread syntax or macro. Because component fields are
-props, an application component reuses a complete value of the same concrete
-type with Rust's struct update operator.
+Reuse a completed component by changing optional props through its setters.
+Clone first when the original value must remain available and supports `Clone`.
 
 ```rust
-let defaults = PlayerRow::new(player);
-PlayerRow {
-    selected: true,
-    ..defaults
-}
+let defaults = PlayerRow::new().player(player);
+defaults.selected(true)
 ```
 
-The operation moves every omitted field exactly as ordinary Rust does. Clone
-`defaults` first when the original value must remain available. All fields
-participating in an update must be visible at the call site; components with
-private fields remain reusable through their consuming builder methods.
-
-Struct update cannot change a value's generic type. Required-prop typestate
-therefore uses the setters below, and an incomplete typestate still cannot
-render. Prop reuse never bypasses required-property checking.
+Rust struct update remains available where every field is visible, but generated
+builders can add private generic markers. Direct literals and exhaustive
+destructuring are not stable interfaces for an annotated component. Required
+setters cannot repeat; construct a fresh component to supply different required
+props through the builder API.
 
 ## Required props
 
 Required props must be present in the Rust type before the value implements
 `Component`. Missing props are compile errors, not render-time panics.
 
-Each missing required value is represented by `Missing`; supplying it changes
-that generic parameter to the real type. Hand-written typestate may use any
-storage layout. The macro-assisted form uses the fixed layout below so stable
-`macro_rules!` can reconstruct a type-changing value without inspecting the
-component declaration.
+Declare required fields explicitly; all other fields use `Default` or a custom
+`#[builder(default = expression)]`. Place `#[builder]` before derives.
 
 ```rust
-pub struct Missing;
-```
-
-```rust
-pub struct Card<Title = Missing, Art = Missing> {
-    required: (Title, Art),
-    optional: CardOptions,
-}
-```
-
-```rust
-struct CardOptions {
+#[builder]
+pub struct Card {
+    /// The visible card title.
+    #[builder(required)]
+    title: String,
+    #[builder(required, into)]
+    art: TextureAddress,
     compact: bool,
 }
-
-impl Default for CardOptions {
-    fn default() -> Self {
-        Self { compact: false }
-    }
-}
 ```
 
-Only the complete specialization implements `Component`.
-
-```rust
-impl Component for Card<String, TextureAddress> {
-    fn render(&self) -> impl Render {
-        render_card(
-            &self.required.0,
-            &self.required.1,
-            &self.optional,
-        )
-    }
-}
-```
-
-Required setters preserve the other typestate parameters.
-
-```rust
-impl<A> Card<Missing, A> {
-    pub fn title(self, value: String) -> Card<String, A> {
-        Card {
-            required: (value, self.required.1),
-            optional: self.optional,
-        }
-    }
-}
-```
-
-Optional setters are generic over all states, so they may appear anywhere in
-the chain.
-
-```rust
-impl<T, A> Card<T, A> {
-    pub fn compact(mut self, value: bool) -> Self {
-        self.optional.compact = value;
-        self
-    }
-}
-```
-
-The sole permitted component macro removes the repetitive missing-state impls:
-
-```rust
-required_props!(Card, title: String, art: TextureAddress);
-```
-
-The component still declares its generic fields, constructor, optional setters,
-and `Component` implementation. It must have only a `required` tuple and one
-`optional` field. Tuple entries and generic parameters appear in the same order
-as the macro arguments. The expansion emits the setter impls shown above and
-moves `optional` explicitly; it never uses type-changing functional record
-update.
-
-```rust
-impl Card<Missing, Missing> {
-    pub fn new() -> Self {
-        Self {
-            required: (Missing, Missing),
-            optional: CardOptions::default(),
-        }
-    }
-}
-```
-
-The macro does not declare the component, inspect optional props, generate
-rendering, or generate a general-purpose builder.
-
-The expanded API supports required setters in any order and optional setters at
-any point.
+Implement `Component` for ordinary `Card`. That name denotes its completed
+specialization. `new()` returns the same struct with unfilled required slots;
+each required setter fills one slot, preserving all others. There is no separate
+builder or `.build()`.
 
 ```rust
 Card::new()
     .compact(true)
     .art(texture)
-    .title("Citadel".to_owned())
+    .title("Citadel")
 ```
 
-The macro accepts one through four required props and emits only setter impls.
-Components that need other storage or more required props use hand-written
-typestate so diagnostics and generic types remain readable.
+- Required setters accept any order and cannot repeat. Optional setters can
+  appear anywhere and replace previous values.
+- Field rustdoc is copied onto generated methods. Defaults run once, in
+  declaration order, at `new()`.
+- Strings accept `Into<String>`. Ordinary options accept a bare value, `Some`,
+  or `None`. Other conversions use an explicit `#[builder(into)]`.
+- Each required prop adds one defaulted type parameter and one setter, without
+  enumerating combinations of missing props. There is no four-prop limit.
+- The macro performs construction only. It does not implement rendering,
+  `Default`, validation, or application behavior.
 
-The macro is exported as `reactant::required_props!` and accepts one component
-identifier followed by `setter_identifier: RustType` pairs. Each `RustType`
-uses the normal `$ty` grammar, including paths and generic arguments. Expansion
-uses `$crate` paths and hygienic private names. The component's own visibility
-controls the generated methods. Duplicate setters, mismatched tuple arity, or a
-component whose generic parameters are not in the declared order fail as normal
-Rust compile errors; rustdoc compile-fail cases pin their diagnostics to the
-macro invocation and missing setter chain.
-
-`required_props!` is Reactant's only framework-defined macro. The implementation
-may use standard Rust, derive, and test macros. Reactant exposes no component,
-event, tuple, hook, or general-purpose builder code-generation macro.
+See the [builder guide](../../crates/battlement-builder/README.md) for generic
+parameters, callback lifetimes, supported declarations, and dependency paths.
+The separate `required_props!` helper remains available for framework-specific
+tuple storage; ordinary component authoring uses `#[builder]`.
 
 ## Props that render components
 
@@ -803,7 +719,9 @@ the concrete type and avoids allocation. Rendering through `&self` clones that
 prop into the new owned render tree, so only this form requires `Clone`.
 
 ```rust
+#[builder]
 pub struct Frame<C> {
+    #[builder(required)]
     child: C,
 }
 
@@ -936,7 +854,7 @@ instance the key is supposed to identify.
    unaffected unkeyed siblings retain their IDs even when an earlier empty
    position gains or loses a host.
 3. Render one ordinary component built with setters and another made from it
-   with struct update. Confirm the changed prop and all reused props in
+   by changing an optional prop. Confirm the changed prop and all reused props in
    `UiWorld`.
 4. Build a required-prop component in both setter orders and with an optional
    setter between them. Confirm both render identically through `UiWorld`.
@@ -997,8 +915,10 @@ A gallery can register ordinary component values inside review pages:
 
 ```rust
 Gallery::new()
-  .page(ReviewPage::new("Toggle").child(ToggleControl::new(label, checked, on_change)))
-  .page(ReviewPage::new("Welcome").child(Label::new("Hello")))
+  .page(ReviewPage::new().title("Toggle").child(
+      ToggleControl::new().label(label).checked(checked).on_change(on_change),
+  ))
+  .page(ReviewPage::new().title("Welcome").child(Label::new("Hello")))
 ```
 
 The page groups its children with `Fragment::empty().child(content)`, which

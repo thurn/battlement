@@ -1,9 +1,9 @@
+use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
 use battlement_reactant::prelude::*;
 
-use crate::{Game, design_system};
-
 const CHECKPOINTS: [u64; 5] = [0, 320, 410, 500, 720];
+
 const CHILD_NAMES: [&str; 4] = ["ALPHA", "BRAVO", "CHARLIE", "DELTA"];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -80,14 +80,17 @@ impl VariantsOrchestrationState {
   }
 }
 
+#[builder]
 pub(crate) struct VariantsOrchestration {
   pub(crate) state: VariantsOrchestrationState,
   pub(crate) compact: bool,
 }
 
+#[builder]
 #[derive(Clone)]
 struct RouteChild {
   index: u32,
+  #[builder(required)]
   direction: RouteDirection,
   reverse_stagger: bool,
   checkpoint_millis: u64,
@@ -140,11 +143,12 @@ impl Component for VariantsOrchestration {
           )
           .child(Fragment::new(
             (0..4)
-              .map(|index| RouteChild {
-                index,
-                direction: self.state.direction,
-                reverse_stagger: self.state.reverse_stagger,
-                checkpoint_millis: checkpoint,
+              .map(|index| {
+                RouteChild::new()
+                  .index(index)
+                  .direction(self.state.direction)
+                  .reverse_stagger(self.state.reverse_stagger)
+                  .checkpoint_millis(checkpoint)
               })
               .collect::<Vec<_>>(),
           )),
@@ -360,22 +364,26 @@ fn content() -> Style {
     .padding(28.0)
     .align_items(Align::FlexStart)
 }
+
 fn eyebrow() -> Style {
   Style::new()
     .font_size(20.0)
     .color(Color::rgb(0.98, 0.4, 0.16))
 }
+
 fn title() -> Style {
   Style::new()
     .font_size(40.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
     .margin((6, 0, 12, 0))
 }
+
 fn status() -> Style {
   Style::new()
     .font_size(17.0)
     .color(Color::rgb(0.68, 0.76, 0.78))
 }
+
 fn control_row() -> Style {
   Style::new()
     .width(100.0_f32.pct())
@@ -383,6 +391,7 @@ fn control_row() -> Style {
     .flex_wrap(FlexWrap::Wrap)
     .margin((10, 0))
 }
+
 fn action_style() -> Style {
   Style::new()
     .height(40.0)
@@ -394,6 +403,7 @@ fn action_style() -> Style {
     .font_size(14.0)
     .margin((0, 7, 7, 0))
 }
+
 fn parent() -> Style {
   Style::new()
     .width(100.0_f32.pct())
@@ -404,6 +414,7 @@ fn parent() -> Style {
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
 }
+
 fn parent_label() -> Style {
   Style::new()
     .width(100.0_f32.pct())
@@ -411,6 +422,7 @@ fn parent_label() -> Style {
     .color(Color::rgb(0.32, 0.92, 0.96))
     .margin((0, 0, 10, 0))
 }
+
 fn child() -> Style {
   Style::new()
     .width(204.0)
@@ -421,11 +433,13 @@ fn child() -> Style {
     .border_color(Color::rgb(0.22, 0.5, 0.54))
     .border_width(1.0)
 }
+
 fn child_name() -> Style {
   Style::new()
     .font_size(18.0)
     .color(Color::rgb(0.94, 0.98, 0.99))
 }
+
 fn child_state(opted_out: bool) -> Style {
   Style::new()
     .font_size(12.0)
@@ -436,6 +450,7 @@ fn child_state(opted_out: bool) -> Style {
     })
     .margin((8, 0))
 }
+
 fn nested() -> Style {
   Style::new()
     .width(68.0)
@@ -443,6 +458,7 @@ fn nested() -> Style {
     .border_radius(4.0)
     .background_color(Color::rgb(0.65, 0.28, 0.95))
 }
+
 fn record() -> Style {
   Style::new()
     .width(100.0_f32.pct())

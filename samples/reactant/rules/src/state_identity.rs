@@ -1,11 +1,12 @@
+use crate::{Game, design_system};
 use battlement_reactant::{hooks, prelude::*};
 
-use crate::{Game, design_system};
-
+#[builder]
 pub(crate) struct StateIdentity {
   pub(crate) compact: bool,
 }
 
+#[builder]
 struct IdentityToken {
   id: u8,
   position: f32,
@@ -47,13 +48,12 @@ impl Component for StateIdentity {
       .into_iter()
       .enumerate()
       .map(|(position, (id, name))| {
-        IdentityToken {
-          id,
-          position: position as f32,
-          pulse: value,
-          name,
-        }
-        .key((reset, id))
+        IdentityToken::new()
+          .id(id)
+          .position(position as f32)
+          .pulse(value)
+          .name(name)
+          .key((reset, id))
       })
       .collect::<Vec<_>>();
     battlement_reactant::host::View::new()

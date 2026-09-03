@@ -1,9 +1,9 @@
+use crate::{review_button::ReviewButton, select_control::SelectControl};
 use battlement::{Color, Style};
 use battlement_reactant::{hooks, prelude::*};
 
-use crate::{review_button::ReviewButton, select_control::SelectControl};
-
 /// Owns selected values and demonstrates parent-driven updates.
+#[builder]
 pub struct SelectHarness;
 
 impl Component for SelectHarness {
@@ -24,8 +24,13 @@ impl Component for SelectHarness {
           .background_color(Color::rgb(0.01, 0.035, 0.08)),
       )
       .child((
-        SelectControl::new(self::label("Resolution"), value).first(true),
-        SelectControl::new(self::label("Display Mode"), "Borderless")
+        SelectControl::new()
+          .label(self::label("Resolution"))
+          .value(value)
+          .first(true),
+        SelectControl::new()
+          .label(self::label("Display Mode"))
+          .value("Borderless")
           .row_height(190.0)
           .offset_y(-8.0),
         Label::new("Selection changes: 0")
@@ -36,7 +41,8 @@ impl Component for SelectHarness {
               .color(Color::rgb(0.75, 0.86, 0.97))
               .margin_top(30),
           ),
-        ReviewButton::new("Change resolution from parent")
+        ReviewButton::new()
+          .label("Change resolution from parent")
           .on_press(move || external.update(|value| !value)),
       ))
   }

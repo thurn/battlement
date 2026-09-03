@@ -1,17 +1,15 @@
+use crate::{Game, design_system};
+use battlement::{
+  Align, Color, FlexDirection, FlexWrap, LengthUnits, Overflow, ScrollViewMode, ScrollerVisibility,
+  Style, WhiteSpace,
+};
+use battlement_reactant::prelude::*;
 use std::{
   cell::{Cell, RefCell},
   collections::BTreeMap,
   fmt,
   rc::Rc,
 };
-
-use battlement::{
-  Align, Color, FlexDirection, FlexWrap, LengthUnits, Overflow, ScrollViewMode, ScrollerVisibility,
-  Style, WhiteSpace,
-};
-use battlement_reactant::prelude::*;
-
-use crate::{Game, design_system};
 
 #[derive(Clone)]
 pub(crate) struct PresenceLifecycleState {
@@ -32,16 +30,19 @@ struct MountRecord {
   events: Vec<String>,
 }
 
+#[builder]
 pub(crate) struct PresenceLifecycle {
   pub(crate) state: PresenceLifecycleState,
   pub(crate) compact: bool,
 }
 
+#[builder]
 #[derive(Clone)]
 struct RetainedPanel {
   route: u32,
   manual_hold: Rc<Cell<bool>>,
   holds: Rc<RefCell<BTreeMap<u32, Presence>>>,
+  #[builder(required)]
   record: StateSetter<MountRecord>,
 }
 
@@ -190,13 +191,12 @@ impl Component for PresenceLifecycle {
             })
             .child(self.state.open.then(|| {
               Node::new(
-                RetainedPanel {
-                  route: self.state.route,
-                  manual_hold: Rc::clone(&self.state.manual_hold),
-                  holds: Rc::clone(&self.state.holds),
-                  record: set_record.clone(),
-                }
-                .key(self.state.route),
+                RetainedPanel::new()
+                  .route(self.state.route)
+                  .manual_hold(Rc::clone(&self.state.manual_hold))
+                  .holds(Rc::clone(&self.state.holds))
+                  .record(set_record.clone())
+                  .key(self.state.route),
               )
             })),
         ),

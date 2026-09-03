@@ -17,6 +17,7 @@ use battlement_reactant::{hooks, prelude::*};
 /// again. This makes experiments repeatable and restores focus to the heading.
 /// Add pages with [`Self::page`], then mount the gallery with `App::ui`.
 /// Page contents are ordinary component values, including configured builders.
+#[builder]
 #[derive(Default)]
 pub struct Gallery {
   pages: Vec<ReviewPage>,
@@ -33,14 +34,10 @@ struct Selection {
 }
 
 /// A small interactive example explaining how selection resets local state.
+#[builder]
 pub struct Demonstration;
 
 impl Gallery {
-  /// Creates an empty gallery ready to receive pages in navigation order.
-  pub fn new() -> Self {
-    Self::default()
-  }
-
   /// Registers a page and its configured content without rendering either.
   /// Re-selecting a page remounts its content from these same immutable props.
   pub fn page(mut self, page: ReviewPage) -> Self {
@@ -53,13 +50,15 @@ impl Component for Gallery {
   fn render(&self) -> impl Render {
     let (selection, select) = hooks::use_state(Selection::default());
     ReviewSurface::new().child((
-      ReviewNavigation::new("CHESS UI")
+      ReviewNavigation::new()
+        .title("CHESS UI")
         .caption(format!("{} review pages", self.pages.len()))
         .children(self.pages.iter().enumerate().map(|(index, page)| {
           let select = select.clone();
-          ReviewButton::new(format!("{}. {}", index + 1, page.title()))
+          ReviewButton::new()
+            .label(format!("{}. {}", index + 1, page.title_text()))
             .navigation(selection.index == index)
-            .reveal_on(selection.generation)
+            .reveal_generation(selection.generation)
             .name(format!("review-page-{}", index + 1))
             .on_press(move || {
               select.update(move |old| Selection {
@@ -86,13 +85,18 @@ impl Component for Gallery {
 impl Component for Demonstration {
   fn render(&self) -> impl Render {
     let (count, set_count) = hooks::use_state(0_u32);
-    ReviewPanel::new((
-      ReviewText::new("One page. A fresh start.").kind(ReviewTextKind::Title),
-      ReviewText::new("Select a page to explore it. Select it again to reset its demonstration."),
-      ReviewText::new(format!("Changes: {count}"))
+    ReviewPanel::new().children((
+      ReviewText::new()
+        .text("One page. A fresh start.")
+        .kind(ReviewTextKind::Title),
+      ReviewText::new()
+        .text("Select a page to explore it. Select it again to reset its demonstration."),
+      ReviewText::new()
+        .text(format!("Changes: {count}"))
         .kind(ReviewTextKind::Title)
         .name("demonstration-count"),
-      ReviewButton::new("Change demonstration")
+      ReviewButton::new()
+        .label("Change demonstration")
         .on_press(move || set_count.update(|value| value + 1)),
     ))
   }

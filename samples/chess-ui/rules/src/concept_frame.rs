@@ -1,6 +1,8 @@
 //! Layered arcade bezel paint around the portrait content area.
 
+use crate::frame_styles;
 use battlement::{Length, PickingMode, Position, Style};
+use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::View,
@@ -8,34 +10,20 @@ use battlement_reactant::{
   render::Render,
 };
 
-use crate::frame_styles;
-
 /// Decorative arcade bezel with its clipped inner surface.
+#[builder]
 #[derive(Default)]
 pub struct ConceptFrame;
 
-impl ConceptFrame {
-  pub fn new() -> Self {
-    Self
-  }
-}
-
+#[builder]
 struct FrameLayer {
+  #[builder(required)]
   inset: f32,
+  #[builder(required)]
   thickness: f32,
+  #[builder(default = 1.0)]
   opacity: f32,
   bottom: Option<f32>,
-}
-
-impl FrameLayer {
-  fn new(inset: f32, thickness: f32) -> Self {
-    Self {
-      inset,
-      thickness,
-      opacity: 1.0,
-      bottom: None,
-    }
-  }
 }
 
 impl Component for ConceptFrame {
@@ -44,10 +32,11 @@ impl Component for ConceptFrame {
       .name("concept-frame")
       .picking_mode(PickingMode::Ignore)
       .style(frame_styles::cover())
-      .child(FrameLayer::new(
-        frame_styles::OUTER_INSET,
-        frame_styles::BORDER_THICKNESS,
-      ))
+      .child(
+        FrameLayer::new()
+          .inset(frame_styles::OUTER_INSET)
+          .thickness(frame_styles::BORDER_THICKNESS),
+      )
   }
 }
 
