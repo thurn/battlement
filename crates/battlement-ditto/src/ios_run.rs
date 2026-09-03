@@ -22,7 +22,8 @@ use crate::{
   image_comparison::OdiffPool,
   ios_capture::{self, IosCaptureRequest, IosCaptureTimeouts},
   ios_simulator::{self, IosSimulator, SimulatorTools},
-  job_resolution, macos_run, maintenance_commands, native_video, reactant_assets, run_progress,
+  job_resolution, macos_run, maintenance_commands, native_video, reactant_assets, run_preflight,
+  run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -70,6 +71,9 @@ pub(crate) fn execute(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::IosSimulator)?,
   )?;
+  if !run_preflight::comparison(&discovery, selection, options.command, result) {
+    return Ok(());
+  }
   let request = self::build_request(suite, &discovery)?;
   let build_started = Instant::now();
   let selected = ios_build::select_ios_player(&request, !options.no_build)?;

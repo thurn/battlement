@@ -302,7 +302,7 @@ namespace Battlement
                     recordSequence,
                     battlementErrorId
                 ),
-                "error observed"
+                message
             );
             return errorRef;
         }

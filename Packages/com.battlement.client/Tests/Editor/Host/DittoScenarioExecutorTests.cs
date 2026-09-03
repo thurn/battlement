@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,6 +12,43 @@ namespace Battlement.Tests
 {
     public sealed class DittoScenarioExecutorTests : InputTestFixture
     {
+        [Test]
+        public void FocusChangesDoNotReachTheEngineUntilExecutorDisposal()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
+            harness.Runner.Connect();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Wait(new DittoWait.Frames(2)))
+            );
+            using (
+                DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero)
+            )
+            {
+                int calls = harness.Transport.Calls.Count;
+                typeof(BattlementRunner)
+                    .GetMethod(
+                        "OnApplicationFocus",
+                        BindingFlags.Instance | BindingFlags.NonPublic
+                    )!
+                    .Invoke(harness.Runner, new object[] { false });
+                Assert.That(harness.Transport.Calls, Has.Count.EqualTo(calls));
+                Assert.That(harness.Runner.DittoInputDiagnostic, Is.Null);
+                Drain(executor);
+                Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+            }
+
+            harness.Transport.EnqueueSubmit(FakeBattlementTransport.SnapshotResponse(session));
+            int before = harness.Transport.Calls.Count;
+            typeof(BattlementRunner)
+                .GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(harness.Runner, new object[] { false });
+            Assert.That(harness.Transport.Calls, Has.Count.EqualTo(before + 1));
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("submit"));
+        }
+
         [Test]
         public void ExecutesEveryNonVideoStepOnMacos()
         {
@@ -209,6 +247,8 @@ namespace Battlement.Tests
                 Is.EqualTo(new[] { DittoStepStatus.Failed, DittoStepStatus.NotRun })
             );
             Assert.That(assertionExecutor.Result.Steps[0].Assertion!.Observed, Is.False);
+
+            assertionExecutor.Dispose();
 
             string checkpoint = Guid.NewGuid().ToString("D");
             DittoResolvedScenario screenshot = Scenario(

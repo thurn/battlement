@@ -43,6 +43,7 @@ mod reactant_assets;
 mod review_acceptance_result;
 mod review_commands;
 mod run_commands;
+mod run_preflight;
 mod run_progress;
 mod session_mutations;
 mod storage_commands;

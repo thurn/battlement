@@ -63,6 +63,7 @@ namespace Battlement
         private IDisposable? unityErrorSubscription;
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
+        private bool dittoInputActive;
         private ApplicationState? publishedApplicationState;
         private bool isDisposed;
         private bool isNativePanicRecovery;
@@ -117,6 +118,24 @@ namespace Battlement
         internal TimeSpan DittoElapsed => dittoMotionClock!.Elapsed;
 
         internal bool IsDittoConfigured => options is not null;
+
+        internal string? DittoInputDiagnostic =>
+            CanEmitInput
+                ? null
+                : $"Runner input is unavailable: focused={hasApplicationFocus}, "
+                    + $"paused={isApplicationPaused}, sessionInput={session.IsInputAvailable}, "
+                    + $"pendingUiFailure={pendingUiFailure is not null}.";
+
+        internal void BeginDittoInput()
+        {
+            if (dittoInputActive)
+                throw new InvalidOperationException(
+                    "A Ditto executor already owns this runner's input."
+                );
+            dittoInputActive = true;
+        }
+
+        internal void EndDittoInput() => dittoInputActive = false;
 
         internal BattlementNativeTransport DittoNativeTransport =>
             RequireOptions().Transport as BattlementNativeTransport
@@ -940,6 +959,8 @@ namespace Battlement
         private void OnApplicationFocus(bool hasFocus)
         {
             hasApplicationFocus = hasFocus;
+            if (dittoInputActive)
+                return;
             if (!hasFocus && session.Phase != BattlementSessionPhase.Stopped)
             {
                 pointerInput?.CancelPresses();
@@ -956,7 +977,10 @@ namespace Battlement
 
         private void PublishApplicationState()
         {
-            var state = new ApplicationState(hasApplicationFocus, isApplicationPaused);
+            var state = new ApplicationState(
+                dittoInputActive || hasApplicationFocus,
+                isApplicationPaused
+            );
             if (
                 session.Phase != BattlementSessionPhase.Running
                 || state == publishedApplicationState
@@ -1306,7 +1330,10 @@ namespace Battlement
                 commandTypes.UnionWith(customCommands.Types);
             }
 
-            var state = new ApplicationState(hasApplicationFocus, isApplicationPaused);
+            var state = new ApplicationState(
+                dittoInputActive || hasApplicationFocus,
+                isApplicationPaused
+            );
             publishedApplicationState = state;
             return new Connect(
                 PlatformName(Application.platform),
@@ -1991,8 +2018,10 @@ namespace Battlement
         private bool CanEmitInput =>
             pendingUiFailure is null && session.IsInputAvailable && ApplicationAcceptsInput;
 
-        private bool ApplicationAcceptsInput =>
-            !isApplicationPaused && (hasApplicationFocus || Application.isBatchMode);
+        private bool ApplicationAcceptsInput => !isApplicationPaused && HasInputFocus;
+
+        private bool HasInputFocus =>
+            dittoInputActive || hasApplicationFocus || Application.isBatchMode;
 
         private void RecordUiFailure(
             string message,

@@ -218,6 +218,30 @@ impl BuildCache {
     }))
   }
 
+  /// Acquires a retained immutable player without consulting or rebuilding current sources.
+  pub fn retain_for_replay(&self, fingerprint: &str, now_unix_s: u64) -> Result<BuildHandle> {
+    ensure!(
+      fingerprint.len() == 64 && fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit()),
+      "invalid replay build fingerprint"
+    );
+    let _build = build_cache_io::lock_exclusive(&self.build_lock_path(fingerprint))?;
+    let active_lock = build_cache_io::lock_shared(&self.active_lock_path(fingerprint))?;
+    let entry = self.entry_path(fingerprint);
+    let metadata: BuildMetadata = build_cache_io::read_json(&entry.join(METADATA_FILE))
+      .with_context(|| format!("replay build {fingerprint} is not retained"))?;
+    ensure!(
+      metadata.identity.fingerprint == fingerprint,
+      "replay build identity mismatch"
+    );
+    let metadata = self::load_metadata(&entry, &metadata.identity)?;
+    self.touch_access(fingerprint, now_unix_s)?;
+    Ok(BuildHandle {
+      path: entry,
+      metadata,
+      active_lock,
+    })
+  }
+
   /// Evicts oldest inactive entries until the configured size is satisfied.
   pub fn enforce_limit(&self, now_unix_s: u64) -> Result<CacheCleanup> {
     build_cache_cleanup::enforce_limit(self, now_unix_s)

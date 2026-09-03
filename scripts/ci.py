@@ -463,6 +463,7 @@ def run_unity_edit_mode_tests() -> None:
     project_file_state = {
         path: path.read_bytes() if path.is_file() else None for path in mutable_project_files
     }
+    tests_passed = False
     try:
         subprocess.run(
             [
@@ -535,7 +536,14 @@ def run_unity_edit_mode_tests() -> None:
             raise RuntimeError(
                 "Unity's log did not preserve the expected Rust failure diagnostics."
             )
+        tests_passed = True
     finally:
+        if not tests_passed:
+            retained = REPOSITORY_ROOT / "artifacts/unity-tests" / test_results.name
+            retained.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(test_log, retained / "player.log")
+            shutil.copy2(test_results, retained / "results.xml")
+            print(f"Unity failure evidence retained: {retained}", file=sys.stderr)
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)
@@ -772,6 +780,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     run_step(
         "Test Ditto CI",
         [sys.executable, "scripts/tests/ditto-ci.test.py"],
+    )
+    run_step(
+        "Test Ditto replay",
+        [sys.executable, "scripts/tests/ditto-replay.test.py"],
     )
     if full and ditto:
         run_step(

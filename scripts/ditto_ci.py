@@ -18,6 +18,9 @@ import sys
 import tarfile
 import time
 import tomllib
+import uuid
+
+import ditto_replay
 from typing import Any
 
 
@@ -110,14 +113,22 @@ def terminate_process_group(process: subprocess.Popen[str], *, force: bool) -> N
 def ditto_environment() -> dict[str, str]:
     environment = os.environ.copy()
     environment["DITTO_CACHE_ROOT"] = str(CACHE_ROOT)
+    environment.pop("DITTO_REPLAY_BUILD_FINGERPRINT", None)
+    environment.pop("DITTO_REPLAY_SOURCE_RUN_ID", None)
     if "DITTO_ODIFF_PATH" not in environment and DEFAULT_ODIFF.is_file():
         environment["DITTO_ODIFF_PATH"] = str(DEFAULT_ODIFF)
+    ffmpeg = environment.get("DITTO_FFMPEG_PATH") or environment.get("BATTLEMENT_FFMPEG") or shutil.which("ffmpeg")
+    if ffmpeg:
+        environment["DITTO_FFMPEG_PATH"] = ffmpeg
     return environment
 
 
 def artifact_directory(name: str) -> Path:
     path = ARTIFACT_ROOT / name
-    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        history = ARTIFACT_ROOT / "history" / f"{name}-{uuid.uuid4()}"
+        history.parent.mkdir(parents=True, exist_ok=True)
+        path.rename(history)
     path.mkdir(parents=True)
     return path
 
@@ -210,9 +221,13 @@ def execute_sample(
         arguments.append("--no-build")
     if preparation or scenarios is not None:
         arguments.extend(expected)
+    environment = ditto_environment()
+    recipe = ditto_replay.record(REPOSITORY_ROOT, DITTO, CACHE_ROOT, sample, expected, environment)
+    ditto_replay.save(recipe, output / "replay.json")
+    timeout_error = None
     try:
         completed = command(
-            arguments, check=False, environment=ditto_environment(),
+            arguments, check=False, environment=environment,
             timeout=SAMPLE_TIMEOUT_SECONDS if not preparation else None,
         )
     except subprocess.TimeoutExpired as error:
@@ -220,11 +235,21 @@ def execute_sample(
         stderr = error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr or ""
         sys.stdout.write(stdout)
         sys.stderr.write(stderr)
-        retain_run(run_directory(stderr), output)
-        raise
+        timeout_error = error
+        completed = subprocess.CompletedProcess(arguments, -1, stdout, stderr)
+        (output / "timeout.json").write_text(json.dumps({"seconds": error.timeout}) + "\n")
+    (output / "stdout.log").write_text(completed.stdout)
+    (output / "stderr.log").write_text(completed.stderr)
     source = run_directory(completed.stderr)
     try:
+        if timeout_error is not None and not result_path.is_file():
+            raise timeout_error
         result = load_result(result_path)
+        ditto_replay.save(recipe, output / "replay.json", result)
+        if source is not None:
+            ditto_replay.save(recipe, source / "replay.json", result)
+        if timeout_error is not None:
+            raise timeout_error
         validate_result(
             result,
             sample,
@@ -235,6 +260,7 @@ def execute_sample(
             raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
     except Exception:
         retain_run(source, output)
+        print(f"Replay: python3 scripts/ditto_ci.py replay {output / 'replay.json'}", file=sys.stderr)
         raise
     if retain:
         retain_run(source, output)
@@ -386,7 +412,6 @@ def gate() -> None:
 def prepare(mode: str) -> None:
     if mode == "cold":
         shutil.rmtree(CACHE_ROOT / "builds", ignore_errors=True)
-        shutil.rmtree(CACHE_ROOT / "runs", ignore_errors=True)
         command(["cargo", "build", "--release", "-p", "battlement-ditto"])
     samples = []
     for sample in SAMPLES:
@@ -481,6 +506,10 @@ def main() -> None:
     prepare_parser.add_argument("mode", choices=("cold", "warm"))
     sample_parser = subcommands.add_parser("sample")
     sample_parser.add_argument("name", choices=SAMPLES)
+    sample_parser.add_argument("scenarios", nargs="*")
+    replay_parser = subcommands.add_parser("replay", help="Replay a retained CI invocation without rebuilding")
+    replay_parser.add_argument("recipe", type=Path)
+    replay_parser.add_argument("scenarios", nargs="*")
     adapter_parser = subcommands.add_parser("adapter")
     adapter_parser.add_argument("name", choices=ADAPTER_TESTS)
     subcommands.add_parser("performance")
@@ -490,7 +519,15 @@ def main() -> None:
     if arguments.command == "prepare":
         prepare(arguments.mode)
     elif arguments.command == "sample":
-        sample_suite(arguments.name)
+        if arguments.scenarios:
+            execute_sample(arguments.name, scenarios=arguments.scenarios)
+        else:
+            sample_suite(arguments.name)
+    elif arguments.command == "replay":
+        raise SystemExit(ditto_replay.replay(
+            arguments.recipe, REPOSITORY_ROOT, arguments.scenarios,
+            ARTIFACT_ROOT / "replays" / str(uuid.uuid4()),
+        ))
     elif arguments.command == "adapter":
         adapter(arguments.name)
     elif arguments.command == "performance":

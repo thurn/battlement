@@ -40,6 +40,42 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void FunctionalDiagnosticSurvivesTheSerializedErrorEvent()
+        {
+            DittoResolvedScenario scenario = Scenario();
+            var transport = new RecordingTransport();
+            using var delivery = new DittoLogDelivery(
+                BattlementLogStore.Observe(),
+                transport,
+                () => { }
+            );
+            DittoJob job = Job(scenario);
+            delivery.BindFirstJob(job, PlayerSessionId, Array.Empty<string>());
+            delivery.Flush(AssertSuccess);
+            using var context = new DittoScenarioContext(
+                job,
+                scenario,
+                delivery,
+                BattlementLogStore.Observe(),
+                new ReferenceAllocator().Allocate
+            );
+            context.Begin();
+            context.StepStarted(scenario.Steps[0]);
+            const string diagnostic =
+                "Accessibility activate on button 'Save': target is disabled.";
+            context.ReportFunctionalError(DittoErrorCode.InputUnreachable, diagnostic);
+            delivery.Flush(AssertSuccess);
+            string transcript = string.Concat(
+                transport
+                    .Requests.Where(RequestIsLog)
+                    .Select(request => Encoding.UTF8.GetString(request.Body))
+            );
+            Assert.That(transcript, Does.Contain(diagnostic));
+            Assert.That(transcript, Does.Contain("input.unreachable"));
+            Assert.That(transcript, Does.Not.Contain("error observed"));
+        }
+
+        [Test]
         public void StructuredPanicCorrelatesOnceAndCaughtEnvelopeStaysDiagnostic()
         {
             using var gate = new DittoFunctionalErrorGate(BattlementLogStore.Observe());

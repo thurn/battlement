@@ -12,6 +12,32 @@ namespace Battlement.Tests
     public sealed class BattlementAccessibilityManagerTests
     {
         [Test]
+        public void RejectedActionsExplainTheirSemanticBoundaryWithoutDispatching()
+        {
+            using var fixture = new Fixture();
+            fixture.ApplySnapshot();
+            Assert.That(
+                fixture.Dispatch(new AccessibilityAction.Increment(), out string? diagnostic),
+                Is.False
+            );
+            Assert.That(diagnostic, Does.Contain("does not declare"));
+            fixture.Manager.Suspend();
+            Assert.That(
+                fixture.Dispatch(new AccessibilityAction.Activate(), out diagnostic),
+                Is.False
+            );
+            Assert.That(diagnostic, Does.Contain("suspended"));
+            Assert.That(fixture.Events, Is.Empty);
+            fixture.Manager.Resume();
+            Assert.That(
+                fixture.Dispatch(new AccessibilityAction.Activate(), out diagnostic),
+                Is.True
+            );
+            Assert.That(diagnostic, Is.Null);
+            Assert.That(fixture.Events, Has.Count.EqualTo(1));
+        }
+
+        [Test]
         public void UnnamedRowsRemainInTheirNamedTable()
         {
             using var fixture = new Fixture();
@@ -137,6 +163,12 @@ namespace Battlement.Tests
             public bool Activate(ulong generation) =>
                 Manager.Dispatch(
                     new AccessibilityEvent(generation, buttonId, new AccessibilityAction.Activate())
+                );
+
+            public bool Dispatch(AccessibilityAction action, out string? diagnostic) =>
+                Manager.Dispatch(
+                    new AccessibilityEvent(Manager.Generation, buttonId, action),
+                    out diagnostic
                 );
 
             public void SetContainerInert()

@@ -31,7 +31,7 @@ use crate::{
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
   macos_watch_capture::WarmMacosPlayer,
-  maintenance_commands, native_video, reactant_assets, run_progress,
+  maintenance_commands, native_video, reactant_assets, run_commands, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
@@ -181,6 +181,9 @@ fn execute_inner(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Macos)?,
   )?;
+  if !run_preflight::comparison(&discovery, selection, options.command, result) {
+    return Ok(());
+  }
   let video_requirement = video_requirement(selection)?;
   if let Some(required) = video_requirement {
     let available = SystemHost.available_bytes(active.path())?;
@@ -192,9 +195,24 @@ fn execute_inner(
   let ffmpeg = video_requirement
     .map(|_| required_tool(&discovery.ffmpeg))
     .transpose()?;
-  let request = build_request(suite, &discovery)?;
   let build_started = Instant::now();
-  let selected = macos_build::select_macos_player(&request, !options.no_build)?;
+  let selected = if let Some(fingerprint) = std::env::var_os("DITTO_REPLAY_BUILD_FINGERPRINT") {
+    anyhow::ensure!(options.no_build, "replay requires --no-build");
+    let cache = BuildCache::open(&discovery.caches.builds, DEFAULT_BUILD_CACHE_BYTES)?;
+    let build =
+      cache.retain_for_replay(&fingerprint.to_string_lossy(), run_commands::unix_time()?)?;
+    anyhow::ensure!(
+      build.metadata().suite == suite.name,
+      "replay build belongs to another suite"
+    );
+    macos_build::macos_startup_identity(&build)?;
+    MacosBuildResult::Ready {
+      build,
+      outcome: MacosBuildOutcome::Reused,
+    }
+  } else {
+    macos_build::select_macos_player(&build_request(suite, &discovery)?, !options.no_build)?
+  };
   let build_duration = build_started.elapsed().as_millis() as u64;
   let (build, disposition) = match selected {
     MacosBuildResult::Ready { build, outcome } => (
@@ -299,7 +317,7 @@ fn execute_inner(
     requirements: PlayerSessionRequirements {
       origin: None,
       capture_adapter: "native-screen-capture".to_owned(),
-      unity_version: request.tools.unity_version.clone(),
+      unity_version: macos_build::macos_startup_identity(&build)?.unity_version,
       diagnostics: true,
       storage_directory: active.path().to_path_buf(),
     },

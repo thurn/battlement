@@ -143,11 +143,32 @@ namespace Battlement
             );
         }
 
-        public bool AccessibilityAction(DittoAccessibilityTarget target, AccessibilityAction action)
+        public bool AccessibilityAction(
+            DittoAccessibilityTarget target,
+            AccessibilityAction action,
+            out string? diagnostic
+        )
         {
             AccessibilityNodeSnapshot[] matches = AccessibilityMatches(target);
-            return matches.Length == 1
-                && documents.DispatchAccessibility(matches[0].ObjectId, action);
+            string request = $"Accessibility {action} on {target.Role} '{target.Name}'";
+            if (runner.DittoInputDiagnostic is string unavailable)
+            {
+                diagnostic = $"{request}: {unavailable}";
+                return false;
+            }
+            if (matches.Length != 1)
+            {
+                diagnostic = $"{request}: matched {matches.Length} active nodes.";
+                return false;
+            }
+            bool dispatched = documents.DispatchAccessibility(
+                matches[0].ObjectId,
+                action,
+                out diagnostic
+            );
+            if (!dispatched)
+                diagnostic = $"{request} (object {matches[0].ObjectId.Value}): {diagnostic}";
+            return dispatched;
         }
 
         private AccessibilityNodeSnapshot[] AccessibilityMatches(DittoAccessibilityTarget target) =>

@@ -137,6 +137,64 @@ A scenario-only fragment inherits the discovered suite member by member. A
 full suite is self-contained. Standard-input fragments cannot use watch mode;
 file fragments can.
 
+### Reproduce a CI scenario
+
+Use the CI wrapper for a focused run against current sources and their exact
+cached player:
+
+```sh
+python3 scripts/ditto_ci.py sample chess-ui 'gallery reset'
+```
+
+It supplies the CI cache and ODiff environment. Setting `DITTO_CACHE_ROOT`
+alone changes the default tool directory too; a direct invocation with only
+that override does not reproduce the CI environment. Screenshot comparisons
+check ODiff availability before building or launching a player.
+
+Each CI result records a `replay.json` beside `result.json` and inside the
+retained run archive. Replay the original selection, or name one of its
+scenarios:
+
+```sh
+python3 scripts/ditto_ci.py replay artifacts/ditto-ci/chess-ui/replay.json
+python3 scripts/ditto_ci.py replay artifacts/ditto-ci/chess-ui/replay.json 'gallery reset'
+```
+
+Replay uses the retained immutable macOS player, runner executable, ODiff and
+FFmpeg executables, profile, tool environment, suite configuration, and baseline
+lock. It never compiles a replacement player or regenerates assets. Configuration
+and dependency hashes are checked before execution. A missing player or changed
+configuration is an explicit failure; use a checkout with the recorded
+configuration. Runs without a replay record cannot establish the original
+runner and dependency identities from `result.json` alone.
+
+Replay results have a separate directory under `artifacts/ditto-ci/replays` and
+retain the original run ID and outcome in `source-replay.json`. A later pass does
+not change the original failure. Replaced CI artifacts move into
+`artifacts/ditto-ci/history`; failed player runs remain in the run cache.
+
+The `DITTO_REPLAY_BUILD_FINGERPRINT` environment variable is reserved for the
+replay wrapper. Ordinary CI clears it and always validates current source
+fingerprints. Build and tool retention are local; an evicted dependency cannot
+be reconstructed as an exact replay by silently substituting another build.
+
+### Verify a public demo
+
+Treat a tunnel failure as review-environment evidence. Preserve the URL, failed
+resource URL and status, browser console, and tunnel log with the review record.
+Do not infer native test outcomes from public-tunnel behavior.
+
+Open the exact review URL in a fresh browser context. Check failed network
+requests and console errors through application startup, including requests for
+asset bundles after the Unity loader finishes. A canvas or loading shell only
+proves the page exists. Verify the intended application screen, operate its
+first control, and assert the resulting application state. For chess-ui, open
+the gallery shell, activate **Change demonstration**, and verify **Changes: 1**;
+then select **1. Gallery shell** and verify **Changes: 0**. Do not hand off a demo
+with asset-preparation or dependent-batch failures. If the public check fails,
+record it separately and perform the same checks against the local server.
+External tunnel availability is not a deterministic CI requirement.
+
 Use `ditto gallery` to open the complete `ditto.toml` source with the canonical
 baseline inserted after every screenshot step. The default profile is used
 unless `--profile` selects another one. Gallery reads are public and hydrate

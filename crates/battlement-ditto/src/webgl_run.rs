@@ -21,7 +21,7 @@ use crate::{
   config::model::{Profile, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
-  job_resolution, macos_run, maintenance_commands, reactant_assets, run_progress,
+  job_resolution, macos_run, maintenance_commands, reactant_assets, run_preflight, run_progress,
   selection::Selection,
   session_server::PlayerSessionRequirements,
   webgl_capture::{self, LocalWebglLauncher, WebglCaptureRequest, WebglCaptureTimeouts},
@@ -50,6 +50,9 @@ pub(crate) fn execute(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Webgl)?,
   )?;
+  if !run_preflight::comparison(&discovery, selection, options.command, result) {
+    return Ok(());
+  }
   let request = self::build_request(suite, &discovery)?;
   let build_started = Instant::now();
   let selected = webgl_build::select_webgl_player(&request, !options.no_build)?;

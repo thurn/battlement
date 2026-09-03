@@ -27,6 +27,36 @@ const HASH_B: &str = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876
 const REPOSITORY: &str = "/fixture/repository";
 
 #[test]
+fn replay_retains_the_named_player_and_never_creates_a_missing_build() {
+  let temporary = TempDir::new().unwrap();
+  let cache = BuildCache::open(temporary.path(), 1024 * 1024).unwrap();
+  let original = identity(HASH_A, "original");
+  let pending = expect_pending(cache.acquire(REPOSITORY, "suite-a", &original, 1).unwrap());
+  populate(&pending, b"original player");
+  drop(pending.publish(Path::new("player.app"), 2).unwrap());
+  let replay = cache.retain_for_replay(&original.fingerprint, 3).unwrap();
+  assert_eq!(
+    fs::read(replay.player_path().join("player.bin")).unwrap(),
+    b"original player"
+  );
+  assert_eq!(replay.metadata().identity, original);
+  assert!(
+    cache
+      .retain_for_replay(HASH_B, 4)
+      .unwrap_err()
+      .to_string()
+      .contains("not retained")
+  );
+  assert!(cache.retain_for_replay("../metadata.json", 4).is_err());
+  assert!(
+    fs::read_dir(temporary.path().join("staging"))
+      .unwrap()
+      .next()
+      .is_none()
+  );
+}
+
+#[test]
 fn concurrent_callers_publish_once_and_reuse_complete_entry() {
   let temporary = TempDir::new().unwrap();
   let cache = Arc::new(BuildCache::open(temporary.path(), 1024 * 1024).unwrap());

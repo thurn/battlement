@@ -261,6 +261,17 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
 #[test]
 #[cfg(target_os = "macos")]
 fn runnable_no_build_command_returns_a_durable_machine_failure() {
+  check_prerequisite_failure(false);
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn missing_odiff_fails_before_building_or_launching_a_player() {
+  check_prerequisite_failure(true);
+}
+
+#[cfg(target_os = "macos")]
+fn check_prerequisite_failure(missing_odiff: bool) {
   let temporary = tempfile::tempdir().unwrap();
   let repository = temporary.path().join("repository");
   let cache = temporary.path().join("cache");
@@ -281,7 +292,15 @@ fn runnable_no_build_command_returns_a_durable_machine_failure() {
   )
   .unwrap();
   fs::write(repository.join("rules/src/lib.rs"), "pub fn fixture() {}\n").unwrap();
-  fs::write(repository.join("ditto.toml"), RUNNABLE_SUITE).unwrap();
+  let suite = if missing_odiff {
+    RUNNABLE_SUITE.replace(
+      "assert = { object = \"00000000-0000-0000-0000-000000000001\", state = \"exists\" }",
+      "screenshot = { name = \"initial\" }",
+    )
+  } else {
+    RUNNABLE_SUITE.to_owned()
+  };
+  fs::write(repository.join("ditto.toml"), suite).unwrap();
   executable(&tools.join("unity"), "#!/bin/sh\necho 6000.0.56f1\n");
   executable(&tools.join("cargo"), "#!/bin/sh\necho cargo 1.94.0\n");
   executable(&tools.join("rustc"), "#!/bin/sh\necho rustc 1.94.0\n");
@@ -298,7 +317,11 @@ fn runnable_no_build_command_returns_a_durable_machine_failure() {
   );
 
   let output = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
-    .args(["run", "--no-build", "--json"])
+    .args(if missing_odiff {
+      vec!["run", "--json"]
+    } else {
+      vec!["run", "--no-build", "--json"]
+    })
     .env(
       "PATH",
       format!(
@@ -308,7 +331,14 @@ fn runnable_no_build_command_returns_a_durable_machine_failure() {
       ),
     )
     .env("UNITY_EDITOR", tools.join("unity"))
-    .env("DITTO_ODIFF_PATH", tools.join("odiff"))
+    .env(
+      "DITTO_ODIFF_PATH",
+      tools.join(if missing_odiff {
+        "missing-odiff"
+      } else {
+        "odiff"
+      }),
+    )
     .env("DITTO_CACHE_ROOT", &cache)
     .env(
       "BATTLEMENT_RESOURCE_SLOTS",
@@ -329,6 +359,20 @@ fn runnable_no_build_command_returns_a_durable_machine_failure() {
   let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
   assert_eq!(result["status"], "infrastructure-error");
   assert_eq!(result["exit_code"], 2);
+  if missing_odiff {
+    assert!(result["build"].is_null());
+    assert_eq!(result["player_sessions"], serde_json::json!([]));
+    assert_eq!(result["errors"][0]["code"], "image.comparison-failed");
+    assert!(
+      result["errors"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("DITTO_ODIFF_PATH")
+    );
+    assert_eq!(result["phases"][0]["name"], "discovery");
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("DITTO_PHASE=scenarios"));
+    return;
+  }
   assert_eq!(result["build"]["disposition"], "required-by-no-build");
   assert_eq!(result["scenarios"][0]["status"], "not-run");
   assert!(

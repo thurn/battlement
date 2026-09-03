@@ -271,9 +271,14 @@ namespace Battlement.UI
         internal IReadOnlyCollection<AccessibilityNodeSnapshot> ActiveAccessibility =>
             accessibility.Active;
 
-        internal bool DispatchAccessibility(ObjectId target, AccessibilityAction action) =>
+        internal bool DispatchAccessibility(
+            ObjectId target,
+            AccessibilityAction action,
+            out string? diagnostic
+        ) =>
             accessibility.Dispatch(
-                new AccessibilityEvent(accessibility.Generation, target, action)
+                new AccessibilityEvent(accessibility.Generation, target, action),
+                out diagnostic
             );
 
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>

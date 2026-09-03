@@ -60,7 +60,7 @@ if selected:
 result = {
     "run_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
     "status": status,
-    "build": {"disposition": disposition},
+    "build": {"disposition": disposition, "fingerprint": "a" * 64},
     "player_sessions": [{
         "startup_report": {"capture_adapter": "native-screen-capture"},
     }],
@@ -72,6 +72,10 @@ if result_mode == "complete":
     output.write_text(json.dumps(result))
 elif result_mode == "malformed":
     output.write_text("{")
+if os.environ.get("DITTO_REPLAY_BUILD_FINGERPRINT"):
+    assert os.environ["DITTO_REPLAY_BUILD_FINGERPRINT"] == "a" * 64
+    Path(os.environ["FAKE_REPLAY_MARKER"]).write_text("replayed")
+time.sleep(float(os.environ.get("FAKE_SLEEP_AFTER_RESULT", "0")))
 raise SystemExit(0 if status == "passed" else 1)
 '''
 
@@ -104,6 +108,7 @@ def main() -> None:
         environment = os.environ.copy()
         environment.update({
             "DITTO_CI_BINARY": str(launcher),
+            "DITTO_ODIFF_PATH": str(launcher),
             "DITTO_CI_CACHE_ROOT": str(root / "cache"),
             "DITTO_CI_TEST_HOST": "macos-arm64",
             "FAKE_EXPECTED_CACHE": str(root / "cache"),
@@ -171,6 +176,11 @@ def main() -> None:
         failed_artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/chess/run.tar.gz"
         with tarfile.open(failed_artifact) as retained:
             assert "run/diagnostics.txt" in retained.getnames()
+        failed_bytes = failed_artifact.read_bytes()
+        environment.pop("FAKE_STATUS")
+        assert run(["sample", "chess"], environment).returncode == 0
+        history = REPOSITORY_ROOT / "artifacts/ditto-ci/history"
+        assert any(path.read_bytes() == failed_bytes for path in history.glob("chess-*/run.tar.gz"))
         assert not (root / "published").exists()
 
         for result_mode in ("missing", "malformed"):
@@ -195,6 +205,30 @@ def main() -> None:
         environment.pop("DITTO_CI_SAMPLE_TIMEOUT_SECONDS")
         environment.pop("FAKE_CHILD_MARKER")
         environment.pop("FAKE_SLEEP")
+
+        environment["DITTO_CI_SAMPLE_TIMEOUT_SECONDS"] = "0.3"
+        environment["FAKE_SLEEP_AFTER_RESULT"] = "10"
+        environment["FAKE_STATUS"] = "infrastructureError"
+        timeout_with_result = run(["sample", "chess"], environment)
+        assert timeout_with_result.returncode == 1
+        evidence = failed_artifact.parent
+        recipe_path = evidence / "replay.json"
+        recipe = json.loads(recipe_path.read_text())
+        assert recipe["source_status"] == "infrastructureError"
+        assert recipe["build"]["fingerprint"] == "a" * 64
+        assert "DITTO_RUN_DIR=" in (evidence / "stderr.log").read_text()
+        assert json.loads((evidence / "timeout.json").read_text())["seconds"] == 0.3
+        recipe_bytes = recipe_path.read_bytes()
+        environment.pop("DITTO_CI_SAMPLE_TIMEOUT_SECONDS")
+        environment.pop("FAKE_SLEEP_AFTER_RESULT")
+        environment.pop("FAKE_STATUS")
+        replay_marker = root / "replayed-timeout"
+        environment["FAKE_REPLAY_MARKER"] = str(replay_marker)
+        replayed = run(["replay", str(recipe_path)], environment)
+        assert replayed.returncode == 0, replayed.stderr + replayed.stdout
+        assert replay_marker.read_text() == "replayed"
+        assert recipe_path.read_bytes() == recipe_bytes
+        environment.pop("FAKE_REPLAY_MARKER")
 
         environment.pop("FAKE_STATUS", None)
         environment["DITTO_CI_BRANCH"] = "master"

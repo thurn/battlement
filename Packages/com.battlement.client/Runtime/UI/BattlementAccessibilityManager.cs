@@ -115,26 +115,57 @@ namespace Battlement.UI
             }
         }
 
-        public bool Dispatch(AccessibilityEvent accessibilityEvent)
+        public bool Dispatch(AccessibilityEvent accessibilityEvent) =>
+            Dispatch(accessibilityEvent, out _);
+
+        public bool Dispatch(AccessibilityEvent accessibilityEvent, out string? diagnostic)
         {
-            if (!backendEnabled || commitSuspended)
+            diagnostic = null;
+            if (!backendEnabled)
+            {
+                diagnostic = $"Accessibility backend is unavailable (generation {generation}).";
                 return false;
+            }
+            if (commitSuspended)
+            {
+                diagnostic = "Accessibility presentation is suspended during a UI commit.";
+                return false;
+            }
             if (accessibilityEvent.BackendGeneration != generation)
+            {
+                diagnostic = $"Stale accessibility generation; current generation is {generation}.";
                 return false;
+            }
             if (
                 !active.TryGetValue(
                     accessibilityEvent.Target.Value,
                     out AccessibilityNodeSnapshot node
                 )
             )
+            {
+                diagnostic = "Target is absent from the active accessibility tree.";
                 return false;
-            if (node.State.Disabled || !Declares(node.Actions, accessibilityEvent.Action))
+            }
+            if (node.State.Disabled)
+            {
+                diagnostic = "Accessibility target is disabled.";
                 return false;
+            }
+            if (!Declares(node.Actions, accessibilityEvent.Action))
+            {
+                diagnostic = "Accessibility target does not declare the requested action.";
+                return false;
+            }
             var body = new UiEventBody.AccessibilityAction(
                 new AccessibilityActionEvent(generation, ToUiAction(accessibilityEvent.Action))
             );
-            return emit(new UiEvent(accessibilityEvent.Target, true, false, body))
-                == UiEventDisposition.PreventDefault;
+            UiEventDisposition? disposition = emit(
+                new UiEvent(accessibilityEvent.Target, true, false, body)
+            );
+            if (disposition == UiEventDisposition.PreventDefault)
+                return true;
+            diagnostic = $"Accessibility action was not handled (disposition: {disposition}).";
+            return false;
         }
 
         public void SetBackendAvailable(bool available)

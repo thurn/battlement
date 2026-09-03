@@ -173,6 +173,7 @@ namespace Battlement
             motion = new DittoMotionController(runner);
             input = new DittoVirtualInput(platform, width, height);
             targets = new DittoInputTargets(runner, aliases, width, height);
+            runner.BeginDittoInput();
         }
 
         public DittoScenarioExecution? Result { get; private set; }
@@ -274,6 +275,7 @@ namespace Battlement
                 videoRecorder.TruncateForRuntimeFailure();
             }
             input.Dispose();
+            runner.EndDittoInput();
         }
 
         public void Freeze(string errorRef)
@@ -391,7 +393,13 @@ namespace Battlement
                     break;
                 case DittoStepAction.AccessibilityAction action:
                     presentationReady = false;
-                    if (targets.AccessibilityAction(action.Target, action.Action))
+                    if (
+                        targets.AccessibilityAction(
+                            action.Target,
+                            action.Action,
+                            out string? diagnostic
+                        )
+                    )
                     {
                         motion.RestartQuietWindow();
                         phase = Phase.Settle;
@@ -399,11 +407,7 @@ namespace Battlement
                     }
                     else
                     {
-                        FailStep(
-                            step,
-                            DittoErrorCode.InputUnreachable,
-                            "Accessibility target or action is unavailable."
-                        );
+                        FailStep(step, DittoErrorCode.InputUnreachable, diagnostic!);
                     }
                     break;
                 case DittoStepAction.Screenshot:
