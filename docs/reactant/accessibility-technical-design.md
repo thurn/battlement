@@ -276,8 +276,9 @@ Unity never receives semantic relationship IDs.
 
 - `Exposed` publishes the host as a semantic node and permits contents-derived
   text.
-- `NameSourceOnly` contributes text only when an explicit `LabelledBy` or
-  `DescribedBy` reference names it; it is never published.
+- `NameSourceOnly` contributes text through explicit `LabelledBy` or
+  `DescribedBy` references and eligible `StaticText` descendants in `Contents`
+  names; it is never published.
 - `Hidden` contributes neither a node nor text and prunes its complete logical
   subtree from the canonical semantic snapshot.
 
@@ -307,7 +308,8 @@ Text is resolved as follows:
 2. LabelledBy resolves the target using the same rules and records the
    dependency for cycle detection.
 3. Contents walks logical descendants in depth-first child order.
-4. The walk appends the Text name from Exposed StaticText declarations.
+4. The walk appends the Text name from Exposed or NameSourceOnly StaticText
+   declarations.
 5. The walk skips Hidden declarations and does not enter an actionable
    descendant's subtree.
 

@@ -41,7 +41,8 @@ pub enum SemanticVisibility {
   /// Publish this declaration.
   #[default]
   Exposed,
-  /// Permit explicit name references without publishing this declaration.
+  /// Permit explicit text references and contents-derived names without publishing
+  /// this declaration.
   NameSourceOnly,
   /// Prune this declaration and its complete logical subtree.
   Hidden,

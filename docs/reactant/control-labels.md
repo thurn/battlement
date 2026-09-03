@@ -4,8 +4,11 @@ Named control hooks accept either `LocalizedText` or `AccessibleName`. Use
 `text("Sound")` for literal text, `AccessibleName::LabelledBy(vec![label_ref])` for
 one or more visible label hosts, or `AccessibleName::Contents` for eligible descendants.
 References are concatenated in their authored order with normalized whitespace.
-Name-source-only labels remain available for references without creating
-duplicate spoken nodes. Explicit names do not inherit later label changes.
+Name-source-only labels remain available for references and contents-derived
+names without creating duplicate spoken nodes. `Contents` collects `StaticText`
+descendants with `Exposed` or `NameSourceOnly` visibility, skipping hidden
+subtrees and the contents of actionable descendants. Explicit names do not
+inherit later label changes.
 
 An activation behavior also provides `label_interaction(&control_ref)`.
 Attach the ref to the control host and these interaction props to its visible
