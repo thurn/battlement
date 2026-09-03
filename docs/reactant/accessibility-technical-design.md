@@ -357,6 +357,7 @@ rendering.
 ~~~rust
 let button = use_button(ButtonOptions {
     name: text("Save changes"),
+    description: None,
     is_disabled: saving,
     on_press: callback(|app: &mut App| app.save()),
 });

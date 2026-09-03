@@ -1,7 +1,7 @@
 use battlement::{AccessibilityAction, ClickEvent, UiEventBody, UiEventKind};
 
 use crate::{
-  callback::Callback,
+  callback::{Callback, IntoCallback},
   element_ref::ElementRef,
   event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
@@ -39,6 +39,33 @@ pub(crate) fn interaction<G: 'static>(
     activation.callback.map(move |requested| {
       (!disabled && requested == AccessibilityAction::Activate).then_some(())
     }),
+  ));
+  interaction
+}
+
+pub(crate) fn label_focus_interaction<G: 'static>(
+  control: &ElementRef,
+  accepts_focus: bool,
+) -> InteractionProps<G> {
+  let control = control.clone();
+  let mut interaction = InteractionProps::new();
+  interaction.handlers.push(Handler::event_callback(
+    "associated-label-click",
+    UiEventKind::Click,
+    HandlerPhase::Default,
+    self::click_event,
+    (move |event: ReactantEvent<ClickEvent>| {
+      if !accepts_focus
+        || event.activation_handled()
+        || event.default_prevented()
+        || !control.is_attached()
+      {
+        return;
+      }
+      event.mark_activation_handled();
+      control.focus();
+    })
+    .into_callback(),
   ));
   interaction
 }

@@ -5,14 +5,14 @@ use battlement::{
   VisualElementAction,
 };
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions, ToggleOptions},
+  accessibility::{self, ButtonOptions, SliderOptions, ToggleOptions},
   component::Component,
-  element_ref,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  host::{Label, View},
+  host::View,
+  label_binding,
   render::Render,
   runtime::Reactant,
-  semantics::{AccessibleName, SemanticProps, SemanticVisibility, text},
+  semantics::{AccessibleDescription, AccessibleName, text},
 };
 
 #[derive(Clone, Default)]
@@ -31,9 +31,22 @@ struct Game {
 
 struct LabelFixture(Game);
 
+#[derive(Clone, Default)]
+struct DisabledSliderGame {
+  changes: usize,
+}
+
+struct DisabledSliderFixture(DisabledSliderGame);
+
 impl Component for LabelFixture {
   fn render(&self) -> impl Render {
     self::fixture(&self.0)
+  }
+}
+
+impl Component for DisabledSliderFixture {
+  fn render(&self) -> impl Render {
+    self::disabled_slider_fixture(&self.0)
   }
 }
 
@@ -126,13 +139,12 @@ fn label_and_nested_controls_share_activation_without_suppressing_bubbling() {
   let groups = runtime.refresh(&mut game).unwrap().into_groups();
   self::assert_checked(&groups, true);
   assert_eq!(game.changes, 5);
-  let wrapper = self::named(&initial.ui[0].children, "wrapper");
   game.reject = false;
   let _ = runtime.refresh(&mut game).unwrap().into_groups();
   let groups = runtime
     .dispatch(
       &mut game,
-      UiEvent::click(wrapper, ClickEvent::NavigationSubmit),
+      UiEvent::click(label, ClickEvent::NavigationSubmit),
     )
     .unwrap()
     .into_commit()
@@ -200,6 +212,37 @@ fn label_and_nested_controls_share_activation_without_suppressing_bubbling() {
 }
 
 #[test]
+fn disabled_slider_label_is_inert() {
+  let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), self::disabled_slider_view);
+  let mut game = DisabledSliderGame::default();
+  let (initial, commit) = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_parts(self::snapshot(&document));
+  let _ = commit.into_groups();
+  let label = self::named(&initial.ui[0].children, "slider-label");
+  let groups = runtime
+    .dispatch(
+      &mut game,
+      UiEvent::click(label, ClickEvent::NavigationSubmit),
+    )
+    .unwrap()
+    .into_commit()
+    .into_groups();
+
+  assert_eq!(game.changes, 0);
+  assert!(
+    !groups
+      .iter()
+      .flatten()
+      .any(|body| matches!(body, CommandBody::VisualElementPerformAction(_)))
+  );
+  let _ = runtime.shutdown(&mut game).into_groups();
+}
+
+#[test]
 fn referenced_names_update_and_explicit_names_remain_authoritative() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
   let mut runtime = Reactant::new(IdleSpawner);
@@ -247,6 +290,7 @@ fn assert_name(groups: &[Vec<CommandBody>], name: &str) {
     .collect::<Vec<_>>();
   assert_eq!(checkboxes.len(), 1);
   assert_eq!(checkboxes[0].label.as_deref(), Some(name));
+  assert_eq!(checkboxes[0].hint.as_deref(), Some("Controls game audio"));
   assert_eq!(snapshot.nodes.len(), 2, "only checkbox and help are spoken");
 }
 
@@ -260,14 +304,14 @@ fn fixture(game: &Game) -> impl Render + use<> {
   } else {
     "Enable sound"
   };
-  let label = element_ref::use_element_ref();
-  let input = element_ref::use_element_ref();
+  let label = label_binding::use_control_label();
   let checkbox = accessibility::use_checkbox(ToggleOptions {
     name: if game.explicit {
       AccessibleName::text("Explicit sound")
     } else {
-      AccessibleName::LabelledBy(vec![label.clone()])
+      label.name()
     },
+    description: Some(AccessibleDescription::text("Controls game audio")),
     checked: game.checked,
     is_disabled: game.disabled,
     on_change: |game: &mut Game, value| {
@@ -277,12 +321,13 @@ fn fixture(game: &Game) -> impl Render + use<> {
       }
     },
   });
+  let (label, checkbox) = label.bind(checkbox);
   let help = accessibility::use_button(ButtonOptions {
     name: text("Help"),
+    description: None,
     is_disabled: false,
     on_press: |game: &mut Game| game.help += 1,
   });
-  let associated = checkbox.label_interaction(&input);
   View::new()
     .on_click_capture_event_with_model(|game: &mut Game, event| {
       if game.prevent {
@@ -291,34 +336,53 @@ fn fixture(game: &Game) -> impl Render + use<> {
     })
     .on_click(|game: &mut Game| game.bubbles += 1)
     .child(
-      View::new()
-        .name("wrapper")
-        .interaction_props(associated)
-        .child((
-          Label::new(visible_name)
-            .name("label")
-            .element_ref(label)
-            .semantic(
-              SemanticProps::new(SemanticRole::StaticText)
-                .name(AccessibleName::text(visible_name))
-                .visibility(SemanticVisibility::NameSourceOnly),
-            ),
-          (!game.hide).then(|| {
-            View::new()
-              .name("checkbox")
-              .element_ref(input)
-              .semantic(checkbox.semantic)
-              .focus_props(checkbox.focus)
-              .interaction_props(checkbox.interaction)
-              .child(View::new().name("decoration"))
-          }),
+      View::new().name("wrapper").child((
+        View::new()
+          .name("label")
+          .associated_label(label)
+          .child(accessibility::name_source_text(visible_name)),
+        (!game.hide).then(|| {
           View::new()
-            .name("help")
-            .semantic(help.semantic)
-            .focus_props(help.focus)
-            .interaction_props(help.interaction),
-        )),
+            .name("checkbox")
+            .associated_control(checkbox)
+            .child(View::new().name("decoration"))
+        }),
+        View::new()
+          .name("help")
+          .semantic(help.semantic)
+          .focus_props(help.focus)
+          .interaction_props(help.interaction),
+      )),
     )
+}
+
+fn disabled_slider_view(game: &DisabledSliderGame) -> impl Render + use<> {
+  DisabledSliderFixture(game.clone())
+}
+
+fn disabled_slider_fixture(_game: &DisabledSliderGame) -> impl Render + use<> {
+  let label = label_binding::use_control_label();
+  let slider = accessibility::use_slider(SliderOptions {
+    name: label.name(),
+    description: None,
+    value: 0.5,
+    minimum: 0.0,
+    maximum: 1.0,
+    step: 0.1,
+    value_text: None,
+    is_disabled: true,
+    on_change: |game: &mut DisabledSliderGame, _value| game.changes += 1,
+  });
+  let (label, slider) = label.bind(slider);
+  View::new().child((
+    View::new()
+      .name("slider-label")
+      .associated_label(label)
+      .child(accessibility::name_source_text("Disabled volume")),
+    View::new()
+      .name("disabled-slider")
+      .associated_control(slider),
+  ))
 }
 
 fn assert_checked(groups: &[Vec<CommandBody>], checked: bool) {

@@ -54,9 +54,9 @@ recognize bare and canonical standard-library paths, not arbitrary aliases.
 ## Callbacks
 
 `Rc<dyn Fn(...) -> R>` accepts a closure with that signature, preserving closure
-parameter inference. Optional callbacks accept closures and have a separate
-`clear_<field>()` method; unlike ordinary options, their setters do not accept
-`Some` or `None`.
+parameter inference. Optional callbacks also have `clear_<field>()` and
+`<field>_optional(...)` methods. The latter forwards an existing
+`Option<Rc<dyn Fn(...) -> R>>` without rewrapping it.
 
 ```rust
 use std::rc::Rc;
@@ -73,9 +73,13 @@ let control = Control::new()
     .focused(|| println!("Focused"))
     .clear_focused()
     .changed(|checked| println!("{}", !checked));
+
+let forwarded: Option<Rc<dyn Fn()>> = None;
+let control = control.focused_optional(forwarded);
 ```
 
-The macro creates the `Rc` and optional `Some` wrapper. It preserves declared
+The closure setter creates the `Rc` and optional `Some` wrapper, while the
+forwarding setter preserves an already stored option unchanged. Both preserve declared
 callback lifetimes, return values, higher-ranked arguments, and trait bounds.
 Forward an existing `Rc` callback using a closure adapter such as
 `move |value| callback(value)`. `FnMut`, `FnOnce`, `Box`, and `Arc` are ordinary

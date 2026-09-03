@@ -189,9 +189,10 @@ def cargo_environment(
     workspace: Path | None,
     concurrent_scope: str | None = None,
 ) -> dict[str, str]:
-    """Return bounded Cargo settings shared across checkouts and isolated by writer scope."""
+    """Return bounded Cargo settings isolated by checkout and writer scope."""
     workspace_identity = "root" if workspace is None else workspace.parent.as_posix()
-    target_identity = workspace_identity if concurrent_scope is None else concurrent_scope
+    writer_identity = workspace_identity if concurrent_scope is None else concurrent_scope
+    target_identity = f"{REPOSITORY_ROOT.resolve()}\0{writer_identity}"
     target = hashlib.sha256(target_identity.encode()).hexdigest()[:16]
     environment = os.environ.copy()
     environment.setdefault("CARGO_BUILD_JOBS", str(DEFAULT_CARGO_JOBS))

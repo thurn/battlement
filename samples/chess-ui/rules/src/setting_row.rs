@@ -8,7 +8,7 @@ use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::{Grid, View},
-  label_binding::LabelBinding,
+  label_binding::{AssociatedLabel, LabelBinding},
   render::Render,
 };
 use std::rc::Rc;
@@ -28,6 +28,8 @@ pub struct SettingRow<L, R> {
   label: Rc<L>,
   /// Associates the visible label with the control that uses this binding.
   label_binding: Option<LabelBinding>,
+  /// Attaches naming, focus, and activation for an associated control.
+  associated_label: Option<AssociatedLabel>,
   #[builder(required, into)]
   children: Rc<R>,
   /// Omits the separator above the first row.
@@ -38,6 +40,10 @@ pub struct SettingRow<L, R> {
 
 impl<L: Render, R: Render> Component for SettingRow<L, R> {
   fn render(&self) -> impl Render {
+    assert!(
+      self.label_binding.is_none() || self.associated_label.is_none(),
+      "a settings row accepts one label association"
+    );
     let mut label = View::new()
       .name("setting-row-label")
       .style(
@@ -63,6 +69,9 @@ impl<L: Render, R: Render> Component for SettingRow<L, R> {
       label = label
         .element_ref(binding.reference())
         .semantic(binding.semantic());
+    }
+    if let Some(associated) = &self.associated_label {
+      label = label.associated_label(associated.clone());
     }
     Grid::new()
       .name("setting-row")

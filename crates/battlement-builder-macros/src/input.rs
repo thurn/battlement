@@ -24,6 +24,7 @@ pub struct Property {
   pub default: Option<Expr>,
   pub conversion: Conversion,
   pub clear: Option<Ident>,
+  pub forward: Option<Ident>,
   pub slot: Option<Ident>,
 }
 
@@ -135,6 +136,19 @@ pub fn parse(arguments: TokenStream, tokens: TokenStream) -> syn::Result<Input> 
     } else {
       None
     };
+    let forward = conversion
+      .is_optional_callback()
+      .then(|| {
+        let forward = format!("{name}_optional");
+        if !methods.insert(forward.clone()) {
+          return Err(Error::new_spanned(
+            ident,
+            "optional callback forwarding method conflicts with a property",
+          ));
+        }
+        Ok(Ident::new(&forward, ident.span()))
+      })
+      .transpose()?;
     field.attrs.retain(|attr| !attr.path().is_ident("builder"));
     fields.push(Property {
       field: field.clone(),
@@ -142,6 +156,7 @@ pub fn parse(arguments: TokenStream, tokens: TokenStream) -> syn::Result<Input> 
       default,
       conversion,
       clear,
+      forward,
       slot: required.then(|| names.fresh("__BuilderField")),
     });
   }

@@ -114,6 +114,19 @@ fn callbacks_infer_parameters_capture_borrows_and_clear_without_invocation() {
   let cleared = props.clear_on_focus().clear_formatter();
   assert!(cleared.on_focus.is_none());
   assert!(cleared.formatter.is_none());
+
+  let forwarded: Option<Rc<dyn Fn()>> = Some(Rc::new(|| {}));
+  #[allow(clippy::type_complexity)]
+  let formatter: Option<Rc<dyn for<'b> Fn(&'b str, usize) -> usize>> =
+    Some(Rc::new(|text, extra| text.len() + extra));
+  let forwarded = CallbackProps::new()
+    .on_change(|value| value)
+    .on_focus_optional(forwarded)
+    .formatter_optional(formatter);
+  assert!(forwarded.on_focus.is_some());
+  assert_eq!((forwarded.formatter.as_ref().unwrap())("value", 3), 8);
+  let absent: Option<Rc<dyn Fn()>> = None;
+  assert!(forwarded.on_focus_optional(absent).on_focus.is_none());
 }
 
 #[test]

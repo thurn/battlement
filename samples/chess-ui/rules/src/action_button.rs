@@ -37,6 +37,7 @@ impl<R: Render> Component for ActionButton<R> {
     let on_click = self.on_click.clone();
     let button = accessibility::use_button(ButtonOptions {
       name: AccessibleName::Contents,
+      description: None,
       is_disabled: self.disabled,
       on_press: move || {
         if let Some(callback) = &on_click {

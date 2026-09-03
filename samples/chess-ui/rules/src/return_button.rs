@@ -17,13 +17,12 @@ use std::rc::Rc;
 pub struct ReturnButton {
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
-  #[builder(required)]
-  on_click: Rc<dyn Fn()>,
+  /// Handles activation when the parent supplies a navigation action.
+  on_click: Option<Rc<dyn Fn()>>,
 }
 
 impl Component for ReturnButton {
   fn render(&self) -> impl Render {
-    let on_click = Rc::clone(&self.on_click);
     View::new()
       .name("return-button")
       .style(
@@ -47,7 +46,7 @@ impl Component for ReturnButton {
           .children(accessibility::name_source_text("RETURN"))
           .max_text_scale(1.35)
           .disabled(self.disabled)
-          .on_click(move || on_click()),
+          .on_click_optional(self.on_click.clone()),
       ))
   }
 }

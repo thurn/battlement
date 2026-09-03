@@ -1,9 +1,10 @@
 //! A controlled checkbox whose label activates and focuses its input.
 
 use crate::{check_mark::CheckMark, setting_row::SettingRow};
-use battlement::{Align, Color, Length, PickingMode, Position, Style, Translate};
-use battlement_reactant::label_binding;
-use battlement_reactant::{accessibility, element_ref, prelude::*};
+use battlement::{
+  Align, Color, Justify, Length, PickingMode, Position, Style, TextAnchor, Translate,
+};
+use battlement_reactant::{accessibility, prelude::*};
 use std::rc::Rc;
 
 /// A controlled checkbox with an associated, clickable settings label.
@@ -21,23 +22,29 @@ pub struct ToggleControl<R> {
   checked: bool,
   /// Overrides the accessible name when the visible wording needs clarification.
   aria_label: Option<String>,
+  /// Shows crash-report context next to the visible label.
+  with_info: bool,
+  /// Handles activation of the optional crash-report information badge.
+  on_info_click: Option<Rc<dyn Fn()>>,
   #[builder(required)]
   on_change: Rc<dyn Fn(bool)>,
 }
 
 impl<R: Render> Component for ToggleControl<R> {
   fn render(&self) -> impl Render {
-    let label = label_binding::use_label();
-    let input = element_ref::use_element_ref();
+    let label = use_control_label();
     let aria_label = self.aria_label.as_ref().filter(|label| !label.is_empty());
     let on_change = Rc::clone(&self.on_change);
     let checkbox = accessibility::use_checkbox(ToggleOptions {
       name: aria_label.map_or_else(|| label.name(), |name| AccessibleName::text(name.clone())),
+      description: self
+        .with_info
+        .then(|| AccessibleDescription::text("We upload crash reports to Unity Diagnostics.")),
       checked: self.checked,
       is_disabled: false,
       on_change: move |checked| on_change(checked),
     });
-    let label_interaction = checkbox.label_interaction(&input);
+    let (label, checkbox) = label.bind(checkbox);
     let control = View::new()
       .name("toggle-control-box")
       .style(
@@ -68,8 +75,7 @@ impl<R: Render> Component for ToggleControl<R> {
           .child(self.checked.then_some(CheckMark::new())),
         Button::new("")
           .name("toggle-control-input")
-          .element_ref(input.clone())
-          .behavior(checkbox)
+          .associated_control(checkbox)
           .style(
             Style::new()
               .position(Position::Absolute)
@@ -83,21 +89,62 @@ impl<R: Render> Component for ToggleControl<R> {
               .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0)),
           ),
       ));
-    let mut row = SettingRow::<R, _>::new()
-      .label(self.label.clone())
+    let mut row = SettingRow::new()
+      .label((
+        self.label.clone(),
+        self
+          .with_info
+          .then(|| InfoBadge::new().on_click_optional(self.on_info_click.clone())),
+      ))
       .children(control)
-      .label_binding(label)
+      .associated_label(label)
       .first(self.first);
     if let Some(height) = self.row_height {
       row = row.row_height(height);
     }
-    let mut label = View::new()
-      .name("toggle-control-label")
-      .interaction_props(label_interaction)
-      .child(row);
+    let mut label = View::new().name("toggle-control-label").child(row);
     if let Some(height) = self.row_height {
       label = label.style(Style::new().height(height));
     }
     label
+  }
+}
+
+#[builder]
+struct InfoBadge {
+  on_click: Option<Rc<dyn Fn()>>,
+}
+
+impl Component for InfoBadge {
+  fn render(&self) -> impl Render {
+    let on_click = self.on_click.clone();
+    let button = accessibility::use_button(ButtonOptions {
+      name: AccessibleName::text("About crash report uploads"),
+      description: None,
+      is_disabled: false,
+      on_press: move || {
+        if let Some(on_click) = &on_click {
+          on_click();
+        }
+      },
+    });
+    Button::new("i").name("toggle-info").behavior(button).style(
+      Style::new()
+        .position(Position::Absolute)
+        .left(205)
+        .bottom(37)
+        .width(38)
+        .height(38)
+        .padding(0)
+        .border_width(2)
+        .border_color(Color::rgb(85.0 / 255.0, 184.0 / 255.0, 1.0))
+        .border_radius(19)
+        .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0))
+        .color(Color::rgb(188.0 / 255.0, 244.0 / 255.0, 1.0))
+        .font_size(27)
+        .unity_text_align(TextAnchor::MiddleCenter)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center),
+    )
   }
 }

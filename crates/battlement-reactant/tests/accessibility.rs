@@ -33,6 +33,7 @@ impl Component for NameSourceFixture {
     let source = use_element_ref();
     let button = use_button(ButtonOptions {
       name: AccessibleName::LabelledBy(vec![source.clone()]),
+      description: None,
       is_disabled: false,
       on_press: |_game: &mut Game| {},
     });
@@ -60,6 +61,7 @@ impl Component for MultiNameFixture {
     let value = use_element_ref();
     let behavior = use_button(ButtonOptions {
       name: AccessibleName::LabelledBy(vec![title.clone(), value.clone()]),
+      description: None,
       is_disabled: false,
       on_press: |game: &mut Game| game.presses += 1,
     });
@@ -153,6 +155,7 @@ fn complete_snapshot_resolves_contents_and_prunes_hidden_subtrees() {
   runtime.register_root(document.clone(), |_game: &Game| {
     let button = use_button(ButtonOptions {
       name: AccessibleName::Contents,
+      description: None,
       is_disabled: false,
       on_press: |_game: &mut Game| {},
     });
@@ -229,6 +232,7 @@ fn accessibility_activation_uses_the_ordinary_logical_event_path() {
   runtime.register_root(document.clone(), |_game: &Game| {
     let button = use_button(ButtonOptions {
       name: text("Save changes"),
+      description: None,
       is_disabled: false,
       on_press: |game: &mut Game| game.presses += 1,
     });
@@ -420,12 +424,14 @@ fn invalid_collection_relationships_and_page_states_fail_before_commit() {
 fn collection_fixture(game: &Game) -> View {
   let mut page = use_button(ButtonOptions {
     name: text("Gallery shell"),
+    description: None,
     is_disabled: false,
     on_press: |_game: &mut Game| {},
   });
   page.semantic.state.current = Some(CurrentPage::Page);
   let link = collections::use_link(ButtonOptions {
     name: text("Privacy policy"),
+    description: None,
     is_disabled: false,
     on_press: |game: &mut Game| game.presses += 1,
   });

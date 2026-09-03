@@ -69,6 +69,10 @@ impl FocusProps {
     assign(&mut target.auto_focus, self.auto_focus, "auto_focus");
     assign(&mut target.inert, self.inert, "inert");
   }
+
+  pub(crate) fn accepts_focus(&self) -> bool {
+    matches!(self.focusable, Prop::Set(true))
+  }
 }
 
 fn assign<T: PartialEq>(target: &mut Prop<T>, value: Prop<T>, property: &str) {

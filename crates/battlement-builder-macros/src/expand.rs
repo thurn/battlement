@@ -61,8 +61,20 @@ pub fn expand(mut input: Input) -> syn::Result<TokenStream> {
       marker.as_ref(),
       &signature,
       &value,
+      false,
     );
     let property = &input.fields[index];
+    let forward = property.forward.as_ref().map(|_| {
+      self::setter(
+        &input,
+        index,
+        &original_generics,
+        marker.as_ref(),
+        &signature,
+        &value,
+        true,
+      )
+    });
     if let Some(slot) = &property.slot {
       let mut generics = input.item.generics.clone();
       generics.params = generics
@@ -72,9 +84,11 @@ pub fn expand(mut input: Input) -> syn::Result<TokenStream> {
         .collect();
       let (params, _, bounds) = generics.split_for_impl();
       let receiver = self::state_type(&input, &original_generics, Some((index, false)), false);
-      implementations.push(quote!(#(#conditions)* impl #params #receiver #bounds { #method }));
+      implementations
+        .push(quote!(#(#conditions)* impl #params #receiver #bounds { #method #forward }));
     } else {
       optional.push(method);
+      optional.extend(forward);
       if let Some(clear) = &property.clear {
         let ident = &property.field.ident;
         let visibility = &input.item.vis;
@@ -165,14 +179,39 @@ fn setter(
   marker: Option<&Ident>,
   signature: &Ident,
   value: &Ident,
+  forwarding: bool,
 ) -> TokenStream {
   let property = &input.fields[index];
-  let ident = &property.field.ident;
+  let field = property.field.ident.as_ref().expect("named field");
+  let ident = if forwarding {
+    property
+      .forward
+      .as_ref()
+      .expect("optional callback forwarder")
+  } else {
+    field
+  };
   let ty = &property.field.ty;
   let visibility = &input.item.vis;
-  let argument = property.conversion.input(ty, &input.support, signature);
-  let converted = property.conversion.value(&input.support, value);
-  let docs = self::docs(property);
+  let (argument, converted) = if forwarding {
+    (quote!(#ty), quote!(#value))
+  } else {
+    (
+      property.conversion.input(ty, &input.support, signature),
+      property.conversion.value(&input.support, value),
+    )
+  };
+  let docs = if forwarding {
+    Vec::new()
+  } else {
+    self::docs(property)
+  };
+  let forwarding_doc = forwarding.then(|| {
+    let description =
+      format!("Forwards a stored optional callback without rewrapping [`Self::{field}`].");
+    quote!(#[doc = #description])
+  });
+  let forwarding_lints = forwarding.then(|| quote!(#[allow(clippy::type_complexity)]));
   let parameters = if matches!(property.conversion, Conversion::Event { .. }) {
     quote!(<#signature: 'static>)
   } else {
@@ -180,10 +219,12 @@ fn setter(
   };
   if !property.required {
     return quote! {
+      #forwarding_doc
+      #forwarding_lints
       #(#docs)*
       #[must_use]
       #visibility fn #ident #parameters(mut self, #value: #argument) -> Self {
-        self.#ident = #converted;
+        self.#field = #converted;
         self
       }
     };
@@ -200,6 +241,8 @@ fn setter(
   });
   let marker = marker.map(|marker| quote!(#marker: self.#marker,));
   quote! {
+    #forwarding_doc
+    #forwarding_lints
     #(#docs)*
     #[must_use]
     #visibility fn #ident #parameters(self, #value: #argument) -> #result {

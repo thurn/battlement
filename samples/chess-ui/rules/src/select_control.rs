@@ -36,15 +36,17 @@ pub struct SelectControl<R> {
 
 impl<R: Render> Component for SelectControl<R> {
   fn render(&self) -> impl Render {
-    let label = label_binding::use_label();
+    let label = use_control_label();
     let value_label = label_binding::use_label();
     let trigger = accessibility_popup::use_popup_button(PopupButtonOptions {
       name: label.name_with(&value_label),
+      description: None,
       popup: PopupKind::ListBox,
       expanded: false,
       is_disabled: false,
       on_press: || {},
     });
+    let (label, trigger) = label.bind(trigger);
     let control = View::new()
       .name("select-control")
       .style(
@@ -71,7 +73,7 @@ impl<R: Render> Component for SelectControl<R> {
           .child(
             Button::new("")
               .name("select-trigger")
-              .behavior(trigger)
+              .associated_control(trigger)
               .style(
                 Style::new()
                   .position(Position::Relative)
@@ -111,7 +113,7 @@ impl<R: Render> Component for SelectControl<R> {
     let mut row = SettingRow::<R, _>::new()
       .label(self.label.clone())
       .children(control)
-      .label_binding(label)
+      .associated_label(label)
       .first(self.first);
     if let Some(height) = self.row_height {
       row = row.row_height(height);

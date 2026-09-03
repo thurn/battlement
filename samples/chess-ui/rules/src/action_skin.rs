@@ -1,6 +1,6 @@
 //! Paint recipes for the beveled outline and dark interior of arcade actions.
 
-use battlement::{Color, Gradient, GradientStop, Length};
+use battlement::{Color, Gradient, Length};
 use battlement_reactant::paint::PaintFill;
 
 use crate::frame_styles;
@@ -29,18 +29,11 @@ pub fn clip(x: f32, y: f32) -> Vec<[Length; 2]> {
 
 /// Returns the bright metallic border paint.
 pub fn border() -> PaintFill {
-  PaintFill::Gradient(Gradient::Linear {
-    angle: 110.0,
-    stops: [
-      (0.0, 0xb9fbff),
-      (0.22, 0x3bb9ff),
-      (0.56, 0xa49cff),
-      (0.9, 0xff4bd1),
-    ]
-    .map(|(position, color)| GradientStop {
-      position,
-      color: frame_styles::color(color),
-    })
-    .to_vec(),
-  })
+  PaintFill::Gradient(
+    Gradient::linear(110.0)
+      .stop(0.0, frame_styles::color(0xb9fbff))
+      .stop(0.22, frame_styles::color(0x3bb9ff))
+      .stop(0.56, frame_styles::color(0xa49cff))
+      .stop(0.9, frame_styles::color(0xff4bd1)),
+  )
 }

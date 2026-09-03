@@ -19,6 +19,7 @@ pub fn use_option<G: 'static>(
 ) -> AccessibleBehavior<G, bool> {
   let mut behavior = accessibility::use_button(ButtonOptions {
     name: options.name,
+    description: None,
     is_disabled: options.is_disabled,
     on_press: options.on_select,
   });

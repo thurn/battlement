@@ -114,6 +114,7 @@ impl LayoutGallery {
     let announce = use_announce();
     let reset = use_button(ButtonOptions {
       name: text("Reset settings"),
+      description: None,
       is_disabled: false,
       on_press: move |game: &mut Game| {
         game.layout_gallery = LayoutGalleryState::default();
@@ -122,6 +123,7 @@ impl LayoutGallery {
     });
     let tracks = use_button(ButtonOptions {
       name: text("Responsive tracks"),
+      description: None,
       is_disabled: false,
       on_press: |game: &mut Game| {
         game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
@@ -129,6 +131,7 @@ impl LayoutGallery {
     });
     let open_modal = use_button(ButtonOptions {
       name: text("Open modal"),
+      description: None,
       is_disabled: false,
       on_press: |game: &mut Game| game.layout_gallery.modal_open = true,
     });
@@ -247,6 +250,7 @@ impl LayoutGallery {
   fn accessible_settings(&self) -> View {
     let checkbox = use_checkbox(ToggleOptions {
       name: text("Captions"),
+      description: None,
       checked: self.state.captions_enabled,
       is_disabled: false,
       on_change: |game: &mut Game, checked| {
@@ -255,6 +259,7 @@ impl LayoutGallery {
     });
     let spatial_audio = use_switch(ToggleOptions {
       name: text("Spatial audio"),
+      description: None,
       checked: self.state.spatial_audio,
       is_disabled: false,
       on_change: |game: &mut Game, checked| {
@@ -282,6 +287,7 @@ impl LayoutGallery {
     );
     let slider = use_slider(SliderOptions {
       name: text("Music volume"),
+      description: None,
       value: f64::from(self.state.volume),
       minimum: 0.0,
       maximum: 100.0,
@@ -292,6 +298,7 @@ impl LayoutGallery {
     });
     let disclosure = use_disclosure(DisclosureOptions {
       name: text("Advanced audio"),
+      description: None,
       expanded: self.state.disclosure_open,
       is_disabled: false,
       on_toggle: |game: &mut Game| {
@@ -301,6 +308,7 @@ impl LayoutGallery {
     let announce = use_announce();
     let save = use_button(ButtonOptions {
       name: text("Save settings"),
+      description: None,
       is_disabled: false,
       on_press: move |game: &mut Game| {
         game.layout_gallery.trace.push("SAVED");

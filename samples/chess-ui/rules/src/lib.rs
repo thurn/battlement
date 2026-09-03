@@ -11,10 +11,10 @@
 //! authority for a controlled checkbox or slider value.
 //!
 //! [`portrait_viewport::PortraitViewport`] and [`review_stage::ReviewStage`]
-//! use Reactant's measured `ScaleToFit` canvas. `LabelBinding` connects composed
-//! visible labels to controls, while common focus and reveal hooks own effects.
-//! Explicit element refs are reserved for the navigation scroll container and
-//! the checkbox input that must receive focus when its label is activated.
+//! use Reactant's measured `ScaleToFit` canvas. Associated control labels connect
+//! composed visible labels to explicitly selected control hosts, while common
+//! focus and reveal hooks own effects. Explicit element refs remain reserved for
+//! the navigation scroll container.
 //!
 //! ```
 //! use battlement_reactant::{accessibility, app::App};

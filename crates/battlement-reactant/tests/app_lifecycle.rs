@@ -53,6 +53,7 @@ impl Component for Mixed {
     let input = use_element_ref();
     let toggle = use_checkbox(ToggleOptions {
       name: text("Enabled"),
+      description: None,
       checked: enabled,
       is_disabled: false,
       on_change: move |value| set.set(value),

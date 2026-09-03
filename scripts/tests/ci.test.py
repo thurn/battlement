@@ -29,6 +29,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
         _verify_cargo_target_isolation(root)
+        _verify_cargo_targets_do_not_cross_checkouts(root)
         _verify_parallel_sample_target_isolation(root)
         _verify_sample_worker_defaults()
         _verify_windows_paths(root)
@@ -98,13 +99,67 @@ def _verify_cargo_target_isolation(root: Path) -> None:
         ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
     )
 
-    assert first_root == second_root
-    assert first_sample == second_sample
+    assert first_root != second_root
+    assert first_sample != second_sample
     assert first_sample != first_root
     assert first_sample != other_sample
     assert first_sample == first_sample_again
     assert first_root.is_relative_to(cache / "cargo-targets/shared")
+    assert second_root.is_relative_to(cache / "cargo-targets/shared")
     assert first_root.stat().st_mtime_ns > first_access
+
+
+def _verify_cargo_targets_do_not_cross_checkouts(root: Path) -> None:
+    cache = root / "cross-checkout-cache"
+    old_checkout = root / "old-checkout"
+    new_checkout = root / "new-checkout"
+    _cargo_test_checkout(old_checkout, "fn main() {}\n")
+    _cargo_test_checkout(
+        new_checkout,
+        """fn main() {}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn new_checkout_test_runs() {
+        panic!("new checkout test executed");
+    }
+}
+""",
+    )
+    ci.CI_CACHE_ROOT = cache
+    ci.REPOSITORY_ROOT = old_checkout
+    old_environment = ci.cargo_environment(None)
+    subprocess.run(
+        ["cargo", "test", "--workspace", "--quiet"],
+        cwd=old_checkout,
+        env=old_environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for path in new_checkout.rglob("*"):
+        if path.is_file():
+            os.utime(path, ns=(1, 1))
+
+    ci.REPOSITORY_ROOT = new_checkout
+    new_environment = ci.cargo_environment(None)
+    assert old_environment["CARGO_TARGET_DIR"] != new_environment["CARGO_TARGET_DIR"]
+    try:
+        subprocess.run(
+            ["cargo", "test", "--workspace", "--quiet"],
+            cwd=new_checkout,
+            env=new_environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as error:
+        output = error.stdout + error.stderr
+        assert "new_checkout_test_runs" in output
+        assert "new checkout test executed" in output
+    else:
+        raise AssertionError("new checkout reused an older checkout's test binary")
 
 
 def _verify_parallel_sample_target_isolation(root: Path) -> None:
@@ -218,6 +273,17 @@ def _workspace(root: Path) -> None:
 def _manifest(root: Path, contents: str) -> None:
     root.mkdir(parents=True)
     (root / "Cargo.toml").write_text(contents)
+
+
+def _cargo_test_checkout(root: Path, source: str) -> None:
+    _manifest(root, '[workspace]\nmembers = ["app"]\nresolver = "3"\n')
+    _manifest(
+        root / "app",
+        '[package]\nname = "app"\nversion = "0.1.0"\nedition = "2024"\n',
+    )
+    source_root = root / "app/src"
+    source_root.mkdir()
+    (source_root / "main.rs").write_text(source)
 
 
 def _runtime_ui_package(package: Path) -> None:

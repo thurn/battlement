@@ -14,7 +14,8 @@ use crate::{
   host::{Label, TextElement},
   motion::MotionProps,
   semantics::{
-    self, AccessibleBehavior, AccessibleName, InteractionProps, LocalizedText, SemanticProps,
+    self, AccessibleBehavior, AccessibleDescription, AccessibleName, InteractionProps,
+    LocalizedText, SemanticProps,
   },
 };
 
@@ -31,6 +32,8 @@ pub struct PressState {
 pub struct ButtonOptions<F, N = LocalizedText> {
   /// Accessible name.
   pub name: N,
+  /// Optional accessible description.
+  pub description: Option<AccessibleDescription>,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Ordinary press callback.
@@ -41,6 +44,8 @@ pub struct ButtonOptions<F, N = LocalizedText> {
 pub struct ToggleOptions<F, N = LocalizedText> {
   /// Accessible name.
   pub name: N,
+  /// Optional accessible description.
+  pub description: Option<AccessibleDescription>,
   /// Current checked state.
   pub checked: bool,
   /// Whether activation is unavailable.
@@ -53,6 +58,8 @@ pub struct ToggleOptions<F, N = LocalizedText> {
 pub struct SliderOptions<F, N = LocalizedText> {
   /// Accessible name.
   pub name: N,
+  /// Optional accessible description.
+  pub description: Option<AccessibleDescription>,
   /// Current value.
   pub value: f64,
   /// Inclusive minimum.
@@ -73,6 +80,8 @@ pub struct SliderOptions<F, N = LocalizedText> {
 pub struct DisclosureOptions<F, N = LocalizedText> {
   /// Accessible name.
   pub name: N,
+  /// Optional accessible description.
+  pub description: Option<AccessibleDescription>,
   /// Current expansion state.
   pub expanded: bool,
   /// Whether activation is unavailable.
@@ -149,9 +158,12 @@ pub fn use_button<G: 'static>(
   let callback = options.on_press.into_callback();
   let interaction = activation::interaction(options.is_disabled, callback);
   AccessibleBehavior {
-    semantic: named(SemanticRole::Button, options.name)
-      .state(disabled_state(options.is_disabled))
-      .action(AccessibilityAction::Activate),
+    semantic: described(
+      named(SemanticRole::Button, options.name),
+      options.description,
+    )
+    .state(disabled_state(options.is_disabled))
+    .action(AccessibilityAction::Activate),
     focus: ordinary_focus(options.is_disabled),
     interaction,
     motion: MotionProps::new(),
@@ -289,16 +301,19 @@ pub fn use_slider<G: 'static>(
     }),
   );
   AccessibleBehavior {
-    semantic: named(SemanticRole::Slider, options.name)
-      .state(disabled_state(disabled))
-      .value(AccessibilityRangeValue {
-        current: value,
-        minimum,
-        maximum,
-        text: options.value_text.map(|text| text.resolved()),
-      })
-      .action(AccessibilityAction::Increment)
-      .action(AccessibilityAction::Decrement),
+    semantic: described(
+      named(SemanticRole::Slider, options.name),
+      options.description,
+    )
+    .state(disabled_state(disabled))
+    .value(AccessibilityRangeValue {
+      current: value,
+      minimum,
+      maximum,
+      text: options.value_text.map(|text| text.resolved()),
+    })
+    .action(AccessibilityAction::Increment)
+    .action(AccessibilityAction::Decrement),
     focus: ordinary_focus(disabled),
     interaction,
     motion: MotionProps::new(),
@@ -325,13 +340,16 @@ pub fn use_disclosure<G: 'static>(
 ) -> AccessibleBehavior<G, bool> {
   let callback = options.on_toggle.into_callback();
   AccessibleBehavior {
-    semantic: named(SemanticRole::Disclosure, options.name)
-      .state(SemanticState {
-        disabled: options.is_disabled,
-        expanded: Some(options.expanded),
-        ..SemanticState::default()
-      })
-      .action(AccessibilityAction::Activate),
+    semantic: described(
+      named(SemanticRole::Disclosure, options.name),
+      options.description,
+    )
+    .state(SemanticState {
+      disabled: options.is_disabled,
+      expanded: Some(options.expanded),
+      ..SemanticState::default()
+    })
+    .action(AccessibilityAction::Activate),
     focus: ordinary_focus(options.is_disabled),
     interaction: activation::interaction(options.is_disabled, callback),
     motion: MotionProps::new(),
@@ -434,7 +452,7 @@ fn use_toggle<G: 'static>(
   let disabled = options.is_disabled;
   let interaction = activation::interaction(disabled, callback.map(move |()| Some(next)));
   AccessibleBehavior {
-    semantic: named(role, options.name)
+    semantic: described(named(role, options.name), options.description)
       .state(SemanticState {
         disabled,
         checked: Some(if options.checked {
@@ -490,6 +508,13 @@ fn accessible<G: 'static>(
 
 fn named(role: SemanticRole, name: impl Into<AccessibleName>) -> SemanticProps {
   SemanticProps::new(role).name(name.into())
+}
+
+fn described(semantic: SemanticProps, description: Option<AccessibleDescription>) -> SemanticProps {
+  match description {
+    Some(description) => semantic.description(description),
+    None => semantic,
+  }
 }
 
 fn optionally_named(role: SemanticRole, name: Option<LocalizedText>) -> SemanticProps {

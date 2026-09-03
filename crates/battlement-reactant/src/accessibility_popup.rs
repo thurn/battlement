@@ -5,13 +5,15 @@ use battlement::PopupKind;
 use crate::{
   accessibility::{self, ButtonOptions, PressState},
   callback::IntoCallback,
-  semantics::{AccessibleBehavior, AccessibleName, LocalizedText},
+  semantics::{AccessibleBehavior, AccessibleDescription, AccessibleName, LocalizedText},
 };
 
 /// Options for a button that controls a popup.
 pub struct PopupButtonOptions<F, N = LocalizedText> {
   /// Accessible name, independent of popup and expansion context.
   pub name: N,
+  /// Optional accessible description.
+  pub description: Option<AccessibleDescription>,
   /// Kind of popup opened by this trigger.
   pub popup: PopupKind,
   /// Whether the popup is currently open.
@@ -29,6 +31,7 @@ pub fn use_popup_button<G: 'static>(
 ) -> AccessibleBehavior<G, PressState> {
   let mut behavior = accessibility::use_button(ButtonOptions {
     name: options.name,
+    description: options.description,
     is_disabled: options.is_disabled,
     on_press: options.on_press,
   });

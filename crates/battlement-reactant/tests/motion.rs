@@ -41,6 +41,7 @@ impl Component for ButtonInteractionContract {
   fn render(&self) -> impl Render {
     let behavior = use_button_state(ButtonOptions {
       name: semantics::text("Action"),
+      description: None,
       is_disabled: false,
       on_press: || {},
     });

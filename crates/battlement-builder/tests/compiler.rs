@@ -96,6 +96,20 @@ fn downstream_compiler_checks_required_props_and_invalid_declarations() {
       "conflicts with another generated builder method",
     ),
     (
+      "optional_forward_collision",
+      format!(
+        "{ATTRIBUTE} struct Props {{ click: Option<std::rc::Rc<dyn Fn()>>, click_optional: bool }}"
+      ),
+      "conflicts with another generated builder method",
+    ),
+    (
+      "optional_forward_collision_reverse",
+      format!(
+        "{ATTRIBUTE} struct Props {{ click_optional: bool, click: Option<std::rc::Rc<dyn Fn()>> }}"
+      ),
+      "optional callback forwarding method conflicts",
+    ),
+    (
       "callback_into",
       format!(
         "{ATTRIBUTE} struct Props {{ #[builder(required, into)] click: std::rc::Rc<dyn Fn()> }}"

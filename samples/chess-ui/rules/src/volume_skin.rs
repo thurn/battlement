@@ -156,10 +156,11 @@ impl Component for VolumeThumb {
       )
       .child(
         ClippedInset::new()
-          .background(PaintFill::Gradient(Gradient::Linear {
-            angle: 90.0,
-            stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
-          }))
+          .background(PaintFill::Gradient(
+            Gradient::linear(90.0)
+              .stop(0.0, frame_styles::color(0x07142b))
+              .stop(1.0, frame_styles::color(0x02091b)),
+          ))
           .inset(4.0)
           .clip_path(self::clip())
           .box_shadow(vec![self::shadow(
@@ -170,20 +171,13 @@ impl Component for VolumeThumb {
 }
 
 fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {
-  PaintStyle::new().background(PaintFill::Gradient(Gradient::Linear {
-    angle,
-    stops: colors
-      .iter()
-      .map(|&(position, color)| self::stop(position, color))
-      .collect(),
-  }))
-}
-
-fn stop(position: f32, color: u32) -> GradientStop {
-  GradientStop {
-    position,
-    color: frame_styles::color(color),
-  }
+  PaintStyle::new().background(PaintFill::Gradient(
+    Gradient::linear(angle).stops(
+      colors
+        .iter()
+        .map(|&(position, color)| GradientStop::new(position, frame_styles::color(color))),
+    ),
+  ))
 }
 
 fn shadow(x: f32, y: f32, blur: f32, spread: f32, color: u32, alpha: f64, inset: bool) -> Shadow {

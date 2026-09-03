@@ -10,35 +10,36 @@ descendants with `Exposed` or `NameSourceOnly` visibility, skipping hidden
 subtrees and the contents of actionable descendants. Explicit names do not
 inherit later label changes.
 
-An activation behavior also provides `label_interaction(&control_ref)`.
-Attach the ref to the control host and these interaction props to its visible
-label or wrapping layout host. The binding focuses the current control and
-invokes the same callback as direct or accessibility activation. It adds no
+`use_control_label()` allocates the label and control references as one
+association. Construct the behavior with `label.name()`, then call
+`label.bind(behavior)`. Attach the resulting values to explicitly selected
+hosts with `associated_label` and `associated_control`. The association adds no
 host, semantic node, or local control state.
 
 ```rust,ignore
-let label_ref = element_ref::use_element_ref();
-let input_ref = element_ref::use_element_ref();
+let label = use_control_label();
 let checkbox = accessibility::use_checkbox(ToggleOptions {
-    name: AccessibleName::LabelledBy(vec![label_ref.clone()]),
+    name: label.name(),
+    description: Some(AccessibleDescription::text("Controls game audio")),
     checked,
     is_disabled: false,
     on_change,
 });
-let label_click = checkbox.label_interaction(&input_ref);
+let (label, checkbox) = label.bind(checkbox);
 
-View::new().interaction_props(label_click).child((
-    Label::new("Sound").element_ref(label_ref).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text("Sound"))
-            .visibility(SemanticVisibility::NameSourceOnly),
-    ),
-    Button::new("").element_ref(input_ref)
-        .semantic(checkbox.semantic)
-        .focus_props(checkbox.focus)
-        .interaction_props(checkbox.interaction),
+View::new().child((
+    View::new()
+        .associated_label(label)
+        .child(accessibility::name_source_text("Sound")),
+    Button::new("").associated_control(checkbox),
 ))
 ```
+
+Activation labels focus the current control and invoke the same callback as
+direct or accessibility activation. Non-activation behaviors such as sliders
+receive focus without proposing a value. `LabelBinding`, `ElementRef`, and
+`label_interaction` remain available for layouts that need to place those
+properties separately.
 
 Control clicks, including clicks originating in their descendants, mark the
 current event as activated. An associated wrapper then leaves it alone. Nested
@@ -63,7 +64,7 @@ clicks follow the ordinary logical route to the button, and updating text
 preserves the child hosts and references.
 
 A popup trigger uses `accessibility_popup::use_popup_button(PopupButtonOptions {
-name, popup: PopupKind::ListBox, expanded, is_disabled, on_press })`. It retains
+name, description, popup: PopupKind::ListBox, expanded, is_disabled, on_press })`. It retains
 canonical Button semantics and ordinary button focus and activation. Popup kind
 requires explicit expansion state; it neither mounts a popup nor changes that
 state. The parent supplies both expansion and value updates. Ordered label refs

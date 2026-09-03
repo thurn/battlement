@@ -8,7 +8,10 @@ use battlement::{
 };
 
 use crate::{
-  activation::Activation, element_ref::ElementRef, event_handler::Handler, focus::FocusProps,
+  activation::{self, Activation},
+  element_ref::ElementRef,
+  event_handler::Handler,
+  focus::FocusProps,
   motion::MotionProps,
 };
 
@@ -111,17 +114,16 @@ pub(crate) enum SemanticMembership {
 }
 
 impl<G: 'static, S> AccessibleBehavior<G, S> {
-  /// Binds a visible label or wrapper to this control's activation and focus.
+  /// Binds a visible label or wrapper to this control's focus and activation.
   /// Attach `control` to the same host as this behavior's interaction props.
   /// Child activations and prevented clicks do not activate the label again.
+  /// Behaviors without activation, such as sliders, receive focus only.
   #[must_use]
   pub fn label_interaction(&self, control: &ElementRef) -> InteractionProps<G> {
-    self
-      .interaction
-      .activation
-      .as_ref()
-      .expect("label interaction requires an activation behavior")
-      .label_interaction(control)
+    self.interaction.activation.as_ref().map_or_else(
+      || activation::label_focus_interaction(control, self.focus.accepts_focus()),
+      |activation| activation.label_interaction(control),
+    )
   }
 }
 
@@ -270,6 +272,14 @@ impl<G: 'static> InteractionProps<G> {
   #[must_use]
   pub fn new() -> Self {
     Self::default()
+  }
+
+  pub(crate) fn erase(self) -> InteractionProps<()> {
+    InteractionProps {
+      handlers: self.handlers,
+      activation: self.activation,
+      _model: PhantomData,
+    }
   }
 }
 

@@ -4,8 +4,33 @@ use battlement::{
   UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_reactant::{app::App, asset_generator};
-use battlement_rules::{action_button, engine, select_control, setting_row};
+use battlement_reactant::{
+  accessibility, app::App, asset_generator, component::Component, hooks, host::View, render::Render,
+};
+use battlement_rules::{
+  action_button, engine, review_surface::ReviewSurface, select_control, setting_row,
+  toggle_control::ToggleControl,
+};
+
+struct ToggleInfoFixture;
+
+impl Component for ToggleInfoFixture {
+  fn render(&self) -> impl Render {
+    let (info_clicks, set_info_clicks) = hooks::use_state(0_u32);
+    View::new().child((
+      ToggleControl::new()
+        .label(accessibility::name_source_text("Screenshake"))
+        .checked(true)
+        .on_change(|_| {})
+        .aria_label("Screen shake")
+        .with_info(true)
+        .on_info_click(move || set_info_clicks.update(|count| count + 1))
+        .row_height(190.0)
+        .offset_y(-8.0),
+      accessibility::static_label(format!("Info clicks: {info_clicks}")),
+    ))
+  }
+}
 
 #[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
@@ -79,27 +104,50 @@ fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
   client.ui().click(external);
   client.poll();
   self::assert_checkbox(&client, true, 2);
-  let mut label = checkbox;
-  while client.ui().element(label).name() != Some("toggle-control-label") {
-    label = client.ui().element(label).parent_id().unwrap();
-  }
-  client.ui().send_event(UiEvent::click(
-    label,
-    ClickEvent::pointer(
-      0,
-      PanelPoint::default(),
-      PointerButton::Left,
-      1,
-      KeyModifiers::default(),
-    ),
-  ));
-  client.poll();
+  let label = self::control_label(&mut client, checkbox);
+  self::click_label(&mut client, label);
   assert_eq!(client.ui().focused(), Some(checkbox));
   self::assert_checkbox(&client, false, 3);
   client.ui().click(page);
   client.poll();
   self::assert_checkbox(&client, false, 0);
   assert!(!client.ui().contains(checkbox));
+}
+
+#[test]
+fn optional_info_callback_is_forwarded_without_toggling_the_checkbox() {
+  let mut client = self::toggle_info_client();
+  let snapshot = self::snapshot(&client);
+  let checkbox = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Checkbox)
+    .unwrap();
+  assert_eq!(checkbox.label.as_deref(), Some("Screen shake"));
+  assert_eq!(
+    checkbox.hint.as_deref(),
+    Some("We upload crash reports to Unity Diagnostics.")
+  );
+  let checkbox = checkbox.object_id;
+  let info = self::named(&mut client, "toggle-info");
+  client.ui().click(info);
+  client.poll();
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some("Info clicks: 1"))
+  );
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == checkbox)
+      .unwrap()
+      .state
+      .checked,
+    Some(CheckedState::True)
+  );
 }
 
 #[test]
@@ -128,6 +176,9 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
   assert_eq!(initial.role, SemanticRole::Button);
   assert_eq!(initial.state.popup, Some(PopupKind::ListBox));
   assert_eq!(initial.state.expanded, Some(false));
+  let label = self::control_label(&mut client, trigger);
+  self::click_label(&mut client, label);
+  assert_eq!(client.ui().focused(), Some(trigger));
   client.ui().click(trigger);
   client.poll();
   client.ui().send_event(UiEvent::new(
@@ -193,6 +244,9 @@ fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
   let slider = self::assert_volume(&client, "Master Volume", 80);
   self::assert_volume(&client, "Minimum", 0);
   let maximum = self::assert_volume(&client, "Maximum", 100);
+  let label = self::control_label(&mut client, slider);
+  self::click_label(&mut client, label);
+  assert_eq!(client.ui().focused(), Some(slider));
   self::range_action(&mut client, slider, UiAccessibilityAction::Increment);
   self::assert_volume(&client, "Master Volume", 85);
   self::range_action(&mut client, maximum, UiAccessibilityAction::Decrement);
@@ -352,12 +406,16 @@ fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {
       .iter()
       .any(|node| node.label.as_deref() == Some(&format!("VSync changes: {changes}")))
   );
-  let second = snapshot
-    .nodes
-    .iter()
-    .find(|node| node.label.as_deref() == Some("Screen shake"))
-    .unwrap();
-  assert_eq!(second.state.checked, Some(CheckedState::True));
+  assert_eq!(
+    snapshot
+      .nodes
+      .iter()
+      .find(|node| node.label.as_deref() == Some("Screen shake"))
+      .unwrap()
+      .state
+      .checked,
+    Some(CheckedState::True)
+  );
 }
 
 fn assert_page(client: &mut FakeClient<App>, index: usize) {
@@ -414,6 +472,32 @@ fn snapshot(client: &FakeClient<App>) -> &AccessibilitySnapshot {
     .expect("gallery semantics")
 }
 
+fn control_label(client: &mut FakeClient<App>, control: ObjectId) -> ObjectId {
+  let mut row = control;
+  while client.ui().element(row).name() != Some("setting-row") {
+    row = client.ui().element(row).parent_id().unwrap();
+  }
+  let children = client.ui().element(row).children().to_vec();
+  children
+    .into_iter()
+    .find(|child| client.ui().element(*child).name() == Some("setting-row-label"))
+    .unwrap()
+}
+
+fn click_label(client: &mut FakeClient<App>, label: ObjectId) {
+  client.ui().send_event(UiEvent::click(
+    label,
+    ClickEvent::pointer(
+      0,
+      PanelPoint::default(),
+      PointerButton::Left,
+      1,
+      KeyModifiers::default(),
+    ),
+  ));
+  client.poll();
+}
+
 fn named(client: &mut FakeClient<App>, name: &str) -> ObjectId {
   let mut pending = client
     .world()
@@ -442,6 +526,19 @@ fn client() -> FakeClient<App> {
   assets.add_ui_font(select_control::VALUE_FONT);
   assets.add_ui_font(action_button::ACTION_FONT);
   let mut client = FakeClient::connect(engine::create_engine(), assets);
+  client.poll();
+  client
+}
+
+fn toggle_info_client() -> FakeClient<App> {
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("chess-ui/content");
+  assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
+  assets.add_ui_font(setting_row::DISPLAY_FONT);
+  let app = App::new("chess-ui/content")
+    .ui(ToggleInfoFixture)
+    .document(ReviewSurface::document);
+  let mut client = FakeClient::connect(app, assets);
   client.poll();
   client
 }

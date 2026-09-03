@@ -1,6 +1,6 @@
 //! Shared geometry and material recipes for the arcade bezel.
 
-use battlement::{Color, Gradient, GradientStop, Length, Position, Style};
+use battlement::{Color, Gradient, Length, Position, Style};
 
 pub const OUTER_INSET: f32 = 21.0;
 pub const BORDER_THICKNESS: f32 = 8.0;
@@ -42,39 +42,26 @@ pub fn clip() -> Vec<[Length; 2]> {
 
 /// Returns the bright metal gradient around the bezel.
 pub fn metal() -> Gradient {
-  Gradient::Linear {
-    angle: 110.0,
-    stops: [
-      (0.0, 0xf4ffff),
-      (0.04, 0x53dcff),
-      (0.12, 0x0874ef),
-      (0.18, 0x09234c),
-      (0.32, 0x19ddff),
-      (0.5, 0xe9fbff),
-      (0.64, 0x806cff),
-      (0.83, 0xff39c9),
-      (0.96, 0xffd4f4),
-      (1.0, 0xff5ec2),
-    ]
-    .map(|(position, color)| self::stop(position, color))
-    .to_vec(),
-  }
+  Gradient::linear(110.0)
+    .stop(0.0, self::color(0xf4ffff))
+    .stop(0.04, self::color(0x53dcff))
+    .stop(0.12, self::color(0x0874ef))
+    .stop(0.18, self::color(0x09234c))
+    .stop(0.32, self::color(0x19ddff))
+    .stop(0.5, self::color(0xe9fbff))
+    .stop(0.64, self::color(0x806cff))
+    .stop(0.83, self::color(0xff39c9))
+    .stop(0.96, self::color(0xffd4f4))
+    .stop(1.0, self::color(0xff5ec2))
 }
 
 /// Returns the dark interior gradient.
 pub fn interior() -> Gradient {
-  Gradient::Radial {
-    center: [0.5, 0.43],
-    radius: [0.959, 0.667],
-    stops: [
-      (0.0, 0x06152c),
-      (0.42, 0x020817),
-      (0.7, 0x01030b),
-      (1.0, 0x000107),
-    ]
-    .map(|(position, color)| self::stop(position, color))
-    .to_vec(),
-  }
+  Gradient::radial([0.5, 0.43], [0.959, 0.667])
+    .stop(0.0, self::color(0x06152c))
+    .stop(0.42, self::color(0x020817))
+    .stop(0.7, self::color(0x01030b))
+    .stop(1.0, self::color(0x000107))
 }
 
 /// Converts an RGB hexadecimal color to opaque motion paint.
@@ -85,11 +72,4 @@ pub fn color(value: u32) -> Color {
     f64::from(value & 255) / 255.0,
     1.0,
   )
-}
-
-fn stop(position: f32, color: u32) -> GradientStop {
-  GradientStop {
-    color: self::color(color),
-    position,
-  }
 }

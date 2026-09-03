@@ -107,10 +107,10 @@ impl<R: Render> Component for Example<R> {
   `.on_change(move |checked| on_change(checked))`. Do not capture borrowed
   `self` in a stored callback.
 - Optional callback props default to `None`. Their current setters accept a
-  closure, and `.clear_on_press()` clears an optional `on_press`. Do not assume
-  the ordinary `Option<T>` setter rule also accepts an optional callback.
-  If direct optional forwarding needs a better API, propose it explicitly
-  while retaining ordinary closure syntax.
+  closure, `.clear_on_press()` clears an optional `on_press`, and
+  `.on_press_optional(callback)` forwards an existing
+  `Option<Rc<dyn Fn()>>`. The distinct forwarding method preserves closure
+  parameter inference, including higher-ranked callback signatures.
 - Implement `Component::render(&self) -> impl Render`; do not invent dispatch
   from an inherent `render` method or a different builder macro.
 

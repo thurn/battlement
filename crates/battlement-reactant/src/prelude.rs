@@ -41,7 +41,7 @@ pub use battlement::{
   AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
   Color, FilterFunction, FilterList, Gradient, GradientStop, Length, MotionProperty,
   PlacementAlign, PlacementSide, PopoverPlacement, PopupKind, Prop, SemanticRole, SemanticState,
-  Shadow, StepPosition, Style, TransformOperation, Visibility,
+  Shadow, StepPosition, Style, TransformList, TransformOperation, Visibility,
 };
 
 pub use crate::motion_css::{
@@ -130,6 +130,8 @@ pub use battlement::{StaggerDirection, VariantWhen};
 
 pub use crate::{
   element_behavior::{use_focus_on_mount, use_scroll_reveal},
-  label_binding::{LabelBinding, use_label},
+  label_binding::{
+    AssociatedControl, AssociatedLabel, ControlLabel, LabelBinding, use_control_label, use_label,
+  },
   scale_to_fit::ScaleToFit,
 };

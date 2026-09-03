@@ -40,6 +40,7 @@ impl Component for Fixture {
     let selected = if self.0.changed { " Low " } else { " High " };
     let behavior = accessibility_popup::use_popup_button(PopupButtonOptions {
       name: AccessibleName::LabelledBy(vec![title.clone(), value.clone()]),
+      description: None,
       popup: PopupKind::ListBox,
       expanded: self.0.expanded,
       is_disabled: false,
@@ -131,6 +132,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
       move |_game: &Game| {
         let mut behavior = accessibility_popup::use_popup_button(PopupButtonOptions {
           name: AccessibleName::text("Options"),
+          description: None,
           popup: PopupKind::ListBox,
           expanded: false,
           is_disabled: false,

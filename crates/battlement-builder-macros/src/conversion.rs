@@ -72,6 +72,10 @@ impl Conversion {
     )
   }
 
+  pub fn is_optional_callback(&self) -> bool {
+    matches!(self, Self::Callback { optional: true, .. })
+  }
+
   pub fn input(&self, ty: &Type, support: &Path, signature: &Ident) -> TokenStream {
     match self {
       Self::Exact => quote!(#ty),

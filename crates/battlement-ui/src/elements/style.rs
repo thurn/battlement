@@ -1,8 +1,8 @@
 use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress};
 use serde::{Deserialize, Serialize};
 
-use crate::Prop;
 use crate::elements::background::BackgroundSource;
+use crate::{Prop, Shadow};
 
 /// Explicit USS keyword accepted by every inline style property.
 ///
@@ -905,6 +905,48 @@ impl FilterList {
   #[must_use]
   pub fn opacity(self, amount: f32) -> Self {
     self.operation(FilterFunction::Opacity(amount))
+  }
+
+  /// Appends a color tint multiplier.
+  #[must_use]
+  pub fn tint(self, color: Color) -> Self {
+    self.operation(FilterFunction::Tint(color))
+  }
+
+  /// Appends an inverse-color blend factor.
+  #[must_use]
+  pub fn invert(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Invert(amount))
+  }
+
+  /// Appends a grayscale blend factor.
+  #[must_use]
+  pub fn grayscale(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Grayscale(amount))
+  }
+
+  /// Appends a sepia blend factor.
+  #[must_use]
+  pub fn sepia(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Sepia(amount))
+  }
+
+  /// Appends a brightness multiplier.
+  #[must_use]
+  pub fn brightness(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Brightness(amount))
+  }
+
+  /// Appends a saturation multiplier.
+  #[must_use]
+  pub fn saturate(self, amount: f32) -> Self {
+    self.operation(FilterFunction::Saturate(amount))
+  }
+
+  /// Appends one painted drop shadow.
+  #[must_use]
+  pub fn drop_shadow(self, shadow: Shadow) -> Self {
+    self.operation(FilterFunction::DropShadow(shadow))
   }
 
   /// Appends another ordered filter list.

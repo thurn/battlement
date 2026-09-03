@@ -97,7 +97,6 @@ namespace Battlement.UI
             if (pendingHierarchyFocus is VisualElement target && FocusEligible(target))
                 target.Focus();
             pendingHierarchyFocus = null;
-            activeCommits = 0;
         }
 
         private void RefreshState(bool repairFocus, bool settleAutoFocus)

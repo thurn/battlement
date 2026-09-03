@@ -7,12 +7,12 @@ use crate::{
 use battlement::{
   Align, Color, FlexDirection, PickingMode, Position, Style, TextAnchor, WhiteSpace,
 };
-use battlement_reactant::label_binding;
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility::{self, SliderOptions},
   component::Component,
   host::{Flex, TextElement, View},
+  label_binding::use_control_label,
   render::Render,
   semantics,
 };
@@ -33,10 +33,11 @@ pub struct VolumeControl {
 
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
-    let label = label_binding::use_label();
+    let label = use_control_label();
     let on_change = Rc::clone(&self.on_change);
     let slider = accessibility::use_slider(SliderOptions {
       name: label.name(),
+      description: None,
       value: f64::from(self.value),
       minimum: 0.0,
       maximum: 100.0,
@@ -45,6 +46,7 @@ impl Component for VolumeControl {
       is_disabled: false,
       on_change: move |value| on_change(value as u32),
     });
+    let (label, slider) = label.bind(slider);
     SettingRow::new()
       .label(accessibility::name_source_text(self.label.clone()))
       .children(
@@ -74,14 +76,17 @@ impl Component for VolumeControl {
                 VolumeTrack::new().value(self.value),
                 VolumeTicks::new(),
                 VolumeThumb::new().value(self.value),
-                View::new().name("volume-input").behavior(slider).style(
-                  Style::new()
-                    .position(Position::Absolute)
-                    .left(-42)
-                    .top(-34)
-                    .width(368)
-                    .height(132),
-                ),
+                View::new()
+                  .name("volume-input")
+                  .associated_control(slider)
+                  .style(
+                    Style::new()
+                      .position(Position::Absolute)
+                      .left(-42)
+                      .top(-34)
+                      .width(368)
+                      .height(132),
+                  ),
               )),
             TextElement::new(format!("{}%", self.value))
               .name("volume-value")
@@ -100,7 +105,7 @@ impl Component for VolumeControl {
               ),
           )),
       )
-      .label_binding(label)
+      .associated_label(label)
       .first(self.first)
   }
 }

@@ -64,6 +64,7 @@ impl Component for ReviewButton {
     let on_press = Rc::clone(&self.on_press);
     let mut behavior = accessibility::use_button(ButtonOptions {
       name: semantics::text(self.label.clone()),
+      description: None,
       is_disabled: self.disabled,
       on_press: move || on_press(),
     });

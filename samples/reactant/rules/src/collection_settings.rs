@@ -18,12 +18,14 @@ impl Component for CollectionSettings {
     };
     let link = collections::use_link(ButtonOptions {
       name: text("Documentation link"),
+      description: None,
       is_disabled: false,
       on_press: |game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED"),
     });
     let app = use_app();
     let external_link = collections::use_link(ButtonOptions {
       name: text("Open Unity documentation"),
+      description: None,
       is_disabled: false,
       on_press: move || {
         app.send(Command::open_external_url(
@@ -45,6 +47,7 @@ impl Component for CollectionSettings {
             .map(|(index, name)| {
               let mut page = use_button(ButtonOptions {
                 name: text(name),
+                description: None,
                 is_disabled: false,
                 on_press: move |game: &mut Game| {
                   game.layout_gallery.collection_page = index;

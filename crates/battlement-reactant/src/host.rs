@@ -47,6 +47,7 @@ use crate::{
   focus::FocusProps,
   host_facade::{self, HostState},
   key::ErasedKey,
+  label_binding::{AssociatedControl, AssociatedLabel},
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   motion_css::{Animation, Decoration, IntoPseudoStyle, StyleTransition},
   paint::PaintStyle,
@@ -393,6 +394,21 @@ macro_rules! facade {
           .focus_props(value.focus)
           .interaction_props(value.interaction)
           .motion(value.motion)
+      }
+
+      /// Attaches a visible label's semantics and control interaction atomically.
+      #[must_use]
+      pub fn associated_label(self, value: AssociatedLabel) -> Self {
+        self
+          .element_ref(value.reference)
+          .semantic(value.semantic)
+          .interaction_props(value.interaction)
+      }
+
+      /// Attaches accessible behavior to its explicitly selected stable control host.
+      #[must_use]
+      pub fn associated_control<G: 'static, S>(self, value: AssociatedControl<G, S>) -> Self {
+        self.element_ref(value.reference).behavior(value.behavior)
       }
 
       /// Appends one USS class name.
