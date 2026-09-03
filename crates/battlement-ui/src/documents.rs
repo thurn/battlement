@@ -643,6 +643,8 @@ pub enum PanelRenderMode {
 pub enum PanelScaleMode {
   /// Multiplies authored pixel sizes uniformly by [`PanelSettings::scale`].
   ConstantPixelSize,
+  /// Maps authored pixel sizes to CSS pixels or native logical screen pixels.
+  ConstantLogicalPixelSize,
   /// Preserves physical size using the display DPI or fallback DPI.
   #[default]
   ConstantPhysicalSize,

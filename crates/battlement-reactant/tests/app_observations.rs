@@ -88,10 +88,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     )))
     .unwrap();
   let _ = app.poll().unwrap();
-  assert_eq!(
-    values.borrow().last().unwrap().0,
-    ScreenSize::new(1024, 768)
-  );
+  assert_eq!(values.borrow().last().unwrap().0, ScreenSize::new(512, 384));
   let inactive = ApplicationState {
     focused: false,
     paused: true,

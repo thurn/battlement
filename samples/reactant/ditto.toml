@@ -48,7 +48,7 @@ wait = { object = "root", state = "visible" }
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.38, 0.268] }
+click = { target = [0.38, 0.218] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -57,7 +57,7 @@ wait = { frames = 2 }
 screenshot = { name = "reordered" }
 
 [[scenarios.steps]]
-click = { target = [0.38, 0.268] }
+click = { target = [0.38, 0.218] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -630,7 +630,7 @@ wait = { frames = 2 }
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.395, 0.676] }
+click = { target = [0.395, 0.531] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -639,7 +639,7 @@ wait = { frames = 2 }
 screenshot = { name = "value-changed" }
 
 [[scenarios.steps]]
-click = { target = [0.395, 0.331] }
+click = { target = [0.395, 0.260] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -648,7 +648,7 @@ wait = { frames = 2 }
 screenshot = { name = "overridden" }
 
 [[scenarios.steps]]
-click = { target = [0.395, 0.676] }
+click = { target = [0.395, 0.531] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -657,7 +657,7 @@ wait = { frames = 2 }
 screenshot = { name = "memo-restored" }
 
 [[scenarios.steps]]
-click = { target = [0.395, 0.331] }
+click = { target = [0.395, 0.260] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -681,7 +681,7 @@ wait = { frames = 2 }
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.41, 0.454] }
+click = { target = [0.41, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -690,10 +690,10 @@ wait = { frames = 2 }
 screenshot = { name = "effect-connected" }
 
 [[scenarios.steps]]
-click = { target = [0.41, 0.454] }
+click = { target = [0.41, 0.368] }
 
 [[scenarios.steps]]
-click = { target = [0.656, 0.454] }
+click = { target = [0.656, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -702,7 +702,7 @@ wait = { frames = 2 }
 screenshot = { name = "store-swapped" }
 
 [[scenarios.steps]]
-click = { target = [0.41, 0.454] }
+click = { target = [0.41, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -711,7 +711,7 @@ wait = { frames = 2 }
 screenshot = { name = "connected-store-swapped" }
 
 [[scenarios.steps]]
-click = { target = [0.656, 0.454] }
+click = { target = [0.656, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -720,7 +720,7 @@ wait = { frames = 2 }
 screenshot = { name = "store-updated" }
 
 [[scenarios.steps]]
-click = { target = [0.41, 0.454] }
+click = { target = [0.41, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -729,7 +729,7 @@ wait = { frames = 2 }
 screenshot = { name = "effect-disconnected" }
 
 [[scenarios.steps]]
-click = { target = [0.656, 0.454] }
+click = { target = [0.656, 0.368] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -753,7 +753,7 @@ wait = { frames = 2 }
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.757, 0.396] }
+click = { target = [0.757, 0.329] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -762,7 +762,7 @@ wait = { frames = 2 }
 screenshot = { name = "boundary-error" }
 
 [[scenarios.steps]]
-click = { target = [0.757, 0.424] }
+click = { target = [0.757, 0.357] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -771,7 +771,7 @@ wait = { frames = 2 }
 screenshot = { name = "boundary-restored" }
 
 [[scenarios.steps]]
-click = { target = [0.422, 0.396] }
+click = { target = [0.422, 0.329] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -780,7 +780,7 @@ wait = { frames = 2 }
 screenshot = { name = "resource-ready" }
 
 [[scenarios.steps]]
-click = { target = [0.757, 0.396] }
+click = { target = [0.757, 0.329] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -789,7 +789,7 @@ wait = { frames = 2 }
 screenshot = { name = "resource-error" }
 
 [[scenarios.steps]]
-click = { target = [0.757, 0.424] }
+click = { target = [0.757, 0.357] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -798,7 +798,7 @@ wait = { frames = 2 }
 screenshot = { name = "resource-recovered" }
 
 [[scenarios.steps]]
-click = { target = [0.422, 0.396] }
+click = { target = [0.422, 0.329] }
 
 [[scenarios.steps]]
 click = { target = [0.13, 0.63] }
@@ -825,7 +825,7 @@ wait = { frames = 2 }
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.784, 0.457] }
+click = { target = [0.784, 0.376] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -834,7 +834,7 @@ wait = { frames = 2 }
 screenshot = { name = "unavailable" }
 
 [[scenarios.steps]]
-click = { target = [0.784, 0.457] }
+click = { target = [0.784, 0.376] }
 
 [[scenarios.steps]]
 wait = { frames = 2 }
@@ -984,16 +984,28 @@ name = "collection accessibility"
 wait = { object = "root", state = "visible" }
 
 [[scenarios.steps]]
-click = { target = [0.13, 0.065] }
+click = { target = [0.06, 0.06] }
 
 [[scenarios.steps]]
-click = { target = [0.13, 0.065] }
+wait = { frames = 2 }
 
 [[scenarios.steps]]
-click = { target = [0.13, 0.065] }
+click = { target = [0.06, 0.06] }
 
 [[scenarios.steps]]
-click = { target = [0.13, 0.065] }
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+click = { target = [0.06, 0.06] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+click = { target = [0.06, 0.06] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "navigation", name = "Settings pages" }, role = "navigation", name = "Settings pages" }

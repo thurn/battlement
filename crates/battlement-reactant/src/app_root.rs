@@ -28,7 +28,7 @@ impl<G: 'static> AppRoot<G> {
       .style(Style::new().width(100.pct()).height(100.pct()));
     Self {
       state: UiDocumentState::new(document.root_id)
-        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
+        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize)),
       document,
       view: Rc::new(move |model| Node::new(view(model))),
     }

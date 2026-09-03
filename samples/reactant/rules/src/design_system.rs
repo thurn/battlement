@@ -35,7 +35,7 @@ pub(crate) fn root(compact: bool) -> Style {
     .height(100.0_f32.pct())
     .background_color(BACKGROUND)
     .color(BODY_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .flex_direction(if compact {
       FlexDirection::Column
     } else {
@@ -75,7 +75,7 @@ pub(crate) fn phone_brand() -> Style {
   Style::new()
     .width(36.0)
     .color(CYAN)
-    .font_size(28.0)
+    .font_size(18.0)
     .margin((0, 4, 0, 0))
 }
 
@@ -83,7 +83,7 @@ pub(crate) fn phone_navigation_action(state: ControlState) -> Style {
   self::secondary_action(state)
     .width(44.0)
     .height(44.0)
-    .font_size(28.0)
+    .font_size(16.0)
     .padding(0.0)
     .margin(0.0)
 }
@@ -93,7 +93,7 @@ pub(crate) fn phone_navigation_label() -> Style {
     .flex_grow(1.0)
     .min_width(0.0)
     .color(PRIMARY_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .unity_text_align(TextAnchor::MiddleCenter)
     .white_space(WhiteSpace::NoWrap)
 }
@@ -114,7 +114,7 @@ pub(crate) fn navigation_items(compact: bool) -> Style {
 pub(crate) fn brand(compact: bool) -> Style {
   Style::new()
     .color(CYAN)
-    .font_size(if compact { 24.0 } else { 30.0 })
+    .font_size(if compact { 16.0 } else { 18.0 })
     .margin(if compact { (0, 4, 2, 4) } else { (8, 8, 8, 8) })
 }
 
@@ -144,7 +144,7 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
     })
     .border_left_width(if selected { 3.0 } else { 0.0 })
     .border_radius(4)
-    .font_size(if compact { 14.0 } else { 24.0 })
+    .font_size(14.0)
     .padding(if compact { (8, 10) } else { (12, 16) })
     .margin(if compact { (2, 2) } else { (8, 0) });
   if compact {
@@ -170,7 +170,7 @@ pub(crate) fn primary_action(state: ControlState) -> Style {
     .border_color(CYAN)
     .border_width(if focused { 3.0 } else { 0.0 })
     .border_radius(4)
-    .font_size(24.0)
+    .font_size(14.0)
     .padding((12, 20))
     .margin((14, 0, 4, 0))
 }
@@ -184,24 +184,24 @@ pub(crate) fn canvas(compact: bool) -> Style {
 }
 
 pub(crate) fn eyebrow() -> Style {
-  Style::new().font_size(24.0).color(ACCENT).margin(4.0)
+  Style::new().font_size(12.0).color(ACCENT).margin(4.0)
 }
 
 pub(crate) fn resources_eyebrow(compact: bool) -> Style {
   self::eyebrow()
     .width(100.0_f32.pct())
-    .font_size(if compact { 20.0 } else { 24.0 })
+    .font_size(if compact { 12.0 } else { 14.0 })
     .white_space(WhiteSpace::Normal)
 }
 
 pub(crate) fn title() -> Style {
-  Style::new().font_size(44.0).color(PRIMARY_TEXT).margin(8.0)
+  Style::new().font_size(24.0).color(PRIMARY_TEXT).margin(8.0)
 }
 
 pub(crate) fn effects_title(compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(if compact { 30.0 } else { 44.0 })
+    .font_size(if compact { 20.0 } else { 24.0 })
     .color(PRIMARY_TEXT)
     .white_space(WhiteSpace::Normal)
     .margin(8.0)
@@ -261,7 +261,7 @@ pub(crate) fn secondary_action(state: ControlState) -> Style {
       1.0
     })
     .border_radius(4)
-    .font_size(24.0)
+    .font_size(14.0)
     .padding((12, 20))
     .margin((14, 0, 4, 12))
 }
@@ -275,7 +275,7 @@ pub(crate) fn memo_action(state: ControlState) -> Style {
 pub(crate) fn experiment_title() -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(24.0)
+    .font_size(16.0)
     .color(CYAN)
     .margin((0, 0, 2, 0))
 }
@@ -292,7 +292,7 @@ pub(crate) fn memo_experiment() -> Style {
 
 pub(crate) fn context_counter() -> Style {
   Style::new()
-    .font_size(24.0)
+    .font_size(14.0)
     .color(CYAN)
     .margin((8, 0, 4, 14))
 }
@@ -315,12 +315,12 @@ pub(crate) fn context_card(accent: Color) -> Style {
 }
 
 pub(crate) fn context_scope() -> Style {
-  Style::new().font_size(24.0).color(MUTED_TEXT)
+  Style::new().font_size(14.0).color(MUTED_TEXT)
 }
 
 pub(crate) fn context_theme(color: Color) -> Style {
   Style::new()
-    .font_size(24.0)
+    .font_size(14.0)
     .color(color)
     .margin((8, 0, 0, 0))
 }
@@ -380,7 +380,7 @@ pub(crate) fn effect_card(compact: bool) -> Style {
 pub(crate) fn effect_heading() -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(24.0)
+    .font_size(16.0)
     .color(MUTED_TEXT)
     .margin((0, 0, 2, 0))
 }
@@ -388,7 +388,7 @@ pub(crate) fn effect_heading() -> Style {
 pub(crate) fn effect_status() -> Style {
   Style::new()
     .color(CYAN)
-    .font_size(28.0)
+    .font_size(14.0)
     .margin((12, 0, 4, 0))
 }
 
@@ -442,14 +442,14 @@ pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
 pub(crate) fn boundary_status(failed: bool, compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(if compact { 24.0 } else { 28.0 })
+    .font_size(if compact { 14.0 } else { 16.0 })
     .color(if failed { ACCENT } else { CYAN })
     .white_space(WhiteSpace::Normal)
     .margin((0, 0, 8, 0))
 }
 
 pub(crate) fn boundary_detail() -> Style {
-  Style::new().font_size(24.0).color(BODY_TEXT).margin((4, 0))
+  Style::new().font_size(14.0).color(BODY_TEXT).margin((4, 0))
 }
 
 pub(crate) fn boundary_action(state: ControlState, primary: bool, compact: bool) -> Style {
@@ -484,7 +484,7 @@ pub(crate) fn refs_card(compact: bool) -> Style {
 pub(crate) fn refs_status(active: bool, compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(if compact { 24.0 } else { 28.0 })
+    .font_size(if compact { 14.0 } else { 16.0 })
     .color(if active { ACCENT } else { CYAN })
     .white_space(WhiteSpace::Normal)
     .margin((0, 0, 4, 0))
@@ -522,7 +522,7 @@ pub(crate) fn refs_field(compact: bool) -> Style {
     .border_color(CYAN)
     .border_width(1.0)
     .border_radius(4.0)
-    .font_size(24.0)
+    .font_size(14.0)
     .padding(0.0)
     .margin((4, 0))
 }
@@ -543,7 +543,7 @@ pub(crate) fn refs_field_text() -> Style {
     .height(100.0_f32.pct())
     .background_color(NAVIGATION_BACKGROUND)
     .color(PRIMARY_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .unity_text_align(TextAnchor::MiddleLeft)
 }
 
@@ -586,26 +586,26 @@ pub(crate) fn geometry_specimen(compact: bool) -> Style {
 pub(crate) fn geometry_heading(unavailable: bool) -> Style {
   Style::new()
     .color(if unavailable { ACCENT } else { MUTED_TEXT })
-    .font_size(28.0)
+    .font_size(16.0)
     .margin((0, 0, 8, 0))
 }
 
 pub(crate) fn geometry_value() -> Style {
   Style::new()
     .color(PRIMARY_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .white_space(WhiteSpace::Normal)
 }
 
 pub(crate) fn geometry_effect_status() -> Style {
   Style::new()
     .color(MUTED_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .margin((0, 0, 10, 0))
 }
 
 pub(crate) fn specimen_title() -> Style {
-  Style::new().font_size(28.0).color(CYAN).margin(6.0)
+  Style::new().font_size(16.0).color(CYAN).margin(6.0)
 }
 
 pub(crate) fn badge_row() -> Style {
@@ -625,7 +625,7 @@ pub(crate) fn badge() -> Style {
 }
 
 pub(crate) fn badge_text() -> Style {
-  Style::new().font_size(24.0).color(BODY_TEXT)
+  Style::new().font_size(14.0).color(BODY_TEXT)
 }
 
 pub(crate) fn event_route(compact: bool) -> Style {
@@ -700,7 +700,7 @@ pub(crate) fn portal_connector(compact: bool) -> Style {
     .height(if compact { 36.0 } else { 140.0 })
     .align_self(Align::FlexStart)
     .color(CYAN)
-    .font_size(24.0)
+    .font_size(14.0)
     .unity_text_align(TextAnchor::MiddleCenter)
     .white_space(WhiteSpace::Normal)
     .margin(0.0)
@@ -734,7 +734,7 @@ pub(crate) fn event_step(compact: bool, active: bool, order: u32) -> Style {
     .height(42.0)
     .background_color(if active { CYAN } else { CARD_BACKGROUND })
     .color(if active { BACKGROUND } else { BODY_TEXT })
-    .font_size(24.0)
+    .font_size(14.0)
     .unity_text_align(TextAnchor::MiddleCenter)
     .padding((8, 0))
     .transition_property(TransitionList::new([
@@ -754,7 +754,7 @@ pub(crate) fn event_arrow(compact: bool) -> Style {
     .width(if compact { 220.0 } else { 25.0 })
     .height(if compact { 28.0 } else { 42.0 })
     .color(ACCENT)
-    .font_size(24.0)
+    .font_size(14.0)
     .unity_text_align(TextAnchor::MiddleCenter)
 }
 
@@ -763,7 +763,7 @@ pub(crate) fn event_ready() -> Style {
     .align_self(Align::FlexStart)
     .background_color(CARD_BACKGROUND)
     .color(MUTED_TEXT)
-    .font_size(24.0)
+    .font_size(14.0)
     .padding((10, 14))
     .margin((8, 0, 0, 0))
 }
@@ -771,7 +771,7 @@ pub(crate) fn event_ready() -> Style {
 pub(crate) fn state_value() -> Style {
   Style::new()
     .color(CYAN)
-    .font_size(28.0)
+    .font_size(16.0)
     .margin((6, 0, 16, 0))
 }
 
@@ -808,7 +808,7 @@ pub(crate) fn identity_token(position: f32, active: bool) -> Style {
 pub(crate) fn identity_state(active: bool) -> Style {
   Style::new()
     .color(if active { CYAN } else { BODY_TEXT })
-    .font_size(24.0)
+    .font_size(14.0)
     .margin((8, 0, 0, 0))
     .transition_property(TransitionList::new([TransitionProperty::Color]))
     .transition_duration(TransitionList::new([180.0.into()]))

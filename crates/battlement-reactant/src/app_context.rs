@@ -31,7 +31,7 @@ pub fn use_app() -> AppHandle {
   hooks::use_required_context(&APP)
 }
 
-/// Reads physical display dimensions, using the connection size until measured.
+/// Reads logical display dimensions, using the connection size until measured.
 pub fn use_viewport_size() -> ScreenSize {
   let initial = hooks::use_required_context(&VIEWPORT);
   let measurement = geometry::use_geometry(ViewportRef::display(DisplayId(0))).measurements;
@@ -39,9 +39,14 @@ pub fn use_viewport_size() -> ScreenSize {
     return initial;
   }
   measurement.latest.map_or(initial, |geometry| {
+    let scale = if geometry.scale.is_finite() && geometry.scale > 0.0 {
+      geometry.scale
+    } else {
+      1.0
+    };
     ScreenSize::new(
-      geometry.viewport.width as u32,
-      geometry.viewport.height as u32,
+      (geometry.viewport.width / scale).round() as u32,
+      (geometry.viewport.height / scale).round() as u32,
     )
   })
 }

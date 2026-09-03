@@ -124,8 +124,8 @@ fn sample_opens_on_an_accessible_composition_screen() {
     Some("01  COMPOSITION")
   );
   assert_eq!(visible_word_count(&ui, canvas), SCREEN_WORD_BUDGET);
-  assert_eq!(font_size(&ui, find_named(&ui, canvas, "page-title")), 44.0);
-  assert!(font_size(&ui, find_named(&ui, canvas, "specimen-heading")) >= 28.0);
+  assert_eq!(font_size(&ui, find_named(&ui, canvas, "page-title")), 24.0);
+  assert!(font_size(&ui, find_named(&ui, canvas, "specimen-heading")) >= 16.0);
   assert_accessible_text(&ui, ROOT_ID, None, None, None);
 }
 
@@ -179,7 +179,7 @@ fn resources_screen_uses_phone_safe_navigation_and_cards() {
     client.ui().element(group).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Column))
   );
-  assert_eq!(font_size(&client.ui(), status), 24.0);
+  assert_eq!(font_size(&client.ui(), status), 14.0);
   assert_eq!(
     client.ui().element(resolve).style().width,
     Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
@@ -1520,7 +1520,7 @@ fn assert_accessible_text(
   let background = style_color(&element.style().background_color).or(inherited_background);
   let size = style_length(&element.style().font_size).or(inherited_size);
   if matches!(element.kind(), UiElementKind::Label | UiElementKind::Button) {
-    assert!(size.expect("visible text must have a resolved size") >= 24.0);
+    assert!(size.expect("visible text must have a resolved size") >= 12.0);
     assert!(
       contrast(
         color.expect("visible text must have a resolved color"),

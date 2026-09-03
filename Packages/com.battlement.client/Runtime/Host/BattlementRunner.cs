@@ -1358,7 +1358,7 @@ namespace Battlement
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
-                new ScreenSize(checked((uint)Screen.width), checked((uint)Screen.height)),
+                BattlementLogicalPixels.ScreenSize,
                 new List<string>(commandTypes),
                 Path.GetFullPath(Application.persistentDataPath),
                 Path.GetFullPath(Application.streamingAssetsPath),

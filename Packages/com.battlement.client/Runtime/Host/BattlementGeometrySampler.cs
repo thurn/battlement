@@ -436,8 +436,7 @@ namespace Battlement
                 id.Value == 0
                     ? Screen.safeArea
                     : new UnityEngine.Rect(0, 0, (float)width, (float)height);
-            double scale =
-                Screen.fullScreen && display.systemWidth > 0 ? width / display.systemWidth : 1;
+            double scale = BattlementLogicalPixels.BackingScale;
             double? dpi = id.Value == 0 && Screen.dpi > 0 ? Screen.dpi : null;
             geometry = new BattlementDisplayGeometry(
                 width,

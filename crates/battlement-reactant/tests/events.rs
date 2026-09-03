@@ -320,10 +320,9 @@ fn snapshot(document: &UiDocument) -> Snapshot {
       GameObject::new(camera_id, CameraState::new()),
       GameObject::new(
         document.document_id,
-        GameObjectKind::UiDocument(
-          UiDocumentState::new(document.root_id)
-            .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
-        ),
+        GameObjectKind::UiDocument(UiDocumentState::new(document.root_id).panel_settings(
+          PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize),
+        )),
       )
       .parent_scene(ParentScene::Persistent),
     ],

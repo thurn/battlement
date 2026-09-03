@@ -439,7 +439,7 @@ fn document_object(document: &UiDocument) -> GameObject {
     document.document_id,
     GameObjectKind::UiDocument(
       UiDocumentState::new(document.root_id)
-        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
+        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize)),
     ),
   )
   .parent_scene(ParentScene::Persistent)

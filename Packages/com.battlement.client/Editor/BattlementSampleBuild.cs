@@ -252,9 +252,7 @@ namespace Battlement.Editor
             }
             html = html.Replace(
                 configStart,
-                configStart
-                    + "        devicePixelRatio: 1,\n"
-                    + "        matchWebGLToCanvasSize: true,\n",
+                configStart + "        matchWebGLToCanvasSize: true,\n",
                 StringComparison.Ordinal
             );
             File.WriteAllText(indexPath, html);

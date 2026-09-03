@@ -63,7 +63,12 @@ namespace Battlement.UI
                 document.panelSettings = panel;
                 gameObject
                     .AddComponent<BattlementUiDocumentOwner>()
-                    .Initialize(panel, targetTexture);
+                    .Initialize(
+                        panel,
+                        targetTexture,
+                        settings.ScaleMode == ProtocolPanelScaleMode.ConstantLogicalPixelSize
+                            && settings.TargetTexture is null
+                    );
                 targetTexture = null;
                 return gameObject;
             }
@@ -90,12 +95,16 @@ namespace Battlement.UI
             target.scaleMode = value.ScaleMode switch
             {
                 ProtocolPanelScaleMode.ConstantPixelSize => UnityPanelScaleMode.ConstantPixelSize,
+                ProtocolPanelScaleMode.ConstantLogicalPixelSize =>
+                    UnityPanelScaleMode.ConstantPixelSize,
                 ProtocolPanelScaleMode.ScaleWithScreenSize =>
                     UnityPanelScaleMode.ScaleWithScreenSize,
                 _ => UnityPanelScaleMode.ConstantPhysicalSize,
             };
             target.referenceSpritePixelsPerUnit = value.ReferenceSpritePixelsPerUnit;
             target.scale = value.Scale;
+            if (value.ScaleMode == ProtocolPanelScaleMode.ConstantLogicalPixelSize)
+                target.scale = value.TargetTexture is null ? BattlementLogicalPixels.PanelScale : 1;
             target.referenceDpi = value.ReferenceDpi;
             target.fallbackDpi = value.FallbackDpi;
             ScreenSize resolution = value.ReferenceResolution ?? new ScreenSize(1200, 800);
@@ -191,14 +200,23 @@ namespace Battlement.UI
     {
         private UnityEngine.UIElements.PanelSettings? panel;
         private IBattlementUiAssetLease? targetTexture;
+        private bool usesLogicalPixels;
 
         public void Initialize(
             UnityEngine.UIElements.PanelSettings value,
-            IBattlementUiAssetLease? texture
+            IBattlementUiAssetLease? texture,
+            bool logicalPixels
         )
         {
             panel = value;
             targetTexture = texture;
+            usesLogicalPixels = logicalPixels;
+        }
+
+        private void Update()
+        {
+            if (usesLogicalPixels && panel != null)
+                panel.scale = BattlementLogicalPixels.PanelScale;
         }
 
         private void OnDestroy()

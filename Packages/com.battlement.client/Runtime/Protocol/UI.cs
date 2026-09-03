@@ -672,6 +672,9 @@ namespace Battlement
         /// <summary>Uses authored pixel lengths with a uniform scale multiplier.</summary>
         ConstantPixelSize,
 
+        /// <summary>Maps authored lengths to CSS or native logical pixels.</summary>
+        ConstantLogicalPixelSize,
+
         /// <summary>Converts physical measurements using the display DPI.</summary>
         ConstantPhysicalSize,
 

@@ -20,6 +20,11 @@ namespace Battlement.Tests
                 panel => Assert.That(panel.scale, Is.EqualTo(1.25f))
             );
             AssertScale(
+                new PanelSettingsValue(ScaleMode: PanelScaleMode.ConstantLogicalPixelSize),
+                UnityEngine.UIElements.PanelScaleMode.ConstantPixelSize,
+                panel => Assert.That(panel.scale, Is.EqualTo(1))
+            );
+            AssertScale(
                 new PanelSettingsValue(
                     ScaleMode: PanelScaleMode.ConstantPhysicalSize,
                     ReferenceDpi: 110,

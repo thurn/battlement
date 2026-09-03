@@ -174,7 +174,7 @@ impl<G: 'static> App<G> {
     self.require_configuring();
     let mut root = AppRoot::new(view);
     root.state = UiDocumentState::new(document.root_id)
-      .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize));
+      .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize));
     root.document = document;
     self.roots.push(root);
     self

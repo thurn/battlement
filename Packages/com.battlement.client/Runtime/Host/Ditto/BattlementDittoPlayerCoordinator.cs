@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Battlement.UI;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
@@ -80,6 +81,7 @@ namespace Battlement
             }
             warmJob = phase == Phase.Complete;
             job = value;
+            BattlementLogicalPixels.UseDittoScale(value.Profile.Display.Scale);
             scenarioIndex = 0;
             errorIndex = 0;
             executedScenarioIds.Clear();
