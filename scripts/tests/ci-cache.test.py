@@ -39,7 +39,13 @@ def main() -> None:
             cwd=repository,
             check=True,
         )
-        cache = CiCache(repository, cache_root, {"toolchain": "fixture"})
+        events: list[tuple[str, dict[str, object]]] = []
+        cache = CiCache(
+            repository,
+            cache_root,
+            {"toolchain": "fixture"},
+            event=lambda event, attributes: events.append((event, attributes)),
+        )
         calls: list[str] = []
 
         if hasattr(os, "symlink"):
@@ -58,6 +64,11 @@ def main() -> None:
         assert cache.run("fixture", ("included.txt",), lambda: calls.append("first"))
         assert not cache.run("fixture", ("included.txt",), lambda: calls.append("cached"))
         assert calls == ["first"]
+        assert [
+            attributes["result"]
+            for event, attributes in events
+            if event == "ci.cache_lookup"
+        ] == ["miss", "hit"]
 
         replica = root / "replica"
         subprocess.run(["git", "clone", "--quiet", str(repository), str(replica)], check=True)
@@ -92,6 +103,10 @@ def main() -> None:
         included.write_text("unstaged included change\n")
         assert cache.run("fixture", ("included.txt",), lambda: calls.append("unstaged-1"))
         assert cache.run("fixture", ("included.txt",), lambda: calls.append("unstaged-2"))
+        assert any(
+            event == "ci.cache_lookup" and attributes["result"] == "bypassed"
+            for event, attributes in events
+        )
 
         failures = 0
 
@@ -130,6 +145,9 @@ def main() -> None:
         assert shared_new in result.removed
         assert charged_size(cache_root) == result.after_bytes
         _verify_maintenance_cadence(cache)
+        with cache.invocation():
+            pass
+        assert any(event == "ci.cache_wait" for event, _attributes in events)
         _verify_targeted_chrome_scan(root)
         _verify_chrome_clone_pruning(root)
         print("CI Cache tests passed.")

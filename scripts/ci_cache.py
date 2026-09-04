@@ -145,11 +145,13 @@ class CiCache:
         cache_root: Path,
         environment: dict[str, str | int],
         enabled: bool = True,
+        event: Callable[[str, dict[str, object]], None] | None = None,
     ) -> None:
         self.repository_root = repository_root
         self.cache_root = cache_root
         self.environment = environment
         self.enabled = enabled
+        self.event = event
         self._invocation_lease = None
 
     @contextmanager
@@ -161,6 +163,7 @@ class CiCache:
             started = time.monotonic()
             lock_file(lease)
             waited = time.monotonic() - started
+            self._emit("ci.cache_wait", duration_ms=round(waited * 1000))
             if waited >= 1:
                 print(
                     f"    Shared compiler cache: waited {waited:.1f}s for another writer",
@@ -189,6 +192,7 @@ class CiCache:
         current_schema = state.get("schema") == MAINTENANCE_SCHEMA
         recent = isinstance(completed_at, int) and 0 <= now_ns - completed_at < interval_ns
         if current_schema and recent:
+            self._emit("ci.cache_maintenance", performed=False, duration_ms=0)
             return False
         started = time.monotonic()
         cache = self.prune()
@@ -213,6 +217,13 @@ class CiCache:
             f"removed {len(cache.removed)} compiler targets and "
             f"{len(chrome.removed)} Chrome clones ({time.monotonic() - started:.1f}s)",
             flush=True,
+        )
+        self._emit(
+            "ci.cache_maintenance",
+            performed=True,
+            duration_ms=round((time.monotonic() - started) * 1000),
+            compiler_targets_removed=len(cache.removed),
+            chrome_clones_removed=len(chrome.removed),
         )
         return True
 
@@ -271,10 +282,12 @@ class CiCache:
         """Run a step on a cache miss and return whether execution was needed."""
         if not self.enabled:
             print(f"    {step}: CI Cache disabled", flush=True)
+            self._emit("ci.cache_lookup", step=step, result="disabled")
             function()
             return True
         if self._has_unstaged_inputs(pathspecs):
             print(f"    {step}: CI Cache bypassed for unstaged inputs", flush=True)
+            self._emit("ci.cache_lookup", step=step, result="bypassed")
             function()
             return True
         key = self._key(step, pathspecs)
@@ -285,11 +298,31 @@ class CiCache:
             lock_file(lease)
             if self._valid_marker(marker, step, key):
                 print(f"    {step}: CI Cache hit {key[:12]}", flush=True)
+                self._emit(
+                    "ci.cache_lookup",
+                    step=step,
+                    result="hit",
+                    cache_key=key,
+                )
                 return False
             print(f"    {step}: CI Cache miss {key[:12]}", flush=True)
+            self._emit(
+                "ci.cache_lookup",
+                step=step,
+                result="miss",
+                cache_key=key,
+            )
             function()
             self._publish(marker, step, key)
             return True
+
+    def _emit(self, event: str, **attributes: object) -> None:
+        if self.event is None:
+            return
+        try:
+            self.event(event, attributes)
+        except Exception:
+            pass
 
     def _key(self, step: str, pathspecs: Sequence[str]) -> str:
         staged = subprocess.run(

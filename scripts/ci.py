@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
-from concurrent.futures import as_completed, ThreadPoolExecutor
 import hashlib
 import os
 from pathlib import Path
@@ -21,6 +20,8 @@ import time
 import tomllib
 
 from ci_cache import CiCache
+import ci_steps
+from ci_steps import run_parallel_steps, run_step
 from platform_support import (
     executable_name,
     readline_with_timeout,
@@ -29,6 +30,7 @@ from platform_support import (
 )
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 from resource_slots import unity_editor_lease
+import perf_log
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -60,6 +62,8 @@ ROOT_RUST_INPUTS = (
     "samples",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_steps.py",
+    "scripts/perf_log.py",
 )
 UNITY_TEST_INPUTS = (
     "Cargo.toml",
@@ -71,6 +75,8 @@ UNITY_TEST_INPUTS = (
     "crates",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_steps.py",
+    "scripts/perf_log.py",
 )
 DOTNET_DIAGNOSTIC_INPUTS = (
     ".config/dotnet-tools.json",
@@ -80,6 +86,8 @@ DOTNET_DIAGNOSTIC_INPUTS = (
     "battlement-ci.slnx",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_steps.py",
+    "scripts/perf_log.py",
 )
 SAMPLE_SHARED_INPUTS = (
     "Cargo.toml",
@@ -89,6 +97,8 @@ SAMPLE_SHARED_INPUTS = (
     "crates",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_steps.py",
+    "scripts/perf_log.py",
 )
 IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
     ".git",
@@ -239,65 +249,6 @@ def sample_rust_workspaces() -> list[Path]:
         manifests.append(manifest.relative_to(REPOSITORY_ROOT))
         child_directories.clear()
     return sorted(manifests, key=lambda path: path.as_posix())
-
-
-def run_step(
-    name: str,
-    command: list[str] | None = None,
-    function: Callable[[], None] | None = None,
-    environment: dict[str, str] | None = None,
-) -> float:
-    print(f"\n==> {name}", flush=True)
-    started = time.monotonic()
-    elapsed = 0.0
-    try:
-        if function is not None:
-            function()
-        else:
-            subprocess.run(
-                command,
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-                check=True,
-            )
-    finally:
-        elapsed = time.monotonic() - started
-        print(f"<== {name} ({elapsed:.1f}s)", flush=True)
-    return elapsed
-
-
-def run_parallel_steps(
-    steps: list[tuple[str, Callable[[], None]]],
-    workers: int = 2,
-) -> None:
-    def execute(function: Callable[[], None]) -> tuple[float, Exception | None]:
-        started = time.monotonic()
-        try:
-            function()
-        except Exception as error:
-            return time.monotonic() - started, error
-        return time.monotonic() - started, None
-
-    failures: list[Exception] = []
-    with ThreadPoolExecutor(max_workers=min(workers, len(steps))) as executor:
-        futures = {
-            executor.submit(execute, function): name
-            for name, function in steps
-        }
-        for future in as_completed(futures):
-            name = futures[future]
-            elapsed, error = future.result()
-            if error is not None:
-                failures.append(error)
-                outcome = "failed"
-            else:
-                outcome = "passed"
-            print(
-                f"    {name}: {outcome} ({elapsed:.1f}s)",
-                flush=True,
-            )
-    if failures:
-        raise failures[0]
 
 
 def cargo_environment(
@@ -797,11 +748,12 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
     ditto_preparation_seconds = 0.0
     if platform.system() == "Darwin":
         started = time.monotonic()
-        subprocess.run(
-            ["cargo", "build", "-p", "battlement-ditto"],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-        )
+        with ci_steps.span("Prepare standalone sample builder"):
+            subprocess.run(
+                ["cargo", "build", "-p", "battlement-ditto"],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+            )
         ditto_preparation_seconds = time.monotonic() - started
     run_parallel_steps(
         [(f"{name} standalone build", lambda name=name: build(name)) for name in samples],
@@ -843,6 +795,7 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         CI_CACHE_ROOT,
         ci_environment(),
         enabled=use_ci_cache,
+        event=ci_steps.record_cache_event,
     )
     run_step(
         "Check rust-analyzer projects",
@@ -898,6 +851,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     run_step(
         "Test CI Cache",
         [sys.executable, "scripts/tests/ci-cache.test.py"],
+    )
+    run_step(
+        "Test performance reporting",
+        [sys.executable, "scripts/tests/perf-report.test.py"],
     )
     run_step(
         "Test Ditto CI",
@@ -989,22 +946,54 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="execute expensive validation without reading or publishing CI Cache entries",
     )
+    parser.add_argument("--test-trace-outcome", choices=("passed", "failed", "interrupted"), help=argparse.SUPPRESS)
     return parser.parse_args()
-
-
-def interrupted(_signal_number, _frame) -> None:
-    raise KeyboardInterrupt
 
 
 if __name__ == "__main__":
     os.environ.setdefault("BATTLEMENT_PYTHON", sys.executable)
-    signal.signal(signal.SIGTERM, interrupted)
-    signal.signal(signal.SIGINT, interrupted)
+    signal.signal(signal.SIGTERM, ci_steps.interrupted)
+    signal.signal(signal.SIGINT, ci_steps.interrupted)
+    arguments = parse_arguments()
+    trace = perf_log.CiTrace(
+        REPOSITORY_ROOT,
+        {
+            "argv": sys.argv[1:],
+            "full": arguments.full,
+            "ditto": arguments.ditto,
+            "ci_cache_enabled": not arguments.no_ci_cache,
+            "platform": platform.system(),
+        },
+    )
+    ci_steps.configure(REPOSITORY_ROOT, trace)
+    outcome = "passed"
+    exit_code = 0
     try:
-        arguments = parse_arguments()
-        main(arguments.full, not arguments.no_ci_cache, arguments.ditto)
+        if arguments.test_trace_outcome:
+            ci_steps.trace_smoke_test(arguments.test_trace_outcome)
+        else:
+            main(arguments.full, not arguments.no_ci_cache, arguments.ditto)
     except KeyboardInterrupt:
+        outcome = "interrupted"
+        exit_code = 130
         raise SystemExit(130) from None
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        outcome = "failed"
+        exit_code = 1
         print(error, file=sys.stderr)
         raise SystemExit(1) from error
+    except BaseException:
+        outcome = "failed"
+        exit_code = 1
+        raise
+    finally:
+        trace.finish(outcome, exit_code)
+        try:
+            with perf_log.retention_guard(trace.log_root):
+                perf_log.enforce_retention(
+                    trace.log_root,
+                    perf_log.configured_max_log_bytes(),
+                    {trace.path} if trace.path is not None else set(),
+                )
+        except OSError as error:
+            print(f"CI performance retention skipped: {error}", file=sys.stderr)
