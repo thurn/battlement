@@ -380,7 +380,7 @@ fn inspect_png(path: &Path) -> InspectedPng {
   let output = reader.next_frame(&mut pixels).unwrap();
   pixels.truncate(output.buffer_size());
   let mut alpha = (output.width, output.height, 0, 0);
-  for (index, pixel) in pixels.chunks_exact(4).enumerate() {
+  for (index, pixel) in pixels.as_chunks::<4>().0.iter().enumerate() {
     if pixel[3] == 0 {
       continue;
     }

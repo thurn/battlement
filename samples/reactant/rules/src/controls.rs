@@ -1,3 +1,5 @@
+use trox::assert_localized;
+
 use crate::{Control, Game, Interaction, design_system};
 use battlement::Style;
 use battlement_reactant::prelude::*;
@@ -8,7 +10,7 @@ pub(crate) fn interactive_button(
   control: Control,
   click: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  battlement_reactant::host::Button::new(text)
+  battlement_reactant::host::Button::new(assert_localized(text))
     .name(name)
     .style(style)
     .on_pointer_enter(move |game: &mut Game| game.interaction.hovered = Some(control))

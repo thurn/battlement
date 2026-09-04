@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow, Style};
 use battlement_reactant::prelude::*;
@@ -77,19 +79,28 @@ impl Component for MotionPerformance {
       .name("motion-performance-canvas")
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("RELEASE PROFILING").style(eyebrow()))
       .child(
-        Label::new("Motion Performance")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "RELEASE PROFILING",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
+      )
+      .child(
+        Label::new(tx(
+          "Motion Performance",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
       )
       .child(controls(&self.state))
       .child(
-        Label::new(format!(
+        Label::new(assert_localized(format!(
           "{} · PHASE {} · 5S WARM-UP + 30S SAMPLE",
           scenario_name(self.state.scenario),
           self.state.phase,
-        ))
+        )))
         .name("motion-performance-status")
         .style(status()),
       )
@@ -189,8 +200,8 @@ fn counter_strip(structure: PerformanceStructure) -> View {
 fn counter(label: &'static str, value: impl ToString) -> View {
   View::new()
     .style(counter_style())
-    .child(Label::new(label).style(counter_label()))
-    .child(Label::new(value.to_string()).style(counter_value()))
+    .child(Label::new(assert_localized(label)).style(counter_label()))
+    .child(Label::new(assert_localized(value.to_string())).style(counter_value()))
 }
 
 fn workload(scenario: PerformanceScenario, phase: u32) -> View {
@@ -405,7 +416,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

@@ -1,5 +1,7 @@
 //! A fixed-position Return action with accessible button behavior.
 
+use trox::tx;
+
 use crate::{action_button::ActionButton, action_skin};
 use battlement::{Position, Style};
 use battlement_reactant::prelude::{EventCallback, builder};
@@ -41,7 +43,10 @@ impl Component for ReturnButton {
               .clip_polygon(action_skin::clip(18.0, 17.0)),
           ),
         ActionButton::new()
-          .children(accessibility::name_source_text("RETURN"))
+          .children(accessibility::name_source_text(tx(
+            "RETURN",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .max_text_scale(1.35)
           .disabled(self.disabled)
           .on_click(self.on_click.clone()),

@@ -3,9 +3,10 @@
 use std::{collections::BTreeSet, marker::PhantomData};
 
 use battlement::{
-  AccessibilityAction, AccessibilityActionSet, AccessibilityRangeValue, AccessibilityScrollAxis,
+  AccessibilityAction, AccessibilityActionSet, AccessibilityScrollAxis,
   AccessibilityScrollDirection, CurrentPage, SemanticRole, SemanticState,
 };
+use trox::LocalizedString;
 
 use crate::{
   activation::{self, Activation},
@@ -15,15 +16,24 @@ use crate::{
   motion::MotionProps,
 };
 
-/// Already-localized application text.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LocalizedText(String);
+/// A finite accessible range whose display text remains unresolved until presentation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AccessibilityRangeValue {
+  /// Current value.
+  pub current: f64,
+  /// Inclusive minimum.
+  pub minimum: f64,
+  /// Inclusive maximum.
+  pub maximum: f64,
+  /// Optional localized display text.
+  pub text: Option<LocalizedString>,
+}
 
 /// Source of a resolved accessible name.
 #[derive(Clone)]
 pub enum AccessibleName {
-  /// Explicit already-localized text.
-  Text(LocalizedText),
+  /// Explicit localized text resolved while building the semantic snapshot.
+  Text(LocalizedString),
   /// Text resolved from live hosts in the authored order.
   LabelledBy(Vec<ElementRef>),
   /// Text gathered from eligible logical descendants.
@@ -33,8 +43,8 @@ pub enum AccessibleName {
 /// Source of a resolved accessible description.
 #[derive(Clone)]
 pub enum AccessibleDescription {
-  /// Explicit already-localized text.
-  Text(LocalizedText),
+  /// Explicit localized text resolved while building the semantic snapshot.
+  Text(LocalizedString),
   /// Text resolved from one live host.
   DescribedBy(ElementRef),
 }
@@ -134,40 +144,10 @@ impl<G: 'static, S> AccessibleBehavior<G, S> {
   }
 }
 
-impl From<LocalizedText> for AccessibleName {
-  fn from(value: LocalizedText) -> Self {
+impl From<LocalizedString> for AccessibleName {
+  fn from(value: LocalizedString) -> Self {
     Self::Text(value)
   }
-}
-
-impl LocalizedText {
-  /// Creates already-localized application text.
-  #[must_use]
-  pub fn new(value: impl Into<String>) -> Self {
-    Self(value.into())
-  }
-
-  pub(crate) fn resolved(&self) -> String {
-    self.0.split_whitespace().collect::<Vec<_>>().join(" ")
-  }
-}
-
-impl From<&str> for LocalizedText {
-  fn from(value: &str) -> Self {
-    Self::new(value)
-  }
-}
-
-impl From<String> for LocalizedText {
-  fn from(value: String) -> Self {
-    Self::new(value)
-  }
-}
-
-/// Creates already-localized semantic text.
-#[must_use]
-pub fn text(value: impl Into<String>) -> LocalizedText {
-  LocalizedText::new(value)
 }
 
 impl SemanticProps {
@@ -310,16 +290,16 @@ impl<G> Clone for InteractionProps<G> {
 impl AccessibleName {
   /// Creates an explicit-text name.
   #[must_use]
-  pub fn text(value: impl Into<LocalizedText>) -> Self {
-    Self::Text(value.into())
+  pub fn text(value: LocalizedString) -> Self {
+    Self::Text(value)
   }
 }
 
 impl AccessibleDescription {
   /// Creates an explicit-text description.
   #[must_use]
-  pub fn text(value: impl Into<LocalizedText>) -> Self {
-    Self::Text(value.into())
+  pub fn text(value: LocalizedString) -> Self {
+    Self::Text(value)
   }
 }
 

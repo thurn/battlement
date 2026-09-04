@@ -16,7 +16,28 @@
 //! ```compile_fail
 //! use battlement_reactant::prelude::*;
 //!
-//! let _ = Label::new("Caption").child(Label::new("invalid"));
+//! let _ = Label::new(trox::tx(
+//!   "Caption",
+//!   "Caption in the host facade example.",
+//! )).child(Label::new(trox::tx(
+//!   "Invalid",
+//!   "Invalid child in the host facade example.",
+//! )));
+//! ```
+//!
+//! Product copy does not accept unlocalized string literals or owned strings.
+//!
+//! ```compile_fail
+//! use battlement_reactant::prelude::*;
+//!
+//! let _ = Label::new("Caption");
+//! ```
+//!
+//! ```compile_fail
+//! use battlement_reactant::prelude::*;
+//!
+//! let copy = String::from("Save");
+//! let _ = Button::new(copy);
 //! ```
 //!
 //! Façades expose no conversion from native protocol hosts.
@@ -39,6 +60,7 @@ use battlement::{
   UiSlider, UiSliderInt, UiStack, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
   UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
+use trox::LocalizedString;
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
@@ -58,6 +80,35 @@ use crate::{
   semantics::{AccessibleBehavior, InteractionProps, SemanticProps},
   variant_map::{VariantData, VariantKey, Variants},
 };
+
+/// An optional dropdown selection whose display value remains localized until presentation.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LocalizedChoice {
+  /// Zero-based choice index, or `None` when the selection is empty.
+  pub index: Option<u32>,
+  /// Localized display value at `index`, or `None` when the selection is empty.
+  pub value: Option<LocalizedString>,
+}
+
+impl LocalizedChoice {
+  /// Creates a populated selection.
+  #[must_use]
+  pub fn selected(index: u32, value: LocalizedString) -> Self {
+    Self {
+      index: Some(index),
+      value: Some(value),
+    }
+  }
+
+  /// Creates an explicit empty selection.
+  #[must_use]
+  pub const fn none() -> Self {
+    Self {
+      index: None,
+      value: None,
+    }
+  }
+}
 
 macro_rules! gesture_methods {
   () => {
@@ -275,6 +326,7 @@ macro_rules! facade {
         Self {
           state: Boxed::new(HostState {
             host,
+            localizers: Vec::new(),
             children: Vec::new(),
             handlers: Vec::new(),
             key: None,
@@ -914,7 +966,7 @@ facade!(
 facade!(
   DropdownField,
   UiDropdownField,
-  "A controlled single-choice field that opens its options in a popup.\n\nUse it when a permanently visible option list would consume too much space. Selection is provisional until Rust authors the accepted [`battlement::Choice`].\n\nSee Unity's [DropdownField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-DropdownField.html)."
+  "A controlled single-choice field that opens its options in a popup.\n\nUse it when a permanently visible option list would consume too much space. Selection is provisional until Rust authors the accepted [`LocalizedChoice`].\n\nSee Unity's [DropdownField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-DropdownField.html)."
 );
 facade!(
   Button,
@@ -1026,8 +1078,8 @@ macro_rules! text_constructor {
       impl $name {
         #[doc = concat!("Creates a [`", stringify!($name), "`] with authored text.")]
         #[must_use]
-        pub fn new(text: impl Into<String>) -> Self {
-          Self::from_native(<$native>::new(text))
+        pub fn new(text: LocalizedString) -> Self {
+          Self::from_native(<$native>::new("")).text(text)
         }
       }
     )+
@@ -1052,8 +1104,8 @@ impl View {
 impl RepeatButton {
   /// Creates a repeat button with its initial timing contract.
   #[must_use]
-  pub fn new(text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32) -> Self {
-    Self::from_native(UiRepeatButton::new(text, delay_ms, interval_ms))
+  pub fn new(text: LocalizedString, delay_ms: u32, interval_ms: NonZeroU32) -> Self {
+    Self::from_native(UiRepeatButton::new("", delay_ms, interval_ms)).text(text)
   }
 }
 

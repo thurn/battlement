@@ -1,5 +1,7 @@
 //! The ordered examples shown by the chess UI gallery.
 
+use trox::tx;
+
 use crate::{
   action_harness::ActionHarness,
   frame_harness::FrameHarness,
@@ -20,290 +22,210 @@ pub fn gallery() -> Gallery {
   Gallery::new()
         .page(
             ReviewPage::new()
-                .title("Gallery shell")
-                .description(
-                    "Scrollable navigation selects one isolated demonstration; migrated mockup content is intentionally not asserted.",
-                )
+                .title(tx("Gallery shell", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Scrollable navigation selects one isolated demonstration; migrated mockup content is intentionally not asserted.", "User-facing product copy in the Chess UI sample."))
                 .child(Demonstration::new()),
         )
         .page(
             ReviewPage::new()
-                .title("PortraitViewport")
-                .description(
-                    "Fixed stage scales to fit available space; responsive content reflow is not asserted.",
-                )
+                .title(tx("PortraitViewport", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Fixed stage scales to fit available space; responsive content reflow is not asserted.", "User-facing product copy in the Chess UI sample."))
                 .child(PortraitHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("ScreenFrame and ConceptFrame")
-                .description(
-                    "Arcade frame and clipped interior render; pulses, exits, generated skin, and controls are not asserted.",
-                )
+                .title(tx("ScreenFrame and ConceptFrame", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Arcade frame and clipped interior render; pulses, exits, generated skin, and controls are not asserted.", "User-facing product copy in the Chess UI sample."))
                 .child(FrameHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("SettingRow")
-                .description(
-                    "SettingRow aligns label and child horizontally; responsive reflow and interactive controls are not asserted.",
-                )
+                .title(tx("SettingRow", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SettingRow aligns label and child horizontally; responsive reflow and interactive controls are not asserted.", "User-facing product copy in the Chess UI sample."))
                 .child(SettingRowHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("ToggleControl layout and state")
-                .description(
-                    "ToggleControl renders label, checkbox, and controlled toggling; focus, animation, and help remain unasserted.",
-                )
+                .title(tx("ToggleControl layout and state", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ToggleControl renders label, checkbox, and controlled toggling; focus, animation, and help remain unasserted.", "User-facing product copy in the Chess UI sample."))
                 .child(ToggleHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("SelectControl closed state")
-                .description(
-                    "SelectControl renders changing controlled values and its caret; opening, options, focus, and animation remain unasserted.",
-                )
+                .title(tx("SelectControl closed state", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SelectControl renders changing controlled values and its caret; opening, options, focus, and animation remain unasserted.", "User-facing product copy in the Chess UI sample."))
                 .child(SelectHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("VolumeControl layout")
-                .description(
-                    "VolumeControl renders track, fill, thumb, value, and controlled changes; rich input and effects remain unasserted.",
-                )
+                .title(tx("VolumeControl layout", "User-facing product copy in the Chess UI sample."))
+                .description(tx("VolumeControl renders track, fill, thumb, value, and controlled changes; rich input and effects remain unasserted.", "User-facing product copy in the Chess UI sample."))
                 .child(VolumeHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("ActionButton")
-                .description(
-                    "ActionButton renders typed children and invokes clicks; interaction states, particles, and navigation remain unasserted.",
-                )
+                .title(tx("ActionButton", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ActionButton renders typed children and invokes clicks; interaction states, particles, and navigation remain unasserted.", "User-facing product copy in the Chess UI sample."))
                 .child(ActionHarness::new()),
         )
         .page(
             ReviewPage::new()
-                .title("SettingsTabs layout")
-                .description(
-                    "SettingsTabs selects controlled tabs horizontally; directional focus, panel transitions, and responsive labels remain unasserted.",
-                ),
+                .title(tx("SettingsTabs layout", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SettingsTabs selects controlled tabs horizontally; directional focus, panel transitions, and responsive labels remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ScreenHeader")
-                .description(
-                    "ScreenHeader renders game and settings variants; generated wordmark, scaling, and animation remain unasserted.",
-                ),
+                .title(tx("ScreenHeader", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ScreenHeader renders game and settings variants; generated wordmark, scaling, and animation remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("useInteraction")
-                .description(
-                    "useInteraction drives hover, press, release, and cancellation visuals; focus modality and particles remain unasserted.",
-                ),
+                .title(tx("useInteraction", "User-facing product copy in the Chess UI sample."))
+                .description(tx("useInteraction drives hover, press, release, and cancellation visuals; focus modality and particles remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Focus-visible behavior")
-                .description(
-                    "Keyboard and controller focus-visible states render correctly while pointer focus hides the keyboard-only ring; complete controls remain unasserted.",
-                ),
+                .title(tx("Focus-visible behavior", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Keyboard and controller focus-visible states render correctly while pointer focus hides the keyboard-only ring; complete controls remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ToggleControl accessibility")
-                .description(
-                    "ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.",
-                ),
+                .title(tx("ToggleControl accessibility", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("SelectControl pointer popover")
-                .description(
-                    "SelectControl opens one anchored listbox, selects options, and dismisses outside; keyboard behavior remains unasserted.",
-                ),
+                .title(tx("SelectControl pointer popover", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SelectControl opens one anchored listbox, selects options, and dismisses outside; keyboard behavior remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("SelectControl keyboard and controller behavior")
-                .description(
-                    "SelectControl supports arrows, Home, End, typeahead, Escape, restoration, and listbox semantics through handlers and queued ref focus; animation remains unasserted.",
-                ),
+                .title(tx("SelectControl keyboard and controller behavior", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SelectControl supports arrows, Home, End, typeahead, Escape, restoration, and listbox semantics through handlers and queued ref focus; animation remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("VolumeControl input")
-                .description(
-                    "VolumeControl supports drag, keyboard steps, endpoints, pages, and controller input; release effects remain unasserted.",
-                ),
+                .title(tx("VolumeControl input", "User-facing product copy in the Chess UI sample."))
+                .description(tx("VolumeControl supports drag, keyboard steps, endpoints, pages, and controller input; release effects remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("SettingsTabs navigation")
-                .description(
-                    "SettingsTabs preserves four Tab stops and adds arrow and controller selection through handlers and ref focus; panel animation remains unasserted.",
-                ),
+                .title(tx("SettingsTabs navigation", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SettingsTabs preserves four Tab stops and adds arrow and controller selection through handlers and ref focus; panel animation remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeModal behavior")
-                .description(
-                    "ArcadeModal traps focus, dismisses safely, restores its opener, and exposes dialog semantics on its modal wrapper; animation remains unasserted.",
-                ),
+                .title(tx("ArcadeModal behavior", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeModal traps focus, dismisses safely, restores its opener, and exposes dialog semantics on its modal wrapper; animation remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("InfoBadge and Privacy Policy")
-                .description(
-                    "InfoBadge opens accessible crash-report help and activates Privacy Policy; data erasure remains absent.",
-                ),
+                .title(tx("InfoBadge and Privacy Policy", "User-facing product copy in the Chess UI sample."))
+                .description(tx("InfoBadge opens accessible crash-report help and activates Privacy Policy; data erasure remains absent.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Input settings table")
-                .description(
-                    "InputSettings scrolls bindings beneath a sticky header; rebinding, conflicts, and visual icons remain unasserted.",
-                ),
+                .title(tx("Input settings table", "User-facing product copy in the Chess UI sample."))
+                .description(tx("InputSettings scrolls bindings beneath a sticky header; rebinding, conflicts, and visual icons remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Keyboard rebinding")
-                .description(
-                    "InputSettings captures keyboard bindings, rejects conflicts, resets defaults, and announces status; icons and controller rebinding are not asserted.",
-                ),
+                .title(tx("Keyboard rebinding", "User-facing product copy in the Chess UI sample."))
+                .description(tx("InputSettings captures keyboard bindings, rejects conflicts, resets defaults, and announces status; icons and controller rebinding are not asserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("FontScale")
-                .description(
-                    "FontScale reflows rows and scales text and controls; persistence and complete screens remain unasserted.",
-                ),
+                .title(tx("FontScale", "User-facing product copy in the Chess UI sample."))
+                .description(tx("FontScale reflows rows and scales text and controls; persistence and complete screens remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Generated control skin")
-                .description(
-                    "Generated assets skin controls and labels; interaction behavior, dynamic effects, and screen composition are not asserted.",
-                ),
+                .title(tx("Generated control skin", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Generated assets skin controls and labels; interaction behavior, dynamic effects, and screen composition are not asserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Input icons and settings panel skin")
-                .description(
-                    "InputBindingIcons and the settings panel render precisely; rebinding behavior and full composition remain unasserted.",
-                ),
+                .title(tx("Input icons and settings panel skin", "User-facing product copy in the Chess UI sample."))
+                .description(tx("InputBindingIcons and the settings panel render precisely; rebinding behavior and full composition remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Control shine and release bursts")
-                .description(
-                    "Buttons, checkboxes, and sliders play shine and keyed release bursts; ambient and route effects remain unasserted.",
-                ),
+                .title(tx("Control shine and release bursts", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Buttons, checkboxes, and sliders play shine and keyed release bursts; ambient and route effects remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Dropdown animation")
-                .description(
-                    "Dropdown and options animate presence, stagger, selection flash, and interruption; settings composition remains unasserted.",
-                ),
+                .title(tx("Dropdown animation", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Dropdown and options animate presence, stagger, selection flash, and interruption; settings composition remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeTabTransition")
-                .description(
-                    "ArcadeTabTransition enters, exits, and sweeps by direction; complete tab contents and routing remain unasserted.",
-                ),
+                .title(tx("ArcadeTabTransition", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeTabTransition enters, exits, and sweeps by direction; complete tab contents and routing remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeModal animation")
-                .description(
-                    "ArcadeModal animates backdrop, panel, and shine with reduced-motion alternatives; screen composition remains unasserted.",
-                ),
+                .title(tx("ArcadeModal animation", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeModal animates backdrop, panel, and shine with reduced-motion alternatives; screen composition remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeAttractMode")
-                .description(
-                    "ArcadeAttractMode animates seeded grid and particles deterministically; menu controls and audio remain unasserted.",
-                ),
+                .title(tx("ArcadeAttractMode", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeAttractMode animates seeded grid and particles deterministically; menu controls and audio remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeFramePulse")
-                .description(
-                    "ArcadeFramePulse animates border comets around the restored Return cutout; exits and route effects remain unasserted.",
-                ),
+                .title(tx("ArcadeFramePulse", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeFramePulse animates border comets around the restored Return cutout; exits and route effects remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("BackgroundMusicProvider")
-                .description(
-                    "BackgroundMusic loops audio, applies effective volume and background mute, and exposes playback context; heartbeat remains unasserted.",
-                ),
+                .title(tx("BackgroundMusicProvider", "User-facing product copy in the Chess UI sample."))
+                .description(tx("BackgroundMusic loops audio, applies effective volume and background mute, and exposes playback context; heartbeat remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Music indicator and heartbeat")
-                .description(
-                    "MusicPlaybackIndicator mutes or enables sound while controls pulse from audio time; complete menu composition is not asserted.",
-                ),
+                .title(tx("Music indicator and heartbeat", "User-facing product copy in the Chess UI sample."))
+                .description(tx("MusicPlaybackIndicator mutes or enables sound while controls pulse from audio time; complete menu composition is not asserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeMenuTransition")
-                .description(
-                    "ArcadeMenuTransition swaps keyed screens with beam and reveal effects; complete routed screens remain unasserted.",
-                ),
+                .title(tx("ArcadeMenuTransition", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeMenuTransition swaps keyed screens with beam and reveal effects; complete routed screens remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeExitSequence")
-                .description(
-                    "ArcadeExitSequence and frame collapse synchronize dismissal; gameplay, quitting, and routed composition remain unasserted.",
-                ),
+                .title(tx("ArcadeExitSequence", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeExitSequence and frame collapse synchronize dismissal; gameplay, quitting, and routed composition remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("Gameplay and Graphics settings")
-                .description(
-                    "Gameplay and Graphics settings compose matching controls and props; other tabs and final transitions remain unasserted.",
-                ),
+                .title(tx("Gameplay and Graphics settings", "User-facing product copy in the Chess UI sample."))
+                .description(tx("Gameplay and Graphics settings compose matching controls and props; other tabs and final transitions remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("SoundSettings")
-                .description(
-                    "SoundSettings composes three sliders and background mute against shared audio state; Input settings remain unasserted.",
-                ),
+                .title(tx("SoundSettings", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SoundSettings composes three sliders and background mute against shared audio state; Input settings remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("InputSettings composition")
-                .description(
-                    "InputSettings composes bindings, icons, scrolling, rebinding, and its modal; cross-tab integration is not asserted.",
-                ),
+                .title(tx("InputSettings composition", "User-facing product copy in the Chess UI sample."))
+                .description(tx("InputSettings composes bindings, icons, scrolling, rebinding, and its modal; cross-tab integration is not asserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("SettingsScreen")
-                .description(
-                    "SettingsScreen composes tabs, panels, Return, and both dialogs; main menu and route transition remain unasserted.",
-                ),
+                .title(tx("SettingsScreen", "User-facing product copy in the Chess UI sample."))
+                .description(tx("SettingsScreen composes tabs, panels, Return, and both dialogs; main menu and route transition remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("MainMenu")
-                .description(
-                    "MainMenu composes background, header, buttons, music, and exit behavior; the complete router remains unasserted.",
-                ),
+                .title(tx("MainMenu", "User-facing product copy in the Chess UI sample."))
+                .description(tx("MainMenu composes background, header, buttons, music, and exit behavior; the complete router remains unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(
             ReviewPage::new()
-                .title("ArcadeScreenRouter")
-                .description(
-                    "ArcadeScreenRouter composes every accessible mockup behavior; no player-visible behavior remains outside this page's scope.",
-                ),
+                .title(tx("ArcadeScreenRouter", "User-facing product copy in the Chess UI sample."))
+                .description(tx("ArcadeScreenRouter composes every accessible mockup behavior; no player-visible behavior remains outside this page's scope.", "User-facing product copy in the Chess UI sample.")),
         )
 }

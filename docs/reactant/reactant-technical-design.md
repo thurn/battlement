@@ -820,7 +820,7 @@ after their Unity control constructor runs.
 Builders continue to accept ordinary values.
 
 ```rust
-Label::new("Ready")
+Label::new(trox::tx("Ready", "User-facing copy in this example."))
     .name("status")
     .color(Color::WHITE)
 ```
@@ -860,7 +860,7 @@ host target to the committed logical tree, then performs capture and bubble
 propagation through components and portals.
 
 ```rust
-Button::new("Play")
+Button::new(trox::tx("Play", "User-facing copy in this example."))
     .on_click(|game: &mut Game| game.start_game())
 ```
 

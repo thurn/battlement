@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::collections::HashMap;
 
 use battlement::{
@@ -31,7 +33,7 @@ fn randomized_small_reorders_match_the_fake_tree_with_minimal_moves() {
   let mut game = Game {
     order: vec![0, 1, 2, 3, 4, 5],
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), keyed_labels);
   let initial = begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -65,7 +67,7 @@ fn lis_ties_retain_the_lexicographically_earliest_desired_indices() {
   let mut game = Game {
     order: vec![1, 2, 3, 4],
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), keyed_labels);
   let initial = begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -99,7 +101,7 @@ fn zero_and_multi_host_ranges_reorder_and_restore_as_physical_children() {
   let mut game = Game {
     order: vec![1, 2, 3],
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), keyed_ranges);
   let initial = begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -130,7 +132,7 @@ fn zero_and_multi_host_ranges_reorder_and_restore_as_physical_children() {
 fn toggle_group_reorders_and_replacements_restore_the_controlled_selection() {
   let document = document();
   let mut game = Game { order: vec![1, 2] };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), toggle_group);
   let initial = begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -161,7 +163,7 @@ fn toggle_group_reorders_and_replacements_restore_the_controlled_selection() {
 fn tab_reorders_restore_the_controlled_selected_index() {
   let document = document();
   let mut game = Game { order: vec![1, 2] };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), tabs);
   let initial = begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -182,7 +184,10 @@ fn keyed_labels(game: &Game) -> impl Render + use<> {
   game
     .order
     .iter()
-    .map(|key| battlement_reactant::host::Label::new(format!("Label {key}")).key(*key))
+    .map(|key| {
+      battlement_reactant::host::Label::new(trox::assert_localized(format!("Label {key}")))
+        .key(*key)
+    })
     .collect::<Vec<_>>()
 }
 
@@ -195,8 +200,8 @@ fn keyed_ranges(game: &Game) -> impl Render + use<> {
         Vec::new()
       } else {
         vec![
-          battlement_reactant::host::Label::new(format!("{key}a")),
-          battlement_reactant::host::Label::new(format!("{key}b")),
+          battlement_reactant::host::Label::new(trox::assert_localized(format!("{key}a"))),
+          battlement_reactant::host::Label::new(trox::assert_localized(format!("{key}b"))),
         ]
       };
       Fragment::new(children).key(*key)
@@ -211,7 +216,10 @@ fn toggle_group(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| battlement_reactant::host::Button::new(format!("Button {key}")).key(*key))
+        .map(|key| {
+          battlement_reactant::host::Button::new(trox::assert_localized(format!("Button {key}")))
+            .key(*key)
+        })
         .collect::<Vec<_>>(),
     )
 }
@@ -223,7 +231,10 @@ fn tabs(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| battlement_reactant::host::Tab::new(format!("Tab {key}")).key(*key))
+        .map(|key| {
+          battlement_reactant::host::Tab::new(trox::assert_localized(format!("Tab {key}")))
+            .key(*key)
+        })
         .collect::<Vec<_>>(),
     )
 }

@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, ObjectId,
@@ -125,14 +127,23 @@ impl Component for ValuesTimeControls {
       .vertical_scroller_visibility(ScrollerVisibility::Auto)
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("UNITY-LOCAL VALUES · EXPLICIT CHECKPOINTS").style(eyebrow()))
       .child(
-        Label::new("Values, Time & Controls")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "UNITY-LOCAL VALUES · EXPLICIT CHECKPOINTS",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Values, Time & Controls",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "SOURCE {} · AUDIO {} · BUFFER {} · LOOP {} · REPLACEMENTS {}",
           if self.state.source_high { "1.0" } else { "0.0" },
           if self.state.audio_playing {
@@ -151,7 +162,7 @@ impl Component for ValuesTimeControls {
           },
           if self.state.looping { "ON" } else { "OFF" },
           self.state.replacements,
-        ))
+        )))
         .name("values-transport-status")
         .style(status()),
       )
@@ -247,7 +258,13 @@ impl Component for ValuesTimeControls {
                   ),
               )
               .animate_variant(ControlVariant::Rest)
-              .child(Label::new("TYPED CONTROLS").style(probe_text())),
+              .child(
+                Label::new(tx(
+                  "TYPED CONTROLS",
+                  "User-facing product copy in the Reactant sample.",
+                ))
+                .style(probe_text()),
+              ),
           ),
       )
       .child(
@@ -259,9 +276,12 @@ impl Component for ValuesTimeControls {
           .child(sequence_probe("sequence-b", "SCOPE B")),
       )
       .child(
-        Label::new(format!("TRACE  {}", self.state.trace.join("  ›  ")))
-          .name("values-trace")
-          .style(trace()),
+        Label::new(assert_localized(format!(
+          "TRACE  {}",
+          self.state.trace.join("  ›  ")
+        )))
+        .name("values-trace")
+        .style(trace()),
       )
       .child(action("GESTURES & DRAG", "gestures-navigation", |game| {
         game.screen = crate::Screen::GesturesDrag;
@@ -350,7 +370,7 @@ fn probe(label: &'static str, motion: StyleTarget) -> View {
   View::new()
     .style(probe_style())
     .animate(motion)
-    .child(Label::new(label).style(probe_text()))
+    .child(Label::new(assert_localized(label)).style(probe_text()))
 }
 
 fn sequence_probe(name: &'static str, label: &'static str) -> View {
@@ -358,7 +378,7 @@ fn sequence_probe(name: &'static str, label: &'static str) -> View {
     .name(name)
     .motion_name(name)
     .style(probe_style())
-    .child(Label::new(label).style(probe_text()))
+    .child(Label::new(assert_localized(label)).style(probe_text()))
 }
 
 fn action(
@@ -366,7 +386,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

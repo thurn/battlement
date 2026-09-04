@@ -49,31 +49,31 @@ accessibility_assert = { target = { role = "navigation", name = "Chess UI review
 accessibility_assert = { target = { role = "heading", name = "Gallery shell" }, role = "heading", name = "Gallery shell" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "1. Gallery shell" }, role = "button", name = "1. Gallery shell", current_page = true, parent = { role = "navigation", name = "Chess UI review pages" } }
+accessibility_assert = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069", current_page = true, parent = { role = "navigation", name = "Chess UI review pages" } }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Changes: 0" }, role = "static-text", name = "Changes: 0" }
+accessibility_assert = { target = { role = "static-text", name = "Changes: \u20680\u2069" }, role = "static-text", name = "Changes: \u20680\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "initial" }
+screenshot = { name = "initial", max_changed_percent = 0.28 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Change demonstration" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Changes: 1" }, role = "static-text", name = "Changes: 1" }
+accessibility_assert = { target = { role = "static-text", name = "Changes: \u20681\u2069" }, role = "static-text", name = "Changes: \u20681\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+screenshot = { name = "changed", max_changed_percent = 0.28 }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "1. Gallery shell" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Changes: 0" }, role = "static-text", name = "Changes: 0" }
+accessibility_assert = { target = { role = "static-text", name = "Changes: \u20680\u2069" }, role = "static-text", name = "Changes: \u20680\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "reset" }
+screenshot = { name = "reset", max_changed_percent = 0.28 }
 
 [[scenarios]]
 name = "gallery navigation first"
@@ -82,22 +82,10 @@ name = "gallery navigation first"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "1. Gallery shell" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "1. Gallery shell" }, role = "button", name = "1. Gallery shell", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "Gallery shell" }, role = "region", name = "Gallery shell" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "Gallery shell" }, role = "heading", name = "Gallery shell" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "1. Gallery shell" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "1. Gallery shell" }, role = "button", name = "1. Gallery shell", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Gallery shell" }, role = "region", name = "Gallery shell" }
@@ -106,10 +94,22 @@ accessibility_assert = { target = { role = "region", name = "Gallery shell" }, r
 accessibility_assert = { target = { role = "heading", name = "Gallery shell" }, role = "heading", name = "Gallery shell" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "2. PortraitViewport" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "2. PortraitViewport" }, role = "button", name = "2. PortraitViewport", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069" }, role = "button", name = "\u20681\u2069. \u2068Gallery shell\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Gallery shell" }, role = "region", name = "Gallery shell" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Gallery shell" }, role = "heading", name = "Gallery shell" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069" }, role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "PortraitViewport" }, role = "region", name = "PortraitViewport" }
@@ -118,10 +118,10 @@ accessibility_assert = { target = { role = "region", name = "PortraitViewport" }
 accessibility_assert = { target = { role = "heading", name = "PortraitViewport" }, role = "heading", name = "PortraitViewport" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "2. PortraitViewport" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "2. PortraitViewport" }, role = "button", name = "2. PortraitViewport", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069" }, role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "PortraitViewport" }, role = "region", name = "PortraitViewport" }
@@ -130,22 +130,10 @@ accessibility_assert = { target = { role = "region", name = "PortraitViewport" }
 accessibility_assert = { target = { role = "heading", name = "PortraitViewport" }, role = "heading", name = "PortraitViewport" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, role = "button", name = "3. ScreenFrame and ConceptFrame", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ScreenFrame and ConceptFrame" }, role = "region", name = "ScreenFrame and ConceptFrame" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ScreenFrame and ConceptFrame" }, role = "heading", name = "ScreenFrame and ConceptFrame" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, role = "button", name = "3. ScreenFrame and ConceptFrame", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069" }, role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ScreenFrame and ConceptFrame" }, role = "region", name = "ScreenFrame and ConceptFrame" }
@@ -154,10 +142,22 @@ accessibility_assert = { target = { role = "region", name = "ScreenFrame and Con
 accessibility_assert = { target = { role = "heading", name = "ScreenFrame and ConceptFrame" }, role = "heading", name = "ScreenFrame and ConceptFrame" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "4. SettingRow" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "4. SettingRow" }, role = "button", name = "4. SettingRow", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069" }, role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ScreenFrame and ConceptFrame" }, role = "region", name = "ScreenFrame and ConceptFrame" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ScreenFrame and ConceptFrame" }, role = "heading", name = "ScreenFrame and ConceptFrame" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069" }, role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingRow" }, role = "region", name = "SettingRow" }
@@ -166,10 +166,10 @@ accessibility_assert = { target = { role = "region", name = "SettingRow" }, role
 accessibility_assert = { target = { role = "heading", name = "SettingRow" }, role = "heading", name = "SettingRow" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "4. SettingRow" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "4. SettingRow" }, role = "button", name = "4. SettingRow", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069" }, role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingRow" }, role = "region", name = "SettingRow" }
@@ -178,22 +178,10 @@ accessibility_assert = { target = { role = "region", name = "SettingRow" }, role
 accessibility_assert = { target = { role = "heading", name = "SettingRow" }, role = "heading", name = "SettingRow" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "5. ToggleControl layout and state" }, role = "button", name = "5. ToggleControl layout and state", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ToggleControl layout and state" }, role = "region", name = "ToggleControl layout and state" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ToggleControl layout and state" }, role = "heading", name = "ToggleControl layout and state" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "5. ToggleControl layout and state" }, role = "button", name = "5. ToggleControl layout and state", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ToggleControl layout and state" }, role = "region", name = "ToggleControl layout and state" }
@@ -202,10 +190,22 @@ accessibility_assert = { target = { role = "region", name = "ToggleControl layou
 accessibility_assert = { target = { role = "heading", name = "ToggleControl layout and state" }, role = "heading", name = "ToggleControl layout and state" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "6. SelectControl closed state" }, role = "button", name = "6. SelectControl closed state", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ToggleControl layout and state" }, role = "region", name = "ToggleControl layout and state" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ToggleControl layout and state" }, role = "heading", name = "ToggleControl layout and state" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SelectControl closed state" }, role = "region", name = "SelectControl closed state" }
@@ -214,10 +214,10 @@ accessibility_assert = { target = { role = "region", name = "SelectControl close
 accessibility_assert = { target = { role = "heading", name = "SelectControl closed state" }, role = "heading", name = "SelectControl closed state" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "6. SelectControl closed state" }, role = "button", name = "6. SelectControl closed state", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SelectControl closed state" }, role = "region", name = "SelectControl closed state" }
@@ -226,22 +226,10 @@ accessibility_assert = { target = { role = "region", name = "SelectControl close
 accessibility_assert = { target = { role = "heading", name = "SelectControl closed state" }, role = "heading", name = "SelectControl closed state" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "7. VolumeControl layout" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "7. VolumeControl layout" }, role = "button", name = "7. VolumeControl layout", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "VolumeControl layout" }, role = "region", name = "VolumeControl layout" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "VolumeControl layout" }, role = "heading", name = "VolumeControl layout" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "7. VolumeControl layout" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "7. VolumeControl layout" }, role = "button", name = "7. VolumeControl layout", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "VolumeControl layout" }, role = "region", name = "VolumeControl layout" }
@@ -250,10 +238,22 @@ accessibility_assert = { target = { role = "region", name = "VolumeControl layou
 accessibility_assert = { target = { role = "heading", name = "VolumeControl layout" }, role = "heading", name = "VolumeControl layout" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "8. ActionButton" }, role = "button", name = "8. ActionButton", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "VolumeControl layout" }, role = "region", name = "VolumeControl layout" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "VolumeControl layout" }, role = "heading", name = "VolumeControl layout" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ActionButton" }, role = "region", name = "ActionButton" }
@@ -262,10 +262,10 @@ accessibility_assert = { target = { role = "region", name = "ActionButton" }, ro
 accessibility_assert = { target = { role = "heading", name = "ActionButton" }, role = "heading", name = "ActionButton" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "8. ActionButton" }, role = "button", name = "8. ActionButton", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ActionButton" }, role = "region", name = "ActionButton" }
@@ -274,22 +274,10 @@ accessibility_assert = { target = { role = "region", name = "ActionButton" }, ro
 accessibility_assert = { target = { role = "heading", name = "ActionButton" }, role = "heading", name = "ActionButton" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "9. SettingsTabs layout" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "9. SettingsTabs layout" }, role = "button", name = "9. SettingsTabs layout", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "SettingsTabs layout" }, role = "region", name = "SettingsTabs layout" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "SettingsTabs layout" }, role = "heading", name = "SettingsTabs layout" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "9. SettingsTabs layout" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "9. SettingsTabs layout" }, role = "button", name = "9. SettingsTabs layout", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingsTabs layout" }, role = "region", name = "SettingsTabs layout" }
@@ -298,10 +286,22 @@ accessibility_assert = { target = { role = "region", name = "SettingsTabs layout
 accessibility_assert = { target = { role = "heading", name = "SettingsTabs layout" }, role = "heading", name = "SettingsTabs layout" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "10. ScreenHeader" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "10. ScreenHeader" }, role = "button", name = "10. ScreenHeader", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "SettingsTabs layout" }, role = "region", name = "SettingsTabs layout" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "SettingsTabs layout" }, role = "heading", name = "SettingsTabs layout" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ScreenHeader" }, role = "region", name = "ScreenHeader" }
@@ -310,10 +310,10 @@ accessibility_assert = { target = { role = "region", name = "ScreenHeader" }, ro
 accessibility_assert = { target = { role = "heading", name = "ScreenHeader" }, role = "heading", name = "ScreenHeader" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "10. ScreenHeader" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "10. ScreenHeader" }, role = "button", name = "10. ScreenHeader", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ScreenHeader" }, role = "region", name = "ScreenHeader" }
@@ -331,22 +331,10 @@ name = "gallery navigation second"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "11. useInteraction" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "11. useInteraction" }, role = "button", name = "11. useInteraction", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "useInteraction" }, role = "region", name = "useInteraction" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "useInteraction" }, role = "heading", name = "useInteraction" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "11. useInteraction" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "11. useInteraction" }, role = "button", name = "11. useInteraction", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069" }, role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "useInteraction" }, role = "region", name = "useInteraction" }
@@ -355,10 +343,22 @@ accessibility_assert = { target = { role = "region", name = "useInteraction" }, 
 accessibility_assert = { target = { role = "heading", name = "useInteraction" }, role = "heading", name = "useInteraction" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "12. Focus-visible behavior" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "12. Focus-visible behavior" }, role = "button", name = "12. Focus-visible behavior", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069" }, role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "useInteraction" }, role = "region", name = "useInteraction" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "useInteraction" }, role = "heading", name = "useInteraction" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Focus-visible behavior" }, role = "region", name = "Focus-visible behavior" }
@@ -367,10 +367,10 @@ accessibility_assert = { target = { role = "region", name = "Focus-visible behav
 accessibility_assert = { target = { role = "heading", name = "Focus-visible behavior" }, role = "heading", name = "Focus-visible behavior" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "12. Focus-visible behavior" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "12. Focus-visible behavior" }, role = "button", name = "12. Focus-visible behavior", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Focus-visible behavior" }, role = "region", name = "Focus-visible behavior" }
@@ -379,22 +379,10 @@ accessibility_assert = { target = { role = "region", name = "Focus-visible behav
 accessibility_assert = { target = { role = "heading", name = "Focus-visible behavior" }, role = "heading", name = "Focus-visible behavior" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "13. ToggleControl accessibility" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "13. ToggleControl accessibility" }, role = "button", name = "13. ToggleControl accessibility", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ToggleControl accessibility" }, role = "region", name = "ToggleControl accessibility" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ToggleControl accessibility" }, role = "heading", name = "ToggleControl accessibility" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "13. ToggleControl accessibility" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "13. ToggleControl accessibility" }, role = "button", name = "13. ToggleControl accessibility", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ToggleControl accessibility" }, role = "region", name = "ToggleControl accessibility" }
@@ -403,10 +391,22 @@ accessibility_assert = { target = { role = "region", name = "ToggleControl acces
 accessibility_assert = { target = { role = "heading", name = "ToggleControl accessibility" }, role = "heading", name = "ToggleControl accessibility" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "14. SelectControl pointer popover" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "14. SelectControl pointer popover" }, role = "button", name = "14. SelectControl pointer popover", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ToggleControl accessibility" }, role = "region", name = "ToggleControl accessibility" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ToggleControl accessibility" }, role = "heading", name = "ToggleControl accessibility" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SelectControl pointer popover" }, role = "region", name = "SelectControl pointer popover" }
@@ -415,10 +415,10 @@ accessibility_assert = { target = { role = "region", name = "SelectControl point
 accessibility_assert = { target = { role = "heading", name = "SelectControl pointer popover" }, role = "heading", name = "SelectControl pointer popover" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "14. SelectControl pointer popover" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "14. SelectControl pointer popover" }, role = "button", name = "14. SelectControl pointer popover", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SelectControl pointer popover" }, role = "region", name = "SelectControl pointer popover" }
@@ -427,22 +427,10 @@ accessibility_assert = { target = { role = "region", name = "SelectControl point
 accessibility_assert = { target = { role = "heading", name = "SelectControl pointer popover" }, role = "heading", name = "SelectControl pointer popover" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "15. SelectControl keyboard and controller behavior" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "15. SelectControl keyboard and controller behavior" }, role = "button", name = "15. SelectControl keyboard and controller behavior", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "SelectControl keyboard and controller behavior" }, role = "region", name = "SelectControl keyboard and controller behavior" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "SelectControl keyboard and controller behavior" }, role = "heading", name = "SelectControl keyboard and controller behavior" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "15. SelectControl keyboard and controller behavior" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "15. SelectControl keyboard and controller behavior" }, role = "button", name = "15. SelectControl keyboard and controller behavior", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SelectControl keyboard and controller behavior" }, role = "region", name = "SelectControl keyboard and controller behavior" }
@@ -451,10 +439,22 @@ accessibility_assert = { target = { role = "region", name = "SelectControl keybo
 accessibility_assert = { target = { role = "heading", name = "SelectControl keyboard and controller behavior" }, role = "heading", name = "SelectControl keyboard and controller behavior" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "16. VolumeControl input" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "16. VolumeControl input" }, role = "button", name = "16. VolumeControl input", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "SelectControl keyboard and controller behavior" }, role = "region", name = "SelectControl keyboard and controller behavior" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "SelectControl keyboard and controller behavior" }, role = "heading", name = "SelectControl keyboard and controller behavior" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "VolumeControl input" }, role = "region", name = "VolumeControl input" }
@@ -463,10 +463,10 @@ accessibility_assert = { target = { role = "region", name = "VolumeControl input
 accessibility_assert = { target = { role = "heading", name = "VolumeControl input" }, role = "heading", name = "VolumeControl input" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "16. VolumeControl input" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "16. VolumeControl input" }, role = "button", name = "16. VolumeControl input", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "VolumeControl input" }, role = "region", name = "VolumeControl input" }
@@ -475,22 +475,10 @@ accessibility_assert = { target = { role = "region", name = "VolumeControl input
 accessibility_assert = { target = { role = "heading", name = "VolumeControl input" }, role = "heading", name = "VolumeControl input" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "17. SettingsTabs navigation" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "17. SettingsTabs navigation" }, role = "button", name = "17. SettingsTabs navigation", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "SettingsTabs navigation" }, role = "region", name = "SettingsTabs navigation" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "SettingsTabs navigation" }, role = "heading", name = "SettingsTabs navigation" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "17. SettingsTabs navigation" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "17. SettingsTabs navigation" }, role = "button", name = "17. SettingsTabs navigation", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingsTabs navigation" }, role = "region", name = "SettingsTabs navigation" }
@@ -499,10 +487,22 @@ accessibility_assert = { target = { role = "region", name = "SettingsTabs naviga
 accessibility_assert = { target = { role = "heading", name = "SettingsTabs navigation" }, role = "heading", name = "SettingsTabs navigation" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "18. ArcadeModal behavior" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "18. ArcadeModal behavior" }, role = "button", name = "18. ArcadeModal behavior", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "SettingsTabs navigation" }, role = "region", name = "SettingsTabs navigation" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "SettingsTabs navigation" }, role = "heading", name = "SettingsTabs navigation" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069" }, role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeModal behavior" }, role = "region", name = "ArcadeModal behavior" }
@@ -511,10 +511,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeModal behavio
 accessibility_assert = { target = { role = "heading", name = "ArcadeModal behavior" }, role = "heading", name = "ArcadeModal behavior" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "18. ArcadeModal behavior" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "18. ArcadeModal behavior" }, role = "button", name = "18. ArcadeModal behavior", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069" }, role = "button", name = "\u206818\u2069. \u2068ArcadeModal behavior\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeModal behavior" }, role = "region", name = "ArcadeModal behavior" }
@@ -523,22 +523,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeModal behavio
 accessibility_assert = { target = { role = "heading", name = "ArcadeModal behavior" }, role = "heading", name = "ArcadeModal behavior" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "19. InfoBadge and Privacy Policy" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "19. InfoBadge and Privacy Policy" }, role = "button", name = "19. InfoBadge and Privacy Policy", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "InfoBadge and Privacy Policy" }, role = "region", name = "InfoBadge and Privacy Policy" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "InfoBadge and Privacy Policy" }, role = "heading", name = "InfoBadge and Privacy Policy" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "19. InfoBadge and Privacy Policy" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "19. InfoBadge and Privacy Policy" }, role = "button", name = "19. InfoBadge and Privacy Policy", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "InfoBadge and Privacy Policy" }, role = "region", name = "InfoBadge and Privacy Policy" }
@@ -547,10 +535,22 @@ accessibility_assert = { target = { role = "region", name = "InfoBadge and Priva
 accessibility_assert = { target = { role = "heading", name = "InfoBadge and Privacy Policy" }, role = "heading", name = "InfoBadge and Privacy Policy" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "20. Input settings table" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "20. Input settings table" }, role = "button", name = "20. Input settings table", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "InfoBadge and Privacy Policy" }, role = "region", name = "InfoBadge and Privacy Policy" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "InfoBadge and Privacy Policy" }, role = "heading", name = "InfoBadge and Privacy Policy" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Input settings table" }, role = "region", name = "Input settings table" }
@@ -559,10 +559,10 @@ accessibility_assert = { target = { role = "region", name = "Input settings tabl
 accessibility_assert = { target = { role = "heading", name = "Input settings table" }, role = "heading", name = "Input settings table" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "20. Input settings table" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "20. Input settings table" }, role = "button", name = "20. Input settings table", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Input settings table" }, role = "region", name = "Input settings table" }
@@ -580,22 +580,10 @@ name = "gallery navigation third"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "21. Keyboard rebinding" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "21. Keyboard rebinding" }, role = "button", name = "21. Keyboard rebinding", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "Keyboard rebinding" }, role = "region", name = "Keyboard rebinding" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "Keyboard rebinding" }, role = "heading", name = "Keyboard rebinding" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "21. Keyboard rebinding" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "21. Keyboard rebinding" }, role = "button", name = "21. Keyboard rebinding", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Keyboard rebinding" }, role = "region", name = "Keyboard rebinding" }
@@ -604,10 +592,22 @@ accessibility_assert = { target = { role = "region", name = "Keyboard rebinding"
 accessibility_assert = { target = { role = "heading", name = "Keyboard rebinding" }, role = "heading", name = "Keyboard rebinding" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "22. FontScale" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "22. FontScale" }, role = "button", name = "22. FontScale", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Keyboard rebinding" }, role = "region", name = "Keyboard rebinding" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Keyboard rebinding" }, role = "heading", name = "Keyboard rebinding" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, role = "button", name = "\u206822\u2069. \u2068FontScale\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "FontScale" }, role = "region", name = "FontScale" }
@@ -616,10 +616,10 @@ accessibility_assert = { target = { role = "region", name = "FontScale" }, role 
 accessibility_assert = { target = { role = "heading", name = "FontScale" }, role = "heading", name = "FontScale" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "22. FontScale" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "22. FontScale" }, role = "button", name = "22. FontScale", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, role = "button", name = "\u206822\u2069. \u2068FontScale\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "FontScale" }, role = "region", name = "FontScale" }
@@ -628,22 +628,10 @@ accessibility_assert = { target = { role = "region", name = "FontScale" }, role 
 accessibility_assert = { target = { role = "heading", name = "FontScale" }, role = "heading", name = "FontScale" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "23. Generated control skin" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "23. Generated control skin" }, role = "button", name = "23. Generated control skin", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "Generated control skin" }, role = "region", name = "Generated control skin" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "Generated control skin" }, role = "heading", name = "Generated control skin" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "23. Generated control skin" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "23. Generated control skin" }, role = "button", name = "23. Generated control skin", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069" }, role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Generated control skin" }, role = "region", name = "Generated control skin" }
@@ -652,10 +640,22 @@ accessibility_assert = { target = { role = "region", name = "Generated control s
 accessibility_assert = { target = { role = "heading", name = "Generated control skin" }, role = "heading", name = "Generated control skin" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "24. Input icons and settings panel skin" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "24. Input icons and settings panel skin" }, role = "button", name = "24. Input icons and settings panel skin", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069" }, role = "button", name = "\u206823\u2069. \u2068Generated control skin\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Generated control skin" }, role = "region", name = "Generated control skin" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Generated control skin" }, role = "heading", name = "Generated control skin" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069" }, role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Input icons and settings panel skin" }, role = "region", name = "Input icons and settings panel skin" }
@@ -664,10 +664,10 @@ accessibility_assert = { target = { role = "region", name = "Input icons and set
 accessibility_assert = { target = { role = "heading", name = "Input icons and settings panel skin" }, role = "heading", name = "Input icons and settings panel skin" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "24. Input icons and settings panel skin" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "24. Input icons and settings panel skin" }, role = "button", name = "24. Input icons and settings panel skin", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069" }, role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Input icons and settings panel skin" }, role = "region", name = "Input icons and settings panel skin" }
@@ -676,22 +676,10 @@ accessibility_assert = { target = { role = "region", name = "Input icons and set
 accessibility_assert = { target = { role = "heading", name = "Input icons and settings panel skin" }, role = "heading", name = "Input icons and settings panel skin" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "25. Control shine and release bursts" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "25. Control shine and release bursts" }, role = "button", name = "25. Control shine and release bursts", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "Control shine and release bursts" }, role = "region", name = "Control shine and release bursts" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "Control shine and release bursts" }, role = "heading", name = "Control shine and release bursts" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "25. Control shine and release bursts" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "25. Control shine and release bursts" }, role = "button", name = "25. Control shine and release bursts", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069" }, role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Control shine and release bursts" }, role = "region", name = "Control shine and release bursts" }
@@ -700,10 +688,22 @@ accessibility_assert = { target = { role = "region", name = "Control shine and r
 accessibility_assert = { target = { role = "heading", name = "Control shine and release bursts" }, role = "heading", name = "Control shine and release bursts" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "26. Dropdown animation" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "26. Dropdown animation" }, role = "button", name = "26. Dropdown animation", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069" }, role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Control shine and release bursts" }, role = "region", name = "Control shine and release bursts" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Control shine and release bursts" }, role = "heading", name = "Control shine and release bursts" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069" }, role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Dropdown animation" }, role = "region", name = "Dropdown animation" }
@@ -712,10 +712,10 @@ accessibility_assert = { target = { role = "region", name = "Dropdown animation"
 accessibility_assert = { target = { role = "heading", name = "Dropdown animation" }, role = "heading", name = "Dropdown animation" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "26. Dropdown animation" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "26. Dropdown animation" }, role = "button", name = "26. Dropdown animation", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069" }, role = "button", name = "\u206826\u2069. \u2068Dropdown animation\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Dropdown animation" }, role = "region", name = "Dropdown animation" }
@@ -724,22 +724,10 @@ accessibility_assert = { target = { role = "region", name = "Dropdown animation"
 accessibility_assert = { target = { role = "heading", name = "Dropdown animation" }, role = "heading", name = "Dropdown animation" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "27. ArcadeTabTransition" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "27. ArcadeTabTransition" }, role = "button", name = "27. ArcadeTabTransition", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ArcadeTabTransition" }, role = "region", name = "ArcadeTabTransition" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ArcadeTabTransition" }, role = "heading", name = "ArcadeTabTransition" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "27. ArcadeTabTransition" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "27. ArcadeTabTransition" }, role = "button", name = "27. ArcadeTabTransition", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069" }, role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeTabTransition" }, role = "region", name = "ArcadeTabTransition" }
@@ -748,10 +736,22 @@ accessibility_assert = { target = { role = "region", name = "ArcadeTabTransition
 accessibility_assert = { target = { role = "heading", name = "ArcadeTabTransition" }, role = "heading", name = "ArcadeTabTransition" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "28. ArcadeModal animation" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "28. ArcadeModal animation" }, role = "button", name = "28. ArcadeModal animation", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069" }, role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ArcadeTabTransition" }, role = "region", name = "ArcadeTabTransition" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ArcadeTabTransition" }, role = "heading", name = "ArcadeTabTransition" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069" }, role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeModal animation" }, role = "region", name = "ArcadeModal animation" }
@@ -760,10 +760,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeModal animati
 accessibility_assert = { target = { role = "heading", name = "ArcadeModal animation" }, role = "heading", name = "ArcadeModal animation" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "28. ArcadeModal animation" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "28. ArcadeModal animation" }, role = "button", name = "28. ArcadeModal animation", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069" }, role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeModal animation" }, role = "region", name = "ArcadeModal animation" }
@@ -772,22 +772,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeModal animati
 accessibility_assert = { target = { role = "heading", name = "ArcadeModal animation" }, role = "heading", name = "ArcadeModal animation" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "29. ArcadeAttractMode" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "29. ArcadeAttractMode" }, role = "button", name = "29. ArcadeAttractMode", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ArcadeAttractMode" }, role = "region", name = "ArcadeAttractMode" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ArcadeAttractMode" }, role = "heading", name = "ArcadeAttractMode" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "29. ArcadeAttractMode" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "29. ArcadeAttractMode" }, role = "button", name = "29. ArcadeAttractMode", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069" }, role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeAttractMode" }, role = "region", name = "ArcadeAttractMode" }
@@ -796,10 +784,22 @@ accessibility_assert = { target = { role = "region", name = "ArcadeAttractMode" 
 accessibility_assert = { target = { role = "heading", name = "ArcadeAttractMode" }, role = "heading", name = "ArcadeAttractMode" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "30. ArcadeFramePulse" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "30. ArcadeFramePulse" }, role = "button", name = "30. ArcadeFramePulse", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069" }, role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ArcadeAttractMode" }, role = "region", name = "ArcadeAttractMode" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ArcadeAttractMode" }, role = "heading", name = "ArcadeAttractMode" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069" }, role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeFramePulse" }, role = "region", name = "ArcadeFramePulse" }
@@ -808,10 +808,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeFramePulse" }
 accessibility_assert = { target = { role = "heading", name = "ArcadeFramePulse" }, role = "heading", name = "ArcadeFramePulse" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "30. ArcadeFramePulse" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "30. ArcadeFramePulse" }, role = "button", name = "30. ArcadeFramePulse", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069" }, role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeFramePulse" }, role = "region", name = "ArcadeFramePulse" }
@@ -829,22 +829,10 @@ name = "gallery navigation fourth"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "31. BackgroundMusicProvider" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "31. BackgroundMusicProvider" }, role = "button", name = "31. BackgroundMusicProvider", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "BackgroundMusicProvider" }, role = "region", name = "BackgroundMusicProvider" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "BackgroundMusicProvider" }, role = "heading", name = "BackgroundMusicProvider" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "31. BackgroundMusicProvider" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "31. BackgroundMusicProvider" }, role = "button", name = "31. BackgroundMusicProvider", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069" }, role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "BackgroundMusicProvider" }, role = "region", name = "BackgroundMusicProvider" }
@@ -853,10 +841,22 @@ accessibility_assert = { target = { role = "region", name = "BackgroundMusicProv
 accessibility_assert = { target = { role = "heading", name = "BackgroundMusicProvider" }, role = "heading", name = "BackgroundMusicProvider" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "32. Music indicator and heartbeat" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "32. Music indicator and heartbeat" }, role = "button", name = "32. Music indicator and heartbeat", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069" }, role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "BackgroundMusicProvider" }, role = "region", name = "BackgroundMusicProvider" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "BackgroundMusicProvider" }, role = "heading", name = "BackgroundMusicProvider" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069" }, role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Music indicator and heartbeat" }, role = "region", name = "Music indicator and heartbeat" }
@@ -865,10 +865,10 @@ accessibility_assert = { target = { role = "region", name = "Music indicator and
 accessibility_assert = { target = { role = "heading", name = "Music indicator and heartbeat" }, role = "heading", name = "Music indicator and heartbeat" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "32. Music indicator and heartbeat" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "32. Music indicator and heartbeat" }, role = "button", name = "32. Music indicator and heartbeat", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069" }, role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Music indicator and heartbeat" }, role = "region", name = "Music indicator and heartbeat" }
@@ -877,22 +877,10 @@ accessibility_assert = { target = { role = "region", name = "Music indicator and
 accessibility_assert = { target = { role = "heading", name = "Music indicator and heartbeat" }, role = "heading", name = "Music indicator and heartbeat" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "33. ArcadeMenuTransition" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "33. ArcadeMenuTransition" }, role = "button", name = "33. ArcadeMenuTransition", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "ArcadeMenuTransition" }, role = "region", name = "ArcadeMenuTransition" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "ArcadeMenuTransition" }, role = "heading", name = "ArcadeMenuTransition" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "33. ArcadeMenuTransition" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "33. ArcadeMenuTransition" }, role = "button", name = "33. ArcadeMenuTransition", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069" }, role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeMenuTransition" }, role = "region", name = "ArcadeMenuTransition" }
@@ -901,10 +889,22 @@ accessibility_assert = { target = { role = "region", name = "ArcadeMenuTransitio
 accessibility_assert = { target = { role = "heading", name = "ArcadeMenuTransition" }, role = "heading", name = "ArcadeMenuTransition" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "34. ArcadeExitSequence" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "34. ArcadeExitSequence" }, role = "button", name = "34. ArcadeExitSequence", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069" }, role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "ArcadeMenuTransition" }, role = "region", name = "ArcadeMenuTransition" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "ArcadeMenuTransition" }, role = "heading", name = "ArcadeMenuTransition" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069" }, role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeExitSequence" }, role = "region", name = "ArcadeExitSequence" }
@@ -913,10 +913,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeExitSequence"
 accessibility_assert = { target = { role = "heading", name = "ArcadeExitSequence" }, role = "heading", name = "ArcadeExitSequence" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "34. ArcadeExitSequence" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "34. ArcadeExitSequence" }, role = "button", name = "34. ArcadeExitSequence", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069" }, role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeExitSequence" }, role = "region", name = "ArcadeExitSequence" }
@@ -925,22 +925,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeExitSequence"
 accessibility_assert = { target = { role = "heading", name = "ArcadeExitSequence" }, role = "heading", name = "ArcadeExitSequence" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "35. Gameplay and Graphics settings" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "35. Gameplay and Graphics settings" }, role = "button", name = "35. Gameplay and Graphics settings", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "Gameplay and Graphics settings" }, role = "region", name = "Gameplay and Graphics settings" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "Gameplay and Graphics settings" }, role = "heading", name = "Gameplay and Graphics settings" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "35. Gameplay and Graphics settings" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "35. Gameplay and Graphics settings" }, role = "button", name = "35. Gameplay and Graphics settings", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069" }, role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "Gameplay and Graphics settings" }, role = "region", name = "Gameplay and Graphics settings" }
@@ -949,10 +937,22 @@ accessibility_assert = { target = { role = "region", name = "Gameplay and Graphi
 accessibility_assert = { target = { role = "heading", name = "Gameplay and Graphics settings" }, role = "heading", name = "Gameplay and Graphics settings" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "36. SoundSettings" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "36. SoundSettings" }, role = "button", name = "36. SoundSettings", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069" }, role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Gameplay and Graphics settings" }, role = "region", name = "Gameplay and Graphics settings" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Gameplay and Graphics settings" }, role = "heading", name = "Gameplay and Graphics settings" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069" }, role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SoundSettings" }, role = "region", name = "SoundSettings" }
@@ -961,10 +961,10 @@ accessibility_assert = { target = { role = "region", name = "SoundSettings" }, r
 accessibility_assert = { target = { role = "heading", name = "SoundSettings" }, role = "heading", name = "SoundSettings" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "36. SoundSettings" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "36. SoundSettings" }, role = "button", name = "36. SoundSettings", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069" }, role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SoundSettings" }, role = "region", name = "SoundSettings" }
@@ -973,22 +973,10 @@ accessibility_assert = { target = { role = "region", name = "SoundSettings" }, r
 accessibility_assert = { target = { role = "heading", name = "SoundSettings" }, role = "heading", name = "SoundSettings" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "37. InputSettings composition" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "37. InputSettings composition" }, role = "button", name = "37. InputSettings composition", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "InputSettings composition" }, role = "region", name = "InputSettings composition" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "InputSettings composition" }, role = "heading", name = "InputSettings composition" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "37. InputSettings composition" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "37. InputSettings composition" }, role = "button", name = "37. InputSettings composition", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069" }, role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "InputSettings composition" }, role = "region", name = "InputSettings composition" }
@@ -997,10 +985,22 @@ accessibility_assert = { target = { role = "region", name = "InputSettings compo
 accessibility_assert = { target = { role = "heading", name = "InputSettings composition" }, role = "heading", name = "InputSettings composition" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "38. SettingsScreen" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "38. SettingsScreen" }, role = "button", name = "38. SettingsScreen", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069" }, role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "InputSettings composition" }, role = "region", name = "InputSettings composition" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "InputSettings composition" }, role = "heading", name = "InputSettings composition" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069" }, role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingsScreen" }, role = "region", name = "SettingsScreen" }
@@ -1009,10 +1009,10 @@ accessibility_assert = { target = { role = "region", name = "SettingsScreen" }, 
 accessibility_assert = { target = { role = "heading", name = "SettingsScreen" }, role = "heading", name = "SettingsScreen" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "38. SettingsScreen" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "38. SettingsScreen" }, role = "button", name = "38. SettingsScreen", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069" }, role = "button", name = "\u206838\u2069. \u2068SettingsScreen\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "SettingsScreen" }, role = "region", name = "SettingsScreen" }
@@ -1021,22 +1021,10 @@ accessibility_assert = { target = { role = "region", name = "SettingsScreen" }, 
 accessibility_assert = { target = { role = "heading", name = "SettingsScreen" }, role = "heading", name = "SettingsScreen" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "39. MainMenu" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "39. MainMenu" }, role = "button", name = "39. MainMenu", current_page = true }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "region", name = "MainMenu" }, role = "region", name = "MainMenu" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "heading", name = "MainMenu" }, role = "heading", name = "MainMenu" }
-
-[[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "39. MainMenu" }, action = "activate" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "39. MainMenu" }, role = "button", name = "39. MainMenu", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069" }, role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "MainMenu" }, role = "region", name = "MainMenu" }
@@ -1045,10 +1033,22 @@ accessibility_assert = { target = { role = "region", name = "MainMenu" }, role =
 accessibility_assert = { target = { role = "heading", name = "MainMenu" }, role = "heading", name = "MainMenu" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "40. ArcadeScreenRouter" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "40. ArcadeScreenRouter" }, role = "button", name = "40. ArcadeScreenRouter", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069" }, role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069", current_page = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "MainMenu" }, role = "region", name = "MainMenu" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "MainMenu" }, role = "heading", name = "MainMenu" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069" }, role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeScreenRouter" }, role = "region", name = "ArcadeScreenRouter" }
@@ -1057,10 +1057,10 @@ accessibility_assert = { target = { role = "region", name = "ArcadeScreenRouter"
 accessibility_assert = { target = { role = "heading", name = "ArcadeScreenRouter" }, role = "heading", name = "ArcadeScreenRouter" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "40. ArcadeScreenRouter" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "button", name = "40. ArcadeScreenRouter" }, role = "button", name = "40. ArcadeScreenRouter", current_page = true }
+accessibility_assert = { target = { role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069" }, role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069", current_page = true }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "region", name = "ArcadeScreenRouter" }, role = "region", name = "ArcadeScreenRouter" }
@@ -1078,7 +1078,7 @@ name = "portrait viewport"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "2. PortraitViewport" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20682\u2069. \u2068PortraitViewport\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "PortraitViewport" }, role = "heading", name = "PortraitViewport" }
@@ -1090,7 +1090,7 @@ accessibility_assert = { target = { role = "region", name = "Main content" }, ro
 accessibility_assert = { target = { role = "static-text", name = "Portrait canvas, 1024 by 1536 logical pixels" }, role = "static-text", name = "Portrait canvas, 1024 by 1536 logical pixels", parent = { role = "region", name = "Main content" } }
 
 [[scenarios.steps]]
-screenshot = { name = "static" }
+screenshot = { name = "static", max_changed_percent = 0.28 }
 
 [[scenarios]]
 name = "screen frame"
@@ -1099,7 +1099,7 @@ name = "screen frame"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "3. ScreenFrame and ConceptFrame" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20683\u2069. \u2068ScreenFrame and ConceptFrame\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "ScreenFrame and ConceptFrame" }, role = "heading", name = "ScreenFrame and ConceptFrame" }
@@ -1108,7 +1108,7 @@ accessibility_assert = { target = { role = "heading", name = "ScreenFrame and Co
 accessibility_assert = { target = { role = "static-text", name = "Arcade frame content" }, role = "static-text", name = "Arcade frame content", parent = { role = "region", name = "Main content" } }
 
 [[scenarios.steps]]
-screenshot = { name = "static" }
+screenshot = { name = "static", max_changed_percent = 0.31 }
 
 [[scenarios]]
 name = "setting row"
@@ -1117,7 +1117,7 @@ name = "setting row"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "4. SettingRow" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20684\u2069. \u2068SettingRow\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "SettingRow" }, role = "heading", name = "SettingRow" }
@@ -1147,7 +1147,7 @@ name = "toggle control"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
@@ -1156,7 +1156,7 @@ accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = 
 accessibility_assert = { target = { role = "checkbox", name = "Screen shake" }, role = "checkbox", name = "Screen shake", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
 
 [[scenarios.steps]]
-screenshot = { name = "initial" }
+screenshot = { name = "initial", max_changed_percent = 0.34 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "checkbox", name = "VSync" }, action = "activate" }
@@ -1165,10 +1165,10 @@ accessibility_action = { target = { role = "checkbox", name = "VSync" }, action 
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "VSync changes: 1" }, role = "static-text", name = "VSync changes: 1" }
+accessibility_assert = { target = { role = "static-text", name = "VSync changes: \u20681\u2069" }, role = "static-text", name = "VSync changes: \u20681\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+screenshot = { name = "changed", max_changed_percent = 0.34 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Change VSync from parent" }, action = "activate" }
@@ -1177,7 +1177,7 @@ accessibility_action = { target = { role = "button", name = "Change VSync from p
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "5. ToggleControl layout and state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20685\u2069. \u2068ToggleControl layout and state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "ToggleControl layout and state" } }
@@ -1186,10 +1186,10 @@ accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = 
 accessibility_assert = { target = { role = "checkbox", name = "Screen shake" }, role = "checkbox", name = "Screen shake", checked = true, parent = { role = "region", name = "ToggleControl layout and state" } }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "VSync changes: 0" }, role = "static-text", name = "VSync changes: 0" }
+accessibility_assert = { target = { role = "static-text", name = "VSync changes: \u20680\u2069" }, role = "static-text", name = "VSync changes: \u20680\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "reset" }
+screenshot = { name = "reset", max_changed_percent = 0.34 }
 
 [[scenarios]]
 name = "select closed"
@@ -1198,7 +1198,7 @@ name = "select closed"
 accessibility_assert = { target = { role = "navigation", name = "Chess UI review pages" }, role = "navigation", name = "Chess UI review pages" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Resolution 1920 × 1080" }, role = "button", name = "Resolution 1920 × 1080", parent = { role = "region", name = "SelectControl closed state" } }
@@ -1210,7 +1210,7 @@ accessibility_assert = { target = { role = "button", name = "Display Mode Border
 accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
 
 [[scenarios.steps]]
-screenshot = { name = "initial" }
+screenshot = { name = "initial", max_changed_percent = 0.17 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Change resolution from parent" }, action = "activate" }
@@ -1222,10 +1222,10 @@ accessibility_assert = { target = { role = "button", name = "Resolution 2560 × 
 accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+screenshot = { name = "changed", max_changed_percent = 0.17 }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "6. SelectControl closed state" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20686\u2069. \u2068SelectControl closed state\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "Resolution 1920 × 1080" }, role = "button", name = "Resolution 1920 × 1080", parent = { role = "region", name = "SelectControl closed state" } }
@@ -1237,13 +1237,13 @@ accessibility_assert = { target = { role = "button", name = "Display Mode Border
 accessibility_assert = { target = { role = "static-text", name = "Selection changes: 0" }, role = "static-text", name = "Selection changes: 0" }
 
 [[scenarios.steps]]
-screenshot = { name = "reset" }
+screenshot = { name = "reset", max_changed_percent = 0.17 }
 
 [[scenarios]]
 name = "volume layout"
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "7. VolumeControl layout" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume", parent = { role = "region", name = "VolumeControl layout" } }
@@ -1255,7 +1255,7 @@ accessibility_assert = { target = { role = "slider", name = "Minimum" }, role = 
 accessibility_assert = { target = { role = "slider", name = "Maximum" }, role = "slider", name = "Maximum", parent = { role = "region", name = "VolumeControl layout" } }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Volume changes: 0" }, role = "static-text", name = "Volume changes: 0" }
+accessibility_assert = { target = { role = "static-text", name = "Volume changes: \u20680\u2069" }, role = "static-text", name = "Volume changes: \u20680\u2069" }
 
 [[scenarios.steps]]
 screenshot = { name = "initial" }
@@ -1264,19 +1264,19 @@ screenshot = { name = "initial" }
 accessibility_action = { target = { role = "slider", name = "Master Volume" }, action = "increment" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Volume changes: 1" }, role = "static-text", name = "Volume changes: 1" }
+accessibility_assert = { target = { role = "static-text", name = "Volume changes: \u20681\u2069" }, role = "static-text", name = "Volume changes: \u20681\u2069" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Change volume from parent" }, action = "activate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Volume changes: 1" }, role = "static-text", name = "Volume changes: 1" }
+accessibility_assert = { target = { role = "static-text", name = "Volume changes: \u20681\u2069" }, role = "static-text", name = "Volume changes: \u20681\u2069" }
 
 [[scenarios.steps]]
 screenshot = { name = "changed" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "7. VolumeControl layout" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume", parent = { role = "region", name = "VolumeControl layout" } }
@@ -1288,7 +1288,7 @@ accessibility_assert = { target = { role = "slider", name = "Minimum" }, role = 
 accessibility_assert = { target = { role = "slider", name = "Maximum" }, role = "slider", name = "Maximum", parent = { role = "region", name = "VolumeControl layout" } }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Volume changes: 0" }, role = "static-text", name = "Volume changes: 0" }
+accessibility_assert = { target = { role = "static-text", name = "Volume changes: \u20680\u2069" }, role = "static-text", name = "Volume changes: \u20680\u2069" }
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }
@@ -1297,7 +1297,7 @@ screenshot = { name = "reset" }
 name = "action buttons"
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY", disabled = false, parent = { role = "region", name = "ActionButton" } }
@@ -1345,7 +1345,7 @@ accessibility_assert = { target = { role = "static-text", name = "Return clicks:
 screenshot = { name = "changed" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "8. ActionButton" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "Action clicks: 0" }, role = "static-text", name = "Action clicks: 0" }

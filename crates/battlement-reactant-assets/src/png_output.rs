@@ -69,7 +69,9 @@ pub(crate) fn normalize(asset: &CatalogAsset, captured: &[u8]) -> Result<Rendere
   let pixels = match output.color_type {
     png::ColorType::Rgba => pixels,
     png::ColorType::Rgb => pixels
-      .chunks_exact(3)
+      .as_chunks::<3>()
+      .0
+      .iter()
       .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
       .collect(),
     _ => bail!(
@@ -113,7 +115,7 @@ fn alpha_bounds(pixels: &[u8], width: u32, height: u32) -> Option<AlphaBounds> {
     bottom: 0,
   };
   let mut found = false;
-  for (index, pixel) in pixels.chunks_exact(4).enumerate() {
+  for (index, pixel) in pixels.as_chunks::<4>().0.iter().enumerate() {
     if pixel[3] == 0 {
       continue;
     }
@@ -164,7 +166,9 @@ fn warnings(
     warnings.push("large-raster-allocation");
   }
   let translucent = pixels
-    .chunks_exact(4)
+    .as_chunks::<4>()
+    .0
+    .iter()
     .any(|pixel| !matches!(pixel[3], 0 | u8::MAX));
   if translucent && asset.request.metadata.compression != Compression::Lossless {
     warnings.push("lossy-translucent-compression");

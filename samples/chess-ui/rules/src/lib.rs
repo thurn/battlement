@@ -16,13 +16,20 @@
 //! focus and reveal hooks own effects. Explicit element refs remain reserved for
 //! the navigation scroll container.
 //!
-//! ```
+//! ```no_run
 //! use battlement_reactant::{accessibility, app::App};
 //! use battlement_rules::{pages, toggle_control::ToggleControl};
+//! use trox::{Bundle, tx};
+//! # fn source_bundle() -> Bundle { unimplemented!() }
 //!
-//! let app = App::new("chess-ui/content").ui(pages::gallery());
+//! let app = App::new("chess-ui/content")
+//!   .source_bundle(source_bundle())
+//!   .ui(pages::gallery());
 //! let toggle = ToggleControl::new()
-//!   .label(accessibility::name_source_text("VSync"))
+//!   .label(accessibility::name_source_text(tx(
+//!     "VSync",
+//!     "Visible label for the VSync setting.",
+//!   )))
 //!   .checked(false)
 //!   .on_change(|checked| {
 //!     // Store the accepted value in parent state and render it again.

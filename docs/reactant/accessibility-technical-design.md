@@ -291,15 +291,15 @@ Unity never receives semantic relationship IDs.
 
 ~~~rust
 pub enum AccessibleName {
-    Text(LocalizedText),
+    Text(LocalizedString),
     LabelledBy(ElementRef),
     Contents,
 }
 ~~~
 
 AccessibleDescription supports explicit text or one DescribedBy ElementRef.
-LocalizedText contains already-resolved application text. Reactant does not send
-localization keys to Unity or ask Unity to translate application content.
+LocalizedString remains unresolved until Reactant builds the semantic snapshot.
+Reactant sends only resolved application text to Unity.
 
 Label and description references are limited:
 
@@ -363,7 +363,7 @@ rendering.
 
 ~~~rust
 let button = use_button(ButtonOptions {
-    name: text("Save changes"),
+    name: trox::tx("Save changes", "Accessible name for the save button."),
     description: None,
     is_disabled: saving,
     on_press: callback(|app: &mut App| app.save()),
@@ -434,7 +434,7 @@ display text, and increment and decrement actions.
 
 ~~~rust
 let slider = use_slider(SliderOptions {
-    name: text("Music volume"),
+    name: trox::tx("Music volume", "Accessible name for the volume slider."),
     value: volume,
     range: 0.0..=100.0,
     step: 5.0,
@@ -461,8 +461,8 @@ properties, and activation. `use_tab_panel` returns the panel's semantics and
 visibility state.
 
 ~~~rust
-let tabs = use_tabs(text("Settings"));
-let tab = use_tab(&tabs, text("Audio"), selected, select_audio);
+let tabs = use_tabs(trox::tx("Settings", "Accessible name for the settings tabs."));
+let tab = use_tab(&tabs, trox::tx("Audio", "Accessible name for the audio tab."), selected, select_audio);
 let panel = use_tab_panel(&tabs, selected);
 ~~~
 
@@ -494,7 +494,7 @@ modal overlay wrapper.
 
 ~~~rust
 let dialog = use_dialog(DialogOptions {
-    name: text("Settings"),
+    name: trox::tx("Settings", "Accessible name for the settings dialog."),
     on_dismiss: Some(close_settings),
 });
 
@@ -551,7 +551,7 @@ the current successful commit.
 
 ~~~rust
 let announce = use_announce();
-announce.send(text("Changes saved"));
+announce.send(trox::tx("Changes saved", "Announcement after saving succeeds."));
 ~~~
 
 Unity calls SendAnnouncement once after the commit is admitted. Announcements:

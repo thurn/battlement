@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   panic::{self, AssertUnwindSafe},
@@ -42,7 +44,11 @@ impl Component for ReadyEffect {
       },
       (),
     );
-    battlement_reactant::host::Label::new(if ready { "ready" } else { "waiting" })
+    battlement_reactant::host::Label::new(trox::assert_localized(if ready {
+      "ready"
+    } else {
+      "waiting"
+    }))
   }
 }
 
@@ -56,7 +62,7 @@ impl Component for FrequencyEffects {
     use_effect(move || mount_log.borrow_mut().push("mount-only"), ());
     let always_log = Rc::clone(&self.log);
     use_effect_always(move || always_log.borrow_mut().push("always"));
-    battlement_reactant::host::Label::new("frequency")
+    battlement_reactant::host::Label::new(trox::assert_localized("frequency"))
   }
 }
 
@@ -94,7 +100,7 @@ impl Component for OrderedParent {
         dependency,
         log: Rc::clone(&self.log),
       }),
-      battlement_reactant::host::Label::new("parent"),
+      battlement_reactant::host::Label::new(trox::assert_localized("parent")),
     )
   }
 }
@@ -117,7 +123,7 @@ impl Component for OrderedChild {
       },
       dependency,
     );
-    battlement_reactant::host::Label::new("child")
+    battlement_reactant::host::Label::new(trox::assert_localized("child"))
   }
 }
 
@@ -129,13 +135,8 @@ struct RetriedEffect {
 
 impl Component for PanicEffect {
   fn render(&self) -> impl Render {
-    use_effect(
-      || -> () {
-        panic!("effect failed");
-      },
-      (),
-    );
-    battlement_reactant::host::Label::new("committed")
+    use_effect(self::panic_effect, ());
+    battlement_reactant::host::Label::new(trox::assert_localized("committed"))
   }
 }
 
@@ -147,7 +148,7 @@ impl Component for RetriedEffect {
     }
     let setups = Rc::clone(&self.setups);
     use_effect(move || setups.set(setups.get() + 1), ());
-    battlement_reactant::host::Label::new("retried")
+    battlement_reactant::host::Label::new(trox::assert_localized("retried"))
   }
 }
 
@@ -163,7 +164,7 @@ fn effect_state_joins_the_next_render_after_the_host_commit() {
   let document = self::document();
   let host_committed = Rc::new(Cell::new(false));
   let observed_commit = Rc::new(Cell::new(false));
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_host_committed = Rc::clone(&host_committed);
   let view_observed_commit = Rc::clone(&observed_commit);
   reactant.register_root(document.clone(), move |_: &()| ReadyEffect {
@@ -196,7 +197,7 @@ fn unit_dependencies_mount_once_while_always_runs_after_each_commit() {
   let document = self::document();
   let log = Rc::new(RefCell::new(Vec::new()));
   let view_log = Rc::clone(&log);
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_: &()| FrequencyEffects {
     log: Rc::clone(&view_log),
   });
@@ -222,7 +223,7 @@ fn replacements_and_unmounts_clean_up_children_before_parents() {
     show_parent: true,
     ..OrderGame::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |game: &OrderGame| {
     game.show_parent.then(|| OrderedParent {
       dependency: game.dependency,
@@ -279,7 +280,7 @@ fn reconnect_defers_effects_and_shutdown_flushes_replacement_and_final_cleanup()
     show_parent: true,
     ..OrderGame::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |game: &OrderGame| OrderedParent {
     dependency: game.dependency,
     show_child: false,
@@ -311,7 +312,7 @@ fn reconnect_defers_effects_and_shutdown_flushes_replacement_and_final_cleanup()
 #[test]
 fn effect_panics_poison_before_the_next_host_commit() {
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &()| PanicEffect);
   let initial = self::begin(&mut reactant, &mut (), &document);
   let label = initial.ui[0].children[0].object_id;
@@ -331,7 +332,7 @@ fn a_mount_effect_survives_a_render_phase_retry() {
   let document = self::document();
   let setups = Rc::new(Cell::new(0));
   let view_setups = Rc::clone(&setups);
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_: &()| RetriedEffect {
     setups: Rc::clone(&view_setups),
   });
@@ -391,4 +392,8 @@ fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
     || payload.downcast_ref::<String>().cloned().unwrap(),
     |message| (*message).to_owned(),
   )
+}
+
+fn panic_effect() {
+  panic!("effect failed");
 }

@@ -16,7 +16,11 @@ use std::rc::Rc;
 ///
 /// ```
 /// use battlement_reactant::{scale_to_fit::ScaleToFit, host::Label};
-/// let canvas = ScaleToFit::new(1024.0, 1536.0).child(Label::new("Portrait"));
+/// use trox::tx;
+/// let canvas = ScaleToFit::new(1024.0, 1536.0).child(Label::new(tx(
+///   "Portrait",
+///   "Portrait canvas label in the scale-to-fit example.",
+/// )));
 /// ```
 pub struct ScaleToFit<R = ()> {
   width: f32,

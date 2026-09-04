@@ -1,3 +1,5 @@
+use trox::assert_localized;
+
 use crate::{action_button::ActionButton, return_button::ReturnButton};
 use battlement::{Color, FlexDirection, Position, Style};
 use battlement_reactant::prelude::builder;
@@ -74,7 +76,7 @@ fn slot(button: ActionButton) -> impl Render {
 }
 
 fn status(value: String) -> impl Render {
-  accessibility::static_label(value).style(
+  accessibility::static_label(assert_localized(value)).style(
     Style::new()
       .font_size(28)
       .color(Color::rgb(0.75, 0.86, 0.97))
@@ -83,5 +85,5 @@ fn status(value: String) -> impl Render {
 }
 
 fn text(value: &str) -> TextElement {
-  accessibility::name_source_text(value)
+  accessibility::name_source_text(assert_localized(value))
 }

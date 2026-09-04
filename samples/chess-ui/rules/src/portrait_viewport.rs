@@ -1,8 +1,10 @@
 //! The arcade design canvas and its parent-relative fitting policy.
 
+use trox::tx;
+
 use battlement::{Align, Color, Justify, LengthUnits, Overflow};
+use battlement_reactant::accessibility_collections;
 use battlement_reactant::prelude::{Child, builder};
-use battlement_reactant::{accessibility_collections, semantics};
 use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
 
 /// Logical width of the portrait canvas before viewport scaling.
@@ -27,8 +29,9 @@ impl Component for PortraitViewport {
       .viewport(|view| {
         view
           .name("portrait-viewport")
-          .semantic(accessibility_collections::use_region(semantics::text(
+          .semantic(accessibility_collections::use_region(tx(
             "Main content",
+            "User-facing product copy in the Chess UI sample.",
           )))
       })
       .viewport_style(|style| style.width(100.pct()).background_color(Color::BLACK))

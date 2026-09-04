@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PreparedAsset, Scene, SceneId,
   SessionId, Snapshot, UiDocument, UiDocumentState, application::ApplicationState,
@@ -8,8 +10,6 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::Label,
   render::Render,
-  runtime::Reactant,
-  semantics,
 };
 
 struct IdleSpawner;
@@ -31,14 +31,16 @@ impl Component for ActivityLabel {
       "inactive"
     };
     let label = format!("{} {activity}", self.0);
-    Label::new(label.clone()).semantic(accessibility::use_static_text(semantics::text(label)))
+    Label::new(trox::assert_localized(label.clone())).semantic(accessibility::use_static_text(
+      trox::assert_localized(label),
+    ))
   }
 }
 
 #[test]
 fn lifecycle_context_updates_memoized_consumers_and_preserves_preview_overrides() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |state: &ApplicationState| {
     application::provider(*state).child((
       component::memo(ActivityLabel("host")),

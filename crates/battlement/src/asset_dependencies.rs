@@ -174,10 +174,10 @@ impl AssetDependencies {
         BackgroundSource::RenderTexture(value) => PreparedAsset::RenderTexture(value.clone()),
       });
     }
-    if let Prop::Set(StyleValue::Value(value)) = &style.cursor {
-      if let Some(address) = value.texture_address() {
-        self.insert(PreparedAsset::Texture(address.clone()));
-      }
+    if let Prop::Set(StyleValue::Value(value)) = &style.cursor
+      && let Some(address) = value.texture_address()
+    {
+      self.insert(PreparedAsset::Texture(address.clone()));
     }
     if let Prop::Set(StyleValue::Value(value)) = &style.unity_font_definition {
       self.insert(PreparedAsset::UiFont(value.clone()));

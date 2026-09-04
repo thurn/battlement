@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{cell::RefCell, panic, rc::Rc};
 
 use battlement::{
@@ -73,11 +75,11 @@ impl Component for RetainedCard {
           .on_complete(|game: &mut Game| game.slot_completed += 1)
           .on_cancel(|game: &mut Game| game.slot_cancelled += 1),
       )
-      .child(Label::new(format!(
+      .child(Label::new(trox::assert_localized(format!(
         "{}:{value}:{}",
         self.label,
         if present { "present" } else { "exiting" }
-      )))
+      ))))
   }
 }
 
@@ -172,7 +174,7 @@ fn manual_hold_reconnect_and_rapid_reopen_preserve_one_mount() {
 #[test]
 fn exit_without_automatic_tracks_completes_on_the_next_boundary() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |game: &Game| {
     AnimatePresence::new()
       .on_exit_complete(|game: &mut Game| game.completed += 1)
@@ -259,7 +261,7 @@ impl Fixture {
     let lifecycle = Rc::new(RefCell::new(Vec::new()));
     let presence = Rc::new(RefCell::new(None));
     let setter = Rc::new(RefCell::new(None));
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     let view_lifecycle = Rc::clone(&lifecycle);
     let view_presence = Rc::clone(&presence);
     let view_setter = Rc::clone(&setter);

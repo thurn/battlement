@@ -78,7 +78,7 @@ pub struct Example<R> {
 impl<R: Render> Component for Example<R> {
   fn render(&self) -> impl Render {
     let on_press = Rc::clone(&self.on_press);
-    Button::new("")
+    Button::new(trox::tx("", "User-facing copy in this example."))
       .on_click(move || on_press())
       .style(Style::new().height(self.height))
       .child(self.content.clone())

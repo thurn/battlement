@@ -26,17 +26,16 @@ impl Conversion {
     let optional = inner.is_some();
     if let Some(Type::TraitObject(object)) =
       self::argument(target, &["Rc", "std::rc::Rc", "alloc::rc::Rc"])
+      && object.bounds.iter().any(self::is_fn)
     {
-      if object.bounds.iter().any(self::is_fn) {
-        let mut bounds: Vec<_> = object.bounds.into_iter().collect();
-        if !bounds
-          .iter()
-          .any(|bound| matches!(bound, TypeParamBound::Lifetime(_)))
-        {
-          bounds.push(syn::parse_quote!('static));
-        }
-        return Self::Callback { bounds, optional };
+      let mut bounds: Vec<_> = object.bounds.into_iter().collect();
+      if !bounds
+        .iter()
+        .any(|bound| matches!(bound, TypeParamBound::Lifetime(_)))
+      {
+        bounds.push(syn::parse_quote!('static));
       }
+      return Self::Callback { bounds, optional };
     }
     if let Some(payload) = self::argument(
       target,

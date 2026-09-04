@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   panic::{self, AssertUnwindSafe},
@@ -65,12 +67,14 @@ impl Component for Counter {
     );
     self.dispatch.replace(Some(dispatch.clone()));
     (
-      battlement_reactant::host::Button::new("Reduce").on_click(move |_game: &mut Game| {
-        dispatch.send(CountAction::Add);
-        dispatch.send(CountAction::Set(10));
-        dispatch.send(CountAction::Add);
-      }),
-      battlement_reactant::host::Label::new(format!("Count {count}")),
+      battlement_reactant::host::Button::new(trox::assert_localized("Reduce")).on_click(
+        move |_game: &mut Game| {
+          dispatch.send(CountAction::Add);
+          dispatch.send(CountAction::Set(10));
+          dispatch.send(CountAction::Add);
+        },
+      ),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!("Count {count}"))),
     )
   }
 }
@@ -85,7 +89,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, dispatch) = hooks::use_reducer(|state, action| state + action, 0_u8);
     self.dispatches.borrow_mut()[usize::from(self.id)] = Some(dispatch);
-    battlement_reactant::host::Label::new(format!("{}:{count}", self.id))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("{}:{count}", self.id)))
   }
 }
 
@@ -108,7 +112,7 @@ impl Component for FailingReducer {
       0,
     );
     self.dispatch.replace(Some(dispatch));
-    battlement_reactant::host::Label::new(value.to_string())
+    battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
   }
 }
 
@@ -122,7 +126,7 @@ impl Component for HookingReducer {
       0_u8,
     );
     self.dispatch.replace(Some(dispatch));
-    battlement_reactant::host::Label::new(value.to_string())
+    battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
   }
 }
 
@@ -134,7 +138,7 @@ impl Component for RenderPhaseReducer {
     if value < 3 {
       dispatch.send(());
     }
-    battlement_reactant::host::Label::new(format!("Reduced {value}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("Reduced {value}")))
   }
 }
 
@@ -150,7 +154,7 @@ impl Component for VariableKind {
     } else {
       let _ = hooks::use_state(0_u8);
     }
-    battlement_reactant::host::Label::new("stable")
+    battlement_reactant::host::Label::new(trox::assert_localized("stable"))
   }
 }
 
@@ -164,7 +168,7 @@ fn clicks_batch_ordered_actions_and_the_current_render_supplies_the_reducer() {
     step: 1,
     ..Game::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_dispatch = Rc::clone(&dispatch);
   let view_initializations = Rc::clone(&initializations);
   let view_renders = Rc::clone(&renders);
@@ -211,7 +215,7 @@ fn keyed_reorder_preserves_reducer_state_and_changed_identity_resets_it() {
     order: vec![1, 2],
     ..Game::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_dispatches = Rc::clone(&dispatches);
   reactant.register_root(document.clone(), move |game: &Game| {
     game
@@ -252,7 +256,7 @@ fn keyed_reorder_preserves_reducer_state_and_changed_identity_resets_it() {
 fn render_phase_actions_retry_and_reducer_failure_and_kind_changes_poison() {
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| RenderPhaseReducer);
   let initial = self::begin(&mut reactant, &mut game, &document);
   let mut world = UiWorld::default();
@@ -261,7 +265,7 @@ fn render_phase_actions_retry_and_reducer_failure_and_kind_changes_poison() {
 
   let dispatch = Rc::new(RefCell::new(None));
   let failing_document = self::document();
-  let mut failing = Reactant::new(IdleSpawner);
+  let mut failing = runtime_support::reactant(IdleSpawner);
   let view_dispatch = Rc::clone(&dispatch);
   failing.register_root(failing_document.clone(), move |_| FailingReducer {
     dispatch: Rc::clone(&view_dispatch),
@@ -276,7 +280,7 @@ fn render_phase_actions_retry_and_reducer_failure_and_kind_changes_poison() {
 
   let hooking_dispatch = Rc::new(RefCell::new(None));
   let hooking_document = self::document();
-  let mut hooking = Reactant::new(IdleSpawner);
+  let mut hooking = runtime_support::reactant(IdleSpawner);
   let view_dispatch = Rc::clone(&hooking_dispatch);
   hooking.register_root(hooking_document.clone(), move |_| HookingReducer {
     dispatch: Rc::clone(&view_dispatch),
@@ -288,7 +292,7 @@ fn render_phase_actions_retry_and_reducer_failure_and_kind_changes_poison() {
   let reducer = Rc::new(Cell::new(false));
   let view_reducer = Rc::clone(&reducer);
   let kind_document = self::document();
-  let mut kind = Reactant::new(IdleSpawner);
+  let mut kind = runtime_support::reactant(IdleSpawner);
   kind.register_root(kind_document.clone(), move |_| VariableKind {
     reducer: view_reducer.get(),
   });

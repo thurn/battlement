@@ -141,7 +141,7 @@ properties, children, handlers, keys, refs, and portal targets into the same
 host node.
 
 ```rust
-Button::new("Settings")
+Button::new(trox::tx("Settings", "User-facing copy in this example."))
     .animate(StyleTarget::new().y(0.0).scale(1.0))
     .while_hover(StyleTarget::new().y(-1.0))
     .while_tap(StyleTarget::new().scale(0.955))
@@ -161,7 +161,7 @@ specialization retains the complete ordinary and Reactant host API.
 
 ```rust
 View::new()
-    .child(Label::new("Settings"))
+    .child(Label::new(trox::tx("Settings", "User-facing copy in this example.")))
     .animate(StyleTarget::new().opacity(1.0))
     .style(panel_style())
     .element_ref(panel_ref)
@@ -475,7 +475,7 @@ changes. It is useful when application state or a pseudo-state changes a style
 and the author does not need Motion variants.
 
 ```rust
-Button::new("Delete")
+Button::new(trox::tx("Delete", "User-facing copy in this example."))
     .style(Style::new().background_color(Color::hex("#15121a")))
     .hover_style(Style::new().background_color(Color::hex("#2a121c")))
     .style_transition(
@@ -614,7 +614,7 @@ is paint associated with one host, not a logical child. It is excluded from
 focus, accessibility, picking, event propagation, and layout by construction.
 
 ```rust
-Button::new("Upgrade")
+Button::new(trox::tx("Upgrade", "User-facing copy in this example."))
     .before(
         Decoration::new()
             .position(DecorationPosition::Fill)
@@ -1319,7 +1319,7 @@ authored static style. A focus-visible highlight therefore clears on blur or
 a pointer modality change without requiring an explicit `animate` target.
 
 ```rust
-Button::new("Apply")
+Button::new(trox::tx("Apply", "User-facing copy in this example."))
     .while_hover(StyleTarget::new().y(-1.0).filter_brightness(1.08))
     .while_tap(StyleTarget::new().scale(0.96))
     .on_hover_start(move |_game: &mut Game, event| {
@@ -1490,7 +1490,7 @@ but every host has the same compile-time variant-name type.
 let controls = use_animation_controls();
 let click_controls = controls.clone();
 
-Button::new("Replay")
+Button::new(trox::tx("Replay", "User-facing copy in this example."))
     .on_click(move |_game: &mut Game| {
         click_controls.start(
             MotionTarget::new(

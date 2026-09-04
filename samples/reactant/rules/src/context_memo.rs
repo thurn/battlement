@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Control, Game, design_system};
 use battlement_reactant::prelude::*;
 
@@ -47,12 +49,19 @@ impl Component for ContextMemo {
       .name("context-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new("CONTEXT & MEMO").style(design_system::eyebrow()),
+        battlement_reactant::host::Label::new(tx(
+          "CONTEXT & MEMO",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(design_system::eyebrow()),
       )
       .child(
-        battlement_reactant::host::Label::new("Values follow ancestry")
-          .name("context-title")
-          .style(design_system::title()),
+        battlement_reactant::host::Label::new(tx(
+          "Values follow ancestry",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("context-title")
+        .style(design_system::title()),
       )
       .child(
         battlement_reactant::host::View::new()
@@ -63,8 +72,11 @@ impl Component for ContextMemo {
               .name("context-control")
               .style(design_system::context_control())
               .child(
-                battlement_reactant::host::Label::new("CONTEXT  Nearest provider wins")
-                  .style(design_system::experiment_title()),
+                battlement_reactant::host::Label::new(tx(
+                  "CONTEXT  Nearest provider wins",
+                  "User-facing product copy in the Reactant sample.",
+                ))
+                .style(design_system::experiment_title()),
               )
               .child(crate::interactive_button(
                 if self.overridden {
@@ -91,8 +103,11 @@ impl Component for ContextMemo {
           .name("memo-experiment")
           .style(design_system::memo_experiment())
           .child(
-            battlement_reactant::host::Label::new("MEMO  Unrelated value")
-              .style(design_system::experiment_title()),
+            battlement_reactant::host::Label::new(tx(
+              "MEMO  Unrelated value",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::experiment_title()),
           )
           .child(crate::interactive_button(
             if self.unrelated == 0 {
@@ -106,7 +121,7 @@ impl Component for ContextMemo {
             move |game: &mut Game| unrelated_action(game),
           ))
           .child(
-            battlement_reactant::host::Label::new(unrelated)
+            battlement_reactant::host::Label::new(assert_localized(unrelated))
               .name("context-unrelated-value")
               .style(design_system::context_counter()),
           ),
@@ -125,10 +140,11 @@ impl Component for ThemeCard {
       .name(format!("context-{}", self.scope.to_ascii_lowercase()))
       .style(design_system::context_card(color))
       .child(
-        battlement_reactant::host::Label::new(self.scope).style(design_system::context_scope()),
+        battlement_reactant::host::Label::new(assert_localized(self.scope))
+          .style(design_system::context_scope()),
       )
       .child(
-        battlement_reactant::host::Label::new(name)
+        battlement_reactant::host::Label::new(assert_localized(name))
           .name("context-theme")
           .style(design_system::context_theme(color)),
       )

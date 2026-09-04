@@ -1,3 +1,5 @@
+use trox::{LocalizedString, assert_localized, tx};
+
 use crate::controls;
 use crate::{Control, Interaction, design_system};
 use battlement_reactant::prelude::*;
@@ -11,7 +13,8 @@ pub(crate) struct Composition {
 
 #[builder]
 struct Badge {
-  pub(crate) text: &'static str,
+  #[builder(required)]
+  pub(crate) text: LocalizedString,
 }
 
 #[builder]
@@ -29,11 +32,20 @@ impl Component for Composition {
     battlement_reactant::host::View::new()
       .name("composition-canvas")
       .style(design_system::canvas(self.compact))
-      .child(battlement_reactant::host::Label::new("COMPOSITION").style(design_system::eyebrow()))
       .child(
-        battlement_reactant::host::Label::new("Build declaratively")
-          .name("page-title")
-          .style(design_system::title()),
+        battlement_reactant::host::Label::new(tx(
+          "COMPOSITION",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(design_system::eyebrow()),
+      )
+      .child(
+        battlement_reactant::host::Label::new(tx(
+          "Build declaratively",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(design_system::title()),
       )
       .child(controls::interactive_button(
         if self.reversed { "RESTORE" } else { "REORDER" },
@@ -57,7 +69,9 @@ impl Component for Badge {
   fn render(&self) -> impl Render {
     battlement_reactant::host::View::new()
       .style(design_system::badge())
-      .child(battlement_reactant::host::Label::new(self.text).style(design_system::badge_text()))
+      .child(
+        battlement_reactant::host::Label::new(self.text.clone()).style(design_system::badge_text()),
+      )
   }
 }
 
@@ -67,7 +81,7 @@ impl Component for Specimen {
       .name("composition-specimen")
       .style(design_system::specimen())
       .child(
-        battlement_reactant::host::Label::new(self.heading.clone())
+        battlement_reactant::host::Label::new(assert_localized(self.heading.clone()))
           .name("specimen-heading")
           .style(design_system::specimen_title()),
       )
@@ -77,9 +91,18 @@ impl Component for Specimen {
 
 fn composition_badges(reversed: bool) -> Node {
   let mut badges = vec![
-    Badge::new().text("01  Required props"),
-    Badge::new().text("02  Structural values"),
-    Badge::new().text("03  Primitive children"),
+    Badge::new().text(tx(
+      "01  Required props",
+      "User-facing product copy in the Reactant sample.",
+    )),
+    Badge::new().text(tx(
+      "02  Structural values",
+      "User-facing product copy in the Reactant sample.",
+    )),
+    Badge::new().text(tx(
+      "03  Primitive children",
+      "User-facing product copy in the Reactant sample.",
+    )),
   ];
   if reversed {
     badges.reverse();

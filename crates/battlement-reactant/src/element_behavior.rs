@@ -44,10 +44,8 @@ pub fn use_scroll_reveal<D: Dependencies>(
   let container = scroll.clone();
   hooks::use_effect(
     move || {
-      if enabled {
-        if let Some(container) = container {
-          container.scroll_to(&target);
-        }
+      if enabled && let Some(container) = container {
+        container.scroll_to(&target);
       }
     },
     (scroll, request),

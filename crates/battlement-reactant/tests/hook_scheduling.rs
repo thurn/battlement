@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   collections::HashMap,
@@ -188,12 +190,14 @@ impl Component for HookMatrix {
       setter: Some(setter),
     });
     (
-      battlement_reactant::host::Button::new("Invoke callback").on_click(move |game: &mut Game| {
-        game.callback_value = callback();
-      }),
-      battlement_reactant::host::Label::new(format!(
+      battlement_reactant::host::Button::new(trox::assert_localized("Invoke callback")).on_click(
+        move |game: &mut Game| {
+          game.callback_value = callback();
+        },
+      ),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!(
         "state={state} reducer={reduced} store={stored} theme={theme} memo={memoized}"
-      )),
+      ))),
     )
   }
 }
@@ -218,8 +222,9 @@ impl Component for FailingCallback {
       (),
     );
     (
-      battlement_reactant::host::Button::new("Fail").on_click(move |_game: &mut Game| callback()),
-      battlement_reactant::host::Label::new(format!("value={value}")),
+      battlement_reactant::host::Button::new(trox::assert_localized("Fail"))
+        .on_click(move |_game: &mut Game| callback()),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!("value={value}"))),
     )
   }
 }
@@ -228,7 +233,7 @@ impl Component for SessionCounter {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_usize);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(format!("value={value}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("value={value}")))
   }
 }
 
@@ -310,7 +315,7 @@ fn exercise_entry(source: Source, entry: Entry) {
     store: store.clone(),
     theme: 0,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_handles = Rc::clone(&handles);
   let view_calculations = Rc::clone(&calculations);
   let view_effect_setups = Rc::clone(&effect_setups);
@@ -466,7 +471,7 @@ fn store_retry_applies_queued_state_once() {
     store: first,
     theme: 0,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_handles = Rc::clone(&handles);
   let view_renders = Rc::clone(&renders);
   reactant.register_root(document.clone(), move |game: &Game| HookMatrix {
@@ -512,7 +517,7 @@ fn unconsumed_session_poisons_without_committing() {
     store: TestStore::new(0),
     theme: 0,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_setter = Rc::clone(&setter);
   reactant.register_root(document.clone(), move |_: &Game| SessionCounter {
     setter: Rc::clone(&view_setter),
@@ -543,7 +548,7 @@ fn callback_failure_poisons_without_committing() {
     store: TestStore::new(0),
     theme: 0,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_setter = Rc::clone(&setter);
   reactant.register_root(document.clone(), move |_: &Game| FailingCallback {
     setter: Rc::clone(&view_setter),

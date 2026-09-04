@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   CameraState, GameObject, GameObjectKind, MotionEventBatch, MotionGestureEvent,
   MotionGestureEventKind, MotionGestureVector, MotionPointerDevice, MotionSequence, ObjectId,
@@ -11,7 +13,6 @@ use battlement_reactant::{
   geometry,
   host::{Label, View},
   render::Render,
-  runtime::Reactant,
 };
 
 struct IdleSpawner;
@@ -24,7 +25,7 @@ struct GeometryOnHover {
 fn a_native_motion_callback_can_rerender_a_geometry_consumer() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
   let camera = ObjectId::new_v4();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |hovered: &bool| GeometryOnHover {
     hovered: *hovered,
   });
@@ -94,11 +95,11 @@ impl Component for GeometryOnHover {
     View::new()
       .element_ref(target)
       .on_hover_start(|hovered: &mut bool, _| *hovered = true)
-      .child(Label::new(if self.hovered {
+      .child(Label::new(trox::assert_localized(if self.hovered {
         "Hover observed"
       } else {
         "Waiting for hover"
-      }))
+      })))
   }
 }
 

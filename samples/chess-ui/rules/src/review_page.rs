@@ -1,5 +1,7 @@
 //! The title, explanation, and example content of one gallery visit.
 
+use trox::LocalizedString;
+
 use crate::review_text::{ReviewText, ReviewTextKind};
 use battlement::Style;
 use battlement_reactant::prelude::builder;
@@ -8,7 +10,6 @@ use battlement_reactant::{
   component::Component,
   host::View,
   render::{Fragment, Render},
-  semantics,
 };
 
 /// A named review region whose heading receives focus when the page mounts.
@@ -18,19 +19,19 @@ use battlement_reactant::{
 #[derive(Clone)]
 pub struct ReviewPage {
   /// Sets the page identifier above the heading.
-  eyebrow: String,
+  eyebrow: Option<LocalizedString>,
   #[builder(required)]
-  title: String,
+  title: LocalizedString,
   /// Explains what the example demonstrates.
-  description: String,
+  description: Option<LocalizedString>,
   #[builder(default = Fragment::empty())]
   content: Fragment,
 }
 
 impl ReviewPage {
   /// The heading also used to label this page in gallery navigation.
-  pub fn title_text(&self) -> &str {
-    &self.title
+  pub fn title_text(&self) -> LocalizedString {
+    self.title.clone()
   }
   /// Adds the live example below the page explanation.
   pub fn child(mut self, content: impl Render) -> Self {
@@ -44,22 +45,20 @@ impl Component for ReviewPage {
     View::new()
       .name("page-content")
       .style(Style::new().full_size().padding(64))
-      .semantic(accessibility_collections::use_region(semantics::text(
-        self.title.clone(),
-      )))
+      .semantic(accessibility_collections::use_region(self.title.clone()))
       .child((
-        (!self.eyebrow.is_empty()).then(|| {
+        self.eyebrow.as_ref().map(|eyebrow| {
           ReviewText::new()
-            .text(self.eyebrow.clone())
+            .text(eyebrow.clone())
             .kind(ReviewTextKind::Eyebrow)
         }),
         ReviewText::new()
           .text(self.title.clone())
           .name("page-heading")
           .kind(ReviewTextKind::Heading),
-        (!self.description.is_empty()).then(|| {
+        self.description.as_ref().map(|description| {
           ReviewText::new()
-            .text(self.description.clone())
+            .text(description.clone())
             .name("page-description")
         }),
         self.content.clone(),

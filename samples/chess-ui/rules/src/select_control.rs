@@ -1,5 +1,7 @@
 //! A closed selector specimen with a visible value and combined accessible name.
 
+use trox::{assert_localized, tx};
+
 use crate::{caret::Caret, setting_row::SettingRow};
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
@@ -71,7 +73,7 @@ impl Component for SelectControl {
                   .height(106),
               )
               .child(
-                Button::new("")
+                Button::new(tx("", "User-facing product copy in the Chess UI sample."))
                   .name("select-trigger")
                   .associated_control(trigger)
                   .style(
@@ -103,7 +105,7 @@ impl Component for SelectControl {
                       ),
                   )
                   .child((
-                    accessibility::name_source_text(self.value.clone())
+                    accessibility::name_source_text(assert_localized(self.value.clone()))
                       .name("select-value")
                       .element_ref(value_label.reference()),
                     Caret::new().is_open(false),

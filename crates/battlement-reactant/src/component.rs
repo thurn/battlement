@@ -26,6 +26,7 @@ pub struct Memo<C> {
 ///
 /// ```
 /// use battlement_reactant::{component::Component, host::Label, render::Render};
+/// use trox::{tx_args, txa};
 ///
 /// struct Greeting {
 ///   name: String,
@@ -33,7 +34,11 @@ pub struct Memo<C> {
 ///
 /// impl Component for Greeting {
 ///   fn render(&self) -> impl Render {
-///     Label::new(format!("Hello, {}", self.name))
+///     Label::new(txa(
+///       "Hello, {name}",
+///       tx_args![name => self.name.clone()],
+///       "Personalized greeting in the example.",
+///     ))
 ///   }
 /// }
 ///

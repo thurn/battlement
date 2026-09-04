@@ -1,3 +1,5 @@
+use trox::{tx, tx_args, txa};
+
 use crate::{review_button::ReviewButton, volume_control::VolumeControl};
 use battlement::{Color, Style};
 use battlement_reactant::prelude::builder;
@@ -21,7 +23,10 @@ impl Component for VolumeHarness {
       )
       .child((
         VolumeControl::new()
-          .label("Master Volume")
+          .label(tx(
+            "Master Volume",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .value(value)
           .on_change(
             set_value.callback().then(
@@ -32,21 +37,35 @@ impl Component for VolumeHarness {
           )
           .first(true),
         VolumeControl::new()
-          .label("Minimum")
+          .label(tx(
+            "Minimum",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .value(0)
           .on_change(|_| {}),
         VolumeControl::new()
-          .label("Maximum")
+          .label(tx(
+            "Maximum",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .value(100)
           .on_change(|_| {}),
-        accessibility::static_label(format!("Volume changes: {changes}")).style(
+        accessibility::static_label(txa(
+          "Volume changes: {changes}",
+          tx_args![changes],
+          "User-facing product copy in the Chess UI sample.",
+        ))
+        .style(
           Style::new()
             .font_size(28)
             .color(Color::rgb(0.75, 0.86, 0.97))
             .margin_top(30),
         ),
         ReviewButton::new()
-          .label("Change volume from parent")
+          .label(tx(
+            "Change volume from parent",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .on_press(move || {
             set_value.update(|value| if value == 25 { 80 } else { 25 });
           }),

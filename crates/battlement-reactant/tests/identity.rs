@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{cell::Cell, panic, panic::AssertUnwindSafe, rc::Rc};
 
 use battlement::{
@@ -49,14 +51,14 @@ struct CountingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(format!("Badge {}", self.number))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("Badge {}", self.number)))
   }
 }
 
 impl Component for CountingBadge {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
-    battlement_reactant::host::Label::new("counted")
+    battlement_reactant::host::Label::new(trox::assert_localized("counted"))
   }
 }
 
@@ -66,7 +68,7 @@ fn keyed_hosts_survive_insertion_removal_and_reorder() {
   let mut game = KeyedGame {
     order: vec![1, 2, 3],
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), keyed_labels);
 
   let initial = host_ids(render(&mut reactant, &mut game, &document));
@@ -89,7 +91,7 @@ fn keyed_hosts_survive_insertion_removal_and_reorder() {
 fn keyed_components_and_fragments_match_their_semantic_nodes() {
   let component_document = document();
   let mut component_game = KeyedGame { order: vec![1, 2] };
-  let mut components = Reactant::new(IdleSpawner);
+  let mut components = runtime_support::reactant(IdleSpawner);
   components.register_root(component_document.clone(), keyed_badges);
   let component_ids = host_ids(render(
     &mut components,
@@ -108,7 +110,7 @@ fn keyed_components_and_fragments_match_their_semantic_nodes() {
 
   let fragment_document = document();
   let mut fragment_game = KeyedGame { order: vec![1, 2] };
-  let mut fragments = Reactant::new(IdleSpawner);
+  let mut fragments = runtime_support::reactant(IdleSpawner);
   fragments.register_root(fragment_document.clone(), keyed_fragments);
   let fragment_ids = host_ids(render(
     &mut fragments,
@@ -137,7 +139,7 @@ fn keyed_components_and_fragments_match_their_semantic_nodes() {
 fn keyed_structural_ranges_preserve_every_host_when_reordered() {
   let document = document();
   let mut game = KeyedGame { order: vec![1, 2] };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), keyed_ranges);
 
   let initial = host_ids(render(&mut reactant, &mut game, &document));
@@ -153,7 +155,7 @@ fn keyed_structural_ranges_preserve_every_host_when_reordered() {
 fn empty_unkeyed_positions_retain_later_absolute_identity() {
   let document = document();
   let mut game = OptionalGame { visible: true };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), optional_labels);
 
   let initial = host_ids(render(&mut reactant, &mut game, &document));
@@ -173,7 +175,7 @@ fn empty_unkeyed_positions_retain_later_absolute_identity() {
 fn unkeyed_identity_uses_absolute_positions_around_keyed_siblings() {
   let document = document();
   let mut game = MixedGame { keyed_first: false };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), mixed_labels);
 
   let initial = host_ids(render(&mut reactant, &mut game, &document));
@@ -194,11 +196,11 @@ fn unkeyed_identity_uses_absolute_positions_around_keyed_siblings() {
 #[test]
 fn keys_with_different_types_are_distinct() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
     (
-      battlement_reactant::host::Label::new("byte").key(1_u8),
-      battlement_reactant::host::Label::new("word").key(1_u16),
+      battlement_reactant::host::Label::new(trox::assert_localized("byte")).key(1_u8),
+      battlement_reactant::host::Label::new(trox::assert_localized("word")).key(1_u16),
     )
   });
   let mut game = ();
@@ -219,7 +221,7 @@ fn duplicate_same_typed_keys_panic_before_a_session_can_commit() {
     keys: vec![1, 2],
     renders: Rc::clone(&renders),
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), counted_badges);
   let _committed = render(&mut reactant, &mut game, &document);
   assert_eq!(renders.get(), 2);
@@ -242,7 +244,10 @@ fn keyed_labels(game: &KeyedGame) -> impl Render + use<> {
   game
     .order
     .iter()
-    .map(|number| battlement_reactant::host::Label::new(format!("Label {number}")).key(*number))
+    .map(|number| {
+      battlement_reactant::host::Label::new(trox::assert_localized(format!("Label {number}")))
+        .key(*number)
+    })
     .collect::<Vec<_>>()
 }
 
@@ -260,8 +265,8 @@ fn keyed_fragments(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       Fragment::new((
-        battlement_reactant::host::Label::new(format!("{number}a")),
-        battlement_reactant::host::Label::new(format!("{number}b")),
+        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}a"))),
+        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}b"))),
       ))
       .key(*number)
     })
@@ -274,8 +279,8 @@ fn keyed_ranges(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       (
-        battlement_reactant::host::Label::new(format!("{number}a")),
-        battlement_reactant::host::Label::new(format!("{number}b")),
+        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}a"))),
+        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}b"))),
       )
         .key(*number)
     })
@@ -299,23 +304,35 @@ fn optional_labels(game: &OptionalGame) -> impl Render + use<> {
   (
     game
       .visible
-      .then(|| battlement_reactant::host::Label::new("optional")),
-    battlement_reactant::host::Label::new("tail"),
+      .then(|| battlement_reactant::host::Label::new(trox::assert_localized("optional"))),
+    battlement_reactant::host::Label::new(trox::assert_localized("tail")),
   )
 }
 
 fn mixed_labels(game: &MixedGame) -> impl Render + use<> {
   if game.keyed_first {
     vec![
-      Either::left(battlement_reactant::host::Label::new("keyed").key(7_u8)),
-      Either::right(battlement_reactant::host::Label::new("first")),
-      Either::right(battlement_reactant::host::Label::new("last")),
+      Either::left(
+        battlement_reactant::host::Label::new(trox::assert_localized("keyed")).key(7_u8),
+      ),
+      Either::right(battlement_reactant::host::Label::new(
+        trox::assert_localized("first"),
+      )),
+      Either::right(battlement_reactant::host::Label::new(
+        trox::assert_localized("last"),
+      )),
     ]
   } else {
     vec![
-      Either::right(battlement_reactant::host::Label::new("first")),
-      Either::left(battlement_reactant::host::Label::new("keyed").key(7_u8)),
-      Either::right(battlement_reactant::host::Label::new("last")),
+      Either::right(battlement_reactant::host::Label::new(
+        trox::assert_localized("first"),
+      )),
+      Either::left(
+        battlement_reactant::host::Label::new(trox::assert_localized("keyed")).key(7_u8),
+      ),
+      Either::right(battlement_reactant::host::Label::new(
+        trox::assert_localized("last"),
+      )),
     ]
   }
 }

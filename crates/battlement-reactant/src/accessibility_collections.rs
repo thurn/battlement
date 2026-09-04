@@ -1,16 +1,17 @@
 //! Host-backed collection, link, and landmark semantics.
 
 use battlement::{SemanticRole, SemanticState};
+use trox::LocalizedString;
 
 use crate::{
   accessibility::{self, ButtonOptions, ButtonState, ChoiceOptions},
   accessibility_hook,
   callback::IntoCallback,
-  semantics::{AccessibleBehavior, AccessibleName, LocalizedText, SemanticProps},
+  semantics::{AccessibleBehavior, AccessibleName, SemanticProps},
 };
 
 /// Returns a named single-selection listbox without input-navigation policy.
-pub fn use_listbox(name: LocalizedText) -> SemanticProps {
+pub fn use_listbox(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_listbox");
   SemanticProps::new(SemanticRole::ListBox).name(AccessibleName::Text(name))
 }
@@ -50,7 +51,7 @@ pub fn use_link<G: 'static>(
 }
 
 /// Returns a named table whose semantic children are rows.
-pub fn use_table(name: LocalizedText) -> SemanticProps {
+pub fn use_table(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_table");
   SemanticProps::new(SemanticRole::Table).name(AccessibleName::Text(name))
 }
@@ -62,31 +63,31 @@ pub fn use_row() -> SemanticProps {
 }
 
 /// Returns a named data cell in its logical row.
-pub fn use_cell(name: LocalizedText) -> SemanticProps {
+pub fn use_cell(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_cell");
   SemanticProps::new(SemanticRole::Cell).name(AccessibleName::Text(name))
 }
 
 /// Returns a header scoped to its table column.
-pub fn use_column_header(name: LocalizedText) -> SemanticProps {
+pub fn use_column_header(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_column_header");
   SemanticProps::new(SemanticRole::ColumnHeader).name(AccessibleName::Text(name))
 }
 
 /// Returns a header scoped to its containing row.
-pub fn use_row_header(name: LocalizedText) -> SemanticProps {
+pub fn use_row_header(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_row_header");
   SemanticProps::new(SemanticRole::RowHeader).name(AccessibleName::Text(name))
 }
 
 /// Returns a named navigation landmark without adding input focus.
-pub fn use_navigation(name: LocalizedText) -> SemanticProps {
+pub fn use_navigation(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_navigation");
   SemanticProps::new(SemanticRole::Navigation).name(AccessibleName::Text(name))
 }
 
 /// Returns a named content region without adding input focus.
-pub fn use_region(name: LocalizedText) -> SemanticProps {
+pub fn use_region(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_region");
   SemanticProps::new(SemanticRole::Region).name(AccessibleName::Text(name))
 }

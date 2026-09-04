@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
 use battlement::{LengthUnits, PickingMode, ScrollViewMode, ScrollerVisibility};
 use battlement_reactant::prelude::*;
@@ -31,13 +33,19 @@ impl Component for EventsPortals {
           .name("events-content")
           .style(design_system::effects_content())
           .child(
-            battlement_reactant::host::Label::new("EVENTS & PORTALS")
-              .style(design_system::eyebrow()),
+            battlement_reactant::host::Label::new(tx(
+              "EVENTS & PORTALS",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::eyebrow()),
           )
           .child(
-            battlement_reactant::host::Label::new("Follow the logical path")
-              .name("events-title")
-              .style(design_system::effects_title(self.compact)),
+            battlement_reactant::host::Label::new(tx(
+              "Follow the logical path",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .name("events-title")
+            .style(design_system::effects_title(self.compact)),
           )
           .child(
             battlement_reactant::host::View::new()
@@ -48,8 +56,11 @@ impl Component for EventsPortals {
                   .name("event-source")
                   .style(design_system::event_source_card(self.compact))
                   .child(
-                    battlement_reactant::host::Label::new("Logical source")
-                      .style(design_system::effect_heading()),
+                    battlement_reactant::host::Label::new(tx(
+                      "Logical source",
+                      "User-facing product copy in the Reactant sample.",
+                    ))
+                    .style(design_system::effect_heading()),
                   )
                   .child(
                     battlement_reactant::host::View::new()
@@ -68,8 +79,11 @@ impl Component for EventsPortals {
                             .style(design_system::portal_card(self.compact))
                             .stack_item(design_system::portal_layer_item(self.compact))
                             .child(
-                              battlement_reactant::host::Label::new("Portaled overlay")
-                                .style(design_system::effect_heading()),
+                              battlement_reactant::host::Label::new(tx(
+                                "Portaled overlay",
+                                "User-facing product copy in the Reactant sample.",
+                              ))
+                              .style(design_system::effect_heading()),
                             )
                             .child(self.action()),
                         ),
@@ -82,8 +96,12 @@ impl Component for EventsPortals {
                   .on_click(|game: &mut Game| game.event_trace.push("BUBBLE")),
               )
               .child(
-                battlement_reactant::host::Label::new(if self.compact { "v" } else { ">" })
-                  .style(design_system::portal_connector(self.compact)),
+                battlement_reactant::host::Label::new(assert_localized(if self.compact {
+                  "v"
+                } else {
+                  ">"
+                }))
+                .style(design_system::portal_connector(self.compact)),
               ),
           ),
       )
@@ -118,29 +136,49 @@ impl EventsPortals {
           .name("events-status")
           .style(design_system::event_route(self.compact))
           .child(
-            battlement_reactant::host::Label::new("CAPTURE").style(design_system::event_step(
+            battlement_reactant::host::Label::new(tx(
+              "CAPTURE",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::event_step(
               self.compact,
               self.trace.contains(&"CAPTURE"),
               0,
             )),
           )
           .child(
-            battlement_reactant::host::Label::new(if self.compact { "v" } else { ">" })
-              .style(design_system::event_arrow(self.compact)),
+            battlement_reactant::host::Label::new(assert_localized(if self.compact {
+              "v"
+            } else {
+              ">"
+            }))
+            .style(design_system::event_arrow(self.compact)),
           )
           .child(
-            battlement_reactant::host::Label::new("TARGET").style(design_system::event_step(
+            battlement_reactant::host::Label::new(tx(
+              "TARGET",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::event_step(
               self.compact,
               self.trace.contains(&"TARGET"),
               1,
             )),
           )
           .child(
-            battlement_reactant::host::Label::new(if self.compact { "v" } else { ">" })
-              .style(design_system::event_arrow(self.compact)),
+            battlement_reactant::host::Label::new(assert_localized(if self.compact {
+              "v"
+            } else {
+              ">"
+            }))
+            .style(design_system::event_arrow(self.compact)),
           )
           .child(
-            battlement_reactant::host::Label::new("BUBBLE").style(design_system::event_step(
+            battlement_reactant::host::Label::new(tx(
+              "BUBBLE",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::event_step(
               self.compact,
               self.trace.contains(&"BUBBLE"),
               2,
@@ -149,9 +187,12 @@ impl EventsPortals {
       )
     } else {
       Node::new(
-        battlement_reactant::host::Label::new("READY")
-          .name("events-status")
-          .style(design_system::event_ready()),
+        battlement_reactant::host::Label::new(tx(
+          "READY",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("events-status")
+        .style(design_system::event_ready()),
       )
     }
   }

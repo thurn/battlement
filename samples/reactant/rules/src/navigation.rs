@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::controls;
 use crate::{Control, Game, Interaction, Screen, design_system, sample_navigation};
 use battlement_reactant::prelude::*;
@@ -18,7 +20,13 @@ impl Component for Navigation {
         battlement_reactant::host::View::new()
           .name("navigation")
           .style(design_system::phone_navigation())
-          .child(battlement_reactant::host::Label::new("R").style(design_system::phone_brand()))
+          .child(
+            battlement_reactant::host::Label::new(tx(
+              "R",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::phone_brand()),
+          )
           .child(controls::interactive_button(
             "<",
             "previous-navigation",
@@ -30,9 +38,11 @@ impl Component for Navigation {
             |game| game.screen = sample_navigation::previous(game.screen),
           ))
           .child(
-            battlement_reactant::host::Label::new(sample_navigation::phone_name(self.screen))
-              .name("phone-current-screen")
-              .style(design_system::phone_navigation_label()),
+            battlement_reactant::host::Label::new(assert_localized(sample_navigation::phone_name(
+              self.screen,
+            )))
+            .name("phone-current-screen")
+            .style(design_system::phone_navigation_label()),
           )
           .child(controls::interactive_button(
             ">",
@@ -52,9 +62,15 @@ impl Component for Navigation {
         .style(design_system::navigation(self.compact))
         .child(
           battlement_reactant::host::Label::new(if self.screen == Screen::TargetsTimelines {
-            "VALUES & TIME"
+            tx(
+              "VALUES & TIME",
+              "User-facing product copy in the Reactant sample.",
+            )
           } else {
-            "REACTANT"
+            tx(
+              "REACTANT",
+              "User-facing product copy in the Reactant sample.",
+            )
           })
           .name(match self.screen {
             Screen::TargetsTimelines => "values-navigation",

@@ -11,6 +11,7 @@ use battlement_rules::{
   action_button, engine, review_surface::ReviewSurface, select_control, setting_row,
   toggle_control::ToggleControl,
 };
+use trox::Bundle;
 
 struct ToggleInfoFixture;
 
@@ -19,15 +20,19 @@ impl Component for ToggleInfoFixture {
     let (info_clicks, set_info_clicks) = hooks::use_state(0_u32);
     View::new().child((
       ToggleControl::new()
-        .label(accessibility::name_source_text("Screenshake"))
+        .label(accessibility::name_source_text(trox::assert_localized(
+          "Screenshake",
+        )))
         .checked(true)
         .on_change(|_| {})
-        .aria_label("Screen shake")
+        .aria_label(trox::assert_localized("Screen shake"))
         .with_info(true)
         .on_info_click(move || set_info_clicks.update(|count| count + 1))
         .row_height(190.0)
         .offset_y(-8.0),
-      accessibility::static_label(format!("Info clicks: {info_clicks}")),
+      accessibility::static_label(trox::assert_localized(format!(
+        "Info clicks: {info_clicks}"
+      ))),
     ))
   }
 }
@@ -37,7 +42,10 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   let mut client = self::client();
   self::assert_page(&mut client, 0);
   let change = self::named(&mut client, "demonstration-count");
-  assert_eq!(client.ui().element(change).text(), Some("Changes: 0"));
+  assert_eq!(
+    client.ui().element(change).text(),
+    Some("Changes: \u{2068}0\u{2069}")
+  );
   let button = self::snapshot(&client)
     .nodes
     .iter()
@@ -46,7 +54,10 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
     .object_id;
   client.ui().click(button);
   client.poll();
-  assert_eq!(client.ui().element(change).text(), Some("Changes: 1"));
+  assert_eq!(
+    client.ui().element(change).text(),
+    Some("Changes: \u{2068}1\u{2069}")
+  );
   for index in 0..40 {
     for _ in 0..2 {
       let old_heading = self::named(&mut client, "page-heading");
@@ -65,7 +76,10 @@ fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   client.poll();
   self::assert_page(&mut client, 0);
   let count = self::named(&mut client, "demonstration-count");
-  assert_eq!(client.ui().element(count).text(), Some("Changes: 0"));
+  assert_eq!(
+    client.ui().element(count).text(),
+    Some("Changes: \u{2068}0\u{2069}")
+  );
 }
 
 #[test]
@@ -282,7 +296,7 @@ fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
     self::snapshot(&client)
       .nodes
       .iter()
-      .any(|node| node.label.as_deref() == Some("Volume changes: 1"))
+      .any(|node| node.label.as_deref() == Some("Volume changes: \u{2068}1\u{2069}"))
   );
   self::range_action(&mut client, slider, UiAccessibilityAction::Decrement);
   self::assert_volume(&client, "Master Volume", 20);
@@ -296,7 +310,7 @@ fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
     self::snapshot(&client)
       .nodes
       .iter()
-      .any(|node| node.label.as_deref() == Some("Volume changes: 0"))
+      .any(|node| node.label.as_deref() == Some("Volume changes: \u{2068}0\u{2069}"))
   );
   self::assert_page(&mut client, 6);
 }
@@ -378,7 +392,7 @@ fn assert_volume(client: &FakeClient<App>, label: &str, expected: u32) -> Object
   );
   assert_eq!(
     range.text.as_deref(),
-    Some(format!("{expected} percent").as_str())
+    Some(format!("\u{2068}{expected}\u{2069} percent").as_str())
   );
   let region = snapshot
     .nodes
@@ -418,12 +432,9 @@ fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {
       CheckedState::False
     })
   );
-  assert!(
-    snapshot
-      .nodes
-      .iter()
-      .any(|node| node.label.as_deref() == Some(&format!("VSync changes: {changes}")))
-  );
+  assert!(snapshot.nodes.iter().any(|node| {
+    node.label.as_deref() == Some(&format!("VSync changes: \u{2068}{changes}\u{2069}"))
+  }));
   assert_eq!(
     snapshot
       .nodes
@@ -449,7 +460,7 @@ fn assert_page(client: &mut FakeClient<App>, index: usize) {
   assert_eq!(current.len(), 1);
   assert_eq!(
     current[0].label.as_deref(),
-    Some(format!("{}. {title}", index + 1).as_str())
+    Some(format!("\u{2068}{}\u{2069}. \u{2068}{title}\u{2069}", index + 1).as_str())
   );
   assert_eq!(
     semantics
@@ -553,7 +564,10 @@ fn toggle_info_client() -> FakeClient<App> {
   assets.add_scene("chess-ui/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   assets.add_ui_font(setting_row::DISPLAY_FONT);
+  let source = Bundle::from_canonical_json(include_str!("../../localization/en-US.trox.json"))
+    .expect("valid embedded English trox bundle");
   let app = App::new("chess-ui/content")
+    .source_bundle(source)
     .ui(ToggleInfoFixture)
     .document(ReviewSurface::document);
   let mut client = FakeClient::connect(app, assets);

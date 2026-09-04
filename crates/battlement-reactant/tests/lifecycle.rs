@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::RefCell,
   error::Error,
@@ -102,7 +104,7 @@ impl Component for Cleanup {
       },
       (),
     );
-    battlement_reactant::host::Label::new(name)
+    battlement_reactant::host::Label::new(trox::assert_localized(name))
   }
 }
 
@@ -174,7 +176,7 @@ fn active_shutdown_destroys_native_hosts_and_failed_cleanup_emits_nothing() {
   let log = Rc::new(RefCell::new(Vec::new()));
   let first_log = Rc::clone(&log);
   let second_log = Rc::clone(&log);
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| {
     (
       Cleanup {
@@ -215,9 +217,9 @@ fn active_shutdown_destroys_native_hosts_and_failed_cleanup_emits_nothing() {
   );
 
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
-    battlement_reactant::host::Label::new("mounted")
+    battlement_reactant::host::Label::new(trox::assert_localized("mounted"))
   });
   let initial = reactant
     .begin_session(&mut ())
@@ -242,7 +244,7 @@ fn dropping_an_active_runtime_runs_passive_cleanup() {
   let document = self::document();
   let log = Rc::new(RefCell::new(Vec::new()));
   let view_log = Rc::clone(&log);
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| Cleanup {
     fail: false,
     log: Rc::clone(&view_log),
@@ -322,7 +324,7 @@ fn exercise_entry(state: FixtureState, entry: Entry) {
     }
     Entry::RegisterRoot => {
       fixture.reactant.register_root(self::document(), |_| {
-        battlement_reactant::host::Label::new("additional")
+        battlement_reactant::host::Label::new(trox::assert_localized("additional"))
       });
     }
     Entry::Shutdown => {
@@ -362,11 +364,13 @@ fn fixture(state: FixtureState) -> Fixture {
   let target_id = ObjectId::new_v4();
   let external =
     UiDocument::new(ObjectId::new_v4()).child(UiNode::new(target_id, UiVisualElement::new()));
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let external_target = reactant.register_external_container(target_id);
   reactant.register_root(document.clone(), |game: &Game| {
     assert!(!game.panic_render, "render failed");
-    Ok::<_, DomainError>(battlement_reactant::host::Label::new("stable"))
+    Ok::<_, DomainError>(battlement_reactant::host::Label::new(
+      trox::assert_localized("stable"),
+    ))
   });
   let mut fixture = Fixture {
     document,

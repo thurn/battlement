@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   any::Any,
   cell::RefCell,
@@ -47,10 +49,14 @@ struct PortaledButton {
 
 impl Component for PortaledButton {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Button::new(format!("{} {}", self.name, hooks::use_context(&THEME)))
-      .on_click(|game: &mut Game| {
-        game.log.push("target");
-      })
+    battlement_reactant::host::Button::new(trox::assert_localized(format!(
+      "{} {}",
+      self.name,
+      hooks::use_context(&THEME)
+    )))
+    .on_click(|game: &mut Game| {
+      game.log.push("target");
+    })
   }
 }
 
@@ -62,7 +68,7 @@ impl Component for StatefulPortal {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(format!("state {value}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("state {value}")))
   }
 }
 
@@ -71,7 +77,7 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let target_document = self::document();
   let first_document = self::document();
   let second_document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let target = reactant.create_portal_target();
   let first_target = target.clone();
   reactant.register_root(first_document.clone(), move |_: &Game| {
@@ -88,13 +94,15 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let second_target = target.clone();
   reactant.register_root(second_document.clone(), move |_: &Game| {
     THEME.provider("dark-b").child(create_portal(
-      battlement_reactant::host::Button::new("B dark-b"),
+      battlement_reactant::host::Button::new(trox::assert_localized("B dark-b")),
       second_target.clone(),
     ))
   });
   reactant.register_root(target_document.clone(), move |_: &Game| {
     battlement_reactant::host::View::new()
-      .child(battlement_reactant::host::Label::new("ordinary"))
+      .child(battlement_reactant::host::Label::new(
+        trox::assert_localized("ordinary"),
+      ))
       .portal_target(target.clone())
   });
   let mut game = Game::default();
@@ -150,7 +158,7 @@ fn changing_a_portal_target_or_key_remounts_its_stateful_range() {
   let source_document = self::document();
   let target_document = self::document();
   let setter = Rc::new(RefCell::new(None));
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let first = reactant.create_portal_target();
   let second = reactant.create_portal_target();
   let source_first = first.clone();
@@ -233,12 +241,12 @@ fn invalid_internal_targets_fail_before_native_mutation() {
 fn missing_target_is_transactional() {
   let source_document = self::document();
   let target_document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let target = reactant.create_portal_target();
   let source_target = target.clone();
   reactant.register_root(source_document.clone(), move |_: &Game| {
     create_portal(
-      battlement_reactant::host::Label::new("portal"),
+      battlement_reactant::host::Label::new(trox::assert_localized("portal")),
       source_target.clone(),
     )
   });
@@ -270,7 +278,7 @@ fn missing_target_is_transactional() {
 
 fn duplicate_target_is_rejected() {
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let target = reactant.create_portal_target();
   reactant.register_root(document, move |_: &Game| {
     (
@@ -288,9 +296,9 @@ fn duplicate_target_is_rejected() {
 }
 
 fn cross_runtime_target_is_rejected() {
-  let foreign = Reactant::<Game>::new(IdleSpawner).create_portal_target();
+  let foreign = runtime_support::reactant::<Game>(IdleSpawner).create_portal_target();
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document, move |_: &Game| {
     battlement_reactant::host::View::new().portal_target(foreign.clone())
   });

@@ -1,5 +1,7 @@
 //! A controlled integer-percentage slider with a painted track and value.
 
+use trox::{LocalizedString, tx_args, txa};
+
 use crate::{
   setting_row::{self, SettingRow},
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
@@ -13,14 +15,13 @@ use battlement_reactant::{
   component::Component,
   host::{Flex, TextElement, View},
   render::Render,
-  semantics,
 };
 
 /// A labelled volume slider whose parent owns its integer percentage.
 #[builder]
 pub struct VolumeControl {
   #[builder(required)]
-  label: String,
+  label: LocalizedString,
   #[builder(required)]
   value: u32,
   #[builder(required)]
@@ -39,7 +40,11 @@ impl Component for VolumeControl {
           .minimum(0.0)
           .maximum(100.0)
           .step(5.0)
-          .value_text(semantics::text(format!("{} percent", self.value)))
+          .value_text(txa(
+            "{volume_percent} percent",
+            tx_args![volume_percent => self.value],
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .on_change(self.on_change.clone().map_input(|value: f64| value as u32)),
       )
     });
@@ -84,21 +89,25 @@ impl Component for VolumeControl {
                       .height(132),
                   ),
               )),
-            TextElement::new(format!("{}%", self.value))
-              .name("volume-value")
-              .picking_mode(PickingMode::Ignore)
-              .style(
-                Style::new()
-                  .width(96)
-                  .height(55)
-                  .flex_shrink(0)
-                  .color(Color::rgb8(245, 245, 248))
-                  .unity_font_definition(setting_row::DISPLAY_FONT)
-                  .font_size(55)
-                  .white_space(WhiteSpace::NoWrap)
-                  .letter_spacing(1)
-                  .unity_text_align(TextAnchor::MiddleLeft),
-              ),
+            TextElement::new(txa(
+              "{volume_percent}%",
+              tx_args![volume_percent => self.value],
+              "User-facing product copy in the Chess UI sample.",
+            ))
+            .name("volume-value")
+            .picking_mode(PickingMode::Ignore)
+            .style(
+              Style::new()
+                .width(96)
+                .height(55)
+                .flex_shrink(0)
+                .color(Color::rgb8(245, 245, 248))
+                .unity_font_definition(setting_row::DISPLAY_FONT)
+                .font_size(55)
+                .white_space(WhiteSpace::NoWrap)
+                .letter_spacing(1)
+                .unity_text_align(TextAnchor::MiddleLeft),
+            ),
           )),
       )
       .associated_label(label)

@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, Gradient, GradientStop, Length, LengthUnits, Shadow, Style,
@@ -40,14 +42,23 @@ impl Component for StylesDecorations {
       .name("styles-decorations-canvas")
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("CSS-STYLE MOTION").style(eyebrow()))
       .child(
-        Label::new("Styles & Decorations")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "CSS-STYLE MOTION",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Styles & Decorations",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "CHECKPOINT {:>4.0}%  ·  BURST GENERATION {}  ·  {}",
           elapsed * 100.0,
           self.state.burst,
@@ -56,7 +67,7 @@ impl Component for StylesDecorations {
           } else {
             "running"
           },
-        ))
+        )))
         .name("styles-status")
         .style(status()),
       )
@@ -104,41 +115,44 @@ fn pseudo_specimen() -> View {
     "hover → focus → active → disabled",
   )
   .child(
-    Button::new("HOLD / FOCUS / PRESS")
-      .name("styles-pseudo-target")
-      .focusable(true)
-      .style(probe().background_color(Color::rgb(0.05, 0.20, 0.23)))
-      .hover_style(
-        StyleTarget::new()
-          .background_color(motion_color(0.10, 0.46, 0.50))
-          .scale(1.03),
-      )
-      .focus_style(StyleTarget::new().background_color(motion_color(0.20, 0.37, 0.84)))
-      .active_style(
-        StyleTarget::new()
-          .background_color(motion_color(0.92, 0.31, 0.17))
-          .scale(0.96),
-      )
-      .disabled_style(StyleTarget::new().opacity(0.35))
-      .style_transition(
-        StyleTransition::new()
-          .property(
-            StyleProperty::BackgroundColor,
-            Transition::tween()
-              .duration_secs(0.18)
-              .ease(Easing::EaseOut),
-          )
-          .property(
-            StyleProperty::Scale,
-            Transition::tween()
-              .duration_secs(0.09)
-              .ease(Easing::EaseOut),
-          )
-          .property(
-            StyleProperty::Opacity,
-            Transition::tween().duration_secs(0.14),
-          ),
-      ),
+    Button::new(tx(
+      "HOLD / FOCUS / PRESS",
+      "User-facing product copy in the Reactant sample.",
+    ))
+    .name("styles-pseudo-target")
+    .focusable(true)
+    .style(probe().background_color(Color::rgb(0.05, 0.20, 0.23)))
+    .hover_style(
+      StyleTarget::new()
+        .background_color(motion_color(0.10, 0.46, 0.50))
+        .scale(1.03),
+    )
+    .focus_style(StyleTarget::new().background_color(motion_color(0.20, 0.37, 0.84)))
+    .active_style(
+      StyleTarget::new()
+        .background_color(motion_color(0.92, 0.31, 0.17))
+        .scale(0.96),
+    )
+    .disabled_style(StyleTarget::new().opacity(0.35))
+    .style_transition(
+      StyleTransition::new()
+        .property(
+          StyleProperty::BackgroundColor,
+          Transition::tween()
+            .duration_secs(0.18)
+            .ease(Easing::EaseOut),
+        )
+        .property(
+          StyleProperty::Scale,
+          Transition::tween()
+            .duration_secs(0.09)
+            .ease(Easing::EaseOut),
+        )
+        .property(
+          StyleProperty::Opacity,
+          Transition::tween().duration_secs(0.14),
+        ),
+    ),
   )
 }
 
@@ -227,10 +241,13 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
     "restart replaces one generation · chrome ignores picking",
   )
   .child(
-    Button::new("BURST SAFE INPUT")
-      .name("styles-burst-target")
-      .style(probe())
-      .after_all(particles),
+    Button::new(tx(
+      "BURST SAFE INPUT",
+      "User-facing product copy in the Reactant sample.",
+    ))
+    .name("styles-burst-target")
+    .style(probe())
+    .after_all(particles),
   )
 }
 
@@ -343,7 +360,7 @@ fn paint_probe(
 ) -> View {
   View::new()
     .style(paint_cell())
-    .child(Label::new(label).style(paint_label()))
+    .child(Label::new(assert_localized(label)).style(paint_label()))
     .child(
       View::new()
         .name(name)
@@ -361,8 +378,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str) -> 
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(heading).style(specimen_title()))
-    .child(Label::new(detail).style(specimen_detail()))
+    .child(Label::new(assert_localized(heading)).style(specimen_title()))
+    .child(Label::new(assert_localized(detail)).style(specimen_detail()))
 }
 
 fn action(
@@ -370,7 +387,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

@@ -22,13 +22,13 @@ impl Component for Browser {
     View::new()
       .animation(Animation::new(Keyframes::new([paint.clone(), paint])).duration_secs(1.0))
       .child((
-        Button::new("Refresh")
+        Button::new(trox::assert_localized("Refresh"))
           .name("refresh")
           .on_click(move || app.refresh_snapshot()),
-        Label::new(format!("Page {index}"))
+        Label::new(trox::assert_localized(format!("Page {index}")))
           .name("page")
           .style(Style::new().unity_font_definition(UiFontAddress::new(font))),
-        Button::new("Next")
+        Button::new(trox::assert_localized("Next"))
           .name("next")
           .on_click(move || select.update(|old| (old + 1) % 3))
           .icon(IconSource::Texture(TextureAddress::from_static(
@@ -43,7 +43,9 @@ impl Component for Browser {
 
 #[test]
 fn references_prepare_initial_and_later_assets_without_author_lists() {
-  let app = App::new("app/content").ui(Browser);
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Browser);
   let root = app.root_document().root_id;
   let mut catalog = app_support::catalog();
   catalog.add_texture("app/icon");
@@ -118,7 +120,9 @@ fn references_prepare_initial_and_later_assets_without_author_lists() {
 
 #[test]
 fn consecutive_responses_wait_for_preparation_and_keep_prior_dependencies() {
-  let mut app = App::new("app/content").ui(Browser);
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Browser);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
@@ -179,8 +183,10 @@ fn assert_preparation(response: &Response, action: ActionId, fonts: &[&str]) {
 #[test]
 #[should_panic(expected = "generated asset reference is not owned by the linked registry")]
 fn automatic_preparation_cannot_claim_unregistered_generated_addresses() {
-  let mut app = App::new("app/content").ui(Image::new().source(battlement::ImageSource::Texture(
-    TextureAddress::from_static("battlement-reactant/generated/unregistered.png"),
-  )));
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Image::new().source(battlement::ImageSource::Texture(
+      TextureAddress::from_static("battlement-reactant/generated/unregistered.png"),
+    )));
   let _ = app.connect(app_support::connect());
 }

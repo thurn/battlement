@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, Overflow, ScrollViewMode, ScrollerVisibility,
@@ -154,14 +156,23 @@ impl Component for PresenceLifecycle {
       .vertical_scroller_visibility(ScrollerVisibility::Auto)
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("RETENTION & TERMINAL ORDERING").style(eyebrow()))
       .child(
-        Label::new("Presence & Lifecycle")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "RETENTION & TERMINAL ORDERING",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Presence & Lifecycle",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "{mode_name}  ·  ROUTE {}  ·  {}  ·  EXIT WAVES {}  ·  RECONNECTS {}",
           self.state.route,
           if self.state.manual_hold.get() {
@@ -171,7 +182,7 @@ impl Component for PresenceLifecycle {
           },
           self.state.exit_waves,
           self.state.reconnects,
-        ))
+        )))
         .name("presence-status")
         .style(status()),
       )
@@ -202,7 +213,7 @@ impl Component for PresenceLifecycle {
         ),
       )
       .child(
-        Label::new(format!(
+        Label::new(assert_localized(format!(
           "MOUNTS {}  ·  UNMOUNTS {}  ·  {}",
           record.mounts,
           record.unmounts,
@@ -211,16 +222,16 @@ impl Component for PresenceLifecycle {
           } else {
             "source absent"
           },
-        ))
+        )))
         .name("presence-mount-record")
         .style(record_style()),
       )
       .child(
-        Label::new(format!(
+        Label::new(assert_localized(format!(
           "ORDERED EVENTS\n{}\n{}",
           record.events.join("  ›  "),
           self.state.events.join("  ›  "),
-        ))
+        )))
         .name("presence-event-record")
         .style(event_record()),
       )
@@ -282,24 +293,29 @@ impl Component for RetainedPanel {
               .push("panel animation cancelled".to_owned());
           }),
       )
-      .child(Label::new(format!("ROUTED PANEL {}", self.route)).style(panel_title()))
       .child(
-        Label::new(format!(
+        Label::new(assert_localized(format!("ROUTED PANEL {}", self.route))).style(panel_title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "RETAINED STATE {counter}  ·  {}",
           if presence.is_present() {
             "PRESENT"
           } else {
             "EXITING"
           }
-        ))
+        )))
         .name("presence-retained-state")
         .style(panel_state()),
       )
       .child(
-        Button::new("COUNTER +1")
-          .name("presence-counter")
-          .style(action_style())
-          .on_click(move |_game: &mut Game| increment.update(|value| value + 1)),
+        Button::new(tx(
+          "COUNTER +1",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("presence-counter")
+        .style(action_style())
+        .on_click(move |_game: &mut Game| increment.update(|value| value + 1)),
       )
       .child(
         View::new()
@@ -350,7 +366,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

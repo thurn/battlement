@@ -36,11 +36,11 @@ impl Component for Counter {
       (),
     );
     View::new().child((
-      Label::new(format!("{count}")).name("count"),
-      Button::new("Increment")
+      Label::new(trox::assert_localized(format!("{count}"))).name("count"),
+      Button::new(trox::assert_localized("Increment"))
         .name("increment")
         .on_click(move || set.update(|value| value + 1)),
-      Button::new("Prevent")
+      Button::new(trox::assert_localized("Prevent"))
         .name("prevent")
         .on_click_event(|event| event.prevent_default()),
     ))
@@ -53,21 +53,21 @@ impl Component for Mixed {
     let input = use_element_ref();
     let toggle = use_checkbox(
       ToggleOptions::new()
-        .name(text("Enabled"))
+        .name(trox::assert_localized("Enabled"))
         .checked(enabled)
         .on_change(move |value| set.set(value)),
     );
     let label = toggle.label_interaction(&input);
     View::new().child((
-      Label::new(format!("{} {enabled}", self.value)).name("value"),
-      Button::new("Game")
+      Label::new(trox::assert_localized(format!("{} {enabled}", self.value))).name("value"),
+      Button::new(trox::assert_localized("Game"))
         .name("game")
         .on_click(|model: &mut u32| *model += 1),
       View::new()
         .name("enabled-label")
         .interaction_props(label)
         .child(
-          Button::new("Enabled")
+          Button::new(trox::assert_localized("Enabled"))
             .name("enabled")
             .element_ref(input)
             .behavior(toggle),
@@ -78,7 +78,9 @@ impl Component for Mixed {
 
 #[test]
 fn generated_application_snapshot_and_mixed_callbacks_work_without_a_custom_engine() {
-  let app = App::with_model("app/content", 0_u32).root(|value| Mixed { value: *value });
+  let app = App::with_model("app/content", 0_u32)
+    .source_bundle(app_support::source_bundle())
+    .root(|value| Mixed { value: *value });
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let game = app_support::named(&mut client, root, "game");
@@ -107,10 +109,12 @@ fn reconnect_policy_controls_remounts_and_drop_runs_cleanup_once() {
   for reset in [false, true] {
     let cleanups = Rc::new(Cell::new(0));
     let handle = Rc::new(RefCell::new(None));
-    let app = App::new("app/content").ui(Counter {
-      cleanups: Rc::clone(&cleanups),
-      handle: Rc::clone(&handle),
-    });
+    let app = App::new("app/content")
+      .source_bundle(app_support::source_bundle())
+      .ui(Counter {
+        cleanups: Rc::clone(&cleanups),
+        handle: Rc::clone(&handle),
+      });
     let root = app.root_document().root_id;
     let app = if reset { app.reset_on_reconnect() } else { app };
     let mut client = FakeClient::connect(app, app_support::catalog());
@@ -138,10 +142,12 @@ fn reconnect_policy_controls_remounts_and_drop_runs_cleanup_once() {
 
 #[test]
 fn ui_disposition_is_synchronous_and_old_session_events_are_rejected() {
-  let mut app = App::new("app/content").ui(Counter {
-    cleanups: Rc::default(),
-    handle: Rc::default(),
-  });
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Counter {
+      cleanups: Rc::default(),
+      handle: Rc::default(),
+    });
   let response = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &response.messages[0] else {
     panic!("initial snapshot");
@@ -184,7 +190,7 @@ impl Component for Commands {
       },
       count,
     );
-    Button::new("Send").on_click(move || {
+    Button::new(trox::assert_localized("Send")).on_click(move || {
       app.send(Command::open_external_url("https://example.com/click"));
       set.update(|count| count + 1);
     })
@@ -193,7 +199,9 @@ impl Component for Commands {
 
 #[test]
 fn native_commands_keep_action_attribution_through_deferred_effects() {
-  let mut app = App::new("app/content").ui(Commands);
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Commands);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
@@ -238,7 +246,9 @@ fn assert_command_action(response: &battlement::Response, action: ActionId) {
 
 #[test]
 fn back_to_back_actions_do_not_steal_deferred_effect_attribution() {
-  let mut app = App::new("app/content").ui(Commands);
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(Commands);
   let initial = app.connect(app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot")
@@ -290,20 +300,24 @@ impl Component for RefreshFocus {
     let target = use_element_ref();
     let app = use_app();
     View::new().child((
-      Button::new("Target")
+      Button::new(trox::assert_localized("Target"))
         .name("target")
         .element_ref(target.clone()),
-      Button::new("Refresh").name("refresh").on_click(move || {
-        target.focus();
-        app.refresh_snapshot();
-      }),
+      Button::new(trox::assert_localized("Refresh"))
+        .name("refresh")
+        .on_click(move || {
+          target.focus();
+          app.refresh_snapshot();
+        }),
     ))
   }
 }
 
 #[test]
 fn snapshot_refresh_delivers_focus_after_the_replacement_document() {
-  let app = App::new("app/content").ui(RefreshFocus);
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(RefreshFocus);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   let refresh = app_support::named(&mut client, root, "refresh");

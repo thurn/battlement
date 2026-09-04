@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Control, Interaction, design_system, preview_resource::Preview};
 use battlement_reactant::prelude::*;
 use std::{error::Error, fmt};
@@ -45,13 +47,19 @@ impl Component for ResourcesBoundaries {
       .name("resources-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new("RESOURCES & BOUNDARIES")
-          .style(design_system::resources_eyebrow(self.compact)),
+        battlement_reactant::host::Label::new(tx(
+          "RESOURCES & BOUNDARIES",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(design_system::resources_eyebrow(self.compact)),
       )
       .child(
-        battlement_reactant::host::Label::new("Recover without losing control")
-          .name("page-title")
-          .style(design_system::effects_title(self.compact)),
+        battlement_reactant::host::Label::new(tx(
+          "Recover without losing control",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(design_system::effects_title(self.compact)),
       )
       .child(
         battlement_reactant::host::View::new()
@@ -63,8 +71,11 @@ impl Component for ResourcesBoundaries {
                 .name("resource-pending")
                 .style(design_system::boundary_card(false, self.compact))
                 .child(
-                  battlement_reactant::host::Label::new("RESOURCE PENDING")
-                    .style(design_system::boundary_status(false, self.compact)),
+                  battlement_reactant::host::Label::new(tx(
+                    "RESOURCE PENDING",
+                    "User-facing product copy in the Reactant sample.",
+                  ))
+                  .style(design_system::boundary_status(false, self.compact)),
                 )
                 .child(super::interactive_button(
                   "RESOLVE RESOURCE",
@@ -117,8 +128,11 @@ impl Component for ResourcePreview {
         .name("resource-ready")
         .style(design_system::boundary_card(false, compact))
         .child(
-          battlement_reactant::host::Label::new("RESOURCE READY")
-            .style(design_system::boundary_status(false, compact)),
+          battlement_reactant::host::Label::new(tx(
+            "RESOURCE READY",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .style(design_system::boundary_status(false, compact)),
         )
         .child(super::interactive_button(
           "REFETCH RESOURCE",
@@ -145,8 +159,11 @@ impl Component for BoundaryPrimary {
         .name("boundary-primary")
         .style(design_system::boundary_card(false, self.compact))
         .child(
-          battlement_reactant::host::Label::new("BOUNDARY READY")
-            .style(design_system::boundary_status(false, self.compact)),
+          battlement_reactant::host::Label::new(tx(
+            "BOUNDARY READY",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .style(design_system::boundary_status(false, self.compact)),
         )
         .child(super::interactive_button(
           "TRIGGER ERROR",
@@ -169,11 +186,14 @@ impl Component for BoundaryFallback {
       .name("boundary-fallback")
       .style(design_system::boundary_card(true, self.compact))
       .child(
-        battlement_reactant::host::Label::new("ERROR CAUGHT")
-          .style(design_system::boundary_status(true, self.compact)),
+        battlement_reactant::host::Label::new(tx(
+          "ERROR CAUGHT",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(design_system::boundary_status(true, self.compact)),
       )
       .child(
-        battlement_reactant::host::Label::new(self.message.clone())
+        battlement_reactant::host::Label::new(assert_localized(self.message.clone()))
           .name("boundary-error")
           .style(design_system::boundary_detail()),
       )

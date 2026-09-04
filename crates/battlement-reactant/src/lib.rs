@@ -8,18 +8,25 @@
 //!
 //! ```
 //! use battlement_reactant::{app::App, prelude::*};
+//! use trox::{Bundle, tx};
+//! # fn source_bundle() -> Bundle { unimplemented!() }
 //!
 //! #[builder]
 //! struct Greeting;
 //!
 //! impl Component for Greeting {
 //!     fn render(&self) -> impl Render {
-//!         View::new().child(Label::new("Hello from Reactant"))
+//!         View::new().child(Label::new(tx(
+//!             "Hello from Reactant",
+//!             "Greeting on the Reactant example screen.",
+//!         )))
 //!     }
 //! }
 //!
 //! fn create_engine() -> App {
-//!     App::new("my-game/content").ui(Greeting::new())
+//!     App::new("my-game/content")
+//!         .source_bundle(source_bundle())
+//!         .ui(Greeting::new())
 //! }
 //!
 //! battlement_native::export_engine!(create_engine);
@@ -84,6 +91,7 @@ mod host_stack;
 pub mod key;
 pub mod layout;
 mod lifecycle;
+mod localization;
 pub mod motion;
 mod motion_component;
 pub mod motion_config;

@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionGestureEvent, MotionGestureEventKind,
@@ -103,18 +105,27 @@ impl Component for GesturesDrag {
       .vertical_scroller_visibility(ScrollerVisibility::Auto)
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("UNITY-LOCAL INPUT · RELIABLE BOUNDARIES").style(eyebrow()))
       .child(
-        Label::new("Gestures & Drag")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "UNITY-LOCAL INPUT · RELIABLE BOUNDARIES",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Gestures & Drag",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "DEVICE {} · {} · CAPTURE + COALESCING ACTIVE",
           device_name(self.state.device),
           self.state.boundary,
-        ))
+        )))
         .name("gesture-device-state")
         .style(status()),
       )
@@ -122,9 +133,12 @@ impl Component for GesturesDrag {
       .child(drag_gallery)
       .child(value_gallery)
       .child(
-        Label::new(format!("TRACE  {}", self.state.trace.join("  ›  ")))
-          .name("gestures-trace")
-          .style(trace()),
+        Label::new(assert_localized(format!(
+          "TRACE  {}",
+          self.state.trace.join("  ›  ")
+        )))
+        .name("gestures-trace")
+        .style(trace()),
       )
   }
 }
@@ -159,13 +173,25 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
       .on_drag_end(record)
       .on_drag_cancel(record)
       .on_drag_momentum_complete(record)
-      .child(Label::new("DRAG").style(knob_label())),
+      .child(
+        Label::new(tx(
+          "DRAG",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(knob_label()),
+      ),
   );
   Node::new(
     View::new()
       .name("gesture-threshold-guide")
       .style(field())
-      .child(Label::new("3 PX START · 10 PX LOCK").style(caption()))
+      .child(
+        Label::new(tx(
+          "3 PX START · 10 PX LOCK",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      )
       .child(target),
   )
 }
@@ -182,13 +208,25 @@ fn momentum_drag() -> Node {
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_momentum_complete(record)
-      .child(Label::new("MOMENTUM").style(knob_label())),
+      .child(
+        Label::new(tx(
+          "MOMENTUM",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(knob_label()),
+      ),
   );
   Node::new(
     View::new()
       .name("momentum-catch-field")
       .style(field())
-      .child(Label::new("THROW · CATCH · RELEASE").style(caption()))
+      .child(
+        Label::new(tx(
+          "THROW · CATCH · RELEASE",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      )
       .child(target),
   )
 }
@@ -206,7 +244,13 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_cancel(record)
-      .child(Label::new("TARGET").style(knob_label())),
+      .child(
+        Label::new(tx(
+          "TARGET",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(knob_label()),
+      ),
   );
   Node::new(
     View::new()
@@ -219,7 +263,13 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .on_pan_start(record)
       .on_pan_end(record)
       .on_pan_cancel(record)
-      .child(Label::new("EXTERNAL HANDLE").style(caption()))
+      .child(
+        Label::new(tx(
+          "EXTERNAL HANDLE",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      )
       .child(target),
   )
 }
@@ -235,7 +285,13 @@ fn drag_gallery(
       .name("drag-motion-value-meter")
       .style(field())
       .animate(StyleTarget::new().scale_value(energy))
-      .child(Label::new("MOTION VALUE OUTPUT").style(caption())),
+      .child(
+        Label::new(tx(
+          "MOTION VALUE OUTPUT",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      ),
   );
   Node::new(
     View::new()
@@ -255,9 +311,21 @@ fn scroll_specimen(scroll_x: MotionValue<f32>, scroll_y: MotionValue<f32>) -> No
       .style(scroll_field())
       .content_container_style(scroll_content())
       .scroll_motion_values(scroll_x, scroll_y)
-      .child(Label::new("SCROLL  ↓").style(caption()))
+      .child(
+        Label::new(tx(
+          "SCROLL  ↓",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      )
       .child(View::new().style(spacer()))
-      .child(Label::new("SCROLL  ↑").style(caption())),
+      .child(
+        Label::new(tx(
+          "SCROLL  ↑",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      ),
   )
 }
 
@@ -267,7 +335,13 @@ fn scroll_meter(progress: MotionValue<f32>) -> Node {
       .name("scroll-progress-meter")
       .style(field())
       .animate(StyleTarget::new().opacity_value(progress))
-      .child(Label::new("SCROLL PROGRESS").style(caption())),
+      .child(
+        Label::new(tx(
+          "SCROLL PROGRESS",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      ),
   )
 }
 
@@ -281,7 +355,13 @@ fn in_view_specimen(in_view: MotionValue<f32>) -> Node {
       .animate(StyleTarget::new().scale_value(in_view).opacity(0.45))
       .on_viewport_enter(record)
       .on_viewport_leave(record)
-      .child(Label::new("IN-VIEW VALUE").style(caption())),
+      .child(
+        Label::new(tx(
+          "IN-VIEW VALUE",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(caption()),
+      ),
   )
 }
 
@@ -310,7 +390,7 @@ fn device_indicators(active: MotionPointerDevice) -> View {
   View::new().style(indicator_row()).child(Fragment::new(
     devices
       .into_iter()
-      .map(|(device, label)| Label::new(label).style(indicator(device == active)))
+      .map(|(device, label)| Label::new(assert_localized(label)).style(indicator(device == active)))
       .collect::<Vec<_>>(),
   ))
 }

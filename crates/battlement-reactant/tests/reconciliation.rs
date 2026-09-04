@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{panic, panic::AssertUnwindSafe};
 
 use battlement::{
@@ -9,7 +11,7 @@ use battlement_fake::battlement_ui_fake::{UiJournalEntry, UiWorld};
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   render::{Either, Render},
-  runtime::{Reactant, ReactantCommit},
+  runtime::ReactantCommit,
 };
 
 struct IdleSpawner;
@@ -50,7 +52,7 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
     name: Some("status".to_owned()),
     width: Some(120.0),
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), view);
   let initial = reactant
     .begin_session(&mut game)
@@ -150,7 +152,7 @@ fn failed_validation_leaves_the_committed_and_fake_trees_unchanged() {
     name: None,
     width: Some(120.0),
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), view);
   let initial = reactant
     .begin_session(&mut game)
@@ -180,7 +182,7 @@ fn usage_hint_changes_and_removal_remount_the_maximal_subtree() {
   let mut game = HintGame {
     hint: Some(UsageHint::DynamicTransform),
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), hint_view);
   let initial = reactant
     .begin_session(&mut game)
@@ -216,7 +218,7 @@ fn usage_hint_changes_and_removal_remount_the_maximal_subtree() {
 fn removing_a_conditional_part_remounts_instead_of_emitting_an_invalid_patch() {
   let document = document();
   let mut game = ConditionalPartGame { title: true };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), conditional_part_view);
   let initial = reactant
     .begin_session(&mut game)
@@ -239,7 +241,7 @@ fn removing_a_conditional_part_remounts_instead_of_emitting_an_invalid_patch() {
 fn removing_an_out_of_range_indexed_part_remounts_the_host() {
   let document = document();
   let mut game = IndexedPartGame { choices: 2 };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), indexed_part_view);
   let initial = reactant
     .begin_session(&mut game)
@@ -274,8 +276,8 @@ fn view(game: &Game) -> impl Render + use<> {
 }
 
 fn label(game: &Game) -> battlement_reactant::host::Label {
-  battlement_reactant::host::Label::new("")
-    .text(game.text.clone())
+  battlement_reactant::host::Label::new(trox::assert_localized(""))
+    .text(game.text.clone().map(trox::assert_localized))
     .name(game.name.clone())
     .style(
       game
@@ -289,28 +291,33 @@ fn hint_view(game: &HintGame) -> impl Render + use<> {
     Some(hint) => battlement_reactant::host::View::new().usage_hints([hint]),
     None => battlement_reactant::host::View::new(),
   };
-  host.child(battlement_reactant::host::Label::new("child"))
+  host.child(battlement_reactant::host::Label::new(
+    trox::assert_localized("child"),
+  ))
 }
 
 fn conditional_part_view(game: &ConditionalPartGame) -> battlement_reactant::host::GroupBox {
   if game.title {
     battlement_reactant::host::GroupBox::new()
-      .text("Title")
+      .text(trox::assert_localized("Title"))
       .title_style(Style::new().width(20.0))
   } else {
-    battlement_reactant::host::GroupBox::new().text("")
+    battlement_reactant::host::GroupBox::new().text(trox::assert_localized(""))
   }
 }
 
 fn indexed_part_view(game: &IndexedPartGame) -> battlement_reactant::host::RadioButtonGroup {
   if game.choices == 2 {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices(["Alpha", "Beta"])
+      .choices([
+        trox::assert_localized("Alpha"),
+        trox::assert_localized("Beta"),
+      ])
       .selected_index(0)
       .option_style(1, Style::new().width(20.0))
   } else {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices(["Alpha"])
+      .choices([trox::assert_localized("Alpha")])
       .selected_index(0)
   }
 }

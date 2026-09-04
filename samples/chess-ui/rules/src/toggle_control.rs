@@ -1,5 +1,7 @@
 //! A controlled checkbox whose label activates and focuses its input.
 
+use trox::{LocalizedString, tx};
+
 use crate::{check_mark::CheckMark, setting_row::SettingRow};
 use battlement::{
   Align, Color, Justify, Length, PickingMode, Position, Style, TextAnchor, Translate,
@@ -20,7 +22,7 @@ pub struct ToggleControl {
   #[builder(required)]
   checked: bool,
   /// Overrides the accessible name when the visible wording needs clarification.
-  aria_label: Option<String>,
+  aria_label: Option<LocalizedString>,
   /// Shows crash-report context next to the visible label.
   with_info: bool,
   /// Handles activation of the optional crash-report information badge.
@@ -32,24 +34,25 @@ pub struct ToggleControl {
 
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
-    let (label, checkbox) =
-      use_control_label().bind_with(|label_name| {
-        accessibility::use_checkbox(
-          ToggleOptions::new()
-            .name(
-              self
-                .aria_label
-                .as_ref()
-                .filter(|label| !label.is_empty())
-                .map_or(label_name, |name| AccessibleName::text(name.clone())),
-            )
-            .description(self.with_info.then(|| {
-              AccessibleDescription::text("We upload crash reports to Unity Diagnostics.")
-            }))
-            .checked(self.checked)
-            .on_change(self.on_change.clone()),
-        )
-      });
+    let (label, checkbox) = use_control_label().bind_with(|label_name| {
+      accessibility::use_checkbox(
+        ToggleOptions::new()
+          .name(
+            self
+              .aria_label
+              .as_ref()
+              .map_or(label_name, |name| AccessibleName::text(name.clone())),
+          )
+          .description(self.with_info.then(|| {
+            AccessibleDescription::text(tx(
+              "We upload crash reports to Unity Diagnostics.",
+              "User-facing product copy in the Chess UI sample.",
+            ))
+          }))
+          .checked(self.checked)
+          .on_change(self.on_change.clone()),
+      )
+    });
     View::new()
       .name("toggle-control-label")
       .style(Style::new().height(self.row_height))
@@ -90,7 +93,7 @@ impl Component for ToggleControl {
                       .background_color(Color::rgb8(2, 9, 26)),
                   )
                   .child(self.checked.then_some(CheckMark::new())),
-                Button::new("")
+                Button::new(tx("", "User-facing product copy in the Chess UI sample."))
                   .name("toggle-control-input")
                   .associated_control(checkbox)
                   .style(
@@ -122,11 +125,14 @@ struct InfoBadge {
 
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
-    Button::new("i")
+    Button::new(tx("i", "User-facing product copy in the Chess UI sample."))
       .name("toggle-info")
       .behavior(accessibility::use_button(
         ButtonOptions::new()
-          .name(AccessibleName::text("About crash report uploads"))
+          .name(AccessibleName::text(tx(
+            "About crash report uploads",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .on_press(self.on_click.clone()),
       ))
       .style(

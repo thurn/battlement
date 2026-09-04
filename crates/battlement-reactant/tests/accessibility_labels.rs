@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   CameraState, CheckedState, ClickEvent, CommandBody, GameObject, ObjectId, PreparedAsset, Scene,
   SceneId, SemanticRole, SessionId, Snapshot, UiAccessibilityAction, UiAccessibilityActionEvent,
@@ -11,8 +13,7 @@ use battlement_reactant::{
   host::View,
   label_binding,
   render::Render,
-  runtime::Reactant,
-  semantics::{AccessibleDescription, AccessibleName, text},
+  semantics::{AccessibleDescription, AccessibleName},
 };
 
 #[derive(Clone, Default)]
@@ -61,7 +62,7 @@ impl Spawner for IdleSpawner {
 #[test]
 fn label_and_nested_controls_share_activation_without_suppressing_bubbling() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), self::view);
   let mut game = Game::default();
   let (initial, commit) = runtime
@@ -214,7 +215,7 @@ fn label_and_nested_controls_share_activation_without_suppressing_bubbling() {
 #[test]
 fn disabled_slider_label_is_inert() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), self::disabled_slider_view);
   let mut game = DisabledSliderGame::default();
   let (initial, commit) = runtime
@@ -245,7 +246,7 @@ fn disabled_slider_label_is_inert() {
 #[test]
 fn referenced_names_update_and_explicit_names_remain_authoritative() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), self::view);
   let mut game = Game::default();
   let groups = runtime
@@ -308,11 +309,13 @@ fn fixture(game: &Game) -> impl Render + use<> {
     accessibility::use_checkbox(
       ToggleOptions::new()
         .name(if game.explicit {
-          AccessibleName::text("Explicit sound")
+          AccessibleName::text(trox::assert_localized("Explicit sound"))
         } else {
           label_name
         })
-        .description(AccessibleDescription::text("Controls game audio"))
+        .description(AccessibleDescription::text(trox::assert_localized(
+          "Controls game audio",
+        )))
         .checked(game.checked)
         .is_disabled(game.disabled)
         .on_change(|game: &mut Game, value| {
@@ -325,7 +328,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
   });
   let help = accessibility::use_button(
     ButtonOptions::new()
-      .name(text("Help"))
+      .name(trox::assert_localized("Help"))
       .on_press(|game: &mut Game| game.help += 1),
   );
   View::new()
@@ -340,7 +343,9 @@ fn fixture(game: &Game) -> impl Render + use<> {
         View::new()
           .name("label")
           .associated_label(label)
-          .child(accessibility::name_source_text(visible_name)),
+          .child(accessibility::name_source_text(trox::assert_localized(
+            visible_name,
+          ))),
         (!game.hide).then(|| {
           View::new()
             .name("checkbox")
@@ -373,7 +378,9 @@ fn disabled_slider_fixture(_game: &DisabledSliderGame) -> impl Render + use<> {
     View::new()
       .name("slider-label")
       .associated_label(label)
-      .child(accessibility::name_source_text("Disabled volume")),
+      .child(accessibility::name_source_text(trox::assert_localized(
+        "Disabled volume",
+      ))),
     View::new()
       .name("disabled-slider")
       .associated_control(slider),

@@ -1,5 +1,7 @@
 //! Browse isolated examples of the chess design system.
 
+use trox::{opaque, tx, tx_args, txa};
+
 use crate::{
   review_button::ReviewButton,
   review_navigation::ReviewNavigation,
@@ -51,11 +53,25 @@ impl Component for Gallery {
     let (selection, select) = hooks::use_state(Selection::default());
     ReviewSurface::new().child((
       ReviewNavigation::new()
-        .title("CHESS UI")
-        .caption(format!("{} review pages", self.pages.len()))
+        .title(tx(
+          "CHESS UI",
+          "User-facing product copy in the Chess UI sample.",
+        ))
+        .caption(txa(
+          "{page_count} review pages",
+          tx_args![page_count => self.pages.len() as u32],
+          "User-facing product copy in the Chess UI sample.",
+        ))
         .children(self.pages.iter().enumerate().map(|(index, page)| {
           ReviewButton::new()
-            .label(format!("{}. {}", index + 1, page.title_text()))
+            .label(txa(
+              "{position}. {title}",
+              tx_args![
+                position => (index + 1) as u32,
+                title => opaque(page.title_text()),
+              ],
+              "Numbered navigation label for a Chess UI review page.",
+            ))
             .navigation(selection.index == index)
             .reveal_generation(selection.generation)
             .name(format!("review-page-{}", index + 1))
@@ -68,10 +84,13 @@ impl Component for Gallery {
       ReviewStage::new().child(self.pages.get(selection.index).map(|page| {
         page
           .clone()
-          .eyebrow(format!(
-            "REVIEW {:02} / {}",
-            selection.index + 1,
-            self.pages.len()
+          .eyebrow(txa(
+            "REVIEW {review_index} / {page_count}",
+            tx_args![
+              review_index => format!("{:02}", selection.index + 1),
+              page_count => self.pages.len() as u32,
+            ],
+            "User-facing product copy in the Chess UI sample.",
           ))
           .key((selection.index, selection.generation))
       })),
@@ -84,16 +103,28 @@ impl Component for Demonstration {
     let (count, set_count) = hooks::use_state(0_u32);
     ReviewPanel::new().children((
       ReviewText::new()
-        .text("One page. A fresh start.")
+        .text(tx(
+          "One page. A fresh start.",
+          "User-facing product copy in the Chess UI sample.",
+        ))
         .kind(ReviewTextKind::Title),
+      ReviewText::new().text(tx(
+        "Select a page to explore it. Select it again to reset its demonstration.",
+        "User-facing product copy in the Chess UI sample.",
+      )),
       ReviewText::new()
-        .text("Select a page to explore it. Select it again to reset its demonstration."),
-      ReviewText::new()
-        .text(format!("Changes: {count}"))
+        .text(txa(
+          "Changes: {count}",
+          tx_args![count],
+          "User-facing product copy in the Chess UI sample.",
+        ))
         .kind(ReviewTextKind::Title)
         .name("demonstration-count"),
       ReviewButton::new()
-        .label("Change demonstration")
+        .label(tx(
+          "Change demonstration",
+          "User-facing product copy in the Chess UI sample.",
+        ))
         .on_press(set_count.update_callback(|value| value + 1)),
     ))
   }

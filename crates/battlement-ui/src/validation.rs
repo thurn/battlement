@@ -349,10 +349,10 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
       }
     }
   }
-  if let Some(values) = visual.events.set_value() {
-    if values.iter().collect::<HashSet<_>>().len() != values.len() {
-      return Err(UiValidationError::InvalidProperty);
-    }
+  if let Some(values) = visual.events.set_value()
+    && values.iter().collect::<HashSet<_>>().len() != values.len()
+  {
+    return Err(UiValidationError::InvalidProperty);
   }
   if let Some(values) = visual.event_subscriptions.set_value() {
     if values.iter().collect::<HashSet<_>>().len() != values.len() {
@@ -372,10 +372,10 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(values) = &visual.usage_hints {
-    if values.iter().collect::<HashSet<_>>().len() != values.len() {
-      return Err(UiValidationError::InvalidProperty);
-    }
+  if let Some(values) = &visual.usage_hints
+    && values.iter().collect::<HashSet<_>>().len() != values.len()
+  {
+    return Err(UiValidationError::InvalidProperty);
   }
   if visual
     .motion
@@ -967,13 +967,12 @@ fn validate_image(value: &crate::UiImage) -> Result<(), UiValidationError> {
   if let Prop::Set(rect) = value.uv {
     validate_rect(rect, true)?;
   }
-  if let Prop::Set(color) = value.tint_color {
-    if [color.r, color.g, color.b, color.a]
+  if let Prop::Set(color) = value.tint_color
+    && [color.r, color.g, color.b, color.a]
       .into_iter()
       .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))
-    {
-      return Err(UiValidationError::InvalidProperty);
-    }
+  {
+    return Err(UiValidationError::InvalidProperty);
   }
   Ok(())
 }
@@ -1123,10 +1122,16 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
   }
   if let Some(crate::TextAutoSize::BestFit { min_size, max_size }) =
     prop_concrete(&value.unity_text_auto_size)
+    && [
+      !min_size.is_finite(),
+      !max_size.is_finite(),
+      *min_size <= 0.0,
+      min_size > max_size,
+    ]
+    .into_iter()
+    .any(|invalid| invalid)
   {
-    if !min_size.is_finite() || !max_size.is_finite() || *min_size <= 0.0 || min_size > max_size {
-      return Err(UiValidationError::InvalidProperty);
-    }
+    return Err(UiValidationError::InvalidProperty);
   }
   for property in [
     &value.unity_slice_bottom,
@@ -1210,10 +1215,10 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(scale) = prop_concrete(&value.scale) {
-    if !scale.x.is_finite() || !scale.y.is_finite() {
-      return Err(UiValidationError::InvalidProperty);
-    }
+  if let Some(scale) = prop_concrete(&value.scale)
+    && (!scale.x.is_finite() || !scale.y.is_finite())
+  {
+    return Err(UiValidationError::InvalidProperty);
   }
   if let Some(origin) = prop_concrete(&value.transform_origin) {
     validate_concrete_length(&origin.x, false)?;

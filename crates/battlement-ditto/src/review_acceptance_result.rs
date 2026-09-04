@@ -244,10 +244,10 @@ fn set_identity(result: &mut RunResult, source: &RunResult, run_id: &str, now: u
 fn normalize_capture(result: &mut RunResult) {
   for scenario in &mut result.scenarios {
     for step in &mut scenario.steps {
-      if let Some(ScreenshotResult::Captured { baseline, .. }) = &mut step.screenshot {
-        if matches!(baseline, BaselineOutcome::NotLoaded) {
-          *baseline = BaselineOutcome::Missing;
-        }
+      if let Some(ScreenshotResult::Captured { baseline, .. }) = &mut step.screenshot
+        && matches!(baseline, BaselineOutcome::NotLoaded)
+      {
+        *baseline = BaselineOutcome::Missing;
       }
     }
   }

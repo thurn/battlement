@@ -1,4 +1,4 @@
-use std::{any::TypeId, boxed::Box as Boxed};
+use std::{any::TypeId, boxed::Box as Boxed, rc::Rc};
 
 use battlement::UiElement;
 
@@ -22,6 +22,7 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct HostState<H> {
   pub(crate) host: H,
+  pub(crate) localizers: Vec<Rc<dyn Fn(H) -> H>>,
   pub(crate) children: Vec<Node>,
   pub(crate) handlers: Vec<Handler>,
   pub(crate) key: Option<ErasedKey>,
@@ -76,7 +77,13 @@ fn prepare_input<H: Clone + Into<UiElement>>(
       retained_render,
       overlay_reference: state.overlay_reference.clone(),
     }),
-    Boxed::new(state.host.clone().into()),
+    Boxed::new(
+      state
+        .localizers
+        .iter()
+        .fold(state.host.clone(), |host, localize| localize(host))
+        .into(),
+    ),
   )
 }
 

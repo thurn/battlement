@@ -1,10 +1,11 @@
 //! Accessible behavior hooks for common settings controls.
 
 use battlement::{
-  AccessibilityAction, AccessibilityRangeValue, AccessibilityScrollAxis,
-  AccessibilityScrollDirection, CheckedState, SemanticRole, SemanticState,
+  AccessibilityAction, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
+  SemanticRole, SemanticState,
 };
 use battlement_builder::builder;
+use trox::LocalizedString;
 
 use crate::{
   accessibility_hook, activation, button_state,
@@ -15,8 +16,8 @@ use crate::{
   host::{Label, TextElement},
   motion::MotionProps,
   semantics::{
-    self, AccessibleBehavior, AccessibleDescription, AccessibleName, InteractionProps,
-    LocalizedText, SemanticProps,
+    AccessibilityRangeValue, AccessibleBehavior, AccessibleDescription, AccessibleName,
+    InteractionProps, SemanticProps,
   },
 };
 
@@ -37,7 +38,7 @@ pub struct ButtonState {
 
 /// Options for [`use_button`].
 #[builder(support = crate::builder_support)]
-pub struct ButtonOptions<F, N = LocalizedText> {
+pub struct ButtonOptions<F, N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -52,7 +53,7 @@ pub struct ButtonOptions<F, N = LocalizedText> {
 
 /// Options for checkbox and switch patterns.
 #[builder(support = crate::builder_support)]
-pub struct ToggleOptions<F, N = LocalizedText> {
+pub struct ToggleOptions<F, N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -70,7 +71,7 @@ pub struct ToggleOptions<F, N = LocalizedText> {
 
 /// Options for [`use_slider`].
 #[builder(support = crate::builder_support)]
-pub struct SliderOptions<F, N = LocalizedText> {
+pub struct SliderOptions<F, N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -89,7 +90,7 @@ pub struct SliderOptions<F, N = LocalizedText> {
   #[builder(required)]
   pub step: f64,
   /// Optional localized value text.
-  pub value_text: Option<LocalizedText>,
+  pub value_text: Option<LocalizedString>,
   /// Whether changes are unavailable.
   pub is_disabled: bool,
   /// Authoritative change callback.
@@ -99,7 +100,7 @@ pub struct SliderOptions<F, N = LocalizedText> {
 
 /// Options for a disclosure trigger.
 #[builder(support = crate::builder_support)]
-pub struct DisclosureOptions<F, N = LocalizedText> {
+pub struct DisclosureOptions<F, N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -117,7 +118,7 @@ pub struct DisclosureOptions<F, N = LocalizedText> {
 
 /// Options for a modal dialog wrapper.
 #[builder(support = crate::builder_support)]
-pub struct DialogOptions<N = LocalizedText> {
+pub struct DialogOptions<N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -129,7 +130,7 @@ pub struct DialogOptions<N = LocalizedText> {
 #[builder(support = crate::builder_support)]
 pub struct ScrollAreaOptions<F> {
   /// Optional accessible name.
-  pub name: Option<LocalizedText>,
+  pub name: Option<LocalizedString>,
   /// Owned logical axis.
   #[builder(required)]
   pub axis: AccessibilityScrollAxis,
@@ -162,7 +163,7 @@ pub struct TabsBehavior {
 
 /// Options for one radio or tab choice.
 #[builder(support = crate::builder_support)]
-pub struct ChoiceOptions<F, N = LocalizedText> {
+pub struct ChoiceOptions<F, N = LocalizedString> {
   /// Accessible name.
   #[builder(required)]
   pub name: N,
@@ -214,26 +215,21 @@ pub fn use_button<G: 'static>(
 
 /// Creates visible text with an exposed static-text semantic declaration.
 #[must_use]
-pub fn static_text(value: impl Into<String>) -> TextElement {
-  let value = value.into();
-  TextElement::new(value.clone()).semantic(self::static_text_semantic(semantics::text(value)))
+pub fn static_text(value: LocalizedString) -> TextElement {
+  TextElement::new(value.clone()).semantic(self::static_text_semantic(value))
 }
 
 /// Creates a native label with an exposed static-text semantic declaration.
 #[must_use]
-pub fn static_label(value: impl Into<String>) -> Label {
-  let value = value.into();
-  Label::new(value.clone()).semantic(self::static_text_semantic(semantics::text(value)))
+pub fn static_label(value: LocalizedString) -> Label {
+  Label::new(value.clone()).semantic(self::static_text_semantic(value))
 }
 
 /// Creates visible text that participates only in names derived from content.
 #[must_use]
-pub fn name_source_text(value: impl Into<String>) -> TextElement {
-  let value = value.into();
-  TextElement::new(value.clone()).semantic(
-    self::static_text_semantic(semantics::text(value))
-      .visibility(SemanticVisibility::NameSourceOnly),
-  )
+pub fn name_source_text(value: LocalizedString) -> TextElement {
+  TextElement::new(value.clone())
+    .semantic(self::static_text_semantic(value).visibility(SemanticVisibility::NameSourceOnly))
 }
 
 /// Returns checkbox semantics and unified Boolean activation.
@@ -253,7 +249,7 @@ pub fn use_switch<G: 'static>(
 }
 
 /// Returns a semantic radio group and its runtime-local membership handle.
-pub fn use_radio_group(name: LocalizedText) -> RadioGroupBehavior {
+pub fn use_radio_group(name: LocalizedString) -> RadioGroupBehavior {
   RadioGroupBehavior {
     semantic: named(SemanticRole::RadioGroup, name),
     element_ref: use_element_ref(),
@@ -275,7 +271,7 @@ pub fn use_radio<G: 'static>(
 }
 
 /// Returns a semantic tab list and its runtime-local membership handle.
-pub fn use_tabs(name: LocalizedText) -> TabsBehavior {
+pub fn use_tabs(name: LocalizedString) -> TabsBehavior {
   TabsBehavior {
     semantic: named(SemanticRole::TabList, name),
     element_ref: use_element_ref(),
@@ -356,7 +352,7 @@ pub fn use_slider<G: 'static>(
       current: value,
       minimum,
       maximum,
-      text: options.value_text.map(|text| text.resolved()),
+      text: options.value_text,
     })
     .action(AccessibilityAction::Increment)
     .action(AccessibilityAction::Decrement),
@@ -368,13 +364,13 @@ pub fn use_slider<G: 'static>(
 }
 
 /// Returns determinate progress semantics.
-pub fn use_progress(name: LocalizedText, value: AccessibilityRangeValue) -> SemanticProps {
+pub fn use_progress(name: LocalizedString, value: AccessibilityRangeValue) -> SemanticProps {
   accessibility_hook::use_pattern("use_progress");
   named(SemanticRole::Progress, name).value(value)
 }
 
 /// Returns indeterminate progress semantics.
-pub fn use_busy_progress(name: LocalizedText) -> SemanticProps {
+pub fn use_busy_progress(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_busy_progress");
   named(SemanticRole::Progress, name).state(SemanticState {
     busy: true,
@@ -428,25 +424,25 @@ pub fn use_dialog(options: DialogOptions<impl Into<AccessibleName>>) -> Accessib
 }
 
 /// Returns heading semantics.
-pub fn use_heading(name: LocalizedText, level: u8) -> SemanticProps {
+pub fn use_heading(name: LocalizedString, level: u8) -> SemanticProps {
   accessibility_hook::use_pattern("use_heading");
   named(SemanticRole::Heading, name).heading_level(level)
 }
 
 /// Returns informative-image semantics.
-pub fn use_image(name: LocalizedText) -> SemanticProps {
+pub fn use_image(name: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_image");
   named(SemanticRole::Image, name)
 }
 
 /// Returns static-text semantics.
-pub fn use_static_text(value: LocalizedText) -> SemanticProps {
+pub fn use_static_text(value: LocalizedString) -> SemanticProps {
   accessibility_hook::use_pattern("use_static_text");
   self::static_text_semantic(value)
 }
 
 /// Returns optional named group semantics.
-pub fn use_group(name: Option<LocalizedText>) -> SemanticProps {
+pub fn use_group(name: Option<LocalizedString>) -> SemanticProps {
   accessibility_hook::use_pattern("use_group");
   optionally_named(SemanticRole::Group, name)
 }
@@ -558,7 +554,7 @@ fn accessible<G: 'static>(
   interaction
 }
 
-fn static_text_semantic(value: LocalizedText) -> SemanticProps {
+fn static_text_semantic(value: LocalizedString) -> SemanticProps {
   named(SemanticRole::StaticText, value)
 }
 
@@ -573,7 +569,7 @@ fn described(semantic: SemanticProps, description: Option<AccessibleDescription>
   }
 }
 
-fn optionally_named(role: SemanticRole, name: Option<LocalizedText>) -> SemanticProps {
+fn optionally_named(role: SemanticRole, name: Option<LocalizedString>) -> SemanticProps {
   name.map_or_else(|| SemanticProps::new(role), |name| named(role, name))
 }
 

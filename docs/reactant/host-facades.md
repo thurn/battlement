@@ -107,7 +107,7 @@ Reactant component code imports its focused prelude and sees only façades.
 ```rust
 use battlement_reactant::prelude::*;
 
-View::new().child(Button::new("Save").on_click(save_game))
+View::new().child(Button::new(trox::tx("Save", "User-facing copy in this example.")).on_click(save_game))
 ```
 
 The explicit `Box` import from the Reactant prelude shadows Rust's standard
@@ -184,13 +184,13 @@ The same final state may be authored in different orders:
 
 ```rust
 let first = View::new()
-    .child(Label::new("Settings"))
+    .child(Label::new(trox::tx("Settings", "User-facing copy in this example.")))
     .style(panel_style())
     .on_click(close_panel);
 let second = View::new()
     .on_click(close_panel)
     .style(panel_style())
-    .child(Label::new("Settings"));
+    .child(Label::new(trox::tx("Settings", "User-facing copy in this example.")));
 ```
 
 `first` and `second` lower to equal `UiVisualElement` properties, children, and
@@ -218,7 +218,7 @@ its `TypeId`. Replacing a key during construction does not create nested keyed
 positions; only the final value participates in reconciliation.
 
 ```rust
-Button::new("Save")
+Button::new(trox::tx("Save", "User-facing copy in this example."))
     .key(old_id)
     .on_click(old_handler)
     .key(current_id)

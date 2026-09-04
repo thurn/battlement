@@ -32,9 +32,13 @@ use crate::{
 ///   key::KeyRenderExt,
 ///   render::{Fragment, Render},
 /// };
+/// use trox::tx;
 ///
 /// fn accepts_render(_value: impl Render) {}
-/// accepts_render(Fragment::new((Label::new("Ready"), ())).key(7_u64));
+/// accepts_render(Fragment::new((Label::new(tx(
+///   "Ready",
+///   "Ready status in the keyed-render example.",
+/// )), ())).key(7_u64));
 /// ```
 ///
 /// Host façades cannot be wrapped in a second structural keyed position, even

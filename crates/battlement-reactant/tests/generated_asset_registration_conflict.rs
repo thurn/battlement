@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{any::Any, panic::AssertUnwindSafe};
 
 use battlement::{
@@ -7,7 +9,6 @@ use battlement_reactant::{
   __register_generated_asset,
   asset_generator::{AssetRegistration, LogicalRect, LogicalSize},
   executor::{BoxFuture, SpawnedTask, Spawner},
-  runtime::Reactant,
 };
 
 const ADDRESS: &str = "battlement-reactant/generated/0000000000000000000000000000000000000000000000000000000000000000.png";
@@ -39,7 +40,7 @@ impl Spawner for IdleSpawner {
 #[test]
 fn conflicting_linked_metadata_names_both_sources_and_values() {
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
     let _ = reactant
       .begin_session(&mut game)

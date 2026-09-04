@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{any::Any, panic::AssertUnwindSafe};
 
 use battlement::{
@@ -7,7 +9,6 @@ use battlement_reactant::{
   asset_generator,
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::View,
-  runtime::Reactant,
 };
 
 asset_generator::generate! {
@@ -64,7 +65,7 @@ fn every_caller_prepared_case_is_rejected_inside_the_generated_prefix() {
 fn conversion_panic(asset: PreparedAsset) -> String {
   let document = UiDocument::new(ObjectId::new_v4());
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| View::new());
   let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
     let mut snapshot = self::snapshot();

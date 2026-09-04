@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   num::NonZeroU64,
@@ -81,7 +83,7 @@ struct FailingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(self.text.clone())
+    battlement_reactant::host::Label::new(trox::assert_localized(self.text.clone()))
   }
 }
 
@@ -109,7 +111,7 @@ where
 impl Component for FailingBadge {
   fn render(&self) -> impl Render {
     assert!(!self.fail.get(), "fixture render failed");
-    battlement_reactant::host::Label::new("fallible")
+    battlement_reactant::host::Label::new(trox::assert_localized("fallible"))
   }
 }
 
@@ -219,11 +221,11 @@ fn fake_client_applies_the_complete_rendered_session_hierarchy() {
   let second = document(20, 21);
   let first_root = first.root_id;
   let second_root = second.root_id;
-  let mut reactant = Reactant::new(IdleSpawner {
+  let mut reactant = runtime_support::reactant(IdleSpawner {
     calls: Rc::clone(&calls),
   });
   let first_handle = reactant.register_root(first.clone(), |game: &Game| {
-    battlement_reactant::host::Label::new(game.label.clone())
+    battlement_reactant::host::Label::new(trox::assert_localized(game.label.clone()))
   });
   let second_handle = reactant.register_root(second.clone(), |_game: &Game| ());
   assert_ne!(first_handle, second_handle);
@@ -269,7 +271,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   let document = document(90, 91);
   let root_id = document.root_id;
   let snapshots = Rc::new(RefCell::new(Vec::new()));
-  let mut reactant = Reactant::new(idle_spawner());
+  let mut reactant = runtime_support::reactant(idle_spawner());
   reactant.register_root(document.clone(), structural_view);
   let engine = StructuralEngine {
     game: StructuralGame {
@@ -319,7 +321,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
 
 #[test]
 fn invalid_registrations_fail_without_changing_the_root_set() {
-  let mut reactant = Reactant::<()>::new(idle_spawner());
+  let mut reactant = runtime_support::reactant::<()>(idle_spawner());
   let first = document(30, 31);
   reactant.register_root(first.clone(), |_| ());
   let populated = document(40, 41).child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid")));
@@ -343,7 +345,7 @@ fn invalid_registrations_fail_without_changing_the_root_set() {
 
 #[test]
 fn lifecycle_guards_and_baseline_entries_are_stable() {
-  let mut registering = Reactant::<()>::new(idle_spawner());
+  let mut registering = runtime_support::reactant::<()>(idle_spawner());
   assert_panics(|| registering.refresh(&mut ()));
   assert_panics(|| registering.poll(&mut ()));
   assert_panics(|| registering.dispatch(&mut (), event()));
@@ -353,9 +355,9 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
   assert_panics(|| registering.begin_session(&mut ()));
 
   let root = document(60, 61);
-  let mut active = Reactant::<()>::new(idle_spawner());
+  let mut active = runtime_support::reactant::<()>(idle_spawner());
   active.register_root(root.clone(), |_| {
-    battlement_reactant::host::Label::new("active")
+    battlement_reactant::host::Label::new(trox::assert_localized("active"))
   });
   let (first_snapshot, first_commit) = active
     .begin_session(&mut ())
@@ -397,7 +399,7 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
 
 #[test]
 fn dropping_an_unconverted_session_poisons_the_runtime() {
-  let mut reactant = Reactant::<()>::new(idle_spawner());
+  let mut reactant = runtime_support::reactant::<()>(idle_spawner());
   reactant.register_root(document(80, 81), |_| ());
 
   assert_panics(|| {
@@ -439,11 +441,13 @@ fn nested_host_composition_renders_and_refreshes_on_a_normal_stack() {
     .stack_size(2 * 1024 * 1024)
     .spawn(|| {
       let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-      let mut reactant = Reactant::new(IdleSpawner {
+      let mut reactant = runtime_support::reactant(IdleSpawner {
         calls: Rc::new(Cell::new(0)),
       });
       reactant.register_root(document.clone(), |value: &u32| {
-        let mut content = Node::new(Label::new(format!("Nested value: {value}")));
+        let mut content = Node::new(Label::new(trox::assert_localized(format!(
+          "Nested value: {value}"
+        ))));
         for _ in 0..24 {
           content = Node::new(
             View::new()
@@ -529,19 +533,30 @@ fn structural_view(game: &StructuralGame) -> impl Render + use<> {
       game
         .optional
         .get()
-        .then(|| battlement_reactant::host::Label::new("optional")),
-      (battlement_reactant::host::Label::new("tuple"),),
+        .then(|| battlement_reactant::host::Label::new(trox::assert_localized("optional"))),
+      (battlement_reactant::host::Label::new(
+        trox::assert_localized("tuple"),
+      ),),
       [
-        battlement_reactant::host::Label::new("array-a"),
-        battlement_reactant::host::Label::new("array-b"),
+        battlement_reactant::host::Label::new(trox::assert_localized("array-a")),
+        battlement_reactant::host::Label::new(trox::assert_localized("array-b")),
       ],
-      vec![battlement_reactant::host::Label::new("vector")],
-      Rc::new(battlement_reactant::host::Label::new("rc")),
+      vec![battlement_reactant::host::Label::new(
+        trox::assert_localized("vector"),
+      )],
+      Rc::new(battlement_reactant::host::Label::new(
+        trox::assert_localized("rc"),
+      )),
     ),
     (
-      Fragment::new((battlement_reactant::host::Label::new("fragment"), ())),
+      Fragment::new((
+        battlement_reactant::host::Label::new(trox::assert_localized("fragment")),
+        (),
+      )),
       structural_branch(game.left_branch.get()),
-      Node::new(battlement_reactant::host::Label::new("node")),
+      Node::new(battlement_reactant::host::Label::new(
+        trox::assert_localized("node"),
+      )),
       rc_branch(game.rc_branch.get()),
       nested_node(game.nested_node.get()),
       Fragment::new((
@@ -567,10 +582,12 @@ fn structural_branch(
   left: bool,
 ) -> Either<battlement_reactant::host::Label, Fragment<battlement_reactant::host::Label>> {
   if left {
-    Either::left(battlement_reactant::host::Label::new("either-left"))
+    Either::left(battlement_reactant::host::Label::new(
+      trox::assert_localized("either-left"),
+    ))
   } else {
     Either::right(Fragment::new(battlement_reactant::host::Label::new(
-      "either-right",
+      trox::assert_localized("either-right"),
     )))
   }
 }
@@ -579,19 +596,25 @@ fn rc_branch(
   left: bool,
 ) -> Either<Rc<battlement_reactant::host::Label>, battlement_reactant::host::Label> {
   if left {
-    Either::left(Rc::new(battlement_reactant::host::Label::new("rc-branch")))
+    Either::left(Rc::new(battlement_reactant::host::Label::new(
+      trox::assert_localized("rc-branch"),
+    )))
   } else {
-    Either::right(battlement_reactant::host::Label::new("rc-branch"))
+    Either::right(battlement_reactant::host::Label::new(
+      trox::assert_localized("rc-branch"),
+    ))
   }
 }
 
 fn nested_node(nested: bool) -> Node {
   if nested {
     Node::new(Node::new(battlement_reactant::host::Label::new(
-      "nested-node",
+      trox::assert_localized("nested-node"),
     )))
   } else {
-    Node::new(battlement_reactant::host::Label::new("nested-node"))
+    Node::new(battlement_reactant::host::Label::new(
+      trox::assert_localized("nested-node"),
+    ))
   }
 }
 
@@ -603,11 +626,11 @@ fn wrapped_fragment(
 > {
   if wrapped {
     Either::left(Fragment::new(Rc::new(
-      battlement_reactant::host::Label::new("wrapped-fragment"),
+      battlement_reactant::host::Label::new(trox::assert_localized("wrapped-fragment")),
     )))
   } else {
     Either::right(Fragment::new(battlement_reactant::host::Label::new(
-      "wrapped-fragment",
+      trox::assert_localized("wrapped-fragment"),
     )))
   }
 }

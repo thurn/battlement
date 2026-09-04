@@ -1,10 +1,12 @@
 //! Typography roles that also provide the appropriate text semantics.
 
+use trox::LocalizedString;
+
 use crate::review_theme;
 use battlement::{Color, Style, WhiteSpace};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility, element_behavior, focus::FocusProps, semantics, semantics::SemanticProps,
+  accessibility, element_behavior, focus::FocusProps, semantics::SemanticProps,
 };
 use battlement_reactant::{component::Component, host::Label, motion::StyleTarget, render::Render};
 
@@ -30,11 +32,11 @@ impl ReviewTextKind {
     matches!(self, Self::Heading)
   }
 
-  fn use_semantic(self, text: &str) -> SemanticProps {
+  fn use_semantic(self, text: &LocalizedString) -> SemanticProps {
     match (
       self,
-      accessibility::use_heading(semantics::text(text), 1),
-      accessibility::use_static_text(semantics::text(text)),
+      accessibility::use_heading(text.clone(), 1),
+      accessibility::use_static_text(text.clone()),
     ) {
       (Self::Heading, heading, _) => heading,
       (_, _, text) => text,
@@ -77,7 +79,7 @@ impl ReviewTextKind {
 #[builder]
 pub struct ReviewText {
   #[builder(required)]
-  text: String,
+  text: LocalizedString,
   /// Sets the stable host name used for inspection and capture discovery.
   name: String,
   /// Selects a typography role and its matching accessibility behavior.

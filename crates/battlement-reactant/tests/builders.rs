@@ -34,7 +34,7 @@ struct SlottedCard {
 
 impl Component for Action {
   fn render(&self) -> impl Render {
-    Button::new(self.label.clone())
+    Button::new(trox::assert_localized(self.label.clone()))
       .name("generated-action")
       .on_click(Forward::new().clicked(self.clicked.clone()).clicked)
   }
@@ -42,7 +42,7 @@ impl Component for Action {
 
 impl Component for OptionalAction {
   fn render(&self) -> impl Render {
-    let button = Button::new("Optional").name("optional-action");
+    let button = Button::new(trox::assert_localized("Optional")).name("optional-action");
     match &self.clicked {
       Some(callback) => button.on_click(callback.clone()),
       None => button,
@@ -58,14 +58,16 @@ impl Component for SlottedCard {
 
 #[test]
 fn child_slots_accept_and_replay_arbitrary_render_values() {
-  let app = App::new("app/content").ui(
-    SlottedCard::new()
-      .title(Label::new("Title").name("slot-title"))
-      .children((
-        Label::new("First").name("slot-first"),
-        Button::new("Second").name("slot-second"),
-      )),
-  );
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(
+      SlottedCard::new()
+        .title(Label::new(trox::assert_localized("Title")).name("slot-title"))
+        .children((
+          Label::new(trox::assert_localized("First")).name("slot-first"),
+          Button::new(trox::assert_localized("Second")).name("slot-second"),
+        )),
+    );
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
 
@@ -79,18 +81,20 @@ fn child_slots_accept_and_replay_arbitrary_render_values() {
 
 #[test]
 fn optional_accessible_callbacks_have_a_builder_default() {
-  let dialog = DialogOptions::new().name(text("Settings"));
+  let dialog = DialogOptions::new().name(trox::assert_localized("Settings"));
 
   assert!(dialog.on_dismiss.is_none());
 }
 
 #[test]
 fn generated_event_props_forward_model_and_ordinary_callbacks_once() {
-  let app = App::with_model("app/content", 0_u32).root(|value| {
-    Action::new()
-      .label(value.to_string())
-      .clicked(|model: &mut u32| *model += 1)
-  });
+  let app = App::with_model("app/content", 0_u32)
+    .source_bundle(app_support::source_bundle())
+    .root(|value| {
+      Action::new()
+        .label(value.to_string())
+        .clicked(|model: &mut u32| *model += 1)
+    });
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "generated-action");
@@ -109,7 +113,9 @@ fn generated_event_props_forward_model_and_ordinary_callbacks_once() {
   let counter = Rc::clone(&calls);
   let action = Action::new().clicked(move || counter.set(counter.get() + 1));
   assert_eq!(calls.get(), 0);
-  let app = App::new("app/content").ui(action);
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(action);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "generated-action");
@@ -127,7 +133,9 @@ fn optional_event_props_clear_without_invoking_or_subscribing() {
     .clear_changed()
     .clear_clicked();
   assert!(props.changed.is_none());
-  let app = App::new("app/content").ui(props);
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(props);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "optional-action");
@@ -140,6 +148,7 @@ fn optional_event_props_clear_without_invoking_or_subscribing() {
 fn forwarded_event_props_preserve_model_mismatch_validation() {
   let action = Action::new().clicked(|_model: &mut String| {});
   let app = App::with_model("app/content", 0_u32)
+    .source_bundle(app_support::source_bundle())
     .root(move |_| Action::new().clicked(action.clicked.clone()));
   let _ = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
 }

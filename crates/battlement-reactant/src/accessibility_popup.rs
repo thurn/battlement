@@ -2,16 +2,17 @@
 
 use battlement::PopupKind;
 use battlement_builder::builder;
+use trox::LocalizedString;
 
 use crate::{
   accessibility::{self, ButtonOptions, ButtonState},
   callback::IntoCallback,
-  semantics::{AccessibleBehavior, AccessibleDescription, AccessibleName, LocalizedText},
+  semantics::{AccessibleBehavior, AccessibleDescription, AccessibleName},
 };
 
 /// Options for a button that controls a popup.
 #[builder(support = crate::builder_support)]
-pub struct PopupButtonOptions<F, N = LocalizedText> {
+pub struct PopupButtonOptions<F, N = LocalizedString> {
   /// Accessible name, independent of popup and expansion context.
   #[builder(required)]
   pub name: N,

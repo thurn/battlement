@@ -267,10 +267,10 @@ fn atom(cursor: &mut Cursor) -> Result<Value, ValueError> {
     }
     return self::parse_stream(arguments).map(|value| Value::Function(name, Box::new(value)));
   }
-  if name == "transparent" || !name.chars().all(|character| character.is_ascii_hexdigit()) {
-    if let Ok(color) = csscolorparser::parse(&name) {
-      return Ok(Value::Color(color.to_array()));
-    }
+  if (name == "transparent" || !name.chars().all(|character| character.is_ascii_hexdigit()))
+    && let Ok(color) = csscolorparser::parse(&name)
+  {
+    return Ok(Value::Color(color.to_array()));
   }
   Ok(Value::Keyword(name))
 }

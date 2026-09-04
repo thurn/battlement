@@ -1,3 +1,5 @@
+use trox::{tx, tx_args, txa};
+
 use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
 use battlement::{Color, Style};
 use battlement_reactant::{accessibility, hooks, prelude::*};
@@ -21,7 +23,10 @@ impl Component for ToggleHarness {
       )
       .child((
         ToggleControl::new()
-          .label(self::label("VSync"))
+          .label(self::label(tx(
+            "VSync",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .checked(checked)
           .on_change(
             set_checked.callback().then(
@@ -31,25 +36,39 @@ impl Component for ToggleHarness {
             ),
           ),
         ToggleControl::new()
-          .label(self::label("Screenshake"))
+          .label(self::label(tx(
+            "Screenshake",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .checked(screenshake)
           .on_change(set_screenshake)
-          .aria_label("Screen shake")
+          .aria_label(tx(
+            "Screen shake",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .row_height(190.0)
           .offset_y(-8.0),
-        accessibility::static_label(format!("VSync changes: {changes}")).style(
+        accessibility::static_label(txa(
+          "VSync changes: {changes}",
+          tx_args![changes],
+          "User-facing product copy in the Chess UI sample.",
+        ))
+        .style(
           Style::new()
             .font_size(28)
             .color(Color::rgb(0.75, 0.86, 0.97))
             .margin_top(30),
         ),
         ReviewButton::new()
-          .label("Change VSync from parent")
+          .label(tx(
+            "Change VSync from parent",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .on_press(move || set_checked.update(|value| !value)),
       ))
   }
 }
 
-fn label(value: &'static str) -> TextElement {
+fn label(value: LocalizedString) -> TextElement {
   accessibility::name_source_text(value)
 }

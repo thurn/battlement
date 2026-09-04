@@ -1,5 +1,7 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
+use trox::tx;
+
 use crate::action_skin;
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
@@ -64,7 +66,7 @@ impl Component for ActionButton {
           .height(100.pct()),
       )
       .child(
-        Button::new("")
+        Button::new(tx("", "User-facing product copy in the Chess UI sample."))
           .name("action-button")
           .behavior(accessibility::use_button(
             ButtonOptions::new()

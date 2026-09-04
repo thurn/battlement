@@ -211,13 +211,13 @@ struct Unsupported<'a> {
 
 impl<'ast> Visit<'ast> for Unsupported<'_> {
   fn visit_path(&mut self, path: &'ast Path) {
-    if let Some(segment) = path.segments.last() {
-      if segment.ident == "Self" || segment.ident == *self.name {
-        self.error = Some(Error::new_spanned(
-          path,
-          "self-dependent and recursive builder declarations are unsupported",
-        ));
-      }
+    if let Some(segment) = path.segments.last()
+      && (segment.ident == "Self" || segment.ident == *self.name)
+    {
+      self.error = Some(Error::new_spanned(
+        path,
+        "self-dependent and recursive builder declarations are unsupported",
+      ));
     }
     if path
       .segments

@@ -31,19 +31,21 @@ impl Component for Observed {
       },
       (screen, application, reduced_motion, effective_motion),
     );
-    Label::new(format!(
+    Label::new(trox::assert_localized(format!(
       "{}x{} {}",
       screen.width,
       screen.height,
       application.is_active()
-    ))
+    )))
   }
 }
 
 #[test]
 fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions() {
   let values = Rc::new(RefCell::new(Vec::new()));
-  let mut app = App::new("app/content").ui(memo(Observed(Rc::clone(&values))));
+  let mut app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(memo(Observed(Rc::clone(&values))));
   let initial = app.connect(app_support::connect()).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().0, ScreenSize::new(800, 600));

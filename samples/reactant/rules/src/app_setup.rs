@@ -9,6 +9,7 @@ use battlement::{
   TextureAddress, Vector3,
 };
 use battlement_reactant::app::App;
+use trox::Bundle;
 
 /// The sample's application with its game-owned demonstration state.
 pub type ReactantEngine = App<Game>;
@@ -18,7 +19,9 @@ pub fn create_engine() -> ReactantEngine {
   animation_validation::fixture_registry()
     .validate()
     .expect("valid animation registry");
-  let mut app = App::with_model(CONTENT_SCENE, model::new());
+  let source = Bundle::from_canonical_json(include_str!("../../localization/en-US.trox.json"))
+    .expect("valid embedded English trox bundle");
+  let mut app = App::with_model(CONTENT_SCENE, model::new()).source_bundle(source);
   let overlay = app.create_portal_target();
   let preview = Preview::new();
   app

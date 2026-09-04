@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{io, ptr};
 
 use battlement::{
@@ -44,7 +46,7 @@ impl Spawner for IdleSpawner {
 fn capture_target_bubble_and_focus_use_the_logical_host_path() {
   let document = self::document();
   let mut ledger = Ledger::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::propagation_view);
   let snapshot = reactant
     .begin_session(&mut ledger)
@@ -126,7 +128,7 @@ fn default_prevention_is_shared_and_independent_of_logical_phase() {
       prevent_at: Some(prevent_at),
       ..Ledger::default()
     };
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     reactant.register_root(document.clone(), self::propagation_view);
     let snapshot = reactant
       .begin_session(&mut ledger)
@@ -160,7 +162,7 @@ fn default_prevention_is_shared_and_independent_of_logical_phase() {
 fn incoming_prevention_survives_and_noncancelable_prevention_is_ignored() {
   let document = self::document();
   let mut ledger = Ledger::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::propagation_view);
   let snapshot = reactant
     .begin_session(&mut ledger)
@@ -217,7 +219,7 @@ fn incoming_prevention_survives_and_noncancelable_prevention_is_ignored() {
 fn pointer_boundaries_dispatch_only_the_reported_native_event() {
   let document = self::document();
   let mut ledger = Ledger::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::crossing_view);
   let snapshot = reactant
     .begin_session(&mut ledger)
@@ -249,7 +251,7 @@ fn pointer_boundaries_dispatch_only_the_reported_native_event() {
 fn complementary_pointer_events_keep_their_raw_capture_and_bubble_paths() {
   let document = self::document();
   let mut ledger = Ledger::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::raw_crossing_view);
   let snapshot = reactant
     .begin_session(&mut ledger)

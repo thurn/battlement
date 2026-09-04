@@ -25,11 +25,11 @@ impl Component for IdOwner {
       set_count.set(1);
     }
     View::new().child((
-      Label::new(id).name(format!("id-{}", self.0)),
-      Label::new(second).name(format!("second-{}", self.0)),
-      Label::new(initial).name(format!("initial-{}", self.0)),
-      Label::new(count.to_string()).name(format!("count-{}", self.0)),
-      Button::new("Increment")
+      Label::new(trox::assert_localized(id)).name(format!("id-{}", self.0)),
+      Label::new(trox::assert_localized(second)).name(format!("second-{}", self.0)),
+      Label::new(trox::assert_localized(initial)).name(format!("initial-{}", self.0)),
+      Label::new(trox::assert_localized(count.to_string())).name(format!("count-{}", self.0)),
+      Button::new(trox::assert_localized("Increment"))
         .name(format!("increment-{}", self.0))
         .on_click(move || set_count.update(|value| value + 1)),
     ))
@@ -42,10 +42,10 @@ impl Component for IdList {
     let (visible, set_visible) = use_state(true);
     let names = if reversed { ["b", "a"] } else { ["a", "b"] };
     View::new().child((
-      Button::new("Reverse")
+      Button::new(trox::assert_localized("Reverse"))
         .name("reverse")
         .on_click(move || set_reversed.update(|value| !value)),
-      Button::new("Toggle")
+      Button::new(trox::assert_localized("Toggle"))
         .name("toggle")
         .on_click(move || set_visible.update(|value| !value)),
       names
@@ -74,7 +74,7 @@ impl Component for VariableId {
         let _ = hooks::use_memo(hooks::use_id, ());
       }
     }
-    Button::new("Change hooks")
+    Button::new(trox::assert_localized("Change hooks"))
       .name("change")
       .on_click(|mode: &mut u8| *mode += 1)
   }
@@ -82,7 +82,9 @@ impl Component for VariableId {
 
 #[test]
 fn ids_survive_retries_updates_keyed_moves_and_reconnect_but_not_remount() {
-  let app = App::new("app/content").ui(IdList);
+  let app = App::new("app/content")
+    .source_bundle(app_support::source_bundle())
+    .ui(IdList);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   let a = self::ids(&mut client, root, "a");
@@ -116,6 +118,7 @@ fn roots_runtimes_and_reset_reconnects_allocate_distinct_ids() {
     let document = UiDocument::new(ObjectId::new_v4());
     let second_root = document.root_id;
     let app = App::new("app/content")
+      .source_bundle(app_support::source_bundle())
       .ui(IdOwner("first"))
       .additional_root(document, |_| IdOwner("second"))
       .reset_on_reconnect();
@@ -140,6 +143,7 @@ fn id_hooks_enforce_render_context_kind_and_count() {
   assert!(panic::catch_unwind(hooks::use_id).is_err());
   for next_mode in 1..=3 {
     let app = App::with_model("app/content", 0_u8)
+      .source_bundle(app_support::source_bundle())
       .root(move |mode| VariableId(if *mode == 0 { 0 } else { next_mode }));
     let root = app.root_document().root_id;
     let mut client = FakeClient::connect(app, app_support::catalog());
@@ -152,7 +156,9 @@ fn id_hooks_enforce_render_context_kind_and_count() {
   }
   assert!(
     panic::catch_unwind(|| {
-      let app = App::new("app/content").ui(VariableId(4));
+      let app = App::new("app/content")
+        .source_bundle(app_support::source_bundle())
+        .ui(VariableId(4));
       let _ = FakeClient::connect(app, app_support::catalog());
     })
     .is_err()

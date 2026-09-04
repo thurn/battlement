@@ -474,17 +474,16 @@ fn profiles(
           display: require_display(path, source, &key, display)?,
         },
         RawTarget::Webgl => {
-          if let Some(command) = &headless_command {
-            if command.is_empty()
-              || command.iter().filter(|arg| arg.as_str() == "{url}").count() != 1
-            {
-              return Err(invalid(
-                path,
-                source,
-                format!("{key}.headless_command"),
-                "headless command must contain exactly one `{url}` argument",
-              ));
-            }
+          if let Some(command) = &headless_command
+            && (command.is_empty()
+              || command.iter().filter(|arg| arg.as_str() == "{url}").count() != 1)
+          {
+            return Err(invalid(
+              path,
+              source,
+              format!("{key}.headless_command"),
+              "headless command must contain exactly one `{url}` argument",
+            ));
           }
           Profile::Webgl {
             display: require_display(path, source, &key, display)?,

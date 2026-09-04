@@ -14,6 +14,7 @@ battlement-native = { path = "../battlement-native" }
 battlement-reactant-asset-macros = { path = "../battlement-reactant-asset-macros" }
 inventory.workspace = true
 serde_json.workspace = true
+trox.workspace = true
 
 [dev-dependencies]
 battlement-fake = { path = "../battlement-fake" }

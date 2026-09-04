@@ -245,7 +245,7 @@ Stack::new()
     .align_items(Align::Stretch)
     .justify_items(Align::Center)
     .child(View::new().stack_item(StackItem::new().order(0)))
-    .child(Button::new("Play").stack_item(StackItem::new().order(10)))
+    .child(Button::new(trox::tx("Play", "User-facing copy in this example.")).stack_item(StackItem::new().order(10)))
 ```
 
 `Stack::align_items` and `Stack::justify_items` default to `Align::Stretch`.

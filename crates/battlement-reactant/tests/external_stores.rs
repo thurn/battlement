@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   collections::HashMap,
   num::NonZeroU64,
@@ -156,7 +158,10 @@ impl Component for StoreView {
   fn render(&self) -> impl Render {
     self.renders.fetch_add(1, Ordering::Relaxed);
     let snapshot = use_external_store(self.store.clone());
-    battlement_reactant::host::Label::new(format!("{} {snapshot}", self.store.name))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      "{} {snapshot}",
+      self.store.name
+    )))
   }
 }
 
@@ -174,7 +179,7 @@ fn subscribe_recheck_closes_the_race_and_reuses_the_subscription() {
     .store(true, Ordering::Relaxed);
   let renders = Arc::new(AtomicUsize::new(0));
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_store = store.clone();
   let view_renders = Arc::clone(&renders);
   reactant.register_root(document.clone(), move |_: &()| StoreView {
@@ -204,7 +209,7 @@ fn coalesced_thread_wakes_are_consumed_by_every_active_entry() {
   let store = TestStore::new("store", 0, Arc::default());
   let renders = Arc::new(AtomicUsize::new(0));
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_store = store.clone();
   let view_renders = Arc::clone(&renders);
   reactant.register_root(document.clone(), move |_: &()| StoreView {
@@ -270,7 +275,7 @@ fn source_swaps_overlap_and_retired_wakes_cannot_dirty_the_new_generation() {
     store: first.clone(),
     visible: true,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_renders = Arc::clone(&renders);
   reactant.register_root(document.clone(), move |game: &SwapGame| {
     game.visible.then(|| StoreView {
@@ -312,7 +317,7 @@ fn retry_exhaustion_panics_and_poisons_the_runtime() {
   let store = TestStore::new("unstable", 0, Arc::default());
   store.state.unstable.store(true, Ordering::Relaxed);
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_store = store.clone();
   reactant.register_root(document.clone(), move |_: &()| StoreView {
     store: view_store.clone(),

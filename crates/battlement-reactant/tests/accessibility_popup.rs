@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::panic::{self, AssertUnwindSafe};
 
 use battlement::{
@@ -13,7 +15,6 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::{Button, Label, View},
   render::Render,
-  runtime::Reactant,
   semantics::{AccessibleName, SemanticProps, SemanticVisibility},
 };
 
@@ -49,18 +50,24 @@ impl Component for Fixture {
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
-      Label::new(" Quality ").element_ref(title).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text(" Quality "))
-          .visibility(SemanticVisibility::NameSourceOnly),
-      ),
-      Button::new("").behavior(behavior).child(
-        Label::new(selected).element_ref(value).semantic(
+      Label::new(trox::assert_localized(" Quality "))
+        .element_ref(title)
+        .semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(selected))
+            .name(AccessibleName::text(trox::assert_localized(" Quality ")))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
-      ),
+      Button::new(trox::assert_localized(""))
+        .behavior(behavior)
+        .child(
+          Label::new(trox::assert_localized(selected))
+            .element_ref(value)
+            .semantic(
+              SemanticProps::new(SemanticRole::StaticText)
+                .name(AccessibleName::text(trox::assert_localized(selected)))
+                .visibility(SemanticVisibility::NameSourceOnly),
+            ),
+        ),
     ))
   }
 }
@@ -68,7 +75,7 @@ impl Component for Fixture {
 #[test]
 fn popup_button_keeps_one_host_and_controlled_context_across_updates_and_activation() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |game: &Game| Fixture(game.clone()));
   let mut game = Game::default();
   let (initial, commit) = runtime
@@ -124,13 +131,13 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
     (SemanticRole::Button, None, Some(false)),
     (SemanticRole::Link, Some(PopupKind::ListBox), Some(false)),
   ] {
-    let mut runtime = Reactant::new(IdleSpawner);
+    let mut runtime = runtime_support::reactant(IdleSpawner);
     runtime.register_root(
       UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4()),
       move |_game: &Game| {
         let mut behavior = accessibility_popup::use_popup_button(
           PopupButtonOptions::new()
-            .name(AccessibleName::text("Options"))
+            .name(AccessibleName::text(trox::assert_localized("Options")))
             .popup(PopupKind::ListBox)
             .expanded(false)
             .on_press(|_: &mut Game| {}),
@@ -138,7 +145,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;
-        Button::new("Options").behavior(behavior)
+        Button::new(trox::assert_localized("Options")).behavior(behavior)
       },
     );
     assert!(

@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::RefCell,
   panic::{self, AssertUnwindSafe},
@@ -53,12 +55,14 @@ impl Component for MovingFixture {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
     let target = Node::new(
-      battlement_reactant::host::Button::new("target")
+      battlement_reactant::host::Button::new(trox::assert_localized("target"))
         .name("target")
         .key(self.key)
         .element_ref(element_ref),
     );
-    let sibling = Node::new(battlement_reactant::host::Label::new("sibling").key("sibling"));
+    let sibling = Node::new(
+      battlement_reactant::host::Label::new(trox::assert_localized("sibling")).key("sibling"),
+    );
     let mut children = vec![target, sibling];
     if self.reversed {
       children.reverse();
@@ -77,11 +81,15 @@ struct DuplicateFixture {
 impl Component for DuplicateFixture {
   fn render(&self) -> impl Render {
     let element_ref = use_element_ref();
-    let second = self
-      .duplicate
-      .then(|| battlement_reactant::host::Button::new("second").element_ref(element_ref.clone()));
+    let second = self.duplicate.then(|| {
+      battlement_reactant::host::Button::new(trox::assert_localized("second"))
+        .element_ref(element_ref.clone())
+    });
     battlement_reactant::host::View::new()
-      .child(battlement_reactant::host::Button::new("first").element_ref(element_ref))
+      .child(
+        battlement_reactant::host::Button::new(trox::assert_localized("first"))
+          .element_ref(element_ref),
+      )
       .child(second)
   }
 }
@@ -103,7 +111,8 @@ impl Component for InvalidRenderFixture {
       }
       None => {}
     }
-    battlement_reactant::host::Button::new("target").element_ref(element_ref)
+    battlement_reactant::host::Button::new(trox::assert_localized("target"))
+      .element_ref(element_ref)
   }
 }
 
@@ -124,7 +133,8 @@ impl Component for InvalidTargetFixture {
   fn render(&self) -> impl Render {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
-    battlement_reactant::host::Label::new("not focusable").element_ref(element_ref)
+    battlement_reactant::host::Label::new(trox::assert_localized("not focusable"))
+      .element_ref(element_ref)
   }
 }
 
@@ -139,10 +149,15 @@ impl Component for ActionFixture {
     self.child.replace(Some(child.clone()));
     self.text.replace(Some(text.clone()));
     battlement_reactant::host::View::new()
-      .child(battlement_reactant::host::Button::new("focus").element_ref(button))
+      .child(
+        battlement_reactant::host::Button::new(trox::assert_localized("focus")).element_ref(button),
+      )
       .child(
         battlement_reactant::host::ScrollView::new()
-          .child(battlement_reactant::host::Label::new("inside").element_ref(child))
+          .child(
+            battlement_reactant::host::Label::new(trox::assert_localized("inside"))
+              .element_ref(child),
+          )
           .element_ref(scroll),
       )
       .child(
@@ -162,7 +177,7 @@ fn refs_survive_keyed_moves_and_stale_actions_do_not_follow_remounts() {
     show: true,
     ..Game::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |game: &Game| MovingFixture {
     handle: Rc::clone(&view_handle),
     key: game.key,
@@ -210,7 +225,7 @@ fn reconnect_rebinds_refs_and_consumes_actions_for_the_old_attachment() {
     show: true,
     ..Game::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |game: &Game| MovingFixture {
     handle: Rc::clone(&view_handle),
     key: game.key,
@@ -248,7 +263,7 @@ fn every_supported_host_action_is_queued_in_invocation_order() {
   let view = fixture.clone();
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| view.clone());
   let _ = self::begin(&mut reactant, &mut game, &document);
   let button = fixture.button.borrow().clone().unwrap();
@@ -297,7 +312,7 @@ fn every_supported_host_action_is_queued_in_invocation_order() {
 fn duplicate_attachments_and_render_time_access_poison_transactionally() {
   let document = self::document();
   let mut game = Game::default();
-  let mut duplicate = Reactant::new(IdleSpawner);
+  let mut duplicate = runtime_support::reactant(IdleSpawner);
   duplicate.register_root(document.clone(), |game: &Game| DuplicateFixture {
     duplicate: game.duplicate,
   });
@@ -310,7 +325,7 @@ fn duplicate_attachments_and_render_time_access_poison_transactionally() {
     let view_handle = Rc::clone(&handle);
     let document = self::document();
     let mut game = Game::default();
-    let mut runtime = Reactant::new(IdleSpawner);
+    let mut runtime = runtime_support::reactant(IdleSpawner);
     runtime.register_root(document.clone(), move |game: &Game| InvalidRenderFixture {
       handle: Rc::clone(&view_handle),
       invalid: game.invalid,
@@ -331,7 +346,7 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
     show: true,
     ..Game::default()
   };
-  let mut first = Reactant::new(IdleSpawner);
+  let mut first = runtime_support::reactant(IdleSpawner);
   first.register_root(first_document.clone(), move |game: &Game| MovingFixture {
     handle: Rc::clone(&view_foreign),
     key: game.key,
@@ -343,10 +358,10 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
   let foreign = foreign.borrow().clone().unwrap();
   let second_document = self::document();
   let mut second_game = Game::default();
-  let mut second = Reactant::new(IdleSpawner);
+  let mut second = runtime_support::reactant(IdleSpawner);
   second.register_root(second_document.clone(), move |_| {
     let foreign = foreign.clone();
-    battlement_reactant::host::Button::new("cross")
+    battlement_reactant::host::Button::new(trox::assert_localized("cross"))
       .on_click(move |_game: &mut Game| foreign.focus())
   });
   let second_snapshot = self::begin(&mut second, &mut second_game, &second_document);
@@ -365,7 +380,7 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
   let view_handle = Rc::clone(&handle);
   let document = self::document();
   let mut game = Game::default();
-  let mut invalid = Reactant::new(IdleSpawner);
+  let mut invalid = runtime_support::reactant(IdleSpawner);
   invalid.register_root(document.clone(), move |_| InvalidTargetFixture {
     handle: Rc::clone(&view_handle),
   });

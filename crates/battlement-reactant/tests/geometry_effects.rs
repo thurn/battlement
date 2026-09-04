@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   num::NonZeroU64,
@@ -98,7 +100,11 @@ impl Component for GeometryEffectFixture {
       ViewportRef::display(DisplayId(0)),
       dependency,
     );
-    battlement_reactant::host::Label::new(if self.local_ready { "ready" } else { "waiting" })
+    battlement_reactant::host::Label::new(trox::assert_localized(if self.local_ready {
+      "ready"
+    } else {
+      "waiting"
+    }))
   }
 }
 
@@ -142,7 +148,7 @@ impl Component for PanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       (),
     );
-    battlement_reactant::host::Label::new("panic")
+    battlement_reactant::host::Label::new(trox::assert_localized("panic"))
   }
 }
 
@@ -155,7 +161,7 @@ impl Component for CleanupPanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       self.dependency,
     );
-    battlement_reactant::host::Label::new("cleanup panic")
+    battlement_reactant::host::Label::new(trox::assert_localized("cleanup panic"))
   }
 }
 
@@ -170,7 +176,7 @@ impl Component for TupleGeometryEffect {
       ),
       (),
     );
-    battlement_reactant::host::Label::new("tuple")
+    battlement_reactant::host::Label::new(trox::assert_localized("tuple"))
   }
 }
 
@@ -186,7 +192,7 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
     show_parent: true,
     ..EffectGame::default()
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |game: &EffectGame| {
     game.show_parent.then(|| OrderedParent {
       dependency: game.dependency,
@@ -195,7 +201,10 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
   });
   reactant.register_root(sibling_document.clone(), move |game: &EffectGame| {
     view_sibling_renders.set(view_sibling_renders.get() + 1);
-    battlement_reactant::host::Label::new(format!("model updates {}", game.model_updates))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      "model updates {}",
+      game.model_updates
+    )))
   });
   let groups = self::begin(
     &mut reactant,
@@ -254,7 +263,7 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
 #[test]
 fn setup_panics_poison_the_runtime() {
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &()| PanicGeometryEffect);
   let groups = self::begin(&mut reactant, &mut (), &[document]);
   let observation_id = self::updates(&groups)[0].added[0].observation_id;
@@ -275,7 +284,7 @@ fn partial_target_generations_do_not_run_setup() {
   let document = self::document();
   let snapshots = Rc::new(RefCell::new(Vec::new()));
   let view_snapshots = Rc::clone(&snapshots);
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_: &()| TupleGeometryEffect {
     snapshots: Rc::clone(&view_snapshots),
   });
@@ -319,7 +328,7 @@ fn partial_target_generations_do_not_run_setup() {
 fn cleanup_panics_poison_the_runtime() {
   let document = self::document();
   let mut game = CleanupPanicGame::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |game: &CleanupPanicGame| {
     CleanupPanicGeometryEffect {
       dependency: game.dependency,

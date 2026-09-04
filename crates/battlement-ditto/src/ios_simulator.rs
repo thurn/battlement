@@ -297,13 +297,14 @@ impl IosSimulator {
     )?;
     self::require_success(&deleted, "delete Simulator device")?;
     self.deleted = true;
-    if let Ok(output) = shutdown {
-      if !output.status.success() && !String::from_utf8_lossy(&output.stderr).contains("Shutdown") {
-        anyhow::bail!(
-          "shutdown Simulator device: {}",
-          String::from_utf8_lossy(&output.stderr).trim()
-        );
-      }
+    if let Ok(output) = shutdown
+      && !output.status.success()
+      && !String::from_utf8_lossy(&output.stderr).contains("Shutdown")
+    {
+      anyhow::bail!(
+        "shutdown Simulator device: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+      );
     }
     Ok(())
   }

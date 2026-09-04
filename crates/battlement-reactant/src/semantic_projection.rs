@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use battlement::{
-  AccessibilityActionSet, AccessibilityNodeSnapshot, AccessibilitySnapshot, ObjectId, SemanticRole,
+  AccessibilityActionSet, AccessibilityNodeSnapshot, AccessibilityRangeValue,
+  AccessibilitySnapshot, ObjectId, SemanticRole,
 };
 
 use crate::semantics::SemanticMembership;
 use crate::{
   element_ref::AttachmentSet,
+  localization,
   overlay::OverlayReference,
   render::{RenderPosition, RenderTree},
   semantic_validation,
@@ -112,7 +114,16 @@ pub(crate) fn build(
       label,
       hint,
       state: draft.semantic.state.clone(),
-      value: draft.semantic.value.clone(),
+      value: draft
+        .semantic
+        .value
+        .as_ref()
+        .map(|value| AccessibilityRangeValue {
+          current: value.current,
+          minimum: value.minimum,
+          maximum: value.maximum,
+          text: value.text.as_ref().map(localization::resolve),
+        }),
       actions: draft.semantic.actions.clone(),
       heading_level: draft.semantic.heading_level,
       scroll_axis: draft.semantic.scroll_axis,
@@ -200,7 +211,7 @@ fn resolve_name(
     "cyclic accessible name reference"
   );
   let result = match name {
-    AccessibleName::Text(value) => value.resolved(),
+    AccessibleName::Text(value) => localization::resolve(value),
     AccessibleName::LabelledBy(references) => references
       .iter()
       .map(|element_ref| {
@@ -233,7 +244,7 @@ fn resolve_description(
   resolving: &mut HashSet<ObjectId>,
 ) -> String {
   match description {
-    AccessibleDescription::Text(value) => value.resolved(),
+    AccessibleDescription::Text(value) => localization::resolve(value),
     AccessibleDescription::DescribedBy(element_ref) => {
       let target = attachments.reference_target(runtime_id, element_ref);
       assert!(target != owner.id, "a semantic node cannot describe itself");
@@ -269,7 +280,7 @@ fn append_contents(tree: &RenderTree, fragments: &mut Vec<String>) {
     if semantic.role == SemanticRole::StaticText
       && let Some(AccessibleName::Text(value)) = &semantic.name
     {
-      fragments.push(value.resolved());
+      fragments.push(localization::resolve(value));
     }
     if !is_actionable(semantic) {
       append_contents(&position.children, fragments);

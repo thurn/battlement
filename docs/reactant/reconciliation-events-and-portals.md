@@ -401,7 +401,7 @@ still reports the same event kind to the same host; Reactant replaces the
 logical callback in committed state.
 
 ```rust
-Button::new("Save")
+Button::new(trox::tx("Save", "User-facing copy in this example."))
     .on_click(|game: &mut Game| game.save())
 ```
 

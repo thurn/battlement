@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::Game;
 use battlement::{
   Color, FlexDirection, GridTrack, LengthUnits, ScrollViewMode, StackItem, Sticky, Style,
@@ -36,7 +38,7 @@ impl Component for LayoutPerformance {
         Overlay::popover(self.overlay.clone(), anchor.clone())
           .name(format!("layout-performance-overlay-{index}"))
           .style(popover())
-          .child(Label::new(format!("OVERLAY {index:02}")))
+          .child(Label::new(assert_localized(format!("OVERLAY {index:02}"))))
       })
       .collect::<Vec<_>>();
     Fragment::new((
@@ -45,13 +47,22 @@ impl Component for LayoutPerformance {
         .mode(ScrollViewMode::Vertical)
         .style(canvas())
         .content_container_style(content())
-        .child(Label::new("LAYOUT PERFORMANCE · 1,000 MIXED CHILDREN").style(title()))
         .child(
-          Button::new(format!("DIRTY PHASE {}", self.state.phase))
-            .name("layout-performance-dirty")
-            .on_click(|game: &mut Game| {
-              game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
-            }),
+          Label::new(tx(
+            "LAYOUT PERFORMANCE · 1,000 MIXED CHILDREN",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .style(title()),
+        )
+        .child(
+          Button::new(assert_localized(format!(
+            "DIRTY PHASE {}",
+            self.state.phase
+          )))
+          .name("layout-performance-dirty")
+          .on_click(|game: &mut Game| {
+            game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
+          }),
         )
         .child(
           Grid::new()
@@ -122,7 +133,7 @@ impl Component for LayoutPerformance {
               Flex::new().direction(FlexDirection::Column).child(
                 (0..STICKY_ROWS)
                   .map(|index| {
-                    Label::new(format!("STICKY {index:03}"))
+                    Label::new(assert_localized(format!("STICKY {index:03}")))
                       .key(index)
                       .sticky(Sticky::top((index % 4) as f32).order(index as i32))
                       .style(sticky_row(index))

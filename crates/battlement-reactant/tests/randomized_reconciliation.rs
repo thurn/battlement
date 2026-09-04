@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   collections::HashSet,
   error::Error,
@@ -19,7 +21,7 @@ use battlement_reactant::{
   key::KeyRenderExt,
   portal::{PortalTarget, create_portal},
   render::{Either, Fragment, Node, Render},
-  runtime::{Reactant, RenderError},
+  runtime::RenderError,
 };
 
 const SEEDS: [u64; 8] = [1, 2, 3, 5, 8, 13, 21, 34];
@@ -87,12 +89,12 @@ impl Component for ItemView {
     let style = Style::new().width(f32::from(self.0.width));
     let host = match self.0.kind {
       0 => Node::new(
-        battlement_reactant::host::Label::new(text)
+        battlement_reactant::host::Label::new(trox::assert_localized(text))
           .name(name)
           .style(style),
       ),
       1 => Node::new(
-        battlement_reactant::host::Button::new(text)
+        battlement_reactant::host::Button::new(trox::assert_localized(text))
           .name(name)
           .style(style),
       ),
@@ -100,7 +102,7 @@ impl Component for ItemView {
         battlement_reactant::host::View::new()
           .name(format!("wrapper-{}", self.0.key))
           .child(
-            battlement_reactant::host::Label::new(text)
+            battlement_reactant::host::Label::new(trox::assert_localized(text))
               .name(name)
               .style(style),
           ),
@@ -120,10 +122,9 @@ impl Component for RootView {
     if self.fail {
       Err(ItemError(self.value))
     } else {
-      Ok(battlement_reactant::host::Label::new(format!(
-        "root:{}",
-        self.value
-      )))
+      Ok(battlement_reactant::host::Label::new(
+        trox::assert_localized(format!("root:{}", self.value)),
+      ))
     }
   }
 }
@@ -144,7 +145,7 @@ fn deterministic_randomized_reconciliation_matches_the_physical_oracle() {
     eprintln!("reactant randomized seed={seed}");
     let document = self::document();
     let mut model = self::model(seed);
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     let target = reactant.create_portal_target();
     reactant.register_root(document.clone(), move |model: &Model| {
       let children = model
@@ -216,7 +217,7 @@ fn deterministic_render_failures_preserve_the_last_committed_tree() {
       fail: false,
       value: seed as u16,
     };
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     reactant.register_root(document.clone(), |model: &RootView| RootView {
       fail: model.fail,
       value: model.value,
@@ -232,7 +233,7 @@ fn deterministic_render_failures_preserve_the_last_committed_tree() {
     let mut committed = model.value;
     for _ in 0..24 {
       model.value = rng.next() as u16;
-      model.fail = rng.next() % 3 == 0;
+      model.fail = rng.next().is_multiple_of(3);
       let before = world.journal().len();
       match reactant.refresh(&mut model) {
         Ok(commit) => {
@@ -263,12 +264,13 @@ fn deterministic_render_failures_preserve_the_last_committed_tree() {
 fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
   let document = self::document();
   let mut duplicate = false;
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |duplicate: &bool| {
     vec![
-      Node::new(battlement_reactant::host::Label::new("first").key(7_u8)),
+      Node::new(battlement_reactant::host::Label::new(trox::assert_localized("first")).key(7_u8)),
       Node::new(
-        battlement_reactant::host::Label::new("second").key(if *duplicate { 7_u8 } else { 8_u8 }),
+        battlement_reactant::host::Label::new(trox::assert_localized("second"))
+          .key(if *duplicate { 7_u8 } else { 8_u8 }),
       ),
     ]
   });
@@ -294,7 +296,7 @@ fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
 fn render_item(item: &Item, target: &PortalTarget) -> Node {
   let key = item.key;
   let boundary = ErrorBoundary::new(move |_: &RenderError| {
-    battlement_reactant::host::Label::new(format!("error:{key}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("error:{key}")))
   })
   .reset_on(item.revision)
   .child(ItemView(item.clone()));
@@ -319,11 +321,11 @@ fn item(key: u16, rng: &mut Rng) -> Item {
     revision: 0,
     value: rng.next() as u16,
     width: 40 + (rng.next() % 160) as u8,
-    portal: rng.next() % 3 == 0,
-    visible: rng.next() % 4 != 0,
+    portal: rng.next().is_multiple_of(3),
+    visible: !rng.next().is_multiple_of(4),
     kind: (rng.next() % 3) as u8,
     wrapper: (rng.next() % 3) as u8,
-    fail: rng.next() % 7 == 0,
+    fail: rng.next().is_multiple_of(7),
   }
 }
 

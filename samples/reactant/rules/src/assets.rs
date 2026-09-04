@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Control, Game, Interaction, design_system};
 use battlement::{
   Align, FlexDirection, FlexWrap, ImageScaleMode, LengthUnits, ScrollViewMode, ScrollerVisibility,
@@ -318,7 +320,13 @@ impl Component for Assets {
       .vertical_dragger_border_style(design_system::effects_scroll_dragger())
       .style(self::canvas(self.compact))
       .content_container_style(self::content())
-      .child(battlement_reactant::host::Label::new("MOCKUP ASSETS").style(design_system::eyebrow()))
+      .child(
+        battlement_reactant::host::Label::new(tx(
+          "MOCKUP ASSETS",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(design_system::eyebrow()),
+      )
       .child(
         battlement_reactant::host::View::new()
           .name("assets-gallery")
@@ -603,7 +611,7 @@ fn card(width: f32) -> Style {
 }
 
 fn card_title(text: &'static str) -> impl Render {
-  battlement_reactant::host::Label::new(text).style(
+  battlement_reactant::host::Label::new(assert_localized(text)).style(
     Style::new()
       .height(28.0)
       .color(design_system::MUTED_TEXT)

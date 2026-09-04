@@ -1,0 +1,10 @@
+(
+    locale: "fr",
+    direction: Ltr,
+    isolation: Isolate,
+    fallbacks: ["en-US"],
+    // Advisory: consider a checked gender facet if reusable terms drive agreement.
+    facets: {},
+    term_facets: {},
+    term_form_aliases: {},
+)

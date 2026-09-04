@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   collections::VecDeque,
@@ -203,7 +205,10 @@ impl Component for ViewportFixture {
         .collect::<Vec<_>>(),
     ));
     self.snapshots.borrow_mut().push(snapshot.clone());
-    battlement_reactant::host::Label::new(format!("generation {:?}", snapshot.generation))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      "generation {:?}",
+      snapshot.generation
+    )))
   }
 }
 
@@ -212,10 +217,13 @@ impl Component for ElementFixture {
     let element_ref = element_ref::use_element_ref();
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
-    battlement_reactant::host::Label::new(format!("status {:?}", snapshot.measurements.status))
-      .name("target")
-      .key(self.key)
-      .element_ref(element_ref)
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      "status {:?}",
+      snapshot.measurements.status
+    )))
+    .name("target")
+    .key(self.key)
+    .element_ref(element_ref)
   }
 }
 
@@ -233,7 +241,7 @@ impl Component for ShapeFixture {
       ),
     ));
     let _: ShapeMeasurements = snapshot.measurements;
-    battlement_reactant::host::Label::new("shape")
+    battlement_reactant::host::Label::new(trox::assert_localized("shape"))
   }
 }
 
@@ -244,9 +252,12 @@ impl Component for MemoGeometryFixture {
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
     self.element_ref.replace(Some(element_ref.clone()));
-    battlement_reactant::host::Label::new(format!("status {:?}", snapshot.measurements.status))
-      .name("memo-target")
-      .element_ref(element_ref)
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      "status {:?}",
+      snapshot.measurements.status
+    )))
+    .name("memo-target")
+    .element_ref(element_ref)
   }
 }
 
@@ -254,7 +265,8 @@ impl Component for InvalidGeometryRead {
   fn render(&self) -> impl Render {
     let element_ref = element_ref::use_element_ref();
     let _ = element_ref.geometry();
-    battlement_reactant::host::Label::new("invalid").element_ref(element_ref)
+    battlement_reactant::host::Label::new(trox::assert_localized("invalid"))
+      .element_ref(element_ref)
   }
 }
 
@@ -267,16 +279,20 @@ impl Component for RetryFixture {
     hooks::use_effect_always(move || effects.set(effects.get() + 1));
     let _ = hooks::use_external_store(StaticStore(self.store));
     (
-      battlement_reactant::host::Label::new("retry target")
+      battlement_reactant::host::Label::new(trox::assert_localized("retry target"))
         .key(self.host_key)
         .element_ref(element_ref),
-      ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("fallback"))
-        .on_error(|game: &mut RetryGame, _| game.reports += 1)
-        .child(if self.fail {
-          Err(RetryError)
-        } else {
-          Ok(battlement_reactant::host::Label::new("primary"))
-        }),
+      ErrorBoundary::new(|_: &RenderError| {
+        battlement_reactant::host::Label::new(trox::assert_localized("fallback"))
+      })
+      .on_error(|game: &mut RetryGame, _| game.reports += 1)
+      .child(if self.fail {
+        Err(RetryError)
+      } else {
+        Ok(battlement_reactant::host::Label::new(
+          trox::assert_localized("primary"),
+        ))
+      }),
     )
   }
 }
@@ -294,10 +310,12 @@ impl Component for TransitionFixture {
       .borrow_mut()
       .push(geometry::use_geometry(targets));
     (
-      self
-        .attach
-        .then(|| battlement_reactant::host::Label::new("attached").element_ref(element_ref)),
-      (!self.attach).then(|| battlement_reactant::host::Label::new("detached")),
+      self.attach.then(|| {
+        battlement_reactant::host::Label::new(trox::assert_localized("attached"))
+          .element_ref(element_ref)
+      }),
+      (!self.attach)
+        .then(|| battlement_reactant::host::Label::new(trox::assert_localized("detached"))),
     )
   }
 }
@@ -305,7 +323,7 @@ impl Component for TransitionFixture {
 #[test]
 fn target_shapes_deduplicate_equal_values_and_diff_in_registry_order() {
   let document = self::document();
-  let mut shape = Reactant::new(IdleSpawner);
+  let mut shape = runtime_support::reactant(IdleSpawner);
   let object_id = ObjectId::new_v4();
   shape.register_root(document.clone(), move |_| ShapeFixture { object_id });
   let (_, groups) = self::begin(&mut shape, &mut (), &document);
@@ -322,7 +340,7 @@ fn target_shapes_deduplicate_equal_values_and_diff_in_registry_order() {
   let mut game = ViewportGame {
     displays: vec![DisplayId(0), DisplayId(1)],
   };
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), move |game: &ViewportGame| {
     ViewportFixture {
       displays: game.displays.clone(),
@@ -382,7 +400,7 @@ fn snapshots_publish_only_complete_generations_and_status_changes() {
   let mut game = ViewportGame {
     displays: vec![DisplayId(0), DisplayId(1)],
   };
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), move |game: &ViewportGame| {
     ViewportFixture {
       displays: game.displays.clone(),
@@ -489,7 +507,7 @@ fn element_reattachment_retires_before_destroy_and_registers_after_create() {
   let view_snapshots = Rc::clone(&snapshots);
   let document = self::document();
   let mut game = ElementGame::default();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), move |game: &ElementGame| ElementFixture {
     key: game.key,
     snapshots: Rc::clone(&view_snapshots),
@@ -680,7 +698,7 @@ fn element_cache_survives_reconnect_and_geometry_defeats_memo_bailout() {
   let snapshots = Rc::new(RefCell::new(Vec::new()));
   let captured_ref = Rc::new(RefCell::new(None));
   let document = self::document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   let view_renders = Rc::clone(&renders);
   let view_snapshots = Rc::clone(&snapshots);
   let view_ref = Rc::clone(&captured_ref);
@@ -761,7 +779,7 @@ fn element_cache_survives_reconnect_and_geometry_defeats_memo_bailout() {
   assert_eq!(element_ref.geometry().status, MeasurementStatus::Current);
 
   let invalid_document = self::document();
-  let mut invalid = Reactant::new(IdleSpawner);
+  let mut invalid = runtime_support::reactant(IdleSpawner);
   invalid.register_root(invalid_document.clone(), |_| InvalidGeometryRead);
   let panic = panic::catch_unwind(AssertUnwindSafe(|| {
     let _ = invalid.begin_session(&mut ());
@@ -778,7 +796,7 @@ fn reconnect_preview_is_transactional_for_effect_store_and_boundary_hooks() {
   let mut game = RetryGame::default();
   let view_effects = Rc::clone(&effects);
   let view_snapshots = Rc::clone(&snapshots);
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), move |game: &RetryGame| RetryFixture {
     effects: Rc::clone(&view_effects),
     fail: game.fail,
@@ -835,7 +853,7 @@ fn reconnect_preview_tracks_cached_target_readdition_and_detachment() {
     attach: true,
     observe: true,
   };
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), move |game: &TransitionGame| {
     TransitionFixture {
       attach: game.attach,

@@ -1,4 +1,4 @@
-use std::{mem, thread};
+use std::{mem, rc::Rc, thread};
 
 use battlement::{
   ActionBody, ActionId, ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId,
@@ -32,6 +32,7 @@ impl<G: 'static> Engine for App<G> {
       queue.commands.clear();
       queue.snapshot = false;
       queue.snapshot_action = None;
+      queue.localizer = None;
       let mut observations = self.observations.borrow_mut();
       observations.application = message.application_state;
       observations.reduced_motion = message.reduced_motion_preference;
@@ -158,14 +159,24 @@ impl<G: 'static> App<G> {
         .expect("application work failed to render");
       app_delivery::append(response, origin, commit);
     }
-    let (snapshot, snapshot_action, commands) = {
+    let (snapshot, snapshot_action, commands, localizer) = {
       let mut queue = self.queue.borrow_mut();
       (
         mem::take(&mut queue.snapshot),
         queue.snapshot_action.take(),
         mem::take(&mut queue.commands),
+        queue.localizer.take(),
       )
     };
+    if let Some(localizer) = localizer {
+      let localizer = Rc::try_unwrap(localizer)
+        .unwrap_or_else(|_| panic!("queued Reactant localizer is still borrowed"));
+      let commit = self
+        .runtime
+        .replace_localizer(&mut self.model, localizer)
+        .expect("localizer replacement failed to render");
+      app_delivery::append(response, action, commit);
+    }
     if snapshot {
       let imperative = app_delivery::take_imperative(response);
       *response = self.snapshot();

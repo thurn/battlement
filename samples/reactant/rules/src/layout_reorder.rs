@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{Color, FlexDirection, FlexWrap, ScrollViewMode, Style};
 use battlement_reactant::prelude::*;
@@ -39,27 +41,60 @@ impl Component for LayoutReorder {
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
       .layout_scroll(true)
-      .child(Label::new("ONE NATIVE LAYOUT PASS · INVERSE PROJECTION").style(eyebrow()))
       .child(
-        Label::new("Layout & Reorder")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "ONE NATIVE LAYOUT PASS · INVERSE PROJECTION",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
+      )
+      .child(
+        Label::new(tx(
+          "Layout & Reorder",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
       )
       .child(
         View::new()
           .style(toolbar())
-          .child(Button::new("TOGGLE GEOMETRY").on_click(|game: &mut Game| {
-            game.layout_reorder.expanded = !game.layout_reorder.expanded;
-          }))
-          .child(Button::new("SHARED HANDOFF").on_click(|game: &mut Game| {
-            game.layout_reorder.alternate = !game.layout_reorder.alternate;
-          }))
-          .child(Button::new("REORDER").on_click(|game: &mut Game| {
-            game.layout_reorder.reversed = !game.layout_reorder.reversed;
-          }))
-          .child(Button::new("POP ITEM").on_click(|game: &mut Game| {
-            game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
-          })),
+          .child(
+            Button::new(tx(
+              "TOGGLE GEOMETRY",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .on_click(|game: &mut Game| {
+              game.layout_reorder.expanded = !game.layout_reorder.expanded;
+            }),
+          )
+          .child(
+            Button::new(tx(
+              "SHARED HANDOFF",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .on_click(|game: &mut Game| {
+              game.layout_reorder.alternate = !game.layout_reorder.alternate;
+            }),
+          )
+          .child(
+            Button::new(tx(
+              "REORDER",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .on_click(|game: &mut Game| {
+              game.layout_reorder.reversed = !game.layout_reorder.reversed;
+            }),
+          )
+          .child(
+            Button::new(tx(
+              "POP ITEM",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .on_click(|game: &mut Game| {
+              game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
+            }),
+          ),
       )
       .child(
         View::new()
@@ -85,7 +120,11 @@ fn expander(expanded: bool) -> Node {
         box_style()
       })
       .layout(Layout::Both)
-      .child(Label::new(if expanded { "240 × 92" } else { "132 × 54" })),
+      .child(Label::new(assert_localized(if expanded {
+        "240 × 92"
+      } else {
+        "132 × 54"
+      }))),
   ))
 }
 
@@ -102,7 +141,7 @@ fn grid(expanded: bool) -> Node {
               .key(index)
               .style(tile())
               .layout(Layout::Position)
-              .child(Label::new(format!("0{}", index + 1)))
+              .child(Label::new(assert_localized(format!("0{}", index + 1))))
           })
           .collect::<Vec<_>>(),
       ),
@@ -119,7 +158,14 @@ fn shared_indicator(alternate: bool) -> Node {
             View::new()
               .key(index)
               .style(tab())
-              .child(Label::new(if index == 0 { "GENERAL" } else { "AUDIO" }))
+              .child(Label::new(if index == 0 {
+                tx(
+                  "GENERAL",
+                  "User-facing product copy in the Reactant sample.",
+                )
+              } else {
+                tx("AUDIO", "User-facing product copy in the Reactant sample.")
+              }))
               .child((index == usize::from(alternate)).then(|| {
                 View::new()
                   .layout_id("active-tab")
@@ -188,7 +234,7 @@ fn reorder_list(values: Vec<&'static str>) -> Node {
                 game.layout_reorder.reversed = !game.layout_reorder.reversed;
               }
             })
-            .child(Label::new(value))
+            .child(Label::new(assert_localized(value)))
         })
         .collect::<Vec<_>>(),
     ),
@@ -208,7 +254,7 @@ fn pop_layout(show: bool) -> Node {
               .layout(Layout::Both)
               .style(pop_item())
               .exit(StyleTarget::new().opacity(0.0).scale(0.7))
-              .child(Label::new(format!("P{}", index + 1)))
+              .child(Label::new(assert_localized(format!("P{}", index + 1))))
           })
           .collect::<Vec<_>>(),
       ),
@@ -219,7 +265,7 @@ fn pop_layout(show: bool) -> Node {
 fn specimen(label: &'static str, child: impl Render) -> View {
   View::new()
     .style(card())
-    .child(Label::new(label).style(caption()))
+    .child(Label::new(assert_localized(label)).style(caption()))
     .child(child)
 }
 

@@ -1,5 +1,7 @@
 //! A themed navigation landmark whose entries share a scroll container.
 
+use trox::{LocalizedString, tx};
+
 use crate::{
   review_text::{ReviewText, ReviewTextKind},
   review_theme,
@@ -10,7 +12,6 @@ use battlement_reactant::{
   accessibility_collections,
   context::Context,
   element_ref::{self, ElementRef},
-  semantics,
 };
 use battlement_reactant::{
   component::Component,
@@ -25,9 +26,10 @@ pub static SCROLL: Context<Option<ElementRef>> = Context::new(|| None);
 #[builder]
 pub struct ReviewNavigation {
   #[builder(required)]
-  title: String,
+  title: LocalizedString,
   /// Sets the supporting text below the navigation title.
-  caption: String,
+  #[builder(required)]
+  caption: LocalizedString,
   #[builder(default = ScrollView::new().name("review-navigation"))]
   scroll: ScrollView,
 }
@@ -70,8 +72,9 @@ impl Component for ReviewNavigation {
             .scroll
             .clone()
             .element_ref(scroll)
-            .semantic(accessibility_collections::use_navigation(semantics::text(
+            .semantic(accessibility_collections::use_navigation(tx(
               "Chess UI review pages",
+              "User-facing product copy in the Chess UI sample.",
             )))
             .mode(ScrollViewMode::Vertical)
             .horizontal_scroller_visibility(ScrollerVisibility::Hidden)

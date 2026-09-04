@@ -14,6 +14,7 @@ use battlement::{
   GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId, UiDocument, UiEvent,
   UiEventDisposition,
 };
+use trox::{Bundle, Localizer};
 
 use crate::{
   announcement,
@@ -29,6 +30,7 @@ use crate::{
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
   lifecycle::{self, EntryCheckpoint, FrozenResources, PlannedSession, RuntimeState},
+  localization,
   motion_value_runtime::{self, MotionValueRuntime},
   overlay,
   portal::{self, PortalTarget},
@@ -139,6 +141,7 @@ pub struct Reactant<G: 'static> {
   last_motion_sequence: Option<MotionSequence>,
   semantic_commit_sequence: u64,
   last_accessibility: Option<AccessibilitySnapshot>,
+  localizer: Option<Rc<Localizer>>,
   pub(crate) resources: Rc<ResourceRuntime>,
 }
 
@@ -164,7 +167,40 @@ impl<G: 'static> Reactant<G> {
       last_motion_sequence: None,
       semantic_commit_sequence: 0,
       last_accessibility: None,
+      localizer: None,
       resources: ResourceRuntime::new(spawner),
+    }
+  }
+
+  /// Configures source-language resolution while registration is open.
+  pub fn set_source_bundle(&mut self, source: Bundle) {
+    self.require_registering();
+    self.localizer = Some(Rc::new(
+      Localizer::new(source.clone(), source).expect("valid Reactant source bundle"),
+    ));
+  }
+
+  /// Configures complete localization while registration is open.
+  pub fn set_localizer(&mut self, localizer: Localizer) {
+    self.require_registering();
+    self.localizer = Some(Rc::new(localizer));
+  }
+
+  /// Replaces localization and reconciles every active root and portal.
+  pub fn replace_localizer(
+    &mut self,
+    game: &mut G,
+    localizer: Localizer,
+  ) -> Result<ReactantCommit, RenderError> {
+    self.require_active();
+    let previous = self.localizer.replace(Rc::new(localizer));
+    let _memo_rendering = localization::force_memo_rendering();
+    match self.refresh(game) {
+      Ok(commit) => Ok(commit),
+      Err(error) => {
+        self.localizer = previous;
+        Err(error)
+      }
     }
   }
 
@@ -228,6 +264,7 @@ impl<G: 'static> Reactant<G> {
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
+    let _localization = localization::enter(self.localizer.clone());
     let planned = panic::catch_unwind(AssertUnwindSafe(|| self.plan_session(game)));
     let planned = match planned {
       Ok(planned) => planned?,
@@ -802,6 +839,7 @@ impl<G: 'static> Reactant<G> {
     &mut self,
     operation: impl FnOnce(&mut Self) -> Result<T, RenderError>,
   ) -> Result<T, RenderError> {
+    let _localization = localization::enter(self.localizer.clone());
     let checkpoint = EntryCheckpoint::capture(
       self.roots.iter().map(|root| &root.committed),
       &self.element_refs,
@@ -1112,6 +1150,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     geometry: GeometryPlan,
     frozen_actions: usize,
   ) -> ReactantCommit {
+    let _localization = localization::enter(self.localizer.clone());
     let mut external = Some(external);
     let mut resources =
       FrozenResources::from_frozen(Rc::clone(&self.resources), resource_completions);

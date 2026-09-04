@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   CameraState, Color, CommandBody, GameObject, GameObjectKind, Length, MotionLayer, ObjectId,
   PaintFill, PaintStyle, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene,
@@ -8,7 +10,7 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::View,
   motion::StyleTarget,
-  runtime::{Reactant, ReactantCommit},
+  runtime::ReactantCommit,
 };
 
 struct IdleSpawner;
@@ -16,7 +18,7 @@ struct IdleSpawner;
 #[test]
 fn static_paint_updates_and_removal_preserve_the_host_and_gesture_generation() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |color: &Option<Color>| {
     let paint = color.map_or_else(PaintStyle::new, |color| {
       PaintStyle::new()
@@ -60,7 +62,7 @@ fn static_paint_updates_and_removal_preserve_the_host_and_gesture_generation() {
 #[test]
 fn static_only_paint_has_no_animation_slots_or_entrance_target() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |_: &()| {
     View::new().paint(PaintStyle::new().background(PaintFill::Color(Color::rgba(1., 0., 0., 1.))))
   });

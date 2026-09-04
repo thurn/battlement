@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{
   Control, GEOMETRY_TARGET_ID, Game, Interaction, MISSING_GEOMETRY_TARGET_ID, design_system,
 };
@@ -54,31 +56,37 @@ impl Component for RefsGeometry {
           .name("refs-content")
           .style(design_system::refs_content())
           .child((!self.compact).then(|| {
-            battlement_reactant::host::Label::new("REFS & GEOMETRY")
-              .style(design_system::resources_eyebrow(self.compact))
+            battlement_reactant::host::Label::new(tx(
+              "REFS & GEOMETRY",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::resources_eyebrow(self.compact))
           }))
           .child(
-            battlement_reactant::host::Label::new("Measure committed hosts")
-              .name("refs-title")
-              .style(design_system::effects_title(self.compact)),
+            battlement_reactant::host::Label::new(tx(
+              "Measure committed hosts",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .name("refs-title")
+            .style(design_system::effects_title(self.compact)),
           )
           .child(
             battlement_reactant::host::View::new()
               .name("refs-card")
               .style(design_system::refs_card(self.compact))
               .child(
-                battlement_reactant::host::Label::new(self::overall_status(
+                battlement_reactant::host::Label::new(assert_localized(self::overall_status(
                   point.status,
                   bounds.status,
-                ))
+                )))
                 .name("refs-status")
                 .style(design_system::refs_status(active, self.compact)),
               )
               .child(
-                battlement_reactant::host::Label::new(format!(
+                battlement_reactant::host::Label::new(assert_localized(format!(
                   "Effect runs · {}",
                   self.effect_runs
-                ))
+                )))
                 .name("geometry-effect-runs")
                 .style(design_system::geometry_effect_status()),
               )
@@ -165,10 +173,13 @@ fn specimen(
     .name(name)
     .style(design_system::geometry_specimen(compact))
     .child(
-      battlement_reactant::host::Label::new(heading)
+      battlement_reactant::host::Label::new(assert_localized(heading))
         .style(design_system::geometry_heading(unavailable)),
     )
-    .child(battlement_reactant::host::Label::new(value).style(design_system::geometry_value()))
+    .child(
+      battlement_reactant::host::Label::new(assert_localized(value))
+        .style(design_system::geometry_value()),
+    )
 }
 
 fn overall_status(point: MeasurementStatus, bounds: MeasurementStatus) -> &'static str {

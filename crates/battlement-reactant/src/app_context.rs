@@ -7,12 +7,13 @@ use std::{
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::{ActionId, Command, DisplayId, ScreenSize};
+use trox::Localizer;
 
 use crate::{
   action_context,
   context::RequiredContext,
   geometry::{self, MeasurementStatus, ViewportRef},
-  hooks,
+  hooks, localization,
 };
 
 pub(crate) static APP: RequiredContext<AppHandle> = RequiredContext::new();
@@ -70,6 +71,20 @@ impl AppHandle {
     });
   }
 
+  /// Replaces the application's localizer after the current commit.
+  pub fn set_localizer(&self, localizer: Localizer) {
+    let Some(queue) = self.queue.upgrade() else {
+      return;
+    };
+    let mut queue = queue.borrow_mut();
+    if self.generation != queue.generation {
+      return;
+    }
+    let localizer = Rc::new(localizer);
+    localization::replace_announcement_localizer(Rc::clone(&localizer));
+    queue.localizer = Some(localizer);
+  }
+
   pub(crate) fn new(queue: &Rc<RefCell<AppQueue>>) -> Self {
     Self {
       queue: Rc::downgrade(queue),
@@ -102,6 +117,7 @@ pub(crate) struct AppQueue {
   pub(crate) commands: Vec<QueuedCommand>,
   pub(crate) snapshot_action: Option<ActionId>,
   pub(crate) snapshot: bool,
+  pub(crate) localizer: Option<Rc<Localizer>>,
 }
 
 pub(crate) struct Observations {

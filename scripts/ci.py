@@ -731,6 +731,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         "Check rust-analyzer projects",
         [sys.executable, "scripts/update-rust-analyzer-projects.py", "--check"],
     )
+    run_step(
+        "Check Trox localization artifacts",
+        [sys.executable, "scripts/trox_validation.py"],
+    )
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     for workspace in sample_workspaces:
         run_step(

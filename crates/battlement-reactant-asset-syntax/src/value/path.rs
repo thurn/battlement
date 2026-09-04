@@ -162,7 +162,7 @@ fn segments(tokens: &[Token]) -> Result<Vec<Segment>, ValueError> {
       continue;
     }
     let arity = self::arity(command);
-    if values.is_empty() || values.len() % arity != 0 {
+    if values.is_empty() || !values.len().is_multiple_of(arity) {
       return Err(self::invalid());
     }
     for (group_index, group) in values.chunks(arity).enumerate() {

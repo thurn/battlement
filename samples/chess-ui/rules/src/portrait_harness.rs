@@ -1,3 +1,5 @@
+use trox::tx;
+
 use crate::portrait_viewport::PortraitViewport;
 use battlement::{Align, Color, Justify, LengthUnits, Style, TextAnchor};
 use battlement_reactant::prelude::builder;
@@ -6,7 +8,6 @@ use battlement_reactant::{
   component::Component,
   host::{Label, View},
   render::Render,
-  semantics,
 };
 
 /// Marks the corners of a fixed canvas to demonstrate fitting.
@@ -32,21 +33,33 @@ impl Component for PortraitHarness {
                 .align_items(Align::Stretch),
             )
             .child((
-              Label::new("TOP LEFT").style(
+              Label::new(tx(
+                "TOP LEFT",
+                "User-facing product copy in the Chess UI sample.",
+              ))
+              .style(
                 Style::new()
                   .font_size(32)
                   .unity_text_align(TextAnchor::UpperLeft),
               ),
-              Label::new("1024 × 1536")
-                .semantic(accessibility::use_static_text(semantics::text(
-                  "Portrait canvas, 1024 by 1536 logical pixels",
-                )))
-                .style(
-                  Style::new()
-                    .font_size(64)
-                    .unity_text_align(TextAnchor::MiddleCenter),
-                ),
-              Label::new("BOTTOM RIGHT").style(
+              Label::new(tx(
+                "1024 × 1536",
+                "User-facing product copy in the Chess UI sample.",
+              ))
+              .semantic(accessibility::use_static_text(tx(
+                "Portrait canvas, 1024 by 1536 logical pixels",
+                "User-facing product copy in the Chess UI sample.",
+              )))
+              .style(
+                Style::new()
+                  .font_size(64)
+                  .unity_text_align(TextAnchor::MiddleCenter),
+              ),
+              Label::new(tx(
+                "BOTTOM RIGHT",
+                "User-facing product copy in the Chess UI sample.",
+              ))
+              .style(
                 Style::new()
                   .font_size(32)
                   .unity_text_align(TextAnchor::LowerRight),

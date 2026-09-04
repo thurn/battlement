@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   panic::{self, AssertUnwindSafe},
@@ -74,13 +76,13 @@ impl Component for MemoFixture {
     self.callbacks.borrow_mut().push(callback);
     let (local, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(format!(
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
       "{}/{}/{}/{}",
       self.prop,
       memoized,
       hooks::use_context(&THEME),
       local
-    ))
+    )))
   }
 }
 
@@ -107,14 +109,16 @@ impl Component for ProviderBoundary {
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(hooks::use_required_context(&REQUIRED_THEME))
+    battlement_reactant::host::Label::new(trox::assert_localized(hooks::use_required_context(
+      &REQUIRED_THEME,
+    )))
   }
 }
 
 impl Component for InvalidMemo {
   fn render(&self) -> impl Render {
     let _ = hooks::use_memo(|| hooks::use_ref(0_u8), ());
-    battlement_reactant::host::Label::new("invalid")
+    battlement_reactant::host::Label::new(trox::assert_localized("invalid"))
   }
 }
 
@@ -131,14 +135,17 @@ fn memo_bailout_observes_props_dependencies_context_and_local_work() {
     dependency: 0,
     theme: "light",
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_renders = Rc::clone(&renders);
   let view_calculations = Rc::clone(&calculations);
   let view_callbacks = Rc::clone(&callbacks);
   let view_setter = Rc::clone(&setter);
   reactant.register_root(document.clone(), move |game: &Game| {
     (
-      battlement_reactant::host::Label::new(format!("unrelated {}", game.unrelated)),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!(
+        "unrelated {}",
+        game.unrelated
+      ))),
       THEME
         .provider(game.theme)
         .child(component::memo(MemoFixture {
@@ -244,7 +251,7 @@ fn memo_calculations_forbid_hooks_and_panics_poison_the_runtime() {
     dependency: 0,
     theme: "light",
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document, |_| InvalidMemo);
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -270,11 +277,14 @@ fn memo_bailout_preserves_provider_ancestry_for_required_contexts() {
     dependency: 0,
     theme: "light",
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_renders = Rc::clone(&renders);
   reactant.register_root(document.clone(), move |game: &Game| {
     (
-      battlement_reactant::host::Label::new(format!("unrelated {}", game.unrelated)),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!(
+        "unrelated {}",
+        game.unrelated
+      ))),
       component::memo(ProviderBoundary {
         renders: Rc::clone(&view_renders),
       }),

@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{collections::VecDeque, slice, sync::Arc};
 
 use battlement::{
@@ -192,7 +194,7 @@ fn generated_image_lowers_to_exactly_one_native_image_host() {
   let document = UiDocument::new(ObjectId::new_v4());
   let root_id = document.root_id;
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| PANEL.image());
   let response = reactant
     .begin_session(&mut game)
@@ -249,7 +251,7 @@ fn generated_image_lowers_to_exactly_one_native_image_host() {
 fn every_conversion_restores_the_sorted_generated_union_and_preserves_callers() {
   let document = UiDocument::new(ObjectId::new_v4());
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| View::new());
 
   for _ in 0..2 {
@@ -274,7 +276,7 @@ fn every_conversion_restores_the_sorted_generated_union_and_preserves_callers() 
 fn fake_client_applies_the_generated_union_on_authoritative_replacement() {
   let document = UiDocument::new(ObjectId::new_v4());
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| View::new());
   let mut response = |reactant: &mut Reactant<()>, state| {
     reactant
@@ -317,7 +319,7 @@ fn generated_style_is_independent_of_host_method_order() {
   let first_document = UiDocument::new(ObjectId::new_v4());
   let second_document = UiDocument::new(ObjectId::new_v4());
   let mut game = ();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(first_document.clone(), |_| {
     View::new().style(PANEL.background_style()).name("panel")
   });

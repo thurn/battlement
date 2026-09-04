@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{panic, panic::AssertUnwindSafe};
 
 use battlement::{
@@ -209,8 +211,8 @@ fn view(game: &Game) -> impl Render + use<> {
   };
   battlement_reactant::host::View::new().child((
     replaceable,
-    battlement_reactant::host::Label::new(game.left),
-    battlement_reactant::host::Label::new(game.right),
+    battlement_reactant::host::Label::new(trox::assert_localized(game.left)),
+    battlement_reactant::host::Label::new(trox::assert_localized(game.right)),
   ))
 }
 
@@ -221,7 +223,7 @@ fn active_runtime() -> (Reactant<Game>, Game, SessionId) {
     left: "left",
     right: "right",
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::view);
   let snapshot = self::snapshot(&document);
   let session_id = snapshot.session_id;

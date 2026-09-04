@@ -243,7 +243,7 @@ This is incorrect because retries could send the message more than once:
 ```rust
 fn render(&self) -> impl Render {
     self.analytics.record_view();
-    Label::new("Inventory")
+    Label::new(trox::tx("Inventory", "User-facing copy in this example."))
 }
 ```
 
@@ -609,7 +609,7 @@ because Rust cannot overload it alongside arbitrary iterators.
 
 ```rust
 Fragment::new((
-    Label::new("Attack"),
+    Label::new(trox::tx("Attack", "User-facing copy in this example.")),
     DamageBadge::new(self.damage),
 ))
 ```
@@ -651,7 +651,7 @@ Component constructors return the value that will render. Optional prop methods
 consume and return `Self`. There is no `.build()`.
 
 ```rust
-Button::new("End turn")
+Button::new(trox::tx("End turn", "User-facing copy in this example."))
     .enabled(self.can_end_turn)
     .class("primary")
 ```
@@ -673,7 +673,7 @@ primitive's established `label` or constructor API.
 
 ```rust
 Dialog::new()
-    .title("Discard changes?")
+    .title(trox::tx("Discard changes?", "User-facing copy in this example."))
     .child(ConfirmationButtons::new())
 ```
 
@@ -722,7 +722,7 @@ builder or `.build()`.
 Card::new()
     .compact(true)
     .art(texture)
-    .title("Citadel")
+    .title(trox::tx("Citadel", "User-facing copy in this example."))
 ```
 
 - Required setters accept any order and cannot repeat. Optional setters can
@@ -833,7 +833,7 @@ adapted to the Reactant prelude; Reactant-only methods document their own
 logical behavior.
 
 ```rust
-Button::new("Inspect")
+Button::new(trox::tx("Inspect", "User-facing copy in this example."))
     .element_ref(self.button_ref.clone())
     .on_click(inspect_card)
     .key(self.card_id)
@@ -944,10 +944,10 @@ A gallery can register ordinary component values inside review pages:
 
 ```rust
 Gallery::new()
-  .page(ReviewPage::new().title("Toggle").child(
+  .page(ReviewPage::new().title(trox::tx("Toggle", "User-facing copy in this example.")).child(
       ToggleControl::new().label(label).checked(checked).on_change(on_change),
   ))
-  .page(ReviewPage::new().title("Welcome").child(Label::new("Hello")))
+  .page(ReviewPage::new().title(trox::tx("Welcome", "User-facing copy in this example.")).child(Label::new(trox::tx("Hello", "User-facing copy in this example."))))
 ```
 
 The page groups its children with `Fragment::empty().child(content)`, which

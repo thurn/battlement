@@ -1,11 +1,13 @@
 //! The gallery’s actions and navigation entries, including keyboard behavior.
 
+use trox::LocalizedString;
+
 use crate::{review_navigation, review_theme};
 use battlement::{Align, Color, FontStyle, Style, TextAnchor, WhiteSpace};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
-  element_behavior, hooks, semantics,
+  element_behavior, hooks,
 };
 use battlement_reactant::{
   component::Component, host::Button, motion::StyleTarget, render::Render,
@@ -119,7 +121,7 @@ impl ReviewButtonKind {
 #[builder]
 pub struct ReviewButton {
   #[builder(required)]
-  label: String,
+  label: LocalizedString,
   /// Sets the stable host name used for inspection and capture discovery.
   name: String,
   /// Disables activation while retaining the control’s place in the layout.
@@ -153,7 +155,7 @@ impl Component for ReviewButton {
       .behavior(
         accessibility::use_button(
           ButtonOptions::new()
-            .name(semantics::text(self.label.clone()))
+            .name(self.label.clone())
             .is_disabled(self.disabled)
             .on_press(self.on_press.clone()),
         )

@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   CameraState, Choice, ClickEvent, F32Range, FocusEvent, GameObject, GameObjectKind, GeometryEvent,
   KeyEvent, LifecycleEvent, LinkEvent, NavigationEvent, NavigationMoveEvent, ObjectId,
@@ -284,7 +286,7 @@ fn common_builder_catalog() {
   );
 
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_game: &Ledger| value.clone());
   let snapshot = reactant
     .begin_session(&mut Ledger::default())
@@ -325,7 +327,7 @@ fn common_builder_catalog() {
 #[test]
 fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), self::typed_controls);
   let mut ledger = Ledger::default();
   let snapshot = reactant
@@ -425,7 +427,7 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
 #[test]
 fn change_aliases_replace_their_native_handlers_in_either_order() {
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &Ledger| {
     (
       battlement_reactant::host::TextField::new()

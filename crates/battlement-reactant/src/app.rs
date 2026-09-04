@@ -7,6 +7,7 @@ use battlement::{
   PanelSettings, ParentScene, Scene, SceneAddress, SceneId, ScreenSize, SessionId, UiDocument,
   UiDocumentState,
 };
+use trox::{Bundle, Localizer};
 
 use crate::{
   app_context::{AppQueue, Observations},
@@ -32,9 +33,13 @@ use crate::{
 /// demo code only supplies its content and behavior. Component state survives
 /// reconnects unless [`Self::reset_on_reconnect`] is selected.
 ///
-/// ```
+/// ```no_run
 /// use battlement_reactant::{app::App, host::Label};
-/// let app = App::new("my-game/content").ui(Label::new("Welcome"));
+/// use trox::{Bundle, tx};
+/// # fn source_bundle() -> Bundle { unimplemented!() }
+/// let app = App::new("my-game/content")
+///   .source_bundle(source_bundle())
+///   .ui(Label::new(tx("Welcome", "Welcome message on the main screen.")));
 /// let scene_only = App::new("my-game/content");
 /// ```
 pub struct App<G: 'static = ()> {
@@ -101,6 +106,22 @@ impl<G: 'static> App<G> {
   pub fn ui(self, component: impl Render) -> Self {
     let component = Rc::new(component);
     self.root(move |_| Rc::clone(&component))
+  }
+
+  /// Uses an English source bundle for source-to-source localization.
+  #[must_use]
+  pub fn source_bundle(mut self, source: Bundle) -> Self {
+    self.require_configuring();
+    self.runtime.set_source_bundle(source);
+    self
+  }
+
+  /// Uses a complete target/source localizer.
+  #[must_use]
+  pub fn localizer(mut self, localizer: Localizer) -> Self {
+    self.require_configuring();
+    self.runtime.set_localizer(localizer);
+    self
   }
 
   /// Adds or replaces the primary document's model-driven component factory.

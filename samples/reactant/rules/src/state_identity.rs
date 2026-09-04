@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement_reactant::{hooks, prelude::*};
 
@@ -60,12 +62,15 @@ impl Component for StateIdentity {
       .name("state-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new("State follows identity")
-          .name("state-title")
-          .style(design_system::title()),
+        battlement_reactant::host::Label::new(tx(
+          "State follows identity",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("state-title")
+        .style(design_system::title()),
       )
       .child(
-        battlement_reactant::host::Button::new(action)
+        battlement_reactant::host::Button::new(assert_localized(action))
           .name("state-action")
           .style(design_system::primary_action(control))
           .on_pointer_enter({
@@ -119,9 +124,11 @@ impl Component for StateIdentity {
           .name("state-specimen")
           .style(design_system::state_specimen())
           .child(
-            battlement_reactant::host::Label::new(format!("BATCHED VALUE  {value}"))
-              .name("state-value")
-              .style(design_system::state_value()),
+            battlement_reactant::host::Label::new(assert_localized(format!(
+              "BATCHED VALUE  {value}"
+            )))
+            .name("state-value")
+            .style(design_system::state_value()),
           )
           .child(
             battlement_reactant::host::View::new()
@@ -151,14 +158,16 @@ impl Component for IdentityToken {
         self.position,
         state.revision > 0,
       ))
-      .child(battlement_reactant::host::Label::new(format!(
-        "0{}  {}",
-        self.id, self.name
+      .child(battlement_reactant::host::Label::new(assert_localized(
+        format!("0{}  {}", self.id, self.name),
       )))
       .child(
-        battlement_reactant::host::Label::new(format!("REDUCER {}", state.revision))
-          .name("identity-state")
-          .style(design_system::identity_state(state.revision > 0)),
+        battlement_reactant::host::Label::new(assert_localized(format!(
+          "REDUCER {}",
+          state.revision
+        )))
+        .name("identity-state")
+        .style(design_system::identity_state(state.revision > 0)),
       )
   }
 }

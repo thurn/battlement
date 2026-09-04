@@ -292,10 +292,10 @@ fn versioned_tool(
     Ok(version) => (Some(version), None),
     Err(error) => (None, Some(format!("version check failed: {error:#}"))),
   };
-  if let (Some(version), Some(expected)) = (&version, expected) {
-    if !version.contains(expected) {
-      problem = Some(format!("expected version {expected}, found {version}"));
-    }
+  if let (Some(version), Some(expected)) = (&version, expected)
+    && !version.contains(expected)
+  {
+    problem = Some(format!("expected version {expected}, found {version}"));
   }
   Tool {
     name: name.to_owned(),

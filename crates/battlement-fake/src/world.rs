@@ -867,10 +867,10 @@ impl FakeWorld {
       .remove(&id)
       .unwrap_or_else(|| panic!("unknown object: {id}"));
     self.object_order.retain(|value| *value != id);
-    if let Some(parent_id) = object.parent_id {
-      if let Some(parent) = self.objects.get_mut(&parent_id) {
-        parent.children.retain(|child| *child != id);
-      }
+    if let Some(parent_id) = object.parent_id
+      && let Some(parent) = self.objects.get_mut(&parent_id)
+    {
+      parent.children.retain(|child| *child != id);
     }
     for child_id in object.children {
       if let Some(child) = self.objects.get_mut(&child_id) {

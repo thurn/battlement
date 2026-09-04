@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   panic::{self, AssertUnwindSafe},
@@ -56,9 +58,11 @@ impl Component for RefFixture {
       Vec::new()
     });
     self.handle.replace(Some(reference.clone()));
-    battlement_reactant::host::Button::new("mutate ref").on_click(move |_game: &mut Game| {
-      reference.with_mut(|values| values.push(2));
-    })
+    battlement_reactant::host::Button::new(trox::assert_localized("mutate ref")).on_click(
+      move |_game: &mut Game| {
+        reference.with_mut(|values| values.push(2));
+      },
+    )
   }
 }
 
@@ -76,7 +80,7 @@ impl Component for InvalidRefAccess {
       Some(RefOperation::WithMut) => reference.with_mut(|value| value.push(1)),
       None => {}
     }
-    battlement_reactant::host::Label::new("ref")
+    battlement_reactant::host::Label::new(trox::assert_localized("ref"))
   }
 }
 
@@ -94,12 +98,12 @@ struct ContextConsumer {
 
 impl Component for ContextConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(format!(
+    battlement_reactant::host::Label::new(trox::assert_localized(format!(
       "{}:{}/{}",
       self.name,
       hooks::use_context(&PRIMARY),
       hooks::use_context(&SECONDARY)
-    ))
+    )))
   }
 }
 
@@ -107,7 +111,9 @@ struct RequiredConsumer;
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(hooks::use_required_context(&REQUIRED))
+    battlement_reactant::host::Label::new(trox::assert_localized(hooks::use_required_context(
+      &REQUIRED,
+    )))
   }
 }
 
@@ -117,7 +123,7 @@ impl Component for NestedRuntime {
   fn render(&self) -> impl Render {
     let document = self::document();
     let mut game = Game::default();
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     reactant.register_root(document.clone(), |_| ContextConsumer { name: "nested" });
     let text = self::texts(
       &self::begin(&mut reactant, &mut game, &document),
@@ -125,7 +131,7 @@ impl Component for NestedRuntime {
     )
     .join("");
     let _ = reactant.shutdown(&mut game).into_groups();
-    battlement_reactant::host::Label::new(text)
+    battlement_reactant::host::Label::new(trox::assert_localized(text))
   }
 }
 
@@ -138,7 +144,7 @@ impl Component for StatefulConsumer {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(value.to_string())
+    battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
   }
 }
 
@@ -154,7 +160,7 @@ fn ref_mutation_survives_without_pending_render_work_and_handles_are_stable() {
   };
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| fixture.clone());
   let snapshot = self::begin(&mut reactant, &mut game, &document);
   let button = snapshot.ui[0].children[0].object_id;
@@ -190,7 +196,7 @@ fn every_ref_value_operation_panics_during_render() {
   ] {
     let document = self::document();
     let mut game = Game::default();
-    let mut reactant = Reactant::new(IdleSpawner);
+    let mut reactant = runtime_support::reactant(IdleSpawner);
     reactant.register_root(document.clone(), move |game: &Game| InvalidRefAccess {
       operation: game.ref_operation,
     });
@@ -205,7 +211,7 @@ fn providers_use_nearest_logical_value_and_same_typed_contexts_do_not_alias() {
   DEFAULT_CALLS.set(0);
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
     (
       ContextConsumer { name: "outside" },
@@ -243,7 +249,7 @@ fn providers_use_nearest_logical_value_and_same_typed_contexts_do_not_alias() {
   );
 
   let second_document = self::document();
-  let mut second = Reactant::new(IdleSpawner);
+  let mut second = runtime_support::reactant(IdleSpawner);
   second.register_root(second_document.clone(), |_| ContextConsumer { name: "new" });
   let _ = self::begin(&mut second, &mut game, &second_document);
   assert_eq!(
@@ -260,7 +266,7 @@ fn nested_runtimes_do_not_inherit_outer_providers() {
   DEFAULT_CALLS.set(0);
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
     PRIMARY.provider("outer").child(NestedRuntime)
   });
@@ -280,7 +286,7 @@ fn provider_value_types_share_reconciliation_identity() {
   let view_setter = Rc::clone(&setter);
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| {
     if view_alternate.get() {
       Node::new(PRIMARY.provider("alternate").child(StatefulConsumer {
@@ -314,7 +320,7 @@ fn provider_value_types_share_reconciliation_identity() {
 fn required_context_accepts_a_provider_and_panics_when_missing() {
   let document = self::document();
   let mut game = Game::default();
-  let mut provided = Reactant::new(IdleSpawner);
+  let mut provided = runtime_support::reactant(IdleSpawner);
   provided.register_root(document.clone(), |_| {
     REQUIRED.provider("session").child(RequiredConsumer)
   });
@@ -322,7 +328,7 @@ fn required_context_accepts_a_provider_and_panics_when_missing() {
   assert_eq!(self::texts(&snapshot, document.root_id), ["session"]);
 
   let missing_document = self::document();
-  let mut missing = Reactant::new(IdleSpawner);
+  let mut missing = runtime_support::reactant(IdleSpawner);
   missing.register_root(missing_document, |_| RequiredConsumer);
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -346,7 +352,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         let _ = hooks::use_ref_with(|| 0_u8);
       }
-      battlement_reactant::host::Label::new("hook")
+      battlement_reactant::host::Label::new(trox::assert_localized("hook"))
     }
   }
 
@@ -354,7 +360,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
   let view_alternate = Rc::clone(&alternate);
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| VariableHook {
     alternate: view_alternate.get(),
   });
@@ -373,14 +379,14 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         hooks::use_context(&PRIMARY)
       };
-      battlement_reactant::host::Label::new(value)
+      battlement_reactant::host::Label::new(trox::assert_localized(value))
     }
   }
 
   let alternate = Rc::new(Cell::new(false));
   let view_alternate = Rc::clone(&alternate);
   let document = self::document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| VariableContext {
     alternate: view_alternate.get(),
   });

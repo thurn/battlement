@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
 use battlement_reactant::prelude::*;
@@ -104,14 +106,23 @@ impl Component for VariantsOrchestration {
       .name("variants-orchestration-canvas")
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("LOGICAL VARIANT PROPAGATION").style(eyebrow()))
       .child(
-        Label::new("Variants & Orchestration")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "LOGICAL VARIANT PROPAGATION",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Variants & Orchestration",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "ROUTE {}  ·  {} STAGGER  ·  CUSTOM +{}  ·  {} ms  ·  GENERATION {}",
           direction_name(self.state.direction),
           if self.state.reverse_stagger {
@@ -122,7 +133,7 @@ impl Component for VariantsOrchestration {
           self.state.custom_offset,
           checkpoint,
           self.state.generation,
-        ))
+        )))
         .name("variants-status")
         .style(status()),
       )
@@ -136,10 +147,13 @@ impl Component for VariantsOrchestration {
           .custom(self.state.custom_offset)
           .animate_variants(names)
           .child(
-            Label::new("PARENT  ·  ordered [route, custom, orchestration]")
-              .name("variant-ordered-list")
-              .inherit_variants(false)
-              .style(parent_label()),
+            Label::new(tx(
+              "PARENT  ·  ordered [route, custom, orchestration]",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .name("variant-ordered-list")
+            .inherit_variants(false)
+            .style(parent_label()),
           )
           .child(Fragment::new(
             (0..4)
@@ -154,9 +168,12 @@ impl Component for VariantsOrchestration {
           )),
       )
       .child(
-        Label::new(orchestration_record(checkpoint, self.state.reverse_stagger))
-          .name("variants-orchestration-record")
-          .style(record()),
+        Label::new(assert_localized(orchestration_record(
+          checkpoint,
+          self.state.reverse_stagger,
+        )))
+        .name("variants-orchestration-record")
+        .style(record()),
       )
   }
 }
@@ -181,9 +198,9 @@ impl Component for RouteChild {
       .initial(StyleTarget::new().opacity(0.25).scale(0.88))
       .variants(child_variants(self.index))
       .inherit_variants(!opted_out)
-      .child(Label::new(CHILD_NAMES[self.index as usize]).style(child_name()))
+      .child(Label::new(assert_localized(CHILD_NAMES[self.index as usize])).style(child_name()))
       .child(
-        Label::new(state)
+        Label::new(assert_localized(state))
           .name(format!("variant-child-{}-state", self.index))
           .style(child_state(opted_out)),
       )
@@ -352,7 +369,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

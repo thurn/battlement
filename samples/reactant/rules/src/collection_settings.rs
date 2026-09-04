@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, layout_gallery_styles as styles};
 use battlement::{Command, CurrentPage, FlexDirection};
 use battlement_reactant::{accessibility_collections as collections, application, prelude::*};
@@ -18,13 +20,19 @@ impl Component for CollectionSettings {
     };
     let link = collections::use_link(
       ButtonOptions::new()
-        .name(text("Documentation link"))
+        .name(tx(
+          "Documentation link",
+          "User-facing product copy in the Reactant sample.",
+        ))
         .on_press(|game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED")),
     );
     let app = use_app();
     let external_link = collections::use_link(
       ButtonOptions::new()
-        .name(text("Open Unity documentation"))
+        .name(tx(
+          "Open Unity documentation",
+          "User-facing product copy in the Reactant sample.",
+        ))
         .on_press(move || {
           app.send(Command::open_external_url(
           "https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Application.OpenURL.html",
@@ -32,34 +40,48 @@ impl Component for CollectionSettings {
         }),
     );
     View::new().style(styles::section()).child((
-      Label::new("COLLECTION SEMANTICS").style(styles::section_heading()),
-      Label::new(status).semantic(use_static_text(text(status))),
+      Label::new(tx(
+        "COLLECTION SEMANTICS",
+        "User-facing product copy in the Reactant sample.",
+      ))
+      .style(styles::section_heading()),
+      Label::new(assert_localized(status)).semantic(use_static_text(assert_localized(status))),
       Flex::new()
         .direction(FlexDirection::Row)
         .gap(8.0)
-        .semantic(collections::use_navigation(text("Settings pages")))
+        .semantic(collections::use_navigation(tx(
+          "Settings pages",
+          "User-facing product copy in the Reactant sample.",
+        )))
         .child(
           ["Controls page", "Bindings page"]
             .into_iter()
             .enumerate()
             .map(|(index, name)| {
-              let mut page = use_button(ButtonOptions::new().name(text(name)).on_press(
-                move |game: &mut Game| {
-                  game.layout_gallery.collection_page = index;
-                },
-              ));
+              let mut page =
+                use_button(ButtonOptions::new().name(assert_localized(name)).on_press(
+                  move |game: &mut Game| {
+                    game.layout_gallery.collection_page = index;
+                  },
+                ));
               page.semantic.state.current = (self.page == index).then_some(CurrentPage::Page);
-              Button::new(name).behavior(page)
+              Button::new(assert_localized(name)).behavior(page)
             })
             .collect::<Vec<_>>(),
         ),
       View::new()
-        .semantic(collections::use_region(text("Collection settings")))
+        .semantic(collections::use_region(tx(
+          "Collection settings",
+          "User-facing product copy in the Reactant sample.",
+        )))
         .child((
           Flex::new()
             .direction(FlexDirection::Row)
             .gap(8.0)
-            .semantic(collections::use_listbox(text("Display quality")))
+            .semantic(collections::use_listbox(tx(
+              "Display quality",
+              "User-facing product copy in the Reactant sample.",
+            )))
             .child(
               ["Standard", "High", "Unavailable"]
                 .into_iter()
@@ -67,39 +89,76 @@ impl Component for CollectionSettings {
                 .map(|(index, name)| {
                   let option = collections::use_option(
                     ChoiceOptions::new()
-                      .name(text(name))
+                      .name(assert_localized(name))
                       .selected(self.choice == index)
                       .is_disabled(index == 2)
                       .on_select(move |game: &mut Game| {
                         game.layout_gallery.collection_choice = index;
                       }),
                   );
-                  Button::new(name).behavior(option)
+                  Button::new(assert_localized(name)).behavior(option)
                 })
                 .collect::<Vec<_>>(),
             ),
           View::new()
-            .semantic(collections::use_table(text("Keyboard bindings")))
+            .semantic(collections::use_table(tx(
+              "Keyboard bindings",
+              "User-facing product copy in the Reactant sample.",
+            )))
             .child((
               Flex::new()
                 .direction(FlexDirection::Row)
                 .gap(24.0)
                 .semantic(collections::use_row())
                 .child((
-                  Label::new("ACTION").semantic(collections::use_column_header(text("Action"))),
-                  Label::new("KEYBOARD").semantic(collections::use_column_header(text("Keyboard"))),
+                  Label::new(tx(
+                    "ACTION",
+                    "User-facing product copy in the Reactant sample.",
+                  ))
+                  .semantic(collections::use_column_header(tx(
+                    "Action",
+                    "User-facing product copy in the Reactant sample.",
+                  ))),
+                  Label::new(tx(
+                    "KEYBOARD",
+                    "User-facing product copy in the Reactant sample.",
+                  ))
+                  .semantic(collections::use_column_header(tx(
+                    "Keyboard",
+                    "User-facing product copy in the Reactant sample.",
+                  ))),
                 )),
               Flex::new()
                 .direction(FlexDirection::Row)
                 .gap(24.0)
                 .semantic(collections::use_row())
                 .child((
-                  Label::new("MOVE").semantic(collections::use_row_header(text("Move"))),
-                  Label::new("W").semantic(collections::use_cell(text("W"))),
+                  Label::new(tx(
+                    "MOVE",
+                    "User-facing product copy in the Reactant sample.",
+                  ))
+                  .semantic(collections::use_row_header(tx(
+                    "Move",
+                    "User-facing product copy in the Reactant sample.",
+                  ))),
+                  Label::new(tx("W", "User-facing product copy in the Reactant sample.")).semantic(
+                    collections::use_cell(tx(
+                      "W",
+                      "User-facing product copy in the Reactant sample.",
+                    )),
+                  ),
                 )),
             )),
-          Button::new("OPEN UNITY DOCUMENTATION").behavior(external_link),
-          Button::new("DOCUMENTATION LINK").behavior(link),
+          Button::new(tx(
+            "OPEN UNITY DOCUMENTATION",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .behavior(external_link),
+          Button::new(tx(
+            "DOCUMENTATION LINK",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .behavior(link),
         )),
     ))
   }

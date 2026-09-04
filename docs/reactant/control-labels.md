@@ -1,7 +1,7 @@
 # Accessible control labels
 
-Named control hooks accept either `LocalizedText` or `AccessibleName`. Use
-`text("Sound")` for literal text, `AccessibleName::LabelledBy(vec![label_ref])` for
+Named control hooks accept either `LocalizedString` or `AccessibleName`. Use
+`tx("Sound", "Accessible name for the sound control.")` for authored text, `AccessibleName::LabelledBy(vec![label_ref])` for
 one or more visible label hosts, or `AccessibleName::Contents` for eligible descendants.
 References are concatenated in their authored order with normalized whitespace.
 Name-source-only labels remain available for references and contents-derived
@@ -21,7 +21,10 @@ let (label, checkbox) = use_control_label().bind_with(|name| {
     accessibility::use_checkbox(
         ToggleOptions::new()
             .name(name)
-            .description(AccessibleDescription::text("Controls game audio"))
+            .description(AccessibleDescription::text(trox::tx(
+                "Controls game audio",
+                "Description of the sound control.",
+            )))
             .checked(checked)
             .on_change(on_change),
     )
@@ -30,8 +33,11 @@ let (label, checkbox) = use_control_label().bind_with(|name| {
 View::new().child((
     View::new()
         .associated_label(label)
-        .child(accessibility::name_source_text("Sound")),
-    Button::new("").associated_control(checkbox),
+        .child(accessibility::name_source_text(trox::tx(
+            "Sound",
+            "Visible label for the sound control.",
+        ))),
+    Button::new(trox::tx("", "User-facing copy in this example.")).associated_control(checkbox),
 ))
 ```
 

@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Control, Game, design_system};
 use battlement::{ScrollViewMode, ScrollerVisibility};
 use battlement_reactant::prelude::*;
@@ -126,13 +128,19 @@ impl Component for EffectsStores {
           .name("effects-content")
           .style(design_system::effects_content())
           .child(
-            battlement_reactant::host::Label::new("EFFECTS & STORES")
-              .style(design_system::eyebrow()),
+            battlement_reactant::host::Label::new(tx(
+              "EFFECTS & STORES",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .style(design_system::eyebrow()),
           )
           .child(
-            battlement_reactant::host::Label::new("Synchronize after commit")
-              .name("effects-title")
-              .style(design_system::effects_title(self.compact)),
+            battlement_reactant::host::Label::new(tx(
+              "Synchronize after commit",
+              "User-facing product copy in the Reactant sample.",
+            ))
+            .name("effects-title")
+            .style(design_system::effects_title(self.compact)),
           )
           .child(
             battlement_reactant::host::View::new()
@@ -143,14 +151,23 @@ impl Component for EffectsStores {
                   .name("effect-card")
                   .style(design_system::effect_card(self.compact))
                   .child(
-                    battlement_reactant::host::Label::new("Connection")
-                      .style(design_system::effect_heading()),
+                    battlement_reactant::host::Label::new(tx(
+                      "Connection",
+                      "User-facing product copy in the Reactant sample.",
+                    ))
+                    .style(design_system::effect_heading()),
                   )
                   .child(
                     battlement_reactant::host::Label::new(if connected {
-                      "CONNECTED"
+                      tx(
+                        "CONNECTED",
+                        "User-facing product copy in the Reactant sample.",
+                      )
                     } else {
-                      "DISCONNECTED"
+                      tx(
+                        "DISCONNECTED",
+                        "User-facing product copy in the Reactant sample.",
+                      )
                     })
                     .name("effect-status")
                     .style(design_system::effect_status()),
@@ -170,14 +187,17 @@ impl Component for EffectsStores {
                   .name("store-card")
                   .style(design_system::effect_card(self.compact))
                   .child(
-                    battlement_reactant::host::Label::new("External snapshot")
-                      .style(design_system::effect_heading()),
+                    battlement_reactant::host::Label::new(tx(
+                      "External snapshot",
+                      "User-facing product copy in the Reactant sample.",
+                    ))
+                    .style(design_system::effect_heading()),
                   )
                   .child(
-                    battlement_reactant::host::Label::new(format!(
+                    battlement_reactant::host::Label::new(assert_localized(format!(
                       "{}  {snapshot}",
                       self.store.name
-                    ))
+                    )))
                     .name("store-status")
                     .style(design_system::effect_status()),
                   )

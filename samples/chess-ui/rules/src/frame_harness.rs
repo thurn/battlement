@@ -1,3 +1,5 @@
+use trox::tx;
+
 use crate::{portrait_viewport::PortraitViewport, screen_frame::ScreenFrame};
 use battlement::{Justify, LengthUnits, Style, TextAnchor};
 use battlement_reactant::prelude::builder;
@@ -6,7 +8,6 @@ use battlement_reactant::{
   component::Component,
   host::{Label, View},
   render::Render,
-  semantics,
 };
 
 /// Displays the arcade border around a centered content label.
@@ -28,15 +29,19 @@ impl Component for FrameHarness {
                   .justify_content(Justify::Center),
               )
               .child(
-                Label::new("ARCADE FRAME")
-                  .semantic(accessibility::use_static_text(semantics::text(
-                    "Arcade frame content",
-                  )))
-                  .style(
-                    Style::new()
-                      .font_size(72)
-                      .unity_text_align(TextAnchor::MiddleCenter),
-                  ),
+                Label::new(tx(
+                  "ARCADE FRAME",
+                  "User-facing product copy in the Chess UI sample.",
+                ))
+                .semantic(accessibility::use_static_text(tx(
+                  "Arcade frame content",
+                  "User-facing product copy in the Chess UI sample.",
+                )))
+                .style(
+                  Style::new()
+                    .font_size(72)
+                    .unity_text_align(TextAnchor::MiddleCenter),
+                ),
               ),
           ),
         ),

@@ -16,6 +16,7 @@ use crate::{
   hooks,
   host_facade::FacadeMetadata,
   key::ErasedKey,
+  localization,
   motion::MotionProps,
   motion_component::MotionComponent,
   motion_lifecycle::{MotionCallbackRegistration, MotionCallbacks},
@@ -456,7 +457,8 @@ impl<'a> RenderSink<'a> {
       .and_then(|position| position.memo_value.as_ref())
       .and_then(|value| value.downcast_ref::<C>())
       .is_some_and(|value| value == component_value.as_ref());
-    if same_props
+    if !localization::memo_rendering_is_forced()
+      && same_props
       && matching
         .as_ref()
         .is_some_and(|position| !position.has_dirty_work())

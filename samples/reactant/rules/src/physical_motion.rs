@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
 use battlement_reactant::prelude::*;
@@ -127,14 +129,23 @@ impl Component for PhysicalMotion {
       .name("physical-motion-canvas")
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())
-      .child(Label::new("PHYSICAL GENERATORS").style(eyebrow()))
       .child(
-        Label::new("Physical Motion")
-          .name("page-title")
-          .style(title()),
+        Label::new(tx(
+          "PHYSICAL GENERATORS",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .style(eyebrow()),
       )
       .child(
-        Label::new(format!(
+        Label::new(tx(
+          "Physical Motion",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("page-title")
+        .style(title()),
+      )
+      .child(
+        Label::new(assert_localized(format!(
           "CONTROLLED CLOCK  ·  {} ms  ·  {}  ·  {}",
           self.state.elapsed_micros() / 1_000,
           if self.state.playing {
@@ -147,20 +158,23 @@ impl Component for PhysicalMotion {
           } else {
             "forward"
           },
-        ))
+        )))
         .name("physical-clock")
         .style(status()),
       )
       .child(controls())
       .child(
-        Label::new(trace)
+        Label::new(assert_localized(trace))
           .name("physical-event-trace")
           .style(event_trace()),
       )
       .child(
-        Label::new("CHECKPOINTS  0 ms  ━  120 ms  ━  320 ms  ━  900 ms")
-          .name("physical-checkpoint-markers")
-          .style(markers()),
+        Label::new(tx(
+          "CHECKPOINTS  0 ms  ━  120 ms  ━  320 ms  ━  900 ms",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .name("physical-checkpoint-markers")
+        .style(markers()),
       )
       .child(gallery(elapsed, self.state.interrupted))
   }
@@ -302,8 +316,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str, pro
     View::new()
       .name(name)
       .style(specimen_style())
-      .child(Label::new(heading).style(specimen_title()))
-      .child(Label::new(detail).style(specimen_detail()))
+      .child(Label::new(assert_localized(heading)).style(specimen_title()))
+      .child(Label::new(assert_localized(detail)).style(specimen_detail()))
       .child(probe),
   )
 }
@@ -313,7 +327,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

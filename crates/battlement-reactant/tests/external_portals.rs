@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   any::Any,
   cell::RefCell,
@@ -19,7 +21,7 @@ use battlement_reactant::{
   hooks::{self, StateSetter},
   portal::create_portal,
   render::Render,
-  runtime::{Reactant, ReactantCommit},
+  runtime::ReactantCommit,
 };
 
 struct IdleSpawner;
@@ -44,7 +46,7 @@ impl Component for StatefulLabel {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(format!("state {value}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("state {value}")))
   }
 }
 
@@ -52,7 +54,7 @@ impl Component for StatefulLabel {
 fn external_portals_append_after_the_prefix_and_enter_events_once() {
   let source = self::document();
   let (external, target_id, prefix_id) = self::external_document("caller prefix");
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let external_target = reactant.register_external_container(target_id);
   let internal_target = reactant.create_portal_target();
   let portal_external = external_target.clone();
@@ -62,7 +64,7 @@ fn external_portals_append_after_the_prefix_and_enter_events_once() {
       create_portal(
         battlement_reactant::host::View::new()
           .child(create_portal(
-            battlement_reactant::host::Button::new("action")
+            battlement_reactant::host::Button::new(trox::assert_localized("action"))
               .on_click(|game: &mut Game| game.log.push("target")),
             portal_internal.clone(),
           ))
@@ -159,7 +161,7 @@ fn reconnect_rebind_preserves_logical_portal_state() {
   let source = self::document();
   let (first_external, first_target_id, first_prefix_id) = self::external_document("first");
   let setter = Rc::new(RefCell::new(None));
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let target = reactant.register_external_container(first_target_id);
   let portal_target = target.clone();
   let portal_setter = Rc::clone(&setter);
@@ -232,7 +234,7 @@ fn external_target_validation_precedes_runtime_and_native_mutation() {
 }
 
 fn duplicate_registration_is_a_guard_error() {
-  let mut reactant = Reactant::<Game>::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   let id = ObjectId::new_v4();
   reactant.register_external_container(id);
   let duplicate = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -247,7 +249,7 @@ fn duplicate_registration_is_a_guard_error() {
 }
 
 fn rebind_before_activation_is_a_guard_error() {
-  let mut reactant = Reactant::<Game>::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   let target = reactant.register_external_container(ObjectId::new_v4());
   let guarded = panic::catch_unwind(AssertUnwindSafe(|| {
     reactant.stage_external_container_rebind(&target, ObjectId::new_v4());
@@ -263,7 +265,7 @@ fn rebind_before_activation_is_a_guard_error() {
 fn leaf_target_is_rejected_even_without_portal_content() {
   let external = self::document().child(UiNode::new(ObjectId::new_v4(), UiLabel::new("leaf")));
   let target_id = external.children[0].object_id;
-  let mut reactant = Reactant::<Game>::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   reactant.register_external_container(target_id);
   let session = reactant.begin_session(&mut Game::default()).unwrap();
   let rejected = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -282,12 +284,12 @@ fn leaf_target_is_rejected_even_without_portal_content() {
 fn missing_rebind_is_transactional() {
   let source = self::document();
   let (external, target_id, prefix_id) = self::external_document("stable");
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let target = reactant.register_external_container(target_id);
   let portal_target = target.clone();
   reactant.register_root(source.clone(), move |_: &Game| {
     create_portal(
-      battlement_reactant::host::Label::new("portal"),
+      battlement_reactant::host::Label::new(trox::assert_localized("portal")),
       portal_target.clone(),
     )
   });
@@ -316,7 +318,7 @@ fn missing_rebind_is_transactional() {
 }
 
 fn aliased_rebind_is_rejected() {
-  let mut reactant = Reactant::<Game>::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   let first_id = ObjectId::new_v4();
   let second_id = ObjectId::new_v4();
   let external = self::document().children([

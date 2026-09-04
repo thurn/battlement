@@ -5,11 +5,15 @@ use battlement::{
   Rect, ScrollViewMode, ScrollerVisibility, SliderDirection, Style, TouchScrollBehavior,
   UpperLimit, Vector,
 };
+use trox::LocalizedString;
 
-use crate::host::{
-  Button, DropdownField, GroupBox, Image, Label, MinMaxSlider, PopupWindow, ProgressBar,
-  RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider, SliderInt, Tab,
-  TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
+use crate::{
+  host::{
+    Button, DropdownField, GroupBox, Image, Label, LocalizedChoice, MinMaxSlider, PopupWindow,
+    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
+    SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
+  },
+  localization,
 };
 
 macro_rules! delegated {
@@ -33,12 +37,30 @@ macro_rules! delegated {
 macro_rules! text_properties {
   ($facade:ty => $native:ident) => {
     delegated!($facade => $native {
-      text(value: impl Into<Prop<String>>),
       rich_text(value: impl Into<Prop<bool>>),
       emoji_fallback(value: impl Into<Prop<bool>>),
       parse_escape_sequences(value: impl Into<Prop<bool>>),
       tooltip_when_elided(value: impl Into<Prop<bool>>),
     });
+    localized_properties!($facade => $native { text });
+  };
+}
+
+macro_rules! localized_properties {
+  ($facade:ty => $native:ident { $($name:ident),+ $(,)? }) => {
+    impl $facade {
+      $(
+        #[doc = concat!("Authors localized `", stringify!($name), "` text.")]
+        #[must_use]
+        pub fn $name(mut self, value: impl Into<Prop<LocalizedString>>) -> Self {
+          let value = value.into();
+          self.state.localizers.push(std::rc::Rc::new(move |host| {
+            host.$name(localization::resolve_prop(&value))
+          }));
+          self
+        }
+      )+
+    }
   };
 }
 
@@ -73,8 +95,8 @@ delegated!(RepeatButton => UiRepeatButton {
 });
 delegated!(GroupBox => UiGroupBox {
   title_style(value: Style),
-  text(value: impl Into<Prop<String>>),
 });
+localized_properties!(GroupBox => UiGroupBox { text });
 
 delegated!(TextField => UiTextField {
   label_style(value: Style), input_style(value: Style), text_element_style(value: Style),
@@ -82,47 +104,116 @@ delegated!(TextField => UiTextField {
   vertical_slider_style(value: Style), vertical_low_button_style(value: Style),
   vertical_high_button_style(value: Style), vertical_track_style(value: Style),
   vertical_dragger_style(value: Style), vertical_dragger_border_style(value: Style),
-  label(value: impl Into<Prop<String>>), value(value: impl Into<Prop<String>>),
+  value(value: impl Into<Prop<String>>),
   multiline(value: impl Into<Prop<bool>>),
   vertical_scroller_visibility(value: impl Into<Prop<ScrollerVisibility>>),
   password(value: impl Into<Prop<bool>>), read_only(value: impl Into<Prop<bool>>),
-  placeholder(value: impl Into<Prop<String>>), hide_placeholder_on_focus(value: impl Into<Prop<bool>>),
+  hide_placeholder_on_focus(value: impl Into<Prop<bool>>),
   cursor_index(value: impl Into<Prop<u32>>), select_index(value: impl Into<Prop<u32>>),
   select_all_on_focus(value: impl Into<Prop<bool>>), select_all_on_mouse_up(value: impl Into<Prop<bool>>),
 });
+localized_properties!(TextField => UiTextField { label, placeholder });
 
 delegated!(Toggle => UiToggle {
   label_style(value: Style), input_style(value: Style), checkmark_style(value: Style),
-  text_style(value: Style), label(value: impl Into<Prop<String>>),
-  text(value: impl Into<Prop<String>>), value(value: impl Into<Prop<bool>>),
+  text_style(value: Style), value(value: impl Into<Prop<bool>>),
 });
+localized_properties!(Toggle => UiToggle { label, text });
 delegated!(RadioButton => UiRadioButton {
   label_style(value: Style), input_style(value: Style), checkmark_background_style(value: Style),
-  checkmark_style(value: Style), text_style(value: Style), label(value: impl Into<Prop<String>>),
-  text(value: impl Into<Prop<String>>), value(value: impl Into<Prop<bool>>),
+  checkmark_style(value: Style), text_style(value: Style), value(value: impl Into<Prop<bool>>),
 });
+localized_properties!(RadioButton => UiRadioButton { label, text });
 delegated!(RadioButtonGroup => UiRadioButtonGroup {
   label_style(value: Style), input_style(value: Style), choices_container_style(value: Style),
   content_container_style(value: Style), all_options_style(value: Style),
   option_style(index: u32, value: Style), option_checkmark_background_style(index: u32, value: Style),
   option_checkmark_style(index: u32, value: Style), option_text_style(index: u32, value: Style),
-  label(value: impl Into<Prop<String>>),
-  choices(values: impl IntoIterator<Item = impl Into<String>>),
-  choices_value(value: impl Into<Prop<Vec<String>>>), selected_index(value: impl Into<Prop<u32>>),
+  selected_index(value: impl Into<Prop<u32>>),
 });
+localized_properties!(RadioButtonGroup => UiRadioButtonGroup { label });
 delegated!(ToggleButtonGroup => UiToggleButtonGroup {
-  label_style(value: Style), input_style(value: Style), label(value: impl Into<Prop<String>>),
+  label_style(value: Style), input_style(value: Style),
   multiple_selection(value: impl Into<Prop<bool>>), allow_empty_selection(value: impl Into<Prop<bool>>),
   selected_indices(values: impl IntoIterator<Item = u32>),
   selected_indices_value(value: impl Into<Prop<Vec<u32>>>),
 });
+localized_properties!(ToggleButtonGroup => UiToggleButtonGroup { label });
 delegated!(DropdownField => UiDropdownField {
   label_style(value: Style), input_style(value: Style), text_style(value: Style), arrow_style(value: Style),
-  label(value: impl Into<Prop<String>>), show_mixed_value(value: impl Into<Prop<bool>>),
-  choices(values: impl IntoIterator<Item = impl Into<String>>),
-  choices_value(value: impl Into<Prop<Vec<String>>>), selection(index: u32, value: impl Into<String>),
-  selection_value(value: impl Into<Prop<Choice>>), clear_selection(),
+  show_mixed_value(value: impl Into<Prop<bool>>), clear_selection(),
 });
+localized_properties!(DropdownField => UiDropdownField { label });
+
+impl RadioButtonGroup {
+  /// Replaces the ordered localized option labels.
+  #[must_use]
+  pub fn choices(mut self, values: impl IntoIterator<Item = LocalizedString>) -> Self {
+    let values = values.into_iter().collect::<Vec<_>>();
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.choices(localization::resolve_values(&values))
+    }));
+    self
+  }
+
+  /// Replaces or resets the ordered localized option labels.
+  #[must_use]
+  pub fn choices_value(mut self, value: impl Into<Prop<Vec<LocalizedString>>>) -> Self {
+    let value = value.into();
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.choices_value(localization::resolve_values_prop(&value))
+    }));
+    self
+  }
+}
+
+impl DropdownField {
+  /// Replaces the ordered localized option labels.
+  #[must_use]
+  pub fn choices(mut self, values: impl IntoIterator<Item = LocalizedString>) -> Self {
+    let values = values.into_iter().collect::<Vec<_>>();
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.choices(localization::resolve_values(&values))
+    }));
+    self
+  }
+
+  /// Replaces or resets the ordered localized option labels.
+  #[must_use]
+  pub fn choices_value(mut self, value: impl Into<Prop<Vec<LocalizedString>>>) -> Self {
+    let value = value.into();
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.choices_value(localization::resolve_values_prop(&value))
+    }));
+    self
+  }
+
+  /// Selects one localized display value by index.
+  #[must_use]
+  pub fn selection(mut self, index: u32, value: LocalizedString) -> Self {
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.selection(index, localization::resolve(&value))
+    }));
+    self
+  }
+
+  /// Replaces or resets the localized selection.
+  #[must_use]
+  pub fn selection_value(mut self, value: impl Into<Prop<LocalizedChoice>>) -> Self {
+    let value = value.into();
+    self.state.localizers.push(std::rc::Rc::new(move |host| {
+      host.selection_value(match &value {
+        Prop::Unset => Prop::Unset,
+        Prop::Set(value) => Prop::Set(Choice {
+          index: value.index,
+          value: value.value.as_ref().map(localization::resolve),
+        }),
+        Prop::Reset => Prop::Reset,
+      })
+    }));
+    self
+  }
+}
 
 delegated!(ScrollView => UiScrollView {
   content_and_vertical_scroll_container_style(value: Style), viewport_style(value: Style),
@@ -155,12 +246,13 @@ macro_rules! slider_properties {
     delegated!($facade => $native {
       label_style(value: Style), input_style(value: Style), track_style(value: Style),
       dragger_style(value: Style), dragger_border_style(value: Style), fill_style(value: Style),
-      text_input_style(value: Style), label(value: impl Into<Prop<String>>),
+      text_input_style(value: Style),
       low_value(value: impl Into<Prop<$value>>), high_value(value: impl Into<Prop<$value>>),
       value(value: impl Into<Prop<$value>>), fill(value: impl Into<Prop<bool>>),
       page_size(value: impl Into<Prop<f32>>), show_input_field(value: impl Into<Prop<bool>>),
       direction(value: impl Into<Prop<SliderDirection>>), inverted(value: impl Into<Prop<bool>>),
     });
+    localized_properties!($facade => $native { label });
   };
 }
 
@@ -169,23 +261,25 @@ slider_properties!(SliderInt => UiSliderInt, i32);
 delegated!(MinMaxSlider => UiMinMaxSlider {
   label_style(value: Style), input_style(value: Style), track_style(value: Style),
   minimum_thumb_style(value: Style), maximum_thumb_style(value: Style), range_dragger_style(value: Style),
-  label(value: impl Into<Prop<String>>), min_value(value: impl Into<Prop<f32>>),
+  min_value(value: impl Into<Prop<f32>>),
   max_value(value: impl Into<Prop<f32>>), low_limit(value: impl Into<Prop<LowerLimit>>),
   high_limit(value: impl Into<Prop<UpperLimit>>),
 });
+localized_properties!(MinMaxSlider => UiMinMaxSlider { label });
 delegated!(ProgressBar => UiProgressBar {
   container_style(value: Style), background_style(value: Style), progress_style(value: Style),
   title_container_style(value: Style), title_style(value: Style), low_value(value: impl Into<Prop<f32>>),
   high_value(value: impl Into<Prop<f32>>), value(value: impl Into<Prop<f32>>),
-  title(value: impl Into<Prop<String>>),
 });
+localized_properties!(ProgressBar => UiProgressBar { title });
 delegated!(Tab => UiTab {
-  text(value: impl Into<Prop<String>>), header_style(value: Style), label_style(value: Style),
+  header_style(value: Style), label_style(value: Style),
   icon_style(value: Style), underline_style(value: Style), close_button_style(value: Style),
   drag_handle_style(value: Style), drag_handle_leading_bar_style(value: Style),
   drag_handle_trailing_bar_style(value: Style), content_container_style(value: Style),
   icon(value: impl Into<Prop<IconSource>>), closeable(value: impl Into<Prop<bool>>),
 });
+localized_properties!(Tab => UiTab { text });
 delegated!(TabView => UiTabView {
   content_viewport_style(value: Style), header_container_style(value: Style),
   content_container_style(value: Style), previous_button_style(value: Style), next_button_style(value: Style),

@@ -213,11 +213,15 @@ fn normalize_png(bytes: &[u8], path: &str) -> Result<Vec<u8>> {
       .flat_map(|value| [value, value, value, u8::MAX])
       .collect(),
     png::ColorType::GrayscaleAlpha => pixels
-      .chunks_exact(2)
+      .as_chunks::<2>()
+      .0
+      .iter()
       .flat_map(|value| [value[0], value[0], value[0], value[1]])
       .collect(),
     png::ColorType::Rgb => pixels
-      .chunks_exact(3)
+      .as_chunks::<3>()
+      .0
+      .iter()
       .flat_map(|value| [value[0], value[1], value[2], u8::MAX])
       .collect(),
     png::ColorType::Rgba => pixels,

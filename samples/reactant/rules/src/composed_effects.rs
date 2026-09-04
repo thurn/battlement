@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::{Game, design_system};
 use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow,
@@ -66,20 +68,29 @@ impl Component for ComposedEffects {
         .vertical_scroller_visibility(ScrollerVisibility::Auto)
         .style(design_system::canvas(self.compact).padding(0.0))
         .content_container_style(content())
-        .child(Label::new("PUBLIC MOTION COMPOSITION").style(eyebrow()))
         .child(
-          Label::new("Composed Effects")
-            .name("page-title")
-            .style(title()),
+          Label::new(tx(
+            "PUBLIC MOTION COMPOSITION",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .style(eyebrow()),
         )
         .child(
-          Label::new(format!(
+          Label::new(tx(
+            "Composed Effects",
+            "User-facing product copy in the Reactant sample.",
+          ))
+          .name("page-title")
+          .style(title()),
+        )
+        .child(
+          Label::new(assert_localized(format!(
             "{} · ROUTE {} · BURST {} · RECONNECTS {}",
             reduced_name(self.state.reduced_motion),
             self.state.route + 1,
             self.state.burst,
             self.state.reconnects,
-          ))
+          )))
           .name("composed-status")
           .style(status()),
         )
@@ -150,7 +161,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
     "stagger · flash · retained exit",
   )
   .child(
-    Button::new(options[state.selected])
+    Button::new(assert_localized(options[state.selected]))
       .style(probe())
       .hover_style(
         StyleTarget::new()
@@ -173,7 +184,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
             .into_iter()
             .enumerate()
             .map(|(index, label)| {
-              Button::new(label)
+              Button::new(assert_localized(label))
                 .key(label)
                 .name(format!("composed-option-{index}"))
                 .style(option())
@@ -245,7 +256,13 @@ fn modal(state: &ComposedEffectsState) -> View {
                       1.8,
                     )),
                 )
-                .child(Label::new("SETTINGS READY").style(probe_label())),
+                .child(
+                  Label::new(tx(
+                    "SETTINGS READY",
+                    "User-facing product copy in the Reactant sample.",
+                  ))
+                  .style(probe_label()),
+                ),
             ),
         )
       })),
@@ -267,7 +284,7 @@ fn routes(state: &ComposedEffectsState) -> View {
             View::new()
               .key(index)
               .style(tab())
-              .child(Label::new(format!("0{}", index + 1)))
+              .child(Label::new(assert_localized(format!("0{}", index + 1))))
               .child((index == state.route).then(|| {
                 View::new()
                   .layout_id("composed-active-tab")
@@ -310,7 +327,10 @@ fn routes(state: &ComposedEffectsState) -> View {
                 1.35,
               )),
           )
-          .child(Label::new(format!("ROUTE {} ACTIVE", state.route + 1))),
+          .child(Label::new(assert_localized(format!(
+            "ROUTE {} ACTIVE",
+            state.route + 1
+          )))),
       )),
   )
 }
@@ -338,9 +358,15 @@ fn interactions(state: &ComposedEffectsState) -> View {
   )
   .child(
     Button::new(if state.checked {
-      "[x] ENABLED"
+      tx(
+        "[x] ENABLED",
+        "User-facing product copy in the Reactant sample.",
+      )
     } else {
-      "[ ] ENABLE"
+      tx(
+        "[ ] ENABLE",
+        "User-facing product copy in the Reactant sample.",
+      )
     })
     .name("composed-checkbox")
     .style(probe())
@@ -373,7 +399,7 @@ fn interactions(state: &ComposedEffectsState) -> View {
     }),
   )
   .child(
-    Button::new(format!("SLIDER  {}%", state.slider * 25))
+    Button::new(assert_localized(format!("SLIDER  {}%", state.slider * 25)))
       .name("composed-slider")
       .style(slider())
       .on_click(|game: &mut Game| {
@@ -436,8 +462,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str) -> 
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(heading).style(specimen_title()))
-    .child(Label::new(detail).style(specimen_detail()))
+    .child(Label::new(assert_localized(heading)).style(specimen_title()))
+    .child(Label::new(assert_localized(detail)).style(specimen_detail()))
 }
 
 fn action(
@@ -445,7 +471,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(text)
+  Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

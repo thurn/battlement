@@ -1,0 +1,10 @@
+(
+    source_locale: "en-US",
+    terms: "localization/terms.ron",
+    source_bundle: "localization/en-US.trox.json",
+    source_report: "localization/en-US.csv",
+    sources: [
+        (language: Rust, include: ["rules/src/**/*.rs"]),
+    ],
+    locales: {},
+)

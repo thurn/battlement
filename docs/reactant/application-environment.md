@@ -29,7 +29,7 @@ activation callback with a captured application handle:
 
 ```rust
 let app = use_app();
-Button::new("Documentation").on_click(move || {
+Button::new(trox::tx("Documentation", "User-facing copy in this example.")).on_click(move || {
     app.send(Command::open_external_url("https://docs.unity3d.com/"));
 })
 ```

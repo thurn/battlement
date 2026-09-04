@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::{
   cell::{Cell, RefCell},
   panic::{self, AssertUnwindSafe},
@@ -49,12 +51,14 @@ impl Component for Counter {
     });
     self.setter.replace(Some(setter.clone()));
     (
-      battlement_reactant::host::Button::new("Queue updates").on_click(move |_game: &mut Game| {
-        setter.update(|value| value + 1);
-        setter.set(10);
-        setter.update(|value| value + 1);
-      }),
-      battlement_reactant::host::Label::new(format!("Count {count}")),
+      battlement_reactant::host::Button::new(trox::assert_localized("Queue updates")).on_click(
+        move |_game: &mut Game| {
+          setter.update(|value| value + 1);
+          setter.set(10);
+          setter.update(|value| value + 1);
+        },
+      ),
+      battlement_reactant::host::Label::new(trox::assert_localized(format!("Count {count}"))),
     )
   }
 }
@@ -69,7 +73,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0_u8);
     self.setters.borrow_mut()[usize::from(self.id)] = Some(setter);
-    battlement_reactant::host::Label::new(format!("{}:{count}", self.id))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("{}:{count}", self.id)))
   }
 }
 
@@ -81,7 +85,7 @@ impl Component for RenderPhaseCounter {
     if count < 3 {
       setter.update(|value| value + 1);
     }
-    battlement_reactant::host::Label::new(format!("Retried {count}"))
+    battlement_reactant::host::Label::new(trox::assert_localized(format!("Retried {count}")))
   }
 }
 
@@ -93,7 +97,7 @@ impl Component for Overflow {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0);
     setter.update(|value| value + 1);
-    battlement_reactant::host::Label::new(count.to_string())
+    battlement_reactant::host::Label::new(trox::assert_localized(count.to_string()))
   }
 }
 
@@ -101,11 +105,11 @@ impl Component for CallbackCounter {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0_u32);
     (
-      battlement_reactant::host::Button::new("Increment")
+      battlement_reactant::host::Button::new(trox::assert_localized("Increment"))
         .on_click(setter.update_callback(|value| value + 1)),
-      battlement_reactant::host::Button::new("Replace")
+      battlement_reactant::host::Button::new(trox::assert_localized("Replace"))
         .on_click(setter.callback().map_input(|()| 12)),
-      battlement_reactant::host::Label::new(count.to_string()),
+      battlement_reactant::host::Label::new(trox::assert_localized(count.to_string())),
     )
   }
 }
@@ -126,7 +130,7 @@ impl Component for VariableHooks {
     if self.second {
       let _ = use_state(1_u8);
     }
-    battlement_reactant::host::Label::new("stable")
+    battlement_reactant::host::Label::new(trox::assert_localized("stable"))
   }
 }
 
@@ -138,7 +142,7 @@ impl Component for BadInitializer {
       let _ = use_state(0);
       0
     });
-    battlement_reactant::host::Label::new("invalid")
+    battlement_reactant::host::Label::new(trox::assert_localized("invalid"))
   }
 }
 
@@ -158,7 +162,7 @@ impl Component for ParentUpdate {
 impl Component for ChildUpdate {
   fn render(&self) -> impl Render {
     self.parent.set(1);
-    battlement_reactant::host::Label::new("invalid")
+    battlement_reactant::host::Label::new(trox::assert_localized("invalid"))
   }
 }
 
@@ -174,7 +178,7 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
   };
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| counter.clone());
   let initial = self::begin(&mut reactant, &mut game, &document);
   let button = initial.ui[0].children[0].object_id;
@@ -209,7 +213,7 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
 fn state_callback_factories_remain_live_across_renders() {
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| CallbackCounter);
   let initial = self::begin(&mut reactant, &mut game, &document);
   let increment = initial.ui[0].children[0].object_id;
@@ -253,7 +257,7 @@ fn queued_updates_poll_and_keyed_state_follows_identity_while_unmounted_setters_
     order: vec![1, 2],
     visible: true,
   };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   let view_setters = Rc::clone(&setters);
   reactant.register_root(document.clone(), move |game: &Game| {
     game.visible.then(|| {
@@ -294,7 +298,7 @@ fn queued_updates_poll_and_keyed_state_follows_identity_while_unmounted_setters_
 fn render_phase_updates_retry_locally_and_overflow_poisons() {
   let document = self::document();
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| RenderPhaseCounter);
   let initial = self::begin(&mut reactant, &mut game, &document);
   let label = initial.ui[0].children[0].object_id;
@@ -303,7 +307,7 @@ fn render_phase_updates_retry_locally_and_overflow_poisons() {
   assert_eq!(world.element(label).unwrap().text(), Some("Retried 3"));
 
   let overflow_document = self::document();
-  let mut overflow = Reactant::new(IdleSpawner);
+  let mut overflow = runtime_support::reactant(IdleSpawner);
   overflow.register_root(overflow_document.clone(), |_| Overflow);
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -331,7 +335,7 @@ fn invalid_hook_context_count_type_and_cross_component_updates_poison_transactio
   let second_view = Rc::clone(&second);
   let type_view = Rc::clone(&alternate_type);
   let mut game = Game::default();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| VariableHooks {
     second: second_view.get(),
     alternate_type: type_view.get(),
@@ -346,7 +350,7 @@ fn invalid_hook_context_count_type_and_cross_component_updates_poison_transactio
   let type_document = self::document();
   let alternate_type = Rc::new(Cell::new(false));
   let type_view = Rc::clone(&alternate_type);
-  let mut typed = Reactant::new(IdleSpawner);
+  let mut typed = runtime_support::reactant(IdleSpawner);
   typed.register_root(type_document.clone(), move |_| VariableHooks {
     second: false,
     alternate_type: type_view.get(),
@@ -356,7 +360,7 @@ fn invalid_hook_context_count_type_and_cross_component_updates_poison_transactio
   assert!(panic::catch_unwind(AssertUnwindSafe(|| typed.refresh(&mut game))).is_err());
 
   let cross_document = self::document();
-  let mut cross = Reactant::new(IdleSpawner);
+  let mut cross = runtime_support::reactant(IdleSpawner);
   cross.register_root(cross_document, |_| ParentUpdate);
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -366,7 +370,7 @@ fn invalid_hook_context_count_type_and_cross_component_updates_poison_transactio
   );
 
   let initializer_document = self::document();
-  let mut initializer = Reactant::new(IdleSpawner);
+  let mut initializer = runtime_support::reactant(IdleSpawner);
   initializer.register_root(initializer_document, |_| BadInitializer);
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {

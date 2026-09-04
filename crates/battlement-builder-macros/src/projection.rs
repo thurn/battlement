@@ -21,12 +21,11 @@ pub fn default_type(ty: &Type, generics: &Generics) -> syn::Result<Type> {
   }
   if let Some(clause) = &generics.where_clause {
     for predicate in &clause.predicates {
-      if let WherePredicate::Type(predicate) = predicate {
-        if let Type::Path(ty) = &predicate.bounded_ty {
-          if let Some(ident) = ty.path.get_ident() {
-            projection.add(&names::canonical(ident), predicate.bounds.iter());
-          }
-        }
+      if let WherePredicate::Type(predicate) = predicate
+        && let Type::Path(ty) = &predicate.bounded_ty
+        && let Some(ident) = ty.path.get_ident()
+      {
+        projection.add(&names::canonical(ident), predicate.bounds.iter());
       }
     }
   }

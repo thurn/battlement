@@ -6,6 +6,7 @@
 //!
 //! ```
 //! use battlement_reactant::prelude::*;
+//! use trox::{tx_args, txa};
 //!
 //! #[builder]
 //! struct Greeting {
@@ -17,7 +18,11 @@
 //!     fn render(&self) -> impl Render {
 //!         View::new()
 //!             .class("greeting")
-//!             .child(Label::new(format!("Hello, {}", self.name)))
+//!             .child(Label::new(txa(
+//!                 "Hello, {name}",
+//!                 tx_args![name => self.name.clone()],
+//!                 "Personalized greeting in the example.",
+//!             )))
 //!     }
 //! }
 //!
@@ -38,12 +43,11 @@ pub use battlement::application::ReducedMotionPreference;
 pub use battlement_builder::builder;
 
 pub use battlement::{
-  AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, Align,
-  CheckedState, Color, Display, FilterFunction, FilterList, FlexDirection, Gradient, GradientStop,
-  Justify, Length, LengthUnits, MotionProperty, Overflow, PaintFill, PaintLayer, PaintStyle,
-  PickingMode, PlacementAlign, PlacementSide, PopoverPlacement, PopupKind, Position, Prop,
-  SemanticRole, SemanticState, Shadow, StepPosition, Style, TextAnchor, TransformList,
-  TransformOperation, Visibility, WhiteSpace,
+  AccessibilityScrollAxis, AccessibilityScrollDirection, Align, CheckedState, Color, Display,
+  FilterFunction, FilterList, FlexDirection, Gradient, GradientStop, Justify, Length, LengthUnits,
+  MotionProperty, Overflow, PaintFill, PaintLayer, PaintStyle, PickingMode, PlacementAlign,
+  PlacementSide, PopoverPlacement, PopupKind, Position, Prop, SemanticRole, SemanticState, Shadow,
+  StepPosition, Style, TextAnchor, TransformList, TransformOperation, Visibility, WhiteSpace,
 };
 
 pub use crate::motion_css::{
@@ -90,9 +94,10 @@ pub use crate::{
     use_required_context, use_state, use_state_with,
   },
   host::{
-    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
-    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
-    SliderInt, Stack, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
+    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, LocalizedChoice, MinMaxSlider,
+    PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller,
+    Slider, SliderInt, Stack, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
+    View,
   },
   key::{KeyRenderExt, Keyed},
   layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},
@@ -121,13 +126,14 @@ pub use crate::{
   resource_control::{ResourceControl, use_resource_control},
   runtime::RenderError,
   semantics::{
-    AccessibleBehavior, AccessibleDescription, AccessibleName, ActionDisposition, InteractionProps,
-    LocalizedText, SemanticProps, SemanticVisibility, text,
+    AccessibilityRangeValue, AccessibleBehavior, AccessibleDescription, AccessibleName,
+    ActionDisposition, InteractionProps, SemanticProps, SemanticVisibility,
   },
   suspense::Suspense,
   variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},
 };
 pub use battlement::{StaggerDirection, VariantWhen};
+pub use trox::LocalizedString;
 
 pub use crate::{
   element_behavior::{use_focus_on_mount, use_scroll_reveal},

@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use battlement::{
   AccessibilityAction, AccessibilityUpdate, CameraState, ClickEvent, CommandBody, CurrentPage,
   GameObject, ObjectId, PreparedAsset, Scene, SceneId, SemanticRole, SessionId, Snapshot,
@@ -12,8 +14,7 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::{Button, Label, View},
   render::Render,
-  runtime::Reactant,
-  semantics::{AccessibleName, SemanticProps, SemanticVisibility, text},
+  semantics::{AccessibleName, SemanticProps, SemanticVisibility},
 };
 
 #[derive(Default)]
@@ -37,11 +38,15 @@ impl Component for NameSourceFixture {
         .on_press(|_game: &mut Game| {}),
     );
     View::new().child((
-      Label::new("Account settings").element_ref(source).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text("Account settings"))
-          .visibility(SemanticVisibility::NameSourceOnly),
-      ),
+      Label::new(trox::assert_localized("Account settings"))
+        .element_ref(source)
+        .semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::text(trox::assert_localized(
+              "Account settings",
+            )))
+            .visibility(SemanticVisibility::NameSourceOnly),
+        ),
       View::new().behavior(button),
     ))
   }
@@ -84,18 +89,24 @@ impl Component for MultiNameFixture {
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
-      Label::new("Quality").element_ref(title).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text(" Quality "))
-          .visibility(SemanticVisibility::NameSourceOnly),
-      ),
-      Button::new("").behavior(behavior).child(
-        Label::new(self.value).element_ref(value).semantic(
+      Label::new(trox::assert_localized("Quality"))
+        .element_ref(title)
+        .semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(self.value))
+            .name(AccessibleName::text(trox::assert_localized(" Quality ")))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
-      ),
+      Button::new(trox::assert_localized(""))
+        .behavior(behavior)
+        .child(
+          Label::new(trox::assert_localized(self.value))
+            .element_ref(value)
+            .semantic(
+              SemanticProps::new(SemanticRole::StaticText)
+                .name(AccessibleName::text(trox::assert_localized(self.value)))
+                .visibility(SemanticVisibility::NameSourceOnly),
+            ),
+        ),
     ))
   }
 }
@@ -104,7 +115,7 @@ impl Component for ActionFixture {
   fn render(&self) -> impl Render {
     View::new().behavior(use_button(
       ButtonOptions::new()
-        .name(text("Save changes"))
+        .name(trox::assert_localized("Save changes"))
         .on_press(|game: &mut Game| game.presses += 1),
     ))
   }
@@ -120,15 +131,19 @@ impl Component for ContentsFixture {
     View::new()
       .semantic(SemanticProps::new(SemanticRole::Group))
       .child((View::new().behavior(button).child((
-        Label::new("Save").semantic(
-          SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::Text(text(" Save   changes "))),
+        Label::new(trox::assert_localized("Save")).semantic(
+          SemanticProps::new(SemanticRole::StaticText).name(AccessibleName::Text(
+            trox::assert_localized(" Save   changes "),
+          )),
         ),
         View::new()
           .semantic(SemanticProps::new(SemanticRole::Group).visibility(SemanticVisibility::Hidden))
-          .child(Label::new("secret").semantic(
-            SemanticProps::new(SemanticRole::StaticText).name(AccessibleName::Text(text("Secret"))),
-          )),
+          .child(
+            Label::new(trox::assert_localized("secret")).semantic(
+              SemanticProps::new(SemanticRole::StaticText)
+                .name(AccessibleName::Text(trox::assert_localized("Secret"))),
+            ),
+          ),
       )),))
   }
 }
@@ -136,9 +151,9 @@ impl Component for ContentsFixture {
 impl Component for PatternHookFixture {
   fn render(&self) -> impl Render {
     View::new().semantic(if self.heading {
-      accessibility::use_heading(text("Status"), 2)
+      accessibility::use_heading(trox::assert_localized("Status"), 2)
     } else {
-      accessibility::use_image(text("Status"))
+      accessibility::use_image(trox::assert_localized("Status"))
     })
   }
 }
@@ -146,7 +161,7 @@ impl Component for PatternHookFixture {
 #[test]
 fn button_children_resolve_ordered_names_and_keep_activation_when_values_update() {
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |game: &Game| MultiNameFixture {
     value: if game.selection == 0 {
       " High "
@@ -208,7 +223,7 @@ impl Spawner for IdleSpawner {
 #[test]
 fn complete_snapshot_resolves_contents_and_prunes_hidden_subtrees() {
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |_game: &Game| ContentsFixture);
   let mut game = Game::default();
   let groups = runtime
@@ -238,7 +253,7 @@ fn complete_snapshot_resolves_contents_and_prunes_hidden_subtrees() {
 #[test]
 fn name_source_only_hosts_resolve_without_becoming_nodes() {
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |_game: &Game| NameSourceFixture);
   let mut game = Game::default();
   let groups = runtime
@@ -256,7 +271,7 @@ fn name_source_only_hosts_resolve_without_becoming_nodes() {
 #[test]
 fn accessibility_activation_uses_the_ordinary_logical_event_path() {
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |_game: &Game| ActionFixture);
   let mut game = Game::default();
   let groups = runtime
@@ -298,10 +313,13 @@ fn accessibility_activation_uses_the_ordinary_logical_event_path() {
 
 #[test]
 fn pattern_hooks_require_a_stable_component_render_slot() {
-  assert!(std::panic::catch_unwind(|| accessibility::use_heading(text("Status"), 2)).is_err());
+  assert!(
+    std::panic::catch_unwind(|| accessibility::use_heading(trox::assert_localized("Status"), 2))
+      .is_err()
+  );
 
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |game: &Game| PatternHookFixture {
     heading: game.selection == 0,
   });
@@ -343,7 +361,7 @@ fn protocol_round_trips_direct_actions_and_complete_snapshot() {
 #[test]
 fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
   let document = document();
-  let mut runtime = Reactant::new(IdleSpawner);
+  let mut runtime = runtime_support::reactant(IdleSpawner);
   runtime.register_root(document.clone(), |game: &Game| CollectionFixture {
     selection: game.selection,
   });
@@ -443,7 +461,7 @@ fn invalid_collection_relationships_and_page_states_fail_before_commit() {
     InvalidCollectionCase::CurrentRegion,
   ] {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      let mut runtime = Reactant::new(IdleSpawner);
+      let mut runtime = runtime_support::reactant(IdleSpawner);
       runtime.register_root(document(), move |_game: &Game| case);
       runtime.begin_session(&mut Game::default()).is_err()
     }));
@@ -455,24 +473,26 @@ impl Component for CollectionFixture {
   fn render(&self) -> impl Render {
     let mut page = use_button(
       ButtonOptions::new()
-        .name(text("Gallery shell"))
+        .name(trox::assert_localized("Gallery shell"))
         .on_press(|_game: &mut Game| {}),
     );
     page.semantic.state.current = Some(CurrentPage::Page);
     let link = collections::use_link(
       ButtonOptions::new()
-        .name(text("Privacy policy"))
+        .name(trox::assert_localized("Privacy policy"))
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
       View::new()
-        .semantic(collections::use_navigation(text("Review pages")))
+        .semantic(collections::use_navigation(trox::assert_localized(
+          "Review pages",
+        )))
         .child(View::new().behavior(page)),
       View::new()
-        .semantic(collections::use_region(text("Settings")))
+        .semantic(collections::use_region(trox::assert_localized("Settings")))
         .child((
           View::new()
-            .semantic(collections::use_listbox(text("Quality")))
+            .semantic(collections::use_listbox(trox::assert_localized("Quality")))
             .child(
               ["Standard", "High", "Unavailable"]
                 .into_iter()
@@ -480,7 +500,7 @@ impl Component for CollectionFixture {
                 .map(|(index, name)| {
                   let option = collections::use_option(
                     ChoiceOptions::new()
-                      .name(text(name))
+                      .name(trox::assert_localized(name))
                       .selected(self.selection == index)
                       .is_disabled(index == 2)
                       .on_select(move |game: &mut Game| game.selection = index),
@@ -490,12 +510,18 @@ impl Component for CollectionFixture {
                 .collect::<Vec<_>>(),
             ),
           View::new()
-            .semantic(collections::use_table(text("Bindings")))
-            .child(View::new().semantic(collections::use_row()).child((
-              Label::new("Keyboard").semantic(collections::use_column_header(text("Keyboard"))),
-              Label::new("Move").semantic(collections::use_row_header(text("Move"))),
-              Label::new("W").semantic(collections::use_cell(text("W"))),
-            ))),
+            .semantic(collections::use_table(trox::assert_localized("Bindings")))
+            .child(
+              View::new().semantic(collections::use_row()).child((
+                Label::new(trox::assert_localized("Keyboard")).semantic(
+                  collections::use_column_header(trox::assert_localized("Keyboard")),
+                ),
+                Label::new(trox::assert_localized("Move"))
+                  .semantic(collections::use_row_header(trox::assert_localized("Move"))),
+                Label::new(trox::assert_localized("W"))
+                  .semantic(collections::use_cell(trox::assert_localized("W"))),
+              )),
+            ),
           View::new().behavior(link),
         )),
     ))
@@ -507,17 +533,25 @@ impl Component for InvalidCollectionCase {
     match self {
       Self::OrphanRow => View::new().semantic(collections::use_row()),
       Self::ListboxCell => View::new()
-        .semantic(collections::use_listbox(text("Quality")))
-        .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
+        .semantic(collections::use_listbox(trox::assert_localized("Quality")))
+        .child(
+          Label::new(trox::assert_localized("Wrong child"))
+            .semantic(collections::use_cell(trox::assert_localized("Wrong child"))),
+        ),
       Self::TableCell => View::new()
-        .semantic(collections::use_table(text("Bindings")))
-        .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
-      Self::CurrentRegion => View::new().semantic(collections::use_region(text("Settings")).state(
-        battlement::SemanticState {
-          current: Some(CurrentPage::Page),
-          ..Default::default()
-        },
-      )),
+        .semantic(collections::use_table(trox::assert_localized("Bindings")))
+        .child(
+          Label::new(trox::assert_localized("Wrong child"))
+            .semantic(collections::use_cell(trox::assert_localized("Wrong child"))),
+        ),
+      Self::CurrentRegion => View::new().semantic(
+        collections::use_region(trox::assert_localized("Settings")).state(
+          battlement::SemanticState {
+            current: Some(CurrentPage::Page),
+            ..Default::default()
+          },
+        ),
+      ),
     }
   }
 }

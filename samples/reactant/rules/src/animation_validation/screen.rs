@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::animation_validation::{
   CaseId, FixtureAction, FixtureSession, ReducedMotionOverride, ValidationReport, fixture_registry,
   run_fixture_case,
@@ -126,16 +128,16 @@ impl Component for ValidationScreen {
             .style(canvas(self.compact))
             .content_container_style(content())
             .child(
-                battlement_reactant::host::Label::new("MOTION AUTHORING")
+                battlement_reactant::host::Label::new(tx("MOTION AUTHORING", "User-facing product copy in the Reactant sample."))
                     .style(eyebrow()),
             )
             .child(
-                battlement_reactant::host::Label::new("Targets & Timelines")
+                battlement_reactant::host::Label::new(tx("Targets & Timelines", "User-facing product copy in the Reactant sample."))
                     .name("page-title")
                     .style(title()),
             )
             .child(
-                battlement_reactant::host::Label::new(
+                battlement_reactant::host::Label::new(assert_localized(
                         format!(
                             "Case: validation-infrastructure/{} · t={}µs · generation={} · reconnects={} · actions={}",
                             self.state.selected_case.0, self.state.session
@@ -143,7 +145,7 @@ impl Component for ValidationScreen {
                             .state.session.reconnects(), self.state.session.actions()
                             .len(),
                         ),
-                    )
+                    ))
                     .name("validation-selection")
                     .style(status()),
             )
@@ -301,13 +303,13 @@ impl Component for ValidationScreen {
                     ),
             )
             .child(
-                battlement_reactant::host::Label::new(
+                battlement_reactant::host::Label::new(assert_localized(
                         format!(
                             "{} · {} · {:.1}x · {:?}", report_text, if self.state
                             .session.playing() { "playing" } else { "paused" }, self
                             .state.session.speed(), self.state.session.reduced_motion(),
                         ),
-                    )
+                    ))
                     .name("validation-result")
                     .style(
                         result(
@@ -326,7 +328,7 @@ impl Component for ValidationScreen {
                 ),
             )
             .child(
-                battlement_reactant::host::Label::new(details)
+                battlement_reactant::host::Label::new(assert_localized(details))
                     .name("validation-details")
                     .style(details_style(self.compact)),
             )
@@ -338,7 +340,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  battlement_reactant::host::Button::new(text)
+  battlement_reactant::host::Button::new(assert_localized(text))
     .name(name)
     .style(action_style())
     .on_click(callback)
@@ -584,8 +586,8 @@ fn specimen(name: &'static str, title: &'static str, expected: &'static str, pro
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(title).style(specimen_title()))
-    .child(Label::new(expected).style(specimen_expected()))
+    .child(Label::new(assert_localized(title)).style(specimen_title()))
+    .child(Label::new(assert_localized(expected)).style(specimen_expected()))
     .child(probe)
 }
 

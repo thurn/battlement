@@ -1,3 +1,5 @@
+mod runtime_support;
+
 use std::panic::{self, AssertUnwindSafe};
 use std::time::Duration;
 
@@ -14,7 +16,6 @@ use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   prelude::*,
   runtime::{Reactant, ReactantCommit},
-  semantics,
 };
 
 struct IdleSpawner;
@@ -41,15 +42,18 @@ impl Component for ButtonInteractionContract {
   fn render(&self) -> impl Render {
     let behavior = use_button(
       ButtonOptions::new()
-        .name(semantics::text("Action"))
+        .name(trox::assert_localized("Action"))
         .on_press(|| {}),
     );
     let state = behavior.state;
-    Button::new(format!("focus-visible={}", state.focus_visible))
-      .behavior(behavior)
-      .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
-        events.push(event.kind);
-      })
+    Button::new(trox::assert_localized(format!(
+      "focus-visible={}",
+      state.focus_visible
+    )))
+    .behavior(behavior)
+    .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+      events.push(event.kind);
+    })
   }
 }
 
@@ -201,7 +205,7 @@ impl Component for ForwardingCard {
     View::new()
       .name("forwarded-host")
       .motion(self.motion.clone())
-      .child(Label::new("content"))
+      .child(Label::new(trox::assert_localized("content")))
       .class("after-motion")
   }
 }
@@ -247,7 +251,7 @@ impl MotionComponent for MultipleForwardingCard {
 fn host_methods_interleave_without_restarting_or_adding_a_host() {
   let document = document();
   let mut order = false;
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |order: &bool| {
     if *order {
       View::new()
@@ -257,13 +261,13 @@ fn host_methods_interleave_without_restarting_or_adding_a_host() {
         .class("card")
         .style(Style::new().width(120.0))
         .transition(Transition::tween().duration_secs(1.0))
-        .child(Label::new("same"))
+        .child(Label::new(trox::assert_localized("same")))
     } else {
       View::new()
         .style(Style::new().width(120.0))
         .class("card")
         .transition(Transition::tween().duration_secs(1.0))
-        .child(Label::new("same"))
+        .child(Label::new(trox::assert_localized("same")))
         .name("probe")
         .initial(StyleTarget::new().opacity(0.0))
         .animate(StyleTarget::new().opacity(1.0))
@@ -282,7 +286,7 @@ fn host_methods_interleave_without_restarting_or_adding_a_host() {
 #[test]
 fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
       .initial(StyleTarget::new().opacity(0.0).x(-12.0))
@@ -350,7 +354,7 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
 #[test]
 fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new().animate(
       StyleTarget::new()
@@ -411,7 +415,7 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
 #[test]
 fn owned_paint_filters_and_blurred_shadows_lower_to_distinct_tracks() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     let shadow = Shadow {
       x: 0.0,
@@ -479,7 +483,7 @@ fn owned_paint_filters_and_blurred_shadows_lower_to_distinct_tracks() {
 #[test]
 fn public_physical_transitions_lower_every_configuration_form() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     Fragment::new((
       View::new().animate(
@@ -577,7 +581,7 @@ fn spring_duration_and_physical_options_are_exclusive() {
 #[test]
 fn forwarding_component_collects_complete_props_without_a_wrapper_host() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     ForwardingCard {
       motion: MotionProps::new(),
@@ -601,7 +605,7 @@ fn forwarding_component_collects_complete_props_without_a_wrapper_host() {
 #[test]
 fn forwarding_component_rejects_missing_or_multiple_hosts() {
   let document = document();
-  let mut missing = Reactant::new(IdleSpawner);
+  let mut missing = runtime_support::reactant(IdleSpawner);
   missing.register_root(document.clone(), |(): &()| {
     MissingForwardingCard {
       motion: MotionProps::new(),
@@ -611,7 +615,7 @@ fn forwarding_component_rejects_missing_or_multiple_hosts() {
   let result = panic::catch_unwind(AssertUnwindSafe(|| start(&mut missing, &mut (), &document)));
   assert!(result.is_err());
 
-  let mut multiple = Reactant::new(IdleSpawner);
+  let mut multiple = runtime_support::reactant(IdleSpawner);
   multiple.register_root(document.clone(), |(): &()| {
     MultipleForwardingCard {
       motion: MotionProps::new(),
@@ -628,7 +632,7 @@ fn forwarding_component_rejects_missing_or_multiple_hosts() {
 fn same_frame_retargets_advance_generation_without_recreating_the_host() {
   let document = document();
   let mut target = 0.2_f32;
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |target: &f32| {
     View::new().animate(StyleTarget::new().opacity(*target))
   });
@@ -655,7 +659,7 @@ fn variants_propagate_merge_in_order_and_schedule_logical_children() {
   }
 
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
       .variants(
@@ -758,7 +762,7 @@ fn computed_variant_custom_data_is_snapshotted_until_selection_changes() {
 
   let document = document();
   let mut data = RouteData { offset: -32 };
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |data: &RouteData| {
     View::new()
       .variants(
@@ -814,7 +818,7 @@ fn invalid_variant_maps_and_selections_panic_before_commit() {
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
       let document = document();
-      let mut reactant = Reactant::new(IdleSpawner);
+      let mut reactant = runtime_support::reactant(IdleSpawner);
       reactant.register_root(document.clone(), |(): &()| {
         View::new()
           .variants(
@@ -840,7 +844,7 @@ fn invalid_public_keyframe_times_fail_at_the_authoring_boundary() {
 #[test]
 fn css_authoring_lowers_pseudo_animation_and_keyed_decorations() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
       .hover_style(Style::new().opacity(0.8))
@@ -888,7 +892,7 @@ fn css_authoring_lowers_pseudo_animation_and_keyed_decorations() {
 #[test]
 fn css_and_motion_property_conflicts_fail_atomically() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| {
     View::new()
       .animate(StyleTarget::new().opacity(1.0))
@@ -910,7 +914,7 @@ fn css_and_motion_property_conflicts_fail_atomically() {
 #[test]
 fn typed_motion_values_controls_and_scopes_lower_closed_native_contract() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |(): &()| ValueContract);
   let rendered = start(&mut reactant, &mut (), &document);
   let root = &rendered.children[0];
@@ -960,7 +964,7 @@ fn typed_motion_values_controls_and_scopes_lower_closed_native_contract() {
 #[test]
 fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &Vec<MotionGestureEventKind>| {
     GestureContract
   });
@@ -1021,7 +1025,7 @@ fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
 fn button_interaction_state_uses_native_focus_visible_events() {
   let document = document();
   let mut events = Vec::new();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &Vec<MotionGestureEventKind>| {
     ButtonInteractionContract
   });
@@ -1065,7 +1069,7 @@ fn button_interaction_state_uses_native_focus_visible_events() {
 #[test]
 fn element_drag_constraints_resolve_on_their_first_shared_render() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &()| ElementConstraintContract);
   let rendered = start(&mut reactant, &mut (), &document);
   let constraint = &rendered.children[0];
@@ -1088,7 +1092,7 @@ fn element_drag_constraints_resolve_on_their_first_shared_render() {
 #[test]
 fn layout_projection_shared_handoff_and_reorder_lower_native_contract() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &()| LayoutContract);
   let rendered = start(&mut reactant, &mut (), &document);
   let root = &rendered.children[0];
@@ -1130,7 +1134,7 @@ fn layout_projection_shared_handoff_and_reorder_lower_native_contract() {
 #[test]
 fn motion_config_inherits_transition_and_reduced_motion_without_a_host() {
   let document = document();
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_: &()| MotionConfigContract);
   let rendered = start(&mut reactant, &mut (), &document);
   let root = &rendered.children[0];

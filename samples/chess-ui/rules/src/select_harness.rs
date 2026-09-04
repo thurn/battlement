@@ -1,3 +1,5 @@
+use trox::tx;
+
 use crate::{review_button::ReviewButton, select_control::SelectControl};
 use battlement::{Color, Style};
 use battlement_reactant::{accessibility, hooks, prelude::*};
@@ -19,7 +21,10 @@ impl Component for SelectHarness {
       )
       .child((
         SelectControl::new()
-          .label(self::label("Resolution"))
+          .label(self::label(tx(
+            "Resolution",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .value(if high_resolution {
             "2560 × 1440"
           } else {
@@ -27,23 +32,33 @@ impl Component for SelectHarness {
           })
           .first(true),
         SelectControl::new()
-          .label(self::label("Display Mode"))
+          .label(self::label(tx(
+            "Display Mode",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .value("Borderless")
           .row_height(190.0)
           .offset_y(-8.0),
-        accessibility::static_label("Selection changes: 0").style(
+        accessibility::static_label(tx(
+          "Selection changes: 0",
+          "User-facing product copy in the Chess UI sample.",
+        ))
+        .style(
           Style::new()
             .font_size(28)
             .color(Color::rgb(0.75, 0.86, 0.97))
             .margin_top(30),
         ),
         ReviewButton::new()
-          .label("Change resolution from parent")
+          .label(tx(
+            "Change resolution from parent",
+            "User-facing product copy in the Chess UI sample.",
+          ))
           .on_press(move || set_high_resolution.update(|value| !value)),
       ))
   }
 }
 
-fn label(value: &'static str) -> TextElement {
+fn label(value: LocalizedString) -> TextElement {
   accessibility::name_source_text(value)
 }

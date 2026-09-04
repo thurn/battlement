@@ -2,7 +2,9 @@
 
 use std::cell::RefCell;
 
-use crate::semantics::LocalizedText;
+use trox::LocalizedString;
+
+use crate::localization;
 
 thread_local! {
   static PENDING: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
@@ -20,8 +22,8 @@ pub const fn use_announce() -> Announce {
 
 impl Announce {
   /// Queues nonempty localized text for the current successful commit.
-  pub fn send(self, value: LocalizedText) {
-    let value = value.resolved();
+  pub fn send(self, value: LocalizedString) {
+    let value = localization::resolve_announcement(&value);
     if !value.is_empty() {
       PENDING.with(|pending| pending.borrow_mut().push(value));
     }

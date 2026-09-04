@@ -1,3 +1,5 @@
+use trox::{assert_localized, tx};
+
 use crate::setting_row::SettingRow;
 use battlement::{Color, Style, TextAnchor};
 use battlement_reactant::prelude::{builder, use_control_label};
@@ -33,9 +35,17 @@ impl Component for SettingRowHarness {
           .label(self::label("Max Framerate"))
           .children(self::value("144 FPS")),
         SettingRow::new()
-          .label(accessibility::name_source_text("Display Mode"))
+          .label(accessibility::name_source_text(tx(
+            "Display Mode",
+            "User-facing product copy in the Chess UI sample.",
+          )))
           .children(
-            Button::new("Borderless").associated_control(control).style(
+            Button::new(tx(
+              "Borderless",
+              "User-facing product copy in the Chess UI sample.",
+            ))
+            .associated_control(control)
+            .style(
               Style::new()
                 .font_size(40)
                 .color(Color::rgb(0.75, 0.86, 0.97))
@@ -49,7 +59,7 @@ impl Component for SettingRowHarness {
 }
 
 fn value(text: &'static str) -> Label {
-  accessibility::static_label(text).style(
+  accessibility::static_label(assert_localized(text)).style(
     Style::new()
       .font_size(40)
       .color(Color::rgb(0.75, 0.86, 0.97))
@@ -58,5 +68,5 @@ fn value(text: &'static str) -> Label {
 }
 
 fn label(text: &'static str) -> TextElement {
-  accessibility::static_text(text)
+  accessibility::static_text(assert_localized(text))
 }
