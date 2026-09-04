@@ -211,9 +211,22 @@ they must name a declared profile and cannot replace canonical coverage.
 checkpoint identities to immutable PNG objects. Hydrate selected objects with
 `ditto fetch <glob>` or the entire lock with `ditto fetch --all`.
 
-Run `ditto run --update` to accept every reached checkpoint after a successful
-comparison run. Open the newest retained execution with `ditto review`, or pass
-a run ID.
+Before acceptance, use a focused `capture` or fragment to inspect the changed
+state without changing baselines. For a port with a pinned visual reference,
+compare against that reference and its acceptance tolerances first. A green
+comparison against a newly accepted baseline proves stability, not fidelity
+to the reference.
+
+Run `ditto run --update` with selectors for the intentionally affected scenarios
+to accept their reached checkpoints after a successful comparison run. Inspect
+the `ditto.lock` diff for unrelated checkpoint changes, then run the same
+selection without `--update` to verify ordinary comparison. Complete any
+broader smoke/reset coverage required by the project. Do not accept unrelated
+drift to make a suite green.
+
+Open the newest retained execution with `ditto review`, or pass a run ID.
+Retain that ID, the exact inputs, and paths to the result and screenshots;
+reuse them while those inputs remain unchanged.
 
 The review app works offline from retained data. It offers side-by-side, swipe,
 alpha, and red-mask views; synchronized zoom and pan; integer pixels and
