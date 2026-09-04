@@ -45,7 +45,7 @@ impl Component for ReturnButton {
         ActionButton::new()
           .children(control_behavior::name_source_text(tx(
             "RETURN",
-            "User-facing product copy in the Chess UI sample.",
+            "Return button section heading.",
           )))
           .max_text_scale(1.35)
           .disabled(self.disabled)

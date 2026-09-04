@@ -50,7 +50,7 @@ impl Component for LayoutPerformance {
         .child(
           Label::new(tx(
             "LAYOUT PERFORMANCE · 1,000 MIXED CHILDREN",
-            "User-facing product copy in the Reactant sample.",
+            "Layout performance explanatory message.",
           ))
           .style(title()),
         )

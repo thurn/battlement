@@ -22,13 +22,13 @@ impl Component for CollectionSettings {
     View::new().style(styles::section()).child((
       Label::new(tx(
         "COLLECTION SEMANTICS",
-        "User-facing product copy in the Reactant sample.",
+        "Collection settings section heading.",
       ))
       .style(styles::section_heading()),
       Text::new(ls(status)),
       Navigation::new(tx(
           "Settings pages",
-          "User-facing product copy in the Reactant sample.",
+          "Collection settings interface label.",
         ))
         .child(Flex::new().direction(FlexDirection::Row).gap(8.0).child(
           ["Controls page", "Bindings page"]
@@ -45,12 +45,12 @@ impl Component for CollectionSettings {
         )),
       Region::new(tx(
           "Collection settings",
-          "User-facing product copy in the Reactant sample.",
+          "Collection settings interface label.",
         ))
         .child((
           ListBox::new(tx(
               "Display quality",
-              "User-facing product copy in the Reactant sample.",
+              "Collection settings interface label.",
             ))
             .child(Flex::new().direction(FlexDirection::Row).gap(8.0).child(
               ["Standard", "High", "Unavailable"]
@@ -67,18 +67,18 @@ impl Component for CollectionSettings {
             )),
           Table::new(tx(
             "Keyboard bindings",
-            "User-facing product copy in the Reactant sample.",
+            "Collection settings interface label.",
           ))
           .child((
             TableRow::new().child(
               Flex::new().direction(FlexDirection::Row).gap(24.0).child((
                 ColumnHeader::new(tx(
                   "ACTION",
-                  "User-facing product copy in the Reactant sample.",
+                  "Collection settings section heading.",
                 )),
                 ColumnHeader::new(tx(
                   "KEYBOARD",
-                  "User-facing product copy in the Reactant sample.",
+                  "Collection settings section heading.",
                 )),
               )),
             ),
@@ -86,18 +86,18 @@ impl Component for CollectionSettings {
               Flex::new().direction(FlexDirection::Row).gap(24.0).child((
                 RowHeader::new(tx(
                   "MOVE",
-                  "User-facing product copy in the Reactant sample.",
+                  "Collection settings section heading.",
                 )),
                 TableCell::new(tx(
                   "W",
-                  "User-facing product copy in the Reactant sample.",
+                  "Collection settings section heading.",
                 )),
               )),
             ),
           )),
           Link::new(tx(
             "Open Unity documentation",
-            "User-facing product copy in the Reactant sample.",
+            "Collection settings interface label.",
           ))
           .on_press(move || {
             app.send(Command::open_external_url(
@@ -106,7 +106,7 @@ impl Component for CollectionSettings {
           }),
           Link::new(tx(
             "Documentation link",
-            "User-facing product copy in the Reactant sample.",
+            "Collection settings interface label.",
           ))
           .on_press(|game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED")),
         )),

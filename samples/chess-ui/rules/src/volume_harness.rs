@@ -25,10 +25,7 @@ impl Component for VolumeHarness {
       )
       .child((
         VolumeControl::new()
-          .label(tx(
-            "Master Volume",
-            "User-facing product copy in the Chess UI sample.",
-          ))
+          .label(tx("Master Volume", "Volume control interface label."))
           .value(value)
           .on_change(
             set_value.callback().then(
@@ -39,23 +36,17 @@ impl Component for VolumeHarness {
           )
           .first(true),
         VolumeControl::new()
-          .label(tx(
-            "Minimum",
-            "User-facing product copy in the Chess UI sample.",
-          ))
+          .label(tx("Minimum", "Volume control interface label."))
           .value(0)
           .on_change(|_| {}),
         VolumeControl::new()
-          .label(tx(
-            "Maximum",
-            "User-facing product copy in the Chess UI sample.",
-          ))
+          .label(tx("Maximum", "Volume control interface label."))
           .value(100)
           .on_change(|_| {}),
         control_behavior::static_label(txa(
           "Volume changes: {changes}",
           tx_args![changes],
-          "User-facing product copy in the Chess UI sample.",
+          "Volume control dynamic value label.",
         ))
         .style(
           Style::new()
@@ -66,7 +57,7 @@ impl Component for VolumeHarness {
         ReviewButton::new()
           .label(tx(
             "Change volume from parent",
-            "User-facing product copy in the Chess UI sample.",
+            "Volume control interface label.",
           ))
           .on_press(move || {
             set_value.update(|value| if value == 25 { 80 } else { 25 });

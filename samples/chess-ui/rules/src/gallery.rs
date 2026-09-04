@@ -53,14 +53,11 @@ impl Component for Gallery {
     let (selection, select) = hooks::use_state(Selection::default());
     ReviewSurface::new().child((
       ReviewNavigation::new()
-        .title(tx(
-          "CHESS UI",
-          "User-facing product copy in the Chess UI sample.",
-        ))
+        .title(tx("CHESS UI", "Review page count label."))
         .caption(txa(
           "{page_count} review pages",
           tx_args![page_count => self.pages.len() as u32],
-          "User-facing product copy in the Chess UI sample.",
+          "Review page count label.",
         ))
         .children(self.pages.iter().enumerate().map(|(index, page)| {
           ReviewButton::new()
@@ -90,7 +87,7 @@ impl Component for Gallery {
               review_index => format!("{:02}", selection.index + 1),
               page_count => self.pages.len() as u32,
             ],
-            "User-facing product copy in the Chess UI sample.",
+            "Current review page indicator.",
           ))
           .key((selection.index, selection.generation))
       })),
@@ -105,26 +102,23 @@ impl Component for Demonstration {
       ReviewText::new()
         .text(tx(
           "One page. A fresh start.",
-          "User-facing product copy in the Chess UI sample.",
+          "Gallery introduction heading.",
         ))
         .kind(ReviewTextKind::Title),
       ReviewText::new().text(tx(
         "Select a page to explore it. Select it again to reset its demonstration.",
-        "User-facing product copy in the Chess UI sample.",
+        "Gallery usage instructions.",
       )),
       ReviewText::new()
         .text(txa(
           "Changes: {count}",
           tx_args![count],
-          "User-facing product copy in the Chess UI sample.",
+          "Demonstration change count.",
         ))
         .kind(ReviewTextKind::Title)
         .name("demonstration-count"),
       ReviewButton::new()
-        .label(tx(
-          "Change demonstration",
-          "User-facing product copy in the Chess UI sample.",
-        ))
+        .label(tx("Change demonstration", "Demonstration change button."))
         .on_press(set_count.update_callback(|value| value + 1)),
     ))
   }

@@ -51,14 +51,14 @@ impl Component for ContextMemo {
       .child(
         battlement_reactant::host::Label::new(tx(
           "CONTEXT & MEMO",
-          "User-facing product copy in the Reactant sample.",
+          "Context and memo section heading.",
         ))
         .style(design_system::eyebrow()),
       )
       .child(
         battlement_reactant::host::Label::new(tx(
           "Values follow ancestry",
-          "User-facing product copy in the Reactant sample.",
+          "Context and memo interface label.",
         ))
         .name("context-title")
         .style(design_system::title()),
@@ -74,7 +74,7 @@ impl Component for ContextMemo {
               .child(
                 battlement_reactant::host::Label::new(tx(
                   "CONTEXT  Nearest provider wins",
-                  "User-facing product copy in the Reactant sample.",
+                  "Context and memo interface label.",
                 ))
                 .style(design_system::experiment_title()),
               )
@@ -105,7 +105,7 @@ impl Component for ContextMemo {
           .child(
             battlement_reactant::host::Label::new(tx(
               "MEMO  Unrelated value",
-              "User-facing product copy in the Reactant sample.",
+              "Context and memo interface label.",
             ))
             .style(design_system::experiment_title()),
           )

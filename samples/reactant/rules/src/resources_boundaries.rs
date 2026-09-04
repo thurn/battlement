@@ -49,14 +49,14 @@ impl Component for ResourcesBoundaries {
       .child(
         battlement_reactant::host::Label::new(tx(
           "RESOURCES & BOUNDARIES",
-          "User-facing product copy in the Reactant sample.",
+          "Resources and boundaries section heading.",
         ))
         .style(design_system::resources_eyebrow(self.compact)),
       )
       .child(
         battlement_reactant::host::Label::new(tx(
           "Recover without losing control",
-          "User-facing product copy in the Reactant sample.",
+          "Resources and boundaries interface label.",
         ))
         .name("page-title")
         .style(design_system::effects_title(self.compact)),
@@ -73,7 +73,7 @@ impl Component for ResourcesBoundaries {
                 .child(
                   battlement_reactant::host::Label::new(tx(
                     "RESOURCE PENDING",
-                    "User-facing product copy in the Reactant sample.",
+                    "Resources and boundaries section heading.",
                   ))
                   .style(design_system::boundary_status(false, self.compact)),
                 )
@@ -130,7 +130,7 @@ impl Component for ResourcePreview {
         .child(
           battlement_reactant::host::Label::new(tx(
             "RESOURCE READY",
-            "User-facing product copy in the Reactant sample.",
+            "Resources and boundaries status message.",
           ))
           .style(design_system::boundary_status(false, compact)),
         )
@@ -161,7 +161,7 @@ impl Component for BoundaryPrimary {
         .child(
           battlement_reactant::host::Label::new(tx(
             "BOUNDARY READY",
-            "User-facing product copy in the Reactant sample.",
+            "Resources and boundaries status message.",
           ))
           .style(design_system::boundary_status(false, self.compact)),
         )
@@ -188,7 +188,7 @@ impl Component for BoundaryFallback {
       .child(
         battlement_reactant::host::Label::new(tx(
           "ERROR CAUGHT",
-          "User-facing product copy in the Reactant sample.",
+          "Resources and boundaries status message.",
         ))
         .style(design_system::boundary_status(true, self.compact)),
       )

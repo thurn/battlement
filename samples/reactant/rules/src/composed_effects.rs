@@ -71,17 +71,14 @@ impl Component for ComposedEffects {
         .child(
           Label::new(tx(
             "PUBLIC MOTION COMPOSITION",
-            "User-facing product copy in the Reactant sample.",
+            "Composed effects section heading.",
           ))
           .style(eyebrow()),
         )
         .child(
-          Label::new(tx(
-            "Composed Effects",
-            "User-facing product copy in the Reactant sample.",
-          ))
-          .name("page-title")
-          .style(title()),
+          Label::new(tx("Composed Effects", "Composed effects interface label."))
+            .name("page-title")
+            .style(title()),
         )
         .child(
           Label::new(ls(format!(
@@ -260,11 +257,8 @@ fn modal(state: &ComposedEffectsState) -> View {
                     )),
                 )
                 .child(
-                  Label::new(tx(
-                    "SETTINGS READY",
-                    "User-facing product copy in the Reactant sample.",
-                  ))
-                  .style(probe_label()),
+                  Label::new(tx("SETTINGS READY", "Composed effects status message."))
+                    .style(probe_label()),
                 ),
             ),
         )
@@ -358,15 +352,9 @@ fn interactions(state: &ComposedEffectsState) -> View {
   )
   .child(
     Button::new(if state.checked {
-      tx(
-        "[x] ENABLED",
-        "User-facing product copy in the Reactant sample.",
-      )
+      tx("[x] ENABLED", "Composed effects status message.")
     } else {
-      tx(
-        "[ ] ENABLE",
-        "User-facing product copy in the Reactant sample.",
-      )
+      tx("[ ] ENABLE", "Composed effects interface label.")
     })
     .host_name("composed-checkbox")
     .style(probe())

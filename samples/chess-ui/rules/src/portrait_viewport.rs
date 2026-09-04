@@ -30,7 +30,7 @@ impl Component for PortraitViewport {
         view.name("portrait-viewport").semantic(
           SemanticProps::new(battlement::SemanticRole::Region).name(SemanticName::Text(tx(
             "Main content",
-            "User-facing product copy in the Chess UI sample.",
+            "Portrait viewport accessibility label.",
           ))),
         )
       })

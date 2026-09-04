@@ -108,17 +108,14 @@ impl Component for GesturesDrag {
       .child(
         Label::new(tx(
           "UNITY-LOCAL INPUT · RELIABLE BOUNDARIES",
-          "User-facing product copy in the Reactant sample.",
+          "Gestures and drag explanatory message.",
         ))
         .style(eyebrow()),
       )
       .child(
-        Label::new(tx(
-          "Gestures & Drag",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("page-title")
-        .style(title()),
+        Label::new(tx("Gestures & Drag", "Gestures and drag interface label."))
+          .name("page-title")
+          .style(title()),
       )
       .child(
         Label::new(ls(format!(
@@ -170,13 +167,7 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
       .on_drag_end(record)
       .on_drag_cancel(record)
       .on_drag_momentum_complete(record)
-      .child(
-        Label::new(tx(
-          "DRAG",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(knob_label()),
-      ),
+      .child(Label::new(tx("DRAG", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
     View::new()
@@ -185,7 +176,7 @@ fn constrained_drag(drag_x: MotionValue<f32>, drag_y: MotionValue<f32>) -> Node 
       .child(
         Label::new(tx(
           "3 PX START · 10 PX LOCK",
-          "User-facing product copy in the Reactant sample.",
+          "Gestures and drag section heading.",
         ))
         .style(caption()),
       )
@@ -205,13 +196,7 @@ fn momentum_drag() -> Node {
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_momentum_complete(record)
-      .child(
-        Label::new(tx(
-          "MOMENTUM",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(knob_label()),
-      ),
+      .child(Label::new(tx("MOMENTUM", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
     View::new()
@@ -220,7 +205,7 @@ fn momentum_drag() -> Node {
       .child(
         Label::new(tx(
           "THROW · CATCH · RELEASE",
-          "User-facing product copy in the Reactant sample.",
+          "Gestures and drag section heading.",
         ))
         .style(caption()),
       )
@@ -241,13 +226,7 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .on_drag_start(record)
       .on_drag_end(record)
       .on_drag_cancel(record)
-      .child(
-        Label::new(tx(
-          "TARGET",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(knob_label()),
-      ),
+      .child(Label::new(tx("TARGET", "Gestures and drag section heading.")).style(knob_label())),
   );
   Node::new(
     View::new()
@@ -261,11 +240,7 @@ fn external_drag(external_controls: DragControls, controls: DragControls) -> Nod
       .on_pan_end(record)
       .on_pan_cancel(record)
       .child(
-        Label::new(tx(
-          "EXTERNAL HANDLE",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(caption()),
+        Label::new(tx("EXTERNAL HANDLE", "Gestures and drag section heading.")).style(caption()),
       )
       .child(target),
   )
@@ -285,7 +260,7 @@ fn drag_gallery(
       .child(
         Label::new(tx(
           "MOTION VALUE OUTPUT",
-          "User-facing product copy in the Reactant sample.",
+          "Gestures and drag section heading.",
         ))
         .style(caption()),
       ),
@@ -308,21 +283,9 @@ fn scroll_specimen(scroll_x: MotionValue<f32>, scroll_y: MotionValue<f32>) -> No
       .style(scroll_field())
       .content_container_style(scroll_content())
       .scroll_motion_values(scroll_x, scroll_y)
-      .child(
-        Label::new(tx(
-          "SCROLL  ↓",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(caption()),
-      )
+      .child(Label::new(tx("SCROLL  ↓", "Gestures and drag section heading.")).style(caption()))
       .child(View::new().style(spacer()))
-      .child(
-        Label::new(tx(
-          "SCROLL  ↑",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(caption()),
-      ),
+      .child(Label::new(tx("SCROLL  ↑", "Gestures and drag section heading.")).style(caption())),
   )
 }
 
@@ -333,11 +296,7 @@ fn scroll_meter(progress: MotionValue<f32>) -> Node {
       .style(field())
       .animate(StyleTarget::new().opacity_value(progress))
       .child(
-        Label::new(tx(
-          "SCROLL PROGRESS",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(caption()),
+        Label::new(tx("SCROLL PROGRESS", "Gestures and drag section heading.")).style(caption()),
       ),
   )
 }
@@ -353,11 +312,7 @@ fn in_view_specimen(in_view: MotionValue<f32>) -> Node {
       .on_viewport_enter(record)
       .on_viewport_leave(record)
       .child(
-        Label::new(tx(
-          "IN-VIEW VALUE",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(caption()),
+        Label::new(tx("IN-VIEW VALUE", "Gestures and drag section heading.")).style(caption()),
       ),
   )
 }

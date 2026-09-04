@@ -44,7 +44,7 @@ impl Component for VolumeControl {
           text: Some(txa(
             "{volume_percent} percent",
             tx_args![volume_percent => self.value],
-            "User-facing product copy in the Chess UI sample.",
+            "Volume control dynamic value label.",
           )),
         },
         5.0,
@@ -101,7 +101,7 @@ impl Component for VolumeControl {
             TextElement::new(txa(
               "{volume_percent}%",
               tx_args![volume_percent => self.value],
-              "User-facing product copy in the Chess UI sample.",
+              "Volume control dynamic value label.",
             ))
             .name("volume-value")
             .picking_mode(PickingMode::Ignore)

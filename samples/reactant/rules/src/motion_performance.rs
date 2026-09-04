@@ -82,14 +82,14 @@ impl Component for MotionPerformance {
       .child(
         Label::new(tx(
           "RELEASE PROFILING",
-          "User-facing product copy in the Reactant sample.",
+          "Motion performance section heading.",
         ))
         .style(eyebrow()),
       )
       .child(
         Label::new(tx(
           "Motion Performance",
-          "User-facing product copy in the Reactant sample.",
+          "Motion performance interface label.",
         ))
         .name("page-title")
         .style(title()),

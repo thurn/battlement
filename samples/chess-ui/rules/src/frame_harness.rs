@@ -29,19 +29,16 @@ impl Component for FrameHarness {
                   .justify_content(Justify::Center),
               )
               .child(
-                Label::new(tx(
-                  "ARCADE FRAME",
-                  "User-facing product copy in the Chess UI sample.",
-                ))
-                .semantic(control_behavior::static_text_props(tx(
-                  "Arcade frame content",
-                  "User-facing product copy in the Chess UI sample.",
-                )))
-                .style(
-                  Style::new()
-                    .font_size(72)
-                    .unity_text_align(TextAnchor::MiddleCenter),
-                ),
+                Label::new(tx("ARCADE FRAME", "Arcade frame section heading."))
+                  .semantic(control_behavior::static_text_props(tx(
+                    "Arcade frame content",
+                    "Arcade frame interface label.",
+                  )))
+                  .style(
+                    Style::new()
+                      .font_size(72)
+                      .unity_text_align(TextAnchor::MiddleCenter),
+                  ),
               ),
           ),
         ),

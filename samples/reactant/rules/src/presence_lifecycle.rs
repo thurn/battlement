@@ -159,14 +159,14 @@ impl Component for PresenceLifecycle {
       .child(
         Label::new(tx(
           "RETENTION & TERMINAL ORDERING",
-          "User-facing product copy in the Reactant sample.",
+          "Presence lifecycle section heading.",
         ))
         .style(eyebrow()),
       )
       .child(
         Label::new(tx(
           "Presence & Lifecycle",
-          "User-facing product copy in the Reactant sample.",
+          "Presence lifecycle interface label.",
         ))
         .name("page-title")
         .style(title()),
@@ -307,13 +307,10 @@ impl Component for RetainedPanel {
         .style(panel_state()),
       )
       .child(
-        Button::new(tx(
-          "COUNTER +1",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .host_name("presence-counter")
-        .style(action_style())
-        .on_press(move |_game: &mut Game| increment.update(|value| value + 1)),
+        Button::new(tx("COUNTER +1", "Presence lifecycle section heading."))
+          .host_name("presence-counter")
+          .style(action_style())
+          .on_press(move |_game: &mut Game| increment.update(|value| value + 1)),
       )
       .child(
         View::new()

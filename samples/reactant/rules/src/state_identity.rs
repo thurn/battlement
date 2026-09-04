@@ -64,7 +64,7 @@ impl Component for StateIdentity {
       .child(
         battlement_reactant::host::Label::new(tx(
           "State follows identity",
-          "User-facing product copy in the Reactant sample.",
+          "State identity interface label.",
         ))
         .name("state-title")
         .style(design_system::title()),

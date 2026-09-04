@@ -23,7 +23,7 @@ impl Component for SelectHarness {
         SelectControl::new()
           .label(self::label(tx(
             "Resolution",
-            "User-facing product copy in the Chess UI sample.",
+            "Resolution selector interface label.",
           )))
           .value(if high_resolution {
             "2560 × 1440"
@@ -34,14 +34,14 @@ impl Component for SelectHarness {
         SelectControl::new()
           .label(self::label(tx(
             "Display Mode",
-            "User-facing product copy in the Chess UI sample.",
+            "Resolution selector interface label.",
           )))
           .value("Borderless")
           .row_height(190.0)
           .offset_y(-8.0),
         control_behavior::static_label(tx(
           "Selection changes: 0",
-          "User-facing product copy in the Chess UI sample.",
+          "Resolution selector interface label.",
         ))
         .style(
           Style::new()
@@ -52,7 +52,7 @@ impl Component for SelectHarness {
         ReviewButton::new()
           .label(tx(
             "Change resolution from parent",
-            "User-facing product copy in the Chess UI sample.",
+            "Resolution selector interface label.",
           ))
           .on_press(move || set_high_resolution.update(|value| !value)),
       ))

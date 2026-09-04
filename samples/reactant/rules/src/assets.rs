@@ -323,7 +323,7 @@ impl Component for Assets {
       .child(
         battlement_reactant::host::Label::new(tx(
           "MOCKUP ASSETS",
-          "User-facing product copy in the Reactant sample.",
+          "Mockup assets section heading.",
         ))
         .style(design_system::eyebrow()),
       )

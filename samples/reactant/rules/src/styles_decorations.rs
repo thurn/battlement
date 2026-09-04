@@ -45,14 +45,14 @@ impl Component for StylesDecorations {
       .child(
         Label::new(tx(
           "CSS-STYLE MOTION",
-          "User-facing product copy in the Reactant sample.",
+          "Styles and decorations section heading.",
         ))
         .style(eyebrow()),
       )
       .child(
         Label::new(tx(
           "Styles & Decorations",
-          "User-facing product copy in the Reactant sample.",
+          "Styles and decorations interface label.",
         ))
         .name("page-title")
         .style(title()),
@@ -117,7 +117,7 @@ fn pseudo_specimen() -> View {
   .child(
     Button::new(tx(
       "HOLD / FOCUS / PRESS",
-      "User-facing product copy in the Reactant sample.",
+      "Styles and decorations section heading.",
     ))
     .host_name("styles-pseudo-target")
     .style(probe().background_color(Color::rgb(0.05, 0.20, 0.23)))
@@ -243,7 +243,7 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
   .child(
     Button::new(tx(
       "BURST SAFE INPUT",
-      "User-facing product copy in the Reactant sample.",
+      "Styles and decorations section heading.",
     ))
     .host_name("styles-burst-target")
     .style(probe())

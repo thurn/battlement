@@ -33,33 +33,22 @@ impl Component for PortraitHarness {
                 .align_items(Align::Stretch),
             )
             .child((
-              Label::new(tx(
-                "TOP LEFT",
-                "User-facing product copy in the Chess UI sample.",
-              ))
-              .style(
+              Label::new(tx("TOP LEFT", "Portrait canvas section heading.")).style(
                 Style::new()
                   .font_size(32)
                   .unity_text_align(TextAnchor::UpperLeft),
               ),
-              Label::new(tx(
-                "1024 × 1536",
-                "User-facing product copy in the Chess UI sample.",
-              ))
-              .semantic(control_behavior::static_text_props(tx(
-                "Portrait canvas, 1024 by 1536 logical pixels",
-                "User-facing product copy in the Chess UI sample.",
-              )))
-              .style(
-                Style::new()
-                  .font_size(64)
-                  .unity_text_align(TextAnchor::MiddleCenter),
-              ),
-              Label::new(tx(
-                "BOTTOM RIGHT",
-                "User-facing product copy in the Chess UI sample.",
-              ))
-              .style(
+              Label::new(tx("1024 × 1536", "Portrait canvas interface label."))
+                .semantic(control_behavior::static_text_props(tx(
+                  "Portrait canvas, 1024 by 1536 logical pixels",
+                  "Portrait canvas explanatory message.",
+                )))
+                .style(
+                  Style::new()
+                    .font_size(64)
+                    .unity_text_align(TextAnchor::MiddleCenter),
+                ),
+              Label::new(tx("BOTTOM RIGHT", "Portrait canvas section heading.")).style(
                 Style::new()
                   .font_size(32)
                   .unity_text_align(TextAnchor::LowerRight),

@@ -37,20 +37,17 @@ impl Component for SettingRowHarness {
         SettingRow::new()
           .label(control_behavior::name_source_text(tx(
             "Display Mode",
-            "User-facing product copy in the Chess UI sample.",
+            "Setting row interface label.",
           )))
           .children(
-            ButtonHost::new(tx(
-              "Borderless",
-              "User-facing product copy in the Chess UI sample.",
-            ))
-            .associated_control(control)
-            .style(
-              Style::new()
-                .font_size(40)
-                .color(Color::rgb(0.75, 0.86, 0.97))
-                .unity_text_align(TextAnchor::MiddleCenter),
-            ),
+            ButtonHost::new(tx("Borderless", "Setting row interface label."))
+              .associated_control(control)
+              .style(
+                Style::new()
+                  .font_size(40)
+                  .color(Color::rgb(0.75, 0.86, 0.97))
+                  .unity_text_align(TextAnchor::MiddleCenter),
+              ),
           )
           .associated_label(label)
           .row_height(190.0),

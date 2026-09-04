@@ -21,11 +21,8 @@ impl Component for Navigation {
           .name("navigation")
           .style(design_system::phone_navigation())
           .child(
-            battlement_reactant::host::Label::new(tx(
-              "R",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .style(design_system::phone_brand()),
+            battlement_reactant::host::Label::new(tx("R", "Sample navigation section heading."))
+              .style(design_system::phone_brand()),
           )
           .child(controls::interactive_button(
             "<",
@@ -60,15 +57,9 @@ impl Component for Navigation {
         .style(design_system::navigation(self.compact))
         .child(
           battlement_reactant::host::Label::new(if self.screen == Screen::TargetsTimelines {
-            tx(
-              "VALUES & TIME",
-              "User-facing product copy in the Reactant sample.",
-            )
+            tx("VALUES & TIME", "Sample navigation section heading.")
           } else {
-            tx(
-              "REACTANT",
-              "User-facing product copy in the Reactant sample.",
-            )
+            tx("REACTANT", "Sample navigation section heading.")
           })
           .name(match self.screen {
             Screen::TargetsTimelines => "values-navigation",

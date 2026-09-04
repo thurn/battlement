@@ -58,14 +58,14 @@ impl Component for RefsGeometry {
           .child((!self.compact).then(|| {
             battlement_reactant::host::Label::new(tx(
               "REFS & GEOMETRY",
-              "User-facing product copy in the Reactant sample.",
+              "Refs and geometry section heading.",
             ))
             .style(design_system::resources_eyebrow(self.compact))
           }))
           .child(
             battlement_reactant::host::Label::new(tx(
               "Measure committed hosts",
-              "User-facing product copy in the Reactant sample.",
+              "Refs and geometry interface label.",
             ))
             .name("refs-title")
             .style(design_system::effects_title(self.compact)),

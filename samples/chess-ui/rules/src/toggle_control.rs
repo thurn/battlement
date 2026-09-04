@@ -43,7 +43,7 @@ impl Component for ToggleControl {
         self.with_info.then(|| {
           SemanticDescription::text(tx(
             "We upload crash reports to Unity Diagnostics.",
-            "User-facing product copy in the Chess UI sample.",
+            "Crash report toggle accessibility description.",
           ))
         }),
         self.checked,
@@ -126,33 +126,30 @@ struct InfoBadge {
 
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
-    Button::content(Text::new(tx(
-      "i",
-      "User-facing product copy in the Chess UI sample.",
-    )))
-    .semantic_name(SemanticName::text(tx(
-      "About crash report uploads",
-      "User-facing product copy in the Chess UI sample.",
-    )))
-    .host_name("toggle-info")
-    .on_press(self.on_click.clone())
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(205)
-        .bottom(37)
-        .width(38)
-        .height(38)
-        .padding(0)
-        .border_width(2)
-        .border_color(Color::rgb8(85, 184, 255))
-        .border_radius(19)
-        .background_color(Color::TRANSPARENT)
-        .color(Color::rgb8(188, 244, 255))
-        .font_size(27)
-        .unity_text_align(TextAnchor::MiddleCenter)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center),
-    )
+    Button::content(Text::new(tx("i", "Crash report toggle interface label.")))
+      .semantic_name(SemanticName::text(tx(
+        "About crash report uploads",
+        "Crash report toggle accessibility label.",
+      )))
+      .host_name("toggle-info")
+      .on_press(self.on_click.clone())
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left(205)
+          .bottom(37)
+          .width(38)
+          .height(38)
+          .padding(0)
+          .border_width(2)
+          .border_color(Color::rgb8(85, 184, 255))
+          .border_radius(19)
+          .background_color(Color::TRANSPARENT)
+          .color(Color::rgb8(188, 244, 255))
+          .font_size(27)
+          .unity_text_align(TextAnchor::MiddleCenter)
+          .align_items(Align::Center)
+          .justify_content(Justify::Center),
+      )
   }
 }

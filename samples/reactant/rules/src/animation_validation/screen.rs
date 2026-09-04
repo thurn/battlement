@@ -128,11 +128,11 @@ impl Component for ValidationScreen {
             .style(canvas(self.compact))
             .content_container_style(content())
             .child(
-                battlement_reactant::host::Label::new(tx("MOTION AUTHORING", "User-facing product copy in the Reactant sample."))
+                battlement_reactant::host::Label::new(tx("MOTION AUTHORING", "Motion authoring section heading."))
                     .style(eyebrow()),
             )
             .child(
-                battlement_reactant::host::Label::new(tx("Targets & Timelines", "User-facing product copy in the Reactant sample."))
+                battlement_reactant::host::Label::new(tx("Targets & Timelines", "Motion authoring interface label."))
                     .name("page-title")
                     .style(title()),
             )

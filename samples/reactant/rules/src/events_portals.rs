@@ -35,14 +35,14 @@ impl Component for EventsPortals {
           .child(
             battlement_reactant::host::Label::new(tx(
               "EVENTS & PORTALS",
-              "User-facing product copy in the Reactant sample.",
+              "Events and portals section heading.",
             ))
             .style(design_system::eyebrow()),
           )
           .child(
             battlement_reactant::host::Label::new(tx(
               "Follow the logical path",
-              "User-facing product copy in the Reactant sample.",
+              "Events and portals interface label.",
             ))
             .name("events-title")
             .style(design_system::effects_title(self.compact)),
@@ -58,7 +58,7 @@ impl Component for EventsPortals {
                   .child(
                     battlement_reactant::host::Label::new(tx(
                       "Logical source",
-                      "User-facing product copy in the Reactant sample.",
+                      "Events and portals interface label.",
                     ))
                     .style(design_system::effect_heading()),
                   )
@@ -81,7 +81,7 @@ impl Component for EventsPortals {
                             .child(
                               battlement_reactant::host::Label::new(tx(
                                 "Portaled overlay",
-                                "User-facing product copy in the Reactant sample.",
+                                "Events and portals interface label.",
                               ))
                               .style(design_system::effect_heading()),
                             )
@@ -134,7 +134,7 @@ impl EventsPortals {
           .child(
             battlement_reactant::host::Label::new(tx(
               "CAPTURE",
-              "User-facing product copy in the Reactant sample.",
+              "Events and portals section heading.",
             ))
             .style(design_system::event_step(
               self.compact,
@@ -149,7 +149,7 @@ impl EventsPortals {
           .child(
             battlement_reactant::host::Label::new(tx(
               "TARGET",
-              "User-facing product copy in the Reactant sample.",
+              "Events and portals section heading.",
             ))
             .style(design_system::event_step(
               self.compact,
@@ -164,7 +164,7 @@ impl EventsPortals {
           .child(
             battlement_reactant::host::Label::new(tx(
               "BUBBLE",
-              "User-facing product copy in the Reactant sample.",
+              "Events and portals section heading.",
             ))
             .style(design_system::event_step(
               self.compact,
@@ -175,12 +175,9 @@ impl EventsPortals {
       )
     } else {
       Node::new(
-        battlement_reactant::host::Label::new(tx(
-          "READY",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("events-status")
-        .style(design_system::event_ready()),
+        battlement_reactant::host::Label::new(tx("READY", "Events and portals status message."))
+          .name("events-status")
+          .style(design_system::event_ready()),
       )
     }
   }

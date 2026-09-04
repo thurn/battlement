@@ -23,10 +23,7 @@ impl Component for ToggleHarness {
       )
       .child((
         ToggleControl::new()
-          .label(self::label(tx(
-            "VSync",
-            "User-facing product copy in the Chess UI sample.",
-          )))
+          .label(self::label(tx("VSync", "VSync toggle interface label.")))
           .checked(checked)
           .on_change(
             set_checked.callback().then(
@@ -38,20 +35,17 @@ impl Component for ToggleHarness {
         ToggleControl::new()
           .label(self::label(tx(
             "Screenshake",
-            "User-facing product copy in the Chess UI sample.",
+            "VSync toggle interface label.",
           )))
           .checked(screenshake)
           .on_change(set_screenshake)
-          .aria_label(tx(
-            "Screen shake",
-            "User-facing product copy in the Chess UI sample.",
-          ))
+          .aria_label(tx("Screen shake", "VSync toggle accessibility label."))
           .row_height(190.0)
           .offset_y(-8.0),
         control_behavior::static_label(txa(
           "VSync changes: {changes}",
           tx_args![changes],
-          "User-facing product copy in the Chess UI sample.",
+          "VSync toggle accessibility label.",
         ))
         .style(
           Style::new()
@@ -62,7 +56,7 @@ impl Component for ToggleHarness {
         ReviewButton::new()
           .label(tx(
             "Change VSync from parent",
-            "User-facing product copy in the Chess UI sample.",
+            "VSync toggle interface label.",
           ))
           .on_press(move || set_checked.update(|value| !value)),
       ))

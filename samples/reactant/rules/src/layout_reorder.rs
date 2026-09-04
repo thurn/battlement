@@ -44,56 +44,45 @@ impl Component for LayoutReorder {
       .child(
         Label::new(tx(
           "ONE NATIVE LAYOUT PASS · INVERSE PROJECTION",
-          "User-facing product copy in the Reactant sample.",
+          "Layout reordering explanatory message.",
         ))
         .style(eyebrow()),
       )
       .child(
-        Label::new(tx(
-          "Layout & Reorder",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("page-title")
-        .style(title()),
+        Label::new(tx("Layout & Reorder", "Layout reordering interface label."))
+          .name("page-title")
+          .style(title()),
       )
       .child(
         View::new()
           .style(toolbar())
           .child(
-            Button::new(tx(
-              "TOGGLE GEOMETRY",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .on_press(|game: &mut Game| {
-              game.layout_reorder.expanded = !game.layout_reorder.expanded;
-            }),
+            Button::new(tx("TOGGLE GEOMETRY", "Layout reordering section heading.")).on_press(
+              |game: &mut Game| {
+                game.layout_reorder.expanded = !game.layout_reorder.expanded;
+              },
+            ),
           )
           .child(
-            Button::new(tx(
-              "SHARED HANDOFF",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .on_press(|game: &mut Game| {
-              game.layout_reorder.alternate = !game.layout_reorder.alternate;
-            }),
+            Button::new(tx("SHARED HANDOFF", "Layout reordering section heading.")).on_press(
+              |game: &mut Game| {
+                game.layout_reorder.alternate = !game.layout_reorder.alternate;
+              },
+            ),
           )
           .child(
-            Button::new(tx(
-              "REORDER",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .on_press(|game: &mut Game| {
-              game.layout_reorder.reversed = !game.layout_reorder.reversed;
-            }),
+            Button::new(tx("REORDER", "Layout reordering section heading.")).on_press(
+              |game: &mut Game| {
+                game.layout_reorder.reversed = !game.layout_reorder.reversed;
+              },
+            ),
           )
           .child(
-            Button::new(tx(
-              "POP ITEM",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .on_press(|game: &mut Game| {
-              game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
-            }),
+            Button::new(tx("POP ITEM", "Layout reordering section heading.")).on_press(
+              |game: &mut Game| {
+                game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
+              },
+            ),
           ),
       )
       .child(
@@ -159,12 +148,9 @@ fn shared_indicator(alternate: bool) -> Node {
               .key(index)
               .style(tab())
               .child(Label::new(if index == 0 {
-                tx(
-                  "GENERAL",
-                  "User-facing product copy in the Reactant sample.",
-                )
+                tx("GENERAL", "Layout reordering section heading.")
               } else {
-                tx("AUDIO", "User-facing product copy in the Reactant sample.")
+                tx("AUDIO", "Layout reordering section heading.")
               }))
               .child((index == usize::from(alternate)).then(|| {
                 View::new()

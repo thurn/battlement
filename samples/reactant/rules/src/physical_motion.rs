@@ -132,17 +132,14 @@ impl Component for PhysicalMotion {
       .child(
         Label::new(tx(
           "PHYSICAL GENERATORS",
-          "User-facing product copy in the Reactant sample.",
+          "Physical motion section heading.",
         ))
         .style(eyebrow()),
       )
       .child(
-        Label::new(tx(
-          "Physical Motion",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("page-title")
-        .style(title()),
+        Label::new(tx("Physical Motion", "Physical motion interface label."))
+          .name("page-title")
+          .style(title()),
       )
       .child(
         Label::new(ls(format!(
@@ -171,7 +168,7 @@ impl Component for PhysicalMotion {
       .child(
         Label::new(tx(
           "CHECKPOINTS  0 ms  ━  120 ms  ━  320 ms  ━  900 ms",
-          "User-facing product copy in the Reactant sample.",
+          "Physical motion explanatory message.",
         ))
         .name("physical-checkpoint-markers")
         .style(markers()),

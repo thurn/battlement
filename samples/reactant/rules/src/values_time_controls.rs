@@ -130,14 +130,14 @@ impl Component for ValuesTimeControls {
       .child(
         Label::new(tx(
           "UNITY-LOCAL VALUES · EXPLICIT CHECKPOINTS",
-          "User-facing product copy in the Reactant sample.",
+          "Values, time, controls explanatory message.",
         ))
         .style(eyebrow()),
       )
       .child(
         Label::new(tx(
           "Values, Time & Controls",
-          "User-facing product copy in the Reactant sample.",
+          "Values, time, controls interface label.",
         ))
         .name("page-title")
         .style(title()),
@@ -261,7 +261,7 @@ impl Component for ValuesTimeControls {
               .child(
                 Label::new(tx(
                   "TYPED CONTROLS",
-                  "User-facing product copy in the Reactant sample.",
+                  "Values, time, controls section heading.",
                 ))
                 .style(probe_text()),
               ),

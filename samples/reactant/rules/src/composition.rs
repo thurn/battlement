@@ -35,14 +35,14 @@ impl Component for Composition {
       .child(
         battlement_reactant::host::Label::new(tx(
           "COMPOSITION",
-          "User-facing product copy in the Reactant sample.",
+          "Component composition section heading.",
         ))
         .style(design_system::eyebrow()),
       )
       .child(
         battlement_reactant::host::Label::new(tx(
           "Build declaratively",
-          "User-facing product copy in the Reactant sample.",
+          "Component composition interface label.",
         ))
         .name("page-title")
         .style(design_system::title()),
@@ -93,15 +93,15 @@ fn composition_badges(reversed: bool) -> Node {
   let mut badges = vec![
     Badge::new().text(tx(
       "01  Required props",
-      "User-facing product copy in the Reactant sample.",
+      "Component composition interface label.",
     )),
     Badge::new().text(tx(
       "02  Structural values",
-      "User-facing product copy in the Reactant sample.",
+      "Component composition interface label.",
     )),
     Badge::new().text(tx(
       "03  Primitive children",
-      "User-facing product copy in the Reactant sample.",
+      "Component composition interface label.",
     )),
   ];
   if reversed {

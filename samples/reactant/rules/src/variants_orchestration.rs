@@ -109,14 +109,14 @@ impl Component for VariantsOrchestration {
       .child(
         Label::new(tx(
           "LOGICAL VARIANT PROPAGATION",
-          "User-facing product copy in the Reactant sample.",
+          "Variants and orchestration section heading.",
         ))
         .style(eyebrow()),
       )
       .child(
         Label::new(tx(
           "Variants & Orchestration",
-          "User-facing product copy in the Reactant sample.",
+          "Variants and orchestration interface label.",
         ))
         .name("page-title")
         .style(title()),
@@ -149,7 +149,7 @@ impl Component for VariantsOrchestration {
           .child(
             Label::new(tx(
               "PARENT  ·  ordered [route, custom, orchestration]",
-              "User-facing product copy in the Reactant sample.",
+              "Variants and orchestration explanatory message.",
             ))
             .name("variant-ordered-list")
             .inherit_variants(false)

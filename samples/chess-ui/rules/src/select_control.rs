@@ -87,7 +87,7 @@ impl Component for SelectControl {
                   .height(106),
               )
               .child(
-                ButtonHost::new(tx("", "User-facing product copy in the Chess UI sample."))
+                ButtonHost::new(tx("", "Resolution selector interface label."))
                   .name("select-trigger")
                   .associated_control(trigger)
                   .style(

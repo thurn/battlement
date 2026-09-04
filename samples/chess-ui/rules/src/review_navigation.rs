@@ -68,11 +68,7 @@ impl Component for ReviewNavigation {
           ReviewText::new()
             .text(self.caption.clone())
             .kind(ReviewTextKind::Caption),
-          Navigation::new(tx(
-            "Chess UI review pages",
-            "User-facing product copy in the Chess UI sample.",
-          ))
-          .child(
+          Navigation::new(tx("Chess UI review pages", "Review page count label.")).child(
             self
               .scroll
               .clone()

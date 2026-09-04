@@ -130,14 +130,14 @@ impl Component for EffectsStores {
           .child(
             battlement_reactant::host::Label::new(tx(
               "EFFECTS & STORES",
-              "User-facing product copy in the Reactant sample.",
+              "Effects and stores section heading.",
             ))
             .style(design_system::eyebrow()),
           )
           .child(
             battlement_reactant::host::Label::new(tx(
               "Synchronize after commit",
-              "User-facing product copy in the Reactant sample.",
+              "Effects and stores interface label.",
             ))
             .name("effects-title")
             .style(design_system::effects_title(self.compact)),
@@ -153,21 +153,15 @@ impl Component for EffectsStores {
                   .child(
                     battlement_reactant::host::Label::new(tx(
                       "Connection",
-                      "User-facing product copy in the Reactant sample.",
+                      "Effects and stores interface label.",
                     ))
                     .style(design_system::effect_heading()),
                   )
                   .child(
                     battlement_reactant::host::Label::new(if connected {
-                      tx(
-                        "CONNECTED",
-                        "User-facing product copy in the Reactant sample.",
-                      )
+                      tx("CONNECTED", "Effects and stores status message.")
                     } else {
-                      tx(
-                        "DISCONNECTED",
-                        "User-facing product copy in the Reactant sample.",
-                      )
+                      tx("DISCONNECTED", "Effects and stores status message.")
                     })
                     .name("effect-status")
                     .style(design_system::effect_status()),
@@ -189,7 +183,7 @@ impl Component for EffectsStores {
                   .child(
                     battlement_reactant::host::Label::new(tx(
                       "External snapshot",
-                      "User-facing product copy in the Reactant sample.",
+                      "Effects and stores interface label.",
                     ))
                     .style(design_system::effect_heading()),
                   )
