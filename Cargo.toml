@@ -26,7 +26,7 @@ resolver = "3"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/thurn/battlement"
-rust-version = "1.89"
+rust-version = "1.98.1"
 
 [workspace.dependencies]
 battlement-cloud = { path = "crates/battlement-cloud" }

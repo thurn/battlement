@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 
 from ci_cache import CiCache
 from platform_support import (
@@ -32,6 +33,15 @@ from resource_slots import unity_editor_lease
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
+RUST_VERSION = "1.98.1"
+CLIPPY_VERSION = "0.1.98"
+RUSTFMT_VERSION = "1.9.0-stable"
+RUST_COMPONENTS = {"clippy", "rustfmt"}
+RUST_VERSION_MANIFESTS = (
+    "Cargo.toml",
+    "crates/battlement-reactant/tests/fixtures/asset-registry/Cargo.toml",
+)
+TOLLGATE_CI_COMMAND = f"rustup run {RUST_VERSION} python3 scripts/ci.py --full"
 CI_CACHE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_CI_CACHE",
@@ -97,6 +107,111 @@ CARGO_WORKSPACE_TABLE = re.compile(
 )
 DITTO_SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui", "chess-ui")
 DITTO_ADAPTERS = ("webgl", "ios")
+
+
+def check_rust_toolchain() -> None:
+    """Require matching repository, Tollgate, and active Rust toolchains."""
+    configuration_errors = rust_configuration_errors()
+    if configuration_errors:
+        raise RuntimeError(
+            "Rust toolchain configuration mismatch:\n- "
+            + "\n- ".join(configuration_errors)
+        )
+
+    commands = {
+        "rustc": (["rustc", "--version"], f"rustc {RUST_VERSION} "),
+        "Cargo": (["cargo", "--version"], f"cargo {RUST_VERSION} "),
+        "Clippy": (["cargo", "clippy", "--version"], f"clippy {CLIPPY_VERSION} "),
+        "rustfmt": (["cargo", "fmt", "--version"], f"rustfmt {RUSTFMT_VERSION} "),
+    }
+    active = command_output(["rustup", "show", "active-toolchain"])
+    active_name = active.partition(" ")[0]
+    errors = []
+    if active_name != RUST_VERSION and not active_name.startswith(f"{RUST_VERSION}-"):
+        errors.append(
+            f"active rustup toolchain is {active_name!r}; expected {RUST_VERSION!r}"
+        )
+    for name, (command, expected_prefix) in commands.items():
+        output = command_output(command)
+        if not output.startswith(expected_prefix):
+            errors.append(
+                f"{name} reported {output!r}; expected a version starting with "
+                f"{expected_prefix!r}"
+            )
+    rustc_verbose = command_output(["rustc", "-Vv"])
+    commit = re.search(r"(?m)^commit-hash: ([0-9a-f]+)$", rustc_verbose)
+    if commit is None:
+        errors.append("rustc -Vv did not report a commit hash")
+    else:
+        commit_prefix = commit.group(1)[:10]
+        for name, command in (
+            ("Clippy", ["cargo", "clippy", "--version"]),
+            ("rustfmt", ["cargo", "fmt", "--version"]),
+        ):
+            output = command_output(command)
+            if f"({commit_prefix}" not in output:
+                errors.append(
+                    f"{name} was not built from Rust {RUST_VERSION} commit "
+                    f"{commit_prefix}"
+                )
+    if errors:
+        raise RuntimeError(
+            f"Rust {RUST_VERSION} toolchain check failed:\n- " + "\n- ".join(errors)
+        )
+
+
+def rust_configuration_errors() -> list[str]:
+    """Return drift between the Rust pin, MSRV, components, and Tollgate."""
+    errors = []
+    toolchain = tomllib.loads(
+        (REPOSITORY_ROOT / "rust-toolchain.toml").read_text(encoding="utf-8")
+    )["toolchain"]
+    if toolchain.get("channel") != RUST_VERSION:
+        errors.append(
+            f"rust-toolchain.toml pins {toolchain.get('channel')!r}; "
+            f"expected {RUST_VERSION!r}"
+        )
+    components = set(toolchain.get("components", []))
+    if components != RUST_COMPONENTS:
+        errors.append(
+            "rust-toolchain.toml components are "
+            f"{sorted(components)!r}; expected {sorted(RUST_COMPONENTS)!r}"
+        )
+
+    for manifest in RUST_VERSION_MANIFESTS:
+        cargo = tomllib.loads(
+            (REPOSITORY_ROOT / manifest).read_text(encoding="utf-8")
+        )
+        rust_version = cargo.get("workspace", {}).get("package", {}).get("rust-version")
+        if rust_version != RUST_VERSION:
+            errors.append(
+                f"{manifest} declares rust-version {rust_version!r}; "
+                f"expected {RUST_VERSION!r}"
+            )
+
+    tollgate = tomllib.loads(
+        (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
+    )
+    ci_steps = [step for step in tollgate.get("step", []) if step.get("name") == "ci"]
+    if len(ci_steps) != 1:
+        errors.append(f"Tollgate defines {len(ci_steps)} CI steps named 'ci'; expected one")
+    elif ci_steps[0].get("run") != TOLLGATE_CI_COMMAND:
+        errors.append(
+            f"Tollgate invokes {ci_steps[0].get('run')!r}; "
+            f"expected {TOLLGATE_CI_COMMAND!r}"
+        )
+    return errors
+
+
+def command_output(command: list[str]) -> str:
+    """Run a version probe and return its stripped standard output."""
+    return subprocess.run(
+        command,
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def sample_names() -> list[str]:
@@ -302,8 +417,10 @@ def ci_environment() -> dict[str, str | int]:
     editor_metadata = editor.stat()
     commands = {
         "cargo": ["cargo", "--version"],
+        "clippy": ["cargo", "clippy", "--version"],
         "ffmpeg": [os.environ.get("BATTLEMENT_FFMPEG", "ffmpeg"), "-version"],
         "rustc": ["rustc", "-Vv"],
+        "rustfmt": ["cargo", "fmt", "--version"],
     }
     identity: dict[str, str | int] = {
         "hostSystem": platform.system(),
@@ -851,6 +968,7 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
 
 def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     """Run the configured continuous-integration suite."""
+    run_step("Check Rust toolchain", function=check_rust_toolchain)
     run_ci(full, use_ci_cache, ditto)
 
 

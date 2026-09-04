@@ -26,6 +26,8 @@ SPEC.loader.exec_module(ci)
 
 def main() -> None:
     assert "samples" in ci.ROOT_RUST_INPUTS
+    _verify_rust_configuration()
+    _verify_active_rust_toolchain_guard()
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
         _verify_cargo_target_isolation(root)
@@ -229,7 +231,9 @@ def _verify_ditto_gate_contract() -> None:
         (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
     )
     assert [step["name"] for step in config["step"]] == ["ci"]
-    assert config["step"][0]["run"] == "python3 scripts/ci.py --full"
+    assert config["step"][0]["run"] == (
+        "rustup run 1.98.1 python3 scripts/ci.py --full"
+    )
     with patch.object(sys, "argv", ["ci.py", "--full"]):
         assert ci.parse_arguments().ditto is False
     with patch.object(sys, "argv", ["ci.py", "--ditto"]):
@@ -253,6 +257,67 @@ def _verify_ditto_gate_contract() -> None:
     commands = [command for _name, command, _environment in steps]
     assert commands == [[sys.executable, "scripts/ditto_ci.py", "gate"]]
     assert steps[0][2]["DITTO_CI_REUSABLE_BUILD_SECONDS"] == "1.25"
+
+
+def _verify_rust_configuration() -> None:
+    assert ci.rust_configuration_errors() == []
+    original_root = ci.REPOSITORY_ROOT
+    with tempfile.TemporaryDirectory(prefix="battlement-rust-config-test.") as temporary:
+        root = Path(temporary)
+        (root / ".tollgate").mkdir()
+        (root / "rust-toolchain.toml").write_text(
+            '[toolchain]\nchannel = "1.98.1"\ncomponents = ["clippy", "rustfmt"]\n'
+        )
+        (root / "Cargo.toml").write_text(
+            '[workspace]\n[workspace.package]\nrust-version = "1.98.1"\n'
+        )
+        fixture = root / "crates/battlement-reactant/tests/fixtures/asset-registry"
+        fixture.mkdir(parents=True)
+        (fixture / "Cargo.toml").write_text(
+            '[workspace]\n[workspace.package]\nrust-version = "1.98.1"\n'
+        )
+        (root / ".tollgate/config.toml").write_text(
+            '[[step]]\nname = "ci"\n'
+            'run = "rustup run 1.99.0 python3 scripts/ci.py --full"\n'
+        )
+        try:
+            ci.REPOSITORY_ROOT = root
+            errors = ci.rust_configuration_errors()
+        finally:
+            ci.REPOSITORY_ROOT = original_root
+    assert errors == [
+        "Tollgate invokes 'rustup run 1.99.0 python3 scripts/ci.py --full'; "
+        "expected 'rustup run 1.98.1 python3 scripts/ci.py --full'"
+    ]
+
+
+def _verify_active_rust_toolchain_guard() -> None:
+    outputs = {
+        ("rustup", "show", "active-toolchain"): "1.99.0-test-target (override)",
+        ("rustc", "--version"): "rustc 1.98.1 (48a229cea 2026-09-01)",
+        ("cargo", "--version"): "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+        ("cargo", "clippy", "--version"): (
+            "clippy 0.1.98 (48a229ceae 2026-09-01)"
+        ),
+        ("cargo", "fmt", "--version"): (
+            "rustfmt 1.9.0-stable (48a229ceae 2026-09-01)"
+        ),
+        ("rustc", "-Vv"): (
+            "rustc 1.98.1 (48a229cea 2026-09-01)\n"
+            "commit-hash: 48a229ceae2c56c759ab0e8d56ebd5e4d7018d57"
+        ),
+    }
+    with patch.object(
+        ci,
+        "command_output",
+        side_effect=lambda command: outputs[tuple(command)],
+    ):
+        try:
+            ci.check_rust_toolchain()
+        except RuntimeError as error:
+            assert "active rustup toolchain is '1.99.0-test-target'" in str(error)
+        else:
+            raise AssertionError("mismatched active Rust toolchain was accepted")
 
 
 def _verify_unity_project_regeneration(root: Path) -> None:

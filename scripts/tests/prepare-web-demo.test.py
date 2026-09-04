@@ -74,7 +74,7 @@ def create_repository(root: Path) -> None:
     for path, contents in (
         ("Cargo.toml", "[workspace]\nmembers = []\n"),
         ("Cargo.lock", ""),
-        ("rust-toolchain.toml", "[toolchain]\nchannel = \"stable\"\n"),
+        ("rust-toolchain.toml", "[toolchain]\nchannel = \"1.98.1\"\n"),
         ("Packages/com.battlement.client/package.json", "{}\n"),
         ("crates/example/lib.rs", ""),
         ("web/init.js", ""),

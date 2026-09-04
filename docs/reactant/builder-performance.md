@@ -13,8 +13,8 @@ Related: [builder API](../../crates/battlement-builder/README.md),
 
 ## Conditions and limits
 
-- Apple M5 Max, aarch64 macOS 26.5.2; Rust 1.94.0
-  (`4a4ef493e3a1488c6e321570238084b38948f6db`), LLVM 21.1.8.
+- Apple M5 Max, aarch64 macOS 26.5.2; compiler commit
+  `4a4ef493e3a1488c6e321570238084b38948f6db`, LLVM 21.1.8.
 - Ten observations per sample, mode, and edit, with warm dependencies. Other
   task compilation was paused during the timed runs. These are local timings,
   not a wall-clock CI gate.
