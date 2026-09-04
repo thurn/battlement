@@ -59,14 +59,13 @@ impl Component for Screen {
   fn render(&self) -> impl Render {
     let control = use_resource_control(&self.resource);
     View::new().child((
-      Button::new(trox::assert_localized("Other")).on_click(|| {}),
-      Button::new(trox::assert_localized("Refetch"))
+      Button::new(trox::ls("Other")).on_click(|| {}),
+      Button::new(trox::ls("Refetch"))
         .name("refetch")
         .on_click(move || control.invalidate(())),
-      Suspense::new(Label::new(trox::assert_localized("Loading")).name("status")).child(
-        use_resource(&self.resource, ()).then(|value| {
-          Label::new(trox::assert_localized(format!("Value {value}"))).name("status")
-        }),
+      Suspense::new(Label::new(trox::ls("Loading")).name("status")).child(
+        use_resource(&self.resource, ())
+          .then(|value| Label::new(trox::ls(format!("Value {value}"))).name("status")),
       ),
     ))
   }

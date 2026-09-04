@@ -894,9 +894,9 @@ dependencies = [
 
 [[package]]
 name = "trox"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e859d0d0a2b23817d3ba11f9fb1e95a36b552af8f358515f9554e105752295e"
+checksum = "5fe767ba6923adf9f1c70f509e85a2780d90bdd68e88e39022522ec6d270e603"
 dependencies = [
  "blake3",
  "data-encoding",

@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::setting_row::SettingRow;
 use battlement::{Color, Style, TextAnchor};
@@ -59,7 +59,7 @@ impl Component for SettingRowHarness {
 }
 
 fn value(text: &'static str) -> Label {
-  accessibility::static_label(assert_localized(text)).style(
+  accessibility::static_label(ls(text)).style(
     Style::new()
       .font_size(40)
       .color(Color::rgb(0.75, 0.86, 0.97))
@@ -68,5 +68,5 @@ fn value(text: &'static str) -> Label {
 }
 
 fn label(text: &'static str) -> TextElement {
-  accessibility::static_text(assert_localized(text))
+  accessibility::static_text(ls(text))
 }

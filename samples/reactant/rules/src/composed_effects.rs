@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{
@@ -84,7 +84,7 @@ impl Component for ComposedEffects {
           .style(title()),
         )
         .child(
-          Label::new(assert_localized(format!(
+          Label::new(ls(format!(
             "{} · ROUTE {} · BURST {} · RECONNECTS {}",
             reduced_name(self.state.reduced_motion),
             self.state.route + 1,
@@ -161,7 +161,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
     "stagger · flash · retained exit",
   )
   .child(
-    Button::new(assert_localized(options[state.selected]))
+    Button::new(ls(options[state.selected]))
       .style(probe())
       .hover_style(
         StyleTarget::new()
@@ -184,7 +184,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
             .into_iter()
             .enumerate()
             .map(|(index, label)| {
-              Button::new(assert_localized(label))
+              Button::new(ls(label))
                 .key(label)
                 .name(format!("composed-option-{index}"))
                 .style(option())
@@ -284,7 +284,7 @@ fn routes(state: &ComposedEffectsState) -> View {
             View::new()
               .key(index)
               .style(tab())
-              .child(Label::new(assert_localized(format!("0{}", index + 1))))
+              .child(Label::new(ls(format!("0{}", index + 1))))
               .child((index == state.route).then(|| {
                 View::new()
                   .layout_id("composed-active-tab")
@@ -327,10 +327,7 @@ fn routes(state: &ComposedEffectsState) -> View {
                 1.35,
               )),
           )
-          .child(Label::new(assert_localized(format!(
-            "ROUTE {} ACTIVE",
-            state.route + 1
-          )))),
+          .child(Label::new(ls(format!("ROUTE {} ACTIVE", state.route + 1)))),
       )),
   )
 }
@@ -399,7 +396,7 @@ fn interactions(state: &ComposedEffectsState) -> View {
     }),
   )
   .child(
-    Button::new(assert_localized(format!("SLIDER  {}%", state.slider * 25)))
+    Button::new(ls(format!("SLIDER  {}%", state.slider * 25)))
       .name("composed-slider")
       .style(slider())
       .on_click(|game: &mut Game| {
@@ -462,8 +459,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str) -> 
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(assert_localized(heading)).style(specimen_title()))
-    .child(Label::new(assert_localized(detail)).style(specimen_detail()))
+    .child(Label::new(ls(heading)).style(specimen_title()))
+    .child(Label::new(ls(detail)).style(specimen_detail()))
 }
 
 fn action(
@@ -471,7 +468,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

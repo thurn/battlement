@@ -83,7 +83,7 @@ struct FailingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(trox::assert_localized(self.text.clone()))
+    battlement_reactant::host::Label::new(trox::ls(self.text.clone()))
   }
 }
 
@@ -111,7 +111,7 @@ where
 impl Component for FailingBadge {
   fn render(&self) -> impl Render {
     assert!(!self.fail.get(), "fixture render failed");
-    battlement_reactant::host::Label::new(trox::assert_localized("fallible"))
+    battlement_reactant::host::Label::new(trox::ls("fallible"))
   }
 }
 
@@ -225,7 +225,7 @@ fn fake_client_applies_the_complete_rendered_session_hierarchy() {
     calls: Rc::clone(&calls),
   });
   let first_handle = reactant.register_root(first.clone(), |game: &Game| {
-    battlement_reactant::host::Label::new(trox::assert_localized(game.label.clone()))
+    battlement_reactant::host::Label::new(trox::ls(game.label.clone()))
   });
   let second_handle = reactant.register_root(second.clone(), |_game: &Game| ());
   assert_ne!(first_handle, second_handle);
@@ -357,7 +357,7 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
   let root = document(60, 61);
   let mut active = runtime_support::reactant::<()>(idle_spawner());
   active.register_root(root.clone(), |_| {
-    battlement_reactant::host::Label::new(trox::assert_localized("active"))
+    battlement_reactant::host::Label::new(trox::ls("active"))
   });
   let (first_snapshot, first_commit) = active
     .begin_session(&mut ())
@@ -445,9 +445,7 @@ fn nested_host_composition_renders_and_refreshes_on_a_normal_stack() {
         calls: Rc::new(Cell::new(0)),
       });
       reactant.register_root(document.clone(), |value: &u32| {
-        let mut content = Node::new(Label::new(trox::assert_localized(format!(
-          "Nested value: {value}"
-        ))));
+        let mut content = Node::new(Label::new(trox::ls(format!("Nested value: {value}"))));
         for _ in 0..24 {
           content = Node::new(
             View::new()
@@ -533,30 +531,22 @@ fn structural_view(game: &StructuralGame) -> impl Render + use<> {
       game
         .optional
         .get()
-        .then(|| battlement_reactant::host::Label::new(trox::assert_localized("optional"))),
-      (battlement_reactant::host::Label::new(
-        trox::assert_localized("tuple"),
-      ),),
+        .then(|| battlement_reactant::host::Label::new(trox::ls("optional"))),
+      (battlement_reactant::host::Label::new(trox::ls("tuple")),),
       [
-        battlement_reactant::host::Label::new(trox::assert_localized("array-a")),
-        battlement_reactant::host::Label::new(trox::assert_localized("array-b")),
+        battlement_reactant::host::Label::new(trox::ls("array-a")),
+        battlement_reactant::host::Label::new(trox::ls("array-b")),
       ],
-      vec![battlement_reactant::host::Label::new(
-        trox::assert_localized("vector"),
-      )],
-      Rc::new(battlement_reactant::host::Label::new(
-        trox::assert_localized("rc"),
-      )),
+      vec![battlement_reactant::host::Label::new(trox::ls("vector"))],
+      Rc::new(battlement_reactant::host::Label::new(trox::ls("rc"))),
     ),
     (
       Fragment::new((
-        battlement_reactant::host::Label::new(trox::assert_localized("fragment")),
+        battlement_reactant::host::Label::new(trox::ls("fragment")),
         (),
       )),
       structural_branch(game.left_branch.get()),
-      Node::new(battlement_reactant::host::Label::new(
-        trox::assert_localized("node"),
-      )),
+      Node::new(battlement_reactant::host::Label::new(trox::ls("node"))),
       rc_branch(game.rc_branch.get()),
       nested_node(game.nested_node.get()),
       Fragment::new((
@@ -582,12 +572,12 @@ fn structural_branch(
   left: bool,
 ) -> Either<battlement_reactant::host::Label, Fragment<battlement_reactant::host::Label>> {
   if left {
-    Either::left(battlement_reactant::host::Label::new(
-      trox::assert_localized("either-left"),
-    ))
+    Either::left(battlement_reactant::host::Label::new(trox::ls(
+      "either-left",
+    )))
   } else {
     Either::right(Fragment::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("either-right"),
+      trox::ls("either-right"),
     )))
   }
 }
@@ -596,25 +586,23 @@ fn rc_branch(
   left: bool,
 ) -> Either<Rc<battlement_reactant::host::Label>, battlement_reactant::host::Label> {
   if left {
-    Either::left(Rc::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("rc-branch"),
-    )))
+    Either::left(Rc::new(battlement_reactant::host::Label::new(trox::ls(
+      "rc-branch",
+    ))))
   } else {
-    Either::right(battlement_reactant::host::Label::new(
-      trox::assert_localized("rc-branch"),
-    ))
+    Either::right(battlement_reactant::host::Label::new(trox::ls("rc-branch")))
   }
 }
 
 fn nested_node(nested: bool) -> Node {
   if nested {
-    Node::new(Node::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("nested-node"),
-    )))
+    Node::new(Node::new(battlement_reactant::host::Label::new(trox::ls(
+      "nested-node",
+    ))))
   } else {
-    Node::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("nested-node"),
-    ))
+    Node::new(battlement_reactant::host::Label::new(trox::ls(
+      "nested-node",
+    )))
   }
 }
 
@@ -626,11 +614,11 @@ fn wrapped_fragment(
 > {
   if wrapped {
     Either::left(Fragment::new(Rc::new(
-      battlement_reactant::host::Label::new(trox::assert_localized("wrapped-fragment")),
+      battlement_reactant::host::Label::new(trox::ls("wrapped-fragment")),
     )))
   } else {
     Either::right(Fragment::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("wrapped-fragment"),
+      trox::ls("wrapped-fragment"),
     )))
   }
 }

@@ -42,18 +42,15 @@ impl Component for ButtonInteractionContract {
   fn render(&self) -> impl Render {
     let behavior = use_button(
       ButtonOptions::new()
-        .name(trox::assert_localized("Action"))
+        .name(trox::ls("Action"))
         .on_press(|| {}),
     );
     let state = behavior.state;
-    Button::new(trox::assert_localized(format!(
-      "focus-visible={}",
-      state.focus_visible
-    )))
-    .behavior(behavior)
-    .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
-      events.push(event.kind);
-    })
+    Button::new(trox::ls(format!("focus-visible={}", state.focus_visible)))
+      .behavior(behavior)
+      .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+        events.push(event.kind);
+      })
   }
 }
 
@@ -205,7 +202,7 @@ impl Component for ForwardingCard {
     View::new()
       .name("forwarded-host")
       .motion(self.motion.clone())
-      .child(Label::new(trox::assert_localized("content")))
+      .child(Label::new(trox::ls("content")))
       .class("after-motion")
   }
 }
@@ -261,13 +258,13 @@ fn host_methods_interleave_without_restarting_or_adding_a_host() {
         .class("card")
         .style(Style::new().width(120.0))
         .transition(Transition::tween().duration_secs(1.0))
-        .child(Label::new(trox::assert_localized("same")))
+        .child(Label::new(trox::ls("same")))
     } else {
       View::new()
         .style(Style::new().width(120.0))
         .class("card")
         .transition(Transition::tween().duration_secs(1.0))
-        .child(Label::new(trox::assert_localized("same")))
+        .child(Label::new(trox::ls("same")))
         .name("probe")
         .initial(StyleTarget::new().opacity(0.0))
         .animate(StyleTarget::new().opacity(1.0))

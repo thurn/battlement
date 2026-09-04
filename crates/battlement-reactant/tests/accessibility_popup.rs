@@ -50,24 +50,20 @@ impl Component for Fixture {
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
-      Label::new(trox::assert_localized(" Quality "))
+      Label::new(trox::ls(" Quality "))
         .element_ref(title)
         .semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(trox::assert_localized(" Quality ")))
+            .name(AccessibleName::text(trox::ls(" Quality ")))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
-      Button::new(trox::assert_localized(""))
-        .behavior(behavior)
-        .child(
-          Label::new(trox::assert_localized(selected))
-            .element_ref(value)
-            .semantic(
-              SemanticProps::new(SemanticRole::StaticText)
-                .name(AccessibleName::text(trox::assert_localized(selected)))
-                .visibility(SemanticVisibility::NameSourceOnly),
-            ),
+      Button::new(trox::ls("")).behavior(behavior).child(
+        Label::new(trox::ls(selected)).element_ref(value).semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::text(trox::ls(selected)))
+            .visibility(SemanticVisibility::NameSourceOnly),
         ),
+      ),
     ))
   }
 }
@@ -137,7 +133,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
       move |_game: &Game| {
         let mut behavior = accessibility_popup::use_popup_button(
           PopupButtonOptions::new()
-            .name(AccessibleName::text(trox::assert_localized("Options")))
+            .name(AccessibleName::text(trox::ls("Options")))
             .popup(PopupKind::ListBox)
             .expanded(false)
             .on_press(|_: &mut Game| {}),
@@ -145,7 +141,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;
-        Button::new(trox::assert_localized("Options")).behavior(behavior)
+        Button::new(trox::ls("Options")).behavior(behavior)
       },
     );
     assert!(

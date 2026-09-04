@@ -95,7 +95,7 @@ impl Component for GeometryOnHover {
     View::new()
       .element_ref(target)
       .on_hover_start(|hovered: &mut bool, _| *hovered = true)
-      .child(Label::new(trox::assert_localized(if self.hovered {
+      .child(Label::new(trox::ls(if self.hovered {
         "Hover observed"
       } else {
         "Waiting for hover"

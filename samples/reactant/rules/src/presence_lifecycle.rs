@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{
@@ -172,7 +172,7 @@ impl Component for PresenceLifecycle {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "{mode_name}  ·  ROUTE {}  ·  {}  ·  EXIT WAVES {}  ·  RECONNECTS {}",
           self.state.route,
           if self.state.manual_hold.get() {
@@ -213,7 +213,7 @@ impl Component for PresenceLifecycle {
         ),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "MOUNTS {}  ·  UNMOUNTS {}  ·  {}",
           record.mounts,
           record.unmounts,
@@ -227,7 +227,7 @@ impl Component for PresenceLifecycle {
         .style(record_style()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "ORDERED EVENTS\n{}\n{}",
           record.events.join("  ›  "),
           self.state.events.join("  ›  "),
@@ -293,11 +293,9 @@ impl Component for RetainedPanel {
               .push("panel animation cancelled".to_owned());
           }),
       )
+      .child(Label::new(ls(format!("ROUTED PANEL {}", self.route))).style(panel_title()))
       .child(
-        Label::new(assert_localized(format!("ROUTED PANEL {}", self.route))).style(panel_title()),
-      )
-      .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "RETAINED STATE {counter}  ·  {}",
           if presence.is_present() {
             "PRESENT"
@@ -366,7 +364,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

@@ -31,7 +31,7 @@ impl Component for Observed {
       },
       (screen, application, reduced_motion, effective_motion),
     );
-    Label::new(trox::assert_localized(format!(
+    Label::new(trox::ls(format!(
       "{}x{} {}",
       screen.width,
       screen.height,

@@ -20,19 +20,15 @@ impl Component for ToggleInfoFixture {
     let (info_clicks, set_info_clicks) = hooks::use_state(0_u32);
     View::new().child((
       ToggleControl::new()
-        .label(accessibility::name_source_text(trox::assert_localized(
-          "Screenshake",
-        )))
+        .label(accessibility::name_source_text(trox::ls("Screenshake")))
         .checked(true)
         .on_change(|_| {})
-        .aria_label(trox::assert_localized("Screen shake"))
+        .aria_label(trox::ls("Screen shake"))
         .with_info(true)
         .on_info_click(move || set_info_clicks.update(|count| count + 1))
         .row_height(190.0)
         .offset_y(-8.0),
-      accessibility::static_label(trox::assert_localized(format!(
-        "Info clicks: {info_clicks}"
-      ))),
+      accessibility::static_label(trox::ls(format!("Info clicks: {info_clicks}"))),
     ))
   }
 }

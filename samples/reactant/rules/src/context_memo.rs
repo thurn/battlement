@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Control, Game, design_system};
 use battlement_reactant::prelude::*;
@@ -121,7 +121,7 @@ impl Component for ContextMemo {
             move |game: &mut Game| unrelated_action(game),
           ))
           .child(
-            battlement_reactant::host::Label::new(assert_localized(unrelated))
+            battlement_reactant::host::Label::new(ls(unrelated))
               .name("context-unrelated-value")
               .style(design_system::context_counter()),
           ),
@@ -140,11 +140,10 @@ impl Component for ThemeCard {
       .name(format!("context-{}", self.scope.to_ascii_lowercase()))
       .style(design_system::context_card(color))
       .child(
-        battlement_reactant::host::Label::new(assert_localized(self.scope))
-          .style(design_system::context_scope()),
+        battlement_reactant::host::Label::new(ls(self.scope)).style(design_system::context_scope()),
       )
       .child(
-        battlement_reactant::host::Label::new(assert_localized(name))
+        battlement_reactant::host::Label::new(ls(name))
           .name("context-theme")
           .style(design_system::context_theme(color)),
       )

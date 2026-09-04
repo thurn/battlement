@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Control, Game, Interaction, control_state, design_system, interactive_button};
 use battlement::{LengthUnits, PickingMode, ScrollViewMode, ScrollerVisibility};
@@ -96,12 +96,8 @@ impl Component for EventsPortals {
                   .on_click(|game: &mut Game| game.event_trace.push("BUBBLE")),
               )
               .child(
-                battlement_reactant::host::Label::new(assert_localized(if self.compact {
-                  "v"
-                } else {
-                  ">"
-                }))
-                .style(design_system::portal_connector(self.compact)),
+                battlement_reactant::host::Label::new(ls(if self.compact { "v" } else { ">" }))
+                  .style(design_system::portal_connector(self.compact)),
               ),
           ),
       )
@@ -147,12 +143,8 @@ impl EventsPortals {
             )),
           )
           .child(
-            battlement_reactant::host::Label::new(assert_localized(if self.compact {
-              "v"
-            } else {
-              ">"
-            }))
-            .style(design_system::event_arrow(self.compact)),
+            battlement_reactant::host::Label::new(ls(if self.compact { "v" } else { ">" }))
+              .style(design_system::event_arrow(self.compact)),
           )
           .child(
             battlement_reactant::host::Label::new(tx(
@@ -166,12 +158,8 @@ impl EventsPortals {
             )),
           )
           .child(
-            battlement_reactant::host::Label::new(assert_localized(if self.compact {
-              "v"
-            } else {
-              ">"
-            }))
-            .style(design_system::event_arrow(self.compact)),
+            battlement_reactant::host::Label::new(ls(if self.compact { "v" } else { ">" }))
+              .style(design_system::event_arrow(self.compact)),
           )
           .child(
             battlement_reactant::host::Label::new(tx(

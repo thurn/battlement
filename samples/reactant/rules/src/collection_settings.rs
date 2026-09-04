@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, layout_gallery_styles as styles};
 use battlement::{Command, CurrentPage, FlexDirection};
@@ -45,7 +45,7 @@ impl Component for CollectionSettings {
         "User-facing product copy in the Reactant sample.",
       ))
       .style(styles::section_heading()),
-      Label::new(assert_localized(status)).semantic(use_static_text(assert_localized(status))),
+      Label::new(ls(status)).semantic(use_static_text(ls(status))),
       Flex::new()
         .direction(FlexDirection::Row)
         .gap(8.0)
@@ -58,14 +58,13 @@ impl Component for CollectionSettings {
             .into_iter()
             .enumerate()
             .map(|(index, name)| {
-              let mut page =
-                use_button(ButtonOptions::new().name(assert_localized(name)).on_press(
-                  move |game: &mut Game| {
-                    game.layout_gallery.collection_page = index;
-                  },
-                ));
+              let mut page = use_button(ButtonOptions::new().name(ls(name)).on_press(
+                move |game: &mut Game| {
+                  game.layout_gallery.collection_page = index;
+                },
+              ));
               page.semantic.state.current = (self.page == index).then_some(CurrentPage::Page);
-              Button::new(assert_localized(name)).behavior(page)
+              Button::new(ls(name)).behavior(page)
             })
             .collect::<Vec<_>>(),
         ),
@@ -89,14 +88,14 @@ impl Component for CollectionSettings {
                 .map(|(index, name)| {
                   let option = collections::use_option(
                     ChoiceOptions::new()
-                      .name(assert_localized(name))
+                      .name(ls(name))
                       .selected(self.choice == index)
                       .is_disabled(index == 2)
                       .on_select(move |game: &mut Game| {
                         game.layout_gallery.collection_choice = index;
                       }),
                   );
-                  Button::new(assert_localized(name)).behavior(option)
+                  Button::new(ls(name)).behavior(option)
                 })
                 .collect::<Vec<_>>(),
             ),

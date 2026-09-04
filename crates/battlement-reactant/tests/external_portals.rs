@@ -46,7 +46,7 @@ impl Component for StatefulLabel {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(trox::assert_localized(format!("state {value}")))
+    battlement_reactant::host::Label::new(trox::ls(format!("state {value}")))
   }
 }
 
@@ -64,7 +64,7 @@ fn external_portals_append_after_the_prefix_and_enter_events_once() {
       create_portal(
         battlement_reactant::host::View::new()
           .child(create_portal(
-            battlement_reactant::host::Button::new(trox::assert_localized("action"))
+            battlement_reactant::host::Button::new(trox::ls("action"))
               .on_click(|game: &mut Game| game.log.push("target")),
             portal_internal.clone(),
           ))
@@ -289,7 +289,7 @@ fn missing_rebind_is_transactional() {
   let portal_target = target.clone();
   reactant.register_root(source.clone(), move |_: &Game| {
     create_portal(
-      battlement_reactant::host::Label::new(trox::assert_localized("portal")),
+      battlement_reactant::host::Label::new(trox::ls("portal")),
       portal_target.clone(),
     )
   });

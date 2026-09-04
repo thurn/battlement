@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
@@ -58,7 +58,7 @@ impl Component for StylesDecorations {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "CHECKPOINT {:>4.0}%  ·  BURST GENERATION {}  ·  {}",
           elapsed * 100.0,
           self.state.burst,
@@ -360,7 +360,7 @@ fn paint_probe(
 ) -> View {
   View::new()
     .style(paint_cell())
-    .child(Label::new(assert_localized(label)).style(paint_label()))
+    .child(Label::new(ls(label)).style(paint_label()))
     .child(
       View::new()
         .name(name)
@@ -378,8 +378,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str) -> 
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(assert_localized(heading)).style(specimen_title()))
-    .child(Label::new(assert_localized(detail)).style(specimen_detail()))
+    .child(Label::new(ls(heading)).style(specimen_title()))
+    .child(Label::new(ls(detail)).style(specimen_detail()))
 }
 
 fn action(
@@ -387,7 +387,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

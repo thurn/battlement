@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow, Style};
@@ -96,7 +96,7 @@ impl Component for MotionPerformance {
       )
       .child(controls(&self.state))
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "{} · PHASE {} · 5S WARM-UP + 30S SAMPLE",
           scenario_name(self.state.scenario),
           self.state.phase,
@@ -200,8 +200,8 @@ fn counter_strip(structure: PerformanceStructure) -> View {
 fn counter(label: &'static str, value: impl ToString) -> View {
   View::new()
     .style(counter_style())
-    .child(Label::new(assert_localized(label)).style(counter_label()))
-    .child(Label::new(assert_localized(value.to_string())).style(counter_value()))
+    .child(Label::new(ls(label)).style(counter_label()))
+    .child(Label::new(ls(value.to_string())).style(counter_value()))
 }
 
 fn workload(scenario: PerformanceScenario, phase: u32) -> View {
@@ -416,7 +416,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

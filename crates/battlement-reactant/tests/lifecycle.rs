@@ -104,7 +104,7 @@ impl Component for Cleanup {
       },
       (),
     );
-    battlement_reactant::host::Label::new(trox::assert_localized(name))
+    battlement_reactant::host::Label::new(trox::ls(name))
   }
 }
 
@@ -219,7 +219,7 @@ fn active_shutdown_destroys_native_hosts_and_failed_cleanup_emits_nothing() {
   let document = self::document();
   let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
-    battlement_reactant::host::Label::new(trox::assert_localized("mounted"))
+    battlement_reactant::host::Label::new(trox::ls("mounted"))
   });
   let initial = reactant
     .begin_session(&mut ())
@@ -324,7 +324,7 @@ fn exercise_entry(state: FixtureState, entry: Entry) {
     }
     Entry::RegisterRoot => {
       fixture.reactant.register_root(self::document(), |_| {
-        battlement_reactant::host::Label::new(trox::assert_localized("additional"))
+        battlement_reactant::host::Label::new(trox::ls("additional"))
       });
     }
     Entry::Shutdown => {
@@ -368,9 +368,7 @@ fn fixture(state: FixtureState) -> Fixture {
   let external_target = reactant.register_external_container(target_id);
   reactant.register_root(document.clone(), |game: &Game| {
     assert!(!game.panic_render, "render failed");
-    Ok::<_, DomainError>(battlement_reactant::host::Label::new(
-      trox::assert_localized("stable"),
-    ))
+    Ok::<_, DomainError>(battlement_reactant::host::Label::new(trox::ls("stable")))
   });
   let mut fixture = Fixture {
     document,

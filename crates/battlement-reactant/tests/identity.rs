@@ -51,14 +51,14 @@ struct CountingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(trox::assert_localized(format!("Badge {}", self.number)))
+    battlement_reactant::host::Label::new(trox::ls(format!("Badge {}", self.number)))
   }
 }
 
 impl Component for CountingBadge {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
-    battlement_reactant::host::Label::new(trox::assert_localized("counted"))
+    battlement_reactant::host::Label::new(trox::ls("counted"))
   }
 }
 
@@ -199,8 +199,8 @@ fn keys_with_different_types_are_distinct() {
   let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
     (
-      battlement_reactant::host::Label::new(trox::assert_localized("byte")).key(1_u8),
-      battlement_reactant::host::Label::new(trox::assert_localized("word")).key(1_u16),
+      battlement_reactant::host::Label::new(trox::ls("byte")).key(1_u8),
+      battlement_reactant::host::Label::new(trox::ls("word")).key(1_u16),
     )
   });
   let mut game = ();
@@ -245,8 +245,7 @@ fn keyed_labels(game: &KeyedGame) -> impl Render + use<> {
     .order
     .iter()
     .map(|number| {
-      battlement_reactant::host::Label::new(trox::assert_localized(format!("Label {number}")))
-        .key(*number)
+      battlement_reactant::host::Label::new(trox::ls(format!("Label {number}"))).key(*number)
     })
     .collect::<Vec<_>>()
 }
@@ -265,8 +264,8 @@ fn keyed_fragments(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       Fragment::new((
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}a"))),
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}b"))),
+        battlement_reactant::host::Label::new(trox::ls(format!("{number}a"))),
+        battlement_reactant::host::Label::new(trox::ls(format!("{number}b"))),
       ))
       .key(*number)
     })
@@ -279,8 +278,8 @@ fn keyed_ranges(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       (
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}a"))),
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("{number}b"))),
+        battlement_reactant::host::Label::new(trox::ls(format!("{number}a"))),
+        battlement_reactant::host::Label::new(trox::ls(format!("{number}b"))),
       )
         .key(*number)
     })
@@ -304,35 +303,23 @@ fn optional_labels(game: &OptionalGame) -> impl Render + use<> {
   (
     game
       .visible
-      .then(|| battlement_reactant::host::Label::new(trox::assert_localized("optional"))),
-    battlement_reactant::host::Label::new(trox::assert_localized("tail")),
+      .then(|| battlement_reactant::host::Label::new(trox::ls("optional"))),
+    battlement_reactant::host::Label::new(trox::ls("tail")),
   )
 }
 
 fn mixed_labels(game: &MixedGame) -> impl Render + use<> {
   if game.keyed_first {
     vec![
-      Either::left(
-        battlement_reactant::host::Label::new(trox::assert_localized("keyed")).key(7_u8),
-      ),
-      Either::right(battlement_reactant::host::Label::new(
-        trox::assert_localized("first"),
-      )),
-      Either::right(battlement_reactant::host::Label::new(
-        trox::assert_localized("last"),
-      )),
+      Either::left(battlement_reactant::host::Label::new(trox::ls("keyed")).key(7_u8)),
+      Either::right(battlement_reactant::host::Label::new(trox::ls("first"))),
+      Either::right(battlement_reactant::host::Label::new(trox::ls("last"))),
     ]
   } else {
     vec![
-      Either::right(battlement_reactant::host::Label::new(
-        trox::assert_localized("first"),
-      )),
-      Either::left(
-        battlement_reactant::host::Label::new(trox::assert_localized("keyed")).key(7_u8),
-      ),
-      Either::right(battlement_reactant::host::Label::new(
-        trox::assert_localized("last"),
-      )),
+      Either::right(battlement_reactant::host::Label::new(trox::ls("first"))),
+      Either::left(battlement_reactant::host::Label::new(trox::ls("keyed")).key(7_u8)),
+      Either::right(battlement_reactant::host::Label::new(trox::ls("last"))),
     ]
   }
 }

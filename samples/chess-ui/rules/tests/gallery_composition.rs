@@ -16,9 +16,9 @@ impl Component for Counter {
   fn render(&self) -> impl Render {
     let (value, set_value) = hooks::use_state(self.initial);
     (
-      Label::new(trox::assert_localized(value.to_string())).name("counter"),
+      Label::new(trox::ls(value.to_string())).name("counter"),
       ReviewButton::new()
-        .label(trox::assert_localized("Increment"))
+        .label(trox::ls("Increment"))
         .name("increment")
         .on_press(move || set_value.update(|old| old + 1)),
     )
@@ -30,13 +30,13 @@ fn configured_component_values_keep_state_until_their_page_is_selected_again() {
   let gallery = Gallery::new()
     .page(
       ReviewPage::new()
-        .title(trox::assert_localized("Counter"))
+        .title(trox::ls("Counter"))
         .child(Counter::new().initial(7)),
     )
     .page(
       ReviewPage::new()
-        .title(trox::assert_localized("Greeting"))
-        .child(Label::new(trox::assert_localized("Welcome")).name("greeting")),
+        .title(trox::ls("Greeting"))
+        .child(Label::new(trox::ls("Welcome")).name("greeting")),
     );
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("gallery/content");

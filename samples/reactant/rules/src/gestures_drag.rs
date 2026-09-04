@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{
@@ -121,7 +121,7 @@ impl Component for GesturesDrag {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "DEVICE {} · {} · CAPTURE + COALESCING ACTIVE",
           device_name(self.state.device),
           self.state.boundary,
@@ -133,12 +133,9 @@ impl Component for GesturesDrag {
       .child(drag_gallery)
       .child(value_gallery)
       .child(
-        Label::new(assert_localized(format!(
-          "TRACE  {}",
-          self.state.trace.join("  ›  ")
-        )))
-        .name("gestures-trace")
-        .style(trace()),
+        Label::new(ls(format!("TRACE  {}", self.state.trace.join("  ›  "))))
+          .name("gestures-trace")
+          .style(trace()),
       )
   }
 }
@@ -390,7 +387,7 @@ fn device_indicators(active: MotionPointerDevice) -> View {
   View::new().style(indicator_row()).child(Fragment::new(
     devices
       .into_iter()
-      .map(|(device, label)| Label::new(assert_localized(label)).style(indicator(device == active)))
+      .map(|(device, label)| Label::new(ls(label)).style(indicator(device == active)))
       .collect::<Vec<_>>(),
   ))
 }

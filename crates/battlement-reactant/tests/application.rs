@@ -31,9 +31,7 @@ impl Component for ActivityLabel {
       "inactive"
     };
     let label = format!("{} {activity}", self.0);
-    Label::new(trox::assert_localized(label.clone())).semantic(accessibility::use_static_text(
-      trox::assert_localized(label),
-    ))
+    Label::new(trox::ls(label.clone())).semantic(accessibility::use_static_text(trox::ls(label)))
   }
 }
 

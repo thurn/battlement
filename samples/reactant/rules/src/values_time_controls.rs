@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{
@@ -143,7 +143,7 @@ impl Component for ValuesTimeControls {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "SOURCE {} · AUDIO {} · BUFFER {} · LOOP {} · REPLACEMENTS {}",
           if self.state.source_high { "1.0" } else { "0.0" },
           if self.state.audio_playing {
@@ -276,12 +276,9 @@ impl Component for ValuesTimeControls {
           .child(sequence_probe("sequence-b", "SCOPE B")),
       )
       .child(
-        Label::new(assert_localized(format!(
-          "TRACE  {}",
-          self.state.trace.join("  ›  ")
-        )))
-        .name("values-trace")
-        .style(trace()),
+        Label::new(ls(format!("TRACE  {}", self.state.trace.join("  ›  "))))
+          .name("values-trace")
+          .style(trace()),
       )
       .child(action("GESTURES & DRAG", "gestures-navigation", |game| {
         game.screen = crate::Screen::GesturesDrag;
@@ -370,7 +367,7 @@ fn probe(label: &'static str, motion: StyleTarget) -> View {
   View::new()
     .style(probe_style())
     .animate(motion)
-    .child(Label::new(assert_localized(label)).style(probe_text()))
+    .child(Label::new(ls(label)).style(probe_text()))
 }
 
 fn sequence_probe(name: &'static str, label: &'static str) -> View {
@@ -378,7 +375,7 @@ fn sequence_probe(name: &'static str, label: &'static str) -> View {
     .name(name)
     .motion_name(name)
     .style(probe_style())
-    .child(Label::new(assert_localized(label)).style(probe_text()))
+    .child(Label::new(ls(label)).style(probe_text()))
 }
 
 fn action(
@@ -386,7 +383,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

@@ -1,6 +1,6 @@
 //! A closed selector specimen with a visible value and combined accessible name.
 
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{caret::Caret, setting_row::SettingRow};
 use battlement::{
@@ -105,7 +105,7 @@ impl Component for SelectControl {
                       ),
                   )
                   .child((
-                    accessibility::name_source_text(assert_localized(self.value.clone()))
+                    accessibility::name_source_text(ls(self.value.clone()))
                       .name("select-value")
                       .element_ref(value_label.reference()),
                     Caret::new().is_open(false),

@@ -211,8 +211,8 @@ fn view(game: &Game) -> impl Render + use<> {
   };
   battlement_reactant::host::View::new().child((
     replaceable,
-    battlement_reactant::host::Label::new(trox::assert_localized(game.left)),
-    battlement_reactant::host::Label::new(trox::assert_localized(game.right)),
+    battlement_reactant::host::Label::new(trox::ls(game.left)),
+    battlement_reactant::host::Label::new(trox::ls(game.right)),
   ))
 }
 

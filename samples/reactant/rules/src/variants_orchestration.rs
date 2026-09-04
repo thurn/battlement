@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
@@ -122,7 +122,7 @@ impl Component for VariantsOrchestration {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "ROUTE {}  ·  {} STAGGER  ·  CUSTOM +{}  ·  {} ms  ·  GENERATION {}",
           direction_name(self.state.direction),
           if self.state.reverse_stagger {
@@ -168,7 +168,7 @@ impl Component for VariantsOrchestration {
           )),
       )
       .child(
-        Label::new(assert_localized(orchestration_record(
+        Label::new(ls(orchestration_record(
           checkpoint,
           self.state.reverse_stagger,
         )))
@@ -198,9 +198,9 @@ impl Component for RouteChild {
       .initial(StyleTarget::new().opacity(0.25).scale(0.88))
       .variants(child_variants(self.index))
       .inherit_variants(!opted_out)
-      .child(Label::new(assert_localized(CHILD_NAMES[self.index as usize])).style(child_name()))
+      .child(Label::new(ls(CHILD_NAMES[self.index as usize])).style(child_name()))
       .child(
-        Label::new(assert_localized(state))
+        Label::new(ls(state))
           .name(format!("variant-child-{}-state", self.index))
           .style(child_state(opted_out)),
       )
@@ -369,7 +369,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

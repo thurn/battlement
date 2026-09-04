@@ -55,14 +55,13 @@ impl Component for MovingFixture {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
     let target = Node::new(
-      battlement_reactant::host::Button::new(trox::assert_localized("target"))
+      battlement_reactant::host::Button::new(trox::ls("target"))
         .name("target")
         .key(self.key)
         .element_ref(element_ref),
     );
-    let sibling = Node::new(
-      battlement_reactant::host::Label::new(trox::assert_localized("sibling")).key("sibling"),
-    );
+    let sibling =
+      Node::new(battlement_reactant::host::Label::new(trox::ls("sibling")).key("sibling"));
     let mut children = vec![target, sibling];
     if self.reversed {
       children.reverse();
@@ -82,14 +81,10 @@ impl Component for DuplicateFixture {
   fn render(&self) -> impl Render {
     let element_ref = use_element_ref();
     let second = self.duplicate.then(|| {
-      battlement_reactant::host::Button::new(trox::assert_localized("second"))
-        .element_ref(element_ref.clone())
+      battlement_reactant::host::Button::new(trox::ls("second")).element_ref(element_ref.clone())
     });
     battlement_reactant::host::View::new()
-      .child(
-        battlement_reactant::host::Button::new(trox::assert_localized("first"))
-          .element_ref(element_ref),
-      )
+      .child(battlement_reactant::host::Button::new(trox::ls("first")).element_ref(element_ref))
       .child(second)
   }
 }
@@ -111,8 +106,7 @@ impl Component for InvalidRenderFixture {
       }
       None => {}
     }
-    battlement_reactant::host::Button::new(trox::assert_localized("target"))
-      .element_ref(element_ref)
+    battlement_reactant::host::Button::new(trox::ls("target")).element_ref(element_ref)
   }
 }
 
@@ -133,8 +127,7 @@ impl Component for InvalidTargetFixture {
   fn render(&self) -> impl Render {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
-    battlement_reactant::host::Label::new(trox::assert_localized("not focusable"))
-      .element_ref(element_ref)
+    battlement_reactant::host::Label::new(trox::ls("not focusable")).element_ref(element_ref)
   }
 }
 
@@ -149,15 +142,10 @@ impl Component for ActionFixture {
     self.child.replace(Some(child.clone()));
     self.text.replace(Some(text.clone()));
     battlement_reactant::host::View::new()
-      .child(
-        battlement_reactant::host::Button::new(trox::assert_localized("focus")).element_ref(button),
-      )
+      .child(battlement_reactant::host::Button::new(trox::ls("focus")).element_ref(button))
       .child(
         battlement_reactant::host::ScrollView::new()
-          .child(
-            battlement_reactant::host::Label::new(trox::assert_localized("inside"))
-              .element_ref(child),
-          )
+          .child(battlement_reactant::host::Label::new(trox::ls("inside")).element_ref(child))
           .element_ref(scroll),
       )
       .child(
@@ -361,7 +349,7 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
   let mut second = runtime_support::reactant(IdleSpawner);
   second.register_root(second_document.clone(), move |_| {
     let foreign = foreign.clone();
-    battlement_reactant::host::Button::new(trox::assert_localized("cross"))
+    battlement_reactant::host::Button::new(trox::ls("cross"))
       .on_click(move |_game: &mut Game| foreign.focus())
   });
   let second_snapshot = self::begin(&mut second, &mut second_game, &second_document);

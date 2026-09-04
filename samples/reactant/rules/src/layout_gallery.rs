@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system, layout_gallery_styles as styles};
 use battlement::{
@@ -118,7 +118,7 @@ impl Component for LayoutGallery {
       .child(self.layers())
       .child(self.modal(modal_trigger, modal_initial))
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "TRACE {} · RECONNECTS {}",
           if self.state.trace.is_empty() {
             "READY".to_owned()
@@ -271,13 +271,13 @@ impl LayoutGallery {
                 let tab = use_tab(
                   &tab_list,
                   ChoiceOptions::new()
-                    .name(assert_localized(label))
+                    .name(ls(label))
                     .selected(index == self.state.active_tab)
                     .on_select(move |game: &mut Game| {
                       game.layout_gallery.active_tab = index;
                     }),
                 );
-                Button::new(assert_localized(label))
+                Button::new(ls(label))
                   .key(label)
                   .name(format!("layout-tab-{index}"))
                   .grid_item(GridItem::new().row(1).column(index as u32 + 1))
@@ -291,7 +291,7 @@ impl LayoutGallery {
               .into_iter()
               .enumerate()
               .map(|(index, label)| {
-                Label::new(assert_localized(format!("{label} SETTINGS")))
+                Label::new(ls(format!("{label} SETTINGS")))
                   .key(format!("{label}-panel"))
                   .name(format!("layout-tab-panel-{index}"))
                   .semantic(use_tab_panel(&tab_list, index == self.state.active_tab))
@@ -359,10 +359,7 @@ impl LayoutGallery {
         .minimum(0.0)
         .maximum(100.0)
         .step(10.0)
-        .value_text(Some(assert_localized(format!(
-          "{} percent",
-          self.state.volume
-        ))))
+        .value_text(Some(ls(format!("{} percent", self.state.volume))))
         .on_change(|game: &mut Game, value| game.layout_gallery.volume = value as u32),
     );
     let disclosure = use_disclosure(
@@ -490,15 +487,12 @@ impl LayoutGallery {
           ),
       )
       .child(
-        Button::new(assert_localized(format!(
-          "MUSIC VOLUME {}",
-          self.state.volume
-        )))
-        .name("layout-gallery-slider")
-        .behavior(slider),
+        Button::new(ls(format!("MUSIC VOLUME {}", self.state.volume)))
+          .name("layout-gallery-slider")
+          .behavior(slider),
       )
       .child(
-        Label::new(assert_localized(format!("LOADED {}%", self.state.volume)))
+        Label::new(ls(format!("LOADED {}%", self.state.volume)))
           .name("layout-gallery-progress")
           .semantic(use_progress(
             tx(
@@ -639,7 +633,7 @@ impl LayoutGallery {
                 (0..12)
                   .flat_map(|index| {
                     [
-                      Label::new(assert_localized(format!("INPUT {:02}", index + 1)))
+                      Label::new(ls(format!("INPUT {:02}", index + 1)))
                         .key((index, 0_u8))
                         .style(styles::table_cell(index % 2 == 0)),
                       Label::new(if index % 2 == 0 {
@@ -856,11 +850,11 @@ impl Component for StatefulSetting {
   fn render(&self) -> impl Render {
     let (revision, set_revision) = hooks::use_state(0_u32);
     Fragment::new((
-      Label::new(assert_localized(self.name))
+      Label::new(ls(self.name))
         .name(format!("layout-setting-{}", self.name.to_ascii_lowercase()))
         .grid_item(GridItem::new().row(self.row).column(1))
         .style(styles::setting_label(self.large_text)),
-      Button::new(assert_localized(format!("VALUE {revision}")))
+      Button::new(ls(format!("VALUE {revision}")))
         .name(format!(
           "layout-setting-value-{}",
           self.name.to_ascii_lowercase()

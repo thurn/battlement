@@ -131,19 +131,12 @@ impl Component for PairReads {
     let first = use_resource(&self.resource, 1);
     let second = use_resource(&self.resource, 2);
     let shared = use_resource(&self.resource, 1);
-    Suspense::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("pending"),
-    ))
-    .child((
-      first.then(|value| {
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("first:{value}")))
-      }),
-      second.then(|value| {
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("second:{value}")))
-      }),
-      shared.then(|value| {
-        battlement_reactant::host::Label::new(trox::assert_localized(format!("shared:{value}")))
-      }),
+    Suspense::new(battlement_reactant::host::Label::new(trox::ls("pending"))).child((
+      first.then(|value| battlement_reactant::host::Label::new(trox::ls(format!("first:{value}")))),
+      second
+        .then(|value| battlement_reactant::host::Label::new(trox::ls(format!("second:{value}")))),
+      shared
+        .then(|value| battlement_reactant::host::Label::new(trox::ls(format!("shared:{value}")))),
     ))
   }
 }
@@ -158,10 +151,10 @@ impl Component for StatusReads {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
     (
-      battlement_reactant::host::Label::new(trox::assert_localized(self::status_text(
+      battlement_reactant::host::Label::new(trox::ls(self::status_text(
         use_resource(&self.ready, 1).status(),
       ))),
-      battlement_reactant::host::Label::new(trox::assert_localized(self::status_text(
+      battlement_reactant::host::Label::new(trox::ls(self::status_text(
         use_resource(&self.failed, 2).status(),
       ))),
     )
@@ -170,36 +163,34 @@ impl Component for StatusReads {
 
 impl Component for FailedRead {
   fn render(&self) -> impl Render {
-    Suspense::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("pending"),
-    ))
-    .child(use_resource(&self.resource, 1).then(|value| {
-      battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
-    }))
+    Suspense::new(battlement_reactant::host::Label::new(trox::ls("pending"))).child(
+      use_resource(&self.resource, 1)
+        .then(|value| battlement_reactant::host::Label::new(trox::ls(value.to_string()))),
+    )
   }
 }
 
 impl Component for NestedRead {
   fn render(&self) -> impl Render {
-    Suspense::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("outer pending"),
-    ))
+    Suspense::new(battlement_reactant::host::Label::new(trox::ls(
+      "outer pending",
+    )))
     .child(
-      Suspense::new(battlement_reactant::host::Label::new(
-        trox::assert_localized("inner pending"),
-      ))
-      .child(use_resource(&self.resource, 1).then(|value| {
-        battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
-      })),
+      Suspense::new(battlement_reactant::host::Label::new(trox::ls(
+        "inner pending",
+      )))
+      .child(
+        use_resource(&self.resource, 1)
+          .then(|value| battlement_reactant::host::Label::new(trox::ls(value.to_string()))),
+      ),
     )
   }
 }
 
 impl Component for BareRead {
   fn render(&self) -> impl Render {
-    use_resource(&self.resource, 1).then(|value| {
-      battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
-    })
+    use_resource(&self.resource, 1)
+      .then(|value| battlement_reactant::host::Label::new(trox::ls(value.to_string())))
   }
 }
 
@@ -207,19 +198,17 @@ impl Component for InvalidThen {
   fn render(&self) -> impl Render {
     use_resource(&self.resource, 1).then(|value| {
       let _ = hooks::use_state(0_u8);
-      battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
+      battlement_reactant::host::Label::new(trox::ls(value.to_string()))
     })
   }
 }
 
 impl Component for RetryRead {
   fn render(&self) -> impl Render {
-    let content = Suspense::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("pending"),
-    ))
-    .child(use_resource(&self.resource, 1).then(|value| {
-      battlement_reactant::host::Label::new(trox::assert_localized(format!("ready:{value}")))
-    }));
+    let content = Suspense::new(battlement_reactant::host::Label::new(trox::ls("pending"))).child(
+      use_resource(&self.resource, 1)
+        .then(|value| battlement_reactant::host::Label::new(trox::ls(format!("ready:{value}")))),
+    );
     if self.fail {
       Err(LoadError)
     } else {
@@ -233,15 +222,12 @@ impl Component for RetainedRead {
     self.renders.set(self.renders.get() + 1);
     let (count, setter) = hooks::use_state(0_u32);
     self.setter.replace(Some(setter.clone()));
-    Suspense::new(battlement_reactant::host::Label::new(
-      trox::assert_localized("pending"),
-    ))
-    .child(use_resource(&self.resource, self.key).then(move |value| {
-      battlement_reactant::host::Button::new(trox::assert_localized(format!(
-        "value:{value} state:{count}"
-      )))
-      .on_click(move |_game: &mut ResourceGame| setter.update(|value| value + 1))
-    }))
+    Suspense::new(battlement_reactant::host::Label::new(trox::ls("pending"))).child(
+      use_resource(&self.resource, self.key).then(move |value| {
+        battlement_reactant::host::Button::new(trox::ls(format!("value:{value} state:{count}")))
+          .on_click(move |_game: &mut ResourceGame| setter.update(|value| value + 1))
+      }),
+    )
   }
 }
 
@@ -249,15 +235,14 @@ impl Component for PortaledRead {
   fn render(&self) -> impl Render {
     (
       battlement_reactant::host::View::new().portal_target(self.target.clone()),
-      Suspense::new(battlement_reactant::host::Label::new(
-        trox::assert_localized("pending"),
-      ))
-      .child(create_portal(
-        use_resource(&self.resource, 1).then(|value| {
-          battlement_reactant::host::Label::new(trox::assert_localized(format!("portaled:{value}")))
-        }),
-        self.target.clone(),
-      )),
+      Suspense::new(battlement_reactant::host::Label::new(trox::ls("pending"))).child(
+        create_portal(
+          use_resource(&self.resource, 1).then(|value| {
+            battlement_reactant::host::Label::new(trox::ls(format!("portaled:{value}")))
+          }),
+          self.target.clone(),
+        ),
+      ),
     )
   }
 }
@@ -349,18 +334,16 @@ fn failed_reads_reach_the_nearest_error_boundary_as_the_concrete_error() {
   let mut reactant = runtime_support::reactant(spawner.clone());
   reactant.register_root(document.clone(), move |_| {
     let caught = Rc::clone(&view_caught);
-    ErrorBoundary::new(|_: &RenderError| {
-      battlement_reactant::host::Label::new(trox::assert_localized("outer"))
-    })
-    .child(
-      ErrorBoundary::new(move |error: &RenderError| {
-        caught.set(error.downcast_ref::<LoadError>().is_some());
-        battlement_reactant::host::Label::new(trox::assert_localized("failed"))
-      })
-      .child(FailedRead {
-        resource: resource.clone(),
-      }),
-    )
+    ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new(trox::ls("outer")))
+      .child(
+        ErrorBoundary::new(move |error: &RenderError| {
+          caught.set(error.downcast_ref::<LoadError>().is_some());
+          battlement_reactant::host::Label::new(trox::ls("failed"))
+        })
+        .child(FailedRead {
+          resource: resource.clone(),
+        }),
+      )
   });
   let mut world = self::begin(&mut reactant, &document);
 
@@ -404,9 +387,7 @@ fn a_missing_boundary_panics_atomically_and_poisons_the_runtime() {
         resource: view_resource.clone(),
       })
     } else {
-      Either::Right(battlement_reactant::host::Label::new(
-        trox::assert_localized("stable"),
-      ))
+      Either::Right(battlement_reactant::host::Label::new(trox::ls("stable")))
     }
   });
   let world = self::begin_with(&mut reactant, &mut game, &document);
@@ -432,9 +413,8 @@ fn resource_hooks_and_ready_mapping_closures_reject_forbidden_contexts() {
   let mut outside = runtime_support::reactant(ManualSpawner::new());
   let outside_resource = resource.clone();
   outside.register_root(document.clone(), move |_| {
-    use_resource(&outside_resource, 1).then(|value| {
-      battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
-    })
+    use_resource(&outside_resource, 1)
+      .then(|value| battlement_reactant::host::Label::new(trox::ls(value.to_string())))
   });
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -708,9 +688,7 @@ fn suspended_primary_survives_reconnect_and_is_released_on_unmount() {
         renders: Rc::clone(&view_renders),
       })
     } else {
-      Either::Right(battlement_reactant::host::Label::new(
-        trox::assert_localized("gone"),
-      ))
+      Either::Right(battlement_reactant::host::Label::new(trox::ls("gone")))
     }
   });
   let mut world = self::begin_with(&mut reactant, &mut game, &document);

@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::controls;
 use crate::{Control, Game, Interaction, Screen, design_system, sample_navigation};
@@ -38,11 +38,9 @@ impl Component for Navigation {
             |game| game.screen = sample_navigation::previous(game.screen),
           ))
           .child(
-            battlement_reactant::host::Label::new(assert_localized(sample_navigation::phone_name(
-              self.screen,
-            )))
-            .name("phone-current-screen")
-            .style(design_system::phone_navigation_label()),
+            battlement_reactant::host::Label::new(ls(sample_navigation::phone_name(self.screen)))
+              .name("phone-current-screen")
+              .style(design_system::phone_navigation_label()),
           )
           .child(controls::interactive_button(
             ">",

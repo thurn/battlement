@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
@@ -145,7 +145,7 @@ impl Component for PhysicalMotion {
         .style(title()),
       )
       .child(
-        Label::new(assert_localized(format!(
+        Label::new(ls(format!(
           "CONTROLLED CLOCK  ·  {} ms  ·  {}  ·  {}",
           self.state.elapsed_micros() / 1_000,
           if self.state.playing {
@@ -164,7 +164,7 @@ impl Component for PhysicalMotion {
       )
       .child(controls())
       .child(
-        Label::new(assert_localized(trace))
+        Label::new(ls(trace))
           .name("physical-event-trace")
           .style(event_trace()),
       )
@@ -316,8 +316,8 @@ fn specimen(name: &'static str, heading: &'static str, detail: &'static str, pro
     View::new()
       .name(name)
       .style(specimen_style())
-      .child(Label::new(assert_localized(heading)).style(specimen_title()))
-      .child(Label::new(assert_localized(detail)).style(specimen_detail()))
+      .child(Label::new(ls(heading)).style(specimen_title()))
+      .child(Label::new(ls(detail)).style(specimen_detail()))
       .child(probe),
   )
 }
@@ -327,7 +327,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  Button::new(assert_localized(text))
+  Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

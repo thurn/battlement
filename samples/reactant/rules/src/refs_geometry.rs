@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{
   Control, GEOMETRY_TARGET_ID, Game, Interaction, MISSING_GEOMETRY_TARGET_ID, design_system,
@@ -75,7 +75,7 @@ impl Component for RefsGeometry {
               .name("refs-card")
               .style(design_system::refs_card(self.compact))
               .child(
-                battlement_reactant::host::Label::new(assert_localized(self::overall_status(
+                battlement_reactant::host::Label::new(ls(self::overall_status(
                   point.status,
                   bounds.status,
                 )))
@@ -83,7 +83,7 @@ impl Component for RefsGeometry {
                 .style(design_system::refs_status(active, self.compact)),
               )
               .child(
-                battlement_reactant::host::Label::new(assert_localized(format!(
+                battlement_reactant::host::Label::new(ls(format!(
                   "Effect runs · {}",
                   self.effect_runs
                 )))
@@ -173,13 +173,10 @@ fn specimen(
     .name(name)
     .style(design_system::geometry_specimen(compact))
     .child(
-      battlement_reactant::host::Label::new(assert_localized(heading))
+      battlement_reactant::host::Label::new(ls(heading))
         .style(design_system::geometry_heading(unavailable)),
     )
-    .child(
-      battlement_reactant::host::Label::new(assert_localized(value))
-        .style(design_system::geometry_value()),
-    )
+    .child(battlement_reactant::host::Label::new(ls(value)).style(design_system::geometry_value()))
 }
 
 fn overall_status(point: MeasurementStatus, bounds: MeasurementStatus) -> &'static str {

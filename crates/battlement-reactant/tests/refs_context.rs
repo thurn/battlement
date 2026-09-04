@@ -58,7 +58,7 @@ impl Component for RefFixture {
       Vec::new()
     });
     self.handle.replace(Some(reference.clone()));
-    battlement_reactant::host::Button::new(trox::assert_localized("mutate ref")).on_click(
+    battlement_reactant::host::Button::new(trox::ls("mutate ref")).on_click(
       move |_game: &mut Game| {
         reference.with_mut(|values| values.push(2));
       },
@@ -80,7 +80,7 @@ impl Component for InvalidRefAccess {
       Some(RefOperation::WithMut) => reference.with_mut(|value| value.push(1)),
       None => {}
     }
-    battlement_reactant::host::Label::new(trox::assert_localized("ref"))
+    battlement_reactant::host::Label::new(trox::ls("ref"))
   }
 }
 
@@ -98,7 +98,7 @@ struct ContextConsumer {
 
 impl Component for ContextConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(trox::assert_localized(format!(
+    battlement_reactant::host::Label::new(trox::ls(format!(
       "{}:{}/{}",
       self.name,
       hooks::use_context(&PRIMARY),
@@ -111,9 +111,7 @@ struct RequiredConsumer;
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(trox::assert_localized(hooks::use_required_context(
-      &REQUIRED,
-    )))
+    battlement_reactant::host::Label::new(trox::ls(hooks::use_required_context(&REQUIRED)))
   }
 }
 
@@ -131,7 +129,7 @@ impl Component for NestedRuntime {
     )
     .join("");
     let _ = reactant.shutdown(&mut game).into_groups();
-    battlement_reactant::host::Label::new(trox::assert_localized(text))
+    battlement_reactant::host::Label::new(trox::ls(text))
   }
 }
 
@@ -144,7 +142,7 @@ impl Component for StatefulConsumer {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(trox::assert_localized(value.to_string()))
+    battlement_reactant::host::Label::new(trox::ls(value.to_string()))
   }
 }
 
@@ -352,7 +350,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         let _ = hooks::use_ref_with(|| 0_u8);
       }
-      battlement_reactant::host::Label::new(trox::assert_localized("hook"))
+      battlement_reactant::host::Label::new(trox::ls("hook"))
     }
   }
 
@@ -379,7 +377,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         hooks::use_context(&PRIMARY)
       };
-      battlement_reactant::host::Label::new(trox::assert_localized(value))
+      battlement_reactant::host::Label::new(trox::ls(value))
     }
   }
 

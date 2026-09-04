@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::animation_validation::{
   CaseId, FixtureAction, FixtureSession, ReducedMotionOverride, ValidationReport, fixture_registry,
@@ -137,7 +137,7 @@ impl Component for ValidationScreen {
                     .style(title()),
             )
             .child(
-                battlement_reactant::host::Label::new(assert_localized(
+                battlement_reactant::host::Label::new(ls(
                         format!(
                             "Case: validation-infrastructure/{} · t={}µs · generation={} · reconnects={} · actions={}",
                             self.state.selected_case.0, self.state.session
@@ -303,7 +303,7 @@ impl Component for ValidationScreen {
                     ),
             )
             .child(
-                battlement_reactant::host::Label::new(assert_localized(
+                battlement_reactant::host::Label::new(ls(
                         format!(
                             "{} · {} · {:.1}x · {:?}", report_text, if self.state
                             .session.playing() { "playing" } else { "paused" }, self
@@ -328,7 +328,7 @@ impl Component for ValidationScreen {
                 ),
             )
             .child(
-                battlement_reactant::host::Label::new(assert_localized(details))
+                battlement_reactant::host::Label::new(ls(details))
                     .name("validation-details")
                     .style(details_style(self.compact)),
             )
@@ -340,7 +340,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> Button {
-  battlement_reactant::host::Button::new(assert_localized(text))
+  battlement_reactant::host::Button::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)
@@ -586,8 +586,8 @@ fn specimen(name: &'static str, title: &'static str, expected: &'static str, pro
   View::new()
     .name(name)
     .style(specimen_style())
-    .child(Label::new(assert_localized(title)).style(specimen_title()))
-    .child(Label::new(assert_localized(expected)).style(specimen_expected()))
+    .child(Label::new(ls(title)).style(specimen_title()))
+    .child(Label::new(ls(expected)).style(specimen_expected()))
     .child(probe)
 }
 

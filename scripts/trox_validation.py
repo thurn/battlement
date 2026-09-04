@@ -14,7 +14,7 @@ from platform_support import executable_name, user_cache_path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-TROX_VERSION = "0.1.0"
+TROX_VERSION = "0.2.0"
 CONFIGURATIONS = (
     (
         Path("samples/reactant"),

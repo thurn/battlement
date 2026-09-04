@@ -1,4 +1,4 @@
-use trox::{LocalizedString, assert_localized, tx};
+use trox::{LocalizedString, ls, tx};
 
 use crate::controls;
 use crate::{Control, Interaction, design_system};
@@ -81,7 +81,7 @@ impl Component for Specimen {
       .name("composition-specimen")
       .style(design_system::specimen())
       .child(
-        battlement_reactant::host::Label::new(assert_localized(self.heading.clone()))
+        battlement_reactant::host::Label::new(ls(self.heading.clone()))
           .name("specimen-heading")
           .style(design_system::specimen_title()),
       )

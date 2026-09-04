@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Control, Game, design_system};
 use battlement::{ScrollViewMode, ScrollerVisibility};
@@ -194,7 +194,7 @@ impl Component for EffectsStores {
                     .style(design_system::effect_heading()),
                   )
                   .child(
-                    battlement_reactant::host::Label::new(assert_localized(format!(
+                    battlement_reactant::host::Label::new(ls(format!(
                       "{}  {snapshot}",
                       self.store.name
                     )))

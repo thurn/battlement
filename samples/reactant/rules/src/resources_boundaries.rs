@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Control, Interaction, design_system, preview_resource::Preview};
 use battlement_reactant::prelude::*;
@@ -193,7 +193,7 @@ impl Component for BoundaryFallback {
         .style(design_system::boundary_status(true, self.compact)),
       )
       .child(
-        battlement_reactant::host::Label::new(assert_localized(self.message.clone()))
+        battlement_reactant::host::Label::new(ls(self.message.clone()))
           .name("boundary-error")
           .style(design_system::boundary_detail()),
       )

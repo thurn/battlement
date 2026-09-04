@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Color, FlexDirection, FlexWrap, ScrollViewMode, Style};
@@ -120,7 +120,7 @@ fn expander(expanded: bool) -> Node {
         box_style()
       })
       .layout(Layout::Both)
-      .child(Label::new(assert_localized(if expanded {
+      .child(Label::new(ls(if expanded {
         "240 × 92"
       } else {
         "132 × 54"
@@ -141,7 +141,7 @@ fn grid(expanded: bool) -> Node {
               .key(index)
               .style(tile())
               .layout(Layout::Position)
-              .child(Label::new(assert_localized(format!("0{}", index + 1))))
+              .child(Label::new(ls(format!("0{}", index + 1))))
           })
           .collect::<Vec<_>>(),
       ),
@@ -234,7 +234,7 @@ fn reorder_list(values: Vec<&'static str>) -> Node {
                 game.layout_reorder.reversed = !game.layout_reorder.reversed;
               }
             })
-            .child(Label::new(assert_localized(value)))
+            .child(Label::new(ls(value)))
         })
         .collect::<Vec<_>>(),
     ),
@@ -254,7 +254,7 @@ fn pop_layout(show: bool) -> Node {
               .layout(Layout::Both)
               .style(pop_item())
               .exit(StyleTarget::new().opacity(0.0).scale(0.7))
-              .child(Label::new(assert_localized(format!("P{}", index + 1))))
+              .child(Label::new(ls(format!("P{}", index + 1))))
           })
           .collect::<Vec<_>>(),
       ),
@@ -265,7 +265,7 @@ fn pop_layout(show: bool) -> Node {
 fn specimen(label: &'static str, child: impl Render) -> View {
   View::new()
     .style(card())
-    .child(Label::new(assert_localized(label)).style(caption()))
+    .child(Label::new(ls(label)).style(caption()))
     .child(child)
 }
 

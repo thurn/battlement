@@ -276,8 +276,8 @@ fn view(game: &Game) -> impl Render + use<> {
 }
 
 fn label(game: &Game) -> battlement_reactant::host::Label {
-  battlement_reactant::host::Label::new(trox::assert_localized(""))
-    .text(game.text.clone().map(trox::assert_localized))
+  battlement_reactant::host::Label::new(trox::ls(""))
+    .text(game.text.clone().map(trox::ls))
     .name(game.name.clone())
     .style(
       game
@@ -291,33 +291,28 @@ fn hint_view(game: &HintGame) -> impl Render + use<> {
     Some(hint) => battlement_reactant::host::View::new().usage_hints([hint]),
     None => battlement_reactant::host::View::new(),
   };
-  host.child(battlement_reactant::host::Label::new(
-    trox::assert_localized("child"),
-  ))
+  host.child(battlement_reactant::host::Label::new(trox::ls("child")))
 }
 
 fn conditional_part_view(game: &ConditionalPartGame) -> battlement_reactant::host::GroupBox {
   if game.title {
     battlement_reactant::host::GroupBox::new()
-      .text(trox::assert_localized("Title"))
+      .text(trox::ls("Title"))
       .title_style(Style::new().width(20.0))
   } else {
-    battlement_reactant::host::GroupBox::new().text(trox::assert_localized(""))
+    battlement_reactant::host::GroupBox::new().text(trox::ls(""))
   }
 }
 
 fn indexed_part_view(game: &IndexedPartGame) -> battlement_reactant::host::RadioButtonGroup {
   if game.choices == 2 {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices([
-        trox::assert_localized("Alpha"),
-        trox::assert_localized("Beta"),
-      ])
+      .choices([trox::ls("Alpha"), trox::ls("Beta")])
       .selected_index(0)
       .option_style(1, Style::new().width(20.0))
   } else {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices([trox::assert_localized("Alpha")])
+      .choices([trox::ls("Alpha")])
       .selected_index(0)
   }
 }

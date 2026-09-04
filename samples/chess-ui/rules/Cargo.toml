@@ -14,7 +14,7 @@ battlement-native = { path = "../../../crates/battlement-native" }
 battlement-reactant = { path = "../../../crates/battlement-reactant" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-trox = "0.1.0"
+trox = "0.2.0"
 
 [dev-dependencies]
 battlement-fake = { path = "../../../crates/battlement-fake" }

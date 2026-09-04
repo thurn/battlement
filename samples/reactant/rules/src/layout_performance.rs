@@ -1,4 +1,4 @@
-use trox::{assert_localized, tx};
+use trox::{ls, tx};
 
 use crate::Game;
 use battlement::{
@@ -38,7 +38,7 @@ impl Component for LayoutPerformance {
         Overlay::popover(self.overlay.clone(), anchor.clone())
           .name(format!("layout-performance-overlay-{index}"))
           .style(popover())
-          .child(Label::new(assert_localized(format!("OVERLAY {index:02}"))))
+          .child(Label::new(ls(format!("OVERLAY {index:02}"))))
       })
       .collect::<Vec<_>>();
     Fragment::new((
@@ -55,14 +55,11 @@ impl Component for LayoutPerformance {
           .style(title()),
         )
         .child(
-          Button::new(assert_localized(format!(
-            "DIRTY PHASE {}",
-            self.state.phase
-          )))
-          .name("layout-performance-dirty")
-          .on_click(|game: &mut Game| {
-            game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
-          }),
+          Button::new(ls(format!("DIRTY PHASE {}", self.state.phase)))
+            .name("layout-performance-dirty")
+            .on_click(|game: &mut Game| {
+              game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
+            }),
         )
         .child(
           Grid::new()
@@ -133,7 +130,7 @@ impl Component for LayoutPerformance {
               Flex::new().direction(FlexDirection::Column).child(
                 (0..STICKY_ROWS)
                   .map(|index| {
-                    Label::new(assert_localized(format!("STICKY {index:03}")))
+                    Label::new(ls(format!("STICKY {index:03}")))
                       .key(index)
                       .sticky(Sticky::top((index % 4) as f32).order(index as i32))
                       .style(sticky_row(index))

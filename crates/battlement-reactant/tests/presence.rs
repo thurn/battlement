@@ -75,7 +75,7 @@ impl Component for RetainedCard {
           .on_complete(|game: &mut Game| game.slot_completed += 1)
           .on_cancel(|game: &mut Game| game.slot_cancelled += 1),
       )
-      .child(Label::new(trox::assert_localized(format!(
+      .child(Label::new(trox::ls(format!(
         "{}:{value}:{}",
         self.label,
         if present { "present" } else { "exiting" }

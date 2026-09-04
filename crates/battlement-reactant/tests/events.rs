@@ -155,8 +155,7 @@ fn handler_model_type_is_validated_before_session_commit() {
   let document = self::document();
   let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   reactant.register_root(document.clone(), |_game| {
-    battlement_reactant::host::Button::new(trox::assert_localized("wrong"))
-      .on_click(|_wrong: &mut String| {})
+    battlement_reactant::host::Button::new(trox::ls("wrong")).on_click(|_wrong: &mut String| {})
   });
   let mut game = Game {
     form: Form::BriefLast,
@@ -253,12 +252,12 @@ fn root_coverage_updates_are_ordered_around_top_level_lifecycle() {
 fn view(game: &Game) -> impl Render + use<> {
   let button = match game.form {
     Form::BriefLast => Some(Node::new(
-      battlement_reactant::host::Button::new(trox::assert_localized("Activate"))
+      battlement_reactant::host::Button::new(trox::ls("Activate"))
         .on_click_event_with_model(|game: &mut Game, _event| game.status = "event-first".to_owned())
         .on_click(|game: &mut Game| game.status = "brief-last".to_owned()),
     )),
     Form::EventLast => Some(Node::new(
-      battlement_reactant::host::Button::new(trox::assert_localized("Activate"))
+      battlement_reactant::host::Button::new(trox::ls("Activate"))
         .on_click(|game: &mut Game| game.status = "brief-first".to_owned())
         .on_click_event_with_model(|game: &mut Game, event| {
           assert_eq!(event.phase(), EventPhase::Target);
@@ -271,7 +270,7 @@ fn view(game: &Game) -> impl Render + use<> {
   };
   (
     button,
-    battlement_reactant::host::Label::new(trox::assert_localized(game.status.clone())),
+    battlement_reactant::host::Label::new(trox::ls(game.status.clone())),
   )
 }
 

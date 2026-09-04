@@ -190,12 +190,12 @@ impl Component for HookMatrix {
       setter: Some(setter),
     });
     (
-      battlement_reactant::host::Button::new(trox::assert_localized("Invoke callback")).on_click(
+      battlement_reactant::host::Button::new(trox::ls("Invoke callback")).on_click(
         move |game: &mut Game| {
           game.callback_value = callback();
         },
       ),
-      battlement_reactant::host::Label::new(trox::assert_localized(format!(
+      battlement_reactant::host::Label::new(trox::ls(format!(
         "state={state} reducer={reduced} store={stored} theme={theme} memo={memoized}"
       ))),
     )
@@ -222,9 +222,9 @@ impl Component for FailingCallback {
       (),
     );
     (
-      battlement_reactant::host::Button::new(trox::assert_localized("Fail"))
+      battlement_reactant::host::Button::new(trox::ls("Fail"))
         .on_click(move |_game: &mut Game| callback()),
-      battlement_reactant::host::Label::new(trox::assert_localized(format!("value={value}"))),
+      battlement_reactant::host::Label::new(trox::ls(format!("value={value}"))),
     )
   }
 }
@@ -233,7 +233,7 @@ impl Component for SessionCounter {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_usize);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(trox::assert_localized(format!("value={value}")))
+    battlement_reactant::host::Label::new(trox::ls(format!("value={value}")))
   }
 }
 
