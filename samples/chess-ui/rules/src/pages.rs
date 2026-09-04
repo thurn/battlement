@@ -10,6 +10,7 @@ use crate::{
   review_page::ReviewPage,
   select_harness::SelectHarness,
   setting_row_harness::SettingRowHarness,
+  tabs_harness::TabsHarness,
   toggle_harness::ToggleHarness,
   volume_harness::VolumeHarness,
 };
@@ -71,7 +72,8 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("SettingsTabs layout", "Chess UI showcase title."))
-                .description(tx("SettingsTabs selects controlled tabs horizontally; directional focus, panel transitions, and responsive labels remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("SettingsTabs selects controlled tabs horizontally; directional focus, panel transitions, and responsive labels remain unasserted.", "Chess UI showcase description."))
+                .child(TabsHarness::new()),
         )
         .page(
             ReviewPage::new()
@@ -90,7 +92,7 @@ pub fn gallery() -> Gallery {
         )
         .page(
             ReviewPage::new()
-                .title(tx("ToggleControl control_behavior", "Chess UI showcase title."))
+                .title(tx("ToggleControl accessibility", "Chess UI showcase title."))
                 .description(tx("ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.", "Chess UI showcase description.")),
         )
         .page(

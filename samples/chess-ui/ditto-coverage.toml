@@ -173,3 +173,29 @@ to = "action.changed"
 [[transitions]]
 from = "action.changed"
 to = "action.reset"
+
+[[mappings]]
+state = "tabs.initial"
+scenario = "settings tabs"
+checkpoint = "initial"
+owner = "gallery::tabs_select_controlled_values_and_reset"
+
+[[mappings]]
+state = "tabs.changed"
+scenario = "settings tabs"
+checkpoint = "changed"
+owner = "gallery::tabs_select_controlled_values_and_reset"
+
+[[mappings]]
+state = "tabs.reset"
+scenario = "settings tabs"
+checkpoint = "reset"
+owner = "gallery::tabs_select_controlled_values_and_reset"
+
+[[transitions]]
+from = "tabs.initial"
+to = "tabs.changed"
+
+[[transitions]]
+from = "tabs.changed"
+to = "tabs.reset"

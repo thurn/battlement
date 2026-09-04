@@ -407,10 +407,9 @@ fn validate_memberships(
         1,
         "tab list requires exactly one selected enabled tab"
       );
-      assert_eq!(
-        tab_panels.get(&draft.id).copied().unwrap_or_default(),
-        1,
-        "tab list requires exactly one exposed panel"
+      assert!(
+        tab_panels.get(&draft.id).copied().unwrap_or_default() <= 1,
+        "tab list cannot contain multiple exposed panels"
       );
     }
   }

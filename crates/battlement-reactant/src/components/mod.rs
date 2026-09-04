@@ -49,3 +49,6 @@ pub use structure::{
   TableRow, Text,
 };
 pub use toggle::{Checkbox, Switch};
+
+mod tab_strip;
+pub use tab_strip::{TabButton, TabStrip};

@@ -127,3 +127,23 @@ to = "action.changed"
 [[transitions]]
 from = "action.changed"
 to = "action.reset"
+
+[[states]]
+key = "tabs.initial"
+screen = "tabs"
+
+[[states]]
+key = "tabs.changed"
+screen = "tabs"
+
+[[states]]
+key = "tabs.reset"
+screen = "tabs"
+
+[[transitions]]
+from = "tabs.initial"
+to = "tabs.changed"
+
+[[transitions]]
+from = "tabs.changed"
+to = "tabs.reset"

@@ -44,6 +44,10 @@ impl Component for SettingRowHarness {
               .associated_control(control)
               .style(
                 Style::new()
+                  .margin(0)
+                  .padding(0)
+                  .border_width(0)
+                  .background_color(Color::TRANSPARENT)
                   .font_size(40)
                   .color(Color::rgb(0.75, 0.86, 0.97))
                   .unity_text_align(TextAnchor::MiddleCenter),

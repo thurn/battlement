@@ -68,7 +68,8 @@ pub use crate::{
   components::{
     Button, Checkbox, ColumnHeader, Disclosure, Group, Heading, Image, Link, ListBox,
     ListBoxOption, Navigation, PopupButton, Progress, Radio, RadioGroup, Region, RowHeader,
-    ScrollArea, Slider, Switch, Tab, TabPanel, Table, TableCell, TableRow, Tabs, Text,
+    ScrollArea, Slider, Switch, Tab, TabButton, TabPanel, TabStrip, Table, TableCell, TableRow,
+    Tabs, Text,
   },
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},

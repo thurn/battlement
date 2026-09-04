@@ -99,3 +99,7 @@ pub mod volume_control;
 mod volume_harness;
 
 mod volume_skin;
+
+pub mod settings_tabs;
+
+mod tabs_harness;

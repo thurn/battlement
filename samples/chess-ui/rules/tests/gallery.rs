@@ -363,6 +363,84 @@ fn action_children_activate_once_and_reselection_resets_callbacks() {
   self::assert_page(&mut client, 7);
 }
 
+#[test]
+fn tabs_select_controlled_values_and_reset() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-9");
+  client.ui().click(page);
+  client.poll();
+  self::assert_tabs(&client, "Gameplay", 0);
+  for (index, name) in ["Graphics", "Sound", "Input", "Gameplay", "Gameplay"]
+    .iter()
+    .enumerate()
+  {
+    let tab = self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.role == SemanticRole::Tab && node.label.as_deref() == Some(name))
+      .unwrap()
+      .object_id;
+    client.ui().click(tab);
+    client.poll();
+    self::assert_tabs(&client, name, index + 1);
+  }
+  let parent = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Select Sound from parent"))
+    .unwrap()
+    .object_id;
+  client.ui().click(parent);
+  client.poll();
+  self::assert_tabs(&client, "Sound", 5);
+  let sound = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Sound"))
+    .unwrap()
+    .object_id;
+  client
+    .ui()
+    .send_event(UiEvent::click(sound, ClickEvent::NavigationSubmit));
+  client.poll();
+  self::assert_tabs(&client, "Sound", 6);
+  self::range_action(&mut client, sound, UiAccessibilityAction::Activate);
+  self::assert_tabs(&client, "Sound", 7);
+  client.ui().click(page);
+  client.poll();
+  self::assert_tabs(&client, "Gameplay", 0);
+  assert!(!client.ui().contains(sound));
+  self::assert_page(&mut client, 8);
+}
+
+fn assert_tabs(client: &FakeClient<App>, selected: &str, count: usize) {
+  let snapshot = self::snapshot(client);
+  let list = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::TabList)
+    .unwrap();
+  assert_eq!(list.label.as_deref(), Some("Settings categories"));
+  let tabs = snapshot
+    .nodes
+    .iter()
+    .filter(|node| node.role == SemanticRole::Tab)
+    .collect::<Vec<_>>();
+  assert_eq!(tabs.len(), 4);
+  for (tab, label) in tabs.iter().zip(["Gameplay", "Graphics", "Sound", "Input"]) {
+    assert_eq!(tab.label.as_deref(), Some(label));
+    assert_eq!(tab.parent_id, Some(list.object_id));
+    assert_eq!(tab.state.selected, Some(label == selected));
+    assert!(!tab.state.disabled);
+  }
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref() == Some(&format!("Tab selections: {count}")))
+  );
+}
+
 fn assert_actions(client: &FakeClient<App>, clicks: u32, returns: u32) {
   for name in [
     format!("Action clicks: {clicks}"),

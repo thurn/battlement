@@ -352,11 +352,16 @@ The gallery contains exactly 40 registered entries. Page 1 demonstrates the
 gallery shell itself. Every entry displays its title and a 10--20 word
 description of the behavior asserted on that page.
 
-Descriptions identify a page's review responsibility, not a frozen rendering
-of the component at that point in history. "Not asserted" means that a later
-capability may be visible after shared code evolves, but that page does not own
-its acceptance evidence. The source-line ownership record is authoritative for
-later-task boundaries.
+The per-task **Visible result**, **Exercise**, and **Deferred** paragraphs below
+are the visual acceptance contract. The short quoted descriptions are gallery
+captions, not exhaustive scope definitions. Source-line ownership records must
+follow this contract; they cannot independently defer a required visual feature.
+
+Each contract describes the page immediately after its task is complete. Earlier
+pages mount current shared components and acquire later improvements; they do
+not preserve historical incomplete renderings. A later capability may therefore
+appear on an earlier page without transferring ownership of its acceptance
+evidence. Do not add feature switches solely to freeze an earlier appearance.
 
 Each registration supplies:
 
@@ -463,10 +468,85 @@ normal source interactions. Computed DOM and CSS values supplement the crop
 where the source does not expose an isolated specimen. Do not add a temporary
 React harness to manufacture references.
 
-Pages before Task 23 compare geometry, native text, semantics, and interaction
-only. Generated-skin pixels are excluded from their visual diffs. Task 23
-recaptures every earlier page and is the first full-paint approval for those
-controls. Task 21 uses text-only binding cells until Task 24 supplies icons.
+### What must look finished at each step
+
+For numeric/style details not repeated in a task paragraph, the named component
+and its imported style helpers at the pinned source revision supply the exact
+values. The paragraphs define which state and layers are visible; the source
+supplies those layers' complete rendering recipe. Do not approximate a source
+value because this document describes its color or shape in words.
+
+**Static appearance is required when a component first appears.** A task named
+"layout", "closed state", or "behavior" is not permission to draw a wireframe.
+Unless its Deferred paragraph explicitly names an exception, the component must
+already match the pinned CSS reference in silhouette, clipping, corner cuts,
+border thickness, every gradient stop, solid colors, inset and outer shadows,
+glow, opacity, text paint, font, size, weight, spacing, alignment, and resting
+transforms. These requirements include active, inactive, checked, unchecked,
+disabled, and other settled states that the task exposes. Plain rectangular
+borders, solid-color substitutes for gradients, omitted shadows, generic system
+fonts, and default native control chrome are not acceptable placeholders.
+
+A generated image is an implementation mechanism, not a visual feature. Task 23
+owns the existing batch of generated assets, their declarations, catalog, and
+runtime integration. It does not own the first appearance of a tab's shape or
+gradient, a button's bevel, or a heading's text effects. Earlier tasks use typed
+styles or other supported prepared paint to meet their static reference. Task 23
+may replace that paint with generated assets while preserving approved geometry
+and appearance. No browser render-mode toggle is added to the sample.
+
+Interactions and time-varying effects are separate requirements. Before the task
+that owns an effect, render its settled state without that effect: changing a
+tab changes its active paint immediately; opening a dropdown or dialog shows
+its fully open appearance immediately. Do not leave an entering element at
+zero opacity, half scale, or another animation start value. Task 11 owns hover,
+press, and cancellation presentation and its short feedback transitions; Task
+12 owns focus-visible paint; Task 25 owns shine and release bursts; Tasks
+26--30 and 33--34 own their named animations; Task 32 owns audio-driven pulses.
+A new control introduced after one of these tasks must reuse the applicable
+completed behavior. Animation alone may not be used to defer static paint.
+
+Only these visual substitutions are permitted before their named owner:
+
+| Visible feature | Required before its owner | First task requiring the final feature |
+| --- | --- | --- |
+| Generated frame and label textures | Complete matching CSS-reference appearance, rendered with supported paint | 23: generated asset integration |
+| Keyboard and controller binding icons | Actual binding names as readable text in correctly sized cells | 24: source keycaps, arrows, and controller glyphs |
+| Settings panel frame | No panel required on isolated control pages; behavior harnesses may use a plain dark backdrop | 24: complete panel specimen |
+| Text-size-dependent layout | Source appearance at 100%; no guessed large-text layout | 22: 100%, 150%, and 200% specimens |
+| Full settings and main-menu composition | Only the components and fixtures listed for the selected page | 35--40: the named assembled panels and screens |
+
+In particular, **Task 9 must show the source's clipped tabs, multicolor active
+border, gray inactive border gradient, dark inner gradients, glow, and text
+shadows.** Task 17 adds directional navigation, Task 22 adds scaled tab labels,
+Task 25 adds release bursts, and Task 27 adds content-panel transitions. None
+of those tasks is the owner of Task 9's resting tab paint.
+
+### Specimens, captures, and reset
+
+Each Visible result lists the required specimens, not permission to compose the
+whole source screen early. Render one source-sized specimen at a time when
+multiple variants cannot fit without rescaling. Put variant selectors, parent
+state controls, event counters, and clock controls in a clearly separate harness
+area outside the reference crop. They must not replace source content or change
+its layout. Use the source component's own colors on a plain dark stage when
+its surrounding screen is not yet in scope; omit absent neighboring components
+rather than filling their space with invented product UI.
+
+For every page, selecting or reselecting its gallery entry returns to the listed
+opening state, clears transient effects, and applies the gallery focus/reset
+contract. Unless specified otherwise, 100% text, normal motion, and the defaults
+in Behavioral Acceptance apply. "Reset" below means this gallery operation,
+not an extra reset button inside the mockup. Static pages have an identical
+reset capture and an `N/A` changed state. Variant captures are still required
+when a static page lists multiple specimens.
+
+Compare all paint belonging to the current and earlier tasks, including paint
+implemented without generated assets. Mask only the explicitly deferred visual
+features above or in the selected task's Deferred paragraph; record each mask
+and its owner. There is no blanket pre-Task-23 pixel exemption. Task 23
+recaptures affected earlier pages to prove that asset integration preserves
+appearance. Task 24 recaptures binding pages when text substitutes become icons.
 
 Static pages may record their changed-state capture as `N/A`. Interactive pages
 require initial, changed, and reset captures.
@@ -528,9 +608,10 @@ receives the complete file, but every line has one disposition:
 - Intentionally assigned to a named later task
 - Approved platform substitution
 
-A later-task disposition is valid only when the current page description makes
-that behavior out of scope. Task 40 audits every source line and requires a
-terminal disposition.
+A later-task disposition is valid only when the current task's Deferred
+paragraph or the explicit visual ownership rules above assign that feature to
+that named later task. A short gallery caption alone cannot justify deferral.
+Task 40 audits every source line and requires a terminal disposition.
 
 ### Mandatory architectural challenge
 
@@ -661,7 +742,7 @@ The page order begins with horizontal layout and controlled props, then adds
 interaction, focus, accessibility, assets, motion, audio, and composition.
 
 Three pages intentionally group closely coupled work: Task 19 validates one
-help dialog including its link, Task 23 validates one generated-skin batch, and
+help dialog including its link, Task 23 validates one generated-asset batch, and
 Task 35 validates the two state-only settings panels. These remain one review
 boundary because splitting them would not expose an independently meaningful
 player interaction. The approximate 500-line task target still applies.
@@ -673,50 +754,199 @@ player interaction. The approximate 500-line task target still applies.
    "Scrollable navigation selects one isolated demonstration; migrated mockup
    content is intentionally not asserted."
 
+   **Visible result.** A 320-pixel scrollable navigation column lists all 40
+   numbered entries beside the centered design stage, with the padding and scale
+   specified under Review Gallery. Page 1 is selected; its heading and caption are
+   visible. Future entries show their heading, caption, and an explicit unavailable
+   specimen message until implemented. They must not display a fabricated mockup.
+
+   **Exercise.** Select an entry, scroll to entry 40, and reselect the current
+   entry. Exactly one navigation item indicates the current page; the content and
+   heading change, navigation reveals selection, and reset restores the heading
+   focus. Keyboard/controller focus is visibly distinguishable from selection.
+
+   **Deferred.** Mockup components belong to Tasks 2--40. The shell's own readable
+   navigation and focus presentation must already be complete.
+
 2. **PortraitViewport**
 
    "Fixed stage scales to fit available space; responsive content reflow is not
    asserted."
 
+   **Visible result.** One empty 1024x1536 portrait stage fits inside the
+   gallery without cropping or stretching. Its aspect ratio stays 2:3; shrinking
+   the window scales the entire stage uniformly according to the gallery formula.
+   Use a visible stage boundary or measurement markers outside the source crop to
+   make its edges reviewable.
+
+   **Exercise.** Capture the canonical and integration window sizes. The stage
+   remains centered, navigation scrolls independently, and no outer scrollbar is
+   introduced. Reset yields the same empty stage.
+
+   **Deferred.** The arcade frame is Task 3; no frame, logo, controls, responsive
+   content rearrangement, animation, or audio is required here.
+
 3. **ScreenFrame and ConceptFrame**
 
-   "Arcade frame and clipped interior render; pulses, exits, generated skin,
-   and controls are not asserted."
+   "Arcade frame and clipped interior match their resting paint; pulses,
+   exits, generated textures, and controls remain unasserted."
+
+   **Visible result.** An empty arcade frame fills the portrait stage. Match
+   `styles.ts`'s `frameClip` polygon, the 21-pixel outer inset, 111-pixel bottom
+   inset, 8-pixel metallic border, cyan/blue/violet/pink border gradient and glow,
+   and `ScreenFrame`'s clipped dark radial interior. The interior is empty, not a
+   main-menu screenshot or placeholder control stack.
+
+   **Exercise.** Capture the static frame and its reset at both review sizes.
+   The corners, notches, border, and interior gradient must match the source.
+
+   **Deferred.** Generated frame substitution is Task 23, moving border comets
+   and the corrected Return cutout are Task 30, frame collapse is Task 34, and
+   screen contents are Tasks 35--40. The resting frame's shape and gradient are
+   required now.
 
 4. **SettingRow**
 
    "SettingRow aligns label and child horizontally; responsive reflow and
    interactive controls are not asserted."
 
+   **Visible result.** Source-width rows show a label in the 422-pixel left
+   column and a plain child specimen in the right column. Include a first row,
+   a normal separated row, a multiline label, and an explicit-height variant.
+   At 100%, default minimum height is 159 pixels; labels use 61-pixel Bebas Neue,
+   uppercase treatment, source horizontal stretch and shadows. The normal row
+   has the source 2-pixel translucent separator; the first row does not.
+
+   **Exercise.** Capture each static variant; reset reproduces it exactly.
+
+   **Deferred.** The child is a size-marked specimen, not an unfinished control.
+   Actual controls begin at Task 5. Stacked large-text rows belong to Task 22.
+
 5. **ToggleControl layout and state**
 
    "ToggleControl renders label, checkbox, and controlled toggling; focus,
    animation, and help remain unasserted."
+
+   **Visible result.** A source-styled labeled checkbox row opens checked.
+   The 77x77 checkbox has its 4-pixel blue border, 11-pixel corner radius, dark
+   vertical gradient, inset shadow, blue glow, and cyan clipped check mark. Show
+   an unchecked specimen and the supported row-height/offset variants as well.
+   Preserve the source's treatment of `first`; do not remove a separator when the
+   source component ignores that prop.
+
+   **Exercise.** Clicking toggles the controlled check mark on and off; changing
+   `checked` from the harness changes the same specimen. Reset returns to checked.
+
+   **Deferred.** Hover/press feedback is Task 11, keyboard-only focus paint Task
+   12, help description semantics Task 13, the info badge/dialog Task 19, generated
+   checkbox parts Task 23, and animated checkbox effects Task 25.
 
 6. **SelectControl closed state**
 
    "SelectControl renders changing controlled values and its caret; opening,
    options, focus, and animation remain unasserted."
 
+   **Visible result.** A Display Mode row opens with Borderless in the closed
+   select trigger. Match the source's 396x106 trigger at 100%, clipped corners,
+   3-pixel inset, cyan-to-pink border gradient, dark interior, glow, Barlow Condensed
+   value text and shadow, and downward caret. The trigger remains closed.
+
+   **Exercise.** Harness controls set Borderless, Fullscreen, and Windowed;
+   only the displayed controlled value changes. Reset restores Borderless.
+
+   **Deferred.** Hover/press feedback is Task 11, focus paint Task 12, opening
+   and the option list Task 14, keyboard list navigation Task 15, generated frame
+   substitution Task 23, and popover animation Task 26.
+
 7. **VolumeControl layout**
 
    "VolumeControl renders track, fill, thumb, value, and controlled changes;
    rich input and effects remain unasserted."
+
+   **Visible result.** A Master Volume row opens at 80 with the source's
+   284-pixel track, proportional colored fill, tick marks, clipped metallic thumb,
+   and numeric value. Match the track's dark gradient, fill gradient, thumb shape,
+   shadows and glow; retain the source thumb overhang at both endpoints.
+
+   **Exercise.** Parent controls set 0, 50, and 100. Fill width, thumb position,
+   and numeral agree at every value. Reset restores 80.
+
+   **Deferred.** Complete drag, keyboard, and controller input is Task 16;
+   generated slider parts Task 23; release effects Task 25; audio behavior Task
+   31; heartbeat Task 32. A generic native slider is not a visual substitute.
 
 8. **ActionButton**
 
    "ActionButton renders typed children and invokes clicks; interaction states,
    particles, and navigation remain unasserted."
 
+   **Visible result.** A source-size 760x140 ActionButton shows PLAY with
+   cut corners, multicolor border, dark inset, source glow, and the gradient,
+   stroked, shadowed label. Separate specimens cover custom typed children and a
+   disabled button. Include ReturnButton at its source rectangle: left 328, top
+   1358, width 368, height 120, with its dark backing and RETURN label.
+
+   **Exercise.** Enabled buttons update an external activation counter. Disabled
+   buttons do not. Return requests its callback without navigating a screen.
+   Reset clears counters. Preserve the source's actual disabled appearance; do
+   not invent a gray treatment.
+
+   **Deferred.** Hover/press states are Task 11, focus paint Task 12, generated
+   frames/labels Task 23, shine/bursts Task 25, and route/exit integration Tasks
+   34 and 38--40.
+
 9. **SettingsTabs layout**
 
    "SettingsTabs selects controlled tabs horizontally; directional focus,
    panel transitions, and responsive labels remain unasserted."
 
+   **Visible result.** Show only the horizontal SettingsTabs strip, opening
+   with Gameplay selected. Columns are 264, 212, 205, and 200 pixels with 2-pixel
+   gaps in an 887x129 layout slot. Labels read Gameplay, Graphics, Sound, Input.
+   The active tab is 130 pixels high; inactive tabs are 127 pixels high with the
+   source's 3-pixel downward resting translation. Preserve bottom alignment and
+   visible overflow rather than forcing all painted tops into the slot.
+
+   The shape is mandatory: `tabOuterClip` cuts both top corners by 18 pixels,
+   keeps bottom corners square, and encloses a 4-pixel inset whose top cuts are
+   15 pixels. The active border is the 112-degree gradient with stops #72f5ff,
+   #53afff at 44%, #9a83ff at 68%, and #ff4ed3. Inactive borders use the source's
+   110-degree #657287 / #454f64 at 52% / #6f6577 gradient. Active and inactive
+   interiors retain their distinct dark vertical gradients and inset shadows;
+   the active tab has blue outer glow and a magenta inner bottom edge. Labels
+   use Barlow Condensed 700, 55 pixels active and 51 inactive, 1-pixel tracking,
+   #f7f7fb text, and the source text shadows. Rectangular solid borders fail this
+   page even if their bounding boxes match.
+
+   **Exercise.** Click each tab and show the active appearance moving to the
+   chosen label, with exactly one selected tab. A parent control can select Sound;
+   reactivating the current tab still emits its selection request. Reset selects
+   Gameplay. Changes are immediate until feedback motion is added.
+
+   **Deferred.** No content panel is required. Hover/press feedback is Task 11,
+   focus-visible paint Task 12, arrows/Home/End/controller selection Task 17,
+   scaled labels Task 22, generated frame substitution Task 23, release bursts
+   Task 25, and content-panel transitions Task 27. Tab shape and all resting
+   border/interior/text paint are required now.
+
 10. **ScreenHeader**
 
-    "ScreenHeader renders game and settings variants; generated wordmark,
-    scaling, and animation remain unasserted."
+    "ScreenHeader matches both painted heading variants; generated textures,
+    text scaling, and surrounding screen composition remain unasserted."
+
+    **Visible result.** Provide separate game and settings heading specimens
+    at their source positions. The game heading reads CHESS CHESS on its first
+    line and REVOLUTION on its second; the other reads Settings. Match the
+    Barlow Condensed 800 italic letters, gradient fill, stroke, colored offset
+    shadows, skew/stretch, and the blue left and pink right clipped stripe bars.
+    At 100%, heading containers are left 84, width 854, with top/height 103/330
+    for game and 74/122 for settings. Use the source's distinct text transforms.
+
+    **Exercise.** Capture both static variants and their reset.
+
+    **Deferred.** The generated logo is Task 23; its absence does not permit plain
+    unpainted heading text. Font scaling is Task 22 and surrounding screen
+    composition Tasks 38--39. No title animation is introduced.
 
 ### Interaction, focus, accessibility, and input
 
@@ -725,21 +955,78 @@ player interaction. The approximate 500-line task target still applies.
     "useInteraction drives hover, press, release, and cancellation visuals;
     focus modality and particles remain unasserted."
 
+    **Visible result.** A specimen selector presents the existing checkbox,
+    closed select, slider, action/Return button, and tabs with their completed
+    resting paint. Show source hover, held-press, release, and canceled-press
+    states, including brightness, border color, scale, and tab vertical offset.
+    For example, an inactive hovered tab rises to y=-1 and a pressed tab scales
+    to .955; the source's feedback transitions and reduced-motion branches apply.
+
+    **Exercise.** Enter, press, release, drag out/cancel, and leave each specimen.
+    Successful activation changes controlled state where applicable; cancellation
+    clears pressed presentation without a successful activation. Reset restores
+    resting paint and clears counts.
+
+    **Deferred.** Keyboard-only focus appearance is Task 12. Shine sweeps,
+    particles, and release bursts are Task 25; audio-driven pulse is Task 32.
+    Popover, panel, and route transitions retain their later owners.
+
 12. **Focus-visible behavior**
 
     "Keyboard and controller focus-visible states render correctly while
     pointer focus hides the keyboard-only ring; complete controls remain
     unasserted."
 
+    **Visible result.** The Task 11 specimens also show their source
+    keyboard/controller focus treatment: yellow/gold borders or outlines, white
+    and yellow glow, and the appropriate focused gradient. Moving focus moves
+    that treatment to one control; checked and selected states remain legible.
+    Pointer focus retains ordinary pointer/hover paint without the keyboard ring.
+
+    **Exercise.** Compare pointer click, Tab, Shift-Tab, and controller focus on
+    each specimen. Reset restores the gallery heading focus using the current
+    physical input modality, so a keyboard ring must not remain on an old control.
+
+    **Deferred.** Full arrow selection for tabs belongs to Task 17; listbox and
+    dialog navigation belong to Tasks 15 and 18. This page does not add panels,
+    shine, particles, or heartbeat.
+
 13. **ToggleControl accessibility**
 
     "ToggleControl exposes labeled checkbox semantics and help description;
     effects, help modal, and composition remain unasserted."
 
+    **Visible result.** A labeled Upload Crash Reports checkbox row opens
+    checked and has the same finished paint and feedback as the earlier checkbox.
+    Its crash-report description is available to assistive technology without
+    adding a visible paragraph to the source row. Include the `aria_label`
+    override variant in the harness.
+
+    **Exercise.** Activate through pointer, keyboard, controller, and semantic
+    Activate; the check mark and checked state agree. Reset returns to checked.
+    The description reads “We upload crash reports to Unity Diagnostics.”
+
+    **Deferred.** The clickable info badge and visible help modal are Task 19.
+    No help panel or screen composition is required on this page.
+
 14. **SelectControl pointer popover**
 
     "SelectControl opens one anchored listbox, selects options, and dismisses
     outside; keyboard behavior remains unasserted."
+
+    **Visible result.** Display Mode opens as the fully styled closed
+    Borderless trigger. Clicking opens one source-styled list directly below it,
+    with the same width and a 6-pixel gap. Show Borderless, Fullscreen, and
+    Windowed, the selected check mark, hovered option background, clipped gradient
+    frame, dark interior, and shadows. The caret points up while open.
+
+    **Exercise.** Open the list, hover Windowed, select it, reopen, and dismiss by
+    clicking outside. The trigger reads Windowed after selection; reset closes
+    the list and restores Borderless. Open/close and caret reversal are immediate.
+
+    **Deferred.** Keyboard/controller list navigation is Task 15. Presence,
+    stagger, caret rotation timing, and selection-flash animation are Task 26.
+    The fully open list's shape, gradients, text, and selected mark are required now.
 
 15. **SelectControl keyboard and controller behavior**
 
@@ -747,16 +1034,50 @@ player interaction. The approximate 500-line task target still applies.
     and listbox semantics through handlers and queued ref focus; animation
     remains unasserted."
 
+    **Visible result.** The same listbox now visibly distinguishes the
+    keyboard/controller active option from the committed selected option. Source
+    focus paint follows the active option, while the check mark continues to
+    identify the selected value until commitment.
+
+    **Exercise.** Open from the trigger, use arrows, Home, End, and typeahead,
+    commit Windowed, then reopen and Escape without changing it. The trigger
+    regains focus and the correct modality treatment. Reset is closed Borderless.
+
+    **Deferred.** This page adds no new decorative shell. Dropdown presence,
+    stagger, selection flash, and interruption animation remain Task 26.
+
 16. **VolumeControl input**
 
     "VolumeControl supports drag, keyboard steps, endpoints, pages, and
     controller input; release effects remain unasserted."
 
+    **Visible result.** The finished Master Volume slider opens at 80.
+    Dragging visibly moves its fill, thumb, and numeral together, with existing
+    hover, press, and focus paint. Values remain integers between 0 and 100.
+
+    **Exercise.** Drag to both endpoints; use arrows, Page Up/Down, Home/End, and
+    controller actions. Match the source's step sizes, clamping, and touch padding.
+    Cancel a captured pointer and confirm pressed paint clears. Reset restores 80.
+
+    **Deferred.** Release bursts are Task 25 and playback integration Task 31. Do not
+    add an audio visualization or redesign the already approved slider paint.
+
 17. **SettingsTabs navigation**
 
-    "SettingsTabs preserves four Tab stops and adds arrow and controller
-    selection through handlers and queued ref focus; animated panels remain
-    unasserted."
+    "SettingsTabs preserves four Tab stops and adds directional selection
+    with visible focus; animated content panels remain unasserted."
+
+    **Visible result.** The completed tab strip opens on Gameplay. Arrow,
+    Home/End, and controller selection now move both the active tab paint and
+    keyboard/controller focus treatment. All four labels remain sequential Tab
+    stops; focused and selected are distinct states when ordinary Tab moves focus.
+
+    **Exercise.** Wrap Input to Gameplay and back, select first/last, and traverse
+    all four tabs with Tab/Shift-Tab. Reset selects Gameplay and restores gallery
+    heading focus. Selection still renders without a content-panel animation.
+
+    **Deferred.** Scaled labels are Task 22 and panel transition Task 27. This
+    page requires no settings content panel and makes no new resting-skin change.
 
 18. **ArcadeModal behavior**
 
@@ -764,15 +1085,58 @@ player interaction. The approximate 500-line task target still applies.
     exposes dialog semantics on its modal wrapper; animation remains
     unasserted."
 
+    **Visible result.** An external opener shows a closed-dialog state. Open
+    it to display the source erase-confirmation specimen: “Erase Saved Data?”, its
+    source warning sentence, Cancel, and Erase. The stage behind it is darkened
+    and blurred; the centered clipped panel has the source cyan border, layered
+    dark gradients, inset/outer glow, title/body typography, and danger button.
+    The panel is at its fully open size and opacity immediately.
+
+    **Exercise.** Open, traverse contained focus, cancel with Escape, reopen,
+    confirm, and dismiss through the source backdrop behavior. Each close
+    restores opener focus; confirmation records an event without deleting data.
+    Reset closes the dialog.
+
+    **Deferred.** Opening/closing transforms and looping shine are Task 28.
+    The real EraseControl row and its composition belong to Task 35; no complete
+    Gameplay panel is needed here. Static modal paint is required now.
+
 19. **InfoBadge and Privacy Policy**
 
     "InfoBadge opens accessible crash-report help and activates Privacy Policy;
     data erasure remains absent."
 
+    **Visible result.** Upload Crash Reports appears checked with the source
+    small circular blue “i” badge beside its label. Activating the badge opens the
+    source help dialog: no invented visible title, the body “We upload crash
+    reports to Unity Diagnostics.”, the cyan underlined Privacy Policy link, and
+    OK. Match badge and link geometry, typography, border, glow, and placement.
+
+    **Exercise.** Open help without toggling the checkbox; activate the link
+    through a test host; dismiss and restore badge focus. Reset returns to the
+    checked row with help closed. Host rejection keeps the same dialog visible.
+
+    **Deferred.** Modal animation is Task 28; full Gameplay composition Task 35.
+    The help body is not shown permanently beside the checkbox, and no erase
+    interaction belongs to this page.
+
 20. **Input settings table**
 
     "InputSettings scrolls bindings beneath a sticky header; rebinding,
     conflicts, and visual icons remain unasserted."
+
+    **Visible result.** A source-size 839-pixel-wide input table shows Action,
+    Keyboard, Controller headings and seven rows: Left, Right, Up, Down, Move
+    Piece, Pause, Restart. Initial bindings match Behavioral Acceptance. Match
+    row height, column widths, separator paint, header background,
+    text, and scroll viewport. Keyboard/controller cells deliberately show binding
+    names as text; they do not show placeholder squares or guessed glyphs.
+
+    **Exercise.** Scroll until Restart is visible. The header stays fixed and
+    aligned above its columns; reset returns to the top and default bindings.
+
+    **Deferred.** Rebinding/dialog/conflict states are Task 21 and icon artwork
+    Task 24. The full settings panel surround is not required.
 
 21. **Keyboard rebinding**
 
@@ -780,17 +1144,71 @@ player interaction. The approximate 500-line task target still applies.
     defaults, and announces status; icons and controller rebinding are not
     asserted."
 
+    **Visible result.** The Task 20 table gains interactive keyboard cells.
+    Opening Move Piece displays the finished “Change Shortcut” modal, “Press a key
+    for Move Piece”, a cyan waiting marker, Cancel, and Reset. A conflicting key
+    shows “Already used by <action>” in the source pink/red status styling; the
+    modal stays open. The waiting marker's source blink is owned here.
+
+    **Exercise.** Assign an unused key and see the cell text update, reject a
+    conflicting key, cancel another capture, then reset a binding. Escape can be
+    captured as a key. Gallery reset closes capture and restores all defaults.
+
+    **Deferred.** Cells remain text-only until Task 24; controller cells remain
+    display-only permanently. The modal's entrance/exit and shine are Task 28.
+
 22. **FontScale**
 
     "FontScale reflows rows and scales text and controls; persistence and
     complete screens remain unasserted."
 
+    **Visible result.** A text-size harness opens at 100% and offers 150% and
+    200%. It presents representative rows of every existing control, the four-tab
+    strip, both headings, action/Return buttons, dialogs, and the input table.
+    At larger sizes, SettingRow labels stack above controls with the source gaps,
+    padding, and height formulas; scroll containers reveal focused controls. Text
+    and controls grow by their own source formulas, not one uniform scale.
+
+    Tab widths remain 264/212/205/200 with 2-pixel gaps. Tab text multiplies its
+    55/51-pixel base by `1 + (fontScale - 1) * .25`; Gameplay and Graphics also
+    multiply by .92 above 100%. No abbreviated labels are introduced. Input columns
+    change from 310/310/remainder to 260/340/remainder. Headings, controls, navigation
+    labels, and Return's text cap follow `FontScale.tsx` and their component formulas.
+
+    **Exercise.** Compare all three sizes, open a list/dialog at 200%, scroll to
+    and focus the final input row, then reset to 100%. No text or focused control
+    is clipped. Use separate specimens instead of squeezing everything into one
+    stage.
+
+    **Deferred.** Binding icons are Task 24; complete screens Tasks 35--40.
+    Window narrowing still scales the portrait stage; it does not trigger reflow.
+
 ### Assets, effects, animation, and audio
 
-23. **Generated control skin**
+23. **Generated control skin integration**
 
-    "Generated assets skin controls and labels; interaction behavior, dynamic
-    effects, and screen composition are not asserted."
+    "Generated assets replace matching frame and label paint; catalog integration
+    and preserved appearance are asserted across earlier pages."
+
+    **Visible result.** A static specimen selector displays every generated
+    frame, label, logo, checkbox state, and slider part integrated at its real
+    runtime size. Earlier pages retain the same approved shapes, gradients,
+    shadows, text placement, and controlled resting states when generated artwork
+    replaces their paint. Include active/inactive tabs, checked/unchecked boxes,
+    slider endpoints, all action labels, both frame assets, and the game logo.
+    The settings panel frame is an isolated asset specimen here, not a composed
+    panel with rows or tabs.
+
+    **Exercise.** Capture the static variants and every affected earlier page.
+    Verify asset loading from the generated catalog with no missing-texture blocks,
+    transparent holes, seams, stretch artifacts, or duplicated overlaid paint.
+    The source CSS remains the visual target; reconcile a recipe mismatch rather
+    than approving a changed appearance merely because generation succeeded.
+
+    **Deferred.** Input glyphs and the assembled panel surround are Task 24.
+    No new hover, focus, burst, or transition behavior is introduced; retain
+    completed interaction behavior on earlier pages. Generated asset integration
+    must not be reported as the first completion of their static appearance.
 
     Copy these existing declarations into `chess-ui`; do not create a shared
     asset crate:
@@ -820,35 +1238,131 @@ player interaction. The approximate 500-line task target still applies.
     "InputBindingIcons and the settings panel render precisely; rebinding
     behavior and full composition remain unasserted."
 
+    **Visible result.** Two static specimens are required. First, display the
+    input table with actual source keycaps, directional arrows, D-pad marks, green
+    A, gray menu, and yellow Y glyphs in place of the text-only binding substitutes.
+    Second, display the 887x1021 settings panel surround with its clipped bottom
+    corners, thin blue/purple gradient border, layered dark interior, inset shadow,
+    and 18/24/32-pixel top/horizontal/bottom content padding. Use a plain interior
+    specimen to show the padding without assembling settings content.
+
+    **Exercise.** Capture default and long/custom binding variants at each text
+    size; reset reproduces them. Earlier input pages now render icons while
+    retaining rebinding and scrolling. Check the final row beneath the sticky header.
+
+    **Deferred.** Full Input composition is Task 37 and tabs/panels/Return
+    integration Task 38. No new rebinding policy or controller editing is added.
+
 25. **Control shine and release bursts**
 
     "Buttons, checkboxes, and sliders play shine and keyed release bursts;
     ambient and route effects remain unasserted."
+
+    **Visible result.** Existing action/Return buttons, tabs, select triggers
+    and options, checkboxes, and sliders retain their finished paint and gain
+    the source shine or keyed effect layers where their source uses them.
+    Action-button highlight shows its moving shine; successful releases produce
+    the source compact or full particle burst. Checkbox state changes and slider
+    release use their own source effect shapes and anchors.
+
+    **Exercise.** Trigger each effect, capture its ledger-defined intermediate
+    state and settled result, retrigger before completion, and cancel a press.
+    Effects must originate at the control and leave no residue. Reset clears all
+    particles and keys; reduced motion follows each source branch.
+
+    **Deferred.** Dropdown presence/selection flash is Task 26; modal shine Task
+    28; ambient effects Task 29; heartbeat Task 32. No effect can excuse a
+    resting-paint mismatch. EraseControl reuses its source-prescribed compact
+    button burst when that control is introduced in Task 35; modal buttons do
+    not gain a burst absent from their source.
 
 26. **Dropdown animation**
 
     "Dropdown and options animate presence, stagger, selection flash, and
     interruption; settings composition remains unasserted."
 
+    **Visible result.** The finished select now animates from its closed
+    state into the fully painted list: the panel reveals below the trigger,
+    options enter with source stagger, the caret rotates, and selection flashes
+    before the list closes. Intermediate scale/translation/opacity match the
+    pinned ledger; settled open and closed appearances match Tasks 14--15.
+
+    **Exercise.** Open, select Windowed, reopen during closing, and dismiss
+    outside/Escape. Capture opening, selection flash, interrupted replacement, and
+    settled states. Reset returns to closed Borderless with no lingering overlay.
+    Reduced motion removes the source-disallowed movement.
+
+    **Deferred.** No settings screen composition or tab-panel transition is added.
+
 27. **ArcadeTabTransition**
 
     "ArcadeTabTransition enters, exits, and sweeps by direction; complete tab
     contents and routing remain unasserted."
+
+    **Visible result.** The completed tab strip sits above a source-sized
+    panel viewport containing a simple labeled content specimen for each category.
+    Gameplay is initial. Switching categories produces the source directional
+    enter/exit motion and sweep; after settling exactly one correctly labeled
+    specimen remains visible. The tab strip's own shape and paint do not change.
+
+    **Exercise.** Switch right and left, wrap, and interrupt a transition with
+    another selection. Capture both directions and the reduced-motion result.
+    Reset restores Gameplay with no outgoing content or sweep remaining.
+
+    **Deferred.** The specimens are not real Gameplay/Graphics/Sound/Input
+    contents; those belong to Tasks 35--37. Full SettingsScreen is Task 38.
 
 28. **ArcadeModal animation**
 
     "ArcadeModal animates backdrop, panel, and shine with reduced-motion
     alternatives; screen composition remains unasserted."
 
+    **Visible result.** The finished erase, help, and rebinding modal
+    specimens gain backdrop fades, panel reveal/collapse, skew/brightness changes,
+    and looping panel shine as specified in the ledger. Their fully open text,
+    buttons, borders, and dimensions remain those already approved.
+
+    **Exercise.** Open and close each variant, interrupt an entrance with close,
+    and reopen during exit. Capture entrance, open shine, and exit. Exiting content
+    is inert and cannot retain focus. Reset closes all dialogs and clears shine;
+    reduced motion uses the source's short fades without the large transforms.
+
+    **Deferred.** No new modal content or settings-screen composition is added.
+
 29. **ArcadeAttractMode**
 
     "ArcadeAttractMode animates seeded grid and particles deterministically;
     menu controls and audio remain unasserted."
 
+    **Visible result.** The portrait frame encloses only the source attract
+    background: its layered grid and seeded ambient particles at the source
+    positions, colors, opacity, and clipping. At time zero it shows the defined
+    initial seed state, not an arbitrary screenshot of a running effect.
+
+    **Exercise.** Advance the controlled clock to ledger capture times; the grid
+    and particles move deterministically. Reset returns to the identical initial
+    seed/time image. Reduced motion follows the source's static/reduced alternative.
+
+    **Deferred.** No logo, menu buttons, music indicator, or audio belongs to
+    this background specimen; the assembled main menu is Task 39.
+
 30. **ArcadeFramePulse**
 
     "ArcadeFramePulse animates border comets around the restored Return cutout;
     exits and route effects remain unasserted."
+
+    **Visible result.** The finished empty arcade frame gains moving border
+    comets. A harness switches between main and settings frame contexts. The
+    settings specimen includes Return at its source location and the corrected
+    bottom-center cutout, so comets follow the remaining frame rather than crossing
+    through Return. Main has the source main-frame path.
+
+    **Exercise.** Capture both contexts at pinned pulse times and verify the
+    cutout geometry below. Reset restores the main context at time zero; reduced
+    motion follows the ledger.
+
+    **Deferred.** Frame collapse is Task 34 and complete routed settings Task
+    38. Only the documented settings cutout is a parity correction.
 
     This is an approved parity exception. The source tests
     `usePathname() === "/settings"`, but routing now stays at the root URL, so
@@ -869,20 +1383,77 @@ player interaction. The approximate 500-line task target still applies.
     "BackgroundMusic loops audio, applies effective volume and background mute,
     and exposes playback context; heartbeat remains unasserted."
 
+    **Visible result.** A harness shows the existing Master Volume and Music
+    Volume sliders at 80 and 65, background mute off, and external playback,
+    visibility, and mute status. Activating playback advances the displayed
+    playhead; sliders retain their approved paint. Status is harness UI outside
+    the reference crop, not an invented source music player.
+
+    **Exercise.** Change volumes and simulate hidden/visible state. Effective
+    volume reflects .8 × .65 initially; background mute affects hidden playback
+    without pausing the playhead. Reset stops playback at zero and restores values.
+    Unavailable playback is explicit in harness status.
+
+    **Deferred.** The source music indicator and visible heartbeat are Task 32.
+    No waveform, equalizer, or new product audio controls are introduced.
+
 32. **Music indicator and heartbeat**
 
     "MusicPlaybackIndicator mutes or enables sound while controls pulse from
     audio time; complete menu composition is not asserted."
+
+    **Visible result.** The source indicator reads “Playing with sound” and
+    “is recommended!” on two centered lines, with its source position, font, and
+    shadow. Active sound has no crossed-out speaker below it; muted/unavailable
+    sound shows the source gray speaker-slash icon. Representative completed
+    controls pulse in scale/brightness from audio time, using the specified two-hit
+    heartbeat rather than an unrelated animation clock.
+
+    **Exercise.** Mute and enable without rewinding, restore zero volumes through
+    enable, simulate unavailable playback, and compare normal/reduced motion.
+    Capture sound-on, muted, and ledger-timed pulse states. Reset stops the
+    playhead and clears the pulse until playback is activated again.
+
+    **Deferred.** The surrounding main menu is Task 39. Audio status diagnostics
+    remain outside the source crop.
 
 33. **ArcadeMenuTransition**
 
     "ArcadeMenuTransition swaps keyed screens with beam and reveal effects;
     complete routed screens remain unasserted."
 
+    **Visible result.** A keyed screen-transition harness opens on a clearly
+    labeled Main specimen. A harness action replaces it with a Settings specimen
+    using the source beam, reveal, overlay, and outgoing/incoming motion. The
+    specimens occupy the source screen bounds inside the completed frame; they
+    are simple distinguishable contents, not prematurely assembled screens.
+
+    **Exercise.** Transition in both directions and interrupt with a replacement.
+    Capture ledger-defined intermediate layers and the settled destination.
+    Reduced motion follows the source alternative. Reset restores Main with no
+    beam or outgoing screen visible.
+
+    **Deferred.** First-navigation policy and route ownership are Task 40;
+    complete MainMenu and SettingsScreen are Tasks 38--39.
+
 34. **ArcadeExitSequence**
 
     "ArcadeExitSequence and frame collapse synchronize dismissal; gameplay,
     quitting, and routed composition remain unasserted."
+
+    **Visible result.** A completed frame with a representative painted
+    button/content specimen starts intact. An external trigger runs the source
+    exit overlay and synchronized frame brightness, distortion, and collapse,
+    ending on an entirely black stage. Gallery navigation remains outside the
+    stage; no invented game, farewell message, or quit dialog appears.
+
+    **Exercise.** Capture the intact, ledger-timed collapsing, and black states;
+    repeat with reduced motion. Once exiting, controls become inert and focus
+    clears. Reset restores the intact initial frame and specimen.
+
+    **Deferred.** Play/Quit wiring and the complete menu are Task 39; full-app
+    review-layer dismissal is Task 40. Neither gameplay nor host shutdown will
+    be added by those tasks.
 
 ### Screen composition
 
@@ -891,30 +1462,121 @@ player interaction. The approximate 500-line task target still applies.
     "Gameplay and Graphics settings compose matching controls and props; other
     tabs and final transitions remain unasserted."
 
+    **Visible result.** Separate Gameplay and Graphics specimens contain
+    complete, source-painted row contents within the approved panel surround.
+    Gameplay opens with Language English, Text Size 100%, Reduce Motion off,
+    Increase Move Duration on, Upload Crash Reports on with its info badge, and
+    the fully painted red ERASE row. Graphics opens with Resolution 1920 × 1080,
+    Max Framerate 144 FPS, Display Mode Borderless, Screenshake on, and VSync on.
+    Match source row order, offsets, line breaks, spacing, and panel scrolling.
+
+    **Exercise.** Change every control and compare all text sizes. Selecting
+    150% or 200% reflows the specimen. Harness callbacks may demonstrate the already
+    completed help/erase dialogs, but are outside cross-screen routing. Reset
+    restores all listed values and closes overlays.
+
+    **Deferred.** Sound and Input composition are Tasks 36--37; the shared tab
+    strip, header, Return, and integrated dialog ownership are Task 38. No platform
+    locale, graphics, saved-data, or gameplay effects are added.
+
 36. **SoundSettings**
 
     "SoundSettings composes three sliders and background mute against shared
     audio state; Input settings remain unasserted."
+
+    **Visible result.** The Sound panel contains Master Volume 80, Music
+    Volume 65, Effects Volume 75, and unchecked Mute in Background in source order,
+    with the source multiline labels, spacing, and approved slider/checkbox paint.
+    Its panel surround and large-text layout match earlier specimens.
+
+    **Exercise.** Drag all three sliders, toggle background mute, and simulate
+    hidden/visible playback. Fill, thumb, and numeral agree; master/music affect
+    the shared audio state. Effects volume changes its visible value only. Reset
+    restores all four defaults, scrolling, and the audio lifecycle contract.
+
+    **Deferred.** Input composition is Task 37 and cross-tab settings ownership
+    Task 38. This page does not add menu chrome or a new effects sound.
 
 37. **InputSettings composition**
 
     "InputSettings composes bindings, icons, scrolling, rebinding, and its
     modal; cross-tab integration is not asserted."
 
+    **Visible result.** The Input panel combines the approved surround,
+    sticky Action/Keyboard/Controller header, seven binding rows, real icons,
+    scrolling, and the animated Change Shortcut modal. At default size the first
+    rows appear at the source scroll position; scrolling reveals Restart beneath
+    the fixed header. Larger text follows Task 22.
+
+    **Exercise.** Rebind Move Piece, show a conflict, cancel, reset one binding,
+    and scroll/focus the last row. Updated key text/icon matches the binding.
+    Gallery reset closes capture, restores all default bindings, and scrolls to top.
+
+    **Deferred.** The tab strip, settings title, Return, and state integration
+    with the other settings panels are Task 38. Controller cells remain display-only.
+
 38. **SettingsScreen**
 
     "SettingsScreen composes tabs, panels, Return, and both dialogs; main menu
     and route transition remain unasserted."
+
+    **Visible result.** The complete settings screen opens on Gameplay:
+    finished arcade frame and pulse/cutout, Settings heading, four tabs at left
+    68/top 233, the 887-pixel panel below the tab strip, complete active panel
+    contents, and Return at its source position. No dialog or dropdown is open.
+    Every visible component includes the paint, icons, effects, scaling, and
+    behavior completed earlier.
+
+    **Exercise.** Visit all four tabs with animated panel replacement; edit values,
+    return to panels and verify retained state; open help, erase confirmation, and
+    rebinding. Erase confirms and closes without deleting anything. Return emits a
+    main-route request to the harness. Reset restores Gameplay and every default.
+
+    **Deferred.** Return need not reveal a real main menu here: that composition
+    is Task 39 and integrated routing Task 40. No settings chrome or static paint
+    is deferred beyond this page.
 
 39. **MainMenu**
 
     "MainMenu composes background, header, buttons, music, and exit behavior;
     the complete router remains unasserted."
 
+    **Visible result.** The complete main menu shows the arcade frame and
+    pulse, attract background, CHESS CHESS REVOLUTION heading, Play, Settings,
+    About, Quit in their source stack, and the music recommendation/indicator.
+    At 100%, buttons occupy left 132, width 760, starting top 476, with 140-pixel
+    heights and 24-pixel gaps. Playback and heartbeat follow the audio contract.
+    No settings panel is shown initially.
+
+    **Exercise.** About leaves the view unchanged. Settings emits a navigation
+    request. Play and Quit each run the same exit sequence and finish on black;
+    neither starts gameplay nor shuts down the host. Exercise sound mute/enable.
+    Reset restores the complete menu, initial state, and playback lifecycle.
+
+    **Deferred.** Settings-to-main route integration and first-navigation
+    transition policy are Task 40. No main-menu paint or exit behavior is deferred.
+
 40. **ArcadeScreenRouter**
 
     "ArcadeScreenRouter composes every accessible mockup behavior; no
     player-visible behavior remains outside this page's scope."
+
+    **Visible result.** The gallery initially shows only this page's heading,
+    caption, and launcher. Launching displays the entire source-matching app in a
+    full-screen layer with no gallery navigation, counters, specimen selectors,
+    clock controls, or other review UI. It opens on the complete main menu.
+
+    **Exercise.** Settings opens the complete Gameplay settings screen; switch
+    all tabs, edit controls, open each dialog, change text size, and Return to main.
+    Preserve the source first-navigation rule and animate later route replacements.
+    Play/Quit finish on black. An otherwise unconsumed Escape/controller Cancel
+    closes the app layer and restores launcher focus. Relaunch/reselect resets all
+    values, bindings, scroll, overlays, route state, effects, and audio lifecycle.
+
+    **Deferred.** Nothing player-visible remains deferred. Only the documented
+    platform substitutions, corrected Return cutout, and intentional prototype
+    behaviors are exceptions to source parity. No browser render-mode diagnostics
+    or sample controls appear inside the app.
 
     Before this candidate, run the project's single permitted independent
     review and final source-coverage audit over the complete port. After

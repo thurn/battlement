@@ -67,3 +67,24 @@ Overlay::modal(overlay_target, ls("Settings"))
   .on_dismiss(|game: &mut Game| game.settings_open = false)
   .child(settings_panel())
 ```
+
+### Independently composed tab strips
+
+`TabStrip` supplies a named tab list and parent-owned selected index.
+`TabButton` proposes its index on every activation, including activation of the
+selected button. All enabled buttons remain ordinary Tab stops. The strip owns
+membership references; callers supply labels, indices, styled hosts, and one
+selection callback. Use `Tabs` for Unity's native tab pages, or `TabStrip` when
+headers are styled buttons and panel composition is separate. A tab list exposes
+one selected enabled tab and at most one associated exposed panel.
+
+```rust
+TabStrip::new()
+  .label(tx("Settings", "Settings category list."))
+  .selected_index(selected)
+  .on_select(set_selected)
+  .children((
+    TabButton::new().label(tx("General", "Settings tab.")).index(0),
+    TabButton::new().label(tx("Audio", "Settings tab.")).index(1),
+  ))
+```

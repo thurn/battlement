@@ -205,31 +205,31 @@ source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
 profile = "macos"
 scenario = "gallery navigation fourth"
 checkpoint = "selected"
-sha256 = "3dab1d6eac360151b759f5095695891661b009264daac3b8afaf2f130be5fde8"
+sha256 = "1199c3c897330f7d6d90277dea0506b4800ddbf53e86832fa6ab56f82faf77dd"
 width = 1280
 height = 800
-size_bytes = 105674
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 98344
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 
 [[baselines]]
 profile = "macos"
 scenario = "gallery navigation second"
 checkpoint = "selected"
-sha256 = "bd7a1f86d6d34f3ae2916383251d60ecbfd4d4810dadbb958c4aa477a08f1b33"
+sha256 = "52506aaa9a691b0b6ea79723229f2ab95ce1db35059110bdae71e67a6f914509"
 width = 1280
 height = 800
-size_bytes = 102293
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 102317
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 
 [[baselines]]
 profile = "macos"
 scenario = "gallery navigation third"
 checkpoint = "selected"
-sha256 = "3a392a391e8f579b19828a171c09bbfd925e9e9a73d21e2355d14aac0c2f5bcf"
+sha256 = "071411b453c609c2bf9961021ae57ea561c8ac9c60444bae45bf1a4c47e0da32"
 width = 1280
 height = 800
-size_bytes = 91251
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 88366
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 
 [[baselines]]
 profile = "macos"
@@ -315,11 +315,41 @@ source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
 profile = "macos"
 scenario = "setting row"
 checkpoint = "static"
-sha256 = "e3a419970089b9dfa49bf25f20d4815def84326fe293b78b3d36f5fee8b6d5a7"
+sha256 = "a06d3c270d8d388f57411082c9b814e0b712cbb1556f31aaf416dd81dc5d8223"
 width = 1280
 height = 800
-size_bytes = 120693
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 120823
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs"
+checkpoint = "changed"
+sha256 = "8664db629b72dbd5f5dc34fb42bf20eb67b997219d52d89641c47bb2a045db90"
+width = 1280
+height = 800
+size_bytes = 120974
+source = "f4ead2ea2e72674ed46591748da863f51881d12b275bf36458f4610999710f6a"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs"
+checkpoint = "initial"
+sha256 = "71ff8e705577e03d56c2babc1e2871ac4a0e01807a9d5a31cab46e4a6dc43f0c"
+width = 1280
+height = 800
+size_bytes = 121116
+source = "f4ead2ea2e72674ed46591748da863f51881d12b275bf36458f4610999710f6a"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs"
+checkpoint = "reset"
+sha256 = "71ff8e705577e03d56c2babc1e2871ac4a0e01807a9d5a31cab46e4a6dc43f0c"
+width = 1280
+height = 800
+size_bytes = 121116
+source = "f4ead2ea2e72674ed46591748da863f51881d12b275bf36458f4610999710f6a"
 
 [[baselines]]
 profile = "macos"
@@ -355,28 +385,28 @@ source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "changed"
-sha256 = "c3c3ce19a90d2971145c6eb9a5998987195e9240b25a37663488b746a2f6dea3"
+sha256 = "7a8aa100608b6b16239da1838ddaed2d90b2ca2d21145056a500fde191bd2dab"
 width = 1280
 height = 800
-size_bytes = 129735
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 131638
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 
 [[baselines]]
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "initial"
-sha256 = "f3b4bccdb8594011c2374ff1b1d53eb0dc138ed09b83d664be4b33dbfe4438aa"
+sha256 = "d2f3fd54606bf92cb35c6d3042560df90b4a4baa6129674ba8bb88fe5d04422e"
 width = 1280
 height = 800
-size_bytes = 129919
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 131948
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 
 [[baselines]]
 profile = "macos"
 scenario = "volume layout"
 checkpoint = "reset"
-sha256 = "f3b4bccdb8594011c2374ff1b1d53eb0dc138ed09b83d664be4b33dbfe4438aa"
+sha256 = "d2f3fd54606bf92cb35c6d3042560df90b4a4baa6129674ba8bb88fe5d04422e"
 width = 1280
 height = 800
-size_bytes = 129919
-source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+size_bytes = 131948
+source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"

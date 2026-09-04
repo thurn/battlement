@@ -1129,13 +1129,7 @@ accessibility_assert = { target = { role = "static-text", name = "Resolution" },
 accessibility_assert = { target = { role = "static-text", name = "Max Framerate" }, role = "static-text", name = "Max Framerate" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Display Mode" }, role = "static-text", name = "Display Mode" }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "group", name = "Display Mode" }, role = "group", name = "Display Mode", parent = { role = "region", name = "SettingRow" } }
-
-[[scenarios.steps]]
-accessibility_assert = { target = { role = "static-text", name = "Borderless" }, role = "static-text", name = "Borderless", parent = { role = "group", name = "Display Mode" } }
+accessibility_assert = { target = { role = "button", name = "Display Mode" }, role = "button", name = "Display Mode", parent = { role = "region", name = "SettingRow" } }
 
 [[scenarios.steps]]
 screenshot = { name = "static" }
@@ -1355,6 +1349,102 @@ accessibility_assert = { target = { role = "static-text", name = "Return clicks:
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "ActionButton" }, role = "heading", name = "ActionButton" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "settings tabs"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 0" }, role = "static-text", name = "Tab selections: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Graphics" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Sound" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Input" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Gameplay" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Gameplay" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 5" }, role = "static-text", name = "Tab selections: 5" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Select Sound from parent" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 5" }, role = "static-text", name = "Tab selections: 5" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u20689\u2069. \u2068SettingsTabs layout\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 0" }, role = "static-text", name = "Tab selections: 0" }
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }

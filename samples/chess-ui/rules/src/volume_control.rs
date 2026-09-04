@@ -1,6 +1,6 @@
 //! A controlled integer-percentage slider with a painted track and value.
 
-use trox::{LocalizedString, ls, tx_args, txa};
+use trox::{LocalizedString, tx_args, txa};
 
 use crate::{
   setting_row::{self, SettingRow},
@@ -82,7 +82,6 @@ impl Component for VolumeControl {
                 VolumeTicks::new(),
                 VolumeThumb::new().value(self.value),
                 SliderHost::new()
-                  .label(ls(""))
                   .low_value(0.0)
                   .high_value(100.0)
                   .value(self.value as f32)
@@ -95,7 +94,8 @@ impl Component for VolumeControl {
                       .left(-42)
                       .top(-34)
                       .width(368)
-                      .height(132),
+                      .height(132)
+                      .opacity(0.0),
                   ),
               )),
             TextElement::new(txa(

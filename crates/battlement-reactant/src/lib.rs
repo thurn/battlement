@@ -49,8 +49,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+extern crate self as battlement_reactant;
+
 mod action_context;
 mod activation;
+
 pub mod animation_controls;
 pub mod announcement;
 pub mod app;
