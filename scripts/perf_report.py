@@ -212,6 +212,7 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
         "exclusive_duration_ms",
     )
     _print_ranking("Longest waits", aggregate["longest_waits"], "duration_ms")
+    _print_ci_hotspots(aggregate["ci_step_hotspots"])
     print("\nAggregate categories")
     for category, duration in sorted(
         aggregate["category_exclusive_ms"].items(),
@@ -256,6 +257,23 @@ def _print_ranking(title: str, entries: list[dict[str, Any]], field: str) -> Non
     for entry in entries:
         suffix = " (inclusive)" if entry.get("inclusive") else ""
         print(f"  {_duration(entry[field]):>9}  {entry['name']}{suffix}")
+
+
+def _print_ci_hotspots(entries: list[dict[str, Any]]) -> None:
+    print("\nCI step hotspots")
+    if not entries:
+        print("  None")
+    for entry in entries:
+        failures = entry["failed_count"]
+        failure_text = f" · {failures} failed" if failures else ""
+        run_label = "run" if entry["run_count"] == 1 else "runs"
+        print(
+            f"  {_duration(entry['total_duration_ms']):>9} total · "
+            f"{_duration(entry['average_duration_ms'])} avg · "
+            f"p95 {_duration(entry['p95_duration_ms'])} · "
+            f"max {_duration(entry['max_duration_ms'])} · "
+            f"{entry['run_count']} {run_label}{failure_text}  {entry['name']}"
+        )
 
 
 def _duration(milliseconds: int) -> str:

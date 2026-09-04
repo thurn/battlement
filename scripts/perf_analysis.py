@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+import perf_hotspots
 from perf_model import (
     exclusive_durations,
     interval_difference_ms,
@@ -164,6 +165,7 @@ def analyze_session(
     longest = sorted(operations, key=lambda span: span.duration_ms, reverse=True)[:top]
     longest_waits = sorted(waits, key=lambda span: span.duration_ms, reverse=True)[:top]
     contributors = sorted(spans, key=lambda span: exclusive[span.id], reverse=True)[:top]
+    normalized_spans = [span.as_dict(exclusive[span.id]) for span in spans]
     return {
         "metadata": session.as_metadata(),
         "timing": {
@@ -199,8 +201,9 @@ def analyze_session(
         "longest_operations": [_ranked_span(span, exclusive) for span in longest],
         "longest_waits": [_ranked_span(span, exclusive) for span in longest_waits],
         "largest_contributors": [_ranked_span(span, exclusive) for span in contributors],
+        "ci_step_hotspots": perf_hotspots.ci_step_hotspots(normalized_spans, top),
         "findings": findings,
-        "spans": [span.as_dict(exclusive[span.id]) for span in spans],
+        "spans": normalized_spans,
         "transcript": sorted(session.transcript, key=lambda item: item.get("timestamp", "")),
         "warnings": session.warnings,
     }
@@ -258,6 +261,9 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
             waits, key=lambda span: span["duration_ms"], reverse=True
         )[:top],
         "largest_contributors": contributors,
+        "ci_step_hotspots": perf_hotspots.ci_step_hotspots(
+            [span for report in reports for span in report["spans"]], top
+        ),
         "longest_tasks": tasks[:top],
         "findings": sorted(findings, key=lambda finding: finding["duration_ms"], reverse=True),
     }

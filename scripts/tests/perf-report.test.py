@@ -19,6 +19,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import perf_analysis  # noqa: E402
+import perf_hotspots  # noqa: E402
 import perf_log  # noqa: E402
 from perf_model import exclusive_durations, interval_difference_ms, interval_union_ms, SessionTrace, Span, Thresholds  # noqa: E402
 import perf_report  # noqa: E402
@@ -39,6 +40,7 @@ def main() -> None:
         _verify_child_folding(root_session, child_session)
         _verify_ci_parsing(root)
         _verify_interval_analysis(root_session)
+        _verify_ci_step_hotspots()
         _verify_correlation(root, root_session)
         _verify_tollgate_retries(root)
         _verify_private_report(root)
@@ -334,6 +336,76 @@ def _verify_interval_analysis(session: SessionTrace) -> None:
     assert wait_report["timing"]["recorded_active_coverage_ms"] == 20_000
     assert wait_report["timing"]["known_wait_union_ms"] == 80_000
     assert wait_report["timing"]["unattributed_agent_turn_ms"] == 20_000
+
+
+def _verify_ci_step_hotspots() -> None:
+    spans = [
+        _normalized_ci_span("one", "run-one", "Rust tests", 10_000),
+        _normalized_ci_span("two", "run-two", "Rust tests", 20_000),
+        _normalized_ci_span("three", "run-three", "Rust tests", 100_000, "failed"),
+        _normalized_ci_span("format", "run-one", "Format", 5_000),
+        _normalized_ci_span(
+            "nested", "parent-step", "root workspace", 99_000,
+            parent_prefix="ci-step",
+        ),
+        {
+            **_normalized_ci_span("tollgate", "run-four", "Tollgate", 200_000),
+            "source": "tollgate",
+        },
+    ]
+    hotspots = perf_hotspots.ci_step_hotspots(spans, 10)
+    assert [hotspot["name"] for hotspot in hotspots] == ["Rust tests", "Format"]
+    rust = hotspots[0]
+    assert rust["occurrence_count"] == 3
+    assert rust["run_count"] == 3
+    assert rust["failed_count"] == 1
+    assert rust["total_duration_ms"] == 130_000
+    assert rust["average_duration_ms"] == 43_333
+    assert rust["p50_duration_ms"] == 20_000
+    assert rust["p95_duration_ms"] == 100_000
+    assert rust["max_duration_ms"] == 100_000
+
+    aggregate = perf_analysis.aggregate_reports(
+        [
+            {
+                "metadata": {"thread_id": "root", "title": "Fixture"},
+                "timing": {
+                    "wall_time_ms": 0,
+                    "recorded_active_coverage_ms": 0,
+                    "known_wait_union_ms": 0,
+                    "unattributed_agent_turn_ms": 0,
+                    "category_exclusive_ms": {},
+                },
+                "longest_operations": [],
+                "largest_contributors": [],
+                "longest_waits": [],
+                "findings": [],
+                "spans": spans,
+            }
+        ],
+        1,
+    )
+    assert aggregate["ci_step_hotspots"] == [rust]
+
+
+def _normalized_ci_span(
+    span_id: str,
+    run_id: str,
+    name: str,
+    duration_ms: int,
+    status: str = "passed",
+    parent_prefix: str = "ci-run",
+) -> dict[str, object]:
+    return {
+        "id": f"ci-step:{span_id}",
+        "parent_id": f"{parent_prefix}:{run_id}",
+        "source": "ci",
+        "category": "ci",
+        "name": name,
+        "duration_ms": duration_ms,
+        "status": status,
+        "attributes": {"run_id": run_id},
+    }
 
 
 def _verify_correlation(root: Path, session: SessionTrace) -> None:
