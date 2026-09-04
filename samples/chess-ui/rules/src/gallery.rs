@@ -54,17 +54,19 @@ impl Component for Gallery {
         .title("CHESS UI")
         .caption(format!("{} review pages", self.pages.len()))
         .children(self.pages.iter().enumerate().map(|(index, page)| {
-          let select = select.clone();
           ReviewButton::new()
             .label(format!("{}. {}", index + 1, page.title_text()))
             .navigation(selection.index == index)
             .reveal_generation(selection.generation)
             .name(format!("review-page-{}", index + 1))
-            .on_press(move || {
-              select.update(move |old| Selection {
-                index,
-                generation: old.generation + 1,
-              })
+            .on_press({
+              let select = select.clone();
+              move || {
+                select.update(move |old| Selection {
+                  index,
+                  generation: old.generation + 1,
+                });
+              }
             })
             .key(index + 1)
         })),

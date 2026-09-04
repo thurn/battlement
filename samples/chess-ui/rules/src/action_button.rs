@@ -5,7 +5,7 @@ use battlement::{
   Align, Color, FlexDirection, Justify, Length, LengthUnits, Position, Style, TextAnchor,
   Translate, UiFontAddress, WhiteSpace,
 };
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
   component::Component,
@@ -29,23 +29,34 @@ pub struct ActionButton<R> {
   /// Caps the label size relative to its authored arcade typography.
   max_text_scale: Option<f32>,
   /// Handles an accepted button activation.
-  on_click: Option<Rc<dyn Fn()>>,
+  #[builder(default = EventCallback::noop())]
+  on_click: EventCallback<()>,
+}
+
+impl<R> ActionButton<R> {
+  fn label_style(&self) -> Style {
+    let scale = 1.0_f32.min(self.max_text_scale.unwrap_or(f32::INFINITY));
+    Style::new()
+      .position(Position::Relative)
+      .flex_direction(FlexDirection::Row)
+      .align_items(Align::Center)
+      .height(81.9 * scale)
+      .padding_right(10.92 * scale)
+      .color(Color::rgb(0.97, 1.0, 1.0))
+      .unity_font_definition(ACTION_FONT)
+      .font_size(91.0 * scale)
+      .white_space(WhiteSpace::NoWrap)
+      .letter_spacing(-2)
+      .unity_text_align(TextAnchor::MiddleCenter)
+      .translate(Translate::two_dimensional(
+        Length::Px(0.0),
+        Length::Px(-1.0),
+      ))
+  }
 }
 
 impl<R: Render> Component for ActionButton<R> {
   fn render(&self) -> impl Render {
-    let on_click = self.on_click.clone();
-    let button = accessibility::use_button(ButtonOptions {
-      name: AccessibleName::Contents,
-      description: None,
-      is_disabled: self.disabled,
-      on_press: move || {
-        if let Some(callback) = &on_click {
-          callback();
-        }
-      },
-    });
-    let text_scale = 1.0_f32.min(self.max_text_scale.unwrap_or(f32::INFINITY));
     View::new()
       .style(
         Style::new()
@@ -56,7 +67,12 @@ impl<R: Render> Component for ActionButton<R> {
       .child(
         Button::new("")
           .name("action-button")
-          .behavior(button)
+          .behavior(accessibility::use_button(ButtonOptions {
+            name: AccessibleName::Contents,
+            description: None,
+            is_disabled: self.disabled,
+            on_press: self.on_click.clone(),
+          }))
           .style(
             Style::new()
               .position(Position::Relative)
@@ -81,24 +97,7 @@ impl<R: Render> Component for ActionButton<R> {
               .clip_path(action_skin::clip(14.0, 13.0)),
             View::new()
               .name("action-label")
-              .style(
-                Style::new()
-                  .position(Position::Relative)
-                  .flex_direction(FlexDirection::Row)
-                  .align_items(Align::Center)
-                  .height(81.9 * text_scale)
-                  .padding_right(10.92 * text_scale)
-                  .color(Color::rgb(0.97, 1.0, 1.0))
-                  .unity_font_definition(ACTION_FONT)
-                  .font_size(91.0 * text_scale)
-                  .white_space(WhiteSpace::NoWrap)
-                  .letter_spacing(-2)
-                  .unity_text_align(TextAnchor::MiddleCenter)
-                  .translate(Translate::two_dimensional(
-                    Length::Px(0.0),
-                    Length::Px(-1.0),
-                  )),
-              )
+              .style(self.label_style())
               .child(self.children.clone()),
           )),
       )

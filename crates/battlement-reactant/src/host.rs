@@ -42,6 +42,7 @@ use battlement::{
 
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
+  builder_support::IntoOption,
   element_ref::ElementRef,
   event_handler::Handler,
   focus::FocusProps,
@@ -361,12 +362,32 @@ macro_rules! facade {
 
       /// Attaches this host's single semantic declaration.
       #[must_use]
-      pub fn semantic(mut self, value: SemanticProps) -> Self {
-        assert!(
-          self.state.semantic.replace(value).is_none(),
-          "a Reactant host accepts at most one SemanticProps bundle"
-        );
+      pub fn semantic(mut self, value: impl IntoOption<SemanticProps>) -> Self {
+        if let Some(value) = value.into_option() {
+          assert!(
+            self.state.semantic.replace(value).is_none(),
+            "a Reactant host accepts at most one SemanticProps bundle"
+          );
+        }
         self
+      }
+
+      /// Attaches an associated visible label's reference, semantics, and interaction.
+      #[must_use]
+      pub fn associated_label(mut self, value: impl IntoOption<AssociatedLabel>) -> Self {
+        if let Some(value) = value.into_option() {
+          self = self
+            .element_ref(value.reference)
+            .semantic(value.semantic)
+            .interaction_props(value.interaction);
+        }
+        self
+      }
+
+      /// Attaches an associated control's reference and accessible behavior.
+      #[must_use]
+      pub fn associated_control<G: 'static, S>(self, value: AssociatedControl<G, S>) -> Self {
+        self.element_ref(value.reference).behavior(value.behavior)
       }
 
       /// Merges ordinary callbacks returned by an accessible behavior hook.
@@ -394,21 +415,6 @@ macro_rules! facade {
           .focus_props(value.focus)
           .interaction_props(value.interaction)
           .motion(value.motion)
-      }
-
-      /// Attaches a visible label's semantics and control interaction atomically.
-      #[must_use]
-      pub fn associated_label(self, value: AssociatedLabel) -> Self {
-        self
-          .element_ref(value.reference)
-          .semantic(value.semantic)
-          .interaction_props(value.interaction)
-      }
-
-      /// Attaches accessible behavior to its explicitly selected stable control host.
-      #[must_use]
-      pub fn associated_control<G: 'static, S>(self, value: AssociatedControl<G, S>) -> Self {
-        self.element_ref(value.reference).behavior(value.behavior)
       }
 
       /// Appends one USS class name.
@@ -472,8 +478,10 @@ macro_rules! facade {
 
       /// Attaches one exclusive element ref to this host.
       #[must_use]
-      pub fn element_ref(mut self, element_ref: ElementRef) -> Self {
-        self.state.element_ref = Some(element_ref);
+      pub fn element_ref(mut self, element_ref: impl IntoOption<ElementRef>) -> Self {
+        if let Some(element_ref) = element_ref.into_option() {
+          self.state.element_ref = Some(element_ref);
+        }
         self
       }
 

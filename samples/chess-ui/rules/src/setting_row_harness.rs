@@ -1,13 +1,11 @@
 use crate::setting_row::SettingRow;
-use battlement::{Color, SemanticRole, Style, TextAnchor};
-use battlement_reactant::label_binding;
-use battlement_reactant::prelude::builder;
+use battlement::{Color, Style, TextAnchor};
+use battlement_reactant::prelude::{builder, use_control_label};
 use battlement_reactant::{
-  accessibility,
+  accessibility::{self, ButtonOptions},
   component::Component,
-  host::{Label, TextElement, View},
+  host::{Button, Label, TextElement, View},
   render::Render,
-  semantics::SemanticProps,
 };
 
 /// Compares settings row heights and visible label associations.
@@ -16,7 +14,14 @@ pub struct SettingRowHarness;
 
 impl Component for SettingRowHarness {
   fn render(&self) -> impl Render {
-    let label = label_binding::use_label();
+    let label = use_control_label();
+    let control = accessibility::use_button(ButtonOptions {
+      name: label.name(),
+      description: None,
+      is_disabled: false,
+      on_press: || {},
+    });
+    let (label, control) = label.bind(control);
     View::new()
       .name("setting-row-specimen")
       .style(
@@ -34,13 +39,16 @@ impl Component for SettingRowHarness {
           .label(self::label("Max Framerate"))
           .children(self::value("144 FPS")),
         SettingRow::new()
-          .label(self::label("Display Mode"))
+          .label(accessibility::name_source_text("Display Mode"))
           .children(
-            View::new()
-              .semantic(SemanticProps::new(SemanticRole::Group).name(label.name()))
-              .child(self::value("Borderless")),
+            Button::new("Borderless").associated_control(control).style(
+              Style::new()
+                .font_size(40)
+                .color(Color::rgb(0.75, 0.86, 0.97))
+                .unity_text_align(TextAnchor::MiddleCenter),
+            ),
           )
-          .label_binding(label)
+          .associated_label(label)
           .row_height(190.0),
       ))
   }

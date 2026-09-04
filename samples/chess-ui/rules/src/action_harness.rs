@@ -17,8 +17,6 @@ impl Component for ActionHarness {
   fn render(&self) -> impl Render {
     let (clicks, set_clicks) = hooks::use_state(0_u32);
     let (returns, set_returns) = hooks::use_state(0_u32);
-    let play = set_clicks.clone();
-    let disabled = set_clicks.clone();
     View::new()
       .style(
         Style::new()
@@ -39,11 +37,10 @@ impl Component for ActionHarness {
               .width(760),
           )
           .child((
-            self::slot(
-              ActionButton::new()
-                .children(self::text("PLAY"))
-                .on_click(move || play.update(|n| n + 1)),
-            ),
+            self::slot(ActionButton::new().children(self::text("PLAY")).on_click({
+              let set_clicks = set_clicks.clone();
+              move || set_clicks.update(|count| count + 1)
+            })),
             self::slot(
               ActionButton::new()
                 .children(
@@ -52,19 +49,22 @@ impl Component for ActionHarness {
                     .gap(14.0)
                     .child((self::text("COMPOSED"), self::text("LABEL"))),
                 )
-                .on_click(move || set_clicks.update(|n| n + 1)),
+                .on_click({
+                  let set_clicks = set_clicks.clone();
+                  move || set_clicks.update(|count| count + 1)
+                }),
             ),
             self::slot(ActionButton::new().children(self::text("ABOUT"))),
             self::slot(
               ActionButton::new()
                 .children(self::text("DISABLED"))
                 .disabled(true)
-                .on_click(move || disabled.update(|n| n + 1)),
+                .on_click(move || set_clicks.update(|count| count + 1)),
             ),
             self::status(format!("Action clicks: {clicks}")),
             self::status(format!("Return clicks: {returns}")),
           )),
-        ReturnButton::new().on_click(move || set_returns.update(|n| n + 1)),
+        ReturnButton::new().on_click(move || set_returns.update(|count| count + 1)),
       ))
   }
 }

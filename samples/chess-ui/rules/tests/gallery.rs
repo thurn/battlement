@@ -108,6 +108,24 @@ fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
   self::click_label(&mut client, label);
   assert_eq!(client.ui().focused(), Some(checkbox));
   self::assert_checkbox(&client, false, 3);
+  let screenshake = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Screen shake"))
+    .unwrap()
+    .object_id;
+  client.ui().click(screenshake);
+  client.poll();
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == screenshake)
+      .unwrap()
+      .state
+      .checked,
+    Some(CheckedState::False)
+  );
   client.ui().click(page);
   client.poll();
   self::assert_checkbox(&client, false, 0);

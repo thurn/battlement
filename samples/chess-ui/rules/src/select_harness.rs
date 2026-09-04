@@ -9,12 +9,6 @@ pub struct SelectHarness;
 impl Component for SelectHarness {
   fn render(&self) -> impl Render {
     let (high_resolution, set_high_resolution) = hooks::use_state(false);
-    let value = if high_resolution {
-      "2560 × 1440"
-    } else {
-      "1920 × 1080"
-    };
-    let external = set_high_resolution.clone();
     View::new()
       .name("select-specimen")
       .style(
@@ -26,7 +20,11 @@ impl Component for SelectHarness {
       .child((
         SelectControl::new()
           .label(self::label("Resolution"))
-          .value(value)
+          .value(if high_resolution {
+            "2560 × 1440"
+          } else {
+            "1920 × 1080"
+          })
           .first(true),
         SelectControl::new()
           .label(self::label("Display Mode"))
@@ -41,7 +39,7 @@ impl Component for SelectHarness {
         ),
         ReviewButton::new()
           .label("Change resolution from parent")
-          .on_press(move || external.update(|value| !value)),
+          .on_press(move || set_high_resolution.update(|value| !value)),
       ))
   }
 }

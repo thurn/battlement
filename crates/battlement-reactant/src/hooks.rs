@@ -7,6 +7,7 @@ use std::{
   rc::{Rc, Weak},
 };
 
+use crate::callback::{Callback as EventCallback, IntoCallback};
 use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::external_store::{ExternalStore, StoreSlot};
@@ -38,6 +39,10 @@ pub trait IntoEffectCleanup: effect_cleanup::Sealed + 'static {
 pub struct StateSetter<T> {
   queue: Weak<StateQueue<T>>,
 }
+
+/// Distinguishes direct state-setter callbacks from closure callbacks.
+#[doc(hidden)]
+pub struct StateSetterCallback;
 
 /// Queues actions for one mounted reducer hook.
 pub struct ReducerDispatch<A> {
@@ -83,6 +88,12 @@ impl<T: Clone + 'static> StateSetter<T> {
     if let Some(queue) = self.queue.upgrade() {
       queue.enqueue(StateUpdate::Update(Rc::new(update)));
     }
+  }
+}
+
+impl<T: Clone + 'static> IntoCallback<T, StateSetterCallback> for StateSetter<T> {
+  fn into_callback(self) -> EventCallback<T> {
+    EventCallback::new(move |value| self.set(value))
   }
 }
 

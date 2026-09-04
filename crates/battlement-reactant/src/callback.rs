@@ -38,6 +38,61 @@ impl<A> Clone for Callback<A> {
 }
 
 impl<A: 'static> Callback<A> {
+  /// Creates an application-independent callback.
+  #[must_use]
+  pub fn new(callback: impl Fn(A) + 'static) -> Self {
+    Self {
+      model: None,
+      invoke: Rc::new(move |_, value| {
+        callback(value);
+        true
+      }),
+    }
+  }
+
+  /// Creates a callback that accepts and ignores every input.
+  #[must_use]
+  pub fn noop() -> Self {
+    Self::new(drop)
+  }
+
+  /// Adapts a new input before forwarding it to this callback.
+  #[must_use]
+  pub fn map_input<B: 'static>(self, map: impl Fn(B) -> A + 'static) -> Callback<B> {
+    self.map(move |value| Some(map(value)))
+  }
+
+  /// Conditionally adapts a new input before forwarding it to this callback.
+  #[must_use]
+  pub fn filter_map_input<B: 'static>(self, map: impl Fn(B) -> Option<A> + 'static) -> Callback<B> {
+    self.map(map)
+  }
+
+  /// Runs this callback followed by `next` for the same input.
+  #[must_use]
+  pub fn then(self, next: Callback<A>) -> Self
+  where
+    A: Clone,
+  {
+    let model = match (self.model, next.model) {
+      (Some(left), Some(right)) => {
+        assert_eq!(
+          left, right,
+          "combined callbacks require the same model type"
+        );
+        Some(left)
+      }
+      (left, right) => left.or(right),
+    };
+    Self {
+      model,
+      invoke: Rc::new(move |game, value| {
+        let handled = self.call(game, value.clone());
+        next.call(game, value) || handled
+      }),
+    }
+  }
+
   pub(crate) fn call(&self, game: &mut dyn Any, value: A) -> bool {
     (self.invoke)(game, value)
   }

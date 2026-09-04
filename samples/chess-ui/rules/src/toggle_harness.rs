@@ -11,7 +11,6 @@ impl Component for ToggleHarness {
     let (checked, set_checked) = hooks::use_state(false);
     let (changes, set_changes) = hooks::use_state(0_u32);
     let (screenshake, set_screenshake) = hooks::use_state(true);
-    let external = set_checked.clone();
     View::new()
       .name("toggle-specimen")
       .style(
@@ -24,14 +23,17 @@ impl Component for ToggleHarness {
         ToggleControl::new()
           .label(self::label("VSync"))
           .checked(checked)
-          .on_change(move |value| {
-            set_checked.set(value);
-            set_changes.update(|count| count + 1);
+          .on_change({
+            let set_checked = set_checked.clone();
+            move |checked| {
+              set_checked.set(checked);
+              set_changes.update(|count| count + 1);
+            }
           }),
         ToggleControl::new()
           .label(self::label("Screenshake"))
           .checked(screenshake)
-          .on_change(move |value| set_screenshake.set(value))
+          .on_change(set_screenshake)
           .aria_label("Screen shake")
           .row_height(190.0)
           .offset_y(-8.0),
@@ -43,7 +45,7 @@ impl Component for ToggleHarness {
         ),
         ReviewButton::new()
           .label("Change VSync from parent")
-          .on_press(move || external.update(|value| !value)),
+          .on_press(move || set_checked.update(|value| !value)),
       ))
   }
 }

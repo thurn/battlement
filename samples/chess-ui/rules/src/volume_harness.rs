@@ -11,7 +11,6 @@ impl Component for VolumeHarness {
   fn render(&self) -> impl Render {
     let (value, set_value) = hooks::use_state(80_u32);
     let (changes, set_changes) = hooks::use_state(0_u32);
-    let external = set_value.clone();
     View::new()
       .name("volume-specimen")
       .style(
@@ -24,9 +23,12 @@ impl Component for VolumeHarness {
         VolumeControl::new()
           .label("Master Volume")
           .value(value)
-          .on_change(move |value| {
-            set_value.set(value);
-            set_changes.update(|count| count + 1);
+          .on_change({
+            let set_value = set_value.clone();
+            move |value| {
+              set_value.set(value);
+              set_changes.update(|count| count + 1);
+            }
           })
           .first(true),
         VolumeControl::new()
@@ -45,7 +47,9 @@ impl Component for VolumeHarness {
         ),
         ReviewButton::new()
           .label("Change volume from parent")
-          .on_press(move || external.update(|value| if value == 25 { 80 } else { 25 })),
+          .on_press(move || {
+            set_value.update(|value| if value == 25 { 80 } else { 25 });
+          }),
       ))
   }
 }

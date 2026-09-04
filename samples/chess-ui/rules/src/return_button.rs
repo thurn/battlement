@@ -2,7 +2,7 @@
 
 use crate::{action_button::ActionButton, action_skin, frame_styles};
 use battlement::{PickingMode, Position, Style};
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
   accessibility,
   component::Component,
@@ -10,15 +10,14 @@ use battlement_reactant::{
   paint::{PaintFill, PaintStyle},
   render::Render,
 };
-use std::rc::Rc;
 
 /// The fixed portrait-stage Return control; its parent owns navigation.
 #[builder]
 pub struct ReturnButton {
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
-  /// Handles activation when the parent supplies a navigation action.
-  on_click: Option<Rc<dyn Fn()>>,
+  #[builder(required)]
+  on_click: EventCallback<()>,
 }
 
 impl Component for ReturnButton {
@@ -46,7 +45,7 @@ impl Component for ReturnButton {
           .children(accessibility::name_source_text("RETURN"))
           .max_text_scale(1.35)
           .disabled(self.disabled)
-          .on_click_optional(self.on_click.clone()),
+          .on_click(self.on_click.clone()),
       ))
   }
 }

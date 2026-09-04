@@ -3,7 +3,9 @@
 use crate::review_theme;
 use battlement::{Color, Style, WhiteSpace};
 use battlement_reactant::prelude::builder;
-use battlement_reactant::{accessibility, element_behavior, focus::FocusProps, semantics};
+use battlement_reactant::{
+  accessibility, element_behavior, focus::FocusProps, semantics, semantics::SemanticProps,
+};
 use battlement_reactant::{component::Component, host::Label, motion::StyleTarget, render::Render};
 
 /// Typography roles within a review surface.
@@ -23,6 +25,54 @@ pub enum ReviewTextKind {
   Title,
 }
 
+impl ReviewTextKind {
+  fn is_heading(self) -> bool {
+    matches!(self, Self::Heading)
+  }
+
+  fn use_semantic(self, text: &str) -> SemanticProps {
+    match (
+      self,
+      accessibility::use_heading(semantics::text(text), 1),
+      accessibility::use_static_text(semantics::text(text)),
+    ) {
+      (Self::Heading, heading, _) => heading,
+      (_, _, text) => text,
+    }
+  }
+
+  fn style(self) -> Style {
+    match self {
+      Self::Brand => Style::new()
+        .font_size(56)
+        .color(review_theme::ACCENT)
+        .margin_bottom(6),
+      Self::Caption => Style::new()
+        .font_size(28)
+        .color(review_theme::MUTED)
+        .margin_bottom(24),
+      Self::Eyebrow => Style::new()
+        .font_size(24)
+        .color(review_theme::ACCENT)
+        .margin_bottom(28),
+      Self::Heading => Style::new()
+        .font_size(64)
+        .white_space(WhiteSpace::Normal)
+        .color(review_theme::TEXT)
+        .margin_bottom(24),
+      Self::Description => Style::new()
+        .font_size(28)
+        .white_space(WhiteSpace::Normal)
+        .color(review_theme::MUTED)
+        .margin_bottom(32),
+      Self::Title => Style::new()
+        .font_size(36)
+        .color(review_theme::TEXT)
+        .margin_bottom(24),
+    }
+  }
+}
+
 /// Review typography and accessible text, with automatic focus for page headings.
 #[builder]
 pub struct ReviewText {
@@ -37,51 +87,17 @@ pub struct ReviewText {
 
 impl Component for ReviewText {
   fn render(&self) -> impl Render {
-    let style = match self.kind {
-      ReviewTextKind::Brand => Style::new()
-        .font_size(56)
-        .color(review_theme::ACCENT)
-        .margin_bottom(6),
-      ReviewTextKind::Caption => Style::new()
-        .font_size(28)
-        .color(review_theme::MUTED)
-        .margin_bottom(24),
-      ReviewTextKind::Eyebrow => Style::new()
-        .font_size(24)
-        .color(review_theme::ACCENT)
-        .margin_bottom(28),
-      ReviewTextKind::Heading => Style::new()
-        .font_size(64)
-        .white_space(WhiteSpace::Normal)
-        .color(review_theme::TEXT)
-        .margin_bottom(24),
-      ReviewTextKind::Description => Style::new()
-        .font_size(28)
-        .white_space(WhiteSpace::Normal)
-        .color(review_theme::MUTED)
-        .margin_bottom(32),
-      ReviewTextKind::Title => Style::new()
-        .font_size(36)
-        .color(review_theme::TEXT)
-        .margin_bottom(24),
-    };
-    let label = Label::new(self.text.clone())
+    let heading = element_behavior::use_focus_when(self.kind.is_heading().then_some(()));
+    Label::new(self.text.clone())
       .name(self.name.clone())
-      .style(style);
-    let heading =
-      element_behavior::use_focus_when(matches!(self.kind, ReviewTextKind::Heading).then_some(()));
-    let heading_semantic = accessibility::use_heading(semantics::text(self.text.clone()), 1);
-    let text_semantic = accessibility::use_static_text(semantics::text(self.text.clone()));
-    if matches!(self.kind, ReviewTextKind::Heading) {
-      label
-        .element_ref(heading)
-        .semantic(heading_semantic)
-        .focus_props(FocusProps::new().focusable(true).tab_index(-1))
-        .while_focus_visible(
-          StyleTarget::new().background_color(Color::rgba(0.12, 0.23, 0.28, 1.0)),
-        )
-    } else {
-      label.semantic(text_semantic)
-    }
+      .style(self.kind.style())
+      .element_ref(self.kind.is_heading().then_some(heading))
+      .semantic(self.kind.use_semantic(&self.text))
+      .focus_props(if self.kind.is_heading() {
+        FocusProps::new().focusable(true).tab_index(-1)
+      } else {
+        FocusProps::new()
+      })
+      .while_focus_visible(StyleTarget::new().background_color(Color::rgba(0.12, 0.23, 0.28, 1.0)))
   }
 }

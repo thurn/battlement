@@ -25,126 +25,126 @@ pub struct ToggleControl<R> {
   /// Shows crash-report context next to the visible label.
   with_info: bool,
   /// Handles activation of the optional crash-report information badge.
-  on_info_click: Option<Rc<dyn Fn()>>,
+  #[builder(default = EventCallback::noop())]
+  on_info_click: EventCallback<()>,
   #[builder(required)]
-  on_change: Rc<dyn Fn(bool)>,
+  on_change: EventCallback<bool>,
 }
 
 impl<R: Render> Component for ToggleControl<R> {
   fn render(&self) -> impl Render {
     let label = use_control_label();
-    let aria_label = self.aria_label.as_ref().filter(|label| !label.is_empty());
-    let on_change = Rc::clone(&self.on_change);
     let checkbox = accessibility::use_checkbox(ToggleOptions {
-      name: aria_label.map_or_else(|| label.name(), |name| AccessibleName::text(name.clone())),
+      name: self
+        .aria_label
+        .as_ref()
+        .filter(|label| !label.is_empty())
+        .map_or_else(|| label.name(), |name| AccessibleName::text(name.clone())),
       description: self
         .with_info
         .then(|| AccessibleDescription::text("We upload crash reports to Unity Diagnostics.")),
       checked: self.checked,
       is_disabled: false,
-      on_change: move |checked| on_change(checked),
+      on_change: self.on_change.clone(),
     });
     let (label, checkbox) = label.bind(checkbox);
-    let control = View::new()
-      .name("toggle-control-box")
-      .style(
-        Style::new()
-          .position(Position::Relative)
-          .align_items(Align::Center)
-          .width(77)
-          .height(77)
-          .margin_left(8)
-          .translate(Translate::two_dimensional(
-            Length::Px(0.0),
-            Length::Px(self.offset_y),
-          )),
-      )
-      .child((
-        View::new()
-          .name("toggle-control-surface")
-          .picking_mode(PickingMode::Ignore)
-          .style(
-            Style::new()
-              .width(77)
-              .height(77)
-              .border_width(4)
-              .border_radius(11)
-              .border_color(Color::rgb8(75, 163, 255))
-              .background_color(Color::rgb8(2, 9, 26)),
+    View::new()
+      .name("toggle-control-label")
+      .style(Style::new().height(self.row_height))
+      .child(
+        SettingRow::new()
+          .label((
+            self.label.clone(),
+            self
+              .with_info
+              .then(|| InfoBadge::new().on_click(self.on_info_click.clone())),
+          ))
+          .children(
+            View::new()
+              .name("toggle-control-box")
+              .style(
+                Style::new()
+                  .position(Position::Relative)
+                  .align_items(Align::Center)
+                  .width(77)
+                  .height(77)
+                  .margin_left(8)
+                  .translate(Translate::two_dimensional(
+                    Length::Px(0.0),
+                    Length::Px(self.offset_y),
+                  )),
+              )
+              .child((
+                View::new()
+                  .name("toggle-control-surface")
+                  .picking_mode(PickingMode::Ignore)
+                  .style(
+                    Style::new()
+                      .width(77)
+                      .height(77)
+                      .border_width(4)
+                      .border_radius(11)
+                      .border_color(Color::rgb8(75, 163, 255))
+                      .background_color(Color::rgb8(2, 9, 26)),
+                  )
+                  .child(self.checked.then_some(CheckMark::new())),
+                Button::new("")
+                  .name("toggle-control-input")
+                  .associated_control(checkbox)
+                  .style(
+                    Style::new()
+                      .position(Position::Absolute)
+                      .left(0)
+                      .top(0)
+                      .width(77)
+                      .height(77)
+                      .margin(0)
+                      .padding(0)
+                      .border_width(0)
+                      .background_color(Color::TRANSPARENT),
+                  ),
+              )),
           )
-          .child(self.checked.then_some(CheckMark::new())),
-        Button::new("")
-          .name("toggle-control-input")
-          .associated_control(checkbox)
-          .style(
-            Style::new()
-              .position(Position::Absolute)
-              .left(0)
-              .top(0)
-              .width(77)
-              .height(77)
-              .margin(0)
-              .padding(0)
-              .border_width(0)
-              .background_color(Color::TRANSPARENT),
-          ),
-      ));
-    let mut row = SettingRow::new()
-      .label((
-        self.label.clone(),
-        self
-          .with_info
-          .then(|| InfoBadge::new().on_click_optional(self.on_info_click.clone())),
-      ))
-      .children(control)
-      .associated_label(label)
-      .first(self.first);
-    if let Some(height) = self.row_height {
-      row = row.row_height(height);
-    }
-    let mut label = View::new().name("toggle-control-label").child(row);
-    if let Some(height) = self.row_height {
-      label = label.style(Style::new().height(height));
-    }
-    label
+          .associated_label(label)
+          .first(self.first)
+          .row_height(self.row_height),
+      )
   }
 }
 
 #[builder]
 struct InfoBadge {
-  on_click: Option<Rc<dyn Fn()>>,
+  #[builder(required)]
+  on_click: EventCallback<()>,
 }
 
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
-    let on_click = self.on_click.clone();
-    let button = accessibility::use_button(ButtonOptions {
-      name: AccessibleName::text("About crash report uploads"),
-      description: None,
-      is_disabled: false,
-      on_press: move || {
-        if let Some(on_click) = &on_click {
-          on_click();
-        }
-      },
-    });
-    Button::new("i").name("toggle-info").behavior(button).style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(205)
-        .bottom(37)
-        .width(38)
-        .height(38)
-        .padding(0)
-        .border_width(2)
-        .border_color(Color::rgb8(85, 184, 255))
-        .border_radius(19)
-        .background_color(Color::TRANSPARENT)
-        .color(Color::rgb8(188, 244, 255))
-        .font_size(27)
-        .unity_text_align(TextAnchor::MiddleCenter)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center),
-    )
+    Button::new("i")
+      .name("toggle-info")
+      .behavior(accessibility::use_button(ButtonOptions {
+        name: AccessibleName::text("About crash report uploads"),
+        description: None,
+        is_disabled: false,
+        on_press: self.on_click.clone(),
+      }))
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left(205)
+          .bottom(37)
+          .width(38)
+          .height(38)
+          .padding(0)
+          .border_width(2)
+          .border_color(Color::rgb8(85, 184, 255))
+          .border_radius(19)
+          .background_color(Color::TRANSPARENT)
+          .color(Color::rgb8(188, 244, 255))
+          .font_size(27)
+          .unity_text_align(TextAnchor::MiddleCenter)
+          .align_items(Align::Center)
+          .justify_content(Justify::Center),
+      )
   }
 }

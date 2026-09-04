@@ -32,6 +32,13 @@ pub struct ReviewNavigation {
   scroll: ScrollView,
 }
 
+fn thumb_style() -> Style {
+  Style::new()
+    .background_color(review_theme::MUTED)
+    .border_width(0)
+    .border_radius(5)
+}
+
 impl ReviewNavigation {
   /// Appends entries in navigation order; key entries by their stable identity.
   pub fn children<R: Render>(mut self, children: impl IntoIterator<Item = R>) -> Self {
@@ -43,10 +50,6 @@ impl ReviewNavigation {
 impl Component for ReviewNavigation {
   fn render(&self) -> impl Render {
     let scroll = element_ref::use_element_ref();
-    let thumb = Style::new()
-      .background_color(review_theme::MUTED)
-      .border_width(0)
-      .border_radius(5);
     SCROLL.provider(Some(scroll.clone())).child(
       View::new()
         .style(
@@ -81,8 +84,8 @@ impl Component for ReviewNavigation {
             .vertical_low_button_style(Style::new().display(Display::None))
             .vertical_high_button_style(Style::new().display(Display::None))
             .vertical_track_style(Style::new().background_color(review_theme::SURFACE))
-            .vertical_dragger_style(thumb.clone())
-            .vertical_dragger_border_style(thumb)
+            .vertical_dragger_style(self::thumb_style())
+            .vertical_dragger_border_style(self::thumb_style())
             .style(Style::new().flex_grow(1).min_height(0))
             .content_container_style(Style::new().padding_right(12)),
         )),

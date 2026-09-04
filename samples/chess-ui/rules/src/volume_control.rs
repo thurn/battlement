@@ -7,16 +7,14 @@ use crate::{
 use battlement::{
   Align, Color, FlexDirection, PickingMode, Position, Style, TextAnchor, WhiteSpace,
 };
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{EventCallback, builder, use_control_label};
 use battlement_reactant::{
   accessibility::{self, SliderOptions},
   component::Component,
   host::{Flex, TextElement, View},
-  label_binding::use_control_label,
   render::Render,
   semantics,
 };
-use std::rc::Rc;
 
 /// A labelled volume slider whose parent owns its integer percentage.
 #[builder]
@@ -26,7 +24,7 @@ pub struct VolumeControl {
   #[builder(required)]
   value: u32,
   #[builder(required)]
-  on_change: Rc<dyn Fn(u32)>,
+  on_change: EventCallback<u32>,
   /// Omits the separator above the first row.
   first: bool,
 }
@@ -34,7 +32,6 @@ pub struct VolumeControl {
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let label = use_control_label();
-    let on_change = Rc::clone(&self.on_change);
     let slider = accessibility::use_slider(SliderOptions {
       name: label.name(),
       description: None,
@@ -44,7 +41,7 @@ impl Component for VolumeControl {
       step: 5.0,
       value_text: Some(semantics::text(format!("{} percent", self.value))),
       is_disabled: false,
-      on_change: move |value| on_change(value as u32),
+      on_change: self.on_change.clone().map_input(|value: f64| value as u32),
     });
     let (label, slider) = label.bind(slider);
     SettingRow::new()

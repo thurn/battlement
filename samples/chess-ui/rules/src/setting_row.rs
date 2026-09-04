@@ -8,7 +8,7 @@ use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::{Grid, View},
-  label_binding::{AssociatedLabel, LabelBinding},
+  label_binding::AssociatedLabel,
   render::Render,
 };
 use std::rc::Rc;
@@ -26,9 +26,7 @@ pub const DISPLAY_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fon
 pub struct SettingRow<L, R> {
   #[builder(required, into)]
   label: Rc<L>,
-  /// Associates the visible label with the control that uses this binding.
-  label_binding: Option<LabelBinding>,
-  /// Attaches naming, focus, and activation for an associated control.
+  /// Associates the visible label with its control behavior.
   associated_label: Option<AssociatedLabel>,
   #[builder(required, into)]
   children: Rc<R>,
@@ -40,39 +38,6 @@ pub struct SettingRow<L, R> {
 
 impl<L: Render, R: Render> Component for SettingRow<L, R> {
   fn render(&self) -> impl Render {
-    assert!(
-      self.label_binding.is_none() || self.associated_label.is_none(),
-      "a settings row accepts one label association"
-    );
-    let mut label = View::new()
-      .name("setting-row-label")
-      .style(
-        Style::new()
-          .position(Position::Relative)
-          .flex_direction(FlexDirection::Row)
-          .align_items(Align::Center)
-          .min_width(0)
-          .height(100.pct())
-          .padding_left(18)
-          .color(Color::rgb8(245, 245, 248))
-          .unity_font_definition(DISPLAY_FONT)
-          .font_size(LABEL_FONT_SIZE)
-          .letter_spacing(1.3)
-          .scale(Scale::new(1.045, 1.0))
-          .transform_origin(TransformOrigin::two_dimensional(
-            Length::Px(0.0),
-            Length::Percent(50.0),
-          )),
-      )
-      .child(self.label.clone());
-    if let Some(binding) = &self.label_binding {
-      label = label
-        .element_ref(binding.reference())
-        .semantic(binding.semantic());
-    }
-    if let Some(associated) = &self.associated_label {
-      label = label.associated_label(associated.clone());
-    }
     Grid::new()
       .name("setting-row")
       .columns([GridTrack::px(422.0), GridTrack::fr(1.0)])
@@ -83,6 +48,30 @@ impl<L: Render, R: Render> Component for SettingRow<L, R> {
           .border_top_width(if self.first { 0.0 } else { 2.0 })
           .border_top_color(Color::rgb8(43, 74, 123).with_alpha(0.25)),
       )
-      .child((label, self.children.clone()))
+      .child((
+        View::new()
+          .name("setting-row-label")
+          .style(
+            Style::new()
+              .position(Position::Relative)
+              .flex_direction(FlexDirection::Row)
+              .align_items(Align::Center)
+              .min_width(0)
+              .height(100.pct())
+              .padding_left(18)
+              .color(Color::rgb8(245, 245, 248))
+              .unity_font_definition(DISPLAY_FONT)
+              .font_size(LABEL_FONT_SIZE)
+              .letter_spacing(1.3)
+              .scale(Scale::new(1.045, 1.0))
+              .transform_origin(TransformOrigin::two_dimensional(
+                Length::Px(0.0),
+                Length::Percent(50.0),
+              )),
+          )
+          .associated_label(self.associated_label.clone())
+          .child(self.label.clone()),
+        self.children.clone(),
+      ))
   }
 }

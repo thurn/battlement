@@ -4,7 +4,7 @@ use std::{collections::BTreeSet, marker::PhantomData};
 
 use battlement::{
   AccessibilityAction, AccessibilityActionSet, AccessibilityRangeValue, AccessibilityScrollAxis,
-  AccessibilityScrollDirection, SemanticRole, SemanticState,
+  AccessibilityScrollDirection, CurrentPage, SemanticRole, SemanticState,
 };
 
 use crate::{
@@ -114,7 +114,14 @@ pub(crate) enum SemanticMembership {
 }
 
 impl<G: 'static, S> AccessibleBehavior<G, S> {
-  /// Binds a visible label or wrapper to this control's focus and activation.
+  /// Transforms this behavior's semantic declaration without splitting the bundle.
+  #[must_use]
+  pub fn map_semantic(mut self, map: impl FnOnce(SemanticProps) -> SemanticProps) -> Self {
+    self.semantic = map(self.semantic);
+    self
+  }
+
+  /// Binds a visible label or wrapper to this control's activation and focus.
   /// Attach `control` to the same host as this behavior's interaction props.
   /// Child activations and prevented clicks do not activate the label again.
   /// Behaviors without activation, such as sliders, receive focus only.
@@ -204,6 +211,13 @@ impl SemanticProps {
   #[must_use]
   pub fn state(mut self, value: SemanticState) -> Self {
     self.state = value;
+    self
+  }
+
+  /// Marks whether this button or link represents the current page.
+  #[must_use]
+  pub fn current_page(mut self, current: bool) -> Self {
+    self.state.current = current.then_some(CurrentPage::Page);
     self
   }
 
