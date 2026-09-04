@@ -2,7 +2,7 @@
 
 use crate::{
   setting_row::{self, SettingRow},
-  volume_skin,
+  volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
 };
 use battlement::{
   Align, Color, FlexDirection, PickingMode, Position, Style, TextAnchor, WhiteSpace,
@@ -71,9 +71,9 @@ impl Component for VolumeControl {
                   .flex_shrink(0),
               )
               .child((
-                volume_skin::track(self.value),
-                volume_skin::ticks(),
-                volume_skin::thumb(self.value),
+                VolumeTrack::new().value(self.value),
+                VolumeTicks::new(),
+                VolumeThumb::new().value(self.value),
                 View::new().name("volume-input").behavior(slider).style(
                   Style::new()
                     .position(Position::Absolute)

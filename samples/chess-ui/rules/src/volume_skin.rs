@@ -6,143 +6,167 @@ use battlement::{
   Translate,
 };
 use battlement_reactant::{
+  component::Component,
   host::View,
   paint::{PaintFill, PaintStyle},
-  prelude::{PaintDropShadow, PaintFilterList},
+  prelude::{PaintDropShadow, PaintFilterList, builder},
+  render::Render,
 };
 
-/// Paints the filled portion of a zero-to-one-hundred slider track.
-pub fn track(value: u32) -> View {
-  View::new()
-    .name("volume-track")
-    .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(0)
-        .top(20)
-        .width(284)
-        .height(26)
-        .padding(3)
-        .border_radius(8),
-    )
-    .paint(
-      self::gradient(
-        0.0,
-        &[
-          (0.0, 0x13e7ff),
-          (0.47, 0x735cff),
-          (0.76, 0xff43c7),
-          (1.0, 0xff326e),
-        ],
+/// The filled portion of a zero-to-one-hundred slider track.
+#[builder]
+pub struct VolumeTrack {
+  #[builder(required)]
+  value: u32,
+}
+
+/// Evenly spaced decorative scale marks.
+#[builder]
+#[derive(Default)]
+pub struct VolumeTicks;
+
+/// The decorative slider thumb positioned at an integer percentage.
+#[builder]
+pub struct VolumeThumb {
+  #[builder(required)]
+  value: u32,
+}
+
+impl Component for VolumeTrack {
+  fn render(&self) -> impl Render {
+    View::new()
+      .name("volume-track")
+      .picking_mode(PickingMode::Ignore)
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left(0)
+          .top(20)
+          .width(284)
+          .height(26)
+          .padding(3)
+          .border_radius(8),
       )
-      .box_shadow([self::shadow(0.0, 0.0, 9.0, 0.0, 0x1868ff, 0.72, false)]),
-    )
-    .child(
-      View::new()
-        .name("volume-track-interior")
-        .style(Style::new().width(100.pct()).height(20).border_radius(5))
-        .paint(
-          PaintStyle::new()
-            .background(PaintFill::Color(frame_styles::color(0x061125)))
-            .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x000000, 0.69, true)]),
+      .paint(
+        self::gradient(
+          0.0,
+          &[
+            (0.0, 0x13e7ff),
+            (0.47, 0x735cff),
+            (0.76, 0xff43c7),
+            (1.0, 0xff326e),
+          ],
         )
-        .child(
-          View::new()
-            .name("volume-fill")
-            .style(
-              Style::new()
-                .width((value as f32).pct())
-                .height(20)
-                .border_radius(4),
-            )
-            .paint(
-              self::gradient(
-                0.0,
-                &[
-                  (0.0, 0x17e9ff),
-                  (0.35, 0x286fff),
-                  (0.62, 0x8f5dff),
-                  (0.86, 0xff3abe),
-                  (1.0, 0xff326d),
-                ],
+        .box_shadow([self::shadow(0.0, 0.0, 9.0, 0.0, 0x1868ff, 0.72, false)]),
+      )
+      .child(
+        View::new()
+          .name("volume-track-interior")
+          .style(Style::new().width(100.pct()).height(20).border_radius(5))
+          .paint(
+            PaintStyle::new()
+              .background(PaintFill::Color(frame_styles::color(0x061125)))
+              .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x000000, 0.69, true)]),
+          )
+          .child(
+            View::new()
+              .name("volume-fill")
+              .style(
+                Style::new()
+                  .width((self.value as f32).pct())
+                  .height(20)
+                  .border_radius(4),
               )
-              .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x2d84ff, 0.8, false)]),
-            ),
-        ),
-    )
+              .paint(
+                self::gradient(
+                  0.0,
+                  &[
+                    (0.0, 0x17e9ff),
+                    (0.35, 0x286fff),
+                    (0.62, 0x8f5dff),
+                    (0.86, 0xff3abe),
+                    (1.0, 0xff326d),
+                  ],
+                )
+                .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x2d84ff, 0.8, false)]),
+              ),
+          ),
+      )
+  }
 }
 
-/// Paints evenly spaced decorative scale marks.
-pub fn ticks() -> View {
-  View::new()
-    .name("volume-ticks")
-    .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left(0)
-        .top(49)
-        .width(284)
-        .height(10),
-    )
-    .child(
-      (0..4)
-        .map(|index| {
-          View::new()
-            .style(
-              Style::new()
-                .position(Position::Absolute)
-                .left(62 + index * 64)
-                .width(2)
-                .height(10),
-            )
-            .paint(PaintStyle::new().background(PaintFill::Color(frame_styles::color(0x465ccb))))
-        })
-        .collect::<Vec<_>>(),
-    )
+impl Component for VolumeTicks {
+  fn render(&self) -> impl Render {
+    View::new()
+      .name("volume-ticks")
+      .picking_mode(PickingMode::Ignore)
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left(0)
+          .top(49)
+          .width(284)
+          .height(10),
+      )
+      .child(
+        (0..4)
+          .map(|index| {
+            View::new()
+              .style(
+                Style::new()
+                  .position(Position::Absolute)
+                  .left(62 + index * 64)
+                  .width(2)
+                  .height(10),
+              )
+              .paint(PaintStyle::new().background(PaintFill::Color(frame_styles::color(0x465ccb))))
+          })
+          .collect::<Vec<_>>(),
+      )
+  }
 }
 
-/// Positions the decorative thumb at an integer percentage.
-pub fn thumb(value: u32) -> View {
-  View::new()
-    .name("volume-thumb")
-    .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .left((value as f32).pct())
-        .top(0)
-        .width(43)
-        .height(64)
-        .translate(Translate::two_dimensional(
-          Length::Px(-21.0),
-          Length::Px(0.0),
-        )),
-    )
-    .paint(
-      self::gradient(45.0, &[(0.0, 0xc8ffff), (0.55, 0x599cff), (1.0, 0x875fff)])
-        .clip_polygon(self::clip())
-        .paint_filter(PaintFilterList::default().drop_shadow(PaintDropShadow::new(
-          0.0,
-          0.0,
-          7.0,
-          0.0,
-          self::color_with_alpha(0x1479ff, 1.0),
-        ))),
-    )
-    .child(
-      ClippedInset::new()
-        .background(PaintFill::Gradient(Gradient::Linear {
-          angle: 90.0,
-          stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
-        }))
-        .inset(4.0)
-        .clip_path(self::clip())
-        .box_shadow(vec![self::shadow(
-          0.0, 0.0, 12.0, 0.0, 0x000000, 0.69, true,
-        )]),
-    )
+impl Component for VolumeThumb {
+  fn render(&self) -> impl Render {
+    View::new()
+      .name("volume-thumb")
+      .picking_mode(PickingMode::Ignore)
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .left((self.value as f32).pct())
+          .top(0)
+          .width(43)
+          .height(64)
+          .translate(Translate::two_dimensional(
+            Length::Px(-21.0),
+            Length::Px(0.0),
+          )),
+      )
+      .paint(
+        self::gradient(45.0, &[(0.0, 0xc8ffff), (0.55, 0x599cff), (1.0, 0x875fff)])
+          .clip_polygon(self::clip())
+          .paint_filter(PaintFilterList::default().drop_shadow(PaintDropShadow::new(
+            0.0,
+            0.0,
+            7.0,
+            0.0,
+            self::color_with_alpha(0x1479ff, 1.0),
+          ))),
+      )
+      .child(
+        ClippedInset::new()
+          .background(PaintFill::Gradient(Gradient::Linear {
+            angle: 90.0,
+            stops: vec![self::stop(0.0, 0x07142b), self::stop(1.0, 0x02091b)],
+          }))
+          .inset(4.0)
+          .clip_path(self::clip())
+          .box_shadow(vec![self::shadow(
+            0.0, 0.0, 12.0, 0.0, 0x000000, 0.69, true,
+          )]),
+      )
+  }
 }
 
 fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {
