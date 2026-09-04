@@ -13,10 +13,7 @@ use battlement_reactant::{app::App, host::Label, scale_to_fit::ScaleToFit};
 
 #[test]
 fn scene_only_app_connects_and_reconnects_without_creating_a_ui_document() {
-  let mut client = FakeClient::connect(
-    App::new("app/content").source_bundle(app_support::source_bundle()),
-    app_support::catalog(),
-  );
+  let mut client = FakeClient::connect(App::new("app/content"), app_support::catalog());
   for _ in 0..2 {
     client.poll();
     assert_eq!(client.world().objects().count(), 1);
@@ -32,16 +29,14 @@ fn scene_only_app_connects_and_reconnects_without_creating_a_ui_document() {
 
 #[test]
 fn fitted_content_uses_the_area_inside_viewport_decoration_without_remounting() {
-  let app = App::new("app/content")
-    .source_bundle(app_support::source_bundle())
-    .ui(
-      ScaleToFit::new(100.0, 200.0)
-        .viewport(|view| view.name("viewport"))
-        .viewport_style(|style| style.padding(10).border_width(2))
-        .canvas(|view| view.name("canvas"))
-        .bounds_name("bounds")
-        .child(Label::new(ls("Content")).name("content")),
-    );
+  let app = App::new("app/content").ui(
+    ScaleToFit::new(100.0, 200.0)
+      .viewport(|view| view.name("viewport"))
+      .viewport_style(|style| style.padding(10).border_width(2))
+      .canvas(|view| view.name("canvas"))
+      .bounds_name("bounds")
+      .child(Label::new(ls("Content")).name("content")),
+  );
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   let bounds = app_support::named(&mut client, root, "bounds");

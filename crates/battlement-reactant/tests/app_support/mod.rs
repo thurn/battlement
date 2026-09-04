@@ -6,14 +6,6 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::Engine;
-use trox::Bundle;
-
-pub fn source_bundle() -> Bundle {
-  Bundle::from_canonical_json(include_str!(
-    "../../../../samples/reactant/localization/en-US.trox.json"
-  ))
-  .expect("valid embedded test source bundle")
-}
 
 pub fn catalog() -> FakeAssetCatalog {
   let mut assets = FakeAssetCatalog::new();

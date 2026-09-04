@@ -8,8 +8,7 @@
 //!
 //! ```
 //! use battlement_reactant::{app::App, prelude::*};
-//! use trox::{Bundle, tx};
-//! # fn source_bundle() -> Bundle { unimplemented!() }
+//! use trox::tx;
 //!
 //! #[builder]
 //! struct Greeting;
@@ -25,7 +24,6 @@
 //!
 //! fn create_engine() -> App {
 //!     App::new("my-game/content")
-//!         .source_bundle(source_bundle())
 //!         .ui(Greeting::new())
 //! }
 //!

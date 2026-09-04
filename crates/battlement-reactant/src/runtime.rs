@@ -14,7 +14,7 @@ use battlement::{
   GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId, UiDocument, UiEvent,
   UiEventDisposition,
 };
-use trox::{Bundle, Localizer};
+use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::{
   announcement,
@@ -141,7 +141,7 @@ pub struct Reactant<G: 'static> {
   last_motion_sequence: Option<MotionSequence>,
   semantic_commit_sequence: u64,
   last_accessibility: Option<AccessibilitySnapshot>,
-  localizer: Option<Rc<Localizer>>,
+  localizer: Rc<Localizer>,
   pub(crate) resources: Rc<ResourceRuntime>,
 }
 
@@ -167,7 +167,9 @@ impl<G: 'static> Reactant<G> {
       last_motion_sequence: None,
       semantic_commit_sequence: 0,
       last_accessibility: None,
-      localizer: None,
+      localizer: localization::source_localizer(
+        SourceLocale::new("en-US").expect("valid default Reactant source locale"),
+      ),
       resources: ResourceRuntime::new(spawner),
     }
   }
@@ -175,15 +177,20 @@ impl<G: 'static> Reactant<G> {
   /// Configures source-language resolution while registration is open.
   pub fn set_source_bundle(&mut self, source: Bundle) {
     self.require_registering();
-    self.localizer = Some(Rc::new(
-      Localizer::new(source.clone(), source).expect("valid Reactant source bundle"),
-    ));
+    self.localizer =
+      Rc::new(Localizer::new(source.clone(), source).expect("valid Reactant source bundle"));
+  }
+
+  /// Configures bundle-free source-language resolution while registration is open.
+  pub fn set_source_locale(&mut self, source: SourceLocale) {
+    self.require_registering();
+    self.localizer = localization::source_localizer(source);
   }
 
   /// Configures complete localization while registration is open.
   pub fn set_localizer(&mut self, localizer: Localizer) {
     self.require_registering();
-    self.localizer = Some(Rc::new(localizer));
+    self.localizer = Rc::new(localizer);
   }
 
   /// Replaces localization and reconciles every active root and portal.
@@ -193,7 +200,7 @@ impl<G: 'static> Reactant<G> {
     localizer: Localizer,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let previous = self.localizer.replace(Rc::new(localizer));
+    let previous = mem::replace(&mut self.localizer, Rc::new(localizer));
     let _memo_rendering = localization::force_memo_rendering();
     match self.refresh(game) {
       Ok(commit) => Ok(commit),

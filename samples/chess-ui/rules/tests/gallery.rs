@@ -11,7 +11,6 @@ use battlement_rules::{
   action_button, engine, review_surface::ReviewSurface, select_control, setting_row,
   toggle_control::ToggleControl,
 };
-use trox::Bundle;
 use trox::ls;
 
 struct ToggleInfoFixture;
@@ -561,10 +560,7 @@ fn toggle_info_client() -> FakeClient<App> {
   assets.add_scene("chess-ui/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
   assets.add_ui_font(setting_row::DISPLAY_FONT);
-  let source = Bundle::from_canonical_json(include_str!("../../localization/en-US.trox.json"))
-    .expect("valid embedded English trox bundle");
   let app = App::new("chess-ui/content")
-    .source_bundle(source)
     .ui(ToggleInfoFixture)
     .document(ReviewSurface::document);
   let mut client = FakeClient::connect(app, assets);

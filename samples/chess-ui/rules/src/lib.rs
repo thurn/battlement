@@ -19,12 +19,9 @@
 //! ```no_run
 //! use battlement_reactant::{accessibility, app::App};
 //! use battlement_rules::{pages, toggle_control::ToggleControl};
-//! use trox::{Bundle, tx};
-//! # fn source_bundle() -> Bundle { unimplemented!() }
+//! use trox::tx;
 //!
-//! let app = App::new("chess-ui/content")
-//!   .source_bundle(source_bundle())
-//!   .ui(pages::gallery());
+//! let app = App::new("chess-ui/content").ui(pages::gallery());
 //! let toggle = ToggleControl::new()
 //!   .label(accessibility::name_source_text(tx(
 //!     "VSync",

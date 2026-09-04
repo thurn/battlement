@@ -4,7 +4,7 @@ use std::{
 };
 
 use battlement::Prop;
-use trox::{LocalizedString, Localizer};
+use trox::{LocalizedString, Localizer, SourceLocale};
 
 thread_local! {
   static CURRENT: RefCell<Option<Rc<Localizer>>> = const { RefCell::new(None) };
@@ -32,10 +32,14 @@ impl Drop for MemoRenderingGuard {
   }
 }
 
-pub(crate) fn enter(localizer: Option<Rc<Localizer>>) -> Guard {
+pub(crate) fn source_localizer(source: SourceLocale) -> Rc<Localizer> {
+  Rc::new(Localizer::for_source(source).expect("valid Reactant source locale"))
+}
+
+pub(crate) fn enter(localizer: Rc<Localizer>) -> Guard {
   Guard {
-    previous: CURRENT.with(|current| current.replace(localizer.clone())),
-    previous_announcement: ANNOUNCEMENT_CURRENT.with(|current| current.replace(localizer)),
+    previous: CURRENT.with(|current| current.replace(Some(Rc::clone(&localizer)))),
+    previous_announcement: ANNOUNCEMENT_CURRENT.with(|current| current.replace(Some(localizer))),
   }
 }
 
@@ -60,12 +64,7 @@ pub(crate) fn resolve(value: &LocalizedString) -> String {
     current
       .borrow()
       .as_ref()
-      .unwrap_or_else(|| {
-        panic!(
-          "Reactant cannot render localized content without App::source_bundle, \
-           App::localizer, Reactant::set_source_bundle, or Reactant::set_localizer"
-        )
-      })
+      .expect("localized content resolved outside Reactant rendering")
       .resolve(value)
   })
 }
@@ -75,12 +74,7 @@ pub(crate) fn resolve_announcement(value: &LocalizedString) -> String {
     current
       .borrow()
       .as_ref()
-      .unwrap_or_else(|| {
-        panic!(
-          "Reactant cannot announce localized content without App::source_bundle, \
-           App::localizer, Reactant::set_source_bundle, or Reactant::set_localizer"
-        )
-      })
+      .expect("localized announcement resolved outside a Reactant commit")
       .resolve(value)
   })
 }

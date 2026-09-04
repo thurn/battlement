@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Validate and deterministically regenerate every checked-in Trox bundle."""
+"""Validate and regenerate the checked-in translated Trox test fixture."""
 
 from __future__ import annotations
 
@@ -14,24 +14,8 @@ from platform_support import executable_name, user_cache_path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-TROX_VERSION = "0.2.0"
+TROX_VERSION = "0.2.1"
 CONFIGURATIONS = (
-    (
-        Path("samples/reactant"),
-        (Path("rules/src"), Path("localization"), Path("trox.ron")),
-        (
-            Path("localization/en-US.csv"),
-            Path("localization/en-US.trox.json"),
-        ),
-    ),
-    (
-        Path("samples/chess-ui"),
-        (Path("rules/src"), Path("localization"), Path("trox.ron")),
-        (
-            Path("localization/en-US.csv"),
-            Path("localization/en-US.trox.json"),
-        ),
-    ),
     (
         Path("crates/battlement-reactant/tests"),
         (Path("localization.rs"), Path("localization"), Path("trox.ron")),

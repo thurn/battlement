@@ -5,7 +5,6 @@ use battlement_reactant::{
   app::App, asset_generator, component::Component, hooks, host::Label, render::Render,
 };
 use battlement_rules::{gallery::Gallery, review_button::ReviewButton, review_page::ReviewPage};
-use trox::Bundle;
 use trox::ls;
 
 #[builder]
@@ -42,14 +41,7 @@ fn configured_component_values_keep_state_until_their_page_is_selected_again() {
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("gallery/content");
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
-  let source = Bundle::from_canonical_json(include_str!("../../localization/en-US.trox.json"))
-    .expect("valid embedded English trox bundle");
-  let mut client = FakeClient::connect(
-    App::new("gallery/content")
-      .source_bundle(source)
-      .ui(gallery),
-    assets,
-  );
+  let mut client = FakeClient::connect(App::new("gallery/content").ui(gallery), assets);
   client.poll();
   let counter = self::named(&mut client, "counter");
   assert_eq!(client.ui().element(counter).text(), Some("7"));

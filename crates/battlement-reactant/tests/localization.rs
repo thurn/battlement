@@ -29,7 +29,7 @@ use battlement_reactant::{
   runtime::Reactant,
   semantics::{AccessibleDescription, AccessibleName, SemanticProps},
 };
-use trox::{Bundle, DiagnosticCode, LocalizedString, Localizer, tx};
+use trox::{Bundle, DiagnosticCode, LocalizedString, Localizer, SourceLocale, tx};
 
 #[derive(Clone, Copy)]
 struct IdleSpawner;
@@ -207,9 +207,7 @@ fn direct_replacement_crosses_memo_boundaries_without_remounting() {
 #[test]
 fn app_handle_uses_the_last_replacement_and_preserves_announcement_order() {
   let replacement = Rc::new(RefCell::new(Some(self::target_localizer())));
-  let app = App::new("app/content")
-    .source_bundle(self::source_bundle())
-    .ui(AppFixture { replacement });
+  let app = App::new("app/content").ui(AppFixture { replacement });
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   let button = app_support::named(&mut client, root, "replace-localizer");
@@ -226,11 +224,9 @@ fn app_handle_uses_the_last_replacement_and_preserves_announcement_order() {
 #[test]
 fn stale_app_handle_cannot_change_announcement_localization() {
   let stale = Rc::new(RefCell::new(None));
-  let app = App::new("app/content")
-    .source_bundle(self::source_bundle())
-    .ui(StaleHandleFixture {
-      stale: Rc::clone(&stale),
-    });
+  let app = App::new("app/content").ui(StaleHandleFixture {
+    stale: Rc::clone(&stale),
+  });
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());
   client.reconnect();
@@ -246,20 +242,22 @@ fn stale_app_handle_cannot_change_announcement_localization() {
 }
 
 #[test]
-fn localized_presentation_without_configuration_has_a_focused_error() {
+fn localized_presentation_uses_source_development_by_default() {
   let document = self::document();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |_| Label::new(message()));
-  let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-    let _ = reactant.begin_session(&mut ());
-  }))
-  .expect_err("localized presentation should require configuration");
-  let message = panic
-    .downcast_ref::<String>()
-    .map(String::as_str)
-    .or_else(|| panic.downcast_ref::<&str>().copied())
-    .expect("string panic");
-  assert!(message.contains("cannot render localized content"));
+  let (snapshot, commit) = reactant
+    .begin_session(&mut ())
+    .unwrap()
+    .into_parts(self::snapshot(&document));
+
+  assert!(
+    serde_json::to_string(&snapshot.ui)
+      .unwrap()
+      .contains("Source text")
+  );
+  let _ = commit.into_groups();
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -299,10 +297,9 @@ fn localized_sparse_properties_preserve_unset_set_and_reset() {
 fn reactant_preserves_trox_diagnostics_and_source_fallback() {
   let diagnostics = Arc::new(Mutex::new(Vec::new()));
   let captured = Arc::clone(&diagnostics);
-  let unrelated = Bundle::from_canonical_json(include_str!(
-    "../../../samples/reactant/localization/en-US.trox.json"
-  ))
-  .expect("valid unrelated bundle");
+  let mut unrelated = self::source_bundle();
+  unrelated.entries.clear();
+  unrelated.source_catalog_fingerprint = "0".repeat(64);
   let localizer = Localizer::new(unrelated, self::source_bundle())
     .unwrap()
     .with_diagnostic_hook(move |diagnostic| captured.lock().unwrap().push(diagnostic.code));
@@ -435,7 +432,8 @@ fn target_localizer() -> Localizer {
 }
 
 fn source_localizer() -> Localizer {
-  Localizer::new(source_bundle(), source_bundle()).expect("compatible source bundles")
+  Localizer::for_source(SourceLocale::new("en-US").expect("valid source locale"))
+    .expect("valid source-development localizer")
 }
 
 fn document() -> UiDocument {

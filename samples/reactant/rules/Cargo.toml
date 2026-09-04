@@ -15,7 +15,7 @@ battlement-reactant = { path = "../../../crates/battlement-reactant" }
 futures-channel = "0.3.31"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
-trox = "0.2.0"
+trox = "0.2.1"
 
 [dev-dependencies]
 battlement-fake = { path = "../../../crates/battlement-fake" }

@@ -59,16 +59,14 @@ impl Component for SlottedCard {
 
 #[test]
 fn child_slots_accept_and_replay_arbitrary_render_values() {
-  let app = App::new("app/content")
-    .source_bundle(app_support::source_bundle())
-    .ui(
-      SlottedCard::new()
-        .title(Label::new(ls("Title")).name("slot-title"))
-        .children((
-          Label::new(ls("First")).name("slot-first"),
-          Button::new(ls("Second")).name("slot-second"),
-        )),
-    );
+  let app = App::new("app/content").ui(
+    SlottedCard::new()
+      .title(Label::new(ls("Title")).name("slot-title"))
+      .children((
+        Label::new(ls("First")).name("slot-first"),
+        Button::new(ls("Second")).name("slot-second"),
+      )),
+  );
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
 
@@ -89,13 +87,11 @@ fn optional_accessible_callbacks_have_a_builder_default() {
 
 #[test]
 fn generated_event_props_forward_model_and_ordinary_callbacks_once() {
-  let app = App::with_model("app/content", 0_u32)
-    .source_bundle(app_support::source_bundle())
-    .root(|value| {
-      Action::new()
-        .label(value.to_string())
-        .clicked(|model: &mut u32| *model += 1)
-    });
+  let app = App::with_model("app/content", 0_u32).root(|value| {
+    Action::new()
+      .label(value.to_string())
+      .clicked(|model: &mut u32| *model += 1)
+  });
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "generated-action");
@@ -114,9 +110,7 @@ fn generated_event_props_forward_model_and_ordinary_callbacks_once() {
   let counter = Rc::clone(&calls);
   let action = Action::new().clicked(move || counter.set(counter.get() + 1));
   assert_eq!(calls.get(), 0);
-  let app = App::new("app/content")
-    .source_bundle(app_support::source_bundle())
-    .ui(action);
+  let app = App::new("app/content").ui(action);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "generated-action");
@@ -134,9 +128,7 @@ fn optional_event_props_clear_without_invoking_or_subscribing() {
     .clear_changed()
     .clear_clicked();
   assert!(props.changed.is_none());
-  let app = App::new("app/content")
-    .source_bundle(app_support::source_bundle())
-    .ui(props);
+  let app = App::new("app/content").ui(props);
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
   let button = app_support::named(&mut client, root, "optional-action");
@@ -149,7 +141,6 @@ fn optional_event_props_clear_without_invoking_or_subscribing() {
 fn forwarded_event_props_preserve_model_mismatch_validation() {
   let action = Action::new().clicked(|_model: &mut String| {});
   let app = App::with_model("app/content", 0_u32)
-    .source_bundle(app_support::source_bundle())
     .root(move |_| Action::new().clicked(action.clicked.clone()));
   let _ = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
 }

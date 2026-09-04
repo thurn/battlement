@@ -7,7 +7,7 @@ use battlement::{
   PanelSettings, ParentScene, Scene, SceneAddress, SceneId, ScreenSize, SessionId, UiDocument,
   UiDocumentState,
 };
-use trox::{Bundle, Localizer};
+use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::{
   app_context::{AppQueue, Observations},
@@ -35,10 +35,8 @@ use crate::{
 ///
 /// ```no_run
 /// use battlement_reactant::{app::App, host::Label};
-/// use trox::{Bundle, tx};
-/// # fn source_bundle() -> Bundle { unimplemented!() }
+/// use trox::tx;
 /// let app = App::new("my-game/content")
-///   .source_bundle(source_bundle())
 ///   .ui(Label::new(tx("Welcome", "Welcome message on the main screen.")));
 /// let scene_only = App::new("my-game/content");
 /// ```
@@ -113,6 +111,14 @@ impl<G: 'static> App<G> {
   pub fn source_bundle(mut self, source: Bundle) -> Self {
     self.require_configuring();
     self.runtime.set_source_bundle(source);
+    self
+  }
+
+  /// Uses bundle-free source-language localization.
+  #[must_use]
+  pub fn source_locale(mut self, source: SourceLocale) -> Self {
+    self.require_configuring();
+    self.runtime.set_source_locale(source);
     self
   }
 
