@@ -1,7 +1,6 @@
 //! A decorative chevron whose orientation follows a selector’s open state.
 
-use crate::frame_styles;
-use battlement::{Length, PickingMode, Position, Rotate, Style, Translate};
+use battlement::{Color, Length, PickingMode, Position, Rotate, Style, Translate};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
@@ -37,7 +36,7 @@ impl Component for Caret {
       )
       .paint(
         PaintStyle::new()
-          .background(PaintFill::Color(frame_styles::color(0xf4f5fa)))
+          .background(PaintFill::Color(Color::hex(0xf4f5fa)))
           .clip_polygon([
             [Length::percent(0.0), Length::percent(0.0)],
             [Length::percent(100.0), Length::percent(0.0)],

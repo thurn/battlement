@@ -32,11 +32,7 @@ impl<R: Render> Component for PortraitViewport<R> {
             "Main content",
           )))
       })
-      .viewport_style(|style| {
-        style
-          .width(100.pct())
-          .background_color(Color::rgb(0.0, 0.0, 0.0))
-      })
+      .viewport_style(|style| style.width(100.pct()).background_color(Color::BLACK))
       .roomy_scale(1024.0, 0.75)
       .canvas(|view| view.name("portrait-canvas"))
       .canvas_style(|style| {
@@ -44,7 +40,7 @@ impl<R: Render> Component for PortraitViewport<R> {
           .overflow(Overflow::Hidden)
           .align_items(Align::Center)
           .justify_content(Justify::Center)
-          .background_color(Color::rgb(0.0, 0.0, 0.0))
+          .background_color(Color::BLACK)
       })
       .child(self.child.clone())
   }

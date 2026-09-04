@@ -240,16 +240,73 @@ impl Color {
     a: 1.0,
   };
 
+  /// Fully transparent black.
+  pub const TRANSPARENT: Self = Self {
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
+    a: 0.0,
+  };
+
   /// Creates an opaque linear RGB color.
   #[must_use]
   pub const fn rgb(r: f64, g: f64, b: f64) -> Self {
     Self::rgba(r, g, b, 1.0)
   }
 
+  /// Creates an opaque color from 8-bit RGB channels.
+  #[must_use]
+  pub const fn rgb8(r: u8, g: u8, b: u8) -> Self {
+    Self::rgba8(r, g, b, 255)
+  }
+
   /// Creates a linear RGBA color from its components.
   #[must_use]
   pub const fn rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
     Self { r, g, b, a }
+  }
+
+  /// Creates a color from 8-bit RGBA channels.
+  #[must_use]
+  pub const fn rgba8(r: u8, g: u8, b: u8, a: u8) -> Self {
+    Self::rgba(
+      r as f64 / 255.0,
+      g as f64 / 255.0,
+      b as f64 / 255.0,
+      a as f64 / 255.0,
+    )
+  }
+
+  /// Creates an opaque color from a packed `0xRRGGBB` value.
+  ///
+  /// # Panics
+  ///
+  /// Panics when `value` uses more than 24 bits.
+  #[must_use]
+  pub const fn hex(value: u32) -> Self {
+    assert!(value <= 0x00ff_ffff, "an RGB hex color must fit in 24 bits");
+    Self::rgb8(
+      ((value >> 16) & 0xff) as u8,
+      ((value >> 8) & 0xff) as u8,
+      (value & 0xff) as u8,
+    )
+  }
+
+  /// Creates a color from a packed `0xRRGGBBAA` value.
+  #[must_use]
+  pub const fn hex_rgba(value: u32) -> Self {
+    Self::rgba8(
+      ((value >> 24) & 0xff) as u8,
+      ((value >> 16) & 0xff) as u8,
+      ((value >> 8) & 0xff) as u8,
+      (value & 0xff) as u8,
+    )
+  }
+
+  /// Returns this color with a different alpha channel.
+  #[must_use]
+  pub const fn with_alpha(self, alpha: f64) -> Self {
+    Self::rgba(self.r, self.g, self.b, alpha)
   }
 }
 

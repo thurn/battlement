@@ -1,6 +1,6 @@
 //! A closed selector specimen with a visible value and combined accessible name.
 
-use crate::{caret::Caret, clipped_inset::ClippedInset, frame_styles, setting_row::SettingRow};
+use crate::{caret::Caret, clipped_inset::ClippedInset, setting_row::SettingRow};
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
   UiFontAddress,
@@ -87,20 +87,20 @@ impl<R: Render> Component for SelectControl<R> {
                   .padding_left(39)
                   .padding_right(74)
                   .border_width(0)
-                  .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0))
-                  .color(Color::rgb(245.0 / 255.0, 246.0 / 255.0, 251.0 / 255.0))
+                  .background_color(Color::TRANSPARENT)
+                  .color(Color::rgb8(245, 246, 251))
                   .unity_font_definition(VALUE_FONT)
                   .font_size(60)
                   .unity_text_align(TextAnchor::MiddleLeft),
               )
               .paint(
                 PaintStyle::new()
-                  .background(PaintFill::Color(frame_styles::color(0x5df5ff)))
+                  .background(PaintFill::Color(Color::hex(0x5df5ff)))
                   .clip_polygon(self::clip(10.0)),
               )
               .child((
                 ClippedInset::new()
-                  .background(PaintFill::Color(frame_styles::color(0x020611)))
+                  .background(PaintFill::Color(Color::hex(0x020611)))
                   .inset(3.0)
                   .clip_path(self::clip(7.0)),
                 accessibility::name_source_text(self.value.clone())

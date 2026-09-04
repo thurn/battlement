@@ -96,7 +96,7 @@ impl Component for VolumeControl {
                   .width(96)
                   .height(55)
                   .flex_shrink(0)
-                  .color(Color::rgb(245.0 / 255.0, 245.0 / 255.0, 248.0 / 255.0))
+                  .color(Color::rgb8(245, 245, 248))
                   .unity_font_definition(setting_row::DISPLAY_FONT)
                   .font_size(55)
                   .white_space(WhiteSpace::NoWrap)

@@ -1,6 +1,6 @@
 //! Decorative slider paint; input behavior belongs to VolumeControl.
 
-use crate::{clipped_inset::ClippedInset, frame_styles};
+use crate::clipped_inset::ClippedInset;
 use battlement::{
   Color, Gradient, GradientStop, Length, LengthUnits, PickingMode, Position, Shadow, Style,
   Translate,
@@ -65,7 +65,7 @@ impl Component for VolumeTrack {
           .style(Style::new().width(100.pct()).height(20).border_radius(5))
           .paint(
             PaintStyle::new()
-              .background(PaintFill::Color(frame_styles::color(0x061125)))
+              .background(PaintFill::Color(Color::hex(0x061125)))
               .box_shadow([self::shadow(0.0, 0.0, 8.0, 0.0, 0x000000, 0.69, true)]),
           )
           .child(
@@ -119,7 +119,7 @@ impl Component for VolumeTicks {
                   .width(2)
                   .height(10),
               )
-              .paint(PaintStyle::new().background(PaintFill::Color(frame_styles::color(0x465ccb))))
+              .paint(PaintStyle::new().background(PaintFill::Color(Color::hex(0x465ccb))))
           })
           .collect::<Vec<_>>(),
       )
@@ -151,15 +151,15 @@ impl Component for VolumeThumb {
             0.0,
             7.0,
             0.0,
-            self::color_with_alpha(0x1479ff, 1.0),
+            Color::hex(0x1479ff),
           ))),
       )
       .child(
         ClippedInset::new()
           .background(PaintFill::Gradient(
             Gradient::linear(90.0)
-              .stop(0.0, frame_styles::color(0x07142b))
-              .stop(1.0, frame_styles::color(0x02091b)),
+              .stop(0.0, Color::hex(0x07142b))
+              .stop(1.0, Color::hex(0x02091b)),
           ))
           .inset(4.0)
           .clip_path(self::clip())
@@ -175,7 +175,7 @@ fn gradient(angle: f32, colors: &[(f32, u32)]) -> PaintStyle {
     Gradient::linear(angle).stops(
       colors
         .iter()
-        .map(|&(position, color)| GradientStop::new(position, frame_styles::color(color))),
+        .map(|&(position, color)| GradientStop::new(position, Color::hex(color))),
     ),
   ))
 }
@@ -186,14 +186,9 @@ fn shadow(x: f32, y: f32, blur: f32, spread: f32, color: u32, alpha: f64, inset:
     y,
     blur,
     spread,
-    color: self::color_with_alpha(color, alpha),
+    color: Color::hex(color).with_alpha(alpha),
     inset,
   }
-}
-
-fn color_with_alpha(value: u32, alpha: f64) -> Color {
-  let color = frame_styles::color(value);
-  Color::rgba(color.r, color.g, color.b, alpha)
 }
 
 fn clip() -> Vec<[Length; 2]> {

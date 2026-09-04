@@ -54,7 +54,7 @@ impl<L: Render, R: Render> Component for SettingRow<L, R> {
           .min_width(0)
           .height(100.pct())
           .padding_left(18)
-          .color(Color::rgb(245.0 / 255.0, 245.0 / 255.0, 248.0 / 255.0))
+          .color(Color::rgb8(245, 245, 248))
           .unity_font_definition(DISPLAY_FONT)
           .font_size(LABEL_FONT_SIZE)
           .letter_spacing(1.3)
@@ -81,7 +81,7 @@ impl<L: Render, R: Render> Component for SettingRow<L, R> {
         Style::new()
           .min_height(self.row_height.unwrap_or(SETTINGS_ROW_HEIGHT))
           .border_top_width(if self.first { 0.0 } else { 2.0 })
-          .border_top_color(Color::rgba(43.0 / 255.0, 74.0 / 255.0, 123.0 / 255.0, 0.25)),
+          .border_top_color(Color::rgb8(43, 74, 123).with_alpha(0.25)),
       )
       .child((label, self.children.clone()))
   }

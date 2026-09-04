@@ -32,8 +32,8 @@ impl<R: Render> Component for ScreenFrame<R> {
           .width(PORTRAIT_DESIGN_WIDTH)
           .height(PORTRAIT_DESIGN_HEIGHT)
           .overflow(Overflow::Hidden)
-          .color(Color::rgb(247.0 / 255.0, 248.0 / 255.0, 1.0))
-          .background_color(Color::rgb(0.0, 0.0, 0.0)),
+          .color(Color::rgb8(247, 248, 255))
+          .background_color(Color::BLACK),
       )
       .child((
         View::new()

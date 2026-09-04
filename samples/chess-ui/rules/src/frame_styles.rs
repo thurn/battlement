@@ -43,33 +43,23 @@ pub fn clip() -> Vec<[Length; 2]> {
 /// Returns the bright metal gradient around the bezel.
 pub fn metal() -> Gradient {
   Gradient::linear(110.0)
-    .stop(0.0, self::color(0xf4ffff))
-    .stop(0.04, self::color(0x53dcff))
-    .stop(0.12, self::color(0x0874ef))
-    .stop(0.18, self::color(0x09234c))
-    .stop(0.32, self::color(0x19ddff))
-    .stop(0.5, self::color(0xe9fbff))
-    .stop(0.64, self::color(0x806cff))
-    .stop(0.83, self::color(0xff39c9))
-    .stop(0.96, self::color(0xffd4f4))
-    .stop(1.0, self::color(0xff5ec2))
+    .stop(0.0, Color::hex(0xf4ffff))
+    .stop(0.04, Color::hex(0x53dcff))
+    .stop(0.12, Color::hex(0x0874ef))
+    .stop(0.18, Color::hex(0x09234c))
+    .stop(0.32, Color::hex(0x19ddff))
+    .stop(0.5, Color::hex(0xe9fbff))
+    .stop(0.64, Color::hex(0x806cff))
+    .stop(0.83, Color::hex(0xff39c9))
+    .stop(0.96, Color::hex(0xffd4f4))
+    .stop(1.0, Color::hex(0xff5ec2))
 }
 
 /// Returns the dark interior gradient.
 pub fn interior() -> Gradient {
   Gradient::radial([0.5, 0.43], [0.959, 0.667])
-    .stop(0.0, self::color(0x06152c))
-    .stop(0.42, self::color(0x020817))
-    .stop(0.7, self::color(0x01030b))
-    .stop(1.0, self::color(0x000107))
-}
-
-/// Converts an RGB hexadecimal color to opaque motion paint.
-pub fn color(value: u32) -> Color {
-  Color::rgba(
-    f64::from((value >> 16) & 255) / 255.0,
-    f64::from((value >> 8) & 255) / 255.0,
-    f64::from(value & 255) / 255.0,
-    1.0,
-  )
+    .stop(0.0, Color::hex(0x06152c))
+    .stop(0.42, Color::hex(0x020817))
+    .stop(0.7, Color::hex(0x01030b))
+    .stop(1.0, Color::hex(0x000107))
 }

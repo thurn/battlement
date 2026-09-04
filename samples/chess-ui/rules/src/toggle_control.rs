@@ -69,8 +69,8 @@ impl<R: Render> Component for ToggleControl<R> {
               .height(77)
               .border_width(4)
               .border_radius(11)
-              .border_color(Color::rgb(75.0 / 255.0, 163.0 / 255.0, 1.0))
-              .background_color(Color::rgb(2.0 / 255.0, 9.0 / 255.0, 26.0 / 255.0)),
+              .border_color(Color::rgb8(75, 163, 255))
+              .background_color(Color::rgb8(2, 9, 26)),
           )
           .child(self.checked.then_some(CheckMark::new())),
         Button::new("")
@@ -86,7 +86,7 @@ impl<R: Render> Component for ToggleControl<R> {
               .margin(0)
               .padding(0)
               .border_width(0)
-              .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0)),
+              .background_color(Color::TRANSPARENT),
           ),
       ));
     let mut row = SettingRow::new()
@@ -137,10 +137,10 @@ impl Component for InfoBadge {
         .height(38)
         .padding(0)
         .border_width(2)
-        .border_color(Color::rgb(85.0 / 255.0, 184.0 / 255.0, 1.0))
+        .border_color(Color::rgb8(85, 184, 255))
         .border_radius(19)
-        .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0))
-        .color(Color::rgb(188.0 / 255.0, 244.0 / 255.0, 1.0))
+        .background_color(Color::TRANSPARENT)
+        .color(Color::rgb8(188, 244, 255))
         .font_size(27)
         .unity_text_align(TextAnchor::MiddleCenter)
         .align_items(Align::Center)

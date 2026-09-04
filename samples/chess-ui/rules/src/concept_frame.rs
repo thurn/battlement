@@ -1,7 +1,7 @@
 //! Layered arcade bezel paint around the portrait content area.
 
 use crate::frame_styles;
-use battlement::{Length, PickingMode, Position, Style};
+use battlement::{Color, Length, PickingMode, Position, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
@@ -76,7 +76,7 @@ impl Component for FrameLayer {
           .paint(
             PaintStyle::new()
               .clip_polygon(frame_styles::clip())
-              .background(PaintFill::Color(frame_styles::color(0x020713))),
+              .background(PaintFill::Color(Color::hex(0x020713))),
           ),
       )
   }

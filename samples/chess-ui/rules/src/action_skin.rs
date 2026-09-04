@@ -3,9 +3,7 @@
 use battlement::{Color, Gradient, Length};
 use battlement_reactant::paint::PaintFill;
 
-use crate::frame_styles;
-
-pub const INTERIOR: Color = Color::rgba(2.0 / 255.0, 6.0 / 255.0, 19.0 / 255.0, 1.0);
+pub const INTERIOR: Color = Color::rgb8(2, 6, 19);
 
 /// Builds the beveled action outline from horizontal and vertical corner cuts.
 pub fn clip(x: f32, y: f32) -> Vec<[Length; 2]> {
@@ -31,9 +29,9 @@ pub fn clip(x: f32, y: f32) -> Vec<[Length; 2]> {
 pub fn border() -> PaintFill {
   PaintFill::Gradient(
     Gradient::linear(110.0)
-      .stop(0.0, frame_styles::color(0xb9fbff))
-      .stop(0.22, frame_styles::color(0x3bb9ff))
-      .stop(0.56, frame_styles::color(0xa49cff))
-      .stop(0.9, frame_styles::color(0xff4bd1)),
+      .stop(0.0, Color::hex(0xb9fbff))
+      .stop(0.22, Color::hex(0x3bb9ff))
+      .stop(0.56, Color::hex(0xa49cff))
+      .stop(0.9, Color::hex(0xff4bd1)),
   )
 }

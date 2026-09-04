@@ -67,7 +67,7 @@ impl<R: Render> Component for ActionButton<R> {
               .border_width(0)
               .align_items(Align::Center)
               .justify_content(Justify::Center)
-              .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0)),
+              .background_color(Color::TRANSPARENT),
           )
           .paint(
             PaintStyle::new()
