@@ -36,6 +36,7 @@
 
 pub mod accessibility;
 pub mod accessibility_collections;
+mod accessibility_hook;
 pub mod accessibility_popup;
 mod action_context;
 mod activation;

@@ -1,52 +1,19 @@
-//! Reusable button interaction state derived from native gesture recognition.
+//! Button interaction state derived from native gesture recognition.
 
 use battlement::MotionGestureEventKind;
 
 use crate::{
-  accessibility::{self, ButtonOptions},
-  callback::IntoCallback,
+  accessibility::ButtonState,
   hooks::{self, StateSetter},
   motion::MotionProps,
-  semantics::{AccessibleBehavior, AccessibleName},
 };
 
-/// Styling state for a button whose interaction affects composed children.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct ButtonState {
-  /// Whether the control is unavailable.
-  pub disabled: bool,
-  /// Whether a non-touch pointer is over the button.
-  pub hovered: bool,
-  /// Whether native tap recognition is active.
-  pub pressed: bool,
-  /// Whether exact focus is visibly indicated for keyboard or controller input.
-  pub focus_visible: bool,
-}
-
-/// Returns unified button behavior with a reusable interaction-state snapshot.
-///
-/// `on_press` remains the single accepted-activation notification. Cancelled and
-/// disabled taps update no application-owned press counter and do not call it.
-/// Attach the complete value with `.behavior(...)`, or forward its `motion`
-/// field together with its semantic, focus, and interaction fields.
-pub fn use_button_state<G: 'static>(
-  options: ButtonOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
-) -> AccessibleBehavior<G, ButtonState> {
+pub(crate) fn use_interaction_state(disabled: bool) -> (ButtonState, MotionProps) {
   let (state, setter) = hooks::use_state(ButtonState::default());
-  let base = accessibility::use_button(options);
-  let disabled = base.state.disabled;
-  AccessibleBehavior {
-    semantic: base.semantic,
-    focus: base.focus,
-    interaction: base.interaction,
-    motion: self::interaction_motion(setter),
-    state: ButtonState {
-      disabled,
-      pressed: !disabled && state.pressed,
-      focus_visible: !disabled && state.focus_visible,
-      ..state
-    },
+  if disabled && state != ButtonState::default() {
+    setter.set(ButtonState::default());
   }
+  (state, self::interaction_motion(setter))
 }
 
 fn interaction_motion(setter: StateSetter<ButtonState>) -> MotionProps {

@@ -54,10 +54,7 @@ impl Component for CollectionSettings {
                 },
               });
               page.semantic.state.current = (self.page == index).then_some(CurrentPage::Page);
-              Button::new(name)
-                .semantic(page.semantic)
-                .focus_props(page.focus)
-                .interaction_props(page.interaction)
+              Button::new(name).behavior(page)
             })
             .collect::<Vec<_>>(),
         ),
@@ -81,10 +78,7 @@ impl Component for CollectionSettings {
                       game.layout_gallery.collection_choice = index;
                     },
                   });
-                  Button::new(name)
-                    .semantic(option.semantic)
-                    .focus_props(option.focus)
-                    .interaction_props(option.interaction)
+                  Button::new(name).behavior(option)
                 })
                 .collect::<Vec<_>>(),
             ),
@@ -108,14 +102,8 @@ impl Component for CollectionSettings {
                   Label::new("W").semantic(collections::use_cell(text("W"))),
                 )),
             )),
-          Button::new("OPEN UNITY DOCUMENTATION")
-            .semantic(external_link.semantic)
-            .focus_props(external_link.focus)
-            .interaction_props(external_link.interaction),
-          Button::new("DOCUMENTATION LINK")
-            .semantic(link.semantic)
-            .focus_props(link.focus)
-            .interaction_props(link.interaction),
+          Button::new("OPEN UNITY DOCUMENTATION").behavior(external_link),
+          Button::new("DOCUMENTATION LINK").behavior(link),
         )),
     ))
   }

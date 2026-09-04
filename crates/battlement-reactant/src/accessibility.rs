@@ -6,7 +6,7 @@ use battlement::{
 };
 
 use crate::{
-  activation,
+  accessibility_hook, activation, button_state,
   callback::{Callback, IntoCallback},
   element_ref::{ElementRef, use_element_ref},
   event_handler::Handler,
@@ -21,11 +21,17 @@ use crate::{
 
 use crate::semantics::{SemanticMembership, SemanticVisibility};
 
-/// Styling state shared by pressable patterns.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct PressState {
+/// Current interaction state returned by [`use_button`].
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ButtonState {
   /// Whether the control is unavailable.
   pub disabled: bool,
+  /// Whether a non-touch pointer is over the button.
+  pub hovered: bool,
+  /// Whether native press recognition is active.
+  pub pressed: bool,
+  /// Whether exact focus is visibly indicated for keyboard or controller input.
+  pub focus_visible: bool,
 }
 
 /// Options for [`use_button`].
@@ -154,21 +160,26 @@ pub struct SliderState {
 /// Returns button semantics, focus, and unified activation behavior.
 pub fn use_button<G: 'static>(
   options: ButtonOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
-) -> AccessibleBehavior<G, PressState> {
+) -> AccessibleBehavior<G, ButtonState> {
+  let disabled = options.is_disabled;
+  let (state, motion) = button_state::use_interaction_state(disabled);
   let callback = options.on_press.into_callback();
-  let interaction = activation::interaction(options.is_disabled, callback);
+  let interaction = activation::interaction(disabled, callback);
   AccessibleBehavior {
     semantic: described(
       named(SemanticRole::Button, options.name),
       options.description,
     )
-    .state(disabled_state(options.is_disabled))
+    .state(disabled_state(disabled))
     .action(AccessibilityAction::Activate),
-    focus: ordinary_focus(options.is_disabled),
+    focus: ordinary_focus(disabled),
     interaction,
-    motion: MotionProps::new(),
-    state: PressState {
-      disabled: options.is_disabled,
+    motion,
+    state: ButtonState {
+      disabled,
+      hovered: !disabled && state.hovered,
+      pressed: !disabled && state.pressed,
+      focus_visible: !disabled && state.focus_visible,
     },
   }
 }
@@ -177,14 +188,14 @@ pub fn use_button<G: 'static>(
 #[must_use]
 pub fn static_text(value: impl Into<String>) -> TextElement {
   let value = value.into();
-  TextElement::new(value.clone()).semantic(self::use_static_text(semantics::text(value)))
+  TextElement::new(value.clone()).semantic(self::static_text_semantic(semantics::text(value)))
 }
 
 /// Creates a native label with an exposed static-text semantic declaration.
 #[must_use]
 pub fn static_label(value: impl Into<String>) -> Label {
   let value = value.into();
-  Label::new(value.clone()).semantic(self::use_static_text(semantics::text(value)))
+  Label::new(value.clone()).semantic(self::static_text_semantic(semantics::text(value)))
 }
 
 /// Creates visible text that participates only in names derived from content.
@@ -192,7 +203,8 @@ pub fn static_label(value: impl Into<String>) -> Label {
 pub fn name_source_text(value: impl Into<String>) -> TextElement {
   let value = value.into();
   TextElement::new(value.clone()).semantic(
-    self::use_static_text(semantics::text(value)).visibility(SemanticVisibility::NameSourceOnly),
+    self::static_text_semantic(semantics::text(value))
+      .visibility(SemanticVisibility::NameSourceOnly),
   )
 }
 
@@ -200,6 +212,7 @@ pub fn name_source_text(value: impl Into<String>) -> TextElement {
 pub fn use_checkbox<G: 'static>(
   options: ToggleOptions<impl IntoCallback<bool, G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
+  accessibility_hook::use_pattern("use_checkbox");
   use_toggle(options, SemanticRole::Checkbox)
 }
 
@@ -207,6 +220,7 @@ pub fn use_checkbox<G: 'static>(
 pub fn use_switch<G: 'static>(
   options: ToggleOptions<impl IntoCallback<bool, G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
+  accessibility_hook::use_pattern("use_switch");
   use_toggle(options, SemanticRole::Switch)
 }
 
@@ -223,6 +237,7 @@ pub fn use_radio<G: 'static>(
   group: &RadioGroupBehavior,
   options: ChoiceOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
+  accessibility_hook::use_pattern("use_radio");
   use_choice(
     SemanticRole::Radio,
     group.element_ref.clone(),
@@ -244,6 +259,7 @@ pub fn use_tab<G: 'static>(
   tabs: &TabsBehavior,
   options: ChoiceOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
+  accessibility_hook::use_pattern("use_tab");
   use_choice(
     SemanticRole::Tab,
     tabs.element_ref.clone(),
@@ -254,6 +270,7 @@ pub fn use_tab<G: 'static>(
 
 /// Returns selected-panel semantics, hidden before a deselection exit begins.
 pub fn use_tab_panel(tabs: &TabsBehavior, selected: bool) -> SemanticProps {
+  accessibility_hook::use_pattern("use_tab_panel");
   SemanticProps::new(SemanticRole::TabPanel)
     .visibility(if selected {
       SemanticVisibility::Exposed
@@ -267,6 +284,7 @@ pub fn use_tab_panel(tabs: &TabsBehavior, selected: bool) -> SemanticProps {
 pub fn use_slider<G: 'static>(
   options: SliderOptions<impl IntoCallback<f64, G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, SliderState> {
+  accessibility_hook::use_pattern("use_slider");
   assert!(
     options.minimum.is_finite()
       && options.maximum.is_finite()
@@ -323,11 +341,13 @@ pub fn use_slider<G: 'static>(
 
 /// Returns determinate progress semantics.
 pub fn use_progress(name: LocalizedText, value: AccessibilityRangeValue) -> SemanticProps {
+  accessibility_hook::use_pattern("use_progress");
   named(SemanticRole::Progress, name).value(value)
 }
 
 /// Returns indeterminate progress semantics.
 pub fn use_busy_progress(name: LocalizedText) -> SemanticProps {
+  accessibility_hook::use_pattern("use_busy_progress");
   named(SemanticRole::Progress, name).state(SemanticState {
     busy: true,
     ..SemanticState::default()
@@ -338,6 +358,7 @@ pub fn use_busy_progress(name: LocalizedText) -> SemanticProps {
 pub fn use_disclosure<G: 'static>(
   options: DisclosureOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
+  accessibility_hook::use_pattern("use_disclosure");
   let callback = options.on_toggle.into_callback();
   AccessibleBehavior {
     semantic: described(
@@ -361,6 +382,7 @@ pub fn use_disclosure<G: 'static>(
 pub fn use_dialog<G: 'static>(
   options: DialogOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, ()> {
+  accessibility_hook::use_pattern("use_dialog");
   let mut semantic = named(SemanticRole::Dialog, options.name);
   let mut interaction = InteractionProps::new();
   if let Some(on_dismiss) = options.on_dismiss {
@@ -382,21 +404,25 @@ pub fn use_dialog<G: 'static>(
 
 /// Returns heading semantics.
 pub fn use_heading(name: LocalizedText, level: u8) -> SemanticProps {
+  accessibility_hook::use_pattern("use_heading");
   named(SemanticRole::Heading, name).heading_level(level)
 }
 
 /// Returns informative-image semantics.
 pub fn use_image(name: LocalizedText) -> SemanticProps {
+  accessibility_hook::use_pattern("use_image");
   named(SemanticRole::Image, name)
 }
 
 /// Returns static-text semantics.
 pub fn use_static_text(value: LocalizedText) -> SemanticProps {
-  named(SemanticRole::StaticText, value)
+  accessibility_hook::use_pattern("use_static_text");
+  self::static_text_semantic(value)
 }
 
 /// Returns optional named group semantics.
 pub fn use_group(name: Option<LocalizedText>) -> SemanticProps {
+  accessibility_hook::use_pattern("use_group");
   optionally_named(SemanticRole::Group, name)
 }
 
@@ -404,6 +430,7 @@ pub fn use_group(name: Option<LocalizedText>) -> SemanticProps {
 pub fn use_scroll_area<G: 'static>(
   options: ScrollAreaOptions<impl IntoCallback<AccessibilityScrollDirection, G>>,
 ) -> AccessibleBehavior<G, ()> {
+  accessibility_hook::use_pattern("use_scroll_area");
   let callback = options.on_scroll.into_callback();
   let forward = options.can_scroll_forward;
   let backward = options.can_scroll_backward;
@@ -504,6 +531,10 @@ fn accessible<G: 'static>(
     .handlers
     .push(Handler::accessibility_callback(slot, callback));
   interaction
+}
+
+fn static_text_semantic(value: LocalizedText) -> SemanticProps {
+  named(SemanticRole::StaticText, value)
 }
 
 fn named(role: SemanticRole, name: impl Into<AccessibleName>) -> SemanticProps {

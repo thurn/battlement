@@ -3,7 +3,7 @@
 use battlement::PopupKind;
 
 use crate::{
-  accessibility::{self, ButtonOptions, PressState},
+  accessibility::{self, ButtonOptions, ButtonState},
   callback::IntoCallback,
   semantics::{AccessibleBehavior, AccessibleDescription, AccessibleName, LocalizedText},
 };
@@ -28,7 +28,7 @@ pub struct PopupButtonOptions<F, N = LocalizedText> {
 /// Declaring a popup does not create one or change its controlled expansion state.
 pub fn use_popup_button<G: 'static>(
   options: PopupButtonOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
-) -> AccessibleBehavior<G, PressState> {
+) -> AccessibleBehavior<G, ButtonState> {
   let mut behavior = accessibility::use_button(ButtonOptions {
     name: options.name,
     description: options.description,

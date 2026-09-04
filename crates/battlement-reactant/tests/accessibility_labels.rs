@@ -347,11 +347,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
             .associated_control(checkbox)
             .child(View::new().name("decoration"))
         }),
-        View::new()
-          .name("help")
-          .semantic(help.semantic)
-          .focus_props(help.focus)
-          .interaction_props(help.interaction),
+        View::new().name("help").behavior(help),
       )),
     )
 }

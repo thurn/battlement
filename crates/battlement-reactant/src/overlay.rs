@@ -17,7 +17,7 @@ use crate::{
   render::RenderTree,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
-  semantics::{InteractionProps, SemanticProps},
+  semantics::{AccessibleBehavior, InteractionProps, SemanticProps},
 };
 
 /// Deferred overlay references resolved against the complete desired tree.
@@ -174,6 +174,13 @@ impl Overlay {
   #[must_use]
   pub fn child(mut self, child: impl Render) -> Self {
     self.wrapper.state.children.push(Node::new(child));
+    self
+  }
+
+  /// Attaches one accessible behavior to the public overlay wrapper.
+  #[must_use]
+  pub fn behavior<G: 'static, S>(mut self, value: AccessibleBehavior<G, S>) -> Self {
+    self.wrapper = self.wrapper.behavior(value);
     self
   }
 

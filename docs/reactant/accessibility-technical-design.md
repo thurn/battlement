@@ -141,6 +141,7 @@ pub struct AccessibleBehavior<G, S> {
     pub semantic: SemanticProps,
     pub focus: FocusProps,
     pub interaction: InteractionProps<G>,
+    pub motion: MotionProps,
     pub state: S,
 }
 ~~~
@@ -157,17 +158,23 @@ the synchronous disposition contract from
 handler returns `Handled` or `Unhandled`, and observers do not determine that
 result.
 
-Hosts compose the bundles explicitly:
+Hosts attach the complete bundle atomically:
 
 ~~~rust
-VisualElement::new()
-    .semantic(button.semantic)
-    .focus_props(button.focus)
-    .interaction_props(button.interaction)
+VisualElement::new().behavior(button)
 ~~~
 
 Semantic properties do not make a host focusable. Focus properties do not expose
 a host to assistive technology. Interaction properties do not imply either.
+The atomic attachment prevents a control from accidentally dropping the native
+motion subscriptions that maintain hover, press, and focus-visible state.
+
+Every public accessibility function named `use_*` is a positional Reactant
+hook, including patterns whose current result is derived entirely from their
+arguments. They require component render context, must be called
+unconditionally, and must keep the same ordering and identity across renders.
+This matches React Aria's composition model and lets a pattern acquire internal
+state later without silently changing its public calling contract.
 
 ### Semantic properties
 
@@ -494,8 +501,7 @@ let dialog = use_dialog(DialogOptions {
 Overlay::modal(overlay_root)
     .initial_focus(cancel_button)
     .restore_focus(settings_button)
-    .semantic(dialog.semantic)
-    .interaction_props(dialog.interaction)
+    .behavior(dialog)
     .child(dialog_contents)
 ~~~
 

@@ -70,21 +70,18 @@ impl Component for ReviewText {
       .style(style);
     let heading =
       element_behavior::use_focus_when(matches!(self.kind, ReviewTextKind::Heading).then_some(()));
+    let heading_semantic = accessibility::use_heading(semantics::text(self.text.clone()), 1);
+    let text_semantic = accessibility::use_static_text(semantics::text(self.text.clone()));
     if matches!(self.kind, ReviewTextKind::Heading) {
       label
         .element_ref(heading)
-        .semantic(accessibility::use_heading(
-          semantics::text(self.text.clone()),
-          1,
-        ))
+        .semantic(heading_semantic)
         .focus_props(FocusProps::new().focusable(true).tab_index(-1))
         .while_focus_visible(
           StyleTarget::new().background_color(Color::rgba(0.12, 0.23, 0.28, 1.0)),
         )
     } else {
-      label.semantic(accessibility::use_static_text(semantics::text(
-        self.text.clone(),
-      )))
+      label.semantic(text_semantic)
     }
   }
 }

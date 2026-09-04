@@ -71,9 +71,7 @@ impl Component for Mixed {
           Button::new("Enabled")
             .name("enabled")
             .element_ref(input)
-            .semantic(toggle.semantic)
-            .focus_props(toggle.focus)
-            .interaction_props(toggle.interaction),
+            .behavior(toggle),
         ),
     ))
   }

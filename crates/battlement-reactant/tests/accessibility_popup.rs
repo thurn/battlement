@@ -52,17 +52,13 @@ impl Component for Fixture {
           .name(AccessibleName::text(" Quality "))
           .visibility(SemanticVisibility::NameSourceOnly),
       ),
-      Button::new("")
-        .semantic(behavior.semantic)
-        .focus_props(behavior.focus)
-        .interaction_props(behavior.interaction)
-        .child(
-          Label::new(selected).element_ref(value).semantic(
-            SemanticProps::new(SemanticRole::StaticText)
-              .name(AccessibleName::text(selected))
-              .visibility(SemanticVisibility::NameSourceOnly),
-          ),
+      Button::new("").behavior(behavior).child(
+        Label::new(selected).element_ref(value).semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::text(selected))
+            .visibility(SemanticVisibility::NameSourceOnly),
         ),
+      ),
     ))
   }
 }
@@ -141,10 +137,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;
-        Button::new("Options")
-          .semantic(behavior.semantic)
-          .focus_props(behavior.focus)
-          .interaction_props(behavior.interaction)
+        Button::new("Options").behavior(behavior)
       },
     );
     assert!(

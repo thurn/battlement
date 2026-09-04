@@ -5,7 +5,7 @@ use battlement::{
   UiEventBody, UiEventDisposition,
 };
 use battlement_reactant::{
-  accessibility::{ButtonOptions, ChoiceOptions, use_button},
+  accessibility::{self, ButtonOptions, ChoiceOptions, use_button},
   accessibility_collections as collections,
   component::Component,
   element_ref::use_element_ref,
@@ -43,16 +43,33 @@ impl Component for NameSourceFixture {
           .name(AccessibleName::text("Account settings"))
           .visibility(SemanticVisibility::NameSourceOnly),
       ),
-      View::new()
-        .semantic(button.semantic)
-        .focus_props(button.focus)
-        .interaction_props(button.interaction),
+      View::new().behavior(button),
     ))
   }
 }
 
 struct MultiNameFixture {
   value: &'static str,
+}
+
+struct CollectionFixture {
+  selection: usize,
+}
+
+#[derive(Clone, Copy)]
+enum InvalidCollectionCase {
+  OrphanRow,
+  ListboxCell,
+  TableCell,
+  CurrentRegion,
+}
+
+struct ActionFixture;
+
+struct ContentsFixture;
+
+struct PatternHookFixture {
+  heading: bool,
 }
 
 impl Component for MultiNameFixture {
@@ -71,18 +88,59 @@ impl Component for MultiNameFixture {
           .name(AccessibleName::text(" Quality "))
           .visibility(SemanticVisibility::NameSourceOnly),
       ),
-      Button::new("")
-        .semantic(behavior.semantic)
-        .focus_props(behavior.focus)
-        .interaction_props(behavior.interaction)
-        .child(
-          Label::new(self.value).element_ref(value).semantic(
-            SemanticProps::new(SemanticRole::StaticText)
-              .name(AccessibleName::text(self.value))
-              .visibility(SemanticVisibility::NameSourceOnly),
-          ),
+      Button::new("").behavior(behavior).child(
+        Label::new(self.value).element_ref(value).semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::text(self.value))
+            .visibility(SemanticVisibility::NameSourceOnly),
         ),
+      ),
     ))
+  }
+}
+
+impl Component for ActionFixture {
+  fn render(&self) -> impl Render {
+    View::new().behavior(use_button(ButtonOptions {
+      name: text("Save changes"),
+      description: None,
+      is_disabled: false,
+      on_press: |game: &mut Game| game.presses += 1,
+    }))
+  }
+}
+
+impl Component for ContentsFixture {
+  fn render(&self) -> impl Render {
+    let button = use_button(ButtonOptions {
+      name: AccessibleName::Contents,
+      description: None,
+      is_disabled: false,
+      on_press: |_game: &mut Game| {},
+    });
+    View::new()
+      .semantic(SemanticProps::new(SemanticRole::Group))
+      .child((View::new().behavior(button).child((
+        Label::new("Save").semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::Text(text(" Save   changes "))),
+        ),
+        View::new()
+          .semantic(SemanticProps::new(SemanticRole::Group).visibility(SemanticVisibility::Hidden))
+          .child(Label::new("secret").semantic(
+            SemanticProps::new(SemanticRole::StaticText).name(AccessibleName::Text(text("Secret"))),
+          )),
+      )),))
+  }
+}
+
+impl Component for PatternHookFixture {
+  fn render(&self) -> impl Render {
+    View::new().semantic(if self.heading {
+      accessibility::use_heading(text("Status"), 2)
+    } else {
+      accessibility::use_image(text("Status"))
+    })
   }
 }
 
@@ -152,36 +210,7 @@ impl Spawner for IdleSpawner {
 fn complete_snapshot_resolves_contents_and_prunes_hidden_subtrees() {
   let document = document();
   let mut runtime = Reactant::new(IdleSpawner);
-  runtime.register_root(document.clone(), |_game: &Game| {
-    let button = use_button(ButtonOptions {
-      name: AccessibleName::Contents,
-      description: None,
-      is_disabled: false,
-      on_press: |_game: &mut Game| {},
-    });
-    View::new()
-      .semantic(SemanticProps::new(SemanticRole::Group))
-      .child((View::new()
-        .semantic(button.semantic)
-        .focus_props(button.focus)
-        .interaction_props(button.interaction)
-        .child((
-          Label::new("Save").semantic(
-            SemanticProps::new(SemanticRole::StaticText)
-              .name(AccessibleName::Text(text(" Save   changes "))),
-          ),
-          View::new()
-            .semantic(
-              SemanticProps::new(SemanticRole::Group).visibility(SemanticVisibility::Hidden),
-            )
-            .child(
-              Label::new("secret").semantic(
-                SemanticProps::new(SemanticRole::StaticText)
-                  .name(AccessibleName::Text(text("Secret"))),
-              ),
-            ),
-        )),))
-  });
+  runtime.register_root(document.clone(), |_game: &Game| ContentsFixture);
   let mut game = Game::default();
   let groups = runtime
     .begin_session(&mut game)
@@ -229,18 +258,7 @@ fn name_source_only_hosts_resolve_without_becoming_nodes() {
 fn accessibility_activation_uses_the_ordinary_logical_event_path() {
   let document = document();
   let mut runtime = Reactant::new(IdleSpawner);
-  runtime.register_root(document.clone(), |_game: &Game| {
-    let button = use_button(ButtonOptions {
-      name: text("Save changes"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.presses += 1,
-    });
-    View::new()
-      .semantic(button.semantic)
-      .focus_props(button.focus)
-      .interaction_props(button.interaction)
-  });
+  runtime.register_root(document.clone(), |_game: &Game| ActionFixture);
   let mut game = Game::default();
   let groups = runtime
     .begin_session(&mut game)
@@ -280,6 +298,27 @@ fn accessibility_activation_uses_the_ordinary_logical_event_path() {
 }
 
 #[test]
+fn pattern_hooks_require_a_stable_component_render_slot() {
+  assert!(std::panic::catch_unwind(|| accessibility::use_heading(text("Status"), 2)).is_err());
+
+  let document = document();
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), |game: &Game| PatternHookFixture {
+    heading: game.selection == 0,
+  });
+  let mut game = Game::default();
+  let (_, commit) = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_parts(snapshot(&document));
+  let _ = commit.into_groups();
+  game.selection = 1;
+  assert!(
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| runtime.refresh(&mut game))).is_err()
+  );
+}
+
+#[test]
 fn protocol_round_trips_direct_actions_and_complete_snapshot() {
   let update = AccessibilityUpdate {
     snapshot: Some(battlement::AccessibilitySnapshot {
@@ -306,7 +345,9 @@ fn protocol_round_trips_direct_actions_and_complete_snapshot() {
 fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
   let document = document();
   let mut runtime = Reactant::new(IdleSpawner);
-  runtime.register_root(document.clone(), collection_fixture);
+  runtime.register_root(document.clone(), |game: &Game| CollectionFixture {
+    selection: game.selection,
+  });
   let mut game = Game::default();
   let groups = runtime
     .begin_session(&mut game)
@@ -396,90 +437,91 @@ fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
 
 #[test]
 fn invalid_collection_relationships_and_page_states_fail_before_commit() {
-  let cases = [
-    View::new().semantic(collections::use_row()),
-    View::new()
-      .semantic(collections::use_listbox(text("Quality")))
-      .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
-    View::new()
-      .semantic(collections::use_table(text("Bindings")))
-      .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
-    View::new().semantic(collections::use_region(text("Settings")).state(
-      battlement::SemanticState {
-        current: Some(CurrentPage::Page),
-        ..Default::default()
-      },
-    )),
-  ];
-  for view in cases {
+  for case in [
+    InvalidCollectionCase::OrphanRow,
+    InvalidCollectionCase::ListboxCell,
+    InvalidCollectionCase::TableCell,
+    InvalidCollectionCase::CurrentRegion,
+  ] {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       let mut runtime = Reactant::new(IdleSpawner);
-      runtime.register_root(document(), move |_game: &Game| view.clone());
+      runtime.register_root(document(), move |_game: &Game| case);
       runtime.begin_session(&mut Game::default()).is_err()
     }));
     assert!(result.is_err() || result.unwrap());
   }
 }
 
-fn collection_fixture(game: &Game) -> View {
-  let mut page = use_button(ButtonOptions {
-    name: text("Gallery shell"),
-    description: None,
-    is_disabled: false,
-    on_press: |_game: &mut Game| {},
-  });
-  page.semantic.state.current = Some(CurrentPage::Page);
-  let link = collections::use_link(ButtonOptions {
-    name: text("Privacy policy"),
-    description: None,
-    is_disabled: false,
-    on_press: |game: &mut Game| game.presses += 1,
-  });
-  View::new().child((
-    View::new()
-      .semantic(collections::use_navigation(text("Review pages")))
-      .child(
-        View::new()
-          .semantic(page.semantic)
-          .focus_props(page.focus)
-          .interaction_props(page.interaction),
-      ),
-    View::new()
-      .semantic(collections::use_region(text("Settings")))
-      .child((
-        View::new()
-          .semantic(collections::use_listbox(text("Quality")))
-          .child(
-            ["Standard", "High", "Unavailable"]
-              .into_iter()
-              .enumerate()
-              .map(|(index, name)| {
-                let option = collections::use_option(ChoiceOptions {
-                  name: text(name),
-                  selected: game.selection == index,
-                  is_disabled: index == 2,
-                  on_select: move |game: &mut Game| game.selection = index,
-                });
-                View::new()
-                  .semantic(option.semantic)
-                  .focus_props(option.focus)
-                  .interaction_props(option.interaction)
-              })
-              .collect::<Vec<_>>(),
-          ),
-        View::new()
-          .semantic(collections::use_table(text("Bindings")))
-          .child(View::new().semantic(collections::use_row()).child((
-            Label::new("Keyboard").semantic(collections::use_column_header(text("Keyboard"))),
-            Label::new("Move").semantic(collections::use_row_header(text("Move"))),
-            Label::new("W").semantic(collections::use_cell(text("W"))),
-          ))),
-        View::new()
-          .semantic(link.semantic)
-          .focus_props(link.focus)
-          .interaction_props(link.interaction),
+impl Component for CollectionFixture {
+  fn render(&self) -> impl Render {
+    let mut page = use_button(ButtonOptions {
+      name: text("Gallery shell"),
+      description: None,
+      is_disabled: false,
+      on_press: |_game: &mut Game| {},
+    });
+    page.semantic.state.current = Some(CurrentPage::Page);
+    let link = collections::use_link(ButtonOptions {
+      name: text("Privacy policy"),
+      description: None,
+      is_disabled: false,
+      on_press: |game: &mut Game| game.presses += 1,
+    });
+    View::new().child((
+      View::new()
+        .semantic(collections::use_navigation(text("Review pages")))
+        .child(View::new().behavior(page)),
+      View::new()
+        .semantic(collections::use_region(text("Settings")))
+        .child((
+          View::new()
+            .semantic(collections::use_listbox(text("Quality")))
+            .child(
+              ["Standard", "High", "Unavailable"]
+                .into_iter()
+                .enumerate()
+                .map(|(index, name)| {
+                  let option = collections::use_option(ChoiceOptions {
+                    name: text(name),
+                    selected: self.selection == index,
+                    is_disabled: index == 2,
+                    on_select: move |game: &mut Game| game.selection = index,
+                  });
+                  View::new().behavior(option)
+                })
+                .collect::<Vec<_>>(),
+            ),
+          View::new()
+            .semantic(collections::use_table(text("Bindings")))
+            .child(View::new().semantic(collections::use_row()).child((
+              Label::new("Keyboard").semantic(collections::use_column_header(text("Keyboard"))),
+              Label::new("Move").semantic(collections::use_row_header(text("Move"))),
+              Label::new("W").semantic(collections::use_cell(text("W"))),
+            ))),
+          View::new().behavior(link),
+        )),
+    ))
+  }
+}
+
+impl Component for InvalidCollectionCase {
+  fn render(&self) -> impl Render {
+    match self {
+      Self::OrphanRow => View::new().semantic(collections::use_row()),
+      Self::ListboxCell => View::new()
+        .semantic(collections::use_listbox(text("Quality")))
+        .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
+      Self::TableCell => View::new()
+        .semantic(collections::use_table(text("Bindings")))
+        .child(Label::new("Wrong child").semantic(collections::use_cell(text("Wrong child")))),
+      Self::CurrentRegion => View::new().semantic(collections::use_region(text("Settings")).state(
+        battlement::SemanticState {
+          current: Some(CurrentPage::Page),
+          ..Default::default()
+        },
       )),
-  ))
+    }
+  }
 }
 
 fn activation(target: ObjectId) -> UiEvent {

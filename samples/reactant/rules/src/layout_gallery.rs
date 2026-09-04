@@ -56,8 +56,7 @@ impl Component for LayoutGallery {
     });
     ScrollView::new()
       .name("layout-gallery-canvas")
-      .semantic(page.semantic)
-      .interaction_props(page.interaction)
+      .behavior(page)
       .mode(ScrollViewMode::Vertical)
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(styles::content())
@@ -129,6 +128,10 @@ impl LayoutGallery {
         game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
       },
     });
+    let tracks = AccessibleBehavior {
+      focus: tracks.focus.auto_focus(true),
+      ..tracks
+    };
     let open_modal = use_button(ButtonOptions {
       name: text("Open modal"),
       description: None,
@@ -144,9 +147,7 @@ impl LayoutGallery {
       .child(
         Button::new("RESPONSIVE TRACKS")
           .name("layout-gallery-tracks")
-          .semantic(tracks.semantic)
-          .focus_props(tracks.focus.auto_focus(true))
-          .interaction_props(tracks.interaction),
+          .behavior(tracks),
       )
       .child(
         Button::new("LARGE TEXT")
@@ -166,9 +167,7 @@ impl LayoutGallery {
         Button::new("OPEN MODAL")
           .name("layout-gallery-modal")
           .element_ref(modal_trigger)
-          .semantic(open_modal.semantic)
-          .focus_props(open_modal.focus)
-          .interaction_props(open_modal.interaction),
+          .behavior(open_modal),
       )
       .child(
         Button::new("RECONNECT")
@@ -181,9 +180,7 @@ impl LayoutGallery {
       .child(
         Button::new("RESET")
           .name("layout-gallery-reset")
-          .semantic(reset.semantic)
-          .focus_props(reset.focus)
-          .interaction_props(reset.interaction),
+          .behavior(reset),
       )
   }
   fn tabs(&self) -> View {
@@ -224,9 +221,7 @@ impl LayoutGallery {
                   .key(label)
                   .name(format!("layout-tab-{index}"))
                   .grid_item(GridItem::new().row(1).column(index as u32 + 1))
-                  .semantic(tab.semantic)
-                  .focus_props(tab.focus)
-                  .interaction_props(tab.interaction)
+                  .behavior(tab)
                   .style(styles::tab(index == self.state.active_tab))
               })
               .collect::<Vec<_>>(),
@@ -315,6 +310,7 @@ impl LayoutGallery {
         announce.send(text("Settings saved"));
       },
     });
+    let advanced_audio = use_static_text(text("Advanced audio controls"));
     View::new()
       .name("layout-gallery-accessibility")
       .semantic(use_group(Some(text("Accessible settings"))))
@@ -340,9 +336,7 @@ impl LayoutGallery {
           "CAPTIONS OFF"
         })
         .name("layout-gallery-checkbox")
-        .semantic(checkbox.semantic)
-        .focus_props(checkbox.focus)
-        .interaction_props(checkbox.interaction),
+        .behavior(checkbox),
       )
       .child(
         Button::new(if self.state.spatial_audio {
@@ -351,9 +345,7 @@ impl LayoutGallery {
           "SPATIAL AUDIO OFF"
         })
         .name("layout-gallery-switch")
-        .semantic(spatial_audio.semantic)
-        .focus_props(spatial_audio.focus)
-        .interaction_props(spatial_audio.interaction),
+        .behavior(spatial_audio),
       )
       .child(
         View::new()
@@ -363,24 +355,18 @@ impl LayoutGallery {
           .child(
             Button::new("STANDARD QUALITY")
               .name("layout-gallery-radio-standard")
-              .semantic(standard.semantic)
-              .focus_props(standard.focus)
-              .interaction_props(standard.interaction),
+              .behavior(standard),
           )
           .child(
             Button::new("STUDIO QUALITY")
               .name("layout-gallery-radio-studio")
-              .semantic(studio.semantic)
-              .focus_props(studio.focus)
-              .interaction_props(studio.interaction),
+              .behavior(studio),
           ),
       )
       .child(
         Button::new(format!("MUSIC VOLUME {}", self.state.volume))
           .name("layout-gallery-slider")
-          .semantic(slider.semantic)
-          .focus_props(slider.focus)
-          .interaction_props(slider.interaction),
+          .behavior(slider),
       )
       .child(
         Label::new(format!("LOADED {}%", self.state.volume))
@@ -398,21 +384,17 @@ impl LayoutGallery {
       .child(
         Button::new("ADVANCED AUDIO")
           .name("layout-gallery-disclosure")
-          .semantic(disclosure.semantic)
-          .focus_props(disclosure.focus)
-          .interaction_props(disclosure.interaction),
+          .behavior(disclosure),
       )
       .child(self.state.disclosure_open.then(|| {
         Label::new("Advanced audio controls")
           .name("layout-gallery-disclosure-content")
-          .semantic(use_static_text(text("Advanced audio controls")))
+          .semantic(advanced_audio)
       }))
       .child(
         Button::new("SAVE SETTINGS")
           .name("layout-gallery-announce")
-          .semantic(save.semantic)
-          .focus_props(save.focus)
-          .interaction_props(save.interaction),
+          .behavior(save),
       )
   }
   fn settings(&self) -> View {
@@ -557,6 +539,7 @@ impl LayoutGallery {
       )
   }
   fn layers(&self) -> View {
+    let changed = use_static_text(text("Layer order changed"));
     let foreground_order = if self.state.layers_reversed { -1 } else { 2 };
     View::new()
       .style(styles::section())
@@ -606,7 +589,7 @@ impl LayoutGallery {
           Node::new(
             Label::new("LAYER ORDER CHANGED")
               .key("layout-gallery-layer-presence")
-              .semantic(use_static_text(text("Layer order changed")))
+              .semantic(changed)
               .initial(StyleTarget::new().opacity(0.0).y(-8.0))
               .animate(StyleTarget::new().opacity(1.0).y(0.0))
               .exit(StyleTarget::new().opacity(0.0).y(8.0)),
@@ -615,17 +598,16 @@ impl LayoutGallery {
       )
   }
   fn modal(&self, trigger: ElementRef, initial: ElementRef) -> impl Render {
+    let dialog = use_dialog(DialogOptions {
+      name: text("Viewport modal"),
+      on_dismiss: Some(|game: &mut Game| {
+        game.layout_gallery.modal_open = false;
+      }),
+    });
     self.state.modal_open.then(|| {
-      let dialog = use_dialog(DialogOptions {
-        name: text("Viewport modal"),
-        on_dismiss: Some(|game: &mut Game| {
-          game.layout_gallery.modal_open = false;
-        }),
-      });
       Overlay::modal(self.overlay.clone())
         .name("layout-gallery-modal-scope")
-        .semantic(dialog.semantic)
-        .interaction_props(dialog.interaction)
+        .behavior(dialog)
         .initial_focus(initial.clone())
         .restore_focus(trigger)
         .style(styles::modal_overlay())

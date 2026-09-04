@@ -64,6 +64,12 @@ Ordinary Rust functions may compose hooks into custom hooks. The caller must
 invoke such a function unconditionally at the top level of `Component::render`,
 and its nested hooks consume ordinary positional slots.
 
+Accessibility pattern functions named `use_*`, such as `use_button`,
+`use_slider`, and `use_heading`, follow this same contract. Even a pattern that
+currently derives its result entirely from its arguments consumes a stable
+accessibility hook slot. Convenience constructors without the prefix, such as
+`static_text`, are ordinary functions and may be called outside render.
+
 Reactant temporarily installs a hook-forbidden context while it invokes a state
 or reducer initializer, reducer, updater, memo calculation, resource `.then`
 closure, component row or render-prop closure, or boundary fallback. Calling a
