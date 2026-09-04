@@ -15,11 +15,12 @@
 //!
 //! ```compile_fail
 //! use battlement_reactant::prelude::*;
+//! use trox::tx;
 //!
-//! let _ = Label::new(trox::tx(
+//! let _ = Label::new(tx(
 //!   "Caption",
 //!   "Caption in the host facade example.",
-//! )).child(Label::new(trox::tx(
+//! )).child(Label::new(tx(
 //!   "Invalid",
 //!   "Invalid child in the host facade example.",
 //! )));

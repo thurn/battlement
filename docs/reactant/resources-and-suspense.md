@@ -16,9 +16,10 @@ thread. `.spawner(custom_spawner)` selects a specialized executor when needed.
 A component can invalidate a resource through its owning runtime:
 
 ```rust
+use trox::{tx};
 let control = use_resource_control(&self.cards);
 let player_id = self.player_id;
-Button::new(trox::tx("Refetch", "User-facing copy in this example.")).on_click(move || control.invalidate(player_id))
+Button::new(tx("Refetch", "User-facing copy in this example.")).on_click(move || control.invalidate(player_id))
 ```
 
 Invalidation cancels the pending value and schedules a fresh read through the

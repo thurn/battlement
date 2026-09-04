@@ -1,6 +1,7 @@
 mod app_support;
 
 use std::{cell::RefCell, num::NonZeroU64, rc::Rc};
+use trox::ls;
 
 use battlement::{
   Action, ActionBody, ActionId, ClientMessage, CommandBody, DisplayId, DisplayOrientation,
@@ -31,7 +32,7 @@ impl Component for Observed {
       },
       (screen, application, reduced_motion, effective_motion),
     );
-    Label::new(trox::ls(format!(
+    Label::new(ls(format!(
       "{}x{} {}",
       screen.width,
       screen.height,

@@ -10,6 +10,7 @@ use std::{
   },
   thread,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, GeometryGeneration,
@@ -158,7 +159,7 @@ impl Component for StoreView {
   fn render(&self) -> impl Render {
     self.renders.fetch_add(1, Ordering::Relaxed);
     let snapshot = use_external_store(self.store.clone());
-    battlement_reactant::host::Label::new(trox::ls(format!("{} {snapshot}", self.store.name)))
+    battlement_reactant::host::Label::new(ls(format!("{} {snapshot}", self.store.name)))
   }
 }
 

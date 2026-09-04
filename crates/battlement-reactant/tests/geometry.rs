@@ -9,6 +9,7 @@ use std::{
   rc::Rc,
   sync::Arc,
 };
+use trox::ls;
 
 use battlement::{
   AnchorName, CameraState, CameraTarget, ClientMessage, Command, CommandBody, Connect, DisplayId,
@@ -205,7 +206,7 @@ impl Component for ViewportFixture {
         .collect::<Vec<_>>(),
     ));
     self.snapshots.borrow_mut().push(snapshot.clone());
-    battlement_reactant::host::Label::new(trox::ls(format!("generation {:?}", snapshot.generation)))
+    battlement_reactant::host::Label::new(ls(format!("generation {:?}", snapshot.generation)))
   }
 }
 
@@ -214,13 +215,10 @@ impl Component for ElementFixture {
     let element_ref = element_ref::use_element_ref();
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
-    battlement_reactant::host::Label::new(trox::ls(format!(
-      "status {:?}",
-      snapshot.measurements.status
-    )))
-    .name("target")
-    .key(self.key)
-    .element_ref(element_ref)
+    battlement_reactant::host::Label::new(ls(format!("status {:?}", snapshot.measurements.status)))
+      .name("target")
+      .key(self.key)
+      .element_ref(element_ref)
   }
 }
 
@@ -238,7 +236,7 @@ impl Component for ShapeFixture {
       ),
     ));
     let _: ShapeMeasurements = snapshot.measurements;
-    battlement_reactant::host::Label::new(trox::ls("shape"))
+    battlement_reactant::host::Label::new(ls("shape"))
   }
 }
 
@@ -249,12 +247,9 @@ impl Component for MemoGeometryFixture {
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
     self.element_ref.replace(Some(element_ref.clone()));
-    battlement_reactant::host::Label::new(trox::ls(format!(
-      "status {:?}",
-      snapshot.measurements.status
-    )))
-    .name("memo-target")
-    .element_ref(element_ref)
+    battlement_reactant::host::Label::new(ls(format!("status {:?}", snapshot.measurements.status)))
+      .name("memo-target")
+      .element_ref(element_ref)
   }
 }
 
@@ -262,7 +257,7 @@ impl Component for InvalidGeometryRead {
   fn render(&self) -> impl Render {
     let element_ref = element_ref::use_element_ref();
     let _ = element_ref.geometry();
-    battlement_reactant::host::Label::new(trox::ls("invalid")).element_ref(element_ref)
+    battlement_reactant::host::Label::new(ls("invalid")).element_ref(element_ref)
   }
 }
 
@@ -275,18 +270,16 @@ impl Component for RetryFixture {
     hooks::use_effect_always(move || effects.set(effects.get() + 1));
     let _ = hooks::use_external_store(StaticStore(self.store));
     (
-      battlement_reactant::host::Label::new(trox::ls("retry target"))
+      battlement_reactant::host::Label::new(ls("retry target"))
         .key(self.host_key)
         .element_ref(element_ref),
-      ErrorBoundary::new(|_: &RenderError| {
-        battlement_reactant::host::Label::new(trox::ls("fallback"))
-      })
-      .on_error(|game: &mut RetryGame, _| game.reports += 1)
-      .child(if self.fail {
-        Err(RetryError)
-      } else {
-        Ok(battlement_reactant::host::Label::new(trox::ls("primary")))
-      }),
+      ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new(ls("fallback")))
+        .on_error(|game: &mut RetryGame, _| game.reports += 1)
+        .child(if self.fail {
+          Err(RetryError)
+        } else {
+          Ok(battlement_reactant::host::Label::new(ls("primary")))
+        }),
     )
   }
 }
@@ -304,10 +297,10 @@ impl Component for TransitionFixture {
       .borrow_mut()
       .push(geometry::use_geometry(targets));
     (
-      self.attach.then(|| {
-        battlement_reactant::host::Label::new(trox::ls("attached")).element_ref(element_ref)
-      }),
-      (!self.attach).then(|| battlement_reactant::host::Label::new(trox::ls("detached"))),
+      self
+        .attach
+        .then(|| battlement_reactant::host::Label::new(ls("attached")).element_ref(element_ref)),
+      (!self.attach).then(|| battlement_reactant::host::Label::new(ls("detached"))),
     )
   }
 }

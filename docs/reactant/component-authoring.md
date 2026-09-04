@@ -241,9 +241,10 @@ component. Event handlers and effects contain actual side effects.
 This is incorrect because retries could send the message more than once:
 
 ```rust
+use trox::{tx};
 fn render(&self) -> impl Render {
     self.analytics.record_view();
-    Label::new(trox::tx("Inventory", "User-facing copy in this example."))
+    Label::new(tx("Inventory", "User-facing copy in this example."))
 }
 ```
 
@@ -608,8 +609,9 @@ because Rust cannot overload it alongside arbitrary iterators.
 `Fragment::new` groups siblings without introducing a Unity element.
 
 ```rust
+use trox::{tx};
 Fragment::new((
-    Label::new(trox::tx("Attack", "User-facing copy in this example.")),
+    Label::new(tx("Attack", "User-facing copy in this example.")),
     DamageBadge::new(self.damage),
 ))
 ```
@@ -651,7 +653,8 @@ Component constructors return the value that will render. Optional prop methods
 consume and return `Self`. There is no `.build()`.
 
 ```rust
-Button::new(trox::tx("End turn", "User-facing copy in this example."))
+use trox::{tx};
+Button::new(tx("End turn", "User-facing copy in this example."))
     .enabled(self.can_end_turn)
     .class("primary")
 ```
@@ -672,8 +675,9 @@ child prop uses `child`; a collection uses `children`; textual labels use the
 primitive's established `label` or constructor API.
 
 ```rust
+use trox::{tx};
 Dialog::new()
-    .title(trox::tx("Discard changes?", "User-facing copy in this example."))
+    .title(tx("Discard changes?", "User-facing copy in this example."))
     .child(ConfirmationButtons::new())
 ```
 
@@ -719,10 +723,11 @@ each required setter fills one slot, preserving all others. There is no separate
 builder or `.build()`.
 
 ```rust
+use trox::{tx};
 Card::new()
     .compact(true)
     .art(texture)
-    .title(trox::tx("Citadel", "User-facing copy in this example."))
+    .title(tx("Citadel", "User-facing copy in this example."))
 ```
 
 - Required setters accept any order and cannot repeat. Optional setters can
@@ -833,7 +838,8 @@ adapted to the Reactant prelude; Reactant-only methods document their own
 logical behavior.
 
 ```rust
-Button::new(trox::tx("Inspect", "User-facing copy in this example."))
+use trox::{tx};
+Button::new(tx("Inspect", "User-facing copy in this example."))
     .element_ref(self.button_ref.clone())
     .on_click(inspect_card)
     .key(self.card_id)
@@ -943,11 +949,12 @@ that genuinely needs erased types, not a required wrapper at composition sites.
 A gallery can register ordinary component values inside review pages:
 
 ```rust
+use trox::{tx};
 Gallery::new()
-  .page(ReviewPage::new().title(trox::tx("Toggle", "User-facing copy in this example.")).child(
+  .page(ReviewPage::new().title(tx("Toggle", "User-facing copy in this example.")).child(
       ToggleControl::new().label(label).checked(checked).on_change(on_change),
   ))
-  .page(ReviewPage::new().title(trox::tx("Welcome", "User-facing copy in this example.")).child(Label::new(trox::tx("Hello", "User-facing copy in this example."))))
+  .page(ReviewPage::new().title(tx("Welcome", "User-facing copy in this example.")).child(Label::new(tx("Hello", "User-facing copy in this example."))))
 ```
 
 The page groups its children with `Fragment::empty().child(content)`, which

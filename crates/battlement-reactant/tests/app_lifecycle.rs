@@ -4,6 +4,7 @@ use std::{
   cell::{Cell, RefCell},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   ActionId, Command, GameObjectKind, ResponseMessage, SessionId, UiEventAction, UiEventDisposition,
@@ -36,11 +37,11 @@ impl Component for Counter {
       (),
     );
     View::new().child((
-      Label::new(trox::ls(format!("{count}"))).name("count"),
-      Button::new(trox::ls("Increment"))
+      Label::new(ls(format!("{count}"))).name("count"),
+      Button::new(ls("Increment"))
         .name("increment")
         .on_click(move || set.update(|value| value + 1)),
-      Button::new(trox::ls("Prevent"))
+      Button::new(ls("Prevent"))
         .name("prevent")
         .on_click_event(|event| event.prevent_default()),
     ))
@@ -53,21 +54,21 @@ impl Component for Mixed {
     let input = use_element_ref();
     let toggle = use_checkbox(
       ToggleOptions::new()
-        .name(trox::ls("Enabled"))
+        .name(ls("Enabled"))
         .checked(enabled)
         .on_change(move |value| set.set(value)),
     );
     let label = toggle.label_interaction(&input);
     View::new().child((
-      Label::new(trox::ls(format!("{} {enabled}", self.value))).name("value"),
-      Button::new(trox::ls("Game"))
+      Label::new(ls(format!("{} {enabled}", self.value))).name("value"),
+      Button::new(ls("Game"))
         .name("game")
         .on_click(|model: &mut u32| *model += 1),
       View::new()
         .name("enabled-label")
         .interaction_props(label)
         .child(
-          Button::new(trox::ls("Enabled"))
+          Button::new(ls("Enabled"))
             .name("enabled")
             .element_ref(input)
             .behavior(toggle),
@@ -190,7 +191,7 @@ impl Component for Commands {
       },
       count,
     );
-    Button::new(trox::ls("Send")).on_click(move || {
+    Button::new(ls("Send")).on_click(move || {
       app.send(Command::open_external_url("https://example.com/click"));
       set.update(|count| count + 1);
     })
@@ -300,10 +301,10 @@ impl Component for RefreshFocus {
     let target = use_element_ref();
     let app = use_app();
     View::new().child((
-      Button::new(trox::ls("Target"))
+      Button::new(ls("Target"))
         .name("target")
         .element_ref(target.clone()),
-      Button::new(trox::ls("Refresh"))
+      Button::new(ls("Refresh"))
         .name("refresh")
         .on_click(move || {
           target.focus();

@@ -7,6 +7,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   time::Instant,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, LengthOrAuto, ObjectId, PanelScaleMode,
@@ -89,12 +90,12 @@ impl Component for ItemView {
     let style = Style::new().width(f32::from(self.0.width));
     let host = match self.0.kind {
       0 => Node::new(
-        battlement_reactant::host::Label::new(trox::ls(text))
+        battlement_reactant::host::Label::new(ls(text))
           .name(name)
           .style(style),
       ),
       1 => Node::new(
-        battlement_reactant::host::Button::new(trox::ls(text))
+        battlement_reactant::host::Button::new(ls(text))
           .name(name)
           .style(style),
       ),
@@ -102,7 +103,7 @@ impl Component for ItemView {
         battlement_reactant::host::View::new()
           .name(format!("wrapper-{}", self.0.key))
           .child(
-            battlement_reactant::host::Label::new(trox::ls(text))
+            battlement_reactant::host::Label::new(ls(text))
               .name(name)
               .style(style),
           ),
@@ -122,7 +123,7 @@ impl Component for RootView {
     if self.fail {
       Err(ItemError(self.value))
     } else {
-      Ok(battlement_reactant::host::Label::new(trox::ls(format!(
+      Ok(battlement_reactant::host::Label::new(ls(format!(
         "root:{}",
         self.value
       ))))
@@ -268,9 +269,9 @@ fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
   let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |duplicate: &bool| {
     vec![
-      Node::new(battlement_reactant::host::Label::new(trox::ls("first")).key(7_u8)),
+      Node::new(battlement_reactant::host::Label::new(ls("first")).key(7_u8)),
       Node::new(
-        battlement_reactant::host::Label::new(trox::ls("second")).key(if *duplicate {
+        battlement_reactant::host::Label::new(ls("second")).key(if *duplicate {
           7_u8
         } else {
           8_u8
@@ -300,7 +301,7 @@ fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
 fn render_item(item: &Item, target: &PortalTarget) -> Node {
   let key = item.key;
   let boundary = ErrorBoundary::new(move |_: &RenderError| {
-    battlement_reactant::host::Label::new(trox::ls(format!("error:{key}")))
+    battlement_reactant::host::Label::new(ls(format!("error:{key}")))
   })
   .reset_on(item.revision)
   .child(ItemView(item.clone()));

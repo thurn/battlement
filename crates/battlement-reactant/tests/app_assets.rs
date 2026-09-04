@@ -7,6 +7,7 @@ use battlement::{
 use battlement_fake::client::FakeClient;
 use battlement_native::Engine;
 use battlement_reactant::{app::App, prelude::*};
+use trox::ls;
 
 struct Browser;
 
@@ -22,13 +23,13 @@ impl Component for Browser {
     View::new()
       .animation(Animation::new(Keyframes::new([paint.clone(), paint])).duration_secs(1.0))
       .child((
-        Button::new(trox::ls("Refresh"))
+        Button::new(ls("Refresh"))
           .name("refresh")
           .on_click(move || app.refresh_snapshot()),
-        Label::new(trox::ls(format!("Page {index}")))
+        Label::new(ls(format!("Page {index}")))
           .name("page")
           .style(Style::new().unity_font_definition(UiFontAddress::new(font))),
-        Button::new(trox::ls("Next"))
+        Button::new(ls("Next"))
           .name("next")
           .on_click(move || select.update(|old| (old + 1) % 3))
           .icon(IconSource::Texture(TextureAddress::from_static(

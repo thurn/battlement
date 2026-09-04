@@ -5,6 +5,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -51,14 +52,14 @@ impl Component for Counter {
     });
     self.setter.replace(Some(setter.clone()));
     (
-      battlement_reactant::host::Button::new(trox::ls("Queue updates")).on_click(
+      battlement_reactant::host::Button::new(ls("Queue updates")).on_click(
         move |_game: &mut Game| {
           setter.update(|value| value + 1);
           setter.set(10);
           setter.update(|value| value + 1);
         },
       ),
-      battlement_reactant::host::Label::new(trox::ls(format!("Count {count}"))),
+      battlement_reactant::host::Label::new(ls(format!("Count {count}"))),
     )
   }
 }
@@ -73,7 +74,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0_u8);
     self.setters.borrow_mut()[usize::from(self.id)] = Some(setter);
-    battlement_reactant::host::Label::new(trox::ls(format!("{}:{count}", self.id)))
+    battlement_reactant::host::Label::new(ls(format!("{}:{count}", self.id)))
   }
 }
 
@@ -85,7 +86,7 @@ impl Component for RenderPhaseCounter {
     if count < 3 {
       setter.update(|value| value + 1);
     }
-    battlement_reactant::host::Label::new(trox::ls(format!("Retried {count}")))
+    battlement_reactant::host::Label::new(ls(format!("Retried {count}")))
   }
 }
 
@@ -97,7 +98,7 @@ impl Component for Overflow {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0);
     setter.update(|value| value + 1);
-    battlement_reactant::host::Label::new(trox::ls(count.to_string()))
+    battlement_reactant::host::Label::new(ls(count.to_string()))
   }
 }
 
@@ -105,11 +106,11 @@ impl Component for CallbackCounter {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0_u32);
     (
-      battlement_reactant::host::Button::new(trox::ls("Increment"))
+      battlement_reactant::host::Button::new(ls("Increment"))
         .on_click(setter.update_callback(|value| value + 1)),
-      battlement_reactant::host::Button::new(trox::ls("Replace"))
+      battlement_reactant::host::Button::new(ls("Replace"))
         .on_click(setter.callback().map_input(|()| 12)),
-      battlement_reactant::host::Label::new(trox::ls(count.to_string())),
+      battlement_reactant::host::Label::new(ls(count.to_string())),
     )
   }
 }
@@ -130,7 +131,7 @@ impl Component for VariableHooks {
     if self.second {
       let _ = use_state(1_u8);
     }
-    battlement_reactant::host::Label::new(trox::ls("stable"))
+    battlement_reactant::host::Label::new(ls("stable"))
   }
 }
 
@@ -142,7 +143,7 @@ impl Component for BadInitializer {
       let _ = use_state(0);
       0
     });
-    battlement_reactant::host::Label::new(trox::ls("invalid"))
+    battlement_reactant::host::Label::new(ls("invalid"))
   }
 }
 
@@ -162,7 +163,7 @@ impl Component for ParentUpdate {
 impl Component for ChildUpdate {
   fn render(&self) -> impl Render {
     self.parent.set(1);
-    battlement_reactant::host::Label::new(trox::ls("invalid"))
+    battlement_reactant::host::Label::new(ls("invalid"))
   }
 }
 

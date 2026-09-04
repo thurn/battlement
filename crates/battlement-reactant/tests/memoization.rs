@@ -5,6 +5,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -76,7 +77,7 @@ impl Component for MemoFixture {
     self.callbacks.borrow_mut().push(callback);
     let (local, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(trox::ls(format!(
+    battlement_reactant::host::Label::new(ls(format!(
       "{}/{}/{}/{}",
       self.prop,
       memoized,
@@ -109,14 +110,14 @@ impl Component for ProviderBoundary {
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(trox::ls(hooks::use_required_context(&REQUIRED_THEME)))
+    battlement_reactant::host::Label::new(ls(hooks::use_required_context(&REQUIRED_THEME)))
   }
 }
 
 impl Component for InvalidMemo {
   fn render(&self) -> impl Render {
     let _ = hooks::use_memo(|| hooks::use_ref(0_u8), ());
-    battlement_reactant::host::Label::new(trox::ls("invalid"))
+    battlement_reactant::host::Label::new(ls("invalid"))
   }
 }
 
@@ -140,7 +141,7 @@ fn memo_bailout_observes_props_dependencies_context_and_local_work() {
   let view_setter = Rc::clone(&setter);
   reactant.register_root(document.clone(), move |game: &Game| {
     (
-      battlement_reactant::host::Label::new(trox::ls(format!("unrelated {}", game.unrelated))),
+      battlement_reactant::host::Label::new(ls(format!("unrelated {}", game.unrelated))),
       THEME
         .provider(game.theme)
         .child(component::memo(MemoFixture {
@@ -276,7 +277,7 @@ fn memo_bailout_preserves_provider_ancestry_for_required_contexts() {
   let view_renders = Rc::clone(&renders);
   reactant.register_root(document.clone(), move |game: &Game| {
     (
-      battlement_reactant::host::Label::new(trox::ls(format!("unrelated {}", game.unrelated))),
+      battlement_reactant::host::Label::new(ls(format!("unrelated {}", game.unrelated))),
       component::memo(ProviderBoundary {
         renders: Rc::clone(&view_renders),
       }),

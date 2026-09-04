@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::{panic, panic::AssertUnwindSafe};
+use trox::ls;
 
 use battlement::{
   ActionId, CameraState, Command, CommandBody, GameObject, GameObjectKind, ObjectId,
@@ -211,8 +212,8 @@ fn view(game: &Game) -> impl Render + use<> {
   };
   battlement_reactant::host::View::new().child((
     replaceable,
-    battlement_reactant::host::Label::new(trox::ls(game.left)),
-    battlement_reactant::host::Label::new(trox::ls(game.right)),
+    battlement_reactant::host::Label::new(ls(game.left)),
+    battlement_reactant::host::Label::new(ls(game.right)),
   ))
 }
 

@@ -61,6 +61,7 @@ implementation; application code does not operate on HTML elements.
 Use `#[builder]` on a props struct and implement `Component` explicitly:
 
 ```rust
+use trox::{tx};
 use std::rc::Rc;
 
 use battlement::Style;
@@ -78,7 +79,7 @@ pub struct Example<R> {
 impl<R: Render> Component for Example<R> {
   fn render(&self) -> impl Render {
     let on_press = Rc::clone(&self.on_press);
-    Button::new(trox::tx("", "User-facing copy in this example."))
+    Button::new(tx("", "User-facing copy in this example."))
       .on_click(move || on_press())
       .style(Style::new().height(self.height))
       .child(self.content.clone())

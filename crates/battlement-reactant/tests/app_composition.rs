@@ -1,6 +1,7 @@
 mod app_support;
 
 use std::num::NonZeroU64;
+use trox::ls;
 
 use battlement::{
   CommandBody, DisplayId, ElementGeometry, GameObjectKind, GeometryGeneration,
@@ -39,7 +40,7 @@ fn fitted_content_uses_the_area_inside_viewport_decoration_without_remounting() 
         .viewport_style(|style| style.padding(10).border_width(2))
         .canvas(|view| view.name("canvas"))
         .bounds_name("bounds")
-        .child(Label::new(trox::ls("Content")).name("content")),
+        .child(Label::new(ls("Content")).name("content")),
     );
   let root = app.root_document().root_id;
   let mut client = FakeClient::connect(app, app_support::catalog());

@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::{panic, panic::AssertUnwindSafe};
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -276,7 +277,7 @@ fn view(game: &Game) -> impl Render + use<> {
 }
 
 fn label(game: &Game) -> battlement_reactant::host::Label {
-  battlement_reactant::host::Label::new(trox::ls(""))
+  battlement_reactant::host::Label::new(ls(""))
     .text(game.text.clone().map(trox::ls))
     .name(game.name.clone())
     .style(
@@ -291,28 +292,28 @@ fn hint_view(game: &HintGame) -> impl Render + use<> {
     Some(hint) => battlement_reactant::host::View::new().usage_hints([hint]),
     None => battlement_reactant::host::View::new(),
   };
-  host.child(battlement_reactant::host::Label::new(trox::ls("child")))
+  host.child(battlement_reactant::host::Label::new(ls("child")))
 }
 
 fn conditional_part_view(game: &ConditionalPartGame) -> battlement_reactant::host::GroupBox {
   if game.title {
     battlement_reactant::host::GroupBox::new()
-      .text(trox::ls("Title"))
+      .text(ls("Title"))
       .title_style(Style::new().width(20.0))
   } else {
-    battlement_reactant::host::GroupBox::new().text(trox::ls(""))
+    battlement_reactant::host::GroupBox::new().text(ls(""))
   }
 }
 
 fn indexed_part_view(game: &IndexedPartGame) -> battlement_reactant::host::RadioButtonGroup {
   if game.choices == 2 {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices([trox::ls("Alpha"), trox::ls("Beta")])
+      .choices([ls("Alpha"), ls("Beta")])
       .selected_index(0)
       .option_style(1, Style::new().width(20.0))
   } else {
     battlement_reactant::host::RadioButtonGroup::new()
-      .choices([trox::ls("Alpha")])
+      .choices([ls("Alpha")])
       .selected_index(0)
   }
 }

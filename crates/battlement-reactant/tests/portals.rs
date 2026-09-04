@@ -6,6 +6,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -49,7 +50,7 @@ struct PortaledButton {
 
 impl Component for PortaledButton {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Button::new(trox::ls(format!(
+    battlement_reactant::host::Button::new(ls(format!(
       "{} {}",
       self.name,
       hooks::use_context(&THEME)
@@ -68,7 +69,7 @@ impl Component for StatefulPortal {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    battlement_reactant::host::Label::new(trox::ls(format!("state {value}")))
+    battlement_reactant::host::Label::new(ls(format!("state {value}")))
   }
 }
 
@@ -94,13 +95,13 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let second_target = target.clone();
   reactant.register_root(second_document.clone(), move |_: &Game| {
     THEME.provider("dark-b").child(create_portal(
-      battlement_reactant::host::Button::new(trox::ls("B dark-b")),
+      battlement_reactant::host::Button::new(ls("B dark-b")),
       second_target.clone(),
     ))
   });
   reactant.register_root(target_document.clone(), move |_: &Game| {
     battlement_reactant::host::View::new()
-      .child(battlement_reactant::host::Label::new(trox::ls("ordinary")))
+      .child(battlement_reactant::host::Label::new(ls("ordinary")))
       .portal_target(target.clone())
   });
   let mut game = Game::default();
@@ -244,7 +245,7 @@ fn missing_target_is_transactional() {
   let source_target = target.clone();
   reactant.register_root(source_document.clone(), move |_: &Game| {
     create_portal(
-      battlement_reactant::host::Label::new(trox::ls("portal")),
+      battlement_reactant::host::Label::new(ls("portal")),
       source_target.clone(),
     )
   });

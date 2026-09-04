@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::panic::{self, AssertUnwindSafe};
+use trox::ls;
 
 use battlement::{
   AccessibilitySnapshot, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind,
@@ -50,17 +51,15 @@ impl Component for Fixture {
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
-      Label::new(trox::ls(" Quality "))
-        .element_ref(title)
-        .semantic(
+      Label::new(ls(" Quality ")).element_ref(title).semantic(
+        SemanticProps::new(SemanticRole::StaticText)
+          .name(AccessibleName::text(ls(" Quality ")))
+          .visibility(SemanticVisibility::NameSourceOnly),
+      ),
+      Button::new(ls("")).behavior(behavior).child(
+        Label::new(ls(selected)).element_ref(value).semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(trox::ls(" Quality ")))
-            .visibility(SemanticVisibility::NameSourceOnly),
-        ),
-      Button::new(trox::ls("")).behavior(behavior).child(
-        Label::new(trox::ls(selected)).element_ref(value).semantic(
-          SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(trox::ls(selected)))
+            .name(AccessibleName::text(ls(selected)))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
       ),
@@ -133,7 +132,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
       move |_game: &Game| {
         let mut behavior = accessibility_popup::use_popup_button(
           PopupButtonOptions::new()
-            .name(AccessibleName::text(trox::ls("Options")))
+            .name(AccessibleName::text(ls("Options")))
             .popup(PopupKind::ListBox)
             .expanded(false)
             .on_press(|_: &mut Game| {}),
@@ -141,7 +140,7 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;
-        Button::new(trox::ls("Options")).behavior(behavior)
+        Button::new(ls("Options")).behavior(behavior)
       },
     );
     assert!(

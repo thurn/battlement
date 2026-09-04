@@ -148,7 +148,8 @@ Every compatible host facade accepts `.focus_props(FocusProps)`. Existing
 single-purpose builders remain equivalent convenience forms:
 
 ```rust
-Button::new(trox::tx("Save", "User-facing copy in this example."))
+use trox::{tx};
+Button::new(tx("Save", "User-facing copy in this example."))
     .focusable(true)
     .tab_index(0)
     .auto_focus(true);
@@ -466,7 +467,8 @@ visual presentation and testing.
 Motion exposes one gesture beside exact native focus:
 
 ```rust
-Button::new(trox::tx("Play", "User-facing copy in this example."))
+use trox::{tx};
+Button::new(tx("Play", "User-facing copy in this example."))
     .while_focus(focused_target)
     .while_focus_visible(keyboard_target)
 ```

@@ -17,11 +17,12 @@ hosts with `associated_label` and `associated_control`. The association adds no
 host, semantic node, or local control state.
 
 ```rust,ignore
+use trox::{tx};
 let (label, checkbox) = use_control_label().bind_with(|name| {
     accessibility::use_checkbox(
         ToggleOptions::new()
             .name(name)
-            .description(AccessibleDescription::text(trox::tx(
+            .description(AccessibleDescription::text(tx(
                 "Controls game audio",
                 "Description of the sound control.",
             )))
@@ -33,11 +34,11 @@ let (label, checkbox) = use_control_label().bind_with(|name| {
 View::new().child((
     View::new()
         .associated_label(label)
-        .child(accessibility::name_source_text(trox::tx(
+        .child(accessibility::name_source_text(tx(
             "Sound",
             "Visible label for the sound control.",
         ))),
-    Button::new(trox::tx("", "User-facing copy in this example.")).associated_control(checkbox),
+    Button::new(tx("", "User-facing copy in this example.")).associated_control(checkbox),
 ))
 ```
 

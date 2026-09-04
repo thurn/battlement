@@ -28,8 +28,9 @@ and [pause callback](https://docs.unity3d.com/ScriptReference/MonoBehaviour.OnAp
 activation callback with a captured application handle:
 
 ```rust
+use trox::{tx};
 let app = use_app();
-Button::new(trox::tx("Documentation", "User-facing copy in this example.")).on_click(move || {
+Button::new(tx("Documentation", "User-facing copy in this example.")).on_click(move || {
     app.send(Command::open_external_url("https://docs.unity3d.com/"));
 })
 ```

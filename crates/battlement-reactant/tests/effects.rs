@@ -5,6 +5,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -44,7 +45,7 @@ impl Component for ReadyEffect {
       },
       (),
     );
-    battlement_reactant::host::Label::new(trox::ls(if ready { "ready" } else { "waiting" }))
+    battlement_reactant::host::Label::new(ls(if ready { "ready" } else { "waiting" }))
   }
 }
 
@@ -58,7 +59,7 @@ impl Component for FrequencyEffects {
     use_effect(move || mount_log.borrow_mut().push("mount-only"), ());
     let always_log = Rc::clone(&self.log);
     use_effect_always(move || always_log.borrow_mut().push("always"));
-    battlement_reactant::host::Label::new(trox::ls("frequency"))
+    battlement_reactant::host::Label::new(ls("frequency"))
   }
 }
 
@@ -96,7 +97,7 @@ impl Component for OrderedParent {
         dependency,
         log: Rc::clone(&self.log),
       }),
-      battlement_reactant::host::Label::new(trox::ls("parent")),
+      battlement_reactant::host::Label::new(ls("parent")),
     )
   }
 }
@@ -119,7 +120,7 @@ impl Component for OrderedChild {
       },
       dependency,
     );
-    battlement_reactant::host::Label::new(trox::ls("child"))
+    battlement_reactant::host::Label::new(ls("child"))
   }
 }
 
@@ -132,7 +133,7 @@ struct RetriedEffect {
 impl Component for PanicEffect {
   fn render(&self) -> impl Render {
     use_effect(self::panic_effect, ());
-    battlement_reactant::host::Label::new(trox::ls("committed"))
+    battlement_reactant::host::Label::new(ls("committed"))
   }
 }
 
@@ -144,7 +145,7 @@ impl Component for RetriedEffect {
     }
     let setups = Rc::clone(&self.setups);
     use_effect(move || setups.set(setups.get() + 1), ());
-    battlement_reactant::host::Label::new(trox::ls("retried"))
+    battlement_reactant::host::Label::new(ls("retried"))
   }
 }
 

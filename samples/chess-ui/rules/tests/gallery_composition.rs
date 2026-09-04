@@ -6,6 +6,7 @@ use battlement_reactant::{
 };
 use battlement_rules::{gallery::Gallery, review_button::ReviewButton, review_page::ReviewPage};
 use trox::Bundle;
+use trox::ls;
 
 #[builder]
 struct Counter {
@@ -16,9 +17,9 @@ impl Component for Counter {
   fn render(&self) -> impl Render {
     let (value, set_value) = hooks::use_state(self.initial);
     (
-      Label::new(trox::ls(value.to_string())).name("counter"),
+      Label::new(ls(value.to_string())).name("counter"),
       ReviewButton::new()
-        .label(trox::ls("Increment"))
+        .label(ls("Increment"))
         .name("increment")
         .on_press(move || set_value.update(|old| old + 1)),
     )
@@ -30,13 +31,13 @@ fn configured_component_values_keep_state_until_their_page_is_selected_again() {
   let gallery = Gallery::new()
     .page(
       ReviewPage::new()
-        .title(trox::ls("Counter"))
+        .title(ls("Counter"))
         .child(Counter::new().initial(7)),
     )
     .page(
       ReviewPage::new()
-        .title(trox::ls("Greeting"))
-        .child(Label::new(trox::ls("Welcome")).name("greeting")),
+        .title(ls("Greeting"))
+        .child(Label::new(ls("Welcome")).name("greeting")),
     );
   let mut assets = FakeAssetCatalog::new();
   assets.add_scene("gallery/content");

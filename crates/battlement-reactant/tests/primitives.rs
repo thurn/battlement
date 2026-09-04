@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
+use trox::ls;
 
 use battlement::{
   Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
@@ -53,13 +54,13 @@ impl Component for OverlayFixture {
   fn render(&self) -> impl Render {
     let anchor = use_element_ref();
     battlement_reactant::host::Stack::new()
-      .child(battlement_reactant::host::Button::new(trox::ls("anchor")).element_ref(anchor.clone()))
+      .child(battlement_reactant::host::Button::new(ls("anchor")).element_ref(anchor.clone()))
       .child(
         battlement_reactant::overlay::Overlay::popover(self.target.clone(), anchor)
           .placement(battlement::PopoverPlacement::bottom_start().offset(6.0))
           .child(battlement_reactant::render::Fragment::new((
-            battlement_reactant::host::Label::new(trox::ls("one")),
-            battlement_reactant::host::Label::new(trox::ls("two")),
+            battlement_reactant::host::Label::new(ls("one")),
+            battlement_reactant::host::Label::new(ls("two")),
           ))),
       )
       .child(battlement_reactant::overlay::OverlayHost::new(
@@ -194,12 +195,12 @@ fn generated_and_handwritten_required_props_render_equivalent_fake_trees() {
     (
       GeneratedCard::new()
         .emphasized(true)
-        .child(battlement_reactant::host::Label::new(trox::ls("body")))
+        .child(battlement_reactant::host::Label::new(ls("body")))
         .title("Citadel".to_owned()),
       ManualCard::new()
         .title("Citadel".to_owned())
         .emphasized(true)
-        .child(battlement_reactant::host::Label::new(trox::ls("body"))),
+        .child(battlement_reactant::host::Label::new(ls("body"))),
     )
   });
   let engine = SessionEngine {
@@ -247,9 +248,9 @@ fn common_facades_lower_layout_item_descriptors() {
       battlement_reactant::host::Stack::new()
         .align_items(Align::Center)
         .justify_items(Align::FlexEnd)
-        .child(battlement_reactant::host::Button::new(trox::ls("stack")).stack_item(stack_item)),
+        .child(battlement_reactant::host::Button::new(ls("stack")).stack_item(stack_item)),
       battlement_reactant::host::ScrollView::new()
-        .child(battlement_reactant::host::Label::new(trox::ls("sticky")).sticky(sticky)),
+        .child(battlement_reactant::host::Label::new(ls("sticky")).sticky(sticky)),
     )
   });
 
@@ -507,68 +508,65 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
       Node::new(
         battlement_reactant::host::Box::new()
           .name("box")
-          .child(battlement_reactant::host::Label::new(trox::ls("box child"))),
+          .child(battlement_reactant::host::Label::new(ls("box child"))),
       ),
-      Node::new(battlement_reactant::host::Label::new(trox::ls("label"))),
-      Node::new(battlement_reactant::host::TextElement::new(trox::ls(
+      Node::new(battlement_reactant::host::Label::new(ls("label"))),
+      Node::new(battlement_reactant::host::TextElement::new(ls(
         "text element",
       ))),
       Node::new(
         battlement_reactant::host::TextField::new()
-          .label(trox::ls("text field"))
+          .label(ls("text field"))
           .value("value"),
       ),
       Node::new(
         battlement_reactant::host::Toggle::new()
-          .text(trox::ls("toggle"))
+          .text(ls("toggle"))
           .value(true),
       ),
       Node::new(
         battlement_reactant::host::RadioButton::new()
-          .text(trox::ls("radio"))
+          .text(ls("radio"))
           .value(false),
       ),
       Node::new(
         battlement_reactant::host::RadioButtonGroup::new()
-          .label(trox::ls("quality"))
-          .choices([trox::ls("low"), trox::ls("high")])
+          .label(ls("quality"))
+          .choices([ls("low"), ls("high")])
           .selected_index(0),
       ),
       Node::new(
         battlement_reactant::host::ToggleButtonGroup::new()
-          .label(trox::ls("alignment"))
-          .child(battlement_reactant::host::Button::new(trox::ls("left"))),
+          .label(ls("alignment"))
+          .child(battlement_reactant::host::Button::new(ls("left"))),
       ),
       Node::new(
         battlement_reactant::host::DropdownField::new()
-          .label(trox::ls("mode"))
-          .choices([trox::ls("one")])
-          .selection(0, trox::ls("one")),
+          .label(ls("mode"))
+          .choices([ls("one")])
+          .selection(0, ls("one")),
       ),
-      Node::new(battlement_reactant::host::Button::new(trox::ls("button"))),
+      Node::new(battlement_reactant::host::Button::new(ls("button"))),
       Node::new(battlement_reactant::host::RepeatButton::new(
-        trox::ls("repeat"),
+        ls("repeat"),
         100,
         NonZeroU32::new(25).expect("nonzero interval"),
       )),
       Node::new(
         battlement_reactant::host::GroupBox::new()
-          .text(trox::ls("group"))
-          .child(battlement_reactant::host::Label::new(trox::ls(
-            "group child",
-          ))),
+          .text(ls("group"))
+          .child(battlement_reactant::host::Label::new(ls("group child"))),
       ),
       Node::new(
         battlement_reactant::host::PopupWindow::new()
-          .text(trox::ls("popup"))
+          .text(ls("popup"))
           .content_container_style(Style::new().padding(8.0))
-          .child(battlement_reactant::host::Label::new(trox::ls(
-            "popup child",
-          ))),
+          .child(battlement_reactant::host::Label::new(ls("popup child"))),
       ),
-      Node::new(battlement_reactant::host::ScrollView::new().child(
-        battlement_reactant::host::Label::new(trox::ls("scroll child")),
-      )),
+      Node::new(
+        battlement_reactant::host::ScrollView::new()
+          .child(battlement_reactant::host::Label::new(ls("scroll child"))),
+      ),
       Node::new(
         battlement_reactant::host::Scroller::new()
           .low_value(0.0)
@@ -596,7 +594,7 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
       ),
       Node::new(
         battlement_reactant::host::ProgressBar::new()
-          .title(trox::ls("progress"))
+          .title(ls("progress"))
           .low_value(0.0)
           .high_value(10.0)
           .value(5.0),
@@ -605,9 +603,9 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
         battlement_reactant::host::TabView::new()
           .selected_tab_index(0)
           .child(
-            battlement_reactant::host::Tab::new(trox::ls("tab"))
+            battlement_reactant::host::Tab::new(ls("tab"))
               .closeable(true)
-              .child(battlement_reactant::host::Label::new(trox::ls("tab child"))),
+              .child(battlement_reactant::host::Label::new(ls("tab child"))),
           ),
       ),
       Node::new(battlement_reactant::host::Image::new().name("image")),
@@ -625,7 +623,7 @@ fn card_tree(
     battlement_reactant::host::View::new()
   };
   card
-    .child(battlement_reactant::host::Label::new(trox::ls(title)))
+    .child(battlement_reactant::host::Label::new(ls(title)))
     .child(child.clone())
 }
 

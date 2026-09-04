@@ -11,6 +11,7 @@ use battlement_reactant::{
   host::Label,
   render::Render,
 };
+use trox::ls;
 
 struct IdleSpawner;
 
@@ -31,7 +32,7 @@ impl Component for ActivityLabel {
       "inactive"
     };
     let label = format!("{} {activity}", self.0);
-    Label::new(trox::ls(label.clone())).semantic(accessibility::use_static_text(trox::ls(label)))
+    Label::new(ls(label.clone())).semantic(accessibility::use_static_text(ls(label)))
   }
 }
 

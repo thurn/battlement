@@ -16,6 +16,7 @@ use battlement_reactant::{
   render::Render,
   semantics::{AccessibleName, SemanticProps, SemanticVisibility},
 };
+use trox::ls;
 
 #[derive(Default)]
 struct Game {
@@ -38,11 +39,11 @@ impl Component for NameSourceFixture {
         .on_press(|_game: &mut Game| {}),
     );
     View::new().child((
-      Label::new(trox::ls("Account settings"))
+      Label::new(ls("Account settings"))
         .element_ref(source)
         .semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(trox::ls("Account settings")))
+            .name(AccessibleName::text(ls("Account settings")))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
       View::new().behavior(button),
@@ -87,19 +88,17 @@ impl Component for MultiNameFixture {
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
-      Label::new(trox::ls("Quality")).element_ref(title).semantic(
+      Label::new(ls("Quality")).element_ref(title).semantic(
         SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text(trox::ls(" Quality ")))
+          .name(AccessibleName::text(ls(" Quality ")))
           .visibility(SemanticVisibility::NameSourceOnly),
       ),
-      Button::new(trox::ls("")).behavior(behavior).child(
-        Label::new(trox::ls(self.value))
-          .element_ref(value)
-          .semantic(
-            SemanticProps::new(SemanticRole::StaticText)
-              .name(AccessibleName::text(trox::ls(self.value)))
-              .visibility(SemanticVisibility::NameSourceOnly),
-          ),
+      Button::new(ls("")).behavior(behavior).child(
+        Label::new(ls(self.value)).element_ref(value).semantic(
+          SemanticProps::new(SemanticRole::StaticText)
+            .name(AccessibleName::text(ls(self.value)))
+            .visibility(SemanticVisibility::NameSourceOnly),
+        ),
       ),
     ))
   }
@@ -109,7 +108,7 @@ impl Component for ActionFixture {
   fn render(&self) -> impl Render {
     View::new().behavior(use_button(
       ButtonOptions::new()
-        .name(trox::ls("Save changes"))
+        .name(ls("Save changes"))
         .on_press(|game: &mut Game| game.presses += 1),
     ))
   }
@@ -125,18 +124,15 @@ impl Component for ContentsFixture {
     View::new()
       .semantic(SemanticProps::new(SemanticRole::Group))
       .child((View::new().behavior(button).child((
-        Label::new(trox::ls("Save")).semantic(
+        Label::new(ls("Save")).semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::Text(trox::ls(" Save   changes "))),
+            .name(AccessibleName::Text(ls(" Save   changes "))),
         ),
         View::new()
           .semantic(SemanticProps::new(SemanticRole::Group).visibility(SemanticVisibility::Hidden))
-          .child(
-            Label::new(trox::ls("secret")).semantic(
-              SemanticProps::new(SemanticRole::StaticText)
-                .name(AccessibleName::Text(trox::ls("Secret"))),
-            ),
-          ),
+          .child(Label::new(ls("secret")).semantic(
+            SemanticProps::new(SemanticRole::StaticText).name(AccessibleName::Text(ls("Secret"))),
+          )),
       )),))
   }
 }
@@ -144,9 +140,9 @@ impl Component for ContentsFixture {
 impl Component for PatternHookFixture {
   fn render(&self) -> impl Render {
     View::new().semantic(if self.heading {
-      accessibility::use_heading(trox::ls("Status"), 2)
+      accessibility::use_heading(ls("Status"), 2)
     } else {
-      accessibility::use_image(trox::ls("Status"))
+      accessibility::use_image(ls("Status"))
     })
   }
 }
@@ -306,7 +302,7 @@ fn accessibility_activation_uses_the_ordinary_logical_event_path() {
 
 #[test]
 fn pattern_hooks_require_a_stable_component_render_slot() {
-  assert!(std::panic::catch_unwind(|| accessibility::use_heading(trox::ls("Status"), 2)).is_err());
+  assert!(std::panic::catch_unwind(|| accessibility::use_heading(ls("Status"), 2)).is_err());
 
   let document = document();
   let mut runtime = runtime_support::reactant(IdleSpawner);
@@ -463,24 +459,24 @@ impl Component for CollectionFixture {
   fn render(&self) -> impl Render {
     let mut page = use_button(
       ButtonOptions::new()
-        .name(trox::ls("Gallery shell"))
+        .name(ls("Gallery shell"))
         .on_press(|_game: &mut Game| {}),
     );
     page.semantic.state.current = Some(CurrentPage::Page);
     let link = collections::use_link(
       ButtonOptions::new()
-        .name(trox::ls("Privacy policy"))
+        .name(ls("Privacy policy"))
         .on_press(|game: &mut Game| game.presses += 1),
     );
     View::new().child((
       View::new()
-        .semantic(collections::use_navigation(trox::ls("Review pages")))
+        .semantic(collections::use_navigation(ls("Review pages")))
         .child(View::new().behavior(page)),
       View::new()
-        .semantic(collections::use_region(trox::ls("Settings")))
+        .semantic(collections::use_region(ls("Settings")))
         .child((
           View::new()
-            .semantic(collections::use_listbox(trox::ls("Quality")))
+            .semantic(collections::use_listbox(ls("Quality")))
             .child(
               ["Standard", "High", "Unavailable"]
                 .into_iter()
@@ -488,7 +484,7 @@ impl Component for CollectionFixture {
                 .map(|(index, name)| {
                   let option = collections::use_option(
                     ChoiceOptions::new()
-                      .name(trox::ls(name))
+                      .name(ls(name))
                       .selected(self.selection == index)
                       .is_disabled(index == 2)
                       .on_select(move |game: &mut Game| game.selection = index),
@@ -498,16 +494,12 @@ impl Component for CollectionFixture {
                 .collect::<Vec<_>>(),
             ),
           View::new()
-            .semantic(collections::use_table(trox::ls("Bindings")))
-            .child(
-              View::new().semantic(collections::use_row()).child((
-                Label::new(trox::ls("Keyboard"))
-                  .semantic(collections::use_column_header(trox::ls("Keyboard"))),
-                Label::new(trox::ls("Move"))
-                  .semantic(collections::use_row_header(trox::ls("Move"))),
-                Label::new(trox::ls("W")).semantic(collections::use_cell(trox::ls("W"))),
-              )),
-            ),
+            .semantic(collections::use_table(ls("Bindings")))
+            .child(View::new().semantic(collections::use_row()).child((
+              Label::new(ls("Keyboard")).semantic(collections::use_column_header(ls("Keyboard"))),
+              Label::new(ls("Move")).semantic(collections::use_row_header(ls("Move"))),
+              Label::new(ls("W")).semantic(collections::use_cell(ls("W"))),
+            ))),
           View::new().behavior(link),
         )),
     ))
@@ -519,23 +511,17 @@ impl Component for InvalidCollectionCase {
     match self {
       Self::OrphanRow => View::new().semantic(collections::use_row()),
       Self::ListboxCell => View::new()
-        .semantic(collections::use_listbox(trox::ls("Quality")))
-        .child(
-          Label::new(trox::ls("Wrong child"))
-            .semantic(collections::use_cell(trox::ls("Wrong child"))),
-        ),
+        .semantic(collections::use_listbox(ls("Quality")))
+        .child(Label::new(ls("Wrong child")).semantic(collections::use_cell(ls("Wrong child")))),
       Self::TableCell => View::new()
-        .semantic(collections::use_table(trox::ls("Bindings")))
-        .child(
-          Label::new(trox::ls("Wrong child"))
-            .semantic(collections::use_cell(trox::ls("Wrong child"))),
-        ),
-      Self::CurrentRegion => View::new().semantic(
-        collections::use_region(trox::ls("Settings")).state(battlement::SemanticState {
+        .semantic(collections::use_table(ls("Bindings")))
+        .child(Label::new(ls("Wrong child")).semantic(collections::use_cell(ls("Wrong child")))),
+      Self::CurrentRegion => View::new().semantic(collections::use_region(ls("Settings")).state(
+        battlement::SemanticState {
           current: Some(CurrentPage::Page),
           ..Default::default()
-        }),
-      ),
+        },
+      )),
     }
   }
 }

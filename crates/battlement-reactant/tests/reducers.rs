@@ -5,6 +5,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -67,14 +68,12 @@ impl Component for Counter {
     );
     self.dispatch.replace(Some(dispatch.clone()));
     (
-      battlement_reactant::host::Button::new(trox::ls("Reduce")).on_click(
-        move |_game: &mut Game| {
-          dispatch.send(CountAction::Add);
-          dispatch.send(CountAction::Set(10));
-          dispatch.send(CountAction::Add);
-        },
-      ),
-      battlement_reactant::host::Label::new(trox::ls(format!("Count {count}"))),
+      battlement_reactant::host::Button::new(ls("Reduce")).on_click(move |_game: &mut Game| {
+        dispatch.send(CountAction::Add);
+        dispatch.send(CountAction::Set(10));
+        dispatch.send(CountAction::Add);
+      }),
+      battlement_reactant::host::Label::new(ls(format!("Count {count}"))),
     )
   }
 }
@@ -89,7 +88,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, dispatch) = hooks::use_reducer(|state, action| state + action, 0_u8);
     self.dispatches.borrow_mut()[usize::from(self.id)] = Some(dispatch);
-    battlement_reactant::host::Label::new(trox::ls(format!("{}:{count}", self.id)))
+    battlement_reactant::host::Label::new(ls(format!("{}:{count}", self.id)))
   }
 }
 
@@ -112,7 +111,7 @@ impl Component for FailingReducer {
       0,
     );
     self.dispatch.replace(Some(dispatch));
-    battlement_reactant::host::Label::new(trox::ls(value.to_string()))
+    battlement_reactant::host::Label::new(ls(value.to_string()))
   }
 }
 
@@ -126,7 +125,7 @@ impl Component for HookingReducer {
       0_u8,
     );
     self.dispatch.replace(Some(dispatch));
-    battlement_reactant::host::Label::new(trox::ls(value.to_string()))
+    battlement_reactant::host::Label::new(ls(value.to_string()))
   }
 }
 
@@ -138,7 +137,7 @@ impl Component for RenderPhaseReducer {
     if value < 3 {
       dispatch.send(());
     }
-    battlement_reactant::host::Label::new(trox::ls(format!("Reduced {value}")))
+    battlement_reactant::host::Label::new(ls(format!("Reduced {value}")))
   }
 }
 
@@ -154,7 +153,7 @@ impl Component for VariableKind {
     } else {
       let _ = hooks::use_state(0_u8);
     }
-    battlement_reactant::host::Label::new(trox::ls("stable"))
+    battlement_reactant::host::Label::new(ls("stable"))
   }
 }
 

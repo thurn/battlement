@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::{cell::RefCell, panic, rc::Rc};
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, MotionEventBatch, MotionEventKind,
@@ -75,7 +76,7 @@ impl Component for RetainedCard {
           .on_complete(|game: &mut Game| game.slot_completed += 1)
           .on_cancel(|game: &mut Game| game.slot_cancelled += 1),
       )
-      .child(Label::new(trox::ls(format!(
+      .child(Label::new(ls(format!(
         "{}:{value}:{}",
         self.label,
         if present { "present" } else { "exiting" }

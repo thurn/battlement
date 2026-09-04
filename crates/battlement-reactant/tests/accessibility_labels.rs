@@ -15,6 +15,7 @@ use battlement_reactant::{
   render::Render,
   semantics::{AccessibleDescription, AccessibleName},
 };
+use trox::ls;
 
 #[derive(Clone, Default)]
 struct Game {
@@ -309,11 +310,11 @@ fn fixture(game: &Game) -> impl Render + use<> {
     accessibility::use_checkbox(
       ToggleOptions::new()
         .name(if game.explicit {
-          AccessibleName::text(trox::ls("Explicit sound"))
+          AccessibleName::text(ls("Explicit sound"))
         } else {
           label_name
         })
-        .description(AccessibleDescription::text(trox::ls("Controls game audio")))
+        .description(AccessibleDescription::text(ls("Controls game audio")))
         .checked(game.checked)
         .is_disabled(game.disabled)
         .on_change(|game: &mut Game, value| {
@@ -326,7 +327,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
   });
   let help = accessibility::use_button(
     ButtonOptions::new()
-      .name(trox::ls("Help"))
+      .name(ls("Help"))
       .on_press(|game: &mut Game| game.help += 1),
   );
   View::new()
@@ -341,7 +342,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
         View::new()
           .name("label")
           .associated_label(label)
-          .child(accessibility::name_source_text(trox::ls(visible_name))),
+          .child(accessibility::name_source_text(ls(visible_name))),
         (!game.hide).then(|| {
           View::new()
             .name("checkbox")
@@ -374,7 +375,7 @@ fn disabled_slider_fixture(_game: &DisabledSliderGame) -> impl Render + use<> {
     View::new()
       .name("slider-label")
       .associated_label(label)
-      .child(accessibility::name_source_text(trox::ls("Disabled volume"))),
+      .child(accessibility::name_source_text(ls("Disabled volume"))),
     View::new()
       .name("disabled-slider")
       .associated_control(slider),

@@ -362,8 +362,9 @@ rendering.
 ### Button
 
 ~~~rust
+use trox::{tx};
 let button = use_button(ButtonOptions {
-    name: trox::tx("Save changes", "Accessible name for the save button."),
+    name: tx("Save changes", "Accessible name for the save button."),
     description: None,
     is_disabled: saving,
     on_press: callback(|app: &mut App| app.save()),
@@ -433,8 +434,9 @@ author-owned thumb or proxy host. That host contains the range, localized
 display text, and increment and decrement actions.
 
 ~~~rust
+use trox::{tx};
 let slider = use_slider(SliderOptions {
-    name: trox::tx("Music volume", "Accessible name for the volume slider."),
+    name: tx("Music volume", "Accessible name for the volume slider."),
     value: volume,
     range: 0.0..=100.0,
     step: 5.0,
@@ -461,8 +463,9 @@ properties, and activation. `use_tab_panel` returns the panel's semantics and
 visibility state.
 
 ~~~rust
-let tabs = use_tabs(trox::tx("Settings", "Accessible name for the settings tabs."));
-let tab = use_tab(&tabs, trox::tx("Audio", "Accessible name for the audio tab."), selected, select_audio);
+use trox::{tx};
+let tabs = use_tabs(tx("Settings", "Accessible name for the settings tabs."));
+let tab = use_tab(&tabs, tx("Audio", "Accessible name for the audio tab."), selected, select_audio);
 let panel = use_tab_panel(&tabs, selected);
 ~~~
 
@@ -493,8 +496,9 @@ The hook does not add arrow-key roving behavior.
 modal overlay wrapper.
 
 ~~~rust
+use trox::{tx};
 let dialog = use_dialog(DialogOptions {
-    name: trox::tx("Settings", "Accessible name for the settings dialog."),
+    name: tx("Settings", "Accessible name for the settings dialog."),
     on_dismiss: Some(close_settings),
 });
 
@@ -550,8 +554,9 @@ use_announce returns an imperative handle that submits one resolved string in
 the current successful commit.
 
 ~~~rust
+use trox::{tx};
 let announce = use_announce();
-announce.send(trox::tx("Changes saved", "Announcement after saving succeeds."));
+announce.send(tx("Changes saved", "Announcement after saving succeeds."));
 ~~~
 
 Unity calls SendAnnouncement once after the commit is admitted. Announcements:

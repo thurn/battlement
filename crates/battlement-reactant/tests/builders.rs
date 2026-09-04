@@ -1,6 +1,7 @@
 mod app_support;
 
 use std::{cell::Cell, rc::Rc};
+use trox::ls;
 
 use battlement_fake::client::FakeClient;
 use battlement_reactant::{app::App, prelude::*};
@@ -34,7 +35,7 @@ struct SlottedCard {
 
 impl Component for Action {
   fn render(&self) -> impl Render {
-    Button::new(trox::ls(self.label.clone()))
+    Button::new(ls(self.label.clone()))
       .name("generated-action")
       .on_click(Forward::new().clicked(self.clicked.clone()).clicked)
   }
@@ -42,7 +43,7 @@ impl Component for Action {
 
 impl Component for OptionalAction {
   fn render(&self) -> impl Render {
-    let button = Button::new(trox::ls("Optional")).name("optional-action");
+    let button = Button::new(ls("Optional")).name("optional-action");
     match &self.clicked {
       Some(callback) => button.on_click(callback.clone()),
       None => button,
@@ -62,10 +63,10 @@ fn child_slots_accept_and_replay_arbitrary_render_values() {
     .source_bundle(app_support::source_bundle())
     .ui(
       SlottedCard::new()
-        .title(Label::new(trox::ls("Title")).name("slot-title"))
+        .title(Label::new(ls("Title")).name("slot-title"))
         .children((
-          Label::new(trox::ls("First")).name("slot-first"),
-          Button::new(trox::ls("Second")).name("slot-second"),
+          Label::new(ls("First")).name("slot-first"),
+          Button::new(ls("Second")).name("slot-second"),
         )),
     );
   let root = app.root_document().root_id;
@@ -81,7 +82,7 @@ fn child_slots_accept_and_replay_arbitrary_render_values() {
 
 #[test]
 fn optional_accessible_callbacks_have_a_builder_default() {
-  let dialog = DialogOptions::new().name(trox::ls("Settings"));
+  let dialog = DialogOptions::new().name(ls("Settings"));
 
   assert!(dialog.on_dismiss.is_none());
 }

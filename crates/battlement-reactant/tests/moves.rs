@@ -1,6 +1,7 @@
 mod runtime_support;
 
 use std::collections::HashMap;
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -184,7 +185,7 @@ fn keyed_labels(game: &Game) -> impl Render + use<> {
   game
     .order
     .iter()
-    .map(|key| battlement_reactant::host::Label::new(trox::ls(format!("Label {key}"))).key(*key))
+    .map(|key| battlement_reactant::host::Label::new(ls(format!("Label {key}"))).key(*key))
     .collect::<Vec<_>>()
 }
 
@@ -197,8 +198,8 @@ fn keyed_ranges(game: &Game) -> impl Render + use<> {
         Vec::new()
       } else {
         vec![
-          battlement_reactant::host::Label::new(trox::ls(format!("{key}a"))),
-          battlement_reactant::host::Label::new(trox::ls(format!("{key}b"))),
+          battlement_reactant::host::Label::new(ls(format!("{key}a"))),
+          battlement_reactant::host::Label::new(ls(format!("{key}b"))),
         ]
       };
       Fragment::new(children).key(*key)
@@ -213,9 +214,7 @@ fn toggle_group(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| {
-          battlement_reactant::host::Button::new(trox::ls(format!("Button {key}"))).key(*key)
-        })
+        .map(|key| battlement_reactant::host::Button::new(ls(format!("Button {key}"))).key(*key))
         .collect::<Vec<_>>(),
     )
 }
@@ -227,7 +226,7 @@ fn tabs(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| battlement_reactant::host::Tab::new(trox::ls(format!("Tab {key}"))).key(*key))
+        .map(|key| battlement_reactant::host::Tab::new(ls(format!("Tab {key}"))).key(*key))
         .collect::<Vec<_>>(),
     )
 }

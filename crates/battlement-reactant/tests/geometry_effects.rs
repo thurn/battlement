@@ -6,6 +6,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
+use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, DisplayId, DisplayOrientation, GameObject, GameObjectKind,
@@ -100,11 +101,7 @@ impl Component for GeometryEffectFixture {
       ViewportRef::display(DisplayId(0)),
       dependency,
     );
-    battlement_reactant::host::Label::new(trox::ls(if self.local_ready {
-      "ready"
-    } else {
-      "waiting"
-    }))
+    battlement_reactant::host::Label::new(ls(if self.local_ready { "ready" } else { "waiting" }))
   }
 }
 
@@ -148,7 +145,7 @@ impl Component for PanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       (),
     );
-    battlement_reactant::host::Label::new(trox::ls("panic"))
+    battlement_reactant::host::Label::new(ls("panic"))
   }
 }
 
@@ -161,7 +158,7 @@ impl Component for CleanupPanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       self.dependency,
     );
-    battlement_reactant::host::Label::new(trox::ls("cleanup panic"))
+    battlement_reactant::host::Label::new(ls("cleanup panic"))
   }
 }
 
@@ -176,7 +173,7 @@ impl Component for TupleGeometryEffect {
       ),
       (),
     );
-    battlement_reactant::host::Label::new(trox::ls("tuple"))
+    battlement_reactant::host::Label::new(ls("tuple"))
   }
 }
 
@@ -201,7 +198,7 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
   });
   reactant.register_root(sibling_document.clone(), move |game: &EffectGame| {
     view_sibling_renders.set(view_sibling_renders.get() + 1);
-    battlement_reactant::host::Label::new(trox::ls(format!("model updates {}", game.model_updates)))
+    battlement_reactant::host::Label::new(ls(format!("model updates {}", game.model_updates)))
   });
   let groups = self::begin(
     &mut reactant,
