@@ -1,7 +1,7 @@
 //! A fixed-position Return action with accessible button behavior.
 
-use crate::{action_button::ActionButton, action_skin, frame_styles};
-use battlement::{PickingMode, Position, Style};
+use crate::{action_button::ActionButton, action_skin};
+use battlement::{Position, Style};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
   accessibility,
@@ -33,9 +33,8 @@ impl Component for ReturnButton {
           .height(120),
       )
       .child((
-        View::new()
-          .picking_mode(PickingMode::Ignore)
-          .style(frame_styles::cover())
+        View::decorative()
+          .style(Style::new().absolute_fill())
           .paint(
             PaintStyle::new()
               .background(PaintFill::Color(action_skin::INTERIOR))

@@ -318,6 +318,32 @@ fn overlay_helpers_resolve_first_mount_refs_and_wrap_fragment_children() {
 }
 
 #[test]
+fn decorative_view_ignores_pointer_picking() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| {
+    battlement_reactant::host::View::decorative()
+  });
+
+  let rendered = reactant
+    .begin_session(&mut ())
+    .expect("decorative view renders")
+    .into_parts(snapshot(
+      SessionId::new_v4(),
+      std::slice::from_ref(&document),
+    ))
+    .0;
+  assert_eq!(
+    rendered.ui[0].children[0]
+      .element
+      .visual_element()
+      .picking_mode,
+    Prop::Set(battlement::PickingMode::Ignore)
+  );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
 fn flex_facade_preserves_specific_gap_overrides_in_either_builder_order() {
   let document = document();
   let mut reactant = Reactant::new(IdleSpawner);

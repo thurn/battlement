@@ -31,19 +31,18 @@ pub struct VolumeControl {
 
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
-    let label = use_control_label();
-    let slider = accessibility::use_slider(SliderOptions {
-      name: label.name(),
-      description: None,
-      value: f64::from(self.value),
-      minimum: 0.0,
-      maximum: 100.0,
-      step: 5.0,
-      value_text: Some(semantics::text(format!("{} percent", self.value))),
-      is_disabled: false,
-      on_change: self.on_change.clone().map_input(|value: f64| value as u32),
+    let (label, slider) = use_control_label().bind_with(|name| {
+      accessibility::use_slider(
+        SliderOptions::new()
+          .name(name)
+          .value(f64::from(self.value))
+          .minimum(0.0)
+          .maximum(100.0)
+          .step(5.0)
+          .value_text(semantics::text(format!("{} percent", self.value)))
+          .on_change(self.on_change.clone().map_input(|value: f64| value as u32)),
+      )
     });
-    let (label, slider) = label.bind(slider);
     SettingRow::new()
       .label(accessibility::name_source_text(self.label.clone()))
       .children(

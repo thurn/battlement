@@ -162,6 +162,11 @@ slot. It is cloneable and may outlive one rendered callback.
 impl<T: Clone + 'static> StateSetter<T> {
     pub fn set(&self, value: T);
     pub fn update(&self, update: impl Fn(T) -> T + 'static);
+    pub fn callback(&self) -> EventCallback<T>;
+    pub fn update_callback(
+        &self,
+        update: impl Fn(T) -> T + 'static,
+    ) -> EventCallback<()>;
 }
 ```
 
@@ -169,6 +174,16 @@ impl<T: Clone + 'static> StateSetter<T> {
 set_count.set(4);
 set_count.update(|old| old + 1);
 ```
+
+Use the callback factories when forwarding a setter directly to a control:
+
+```rust
+Button::new("Increment").on_click(set_count.update_callback(|old| old + 1));
+Slider::new().on_value_changing(set_volume.callback());
+```
+
+The returned callbacks retain the setter's mounted-hook behavior. They safely
+become no-ops after unmount and participate in normal event batching.
 
 `.set(value)` queues a replacement. `.update(function)` queues a calculation
 against the state produced by earlier entries in the same queue. Entries are

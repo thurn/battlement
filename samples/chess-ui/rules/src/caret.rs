@@ -1,6 +1,6 @@
 //! A decorative chevron whose orientation follows a selector’s open state.
 
-use battlement::{Color, Length, PickingMode, Position, Rotate, Style, Translate};
+use battlement::{Color, Length, Position, Rotate, Style, Translate};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
@@ -18,9 +18,8 @@ pub struct Caret {
 
 impl Component for Caret {
   fn render(&self) -> impl Render {
-    View::new()
+    View::decorative()
       .name("select-caret")
-      .picking_mode(PickingMode::Ignore)
       .style(
         Style::new()
           .position(Position::Absolute)

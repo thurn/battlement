@@ -38,10 +38,12 @@ pub use battlement::application::ReducedMotionPreference;
 pub use battlement_builder::builder;
 
 pub use battlement::{
-  AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, CheckedState,
-  Color, FilterFunction, FilterList, Gradient, GradientStop, Length, MotionProperty,
-  PlacementAlign, PlacementSide, PopoverPlacement, PopupKind, Prop, SemanticRole, SemanticState,
-  Shadow, StepPosition, Style, TransformList, TransformOperation, Visibility,
+  AccessibilityRangeValue, AccessibilityScrollAxis, AccessibilityScrollDirection, Align,
+  CheckedState, Color, Display, FilterFunction, FilterList, FlexDirection, Gradient, GradientStop,
+  Justify, Length, LengthUnits, MotionProperty, Overflow, PaintFill, PaintLayer, PaintStyle,
+  PickingMode, PlacementAlign, PlacementSide, PopoverPlacement, PopupKind, Position, Prop,
+  SemanticRole, SemanticState, Shadow, StepPosition, Style, TextAnchor, TransformList,
+  TransformOperation, Visibility, WhiteSpace,
 };
 
 pub use crate::motion_css::{
@@ -113,7 +115,7 @@ pub use crate::{
   portal::{Portal, PortalTarget, create_portal},
   presence::{AnimatePresence, Presence, PresenceMode},
   props::Missing,
-  render::{Either, Fragment, Node, Render},
+  render::{Child, Children, Either, Fragment, Node, Render},
   required_props,
   resource::{Resource, ResourceRead, ResourceStatus, use_resource},
   resource_control::{ResourceControl, use_resource_control},

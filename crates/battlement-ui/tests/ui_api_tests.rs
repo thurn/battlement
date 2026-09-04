@@ -6,15 +6,15 @@ use battlement_ui::{
   BackgroundRepeatMode, BackgroundSize, BackgroundSource, Choice, Cursor, CursorHotspot, Display,
   DynamicAtlasSettings, FlexDirection, FlexWrap, ImageScaleMode, InlineKeyword,
   InteractionDistance, InteractionLayerMask, Justify, LanguageDirection, Length, LengthOrAuto,
-  LengthUnits, LowerLimit, Overflow, OverflowClipBox, PanelInputConfiguration,
-  PanelInputRedirection, PanelScaleMode, PanelSettings, PickingMode, Position, Prop,
-  ScrollViewMode, ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue,
-  TouchScrollBehavior, UiBox, UiButton, UiDocument, UiDropdownField, UiElement, UiEventKind,
-  UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiNode, UiPopupWindow, UiProgressBar,
-  UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
-  UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup,
-  UiValidationError, UiVisualElement, UpperLimit, UsageHint, Vector, Visibility,
-  validate_documents, validate_element_update, validate_panel_input_configuration,
+  LengthUnits, LowerLimit, Overflow, OverflowClipBox, PaintLayer, PaintStyle,
+  PanelInputConfiguration, PanelInputRedirection, PanelScaleMode, PanelSettings, PickingMode,
+  Position, Prop, ScrollViewMode, ScrollerVisibility, SliceType, SliderDirection, Style,
+  StyleValue, TouchScrollBehavior, Translate, UiBox, UiButton, UiDocument, UiDropdownField,
+  UiElement, UiEventKind, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiNode, UiPopupWindow,
+  UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller,
+  UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
+  UiToggleButtonGroup, UiValidationError, UiVisualElement, UpperLimit, UsageHint, Vector,
+  Visibility, validate_documents, validate_element_update, validate_panel_input_configuration,
   validate_panel_settings,
 };
 
@@ -604,6 +604,105 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
     merged.padding_left,
     Prop::Set(StyleValue::Value(Length::Px(16.0)))
   );
+}
+
+#[test]
+fn style_authoring_shortcuts_expand_to_ordinary_properties() {
+  let fill = Style::new().full_size();
+  assert_eq!(
+    (fill.width, fill.height),
+    (
+      Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0))),
+      Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0))),
+    )
+  );
+
+  let positioned = Style::new().absolute_fill().inset((1, 2, 3, 4));
+  assert_eq!(
+    positioned.position,
+    Prop::Set(StyleValue::Value(Position::Absolute))
+  );
+  assert_eq!(
+    positioned.top,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(1.0)))
+  );
+  assert_eq!(
+    positioned.right,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(2.0)))
+  );
+  assert_eq!(
+    positioned.bottom,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(3.0)))
+  );
+  assert_eq!(
+    positioned.left,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(4.0)))
+  );
+
+  let centered = Style::new().center_content().translate_y(6);
+  assert_eq!(
+    centered.align_items,
+    Prop::Set(StyleValue::Value(Align::Center))
+  );
+  assert_eq!(
+    centered.justify_content,
+    Prop::Set(StyleValue::Value(Justify::Center))
+  );
+  assert_eq!(
+    centered.translate,
+    Prop::Set(StyleValue::Value(Translate::two_dimensional(
+      Length::Px(0.0),
+      Length::Px(6.0),
+    )))
+  );
+}
+
+#[test]
+fn layered_paint_serializes_ordered_fills_and_css_insets() {
+  let paint = PaintStyle::fill(Color::rgb(0.1, 0.2, 0.3))
+    .clip_inset((1, 2))
+    .layer(PaintLayer::new(Color::rgb(0.4, 0.5, 0.6)).bounds_inset((3, 4, 5)))
+    .layer(PaintLayer::new(Color::rgb(0.7, 0.8, 0.9)).bounds_inset((6, 7, 8, 9)));
+
+  assert_eq!(paint.paint_layers().len(), 2);
+  let value = serde_json::to_value(paint).unwrap();
+  assert_eq!(
+    value["clip_inset"],
+    serde_json::json!([{"Px": 1.0}, {"Px": 2.0}, {"Px": 1.0}, {"Px": 2.0}])
+  );
+  assert_eq!(value["layers"].as_array().unwrap().len(), 2);
+  assert_eq!(
+    value["layers"][0]["bounds_inset"],
+    serde_json::json!([{"Px": 3.0}, {"Px": 4.0}, {"Px": 5.0}, {"Px": 4.0}])
+  );
+  assert_eq!(
+    value["layers"][1]["bounds_inset"],
+    serde_json::json!([{"Px": 6.0}, {"Px": 7.0}, {"Px": 8.0}, {"Px": 9.0}])
+  );
+}
+
+#[test]
+fn paint_validation_rejects_polygons_with_fewer_than_three_vertices() {
+  let polygons = [
+    PaintStyle::fill(Color::WHITE).clip_polygon([
+      [Length::Px(0.0), Length::Px(0.0)],
+      [Length::Px(10.0), Length::Px(10.0)],
+    ]),
+    PaintStyle::new().layer(PaintLayer::new(Color::WHITE).clip_polygon([
+      [Length::Px(0.0), Length::Px(0.0)],
+      [Length::Px(10.0), Length::Px(10.0)],
+    ])),
+  ];
+
+  for paint in polygons {
+    assert_eq!(
+      validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+        ObjectId::new_v4(),
+        UiVisualElement::new().paint(paint),
+      ))]),
+      Err(UiValidationError::InvalidProperty)
+    );
+  }
 }
 
 #[test]

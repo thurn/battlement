@@ -87,11 +87,26 @@ impl Component for RenderPhaseCounter {
 
 struct Overflow;
 
+struct CallbackCounter;
+
 impl Component for Overflow {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0);
     setter.update(|value| value + 1);
     battlement_reactant::host::Label::new(count.to_string())
+  }
+}
+
+impl Component for CallbackCounter {
+  fn render(&self) -> impl Render {
+    let (count, setter) = use_state(0_u32);
+    (
+      battlement_reactant::host::Button::new("Increment")
+        .on_click(setter.update_callback(|value| value + 1)),
+      battlement_reactant::host::Button::new("Replace")
+        .on_click(setter.callback().map_input(|()| 12)),
+      battlement_reactant::host::Label::new(count.to_string()),
+    )
   }
 }
 
@@ -187,6 +202,46 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
   first_setter.set(11);
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   assert_eq!(renders.get(), 2, "equal state does not rerender");
+  let _ = reactant.shutdown(&mut game).into_groups();
+}
+
+#[test]
+fn state_callback_factories_remain_live_across_renders() {
+  let document = self::document();
+  let mut game = Game::default();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_| CallbackCounter);
+  let initial = self::begin(&mut reactant, &mut game, &document);
+  let increment = initial.ui[0].children[0].object_id;
+  let replace = initial.ui[0].children[1].object_id;
+  let label = initial.ui[0].children[2].object_id;
+  let mut world = UiWorld::default();
+  world.replace(initial.ui).unwrap();
+
+  for expected in ["1", "2"] {
+    self::apply(
+      &mut world,
+      reactant
+        .dispatch(
+          &mut game,
+          UiEvent::click(increment, ClickEvent::NavigationSubmit),
+        )
+        .unwrap()
+        .into_commit(),
+    );
+    assert_eq!(world.element(label).unwrap().text(), Some(expected));
+  }
+  self::apply(
+    &mut world,
+    reactant
+      .dispatch(
+        &mut game,
+        UiEvent::click(replace, ClickEvent::NavigationSubmit),
+      )
+      .unwrap()
+      .into_commit(),
+  );
+  assert_eq!(world.element(label).unwrap().text(), Some("12"));
   let _ = reactant.shutdown(&mut game).into_groups();
 }
 

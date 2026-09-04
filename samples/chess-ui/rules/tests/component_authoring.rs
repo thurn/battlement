@@ -108,7 +108,7 @@ fn is_hook_or_behavior(expression: &Expr) -> bool {
         .is_some_and(|segment| segment.ident.to_string().starts_with("use_")),
       _ => false,
     },
-    Expr::MethodCall(call) => call.method == "bind",
+    Expr::MethodCall(call) => call.method == "bind" || call.method == "bind_with",
     _ => false,
   }
 }

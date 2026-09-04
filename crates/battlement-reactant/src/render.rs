@@ -53,6 +53,25 @@ use crate::{
 /// ```
 pub trait Render: Sealed + 'static {}
 
+/// One cloneable, type-erased render prop stored by a component.
+///
+/// `Child` deliberately does not implement [`Render`], allowing every render
+/// value to convert into it through ordinary builder `into` fields. Call
+/// [`Self::render`] when placing the stored value back into a render tree.
+#[derive(Clone)]
+pub struct Child {
+  node: Node,
+}
+
+/// Cloneable, type-erased child content stored by a component.
+///
+/// A tuple, fragment, collection, or single render value can all initialize a
+/// `Children` prop. The wrapper preserves that value's logical structure.
+#[derive(Clone)]
+pub struct Children {
+  node: Node,
+}
+
 /// Groups children without introducing a native host.
 ///
 /// Use `new` for a typed tuple or collection, or `empty().child(...)` to append
@@ -119,6 +138,46 @@ impl Node {
       render: Rc::new(render),
       descriptor,
     }
+  }
+}
+
+impl Child {
+  /// Erases one render value for storage in component props.
+  pub fn new(value: impl Render) -> Self {
+    Self {
+      node: Node::new(value),
+    }
+  }
+
+  /// Returns a cloneable render value for the stored child.
+  pub fn render(&self) -> Node {
+    self.node.clone()
+  }
+}
+
+impl Children {
+  /// Erases child content for storage in component props.
+  pub fn new(value: impl Render) -> Self {
+    Self {
+      node: Node::new(value),
+    }
+  }
+
+  /// Returns a cloneable render value for the stored content.
+  pub fn render(&self) -> Node {
+    self.node.clone()
+  }
+}
+
+impl<R: Render> From<R> for Child {
+  fn from(value: R) -> Self {
+    Self::new(value)
+  }
+}
+
+impl<R: Render> From<R> for Children {
+  fn from(value: R) -> Self {
+    Self::new(value)
   }
 }
 

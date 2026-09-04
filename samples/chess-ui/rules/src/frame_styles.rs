@@ -1,20 +1,10 @@
 //! Shared geometry and material recipes for the arcade bezel.
 
-use battlement::{Color, Gradient, Length, Position, Style};
+use battlement::{Color, Gradient, Length};
 
 pub const OUTER_INSET: f32 = 21.0;
 pub const BORDER_THICKNESS: f32 = 8.0;
 pub const OUTER_BOTTOM: f32 = 111.0;
-
-/// Pins a decorative layer to every edge of its parent.
-pub fn cover() -> Style {
-  Style::new()
-    .position(Position::Absolute)
-    .top(0)
-    .right(0)
-    .bottom(0)
-    .left(0)
-}
 
 /// Builds the frame polygon, including the bottom Return cutout.
 pub fn clip() -> Vec<[Length; 2]> {

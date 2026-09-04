@@ -4,10 +4,11 @@ use battlement::{
   AccessibilityAction, AccessibilityRangeValue, AccessibilityScrollAxis,
   AccessibilityScrollDirection, CheckedState, SemanticRole, SemanticState,
 };
+use battlement_builder::builder;
 
 use crate::{
   accessibility_hook, activation, button_state,
-  callback::{Callback, IntoCallback},
+  callback::{Callback as EventCallback, IntoCallback},
   element_ref::{ElementRef, use_element_ref},
   event_handler::Handler,
   focus::FocusProps,
@@ -35,86 +36,109 @@ pub struct ButtonState {
 }
 
 /// Options for [`use_button`].
+#[builder(support = crate::builder_support)]
 pub struct ButtonOptions<F, N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Optional accessible description.
   pub description: Option<AccessibleDescription>,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Ordinary press callback.
+  #[builder(required)]
   pub on_press: F,
 }
 
 /// Options for checkbox and switch patterns.
+#[builder(support = crate::builder_support)]
 pub struct ToggleOptions<F, N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Optional accessible description.
   pub description: Option<AccessibleDescription>,
   /// Current checked state.
+  #[builder(required)]
   pub checked: bool,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Authoritative change callback.
+  #[builder(required)]
   pub on_change: F,
 }
 
 /// Options for [`use_slider`].
+#[builder(support = crate::builder_support)]
 pub struct SliderOptions<F, N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Optional accessible description.
   pub description: Option<AccessibleDescription>,
   /// Current value.
+  #[builder(required)]
   pub value: f64,
   /// Inclusive minimum.
+  #[builder(required)]
   pub minimum: f64,
   /// Inclusive maximum.
+  #[builder(required)]
   pub maximum: f64,
   /// Positive increment/decrement step.
+  #[builder(required)]
   pub step: f64,
   /// Optional localized value text.
   pub value_text: Option<LocalizedText>,
   /// Whether changes are unavailable.
   pub is_disabled: bool,
   /// Authoritative change callback.
+  #[builder(required)]
   pub on_change: F,
 }
 
 /// Options for a disclosure trigger.
+#[builder(support = crate::builder_support)]
 pub struct DisclosureOptions<F, N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Optional accessible description.
   pub description: Option<AccessibleDescription>,
   /// Current expansion state.
+  #[builder(required)]
   pub expanded: bool,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Ordinary toggle callback.
+  #[builder(required)]
   pub on_toggle: F,
 }
 
 /// Options for a modal dialog wrapper.
-pub struct DialogOptions<F, N = LocalizedText> {
+#[builder(support = crate::builder_support)]
+pub struct DialogOptions<N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Optional ordinary dismiss callback.
-  pub on_dismiss: Option<F>,
+  pub on_dismiss: Option<EventCallback<()>>,
 }
 
 /// Options for a semantic scroll area.
+#[builder(support = crate::builder_support)]
 pub struct ScrollAreaOptions<F> {
   /// Optional accessible name.
   pub name: Option<LocalizedText>,
   /// Owned logical axis.
+  #[builder(required)]
   pub axis: AccessibilityScrollAxis,
   /// Whether forward movement is available.
   pub can_scroll_forward: bool,
   /// Whether backward movement is available.
   pub can_scroll_backward: bool,
   /// Ordinary logical scroll callback.
+  #[builder(required)]
   pub on_scroll: F,
 }
 
@@ -137,14 +161,18 @@ pub struct TabsBehavior {
 }
 
 /// Options for one radio or tab choice.
+#[builder(support = crate::builder_support)]
 pub struct ChoiceOptions<F, N = LocalizedText> {
   /// Accessible name.
+  #[builder(required)]
   pub name: N,
   /// Current selected state.
+  #[builder(required)]
   pub selected: bool,
   /// Whether activation is unavailable.
   pub is_disabled: bool,
   /// Ordinary selection callback.
+  #[builder(required)]
   pub on_select: F,
 }
 
@@ -379,18 +407,15 @@ pub fn use_disclosure<G: 'static>(
 }
 
 /// Returns dialog semantics and optional dismiss behavior.
-pub fn use_dialog<G: 'static>(
-  options: DialogOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
-) -> AccessibleBehavior<G, ()> {
+pub fn use_dialog(options: DialogOptions<impl Into<AccessibleName>>) -> AccessibleBehavior<(), ()> {
   accessibility_hook::use_pattern("use_dialog");
   let mut semantic = named(SemanticRole::Dialog, options.name);
   let mut interaction = InteractionProps::new();
   if let Some(on_dismiss) = options.on_dismiss {
     semantic = semantic.action(AccessibilityAction::Dismiss);
-    let callback = on_dismiss.into_callback();
     interaction = self::accessible(
       "dialog-dismiss",
-      callback.map(|action| (action == AccessibilityAction::Dismiss).then_some(())),
+      on_dismiss.map(|action| (action == AccessibilityAction::Dismiss).then_some(())),
     );
   }
   AccessibleBehavior {
@@ -524,7 +549,7 @@ fn use_choice<G: 'static>(
 
 fn accessible<G: 'static>(
   slot: &'static str,
-  callback: Callback<AccessibilityAction>,
+  callback: EventCallback<AccessibilityAction>,
 ) -> InteractionProps<G> {
   let mut interaction = InteractionProps::new();
   interaction

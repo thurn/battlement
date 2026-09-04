@@ -5,24 +5,23 @@ use crate::{
   frame_styles,
   portrait_viewport::{PORTRAIT_DESIGN_HEIGHT, PORTRAIT_DESIGN_WIDTH},
 };
-use battlement::{Color, Length, Overflow, PickingMode, Position, Style, TransformOrigin};
-use battlement_reactant::prelude::builder;
+use battlement::{Color, Length, Overflow, Position, Style, TransformOrigin};
+use battlement_reactant::prelude::{Children, builder};
 use battlement_reactant::{
   component::Component,
   host::View,
   paint::{PaintFill, PaintStyle},
   render::Render,
 };
-use std::rc::Rc;
 
 /// Fixed portrait frame surrounding application content.
 #[builder]
-pub struct ScreenFrame<R> {
+pub struct ScreenFrame {
   #[builder(required, into)]
-  children: Rc<R>,
+  children: Children,
 }
 
-impl<R: Render> Component for ScreenFrame<R> {
+impl Component for ScreenFrame {
   fn render(&self) -> impl Render {
     View::new()
       .name("screen-frame")
@@ -36,19 +35,19 @@ impl<R: Render> Component for ScreenFrame<R> {
           .background_color(Color::BLACK),
       )
       .child((
-        View::new()
+        View::decorative()
           .name("exit-frame-surface")
-          .picking_mode(PickingMode::Ignore)
           .style(
-            frame_styles::cover().transform_origin(TransformOrigin::two_dimensional(
-              Length::Percent(50.0),
-              Length::Percent(47.07),
-            )),
+            Style::new()
+              .absolute_fill()
+              .transform_origin(TransformOrigin::two_dimensional(
+                Length::Percent(50.0),
+                Length::Percent(47.07),
+              )),
           )
           .child((
-            View::new()
+            View::decorative()
               .name("frame-interior")
-              .picking_mode(PickingMode::Ignore)
               .style(
                 Style::new()
                   .position(Position::Absolute)
@@ -64,7 +63,7 @@ impl<R: Render> Component for ScreenFrame<R> {
               ),
             ConceptFrame::new(),
           )),
-        self.children.clone(),
+        self.children.render(),
       ))
   }
 }

@@ -161,6 +161,120 @@ pub(crate) fn parse(source: &str) -> Result<DeclarationEnvelope, Diagnostic> {
   Parser::new(stream).envelope()
 }
 
+pub(crate) fn expand_family(source: &str) -> Result<Vec<String>, Diagnostic> {
+  let stream = TokenStream::from_str(source).map_err(|error| Diagnostic {
+    category: DiagnosticCategory::InvalidSyntax,
+    symbol: None,
+    property: None,
+    replacement: None,
+    span: error.span().into(),
+  })?;
+  FamilyParser::new(stream).sources()
+}
+
+struct FamilyParser {
+  tokens: Cursor,
+}
+
+impl FamilyParser {
+  fn new(stream: TokenStream) -> Self {
+    Self {
+      tokens: Cursor::new(stream),
+    }
+  }
+
+  fn sources(mut self) -> Result<Vec<String>, Diagnostic> {
+    let start = self.tokens.span();
+    if !self.tokens.punct('@') {
+      return Err(self.error(DiagnosticCategory::InvalidDeclaration, None, start));
+    }
+    let kind = css_name(&mut self.tokens)
+      .ok_or_else(|| self.error(DiagnosticCategory::InvalidDeclaration, None, start))?;
+    if !matches!(
+      kind.to_ascii_lowercase().as_str(),
+      "background" | "nine-slice" | "text-image"
+    ) {
+      return Err(self.error(DiagnosticCategory::InvalidDeclaration, None, start));
+    }
+    let (common, _) = self.tokens.group(Delimiter::Brace).ok_or_else(|| {
+      self.error(
+        DiagnosticCategory::InvalidDeclaration,
+        None,
+        self.tokens.span(),
+      )
+    })?;
+    let common = Parser::new(TokenStream::new()).statements(common)?;
+    let mut sources = Vec::new();
+    while !self.tokens.is_empty() {
+      let (symbol, symbol_span) = self.tokens.ident().ok_or_else(|| {
+        self.error(
+          DiagnosticCategory::InvalidIdentifier,
+          None,
+          self.tokens.span(),
+        )
+      })?;
+      if !valid_rust_identifier(&symbol) {
+        return Err(self.error(
+          DiagnosticCategory::InvalidIdentifier,
+          Some(&symbol),
+          symbol_span,
+        ));
+      }
+      let (member, _) = self.tokens.group(Delimiter::Brace).ok_or_else(|| {
+        self.error(
+          DiagnosticCategory::InvalidDeclaration,
+          Some(&symbol),
+          self.tokens.span(),
+        )
+      })?;
+      let member = Parser::new(TokenStream::new()).statements(member)?;
+      let mut statements = common.clone();
+      for replacement in member {
+        if let Some(existing) = statements
+          .iter_mut()
+          .find(|statement| statement.name.key() == replacement.name.key())
+        {
+          *existing = replacement;
+        } else {
+          statements.push(replacement);
+        }
+      }
+      let body = statements
+        .iter()
+        .map(statement_source)
+        .collect::<Vec<_>>()
+        .join(" ");
+      sources.push(format!("@{kind} {symbol} {{ {body} }}"));
+    }
+    if sources.is_empty() {
+      return Err(self.error(DiagnosticCategory::InvalidDeclaration, None, start));
+    }
+    Ok(sources)
+  }
+
+  fn error(
+    &self,
+    category: DiagnosticCategory,
+    symbol: Option<&str>,
+    span: SourceSpan,
+  ) -> Diagnostic {
+    Diagnostic {
+      category,
+      symbol: symbol.map(str::to_owned),
+      property: None,
+      replacement: None,
+      span,
+    }
+  }
+}
+
+fn statement_source(statement: &RawStatement) -> String {
+  match &statement.name {
+    StatementName::Metadata(name) => format!("@{name} {};", statement.value),
+    StatementName::Property(name) => format!("{name}: {};", statement.value),
+  }
+}
+
 struct Parser {
   tokens: Cursor,
   symbol: Option<String>,

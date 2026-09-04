@@ -23,13 +23,13 @@ impl Component for ToggleHarness {
         ToggleControl::new()
           .label(self::label("VSync"))
           .checked(checked)
-          .on_change({
-            let set_checked = set_checked.clone();
-            move |checked| {
-              set_checked.set(checked);
-              set_changes.update(|count| count + 1);
-            }
-          }),
+          .on_change(
+            set_checked.callback().then(
+              set_changes
+                .update_callback(|count| count + 1)
+                .map_input(|_: bool| ()),
+            ),
+          ),
         ToggleControl::new()
           .label(self::label("Screenshake"))
           .checked(screenshake)

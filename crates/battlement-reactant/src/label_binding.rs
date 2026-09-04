@@ -106,4 +106,13 @@ impl ControlLabel {
       },
     )
   }
+
+  /// Builds and binds one behavior from this label's accessible name.
+  pub fn bind_with<G: 'static, S>(
+    self,
+    behavior: impl FnOnce(AccessibleName) -> AccessibleBehavior<G, S>,
+  ) -> (AssociatedLabel, AssociatedControl<G, S>) {
+    let name = self.name();
+    self.bind(behavior(name))
+  }
 }

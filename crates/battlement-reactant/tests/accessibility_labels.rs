@@ -304,30 +304,30 @@ fn fixture(game: &Game) -> impl Render + use<> {
   } else {
     "Enable sound"
   };
-  let label = label_binding::use_control_label();
-  let checkbox = accessibility::use_checkbox(ToggleOptions {
-    name: if game.explicit {
-      AccessibleName::text("Explicit sound")
-    } else {
-      label.name()
-    },
-    description: Some(AccessibleDescription::text("Controls game audio")),
-    checked: game.checked,
-    is_disabled: game.disabled,
-    on_change: |game: &mut Game, value| {
-      game.changes += 1;
-      if !game.reject {
-        game.checked = value;
-      }
-    },
+  let (label, checkbox) = label_binding::use_control_label().bind_with(|label_name| {
+    accessibility::use_checkbox(
+      ToggleOptions::new()
+        .name(if game.explicit {
+          AccessibleName::text("Explicit sound")
+        } else {
+          label_name
+        })
+        .description(AccessibleDescription::text("Controls game audio"))
+        .checked(game.checked)
+        .is_disabled(game.disabled)
+        .on_change(|game: &mut Game, value| {
+          game.changes += 1;
+          if !game.reject {
+            game.checked = value;
+          }
+        }),
+    )
   });
-  let (label, checkbox) = label.bind(checkbox);
-  let help = accessibility::use_button(ButtonOptions {
-    name: text("Help"),
-    description: None,
-    is_disabled: false,
-    on_press: |game: &mut Game| game.help += 1,
-  });
+  let help = accessibility::use_button(
+    ButtonOptions::new()
+      .name(text("Help"))
+      .on_press(|game: &mut Game| game.help += 1),
+  );
   View::new()
     .on_click_capture_event_with_model(|game: &mut Game, event| {
       if game.prevent {
@@ -358,17 +358,16 @@ fn disabled_slider_view(game: &DisabledSliderGame) -> impl Render + use<> {
 
 fn disabled_slider_fixture(_game: &DisabledSliderGame) -> impl Render + use<> {
   let label = label_binding::use_control_label();
-  let slider = accessibility::use_slider(SliderOptions {
-    name: label.name(),
-    description: None,
-    value: 0.5,
-    minimum: 0.0,
-    maximum: 1.0,
-    step: 0.1,
-    value_text: None,
-    is_disabled: true,
-    on_change: |game: &mut DisabledSliderGame, _value| game.changes += 1,
-  });
+  let slider = accessibility::use_slider(
+    SliderOptions::new()
+      .name(label.name())
+      .value(0.5)
+      .minimum(0.0)
+      .maximum(1.0)
+      .step(0.1)
+      .is_disabled(true)
+      .on_change(|game: &mut DisabledSliderGame, _value| game.changes += 1),
+  );
   let (label, slider) = label.bind(slider);
   View::new().child((
     View::new()

@@ -68,6 +68,53 @@ namespace Battlement.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator TwoStopGradientLayerUsesNativeGradientFill()
+        {
+            using var fixture = new Fixture();
+            var texture = new RenderTexture(128, 128, 24);
+            texture.Create();
+            PanelSettings panel = fixture.Owned.GetComponent<UIDocument>().panelSettings;
+            panel.targetTexture = texture;
+            try
+            {
+                fixture.Update(
+                    new UiView
+                    {
+                        Paint = new PaintStyle(
+                            Layers: new[]
+                            {
+                                new PaintLayer(
+                                    new PaintFill.Gradient(
+                                        new Gradient.Linear(
+                                            0,
+                                            new[]
+                                            {
+                                                new GradientStop(new Color(1, 0, 0, 1), 0),
+                                                new GradientStop(new Color(0, 0, 1, 1), 1),
+                                            }
+                                        )
+                                    )
+                                ),
+                            }
+                        ),
+                    }
+                );
+                for (int frame = 0; frame < 8; frame++)
+                {
+                    UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+                    yield return null;
+                }
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                panel.targetTexture = null;
+                texture.Release();
+                Object.DestroyImmediate(texture);
+            }
+        }
+
         [Test]
         public void StaticPaintChangesUnderFocusAndRestoresLatestOrdinaryFill()
         {
@@ -118,6 +165,67 @@ namespace Battlement.Tests
             );
         }
 
+        [Test]
+        public void PaintValidationRejectsPolygonsWithFewerThanThreeVertices()
+        {
+            IReadOnlyList<IReadOnlyList<UiLength>> polygon = new IReadOnlyList<UiLength>[]
+            {
+                new[] { UiLength.FromComponents(0, 0), UiLength.FromComponents(0, 0) },
+                new[] { UiLength.FromComponents(0, 100), UiLength.FromComponents(0, 100) },
+            };
+
+            Assert.Throws<BattlementUiException>(() =>
+                BattlementPaintProperties.Validate(
+                    Prop<PaintStyle>.Set(
+                        new PaintStyle(
+                            Background: new PaintFill.Color(new Color(1, 0, 0, 1)),
+                            ClipPolygon: polygon
+                        )
+                    )
+                )
+            );
+            Assert.Throws<BattlementUiException>(() =>
+                BattlementPaintProperties.Validate(
+                    Prop<PaintStyle>.Set(
+                        new PaintStyle(
+                            Layers: new[]
+                            {
+                                new PaintLayer(
+                                    new PaintFill.Color(new Color(1, 0, 0, 1)),
+                                    ClipPolygon: polygon
+                                ),
+                            }
+                        )
+                    )
+                )
+            );
+        }
+
+        [Test]
+        public void LayerOnlyPaintPreservesTheOrdinaryBackground()
+        {
+            using var fixture = new Fixture();
+            fixture.Update(
+                new UiView
+                {
+                    Style = new UiStyle(BackgroundColor: UiStyle.Set(new Color(0, 1, 0, 1))),
+                    Paint = new PaintStyle(
+                        Layers: new[]
+                        {
+                            new PaintLayer(
+                                new PaintFill.Color(new Color(1, 0, 0, 1)),
+                                BoundsInset: Insets(20)
+                            ),
+                        }
+                    ),
+                }
+            );
+
+            Assert.That(fixture.Target.style.backgroundColor.value, Is.EqualTo(UnityColor.green));
+            Assert.That(BattlementAdvancedPaint.TryGet(fixture.Target, out var paint), Is.True);
+            Assert.That(paint.HasStaticPaint, Is.True);
+        }
+
         private static void AssertColor(VisualElement target, double red, double green, double blue)
         {
             var color = (MotionValue.Color)
@@ -134,6 +242,15 @@ namespace Battlement.Tests
                 PaddingBottom: UiStyle.Set<UiLength>(new UiLength.Px(value)),
                 PaddingLeft: UiStyle.Set<UiLength>(new UiLength.Px(value))
             );
+
+        private static IReadOnlyList<UiLength> Insets(int value) =>
+            new[]
+            {
+                UiLength.FromComponents(value, 0),
+                UiLength.FromComponents(value, 0),
+                UiLength.FromComponents(value, 0),
+                UiLength.FromComponents(value, 0),
+            };
 
         private static Texture2D Read(RenderTexture texture)
         {

@@ -59,15 +59,10 @@ impl Component for Gallery {
             .navigation(selection.index == index)
             .reveal_generation(selection.generation)
             .name(format!("review-page-{}", index + 1))
-            .on_press({
-              let select = select.clone();
-              move || {
-                select.update(move |old| Selection {
-                  index,
-                  generation: old.generation + 1,
-                });
-              }
-            })
+            .on_press(select.update_callback(move |old| Selection {
+              index,
+              generation: old.generation + 1,
+            }))
             .key(index + 1)
         })),
       ReviewStage::new().child(self.pages.get(selection.index).map(|page| {
@@ -99,7 +94,7 @@ impl Component for Demonstration {
         .name("demonstration-count"),
       ReviewButton::new()
         .label("Change demonstration")
-        .on_press(move || set_count.update(|value| value + 1)),
+        .on_press(set_count.update_callback(|value| value + 1)),
     ))
   }
 }

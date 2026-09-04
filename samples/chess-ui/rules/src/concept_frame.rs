@@ -1,12 +1,12 @@
 //! Layered arcade bezel paint around the portrait content area.
 
 use crate::frame_styles;
-use battlement::{Color, Length, PickingMode, Position, Style};
+use battlement::{Color, Position, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
   host::View,
-  paint::{PaintFill, PaintStyle},
+  paint::{PaintLayer, PaintStyle},
   render::Render,
 };
 
@@ -28,10 +28,9 @@ struct FrameLayer {
 
 impl Component for ConceptFrame {
   fn render(&self) -> impl Render {
-    View::new()
+    View::decorative()
       .name("concept-frame")
-      .picking_mode(PickingMode::Ignore)
-      .style(frame_styles::cover())
+      .style(Style::new().absolute_fill())
       .child(
         FrameLayer::new()
           .inset(frame_styles::OUTER_INSET)
@@ -42,9 +41,8 @@ impl Component for ConceptFrame {
 
 impl Component for FrameLayer {
   fn render(&self) -> impl Render {
-    View::new()
+    View::decorative()
       .name("frame-layer")
-      .picking_mode(PickingMode::Ignore)
       .style(
         Style::new()
           .position(Position::Absolute)
@@ -62,21 +60,11 @@ impl Component for FrameLayer {
       .paint(
         PaintStyle::new()
           .clip_polygon(frame_styles::clip())
-          .background(PaintFill::Gradient(frame_styles::metal())),
-      )
-      .child(
-        View::new()
-          .name("frame-layer-inner")
-          .picking_mode(PickingMode::Ignore)
-          .style(
-            Style::new()
-              .width(Length::Percent(100.0))
-              .height(Length::Percent(100.0)),
-          )
-          .paint(
-            PaintStyle::new()
-              .clip_polygon(frame_styles::clip())
-              .background(PaintFill::Color(Color::hex(0x020713))),
+          .background(frame_styles::metal())
+          .layer(
+            PaintLayer::new(Color::hex(0x020713))
+              .bounds_inset(self.thickness)
+              .clip_polygon(frame_styles::clip()),
           ),
       )
   }

@@ -63,16 +63,44 @@ namespace Battlement.UI
             if (!value.IsSet)
                 return;
             PaintStyle paint = value.Value;
-            if (paint.Background is PaintFill.Color color)
-                ValidateColor(color.Value);
-            if (paint.Background is PaintFill.Gradient gradient)
-                ValidateGradient(gradient.Value);
+            if (paint.Background is not null)
+                ValidateFill(paint.Background);
             if (paint.PaintFilter is not null && paint.Background is null)
                 throw Invalid("Paint filters require an owned background.");
+            ValidateFilters(paint.PaintFilter);
+            ValidatePolygon(paint.ClipPolygon);
+            ValidateInsets(paint.ClipInset, "Paint clip insets require four values.");
+            foreach (Shadow shadow in paint.BoxShadow ?? Array.Empty<Shadow>())
+                ValidateShadow(shadow);
+            foreach (PaintLayer layer in paint.Layers ?? Array.Empty<PaintLayer>())
+                ValidateLayer(layer);
+        }
+
+        private static void ValidateLayer(PaintLayer layer)
+        {
+            ValidateFill(layer.Background);
+            ValidateFilters(layer.PaintFilter);
+            ValidatePolygon(layer.ClipPolygon);
+            ValidateInsets(layer.ClipInset, "Paint clip insets require four values.");
+            ValidateInsets(layer.BoundsInset, "Paint bounds insets require four values.");
+            foreach (Shadow shadow in layer.BoxShadow ?? Array.Empty<Shadow>())
+                ValidateShadow(shadow);
+        }
+
+        private static void ValidateFill(PaintFill fill)
+        {
+            if (fill is PaintFill.Color color)
+                ValidateColor(color.Value);
+            else if (fill is PaintFill.Gradient gradient)
+                ValidateGradient(gradient.Value);
+            else
+                throw Invalid("Paint requires a known background fill.");
+        }
+
+        private static void ValidateFilters(IReadOnlyList<UiFilterFunction>? filters)
+        {
             int dropShadows = 0;
-            foreach (
-                UiFilterFunction filter in paint.PaintFilter ?? Array.Empty<UiFilterFunction>()
-            )
+            foreach (UiFilterFunction filter in filters ?? Array.Empty<UiFilterFunction>())
             {
                 if (filter is UiFilterFunction.Brightness brightness)
                 {
@@ -92,28 +120,32 @@ namespace Battlement.UI
                 else
                     throw Invalid("Paint filter received an unsupported operation.");
             }
-            if (paint.ClipPolygon is not null)
+        }
+
+        private static void ValidatePolygon(IReadOnlyList<IReadOnlyList<UiLength>>? polygon)
+        {
+            if (polygon is null)
+                return;
+            if (polygon.Count < 3)
+                throw Invalid("Paint clip polygon must contain at least three vertices.");
+            foreach (IReadOnlyList<UiLength> point in polygon)
             {
-                if (paint.ClipPolygon.Count == 0)
-                    throw Invalid("Paint clip polygon cannot be empty.");
-                foreach (IReadOnlyList<UiLength> point in paint.ClipPolygon)
-                {
-                    if (point.Count != 2 || !Finite(point[0].Pixels, point[0].Percentage))
-                        throw Invalid("Paint clip polygon must contain finite two-axis vertices.");
-                    if (!Finite(point[1].Pixels, point[1].Percentage))
-                        throw Invalid("Paint clip polygon must contain finite two-axis vertices.");
-                }
+                if (point.Count != 2 || !Finite(point[0].Pixels, point[0].Percentage))
+                    throw Invalid("Paint clip polygon must contain finite two-axis vertices.");
+                if (!Finite(point[1].Pixels, point[1].Percentage))
+                    throw Invalid("Paint clip polygon must contain finite two-axis vertices.");
             }
-            if (paint.ClipInset is not null)
-            {
-                if (paint.ClipInset.Count != 4)
-                    throw Invalid("Paint clip insets require four values.");
-                foreach (UiLength inset in paint.ClipInset)
-                    if (!Finite(inset.Pixels, inset.Percentage))
-                        throw Invalid("Paint clip insets must be finite.");
-            }
-            foreach (Shadow shadow in paint.BoxShadow ?? Array.Empty<Shadow>())
-                ValidateShadow(shadow);
+        }
+
+        private static void ValidateInsets(IReadOnlyList<UiLength>? insets, string message)
+        {
+            if (insets is null)
+                return;
+            if (insets.Count != 4)
+                throw Invalid(message);
+            foreach (UiLength inset in insets)
+                if (!Finite(inset.Pixels, inset.Percentage))
+                    throw Invalid("Paint insets must be finite.");
         }
 
         private static void ValidateGradient(Gradient value)

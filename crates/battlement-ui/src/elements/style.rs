@@ -1670,6 +1670,54 @@ impl Style {
     Self::default()
   }
 
+  /// Sets width and height together.
+  #[must_use]
+  pub fn size(
+    self,
+    width: impl IntoStyleProp<LengthOrAuto>,
+    height: impl IntoStyleProp<LengthOrAuto>,
+  ) -> Self {
+    self.width(width).height(height)
+  }
+
+  /// Fills the parent's content box in both dimensions.
+  #[must_use]
+  pub fn full_size(self) -> Self {
+    self.size(Length::percent(100.0), Length::percent(100.0))
+  }
+
+  /// Pins an absolutely positioned element to every parent edge.
+  #[must_use]
+  pub fn absolute_fill(self) -> Self {
+    self
+      .position(Position::Absolute)
+      .top(0)
+      .right(0)
+      .bottom(0)
+      .left(0)
+  }
+
+  /// Sets CSS-order offsets on all four positioned edges.
+  #[must_use]
+  pub fn inset(mut self, value: impl IntoStyleSides<LengthOrAuto>) -> Self {
+    [self.top, self.right, self.bottom, self.left] = value.into_style_sides().map(Prop::Set);
+    self
+  }
+
+  /// Centers children on both flex axes.
+  #[must_use]
+  pub fn center_content(self) -> Self {
+    self
+      .align_items(Align::Center)
+      .justify_content(Justify::Center)
+  }
+
+  /// Sets a vertical-only paint translation.
+  #[must_use]
+  pub fn translate_y(self, value: impl Into<Length>) -> Self {
+    self.translate(Translate::two_dimensional(Length::px(0.0), value.into()))
+  }
+
   /// Overlays populated declarations from `value`, preserving absent fields.
   #[must_use]
   pub fn merge(mut self, value: Self) -> Self {

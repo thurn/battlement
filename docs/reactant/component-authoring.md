@@ -150,6 +150,35 @@ Reactant does not require every component to implement `Clone` or `PartialEq`.
 Those bounds belong only to APIs that copy or compare a value, such as state,
 dependencies, context values, and root view factories that choose to clone data.
 
+Components that store render props use `Child` or `Children` instead of adding a
+generic parameter for every slot. Both wrappers accept any `Render` value through
+a required builder `into` field and are cloneable. Call `.render()` when placing
+the slot in the component tree.
+
+```rust
+#[builder]
+struct Card {
+    #[builder(required, into)]
+    title: Child,
+    #[builder(required, into)]
+    children: Children,
+}
+
+impl Component for Card {
+    fn render(&self) -> impl Render {
+        View::new().child((self.title.render(), self.children.render()))
+    }
+}
+
+Card::new()
+    .title(Label::new("Inventory"))
+    .children((ItemRow::new(), ItemRow::new()))
+```
+
+`Child` and `Children` intentionally do not implement `Render` themselves. This
+keeps `#[builder(required, into)]` unambiguous; their `.render()` methods return a
+cloneable erased node that does implement `Render`.
+
 ## Memoized component boundaries
 
 `memo` opts one component into prop comparison and subtree bailout.

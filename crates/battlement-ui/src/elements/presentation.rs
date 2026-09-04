@@ -12,6 +12,18 @@ pub enum PaintFill {
   Gradient(Gradient),
 }
 
+impl From<Color> for PaintFill {
+  fn from(value: Color) -> Self {
+    Self::Color(value)
+  }
+}
+
+impl From<Gradient> for PaintFill {
+  fn from(value: Gradient) -> Self {
+    Self::Gradient(value)
+  }
+}
+
 /// Static decorative paint in element border-box coordinates.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PaintStyle {
@@ -20,6 +32,19 @@ pub struct PaintStyle {
   clip_polygon: Option<Vec<[Length; 2]>>,
   box_shadow: Option<Vec<Shadow>>,
   clip_inset: Option<[Length; 4]>,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  layers: Vec<PaintLayer>,
+}
+
+/// One additional static paint layer drawn over a host's primary paint.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PaintLayer {
+  background: PaintFill,
+  paint_filter: Option<FilterList>,
+  clip_polygon: Option<Vec<[Length; 2]>>,
+  box_shadow: Option<Vec<Shadow>>,
+  clip_inset: Option<[Length; 4]>,
+  bounds_inset: Option<[Length; 4]>,
 }
 
 impl PaintStyle {
@@ -32,13 +57,20 @@ impl PaintStyle {
       clip_polygon: None,
       box_shadow: None,
       clip_inset: None,
+      layers: Vec::new(),
     }
+  }
+
+  /// Creates paint with one background fill.
+  #[must_use]
+  pub fn fill(value: impl Into<PaintFill>) -> Self {
+    Self::new().background(value)
   }
 
   /// Sets the background fill.
   #[must_use]
-  pub fn background(mut self, value: PaintFill) -> Self {
-    self.background = Some(value);
+  pub fn background(mut self, value: impl Into<PaintFill>) -> Self {
+    self.background = Some(value.into());
     self
   }
 
@@ -65,8 +97,22 @@ impl PaintStyle {
 
   /// Clips the painted surface to border-box insets.
   #[must_use]
-  pub fn clip_inset(mut self, value: [Length; 4]) -> Self {
-    self.clip_inset = Some(value);
+  pub fn clip_inset(mut self, value: impl IntoPaintInsets) -> Self {
+    self.clip_inset = Some(value.into_paint_insets());
+    self
+  }
+
+  /// Appends one static foreground layer in authored order.
+  #[must_use]
+  pub fn layer(mut self, value: PaintLayer) -> Self {
+    self.layers.push(value);
+    self
+  }
+
+  /// Appends static foreground layers in authored order.
+  #[must_use]
+  pub fn layers(mut self, values: impl IntoIterator<Item = PaintLayer>) -> Self {
+    self.layers.extend(values);
     self
   }
 
@@ -100,6 +146,12 @@ impl PaintStyle {
     self.clip_inset.as_ref()
   }
 
+  /// Returns the additional static foreground layers.
+  #[must_use]
+  pub fn paint_layers(&self) -> &[PaintLayer] {
+    &self.layers
+  }
+
   pub(crate) fn is_valid(&self) -> bool {
     let background_valid = self.background.as_ref().is_none_or(|value| match value {
       PaintFill::Color(value) => [value.r, value.g, value.b, value.a]
@@ -108,7 +160,7 @@ impl PaintStyle {
       PaintFill::Gradient(value) => gradient_is_valid(value),
     });
     let clip_valid = self.clip_polygon.as_ref().is_none_or(|value| {
-      !value.is_empty() && value.iter().flatten().all(|value| value.is_finite())
+      value.len() >= 3 && value.iter().flatten().all(|value| value.is_finite())
     });
     let filters_valid = self.paint_filter.as_ref().is_none_or(|filters| {
       let mut drop_shadows = 0;
@@ -136,12 +188,138 @@ impl PaintStyle {
     {
       return false;
     }
-    self
-      .box_shadow
-      .as_ref()
-      .is_none_or(|values| values.iter().all(|value| shadow_is_finite(*value)))
+    let layers_valid = self.layers.iter().all(PaintLayer::is_valid);
+    layers_valid
+      && self
+        .box_shadow
+        .as_ref()
+        .is_none_or(|values| values.iter().all(|value| shadow_is_finite(*value)))
   }
 }
+
+impl PaintLayer {
+  /// Creates one layer with its required fill.
+  #[must_use]
+  pub fn new(background: impl Into<PaintFill>) -> Self {
+    Self {
+      background: background.into(),
+      paint_filter: None,
+      clip_polygon: None,
+      box_shadow: None,
+      clip_inset: None,
+      bounds_inset: None,
+    }
+  }
+
+  /// Filters this layer's fill.
+  #[must_use]
+  pub fn paint_filter(mut self, value: impl Into<FilterList>) -> Self {
+    self.paint_filter = Some(value.into());
+    self
+  }
+
+  /// Clips this layer to a polygon in its inset bounds.
+  #[must_use]
+  pub fn clip_polygon(mut self, value: impl IntoIterator<Item = [Length; 2]>) -> Self {
+    self.clip_polygon = Some(value.into_iter().collect());
+    self
+  }
+
+  /// Sets outer or inset shadows for this layer.
+  #[must_use]
+  pub fn box_shadow(mut self, value: impl IntoIterator<Item = Shadow>) -> Self {
+    self.box_shadow = Some(value.into_iter().collect());
+    self
+  }
+
+  /// Insets this layer's rounded clip without changing its coordinate space.
+  #[must_use]
+  pub fn clip_inset(mut self, value: impl IntoPaintInsets) -> Self {
+    self.clip_inset = Some(value.into_paint_insets());
+    self
+  }
+
+  /// Insets the layer's coordinate space inside the host border box.
+  #[must_use]
+  pub fn bounds_inset(mut self, value: impl IntoPaintInsets) -> Self {
+    self.bounds_inset = Some(value.into_paint_insets());
+    self
+  }
+
+  fn is_valid(&self) -> bool {
+    let background_valid = match &self.background {
+      PaintFill::Color(value) => [value.r, value.g, value.b, value.a]
+        .into_iter()
+        .all(f64::is_finite),
+      PaintFill::Gradient(value) => gradient_is_valid(value),
+    };
+    let polygon_valid = self.clip_polygon.as_ref().is_none_or(|value| {
+      value.len() >= 3 && value.iter().flatten().all(|value| value.is_finite())
+    });
+    let filters_valid = self.paint_filter.as_ref().is_none_or(|filters| {
+      let mut drop_shadows = 0;
+      filters.as_slice().iter().all(|filter| match filter {
+        FilterFunction::Brightness(value) => value.is_finite() && *value >= 0.0,
+        FilterFunction::DropShadow(value) => {
+          drop_shadows += 1;
+          !value.inset && shadow_is_finite(*value) && drop_shadows == 1
+        }
+        _ => false,
+      })
+    });
+    let insets_valid = self
+      .clip_inset
+      .iter()
+      .chain(self.bounds_inset.iter())
+      .flatten()
+      .all(|value| value.is_finite());
+    let shadows_valid = self
+      .box_shadow
+      .as_ref()
+      .is_none_or(|values| values.iter().all(|value| shadow_is_finite(*value)));
+    background_valid && polygon_valid && filters_valid && insets_valid && shadows_valid
+  }
+}
+
+/// Converts CSS-order shorthand values to paint insets.
+pub trait IntoPaintInsets {
+  /// Expands the shorthand to top, right, bottom, and left lengths.
+  fn into_paint_insets(self) -> [Length; 4];
+}
+
+macro_rules! paint_insets {
+  ($source:ty) => {
+    impl IntoPaintInsets for $source {
+      fn into_paint_insets(self) -> [Length; 4] {
+        let value = self.into();
+        [value; 4]
+      }
+    }
+
+    impl IntoPaintInsets for ($source, $source) {
+      fn into_paint_insets(self) -> [Length; 4] {
+        [self.0.into(), self.1.into(), self.0.into(), self.1.into()]
+      }
+    }
+
+    impl IntoPaintInsets for ($source, $source, $source) {
+      fn into_paint_insets(self) -> [Length; 4] {
+        [self.0.into(), self.1.into(), self.2.into(), self.1.into()]
+      }
+    }
+
+    impl IntoPaintInsets for ($source, $source, $source, $source) {
+      fn into_paint_insets(self) -> [Length; 4] {
+        [self.0.into(), self.1.into(), self.2.into(), self.3.into()]
+      }
+    }
+  };
+}
+
+paint_insets!(i32);
+paint_insets!(u32);
+paint_insets!(f32);
+paint_insets!(Length);
 
 /// One typed operation in an authored transform list.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

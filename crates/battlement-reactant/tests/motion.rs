@@ -39,12 +39,11 @@ struct ButtonInteractionContract;
 
 impl Component for ButtonInteractionContract {
   fn render(&self) -> impl Render {
-    let behavior = use_button(ButtonOptions {
-      name: semantics::text("Action"),
-      description: None,
-      is_disabled: false,
-      on_press: || {},
-    });
+    let behavior = use_button(
+      ButtonOptions::new()
+        .name(semantics::text("Action"))
+        .on_press(|| {}),
+    );
     let state = behavior.state;
     Button::new(format!("focus-visible={}", state.focus_visible))
       .behavior(behavior)

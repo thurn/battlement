@@ -25,6 +25,19 @@ asset_generator::generate! {
   }
 }
 
+asset_generator::generate_family! {
+  @text-image {
+    @canvas 48px 18px;
+    @font-file unity("Assets/title.ttf");
+    font-size: 12px;
+    color: transparent;
+    background: linear-gradient(red, blue);
+    background-clip: text;
+  }
+  FAMILY_READY { content: "Ready"; }
+  FAMILY_WAITING { content: "Waiting"; }
+}
+
 asset_generator::generate! {
   @background PANEL_DUPLICATE {
     @canvas 20px 10px;
@@ -105,10 +118,15 @@ fn macro_emits_copyable_typed_handles_and_linked_registrations() {
   );
   assert_eq!(FRAME.slice_insets(), LogicalInsets::new(2.0, 3.0, 4.0, 5.0));
   assert_eq!(TITLE.canvas_size(), LogicalSize::new(80.0, 24.0));
+  assert_eq!(FAMILY_READY.canvas_size(), LogicalSize::new(48.0, 18.0));
+  assert_ne!(
+    FAMILY_READY.texture_address(),
+    FAMILY_WAITING.texture_address()
+  );
 
   let mut registrations = asset_generator::registrations().collect::<Vec<_>>();
   registrations.sort_by_key(|value| value.address);
-  assert_eq!(registrations.len(), 4);
+  assert_eq!(registrations.len(), 6);
   assert_eq!(PANEL.texture_address(), PANEL_DUPLICATE.texture_address());
   assert_eq!(
     registrations
@@ -186,6 +204,8 @@ fn generated_image_lowers_to_exactly_one_native_image_host() {
     PANEL.texture_address(),
     FRAME.texture_address(),
     TITLE.texture_address(),
+    FAMILY_READY.texture_address(),
+    FAMILY_WAITING.texture_address(),
   ]);
   let client = FakeClient::connect(
     SnapshotEngine {
@@ -365,6 +385,8 @@ fn expected_prepared_assets() -> Vec<PreparedAsset> {
     PANEL.texture_address(),
     FRAME.texture_address(),
     TITLE.texture_address(),
+    FAMILY_READY.texture_address(),
+    FAMILY_WAITING.texture_address(),
   ];
   addresses.sort_by(|left, right| left.as_str().cmp(right.as_str()));
   let mut prepared = vec![PreparedAsset::Scene("test/scene".into())];
@@ -379,6 +401,8 @@ fn catalog() -> FakeAssetCatalog {
     PANEL.texture_address(),
     FRAME.texture_address(),
     TITLE.texture_address(),
+    FAMILY_READY.texture_address(),
+    FAMILY_WAITING.texture_address(),
   ]);
   catalog
 }

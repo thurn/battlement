@@ -4,13 +4,14 @@
 #![warn(missing_docs)]
 
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 
 /// Declares one generated Reactant asset handle and linked registration.
 #[proc_macro]
 pub fn generate(input: TokenStream) -> TokenStream {
   match battlement_reactant_asset_syntax::parse(&input.to_string()) {
-    Ok(request) => self::expand(request),
+    Ok(request) => self::expand(request).into(),
     Err(error) => {
       let message = error.to_string();
       quote!(compile_error!(#message);).into()
@@ -18,7 +19,30 @@ pub fn generate(input: TokenStream) -> TokenStream {
   }
 }
 
-fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStream {
+/// Declares assets that share one common recipe with per-asset overrides.
+#[proc_macro]
+pub fn generate_family(input: TokenStream) -> TokenStream {
+  let result =
+    battlement_reactant_asset_syntax::expand_family(&input.to_string()).and_then(|sources| {
+      sources
+        .into_iter()
+        .map(|source| battlement_reactant_asset_syntax::parse(&source))
+        .collect::<Result<Vec<_>, _>>()
+    });
+  match result {
+    Ok(requests) => requests
+      .into_iter()
+      .map(self::expand)
+      .collect::<TokenStream2>()
+      .into(),
+    Err(error) => {
+      let message = error.to_string();
+      quote!(compile_error!(#message);).into()
+    }
+  }
+}
+
+fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStream2 {
   use battlement_reactant_asset_syntax::DeclarationKind;
 
   let symbol = format_ident!("{}", request.symbol);
@@ -113,7 +137,6 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
       )
     );
   }
-  .into()
 }
 
 fn hex(bytes: &[u8]) -> String {

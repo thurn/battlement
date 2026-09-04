@@ -33,10 +33,10 @@
 use std::{any::TypeId, boxed::Box as Boxed, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
-  GridItem, OverlayPlacement, Prop, StackItem, Sticky, Style, UiBox, UiButton, UiDropdownField,
-  UiFlex, UiGrid, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow, UiProgressBar,
-  UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
-  UiSliderInt, UiStack, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
+  GridItem, OverlayPlacement, PickingMode, Prop, StackItem, Sticky, Style, UiBox, UiButton,
+  UiDropdownField, UiFlex, UiGrid, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow,
+  UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller,
+  UiSlider, UiSliderInt, UiStack, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
   UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
 
@@ -1040,6 +1040,14 @@ text_constructor!(
   Button => UiButton,
   Tab => UiTab,
 );
+
+impl View {
+  /// Creates a visual layer that does not participate in pointer picking.
+  #[must_use]
+  pub fn decorative() -> Self {
+    Self::new().picking_mode(PickingMode::Ignore)
+  }
+}
 
 impl RepeatButton {
   /// Creates a repeat button with its initial timing contract.

@@ -49,12 +49,23 @@ namespace Battlement
         public sealed record Gradient(Battlement.Gradient Value) : PaintFill;
     }
 
+    /// <summary>One additional static paint layer drawn over primary paint.</summary>
+    public sealed record PaintLayer(
+        PaintFill Background,
+        IReadOnlyList<UiFilterFunction>? PaintFilter = null,
+        IReadOnlyList<IReadOnlyList<UiLength>>? ClipPolygon = null,
+        IReadOnlyList<Shadow>? BoxShadow = null,
+        IReadOnlyList<UiLength>? ClipInset = null,
+        IReadOnlyList<UiLength>? BoundsInset = null
+    );
+
     /// <summary>Static decorative paint in element border-box coordinates.</summary>
     public sealed record PaintStyle(
         PaintFill? Background = null,
         IReadOnlyList<UiFilterFunction>? PaintFilter = null,
         IReadOnlyList<IReadOnlyList<UiLength>>? ClipPolygon = null,
         IReadOnlyList<Shadow>? BoxShadow = null,
-        IReadOnlyList<UiLength>? ClipInset = null
+        IReadOnlyList<UiLength>? ClipInset = null,
+        IReadOnlyList<PaintLayer>? Layers = null
     );
 }

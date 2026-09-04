@@ -38,14 +38,16 @@ impl Component for Fixture {
     let title = element_ref::use_element_ref();
     let value = element_ref::use_element_ref();
     let selected = if self.0.changed { " Low " } else { " High " };
-    let behavior = accessibility_popup::use_popup_button(PopupButtonOptions {
-      name: AccessibleName::LabelledBy(vec![title.clone(), value.clone()]),
-      description: None,
-      popup: PopupKind::ListBox,
-      expanded: self.0.expanded,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.presses += 1,
-    });
+    let behavior = accessibility_popup::use_popup_button(
+      PopupButtonOptions::new()
+        .name(AccessibleName::LabelledBy(vec![
+          title.clone(),
+          value.clone(),
+        ]))
+        .popup(PopupKind::ListBox)
+        .expanded(self.0.expanded)
+        .on_press(|game: &mut Game| game.presses += 1),
+    );
     View::new().child((
       Label::new(" Quality ").element_ref(title).semantic(
         SemanticProps::new(SemanticRole::StaticText)
@@ -126,14 +128,13 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
     runtime.register_root(
       UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4()),
       move |_game: &Game| {
-        let mut behavior = accessibility_popup::use_popup_button(PopupButtonOptions {
-          name: AccessibleName::text("Options"),
-          description: None,
-          popup: PopupKind::ListBox,
-          expanded: false,
-          is_disabled: false,
-          on_press: |_: &mut Game| {},
-        });
+        let mut behavior = accessibility_popup::use_popup_button(
+          PopupButtonOptions::new()
+            .name(AccessibleName::text("Options"))
+            .popup(PopupKind::ListBox)
+            .expanded(false)
+            .on_press(|_: &mut Game| {}),
+        );
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;

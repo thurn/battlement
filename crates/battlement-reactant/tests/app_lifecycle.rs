@@ -51,13 +51,12 @@ impl Component for Mixed {
   fn render(&self) -> impl Render {
     let (enabled, set) = use_state(false);
     let input = use_element_ref();
-    let toggle = use_checkbox(ToggleOptions {
-      name: text("Enabled"),
-      description: None,
-      checked: enabled,
-      is_disabled: false,
-      on_change: move |value| set.set(value),
-    });
+    let toggle = use_checkbox(
+      ToggleOptions::new()
+        .name(text("Enabled"))
+        .checked(enabled)
+        .on_change(move |value| set.set(value)),
+    );
     let label = toggle.label_interaction(&input);
     View::new().child((
       Label::new(format!("{} {enabled}", self.value)).name("value"),

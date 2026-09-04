@@ -151,12 +151,12 @@ impl Component for ReviewButton {
       .name(self.name.clone())
       .element_ref(reference)
       .behavior(
-        accessibility::use_button(ButtonOptions {
-          name: semantics::text(self.label.clone()),
-          description: None,
-          is_disabled: self.disabled,
-          on_press: self.on_press.clone(),
-        })
+        accessibility::use_button(
+          ButtonOptions::new()
+            .name(semantics::text(self.label.clone()))
+            .is_disabled(self.disabled)
+            .on_press(self.on_press.clone()),
+        )
         .map_semantic(|semantic| semantic.current_page(self.kind.is_current())),
       )
       .style(self.kind.style())

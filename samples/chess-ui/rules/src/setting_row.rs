@@ -4,14 +4,13 @@ use battlement::{
   Align, Color, FlexDirection, GridTrack, Length, LengthUnits, Position, Scale, Style,
   TransformOrigin, UiFontAddress,
 };
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{Child, Children, builder};
 use battlement_reactant::{
   component::Component,
   host::{Grid, View},
   label_binding::AssociatedLabel,
   render::Render,
 };
-use std::rc::Rc;
 
 const LABEL_FONT_SIZE: f32 = 61.0;
 
@@ -23,20 +22,20 @@ pub const DISPLAY_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fon
 
 /// A display label and its content in fixed and flexible columns.
 #[builder]
-pub struct SettingRow<L, R> {
+pub struct SettingRow {
   #[builder(required, into)]
-  label: Rc<L>,
+  label: Child,
   /// Associates the visible label with its control behavior.
   associated_label: Option<AssociatedLabel>,
   #[builder(required, into)]
-  children: Rc<R>,
+  children: Children,
   /// Omits the separator above the first row.
   first: bool,
   /// Sets the minimum row height in portrait design pixels.
   row_height: Option<f32>,
 }
 
-impl<L: Render, R: Render> Component for SettingRow<L, R> {
+impl Component for SettingRow {
   fn render(&self) -> impl Render {
     Grid::new()
       .name("setting-row")
@@ -70,8 +69,8 @@ impl<L: Render, R: Render> Component for SettingRow<L, R> {
               )),
           )
           .associated_label(self.associated_label.clone())
-          .child(self.label.clone()),
-        self.children.clone(),
+          .child(self.label.render()),
+        self.children.render(),
       ))
   }
 }

@@ -37,6 +37,14 @@ pub fn parse(source: &str) -> Result<AssetRequest, Diagnostic> {
   }
 }
 
+/// Expands one asset-family declaration into complete ordinary declarations.
+///
+/// Statements in each named member replace common statements with the same
+/// name and append member-only statements in authored order.
+pub fn expand_family(source: &str) -> Result<Vec<String>, Diagnostic> {
+  parser::expand_family(source)
+}
+
 /// Classifies a complete declaration against Battlement's native UI surface.
 pub fn classify_native_support(source: &str) -> Result<NativeSupport, Diagnostic> {
   metadata::validate(parser::parse(source)?).map(|(_, support)| support)

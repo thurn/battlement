@@ -1,7 +1,7 @@
 //! The title, explanation, and example content of one gallery visit.
 
 use crate::review_text::{ReviewText, ReviewTextKind};
-use battlement::{LengthUnits, Style};
+use battlement::Style;
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   accessibility_collections,
@@ -43,7 +43,7 @@ impl Component for ReviewPage {
   fn render(&self) -> impl Render {
     View::new()
       .name("page-content")
-      .style(Style::new().width(100.pct()).height(100.pct()).padding(64))
+      .style(Style::new().full_size().padding(64))
       .semantic(accessibility_collections::use_region(semantics::text(
         self.title.clone(),
       )))

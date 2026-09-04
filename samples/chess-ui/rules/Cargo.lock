@@ -138,6 +138,7 @@ name = "battlement-reactant-asset-macros"
 version = "0.1.0"
 dependencies = [
  "battlement-reactant-asset-syntax",
+ "proc-macro2",
  "quote",
 ]
 

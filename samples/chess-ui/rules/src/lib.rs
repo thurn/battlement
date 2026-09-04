@@ -42,8 +42,6 @@ pub mod caret;
 
 pub mod check_mark;
 
-pub mod clipped_inset;
-
 pub mod concept_frame;
 
 pub mod engine;

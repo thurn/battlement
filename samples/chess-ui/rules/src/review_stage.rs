@@ -5,20 +5,19 @@ use crate::{
   review_theme,
 };
 use battlement::Overflow;
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{Child, builder};
 use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
-use std::rc::Rc;
 
 /// Centers a portrait review page in the space beside navigation.
 /// The shared fit component owns measurement, scaling, and centering.
 #[builder]
-pub struct ReviewStage<R> {
+pub struct ReviewStage {
   /// Sets content authored at the portrait design size.
   #[builder(required, into)]
-  child: Rc<R>,
+  child: Child,
 }
 
-impl<R: Render> Component for ReviewStage<R> {
+impl Component for ReviewStage {
   fn render(&self) -> impl Render {
     ScaleToFit::new(PORTRAIT_DESIGN_WIDTH, PORTRAIT_DESIGN_HEIGHT)
       .bounds_name("design-stage-bounds")
@@ -28,6 +27,6 @@ impl<R: Render> Component for ReviewStage<R> {
           .overflow(Overflow::Hidden)
           .background_color(review_theme::SURFACE)
       })
-      .child(self.child.clone())
+      .child(self.child.render())
   }
 }

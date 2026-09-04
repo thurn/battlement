@@ -37,10 +37,11 @@ impl Component for ActionHarness {
               .width(760),
           )
           .child((
-            self::slot(ActionButton::new().children(self::text("PLAY")).on_click({
-              let set_clicks = set_clicks.clone();
-              move || set_clicks.update(|count| count + 1)
-            })),
+            self::slot(
+              ActionButton::new()
+                .children(self::text("PLAY"))
+                .on_click(set_clicks.update_callback(|count| count + 1)),
+            ),
             self::slot(
               ActionButton::new()
                 .children(
@@ -49,10 +50,7 @@ impl Component for ActionHarness {
                     .gap(14.0)
                     .child((self::text("COMPOSED"), self::text("LABEL"))),
                 )
-                .on_click({
-                  let set_clicks = set_clicks.clone();
-                  move || set_clicks.update(|count| count + 1)
-                }),
+                .on_click(set_clicks.update_callback(|count| count + 1)),
             ),
             self::slot(ActionButton::new().children(self::text("ABOUT"))),
             self::slot(
@@ -69,7 +67,7 @@ impl Component for ActionHarness {
   }
 }
 
-fn slot<R: Render>(button: ActionButton<R>) -> impl Render {
+fn slot(button: ActionButton) -> impl Render {
   View::new()
     .style(Style::new().width(760).height(140).margin_bottom(28))
     .child(button)

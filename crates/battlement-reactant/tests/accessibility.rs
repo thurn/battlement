@@ -31,12 +31,11 @@ struct NameSourceFixture;
 impl Component for NameSourceFixture {
   fn render(&self) -> impl Render {
     let source = use_element_ref();
-    let button = use_button(ButtonOptions {
-      name: AccessibleName::LabelledBy(vec![source.clone()]),
-      description: None,
-      is_disabled: false,
-      on_press: |_game: &mut Game| {},
-    });
+    let button = use_button(
+      ButtonOptions::new()
+        .name(AccessibleName::LabelledBy(vec![source.clone()]))
+        .on_press(|_game: &mut Game| {}),
+    );
     View::new().child((
       Label::new("Account settings").element_ref(source).semantic(
         SemanticProps::new(SemanticRole::StaticText)
@@ -76,12 +75,14 @@ impl Component for MultiNameFixture {
   fn render(&self) -> impl Render {
     let title = use_element_ref();
     let value = use_element_ref();
-    let behavior = use_button(ButtonOptions {
-      name: AccessibleName::LabelledBy(vec![title.clone(), value.clone()]),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.presses += 1,
-    });
+    let behavior = use_button(
+      ButtonOptions::new()
+        .name(AccessibleName::LabelledBy(vec![
+          title.clone(),
+          value.clone(),
+        ]))
+        .on_press(|game: &mut Game| game.presses += 1),
+    );
     View::new().child((
       Label::new("Quality").element_ref(title).semantic(
         SemanticProps::new(SemanticRole::StaticText)
@@ -101,23 +102,21 @@ impl Component for MultiNameFixture {
 
 impl Component for ActionFixture {
   fn render(&self) -> impl Render {
-    View::new().behavior(use_button(ButtonOptions {
-      name: text("Save changes"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.presses += 1,
-    }))
+    View::new().behavior(use_button(
+      ButtonOptions::new()
+        .name(text("Save changes"))
+        .on_press(|game: &mut Game| game.presses += 1),
+    ))
   }
 }
 
 impl Component for ContentsFixture {
   fn render(&self) -> impl Render {
-    let button = use_button(ButtonOptions {
-      name: AccessibleName::Contents,
-      description: None,
-      is_disabled: false,
-      on_press: |_game: &mut Game| {},
-    });
+    let button = use_button(
+      ButtonOptions::new()
+        .name(AccessibleName::Contents)
+        .on_press(|_game: &mut Game| {}),
+    );
     View::new()
       .semantic(SemanticProps::new(SemanticRole::Group))
       .child((View::new().behavior(button).child((
@@ -454,19 +453,17 @@ fn invalid_collection_relationships_and_page_states_fail_before_commit() {
 
 impl Component for CollectionFixture {
   fn render(&self) -> impl Render {
-    let mut page = use_button(ButtonOptions {
-      name: text("Gallery shell"),
-      description: None,
-      is_disabled: false,
-      on_press: |_game: &mut Game| {},
-    });
+    let mut page = use_button(
+      ButtonOptions::new()
+        .name(text("Gallery shell"))
+        .on_press(|_game: &mut Game| {}),
+    );
     page.semantic.state.current = Some(CurrentPage::Page);
-    let link = collections::use_link(ButtonOptions {
-      name: text("Privacy policy"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.presses += 1,
-    });
+    let link = collections::use_link(
+      ButtonOptions::new()
+        .name(text("Privacy policy"))
+        .on_press(|game: &mut Game| game.presses += 1),
+    );
     View::new().child((
       View::new()
         .semantic(collections::use_navigation(text("Review pages")))
@@ -481,12 +478,13 @@ impl Component for CollectionFixture {
                 .into_iter()
                 .enumerate()
                 .map(|(index, name)| {
-                  let option = collections::use_option(ChoiceOptions {
-                    name: text(name),
-                    selected: self.selection == index,
-                    is_disabled: index == 2,
-                    on_select: move |game: &mut Game| game.selection = index,
-                  });
+                  let option = collections::use_option(
+                    ChoiceOptions::new()
+                      .name(text(name))
+                      .selected(self.selection == index)
+                      .is_disabled(index == 2)
+                      .on_select(move |game: &mut Game| game.selection = index),
+                  );
                   View::new().behavior(option)
                 })
                 .collect::<Vec<_>>(),

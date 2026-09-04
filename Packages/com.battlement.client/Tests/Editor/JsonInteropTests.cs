@@ -99,7 +99,7 @@ namespace Battlement.Tests
             PaintStyle value = BattlementJson.Deserialize<PaintStyle>(
                 Encoding.UTF8.GetBytes(
                     "{\"background\":null,\"paint_filter\":null,\"clip_polygon\":null,"
-                        + "\"box_shadow\":null,\"clip_inset\":null}"
+                        + "\"box_shadow\":null,\"clip_inset\":null,\"layers\":null}"
                 )
             );
 
@@ -108,6 +108,23 @@ namespace Battlement.Tests
             Assert.That(value.ClipPolygon, Is.Null);
             Assert.That(value.BoxShadow, Is.Null);
             Assert.That(value.ClipInset, Is.Null);
+            Assert.That(value.Layers, Is.Null);
+        }
+
+        [Test]
+        public void PaintLayersDeserializeTheirIndependentGeometry()
+        {
+            PaintStyle value = BattlementJson.Deserialize<PaintStyle>(
+                Encoding.UTF8.GetBytes(
+                    "{\"layers\":[{\"background\":{\"Color\":{\"r\":1,\"g\":0,"
+                        + "\"b\":0}},\"bounds_inset\":[{\"Px\":2},{\"Px\":4},"
+                        + "{\"Px\":6},{\"Px\":8}]}]}"
+                )
+            );
+
+            Assert.That(value.Layers, Has.Count.EqualTo(1));
+            Assert.That(value.Layers![0].Background, Is.TypeOf<PaintFill.Color>());
+            Assert.That(value.Layers[0].BoundsInset, Has.Count.EqualTo(4));
         }
 
         [Test]

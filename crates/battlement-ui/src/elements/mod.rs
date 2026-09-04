@@ -18,7 +18,8 @@ pub use layout::{
 pub use min_max_slider::{LowerLimit, UiMinMaxSlider, UpperLimit};
 pub use popup_window::UiPopupWindow;
 pub use presentation::{
-  Gradient, GradientStop, PaintFill, PaintStyle, Shadow, TransformList, TransformOperation,
+  Gradient, GradientStop, IntoPaintInsets, PaintFill, PaintLayer, PaintStyle, Shadow,
+  TransformList, TransformOperation,
 };
 pub use progress_bar::UiProgressBar;
 pub use prop::Prop;

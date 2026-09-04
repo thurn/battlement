@@ -1,10 +1,9 @@
 //! The arcade design canvas and its parent-relative fitting policy.
 
 use battlement::{Align, Color, Justify, LengthUnits, Overflow};
-use battlement_reactant::prelude::builder;
+use battlement_reactant::prelude::{Child, builder};
 use battlement_reactant::{accessibility_collections, semantics};
 use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
-use std::rc::Rc;
 
 /// Logical width of the portrait canvas before viewport scaling.
 pub const PORTRAIT_DESIGN_WIDTH: f32 = 1024.0;
@@ -15,13 +14,13 @@ pub const PORTRAIT_DESIGN_HEIGHT: f32 = 1536.0;
 /// Fits the arcade canvas into its parent while preserving design coordinates.
 /// The shared fit component owns measurement, scaling, and centering.
 #[builder]
-pub struct PortraitViewport<R> {
+pub struct PortraitViewport {
   /// Sets content authored at the portrait design size.
   #[builder(required, into)]
-  child: Rc<R>,
+  child: Child,
 }
 
-impl<R: Render> Component for PortraitViewport<R> {
+impl Component for PortraitViewport {
   fn render(&self) -> impl Render {
     ScaleToFit::new(PORTRAIT_DESIGN_WIDTH, PORTRAIT_DESIGN_HEIGHT)
       .bounds_name("portrait-bounds")
@@ -42,6 +41,6 @@ impl<R: Render> Component for PortraitViewport<R> {
           .justify_content(Justify::Center)
           .background_color(Color::BLACK)
       })
-      .child(self.child.clone())
+      .child(self.child.render())
   }
 }

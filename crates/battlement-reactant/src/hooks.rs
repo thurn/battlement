@@ -89,6 +89,22 @@ impl<T: Clone + 'static> StateSetter<T> {
       queue.enqueue(StateUpdate::Update(Rc::new(update)));
     }
   }
+
+  /// Creates a reusable payload-free callback that queues a state update.
+  pub fn update_callback(&self, update: impl Fn(T) -> T + 'static) -> EventCallback<()> {
+    let setter = self.clone();
+    let update = Rc::new(update);
+    EventCallback::new(move |()| {
+      let update = Rc::clone(&update);
+      setter.update(move |value| update(value));
+    })
+  }
+
+  /// Creates a reusable callback that replaces state with its payload.
+  pub fn callback(&self) -> EventCallback<T> {
+    let setter = self.clone();
+    EventCallback::new(move |value| setter.set(value))
+  }
 }
 
 impl<T: Clone + 'static> IntoCallback<T, StateSetterCallback> for StateSetter<T> {

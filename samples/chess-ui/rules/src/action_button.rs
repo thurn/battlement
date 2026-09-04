@@ -1,29 +1,28 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
-use crate::{action_skin, clipped_inset::ClippedInset};
+use crate::action_skin;
 use battlement::{
-  Align, Color, FlexDirection, Justify, Length, LengthUnits, Position, Style, TextAnchor,
-  Translate, UiFontAddress, WhiteSpace,
+  Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
+  UiFontAddress, WhiteSpace,
 };
-use battlement_reactant::prelude::{EventCallback, builder};
+use battlement_reactant::prelude::{Children, EventCallback, builder};
 use battlement_reactant::{
   accessibility::{self, ButtonOptions},
   component::Component,
   host::{Button, View},
-  paint::{PaintFill, PaintStyle},
+  paint::{PaintLayer, PaintStyle},
   render::Render,
   semantics::AccessibleName,
 };
-use std::rc::Rc;
 
 /// Native TextCore face for action labels.
 pub const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
 
 /// A parent-sized arcade button with arbitrary non-interactive label content.
 #[builder]
-pub struct ActionButton<R> {
+pub struct ActionButton {
   #[builder(required, into)]
-  children: Rc<R>,
+  children: Children,
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
   /// Caps the label size relative to its authored arcade typography.
@@ -33,7 +32,7 @@ pub struct ActionButton<R> {
   on_click: EventCallback<()>,
 }
 
-impl<R> ActionButton<R> {
+impl ActionButton {
   fn label_style(&self) -> Style {
     let scale = 1.0_f32.min(self.max_text_scale.unwrap_or(f32::INFINITY));
     Style::new()
@@ -55,7 +54,7 @@ impl<R> ActionButton<R> {
   }
 }
 
-impl<R: Render> Component for ActionButton<R> {
+impl Component for ActionButton {
   fn render(&self) -> impl Render {
     View::new()
       .style(
@@ -67,39 +66,38 @@ impl<R: Render> Component for ActionButton<R> {
       .child(
         Button::new("")
           .name("action-button")
-          .behavior(accessibility::use_button(ButtonOptions {
-            name: AccessibleName::Contents,
-            description: None,
-            is_disabled: self.disabled,
-            on_press: self.on_click.clone(),
-          }))
+          .behavior(accessibility::use_button(
+            ButtonOptions::new()
+              .name(AccessibleName::Contents)
+              .is_disabled(self.disabled)
+              .on_press(self.on_click.clone()),
+          ))
           .style(
             Style::new()
               .position(Position::Relative)
-              .width(100.pct())
-              .height(100.pct())
+              .full_size()
               .margin(0)
               .padding(0)
               .border_width(0)
-              .align_items(Align::Center)
-              .justify_content(Justify::Center)
+              .center_content()
               .background_color(Color::TRANSPARENT),
           )
           .paint(
             PaintStyle::new()
               .background(action_skin::border())
-              .clip_polygon(action_skin::clip(18.0, 17.0)),
+              .clip_polygon(action_skin::clip(18.0, 17.0))
+              .layer(
+                PaintLayer::new(action_skin::INTERIOR)
+                  .bounds_inset(6.0)
+                  .clip_polygon(action_skin::clip(14.0, 13.0)),
+              ),
           )
-          .child((
-            ClippedInset::new()
-              .background(PaintFill::Color(action_skin::INTERIOR))
-              .inset(6.0)
-              .clip_path(action_skin::clip(14.0, 13.0)),
+          .child(
             View::new()
               .name("action-label")
               .style(self.label_style())
-              .child(self.children.clone()),
-          )),
+              .child(self.children.render()),
+          ),
       )
   }
 }

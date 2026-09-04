@@ -1,6 +1,5 @@
 //! Decorative slider paint; input behavior belongs to VolumeControl.
 
-use crate::clipped_inset::ClippedInset;
 use battlement::{
   Color, Gradient, GradientStop, Length, LengthUnits, PickingMode, Position, Shadow, Style,
   Translate,
@@ -8,7 +7,7 @@ use battlement::{
 use battlement_reactant::{
   component::Component,
   host::View,
-  paint::{PaintFill, PaintStyle},
+  paint::{PaintFill, PaintLayer, PaintStyle},
   prelude::{PaintDropShadow, PaintFilterList, builder},
   render::Render,
 };
@@ -128,9 +127,8 @@ impl Component for VolumeTicks {
 
 impl Component for VolumeThumb {
   fn render(&self) -> impl Render {
-    View::new()
+    View::decorative()
       .name("volume-thumb")
-      .picking_mode(PickingMode::Ignore)
       .style(
         Style::new()
           .position(Position::Absolute)
@@ -152,20 +150,17 @@ impl Component for VolumeThumb {
             7.0,
             0.0,
             Color::hex(0x1479ff),
-          ))),
-      )
-      .child(
-        ClippedInset::new()
-          .background(PaintFill::Gradient(
-            Gradient::linear(90.0)
-              .stop(0.0, Color::hex(0x07142b))
-              .stop(1.0, Color::hex(0x02091b)),
-          ))
-          .inset(4.0)
-          .clip_path(self::clip())
-          .box_shadow(vec![self::shadow(
-            0.0, 0.0, 12.0, 0.0, 0x000000, 0.69, true,
-          )]),
+          )))
+          .layer(
+            PaintLayer::new(
+              Gradient::linear(90.0)
+                .stop(0.0, Color::hex(0x07142b))
+                .stop(1.0, Color::hex(0x02091b)),
+            )
+            .bounds_inset(4.0)
+            .clip_polygon(self::clip())
+            .box_shadow([self::shadow(0.0, 0.0, 12.0, 0.0, 0x000000, 0.69, true)]),
+          ),
       )
   }
 }

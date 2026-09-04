@@ -23,13 +23,13 @@ impl Component for VolumeHarness {
         VolumeControl::new()
           .label("Master Volume")
           .value(value)
-          .on_change({
-            let set_value = set_value.clone();
-            move |value| {
-              set_value.set(value);
-              set_changes.update(|count| count + 1);
-            }
-          })
+          .on_change(
+            set_value.callback().then(
+              set_changes
+                .update_callback(|count| count + 1)
+                .map_input(|_: u32| ()),
+            ),
+          )
           .first(true),
         VolumeControl::new()
           .label("Minimum")

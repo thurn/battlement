@@ -1,7 +1,7 @@
 //! Window-level layout and theme for the review application.
 
 use crate::review_theme;
-use battlement::{FlexDirection, LengthUnits, Overflow, Style, UiDocument};
+use battlement::{FlexDirection, Overflow, Style, UiDocument};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{component::Component, host::View, render::Render};
 
@@ -24,8 +24,7 @@ impl ReviewSurface {
   }
   fn style() -> Style {
     Style::new()
-      .width(100.pct())
-      .height(100.pct())
+      .full_size()
       .overflow(Overflow::Hidden)
       .background_color(review_theme::BACKGROUND)
       .color(review_theme::TEXT)

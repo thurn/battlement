@@ -19,12 +19,12 @@ pub fn use_listbox(name: LocalizedText) -> SemanticProps {
 pub fn use_option<G: 'static>(
   options: ChoiceOptions<impl IntoCallback<(), G>, impl Into<AccessibleName>>,
 ) -> AccessibleBehavior<G, bool> {
-  let mut behavior = accessibility::use_button(ButtonOptions {
-    name: options.name,
-    description: None,
-    is_disabled: options.is_disabled,
-    on_press: options.on_select,
-  });
+  let mut behavior = accessibility::use_button(
+    ButtonOptions::new()
+      .name(options.name)
+      .is_disabled(options.is_disabled)
+      .on_press(options.on_select),
+  );
   behavior.semantic.role = SemanticRole::Option;
   behavior.semantic.state = SemanticState {
     disabled: options.is_disabled,

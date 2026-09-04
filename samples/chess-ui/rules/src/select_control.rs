@@ -1,16 +1,15 @@
 //! A closed selector specimen with a visible value and combined accessible name.
 
-use crate::{caret::Caret, clipped_inset::ClippedInset, setting_row::SettingRow};
+use crate::{caret::Caret, setting_row::SettingRow};
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
   UiFontAddress,
 };
 use battlement_reactant::{
   accessibility, accessibility_popup,
-  paint::{PaintFill, PaintStyle},
+  paint::{PaintLayer, PaintStyle},
   prelude::*,
 };
-use std::rc::Rc;
 
 /// Native TextCore face for selected control values.
 pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/control");
@@ -20,9 +19,9 @@ pub const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts
 /// This specimen demonstrates trigger layout and accessible naming. It does not
 /// offer a menu or propose new values; the parent supplies the displayed value.
 #[builder]
-pub struct SelectControl<R> {
+pub struct SelectControl {
   #[builder(required, into)]
-  label: Rc<R>,
+  label: Child,
   /// Omits the separator above the first row.
   first: bool,
   /// Offsets the control vertically without moving its row label.
@@ -33,21 +32,20 @@ pub struct SelectControl<R> {
   value: String,
 }
 
-impl<R: Render> Component for SelectControl<R> {
+impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let label = use_control_label();
     let value_label = use_label();
-    let trigger = accessibility_popup::use_popup_button(PopupButtonOptions {
-      name: label.name_with(&value_label),
-      description: None,
-      popup: PopupKind::ListBox,
-      expanded: false,
-      is_disabled: false,
-      on_press: || {},
-    });
+    let trigger = accessibility_popup::use_popup_button(
+      PopupButtonOptions::new()
+        .name(label.name_with(&value_label))
+        .popup(PopupKind::ListBox)
+        .expanded(false)
+        .on_press(|| {}),
+    );
     let (label, trigger) = label.bind(trigger);
-    SettingRow::<R, _>::new()
-      .label(self.label.clone())
+    SettingRow::new()
+      .label(self.label.render())
       .children(
         View::new()
           .name("select-control")
@@ -96,15 +94,15 @@ impl<R: Render> Component for SelectControl<R> {
                       .unity_text_align(TextAnchor::MiddleLeft),
                   )
                   .paint(
-                    PaintStyle::new()
-                      .background(PaintFill::Color(Color::hex(0x5df5ff)))
-                      .clip_polygon(self::clip(10.0)),
+                    PaintStyle::fill(Color::hex(0x5df5ff))
+                      .clip_polygon(self::clip(10.0))
+                      .layer(
+                        PaintLayer::new(Color::hex(0x020611))
+                          .bounds_inset(3.0)
+                          .clip_polygon(self::clip(7.0)),
+                      ),
                   )
                   .child((
-                    ClippedInset::new()
-                      .background(PaintFill::Color(Color::hex(0x020611)))
-                      .inset(3.0)
-                      .clip_path(self::clip(7.0)),
                     accessibility::name_source_text(self.value.clone())
                       .name("select-value")
                       .element_ref(value_label.reference()),

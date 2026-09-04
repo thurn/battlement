@@ -44,16 +44,19 @@ impl Component for LayoutGallery {
     let menu_anchor = use_element_ref();
     let modal_trigger = use_element_ref();
     let modal_initial = use_element_ref();
-    let page = use_scroll_area(ScrollAreaOptions {
-      name: Some(text("Layout Gallery")),
-      axis: AccessibilityScrollAxis::Vertical,
-      can_scroll_forward: true,
-      can_scroll_backward: true,
-      on_scroll: |game: &mut Game, direction| match direction {
-        AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
-        AccessibilityScrollDirection::Backward => game.layout_gallery.trace.push("SCROLL BACKWARD"),
-      },
-    });
+    let page = use_scroll_area(
+      ScrollAreaOptions::new()
+        .name(text("Layout Gallery"))
+        .axis(AccessibilityScrollAxis::Vertical)
+        .can_scroll_forward(true)
+        .can_scroll_backward(true)
+        .on_scroll(|game: &mut Game, direction| match direction {
+          AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
+          AccessibilityScrollDirection::Backward => {
+            game.layout_gallery.trace.push("SCROLL BACKWARD")
+          }
+        }),
+    );
     ScrollView::new()
       .name("layout-gallery-canvas")
       .behavior(page)
@@ -111,33 +114,28 @@ impl LayoutGallery {
   fn controls(&self, modal_trigger: ElementRef) -> Flex {
     let app = use_app();
     let announce = use_announce();
-    let reset = use_button(ButtonOptions {
-      name: text("Reset settings"),
-      description: None,
-      is_disabled: false,
-      on_press: move |game: &mut Game| {
+    let reset = use_button(ButtonOptions::new().name(text("Reset settings")).on_press(
+      move |game: &mut Game| {
         game.layout_gallery = LayoutGalleryState::default();
         announce.send(text("Settings reset"));
       },
-    });
-    let tracks = use_button(ButtonOptions {
-      name: text("Responsive tracks"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| {
-        game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
-      },
-    });
+    ));
+    let tracks = use_button(
+      ButtonOptions::new()
+        .name(text("Responsive tracks"))
+        .on_press(|game: &mut Game| {
+          game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
+        }),
+    );
     let tracks = AccessibleBehavior {
       focus: tracks.focus.auto_focus(true),
       ..tracks
     };
-    let open_modal = use_button(ButtonOptions {
-      name: text("Open modal"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.layout_gallery.modal_open = true,
-    });
+    let open_modal = use_button(
+      ButtonOptions::new()
+        .name(text("Open modal"))
+        .on_press(|game: &mut Game| game.layout_gallery.modal_open = true),
+    );
     Flex::new()
       .name("layout-gallery-controls")
       .direction(battlement::FlexDirection::Row)
@@ -208,14 +206,12 @@ impl LayoutGallery {
               .map(|(index, label)| {
                 let tab = use_tab(
                   &tab_list,
-                  ChoiceOptions {
-                    name: text(label),
-                    selected: index == self.state.active_tab,
-                    is_disabled: false,
-                    on_select: move |game: &mut Game| {
+                  ChoiceOptions::new()
+                    .name(text(label))
+                    .selected(index == self.state.active_tab)
+                    .on_select(move |game: &mut Game| {
                       game.layout_gallery.active_tab = index;
-                    },
-                  },
+                    }),
                 );
                 Button::new(label)
                   .key(label)
@@ -243,73 +239,62 @@ impl LayoutGallery {
       )
   }
   fn accessible_settings(&self) -> View {
-    let checkbox = use_checkbox(ToggleOptions {
-      name: text("Captions"),
-      description: None,
-      checked: self.state.captions_enabled,
-      is_disabled: false,
-      on_change: |game: &mut Game, checked| {
-        game.layout_gallery.captions_enabled = checked;
-      },
-    });
-    let spatial_audio = use_switch(ToggleOptions {
-      name: text("Spatial audio"),
-      description: None,
-      checked: self.state.spatial_audio,
-      is_disabled: false,
-      on_change: |game: &mut Game, checked| {
-        game.layout_gallery.spatial_audio = checked;
-      },
-    });
+    let checkbox = use_checkbox(
+      ToggleOptions::new()
+        .name(text("Captions"))
+        .checked(self.state.captions_enabled)
+        .on_change(|game: &mut Game, checked| {
+          game.layout_gallery.captions_enabled = checked;
+        }),
+    );
+    let spatial_audio = use_switch(
+      ToggleOptions::new()
+        .name(text("Spatial audio"))
+        .checked(self.state.spatial_audio)
+        .on_change(|game: &mut Game, checked| {
+          game.layout_gallery.spatial_audio = checked;
+        }),
+    );
     let radio_group = use_radio_group(text("Audio quality"));
     let standard = use_radio(
       &radio_group,
-      ChoiceOptions {
-        name: text("Standard quality"),
-        selected: self.state.radio_selection == 0,
-        is_disabled: false,
-        on_select: |game: &mut Game| game.layout_gallery.radio_selection = 0,
-      },
+      ChoiceOptions::new()
+        .name(text("Standard quality"))
+        .selected(self.state.radio_selection == 0)
+        .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 0),
     );
     let studio = use_radio(
       &radio_group,
-      ChoiceOptions {
-        name: text("Studio quality"),
-        selected: self.state.radio_selection == 1,
-        is_disabled: false,
-        on_select: |game: &mut Game| game.layout_gallery.radio_selection = 1,
-      },
+      ChoiceOptions::new()
+        .name(text("Studio quality"))
+        .selected(self.state.radio_selection == 1)
+        .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 1),
     );
-    let slider = use_slider(SliderOptions {
-      name: text("Music volume"),
-      description: None,
-      value: f64::from(self.state.volume),
-      minimum: 0.0,
-      maximum: 100.0,
-      step: 10.0,
-      value_text: Some(text(format!("{} percent", self.state.volume))),
-      is_disabled: false,
-      on_change: |game: &mut Game, value| game.layout_gallery.volume = value as u32,
-    });
-    let disclosure = use_disclosure(DisclosureOptions {
-      name: text("Advanced audio"),
-      description: None,
-      expanded: self.state.disclosure_open,
-      is_disabled: false,
-      on_toggle: |game: &mut Game| {
-        game.layout_gallery.disclosure_open = !game.layout_gallery.disclosure_open;
-      },
-    });
+    let slider = use_slider(
+      SliderOptions::new()
+        .name(text("Music volume"))
+        .value(f64::from(self.state.volume))
+        .minimum(0.0)
+        .maximum(100.0)
+        .step(10.0)
+        .value_text(Some(text(format!("{} percent", self.state.volume))))
+        .on_change(|game: &mut Game, value| game.layout_gallery.volume = value as u32),
+    );
+    let disclosure = use_disclosure(
+      DisclosureOptions::new()
+        .name(text("Advanced audio"))
+        .expanded(self.state.disclosure_open)
+        .on_toggle(|game: &mut Game| {
+          game.layout_gallery.disclosure_open = !game.layout_gallery.disclosure_open;
+        }),
+    );
     let announce = use_announce();
-    let save = use_button(ButtonOptions {
-      name: text("Save settings"),
-      description: None,
-      is_disabled: false,
-      on_press: move |game: &mut Game| {
+    let save = use_button(ButtonOptions::new().name(text("Save settings")).on_press(
+      move |game: &mut Game| {
         game.layout_gallery.trace.push("SAVED");
         announce.send(text("Settings saved"));
       },
-    });
+    ));
     let advanced_audio = use_static_text(text("Advanced audio controls"));
     View::new()
       .name("layout-gallery-accessibility")
@@ -598,12 +583,13 @@ impl LayoutGallery {
       )
   }
   fn modal(&self, trigger: ElementRef, initial: ElementRef) -> impl Render {
-    let dialog = use_dialog(DialogOptions {
-      name: text("Viewport modal"),
-      on_dismiss: Some(|game: &mut Game| {
-        game.layout_gallery.modal_open = false;
-      }),
-    });
+    let dialog = use_dialog(
+      DialogOptions::new()
+        .name(text("Viewport modal"))
+        .on_dismiss(|game: &mut Game| {
+          game.layout_gallery.modal_open = false;
+        }),
+    );
     self.state.modal_open.then(|| {
       Overlay::modal(self.overlay.clone())
         .name("layout-gallery-modal-scope")

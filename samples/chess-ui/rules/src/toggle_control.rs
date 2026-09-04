@@ -5,13 +5,12 @@ use battlement::{
   Align, Color, Justify, Length, PickingMode, Position, Style, TextAnchor, Translate,
 };
 use battlement_reactant::{accessibility, prelude::*};
-use std::rc::Rc;
 
 /// A controlled checkbox with an associated, clickable settings label.
 #[builder]
-pub struct ToggleControl<R> {
+pub struct ToggleControl {
   #[builder(required, into)]
-  label: Rc<R>,
+  label: Child,
   /// Omits the top separator when this is the first row.
   first: bool,
   /// Offsets the control vertically without moving its row label.
@@ -31,30 +30,33 @@ pub struct ToggleControl<R> {
   on_change: EventCallback<bool>,
 }
 
-impl<R: Render> Component for ToggleControl<R> {
+impl Component for ToggleControl {
   fn render(&self) -> impl Render {
-    let label = use_control_label();
-    let checkbox = accessibility::use_checkbox(ToggleOptions {
-      name: self
-        .aria_label
-        .as_ref()
-        .filter(|label| !label.is_empty())
-        .map_or_else(|| label.name(), |name| AccessibleName::text(name.clone())),
-      description: self
-        .with_info
-        .then(|| AccessibleDescription::text("We upload crash reports to Unity Diagnostics.")),
-      checked: self.checked,
-      is_disabled: false,
-      on_change: self.on_change.clone(),
-    });
-    let (label, checkbox) = label.bind(checkbox);
+    let (label, checkbox) =
+      use_control_label().bind_with(|label_name| {
+        accessibility::use_checkbox(
+          ToggleOptions::new()
+            .name(
+              self
+                .aria_label
+                .as_ref()
+                .filter(|label| !label.is_empty())
+                .map_or(label_name, |name| AccessibleName::text(name.clone())),
+            )
+            .description(self.with_info.then(|| {
+              AccessibleDescription::text("We upload crash reports to Unity Diagnostics.")
+            }))
+            .checked(self.checked)
+            .on_change(self.on_change.clone()),
+        )
+      });
     View::new()
       .name("toggle-control-label")
       .style(Style::new().height(self.row_height))
       .child(
         SettingRow::new()
           .label((
-            self.label.clone(),
+            self.label.render(),
             self
               .with_info
               .then(|| InfoBadge::new().on_click(self.on_info_click.clone())),
@@ -122,12 +124,11 @@ impl Component for InfoBadge {
   fn render(&self) -> impl Render {
     Button::new("i")
       .name("toggle-info")
-      .behavior(accessibility::use_button(ButtonOptions {
-        name: AccessibleName::text("About crash report uploads"),
-        description: None,
-        is_disabled: false,
-        on_press: self.on_click.clone(),
-      }))
+      .behavior(accessibility::use_button(
+        ButtonOptions::new()
+          .name(AccessibleName::text("About crash report uploads"))
+          .on_press(self.on_click.clone()),
+      ))
       .style(
         Style::new()
           .position(Position::Absolute)

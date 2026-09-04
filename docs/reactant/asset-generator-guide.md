@@ -12,12 +12,10 @@ workflow.
 
 ## Author an asset
 
-Import the public Reactant module and declare one asset per `generate!` call:
+Declare one asset per `generate!` call with the fully qualified public macro path:
 
 ```rust
-use battlement_reactant::asset_generator;
-
-asset_generator::generate! {
+battlement_reactant::asset_generator::generate! {
   @nine-slice ACTION_BUTTON {
     @canvas 760px 140px;
     @slices 24px 26px 24px 26px;
@@ -44,10 +42,31 @@ Create a named declaration for each runtime variant. Reactant discovers all
 linked variants and prepares them in the first authoritative snapshot, even
 when the first screen does not display them.
 
+When several assets differ only in a few statements, declare their shared
+recipe once with `generate_family!`. Each member body adds statements or
+replaces common statements with the same name:
+
+```rust
+battlement_reactant::asset_generator::generate_family! {
+  @text-image {
+    @canvas 420px 72px;
+    @font-file unity("Assets/Fonts/Status.ttf");
+    font-size: 42px;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.65);
+  }
+  STATUS_READY { content: "Ready"; color: #74e5ff; }
+  STATUS_BLOCKED { content: "Blocked"; color: #ff7285; }
+}
+```
+
+The macro emits one typed static and one independently cached asset per member.
+The declaration kind and common statements apply to the whole family; member
+names remain ordinary Rust identifiers.
+
 Local dependencies use Unity-project-relative paths:
 
 ```rust
-asset_generator::generate! {
+battlement_reactant::asset_generator::generate! {
   @text-image STATUS_TITLE {
     @canvas 420px 72px;
     @font-file unity("Assets/Fonts/Status.ttf");

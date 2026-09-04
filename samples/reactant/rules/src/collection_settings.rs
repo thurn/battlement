@@ -16,23 +16,21 @@ impl Component for CollectionSettings {
     } else {
       "APPLICATION INACTIVE"
     };
-    let link = collections::use_link(ButtonOptions {
-      name: text("Documentation link"),
-      description: None,
-      is_disabled: false,
-      on_press: |game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED"),
-    });
+    let link = collections::use_link(
+      ButtonOptions::new()
+        .name(text("Documentation link"))
+        .on_press(|game: &mut Game| game.layout_gallery.trace.push("LINK ACTIVATED")),
+    );
     let app = use_app();
-    let external_link = collections::use_link(ButtonOptions {
-      name: text("Open Unity documentation"),
-      description: None,
-      is_disabled: false,
-      on_press: move || {
-        app.send(Command::open_external_url(
+    let external_link = collections::use_link(
+      ButtonOptions::new()
+        .name(text("Open Unity documentation"))
+        .on_press(move || {
+          app.send(Command::open_external_url(
           "https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Application.OpenURL.html",
         ))
-      },
-    });
+        }),
+    );
     View::new().style(styles::section()).child((
       Label::new("COLLECTION SEMANTICS").style(styles::section_heading()),
       Label::new(status).semantic(use_static_text(text(status))),
@@ -45,14 +43,11 @@ impl Component for CollectionSettings {
             .into_iter()
             .enumerate()
             .map(|(index, name)| {
-              let mut page = use_button(ButtonOptions {
-                name: text(name),
-                description: None,
-                is_disabled: false,
-                on_press: move |game: &mut Game| {
+              let mut page = use_button(ButtonOptions::new().name(text(name)).on_press(
+                move |game: &mut Game| {
                   game.layout_gallery.collection_page = index;
                 },
-              });
+              ));
               page.semantic.state.current = (self.page == index).then_some(CurrentPage::Page);
               Button::new(name).behavior(page)
             })
@@ -70,14 +65,15 @@ impl Component for CollectionSettings {
                 .into_iter()
                 .enumerate()
                 .map(|(index, name)| {
-                  let option = collections::use_option(ChoiceOptions {
-                    name: text(name),
-                    selected: self.choice == index,
-                    is_disabled: index == 2,
-                    on_select: move |game: &mut Game| {
-                      game.layout_gallery.collection_choice = index;
-                    },
-                  });
+                  let option = collections::use_option(
+                    ChoiceOptions::new()
+                      .name(text(name))
+                      .selected(self.choice == index)
+                      .is_disabled(index == 2)
+                      .on_select(move |game: &mut Game| {
+                        game.layout_gallery.collection_choice = index;
+                      }),
+                  );
                   Button::new(name).behavior(option)
                 })
                 .collect::<Vec<_>>(),

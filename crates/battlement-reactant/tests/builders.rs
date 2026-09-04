@@ -24,6 +24,14 @@ struct OptionalAction {
   changed: Option<EventCallback<u32>>,
 }
 
+#[builder]
+struct SlottedCard {
+  #[builder(required, into)]
+  title: Child,
+  #[builder(required, into)]
+  children: Children,
+}
+
 impl Component for Action {
   fn render(&self) -> impl Render {
     Button::new(self.label.clone())
@@ -40,6 +48,40 @@ impl Component for OptionalAction {
       None => button,
     }
   }
+}
+
+impl Component for SlottedCard {
+  fn render(&self) -> impl Render {
+    View::new().child((self.title.render(), self.children.render()))
+  }
+}
+
+#[test]
+fn child_slots_accept_and_replay_arbitrary_render_values() {
+  let app = App::new("app/content").ui(
+    SlottedCard::new()
+      .title(Label::new("Title").name("slot-title"))
+      .children((
+        Label::new("First").name("slot-first"),
+        Button::new("Second").name("slot-second"),
+      )),
+  );
+  let root = app.root_document().root_id;
+  let mut client = FakeClient::connect_with(app, app_support::catalog(), app_support::connect());
+
+  assert_eq!(app_support::text(&mut client, root, "slot-title"), "Title");
+  assert_eq!(app_support::text(&mut client, root, "slot-first"), "First");
+  assert_eq!(
+    app_support::text(&mut client, root, "slot-second"),
+    "Second"
+  );
+}
+
+#[test]
+fn optional_accessible_callbacks_have_a_builder_default() {
+  let dialog = DialogOptions::new().name(text("Settings"));
+
+  assert!(dialog.on_dismiss.is_none());
 }
 
 #[test]

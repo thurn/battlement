@@ -1,6 +1,6 @@
 //! A painted check glyph that never intercepts pointer input.
 
-use battlement::{Color, Length, LengthUnits, PickingMode, Position, Scale, Style, Translate};
+use battlement::{Color, Length, LengthUnits, Position, Scale, Style, Translate};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
   component::Component,
@@ -25,9 +25,8 @@ impl Default for CheckMark {
 
 impl Component for CheckMark {
   fn render(&self) -> impl Render {
-    View::new()
+    View::decorative()
       .name("check-mark")
-      .picking_mode(PickingMode::Ignore)
       .style(
         Style::new()
           .position(Position::Absolute)

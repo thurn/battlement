@@ -393,6 +393,12 @@ Use the Reactant sample and one direct Battlement UI fixture.
 
 ## Static decorative paint
 
+Common layout intent has direct `Style` helpers: `size`, `full_size`,
+`absolute_fill`, `inset`, `center_content`, and `translate_y`. Use
+`View::decorative()` for a visual-only layer that should ignore pointer picking.
+These helpers author the same ordinary sparse style and picking properties as
+their expanded forms.
+
 `View::paint(PaintStyle)` paints a solid or gradient background, polygon or inset clip,
 and optional shadows as an ordinary visual-element property. A paint-only host has no
 motion descriptor and does not register with the motion player loop.
@@ -407,8 +413,7 @@ use battlement::{Color, Length, PaintFill, PaintStyle};
 use battlement_reactant::host::View;
 
 View::new().paint(
-  PaintStyle::new()
-    .background(PaintFill::Color(Color::new(0.02, 0.04, 0.08, 1.0)))
+  PaintStyle::fill(Color::new(0.02, 0.04, 0.08, 1.0))
     .clip_polygon([
       [Length::percent(10.0), Length::percent(0.0)],
       [Length::percent(90.0), Length::percent(0.0)],
@@ -416,6 +421,24 @@ View::new().paint(
     ]),
 );
 ```
+
+Additional foreground paint belongs to the same host, avoiding wrapper views
+whose only purpose is another decorative surface. Layers draw in authored order
+after the primary paint and can independently set a fill, polygon, inset,
+filter, and shadows:
+
+```rust
+View::decorative().paint(
+  PaintStyle::fill(Color::rgb8(35, 85, 130)).layer(
+    PaintLayer::new(Color::rgb8(5, 12, 24))
+      .bounds_inset((2, 4))
+      .clip_inset(3),
+  ),
+)
+```
+
+Layers are static decoration. Motion and gesture paint targets continue to
+replace the primary paint while the additional layers remain unchanged.
 
 Paint coordinates use the host's border box. Padding changes child layout without
 moving the painted polygon. Polygon clipping applies to this decorative paint;

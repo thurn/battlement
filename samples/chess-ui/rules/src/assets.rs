@@ -106,14 +106,13 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
-  @text-image ACTION_LABEL_PLAY {
+battlement_reactant::asset_generator::generate_family! {
+  @text-image {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
     @allow-clipping top right bottom left;
     @filter-mode trilinear;
     @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "PLAY";
     font-size: 91px;
     line-height: 108px;
     letter-spacing: -2px;
@@ -126,94 +125,11 @@ battlement_reactant::asset_generator::generate! {
     filter: drop-shadow(3px 5px #122964) drop-shadow(0 7px 5px #000000);
     transform: skewX(-5deg);
   }
-}
-
-battlement_reactant::asset_generator::generate! {
-  @text-image ACTION_LABEL_SETTINGS {
-    @canvas 480px 146px;
-    @subject 0px 21px 480px 108px;
-    @allow-clipping top right bottom left;
-    @filter-mode trilinear;
-    @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "SETTINGS";
-    font-size: 91px;
-    line-height: 108px;
-    letter-spacing: -2px;
-    text-align: center;
-    white-space: nowrap;
-    color: transparent;
-    background: linear-gradient(174deg, #ffffff 5%, #dff8ff 31%, #52baff 49%, #f8faff 57%, rgb(128, 110, 255) 77%, #ff6dda 100%);
-    background-clip: text;
-    -webkit-text-stroke: 1px #f7ffff;
-    filter: drop-shadow(3px 5px #122964) drop-shadow(0 7px 5px #000000);
-    transform: skewX(-5deg);
-  }
-}
-
-battlement_reactant::asset_generator::generate! {
-  @text-image ACTION_LABEL_ABOUT {
-    @canvas 480px 146px;
-    @subject 0px 21px 480px 108px;
-    @allow-clipping top right bottom left;
-    @filter-mode trilinear;
-    @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "ABOUT";
-    font-size: 91px;
-    line-height: 108px;
-    letter-spacing: -2px;
-    text-align: center;
-    white-space: nowrap;
-    color: transparent;
-    background: linear-gradient(174deg, #ffffff 5%, #dff8ff 31%, #52baff 49%, #f8faff 57%, rgb(128, 110, 255) 77%, #ff6dda 100%);
-    background-clip: text;
-    -webkit-text-stroke: 1px #f7ffff;
-    filter: drop-shadow(3px 5px #122964) drop-shadow(0 7px 5px #000000);
-    transform: skewX(-5deg);
-  }
-}
-
-battlement_reactant::asset_generator::generate! {
-  @text-image ACTION_LABEL_QUIT {
-    @canvas 480px 146px;
-    @subject 0px 21px 480px 108px;
-    @allow-clipping top right bottom left;
-    @filter-mode trilinear;
-    @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "QUIT";
-    font-size: 91px;
-    line-height: 108px;
-    letter-spacing: -2px;
-    text-align: center;
-    white-space: nowrap;
-    color: transparent;
-    background: linear-gradient(174deg, #ffffff 5%, #dff8ff 31%, #52baff 49%, #f8faff 57%, rgb(128, 110, 255) 77%, #ff6dda 100%);
-    background-clip: text;
-    -webkit-text-stroke: 1px #f7ffff;
-    filter: drop-shadow(3px 5px #122964) drop-shadow(0 7px 5px #000000);
-    transform: skewX(-5deg);
-  }
-}
-
-battlement_reactant::asset_generator::generate! {
-  @text-image ACTION_LABEL_RETURN {
-    @canvas 480px 146px;
-    @subject 0px 21px 480px 108px;
-    @allow-clipping top right bottom left;
-    @filter-mode trilinear;
-    @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "RETURN";
-    font-size: 91px;
-    line-height: 108px;
-    letter-spacing: -2px;
-    text-align: center;
-    white-space: nowrap;
-    color: transparent;
-    background: linear-gradient(174deg, #ffffff 5%, #dff8ff 31%, #52baff 49%, #f8faff 57%, rgb(128, 110, 255) 77%, #ff6dda 100%);
-    background-clip: text;
-    -webkit-text-stroke: 1px #f7ffff;
-    filter: drop-shadow(3px 5px #122964) drop-shadow(0 7px 5px #000000);
-    transform: skewX(-5deg);
-  }
+  ACTION_LABEL_PLAY { content: "PLAY"; }
+  ACTION_LABEL_SETTINGS { content: "SETTINGS"; }
+  ACTION_LABEL_ABOUT { content: "ABOUT"; }
+  ACTION_LABEL_QUIT { content: "QUIT"; }
+  ACTION_LABEL_RETURN { content: "RETURN"; }
 }
 
 battlement_reactant::asset_generator::generate! {

@@ -273,7 +273,7 @@ fn collect_items(
         collector,
       )?,
       Item::Use(item_use) if self::use_mentions_generator(&item_use.tree) => bail!(
-        "{} imports or reexports the asset generator; use the exact battlement_reactant::asset_generator::generate! path",
+        "{} imports or reexports the asset generator; use an exact battlement_reactant::asset_generator::generate! or generate_family! path",
         collector.source.display()
       ),
       _ => {
@@ -297,34 +297,43 @@ fn collect_macro(
   conditional: bool,
   collector: &mut FileCollector<'_>,
 ) -> Result<()> {
-  if self::exact_generator(&item.mac) {
+  if self::exact_generator(&item.mac) || self::exact_family_generator(&item.mac) {
     if conditional || self::conditional(&item.attrs) {
       bail!(
         "asset declaration in {} is conditionally compiled",
         collector.source.display()
       );
     }
-    let request_source = item.mac.tokens.to_string();
-    let request = battlement_reactant_asset_syntax::parse(&request_source).with_context(|| {
-      format!(
-        "invalid asset declaration in {}",
-        collector.source.display()
-      )
-    })?;
-    let rust_symbol = if module.is_empty() {
-      format!("{}::{}", collector.context.crate_name, request.symbol)
+    let authored_source = item.mac.tokens.to_string();
+    let request_sources = if self::exact_family_generator(&item.mac) {
+      battlement_reactant_asset_syntax::expand_family(&authored_source)
+        .with_context(|| format!("invalid asset family in {}", collector.source.display()))?
     } else {
-      format!(
-        "{}::{module}::{}",
-        collector.context.crate_name, request.symbol
-      )
+      vec![authored_source]
     };
-    collector.declarations.push(CachedDeclaration {
-      source_symbol: format!("{}::{rust_symbol}", collector.context.coordinate),
-      package: collector.context.coordinate.to_owned(),
-      source_file: collector.source.to_owned(),
-      request_source,
-    });
+    for request_source in request_sources {
+      let request =
+        battlement_reactant_asset_syntax::parse(&request_source).with_context(|| {
+          format!(
+            "invalid asset declaration in {}",
+            collector.source.display()
+          )
+        })?;
+      let rust_symbol = if module.is_empty() {
+        format!("{}::{}", collector.context.crate_name, request.symbol)
+      } else {
+        format!(
+          "{}::{module}::{}",
+          collector.context.crate_name, request.symbol
+        )
+      };
+      collector.declarations.push(CachedDeclaration {
+        source_symbol: format!("{}::{rust_symbol}", collector.context.coordinate),
+        package: collector.context.coordinate.to_owned(),
+        source_file: collector.source.to_owned(),
+        request_source,
+      });
+    }
     return Ok(());
   }
   let generator_like = item
@@ -332,7 +341,7 @@ fn collect_macro(
     .path
     .segments
     .last()
-    .is_some_and(|segment| segment.ident == "generate")
+    .is_some_and(|segment| segment.ident == "generate" || segment.ident == "generate_family")
     || item.mac.tokens.to_string().contains("asset_generator");
   if generator_like {
     let kind = if item.ident.is_some() {
@@ -341,7 +350,7 @@ fn collect_macro(
       "macro alias"
     };
     bail!(
-      "unsupported asset-generator {kind} in {}; use the exact battlement_reactant::asset_generator::generate! path",
+      "unsupported asset-generator {kind} in {}; use an exact battlement_reactant::asset_generator::generate! or generate_family! path",
       collector.source.display()
     );
   }
@@ -439,6 +448,15 @@ fn exact_generator(value: &Macro) -> bool {
     .eq(["battlement_reactant", "asset_generator", "generate"])
 }
 
+fn exact_family_generator(value: &Macro) -> bool {
+  value
+    .path
+    .segments
+    .iter()
+    .map(|segment| segment.ident.to_string())
+    .eq(["battlement_reactant", "asset_generator", "generate_family"])
+}
+
 fn conditional(attributes: &[Attribute]) -> bool {
   attributes
     .iter()
@@ -450,14 +468,19 @@ fn use_mentions_generator(tree: &UseTree) -> bool {
     UseTree::Path(path) => {
       path.ident == "asset_generator"
         || path.ident == "generate"
+        || path.ident == "generate_family"
         || self::use_mentions_generator(&path.tree)
     }
-    UseTree::Name(name) => name.ident == "asset_generator" || name.ident == "generate",
+    UseTree::Name(name) => {
+      name.ident == "asset_generator" || name.ident == "generate" || name.ident == "generate_family"
+    }
     UseTree::Rename(rename) => {
       rename.ident == "asset_generator"
         || rename.ident == "generate"
+        || rename.ident == "generate_family"
         || rename.rename == "asset_generator"
         || rename.rename == "generate"
+        || rename.rename == "generate_family"
     }
     UseTree::Group(group) => group.items.iter().any(self::use_mentions_generator),
     UseTree::Glob(_) => false,
@@ -476,11 +499,12 @@ struct NestedMacroVisitor {
 impl<'ast> Visit<'ast> for NestedMacroVisitor {
   fn visit_macro(&mut self, value: &'ast Macro) {
     if self::exact_generator(value)
+      || self::exact_family_generator(value)
       || value
         .path
         .segments
         .last()
-        .is_some_and(|segment| segment.ident == "generate")
+        .is_some_and(|segment| segment.ident == "generate" || segment.ident == "generate_family")
     {
       self.generator = true;
     }

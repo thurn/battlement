@@ -24,7 +24,7 @@ use battlement::{
   TextureAddress,
 };
 
-pub use battlement_reactant_asset_macros::generate;
+pub use battlement_reactant_asset_macros::{generate, generate_family};
 
 #[doc(hidden)]
 pub mod __private {

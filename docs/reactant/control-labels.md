@@ -11,21 +11,21 @@ subtrees and the contents of actionable descendants. Explicit names do not
 inherit later label changes.
 
 `use_control_label()` allocates the label and control references as one
-association. Construct the behavior with `label.name()`, then call
-`label.bind(behavior)`. Attach the resulting values to explicitly selected
+association. Its `bind_with` method passes the generated accessible name into a
+closure and returns both bound properties. Attach them to explicitly selected
 hosts with `associated_label` and `associated_control`. The association adds no
 host, semantic node, or local control state.
 
 ```rust,ignore
-let label = use_control_label();
-let checkbox = accessibility::use_checkbox(ToggleOptions {
-    name: label.name(),
-    description: Some(AccessibleDescription::text("Controls game audio")),
-    checked,
-    is_disabled: false,
-    on_change,
+let (label, checkbox) = use_control_label().bind_with(|name| {
+    accessibility::use_checkbox(
+        ToggleOptions::new()
+            .name(name)
+            .description(AccessibleDescription::text("Controls game audio"))
+            .checked(checked)
+            .on_change(on_change),
+    )
 });
-let (label, checkbox) = label.bind(checkbox);
 
 View::new().child((
     View::new()
@@ -63,12 +63,15 @@ empty caption when the children provide the complete visible label. Descendant
 clicks follow the ordinary logical route to the button, and updating text
 preserves the child hosts and references.
 
-A popup trigger uses `accessibility_popup::use_popup_button(PopupButtonOptions {
-name, description, popup: PopupKind::ListBox, expanded, is_disabled, on_press })`. It retains
-canonical Button semantics and ordinary button focus and activation. Popup kind
-requires explicit expansion state; it neither mounts a popup nor changes that
-state. The parent supplies both expansion and value updates. Ordered label refs
-can combine a field label and current value without extra spoken stops.
+A popup trigger uses
+`accessibility_popup::use_popup_button(PopupButtonOptions::new().name(name).popup(PopupKind::ListBox).expanded(expanded).on_press(on_press))`.
+It retains canonical Button semantics and ordinary button focus and activation.
+Popup kind requires explicit expansion state; it neither mounts a popup nor
+changes that state. The parent supplies both expansion and value updates.
+Ordered label refs can combine a field label and current value without extra
+spoken stops. All accessible control option types use the same `#[builder]`
+pattern: required semantic and callback props are enforced at compile time,
+while descriptions and disabled state retain their defaults.
 
 Unity preserves the canonical name in the semantic mirror and appends `listbox
 popup` and `collapsed` or `expanded` in the native label. Expanded controls also

@@ -14,14 +14,8 @@ pub struct SettingRowHarness;
 
 impl Component for SettingRowHarness {
   fn render(&self) -> impl Render {
-    let label = use_control_label();
-    let control = accessibility::use_button(ButtonOptions {
-      name: label.name(),
-      description: None,
-      is_disabled: false,
-      on_press: || {},
-    });
-    let (label, control) = label.bind(control);
+    let (label, control) = use_control_label()
+      .bind_with(|name| accessibility::use_button(ButtonOptions::new().name(name).on_press(|| {})));
     View::new()
       .name("setting-row-specimen")
       .style(
