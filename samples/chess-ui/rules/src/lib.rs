@@ -17,13 +17,13 @@
 //! the navigation scroll container.
 //!
 //! ```no_run
-//! use battlement_reactant::{accessibility, app::App};
+//! use battlement_reactant::{control_behavior, app::App};
 //! use battlement_rules::{pages, toggle_control::ToggleControl};
 //! use trox::tx;
 //!
 //! let app = App::new("chess-ui/content").ui(pages::gallery());
 //! let toggle = ToggleControl::new()
-//!   .label(accessibility::name_source_text(tx(
+//!   .label(control_behavior::name_source_text(tx(
 //!     "VSync",
 //!     "Visible label for the VSync setting.",
 //!   )))

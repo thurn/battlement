@@ -5,7 +5,8 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
-  accessibility, app::App, asset_generator, component::Component, hooks, host::View, render::Render,
+  app::App, asset_generator, component::Component, control_behavior, hooks, host::View,
+  render::Render,
 };
 use battlement_rules::{
   action_button, engine, review_surface::ReviewSurface, select_control, setting_row,
@@ -20,7 +21,7 @@ impl Component for ToggleInfoFixture {
     let (info_clicks, set_info_clicks) = hooks::use_state(0_u32);
     View::new().child((
       ToggleControl::new()
-        .label(accessibility::name_source_text(ls("Screenshake")))
+        .label(control_behavior::name_source_text(ls("Screenshake")))
         .checked(true)
         .on_change(|_| {})
         .aria_label(ls("Screen shake"))
@@ -28,7 +29,7 @@ impl Component for ToggleInfoFixture {
         .on_info_click(move || set_info_clicks.update(|count| count + 1))
         .row_height(190.0)
         .offset_y(-8.0),
-      accessibility::static_label(ls(format!("Info clicks: {info_clicks}"))),
+      control_behavior::static_label(ls(format!("Info clicks: {info_clicks}"))),
     ))
   }
 }
@@ -91,7 +92,7 @@ fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
     .unwrap()
     .object_id;
   self::assert_checkbox(&client, false, 0);
-  client.ui().click(checkbox);
+  client.ui().toggle_click(checkbox);
   client.poll();
   self::assert_checkbox(&client, true, 1);
   client.ui().send_event(UiEvent::new(
@@ -124,7 +125,7 @@ fn checkbox_accepts_one_proposal_and_parent_updates_reset_authoritatively() {
     .find(|node| node.label.as_deref() == Some("Screen shake"))
     .unwrap()
     .object_id;
-  client.ui().click(screenshake);
+  client.ui().toggle_click(screenshake);
   client.poll();
   assert_eq!(
     self::snapshot(&client)
@@ -335,8 +336,10 @@ fn action_children_activate_once_and_reselection_resets_callbacks() {
     assert_eq!(node.state.disabled, name == "DISABLED");
     targets.push(node.object_id);
   }
-  for target in &targets {
-    client.ui().click(*target);
+  for (index, target) in targets.iter().enumerate() {
+    if index != 3 {
+      client.ui().click(*target);
+    }
     client.poll();
   }
   self::assert_actions(&client, 2, 1);

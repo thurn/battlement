@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -7,7 +8,6 @@ use std::{
   panic::{self, AssertUnwindSafe},
   time::Instant,
 };
-use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, LengthOrAuto, ObjectId, PanelScaleMode,
@@ -95,7 +95,7 @@ impl Component for ItemView {
           .style(style),
       ),
       1 => Node::new(
-        battlement_reactant::host::Button::new(ls(text))
+        battlement_reactant::host::ButtonHost::new(ls(text))
           .name(name)
           .style(style),
       ),

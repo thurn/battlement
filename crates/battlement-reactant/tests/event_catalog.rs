@@ -438,11 +438,11 @@ fn change_aliases_replace_their_native_handlers_in_either_order() {
         .name("change-last")
         .on_input(|game: &mut Ledger| game.entries.push("stale-input".to_owned()))
         .on_change(|game: &mut Ledger| game.entries.push("change-last".to_owned())),
-      battlement_reactant::host::Slider::new()
+      battlement_reactant::host::SliderHost::new()
         .name("changing-last")
         .on_change(|game: &mut Ledger| game.entries.push("stale-slider-change".to_owned()))
         .on_value_changing(|game: &mut Ledger| game.entries.push("changing-last".to_owned())),
-      battlement_reactant::host::Slider::new()
+      battlement_reactant::host::SliderHost::new()
         .name("slider-change-last")
         .on_value_changing(|game: &mut Ledger| game.entries.push("stale-changing".to_owned()))
         .on_change(|game: &mut Ledger| game.entries.push("slider-change-last".to_owned())),
@@ -566,7 +566,7 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event_with_model(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event_with_model(|_: &mut Ledger, _: ReactantEvent<f32>| {});
-  let slider = battlement_reactant::host::Slider::new()
+  let slider = battlement_reactant::host::SliderHost::new()
     .on_value_changing(|_: &mut Ledger| {})
     .on_value_changing_event_with_model(|_: &mut Ledger, _: ReactantEvent<ValueChangingEvent>| {})
     .on_value_committed(|_: &mut Ledger| {})
@@ -584,7 +584,7 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event_with_model(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event_with_model(|_: &mut Ledger, _: ReactantEvent<F32Range>| {});
-  let toggle = battlement_reactant::host::Toggle::new()
+  let toggle = battlement_reactant::host::ToggleHost::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event_with_model(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event_with_model(|_: &mut Ledger, _: ReactantEvent<bool>| {});
@@ -629,12 +629,12 @@ fn typed_controls(ledger: &Ledger) -> impl Render + use<> {
       .on_change_event_with_model(|game: &mut Ledger, event: ReactantEvent<String>| {
         game.entries.push(format!("text:{}", event.payload()))
       }),
-    battlement_reactant::host::Slider::new()
+    battlement_reactant::host::SliderHost::new()
       .name("slider")
       .on_change_event_with_model(|game: &mut Ledger, event: ReactantEvent<f32>| {
         game.entries.push(format!("slider:{}", event.payload()))
       }),
-    battlement_reactant::host::Toggle::new()
+    battlement_reactant::host::ToggleHost::new()
       .name("toggle")
       .on_change_event_with_model(|game: &mut Ledger, event: ReactantEvent<bool>| {
         game.entries.push(format!("toggle:{}", event.payload()))

@@ -4,8 +4,8 @@ use crate::{portrait_viewport::PortraitViewport, screen_frame::ScreenFrame};
 use battlement::{Justify, LengthUnits, Style, TextAnchor};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility,
   component::Component,
+  control_behavior,
   host::{Label, View},
   render::Render,
 };
@@ -33,7 +33,7 @@ impl Component for FrameHarness {
                   "ARCADE FRAME",
                   "User-facing product copy in the Chess UI sample.",
                 ))
-                .semantic(accessibility::use_static_text(tx(
+                .semantic(control_behavior::static_text_props(tx(
                   "Arcade frame content",
                   "User-facing product copy in the Chess UI sample.",
                 )))

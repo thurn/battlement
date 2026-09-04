@@ -361,15 +361,6 @@ impl MotionCallbacks {
     self
   }
 
-  pub(crate) fn gesture_brief(
-    mut self,
-    kind: MotionGestureEventKind,
-    callback: impl Fn() + 'static,
-  ) -> Self {
-    self.gesture_observers[gesture_index(kind)] = Some(Rc::new(callback));
-    self
-  }
-
   pub(crate) fn subscriptions(&self) -> MotionCallbackSubscriptions {
     MotionCallbackSubscriptions {
       start: self.start.is_some(),

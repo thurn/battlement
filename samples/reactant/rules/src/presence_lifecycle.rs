@@ -311,9 +311,9 @@ impl Component for RetainedPanel {
           "COUNTER +1",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("presence-counter")
+        .host_name("presence-counter")
         .style(action_style())
-        .on_click(move |_game: &mut Game| increment.update(|value| value + 1)),
+        .on_press(move |_game: &mut Game| increment.update(|value| value + 1)),
       )
       .child(
         View::new()
@@ -363,11 +363,11 @@ fn action(
   text: &'static str,
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
-) -> Button {
+) -> impl Render {
   Button::new(ls(text))
-    .name(name)
+    .host_name(name)
     .style(action_style())
-    .on_click(callback)
+    .on_press(callback)
 }
 
 fn content() -> Style {

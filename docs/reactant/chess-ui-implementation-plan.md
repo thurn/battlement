@@ -50,8 +50,8 @@ Implementation depends on the certified implementations of these designs:
 
 - [Layout and stacking](layout-and-stacking.md)
 - [Focus and navigation](focus-and-navigation.md)
-- [Accessibility technical design](accessibility-technical-design.md)
-- [Accessibility implementation plan](accessibility-implementation-plan.md)
+- [Shared components](shared-components.md)
+- [Shared components](shared-components.md)
 - [Events and default actions](events-and-default-actions.md)
 - [Asset generator](asset-generator.md#authoring-api)
 - [Mockup animation coverage](animations.md#mockup-translation-coverage)

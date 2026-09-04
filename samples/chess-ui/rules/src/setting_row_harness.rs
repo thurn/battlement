@@ -4,9 +4,9 @@ use crate::setting_row::SettingRow;
 use battlement::{Color, Style, TextAnchor};
 use battlement_reactant::prelude::{builder, use_control_label};
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions},
   component::Component,
-  host::{Button, Label, TextElement, View},
+  control_behavior,
+  host::{ButtonHost, Label, TextElement, View},
   render::Render,
 };
 
@@ -16,8 +16,8 @@ pub struct SettingRowHarness;
 
 impl Component for SettingRowHarness {
   fn render(&self) -> impl Render {
-    let (label, control) = use_control_label()
-      .bind_with(|name| accessibility::use_button(ButtonOptions::new().name(name).on_press(|| {})));
+    let (label, control) =
+      use_control_label().bind_with(|name| control_behavior::button(name, None, false, || {}));
     View::new()
       .name("setting-row-specimen")
       .style(
@@ -35,12 +35,12 @@ impl Component for SettingRowHarness {
           .label(self::label("Max Framerate"))
           .children(self::value("144 FPS")),
         SettingRow::new()
-          .label(accessibility::name_source_text(tx(
+          .label(control_behavior::name_source_text(tx(
             "Display Mode",
             "User-facing product copy in the Chess UI sample.",
           )))
           .children(
-            Button::new(tx(
+            ButtonHost::new(tx(
               "Borderless",
               "User-facing product copy in the Chess UI sample.",
             ))
@@ -59,7 +59,7 @@ impl Component for SettingRowHarness {
 }
 
 fn value(text: &'static str) -> Label {
-  accessibility::static_label(ls(text)).style(
+  control_behavior::static_label(ls(text)).style(
     Style::new()
       .font_size(40)
       .color(Color::rgb(0.75, 0.86, 0.97))
@@ -68,5 +68,5 @@ fn value(text: &'static str) -> Label {
 }
 
 fn label(text: &'static str) -> TextElement {
-  accessibility::static_text(ls(text))
+  control_behavior::static_text(ls(text))
 }

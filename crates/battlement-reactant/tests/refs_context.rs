@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -5,7 +6,6 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -59,9 +59,11 @@ impl Component for RefFixture {
       Vec::new()
     });
     self.handle.replace(Some(reference.clone()));
-    battlement_reactant::host::Button::new(ls("mutate ref")).on_click(move |_game: &mut Game| {
-      reference.with_mut(|values| values.push(2));
-    })
+    battlement_reactant::host::ButtonHost::new(ls("mutate ref")).on_click(
+      move |_game: &mut Game| {
+        reference.with_mut(|values| values.push(2));
+      },
+    )
   }
 }
 

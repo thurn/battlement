@@ -1,10 +1,10 @@
+use trox::ls;
 mod app_support;
 
 use std::{
   collections::HashSet,
   panic::{self, AssertUnwindSafe},
 };
-use trox::ls;
 
 use battlement::{ObjectId, UiDocument};
 use battlement_fake::client::FakeClient;
@@ -31,8 +31,8 @@ impl Component for IdOwner {
       Label::new(ls(initial)).name(format!("initial-{}", self.0)),
       Label::new(ls(count.to_string())).name(format!("count-{}", self.0)),
       Button::new(ls("Increment"))
-        .name(format!("increment-{}", self.0))
-        .on_click(move || set_count.update(|value| value + 1)),
+        .host_name(format!("increment-{}", self.0))
+        .on_press(move || set_count.update(|value| value + 1)),
     ))
   }
 }
@@ -44,11 +44,11 @@ impl Component for IdList {
     let names = if reversed { ["b", "a"] } else { ["a", "b"] };
     View::new().child((
       Button::new(ls("Reverse"))
-        .name("reverse")
-        .on_click(move || set_reversed.update(|value| !value)),
+        .host_name("reverse")
+        .on_press(move || set_reversed.update(|value| !value)),
       Button::new(ls("Toggle"))
-        .name("toggle")
-        .on_click(move || set_visible.update(|value| !value)),
+        .host_name("toggle")
+        .on_press(move || set_visible.update(|value| !value)),
       names
         .into_iter()
         .filter(|name| visible || *name != "a")
@@ -76,8 +76,8 @@ impl Component for VariableId {
       }
     }
     Button::new(ls("Change hooks"))
-      .name("change")
-      .on_click(|mode: &mut u8| *mode += 1)
+      .host_name("change")
+      .on_press(|mode: &mut u8| *mode += 1)
   }
 }
 

@@ -339,8 +339,8 @@ fn action(
   text: &'static str,
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
-) -> Button {
-  battlement_reactant::host::Button::new(ls(text))
+) -> impl Render {
+  battlement_reactant::host::ButtonHost::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

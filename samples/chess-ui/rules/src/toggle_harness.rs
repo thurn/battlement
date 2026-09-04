@@ -2,7 +2,7 @@ use trox::{tx, tx_args, txa};
 
 use crate::{review_button::ReviewButton, toggle_control::ToggleControl};
 use battlement::{Color, Style};
-use battlement_reactant::{accessibility, hooks, prelude::*};
+use battlement_reactant::{control_behavior, hooks, prelude::*};
 
 /// Owns checkbox values and counts proposals accepted from the controls.
 #[builder]
@@ -48,7 +48,7 @@ impl Component for ToggleHarness {
           ))
           .row_height(190.0)
           .offset_y(-8.0),
-        accessibility::static_label(txa(
+        control_behavior::static_label(txa(
           "VSync changes: {changes}",
           tx_args![changes],
           "User-facing product copy in the Chess UI sample.",
@@ -70,5 +70,5 @@ impl Component for ToggleHarness {
 }
 
 fn label(value: LocalizedString) -> TextElement {
-  accessibility::name_source_text(value)
+  control_behavior::name_source_text(value)
 }

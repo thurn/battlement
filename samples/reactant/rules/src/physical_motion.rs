@@ -326,11 +326,11 @@ fn action(
   text: &'static str,
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
-) -> Button {
+) -> impl Render {
   Button::new(ls(text))
-    .name(name)
+    .host_name(name)
     .style(action_style())
-    .on_click(callback)
+    .on_press(callback)
 }
 
 fn content() -> Style {

@@ -45,9 +45,9 @@ use crate::{
 /// through fully qualified trait syntax.
 ///
 /// ```compile_fail
-/// use battlement_reactant::{host::Button, key::KeyRenderExt};
+/// use battlement_reactant::{host::ButtonHost, key::KeyRenderExt};
 ///
-/// let _ = <Button as KeyRenderExt>::key(Button::new("Save"), 7_u64);
+/// let _ = <ButtonHost as KeyRenderExt>::key(ButtonHost::new("Save"), 7_u64);
 /// ```
 pub trait KeyRenderExt: Render + Sized {
   /// Assigns typed identity within the render value's sibling list.

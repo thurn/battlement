@@ -80,6 +80,24 @@ impl Handler {
     }
   }
 
+  pub(crate) fn owned_value_callback<E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(UiEventBody) -> E,
+    callback: Callback<E>,
+  ) -> Self {
+    Self {
+      model: callback.model,
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, _, _, _, body| {
+        callback.call(game, extract(body.as_ref().clone()));
+      }),
+    }
+  }
+
   pub(crate) fn event_owned_callback<E: 'static>(
     slot: &'static str,
     native_kind: UiEventKind,
@@ -116,7 +134,7 @@ impl Handler {
           body,
           |body| match body {
             UiEventBody::AccessibilityAction(value) => value,
-            _ => panic!("accessibility callback received another event"),
+            _ => panic!("ControlBehavior callback received another event"),
           },
           target,
           phase,

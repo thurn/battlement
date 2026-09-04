@@ -70,7 +70,7 @@ impl Component for StateIdentity {
         .style(design_system::title()),
       )
       .child(
-        battlement_reactant::host::Button::new(ls(action))
+        battlement_reactant::host::ButtonHost::new(ls(action))
           .name("state-action")
           .style(design_system::primary_action(control))
           .on_pointer_enter({

@@ -10,6 +10,8 @@ use battlement::{
 };
 
 use crate::{
+  callback::{Callback, IntoCallback},
+  control_behavior,
   element_ref::ElementRef,
   focus::FocusProps,
   host::{Stack, View},
@@ -17,7 +19,7 @@ use crate::{
   render::RenderTree,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
-  semantics::{AccessibleBehavior, InteractionProps, SemanticProps},
+  semantics::{ControlBehavior, InteractionProps, SemanticName, SemanticProps},
 };
 
 /// Deferred overlay references resolved against the complete desired tree.
@@ -62,6 +64,8 @@ pub struct OverlayHost {
 /// One portal-backed overlay wrapper and its logical child.
 #[derive(Clone)]
 pub struct Overlay {
+  dialog_name: Option<SemanticName>,
+  on_dismiss: Option<Callback<()>>,
   target: PortalTarget,
   wrapper: View,
 }
@@ -121,8 +125,8 @@ impl Overlay {
 
   /// Creates a viewport-filling modal focus scope.
   #[must_use]
-  pub fn modal(target: PortalTarget) -> Self {
-    Self::new(
+  pub fn modal(target: PortalTarget, name: impl Into<SemanticName>) -> Self {
+    let mut overlay = Self::new(
       target,
       Prop::Unset,
       Some(OverlayReference::Modal {
@@ -131,7 +135,17 @@ impl Overlay {
       }),
       true,
       true,
-    )
+    );
+    overlay.dialog_name = Some(name.into());
+    overlay
+  }
+
+  /// Supplies the modal's optional authoritative dismiss callback.
+  #[must_use]
+  pub fn on_dismiss<G: 'static>(mut self, callback: impl IntoCallback<(), G>) -> Self {
+    assert!(self.dialog_name.is_some(), "only a modal accepts dismissal");
+    self.on_dismiss = Some(callback.into_callback());
+    self
   }
 
   /// Replaces anchored-popover placement and collision policy.
@@ -177,9 +191,13 @@ impl Overlay {
     self
   }
 
-  /// Attaches one accessible behavior to the public overlay wrapper.
+  /// Attaches one advanced control behavior to a non-modal overlay wrapper.
   #[must_use]
-  pub fn behavior<G: 'static, S>(mut self, value: AccessibleBehavior<G, S>) -> Self {
+  pub fn behavior<G: 'static>(mut self, value: ControlBehavior<G>) -> Self {
+    assert!(
+      self.dialog_name.is_none(),
+      "modal dialog behavior is intrinsic"
+    );
     self.wrapper = self.wrapper.behavior(value);
     self
   }
@@ -200,7 +218,7 @@ impl Overlay {
 
   /// Sets the wrapper name used by Unity queries and selectors.
   #[must_use]
-  pub fn name(mut self, value: impl Into<Prop<String>>) -> Self {
+  pub fn host_name(mut self, value: impl Into<Prop<String>>) -> Self {
     self.wrapper = self.wrapper.name(value);
     self
   }
@@ -270,11 +288,15 @@ impl Overlay {
   /// Attaches the wrapper's single semantic declaration.
   #[must_use]
   pub fn semantic(mut self, value: SemanticProps) -> Self {
+    assert!(
+      self.dialog_name.is_none(),
+      "modal dialog semantics are intrinsic"
+    );
     self.wrapper = self.wrapper.semantic(value);
     self
   }
 
-  /// Merges ordinary callbacks returned by an accessible behavior hook.
+  /// Merges advanced ordinary interaction callbacks.
   #[must_use]
   pub fn interaction_props<G: 'static>(mut self, value: InteractionProps<G>) -> Self {
     self.wrapper = self.wrapper.interaction_props(value);
@@ -319,7 +341,12 @@ impl Overlay {
       )
       .overlay_placement(placement);
     wrapper.state.overlay_reference = reference;
-    Self { target, wrapper }
+    Self {
+      dialog_name: None,
+      on_dismiss: None,
+      target,
+      wrapper,
+    }
   }
 
   fn validate_modal_focus_properties(&self) {
@@ -373,7 +400,14 @@ impl Sealed for Overlay {
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    create_portal(self.wrapper.clone(), self.target.clone()).render_into(sink);
+    let wrapper = match &self.dialog_name {
+      Some(name) => {
+        let behavior = control_behavior::dialog(name.clone(), self.on_dismiss.clone());
+        self.wrapper.clone().behavior(behavior)
+      }
+      None => self.wrapper.clone(),
+    };
+    create_portal(wrapper, self.target.clone()).render_into(sink);
   }
 }
 

@@ -3,7 +3,9 @@ use trox::{tx, tx_args, txa};
 use crate::{review_button::ReviewButton, volume_control::VolumeControl};
 use battlement::{Color, Style};
 use battlement_reactant::prelude::builder;
-use battlement_reactant::{accessibility, component::Component, hooks, host::View, render::Render};
+use battlement_reactant::{
+  component::Component, control_behavior, hooks, host::View, render::Render,
+};
 
 /// Owns slider percentages and demonstrates accepted and rejected changes.
 #[builder]
@@ -50,7 +52,7 @@ impl Component for VolumeHarness {
           ))
           .value(100)
           .on_change(|_| {}),
-        accessibility::static_label(txa(
+        control_behavior::static_label(txa(
           "Volume changes: {changes}",
           tx_args![changes],
           "User-facing product copy in the Chess UI sample.",

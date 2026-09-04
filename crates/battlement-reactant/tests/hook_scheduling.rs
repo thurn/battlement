@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -10,7 +11,6 @@ use std::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
   },
 };
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -191,7 +191,7 @@ impl Component for HookMatrix {
       setter: Some(setter),
     });
     (
-      battlement_reactant::host::Button::new(ls("Invoke callback")).on_click(
+      battlement_reactant::host::ButtonHost::new(ls("Invoke callback")).on_click(
         move |game: &mut Game| {
           game.callback_value = callback();
         },
@@ -223,7 +223,7 @@ impl Component for FailingCallback {
       (),
     );
     (
-      battlement_reactant::host::Button::new(ls("Fail"))
+      battlement_reactant::host::ButtonHost::new(ls("Fail"))
         .on_click(move |_game: &mut Game| callback()),
       battlement_reactant::host::Label::new(ls(format!("value={value}"))),
     )

@@ -38,6 +38,10 @@ impl<A> Clone for Callback<A> {
 }
 
 impl<A: 'static> Callback<A> {
+  pub(crate) fn same_identity(&self, other: &Self) -> bool {
+    self.model == other.model && Rc::ptr_eq(&self.invoke, &other.invoke)
+  }
+
   /// Creates an application-independent callback.
   #[must_use]
   pub fn new(callback: impl Fn(A) + 'static) -> Self {

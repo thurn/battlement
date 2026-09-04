@@ -1,7 +1,7 @@
+use trox::ls;
 mod runtime_support;
 
 use std::panic::{self, AssertUnwindSafe};
-use trox::ls;
 
 use battlement::{
   AccessibilitySnapshot, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind,
@@ -10,13 +10,13 @@ use battlement::{
   UiEventBody,
 };
 use battlement_reactant::{
-  accessibility_popup::{self, PopupButtonOptions},
   component::Component,
-  element_ref,
+  components::PopupButton,
+  control_behavior, element_ref,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  host::{Button, Label, View},
+  host::{ButtonHost, Label, View},
   render::Render,
-  semantics::{AccessibleName, SemanticProps, SemanticVisibility},
+  semantics::{SemanticName, SemanticProps, SemanticVisibility},
 };
 
 #[derive(Clone, Default)]
@@ -40,29 +40,27 @@ impl Component for Fixture {
     let title = element_ref::use_element_ref();
     let value = element_ref::use_element_ref();
     let selected = if self.0.changed { " Low " } else { " High " };
-    let behavior = accessibility_popup::use_popup_button(
-      PopupButtonOptions::new()
-        .name(AccessibleName::LabelledBy(vec![
-          title.clone(),
-          value.clone(),
-        ]))
-        .popup(PopupKind::ListBox)
-        .expanded(self.0.expanded)
-        .on_press(|game: &mut Game| game.presses += 1),
-    );
     View::new().child((
-      Label::new(ls(" Quality ")).element_ref(title).semantic(
-        SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text(ls(" Quality ")))
-          .visibility(SemanticVisibility::NameSourceOnly),
-      ),
-      Button::new(ls("")).behavior(behavior).child(
-        Label::new(ls(selected)).element_ref(value).semantic(
+      Label::new(ls(" Quality "))
+        .element_ref(title.clone())
+        .semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(ls(selected)))
+            .name(SemanticName::text(ls(" Quality ")))
             .visibility(SemanticVisibility::NameSourceOnly),
         ),
-      ),
+      PopupButton::content(
+        Label::new(ls(selected))
+          .element_ref(value.clone())
+          .semantic(
+            SemanticProps::new(SemanticRole::StaticText)
+              .name(SemanticName::text(ls(selected)))
+              .visibility(SemanticVisibility::NameSourceOnly),
+          ),
+        PopupKind::ListBox,
+        self.0.expanded,
+      )
+      .semantic_name(SemanticName::LabelledBy(vec![title, value]))
+      .on_press(|game: &mut Game| game.presses += 1),
     ))
   }
 }
@@ -130,17 +128,16 @@ fn malformed_popup_declarations_fail_as_developer_errors() {
     runtime.register_root(
       UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4()),
       move |_game: &Game| {
-        let mut behavior = accessibility_popup::use_popup_button(
-          PopupButtonOptions::new()
-            .name(AccessibleName::text(ls("Options")))
-            .popup(PopupKind::ListBox)
-            .expanded(false)
-            .on_press(|_: &mut Game| {}),
+        let mut behavior = control_behavior::button(
+          SemanticName::text(ls("Options")),
+          None,
+          false,
+          |_: &mut Game| {},
         );
         behavior.semantic.role = role;
         behavior.semantic.state.popup = popup;
         behavior.semantic.state.expanded = expanded;
-        Button::new(ls("Options")).behavior(behavior)
+        ButtonHost::new(ls("Options")).behavior(behavior)
       },
     );
     assert!(

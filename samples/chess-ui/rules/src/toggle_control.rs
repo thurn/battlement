@@ -6,7 +6,7 @@ use crate::{check_mark::CheckMark, setting_row::SettingRow};
 use battlement::{
   Align, Color, Justify, Length, PickingMode, Position, Style, TextAnchor, Translate,
 };
-use battlement_reactant::{accessibility, prelude::*};
+use battlement_reactant::{control_behavior, host::ToggleHost, prelude::*};
 
 /// A controlled checkbox with an associated, clickable settings label.
 #[builder]
@@ -35,22 +35,20 @@ pub struct ToggleControl {
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
-      accessibility::use_checkbox(
-        ToggleOptions::new()
-          .name(
-            self
-              .aria_label
-              .as_ref()
-              .map_or(label_name, |name| AccessibleName::text(name.clone())),
-          )
-          .description(self.with_info.then(|| {
-            AccessibleDescription::text(tx(
-              "We upload crash reports to Unity Diagnostics.",
-              "User-facing product copy in the Chess UI sample.",
-            ))
-          }))
-          .checked(self.checked)
-          .on_change(self.on_change.clone()),
+      control_behavior::checkbox(
+        self
+          .aria_label
+          .as_ref()
+          .map_or(label_name, |name| SemanticName::text(name.clone())),
+        self.with_info.then(|| {
+          SemanticDescription::text(tx(
+            "We upload crash reports to Unity Diagnostics.",
+            "User-facing product copy in the Chess UI sample.",
+          ))
+        }),
+        self.checked,
+        false,
+        self.on_change.clone(),
       )
     });
     View::new()
@@ -93,9 +91,12 @@ impl Component for ToggleControl {
                       .background_color(Color::rgb8(2, 9, 26)),
                   )
                   .child(self.checked.then_some(CheckMark::new())),
-                Button::new(tx("", "User-facing product copy in the Chess UI sample."))
+                ToggleHost::new()
+                  .value(self.checked)
                   .name("toggle-control-input")
                   .associated_control(checkbox)
+                  .on_change_value(self.on_change.clone())
+                  .input_style(Style::new().opacity(0.0))
                   .style(
                     Style::new()
                       .position(Position::Absolute)
@@ -125,33 +126,33 @@ struct InfoBadge {
 
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
-    Button::new(tx("i", "User-facing product copy in the Chess UI sample."))
-      .name("toggle-info")
-      .behavior(accessibility::use_button(
-        ButtonOptions::new()
-          .name(AccessibleName::text(tx(
-            "About crash report uploads",
-            "User-facing product copy in the Chess UI sample.",
-          )))
-          .on_press(self.on_click.clone()),
-      ))
-      .style(
-        Style::new()
-          .position(Position::Absolute)
-          .left(205)
-          .bottom(37)
-          .width(38)
-          .height(38)
-          .padding(0)
-          .border_width(2)
-          .border_color(Color::rgb8(85, 184, 255))
-          .border_radius(19)
-          .background_color(Color::TRANSPARENT)
-          .color(Color::rgb8(188, 244, 255))
-          .font_size(27)
-          .unity_text_align(TextAnchor::MiddleCenter)
-          .align_items(Align::Center)
-          .justify_content(Justify::Center),
-      )
+    Button::content(Text::new(tx(
+      "i",
+      "User-facing product copy in the Chess UI sample.",
+    )))
+    .semantic_name(SemanticName::text(tx(
+      "About crash report uploads",
+      "User-facing product copy in the Chess UI sample.",
+    )))
+    .host_name("toggle-info")
+    .on_press(self.on_click.clone())
+    .style(
+      Style::new()
+        .position(Position::Absolute)
+        .left(205)
+        .bottom(37)
+        .width(38)
+        .height(38)
+        .padding(0)
+        .border_width(2)
+        .border_color(Color::rgb8(85, 184, 255))
+        .border_radius(19)
+        .background_color(Color::TRANSPARENT)
+        .color(Color::rgb8(188, 244, 255))
+        .font_size(27)
+        .unity_text_align(TextAnchor::MiddleCenter)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center),
+    )
   }
 }

@@ -8,7 +8,8 @@ use battlement::{
   UiFontAddress,
 };
 use battlement_reactant::{
-  accessibility, accessibility_popup,
+  control_behavior,
+  host::ButtonHost,
   paint::{PaintLayer, PaintStyle},
   prelude::*,
 };
@@ -38,14 +39,27 @@ impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let label = use_control_label();
     let value_label = use_label();
-    let trigger = accessibility_popup::use_popup_button(
-      PopupButtonOptions::new()
-        .name(label.name_with(&value_label))
-        .popup(PopupKind::ListBox)
-        .expanded(false)
-        .on_press(|| {}),
-    );
-    let (label, trigger) = label.bind(trigger);
+    let (label, trigger) = label.bind_with(|name| {
+      let SemanticName::LabelledBy(references) = name else {
+        panic!("control labels must resolve through labelled-by references");
+      };
+      control_behavior::button(
+        SemanticName::LabelledBy(
+          references
+            .into_iter()
+            .chain([value_label.reference()])
+            .collect(),
+        ),
+        None,
+        false,
+        || {},
+      )
+      .map_semantic(|mut semantic| {
+        semantic.state.popup = Some(PopupKind::ListBox);
+        semantic.state.expanded = Some(false);
+        semantic
+      })
+    });
     SettingRow::new()
       .label(self.label.render())
       .children(
@@ -73,7 +87,7 @@ impl Component for SelectControl {
                   .height(106),
               )
               .child(
-                Button::new(tx("", "User-facing product copy in the Chess UI sample."))
+                ButtonHost::new(tx("", "User-facing product copy in the Chess UI sample."))
                   .name("select-trigger")
                   .associated_control(trigger)
                   .style(
@@ -105,7 +119,7 @@ impl Component for SelectControl {
                       ),
                   )
                   .child((
-                    accessibility::name_source_text(ls(self.value.clone()))
+                    control_behavior::name_source_text(ls(self.value.clone()))
                       .name("select-value")
                       .element_ref(value_label.reference()),
                     Caret::new().is_open(false),

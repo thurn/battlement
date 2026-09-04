@@ -56,14 +56,6 @@ pub use crate::motion_css::{
   StyleProperty, StyleTransition,
 };
 pub use crate::{
-  accessibility::{
-    ButtonOptions, ButtonState, ChoiceOptions, DialogOptions, DisclosureOptions,
-    RadioGroupBehavior, ScrollAreaOptions, SliderOptions, SliderState, TabsBehavior, ToggleOptions,
-    use_busy_progress, use_button, use_checkbox, use_dialog, use_disclosure, use_group,
-    use_heading, use_image, use_progress, use_radio, use_radio_group, use_scroll_area, use_slider,
-    use_static_text, use_switch, use_tab, use_tab_panel, use_tabs,
-  },
-  accessibility_popup::{PopupButtonOptions, use_popup_button},
   animation_controls::{
     AnimationControls, AnimationScope, AnimationSequence, ControlTarget, MotionSelector,
     SequencePosition, use_animation_controls, use_animation_scope,
@@ -73,6 +65,11 @@ pub use crate::{
   application::use_application_state,
   callback::Callback as EventCallback,
   component::{Component, Memo, RenderCallback, memo},
+  components::{
+    Button, Checkbox, ColumnHeader, Disclosure, Group, Heading, Image, Link, ListBox,
+    ListBoxOption, Navigation, PopupButton, Progress, Radio, RadioGroup, Region, RowHeader,
+    ScrollArea, Slider, Switch, Tab, TabPanel, Table, TableCell, TableRow, Tabs, Text,
+  },
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   element_ref::{ElementRef, use_element_ref},
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
@@ -94,10 +91,9 @@ pub use crate::{
     use_required_context, use_state, use_state_with,
   },
   host::{
-    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, LocalizedChoice, MinMaxSlider,
-    PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller,
-    Slider, SliderInt, Stack, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
-    View,
+    Box, DropdownField, Flex, Grid, GroupBox, Label, LocalizedChoice, MinMaxSlider, PopupWindow,
+    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, SliderInt,
+    Stack, TabView, TextElement, TextField, ToggleButtonGroup, View,
   },
   key::{KeyRenderExt, Keyed},
   layout::{Layout, LayoutGroup, ReorderAxis, reorder_index},
@@ -126,8 +122,8 @@ pub use crate::{
   resource_control::{ResourceControl, use_resource_control},
   runtime::RenderError,
   semantics::{
-    AccessibilityRangeValue, AccessibleBehavior, AccessibleDescription, AccessibleName,
-    ActionDisposition, InteractionProps, SemanticProps, SemanticVisibility,
+    ActionDisposition, ControlBehavior, InteractionProps, SemanticDescription, SemanticName,
+    SemanticProps, SemanticRange, SemanticVisibility,
   },
   suspense::Suspense,
   variant_map::{VariantData, VariantKey, VariantName, VariantTarget, Variants},

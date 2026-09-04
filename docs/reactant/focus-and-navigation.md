@@ -21,7 +21,7 @@ The central rule is:
   exchanged with Rust.
 
 This boundary supplies the input-focus behavior required by
-[Reactant accessibility](accessibility-technical-design.md). Accessibility
+[Reactant shared components](shared-components.md). Accessibility
 reads the coordinator's settled active modal and effective inertness. It does
 not require generic roving groups, explicit directional neighbors, or a focus
 resume protocol.
@@ -36,7 +36,7 @@ resume protocol.
   default precedence and the synchronous event disposition.
 - [Reactant animations](animations.md) defines Motion gestures, presence, and
   physical exit retention.
-- [Reactant accessibility](accessibility-technical-design.md) consumes modal
+- [Reactant shared components](shared-components.md) consumes modal
   activity and effective inertness from this design.
 - [Refs and geometry](refs-geometry-and-floating-ui.md) defines `ElementRef`,
   queued host actions, and explicit scrolling actions.

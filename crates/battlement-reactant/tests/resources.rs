@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -15,7 +16,6 @@ use std::{
   },
   task::{Context, Poll, Waker},
 };
-use trox::ls;
 
 use battlement::{
   ClickEvent, CommandBody, Display, GameObject, GameObjectKind, ObjectId, ParentScene,
@@ -217,7 +217,7 @@ impl Component for RetainedRead {
     self.setter.replace(Some(setter.clone()));
     Suspense::new(battlement_reactant::host::Label::new(ls("pending"))).child(
       use_resource(&self.resource, self.key).then(move |value| {
-        battlement_reactant::host::Button::new(ls(format!("value:{value} state:{count}")))
+        battlement_reactant::host::ButtonHost::new(ls(format!("value:{value} state:{count}")))
           .on_click(move |_game: &mut ResourceGame| setter.update(|value| value + 1))
       }),
     )

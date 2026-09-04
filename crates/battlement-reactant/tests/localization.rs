@@ -20,14 +20,14 @@ use battlement_reactant::{
   component::{Component, memo},
   hooks,
   host::{
-    Button, DropdownField, GroupBox, Label, MinMaxSlider, PopupWindow, ProgressBar, RadioButton,
-    RadioButtonGroup, RepeatButton, Slider, SliderInt, Tab, TabView, TextElement, TextField,
-    Toggle, ToggleButtonGroup, View,
+    ButtonHost, DropdownField, GroupBox, Label, MinMaxSlider, PopupWindow, ProgressBar,
+    RadioButton, RadioButtonGroup, RepeatButton, SliderInt, TabView, TextElement, TextField,
+    ToggleButtonGroup, ToggleHost, View,
   },
   portal::create_portal,
   render::Render,
   runtime::Reactant,
-  semantics::{AccessibleDescription, AccessibleName, SemanticProps},
+  semantics::{SemanticDescription, SemanticName, SemanticProps},
 };
 use trox::{Bundle, DiagnosticCode, LocalizedString, Localizer, SourceLocale, tx};
 
@@ -73,13 +73,13 @@ impl Component for LocalizedFixture {
       .child(
         Label::new(message()).semantic(
           SemanticProps::new(SemanticRole::StaticText)
-            .name(AccessibleName::text(message()))
-            .description(AccessibleDescription::text(message())),
+            .name(SemanticName::text(message()))
+            .description(SemanticDescription::text(message())),
         ),
       )
       .child(create_portal(
         Label::new(message()).semantic(
-          SemanticProps::new(SemanticRole::StaticText).name(AccessibleName::text(message())),
+          SemanticProps::new(SemanticRole::StaticText).name(SemanticName::text(message())),
         ),
         self.portal.clone(),
       ))
@@ -94,7 +94,7 @@ impl Component for AppFixture {
     let replacement = Rc::clone(&self.replacement);
     View::new().child((
       Label::new(message()).name("localized-value"),
-      Button::new(message())
+      ButtonHost::new(message())
         .name("replace-localizer")
         .on_click(move || {
           announce.send(message());
@@ -121,7 +121,7 @@ impl Component for StaleHandleFixture {
     let stale = Rc::clone(&self.stale);
     View::new().child((
       Label::new(message()).name("localized-value"),
-      Button::new(message())
+      ButtonHost::new(message())
         .name("use-stale-handle")
         .on_click(move || {
           stale
@@ -347,7 +347,7 @@ fn property_catalog() -> impl Render {
           "Localized placeholder used by the Reactant property fixture.",
         ))
         .value("User value"),
-      Toggle::new().text(message()),
+      ToggleHost::new().text(message()),
       RadioButton::new().text(message()),
       (
         RadioButtonGroup::new()
@@ -359,7 +359,7 @@ fn property_catalog() -> impl Render {
           .selected_index(0),
         ToggleButtonGroup::new()
           .label(message())
-          .child(Button::new(message())),
+          .child(ButtonHost::new(message())),
         DropdownField::new()
           .label(message())
           .choices([tx(
@@ -373,7 +373,7 @@ fn property_catalog() -> impl Render {
               "Localized choice used by the Reactant property fixture.",
             ),
           ),
-        Button::new(message()),
+        ButtonHost::new(message()),
       ),
     ))
     .child((
@@ -382,7 +382,7 @@ fn property_catalog() -> impl Render {
       PopupWindow::new()
         .text(message())
         .child(Label::new(message())),
-      Slider::new()
+      battlement_reactant::host::SliderHost::new()
         .label(message())
         .low_value(0.0)
         .high_value(10.0)
@@ -408,11 +408,11 @@ fn property_catalog() -> impl Render {
         .value(5.0),
       TabView::new()
         .selected_tab_index(0)
-        .child(Tab::new(message()).child(Label::new(message()))),
+        .child(battlement_reactant::host::TabHost::new(message()).child(Label::new(message()))),
       Label::new(message()).semantic(
         SemanticProps::new(SemanticRole::StaticText)
-          .name(AccessibleName::text(message()))
-          .description(AccessibleDescription::text(message())),
+          .name(SemanticName::text(message()))
+          .description(SemanticDescription::text(message())),
       ),
     ))
 }

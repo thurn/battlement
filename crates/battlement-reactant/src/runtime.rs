@@ -655,7 +655,7 @@ impl<G: 'static> Reactant<G> {
           .borrow()
           .command_groups(frozen_motion_commands),
       );
-      let accessibility = semantic_projection::build(
+      let semantic_snapshot = semantic_projection::build(
         &rendered,
         self.runtime_id,
         &attachments,
@@ -664,19 +664,19 @@ impl<G: 'static> Reactant<G> {
       let accessibility_changed = self
         .last_accessibility
         .as_ref()
-        .map_or(!accessibility.nodes.is_empty(), |previous| {
-          !same_accessibility(previous, &accessibility)
+        .map_or(!semantic_snapshot.nodes.is_empty(), |previous| {
+          !same_accessibility(previous, &semantic_snapshot)
         });
       Ok((
         rendered,
         groups,
         attachments,
         geometry,
-        accessibility,
+        semantic_snapshot,
         accessibility_changed,
       ))
     }));
-    let (mut rendered, mut groups, attachments, geometry, accessibility, accessibility_changed) =
+    let (mut rendered, mut groups, attachments, geometry, semantic_snapshot, accessibility_changed) =
       match planned {
         Ok(Ok(value)) => value,
         Ok(Err(error)) => return Err(error),
@@ -692,11 +692,12 @@ impl<G: 'static> Reactant<G> {
     }
     let announcements = announcement::take();
     let sent_accessibility = accessibility_changed || !announcements.is_empty();
-    let next_accessibility = (!accessibility.nodes.is_empty()).then(|| accessibility.clone());
+    let next_accessibility =
+      (!semantic_snapshot.nodes.is_empty()).then(|| semantic_snapshot.clone());
     if sent_accessibility {
       groups.push(vec![CommandBody::AccessibilityUpdate(
         AccessibilityUpdate {
-          snapshot: accessibility_changed.then_some(accessibility),
+          snapshot: accessibility_changed.then_some(semantic_snapshot),
           announcements,
         },
       )]);
@@ -1163,7 +1164,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       FrozenResources::from_frozen(Rc::clone(&self.resources), resource_completions);
     let mut geometry = Some(geometry);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      let accessibility = semantic_projection::build(
+      let semantic_snapshot = semantic_projection::build(
         committed,
         self.runtime_id,
         &attachments,
@@ -1179,11 +1180,11 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         .commit(external.take().expect("external session is committed once"));
       let geometry = geometry.take().expect("geometry session is committed once");
       let mut groups = geometry.command_groups(groups);
-      let has_accessibility = !accessibility.nodes.is_empty();
+      let has_accessibility = !semantic_snapshot.nodes.is_empty();
       if has_accessibility {
         groups.push(vec![CommandBody::AccessibilityUpdate(
           AccessibilityUpdate {
-            snapshot: Some(accessibility.clone()),
+            snapshot: Some(semantic_snapshot.clone()),
             announcements: Vec::new(),
           },
         )]);
@@ -1196,7 +1197,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       if has_accessibility {
         self.semantic_commit_sequence += 1;
       }
-      self.last_accessibility = has_accessibility.then_some(accessibility);
+      self.last_accessibility = has_accessibility.then_some(semantic_snapshot);
       groups
     }));
     match completed {

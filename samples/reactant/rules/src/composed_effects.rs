@@ -169,7 +169,10 @@ fn dropdown(state: &ComposedEffectsState) -> View {
           .filter(MotionFilterList::default().contrast(1.15)),
       )
       .active_style(StyleTarget::new().scale(0.97))
-      .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12))),
+      .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12)))
+      .on_press(|game: &mut Game| {
+        game.composed_effects.dropdown_open = !game.composed_effects.dropdown_open;
+      }),
   )
   .child(AnimatePresence::new().child(state.dropdown_open.then(|| {
     Node::new(
@@ -186,7 +189,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
             .map(|(index, label)| {
               Button::new(ls(label))
                 .key(label)
-                .name(format!("composed-option-{index}"))
+                .host_name(format!("composed-option-{index}"))
                 .style(option())
                 .initial(StyleTarget::new().x(-18.0).opacity(0.0))
                 .animate(StyleTarget::new().x(0.0).opacity(1.0))
@@ -195,7 +198,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
                     .duration_secs(0.18)
                     .delay_secs(index as f64 * 0.055),
                 )
-                .on_click(move |game: &mut Game| {
+                .on_press(move |game: &mut Game| {
                   game.composed_effects.selected = index;
                   game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
                 })
@@ -365,7 +368,7 @@ fn interactions(state: &ComposedEffectsState) -> View {
         "User-facing product copy in the Reactant sample.",
       )
     })
-    .name("composed-checkbox")
+    .host_name("composed-checkbox")
     .style(probe())
     .hover_style(
       StyleTarget::new()
@@ -390,16 +393,16 @@ fn interactions(state: &ComposedEffectsState) -> View {
       ),
     )
     .after_all(particles)
-    .on_click(|game: &mut Game| {
+    .on_press(|game: &mut Game| {
       game.composed_effects.checked = !game.composed_effects.checked;
       game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
     }),
   )
   .child(
     Button::new(ls(format!("SLIDER  {}%", state.slider * 25)))
-      .name("composed-slider")
+      .host_name("composed-slider")
       .style(slider())
-      .on_click(|game: &mut Game| {
+      .on_press(|game: &mut Game| {
         game.composed_effects.slider = (game.composed_effects.slider + 1) % 5;
         game.composed_effects.burst = game.composed_effects.burst.wrapping_add(1);
       }),
@@ -467,11 +470,11 @@ fn action(
   text: &'static str,
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
-) -> Button {
+) -> impl Render {
   Button::new(ls(text))
-    .name(name)
+    .host_name(name)
     .style(action_style())
-    .on_click(callback)
+    .on_press(callback)
 }
 
 fn reduced_name(value: ReducedMotion) -> &'static str {

@@ -6,8 +6,8 @@ use crate::{action_button::ActionButton, action_skin};
 use battlement::{Position, Style};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
-  accessibility,
   component::Component,
+  control_behavior,
   host::View,
   paint::{PaintFill, PaintStyle},
   render::Render,
@@ -19,7 +19,7 @@ pub struct ReturnButton {
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
   #[builder(required)]
-  on_click: EventCallback<()>,
+  on_press: EventCallback<()>,
 }
 
 impl Component for ReturnButton {
@@ -43,13 +43,13 @@ impl Component for ReturnButton {
               .clip_polygon(action_skin::clip(18.0, 17.0)),
           ),
         ActionButton::new()
-          .children(accessibility::name_source_text(tx(
+          .children(control_behavior::name_source_text(tx(
             "RETURN",
             "User-facing product copy in the Chess UI sample.",
           )))
           .max_text_scale(1.35)
           .disabled(self.disabled)
-          .on_click(self.on_click.clone()),
+          .on_press(self.on_press.clone()),
       ))
   }
 }

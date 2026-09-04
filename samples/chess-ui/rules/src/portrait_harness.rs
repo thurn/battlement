@@ -4,8 +4,8 @@ use crate::portrait_viewport::PortraitViewport;
 use battlement::{Align, Color, Justify, LengthUnits, Style, TextAnchor};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility,
   component::Component,
+  control_behavior,
   host::{Label, View},
   render::Render,
 };
@@ -46,7 +46,7 @@ impl Component for PortraitHarness {
                 "1024 × 1536",
                 "User-facing product copy in the Chess UI sample.",
               ))
-              .semantic(accessibility::use_static_text(tx(
+              .semantic(control_behavior::static_text_props(tx(
                 "Portrait canvas, 1024 by 1536 logical pixels",
                 "User-facing product copy in the Chess UI sample.",
               )))

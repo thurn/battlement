@@ -90,7 +90,7 @@ pub fn gallery() -> Gallery {
         )
         .page(
             ReviewPage::new()
-                .title(tx("ToggleControl accessibility", "User-facing product copy in the Chess UI sample."))
+                .title(tx("ToggleControl control_behavior", "User-facing product copy in the Chess UI sample."))
                 .description(tx("ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.", "User-facing product copy in the Chess UI sample.")),
         )
         .page(

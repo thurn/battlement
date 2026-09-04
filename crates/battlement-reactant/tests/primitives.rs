@@ -1,7 +1,7 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
-use trox::ls;
 
 use battlement::{
   Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
@@ -54,7 +54,7 @@ impl Component for OverlayFixture {
   fn render(&self) -> impl Render {
     let anchor = use_element_ref();
     battlement_reactant::host::Stack::new()
-      .child(battlement_reactant::host::Button::new(ls("anchor")).element_ref(anchor.clone()))
+      .child(battlement_reactant::host::ButtonHost::new(ls("anchor")).element_ref(anchor.clone()))
       .child(
         battlement_reactant::overlay::Overlay::popover(self.target.clone(), anchor)
           .placement(battlement::PopoverPlacement::bottom_start().offset(6.0))
@@ -248,7 +248,7 @@ fn common_facades_lower_layout_item_descriptors() {
       battlement_reactant::host::Stack::new()
         .align_items(Align::Center)
         .justify_items(Align::FlexEnd)
-        .child(battlement_reactant::host::Button::new(ls("stack")).stack_item(stack_item)),
+        .child(battlement_reactant::host::ButtonHost::new(ls("stack")).stack_item(stack_item)),
       battlement_reactant::host::ScrollView::new()
         .child(battlement_reactant::host::Label::new(ls("sticky")).sticky(sticky)),
     )
@@ -520,7 +520,7 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
           .value("value"),
       ),
       Node::new(
-        battlement_reactant::host::Toggle::new()
+        battlement_reactant::host::ToggleHost::new()
           .text(ls("toggle"))
           .value(true),
       ),
@@ -538,7 +538,7 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
       Node::new(
         battlement_reactant::host::ToggleButtonGroup::new()
           .label(ls("alignment"))
-          .child(battlement_reactant::host::Button::new(ls("left"))),
+          .child(battlement_reactant::host::ButtonHost::new(ls("left"))),
       ),
       Node::new(
         battlement_reactant::host::DropdownField::new()
@@ -546,7 +546,7 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
           .choices([ls("one")])
           .selection(0, ls("one")),
       ),
-      Node::new(battlement_reactant::host::Button::new(ls("button"))),
+      Node::new(battlement_reactant::host::ButtonHost::new(ls("button"))),
       Node::new(battlement_reactant::host::RepeatButton::new(
         ls("repeat"),
         100,
@@ -574,7 +574,7 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
           .value(5.0),
       ),
       Node::new(
-        battlement_reactant::host::Slider::new()
+        battlement_reactant::host::SliderHost::new()
           .low_value(0.0)
           .high_value(10.0)
           .value(5.0),
@@ -603,12 +603,12 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
         battlement_reactant::host::TabView::new()
           .selected_tab_index(0)
           .child(
-            battlement_reactant::host::Tab::new(ls("tab"))
+            battlement_reactant::host::TabHost::new(ls("tab"))
               .closeable(true)
               .child(battlement_reactant::host::Label::new(ls("tab child"))),
           ),
       ),
-      Node::new(battlement_reactant::host::Image::new().name("image")),
+      Node::new(battlement_reactant::host::ImageHost::new().name("image")),
     ])
 }
 

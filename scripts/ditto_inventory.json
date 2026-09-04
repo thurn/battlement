@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "sha256": "04ae292d0d65a7b1b44b1d0b7051c8c088d044e44257fe628e4f380b8f50a2f2",
+  "sha256": "7cee401d933fc9bc9de9df38beb139820642f6c4e00be923503f6a4093ea19f1",
   "scenarios": 42,
   "screenshots": 103,
   "selection": {
@@ -36,7 +36,7 @@
       "refs and geometry",
       "events and portals",
       "state and identity",
-      "collection accessibility"
+      "collection components"
     ],
     "ui": [
       "buttons controls",

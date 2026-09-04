@@ -9,14 +9,14 @@ use crate::{
 use battlement::{Display, LengthUnits, ScrollViewMode, ScrollerVisibility, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility_collections,
-  context::Context,
-  element_ref::{self, ElementRef},
-};
-use battlement_reactant::{
   component::Component,
   host::{ScrollView, View},
   render::Render,
+};
+use battlement_reactant::{
+  components::Navigation,
+  context::Context,
+  element_ref::{self, ElementRef},
 };
 
 /// Scroll context shared by navigation entries so callers need no host references.
@@ -68,29 +68,31 @@ impl Component for ReviewNavigation {
           ReviewText::new()
             .text(self.caption.clone())
             .kind(ReviewTextKind::Caption),
-          self
-            .scroll
-            .clone()
-            .element_ref(scroll)
-            .semantic(accessibility_collections::use_navigation(tx(
-              "Chess UI review pages",
-              "User-facing product copy in the Chess UI sample.",
-            )))
-            .mode(ScrollViewMode::Vertical)
-            .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
-            .vertical_scroller_visibility(ScrollerVisibility::Auto)
-            .vertical_scroller_style(
-              Style::new()
-                .width(10)
-                .background_color(review_theme::BACKGROUND),
-            )
-            .vertical_low_button_style(Style::new().display(Display::None))
-            .vertical_high_button_style(Style::new().display(Display::None))
-            .vertical_track_style(Style::new().background_color(review_theme::SURFACE))
-            .vertical_dragger_style(self::thumb_style())
-            .vertical_dragger_border_style(self::thumb_style())
-            .style(Style::new().flex_grow(1).min_height(0))
-            .content_container_style(Style::new().padding_right(12)),
+          Navigation::new(tx(
+            "Chess UI review pages",
+            "User-facing product copy in the Chess UI sample.",
+          ))
+          .child(
+            self
+              .scroll
+              .clone()
+              .element_ref(scroll)
+              .mode(ScrollViewMode::Vertical)
+              .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
+              .vertical_scroller_visibility(ScrollerVisibility::Auto)
+              .vertical_scroller_style(
+                Style::new()
+                  .width(10)
+                  .background_color(review_theme::BACKGROUND),
+              )
+              .vertical_low_button_style(Style::new().display(Display::None))
+              .vertical_high_button_style(Style::new().display(Display::None))
+              .vertical_track_style(Style::new().background_color(review_theme::SURFACE))
+              .vertical_dragger_style(self::thumb_style())
+              .vertical_dragger_border_style(self::thumb_style())
+              .style(Style::new().flex_grow(1).min_height(0))
+              .content_container_style(Style::new().padding_right(12)),
+          ),
         )),
     )
   }

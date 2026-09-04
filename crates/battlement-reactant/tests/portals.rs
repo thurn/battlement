@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -6,7 +7,6 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -50,7 +50,7 @@ struct PortaledButton {
 
 impl Component for PortaledButton {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Button::new(ls(format!(
+    battlement_reactant::host::ButtonHost::new(ls(format!(
       "{} {}",
       self.name,
       hooks::use_context(&THEME)
@@ -95,7 +95,7 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let second_target = target.clone();
   reactant.register_root(second_document.clone(), move |_: &Game| {
     THEME.provider("dark-b").child(create_portal(
-      battlement_reactant::host::Button::new(ls("B dark-b")),
+      battlement_reactant::host::ButtonHost::new(ls("B dark-b")),
       second_target.clone(),
     ))
   });

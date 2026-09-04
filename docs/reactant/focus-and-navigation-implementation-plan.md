@@ -11,14 +11,14 @@ reconnect bookmarks.
 
 All tasks finish before accessibility implementation begins. The resulting
 coordinator exposes only the settled active modal and effective inertness needed
-by [Reactant accessibility](accessibility-technical-design.md).
+by [Reactant shared components](shared-components.md).
 
 ## Related Information
 
 - [Reactant focus and navigation](focus-and-navigation.md) is normative.
-- [Reactant accessibility](accessibility-technical-design.md) consumes the
+- [Reactant shared components](shared-components.md) consumes the
   completed modal and inertness boundary.
-- [Accessibility implementation plan](accessibility-implementation-plan.md)
+- [Shared components](shared-components.md)
   records that dependency.
 - [Reactant technical design](reactant-technical-design.md) defines runtime,
   reconciliation, portal, ref, event, and Motion contracts.

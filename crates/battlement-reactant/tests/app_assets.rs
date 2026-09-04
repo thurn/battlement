@@ -1,3 +1,4 @@
+use trox::ls;
 mod app_support;
 
 use battlement::{
@@ -7,7 +8,6 @@ use battlement::{
 use battlement_fake::client::FakeClient;
 use battlement_native::Engine;
 use battlement_reactant::{app::App, prelude::*};
-use trox::ls;
 
 struct Browser;
 
@@ -24,14 +24,14 @@ impl Component for Browser {
       .animation(Animation::new(Keyframes::new([paint.clone(), paint])).duration_secs(1.0))
       .child((
         Button::new(ls("Refresh"))
-          .name("refresh")
-          .on_click(move || app.refresh_snapshot()),
+          .host_name("refresh")
+          .on_press(move || app.refresh_snapshot()),
         Label::new(ls(format!("Page {index}")))
           .name("page")
           .style(Style::new().unity_font_definition(UiFontAddress::new(font))),
         Button::new(ls("Next"))
-          .name("next")
-          .on_click(move || select.update(|old| (old + 1) % 3))
+          .host_name("next")
+          .on_press(move || select.update(|old| (old + 1) % 3))
           .icon(IconSource::Texture(TextureAddress::from_static(
             "app/base-icon",
           )))
@@ -180,8 +180,10 @@ fn assert_preparation(response: &Response, action: ActionId, fonts: &[&str]) {
 #[test]
 #[should_panic(expected = "generated asset reference is not owned by the linked registry")]
 fn automatic_preparation_cannot_claim_unregistered_generated_addresses() {
-  let mut app = App::new("app/content").ui(Image::new().source(battlement::ImageSource::Texture(
-    TextureAddress::from_static("battlement-reactant/generated/unregistered.png"),
-  )));
+  let mut app = App::new("app/content").ui(battlement_reactant::host::ImageHost::new().source(
+    battlement::ImageSource::Texture(TextureAddress::from_static(
+      "battlement-reactant/generated/unregistered.png",
+    )),
+  ));
   let _ = app.connect(app_support::connect());
 }

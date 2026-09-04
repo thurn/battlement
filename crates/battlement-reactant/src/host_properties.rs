@@ -9,9 +9,9 @@ use trox::LocalizedString;
 
 use crate::{
   host::{
-    Button, DropdownField, GroupBox, Image, Label, LocalizedChoice, MinMaxSlider, PopupWindow,
-    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
-    SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
+    ButtonHost, DropdownField, GroupBox, ImageHost, Label, LocalizedChoice, MinMaxSlider,
+    PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller,
+    SliderHost, SliderInt, TabHost, TabView, TextElement, TextField, ToggleButtonGroup, ToggleHost,
   },
   localization,
 };
@@ -83,10 +83,10 @@ selectable_text_properties!(PopupWindow => UiPopupWindow);
 delegated!(PopupWindow => UiPopupWindow {
   content_container_style(value: Style),
 });
-text_properties!(Button => UiButton);
+text_properties!(ButtonHost => UiButton);
 text_properties!(RepeatButton => UiRepeatButton);
 
-delegated!(Button => UiButton {
+delegated!(ButtonHost => UiButton {
   icon_style(value: Style),
   icon(value: impl Into<Prop<IconSource>>),
 });
@@ -114,11 +114,11 @@ delegated!(TextField => UiTextField {
 });
 localized_properties!(TextField => UiTextField { label, placeholder });
 
-delegated!(Toggle => UiToggle {
+delegated!(ToggleHost => UiToggle {
   label_style(value: Style), input_style(value: Style), checkmark_style(value: Style),
   text_style(value: Style), value(value: impl Into<Prop<bool>>),
 });
-localized_properties!(Toggle => UiToggle { label, text });
+localized_properties!(ToggleHost => UiToggle { label, text });
 delegated!(RadioButton => UiRadioButton {
   label_style(value: Style), input_style(value: Style), checkmark_background_style(value: Style),
   checkmark_style(value: Style), text_style(value: Style), value(value: impl Into<Prop<bool>>),
@@ -256,7 +256,7 @@ macro_rules! slider_properties {
   };
 }
 
-slider_properties!(Slider => UiSlider, f32);
+slider_properties!(SliderHost => UiSlider, f32);
 slider_properties!(SliderInt => UiSliderInt, i32);
 delegated!(MinMaxSlider => UiMinMaxSlider {
   label_style(value: Style), input_style(value: Style), track_style(value: Style),
@@ -272,20 +272,20 @@ delegated!(ProgressBar => UiProgressBar {
   high_value(value: impl Into<Prop<f32>>), value(value: impl Into<Prop<f32>>),
 });
 localized_properties!(ProgressBar => UiProgressBar { title });
-delegated!(Tab => UiTab {
+delegated!(TabHost => UiTab {
   header_style(value: Style), label_style(value: Style),
   icon_style(value: Style), underline_style(value: Style), close_button_style(value: Style),
   drag_handle_style(value: Style), drag_handle_leading_bar_style(value: Style),
   drag_handle_trailing_bar_style(value: Style), content_container_style(value: Style),
   icon(value: impl Into<Prop<IconSource>>), closeable(value: impl Into<Prop<bool>>),
 });
-localized_properties!(Tab => UiTab { text });
+localized_properties!(TabHost => UiTab { text });
 delegated!(TabView => UiTabView {
   content_viewport_style(value: Style), header_container_style(value: Style),
   content_container_style(value: Style), previous_button_style(value: Style), next_button_style(value: Style),
   selected_tab_index(value: impl Into<Prop<u32>>), reorderable(value: impl Into<Prop<bool>>),
 });
-delegated!(Image => UiImage {
+delegated!(ImageHost => UiImage {
   source(value: impl Into<Prop<ImageSource>>), source_rect(value: impl Into<Prop<Rect>>),
   tint_color(value: impl Into<Prop<Color>>), scale_mode(value: impl Into<Prop<ImageScaleMode>>),
   uv(value: impl Into<Prop<Rect>>),

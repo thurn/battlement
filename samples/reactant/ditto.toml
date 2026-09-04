@@ -246,7 +246,7 @@ click = { target = [0.47, 0.22] }
 accessibility_assert = { target = { role = "slider", name = "Music volume" }, role = "slider", name = "Music volume" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "checkbox", name = "Captions" }, action = "activate" }
+accessibility_action = { target = { role = "checkbox", name = "CAPTIONS OFF" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "slider", name = "Music volume" }, action = "increment" }
@@ -258,7 +258,7 @@ accessibility_action = { target = { role = "slider", name = "Music volume" }, ac
 accessibility_action = { target = { role = "scroll-area", name = "Layout Gallery" }, action = "scroll-forward" }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Open modal" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "OPEN MODAL" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "dialog", name = "Viewport modal" }, role = "dialog", name = "Viewport modal" }
@@ -978,7 +978,7 @@ click = { target = [0.836, 0.308] }
 video = { action = "stop" }
 
 [[scenarios]]
-name = "collection accessibility"
+name = "collection components"
 
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
@@ -1020,10 +1020,10 @@ accessibility_assert = { target = { role = "list-box", name = "Display quality" 
 accessibility_assert = { target = { role = "table", name = "Keyboard bindings" }, role = "table", name = "Keyboard bindings" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "column-header", name = "Keyboard" }, role = "column-header", name = "Keyboard" }
+accessibility_assert = { target = { role = "column-header", name = "KEYBOARD" }, role = "column-header", name = "KEYBOARD" }
 
 [[scenarios.steps]]
-accessibility_assert = { target = { role = "row-header", name = "Move" }, role = "row-header", name = "Move" }
+accessibility_assert = { target = { role = "row-header", name = "MOVE" }, role = "row-header", name = "MOVE" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "cell", name = "W" }, role = "cell", name = "W" }
@@ -1062,7 +1062,7 @@ accessibility_assert = { target = { role = "button", name = "Controls page" }, r
 accessibility_assert = { target = { role = "button", name = "Bindings page" }, role = "button", name = "Bindings page", current_page = true }
 
 [[scenarios.steps]]
-accessibility_action = { target = { role = "button", name = "Reset settings" }, action = "activate" }
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "option", name = "Standard" }, role = "option", name = "Standard", selected = true }

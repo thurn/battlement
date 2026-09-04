@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use battlement::{
@@ -5,13 +6,13 @@ use battlement::{
   SessionId, Snapshot, UiDocument, UiDocumentState, application::ApplicationState,
 };
 use battlement_reactant::{
-  accessibility, application,
+  application,
   component::{self, Component},
+  control_behavior,
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::Label,
   render::Render,
 };
-use trox::ls;
 
 struct IdleSpawner;
 
@@ -32,7 +33,7 @@ impl Component for ActivityLabel {
       "inactive"
     };
     let label = format!("{} {activity}", self.0);
-    Label::new(ls(label.clone())).semantic(accessibility::use_static_text(ls(label)))
+    Label::new(ls(label.clone())).semantic(control_behavior::static_text_props(ls(label)))
   }
 }
 

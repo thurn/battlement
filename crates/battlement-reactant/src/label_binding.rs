@@ -2,16 +2,14 @@
 
 use crate::{
   element_ref::{self, ElementRef},
-  semantics::{
-    AccessibleBehavior, AccessibleName, InteractionProps, SemanticProps, SemanticVisibility,
-  },
+  semantics::{ControlBehavior, InteractionProps, SemanticName, SemanticProps, SemanticVisibility},
 };
 use battlement::SemanticRole;
 
 /// Associates visible label content with one or more controls.
 ///
 /// Attach [`Self::reference`] and [`Self::semantic`] to the label host, then
-/// pass [`Self::name`] to the control's accessibility behavior. This preserves
+/// pass [`Self::name`] to the control's behavior. This preserves
 /// the visible label as the source of truth, including composed label children.
 #[derive(Clone)]
 pub struct LabelBinding {
@@ -33,9 +31,9 @@ pub struct AssociatedLabel {
 }
 
 /// Host properties for one behavior attached to its stable control element.
-pub struct AssociatedControl<G, S> {
+pub struct AssociatedControl<G> {
   pub(crate) reference: ElementRef,
-  pub(crate) behavior: AccessibleBehavior<G, S>,
+  pub(crate) behavior: ControlBehavior<G>,
 }
 
 /// Allocates a stable label association for the current component.
@@ -62,37 +60,37 @@ impl LabelBinding {
   /// Marks the host as text used to name another element.
   pub fn semantic(&self) -> SemanticProps {
     SemanticProps::new(SemanticRole::StaticText)
-      .name(AccessibleName::Contents)
+      .name(SemanticName::Contents)
       .visibility(SemanticVisibility::NameSourceOnly)
   }
 
   /// Names a control using this binding’s visible label content.
-  pub fn name(&self) -> AccessibleName {
-    AccessibleName::LabelledBy(vec![self.reference()])
+  pub fn name(&self) -> SemanticName {
+    SemanticName::LabelledBy(vec![self.reference()])
   }
 
   /// Combines a field label and its visible value in reading order.
-  pub fn name_with(&self, value: &Self) -> AccessibleName {
-    AccessibleName::LabelledBy(vec![self.reference(), value.reference()])
+  pub fn name_with(&self, value: &Self) -> SemanticName {
+    SemanticName::LabelledBy(vec![self.reference(), value.reference()])
   }
 }
 
 impl ControlLabel {
   /// Names the control from the eventual visible label host.
-  pub fn name(&self) -> AccessibleName {
+  pub fn name(&self) -> SemanticName {
     self.label.name()
   }
 
   /// Names the control from its visible label followed by another text source.
-  pub fn name_with(&self, value: &LabelBinding) -> AccessibleName {
+  pub fn name_with(&self, value: &LabelBinding) -> SemanticName {
     self.label.name_with(value)
   }
 
   /// Binds behavior to the allocated control and returns atomic host properties.
-  pub fn bind<G: 'static, S>(
+  pub fn bind<G: 'static>(
     self,
-    behavior: AccessibleBehavior<G, S>,
-  ) -> (AssociatedLabel, AssociatedControl<G, S>) {
+    behavior: ControlBehavior<G>,
+  ) -> (AssociatedLabel, AssociatedControl<G>) {
     let interaction = behavior.label_interaction(&self.control).erase();
     (
       AssociatedLabel {
@@ -108,10 +106,10 @@ impl ControlLabel {
   }
 
   /// Builds and binds one behavior from this label's accessible name.
-  pub fn bind_with<G: 'static, S>(
+  pub fn bind_with<G: 'static>(
     self,
-    behavior: impl FnOnce(AccessibleName) -> AccessibleBehavior<G, S>,
-  ) -> (AssociatedLabel, AssociatedControl<G, S>) {
+    behavior: impl FnOnce(SemanticName) -> ControlBehavior<G>,
+  ) -> (AssociatedLabel, AssociatedControl<G>) {
     let name = self.name();
     self.bind(behavior(name))
   }

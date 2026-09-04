@@ -1,10 +1,10 @@
+use trox::ls;
 mod app_support;
 
 use std::{cell::Cell, rc::Rc};
-use trox::ls;
 
 use battlement_fake::client::FakeClient;
-use battlement_reactant::{app::App, prelude::*};
+use battlement_reactant::{app::App, host::ButtonHost, prelude::*};
 
 #[builder]
 struct Action {
@@ -36,14 +36,14 @@ struct SlottedCard {
 impl Component for Action {
   fn render(&self) -> impl Render {
     Button::new(ls(self.label.clone()))
-      .name("generated-action")
-      .on_click(Forward::new().clicked(self.clicked.clone()).clicked)
+      .host_name("generated-action")
+      .on_press(Forward::new().clicked(self.clicked.clone()).clicked)
   }
 }
 
 impl Component for OptionalAction {
   fn render(&self) -> impl Render {
-    let button = Button::new(ls("Optional")).name("optional-action");
+    let button = ButtonHost::new(ls("Optional")).name("optional-action");
     match &self.clicked {
       Some(callback) => button.on_click(callback.clone()),
       None => button,
@@ -64,7 +64,7 @@ fn child_slots_accept_and_replay_arbitrary_render_values() {
       .title(Label::new(ls("Title")).name("slot-title"))
       .children((
         Label::new(ls("First")).name("slot-first"),
-        Button::new(ls("Second")).name("slot-second"),
+        ButtonHost::new(ls("Second")).name("slot-second"),
       )),
   );
   let root = app.root_document().root_id;
@@ -76,13 +76,6 @@ fn child_slots_accept_and_replay_arbitrary_render_values() {
     app_support::text(&mut client, root, "slot-second"),
     "Second"
   );
-}
-
-#[test]
-fn optional_accessible_callbacks_have_a_builder_default() {
-  let dialog = DialogOptions::new().name(ls("Settings"));
-
-  assert!(dialog.on_dismiss.is_none());
 }
 
 #[test]
@@ -108,7 +101,9 @@ fn generated_event_props_forward_model_and_ordinary_callbacks_once() {
 
   let calls = Rc::new(Cell::new(0));
   let counter = Rc::clone(&calls);
-  let action = Action::new().clicked(move || counter.set(counter.get() + 1));
+  let action = Action::new()
+    .label("Action")
+    .clicked(move || counter.set(counter.get() + 1));
   assert_eq!(calls.get(), 0);
   let app = App::new("app/content").ui(action);
   let root = app.root_document().root_id;

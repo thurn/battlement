@@ -64,7 +64,7 @@ impl Component for LayoutReorder {
               "TOGGLE GEOMETRY",
               "User-facing product copy in the Reactant sample.",
             ))
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_reorder.expanded = !game.layout_reorder.expanded;
             }),
           )
@@ -73,7 +73,7 @@ impl Component for LayoutReorder {
               "SHARED HANDOFF",
               "User-facing product copy in the Reactant sample.",
             ))
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_reorder.alternate = !game.layout_reorder.alternate;
             }),
           )
@@ -82,7 +82,7 @@ impl Component for LayoutReorder {
               "REORDER",
               "User-facing product copy in the Reactant sample.",
             ))
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_reorder.reversed = !game.layout_reorder.reversed;
             }),
           )
@@ -91,7 +91,7 @@ impl Component for LayoutReorder {
               "POP ITEM",
               "User-facing product copy in the Reactant sample.",
             ))
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_reorder.show_pop = !game.layout_reorder.show_pop;
             }),
           ),

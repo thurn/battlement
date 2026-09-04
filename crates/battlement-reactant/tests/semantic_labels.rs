@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use battlement::{
@@ -7,15 +8,14 @@ use battlement::{
   VisualElementAction,
 };
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions, SliderOptions, ToggleOptions},
   component::Component,
+  control_behavior,
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::View,
   label_binding,
   render::Render,
-  semantics::{AccessibleDescription, AccessibleName},
+  semantics::{SemanticDescription, SemanticName, SemanticRange},
 };
-use trox::ls;
 
 #[derive(Clone, Default)]
 struct Game {
@@ -307,29 +307,24 @@ fn fixture(game: &Game) -> impl Render + use<> {
     "Enable sound"
   };
   let (label, checkbox) = label_binding::use_control_label().bind_with(|label_name| {
-    accessibility::use_checkbox(
-      ToggleOptions::new()
-        .name(if game.explicit {
-          AccessibleName::text(ls("Explicit sound"))
-        } else {
-          label_name
-        })
-        .description(AccessibleDescription::text(ls("Controls game audio")))
-        .checked(game.checked)
-        .is_disabled(game.disabled)
-        .on_change(|game: &mut Game, value| {
-          game.changes += 1;
-          if !game.reject {
-            game.checked = value;
-          }
-        }),
+    control_behavior::checkbox(
+      if game.explicit {
+        SemanticName::text(ls("Explicit sound"))
+      } else {
+        label_name
+      },
+      Some(SemanticDescription::text(ls("Controls game audio"))),
+      game.checked,
+      game.disabled,
+      |game: &mut Game, value| {
+        game.changes += 1;
+        if !game.reject {
+          game.checked = value;
+        }
+      },
     )
   });
-  let help = accessibility::use_button(
-    ButtonOptions::new()
-      .name(ls("Help"))
-      .on_press(|game: &mut Game| game.help += 1),
-  );
+  let help = control_behavior::button(ls("Help"), None, false, |game: &mut Game| game.help += 1);
   View::new()
     .on_click_capture_event_with_model(|game: &mut Game, event| {
       if game.prevent {
@@ -342,7 +337,7 @@ fn fixture(game: &Game) -> impl Render + use<> {
         View::new()
           .name("label")
           .associated_label(label)
-          .child(accessibility::name_source_text(ls(visible_name))),
+          .child(control_behavior::name_source_text(ls(visible_name))),
         (!game.hide).then(|| {
           View::new()
             .name("checkbox")
@@ -360,22 +355,25 @@ fn disabled_slider_view(game: &DisabledSliderGame) -> impl Render + use<> {
 
 fn disabled_slider_fixture(_game: &DisabledSliderGame) -> impl Render + use<> {
   let label = label_binding::use_control_label();
-  let slider = accessibility::use_slider(
-    SliderOptions::new()
-      .name(label.name())
-      .value(0.5)
-      .minimum(0.0)
-      .maximum(1.0)
-      .step(0.1)
-      .is_disabled(true)
-      .on_change(|game: &mut DisabledSliderGame, _value| game.changes += 1),
+  let slider = control_behavior::slider(
+    label.name(),
+    None,
+    SemanticRange {
+      current: 0.5,
+      minimum: 0.0,
+      maximum: 1.0,
+      text: None,
+    },
+    0.1,
+    true,
+    |game: &mut DisabledSliderGame, _value| game.changes += 1,
   );
   let (label, slider) = label.bind(slider);
   View::new().child((
     View::new()
       .name("slider-label")
       .associated_label(label)
-      .child(accessibility::name_source_text(ls("Disabled volume"))),
+      .child(control_behavior::name_source_text(ls("Disabled volume"))),
     View::new()
       .name("disabled-slider")
       .associated_control(slider),

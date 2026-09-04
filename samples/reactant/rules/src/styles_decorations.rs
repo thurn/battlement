@@ -119,8 +119,7 @@ fn pseudo_specimen() -> View {
       "HOLD / FOCUS / PRESS",
       "User-facing product copy in the Reactant sample.",
     ))
-    .name("styles-pseudo-target")
-    .focusable(true)
+    .host_name("styles-pseudo-target")
     .style(probe().background_color(Color::rgb(0.05, 0.20, 0.23)))
     .hover_style(
       StyleTarget::new()
@@ -152,7 +151,8 @@ fn pseudo_specimen() -> View {
           StyleProperty::Opacity,
           Transition::tween().duration_secs(0.14),
         ),
-    ),
+    )
+    .on_press(|_game: &mut Game| {}),
   )
 }
 
@@ -245,9 +245,10 @@ fn burst_specimen(generation: u32, elapsed: f64) -> View {
       "BURST SAFE INPUT",
       "User-facing product copy in the Reactant sample.",
     ))
-    .name("styles-burst-target")
+    .host_name("styles-burst-target")
     .style(probe())
-    .after_all(particles),
+    .after_all(particles)
+    .on_press(|_game: &mut Game| {}),
   )
 }
 
@@ -386,11 +387,11 @@ fn action(
   text: &'static str,
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
-) -> Button {
+) -> impl Render {
   Button::new(ls(text))
-    .name(name)
+    .host_name(name)
     .style(action_style())
-    .on_click(callback)
+    .on_press(callback)
 }
 
 fn motion_color(r: f32, g: f32, b: f32) -> Color {

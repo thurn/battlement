@@ -5,10 +5,10 @@ use trox::LocalizedString;
 use crate::review_theme;
 use battlement::{Color, Style, WhiteSpace};
 use battlement_reactant::prelude::builder;
-use battlement_reactant::{
-  accessibility, element_behavior, focus::FocusProps, semantics::SemanticProps,
-};
 use battlement_reactant::{component::Component, host::Label, motion::StyleTarget, render::Render};
+use battlement_reactant::{
+  control_behavior, element_behavior, focus::FocusProps, semantics::SemanticProps,
+};
 
 /// Typography roles within a review surface.
 #[derive(Clone, Copy)]
@@ -35,8 +35,8 @@ impl ReviewTextKind {
   fn use_semantic(self, text: &LocalizedString) -> SemanticProps {
     match (
       self,
-      accessibility::use_heading(text.clone(), 1),
-      accessibility::use_static_text(text.clone()),
+      control_behavior::heading(text.clone(), 1),
+      control_behavior::static_text_props(text.clone()),
     ) {
       (Self::Heading, heading, _) => heading,
       (_, _, text) => text,
@@ -82,7 +82,7 @@ pub struct ReviewText {
   text: LocalizedString,
   /// Sets the stable host name used for inspection and capture discovery.
   name: String,
-  /// Selects a typography role and its matching accessibility behavior.
+  /// Selects a typography role and its matching semantic behavior.
   #[builder(default = ReviewTextKind::Description)]
   kind: ReviewTextKind,
 }

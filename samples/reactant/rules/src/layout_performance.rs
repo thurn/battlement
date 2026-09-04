@@ -36,7 +36,7 @@ impl Component for LayoutPerformance {
       .enumerate()
       .map(|(index, anchor)| {
         Overlay::popover(self.overlay.clone(), anchor.clone())
-          .name(format!("layout-performance-overlay-{index}"))
+          .host_name(format!("layout-performance-overlay-{index}"))
           .style(popover())
           .child(Label::new(ls(format!("OVERLAY {index:02}"))))
       })
@@ -56,8 +56,8 @@ impl Component for LayoutPerformance {
         )
         .child(
           Button::new(ls(format!("DIRTY PHASE {}", self.state.phase)))
-            .name("layout-performance-dirty")
-            .on_click(|game: &mut Game| {
+            .host_name("layout-performance-dirty")
+            .on_press(|game: &mut Game| {
               game.layout_performance.phase = game.layout_performance.phase.wrapping_add(1);
             }),
         )

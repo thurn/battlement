@@ -3,8 +3,8 @@
 use trox::tx;
 
 use battlement::{Align, Color, Justify, LengthUnits, Overflow};
-use battlement_reactant::accessibility_collections;
 use battlement_reactant::prelude::{Child, builder};
+use battlement_reactant::semantics::{SemanticName, SemanticProps};
 use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
 
 /// Logical width of the portrait canvas before viewport scaling.
@@ -27,12 +27,12 @@ impl Component for PortraitViewport {
     ScaleToFit::new(PORTRAIT_DESIGN_WIDTH, PORTRAIT_DESIGN_HEIGHT)
       .bounds_name("portrait-bounds")
       .viewport(|view| {
-        view
-          .name("portrait-viewport")
-          .semantic(accessibility_collections::use_region(tx(
+        view.name("portrait-viewport").semantic(
+          SemanticProps::new(battlement::SemanticRole::Region).name(SemanticName::Text(tx(
             "Main content",
             "User-facing product copy in the Chess UI sample.",
-          )))
+          ))),
+        )
       })
       .viewport_style(|style| style.width(100.pct()).background_color(Color::BLACK))
       .roomy_scale(1024.0, 0.75)

@@ -1,4 +1,4 @@
-//! Host-owned accessibility declarations.
+//! Host-owned semantic and control declarations.
 
 use std::{collections::BTreeSet, marker::PhantomData};
 
@@ -18,7 +18,7 @@ use crate::{
 
 /// A finite accessible range whose display text remains unresolved until presentation.
 #[derive(Clone, Debug, PartialEq)]
-pub struct AccessibilityRangeValue {
+pub struct SemanticRange {
   /// Current value.
   pub current: f64,
   /// Inclusive minimum.
@@ -31,7 +31,7 @@ pub struct AccessibilityRangeValue {
 
 /// Source of a resolved accessible name.
 #[derive(Clone)]
-pub enum AccessibleName {
+pub enum SemanticName {
   /// Explicit localized text resolved while building the semantic snapshot.
   Text(LocalizedString),
   /// Text resolved from live hosts in the authored order.
@@ -42,7 +42,7 @@ pub enum AccessibleName {
 
 /// Source of a resolved accessible description.
 #[derive(Clone)]
-pub enum AccessibleDescription {
+pub enum SemanticDescription {
   /// Explicit localized text resolved while building the semantic snapshot.
   Text(LocalizedString),
   /// Text resolved from one live host.
@@ -68,13 +68,13 @@ pub struct SemanticProps {
   /// Canonical role.
   pub role: SemanticRole,
   /// Accessible-name source.
-  pub name: Option<AccessibleName>,
+  pub name: Option<SemanticName>,
   /// Accessible-description source.
-  pub description: Option<AccessibleDescription>,
+  pub description: Option<SemanticDescription>,
   /// Canonical semantic state.
   pub state: SemanticState,
   /// Optional finite range value.
-  pub value: Option<AccessibilityRangeValue>,
+  pub value: Option<SemanticRange>,
   /// Canonical-tree participation.
   pub visibility: SemanticVisibility,
   /// Direct actions derived from interaction handlers.
@@ -86,7 +86,7 @@ pub struct SemanticProps {
   pub(crate) membership: Option<SemanticMembership>,
 }
 
-/// Ordinary interaction callbacks returned by an accessible behavior hook.
+/// Ordinary interaction callbacks owned by a control behavior.
 pub struct InteractionProps<G> {
   pub(crate) handlers: Vec<Handler>,
   pub(crate) activation: Option<Activation>,
@@ -94,7 +94,7 @@ pub struct InteractionProps<G> {
 }
 
 /// Composable semantic, focus, interaction, and styling state.
-pub struct AccessibleBehavior<G, S> {
+pub struct ControlBehavior<G> {
   /// Host semantic declaration.
   pub semantic: SemanticProps,
   /// Existing input-focus declarations.
@@ -103,11 +103,9 @@ pub struct AccessibleBehavior<G, S> {
   pub interaction: InteractionProps<G>,
   /// Native motion declarations owned by this behavior.
   pub motion: MotionProps,
-  /// Pattern styling state.
-  pub state: S,
 }
 
-/// Immediate disposition of one target-default accessibility action.
+/// Immediate disposition of one target-default control action.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ActionDisposition {
   /// The target handled the action.
@@ -123,7 +121,7 @@ pub(crate) enum SemanticMembership {
   TabPanel(ElementRef),
 }
 
-impl<G: 'static, S> AccessibleBehavior<G, S> {
+impl<G: 'static> ControlBehavior<G> {
   /// Transforms this behavior's semantic declaration without splitting the bundle.
   #[must_use]
   pub fn map_semantic(mut self, map: impl FnOnce(SemanticProps) -> SemanticProps) -> Self {
@@ -144,7 +142,13 @@ impl<G: 'static, S> AccessibleBehavior<G, S> {
   }
 }
 
-impl From<LocalizedString> for AccessibleName {
+impl From<LocalizedString> for SemanticName {
+  fn from(value: LocalizedString) -> Self {
+    Self::Text(value)
+  }
+}
+
+impl From<LocalizedString> for SemanticDescription {
   fn from(value: LocalizedString) -> Self {
     Self::Text(value)
   }
@@ -170,7 +174,7 @@ impl SemanticProps {
 
   /// Sets the accessible-name source.
   #[must_use]
-  pub fn name(mut self, value: AccessibleName) -> Self {
+  pub fn name(mut self, value: SemanticName) -> Self {
     assert!(self.name.is_none(), "duplicate accessible name declaration");
     self.name = Some(value);
     self
@@ -178,7 +182,7 @@ impl SemanticProps {
 
   /// Sets the accessible-description source.
   #[must_use]
-  pub fn description(mut self, value: AccessibleDescription) -> Self {
+  pub fn description(mut self, value: SemanticDescription) -> Self {
     assert!(
       self.description.is_none(),
       "duplicate accessible description declaration"
@@ -203,7 +207,7 @@ impl SemanticProps {
 
   /// Sets a finite range value.
   #[must_use]
-  pub fn value(mut self, value: AccessibilityRangeValue) -> Self {
+  pub fn value(mut self, value: SemanticRange) -> Self {
     assert!(self.value.is_none(), "duplicate semantic range declaration");
     self.value = Some(value);
     self
@@ -287,7 +291,7 @@ impl<G> Clone for InteractionProps<G> {
   }
 }
 
-impl AccessibleName {
+impl SemanticName {
   /// Creates an explicit-text name.
   #[must_use]
   pub fn text(value: LocalizedString) -> Self {
@@ -295,7 +299,7 @@ impl AccessibleName {
   }
 }
 
-impl AccessibleDescription {
+impl SemanticDescription {
   /// Creates an explicit-text description.
   #[must_use]
   pub fn text(value: LocalizedString) -> Self {

@@ -6,12 +6,9 @@ use crate::{review_navigation, review_theme};
 use battlement::{Align, Color, FontStyle, Style, TextAnchor, WhiteSpace};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions},
-  element_behavior, hooks,
+  component::Component, components::Button, motion::StyleTarget, render::Render,
 };
-use battlement_reactant::{
-  component::Component, host::Button, motion::StyleTarget, render::Render,
-};
+use battlement_reactant::{element_behavior, hooks};
 
 /// Visual roles for review navigation and demonstration actions.
 #[derive(Clone, Copy)]
@@ -126,7 +123,7 @@ pub struct ReviewButton {
   name: String,
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
-  /// Handles an accepted pointer, keyboard, or accessibility activation.
+  /// Handles an accepted pointer, keyboard, or control_behavior activation.
   #[builder(default = EventCallback::noop())]
   on_press: EventCallback<()>,
   /// Reveals the current entry in its navigation column on each new visit.
@@ -150,17 +147,11 @@ impl Component for ReviewButton {
       self.reveal_generation.filter(|_| self.kind.is_current()),
     );
     Button::new(self.label.clone())
-      .name(self.name.clone())
+      .host_name(self.name.clone())
       .element_ref(reference)
-      .behavior(
-        accessibility::use_button(
-          ButtonOptions::new()
-            .name(self.label.clone())
-            .is_disabled(self.disabled)
-            .on_press(self.on_press.clone()),
-        )
-        .map_semantic(|semantic| semantic.current_page(self.kind.is_current())),
-      )
+      .current_page(self.kind.is_current())
+      .disabled(self.disabled)
+      .on_press(self.on_press.clone())
       .style(self.kind.style())
       .hover_style(self.kind.hover_style())
       .active_style(self.kind.active_style())

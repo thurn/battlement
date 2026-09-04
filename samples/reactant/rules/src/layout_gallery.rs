@@ -4,7 +4,7 @@ use crate::{Game, design_system, layout_gallery_styles as styles};
 use battlement::{
   Align, Color, GridAutoFlow, GridItem, GridTrack, PickingMode, ScrollViewMode, StackItem, Sticky,
 };
-use battlement_reactant::{hooks, prelude::*};
+use battlement_reactant::{control_behavior, hooks, prelude::*};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LayoutGalleryState {
@@ -46,90 +46,88 @@ impl Component for LayoutGallery {
     let menu_anchor = use_element_ref();
     let modal_trigger = use_element_ref();
     let modal_initial = use_element_ref();
-    let page = use_scroll_area(
-      ScrollAreaOptions::new()
-        .name(tx(
+    ScrollArea::new(
+      Some(tx(
+        "Layout Gallery",
+        "User-facing product copy in the Reactant sample.",
+      )),
+      AccessibilityScrollAxis::Vertical,
+      true,
+      true,
+    )
+    .on_scroll(|game: &mut Game, direction| match direction {
+      AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
+      AccessibilityScrollDirection::Backward => game.layout_gallery.trace.push("SCROLL BACKWARD"),
+    })
+    .host_name("layout-gallery-canvas")
+    .configure_host(|host| {
+      host
+        .mode(ScrollViewMode::Vertical)
+        .content_container_style(styles::content())
+        .layout_scroll(true)
+    })
+    .style(design_system::canvas(self.compact).padding(0.0))
+    .child(
+      Label::new(tx(
+        "PUBLIC LAYOUT · ONE COHERENT FLOW",
+        "User-facing product copy in the Reactant sample.",
+      ))
+      .style(styles::eyebrow()),
+    )
+    .child(
+      Label::new(tx(
+        "Layout Gallery",
+        "User-facing product copy in the Reactant sample.",
+      ))
+      .name("page-title")
+      .semantic(control_behavior::heading(
+        tx(
           "Layout Gallery",
           "User-facing product copy in the Reactant sample.",
-        ))
-        .axis(AccessibilityScrollAxis::Vertical)
-        .can_scroll_forward(true)
-        .can_scroll_backward(true)
-        .on_scroll(|game: &mut Game, direction| match direction {
-          AccessibilityScrollDirection::Forward => game.layout_gallery.trace.push("SCROLL FORWARD"),
-          AccessibilityScrollDirection::Backward => {
-            game.layout_gallery.trace.push("SCROLL BACKWARD")
-          }
-        }),
-    );
-    ScrollView::new()
-      .name("layout-gallery-canvas")
-      .behavior(page)
-      .mode(ScrollViewMode::Vertical)
-      .style(design_system::canvas(self.compact).padding(0.0))
-      .content_container_style(styles::content())
-      .layout_scroll(true)
-      .child(
-        Label::new(tx(
-          "PUBLIC LAYOUT · ONE COHERENT FLOW",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .style(styles::eyebrow()),
-      )
-      .child(
-        Label::new(tx(
-          "Layout Gallery",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("page-title")
-        .semantic(use_heading(
-          tx(
-            "Layout Gallery",
+        ),
+        1,
+      ))
+      .style(styles::title(self.state.large_text)),
+    )
+    .child(self.controls(modal_trigger.clone()))
+    .child(self.tabs())
+    .child(
+      View::new()
+        .name("layout-gallery-inert-region")
+        .inert(self.state.inert_content)
+        .child(
+          Button::new(tx(
+            "INERT TARGET",
             "User-facing product copy in the Reactant sample.",
-          ),
-          1,
-        ))
-        .style(styles::title(self.state.large_text)),
-      )
-      .child(self.controls(modal_trigger.clone()))
-      .child(self.tabs())
-      .child(
-        View::new()
-          .name("layout-gallery-inert-region")
-          .inert(self.state.inert_content)
-          .child(
-            Button::new(tx(
-              "INERT TARGET",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .name("layout-gallery-inert-target")
-            .on_click(|game: &mut Game| game.layout_gallery.trace.push("INERT")),
-          ),
-      )
-      .child(self.settings())
-      .child(self.accessible_settings())
-      .child(
-        crate::collection_settings::CollectionSettings::new()
-          .choice(self.state.collection_choice)
-          .page(self.state.collection_page),
-      )
-      .child(self.table())
-      .child(self.dropdown(menu_anchor))
-      .child(self.layers())
-      .child(self.modal(modal_trigger, modal_initial))
-      .child(
-        Label::new(ls(format!(
-          "TRACE {} · RECONNECTS {}",
-          if self.state.trace.is_empty() {
-            "READY".to_owned()
-          } else {
-            self.state.trace.join(" > ")
-          },
-          self.state.reconnects,
-        )))
-        .name("layout-gallery-status")
-        .style(styles::status()),
-      )
+          ))
+          .host_name("layout-gallery-inert-target")
+          .on_press(|game: &mut Game| game.layout_gallery.trace.push("INERT")),
+        ),
+    )
+    .child(self.settings())
+    .child(self.accessible_settings())
+    .child(
+      crate::collection_settings::CollectionSettings::new()
+        .choice(self.state.collection_choice)
+        .page(self.state.collection_page),
+    )
+    .child(self.table())
+    .child(self.dropdown(menu_anchor))
+    .child(self.layers())
+    .child(self.modal(modal_trigger, modal_initial))
+    .child(
+      Label::new(ls(format!(
+        "TRACE {} · RECONNECTS {}",
+        if self.state.trace.is_empty() {
+          "READY".to_owned()
+        } else {
+          self.state.trace.join(" > ")
+        },
+        self.state.reconnects,
+      )))
+      .name("layout-gallery-status")
+      .style(styles::status()),
+    )
   }
 }
 
@@ -137,42 +135,6 @@ impl LayoutGallery {
   fn controls(&self, modal_trigger: ElementRef) -> Flex {
     let app = use_app();
     let announce = use_announce();
-    let reset = use_button(
-      ButtonOptions::new()
-        .name(tx(
-          "Reset settings",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .on_press(move |game: &mut Game| {
-          game.layout_gallery = LayoutGalleryState::default();
-          announce.send(tx(
-            "Settings reset",
-            "User-facing product copy in the Reactant sample.",
-          ));
-        }),
-    );
-    let tracks = use_button(
-      ButtonOptions::new()
-        .name(tx(
-          "Responsive tracks",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .on_press(|game: &mut Game| {
-          game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
-        }),
-    );
-    let tracks = AccessibleBehavior {
-      focus: tracks.focus.auto_focus(true),
-      ..tracks
-    };
-    let open_modal = use_button(
-      ButtonOptions::new()
-        .name(tx(
-          "Open modal",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .on_press(|game: &mut Game| game.layout_gallery.modal_open = true),
-    );
     Flex::new()
       .name("layout-gallery-controls")
       .direction(battlement::FlexDirection::Row)
@@ -184,16 +146,19 @@ impl LayoutGallery {
           "RESPONSIVE TRACKS",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-tracks")
-        .behavior(tracks),
+        .host_name("layout-gallery-tracks")
+        .configure_host(|host| host.focus_props(FocusProps::new().auto_focus(true)))
+        .on_press(|game: &mut Game| {
+          game.layout_gallery.alternate_tracks = !game.layout_gallery.alternate_tracks;
+        }),
       )
       .child(
         Button::new(tx(
           "LARGE TEXT",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-text")
-        .on_click(|game: &mut Game| {
+        .host_name("layout-gallery-text")
+        .on_press(|game: &mut Game| {
           game.layout_gallery.large_text = !game.layout_gallery.large_text;
         }),
       )
@@ -202,8 +167,8 @@ impl LayoutGallery {
           "TOGGLE INERT",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-inert-toggle")
-        .on_click(|game: &mut Game| {
+        .host_name("layout-gallery-inert-toggle")
+        .on_press(|game: &mut Game| {
           game.layout_gallery.inert_content = !game.layout_gallery.inert_content;
         }),
       )
@@ -212,17 +177,17 @@ impl LayoutGallery {
           "OPEN MODAL",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-modal")
+        .host_name("layout-gallery-modal")
         .element_ref(modal_trigger)
-        .behavior(open_modal),
+        .on_press(|game: &mut Game| game.layout_gallery.modal_open = true),
       )
       .child(
         Button::new(tx(
           "RECONNECT",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-reconnect")
-        .on_click(move |game: &mut Game| {
+        .host_name("layout-gallery-reconnect")
+        .on_press(move |game: &mut Game| {
           game.layout_gallery.reconnects += 1;
           app.refresh_snapshot();
         }),
@@ -232,16 +197,18 @@ impl LayoutGallery {
           "RESET",
           "User-facing product copy in the Reactant sample.",
         ))
-        .name("layout-gallery-reset")
-        .behavior(reset),
+        .host_name("layout-gallery-reset")
+        .on_press(move |game: &mut Game| {
+          game.layout_gallery = LayoutGalleryState::default();
+          announce.send(tx(
+            "Settings reset",
+            "User-facing product copy in the Reactant sample.",
+          ));
+        }),
       )
   }
   fn tabs(&self) -> View {
     let tabs = ["GENERAL", "AUDIO", "ACCESS"];
-    let tab_list = use_tabs(tx(
-      "Settings sections",
-      "User-facing product copy in the Reactant sample.",
-    ));
     View::new()
       .style(styles::section())
       .child(
@@ -252,134 +219,190 @@ impl LayoutGallery {
         .style(styles::section_heading()),
       )
       .child(
-        Grid::new()
-          .name("layout-gallery-tabs")
-          .semantic(tab_list.semantic.clone())
-          .element_ref(tab_list.element_ref.clone())
-          .columns([
-            GridTrack::px(132.0),
-            GridTrack::px(132.0),
-            GridTrack::px(132.0),
-          ])
-          .rows([GridTrack::auto(), GridTrack::auto()])
-          .column_gap(8.0)
-          .child(
-            tabs
-              .into_iter()
-              .enumerate()
-              .map(|(index, label)| {
-                let tab = use_tab(
-                  &tab_list,
-                  ChoiceOptions::new()
-                    .name(ls(label))
-                    .selected(index == self.state.active_tab)
-                    .on_select(move |game: &mut Game| {
-                      game.layout_gallery.active_tab = index;
-                    }),
-                );
-                Button::new(ls(label))
-                  .key(label)
-                  .name(format!("layout-tab-{index}"))
-                  .grid_item(GridItem::new().row(1).column(index as u32 + 1))
-                  .behavior(tab)
-                  .style(styles::tab(index == self.state.active_tab))
-              })
-              .collect::<Vec<_>>(),
-          )
-          .child(
-            tabs
-              .into_iter()
-              .enumerate()
-              .map(|(index, label)| {
-                Label::new(ls(format!("{label} SETTINGS")))
-                  .key(format!("{label}-panel"))
-                  .name(format!("layout-tab-panel-{index}"))
-                  .semantic(use_tab_panel(&tab_list, index == self.state.active_tab))
-                  .grid_item(GridItem::new().row(2).column(1))
-                  .style(styles::setting_label(self.state.large_text))
-              })
-              .collect::<Vec<_>>(),
+        Tabs::new(
+          tx(
+            "Settings sections",
+            "User-facing product copy in the Reactant sample.",
           ),
+          self.state.active_tab as u32,
+        )
+        .on_select(|game: &mut Game, index| {
+          game.layout_gallery.active_tab = index as usize;
+        })
+        .host_name("layout-gallery-tabs")
+        .child(
+          tabs
+            .into_iter()
+            .enumerate()
+            .map(|(index, label)| {
+              let selected = index == self.state.active_tab;
+              Tab::new(ls(label), index as u32)
+                .host_name(format!("layout-tab-{index}"))
+                .configure_host(|host| host.key(label).style(styles::tab(selected)))
+                .child(TabPanel::new(
+                  index as u32,
+                  Label::new(ls(format!("{label} SETTINGS")))
+                    .name(format!("layout-tab-panel-{index}"))
+                    .style(styles::setting_label(self.state.large_text)),
+                ))
+            })
+            .collect::<Vec<_>>(),
+        ),
       )
   }
   fn accessible_settings(&self) -> View {
-    let checkbox = use_checkbox(
-      ToggleOptions::new()
-        .name(tx(
-          "Captions",
+    let announce = use_announce();
+    View::new().name("layout-gallery-components").child(
+      Group::new(Some(tx(
+        "Accessible settings",
+        "User-facing product copy in the Reactant sample.",
+      )))
+      .style(styles::section())
+      .child(
+        Heading::new(
+          tx(
+            "Accessible settings",
+            "User-facing product copy in the Reactant sample.",
+          ),
+          2,
+        )
+        .style(styles::section_heading()),
+      )
+      .child(
+        Image::new(tx(
+          "Sound wave preview",
           "User-facing product copy in the Reactant sample.",
         ))
-        .checked(self.state.captions_enabled)
+        .host_name("layout-gallery-image"),
+      )
+      .child(Text::new(tx(
+        "Changes apply immediately",
+        "User-facing product copy in the Reactant sample.",
+      )))
+      .child(
+        Checkbox::new(
+          if self.state.captions_enabled {
+            tx(
+              "CAPTIONS ON",
+              "User-facing product copy in the Reactant sample.",
+            )
+          } else {
+            tx(
+              "CAPTIONS OFF",
+              "User-facing product copy in the Reactant sample.",
+            )
+          },
+          self.state.captions_enabled,
+        )
+        .host_name("layout-gallery-checkbox")
         .on_change(|game: &mut Game, checked| {
           game.layout_gallery.captions_enabled = checked;
         }),
-    );
-    let spatial_audio = use_switch(
-      ToggleOptions::new()
-        .name(tx(
-          "Spatial audio",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .checked(self.state.spatial_audio)
+      )
+      .child(
+        Switch::new(
+          if self.state.spatial_audio {
+            tx(
+              "SPATIAL AUDIO ON",
+              "User-facing product copy in the Reactant sample.",
+            )
+          } else {
+            tx(
+              "SPATIAL AUDIO OFF",
+              "User-facing product copy in the Reactant sample.",
+            )
+          },
+          self.state.spatial_audio,
+        )
+        .host_name("layout-gallery-switch")
         .on_change(|game: &mut Game, checked| {
           game.layout_gallery.spatial_audio = checked;
         }),
-    );
-    let radio_group = use_radio_group(tx(
-      "Audio quality",
-      "User-facing product copy in the Reactant sample.",
-    ));
-    let standard = use_radio(
-      &radio_group,
-      ChoiceOptions::new()
-        .name(tx(
-          "Standard quality",
+      )
+      .child(
+        RadioGroup::new(tx(
+          "Audio quality",
           "User-facing product copy in the Reactant sample.",
         ))
-        .selected(self.state.radio_selection == 0)
-        .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 0),
-    );
-    let studio = use_radio(
-      &radio_group,
-      ChoiceOptions::new()
-        .name(tx(
-          "Studio quality",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .selected(self.state.radio_selection == 1)
-        .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 1),
-    );
-    let slider = use_slider(
-      SliderOptions::new()
-        .name(tx(
-          "Music volume",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .value(f64::from(self.state.volume))
-        .minimum(0.0)
-        .maximum(100.0)
-        .step(10.0)
-        .value_text(Some(ls(format!("{} percent", self.state.volume))))
+        .child(
+          Radio::new(
+            tx(
+              "Standard quality",
+              "User-facing product copy in the Reactant sample.",
+            ),
+            self.state.radio_selection == 0,
+          )
+          .host_name("layout-gallery-radio-standard")
+          .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 0),
+        )
+        .child(
+          Radio::new(
+            tx(
+              "Studio quality",
+              "User-facing product copy in the Reactant sample.",
+            ),
+            self.state.radio_selection == 1,
+          )
+          .host_name("layout-gallery-radio-studio")
+          .on_select(|game: &mut Game| game.layout_gallery.radio_selection = 1),
+        ),
+      )
+      .child(
+        Slider::new(
+          tx(
+            "Music volume",
+            "User-facing product copy in the Reactant sample.",
+          ),
+          f64::from(self.state.volume),
+          0.0,
+          100.0,
+          10.0,
+        )
+        .host_name("layout-gallery-slider")
+        .value_text(ls(format!("{} percent", self.state.volume)))
         .on_change(|game: &mut Game, value| game.layout_gallery.volume = value as u32),
-    );
-    let disclosure = use_disclosure(
-      DisclosureOptions::new()
-        .name(tx(
-          "Advanced audio",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .expanded(self.state.disclosure_open)
-        .on_toggle(|game: &mut Game| {
+      )
+      .child(
+        Progress::determinate(
+          tx(
+            "Audio loaded",
+            "User-facing product copy in the Reactant sample.",
+          ),
+          SemanticRange {
+            current: f64::from(self.state.volume),
+            minimum: 0.0,
+            maximum: 100.0,
+            text: None,
+          },
+        )
+        .host_name("layout-gallery-progress"),
+      )
+      .child(
+        Disclosure::new(
+          tx(
+            "Advanced audio",
+            "User-facing product copy in the Reactant sample.",
+          ),
+          self.state.disclosure_open,
+        )
+        .host_name("layout-gallery-disclosure")
+        .on_press(|game: &mut Game| {
           game.layout_gallery.disclosure_open = !game.layout_gallery.disclosure_open;
         }),
-    );
-    let announce = use_announce();
-    let save = use_button(
-      ButtonOptions::new()
-        .name(tx(
-          "Save settings",
+      )
+      .child(self.state.disclosure_open.then(|| {
+        Text::new(tx(
+          "Advanced audio controls",
           "User-facing product copy in the Reactant sample.",
         ))
+        .host_name("layout-gallery-disclosure-content")
+      }))
+      .child(
+        Button::new(tx(
+          "SAVE SETTINGS",
+          "User-facing product copy in the Reactant sample.",
+        ))
+        .host_name("layout-gallery-announce")
         .on_press(move |game: &mut Game| {
           game.layout_gallery.trace.push("SAVED");
           announce.send(tx(
@@ -387,150 +410,8 @@ impl LayoutGallery {
             "User-facing product copy in the Reactant sample.",
           ));
         }),
-    );
-    let advanced_audio = use_static_text(tx(
-      "Advanced audio controls",
-      "User-facing product copy in the Reactant sample.",
-    ));
-    View::new()
-      .name("layout-gallery-accessibility")
-      .semantic(use_group(Some(tx(
-        "Accessible settings",
-        "User-facing product copy in the Reactant sample.",
-      ))))
-      .style(styles::section())
-      .child(
-        Label::new(tx(
-          "ACCESSIBLE SETTINGS",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .semantic(use_heading(
-          tx(
-            "Accessible settings",
-            "User-facing product copy in the Reactant sample.",
-          ),
-          2,
-        ))
-        .style(styles::section_heading()),
-      )
-      .child(
-        Label::new(tx(
-          "Sound wave preview",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("layout-gallery-image")
-        .semantic(use_image(tx(
-          "Sound wave preview",
-          "User-facing product copy in the Reactant sample.",
-        ))),
-      )
-      .child(
-        Label::new(tx(
-          "Changes apply immediately",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .semantic(use_static_text(tx(
-          "Changes apply immediately",
-          "User-facing product copy in the Reactant sample.",
-        ))),
-      )
-      .child(
-        Button::new(if self.state.captions_enabled {
-          tx(
-            "CAPTIONS ON",
-            "User-facing product copy in the Reactant sample.",
-          )
-        } else {
-          tx(
-            "CAPTIONS OFF",
-            "User-facing product copy in the Reactant sample.",
-          )
-        })
-        .name("layout-gallery-checkbox")
-        .behavior(checkbox),
-      )
-      .child(
-        Button::new(if self.state.spatial_audio {
-          tx(
-            "SPATIAL AUDIO ON",
-            "User-facing product copy in the Reactant sample.",
-          )
-        } else {
-          tx(
-            "SPATIAL AUDIO OFF",
-            "User-facing product copy in the Reactant sample.",
-          )
-        })
-        .name("layout-gallery-switch")
-        .behavior(spatial_audio),
-      )
-      .child(
-        View::new()
-          .name("layout-gallery-radio-group")
-          .semantic(radio_group.semantic)
-          .element_ref(radio_group.element_ref)
-          .child(
-            Button::new(tx(
-              "STANDARD QUALITY",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .name("layout-gallery-radio-standard")
-            .behavior(standard),
-          )
-          .child(
-            Button::new(tx(
-              "STUDIO QUALITY",
-              "User-facing product copy in the Reactant sample.",
-            ))
-            .name("layout-gallery-radio-studio")
-            .behavior(studio),
-          ),
-      )
-      .child(
-        Button::new(ls(format!("MUSIC VOLUME {}", self.state.volume)))
-          .name("layout-gallery-slider")
-          .behavior(slider),
-      )
-      .child(
-        Label::new(ls(format!("LOADED {}%", self.state.volume)))
-          .name("layout-gallery-progress")
-          .semantic(use_progress(
-            tx(
-              "Audio loaded",
-              "User-facing product copy in the Reactant sample.",
-            ),
-            AccessibilityRangeValue {
-              current: f64::from(self.state.volume),
-              minimum: 0.0,
-              maximum: 100.0,
-              text: None,
-            },
-          )),
-      )
-      .child(
-        Button::new(tx(
-          "ADVANCED AUDIO",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("layout-gallery-disclosure")
-        .behavior(disclosure),
-      )
-      .child(self.state.disclosure_open.then(|| {
-        Label::new(tx(
-          "Advanced audio controls",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("layout-gallery-disclosure-content")
-        .semantic(advanced_audio)
-      }))
-      .child(
-        Button::new(tx(
-          "SAVE SETTINGS",
-          "User-facing product copy in the Reactant sample.",
-        ))
-        .name("layout-gallery-announce")
-        .behavior(save),
-      )
+      ),
+    )
   }
   fn settings(&self) -> View {
     let compact_tracks = self.state.alternate_tracks || self.compact;
@@ -656,7 +537,7 @@ impl LayoutGallery {
   fn dropdown(&self, anchor: ElementRef) -> View {
     let popover = self.state.menu_open.then(|| {
       Overlay::popover(self.overlay.clone(), anchor.clone())
-        .name("layout-gallery-menu")
+        .host_name("layout-gallery-menu")
         .placement(PopoverPlacement::bottom_start().offset(6.0))
         .style(styles::popover())
         .child(Label::new(tx(
@@ -668,9 +549,9 @@ impl LayoutGallery {
             "APPLY AND CLOSE",
             "User-facing product copy in the Reactant sample.",
           ))
-          .name("layout-gallery-menu-action")
+          .host_name("layout-gallery-menu-action")
           .style(styles::popover_action())
-          .on_click(|game: &mut Game| {
+          .on_press(|game: &mut Game| {
             game.layout_gallery.trace.push("TARGET");
             game.layout_gallery.menu_open = false;
           }),
@@ -701,9 +582,9 @@ impl LayoutGallery {
                 "User-facing product copy in the Reactant sample.",
               )
             })
-            .name("layout-gallery-menu-trigger")
+            .host_name("layout-gallery-menu-trigger")
             .element_ref(anchor)
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_gallery.trace.push("ANCHOR");
               game.layout_gallery.menu_open = !game.layout_gallery.menu_open;
             }),
@@ -717,7 +598,7 @@ impl LayoutGallery {
       )
   }
   fn layers(&self) -> View {
-    let changed = use_static_text(tx(
+    let changed = control_behavior::static_text_props(tx(
       "Layer order changed",
       "User-facing product copy in the Reactant sample.",
     ));
@@ -760,7 +641,7 @@ impl LayoutGallery {
               "CHANGE LAYER ORDER",
               "User-facing product copy in the Reactant sample.",
             ))
-            .name("layout-gallery-layer-action")
+            .host_name("layout-gallery-layer-action")
             .style(styles::layer(Color::rgba(0.65, 0.24, 0.3, 0.95)))
             .stack_item(
               StackItem::new()
@@ -772,7 +653,7 @@ impl LayoutGallery {
                 .contributes_to_size(false),
             )
             .layout(Layout::Position)
-            .on_click(|game: &mut Game| {
+            .on_press(|game: &mut Game| {
               game.layout_gallery.layers_reversed = !game.layout_gallery.layers_reversed;
             }),
           ),
@@ -794,54 +675,52 @@ impl LayoutGallery {
       )
   }
   fn modal(&self, trigger: ElementRef, initial: ElementRef) -> impl Render {
-    let dialog = use_dialog(
-      DialogOptions::new()
-        .name(tx(
+    self.state.modal_open.then(|| {
+      Overlay::modal(
+        self.overlay.clone(),
+        tx(
           "Viewport modal",
           "User-facing product copy in the Reactant sample.",
-        ))
-        .on_dismiss(|game: &mut Game| {
-          game.layout_gallery.modal_open = false;
-        }),
-    );
-    self.state.modal_open.then(|| {
-      Overlay::modal(self.overlay.clone())
-        .name("layout-gallery-modal-scope")
-        .behavior(dialog)
-        .initial_focus(initial.clone())
-        .restore_focus(trigger)
-        .style(styles::modal_overlay())
-        .child(
-          Stack::new().style(styles::modal()).child(
-            View::new()
-              .style(styles::modal_card())
-              .stack_item(
-                StackItem::new()
-                  .align_self(Align::Center)
-                  .justify_self(Align::Center)
-                  .contributes_to_size(false),
-              )
-              .child(
-                Label::new(tx(
-                  "Viewport modal",
-                  "User-facing product copy in the Reactant sample.",
-                ))
-                .style(styles::modal_title()),
-              )
-              .child(
-                Button::new(tx(
-                  "CLOSE MODAL",
-                  "User-facing product copy in the Reactant sample.",
-                ))
-                .name("layout-gallery-modal-close")
-                .element_ref(initial)
-                .while_focus_visible(StyleTarget::new().scale(1.06))
-                .on_click(|game: &mut Game| {
-                  game.layout_gallery.modal_open = false;
-                }),
-              ),
-          ),
-        )
+        ),
+      )
+      .host_name("layout-gallery-modal-scope")
+      .on_dismiss(|game: &mut Game| {
+        game.layout_gallery.modal_open = false;
+      })
+      .initial_focus(initial.clone())
+      .restore_focus(trigger)
+      .style(styles::modal_overlay())
+      .child(
+        Stack::new().style(styles::modal()).child(
+          View::new()
+            .style(styles::modal_card())
+            .stack_item(
+              StackItem::new()
+                .align_self(Align::Center)
+                .justify_self(Align::Center)
+                .contributes_to_size(false),
+            )
+            .child(
+              Label::new(tx(
+                "Viewport modal",
+                "User-facing product copy in the Reactant sample.",
+              ))
+              .style(styles::modal_title()),
+            )
+            .child(
+              Button::new(tx(
+                "CLOSE MODAL",
+                "User-facing product copy in the Reactant sample.",
+              ))
+              .host_name("layout-gallery-modal-close")
+              .element_ref(initial)
+              .while_focus_visible(StyleTarget::new().scale(1.06))
+              .on_press(|game: &mut Game| {
+                game.layout_gallery.modal_open = false;
+              }),
+            ),
+        ),
+      )
     })
   }
 }
@@ -855,13 +734,13 @@ impl Component for StatefulSetting {
         .grid_item(GridItem::new().row(self.row).column(1))
         .style(styles::setting_label(self.large_text)),
       Button::new(ls(format!("VALUE {revision}")))
-        .name(format!(
+        .host_name(format!(
           "layout-setting-value-{}",
           self.name.to_ascii_lowercase()
         ))
         .grid_item(GridItem::new().row(self.row).column(2))
         .style(styles::setting_value())
-        .on_click(move |_game: &mut Game| set_revision.update(|value| value + 1)),
+        .on_press(move |_game: &mut Game| set_revision.update(|value| value + 1)),
     ))
   }
 }

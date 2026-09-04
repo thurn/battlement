@@ -1,8 +1,8 @@
+use trox::ls;
 mod runtime_support;
 
 use std::panic::{self, AssertUnwindSafe};
 use std::time::Duration;
-use trox::ls;
 
 use battlement::{
   AudioClipAddress, CameraState, CommandBody, GameObject, GameObjectKind,
@@ -41,12 +41,12 @@ struct ButtonInteractionContract;
 
 impl Component for ButtonInteractionContract {
   fn render(&self) -> impl Render {
-    let behavior = use_button(ButtonOptions::new().name(ls("Action")).on_press(|| {}));
-    let state = behavior.state;
-    Button::new(ls(format!("focus-visible={}", state.focus_visible)))
-      .behavior(behavior)
-      .on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
-        events.push(event.kind);
+    Button::new(ls("Action"))
+      .on_press(|| {})
+      .configure_host(|host| {
+        host.on_focus_visible_start(|events: &mut Vec<MotionGestureEventKind>, event| {
+          events.push(event.kind);
+        })
       })
   }
 }
@@ -1016,7 +1016,7 @@ fn gesture_drag_scroll_and_viewport_props_lower_native_contract() {
 }
 
 #[test]
-fn button_interaction_state_uses_native_focus_visible_events() {
+fn button_interaction_state_uses_native_focus_visible_without_rerendering() {
   let document = document();
   let mut events = Vec::new();
   let mut reactant = runtime_support::reactant(IdleSpawner);
@@ -1055,7 +1055,7 @@ fn button_interaction_state_uses_native_focus_visible_events() {
       },
     )
     .unwrap();
-  assert!(!commit.into_groups().is_empty());
+  assert!(commit.into_groups().is_empty());
   assert_eq!(events, [MotionGestureEventKind::FocusVisibleStart]);
   let _ = reactant.shutdown(&mut events).into_groups();
 }

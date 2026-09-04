@@ -12,8 +12,8 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../chess-ui/rules/tests/gallery.rs"),
   ),
   (
-    "accessibility_popup.rs",
-    include_str!("../../../../crates/battlement-reactant/tests/accessibility_popup.rs"),
+    "popup_components.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/popup_components.rs"),
   ),
   (
     "app_lifecycle.rs",
@@ -32,8 +32,12 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/cooperative_executor.rs"),
   ),
   (
-    "accessibility.rs",
-    include_str!("../../../../crates/battlement-reactant/tests/accessibility.rs"),
+    "components.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/components.rs"),
+  ),
+  (
+    "semantic_labels.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/semantic_labels.rs"),
   ),
   (
     "application.rs",

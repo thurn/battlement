@@ -1,7 +1,7 @@
+use trox::ls;
 mod runtime_support;
 
 use std::collections::HashMap;
-use trox::ls;
 
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
@@ -214,7 +214,9 @@ fn toggle_group(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| battlement_reactant::host::Button::new(ls(format!("Button {key}"))).key(*key))
+        .map(|key| {
+          battlement_reactant::host::ButtonHost::new(ls(format!("Button {key}"))).key(*key)
+        })
         .collect::<Vec<_>>(),
     )
 }
@@ -226,7 +228,7 @@ fn tabs(game: &Game) -> impl Render + use<> {
       game
         .order
         .iter()
-        .map(|key| battlement_reactant::host::Tab::new(ls(format!("Tab {key}"))).key(*key))
+        .map(|key| battlement_reactant::host::TabHost::new(ls(format!("Tab {key}"))).key(*key))
         .collect::<Vec<_>>(),
     )
 }

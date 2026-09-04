@@ -14,9 +14,10 @@ use crate::{
   event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
   host::{
-    Box, Button, DropdownField, Flex, Grid, GroupBox, Image, Label, MinMaxSlider, PopupWindow,
-    ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider,
-    SliderInt, Stack, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
+    Box, ButtonHost, DropdownField, Flex, Grid, GroupBox, ImageHost, Label, MinMaxSlider,
+    PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller,
+    SliderHost, SliderInt, Stack, TabHost, TabView, TextElement, TextField, ToggleButtonGroup,
+    ToggleHost, View,
   },
 };
 
@@ -593,39 +594,39 @@ implement_event_methods!(common_event_methods:
   Label,
   TextElement,
   TextField,
-  Toggle,
+  ToggleHost,
   RadioButton,
   RadioButtonGroup,
   ToggleButtonGroup,
   DropdownField,
-  Button,
+  ButtonHost,
   RepeatButton,
   GroupBox,
   PopupWindow,
   ScrollView,
   Scroller,
-  Slider,
+  SliderHost,
   SliderInt,
   MinMaxSlider,
   ProgressBar,
-  Tab,
+  TabHost,
   TabView,
-  Image,
+  ImageHost,
 );
 
 implement_event_methods!(text_event_methods: TextField);
 implement_event_methods!(scroll_event_methods: ScrollView);
 implement_event_methods!(tab_event_methods: TabView);
-implement_event_methods!(value_changing_methods: Scroller, Slider, SliderInt, MinMaxSlider);
+implement_event_methods!(value_changing_methods: Scroller, SliderHost, SliderInt, MinMaxSlider);
 implement_event_methods!(value_committed_methods:
   TextField,
-  Toggle,
+  ToggleHost,
   RadioButton,
   RadioButtonGroup,
   ToggleButtonGroup,
   DropdownField,
   Scroller,
-  Slider,
+  SliderHost,
   SliderInt,
   MinMaxSlider,
 );
@@ -637,6 +638,18 @@ macro_rules! change_host {
       #[must_use]
       pub fn on_change<G: 'static>(self, callback: impl IntoCallback<(), G>) -> Self {
         self.with_handler(Handler::brief_owned_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          callback.into_callback(),
+        ))
+      }
+
+      /// Replaces the typed change callback while preserving model access.
+      #[must_use]
+      pub fn on_change_value<G: 'static>(self, callback: impl IntoCallback<$value, G>) -> Self {
+        self.with_handler(Handler::owned_value_callback(
           $slot,
           UiEventKind::$kind,
           HandlerPhase::Default,
@@ -677,10 +690,10 @@ macro_rules! change_host {
 
 change_host!(TextField, String, "input", Input, body => match body { UiEventBody::Input(value) => value.value, _ => panic!("Reactant Input change handler received another event kind") });
 change_host!(Scroller, f32, "value_changing", ValueChanging, body => changing_f32(body));
-change_host!(Slider, f32, "value_changing", ValueChanging, body => changing_f32(body));
+change_host!(SliderHost, f32, "value_changing", ValueChanging, body => changing_f32(body));
 change_host!(SliderInt, i32, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::I32(value) => value, _ => panic!("Reactant SliderInt change handler received another value type") }, _ => panic!("Reactant SliderInt change handler received another event kind") });
 change_host!(MinMaxSlider, F32Range, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::F32Range(value) => value, _ => panic!("Reactant MinMaxSlider change handler received another value type") }, _ => panic!("Reactant MinMaxSlider change handler received another event kind") });
-change_host!(Toggle, bool, "value_committed", ValueCommitted, body => committed_bool(body));
+change_host!(ToggleHost, bool, "value_committed", ValueCommitted, body => committed_bool(body));
 change_host!(RadioButton, bool, "value_committed", ValueCommitted, body => committed_bool(body));
 change_host!(RadioButtonGroup, Option<u32>, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Index(value) => value, _ => panic!("Reactant RadioButtonGroup change handler received another value type") }, _ => panic!("Reactant RadioButtonGroup change handler received another event kind") });
 change_host!(ToggleButtonGroup, Vec<u32>, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Indices(value) => value, _ => panic!("Reactant ToggleButtonGroup change handler received another value type") }, _ => panic!("Reactant ToggleButtonGroup change handler received another event kind") });

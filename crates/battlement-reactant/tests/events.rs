@@ -1,7 +1,7 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{any::Any, panic, panic::AssertUnwindSafe};
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -156,7 +156,7 @@ fn handler_model_type_is_validated_before_session_commit() {
   let document = self::document();
   let mut reactant = runtime_support::reactant::<Game>(IdleSpawner);
   reactant.register_root(document.clone(), |_game| {
-    battlement_reactant::host::Button::new(ls("wrong")).on_click(|_wrong: &mut String| {})
+    battlement_reactant::host::ButtonHost::new(ls("wrong")).on_click(|_wrong: &mut String| {})
   });
   let mut game = Game {
     form: Form::BriefLast,
@@ -253,12 +253,12 @@ fn root_coverage_updates_are_ordered_around_top_level_lifecycle() {
 fn view(game: &Game) -> impl Render + use<> {
   let button = match game.form {
     Form::BriefLast => Some(Node::new(
-      battlement_reactant::host::Button::new(ls("Activate"))
+      battlement_reactant::host::ButtonHost::new(ls("Activate"))
         .on_click_event_with_model(|game: &mut Game, _event| game.status = "event-first".to_owned())
         .on_click(|game: &mut Game| game.status = "brief-last".to_owned()),
     )),
     Form::EventLast => Some(Node::new(
-      battlement_reactant::host::Button::new(ls("Activate"))
+      battlement_reactant::host::ButtonHost::new(ls("Activate"))
         .on_click(|game: &mut Game| game.status = "brief-first".to_owned())
         .on_click_event_with_model(|game: &mut Game, event| {
           assert_eq!(event.phase(), EventPhase::Target);

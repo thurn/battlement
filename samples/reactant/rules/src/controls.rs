@@ -2,15 +2,14 @@ use trox::ls;
 
 use crate::{Control, Game, Interaction, design_system};
 use battlement::Style;
-use battlement_reactant::prelude::*;
 pub(crate) fn interactive_button(
   text: &'static str,
   name: &'static str,
   style: Style,
   control: Control,
   click: impl Fn(&mut Game) + 'static,
-) -> Button {
-  battlement_reactant::host::Button::new(ls(text))
+) -> battlement_reactant::host::ButtonHost {
+  battlement_reactant::host::ButtonHost::new(ls(text))
     .name(name)
     .style(style)
     .on_pointer_enter(move |game: &mut Game| game.interaction.hovered = Some(control))

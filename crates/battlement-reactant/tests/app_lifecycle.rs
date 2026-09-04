@@ -1,10 +1,10 @@
+use trox::ls;
 mod app_support;
 
 use std::{
   cell::{Cell, RefCell},
   rc::Rc,
 };
-use trox::ls;
 
 use battlement::{
   ActionId, Command, GameObjectKind, ResponseMessage, SessionId, UiEventAction, UiEventDisposition,
@@ -12,7 +12,7 @@ use battlement::{
 };
 use battlement_fake::client::FakeClient;
 use battlement_native::Engine;
-use battlement_reactant::{app::App, prelude::*};
+use battlement_reactant::{app::App, control_behavior, host::ButtonHost, prelude::*};
 
 struct Counter {
   cleanups: Rc<Cell<u32>>,
@@ -39,9 +39,9 @@ impl Component for Counter {
     View::new().child((
       Label::new(ls(format!("{count}"))).name("count"),
       Button::new(ls("Increment"))
-        .name("increment")
-        .on_click(move || set.update(|value| value + 1)),
-      Button::new(ls("Prevent"))
+        .host_name("increment")
+        .on_press(move || set.update(|value| value + 1)),
+      ButtonHost::new(ls("Prevent"))
         .name("prevent")
         .on_click_event(|event| event.prevent_default()),
     ))
@@ -52,23 +52,20 @@ impl Component for Mixed {
   fn render(&self) -> impl Render {
     let (enabled, set) = use_state(false);
     let input = use_element_ref();
-    let toggle = use_checkbox(
-      ToggleOptions::new()
-        .name(ls("Enabled"))
-        .checked(enabled)
-        .on_change(move |value| set.set(value)),
-    );
+    let toggle = control_behavior::checkbox(ls("Enabled"), None, enabled, false, move |value| {
+      set.set(value)
+    });
     let label = toggle.label_interaction(&input);
     View::new().child((
       Label::new(ls(format!("{} {enabled}", self.value))).name("value"),
       Button::new(ls("Game"))
-        .name("game")
-        .on_click(|model: &mut u32| *model += 1),
+        .host_name("game")
+        .on_press(|model: &mut u32| *model += 1),
       View::new()
         .name("enabled-label")
         .interaction_props(label)
         .child(
-          Button::new(ls("Enabled"))
+          ButtonHost::new(ls("Enabled"))
             .name("enabled")
             .element_ref(input)
             .behavior(toggle),
@@ -185,7 +182,7 @@ impl Component for Commands {
       },
       count,
     );
-    Button::new(ls("Send")).on_click(move || {
+    Button::new(ls("Send")).on_press(move || {
       app.send(Command::open_external_url("https://example.com/click"));
       set.update(|count| count + 1);
     })
@@ -291,12 +288,12 @@ impl Component for RefreshFocus {
     let target = use_element_ref();
     let app = use_app();
     View::new().child((
-      Button::new(ls("Target"))
+      ButtonHost::new(ls("Target"))
         .name("target")
         .element_ref(target.clone()),
       Button::new(ls("Refresh"))
-        .name("refresh")
-        .on_click(move || {
+        .host_name("refresh")
+        .on_press(move || {
           target.focus();
           app.refresh_snapshot();
         }),

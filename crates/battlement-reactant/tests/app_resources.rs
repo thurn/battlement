@@ -1,3 +1,4 @@
+use trox::ls;
 mod app_support;
 
 use std::{
@@ -6,7 +7,6 @@ use std::{
   sync::{Arc, Mutex},
   task::{Context, Poll, Waker},
 };
-use trox::ls;
 
 use battlement::{ActionId, ResponseMessage, UiEventAction};
 use battlement_fake::client::FakeClient;
@@ -60,10 +60,10 @@ impl Component for Screen {
   fn render(&self) -> impl Render {
     let control = use_resource_control(&self.resource);
     View::new().child((
-      Button::new(ls("Other")).on_click(|| {}),
+      Button::new(ls("Other")).on_press(|| {}),
       Button::new(ls("Refetch"))
-        .name("refetch")
-        .on_click(move || control.invalidate(())),
+        .host_name("refetch")
+        .on_press(move || control.invalidate(())),
       Suspense::new(Label::new(ls("Loading")).name("status")).child(
         use_resource(&self.resource, ())
           .then(|value| Label::new(ls(format!("Value {value}"))).name("status")),

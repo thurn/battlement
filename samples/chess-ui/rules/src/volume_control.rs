@@ -1,6 +1,6 @@
 //! A controlled integer-percentage slider with a painted track and value.
 
-use trox::{LocalizedString, tx_args, txa};
+use trox::{LocalizedString, ls, tx_args, txa};
 
 use crate::{
   setting_row::{self, SettingRow},
@@ -11,10 +11,11 @@ use battlement::{
 };
 use battlement_reactant::prelude::{EventCallback, builder, use_control_label};
 use battlement_reactant::{
-  accessibility::{self, SliderOptions},
   component::Component,
-  host::{Flex, TextElement, View},
+  control_behavior,
+  host::{Flex, SliderHost, TextElement, View},
   render::Render,
+  semantics::SemanticRange,
 };
 
 /// A labelled volume slider whose parent owns its integer percentage.
@@ -33,23 +34,26 @@ pub struct VolumeControl {
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let (label, slider) = use_control_label().bind_with(|name| {
-      accessibility::use_slider(
-        SliderOptions::new()
-          .name(name)
-          .value(f64::from(self.value))
-          .minimum(0.0)
-          .maximum(100.0)
-          .step(5.0)
-          .value_text(txa(
+      control_behavior::slider(
+        name,
+        None,
+        SemanticRange {
+          current: f64::from(self.value),
+          minimum: 0.0,
+          maximum: 100.0,
+          text: Some(txa(
             "{volume_percent} percent",
             tx_args![volume_percent => self.value],
             "User-facing product copy in the Chess UI sample.",
-          ))
-          .on_change(self.on_change.clone().map_input(|value: f64| value as u32)),
+          )),
+        },
+        5.0,
+        false,
+        self.on_change.clone().map_input(|value: f64| value as u32),
       )
     });
     SettingRow::new()
-      .label(accessibility::name_source_text(self.label.clone()))
+      .label(control_behavior::name_source_text(self.label.clone()))
       .children(
         Flex::new()
           .direction(FlexDirection::Row)
@@ -77,9 +81,14 @@ impl Component for VolumeControl {
                 VolumeTrack::new().value(self.value),
                 VolumeTicks::new(),
                 VolumeThumb::new().value(self.value),
-                View::new()
+                SliderHost::new()
+                  .label(ls(""))
+                  .low_value(0.0)
+                  .high_value(100.0)
+                  .value(self.value as f32)
                   .name("volume-input")
                   .associated_control(slider)
+                  .on_change_value(self.on_change.clone().map_input(|value: f32| value as u32))
                   .style(
                     Style::new()
                       .position(Position::Absolute)

@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -5,7 +6,6 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
 };
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -68,7 +68,7 @@ impl Component for Counter {
     );
     self.dispatch.replace(Some(dispatch.clone()));
     (
-      battlement_reactant::host::Button::new(ls("Reduce")).on_click(move |_game: &mut Game| {
+      battlement_reactant::host::ButtonHost::new(ls("Reduce")).on_click(move |_game: &mut Game| {
         dispatch.send(CountAction::Add);
         dispatch.send(CountAction::Set(10));
         dispatch.send(CountAction::Add);

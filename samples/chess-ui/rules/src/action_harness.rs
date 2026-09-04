@@ -4,9 +4,8 @@ use crate::{action_button::ActionButton, return_button::ReturnButton};
 use battlement::{Color, FlexDirection, Position, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility,
   component::Component,
-  hooks,
+  control_behavior, hooks,
   host::{Flex, TextElement, View},
   render::Render,
 };
@@ -42,7 +41,7 @@ impl Component for ActionHarness {
             self::slot(
               ActionButton::new()
                 .children(self::text("PLAY"))
-                .on_click(set_clicks.update_callback(|count| count + 1)),
+                .on_press(set_clicks.update_callback(|count| count + 1)),
             ),
             self::slot(
               ActionButton::new()
@@ -52,19 +51,19 @@ impl Component for ActionHarness {
                     .gap(14.0)
                     .child((self::text("COMPOSED"), self::text("LABEL"))),
                 )
-                .on_click(set_clicks.update_callback(|count| count + 1)),
+                .on_press(set_clicks.update_callback(|count| count + 1)),
             ),
             self::slot(ActionButton::new().children(self::text("ABOUT"))),
             self::slot(
               ActionButton::new()
                 .children(self::text("DISABLED"))
                 .disabled(true)
-                .on_click(move || set_clicks.update(|count| count + 1)),
+                .on_press(move || set_clicks.update(|count| count + 1)),
             ),
             self::status(format!("Action clicks: {clicks}")),
             self::status(format!("Return clicks: {returns}")),
           )),
-        ReturnButton::new().on_click(move || set_returns.update(|count| count + 1)),
+        ReturnButton::new().on_press(move || set_returns.update(|count| count + 1)),
       ))
   }
 }
@@ -76,7 +75,7 @@ fn slot(button: ActionButton) -> impl Render {
 }
 
 fn status(value: String) -> impl Render {
-  accessibility::static_label(ls(value)).style(
+  control_behavior::static_label(ls(value)).style(
     Style::new()
       .font_size(28)
       .color(Color::rgb(0.75, 0.86, 0.97))
@@ -85,5 +84,5 @@ fn status(value: String) -> impl Render {
 }
 
 fn text(value: &str) -> TextElement {
-  accessibility::name_source_text(ls(value))
+  control_behavior::name_source_text(ls(value))
 }

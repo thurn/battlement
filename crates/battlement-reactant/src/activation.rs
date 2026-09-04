@@ -35,7 +35,7 @@ pub(crate) fn interaction<G: 'static>(
       }),
   ));
   interaction.handlers.push(Handler::accessibility_callback(
-    "press-accessibility",
+    "press-assistive",
     activation.callback.map(move |requested| {
       (!disabled && requested == AccessibilityAction::Activate).then_some(())
     }),

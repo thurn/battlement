@@ -128,8 +128,8 @@ macro_rules! asset_methods {
 
     /// Creates one Reactant image façade using this texture.
     #[must_use]
-    pub fn image(self) -> crate::host::Image {
-      crate::host::Image::new().source(self.image_source())
+    pub fn image(self) -> crate::host::ImageHost {
+      crate::host::ImageHost::new().source(self.image_source())
     }
   };
 }

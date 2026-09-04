@@ -1,7 +1,5 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
-use trox::tx;
-
 use crate::action_skin;
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
@@ -9,12 +7,12 @@ use battlement::{
 };
 use battlement_reactant::prelude::{Children, EventCallback, builder};
 use battlement_reactant::{
-  accessibility::{self, ButtonOptions},
   component::Component,
-  host::{Button, View},
+  components::Button,
+  host::View,
   paint::{PaintLayer, PaintStyle},
   render::Render,
-  semantics::AccessibleName,
+  semantics::SemanticName,
 };
 
 /// Native TextCore face for action labels.
@@ -31,7 +29,7 @@ pub struct ActionButton {
   max_text_scale: Option<f32>,
   /// Handles an accepted button activation.
   #[builder(default = EventCallback::noop())]
-  on_click: EventCallback<()>,
+  on_press: EventCallback<()>,
 }
 
 impl ActionButton {
@@ -66,40 +64,41 @@ impl Component for ActionButton {
           .height(100.pct()),
       )
       .child(
-        Button::new(tx("", "User-facing product copy in the Chess UI sample."))
-          .name("action-button")
-          .behavior(accessibility::use_button(
-            ButtonOptions::new()
-              .name(AccessibleName::Contents)
-              .is_disabled(self.disabled)
-              .on_press(self.on_click.clone()),
-          ))
-          .style(
-            Style::new()
-              .position(Position::Relative)
-              .full_size()
-              .margin(0)
-              .padding(0)
-              .border_width(0)
-              .center_content()
-              .background_color(Color::TRANSPARENT),
-          )
-          .paint(
-            PaintStyle::new()
-              .background(action_skin::border())
-              .clip_polygon(action_skin::clip(18.0, 17.0))
-              .layer(
-                PaintLayer::new(action_skin::INTERIOR)
-                  .bounds_inset(6.0)
-                  .clip_polygon(action_skin::clip(14.0, 13.0)),
-              ),
-          )
-          .child(
-            View::new()
-              .name("action-label")
-              .style(self.label_style())
-              .child(self.children.render()),
-          ),
+        Button::content(
+          View::new()
+            .name("action-label")
+            .style(self.label_style())
+            .child(self.children.render()),
+        )
+        .semantic_name(SemanticName::Contents)
+        .host_name("action-button")
+        .disabled(self.disabled)
+        .on_press(self.on_press.clone())
+        .style(
+          Style::new()
+            .position(Position::Relative)
+            .full_size()
+            .margin(0)
+            .padding(0)
+            .border_width(0)
+            .center_content()
+            .background_color(Color::TRANSPARENT),
+        )
+        .disabled_style(
+          Style::new()
+            .opacity(1.0)
+            .background_color(Color::TRANSPARENT),
+        )
+        .paint(
+          PaintStyle::new()
+            .background(action_skin::border())
+            .clip_polygon(action_skin::clip(18.0, 17.0))
+            .layer(
+              PaintLayer::new(action_skin::INTERIOR)
+                .bounds_inset(6.0)
+                .clip_polygon(action_skin::clip(14.0, 13.0)),
+            ),
+        ),
       )
   }
 }

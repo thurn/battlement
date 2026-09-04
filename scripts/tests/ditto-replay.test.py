@@ -27,7 +27,7 @@ def main() -> None:
 name = 'gallery reset'
 steps = [{screenshot = {name = 'initial'}}]
 [[scenarios]]
-name = 'collection accessibility'
+name = 'collection components'
 steps = []
 """
         config.write_text(configuration)
@@ -44,7 +44,7 @@ assert sys.argv[sys.argv.index("--profile") + 1] == "macos"
 if sys.argv[-3] == "gallery reset":
     assert pathlib.Path(os.environ["DITTO_ODIFF_PATH"]).is_file()
 else:
-    assert sys.argv[-3] == "collection accessibility"
+    assert sys.argv[-3] == "collection components"
     assert "DITTO_ODIFF_PATH" not in os.environ
 pathlib.Path(os.environ["PLAYER_MARKER"]).write_text("executed")
 output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
@@ -57,7 +57,7 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
             binary.write_text(f'@"{sys.executable}" "{script}" %*\n')
         environment = {"DITTO_CACHE_ROOT": str(root / "cache"), "DITTO_ODIFF_PATH": str(binary)}
         recipe = ditto_replay.record(root, binary, root / "cache", "chess-ui",
-                                     ["gallery reset", "collection accessibility"], environment)
+                                     ["gallery reset", "collection components"], environment)
         result = {"run_id": "original-failure", "status": "failed",
                   "build": {"fingerprint": "a" * 64}}
         retained = root / "replay.json"
@@ -83,11 +83,11 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
 
         no_comparison = ditto_replay.record(
             root, Path(recipe["tools"]["runner"]["path"]), root / "cache", "chess-ui",
-            ["collection accessibility"], {"DITTO_CACHE_ROOT": str(root / "cache")},
+            ["collection components"], {"DITTO_CACHE_ROOT": str(root / "cache")},
         )
         no_comparison_path = root / "no-comparison.json"
         ditto_replay.save(no_comparison, no_comparison_path, result)
-        no_odiff = invoke(no_comparison_path, "collection accessibility")
+        no_odiff = invoke(no_comparison_path, "collection components")
         assert no_odiff.returncode == 0, no_odiff.stderr + no_odiff.stdout
         assert marker.read_text() == "executed"
         marker.unlink()

@@ -1,3 +1,4 @@
+use trox::ls;
 mod runtime_support;
 
 use std::{
@@ -7,7 +8,6 @@ use std::{
   rc::Rc,
   slice,
 };
-use trox::ls;
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
@@ -65,7 +65,7 @@ fn external_portals_append_after_the_prefix_and_enter_events_once() {
       create_portal(
         battlement_reactant::host::View::new()
           .child(create_portal(
-            battlement_reactant::host::Button::new(ls("action"))
+            battlement_reactant::host::ButtonHost::new(ls("action"))
               .on_click(|game: &mut Game| game.log.push("target")),
             portal_internal.clone(),
           ))

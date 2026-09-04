@@ -154,7 +154,12 @@ fn departure_frees_a_full_toggle_group_before_the_arrival() {
   let outgoing_id = ObjectId::new_v4();
   let incoming_id = ObjectId::new_v4();
   let retained = (0..63)
-    .map(|index| UiNode::new(ObjectId::new_v4(), UiButton::new(format!("Button {index}"))))
+    .map(|index| {
+      UiNode::new(
+        ObjectId::new_v4(),
+        UiButton::new(format!("ButtonHost {index}")),
+      )
+    })
     .collect::<Vec<_>>();
   let mut old_group_children = vec![UiNode::new(outgoing_id, UiButton::new("outgoing"))];
   old_group_children.extend(retained.clone());

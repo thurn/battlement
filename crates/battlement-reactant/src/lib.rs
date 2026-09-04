@@ -35,14 +35,20 @@
 //! [feature ledger](https://github.com/dthurn/battlement/blob/master/docs/reactant/feature-ledger.md)
 //! maps the supported V1 surface to its sample screen and black-box proof and
 //! lists the reserved React APIs that remain unsupported.
+//!
+//! The former optional accessibility authoring modules are intentionally gone.
+//!
+//! ```compile_fail
+//! use battlement_reactant::accessibility::use_button;
+//! ```
+//!
+//! ```compile_fail
+//! use battlement_reactant::semantics::AccessibleBehavior;
+//! ```
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub mod accessibility;
-pub mod accessibility_collections;
-mod accessibility_hook;
-pub mod accessibility_popup;
 mod action_context;
 mod activation;
 pub mod animation_controls;
@@ -56,11 +62,12 @@ pub mod application;
 pub mod asset_generator;
 #[doc(hidden)]
 pub mod builder_support;
-mod button_state;
 pub mod callback;
 mod commit;
 pub mod component;
+pub mod components;
 pub mod context;
+pub mod control_behavior;
 pub mod cooperative_executor;
 mod effect;
 pub mod element_ref;

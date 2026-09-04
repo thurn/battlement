@@ -38,16 +38,16 @@
 //! use battlement_reactant::prelude::*;
 //!
 //! let copy = String::from("Save");
-//! let _ = Button::new(copy);
+//! let _ = ButtonHost::new(copy);
 //! ```
 //!
 //! Façades expose no conversion from native protocol hosts.
 //!
 //! ```compile_fail
 //! use battlement::UiButton;
-//! use battlement_reactant::host::Button;
+//! use battlement_reactant::host::ButtonHost;
 //!
-//! let _: Button = UiButton::new("Save").into();
+//! let _: ButtonHost = UiButton::new("Save").into();
 //! ```
 
 #![allow(private_interfaces)]
@@ -78,7 +78,7 @@ use crate::{
   portal::PortalTarget,
   render::{Node, Render, RenderSink},
   render_value::Sealed,
-  semantics::{AccessibleBehavior, InteractionProps, SemanticProps},
+  semantics::{ControlBehavior, InteractionProps, SemanticProps},
   variant_map::{VariantData, VariantKey, Variants},
 };
 
@@ -437,13 +437,13 @@ macro_rules! facade {
         self
       }
 
-      /// Attaches an associated control's reference and accessible behavior.
+      /// Attaches an associated control's reference and complete control behavior.
       #[must_use]
-      pub fn associated_control<G: 'static, S>(self, value: AssociatedControl<G, S>) -> Self {
+      pub fn associated_control<G: 'static>(self, value: AssociatedControl<G>) -> Self {
         self.element_ref(value.reference).behavior(value.behavior)
       }
 
-      /// Merges ordinary callbacks returned by an accessible behavior hook.
+      /// Merges advanced ordinary interaction callbacks.
       #[must_use]
       pub fn interaction_props<G: 'static>(mut self, value: InteractionProps<G>) -> Self {
         for handler in value.handlers {
@@ -460,9 +460,9 @@ macro_rules! facade {
         self
       }
 
-      /// Attaches one accessible behavior's semantics, focus, and interaction atomically.
+      /// Attaches one control behavior's semantics, focus, and interaction atomically.
       #[must_use]
-      pub fn behavior<G: 'static, S>(self, value: AccessibleBehavior<G, S>) -> Self {
+      pub fn behavior<G: 'static>(self, value: ControlBehavior<G>) -> Self {
         self
           .semantic(value.semantic)
           .focus_props(value.focus)
@@ -932,7 +932,7 @@ facade!(
 facade!(
   Label,
   UiLabel,
-  "A Unity UI Toolkit text leaf for titles, captions, and descriptions.\n\nText styles affect the rendered text and layout styles affect its box. Use [`Button`] when the text should activate an action.\n\nSee Unity's [Label manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Label.html)."
+  "A Unity UI Toolkit text leaf for titles, captions, and descriptions.\n\nText styles affect the rendered text and layout styles affect its box. Use [`ButtonHost`] when the text should activate an action.\n\nSee Unity's [Label manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Label.html)."
 );
 facade!(
   TextElement,
@@ -945,7 +945,7 @@ facade!(
   "A controlled editable text input with a native local draft.\n\nTyping emits `Input` proposals without changing Rust's authoritative value. Single-line Enter and focus loss emit a committed proposal; Escape restores the latest authored value. Cursor and selection indices use UTF-16 code units.\n\nSee Unity's [TextField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TextField.html)."
 );
 facade!(
-  Toggle,
+  ToggleHost,
   UiToggle,
   "A controlled Boolean field rendered as a checkbox-style toggle.\n\nUse it for an independent on/off setting. Interaction proposes a value through `ValueCommitted`; Rust remains authoritative until the next render accepts it.\n\nSee Unity's [Toggle manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Toggle.html)."
 );
@@ -962,7 +962,7 @@ facade!(
 facade!(
   ToggleButtonGroup,
   UiToggleButtonGroup,
-  "A controlled group that presents direct [`Button`] children as toggles.\n\nIt selects one button by default; multiple and empty selection are separately configurable. Selected indices address direct children in visual order and interaction emits committed proposals.\n\nSee Unity's [ToggleButtonGroup manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ToggleButtonGroup.html)."
+  "A controlled group that presents direct [`ButtonHost`] children as toggles.\n\nIt selects one button by default; multiple and empty selection are separately configurable. Selected indices address direct children in visual order and interaction emits committed proposals.\n\nSee Unity's [ToggleButtonGroup manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ToggleButtonGroup.html)."
 );
 facade!(
   DropdownField,
@@ -970,7 +970,7 @@ facade!(
   "A controlled single-choice field that opens its options in a popup.\n\nUse it when a permanently visible option list would consume too much space. Selection is provisional until Rust authors the accepted [`LocalizedChoice`].\n\nSee Unity's [DropdownField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-DropdownField.html)."
 );
 facade!(
-  Button,
+  ButtonHost,
   UiButton,
   "A Unity UI Toolkit control for a discrete pointer or navigation-submit command.\n\nUnity supplies standard button appearance and interaction states. Reactant forwards activations only when an `on_click` handler is authored. Logical children can supply styled labels and decorative content.\n\nSee Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)."
 );
@@ -1000,14 +1000,14 @@ facade!(
   "A controlled scrollbar that proposes floating-point values within a range.\n\nInteraction emits changing and committed proposals, then restores Rust's latest authored value. A scroller includes decrement and increment buttons around its internal slider.\n\nSee Unity's [Scroller manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Scroller.html)."
 );
 facade!(
-  Slider,
+  SliderHost,
   UiSlider,
   "A controlled floating-point field for approximate adjustment within a range.\n\nDragging, track clicks, and keyboard input produce provisional changing and committed proposals. A positive page size is a percentage of the complete range; zero moves directly to a track-click position.\n\nSee Unity's [Slider manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Slider.html)."
 );
 facade!(
   SliderInt,
   UiSliderInt,
-  "A controlled integer field for approximate adjustment within a range.\n\nIt shares [`Slider`]'s interaction model while proposing integral values. Rust remains authoritative until a render accepts the changing or committed proposal.\n\nSee Unity's [SliderInt manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-SliderInt.html)."
+  "A controlled integer field for approximate adjustment within a range.\n\nIt shares [`SliderHost`]'s interaction model while proposing integral values. Rust remains authoritative until a render accepts the changing or committed proposal.\n\nSee Unity's [SliderInt manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-SliderInt.html)."
 );
 facade!(
   MinMaxSlider,
@@ -1020,17 +1020,17 @@ facade!(
   "A read-only indicator that visualizes progress through a numeric range.\n\nThe low and high values define the range, `value` controls the filled proportion, and `title` draws explanatory text over the track. Unity clamps out-of-range display values.\n\nSee Unity's [ProgressBar manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ProgressBar.html)."
 );
 facade!(
-  Tab,
+  TabHost,
   UiTab,
   "One labeled, optionally icon-bearing page inside a [`TabView`].\n\nThe text and icon form its header while logical children form page content. Closing is a proposal handled by the parent tab view; it never destroys the tab automatically.\n\nSee Unity's [Tab manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Tab.html)."
 );
 facade!(
   TabView,
   UiTabView,
-  "A controlled collection of [`Tab`] pages with native headers.\n\nOnly tabs are valid direct children. Selection, close, and reorder gestures are proposals; accept them by changing the authored selected index or logical child collection.\n\nSee Unity's [TabView manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TabView.html)."
+  "A controlled collection of [`TabHost`] pages with native headers.\n\nOnly tabs are valid direct children. Selection, close, and reorder gestures are proposals; accept them by changing the authored selected index or logical child collection.\n\nSee Unity's [TabView manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TabView.html)."
 );
 facade!(
-  Image,
+  ImageHost,
   UiImage,
   "A Unity UI Toolkit image for raster, sprite, vector, or rendered content.\n\nUse it when graphics participate in layout or require direct fit, crop, tint, or sampled-region control. Images are logical leaves and source leases live until replacement or destruction.\n\nSee Unity's [Image manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Image.html) and [scripting API](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.Image.html)."
 );
@@ -1056,7 +1056,7 @@ empty_constructor!(
   Stack => UiStack,
   Box => UiBox,
   TextField => UiTextField,
-  Toggle => UiToggle,
+  ToggleHost => UiToggle,
   RadioButton => UiRadioButton,
   RadioButtonGroup => UiRadioButtonGroup,
   ToggleButtonGroup => UiToggleButtonGroup,
@@ -1065,12 +1065,12 @@ empty_constructor!(
   PopupWindow => UiPopupWindow,
   ScrollView => UiScrollView,
   Scroller => UiScroller,
-  Slider => UiSlider,
+  SliderHost => UiSlider,
   SliderInt => UiSliderInt,
   MinMaxSlider => UiMinMaxSlider,
   ProgressBar => UiProgressBar,
   TabView => UiTabView,
-  Image => UiImage,
+  ImageHost => UiImage,
 );
 
 macro_rules! text_constructor {
@@ -1090,8 +1090,8 @@ macro_rules! text_constructor {
 text_constructor!(
   Label => UiLabel,
   TextElement => UiTextElement,
-  Button => UiButton,
-  Tab => UiTab,
+  ButtonHost => UiButton,
+  TabHost => UiTab,
 );
 
 impl View {
@@ -1136,7 +1136,7 @@ macro_rules! container {
 }
 
 container!(
-  Button,
+  ButtonHost,
   View,
   Flex,
   Grid,
@@ -1146,6 +1146,6 @@ container!(
   GroupBox,
   PopupWindow,
   ScrollView,
-  Tab,
+  TabHost,
   TabView
 );

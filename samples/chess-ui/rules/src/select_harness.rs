@@ -2,7 +2,7 @@ use trox::tx;
 
 use crate::{review_button::ReviewButton, select_control::SelectControl};
 use battlement::{Color, Style};
-use battlement_reactant::{accessibility, hooks, prelude::*};
+use battlement_reactant::{control_behavior, hooks, prelude::*};
 
 /// Owns selected values and demonstrates parent-driven updates.
 #[builder]
@@ -39,7 +39,7 @@ impl Component for SelectHarness {
           .value("Borderless")
           .row_height(190.0)
           .offset_y(-8.0),
-        accessibility::static_label(tx(
+        control_behavior::static_label(tx(
           "Selection changes: 0",
           "User-facing product copy in the Chess UI sample.",
         ))
@@ -60,5 +60,5 @@ impl Component for SelectHarness {
 }
 
 fn label(value: LocalizedString) -> TextElement {
-  accessibility::name_source_text(value)
+  control_behavior::name_source_text(value)
 }

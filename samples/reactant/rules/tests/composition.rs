@@ -5,12 +5,11 @@ use battlement::{
   DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryGeneration,
   GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
-  GridTrack, KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint,
-  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PreparedAsset, Projective2,
-  Prop, Rect, Response, ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElement,
-  UiElementKind, UiEvent, UiEventAction, UiEventBody, UiEventResponse, UiVisualElementProperties,
-  VariantWhen, Vector, ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry,
-  WorldPointGeometry,
+  KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint, PointerBoundaryEvent,
+  PointerButton, PointerButtonEvent, PointerType, PreparedAsset, Projective2, Prop, Rect, Response,
+  ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElement, UiElementKind, UiEvent,
+  UiEventAction, UiEventBody, UiEventResponse, UiVisualElementProperties, VariantWhen, Vector,
+  ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -977,21 +976,14 @@ fn layout_gallery_preserves_state_routes_portals_and_authors_modal_focus() {
 
   let canvas = find_named(&client.ui(), ROOT_ID, "layout-gallery-canvas");
   let tabs = find_named(&client.ui(), canvas, "layout-gallery-tabs");
-  let tabs_columns = {
+  let selected_tab = {
     let ui = client.ui();
-    let UiElement::Grid(tabs_element) = ui.element(tabs).element() else {
-      panic!("gallery tabs should use the public Grid host");
+    let UiElement::TabView(tabs_element) = ui.element(tabs).element() else {
+      panic!("gallery tabs should use the native TabView host");
     };
-    tabs_element.columns.clone()
+    tabs_element.selected_tab_index
   };
-  assert_eq!(
-    tabs_columns,
-    Prop::Set(vec![
-      GridTrack::px(132.0),
-      GridTrack::px(132.0),
-      GridTrack::px(132.0),
-    ])
-  );
+  assert_eq!(selected_tab, Prop::Set(0));
 
   let value = find_named(&client.ui(), canvas, "layout-setting-value-music");
   client.ui().click(value);

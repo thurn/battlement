@@ -6,9 +6,8 @@ use crate::review_text::{ReviewText, ReviewTextKind};
 use battlement::Style;
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
-  accessibility_collections,
   component::Component,
-  host::View,
+  components::Region,
   render::{Fragment, Render},
 };
 
@@ -42,10 +41,9 @@ impl ReviewPage {
 
 impl Component for ReviewPage {
   fn render(&self) -> impl Render {
-    View::new()
-      .name("page-content")
+    Region::new(self.title.clone())
+      .host_name("page-content")
       .style(Style::new().full_size().padding(64))
-      .semantic(accessibility_collections::use_region(self.title.clone()))
       .child((
         self.eyebrow.as_ref().map(|eyebrow| {
           ReviewText::new()

@@ -12,7 +12,7 @@ use crate::{
   overlay::OverlayReference,
   render::{RenderPosition, RenderTree},
   semantic_validation,
-  semantics::{AccessibleDescription, AccessibleName, SemanticProps, SemanticVisibility},
+  semantics::{SemanticDescription, SemanticName, SemanticProps, SemanticVisibility},
 };
 
 struct Draft<'a> {
@@ -199,7 +199,7 @@ fn collect<'a>(
 }
 
 fn resolve_name(
-  name: &AccessibleName,
+  name: &SemanticName,
   owner: Source<'_>,
   sources: &HashMap<ObjectId, Source<'_>>,
   runtime_id: u64,
@@ -211,8 +211,8 @@ fn resolve_name(
     "cyclic accessible name reference"
   );
   let result = match name {
-    AccessibleName::Text(value) => localization::resolve(value),
-    AccessibleName::LabelledBy(references) => references
+    SemanticName::Text(value) => localization::resolve(value),
+    SemanticName::LabelledBy(references) => references
       .iter()
       .map(|element_ref| {
         let target = attachments.reference_target(runtime_id, element_ref);
@@ -229,14 +229,14 @@ fn resolve_name(
       })
       .collect::<Vec<_>>()
       .join(" "),
-    AccessibleName::Contents => contents_text(&owner.position.children),
+    SemanticName::Contents => contents_text(&owner.position.children),
   };
   resolving.remove(&owner.id);
   normalize(&result)
 }
 
 fn resolve_description(
-  description: &AccessibleDescription,
+  description: &SemanticDescription,
   owner: Source<'_>,
   sources: &HashMap<ObjectId, Source<'_>>,
   runtime_id: u64,
@@ -244,8 +244,8 @@ fn resolve_description(
   resolving: &mut HashSet<ObjectId>,
 ) -> String {
   match description {
-    AccessibleDescription::Text(value) => localization::resolve(value),
-    AccessibleDescription::DescribedBy(element_ref) => {
+    SemanticDescription::Text(value) => localization::resolve(value),
+    SemanticDescription::DescribedBy(element_ref) => {
       let target = attachments.reference_target(runtime_id, element_ref);
       assert!(target != owner.id, "a semantic node cannot describe itself");
       let target = sources
@@ -278,7 +278,7 @@ fn append_contents(tree: &RenderTree, fragments: &mut Vec<String>) {
       continue;
     }
     if semantic.role == SemanticRole::StaticText
-      && let Some(AccessibleName::Text(value)) = &semantic.name
+      && let Some(SemanticName::Text(value)) = &semantic.name
     {
       fragments.push(localization::resolve(value));
     }
