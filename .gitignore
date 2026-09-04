@@ -106,3 +106,5 @@ target/
 /samples/*/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/
 /samples/*/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata.meta
 /samples/*/[Aa]ssets/[Ss]treaming[Aa]ssets/
+
+.logs
