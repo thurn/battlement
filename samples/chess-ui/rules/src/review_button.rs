@@ -2,11 +2,12 @@
 
 use trox::LocalizedString;
 
-use crate::{review_navigation, review_theme};
+use crate::review_theme;
 use battlement::{Align, Color, FontStyle, Style, TextAnchor, WhiteSpace};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
-  component::Component, components::Button, motion::StyleTarget, render::Render,
+  component::Component, components::Button, element_ref::ElementRef, motion::StyleTarget,
+  render::Render,
 };
 use battlement_reactant::{element_behavior, hooks};
 
@@ -143,7 +144,7 @@ impl ReviewButton {
 impl Component for ReviewButton {
   fn render(&self) -> impl Render {
     let reference = element_behavior::use_scroll_reveal(
-      hooks::use_context(&review_navigation::SCROLL),
+      hooks::use_context::<Option<ElementRef>>(),
       self.reveal_generation.filter(|_| self.kind.is_current()),
     );
     Button::new(self.label.clone())

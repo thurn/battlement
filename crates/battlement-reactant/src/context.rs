@@ -4,8 +4,7 @@ use std::{
   any::{Any, TypeId},
   cell::{Cell, RefCell},
   collections::HashMap,
-  marker::PhantomData,
-  mem, ptr,
+  mem,
   rc::Rc,
 };
 
@@ -20,29 +19,9 @@ thread_local! {
   static PROVIDERS: RefCell<Vec<ProviderValue>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Identifies one optional logical context and its runtime default factory.
-pub struct Context<T> {
-  default: fn() -> T,
-  identity: [u8; 1],
-  _type: PhantomData<fn() -> T>,
-}
-
-/// Identifies one logical context that requires an ancestor provider.
-pub struct RequiredContext<T> {
-  identity: [u8; 1],
-  _type: PhantomData<fn() -> T>,
-}
-
-/// Holds a value until a child is attached to an optional context provider.
-pub struct ContextProvider<T> {
-  identity: ContextIdentity,
-  value: Rc<T>,
-}
-
-/// Holds a value until a child is attached to a required context provider.
-pub struct RequiredContextProvider<T> {
-  identity: ContextIdentity,
-  value: Rc<T>,
+/// Builds a transparent provider for one type-keyed logical context.
+pub struct ContextProvider<T = ContextProviderStart> {
+  value: T,
 }
 
 /// Transparently provides a context value to one logical descendant tree.
@@ -52,100 +31,30 @@ pub struct Provided<T, R> {
   child: R,
 }
 
-impl<T> Copy for Context<T> {}
+/// Initial state for a [`ContextProvider`] builder.
+#[doc(hidden)]
+pub struct ContextProviderStart;
 
-impl<T> Clone for Context<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-
-impl<T> Copy for RequiredContext<T> {}
-
-impl<T> Clone for RequiredContext<T> {
-  fn clone(&self) -> Self {
-    *self
-  }
-}
-
-impl<T> Context<T> {
-  /// Creates a context whose default is evaluated once per runtime.
-  pub const fn new(default: fn() -> T) -> Self {
-    Self {
-      default,
-      identity: [0],
-      _type: PhantomData,
-    }
-  }
-
-  /// Begins a transparent provider with an owned value.
-  pub fn provider(&'static self, value: T) -> ContextProvider<T>
-  where
-    T: Clone + PartialEq + 'static,
-  {
-    ContextProvider {
-      identity: self.identity(),
-      value: Rc::new(value),
-    }
-  }
-
-  pub(crate) fn read(&'static self) -> T
-  where
-    T: Clone + 'static,
-  {
-    let identity = self.identity();
-    if let Some(value) = provider_value::<T>(identity) {
-      return value;
-    }
-    let defaults = DEFAULTS
-      .with(|current| current.borrow().clone())
-      .expect("Reactant context requires a runtime render context");
-    if let Some(value) = defaults.borrow().get::<T>(identity) {
-      return value;
-    }
-    let value = with_hooks_forbidden(self.default);
-    defaults.borrow_mut().insert(identity, value.clone());
-    value
-  }
-
-  pub(crate) fn identity(&'static self) -> ContextIdentity {
-    ContextIdentity::new(&self.identity, TypeId::of::<T>())
-  }
-}
-
-impl<T> RequiredContext<T> {
-  /// Creates a context that panics when read without a provider.
+impl ContextProvider<ContextProviderStart> {
+  /// Creates an empty context provider builder.
+  #[must_use]
   pub const fn new() -> Self {
     Self {
-      identity: [0],
-      _type: PhantomData,
+      value: ContextProviderStart,
     }
   }
 
-  /// Begins a transparent provider with an owned value.
-  pub fn provider(&'static self, value: T) -> RequiredContextProvider<T>
+  /// Sets the typed context value supplied to descendants.
+  #[must_use]
+  pub fn context<T>(self, value: T) -> ContextProvider<T>
   where
     T: Clone + PartialEq + 'static,
   {
-    RequiredContextProvider {
-      identity: self.identity(),
-      value: Rc::new(value),
-    }
-  }
-
-  pub(crate) fn read(&'static self) -> T
-  where
-    T: Clone + 'static,
-  {
-    provider_value(self.identity()).expect("required Reactant context has no provider")
-  }
-
-  pub(crate) fn identity(&'static self) -> ContextIdentity {
-    ContextIdentity::new(&self.identity, TypeId::of::<T>())
+    ContextProvider { value }
   }
 }
 
-impl<T> Default for RequiredContext<T> {
+impl Default for ContextProvider<ContextProviderStart> {
   fn default() -> Self {
     Self::new()
   }
@@ -153,24 +62,43 @@ impl<T> Default for RequiredContext<T> {
 
 impl<T> ContextProvider<T> {
   /// Attaches the logical descendant tree that receives this value.
-  pub fn child<R: Render>(self, child: R) -> Provided<T, R> {
+  pub fn child<R: Render>(self, child: R) -> Provided<T, R>
+  where
+    T: Clone + PartialEq + 'static,
+  {
     Provided {
-      identity: self.identity,
-      value: self.value,
+      identity: ContextIdentity::of::<T>(),
+      value: Rc::new(self.value),
       child,
     }
   }
 }
 
-impl<T> RequiredContextProvider<T> {
-  /// Attaches the logical descendant tree that receives this value.
-  pub fn child<R: Render>(self, child: R) -> Provided<T, R> {
-    Provided {
-      identity: self.identity,
-      value: self.value,
-      child,
-    }
+pub(crate) fn read<T>() -> T
+where
+  T: Clone + Default + 'static,
+{
+  let identity = ContextIdentity::of::<T>();
+  if let Some(value) = self::provider_value::<T>(identity) {
+    return value;
   }
+  let defaults = DEFAULTS
+    .with(|current| current.borrow().clone())
+    .expect("Reactant context requires a runtime render context");
+  if let Some(value) = defaults.borrow().get::<T>(identity) {
+    return value;
+  }
+  let value = self::with_hooks_forbidden(T::default);
+  defaults.borrow_mut().insert(identity, value.clone());
+  value
+}
+
+pub(crate) fn read_required<T>() -> T
+where
+  T: Clone + 'static,
+{
+  self::provider_value(ContextIdentity::of::<T>())
+    .expect("required Reactant context has no provider")
 }
 
 impl<T, R> Render for Provided<T, R>
@@ -256,17 +184,13 @@ impl ContextDefaults {
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub(crate) struct ContextIdentity {
-  address: usize,
   value_type: TypeId,
 }
 
 impl ContextIdentity {
-  fn new(identity: &'static [u8; 1], value_type: TypeId) -> Self {
-    let address = ptr::from_ref(identity) as usize;
-    assert_ne!(address, 0, "Reactant context identity must be nonzero");
+  pub(crate) fn of<T: 'static>() -> Self {
     Self {
-      address,
-      value_type,
+      value_type: TypeId::of::<T>(),
     }
   }
 }

@@ -4,23 +4,25 @@ use trox::LocalizedString;
 use crate::{
   callback::{Callback, IntoCallback},
   component::Component,
-  context::RequiredContext,
+  context::ContextProvider,
   control_behavior,
   element_ref::{self, ElementRef},
   hooks,
   host::{GroupBox, RadioButton, TabHost, TabView, View},
+  prelude::builder,
   props::Missing,
   render::{Children, Render},
   semantics::{SemanticName, SemanticProps},
 };
 
-static RADIO_GROUP: RequiredContext<ElementRef> = RequiredContext::new();
-static TAB_LIST: RequiredContext<TabListContext> = RequiredContext::new();
-
+#[builder]
 #[derive(Clone)]
 struct TabListContext {
+  #[builder(required)]
   callback: Callback<u32>,
+  #[builder(required)]
   reference: ElementRef,
+  #[builder(required)]
   selected_index: u32,
 }
 
@@ -113,8 +115,8 @@ impl Component for RadioGroup {
           .name(SemanticName::Text(self.name.clone())),
       )
       .child(
-        RADIO_GROUP
-          .provider(reference)
+        ContextProvider::new()
+          .context(reference)
           .child(self.children.render()),
       )
   }
@@ -166,7 +168,7 @@ impl<C> Radio<C> {
 
 impl Component for Radio<Callback<()>> {
   fn render(&self) -> impl Render {
-    let group = hooks::use_required_context(&RADIO_GROUP);
+    let group = hooks::use_required_context::<ElementRef>();
     let disabled = self.disabled;
     self
       .host
@@ -248,12 +250,13 @@ impl Component for Tabs<Callback<u32>> {
           .name(SemanticName::Text(self.name.clone())),
       )
       .child(
-        TAB_LIST
-          .provider(TabListContext {
-            callback: self.callback.clone(),
-            reference,
-            selected_index: self.selected_index,
-          })
+        ContextProvider::new()
+          .context(
+            TabListContext::new()
+              .callback(self.callback.clone())
+              .reference(reference)
+              .selected_index(self.selected_index),
+          )
           .child(self.children.render()),
       )
   }
@@ -297,7 +300,7 @@ impl Tab {
 
 impl Component for Tab {
   fn render(&self) -> impl Render {
-    let tabs = hooks::use_required_context(&TAB_LIST);
+    let tabs = hooks::use_required_context::<TabListContext>();
     let index = self.index;
     self
       .host
@@ -339,7 +342,7 @@ impl TabPanel {
 
 impl Component for TabPanel {
   fn render(&self) -> impl Render {
-    let tabs = hooks::use_required_context(&TAB_LIST);
+    let tabs = hooks::use_required_context::<TabListContext>();
     self
       .host
       .clone()

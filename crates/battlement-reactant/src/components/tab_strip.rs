@@ -4,7 +4,7 @@ use battlement::SemanticRole;
 
 use crate::{
   component::Component,
-  context::RequiredContext,
+  context::ContextProvider,
   control_behavior,
   element_ref::{self, ElementRef},
   hooks,
@@ -13,8 +13,6 @@ use crate::{
   render::{Children, Render},
   semantics::{SemanticMembership, SemanticName, SemanticProps},
 };
-
-static STRIP: RequiredContext<StripContext> = RequiredContext::new();
 
 /// A controlled strip of independently styled tab buttons, without native page containers.
 ///
@@ -58,16 +56,20 @@ pub struct TabButton {
   host: ButtonHost,
 }
 
+#[builder]
 #[derive(Clone)]
-struct StripContext {
+struct TabStripContext {
+  #[builder(required)]
   reference: ElementRef,
+  #[builder(required)]
   /// Index selected by the parent.
   selected_index: u32,
+  #[builder(required)]
   /// Receives each activation proposal.
   on_select: EventCallback<u32>,
 }
 
-impl PartialEq for StripContext {
+impl PartialEq for TabStripContext {
   fn eq(&self, other: &Self) -> bool {
     self.reference == other.reference
       && self.selected_index == other.selected_index
@@ -86,12 +88,13 @@ impl Component for TabStrip {
         SemanticProps::new(SemanticRole::TabList).name(SemanticName::Text(self.label.clone())),
       )
       .child(
-        STRIP
-          .provider(StripContext {
-            reference,
-            selected_index: self.selected_index,
-            on_select: self.on_select.clone(),
-          })
+        ContextProvider::new()
+          .context(
+            TabStripContext::new()
+              .reference(reference)
+              .selected_index(self.selected_index)
+              .on_select(self.on_select.clone()),
+          )
           .child(self.children.render()),
       )
   }
@@ -99,7 +102,7 @@ impl Component for TabStrip {
 
 impl Component for TabButton {
   fn render(&self) -> impl Render {
-    let strip = hooks::use_required_context(&STRIP);
+    let strip = hooks::use_required_context::<TabStripContext>();
     self
       .host
       .clone()

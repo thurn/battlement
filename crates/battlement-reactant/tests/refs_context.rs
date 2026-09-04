@@ -14,7 +14,7 @@ use battlement::{
 };
 use battlement_reactant::{
   component::Component,
-  context::{Context, RequiredContext},
+  context::ContextProvider,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, Ref, StateSetter},
   render::{Node, Render},
@@ -25,10 +25,26 @@ thread_local! {
   static DEFAULT_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
-static PRIMARY: Context<&'static str> = Context::new(primary_default);
-static SECONDARY: Context<&'static str> = Context::new(|| "secondary-default");
-static REQUIRED: RequiredContext<&'static str> = RequiredContext::new();
-static NUMBER: Context<u8> = Context::new(|| 0);
+#[derive(Clone, Copy, PartialEq)]
+struct Primary(&'static str);
+
+#[derive(Clone, Copy, PartialEq)]
+struct Secondary(&'static str);
+
+#[derive(Clone, Copy, PartialEq)]
+struct Required(&'static str);
+
+impl Default for Primary {
+  fn default() -> Self {
+    Self(primary_default())
+  }
+}
+
+impl Default for Secondary {
+  fn default() -> Self {
+    Self("secondary-default")
+  }
+}
 
 struct IdleSpawner;
 
@@ -102,8 +118,8 @@ impl Component for ContextConsumer {
     battlement_reactant::host::Label::new(ls(format!(
       "{}:{}/{}",
       self.name,
-      hooks::use_context(&PRIMARY),
-      hooks::use_context(&SECONDARY)
+      hooks::use_context::<Primary>().0,
+      hooks::use_context::<Secondary>().0
     )))
   }
 }
@@ -112,7 +128,7 @@ struct RequiredConsumer;
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(ls(hooks::use_required_context(&REQUIRED)))
+    battlement_reactant::host::Label::new(ls(hooks::use_required_context::<Required>().0))
   }
 }
 
@@ -206,7 +222,7 @@ fn every_ref_value_operation_panics_during_render() {
 }
 
 #[test]
-fn providers_use_nearest_logical_value_and_same_typed_contexts_do_not_alias() {
+fn providers_use_nearest_logical_value_and_distinct_types_do_not_alias() {
   DEFAULT_CALLS.set(0);
   let document = self::document();
   let mut game = Game::default();
@@ -214,13 +230,13 @@ fn providers_use_nearest_logical_value_and_same_typed_contexts_do_not_alias() {
   reactant.register_root(document.clone(), |_| {
     (
       ContextConsumer { name: "outside" },
-      PRIMARY.provider("outer").child((
+      ContextProvider::new().context(Primary("outer")).child((
         ContextConsumer { name: "outer" },
-        PRIMARY
-          .provider("inner")
+        ContextProvider::new()
+          .context(Primary("inner"))
           .child(ContextConsumer { name: "inner" }),
-        SECONDARY
-          .provider("secondary")
+        ContextProvider::new()
+          .context(Secondary("secondary"))
           .child(ContextConsumer { name: "separate" }),
       )),
     )
@@ -267,7 +283,9 @@ fn nested_runtimes_do_not_inherit_outer_providers() {
   let mut game = Game::default();
   let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
-    PRIMARY.provider("outer").child(NestedRuntime)
+    ContextProvider::new()
+      .context(Primary("outer"))
+      .child(NestedRuntime)
   });
   let snapshot = self::begin(&mut reactant, &mut game, &document);
   assert_eq!(
@@ -288,13 +306,21 @@ fn provider_value_types_share_reconciliation_identity() {
   let mut reactant = runtime_support::reactant(IdleSpawner);
   reactant.register_root(document.clone(), move |_| {
     if view_alternate.get() {
-      Node::new(PRIMARY.provider("alternate").child(StatefulConsumer {
-        setter: Rc::clone(&view_setter),
-      }))
+      Node::new(
+        ContextProvider::new()
+          .context(Primary("alternate"))
+          .child(StatefulConsumer {
+            setter: Rc::clone(&view_setter),
+          }),
+      )
     } else {
-      Node::new(NUMBER.provider(7).child(StatefulConsumer {
-        setter: Rc::clone(&view_setter),
-      }))
+      Node::new(
+        ContextProvider::new()
+          .context(7_u8)
+          .child(StatefulConsumer {
+            setter: Rc::clone(&view_setter),
+          }),
+      )
     }
   });
   let first = self::begin(&mut reactant, &mut game, &document);
@@ -321,7 +347,9 @@ fn required_context_accepts_a_provider_and_panics_when_missing() {
   let mut game = Game::default();
   let mut provided = runtime_support::reactant(IdleSpawner);
   provided.register_root(document.clone(), |_| {
-    REQUIRED.provider("session").child(RequiredConsumer)
+    ContextProvider::new()
+      .context(Required("session"))
+      .child(RequiredConsumer)
   });
   let snapshot = self::begin(&mut provided, &mut game, &document);
   assert_eq!(self::texts(&snapshot, document.root_id), ["session"]);
@@ -374,9 +402,9 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
   impl Component for VariableContext {
     fn render(&self) -> impl Render {
       let value = if self.alternate {
-        hooks::use_context(&SECONDARY)
+        hooks::use_context::<Secondary>().0
       } else {
-        hooks::use_context(&PRIMARY)
+        hooks::use_context::<Primary>().0
       };
       battlement_reactant::host::Label::new(ls(value))
     }

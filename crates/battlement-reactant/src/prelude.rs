@@ -71,7 +71,7 @@ pub use crate::{
     ScrollArea, Slider, Switch, Tab, TabButton, TabPanel, TabStrip, Table, TableCell, TableRow,
     Tabs, Text,
   },
-  context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
+  context::{ContextProvider, Provided},
   element_ref::{ElementRef, use_element_ref},
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
   event::{ElementTarget, EventPhase, ReactantEvent},

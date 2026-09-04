@@ -688,13 +688,12 @@ resets state while keyed reorder does not.
 **Prerequisites:** Task 34. **Target:** 200–250 non-test lines.
 
 Implement `use_ref`, `use_ref_with`, stable `Ref<T>` access, render-time access
-rejection, `Context`, `RequiredContext`, providers, nearest lookup, and stable
-nonzero static identity. Evaluate each default once per runtime.
+rejection, type-keyed context providers, nearest lookup, and required reads.
+Evaluate each default once per runtime.
 
 **Black-box acceptance:** ref mutation in callbacks survives without scheduling
 a render, every ref value operation during render panics, nested providers
-affect only descendants, a missing required provider panics, and separate
-same-typed contexts never alias.
+affect only descendants, and a missing required provider panics.
 
 **Visual evidence:** add Context & Memo and capture outer, overridden, and
 restored themes.

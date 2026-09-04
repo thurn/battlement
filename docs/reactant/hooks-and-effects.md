@@ -35,7 +35,7 @@ and consumes the next positional slot.
 
 ```rust
 let (open, set_open) = use_state(false);
-let theme = use_context(&THEME);
+let theme = use_context::<Theme>();
 ```
 
 Each committed slot records its hook kind and Rust `TypeId`. On a later render,
@@ -88,10 +88,10 @@ contract.
 
 `Reactant`, `StateSetter`, `ReducerDispatch`, `Ref`, `ElementRef`, and
 `Callback` are deliberately `!Send + !Sync`; private `Rc` ownership enforces
-engine-thread use. `Context<T>` is only a `Copy + Send + Sync` static identity;
-its values remain in the engine-thread tree. Cross-thread delivery is limited
-to the explicitly thread-safe `StoreNotify`, resource loader, and completion
-interfaces.
+engine-thread use. Context values also remain in the engine-thread tree;
+their Rust `TypeId` supplies identity without a shared context object.
+Cross-thread delivery is limited to the explicitly thread-safe `StoreNotify`,
+resource loader, and completion interfaces.
 
 ## Stable IDs
 
@@ -425,25 +425,26 @@ has commit and reconnect semantics described in
 
 ## Context
 
-`Context<T>` passes an owned value through logical component ancestry without
-threading it through every intermediate prop.
+Context passes an owned, type-keyed value through logical component ancestry
+without threading it through every intermediate prop.
 
 ```rust
-static THEME: Context<Theme> = Context::new(Theme::default);
+#[derive(Clone, Default, PartialEq)]
+struct Theme {
+    // ...
+}
 ```
 
-A context has a `'static` identity and a `fn() -> T` default factory.
-`Context::new` and `RequiredContext::new` are `const fn`, so the shown static
-declarations compile. The factory must be pure and deterministic. Reactant
-evaluates it on the first provider-free read in one runtime, stores that value
-for the runtime's lifetime, and clones it for every later root and reconnect.
-`use_context` returns the nearest provider value or a clone of that stored
-default.
+Each concrete `'static` Rust type identifies one context channel. `use_context`
+returns the nearest provider value for that type. On the first provider-free
+read in one runtime, Reactant evaluates `T::default`, stores that value for the
+runtime's lifetime, and clones it for every later root and reconnect. `Default`
+must therefore be pure and deterministic.
 
 ```rust
-impl<T> Context<T> {
-    pub const fn new(default: fn() -> T) -> Self;
-    pub fn provider(&'static self, value: T) -> ContextProvider<T>;
+impl ContextProvider {
+    pub const fn new() -> Self;
+    pub fn context<T>(self, value: T) -> ContextProvider<T>;
 }
 
 impl<T> ContextProvider<T> {
@@ -452,43 +453,40 @@ impl<T> ContextProvider<T> {
 ```
 
 ```rust
-pub fn use_context<T>(context: &'static Context<T>) -> T
-where T: Clone + PartialEq + 'static;
+pub fn use_context<T>() -> T
+where T: Clone + Default + PartialEq + 'static;
 ```
 
 ```rust
-let theme = use_context(&THEME);
+let theme = use_context::<Theme>();
 Panel::new().class(theme.panel_class())
 ```
 
 Providers are transparent render nodes.
 
 ```rust
-THEME.provider(self.theme.clone())
+ContextProvider::new()
+    .context(self.theme.clone())
     .child(GameScreen::new())
 ```
 
 `T` must be `Clone + PartialEq + 'static`. When a provider value changes,
 Reactant schedules consumers beneath that provider even if their ordinary props
-are unchanged.
+are unchanged. Nested providers of the same type shadow outer providers. Two
+independent context channels require two distinct wrapper types.
 
 Context follows the logical tree through portals. It does not cross independent
 roots, including two roots mounted into the same Unity panel.
 
-For values that must not have a default, `RequiredContext<T>` makes a missing
-provider a render-time panic.
+For values that must not have a default, `use_required_context` makes a missing
+provider a render-time panic and does not require `T: Default`.
 
 ```rust
-static SESSION: RequiredContext<Session> = RequiredContext::new();
-```
+ContextProvider::new()
+    .context(Session::new())
+    .child(GameScreen::new())
 
-```rust
-impl<T> RequiredContext<T> {
-    pub const fn new() -> Self;
-    pub fn provider(&'static self, value: T) -> RequiredContextProvider<T>;
-}
-
-pub fn use_required_context<T>(context: &'static RequiredContext<T>) -> T
+pub fn use_required_context<T>() -> T
 where T: Clone + PartialEq + 'static;
 ```
 

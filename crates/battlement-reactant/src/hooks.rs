@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::callback::{Callback as EventCallback, IntoCallback};
-use crate::context::{Context, ContextIdentity, RequiredContext};
+use crate::context::ContextIdentity;
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::external_store::{ExternalStore, StoreSlot};
 use crate::hook_storage::{
@@ -568,20 +568,20 @@ fn use_presence_slot(manual: bool) -> Presence {
   Presence::new(Rc::clone(&slot.state), render_state.generation)
 }
 
-/// Returns the nearest provider value or this runtime's stored default.
-pub fn use_context<T>(source: &'static Context<T>) -> T
+/// Returns the nearest value for `T` or this runtime's stored default.
+pub fn use_context<T>() -> T
 where
-  T: Clone + PartialEq + 'static,
+  T: Clone + Default + PartialEq + 'static,
 {
-  self::use_context_value(source.identity(), move || source.read())
+  self::use_context_value(ContextIdentity::of::<T>(), context::read::<T>)
 }
 
-/// Returns the nearest provider value or panics when none exists.
-pub fn use_required_context<T>(source: &'static RequiredContext<T>) -> T
+/// Returns the nearest value for `T` or panics when none exists.
+pub fn use_required_context<T>() -> T
 where
   T: Clone + PartialEq + 'static,
 {
-  self::use_context_value(source.identity(), move || source.read())
+  self::use_context_value(ContextIdentity::of::<T>(), context::read_required::<T>)
 }
 
 pub(crate) fn render_component(

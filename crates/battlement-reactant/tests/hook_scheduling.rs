@@ -20,15 +20,13 @@ use battlement::{
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{self, Component},
-  context::Context,
+  context::ContextProvider,
   executor::{BoxFuture, SpawnedTask, Spawner},
   external_store::{ExternalStore, StoreNotify, Subscription},
   hooks::{self, Callback, ReducerDispatch, StateSetter},
   render::Render,
   runtime::{Reactant, ReactantCommit},
 };
-
-static THEME: Context<usize> = Context::new(|| 0);
 
 type StoredCallback = Callback<Box<dyn Fn() -> usize>>;
 
@@ -157,7 +155,7 @@ impl Component for HookMatrix {
     let (reduced, dispatch) = hooks::use_reducer(|value, action| value + action, 0_usize);
     let reference = hooks::use_ref(4_usize);
     let stored = hooks::use_external_store(self.store.clone());
-    let theme = hooks::use_context(&THEME);
+    let theme = hooks::use_context::<usize>();
     let calculations = Rc::clone(&self.calculations);
     let memo_dependency = self.memo_dependency;
     let memoized = hooks::use_memo(
@@ -322,8 +320,8 @@ fn exercise_entry(source: Source, entry: Entry) {
   let view_effect_setups = Rc::clone(&effect_setups);
   let view_renders = Rc::clone(&renders);
   reactant.register_root(document.clone(), move |game: &Game| {
-    THEME
-      .provider(game.theme)
+    ContextProvider::new()
+      .context(game.theme)
       .child(component::memo(HookMatrix {
         calculations: Rc::clone(&view_calculations),
         callback_dependency: game.callback_dependency,

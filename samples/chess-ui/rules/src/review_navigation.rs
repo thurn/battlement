@@ -13,14 +13,7 @@ use battlement_reactant::{
   host::{ScrollView, View},
   render::Render,
 };
-use battlement_reactant::{
-  components::Navigation,
-  context::Context,
-  element_ref::{self, ElementRef},
-};
-
-/// Scroll context shared by navigation entries so callers need no host references.
-pub static SCROLL: Context<Option<ElementRef>> = Context::new(|| None);
+use battlement_reactant::{components::Navigation, context::ContextProvider, element_ref};
 
 /// A titled navigation column with a themed vertical scroll area.
 #[builder]
@@ -52,7 +45,7 @@ impl ReviewNavigation {
 impl Component for ReviewNavigation {
   fn render(&self) -> impl Render {
     let scroll = element_ref::use_element_ref();
-    SCROLL.provider(Some(scroll.clone())).child(
+    ContextProvider::new().context(Some(scroll.clone())).child(
       View::new()
         .style(
           Style::new()

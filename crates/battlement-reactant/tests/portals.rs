@@ -16,7 +16,7 @@ use battlement::{
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::Component,
-  context::Context,
+  context::ContextProvider,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, StateSetter},
   key::KeyRenderExt,
@@ -25,7 +25,14 @@ use battlement_reactant::{
   runtime::{Reactant, ReactantCommit},
 };
 
-static THEME: Context<&'static str> = Context::new(|| "default");
+#[derive(Clone, Copy, PartialEq)]
+struct Theme(&'static str);
+
+impl Default for Theme {
+  fn default() -> Self {
+    Self("default")
+  }
+}
 
 struct IdleSpawner;
 
@@ -53,7 +60,7 @@ impl Component for PortaledButton {
     battlement_reactant::host::ButtonHost::new(ls(format!(
       "{} {}",
       self.name,
-      hooks::use_context(&THEME)
+      hooks::use_context::<Theme>().0
     )))
     .on_click(|game: &mut Game| {
       game.log.push("target");
@@ -82,7 +89,7 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let target = reactant.create_portal_target();
   let first_target = target.clone();
   reactant.register_root(first_document.clone(), move |_: &Game| {
-    THEME.provider("dark-a").child(
+    ContextProvider::new().context(Theme("dark-a")).child(
       battlement_reactant::host::View::new()
         .child(create_portal(
           PortaledButton { name: "A" },
@@ -94,10 +101,12 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   });
   let second_target = target.clone();
   reactant.register_root(second_document.clone(), move |_: &Game| {
-    THEME.provider("dark-b").child(create_portal(
-      battlement_reactant::host::ButtonHost::new(ls("B dark-b")),
-      second_target.clone(),
-    ))
+    ContextProvider::new()
+      .context(Theme("dark-b"))
+      .child(create_portal(
+        battlement_reactant::host::ButtonHost::new(ls("B dark-b")),
+        second_target.clone(),
+      ))
   });
   reactant.register_root(target_document.clone(), move |_: &Game| {
     battlement_reactant::host::View::new()

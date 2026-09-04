@@ -15,15 +15,24 @@ use battlement::{
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{self, Component},
-  context::{Context, RequiredContext},
+  context::ContextProvider,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, Callback, StateSetter},
   render::Render,
   runtime::{Reactant, ReactantCommit},
 };
 
-static THEME: Context<&'static str> = Context::new(|| "default");
-static REQUIRED_THEME: RequiredContext<&'static str> = RequiredContext::new();
+#[derive(Clone, Copy, PartialEq)]
+struct Theme(&'static str);
+
+#[derive(Clone, Copy, PartialEq)]
+struct RequiredTheme(&'static str);
+
+impl Default for Theme {
+  fn default() -> Self {
+    Self("default")
+  }
+}
 
 type MemoCallbacks = Rc<RefCell<Vec<Callback<Box<dyn Fn() -> u8>>>>>;
 
@@ -81,7 +90,7 @@ impl Component for MemoFixture {
       "{}/{}/{}/{}",
       self.prop,
       memoized,
-      hooks::use_context(&THEME),
+      hooks::use_context::<Theme>().0,
       local
     )))
   }
@@ -104,13 +113,15 @@ impl PartialEq for ProviderBoundary {
 impl Component for ProviderBoundary {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
-    REQUIRED_THEME.provider("inner").child(RequiredConsumer)
+    ContextProvider::new()
+      .context(RequiredTheme("inner"))
+      .child(RequiredConsumer)
   }
 }
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::Label::new(ls(hooks::use_required_context(&REQUIRED_THEME)))
+    battlement_reactant::host::Label::new(ls(hooks::use_required_context::<RequiredTheme>().0))
   }
 }
 
@@ -142,8 +153,8 @@ fn memo_bailout_observes_props_dependencies_context_and_local_work() {
   reactant.register_root(document.clone(), move |game: &Game| {
     (
       battlement_reactant::host::Label::new(ls(format!("unrelated {}", game.unrelated))),
-      THEME
-        .provider(game.theme)
+      ContextProvider::new()
+        .context(Theme(game.theme))
         .child(component::memo(MemoFixture {
           prop: game.prop,
           dependency: game.dependency,

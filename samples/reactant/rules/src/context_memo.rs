@@ -3,8 +3,6 @@ use trox::{ls, tx};
 use crate::{Control, Game, design_system};
 use battlement_reactant::prelude::*;
 
-static THEME: Context<Theme> = Context::new(|| Theme::Outer);
-
 #[builder]
 pub(crate) struct ContextMemo {
   pub(crate) overridden: bool,
@@ -16,8 +14,9 @@ pub(crate) struct ContextMemo {
   pub(crate) compact: bool,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 enum Theme {
+  #[default]
   Outer,
   Overridden,
 }
@@ -38,8 +37,8 @@ impl Component for ContextMemo {
     let unrelated = use_memo(|| format!("VALUE  {}", self.unrelated), self.unrelated);
     let nested = if self.overridden {
       Node::new(
-        THEME
-          .provider(Theme::Overridden)
+        ContextProvider::new()
+          .context(Theme::Overridden)
           .child(memo(ThemeCard::new().scope("NESTED"))),
       )
     } else {
@@ -131,7 +130,7 @@ impl Component for ContextMemo {
 
 impl Component for ThemeCard {
   fn render(&self) -> impl Render {
-    let theme = use_context(&THEME);
+    let theme = use_context::<Theme>();
     let (name, color) = match theme {
       Theme::Outer => ("DEFAULT", design_system::CYAN),
       Theme::Overridden => ("OVERRIDDEN", design_system::CONTEXT_OVERRIDE),

@@ -755,7 +755,7 @@ and host ownership boundaries.
 Portal context follows the logical parent:
 
 ```rust
-THEME.provider(dark_theme).child(
+ContextProvider::new().context(dark_theme).child(
     create_portal(Menu::new(), overlay),
 )
 ```

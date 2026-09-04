@@ -6,18 +6,13 @@ use battlement::application::ReducedMotionPreference;
 use battlement::{MotionClockSource, ReducedMotionPolicy};
 
 use crate::{
-  context::{Context, ContextProvider, ProviderValue},
+  context::{ContextIdentity, ContextProvider, ProviderValue},
   hooks,
   motion::Transition,
   motion_value::MotionTimeSource,
   render::{Render, RenderSink},
   render_value::Sealed,
 };
-
-static REDUCED_MOTION_PREFERENCE: Context<ReducedMotionPreference> =
-  Context::new(|| ReducedMotionPreference::Unavailable);
-static REDUCED_MOTION_POLICY: Context<ReducedMotionPolicy> =
-  Context::new(|| ReducedMotionPolicy::User);
 
 thread_local! {
   static CONFIGS: RefCell<Vec<MotionConfigState>> = const { RefCell::new(Vec::new()) };
@@ -100,7 +95,7 @@ impl<R: Render> Sealed for MotionConfig<R> {
     let state = self.state();
     sink.push_provider::<MotionConfigMarker>(
       ProviderValue::new(
-        REDUCED_MOTION_POLICY.identity(),
+        ContextIdentity::of::<ReducedMotionPolicy>(),
         Rc::new(state.reduced_motion),
       ),
       |children| with_config(state, || self.child.render_into(children)),
@@ -111,7 +106,7 @@ impl<R: Render> Sealed for MotionConfig<R> {
     let state = self.state();
     sink.push_provider::<MotionConfigMarker>(
       ProviderValue::new(
-        REDUCED_MOTION_POLICY.identity(),
+        ContextIdentity::of::<ReducedMotionPolicy>(),
         Rc::new(state.reduced_motion),
       ),
       |children| with_config(state, || self.child.render_owned(children)),
@@ -124,7 +119,7 @@ impl<R: Render> Sealed for MotionConfig<R> {
 #[must_use]
 pub fn use_reduced_motion() -> bool {
   let preference = self::use_reduced_motion_preference();
-  match hooks::use_context(&REDUCED_MOTION_POLICY) {
+  match hooks::use_context::<ReducedMotionPolicy>() {
     ReducedMotionPolicy::Always => true,
     ReducedMotionPolicy::Never => false,
     ReducedMotionPolicy::User => preference == ReducedMotionPreference::Reduce,
@@ -135,7 +130,7 @@ pub fn use_reduced_motion() -> bool {
 /// Host changes rerender applications; unsupported targets report `Unavailable`.
 #[must_use]
 pub fn use_reduced_motion_preference() -> ReducedMotionPreference {
-  hooks::use_context(&REDUCED_MOTION_PREFERENCE)
+  hooks::use_context::<ReducedMotionPreference>()
 }
 
 /// Provides host observations for a custom engine or an isolated preview.
@@ -144,7 +139,7 @@ pub fn use_reduced_motion_preference() -> ReducedMotionPreference {
 pub fn preference_provider(
   value: ReducedMotionPreference,
 ) -> ContextProvider<ReducedMotionPreference> {
-  REDUCED_MOTION_PREFERENCE.provider(value)
+  ContextProvider::new().context(value)
 }
 
 pub(crate) fn current() -> MotionConfigState {

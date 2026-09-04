@@ -11,13 +11,9 @@ use trox::Localizer;
 
 use crate::{
   action_context,
-  context::RequiredContext,
   geometry::{self, MeasurementStatus, ViewportRef},
   hooks, localization,
 };
-
-pub(crate) static APP: RequiredContext<AppHandle> = RequiredContext::new();
-pub(crate) static VIEWPORT: RequiredContext<ScreenSize> = RequiredContext::new();
 
 /// Submits native work without owning a protocol session or response queue.
 #[derive(Clone)]
@@ -29,12 +25,12 @@ pub struct AppHandle {
 
 /// Returns the current application's session-bound operations handle.
 pub fn use_app() -> AppHandle {
-  hooks::use_required_context(&APP)
+  hooks::use_required_context::<AppHandle>()
 }
 
 /// Reads logical display dimensions, using the connection size until measured.
 pub fn use_viewport_size() -> ScreenSize {
-  let initial = hooks::use_required_context(&VIEWPORT);
+  let initial = hooks::use_required_context::<ScreenSize>();
   let measurement = geometry::use_geometry(ViewportRef::display(DisplayId(0))).measurements;
   if measurement.status == MeasurementStatus::Waiting {
     return initial;
