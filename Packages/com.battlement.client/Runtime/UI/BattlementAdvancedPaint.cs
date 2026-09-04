@@ -170,7 +170,7 @@ namespace Battlement.UI
                         ApplyFill(painter, rect);
                         painter.Fill(FillRule.NonZero);
                     }
-                    DrawInsetShadows(painter, points);
+                    DrawInsetShadows(painter, points, rect);
                 }
             }
             foreach (PaintLayer layer in staticLayers)
@@ -280,7 +280,7 @@ namespace Battlement.UI
             }
             foreach (Shadow shadow in layer.BoxShadow ?? Array.Empty<Shadow>())
                 if (shadow.Inset)
-                    DrawInsetShadow(painter, points, shadow);
+                    DrawInsetShadow(painter, points, rect, shadow);
         }
 
         private static UnityRect LayerBounds(UnityRect rect, IReadOnlyList<UiLength>? insets)
@@ -504,62 +504,34 @@ namespace Battlement.UI
                 DrawOuterShadow(painter, points, shadow);
         }
 
-        private void DrawInsetShadows(Painter2D painter, IReadOnlyList<Vector2> points)
-        {
-            foreach (Shadow shadow in Shadows(true))
-                DrawInsetShadow(painter, points, shadow);
-        }
-
-        private static void DrawInsetShadow(
+        private void DrawInsetShadows(
             Painter2D painter,
             IReadOnlyList<Vector2> points,
-            Shadow shadow
+            UnityRect rect
         )
         {
-            int layers = ShadowLayers(shadow.Blur);
-            for (int index = layers; index >= 1; index--)
-            {
-                float progress = (float)index / layers;
-                painter.strokeColor = ShadowColor(shadow.Color, layers, progress);
-                painter.lineWidth = checked(
-                    (float)Math.Max(1, 2 * (shadow.Spread + shadow.Blur * progress))
-                );
-                painter.BeginPath();
-                Path(painter, Offset(points, shadow with { Spread = 0 }));
-                painter.Stroke();
-            }
+            foreach (Shadow shadow in Shadows(true))
+                DrawInsetShadow(painter, points, rect, shadow);
         }
+
+        private void DrawInsetShadow(
+            Painter2D painter,
+            IReadOnlyList<Vector2> points,
+            UnityRect rect,
+            Shadow shadow
+        ) =>
+            BattlementPaintShadows.Inset(
+                painter,
+                points,
+                BattlementPaintContour.RoundedBox(rect, target.resolvedStyle),
+                shadow
+            );
 
         private static void DrawOuterShadow(
             Painter2D painter,
             IReadOnlyList<Vector2> points,
             Shadow shadow
-        )
-        {
-            int layers = ShadowLayers(shadow.Blur);
-            painter.fillGradient = default;
-            for (int index = layers; index >= 1; index--)
-            {
-                float progress = (float)index / layers;
-                painter.fillColor = ShadowColor(shadow.Color, layers, progress);
-                painter.BeginPath();
-                Path(
-                    painter,
-                    Offset(points, shadow with { Spread = shadow.Spread + shadow.Blur * progress })
-                );
-                painter.Fill(FillRule.NonZero);
-            }
-        }
-
-        private static int ShadowLayers(double blur) =>
-            Math.Clamp((int)Math.Ceiling(Math.Max(blur, 1)), 1, 24);
-
-        private static UnityColor ShadowColor(Color color, int layers, float progress)
-        {
-            UnityColor result = ToUnityColor(color);
-            result.a *= 1 - progress + 1f / layers;
-            return result;
-        }
+        ) => BattlementPaintShadows.Outer(painter, points, shadow);
 
         private IEnumerable<Shadow> Shadows(bool inset)
         {
@@ -627,24 +599,6 @@ namespace Battlement.UI
             color.g *= brightness;
             color.b *= brightness;
             return color;
-        }
-
-        private static IReadOnlyList<Vector2> Offset(IReadOnlyList<Vector2> points, Shadow shadow)
-        {
-            float spread = checked((float)shadow.Spread);
-            Vector2 center = Vector2.zero;
-            foreach (Vector2 point in points)
-                center += point;
-            center /= points.Count;
-            var result = new List<Vector2>(points.Count);
-            foreach (Vector2 point in points)
-            {
-                Vector2 radial = (point - center).normalized * spread;
-                result.Add(
-                    point + radial + new Vector2(checked((float)shadow.X), checked((float)shadow.Y))
-                );
-            }
-            return result;
         }
 
         private static void Path(Painter2D painter, IReadOnlyList<Vector2> points)

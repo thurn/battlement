@@ -2,9 +2,10 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::select_control;
+use crate::{select_control, tabs_skin};
 use battlement::{
-  Align, Color, FlexDirection, Length, Overflow, Style, TextAnchor, Translate, WhiteSpace,
+  Align, Color, FlexDirection, Length, Overflow, PickingMode, Position, Style, TextAnchor,
+  TextShadow, Translate, WhiteSpace,
 };
 use battlement_reactant::{host::ButtonHost, prelude::*};
 
@@ -93,38 +94,45 @@ impl Component for SettingsTabButton {
       .label(self.tab.label())
       .index(self.tab as u32)
       .host(
-        ButtonHost::new(self.tab.label()).style(
-          Style::new()
-            .width(self.tab.width())
-            .flex_shrink(0)
-            .height(if self.active { 130 } else { 127 })
-            .margin(0)
-            .margin_right(if self.tab == SettingsTab::Input { 0 } else { 2 })
-            .padding(0)
-            .border_width(4)
-            .border_color(if self.active {
-              Color::hex(0x53afff)
-            } else {
-              Color::hex(0x657287)
-            })
-            .background_color(if self.active {
-              Color::hex(0x071831)
-            } else {
-              Color::hex(0x071328)
-            })
-            .center_content()
-            .overflow(Overflow::Visible)
-            .translate(Translate::two_dimensional(
-              Length::px(0.0),
-              Length::px(if self.active { 0.0 } else { 3.0 }),
-            ))
-            .unity_font_definition(select_control::VALUE_FONT)
-            .font_size(if self.active { 55 } else { 51 })
-            .letter_spacing(1)
-            .color(Color::hex(0xf7f7fb))
-            .white_space(WhiteSpace::NoWrap)
-            .unity_text_align(TextAnchor::MiddleCenter),
-        ),
+        ButtonHost::new(self.tab.label())
+          .style(
+            Style::new()
+              .width(self.tab.width())
+              .flex_shrink(0)
+              .height(if self.active { 130 } else { 127 })
+              .margin(0)
+              .margin_right(if self.tab == SettingsTab::Input { 0 } else { 2 })
+              .padding(0)
+              .border_width(0)
+              .background_color(Color::TRANSPARENT)
+              .center_content()
+              .overflow(Overflow::Visible)
+              .translate(Translate::two_dimensional(
+                Length::px(0.0),
+                Length::px(if self.active { 0.0 } else { 3.0 }),
+              ))
+              .unity_font_definition(select_control::VALUE_FONT)
+              .font_size(if self.active { 55 } else { 51 })
+              .letter_spacing(1)
+              .color(Color::hex(0xf7f7fb))
+              .white_space(WhiteSpace::NoWrap)
+              .unity_text_align(TextAnchor::MiddleCenter)
+              .text_shadow(TextShadow::new(0.0, 5.0, 7.0, Color::BLACK)),
+          )
+          .paint(tabs_skin::paint(self.active))
+          .child(
+            TextElement::new(self.tab.label())
+              .picking_mode(PickingMode::Ignore)
+              .style(
+                Style::new()
+                  .position(Position::Absolute)
+                  .full_size()
+                  .margin(0)
+                  .padding(0)
+                  .unity_text_align(TextAnchor::MiddleCenter)
+                  .text_shadow(TextShadow::new(2.0, 4.0, 0.0, Color::hex(0x182b50))),
+              ),
+          ),
       )
   }
 }

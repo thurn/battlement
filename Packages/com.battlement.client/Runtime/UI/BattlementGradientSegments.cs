@@ -62,7 +62,7 @@ namespace Battlement.UI
         {
             float radians = checked((float)angle) * Mathf.Deg2Rad;
             Vector2 axis = new(Mathf.Cos(radians), Mathf.Sin(radians));
-            float radius = Mathf.Sqrt(rect.width * rect.width + rect.height * rect.height) / 2;
+            float radius = (rect.width * Mathf.Abs(axis.x) + rect.height * Mathf.Abs(axis.y)) / 2;
             return (rect.center - axis * radius, rect.center + axis * radius);
         }
     }

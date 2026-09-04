@@ -87,7 +87,7 @@ namespace Battlement.Tests
                                 new PaintLayer(
                                     new PaintFill.Gradient(
                                         new Gradient.Linear(
-                                            0,
+                                            90,
                                             new[]
                                             {
                                                 new GradientStop(new Color(1, 0, 0, 1), 0),
@@ -106,6 +106,100 @@ namespace Battlement.Tests
                     yield return null;
                 }
                 LogAssert.NoUnexpectedReceived();
+                if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+                {
+                    Texture2D pixels = Read(texture);
+                    try
+                    {
+                        Assert.That(pixels.GetPixel(50, 128 - 3).r, Is.GreaterThan(0.95));
+                        Assert.That(pixels.GetPixel(50, 128 - 97).b, Is.GreaterThan(0.95));
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(pixels);
+                    }
+                }
+            }
+            finally
+            {
+                panel.targetTexture = null;
+                texture.Release();
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator InsetShadowStaysInsideItsLayerAndHonorsSharpOffset()
+        {
+            using var fixture = new Fixture();
+            var texture = new RenderTexture(128, 128, 24);
+            texture.Create();
+            PanelSettings panel = fixture.Owned.GetComponent<UIDocument>().panelSettings;
+            panel.targetTexture = texture;
+            panel.clearColor = true;
+            panel.colorClearValue = UnityColor.black;
+            try
+            {
+                fixture.Update(
+                    new UiView
+                    {
+                        Paint = new PaintStyle(
+                            Background: new PaintFill.Color(new Color(1, 0, 0, 1)),
+                            Layers: new[]
+                            {
+                                new PaintLayer(
+                                    new PaintFill.Color(new Color(0, 0, 1, 1)),
+                                    BoundsInset: Insets(20),
+                                    BoxShadow: new[]
+                                    {
+                                        new Shadow(0, 0, 12, 0, new Color(0, 0, 0, 0.5), true),
+                                        new Shadow(0, -3, 0, 0, new Color(0, 1, 0, 1), true),
+                                    }
+                                ),
+                            }
+                        ),
+                    }
+                );
+                for (int frame = 0; frame < 8; frame++)
+                {
+                    UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+                    yield return null;
+                }
+                LogAssert.NoUnexpectedReceived();
+                if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                    yield break;
+                Texture2D pixels = Read(texture);
+                try
+                {
+                    UnityColor outsideLayer = pixels.GetPixel(16, 128 - 50);
+                    Assert.That(
+                        outsideLayer.r,
+                        Is.GreaterThan(0.95),
+                        "Inset shadow covered its border"
+                    );
+                    UnityColor middle = pixels.GetPixel(50, 128 - 50);
+                    Assert.That(
+                        middle.b,
+                        Is.GreaterThan(0.95),
+                        "Blur darkened the distant interior"
+                    );
+                    UnityColor bottom = pixels.GetPixel(50, 128 - 78);
+                    Assert.That(
+                        bottom.g,
+                        Is.GreaterThan(0.9),
+                        "Negative Y must paint a sharp bottom edge"
+                    );
+                    UnityColor aboveBottom = pixels.GetPixel(50, 128 - 73);
+                    Assert.That(
+                        aboveBottom.g,
+                        Is.LessThan(0.1),
+                        "Zero blur must not paint a thick stroke"
+                    );
+                }
+                finally
+                {
+                    Object.DestroyImmediate(pixels);
+                }
             }
             finally
             {

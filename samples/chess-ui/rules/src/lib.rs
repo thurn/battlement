@@ -103,3 +103,5 @@ mod volume_skin;
 pub mod settings_tabs;
 
 mod tabs_harness;
+
+mod tabs_skin;

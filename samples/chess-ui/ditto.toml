@@ -1381,10 +1381,46 @@ screenshot = { name = "initial" }
 accessibility_action = { target = { role = "tab", name = "Graphics" }, action = "activate" }
 
 [[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = true, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
 accessibility_action = { target = { role = "tab", name = "Sound" }, action = "activate" }
 
 [[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = true, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
 accessibility_action = { target = { role = "tab", name = "Input" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Graphics" }, role = "tab", name = "Graphics", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = true, parent = { role = "tab-list", name = "Settings categories" } }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "tab", name = "Gameplay" }, action = "activate" }
