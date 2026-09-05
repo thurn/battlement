@@ -79,10 +79,15 @@ crashlytics-build.properties
 # macOS metadata.
 .DS_Store
 
-# Markdown documentation is tracked only under /docs.
+# Track only maintained agent guidance and the retained chess plan.
 *.md
-!/docs/*.md
-!/docs/**/*.md
+!/AGENTS.md
+!/crates/AGENTS.md
+!/samples/AGENTS.md
+!/.agents/skills/*/SKILL.md
+!/docs/reactant/chess-ui-implementation-plan.md
+!/docs/reactant/chess-ui-assets.md
+!/docs/reactant/chess-ui/**/*.md
 
 # Git
 .worktrees

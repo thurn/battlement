@@ -23,15 +23,11 @@ npm run dev
 The pinned commit must build without source changes. Dependency installation
 and generated build output do not become port inputs.
 
-Implementation depends on the certified implementations of these designs:
+Implementation depends on the certified implementations located through:
 
-- [Layout and stacking](../layout-and-stacking.md)
-- [Focus and navigation](../focus-and-navigation.md)
-- [Shared components](../shared-components.md)
-- [Shared components](../shared-components.md)
-- [Events and default actions](../events-and-default-actions.md)
-- [Asset generator](../asset-generator.md#authoring-api)
-- [Mockup animation coverage](../animations.md#mockup-translation-coverage)
+- [Reactant authoring and runtime](../../../.agents/skills/battlement-reactant/SKILL.md)
+- [Asset generation](../../../.agents/skills/battlement-build/SKILL.md)
+- [Mockup animation requirements](motion-requirements.md#mockup-translation-coverage)
 
 The events and default-actions work is a transitive prerequisite even though it
 was not part of the original requested document list. Sliders, listboxes,
@@ -83,7 +79,7 @@ weaken these behavior contracts:
 The declarations in `samples/reactant/rules/src/assets.rs` are the source for
 the 18 existing generated assets, used as an initial inventory rather than a
 required final catalog under the [rendering policy](rendering-policy.md). The
-[animation coverage ledger](../animations.md#coverage-ledger) is the source for
+[animation coverage ledger](motion-requirements.md#coverage-ledger) is the source for
 motion timing, easing, direction, interruption, seed, and reduced-motion
 requirements. This plan uses those as pinned starting evidence instead of
 duplicating or rediscovering either design.

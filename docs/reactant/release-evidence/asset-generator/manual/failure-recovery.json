@@ -1,8 +1,0 @@
-{
-  "failure": "SIGTERM sent to the real Google Chrome renderer during a stale generation",
-  "generatorExitCode": 1,
-  "installedRootPreserved": true,
-  "installedRootSha256": "b80e0a9e36384a5fa7f2cc236a8c8a80922bdfd4401ff97dea2aec00a4fc02e8",
-  "recoveryCheckPassed": true,
-  "recoveryGeneratePassed": true
-}

@@ -23,7 +23,7 @@ The base-task workflow is:
    before accepting extra application wiring. Target roughly 500 non-test lines or fewer, but do not use this
    target to reject a necessary framework redesign.
 4. Complete the validation sequence below. It includes smoke and reset checks
-   for all registered pages, affected visual captures, and `./scripts/ci.py`.
+   for all registered pages, affected Ditto captures, and `./scripts/ci.py`.
 5. Prepare the final web demo before freezing the candidate. Every migration
    page is web-visible: use a verified-free non-default port and a named
    Cloudflare Quick Tunnel. Record both service identities, verify the public
@@ -70,12 +70,12 @@ Additional states and integration captures remain required at final validation.
    reset checks. Recapture earlier pages affected by shared changes. Satisfy
    every applicable matrix in the [validation requirements](validation.md#automated-validation).
 3. Review intentional baseline differences using the
-   [Ditto baseline workflow](../../ditto.md#baselines-and-review). Update only
+   [Ditto baseline workflow](../../../.agents/skills/battlement-ditto/SKILL.md). Update only
    affected checkpoints, inspect the lock diff, and verify with an ordinary
    comparison run. Baseline acceptance cannot replace the source comparison.
 4. Stage all intended deliverables, including baseline metadata, and run
    `./scripts/ci.py` once against that stable state. Follow the
-   [development validation guidance](../../development.md#validation-cadence)
+   [development validation guidance](../../../.agents/skills/battlement-ci/SKILL.md)
    for failures and reruns; these efficiency rules do not remove required CI.
 5. Build the final web demo once from those sources and verify the complete
    public walkthrough. Confirm build preparation leaves intended source and

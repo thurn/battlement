@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 import subprocess
 import tomllib
 
@@ -39,9 +40,6 @@ DITTO_PATHS = (
     Path(".tollgate/config.toml"),
     Path("crates/battlement-ditto"),
     Path("crates/battlement-tooling"),
-    Path("docs/ditto.md"),
-    Path("docs/ditto-implementation-plan.md"),
-    Path("docs/ditto-technical-design.md"),
     Path("Packages/com.battlement.client/Editor/BattlementDittoBuild.cs"),
     Path("scripts/ditto_ci.py"),
 )
@@ -114,26 +112,20 @@ def check_ci_opt_in() -> None:
     config = tomllib.loads(
         (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
     )
-    assert config["step"] == [
-        {
-            "name": "ci",
-            "run": "python3 scripts/ci.py --full",
-            "timeout": "1h",
-            "semaphores": ["unity"],
-        }
+    steps = [step for step in config["step"] if step["name"] == "ci"]
+    assert len(steps) == 1
+    step = steps[0]
+    toolchain = tomllib.loads(
+        (REPOSITORY_ROOT / "rust-toolchain.toml").read_text(encoding="utf-8")
+    )["toolchain"]["channel"]
+    assert shlex.split(step["run"]) == [
+        "rustup", "run", toolchain, "python3", "scripts/ci.py", "--full"
     ]
+    assert step["timeout"] == "1h"
+    assert step["semaphores"] == ["unity"]
     ci = (REPOSITORY_ROOT / "scripts/ci.py").read_text(encoding="utf-8")
     assert '"--ditto"' in ci
     assert "run_ditto_validation(" in ci
-
-
-def check_handoff_guidance() -> None:
-    design = (REPOSITORY_ROOT / "docs/ditto-technical-design.md").read_text()
-    implementation = (REPOSITORY_ROOT / "docs/implementation-plan.md").read_text()
-    for marker in ("Ditto: passed", "Ditto: not applicable", "player-visible runtime result"):
-        assert marker in design
-    assert "Ditto: passed" in implementation
-    assert "Ditto: not applicable" in implementation
 
 
 def main() -> None:
@@ -142,7 +134,6 @@ def main() -> None:
     check_removed_references(paths)
     check_apple_silicon_only(paths)
     check_ci_opt_in()
-    check_handoff_guidance()
     print("Ditto cutover tests passed.")
 
 

@@ -31,10 +31,8 @@
 //! ```
 //!
 //! Reactant uses React-compatible names only where Battlement can preserve the
-//! corresponding behavior. The
-//! [feature ledger](https://github.com/dthurn/battlement/blob/master/docs/reactant/feature-ledger.md)
-//! maps the supported V1 surface to its sample screen and black-box proof and
-//! lists the reserved React APIs that remain unsupported.
+//! corresponding behavior. See the public modules and their tests for supported
+//! behavior.
 //!
 //! The former optional accessibility authoring modules are intentionally gone.
 //!
