@@ -227,3 +227,47 @@ to = "toggle_accessibility.changed"
 [[transitions]]
 from = "toggle_accessibility.changed"
 to = "toggle_accessibility.reset"
+
+[[states]]
+key = "select_popover.initial"
+screen = "select_popover"
+
+[[states]]
+key = "select_popover.open"
+screen = "select_popover"
+
+[[states]]
+key = "select_popover.hovered"
+screen = "select_popover"
+
+[[states]]
+key = "select_popover.selected"
+screen = "select_popover"
+
+[[states]]
+key = "select_popover.dismissed"
+screen = "select_popover"
+
+[[states]]
+key = "select_popover.reset"
+screen = "select_popover"
+
+[[transitions]]
+from = "select_popover.initial"
+to = "select_popover.open"
+
+[[transitions]]
+from = "select_popover.open"
+to = "select_popover.hovered"
+
+[[transitions]]
+from = "select_popover.hovered"
+to = "select_popover.selected"
+
+[[transitions]]
+from = "select_popover.selected"
+to = "select_popover.dismissed"
+
+[[transitions]]
+from = "select_popover.dismissed"
+to = "select_popover.reset"

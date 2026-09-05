@@ -21,7 +21,9 @@
 //! use battlement_rules::{pages, toggle_control::ToggleControl};
 //! use trox::tx;
 //!
-//! let app = App::new("chess-ui/content").ui(pages::gallery());
+//! let mut app = App::new("chess-ui/content");
+//! let overlay = app.create_portal_target();
+//! let app = app.ui(pages::gallery(overlay));
 //! let toggle = ToggleControl::new()
 //!   .label(control_behavior::name_source_text(tx(
 //!     "VSync",
@@ -85,6 +87,8 @@ pub mod screen_frame;
 pub mod select_control;
 
 mod select_harness;
+
+mod select_popover_harness;
 
 pub mod setting_row;
 

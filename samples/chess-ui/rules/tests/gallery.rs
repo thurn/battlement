@@ -506,6 +506,104 @@ fn closed_selection_uses_parent_value_and_resets_without_proposals() {
 }
 
 #[test]
+fn select_popover_opens_selects_dismisses_and_resets() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-14");
+  client.ui().click(page);
+  client.poll();
+  let trigger = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Display Mode Borderless"))
+    .unwrap()
+    .object_id;
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == trigger)
+      .unwrap()
+      .state
+      .expanded,
+    Some(false)
+  );
+
+  client.ui().click(trigger);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  let listbox = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::ListBox)
+    .unwrap();
+  assert_eq!(listbox.label.as_deref(), Some("Display Mode options"));
+  let options = snapshot
+    .nodes
+    .iter()
+    .filter(|node| node.role == SemanticRole::Option)
+    .collect::<Vec<_>>();
+  assert_eq!(options.len(), 3);
+  assert_eq!(options[0].label.as_deref(), Some("Borderless"));
+  assert_eq!(options[0].state.selected, Some(true));
+  assert_eq!(options[1].label.as_deref(), Some("Fullscreen"));
+  assert_eq!(options[2].label.as_deref(), Some("Windowed"));
+  assert_eq!(
+    snapshot
+      .nodes
+      .iter()
+      .find(|node| node.object_id == trigger)
+      .unwrap()
+      .state
+      .expanded,
+    Some(true)
+  );
+
+  let windowed = options[2].object_id;
+  self::pointer_boundary(&mut client, windowed, true);
+  client.poll();
+  client.ui().click(windowed);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .all(|node| node.role != SemanticRole::ListBox)
+  );
+  assert_eq!(
+    snapshot
+      .nodes
+      .iter()
+      .find(|node| node.object_id == trigger)
+      .unwrap()
+      .label
+      .as_deref(),
+    Some("Display Mode Windowed")
+  );
+
+  client.ui().click(trigger);
+  client.poll();
+  let dismiss = self::named(&mut client, "select-dismiss-layer");
+  self::click_label(&mut client, dismiss);
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .all(|node| node.role != SemanticRole::ListBox)
+  );
+
+  client.ui().click(page);
+  client.poll();
+  let reset = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Display Mode Borderless"))
+    .unwrap();
+  assert_eq!(reset.state.expanded, Some(false));
+  assert!(!client.ui().contains(trigger));
+}
+
+#[test]
 fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
   let mut client = self::client();
   let page = self::named(&mut client, "review-page-7");

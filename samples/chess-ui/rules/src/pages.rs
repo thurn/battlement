@@ -1,6 +1,7 @@
 //! The ordered examples shown by the chess UI gallery.
 
 use battlement::Style;
+use battlement_reactant::portal::PortalTarget;
 use trox::tx;
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
   portrait_harness::PortraitHarness,
   review_page::ReviewPage,
   select_harness::SelectHarness,
+  select_popover_harness::SelectPopoverHarness,
   setting_row_harness::SettingRowHarness,
   tabs_harness::TabsHarness,
   toggle_accessibility_harness::ToggleAccessibilityHarness,
@@ -23,7 +25,7 @@ use crate::{
 ///
 /// Examples can carry required props and callbacks. Gallery selection keys own
 /// their mounted state; registering a value neither renders it nor runs hooks.
-pub fn gallery() -> Gallery {
+pub fn gallery(overlay: PortalTarget) -> Gallery {
   Gallery::new()
         .page(
             ReviewPage::new()
@@ -107,7 +109,8 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("SelectControl pointer popover", "Chess UI showcase title."))
-                .description(tx("SelectControl opens one anchored listbox, selects options, and dismisses outside; keyboard behavior remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("SelectControl opens one anchored listbox, selects options, and dismisses outside; keyboard behavior remains unasserted.", "Chess UI showcase description."))
+                .child(SelectPopoverHarness::new().overlay(overlay)),
         )
         .page(
             ReviewPage::new()

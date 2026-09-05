@@ -1610,6 +1610,69 @@ accessibility_assert = { target = { role = "static-text", name = "Tab selections
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "select pointer popover"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless", parent = { role = "region", name = "SelectControl pointer popover" } }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "list-box", name = "Display Mode options" }, role = "list-box", name = "Display Mode options" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Borderless" }, role = "option", name = "Borderless", selected = true, parent = { role = "list-box", name = "Display Mode options" } }
+
+[[scenarios.steps]]
+screenshot = { name = "open", max_changed_percent = 0.18 }
+
+[[scenarios.steps]]
+hover = { target = [0.70, 0.49] }
+
+[[scenarios.steps]]
+screenshot = { name = "hovered", max_changed_percent = 0.18 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Windowed" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
+
+[[scenarios.steps]]
+screenshot = { name = "selected" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Windowed" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Windowed" }, role = "option", name = "Windowed", selected = true, parent = { role = "list-box", name = "Display Mode options" } }
+
+[[scenarios.steps]]
+click = { target = [0.95, 0.95] }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
+
+[[scenarios.steps]]
+screenshot = { name = "dismissed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }

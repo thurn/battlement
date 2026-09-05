@@ -383,6 +383,66 @@ source = "ba0e4d5a3b9856252b5bbae8366f31a92af9922d356e0f1c15a29e6174974e97"
 
 [[baselines]]
 profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "dismissed"
+sha256 = "9b8370ae016342aee3eab776685b7a7847de31b8e5e05d8ecb98da919619e5a8"
+width = 1280
+height = 800
+size_bytes = 117308
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "hovered"
+sha256 = "16887399913e580e9707a3fdcaf48fd5ed4dec56f8722efdbfe410f136f5a2a4"
+width = 1280
+height = 800
+size_bytes = 127408
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "initial"
+sha256 = "1a56bf06f3797211db2a65ac2d1877f19765349b42e211cf92cb5d13638a9e44"
+width = 1280
+height = 800
+size_bytes = 117543
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "open"
+sha256 = "4f872bb934c4ecfe4965b1fc810432b19a5e3352dd57d332d35c33ac8bd2552b"
+width = 1280
+height = 800
+size_bytes = 127101
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "reset"
+sha256 = "1a56bf06f3797211db2a65ac2d1877f19765349b42e211cf92cb5d13638a9e44"
+width = 1280
+height = 800
+size_bytes = 117543
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
+scenario = "select pointer popover"
+checkpoint = "selected"
+sha256 = "9b8370ae016342aee3eab776685b7a7847de31b8e5e05d8ecb98da919619e5a8"
+width = 1280
+height = 800
+size_bytes = 117308
+source = "15f86c99a6b6c6d9c20bff2db7cfed332d0ad0d3353d57ee61a3eb2f312a044e"
+
+[[baselines]]
+profile = "macos"
 scenario = "setting row"
 checkpoint = "static"
 sha256 = "a06d3c270d8d388f57411082c9b814e0b712cbb1556f31aaf416dd81dc5d8223"

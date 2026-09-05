@@ -305,3 +305,59 @@ to = "toggle_accessibility.changed"
 [[transitions]]
 from = "toggle_accessibility.changed"
 to = "toggle_accessibility.reset"
+
+[[mappings]]
+state = "select_popover.initial"
+scenario = "select pointer popover"
+checkpoint = "initial"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[mappings]]
+state = "select_popover.open"
+scenario = "select pointer popover"
+checkpoint = "open"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[mappings]]
+state = "select_popover.hovered"
+scenario = "select pointer popover"
+checkpoint = "hovered"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[mappings]]
+state = "select_popover.selected"
+scenario = "select pointer popover"
+checkpoint = "selected"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[mappings]]
+state = "select_popover.dismissed"
+scenario = "select pointer popover"
+checkpoint = "dismissed"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[mappings]]
+state = "select_popover.reset"
+scenario = "select pointer popover"
+checkpoint = "reset"
+owner = "gallery::select_popover_opens_selects_dismisses_and_resets"
+
+[[transitions]]
+from = "select_popover.initial"
+to = "select_popover.open"
+
+[[transitions]]
+from = "select_popover.open"
+to = "select_popover.hovered"
+
+[[transitions]]
+from = "select_popover.hovered"
+to = "select_popover.selected"
+
+[[transitions]]
+from = "select_popover.selected"
+to = "select_popover.dismissed"
+
+[[transitions]]
+from = "select_popover.dismissed"
+to = "select_popover.reset"
