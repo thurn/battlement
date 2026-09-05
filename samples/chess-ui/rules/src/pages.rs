@@ -10,6 +10,7 @@ use crate::{
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
+  input_settings::InputSettings,
   interaction_harness::InteractionHarness,
   portrait_harness::PortraitHarness,
   privacy_harness::PrivacyHarness,
@@ -148,7 +149,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Input settings table", "Chess UI showcase title."))
-                .description(tx("InputSettings scrolls bindings beneath a sticky header; rebinding, conflicts, and visual icons remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("InputSettings scrolls bindings beneath a sticky header; rebinding, conflicts, and visual icons remain unasserted.", "Chess UI showcase description."))
+                .child(InputSettings::new()),
         )
         .page(
             ReviewPage::new()

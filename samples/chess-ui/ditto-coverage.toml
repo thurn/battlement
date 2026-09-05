@@ -641,3 +641,29 @@ to = "privacy.dismissed"
 [[transitions]]
 from = "privacy.dismissed"
 to = "privacy.reset"
+
+[[mappings]]
+state = "input_settings.initial"
+scenario = "input settings table"
+checkpoint = "initial"
+owner = "input_settings::input_bindings_scroll_under_a_sticky_header_and_reset_to_the_top"
+
+[[mappings]]
+state = "input_settings.scrolled"
+scenario = "input settings table"
+checkpoint = "scrolled"
+owner = "input_settings::input_bindings_scroll_under_a_sticky_header_and_reset_to_the_top"
+
+[[mappings]]
+state = "input_settings.reset"
+scenario = "input settings table"
+checkpoint = "reset"
+owner = "input_settings::input_bindings_scroll_under_a_sticky_header_and_reset_to_the_top"
+
+[[transitions]]
+from = "input_settings.initial"
+to = "input_settings.scrolled"
+
+[[transitions]]
+from = "input_settings.scrolled"
+to = "input_settings.reset"

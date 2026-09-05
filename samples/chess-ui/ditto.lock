@@ -325,11 +325,11 @@ source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 profile = "macos"
 scenario = "gallery navigation second"
 checkpoint = "selected"
-sha256 = "52506aaa9a691b0b6ea79723229f2ab95ce1db35059110bdae71e67a6f914509"
+sha256 = "8d90a63ee33dd538db39bd075426158b12c2c184dffcae74c4adb56c7d2b34eb"
 width = 1280
 height = 800
-size_bytes = 102317
-source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
+size_bytes = 125181
+source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
 
 [[baselines]]
 profile = "macos"
@@ -370,6 +370,36 @@ width = 1280
 height = 800
 size_bytes = 123341
 source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
+
+[[baselines]]
+profile = "macos"
+scenario = "input settings table"
+checkpoint = "initial"
+sha256 = "68719302e33762bd7e152fe2b43f286a9558063c54dc2a94750be67772bbca78"
+width = 1280
+height = 800
+size_bytes = 125186
+source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+
+[[baselines]]
+profile = "macos"
+scenario = "input settings table"
+checkpoint = "reset"
+sha256 = "68719302e33762bd7e152fe2b43f286a9558063c54dc2a94750be67772bbca78"
+width = 1280
+height = 800
+size_bytes = 125186
+source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+
+[[baselines]]
+profile = "macos"
+scenario = "input settings table"
+checkpoint = "scrolled"
+sha256 = "13e499130440290833dd1b71ccd3de70f5393801623eae594d8f79e5e4eb8cdf"
+width = 1280
+height = 800
+size_bytes = 122544
+source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
 
 [[baselines]]
 profile = "macos"

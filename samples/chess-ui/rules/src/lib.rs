@@ -62,6 +62,8 @@ mod frame_styles;
 
 pub mod gallery;
 
+pub mod input_settings;
+
 pub mod pages;
 
 mod portrait_harness;

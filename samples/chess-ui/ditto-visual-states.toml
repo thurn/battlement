@@ -491,3 +491,23 @@ to = "privacy.dismissed"
 [[transitions]]
 from = "privacy.dismissed"
 to = "privacy.reset"
+
+[[states]]
+key = "input_settings.initial"
+screen = "input_settings"
+
+[[states]]
+key = "input_settings.scrolled"
+screen = "input_settings"
+
+[[states]]
+key = "input_settings.reset"
+screen = "input_settings"
+
+[[transitions]]
+from = "input_settings.initial"
+to = "input_settings.scrolled"
+
+[[transitions]]
+from = "input_settings.scrolled"
+to = "input_settings.reset"

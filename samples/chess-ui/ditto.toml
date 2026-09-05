@@ -2024,6 +2024,42 @@ accessibility_assert = { target = { role = "static-text", name = "Crash reports:
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "input settings table"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "table", name = "Input bindings" }, role = "table", name = "Input bindings", parent = { role = "scroll-area", name = "Input bindings" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "column-header", name = "Action" }, role = "column-header", name = "Action" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "row-header", name = "Restart" }, role = "row-header", name = "Restart" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "scrolled" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206820\u2069. \u2068Input settings table\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "column-header", name = "Action" }, role = "column-header", name = "Action" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }
