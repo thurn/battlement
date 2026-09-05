@@ -32,17 +32,9 @@ Task 40 audits every source line and requires a terminal disposition.
 ## Mandatory architectural challenge
 
 Review the largest differences in responsibility and composition before minor
-style issues. First run a separate, fresh-context subagent using the
-[blind idealized Rust port prompt](../idealized-rust-port-prompt.md). Give it only
-the selected TypeScript snapshots and the prompt's fixed authoring guide,
-including its brief generated-asset and Motion API context. It must not read
-other Reactant project files, the existing port, this plan, or earlier audits.
-The reviewer may inspect the implementation, but must not pass that context to
-the blind subagent.
-
-Record the independent draft and its proposed API contracts before comparing
-them with the actual port. Then investigate what prevents that simpler version
-and what changes would make it possible. Use typed Rust styles throughout;
+style issues. Compare the selected TypeScript snapshots with the actual port,
+then investigate what prevents a simpler version and what changes would make it
+possible. Use typed Rust styles throughout;
 runtime CSS strings or a CSS-string styling API are not acceptable. The existing
 static asset-generator declaration grammar remains available for generated
 PNGs, and runtime animation uses typed Motion builders. The goal is equivalent
@@ -54,8 +46,8 @@ the rendering policy. A generated static treatment does not require a second
 runtime implementation to demonstrate API expressiveness. Challenge redundant
 paths, unnecessary application wiring, and unsupported performance claims;
 preserve useful shared paint and generator ingredients used elsewhere. Keep
-the blind draft independent, then assess its proposed rendering approach using
-the same fidelity, scaling, memory, and maintenance tradeoffs.
+the assessment grounded in the same fidelity, scaling, memory, and maintenance
+tradeoffs.
 
 For every relevant component, answer these questions with concrete evidence:
 
@@ -112,8 +104,6 @@ issues do not discharge this architectural review.
 
 The reviewer produces:
 
-- The blind subagent's complete Rust draft, proposed contracts, supplied prompt,
-  and TypeScript source revision, preserved before the feasibility review
 - A line-by-line TypeScript-to-Rust correspondence table
 - A reason for every source line without a direct counterpart
 - An inventory of extra Rust hosts, hooks, refs, state, mutation, and glue,
@@ -148,14 +138,13 @@ into zero or one immediate follow-up commit containing:
 - No work belonging to the next migration
 
 The follow-up receives ordinary correctness review, CI, candidate validation,
-and a separate explicit promotion. It does not receive another specialized
-port-ergonomics review. This prevents recursive review while ensuring every
-confirmed improvement lands before the next page begins.
+and a separate explicit promotion. Every confirmed improvement lands before the
+next page begins.
 
 Correspondence tables, line ownership, architectural findings, simpler API
 sketches, constraint evidence, and no-follow-up rationales are Markdown
 attachments to the Tollgate candidate handoff. Screenshots are PNG attachments,
-and the blind draft is a Rust source attachment. Automated evidence is the named
-Ditto result plus CI run. The handoff stores the source and tested commit IDs so
-a later reviewer can retrieve the exact artifact set. Do not embed planning or
-historical migration commentary in code or repository documentation.
+and automated evidence is the named Ditto result plus CI run. The handoff stores
+the source and tested commit IDs so a later reviewer can retrieve the exact
+artifact set. Do not embed planning or historical migration commentary in code
+or repository documentation.

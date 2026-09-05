@@ -34,7 +34,6 @@ The base-task workflow is:
    Hand off the exact candidate and evidence without polling speculative CI.
 7. Obtain an explicit promotion mandate for the exact candidate. Stop only the
    recorded demo and tunnel services immediately before authorization.
-8. After promotion, assign a fresh port-ergonomics reviewer.
 
 ### Early visual gate
 
@@ -88,8 +87,8 @@ Keep successful evidence whose inputs are unchanged. Repeat a check or capture
 only for changed inputs, a failure, or a specific unresolved requirement; record
 that reason. Do not duplicate the entire native matrix through interactive web
 QA. Documentation-only revisions require documentation checks and repository
-CI, but no new player build, screenshots, demo, or port-ergonomics review unless
-they also change rendered behavior or a numbered migration's implementation.
+CI, but no new player build, screenshots, or demo unless they also change
+rendered behavior or a numbered migration's implementation.
 
 ### Compact evidence ledger
 

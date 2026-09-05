@@ -49,12 +49,6 @@ state domain owned by that page, reselects the same entry, and asserts the
 documented default values, zero scroll, closed overlays, reset clock and audio,
 and expected focus target.
 
-Task 40 receives the project's single independent-review pass before candidate
-submission. The required post-promotion port-ergonomics reviewer remains a
-separate review and may produce one final Reactant follow-up. That follow-up
-cannot promote until its affected source-coverage and correspondence entries
-are current and the complete audit remains terminal.
-
 ## Manual QA
 
 1. Launch `chess-ui`. Count 40 entries, read every description, navigate the

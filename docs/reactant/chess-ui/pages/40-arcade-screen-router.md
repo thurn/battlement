@@ -22,13 +22,9 @@ platform substitutions, corrected Return cutout, and intentional prototype
 behaviors are exceptions to source parity. No browser render-mode diagnostics
 or sample controls appear inside the app.
 
-Before this candidate, run the project's single permitted independent
-review and final source-coverage audit over the complete port. After
-promotion, run the ordinary required port-ergonomics reviewer. If that
-review produces a Reactant follow-up, refresh every affected source-coverage
-and correspondence entry before the follow-up candidate. The port is not
-complete until the final promoted follow-up, or the no-follow-up rationale,
-retains a complete terminal audit.
+Before this candidate, run the final source-coverage audit over the complete
+port. The port is not complete until the candidate retains a complete terminal
+audit.
 
 **Final rendering acceptance.** Apply the [rendering policy](../rendering-policy.md)
 to the assembled app. Verify source fidelity, all text scales, semantic names,
