@@ -271,3 +271,47 @@ to = "select_popover.dismissed"
 [[transitions]]
 from = "select_popover.dismissed"
 to = "select_popover.reset"
+
+[[states]]
+key = "select_keyboard.initial"
+screen = "select_keyboard"
+
+[[states]]
+key = "select_keyboard.open"
+screen = "select_keyboard"
+
+[[states]]
+key = "select_keyboard.active"
+screen = "select_keyboard"
+
+[[states]]
+key = "select_keyboard.selected"
+screen = "select_keyboard"
+
+[[states]]
+key = "select_keyboard.escaped"
+screen = "select_keyboard"
+
+[[states]]
+key = "select_keyboard.reset"
+screen = "select_keyboard"
+
+[[transitions]]
+from = "select_keyboard.initial"
+to = "select_keyboard.open"
+
+[[transitions]]
+from = "select_keyboard.open"
+to = "select_keyboard.active"
+
+[[transitions]]
+from = "select_keyboard.active"
+to = "select_keyboard.selected"
+
+[[transitions]]
+from = "select_keyboard.selected"
+to = "select_keyboard.escaped"
+
+[[transitions]]
+from = "select_keyboard.escaped"
+to = "select_keyboard.reset"

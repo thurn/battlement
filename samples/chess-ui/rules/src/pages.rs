@@ -110,12 +110,13 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
             ReviewPage::new()
                 .title(tx("SelectControl pointer popover", "Chess UI showcase title."))
                 .description(tx("SelectControl opens one anchored listbox, selects options, and dismisses outside; keyboard behavior remains unasserted.", "Chess UI showcase description."))
-                .child(SelectPopoverHarness::new().overlay(overlay)),
+                .child(SelectPopoverHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()
                 .title(tx("SelectControl keyboard and controller behavior", "Chess UI showcase title."))
-                .description(tx("SelectControl supports arrows, Home, End, typeahead, Escape, restoration, and listbox semantics through handlers and queued ref focus; animation remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("SelectControl supports arrows, Home, End, typeahead, Escape, restoration, and listbox semantics through handlers and queued ref focus; animation remains unasserted.", "Chess UI showcase description."))
+                .child(SelectPopoverHarness::new().overlay(overlay)),
         )
         .page(
             ReviewPage::new()

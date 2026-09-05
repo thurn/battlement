@@ -36,6 +36,13 @@ pub struct AssociatedControl<G> {
   pub(crate) behavior: ControlBehavior<G>,
 }
 
+impl<G> AssociatedControl<G> {
+  /// Returns the stable reference attached to the associated control host.
+  pub fn reference(&self) -> ElementRef {
+    self.reference.clone()
+  }
+}
+
 /// Allocates a stable label association for the current component.
 pub fn use_label() -> LabelBinding {
   LabelBinding {

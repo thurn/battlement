@@ -361,3 +361,59 @@ to = "select_popover.dismissed"
 [[transitions]]
 from = "select_popover.dismissed"
 to = "select_popover.reset"
+
+[[mappings]]
+state = "select_keyboard.initial"
+scenario = "select keyboard navigation"
+checkpoint = "initial"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[mappings]]
+state = "select_keyboard.open"
+scenario = "select keyboard navigation"
+checkpoint = "open"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[mappings]]
+state = "select_keyboard.active"
+scenario = "select keyboard navigation"
+checkpoint = "active-windowed"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[mappings]]
+state = "select_keyboard.selected"
+scenario = "select keyboard navigation"
+checkpoint = "selected"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[mappings]]
+state = "select_keyboard.escaped"
+scenario = "select keyboard navigation"
+checkpoint = "escaped"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[mappings]]
+state = "select_keyboard.reset"
+scenario = "select keyboard navigation"
+checkpoint = "reset"
+owner = "gallery::select_keyboard_navigation_tracks_active_option_and_restores_trigger"
+
+[[transitions]]
+from = "select_keyboard.initial"
+to = "select_keyboard.open"
+
+[[transitions]]
+from = "select_keyboard.open"
+to = "select_keyboard.active"
+
+[[transitions]]
+from = "select_keyboard.active"
+to = "select_keyboard.selected"
+
+[[transitions]]
+from = "select_keyboard.selected"
+to = "select_keyboard.escaped"
+
+[[transitions]]
+from = "select_keyboard.escaped"
+to = "select_keyboard.reset"

@@ -1,10 +1,11 @@
 use battlement::{
   AccessibilitySnapshot, CheckedState, ClickEvent, Color, CommandBody, CurrentPage, GameObjectKind,
-  Gradient, KeyModifiers, MotionEventBatch, MotionGestureEvent, MotionGestureEventKind,
+  Gradient, KeyEvent, KeyModifiers, MotionEventBatch, MotionGestureEvent, MotionGestureEventKind,
   MotionGestureVector, MotionLayer, MotionPointerDevice, MotionProperty, MotionSequence,
-  MotionValue, ObjectId, PanelPoint, PointerBoundaryEvent, PointerButton, PointerButtonEvent,
-  PointerType, PopupKind, Prop, SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent,
-  UiEvent, UiEventBody, UiVisualElementProperties, Vector,
+  MotionValue, NavigationDirection, NavigationMoveEvent, ObjectId, PanelPoint, PhysicalKey,
+  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PopupKind, Prop,
+  SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
+  UiVisualElementProperties, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
@@ -604,6 +605,84 @@ fn select_popover_opens_selects_dismisses_and_resets() {
 }
 
 #[test]
+fn select_keyboard_navigation_tracks_active_option_and_restores_trigger() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-15");
+  client.ui().click(page);
+  client.poll();
+  let trigger = self::named(&mut client, "select-trigger");
+
+  self::key_down(&mut client, trigger, PhysicalKey::ArrowDown, "");
+  let borderless = self::named(&mut client, "select-option-borderless");
+  assert_eq!(client.ui().focused(), Some(borderless));
+  self::assert_selected_option(&client, "Borderless");
+
+  self::key_down(&mut client, borderless, PhysicalKey::ArrowDown, "");
+  let fullscreen = self::named(&mut client, "select-option-fullscreen");
+  assert_eq!(client.ui().focused(), Some(fullscreen));
+  self::key_down(&mut client, fullscreen, PhysicalKey::Home, "");
+  assert_eq!(client.ui().focused(), Some(borderless));
+  self::key_down(&mut client, borderless, PhysicalKey::End, "");
+  let windowed = self::named(&mut client, "select-option-windowed");
+  assert_eq!(client.ui().focused(), Some(windowed));
+  self::key_down(&mut client, windowed, PhysicalKey::KeyF, "f");
+  assert_eq!(client.ui().focused(), Some(fullscreen));
+
+  self::navigation_move(&mut client, fullscreen, NavigationDirection::Up);
+  assert_eq!(client.ui().focused(), Some(borderless));
+  self::navigation_move(&mut client, borderless, NavigationDirection::Down);
+  assert_eq!(client.ui().focused(), Some(fullscreen));
+  self::key_down(&mut client, fullscreen, PhysicalKey::KeyW, "w");
+  assert_eq!(client.ui().focused(), Some(windowed));
+  self::assert_selected_option(&client, "Borderless");
+
+  client.ui().navigation_submit(windowed);
+  client.poll();
+  client.poll();
+  assert_eq!(client.ui().focused(), Some(trigger));
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .all(|node| node.role != SemanticRole::ListBox)
+  );
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == trigger)
+      .unwrap()
+      .label
+      .as_deref(),
+    Some("Display Mode Windowed")
+  );
+
+  client.ui().navigation_submit(trigger);
+  client.poll();
+  let windowed = self::named(&mut client, "select-option-windowed");
+  assert_eq!(client.ui().focused(), Some(windowed));
+  self::key_down(&mut client, windowed, PhysicalKey::Escape, "");
+  client.poll();
+  assert_eq!(client.ui().focused(), Some(trigger));
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .all(|node| node.role != SemanticRole::ListBox)
+  );
+
+  client.ui().click(page);
+  client.poll();
+  let reset = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Display Mode Borderless"))
+    .unwrap();
+  assert_eq!(reset.state.expanded, Some(false));
+  assert!(!client.ui().contains(trigger));
+}
+
+#[test]
 fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
   let mut client = self::client();
   let page = self::named(&mut client, "review-page-7");
@@ -1068,6 +1147,43 @@ fn pointer_button(client: &mut FakeClient<App>, target: ObjectId, down: bool) {
       UiEventBody::PointerUp(body)
     },
   ));
+}
+
+fn key_down(client: &mut FakeClient<App>, target: ObjectId, key: PhysicalKey, text: &str) {
+  client.ui().send_event(UiEvent::new(
+    target,
+    true,
+    false,
+    UiEventBody::KeyDown(KeyEvent {
+      physical_key: Some(key),
+      text: text.to_owned(),
+      modifiers: KeyModifiers::default(),
+    }),
+  ));
+  client.poll();
+}
+
+fn navigation_move(client: &mut FakeClient<App>, target: ObjectId, direction: NavigationDirection) {
+  client.ui().send_event(UiEvent::new(
+    target,
+    true,
+    false,
+    UiEventBody::NavigationMove(NavigationMoveEvent {
+      direction,
+      move_vector: Vector::default(),
+    }),
+  ));
+  client.poll();
+}
+
+fn assert_selected_option(client: &FakeClient<App>, expected: &str) {
+  let selected = self::snapshot(client)
+    .nodes
+    .iter()
+    .filter(|node| node.role == SemanticRole::Option)
+    .find(|node| node.state.selected == Some(true))
+    .unwrap();
+  assert_eq!(selected.label.as_deref(), Some(expected));
 }
 
 fn assert_scale(client: &mut FakeClient<App>, target: ObjectId, expected: f32) {

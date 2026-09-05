@@ -1292,6 +1292,72 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "select keyboard navigation"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless", parent = { role = "region", name = "SelectControl keyboard and controller behavior" } }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Borderless" }, role = "option", name = "Borderless", selected = true, parent = { role = "list-box", name = "Display Mode options" } }
+
+[[scenarios.steps]]
+screenshot = { name = "open", max_changed_percent = 0.18 }
+
+[[scenarios.steps]]
+key = { key = "DownArrow" }
+
+[[scenarios.steps]]
+key = { key = "DownArrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Borderless" }, role = "option", name = "Borderless", selected = true }
+
+[[scenarios.steps]]
+screenshot = { name = "active-windowed", max_changed_percent = 0.18 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Windowed" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
+
+[[scenarios.steps]]
+screenshot = { name = "selected" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Windowed" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "option", name = "Windowed" }, role = "option", name = "Windowed", selected = true }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
+
+[[scenarios.steps]]
+screenshot = { name = "escaped" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "use interaction"
 
 [[scenarios.steps]]

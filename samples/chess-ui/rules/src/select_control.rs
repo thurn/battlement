@@ -2,10 +2,13 @@
 
 use trox::{ls, tx};
 
-use crate::{caret::Caret, check_mark::CheckMark, setting_row::SettingRow, use_interaction};
+use crate::{
+  caret::Caret, select_navigation, select_option::SelectOption, setting_row::SettingRow,
+  use_interaction,
+};
 use battlement::{
-  Align, Color, FlexDirection, Gradient, Justify, Length, LengthUnits, MotionProperty, PickingMode,
-  PopoverPlacement, Position, Scale, Style, TextAnchor, TransformOrigin, Translate, UiFontAddress,
+  Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, PopoverPlacement,
+  Position, Scale, Style, TextAnchor, TransformOrigin, Translate, UiFontAddress,
 };
 use battlement_reactant::{
   control_behavior, element_ref, geometry, hooks,
@@ -44,6 +47,11 @@ impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
     let (open, set_open) = hooks::use_state(false);
+    let (restore_focus, set_restore_focus) = hooks::use_state(false);
+    let (active_index, set_active_index) = hooks::use_state(select_navigation::selected_index(
+      &self.options,
+      &self.value,
+    ));
     let anchor = element_ref::use_element_ref();
     let measured_anchor = geometry::use_geometry(anchor.clone());
     let popover_scale = hooks::use_memo(
@@ -58,8 +66,11 @@ impl Component for SelectControl {
     let value_label = use_label();
     let (label, trigger) = label.bind_with({
       let set_open = set_open.clone();
+      let set_active_index = set_active_index.clone();
+      let set_restore_focus = set_restore_focus.clone();
       let value_label = value_label.clone();
       let interactive = self.overlay.is_some() && !self.options.is_empty();
+      let selected_index = select_navigation::selected_index(&self.options, &self.value);
       move |name| {
         let SemanticName::LabelledBy(references) = name else {
           panic!("control labels must resolve through labelled-by references");
@@ -73,7 +84,22 @@ impl Component for SelectControl {
           ),
           None,
           false,
-          set_open.update_callback(move |value| interactive && !value),
+          EventCallback::new({
+            let set_open = set_open.clone();
+            let set_active_index = set_active_index.clone();
+            let set_restore_focus = set_restore_focus.clone();
+            move |()| {
+              if interactive {
+                select_navigation::toggle(
+                  open,
+                  selected_index,
+                  set_open.clone(),
+                  set_active_index.clone(),
+                  set_restore_focus.clone(),
+                );
+              }
+            }
+          }),
         )
         .map_semantic(move |mut semantic| {
           semantic.state.popup = Some(PopupKind::ListBox);
@@ -82,6 +108,24 @@ impl Component for SelectControl {
         })
       }
     });
+    let trigger_reference = hooks::use_memo(
+      {
+        let trigger_reference = trigger.reference();
+        move || trigger_reference
+      },
+      (),
+    );
+    hooks::use_effect(
+      {
+        let trigger_reference = trigger_reference.clone();
+        move || {
+          if restore_focus {
+            trigger_reference.focus();
+          }
+        }
+      },
+      restore_focus,
+    );
     SettingRow::new()
       .label(self.label.render())
       .children(
@@ -114,7 +158,39 @@ impl Component for SelectControl {
                   .button(
                     ButtonHost::new(tx("", "Resolution selector interface label."))
                       .name("select-trigger")
-                      .associated_control(trigger),
+                      .associated_control(trigger)
+                      .on_key_down_event({
+                        let set_open = set_open.clone();
+                        let set_active_index = set_active_index.clone();
+                        let set_restore_focus = set_restore_focus.clone();
+                        let selected_index =
+                          select_navigation::selected_index(&self.options, &self.value);
+                        move |event| {
+                          select_navigation::trigger_key(
+                            event,
+                            selected_index,
+                            set_open.clone(),
+                            set_active_index.clone(),
+                            set_restore_focus.clone(),
+                          );
+                        }
+                      })
+                      .on_navigation_move_event({
+                        let set_open = set_open.clone();
+                        let set_active_index = set_active_index.clone();
+                        let set_restore_focus = set_restore_focus.clone();
+                        let selected_index =
+                          select_navigation::selected_index(&self.options, &self.value);
+                        move |event| {
+                          select_navigation::trigger_navigation(
+                            event,
+                            selected_index,
+                            set_open.clone(),
+                            set_active_index.clone(),
+                            set_restore_focus.clone(),
+                          );
+                        }
+                      }),
                   )
                   .style(
                     Style::new()
@@ -161,7 +237,13 @@ impl Component for SelectControl {
                   View::new()
                     .name("select-dismiss-layer")
                     .style(Style::new().width(100.pct()).height(100.pct()))
-                    .on_click(set_open.callback().map_input(|()| false)),
+                    .on_click({
+                      let set_open = set_open.clone();
+                      let set_restore_focus = set_restore_focus.clone();
+                      move || {
+                        select_navigation::dismiss(set_open.clone(), set_restore_focus.clone());
+                      }
+                    }),
                 ),
                 Overlay::popover(self.overlay.clone().unwrap(), anchor)
                   .host_name("select-popover")
@@ -187,18 +269,64 @@ impl Component for SelectControl {
                           Length::Px(0.0),
                         )),
                     )
-                    .configure_host(|host| host.paint(self::popover_paint()))
+                    .configure_host({
+                      let options = self.options.clone();
+                      let set_active_index = set_active_index.clone();
+                      let set_open = set_open.clone();
+                      let set_restore_focus = set_restore_focus.clone();
+                      move |host| {
+                        host
+                          .paint(self::popover_paint())
+                          .on_key_down_event({
+                            let options = options.clone();
+                            let set_active_index = set_active_index.clone();
+                            let set_open = set_open.clone();
+                            let set_restore_focus = set_restore_focus.clone();
+                            move |event| {
+                              select_navigation::list_key(
+                                event,
+                                active_index,
+                                &options,
+                                set_active_index.clone(),
+                                set_open.clone(),
+                                set_restore_focus.clone(),
+                              );
+                            }
+                          })
+                          .on_navigation_move_event({
+                            let set_active_index = set_active_index.clone();
+                            move |event| {
+                              select_navigation::list_navigation(
+                                event,
+                                active_index,
+                                options.len(),
+                                set_active_index.clone(),
+                              );
+                            }
+                          })
+                          .on_navigation_cancel({
+                            let set_open = set_open.clone();
+                            let set_restore_focus = set_restore_focus.clone();
+                            move || {
+                              select_navigation::dismiss(
+                                set_open.clone(),
+                                set_restore_focus.clone(),
+                              );
+                            }
+                          })
+                      }
+                    })
                     .child(
                       self
                         .options
                         .iter()
-                        .map(|option| {
-                          ListBoxOption::new(ls(option.clone()), option == &self.value)
-                            .host_name(format!("select-option-{}", option.to_ascii_lowercase()))
-                            .style(self::option_style())
-                            .hover_style(
-                              Style::new().background_color(Color::rgba8(11, 113, 207, 128)),
-                            )
+                        .enumerate()
+                        .map(|(index, option)| {
+                          SelectOption::new()
+                            .active(index == active_index)
+                            .index(index)
+                            .label(option.clone())
+                            .selected(option == &self.value)
                             .on_press(
                               self
                                 .on_change
@@ -207,24 +335,17 @@ impl Component for SelectControl {
                                   let option = option.clone();
                                   move |()| option.clone()
                                 })
-                                .then(set_open.callback().map_input(|()| false)),
-                            )
-                            .child(
-                              View::decorative()
-                                .name("select-option-mark")
-                                .picking_mode(PickingMode::Ignore)
-                                .style(
-                                  Style::new()
-                                    .position(Position::Absolute)
-                                    .right(20)
-                                    .top(16)
-                                    .width(48)
-                                    .height(44)
-                                    .flex_shrink(0.0),
-                                )
-                                .child(
-                                  (option == &self.value).then(|| CheckMark::new().scale(0.62)),
-                                ),
+                                .then(set_active_index.callback().map_input(move |()| index))
+                                .then(EventCallback::new({
+                                  let set_open = set_open.clone();
+                                  let set_restore_focus = set_restore_focus.clone();
+                                  move |()| {
+                                    select_navigation::dismiss(
+                                      set_open.clone(),
+                                      set_restore_focus.clone(),
+                                    );
+                                  }
+                                })),
                             )
                         })
                         .collect::<Vec<_>>(),
@@ -238,27 +359,6 @@ impl Component for SelectControl {
       .first(self.first)
       .row_height(self.row_height)
   }
-}
-
-fn option_style() -> Style {
-  Style::new()
-    .position(Position::Relative)
-    .width(100.pct())
-    .height(76)
-    .min_height(76)
-    .flex_direction(FlexDirection::Row)
-    .align_items(Align::Center)
-    .justify_content(Justify::SpaceBetween)
-    .padding_top(6)
-    .padding_bottom(6)
-    .padding_left(25)
-    .padding_right(20)
-    .border_width(0)
-    .background_color(Color::TRANSPARENT)
-    .color(Color::hex(0xd9e1f2))
-    .unity_font_definition(VALUE_FONT)
-    .font_size(47)
-    .unity_text_align(TextAnchor::MiddleLeft)
 }
 
 fn popover_paint() -> PaintStyle {

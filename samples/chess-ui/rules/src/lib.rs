@@ -88,6 +88,10 @@ pub mod select_control;
 
 mod select_harness;
 
+mod select_navigation;
+
+mod select_option;
+
 mod select_popover_harness;
 
 pub mod setting_row;
