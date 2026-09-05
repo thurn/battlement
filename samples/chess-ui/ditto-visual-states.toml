@@ -359,3 +359,47 @@ to = "volume_input.keyboard"
 [[transitions]]
 from = "volume_input.keyboard"
 to = "volume_input.reset"
+
+[[states]]
+key = "tabs_navigation.initial"
+screen = "tabs_navigation"
+
+[[states]]
+key = "tabs_navigation.traversed"
+screen = "tabs_navigation"
+
+[[states]]
+key = "tabs_navigation.wrapped_input"
+screen = "tabs_navigation"
+
+[[states]]
+key = "tabs_navigation.wrapped_gameplay"
+screen = "tabs_navigation"
+
+[[states]]
+key = "tabs_navigation.endpoints"
+screen = "tabs_navigation"
+
+[[states]]
+key = "tabs_navigation.reset"
+screen = "tabs_navigation"
+
+[[transitions]]
+from = "tabs_navigation.initial"
+to = "tabs_navigation.traversed"
+
+[[transitions]]
+from = "tabs_navigation.traversed"
+to = "tabs_navigation.wrapped_input"
+
+[[transitions]]
+from = "tabs_navigation.wrapped_input"
+to = "tabs_navigation.wrapped_gameplay"
+
+[[transitions]]
+from = "tabs_navigation.wrapped_gameplay"
+to = "tabs_navigation.endpoints"
+
+[[transitions]]
+from = "tabs_navigation.endpoints"
+to = "tabs_navigation.reset"

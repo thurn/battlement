@@ -2,7 +2,7 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{select_control, tabs_skin, use_interaction};
+use crate::{select_control, tabs_navigation, tabs_skin, use_interaction};
 use battlement::{
   Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
   TextShadow, WhiteSpace,
@@ -57,6 +57,7 @@ impl SettingsTab {
 
 impl Component for SettingsTabs {
   fn render(&self) -> impl Render {
+    let references = self::use_references();
     TabStrip::new()
       .label(tx("Settings categories", "Settings category list."))
       .selected_index(self.active_tab as u32)
@@ -81,6 +82,8 @@ impl Component for SettingsTabs {
         SettingsTabButton::new()
           .tab(tab)
           .active(tab == self.active_tab)
+          .on_select(self.on_select.clone())
+          .references(references.clone())
       }))
   }
 }
@@ -90,6 +93,10 @@ struct SettingsTabButton {
   #[builder(required)]
   tab: SettingsTab,
   active: bool,
+  #[builder(required)]
+  on_select: EventCallback<SettingsTab>,
+  #[builder(required)]
+  references: [ElementRef; 4],
 }
 
 impl Component for SettingsTabButton {
@@ -101,6 +108,17 @@ impl Component for SettingsTabButton {
       .host(
         interaction
           .button(ButtonHost::new(self.tab.label()))
+          .element_ref(self.references[self.tab as usize].clone())
+          .on_key_down_event_callback(tabs_navigation::key_callback(
+            self.tab,
+            self.references.clone(),
+            self.on_select.clone(),
+          ))
+          .on_navigation_move_event_callback(tabs_navigation::controller_callback(
+            self.tab,
+            self.references.clone(),
+            self.on_select.clone(),
+          ))
           .style(
             Style::new()
               .width(self.tab.width())
@@ -139,6 +157,15 @@ impl Component for SettingsTabButton {
           ),
       )
   }
+}
+
+fn use_references() -> [ElementRef; 4] {
+  [
+    use_element_ref(),
+    use_element_ref(),
+    use_element_ref(),
+    use_element_ref(),
+  ]
 }
 
 fn target(active: bool, state: use_interaction::InteractionState) -> MotionTarget {

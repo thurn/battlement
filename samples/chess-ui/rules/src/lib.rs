@@ -120,6 +120,8 @@ pub mod settings_tabs;
 
 mod tabs_harness;
 
+mod tabs_navigation;
+
 mod tabs_skin;
 
 mod header_artwork;

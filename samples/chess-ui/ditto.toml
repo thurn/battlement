@@ -1790,6 +1790,108 @@ accessibility_assert = { target = { role = "button", name = "Display Mode Border
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "settings tabs navigation"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 0" }, role = "static-text", name = "Tab selections: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.51, 0.33] }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+screenshot = { name = "traversed" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "down" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "up" }
+
+[[scenarios.steps]]
+key = { key = "LeftArrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+screenshot = { name = "wrapped-input" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+screenshot = { name = "wrapped-gameplay" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab", name = "Input", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+key = { key = "LeftArrow" }
+
+[[scenarios.steps]]
+key = { key = "LeftArrow" }
+
+[[scenarios.steps]]
+key = { key = "LeftArrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+screenshot = { name = "endpoints" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206817\u2069. \u2068SettingsTabs navigation\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true, disabled = false, parent = { role = "tab-list", name = "Settings categories" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Tab selections: 0" }, role = "static-text", name = "Tab selections: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }

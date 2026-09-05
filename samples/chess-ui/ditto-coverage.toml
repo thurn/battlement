@@ -473,3 +473,59 @@ to = "volume_input.keyboard"
 [[transitions]]
 from = "volume_input.keyboard"
 to = "volume_input.reset"
+
+[[mappings]]
+state = "tabs_navigation.initial"
+scenario = "settings tabs navigation"
+checkpoint = "initial"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[mappings]]
+state = "tabs_navigation.traversed"
+scenario = "settings tabs navigation"
+checkpoint = "traversed"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[mappings]]
+state = "tabs_navigation.wrapped_input"
+scenario = "settings tabs navigation"
+checkpoint = "wrapped-input"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[mappings]]
+state = "tabs_navigation.wrapped_gameplay"
+scenario = "settings tabs navigation"
+checkpoint = "wrapped-gameplay"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[mappings]]
+state = "tabs_navigation.endpoints"
+scenario = "settings tabs navigation"
+checkpoint = "endpoints"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[mappings]]
+state = "tabs_navigation.reset"
+scenario = "settings tabs navigation"
+checkpoint = "reset"
+owner = "gallery::tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops"
+
+[[transitions]]
+from = "tabs_navigation.initial"
+to = "tabs_navigation.traversed"
+
+[[transitions]]
+from = "tabs_navigation.traversed"
+to = "tabs_navigation.wrapped_input"
+
+[[transitions]]
+from = "tabs_navigation.wrapped_input"
+to = "tabs_navigation.wrapped_gameplay"
+
+[[transitions]]
+from = "tabs_navigation.wrapped_gameplay"
+to = "tabs_navigation.endpoints"
+
+[[transitions]]
+from = "tabs_navigation.endpoints"
+to = "tabs_navigation.reset"

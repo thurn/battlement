@@ -893,6 +893,70 @@ fn tabs_select_controlled_values_and_reset() {
   self::assert_page(&mut client, 8);
 }
 
+#[test]
+fn tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-17");
+  client.ui().click(page);
+  client.poll();
+  self::assert_tabs(&client, "Gameplay", 0);
+  let gameplay = self::tab(&client, "Gameplay");
+  let graphics = self::tab(&client, "Graphics");
+  let sound = self::tab(&client, "Sound");
+  let input = self::tab(&client, "Input");
+
+  self::key_down(&mut client, gameplay, PhysicalKey::ArrowLeft, "");
+  self::assert_tabs(&client, "Input", 1);
+  assert_eq!(client.ui().focused(), Some(input));
+  self::key_down(&mut client, input, PhysicalKey::ArrowRight, "");
+  self::assert_tabs(&client, "Gameplay", 2);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+  self::key_down(&mut client, gameplay, PhysicalKey::ArrowDown, "");
+  self::assert_tabs(&client, "Graphics", 3);
+  assert_eq!(client.ui().focused(), Some(graphics));
+  self::key_down(&mut client, graphics, PhysicalKey::ArrowUp, "");
+  self::assert_tabs(&client, "Gameplay", 4);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+  self::key_down(&mut client, gameplay, PhysicalKey::End, "");
+  self::assert_tabs(&client, "Input", 5);
+  assert_eq!(client.ui().focused(), Some(input));
+  self::key_down(&mut client, input, PhysicalKey::Home, "");
+  self::assert_tabs(&client, "Gameplay", 6);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+
+  self::navigation_move(&mut client, gameplay, NavigationDirection::Left);
+  self::assert_tabs(&client, "Input", 7);
+  assert_eq!(client.ui().focused(), Some(input));
+  self::navigation_move(&mut client, input, NavigationDirection::Right);
+  self::assert_tabs(&client, "Gameplay", 8);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+  self::navigation_move(&mut client, gameplay, NavigationDirection::Down);
+  self::assert_tabs(&client, "Graphics", 9);
+  assert_eq!(client.ui().focused(), Some(graphics));
+  self::navigation_move(&mut client, graphics, NavigationDirection::Up);
+  self::assert_tabs(&client, "Gameplay", 10);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+
+  self::key_down(&mut client, sound, PhysicalKey::Tab, "");
+  self::assert_tabs(&client, "Gameplay", 10);
+  assert_eq!(client.ui().focused(), Some(gameplay));
+
+  client.ui().click(page);
+  client.poll();
+  self::assert_tabs(&client, "Gameplay", 0);
+  assert!(!client.ui().contains(gameplay));
+  self::assert_page(&mut client, 16);
+}
+
+fn tab(client: &FakeClient<App>, name: &str) -> ObjectId {
+  self::snapshot(client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Tab && node.label.as_deref() == Some(name))
+    .unwrap()
+    .object_id
+}
+
 fn assert_tabs(client: &FakeClient<App>, selected: &str, count: usize) {
   let snapshot = self::snapshot(client);
   let list = snapshot

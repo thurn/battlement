@@ -543,6 +543,66 @@ source = "b642b4d80bc99210a3df5c189df809d70b4ffdf242a1f1384df34c2edee90aae"
 
 [[baselines]]
 profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "endpoints"
+sha256 = "3e7c64f9c72ec1f3d85cc64333094b0794eb64e9049564023a5983e56fe4ab70"
+width = 1280
+height = 800
+size_bytes = 140571
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "initial"
+sha256 = "70196dc3d17b80295ce5dd289ef6e7efbb5372d9d3bd4c08b39e4ce728d9f3a3"
+width = 1280
+height = 800
+size_bytes = 140530
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "reset"
+sha256 = "ca87e33c1e8c7e27fd3cd7bf11904b1b4d07b37b6a79e24cbb3ec40158d9dbb2"
+width = 1280
+height = 800
+size_bytes = 140130
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "traversed"
+sha256 = "721a0507e37dd9d640d0b430cc09b3399ff16b22831c87b61664708d835b615e"
+width = 1280
+height = 800
+size_bytes = 140010
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "wrapped-gameplay"
+sha256 = "13b14861a361f3f9e1b5589bf529aff83eaf81cc0d5a57a02bec586d37f184b5"
+width = 1280
+height = 800
+size_bytes = 140498
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings tabs navigation"
+checkpoint = "wrapped-input"
+sha256 = "37faf69f68aee4d77ec57412328a7312298ebd601e84da5a2f92ffa965e6a654"
+width = 1280
+height = 800
+size_bytes = 141182
+source = "549a2b5d801ce485a0f5182aeda35b3b1f17b9ddc511d783853211e1b3e62af9"
+
+[[baselines]]
+profile = "macos"
 scenario = "toggle accessibility"
 checkpoint = "changed"
 sha256 = "4409af536b45baa597175a1d803dad8c5eca2e1348eee16fcece318f272c7903"

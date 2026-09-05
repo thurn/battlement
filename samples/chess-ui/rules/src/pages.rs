@@ -128,7 +128,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("SettingsTabs navigation", "Chess UI showcase title."))
-                .description(tx("SettingsTabs preserves four Tab stops and adds arrow and controller selection through handlers and ref focus; panel animation remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("SettingsTabs preserves four Tab stops and adds arrow and controller selection through handlers and ref focus; panel animation remains unasserted.", "Chess UI showcase description."))
+                .child(TabsHarness::new()),
         )
         .page(
             ReviewPage::new()
