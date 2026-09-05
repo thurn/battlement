@@ -2,16 +2,18 @@
 
 use trox::{ls, tx};
 
-use crate::{caret::Caret, setting_row::SettingRow};
+use crate::{caret::Caret, setting_row::SettingRow, use_interaction};
 use battlement::{
-  Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
-  UiFontAddress,
+  Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, Position, Style,
+  TextAnchor, Translate, UiFontAddress,
 };
 use battlement_reactant::{
   control_behavior,
   host::ButtonHost,
+  motion::{Easing, MotionTarget, StyleTarget, Transition},
   paint::{PaintLayer, PaintStyle},
   prelude::*,
+  prelude::{PaintDropShadow, PaintFilterList},
 };
 
 /// Native TextCore face for selected control values.
@@ -37,6 +39,7 @@ pub struct SelectControl {
 
 impl Component for SelectControl {
   fn render(&self) -> impl Render {
+    let interaction = use_interaction::use_interaction();
     let label = use_control_label();
     let value_label = use_label();
     let (label, trigger) = label.bind_with(|name| {
@@ -87,9 +90,12 @@ impl Component for SelectControl {
                   .height(106),
               )
               .child(
-                ButtonHost::new(tx("", "Resolution selector interface label."))
-                  .name("select-trigger")
-                  .associated_control(trigger)
+                interaction
+                  .button(
+                    ButtonHost::new(tx("", "Resolution selector interface label."))
+                      .name("select-trigger")
+                      .associated_control(trigger),
+                  )
                   .style(
                     Style::new()
                       .position(Position::Relative)
@@ -110,7 +116,9 @@ impl Component for SelectControl {
                       .unity_text_align(TextAnchor::MiddleLeft),
                   )
                   .paint(
-                    PaintStyle::fill(Color::hex(0x5df5ff))
+                    PaintStyle::new()
+                      .background(self::border(false))
+                      .paint_filter(self::filter(false))
                       .clip_polygon(self::clip(10.0))
                       .layer(
                         PaintLayer::new(Color::hex(0x020611))
@@ -118,6 +126,8 @@ impl Component for SelectControl {
                           .clip_polygon(self::clip(7.0)),
                       ),
                   )
+                  .initial(false)
+                  .animate(self::target(interaction.state))
                   .child((
                     control_behavior::name_source_text(ls(self.value.clone()))
                       .name("select-value")
@@ -131,6 +141,60 @@ impl Component for SelectControl {
       .first(self.first)
       .row_height(self.row_height)
   }
+}
+
+fn border(highlighted: bool) -> Gradient {
+  if highlighted {
+    Gradient::linear(16.0)
+      .stop(0.0, Color::hex(0xb5ffff))
+      .stop(0.48, Color::hex(0xd3ddff))
+      .stop(1.0, Color::hex(0xff75dc))
+  } else {
+    Gradient::linear(16.0)
+      .stop(0.0, Color::hex(0x5df5ff))
+      .stop(0.48, Color::hex(0xa5cbff))
+      .stop(1.0, Color::hex(0xff4bc9))
+  }
+}
+
+fn filter(highlighted: bool) -> PaintFilterList {
+  PaintFilterList::default()
+    .brightness(if highlighted { 1.12 } else { 1.0 })
+    .drop_shadow(PaintDropShadow::new(
+      0.0,
+      0.0,
+      if highlighted { 13.0 } else { 6.0 },
+      0.0,
+      if highlighted {
+        Color::hex(0x53e2ff).with_alpha(0.78)
+      } else {
+        Color::hex(0x2a67ff).with_alpha(0.38)
+      },
+    ))
+}
+
+fn target(state: use_interaction::InteractionState) -> MotionTarget {
+  MotionTarget::new(
+    StyleTarget::new()
+      .background_gradient(self::border(state.hovered))
+      .paint_filter(self::filter(state.hovered))
+      .scale(if state.pressed && !state.reduced_motion {
+        0.965
+      } else {
+        1.0
+      }),
+  )
+  .transition(
+    Transition::tween()
+      .duration_secs(0.14)
+      .ease(Easing::Ease)
+      .property(
+        MotionProperty::Scale,
+        Transition::tween()
+          .duration_secs(0.09)
+          .ease(Easing::CubicBezier([0.2, 0.8, 0.2, 1.0])),
+      ),
+  )
 }
 
 fn clip(cut: f32) -> Vec<[Length; 2]> {

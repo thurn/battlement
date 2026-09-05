@@ -159,3 +159,23 @@ screen = "header"
 [[states]]
 key = "header.reset"
 screen = "header"
+
+[[states]]
+key = "interaction.initial"
+screen = "interaction"
+
+[[states]]
+key = "interaction.changed"
+screen = "interaction"
+
+[[states]]
+key = "interaction.reset"
+screen = "interaction"
+
+[[transitions]]
+from = "interaction.initial"
+to = "interaction.changed"
+
+[[transitions]]
+from = "interaction.changed"
+to = "interaction.reset"

@@ -2,11 +2,18 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{check_mark::CheckMark, setting_row::SettingRow};
+use crate::{check_mark::CheckMark, setting_row::SettingRow, use_interaction};
 use battlement::{
-  Align, Color, Justify, Length, PickingMode, Position, Style, TextAnchor, Translate,
+  Align, Color, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Shadow, Style,
+  TextAnchor, Translate,
 };
-use battlement_reactant::{control_behavior, host::ToggleHost, prelude::*};
+use battlement_reactant::{
+  control_behavior,
+  host::ToggleHost,
+  motion::{Easing, MotionTarget, StyleTarget, Transition},
+  paint::{PaintLayer, PaintStyle},
+  prelude::{PaintFilterList, *},
+};
 
 /// A controlled checkbox with an associated, clickable settings label.
 #[builder]
@@ -34,6 +41,7 @@ pub struct ToggleControl {
 
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
+    let interaction = use_interaction::use_interaction();
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
       control_behavior::checkbox(
         self
@@ -81,20 +89,18 @@ impl Component for ToggleControl {
                 View::new()
                   .name("toggle-control-surface")
                   .picking_mode(PickingMode::Ignore)
-                  .style(
-                    Style::new()
-                      .width(77)
-                      .height(77)
-                      .border_width(4)
-                      .border_radius(11)
-                      .border_color(Color::rgb8(75, 163, 255))
-                      .background_color(Color::rgb8(2, 9, 26)),
-                  )
+                  .style(Style::new().width(77).height(77).border_radius(11))
+                  .paint(self::surface_paint())
+                  .initial(false)
+                  .animate(self::surface_target(interaction.state))
                   .child(self.checked.then_some(CheckMark::new())),
-                ToggleHost::new()
-                  .value(self.checked)
-                  .name("toggle-control-input")
-                  .associated_control(checkbox)
+                interaction
+                  .toggle(
+                    ToggleHost::new()
+                      .value(self.checked)
+                      .name("toggle-control-input")
+                      .associated_control(checkbox),
+                  )
                   .on_change_value(self.on_change.clone())
                   .input_style(Style::new().opacity(0.0))
                   .style(
@@ -116,6 +122,101 @@ impl Component for ToggleControl {
           .row_height(self.row_height),
       )
   }
+}
+
+fn surface_paint() -> PaintStyle {
+  PaintStyle::new()
+    .background(self::flat_gradient(Color::rgb8(75, 163, 255)))
+    .box_shadow(self::shadows(false))
+    .clip_polygon(self::rounded_box())
+    .layer(
+      PaintLayer::new(
+        Gradient::linear(90.0)
+          .stop(0.0, Color::hex(0x06142b))
+          .stop(1.0, Color::hex(0x02091a)),
+      )
+      .bounds_inset(4.0)
+      .clip_polygon(self::rounded_box()),
+    )
+}
+
+fn surface_target(state: use_interaction::InteractionState) -> MotionTarget {
+  MotionTarget::new(
+    StyleTarget::new()
+      .background_gradient(self::flat_gradient(if state.hovered {
+        Color::hex(0x91faff)
+      } else {
+        Color::hex(0x4ba3ff)
+      }))
+      .box_shadow(self::shadows(state.hovered))
+      .paint_filter(PaintFilterList::default().brightness(if state.pressed { 0.76 } else { 1.0 }))
+      .scale(if state.pressed && !state.reduced_motion {
+        0.88
+      } else if state.hovered {
+        1.045
+      } else {
+        1.0
+      }),
+  )
+  .transition(
+    Transition::tween()
+      .duration_secs(0.14)
+      .ease(Easing::Ease)
+      .property(
+        MotionProperty::Scale,
+        Transition::tween()
+          .duration_secs(0.09)
+          .ease(Easing::CubicBezier([0.2, 0.8, 0.2, 1.0])),
+      )
+      .property(
+        MotionProperty::PaintFilter,
+        Transition::tween().duration_secs(0.09).ease(Easing::Ease),
+      ),
+  )
+}
+
+fn flat_gradient(color: Color) -> Gradient {
+  Gradient::linear(0.0).stop(0.0, color).stop(1.0, color)
+}
+
+fn shadows(hovered: bool) -> Vec<Shadow> {
+  if hovered {
+    vec![
+      self::shadow(12.0, Color::BLACK, true),
+      self::shadow(15.0, Color::hex(0x2acfff), false),
+      self::shadow(8.0, Color::hex(0xb8ffff), false),
+    ]
+  } else {
+    vec![
+      self::shadow(14.0, Color::BLACK, true),
+      self::shadow(10.0, Color::hex(0x166cff), false),
+      self::shadow(5.0, Color::hex(0x6af6ff), false),
+    ]
+  }
+}
+
+fn shadow(blur: f32, color: Color, inset: bool) -> Shadow {
+  Shadow {
+    x: 0.0,
+    y: 0.0,
+    blur,
+    spread: 0.0,
+    color,
+    inset,
+  }
+}
+
+fn rounded_box() -> Vec<[Length; 2]> {
+  vec![
+    [Length::px(11.0), Length::px(0.0)],
+    [Length::calc(-11.0, 100.0), Length::px(0.0)],
+    [Length::percent(100.0), Length::px(11.0)],
+    [Length::percent(100.0), Length::calc(-11.0, 100.0)],
+    [Length::calc(-11.0, 100.0), Length::percent(100.0)],
+    [Length::px(11.0), Length::percent(100.0)],
+    [Length::px(0.0), Length::calc(-11.0, 100.0)],
+    [Length::px(0.0), Length::px(11.0)],
+  ]
 }
 
 #[builder]

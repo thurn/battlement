@@ -1,16 +1,18 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
-use crate::action_skin;
+use crate::{action_skin, use_interaction};
 use battlement::{
-  Align, Color, FlexDirection, Length, LengthUnits, Position, Style, TextAnchor, Translate,
-  UiFontAddress, WhiteSpace,
+  Align, Color, FlexDirection, Length, LengthUnits, MotionProperty, Position, Style, TextAnchor,
+  Translate, UiFontAddress, WhiteSpace,
 };
 use battlement_reactant::prelude::{Children, EventCallback, builder};
 use battlement_reactant::{
   component::Component,
   components::Button,
   host::View,
+  motion::{Easing, MotionTarget, StyleTarget, Transition},
   paint::{PaintLayer, PaintStyle},
+  prelude::{PaintDropShadow, PaintFilterList},
   render::Render,
   semantics::SemanticName,
 };
@@ -56,6 +58,7 @@ impl ActionButton {
 
 impl Component for ActionButton {
   fn render(&self) -> impl Render {
+    let interaction = use_interaction::use_interaction();
     View::new()
       .style(
         Style::new()
@@ -74,6 +77,7 @@ impl Component for ActionButton {
         .host_name("action-button")
         .disabled(self.disabled)
         .on_press(self.on_press.clone())
+        .configure_host(|host| interaction.button(host))
         .style(
           Style::new()
             .position(Position::Relative)
@@ -92,13 +96,59 @@ impl Component for ActionButton {
         .paint(
           PaintStyle::new()
             .background(action_skin::border())
+            .paint_filter(self::filter(1.0, 10.0, 0.65))
             .clip_polygon(action_skin::clip(18.0, 17.0))
             .layer(
               PaintLayer::new(action_skin::INTERIOR)
                 .bounds_inset(6.0)
                 .clip_polygon(action_skin::clip(14.0, 13.0)),
             ),
-        ),
+        )
+        .initial(false)
+        .animate(self::target(interaction.state)),
       )
   }
+}
+
+fn filter(brightness: f32, blur: f32, alpha: f64) -> PaintFilterList {
+  PaintFilterList::default()
+    .brightness(brightness)
+    .drop_shadow(PaintDropShadow::new(
+      0.0,
+      0.0,
+      blur,
+      0.0,
+      Color::hex(0x3a9aff).with_alpha(alpha),
+    ))
+}
+
+fn target(state: use_interaction::InteractionState) -> MotionTarget {
+  let filter = if state.pressed {
+    self::filter(0.82, 8.0, 0.65)
+  } else if state.hovered {
+    self::filter(1.12, 16.0, 0.88)
+  } else {
+    self::filter(1.0, 10.0, 0.65)
+  };
+  MotionTarget::new(
+    StyleTarget::new()
+      .background_gradient(action_skin::border_gradient(state.hovered))
+      .paint_filter(filter)
+      .scale(if state.pressed && !state.reduced_motion {
+        0.955
+      } else {
+        1.0
+      }),
+  )
+  .transition(
+    Transition::tween()
+      .duration_secs(0.14)
+      .ease(Easing::Ease)
+      .property(
+        MotionProperty::Scale,
+        Transition::tween()
+          .duration_secs(0.09)
+          .ease(Easing::CubicBezier([0.2, 0.8, 0.2, 1.0])),
+      ),
+  )
 }

@@ -2,12 +2,16 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{select_control, tabs_skin};
+use crate::{select_control, tabs_skin, use_interaction};
 use battlement::{
-  Align, Color, FlexDirection, Length, Overflow, PickingMode, Position, Style, TextAnchor,
-  TextShadow, Translate, WhiteSpace,
+  Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
+  TextShadow, WhiteSpace,
 };
-use battlement_reactant::{host::ButtonHost, prelude::*};
+use battlement_reactant::{
+  host::ButtonHost,
+  motion::{Easing, MotionTarget, StyleTarget, Transition},
+  prelude::*,
+};
 
 /// The settings categories in their display order.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -90,11 +94,13 @@ struct SettingsTabButton {
 
 impl Component for SettingsTabButton {
   fn render(&self) -> impl Render {
+    let interaction = use_interaction::use_interaction();
     TabButton::new()
       .label(self.tab.label())
       .index(self.tab as u32)
       .host(
-        ButtonHost::new(self.tab.label())
+        interaction
+          .button(ButtonHost::new(self.tab.label()))
           .style(
             Style::new()
               .width(self.tab.width())
@@ -107,10 +113,6 @@ impl Component for SettingsTabButton {
               .background_color(Color::TRANSPARENT)
               .center_content()
               .overflow(Overflow::Visible)
-              .translate(Translate::two_dimensional(
-                Length::px(0.0),
-                Length::px(if self.active { 0.0 } else { 3.0 }),
-              ))
               .unity_font_definition(select_control::VALUE_FONT)
               .font_size(if self.active { 55 } else { 51 })
               .letter_spacing(1)
@@ -120,6 +122,8 @@ impl Component for SettingsTabButton {
               .text_shadow(TextShadow::new(0.0, 5.0, 7.0, Color::BLACK)),
           )
           .paint(tabs_skin::paint(self.active))
+          .initial(false)
+          .animate(self::target(self.active, interaction.state))
           .child(
             TextElement::new(self.tab.label())
               .picking_mode(PickingMode::Ignore)
@@ -135,4 +139,38 @@ impl Component for SettingsTabButton {
           ),
       )
   }
+}
+
+fn target(active: bool, state: use_interaction::InteractionState) -> MotionTarget {
+  MotionTarget::new(
+    StyleTarget::new()
+      .y(if active {
+        0.0
+      } else if state.hovered {
+        -1.0
+      } else {
+        3.0
+      })
+      .scale(if state.pressed && !state.reduced_motion {
+        0.955
+      } else {
+        1.0
+      })
+      .background_gradient(tabs_skin::gradient(active, state.hovered))
+      .paint_filter(tabs_skin::filter(active, state.hovered)),
+  )
+  .transition(
+    Transition::spring()
+      .stiffness(520.0)
+      .damping(32.0)
+      .mass(0.7)
+      .property(
+        MotionProperty::BackgroundGradient,
+        Transition::tween().duration_secs(0.14).ease(Easing::Ease),
+      )
+      .property(
+        MotionProperty::PaintFilter,
+        Transition::tween().duration_secs(0.14).ease(Easing::Ease),
+      ),
+  )
 }

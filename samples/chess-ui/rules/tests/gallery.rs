@@ -1,7 +1,9 @@
 use battlement::{
   AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, GameObjectKind,
-  KeyModifiers, ObjectId, PanelPoint, PointerButton, PopupKind, SemanticRole,
-  UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
+  KeyModifiers, MotionLayer, MotionProperty, MotionValue, ObjectId, PanelPoint,
+  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PopupKind, Prop,
+  SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
+  UiVisualElementProperties, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
@@ -15,6 +17,69 @@ use battlement_rules::{
 use trox::ls;
 
 struct ToggleInfoFixture;
+
+#[test]
+fn interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-11");
+  client.ui().click(page);
+  client.poll();
+  let semantic_checkbox = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Checkbox && node.label.as_deref() == Some("VSync"))
+    .unwrap()
+    .object_id;
+  let checkbox = self::named(&mut client, "toggle-control-input");
+  assert_eq!(checkbox, semantic_checkbox);
+  let surface = self::named(&mut client, "toggle-control-surface");
+  self::assert_scale(&mut client, surface, 1.0);
+
+  self::pointer_boundary(&mut client, checkbox, true);
+  client.poll();
+  self::assert_scale(&mut client, surface, 1.045);
+  self::pointer_button(&mut client, checkbox, true);
+  client.poll();
+  self::assert_scale(&mut client, surface, 0.88);
+
+  self::pointer_boundary(&mut client, checkbox, false);
+  client.poll();
+  self::assert_scale(&mut client, surface, 1.0);
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == checkbox)
+      .unwrap()
+      .state
+      .checked,
+    Some(CheckedState::False)
+  );
+
+  self::pointer_boundary(&mut client, checkbox, true);
+  self::pointer_button(&mut client, checkbox, true);
+  client.poll();
+  self::pointer_button(&mut client, checkbox, false);
+  client.poll();
+  self::assert_scale(&mut client, surface, 1.045);
+  client.ui().toggle_click(checkbox);
+  client.poll();
+  assert_eq!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == checkbox)
+      .unwrap()
+      .state
+      .checked,
+    Some(CheckedState::True)
+  );
+
+  client.ui().click(page);
+  client.poll();
+  let reset = self::named(&mut client, "toggle-control-surface");
+  self::assert_scale(&mut client, reset, 1.0);
+}
 
 impl Component for ToggleInfoFixture {
   fn render(&self) -> impl Render {
@@ -651,6 +716,78 @@ fn click_label(client: &mut FakeClient<App>, label: ObjectId) {
     ),
   ));
   client.poll();
+}
+
+fn pointer_boundary(client: &mut FakeClient<App>, target: ObjectId, enter: bool) {
+  let body = PointerBoundaryEvent {
+    pointer_id: 0,
+    position: PanelPoint::default(),
+    pointer_type: PointerType::Mouse,
+  };
+  client.ui().send_event(UiEvent::new(
+    target,
+    false,
+    false,
+    if enter {
+      UiEventBody::PointerEnter(body)
+    } else {
+      UiEventBody::PointerLeave(body)
+    },
+  ));
+}
+
+fn pointer_button(client: &mut FakeClient<App>, target: ObjectId, down: bool) {
+  let body = PointerButtonEvent {
+    pointer_id: 0,
+    position: PanelPoint::default(),
+    delta: Vector::default(),
+    button: PointerButton::Left,
+    buttons: u32::from(down),
+    pressure: f32::from(down),
+    click_count: 1,
+    modifiers: KeyModifiers::default(),
+    pointer_type: PointerType::Mouse,
+  };
+  client.ui().send_event(UiEvent::new(
+    target,
+    true,
+    false,
+    if down {
+      UiEventBody::PointerDown(body)
+    } else {
+      UiEventBody::PointerUp(body)
+    },
+  ));
+}
+
+fn assert_scale(client: &mut FakeClient<App>, target: ObjectId, expected: f32) {
+  let motion = match &client
+    .ui()
+    .element(target)
+    .element()
+    .visual_element()
+    .motion
+  {
+    Prop::Set(value) => value.clone(),
+    _ => panic!("interaction surface has no motion descriptor"),
+  };
+  let value = motion
+    .slots
+    .iter()
+    .find(|slot| slot.layer == MotionLayer::Animate)
+    .unwrap()
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::Scale)
+    .unwrap()
+    .values
+    .last()
+    .unwrap();
+  assert!(
+    matches!(value, MotionValue::Vector2([x, y]) if (*x - expected).abs() < f32::EPSILON && (*y - expected).abs() < f32::EPSILON),
+    "expected scale {expected}, found {value:?}"
+  );
 }
 
 fn named(client: &mut FakeClient<App>, name: &str) -> ObjectId {

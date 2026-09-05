@@ -27,11 +27,22 @@ pub fn clip(x: f32, y: f32) -> Vec<[Length; 2]> {
 
 /// Returns the bright metallic border paint.
 pub fn border() -> PaintFill {
-  PaintFill::Gradient(
-    Gradient::linear(110.0)
+  PaintFill::Gradient(border_gradient(false))
+}
+
+/// Returns the resting or pointer-highlighted metallic border gradient.
+pub fn border_gradient(highlighted: bool) -> Gradient {
+  if highlighted {
+    Gradient::linear(20.0)
+      .stop(0.0, Color::hex(0xffffff))
+      .stop(0.22, Color::hex(0x70d7ff))
+      .stop(0.56, Color::hex(0xc0b6ff))
+      .stop(0.9, Color::hex(0xff73da))
+  } else {
+    Gradient::linear(20.0)
       .stop(0.0, Color::hex(0xb9fbff))
       .stop(0.22, Color::hex(0x3bb9ff))
       .stop(0.56, Color::hex(0xa49cff))
-      .stop(0.9, Color::hex(0xff4bd1)),
-  )
+      .stop(0.9, Color::hex(0xff4bd1))
+  }
 }

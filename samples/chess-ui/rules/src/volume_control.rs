@@ -4,6 +4,7 @@ use trox::{LocalizedString, tx_args, txa};
 
 use crate::{
   setting_row::{self, SettingRow},
+  use_interaction,
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
 };
 use battlement::{
@@ -33,6 +34,7 @@ pub struct VolumeControl {
 
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
+    let interaction = use_interaction::use_interaction();
     let (label, slider) = use_control_label().bind_with(|name| {
       control_behavior::slider(
         name,
@@ -78,15 +80,22 @@ impl Component for VolumeControl {
                   .flex_shrink(0),
               )
               .child((
-                VolumeTrack::new().value(self.value),
+                VolumeTrack::new()
+                  .value(self.value)
+                  .interaction(interaction.state),
                 VolumeTicks::new(),
-                VolumeThumb::new().value(self.value),
-                SliderHost::new()
-                  .low_value(0.0)
-                  .high_value(100.0)
-                  .value(self.value as f32)
-                  .name("volume-input")
-                  .associated_control(slider)
+                VolumeThumb::new()
+                  .value(self.value)
+                  .interaction(interaction.state),
+                interaction
+                  .slider(
+                    SliderHost::new()
+                      .low_value(0.0)
+                      .high_value(100.0)
+                      .value(self.value as f32)
+                      .name("volume-input")
+                      .associated_control(slider),
+                  )
                   .on_change_value(self.on_change.clone().map_input(|value: f32| value as u32))
                   .style(
                     Style::new()

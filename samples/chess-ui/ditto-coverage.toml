@@ -217,3 +217,29 @@ state = "header.reset"
 scenario = "screen header"
 checkpoint = "reset"
 owner = "gallery::header_variants_expose_one_native_heading_and_reset"
+
+[[mappings]]
+state = "interaction.initial"
+scenario = "use interaction"
+checkpoint = "initial"
+owner = "gallery::interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation"
+
+[[mappings]]
+state = "interaction.changed"
+scenario = "use interaction"
+checkpoint = "changed"
+owner = "gallery::interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation"
+
+[[mappings]]
+state = "interaction.reset"
+scenario = "use interaction"
+checkpoint = "reset"
+owner = "gallery::interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation"
+
+[[transitions]]
+from = "interaction.initial"
+to = "interaction.changed"
+
+[[transitions]]
+from = "interaction.changed"
+to = "interaction.reset"

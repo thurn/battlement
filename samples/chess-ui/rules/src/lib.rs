@@ -94,6 +94,8 @@ pub mod toggle_control;
 
 mod toggle_harness;
 
+pub mod use_interaction;
+
 pub mod volume_control;
 
 mod volume_harness;
@@ -109,5 +111,7 @@ mod tabs_skin;
 mod header_artwork;
 
 mod header_harness;
+
+mod interaction_harness;
 
 pub mod screen_header;

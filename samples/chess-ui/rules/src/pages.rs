@@ -8,6 +8,7 @@ use crate::{
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
+  interaction_harness::InteractionHarness,
   portrait_harness::PortraitHarness,
   review_page::ReviewPage,
   select_harness::SelectHarness,
@@ -87,7 +88,8 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("useInteraction", "Chess UI showcase title."))
-                .description(tx("useInteraction drives hover, press, release, and cancellation visuals; focus modality and particles remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("useInteraction drives hover, press, release, and cancellation visuals; focus modality and particles remain unasserted.", "Chess UI showcase description."))
+                .child(InteractionHarness::new()),
         )
         .page(
             ReviewPage::new()
