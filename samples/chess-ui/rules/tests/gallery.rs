@@ -948,6 +948,113 @@ fn tabs_navigation_wraps_selects_and_focuses_without_roving_tab_stops() {
   self::assert_page(&mut client, 16);
 }
 
+#[test]
+fn arcade_modal_isolates_focus_dismisses_every_route_and_restores_state() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-18");
+  client.ui().click(page);
+  client.poll();
+  let opener = self::named(&mut client, "erase-modal-opener");
+  self::assert_modal_closed(&client, 0);
+
+  client.ui().click(opener);
+  client.poll();
+  let dialog = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Dialog)
+    .unwrap();
+  assert_eq!(dialog.label.as_deref(), Some("Erase Saved Data?"));
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| node.label.as_deref()
+        == Some("All saved data will be permanently erased. This cannot be undone."))
+  );
+  let cancel = self::named(&mut client, "arcade-modal-action");
+  let erase = self::named(&mut client, "arcade-modal-danger");
+  for (target, label) in [(cancel, "Cancel"), (erase, "Erase")] {
+    let node = self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == target)
+      .unwrap();
+    assert_eq!(node.role, SemanticRole::Button);
+    assert_eq!(node.label.as_deref(), Some(label));
+  }
+
+  self::key_down(&mut client, cancel, PhysicalKey::Escape, "");
+  self::assert_modal_closed(&client, 0);
+  client.ui().click(opener);
+  client.poll();
+  let panel = self::named(&mut client, "arcade-modal-panel");
+  self::pointer_button(&mut client, panel, true);
+  client.poll();
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| node.role == SemanticRole::Dialog)
+  );
+  let cancel = self::named(&mut client, "arcade-modal-action");
+  client.ui().click(cancel);
+  client.poll();
+  self::assert_modal_closed(&client, 0);
+
+  client.ui().click(opener);
+  client.poll();
+  let erase = self::named(&mut client, "arcade-modal-danger");
+  client.ui().click(erase);
+  client.poll();
+  self::assert_modal_closed(&client, 1);
+
+  client.ui().click(opener);
+  client.poll();
+  let backdrop = self::named(&mut client, "arcade-modal-backdrop");
+  self::pointer_button(&mut client, backdrop, true);
+  client.poll();
+  self::assert_modal_closed(&client, 1);
+
+  client.ui().click(opener);
+  client.poll();
+  let dialog = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Dialog)
+    .unwrap()
+    .object_id;
+  self::range_action(&mut client, dialog, UiAccessibilityAction::Dismiss);
+  self::assert_modal_closed(&client, 1);
+
+  client.ui().click(page);
+  client.poll();
+  self::assert_modal_closed(&client, 0);
+  assert!(!client.ui().contains(opener));
+  self::assert_page(&mut client, 17);
+}
+
+fn assert_modal_closed(client: &FakeClient<App>, confirmations: usize) {
+  let snapshot = self::snapshot(client);
+  assert!(
+    snapshot
+      .nodes
+      .iter()
+      .all(|node| node.role != SemanticRole::Dialog)
+  );
+  for label in [
+    "Dialog: Closed".to_owned(),
+    format!("Erase confirmations: {confirmations}"),
+  ] {
+    assert!(
+      snapshot
+        .nodes
+        .iter()
+        .any(|node| node.label.as_deref() == Some(label.as_str()))
+    );
+  }
+}
+
 fn tab(client: &FakeClient<App>, name: &str) -> ObjectId {
   self::snapshot(client)
     .nodes

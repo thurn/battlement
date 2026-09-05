@@ -403,3 +403,55 @@ to = "tabs_navigation.endpoints"
 [[transitions]]
 from = "tabs_navigation.endpoints"
 to = "tabs_navigation.reset"
+
+[[states]]
+key = "arcade_modal.closed"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.open"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.traversed"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.escaped"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.confirmed"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.backdrop"
+screen = "arcade_modal"
+
+[[states]]
+key = "arcade_modal.reset"
+screen = "arcade_modal"
+
+[[transitions]]
+from = "arcade_modal.closed"
+to = "arcade_modal.open"
+
+[[transitions]]
+from = "arcade_modal.open"
+to = "arcade_modal.traversed"
+
+[[transitions]]
+from = "arcade_modal.traversed"
+to = "arcade_modal.escaped"
+
+[[transitions]]
+from = "arcade_modal.escaped"
+to = "arcade_modal.confirmed"
+
+[[transitions]]
+from = "arcade_modal.confirmed"
+to = "arcade_modal.backdrop"
+
+[[transitions]]
+from = "arcade_modal.backdrop"
+to = "arcade_modal.reset"

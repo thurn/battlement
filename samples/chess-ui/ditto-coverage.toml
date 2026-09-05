@@ -529,3 +529,69 @@ to = "tabs_navigation.endpoints"
 [[transitions]]
 from = "tabs_navigation.endpoints"
 to = "tabs_navigation.reset"
+
+[[mappings]]
+state = "arcade_modal.closed"
+scenario = "arcade modal behavior"
+checkpoint = "closed"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.open"
+scenario = "arcade modal behavior"
+checkpoint = "open"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.traversed"
+scenario = "arcade modal behavior"
+checkpoint = "traversed"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.escaped"
+scenario = "arcade modal behavior"
+checkpoint = "escaped"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.confirmed"
+scenario = "arcade modal behavior"
+checkpoint = "confirmed"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.backdrop"
+scenario = "arcade modal behavior"
+checkpoint = "backdrop"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[mappings]]
+state = "arcade_modal.reset"
+scenario = "arcade modal behavior"
+checkpoint = "reset"
+owner = "gallery::arcade_modal_isolates_focus_dismisses_every_route_and_restores_state"
+
+[[transitions]]
+from = "arcade_modal.closed"
+to = "arcade_modal.open"
+
+[[transitions]]
+from = "arcade_modal.open"
+to = "arcade_modal.traversed"
+
+[[transitions]]
+from = "arcade_modal.traversed"
+to = "arcade_modal.escaped"
+
+[[transitions]]
+from = "arcade_modal.escaped"
+to = "arcade_modal.confirmed"
+
+[[transitions]]
+from = "arcade_modal.confirmed"
+to = "arcade_modal.backdrop"
+
+[[transitions]]
+from = "arcade_modal.backdrop"
+to = "arcade_modal.reset"

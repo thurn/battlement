@@ -193,6 +193,76 @@ source = "ba0e4d5a3b9856252b5bbae8366f31a92af9922d356e0f1c15a29e6174974e97"
 
 [[baselines]]
 profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "backdrop"
+sha256 = "f4432f20ce5dc07aa12b7cbdf62a254d726c77ab2ba7badd1787a458bf5a768d"
+width = 1280
+height = 800
+size_bytes = 124230
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "closed"
+sha256 = "50631e1cc4c7010f898715bda5a9a9c9c43e3d621ae129a3bca14d926aac346c"
+width = 1280
+height = 800
+size_bytes = 124361
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "confirmed"
+sha256 = "f4432f20ce5dc07aa12b7cbdf62a254d726c77ab2ba7badd1787a458bf5a768d"
+width = 1280
+height = 800
+size_bytes = 124230
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "escaped"
+sha256 = "50631e1cc4c7010f898715bda5a9a9c9c43e3d621ae129a3bca14d926aac346c"
+width = 1280
+height = 800
+size_bytes = 124361
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "open"
+sha256 = "04284881be83423256cce42753c8589fa0cf64be2219a6c247b2b64ae8b3e1d2"
+width = 1280
+height = 800
+size_bytes = 214103
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "reset"
+sha256 = "50631e1cc4c7010f898715bda5a9a9c9c43e3d621ae129a3bca14d926aac346c"
+width = 1280
+height = 800
+size_bytes = 124361
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade modal behavior"
+checkpoint = "traversed"
+sha256 = "04284881be83423256cce42753c8589fa0cf64be2219a6c247b2b64ae8b3e1d2"
+width = 1280
+height = 800
+size_bytes = 214103
+source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+
+[[baselines]]
+profile = "macos"
 scenario = "focus visible"
 checkpoint = "initial"
 sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"

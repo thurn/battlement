@@ -6,6 +6,7 @@ use trox::tx;
 
 use crate::{
   action_harness::ActionHarness,
+  arcade_modal_harness::ArcadeModalHarness,
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
@@ -117,7 +118,7 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
             ReviewPage::new()
                 .title(tx("SelectControl keyboard and controller behavior", "Chess UI showcase title."))
                 .description(tx("SelectControl supports arrows, Home, End, typeahead, Escape, restoration, and listbox semantics through handlers and queued ref focus; animation remains unasserted.", "Chess UI showcase description."))
-                .child(SelectPopoverHarness::new().overlay(overlay)),
+                .child(SelectPopoverHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()
@@ -134,7 +135,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeModal behavior", "Chess UI showcase title."))
-                .description(tx("ArcadeModal traps focus, dismisses safely, restores its opener, and exposes dialog semantics on its modal wrapper; animation remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeModal traps focus, dismisses safely, restores its opener, and exposes dialog semantics on its modal wrapper; animation remains unasserted.", "Chess UI showcase description."))
+                .child(ArcadeModalHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

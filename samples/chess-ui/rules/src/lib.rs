@@ -42,6 +42,10 @@ mod action_harness;
 
 mod action_skin;
 
+pub mod arcade_modal;
+
+mod arcade_modal_harness;
+
 mod assets;
 
 pub mod caret;
