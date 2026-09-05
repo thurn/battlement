@@ -1,6 +1,9 @@
 use trox::ls;
 
-use crate::{action_button::ActionButton, return_button::ReturnButton};
+use crate::{
+  action_button::{ActionButton, ActionLabel},
+  return_button::ReturnButton,
+};
 use battlement::{Color, FlexDirection, Position, Style};
 use battlement_reactant::prelude::builder;
 use battlement_reactant::{
@@ -40,6 +43,7 @@ impl Component for ActionHarness {
           .child((
             self::slot(
               ActionButton::new()
+                .artwork(ActionLabel::Play)
                 .children(self::text("PLAY"))
                 .on_press(set_clicks.update_callback(|count| count + 1)),
             ),
@@ -53,7 +57,11 @@ impl Component for ActionHarness {
                 )
                 .on_press(set_clicks.update_callback(|count| count + 1)),
             ),
-            self::slot(ActionButton::new().children(self::text("ABOUT"))),
+            self::slot(
+              ActionButton::new()
+                .artwork(ActionLabel::About)
+                .children(self::text("ABOUT")),
+            ),
             self::slot(
               ActionButton::new()
                 .children(self::text("DISABLED"))

@@ -809,3 +809,79 @@ to = "font_scale.input_scrolled_200"
 [[transitions]]
 from = "font_scale.input_scrolled_200"
 to = "font_scale.reset"
+
+[[mappings]]
+state = "rendering_audit.actions"
+scenario = "rendering and asset audit"
+checkpoint = "actions"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.tabs"
+scenario = "rendering and asset audit"
+checkpoint = "tabs"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.checkboxes"
+scenario = "rendering and asset audit"
+checkpoint = "checkboxes"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.sliders"
+scenario = "rendering and asset audit"
+checkpoint = "sliders"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.headings"
+scenario = "rendering and asset audit"
+checkpoint = "headings"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.frame"
+scenario = "rendering and asset audit"
+checkpoint = "frame"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.panel"
+scenario = "rendering and asset audit"
+checkpoint = "panel"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[mappings]]
+state = "rendering_audit.reset"
+scenario = "rendering and asset audit"
+checkpoint = "reset"
+owner = "rendering_audit::audit_uses_only_retained_assets_and_exposes_every_runtime_treatment"
+
+[[transitions]]
+from = "rendering_audit.actions"
+to = "rendering_audit.tabs"
+
+[[transitions]]
+from = "rendering_audit.tabs"
+to = "rendering_audit.checkboxes"
+
+[[transitions]]
+from = "rendering_audit.checkboxes"
+to = "rendering_audit.sliders"
+
+[[transitions]]
+from = "rendering_audit.sliders"
+to = "rendering_audit.headings"
+
+[[transitions]]
+from = "rendering_audit.headings"
+to = "rendering_audit.frame"
+
+[[transitions]]
+from = "rendering_audit.frame"
+to = "rendering_audit.panel"
+
+[[transitions]]
+from = "rendering_audit.panel"
+to = "rendering_audit.reset"

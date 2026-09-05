@@ -1,7 +1,7 @@
 use trox::{ls, tx, tx_args, txa};
 
 use crate::{
-  action_button::ActionButton,
+  action_button::{ActionButton, ActionLabel},
   return_button::ReturnButton,
   select_control::SelectControl,
   settings_tabs::{SettingsTab, SettingsTabs},
@@ -156,6 +156,7 @@ fn specimen(
         .style(Style::new().width(760).height(140))
         .child((
           ActionButton::new()
+            .artwork(ActionLabel::Play)
             .children(control_behavior::name_source_text(tx(
               "PLAY",
               "Interaction specimen action label.",

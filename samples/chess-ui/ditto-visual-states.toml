@@ -623,3 +623,63 @@ to = "font_scale.input_scrolled_200"
 [[transitions]]
 from = "font_scale.input_scrolled_200"
 to = "font_scale.reset"
+
+[[states]]
+key = "rendering_audit.actions"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.tabs"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.checkboxes"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.sliders"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.headings"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.frame"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.panel"
+screen = "rendering_audit"
+
+[[states]]
+key = "rendering_audit.reset"
+screen = "rendering_audit"
+
+[[transitions]]
+from = "rendering_audit.actions"
+to = "rendering_audit.tabs"
+
+[[transitions]]
+from = "rendering_audit.tabs"
+to = "rendering_audit.checkboxes"
+
+[[transitions]]
+from = "rendering_audit.checkboxes"
+to = "rendering_audit.sliders"
+
+[[transitions]]
+from = "rendering_audit.sliders"
+to = "rendering_audit.headings"
+
+[[transitions]]
+from = "rendering_audit.headings"
+to = "rendering_audit.frame"
+
+[[transitions]]
+from = "rendering_audit.frame"
+to = "rendering_audit.panel"
+
+[[transitions]]
+from = "rendering_audit.panel"
+to = "rendering_audit.reset"

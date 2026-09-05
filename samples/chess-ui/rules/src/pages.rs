@@ -15,6 +15,7 @@ use crate::{
   interaction_harness::InteractionHarness,
   portrait_harness::PortraitHarness,
   privacy_harness::PrivacyHarness,
+  rendering_audit::RenderingAudit,
   review_page::ReviewPage,
   select_harness::SelectHarness,
   select_popover_harness::SelectPopoverHarness,
@@ -167,8 +168,9 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         )
         .page(
             ReviewPage::new()
-                .title(tx("Generated control skin", "Chess UI showcase title."))
-                .description(tx("Generated assets skin controls and labels; interaction behavior, dynamic effects, and screen composition are not asserted.", "Chess UI showcase description.")),
+                .title(tx("Rendering and asset audit", "Chess UI showcase title."))
+                .description(tx("Rendering choices preserve source appearance; generated catalog coverage, scaling, and measured rendering costs are verified across controls.", "Chess UI showcase description."))
+                .child(RenderingAudit::new()),
         )
         .page(
             ReviewPage::new()

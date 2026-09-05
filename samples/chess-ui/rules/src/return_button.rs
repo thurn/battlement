@@ -2,7 +2,10 @@
 
 use trox::tx;
 
-use crate::{action_button::ActionButton, action_skin};
+use crate::{
+  action_button::{ActionButton, ActionLabel},
+  action_skin,
+};
 use battlement::{Position, Style};
 use battlement_reactant::prelude::{EventCallback, builder};
 use battlement_reactant::{
@@ -47,6 +50,7 @@ impl Component for ReturnButton {
               .clip_polygon(action_skin::clip(18.0, 17.0)),
           ),
         ActionButton::new()
+          .artwork(ActionLabel::Return)
           .children(control_behavior::name_source_text(tx(
             "RETURN",
             "Return button section heading.",

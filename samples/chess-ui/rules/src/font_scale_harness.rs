@@ -8,7 +8,7 @@ use battlement_reactant::{control_behavior, hooks, portal::PortalTarget, prelude
 use trox::{ls, tx};
 
 use crate::{
-  action_button::ActionButton,
+  action_button::{ActionButton, ActionLabel},
   arcade_modal::ArcadeModal,
   font_scale::{self, FontScale},
   input_settings::InputSettings,
@@ -186,6 +186,7 @@ impl Component for ControlsSpecimen {
             .style(Style::new().width(620).height(126).margin((34, 0, 34, 18)))
             .child(
               ActionButton::new()
+                .artwork(ActionLabel::Play)
                 .children(control_behavior::name_source_text(tx(
                   "PLAY",
                   "Scaled action label.",
@@ -224,6 +225,7 @@ impl Component for NavigationSpecimen {
           )
           .child(
             ActionButton::new()
+              .artwork(ActionLabel::Settings)
               .children(control_behavior::name_source_text(tx(
                 "SETTINGS",
                 "Scaled navigation label.",
