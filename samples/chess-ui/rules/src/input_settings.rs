@@ -1,66 +1,284 @@
-//! Scrollable input binding table used by the settings screens.
+//! Scrollable input bindings with conflict-safe keyboard capture.
 
 use battlement::{
-  AccessibilityScrollAxis, AccessibilityScrollDirection, Align, Color, GridTrack,
-  ScrollerVisibility, Sticky, Style, TextAnchor, Vector,
+  AccessibilityScrollAxis, AccessibilityScrollDirection, Align, AnimationDirection,
+  AnimationIterations, Color, FlexDirection, GridTrack, KeyEvent, PhysicalKey, ScrollerVisibility,
+  Sticky, Style, TextAnchor, Vector, WhiteSpace,
 };
-use battlement_reactant::{component::Component, hooks, prelude::*};
-use trox::ls;
+use battlement_reactant::{
+  announcement::{Announce, use_announce},
+  component::Component,
+  event::ReactantEvent,
+  hooks,
+  host::TextField,
+  portal::PortalTarget,
+  prelude::*,
+  semantics::{SemanticName, SemanticProps},
+};
+use trox::{ls, tx};
 
-use crate::setting_row::DISPLAY_FONT;
+use crate::{arcade_modal::ArcadeModal, setting_row::DISPLAY_FONT};
 
 const INPUT_WIDTH: f32 = 839.0;
 const HEADER_HEIGHT: f32 = 100.0;
 const ROW_HEIGHT: f32 = 159.0;
 const SCROLL_OFFSET: f32 = 470.0;
 
-const DEFAULT_BINDINGS: [(&str, &str, &str); 7] = [
-  ("Left", "Left arrow", "D-pad left"),
-  ("Right", "Right arrow", "D-pad right"),
-  ("Up", "Up arrow", "D-pad up"),
-  ("Down", "Down arrow", "D-pad down"),
-  ("Move Piece", "Space", "A"),
-  ("Pause", "Esc", "menu"),
-  ("Restart", "R", "Y"),
+const ACTIONS: [&str; 7] = [
+  "Left",
+  "Right",
+  "Up",
+  "Down",
+  "Move Piece",
+  "Pause",
+  "Restart",
+];
+const DEFAULT_KEYBOARD: [PhysicalKey; 7] = [
+  PhysicalKey::ArrowLeft,
+  PhysicalKey::ArrowRight,
+  PhysicalKey::ArrowUp,
+  PhysicalKey::ArrowDown,
+  PhysicalKey::Space,
+  PhysicalKey::Escape,
+  PhysicalKey::KeyR,
+];
+const CONTROLLER: [&str; 7] = [
+  "D-pad left",
+  "D-pad right",
+  "D-pad up",
+  "D-pad down",
+  "A",
+  "menu",
+  "Y",
 ];
 
-/// Displays the default keyboard and controller bindings in a sticky-header table.
+/// Displays keyboard and controller bindings in a sticky-header table.
 #[builder]
-pub struct InputSettings;
+pub struct InputSettings {
+  overlay: Option<PortalTarget>,
+}
 
 impl Component for InputSettings {
   fn render(&self) -> impl Render {
     let (scrolled, set_scrolled) = hooks::use_state(false);
-    ScrollArea::new(
-      Some(ls("Input bindings")),
-      AccessibilityScrollAxis::Vertical,
-      !scrolled,
-      scrolled,
-    )
-    .on_scroll(move |direction| {
-      set_scrolled.set(direction == AccessibilityScrollDirection::Forward)
-    })
-    .host_name("input-bindings-scroll")
-    .configure_host(|host| {
-      host
-        .scroll_offset(Vector::new(0.0, if scrolled { SCROLL_OFFSET } else { 0.0 }))
-        .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
-        .vertical_scroller_visibility(ScrollerVisibility::Auto)
-        .content_container_style(Style::new().align_items(Align::Center))
-    })
-    .style(
-      Style::new()
-        .width(INPUT_WIDTH)
-        .height(720)
-        .margin_top(48)
-        .background_color(Color::rgb8(4, 17, 38)),
-    )
-    .child(
-      Table::new(ls("Input bindings"))
-        .style(Style::new().width(INPUT_WIDTH))
-        .child((self::header(), DEFAULT_BINDINGS.map(self::binding_row))),
+    let (bindings, set_bindings) = hooks::use_state(DEFAULT_KEYBOARD);
+    let (capture, set_capture) = hooks::use_state(None::<usize>);
+    let (status, set_status) = hooks::use_state(None::<String>);
+    let capture_focus = use_element_ref();
+    let announce = use_announce();
+
+    (
+      ScrollArea::new(
+        Some(ls("Input bindings")),
+        AccessibilityScrollAxis::Vertical,
+        !scrolled,
+        scrolled,
+      )
+      .on_scroll(move |direction| {
+        set_scrolled.set(direction == AccessibilityScrollDirection::Forward)
+      })
+      .host_name("input-bindings-scroll")
+      .configure_host(|host| {
+        host
+          .scroll_offset(Vector::new(0.0, if scrolled { SCROLL_OFFSET } else { 0.0 }))
+          .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
+          .vertical_scroller_visibility(ScrollerVisibility::Auto)
+          .content_container_style(Style::new().align_items(Align::Center))
+      })
+      .style(
+        Style::new()
+          .width(INPUT_WIDTH)
+          .height(720)
+          .margin_top(48)
+          .background_color(Color::rgb8(4, 17, 38)),
+      )
+      .child(
+        Table::new(ls("Input bindings"))
+          .style(Style::new().width(INPUT_WIDTH))
+          .child((
+            self::header(),
+            std::array::from_fn::<_, 7, _>(|index| {
+              self::binding_row(
+                index,
+                bindings[index],
+                self.overlay.is_some(),
+                set_capture.clone(),
+                set_status.clone(),
+              )
+            }),
+          )),
+      ),
+      capture.and_then(|index| {
+        self.overlay.clone().map(|overlay| {
+          self::capture_modal(
+            index,
+            bindings,
+            set_bindings.clone(),
+            set_capture.clone(),
+            set_status.clone(),
+            status.clone(),
+            announce,
+            overlay,
+            capture_focus.clone(),
+          )
+        })
+      }),
     )
   }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn capture_modal(
+  index: usize,
+  bindings: [PhysicalKey; 7],
+  set_bindings: hooks::StateSetter<[PhysicalKey; 7]>,
+  set_capture: hooks::StateSetter<Option<usize>>,
+  set_status: hooks::StateSetter<Option<String>>,
+  status: Option<String>,
+  announce: Announce,
+  overlay: PortalTarget,
+  capture_focus: ElementRef,
+) -> impl Render {
+  let action = ACTIONS[index];
+  let close_capture = set_capture.callback().map_input(|_| None);
+  let reset_bindings = set_bindings.clone();
+  let reset_status = set_status.clone();
+  let capture_key = EventCallback::new({
+    let set_bindings = set_bindings.clone();
+    let set_capture = set_capture.clone();
+    let set_status = set_status.clone();
+    move |event: ReactantEvent<KeyEvent>| {
+      let Some(key) = self::captured_key(event.payload()) else {
+        return;
+      };
+      if self::is_bare_modifier(key) {
+        return;
+      }
+      event.prevent_default();
+      event.stop_propagation();
+      self::apply_key(
+        key,
+        index,
+        bindings,
+        &set_bindings,
+        &set_capture,
+        &set_status,
+        announce,
+      );
+    }
+  });
+  ArcadeModal::new()
+    .open(true)
+    .title(tx("Change Shortcut", "Keyboard shortcut dialog title."))
+    .children(
+      View::new()
+        .style(
+          Style::new()
+            .width(650)
+            .flex_direction(FlexDirection::Column)
+            .align_items(Align::Center),
+        )
+        .child((
+          Text::new(ls(format!("Press a key for {action}"))).style(self::capture_prompt_style()),
+          TextField::new()
+            .value("●")
+            .select_all_on_focus(false)
+            .select_all_on_mouse_up(false)
+            .cursor_index(0)
+            .select_index(0)
+            .name("shortcut-waiting-marker")
+            .element_ref(capture_focus.clone())
+            .focusable(true)
+            .tab_index(0)
+            .on_key_down_event_callback(capture_key.clone())
+            .on_change_value({
+              let set_bindings = set_bindings.clone();
+              let set_capture = set_capture.clone();
+              let set_status = set_status.clone();
+              move |value: String| {
+                if let Some(key) = self::text_key(&value) {
+                  self::apply_key(
+                    key,
+                    index,
+                    bindings,
+                    &set_bindings,
+                    &set_capture,
+                    &set_status,
+                    announce,
+                  );
+                }
+              }
+            })
+            .on_navigation_cancel({
+              let set_bindings = set_bindings.clone();
+              let set_capture = set_capture.clone();
+              let set_status = set_status.clone();
+              move || {
+                self::apply_key(
+                  PhysicalKey::Escape,
+                  index,
+                  bindings,
+                  &set_bindings,
+                  &set_capture,
+                  &set_status,
+                  announce,
+                );
+              }
+            })
+            .semantic(
+              SemanticProps::new(SemanticRole::StaticText).name(SemanticName::Text(tx(
+                "Waiting for keyboard input",
+                "Keyboard shortcut capture status.",
+              ))),
+            )
+            .style(self::waiting_marker_style())
+            .input_style(
+              Style::new()
+                .padding(0)
+                .border_width(0)
+                .background_color(Color::TRANSPARENT),
+            )
+            .text_element_style(Style::new().padding(0).background_color(Color::TRANSPARENT))
+            .animation(
+              Animation::new(Keyframes::new([
+                StyleTarget::new().opacity(1.0),
+                StyleTarget::new().opacity(0.22),
+              ]))
+              .duration_secs(0.72)
+              .iterations(AnimationIterations::Forever)
+              .direction(AnimationDirection::Alternate)
+              .animation_key("shortcut-waiting-blink"),
+            ),
+          status.map(|message| {
+            Text::new(ls(message))
+              .host_name("shortcut-status")
+              .style(self::status_style())
+          }),
+        )),
+    )
+    .confirm_label(tx("Reset", "Reset keyboard shortcut action."))
+    .cancel_label(tx("Cancel", "Cancel keyboard shortcut capture."))
+    .close_on_escape(false)
+    .reduce_motion(false)
+    .initial_focus(capture_focus)
+    .on_confirm(EventCallback::new({
+      let set_capture = set_capture.clone();
+      move |()| {
+        reset_bindings.update(move |mut current| {
+          current[index] = DEFAULT_KEYBOARD[index];
+          current
+        });
+        reset_status.set(None);
+        set_capture.set(None);
+        announce.send(ls(format!("{action} reset to default")));
+      }
+    }))
+    .on_close(
+      close_capture
+        .clone()
+        .then(set_status.callback().map_input(|_| None)),
+    )
+    .overlay(overlay)
 }
 
 fn header() -> TableRow {
@@ -92,7 +310,14 @@ fn header() -> TableRow {
     )
 }
 
-fn binding_row((action, keyboard, controller): (&str, &str, &str)) -> TableRow {
+fn binding_row(
+  index: usize,
+  keyboard: PhysicalKey,
+  interactive: bool,
+  set_capture: hooks::StateSetter<Option<usize>>,
+  set_status: hooks::StateSetter<Option<String>>,
+) -> TableRow {
+  let action = ACTIONS[index];
   TableRow::new()
     .host_name(format!(
       "input-binding-{}",
@@ -116,10 +341,142 @@ fn binding_row((action, keyboard, controller): (&str, &str, &str)) -> TableRow {
         .style(Style::new().full_size())
         .child((
           RowHeader::new(ls(action)).style(self::action_style()),
-          TableCell::new(ls(keyboard)).style(self::binding_style()),
-          TableCell::new(ls(controller)).style(self::binding_style()),
+          self::keyboard_cell(index, keyboard, interactive, set_capture, set_status),
+          TableCell::new(ls(CONTROLLER[index])).style(self::binding_style()),
         )),
     )
+}
+
+fn keyboard_cell(
+  index: usize,
+  keyboard: PhysicalKey,
+  interactive: bool,
+  set_capture: hooks::StateSetter<Option<usize>>,
+  set_status: hooks::StateSetter<Option<String>>,
+) -> TableCell {
+  let name = ls(self::key_name(keyboard));
+  TableCell::new(name)
+    .host_name(format!("keyboard-binding-{index}"))
+    .style(self::binding_style())
+    .configure_host(move |host| {
+      let host = host
+        .focusable(interactive)
+        .tab_index(if interactive { 0 } else { -1 });
+      if interactive {
+        host.on_click(move || {
+          set_status.set(None);
+          set_capture.set(Some(index));
+        })
+      } else {
+        host
+      }
+    })
+}
+
+fn is_bare_modifier(key: PhysicalKey) -> bool {
+  matches!(
+    key,
+    PhysicalKey::ShiftLeft
+      | PhysicalKey::ShiftRight
+      | PhysicalKey::ControlLeft
+      | PhysicalKey::ControlRight
+      | PhysicalKey::AltLeft
+      | PhysicalKey::AltRight
+      | PhysicalKey::MetaLeft
+      | PhysicalKey::MetaRight
+  )
+}
+
+fn captured_key(event: &KeyEvent) -> Option<PhysicalKey> {
+  event.physical_key.or_else(|| self::text_key(&event.text))
+}
+
+fn text_key(text: &str) -> Option<PhysicalKey> {
+  match text
+    .chars()
+    .next_back()
+    .map(|character| character.to_ascii_uppercase())
+  {
+    Some('A') => Some(PhysicalKey::KeyA),
+    Some('B') => Some(PhysicalKey::KeyB),
+    Some('C') => Some(PhysicalKey::KeyC),
+    Some('D') => Some(PhysicalKey::KeyD),
+    Some('E') => Some(PhysicalKey::KeyE),
+    Some('F') => Some(PhysicalKey::KeyF),
+    Some('G') => Some(PhysicalKey::KeyG),
+    Some('H') => Some(PhysicalKey::KeyH),
+    Some('I') => Some(PhysicalKey::KeyI),
+    Some('J') => Some(PhysicalKey::KeyJ),
+    Some('K') => Some(PhysicalKey::KeyK),
+    Some('L') => Some(PhysicalKey::KeyL),
+    Some('M') => Some(PhysicalKey::KeyM),
+    Some('N') => Some(PhysicalKey::KeyN),
+    Some('O') => Some(PhysicalKey::KeyO),
+    Some('P') => Some(PhysicalKey::KeyP),
+    Some('Q') => Some(PhysicalKey::KeyQ),
+    Some('R') => Some(PhysicalKey::KeyR),
+    Some('S') => Some(PhysicalKey::KeyS),
+    Some('T') => Some(PhysicalKey::KeyT),
+    Some('U') => Some(PhysicalKey::KeyU),
+    Some('V') => Some(PhysicalKey::KeyV),
+    Some('W') => Some(PhysicalKey::KeyW),
+    Some('X') => Some(PhysicalKey::KeyX),
+    Some('Y') => Some(PhysicalKey::KeyY),
+    Some('Z') => Some(PhysicalKey::KeyZ),
+    _ => None,
+  }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_key(
+  key: PhysicalKey,
+  index: usize,
+  bindings: [PhysicalKey; 7],
+  set_bindings: &hooks::StateSetter<[PhysicalKey; 7]>,
+  set_capture: &hooks::StateSetter<Option<usize>>,
+  set_status: &hooks::StateSetter<Option<String>>,
+  announce: Announce,
+) {
+  if let Some(conflict) = bindings
+    .iter()
+    .enumerate()
+    .find_map(|(other, binding)| (*binding == key && other != index).then_some(other))
+  {
+    let message = format!("Already used by {}", ACTIONS[conflict]);
+    set_status.set(Some(message.clone()));
+    announce.send(ls(message));
+    return;
+  }
+  set_bindings.update(move |mut current| {
+    current[index] = key;
+    current
+  });
+  set_status.set(None);
+  set_capture.set(None);
+  announce.send(ls(format!(
+    "{} assigned to {}",
+    ACTIONS[index],
+    self::key_name(key)
+  )));
+}
+
+fn key_name(key: PhysicalKey) -> String {
+  match key {
+    PhysicalKey::Escape => "Esc".to_owned(),
+    PhysicalKey::Space => "Space".to_owned(),
+    PhysicalKey::ArrowLeft => "Left arrow".to_owned(),
+    PhysicalKey::ArrowRight => "Right arrow".to_owned(),
+    PhysicalKey::ArrowUp => "Up arrow".to_owned(),
+    PhysicalKey::ArrowDown => "Down arrow".to_owned(),
+    _ => {
+      let name = format!("{key:?}");
+      name
+        .strip_prefix("Key")
+        .or_else(|| name.strip_prefix("Digit"))
+        .unwrap_or(&name)
+        .to_owned()
+    }
+  }
 }
 
 fn heading_style() -> Style {
@@ -147,5 +504,38 @@ fn binding_style() -> Style {
     .unity_font_definition(DISPLAY_FONT)
     .font_size(45)
     .letter_spacing(1.0)
+    .unity_text_align(TextAnchor::MiddleCenter)
+}
+
+fn capture_prompt_style() -> Style {
+  Style::new()
+    .color(Color::rgb8(246, 246, 250))
+    .unity_font_definition(DISPLAY_FONT)
+    .font_size(46)
+    .white_space(WhiteSpace::Normal)
+    .unity_text_align(TextAnchor::MiddleCenter)
+}
+
+fn waiting_marker_style() -> Style {
+  Style::new()
+    .width(100)
+    .height(82)
+    .margin_top(18)
+    .padding(0)
+    .border_width(0)
+    .background_color(Color::TRANSPARENT)
+    .color(Color::hex(0x5cecff))
+    .unity_font_definition(DISPLAY_FONT)
+    .font_size(62)
+    .unity_text_align(TextAnchor::MiddleCenter)
+}
+
+fn status_style() -> Style {
+  Style::new()
+    .margin_top(12)
+    .color(Color::hex(0xff5ca8))
+    .unity_font_definition(DISPLAY_FONT)
+    .font_size(36)
+    .white_space(WhiteSpace::Normal)
     .unity_text_align(TextAnchor::MiddleCenter)
 }

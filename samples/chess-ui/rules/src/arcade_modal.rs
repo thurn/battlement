@@ -17,7 +17,7 @@ use battlement_reactant::{
   overlay::Overlay,
   paint::{PaintLayer, PaintStyle},
   portal::PortalTarget,
-  prelude::{Children, EventCallback, PaintDropShadow, PaintFilterList, builder},
+  prelude::{Children, Either, EventCallback, PaintDropShadow, PaintFilterList, builder},
   render::Render,
   semantics::SemanticName,
 };
@@ -43,6 +43,7 @@ pub struct ArcadeModal {
   on_confirm: EventCallback<()>,
   #[builder(required)]
   on_close: EventCallback<()>,
+  initial_focus: Option<ElementRef>,
   #[builder(required)]
   overlay: PortalTarget,
 }
@@ -64,6 +65,8 @@ struct OpenArcadeModal {
   #[builder(required)]
   on_close: EventCallback<()>,
   #[builder(required)]
+  initial_focus: Option<ElementRef>,
+  #[builder(required)]
   overlay: PortalTarget,
 }
 
@@ -79,6 +82,7 @@ struct ModalButton {
   on_press: EventCallback<()>,
   #[builder(required)]
   on_close: EventCallback<()>,
+  close_on_escape: bool,
 }
 
 impl Component for ArcadeModal {
@@ -95,6 +99,7 @@ impl Component for ArcadeModal {
         .reduce_motion(self.reduce_motion)
         .on_confirm(self.on_confirm.clone())
         .on_close(self.on_close.clone())
+        .initial_focus(self.initial_focus.clone())
         .overlay(self.overlay.clone())
     })
   }
@@ -112,11 +117,13 @@ impl OpenArcadeModal {
   fn overlay(&self, cancel: ElementRef, confirm: ElementRef) -> Overlay {
     let overlay = Overlay::modal(self.overlay.clone(), SemanticName::Text(self.dialog_name()))
       .host_name("arcade-modal")
-      .initial_focus(if self.cancel_label.is_some() {
-        cancel
-      } else {
-        confirm
-      });
+      .initial_focus(self.initial_focus.clone().unwrap_or_else(|| {
+        if self.cancel_label.is_some() {
+          cancel
+        } else {
+          confirm
+        }
+      }));
     if self.close_on_escape {
       overlay.on_dismiss(self.on_close.clone())
     } else {
@@ -166,6 +173,7 @@ impl Component for OpenArcadeModal {
                     .reference(cancel)
                     .on_press(self.on_close.clone())
                     .on_close(self.on_close.clone())
+                    .close_on_escape(self.close_on_escape)
                 }))
                 .child(
                   ModalButton::new()
@@ -174,7 +182,8 @@ impl Component for OpenArcadeModal {
                     .danger(self.danger)
                     .reference(confirm)
                     .on_press(self.on_confirm.clone())
-                    .on_close(self.on_close.clone()),
+                    .on_close(self.on_close.clone())
+                    .close_on_escape(self.close_on_escape),
                 ),
             ),
         ),
@@ -196,26 +205,47 @@ impl Component for ModalButton {
       },
       self.autofocus,
     );
-    Button::content(
-      TextElement::new(self.label.clone())
-        .picking_mode(PickingMode::Ignore)
-        .style(self::button_label_style(self.danger)),
-    )
-    .semantic_name(SemanticName::Text(self.label.clone()))
-    .host_name(if self.danger {
-      "arcade-modal-danger"
-    } else {
-      "arcade-modal-action"
-    })
-    .element_ref(self.reference.clone())
-    .on_press(self.on_press.clone())
-    .configure_host(|host| {
-      host
-        .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
-        .on_navigation_cancel(self.on_close.clone())
-    })
-    .style(self::button_style())
-    .paint(self::button_paint(self.danger))
+    match self.close_on_escape {
+      true => Either::left(
+        Button::content(
+          TextElement::new(self.label.clone())
+            .picking_mode(PickingMode::Ignore)
+            .style(self::button_label_style(self.danger)),
+        )
+        .semantic_name(SemanticName::Text(self.label.clone()))
+        .host_name(if self.danger {
+          "arcade-modal-danger"
+        } else {
+          "arcade-modal-action"
+        })
+        .element_ref(self.reference.clone())
+        .on_press(self.on_press.clone())
+        .configure_host(|host| {
+          host
+            .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
+            .on_navigation_cancel(self.on_close.clone())
+        })
+        .style(self::button_style())
+        .paint(self::button_paint(self.danger)),
+      ),
+      false => Either::right(
+        Button::content(
+          TextElement::new(self.label.clone())
+            .picking_mode(PickingMode::Ignore)
+            .style(self::button_label_style(self.danger)),
+        )
+        .semantic_name(SemanticName::Text(self.label.clone()))
+        .host_name(if self.danger {
+          "arcade-modal-danger"
+        } else {
+          "arcade-modal-action"
+        })
+        .element_ref(self.reference.clone())
+        .on_press(self.on_press.clone())
+        .style(self::button_style())
+        .paint(self::button_paint(self.danger)),
+      ),
+    }
   }
 }
 

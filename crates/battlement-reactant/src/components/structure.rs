@@ -229,6 +229,12 @@ impl<K> SemanticText<K> {
     self.host = self.host.style(style);
     self
   }
+
+  /// Applies advanced native Label customization.
+  pub fn configure_host(mut self, configure: impl FnOnce(Label) -> Label) -> Self {
+    self.host = configure(self.host);
+    self
+  }
 }
 
 impl<K> Component for SemanticText<K>

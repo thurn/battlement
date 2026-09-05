@@ -1451,16 +1451,16 @@ accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = 
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-key = { key = "Tab" }
+click = { target = [0.51, 0.50] }
 
 [[scenarios.steps]]
-key = { key = "Tab" }
+click = { target = [0.51, 0.50] }
 
 [[scenarios.steps]]
-key = { key = "Tab" }
+click = { target = [0.51, 0.50] }
 
 [[scenarios.steps]]
-key = { key = "Tab" }
+click = { target = [0.51, 0.50] }
 
 [[scenarios.steps]]
 key = { key = "Tab" }
@@ -2055,6 +2055,63 @@ accessibility_action = { target = { role = "button", name = "\u206820\u2069. \u2
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "column-header", name = "Action" }, role = "column-header", name = "Action" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "keyboard rebinding"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.64, 0.50] }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Change Shortcut" }, role = "dialog", name = "Change Shortcut" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Press a key for Move Piece" }, role = "static-text", name = "Press a key for Move Piece" }
+
+[[scenarios.steps]]
+screenshot = { name = "open", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cancel" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cell", name = "Space" }
+
+[[scenarios.steps]]
+screenshot = { name = "cancelled" }
+
+[[scenarios.steps]]
+click = { target = [0.64, 0.50] }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reset" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cell", name = "Space" }
+
+[[scenarios.steps]]
+screenshot = { name = "binding-reset" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cell", name = "Space" }
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }

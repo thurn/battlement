@@ -511,3 +511,39 @@ to = "input_settings.scrolled"
 [[transitions]]
 from = "input_settings.scrolled"
 to = "input_settings.reset"
+
+[[states]]
+key = "keyboard_rebinding.initial"
+screen = "keyboard_rebinding"
+
+[[states]]
+key = "keyboard_rebinding.open"
+screen = "keyboard_rebinding"
+
+[[states]]
+key = "keyboard_rebinding.cancelled"
+screen = "keyboard_rebinding"
+
+[[states]]
+key = "keyboard_rebinding.binding_reset"
+screen = "keyboard_rebinding"
+
+[[states]]
+key = "keyboard_rebinding.reset"
+screen = "keyboard_rebinding"
+
+[[transitions]]
+from = "keyboard_rebinding.initial"
+to = "keyboard_rebinding.open"
+
+[[transitions]]
+from = "keyboard_rebinding.open"
+to = "keyboard_rebinding.cancelled"
+
+[[transitions]]
+from = "keyboard_rebinding.cancelled"
+to = "keyboard_rebinding.binding_reset"
+
+[[transitions]]
+from = "keyboard_rebinding.binding_reset"
+to = "keyboard_rebinding.reset"

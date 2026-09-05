@@ -403,6 +403,56 @@ source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
 
 [[baselines]]
 profile = "macos"
+scenario = "keyboard rebinding"
+checkpoint = "binding-reset"
+sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+width = 1280
+height = 800
+size_bytes = 125883
+source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+
+[[baselines]]
+profile = "macos"
+scenario = "keyboard rebinding"
+checkpoint = "cancelled"
+sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+width = 1280
+height = 800
+size_bytes = 125883
+source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+
+[[baselines]]
+profile = "macos"
+scenario = "keyboard rebinding"
+checkpoint = "initial"
+sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+width = 1280
+height = 800
+size_bytes = 125883
+source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+
+[[baselines]]
+profile = "macos"
+scenario = "keyboard rebinding"
+checkpoint = "open"
+sha256 = "7d8efbd695d6c4cd0f9508f6390fe74c949b5f9a5fe48e08b0351c2659117cf9"
+width = 1280
+height = 800
+size_bytes = 195261
+source = "1ec4dc418dd15efcf3582747be44619cadb8ab11c09e5981abacfe0c52aca3eb"
+
+[[baselines]]
+profile = "macos"
+scenario = "keyboard rebinding"
+checkpoint = "reset"
+sha256 = "e1a17a3fd9fcd8e37162d8586650942832fe1a8f4cd97f89668ec619a439ba98"
+width = 1280
+height = 800
+size_bytes = 128275
+source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+
+[[baselines]]
+profile = "macos"
 scenario = "portrait viewport"
 checkpoint = "static"
 sha256 = "a769449049d8afdb22f846b73435aa3d20b1e4e13d496a355f8da2238b5d2f6c"

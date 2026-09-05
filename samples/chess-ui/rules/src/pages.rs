@@ -155,7 +155,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Keyboard rebinding", "Chess UI showcase title."))
-                .description(tx("InputSettings captures keyboard bindings, rejects conflicts, resets defaults, and announces status; icons and controller rebinding are not asserted.", "Chess UI showcase description.")),
+                .description(tx("InputSettings captures keyboard bindings, rejects conflicts, resets defaults, and announces status; icons and controller rebinding are not asserted.", "Chess UI showcase description."))
+                .child(InputSettings::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()
