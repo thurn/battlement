@@ -4,7 +4,7 @@ use trox::{LocalizedString, tx_args, txa};
 
 use crate::{
   setting_row::{self, SettingRow},
-  use_interaction,
+  use_interaction, volume_input,
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
 };
 use battlement::{
@@ -87,25 +87,43 @@ impl Component for VolumeControl {
                 VolumeThumb::new()
                   .value(self.value)
                   .interaction(interaction.state),
-                interaction
-                  .slider(
+                {
+                  let slider_reference = slider.reference();
+                  interaction.slider(
                     SliderHost::new()
                       .low_value(0.0)
                       .high_value(100.0)
                       .value(self.value as f32)
                       .name("volume-input")
-                      .associated_control(slider),
+                      .associated_control(slider)
+                      .on_key_down_event_callback(self.on_change.clone().filter_map_input({
+                        let value = self.value;
+                        move |event| volume_input::key_down(event, value)
+                      }))
+                      .on_navigation_move_event_callback(self.on_change.clone().filter_map_input(
+                        {
+                          let value = self.value;
+                          move |event| volume_input::navigation_move(event, value)
+                        },
+                      )),
+                    slider_reference,
                   )
-                  .on_change_value(self.on_change.clone().map_input(|value: f32| value as u32))
-                  .style(
-                    Style::new()
-                      .position(Position::Absolute)
-                      .left(-42)
-                      .top(-34)
-                      .width(368)
-                      .height(132)
-                      .opacity(0.0),
-                  ),
+                }
+                .on_change_value(
+                  self
+                    .on_change
+                    .clone()
+                    .map_input(volume_input::pointer_value),
+                )
+                .style(
+                  Style::new()
+                    .position(Position::Absolute)
+                    .left(-42)
+                    .top(-34)
+                    .width(368)
+                    .height(132)
+                    .opacity(0.0),
+                ),
               )),
             TextElement::new(txa(
               "{volume_percent}%",

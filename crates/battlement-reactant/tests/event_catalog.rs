@@ -11,6 +11,7 @@ use battlement::{
   UiVisualElementProperties, ValueChangingEvent, ValueCommitEvent, WheelEvent,
 };
 use battlement_reactant::{
+  callback::Callback,
   event::ReactantEvent,
   executor::{BoxFuture, SpawnedTask, Spawner},
   render::Render,
@@ -22,6 +23,12 @@ struct IdleSpawner;
 #[derive(Default)]
 struct Ledger {
   entries: Vec<String>,
+}
+
+#[test]
+fn typed_event_builders_forward_stored_callbacks() {
+  let callback = Callback::new(|event: ReactantEvent<KeyEvent>| event.prevent_default());
+  let _host = battlement_reactant::host::View::new().on_key_down_event_callback(callback);
 }
 
 impl Spawner for IdleSpawner {

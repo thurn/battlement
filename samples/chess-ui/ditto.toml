@@ -1358,6 +1358,57 @@ accessibility_assert = { target = { role = "button", name = "Display Mode Border
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "volume input"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume", parent = { role = "region", name = "VolumeControl input" } }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+drag = { from = [0.69, 0.34], to = [0.60, 0.34] }
+
+[[scenarios.steps]]
+screenshot = { name = "low" }
+
+[[scenarios.steps]]
+drag = { from = [0.69, 0.34], to = [0.75, 0.34] }
+
+[[scenarios.steps]]
+screenshot = { name = "high" }
+
+[[scenarios.steps]]
+click = { target = [0.69, 0.34] }
+
+[[scenarios.steps]]
+key = { key = "PageUp" }
+
+[[scenarios.steps]]
+screenshot = { name = "paged" }
+
+[[scenarios.steps]]
+key = { key = "Home" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+screenshot = { name = "keyboard" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "use interaction"
 
 [[scenarios.steps]]

@@ -417,3 +417,59 @@ to = "select_keyboard.escaped"
 [[transitions]]
 from = "select_keyboard.escaped"
 to = "select_keyboard.reset"
+
+[[mappings]]
+state = "volume_input.initial"
+scenario = "volume input"
+checkpoint = "initial"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[mappings]]
+state = "volume_input.low"
+scenario = "volume input"
+checkpoint = "low"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[mappings]]
+state = "volume_input.high"
+scenario = "volume input"
+checkpoint = "high"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[mappings]]
+state = "volume_input.paged"
+scenario = "volume input"
+checkpoint = "paged"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[mappings]]
+state = "volume_input.keyboard"
+scenario = "volume input"
+checkpoint = "keyboard"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[mappings]]
+state = "volume_input.reset"
+scenario = "volume input"
+checkpoint = "reset"
+owner = "gallery::volume_input_supports_pointer_keyboard_controller_and_cancellation"
+
+[[transitions]]
+from = "volume_input.initial"
+to = "volume_input.low"
+
+[[transitions]]
+from = "volume_input.low"
+to = "volume_input.high"
+
+[[transitions]]
+from = "volume_input.high"
+to = "volume_input.paged"
+
+[[transitions]]
+from = "volume_input.paged"
+to = "volume_input.keyboard"
+
+[[transitions]]
+from = "volume_input.keyboard"
+to = "volume_input.reset"

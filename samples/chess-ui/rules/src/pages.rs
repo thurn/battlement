@@ -19,6 +19,7 @@ use crate::{
   toggle_accessibility_harness::ToggleAccessibilityHarness,
   toggle_harness::ToggleHarness,
   volume_harness::VolumeHarness,
+  volume_input_harness::VolumeInputHarness,
 };
 
 /// Builds the gallery from component values and their explanations.
@@ -121,7 +122,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("VolumeControl input", "Chess UI showcase title."))
-                .description(tx("VolumeControl supports drag, keyboard steps, endpoints, pages, and controller input; release effects remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("VolumeControl supports drag, keyboard steps, endpoints, pages, and controller input; release effects remain unasserted.", "Chess UI showcase description."))
+                .child(VolumeInputHarness::new()),
         )
         .page(
             ReviewPage::new()

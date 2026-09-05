@@ -2,6 +2,7 @@
 
 use battlement::{Color, Gradient};
 use battlement_reactant::{
+  element_ref::ElementRef,
   hooks,
   host::{ButtonHost, SliderHost, ToggleHost},
   prelude::{EventCallback, PaintDropShadow, PaintFilterList},
@@ -113,15 +114,16 @@ impl Interaction {
       .on_focus_visible_end(move |_: &mut (), _| focus_end.set(false))
   }
 
-  /// Attaches the visual-state observation to a native slider.
+  /// Attaches visual-state observation and pointer focus to a native slider.
   #[must_use]
-  pub fn slider(&self, host: SliderHost) -> SliderHost {
+  pub fn slider(&self, host: SliderHost, focus_target: ElementRef) -> SliderHost {
     let focus_start = self.set_focus_visible.clone();
     let focus_end = self.set_focus_visible.clone();
+    let focus_on_press = EventCallback::new(move |()| focus_target.focus());
     host
       .on_pointer_enter(self.enter.clone())
       .on_pointer_leave(self.leave.clone())
-      .on_pointer_down(self.press.clone())
+      .on_pointer_down(self.press.clone().then(focus_on_press))
       .on_pointer_up(self.release.clone())
       .on_pointer_cancel(self.release.clone())
       .on_pointer_capture_out(self.release.clone())

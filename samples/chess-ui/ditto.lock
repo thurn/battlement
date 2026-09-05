@@ -633,6 +633,66 @@ source = "ba0e4d5a3b9856252b5bbae8366f31a92af9922d356e0f1c15a29e6174974e97"
 
 [[baselines]]
 profile = "macos"
+scenario = "volume input"
+checkpoint = "high"
+sha256 = "00de678e163e6d6db23641cf40ebbe57451afee5dbf89c313fd5c711ec749091"
+width = 1280
+height = 800
+size_bytes = 122184
+source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume input"
+checkpoint = "initial"
+sha256 = "75160f30ee9221f6fa15f40bb681254a5f979a0ca67712ab1dca22aedb16fbb4"
+width = 1280
+height = 800
+size_bytes = 122397
+source = "f5536797b041e12f4f3fb0ccb392a3eb80600ff5060330180f99349712b4919c"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume input"
+checkpoint = "keyboard"
+sha256 = "8c4ac7966abcb0343a63dc66bdbf8fa910a0bd0f86864d970d8d0ffe1fea0fbe"
+width = 1280
+height = 800
+size_bytes = 123470
+source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume input"
+checkpoint = "low"
+sha256 = "e4615ce5e511f6af108c3b85d1e93cdf805329ac6264a1d1601b493ded44e1a2"
+width = 1280
+height = 800
+size_bytes = 121294
+source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume input"
+checkpoint = "paged"
+sha256 = "5c8a7996989d9464e77a852d1009477aa8fed2ccd0c80a1716d46153ffb6fbd2"
+width = 1280
+height = 800
+size_bytes = 123207
+source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+
+[[baselines]]
+profile = "macos"
+scenario = "volume input"
+checkpoint = "reset"
+sha256 = "f4ebb1bcb9e41ca02616458e3915bb16a4f282d4625c3f38f8addd436979bcc0"
+width = 1280
+height = 800
+size_bytes = 123324
+source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+
+[[baselines]]
+profile = "macos"
 scenario = "volume layout"
 checkpoint = "changed"
 sha256 = "31c77e667707140b6ddc0debb5a6cb2c130e227c30ce4d9fde43e92f651ca65c"

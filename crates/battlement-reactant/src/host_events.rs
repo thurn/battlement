@@ -10,7 +10,7 @@ use battlement::{
 };
 
 use crate::{
-  callback::IntoCallback,
+  callback::{Callback, IntoCallback},
   event::ReactantEvent,
   event_handler::{Handler, HandlerPhase},
   host::{
@@ -460,6 +460,37 @@ macro_rules! common_event_methods {
         TransitionEvent
       ),
     );
+
+    /// Replaces the typed key-down handler with a stored callback.
+    pub fn on_key_down_event_callback(self, callback: Callback<ReactantEvent<KeyEvent>>) -> Self {
+      self.with_handler(Handler::event_callback(
+        "key_down",
+        UiEventKind::KeyDown,
+        HandlerPhase::Default,
+        |body| match body {
+          UiEventBody::KeyDown(value) => value,
+          _ => panic!("Reactant KeyDown handler received another event kind"),
+        },
+        callback,
+      ))
+    }
+
+    /// Replaces the typed navigation-move handler with a stored callback.
+    pub fn on_navigation_move_event_callback(
+      self,
+      callback: Callback<ReactantEvent<NavigationMoveEvent>>,
+    ) -> Self {
+      self.with_handler(Handler::event_callback(
+        "navigation_move",
+        UiEventKind::NavigationMove,
+        HandlerPhase::Default,
+        |body| match body {
+          UiEventBody::NavigationMove(value) => value,
+          _ => panic!("Reactant NavigationMove handler received another event kind"),
+        },
+        callback,
+      ))
+    }
   };
 }
 

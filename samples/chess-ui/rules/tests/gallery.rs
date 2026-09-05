@@ -3,9 +3,9 @@ use battlement::{
   Gradient, KeyEvent, KeyModifiers, MotionEventBatch, MotionGestureEvent, MotionGestureEventKind,
   MotionGestureVector, MotionLayer, MotionPointerDevice, MotionProperty, MotionSequence,
   MotionValue, NavigationDirection, NavigationMoveEvent, ObjectId, PanelPoint, PhysicalKey,
-  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PopupKind, Prop,
-  SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
-  UiVisualElementProperties, Vector,
+  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerCancelEvent, PointerType,
+  PopupKind, Prop, SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent,
+  UiEventBody, UiVisualElementProperties, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
@@ -731,6 +731,68 @@ fn volume_uses_parent_values_and_resets_without_retaining_proposals() {
 }
 
 #[test]
+fn volume_input_supports_pointer_keyboard_controller_and_cancellation() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-16");
+  client.ui().click(page);
+  client.poll();
+  let slider = self::assert_volume(&client, "Master Volume", 80);
+
+  client.ui().slider_begin(slider);
+  client.ui().slider_change(slider, -20.0);
+  client.poll();
+  self::assert_volume(&client, "Master Volume", 0);
+  client.ui().slider_commit(slider);
+  client.poll();
+  client.ui().slider_begin(slider);
+  client.ui().slider_change(slider, 120.0);
+  client.poll();
+  self::assert_volume(&client, "Master Volume", 100);
+  client.ui().slider_commit(slider);
+  client.poll();
+
+  self::key_down(&mut client, slider, PhysicalKey::PageDown, "");
+  self::assert_volume(&client, "Master Volume", 90);
+  self::key_down(&mut client, slider, PhysicalKey::ArrowLeft, "");
+  self::assert_volume(&client, "Master Volume", 85);
+  self::key_down(&mut client, slider, PhysicalKey::ArrowDown, "");
+  self::assert_volume(&client, "Master Volume", 80);
+  self::key_down(&mut client, slider, PhysicalKey::ArrowRight, "");
+  self::assert_volume(&client, "Master Volume", 85);
+  self::key_down(&mut client, slider, PhysicalKey::ArrowUp, "");
+  self::assert_volume(&client, "Master Volume", 90);
+  self::key_down(&mut client, slider, PhysicalKey::PageUp, "");
+  self::assert_volume(&client, "Master Volume", 100);
+  self::key_down(&mut client, slider, PhysicalKey::Home, "");
+  self::assert_volume(&client, "Master Volume", 0);
+  self::key_down(&mut client, slider, PhysicalKey::End, "");
+  self::assert_volume(&client, "Master Volume", 100);
+
+  self::navigation_move(&mut client, slider, NavigationDirection::Left);
+  self::assert_volume(&client, "Master Volume", 95);
+  self::navigation_move(&mut client, slider, NavigationDirection::Down);
+  self::assert_volume(&client, "Master Volume", 90);
+  self::navigation_move(&mut client, slider, NavigationDirection::Right);
+  self::assert_volume(&client, "Master Volume", 95);
+  self::navigation_move(&mut client, slider, NavigationDirection::Up);
+  self::assert_volume(&client, "Master Volume", 100);
+
+  let thumb = self::named(&mut client, "volume-thumb");
+  self::pointer_button(&mut client, slider, true);
+  client.poll();
+  assert_eq!(client.ui().focused(), Some(slider));
+  self::assert_scale(&mut client, thumb, 0.88);
+  self::pointer_cancel(&mut client, slider);
+  client.poll();
+  self::assert_scale(&mut client, thumb, 1.0);
+
+  client.ui().click(page);
+  client.poll();
+  self::assert_volume(&client, "Master Volume", 80);
+  assert!(!client.ui().contains(slider));
+}
+
+#[test]
 fn action_children_activate_once_and_reselection_resets_callbacks() {
   let mut client = self::client();
   let page = self::named(&mut client, "review-page-8");
@@ -1146,6 +1208,23 @@ fn pointer_button(client: &mut FakeClient<App>, target: ObjectId, down: bool) {
     } else {
       UiEventBody::PointerUp(body)
     },
+  ));
+}
+
+fn pointer_cancel(client: &mut FakeClient<App>, target: ObjectId) {
+  client.ui().send_event(UiEvent::new(
+    target,
+    false,
+    false,
+    UiEventBody::PointerCancel(PointerCancelEvent {
+      pointer_id: 0,
+      position: PanelPoint::default(),
+      delta: Vector::default(),
+      buttons: 0,
+      pressure: 0.0,
+      modifiers: KeyModifiers::default(),
+      pointer_type: PointerType::Mouse,
+    }),
   ));
 }
 

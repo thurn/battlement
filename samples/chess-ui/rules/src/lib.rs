@@ -110,6 +110,10 @@ pub mod volume_control;
 
 mod volume_harness;
 
+mod volume_input;
+
+mod volume_input_harness;
+
 mod volume_skin;
 
 pub mod settings_tabs;

@@ -315,3 +315,47 @@ to = "select_keyboard.escaped"
 [[transitions]]
 from = "select_keyboard.escaped"
 to = "select_keyboard.reset"
+
+[[states]]
+key = "volume_input.initial"
+screen = "volume_input"
+
+[[states]]
+key = "volume_input.low"
+screen = "volume_input"
+
+[[states]]
+key = "volume_input.high"
+screen = "volume_input"
+
+[[states]]
+key = "volume_input.paged"
+screen = "volume_input"
+
+[[states]]
+key = "volume_input.keyboard"
+screen = "volume_input"
+
+[[states]]
+key = "volume_input.reset"
+screen = "volume_input"
+
+[[transitions]]
+from = "volume_input.initial"
+to = "volume_input.low"
+
+[[transitions]]
+from = "volume_input.low"
+to = "volume_input.high"
+
+[[transitions]]
+from = "volume_input.high"
+to = "volume_input.paged"
+
+[[transitions]]
+from = "volume_input.paged"
+to = "volume_input.keyboard"
+
+[[transitions]]
+from = "volume_input.keyboard"
+to = "volume_input.reset"
