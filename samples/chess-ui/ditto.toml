@@ -1376,6 +1376,42 @@ accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = 
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "toggle accessibility"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true, parent = { role = "region", name = "ToggleControl accessibility" } }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Upload Crash Reports" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = false, parent = { role = "region", name = "ToggleControl accessibility" } }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true, parent = { role = "region", name = "ToggleControl accessibility" } }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "action buttons"
 
 [[scenarios.steps]]

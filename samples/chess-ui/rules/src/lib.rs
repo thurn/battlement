@@ -94,6 +94,8 @@ pub mod toggle_control;
 
 mod toggle_harness;
 
+mod toggle_accessibility_harness;
+
 pub mod use_interaction;
 
 pub mod volume_control;

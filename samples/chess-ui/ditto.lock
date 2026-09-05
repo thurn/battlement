@@ -423,6 +423,36 @@ source = "b642b4d80bc99210a3df5c189df809d70b4ffdf242a1f1384df34c2edee90aae"
 
 [[baselines]]
 profile = "macos"
+scenario = "toggle accessibility"
+checkpoint = "changed"
+sha256 = "4409af536b45baa597175a1d803dad8c5eca2e1348eee16fcece318f272c7903"
+width = 1280
+height = 800
+size_bytes = 116503
+source = "09c5c1869c1872b800a3ad8a421e080e57d068825822e9b63ae3ea8028d3004b"
+
+[[baselines]]
+profile = "macos"
+scenario = "toggle accessibility"
+checkpoint = "initial"
+sha256 = "1de0fb2f6344f19dce6483e4f4fbf73cbd59b519803f64e1cf7697d7178d6d11"
+width = 1280
+height = 800
+size_bytes = 117147
+source = "09c5c1869c1872b800a3ad8a421e080e57d068825822e9b63ae3ea8028d3004b"
+
+[[baselines]]
+profile = "macos"
+scenario = "toggle accessibility"
+checkpoint = "reset"
+sha256 = "1de0fb2f6344f19dce6483e4f4fbf73cbd59b519803f64e1cf7697d7178d6d11"
+width = 1280
+height = 800
+size_bytes = 117147
+source = "09c5c1869c1872b800a3ad8a421e080e57d068825822e9b63ae3ea8028d3004b"
+
+[[baselines]]
+profile = "macos"
 scenario = "toggle control"
 checkpoint = "changed"
 sha256 = "56bfcfcf53a24cd0571f403842526c91fccb457bbccb8b41753aef5673902992"

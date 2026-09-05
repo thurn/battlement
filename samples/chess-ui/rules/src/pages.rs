@@ -14,6 +14,7 @@ use crate::{
   select_harness::SelectHarness,
   setting_row_harness::SettingRowHarness,
   tabs_harness::TabsHarness,
+  toggle_accessibility_harness::ToggleAccessibilityHarness,
   toggle_harness::ToggleHarness,
   volume_harness::VolumeHarness,
 };
@@ -100,7 +101,8 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ToggleControl accessibility", "Chess UI showcase title."))
-                .description(tx("ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ToggleControl exposes labeled checkbox semantics and help description; effects, help modal, and composition remain unasserted.", "Chess UI showcase description."))
+                .child(ToggleAccessibilityHarness::new()),
         )
         .page(
             ReviewPage::new()

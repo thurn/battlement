@@ -207,3 +207,23 @@ to = "focus.moved"
 [[transitions]]
 from = "focus.moved"
 to = "focus.reset"
+
+[[states]]
+key = "toggle_accessibility.initial"
+screen = "toggle_accessibility"
+
+[[states]]
+key = "toggle_accessibility.changed"
+screen = "toggle_accessibility"
+
+[[states]]
+key = "toggle_accessibility.reset"
+screen = "toggle_accessibility"
+
+[[transitions]]
+from = "toggle_accessibility.initial"
+to = "toggle_accessibility.changed"
+
+[[transitions]]
+from = "toggle_accessibility.changed"
+to = "toggle_accessibility.reset"

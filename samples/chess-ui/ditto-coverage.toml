@@ -279,3 +279,29 @@ to = "focus.moved"
 [[transitions]]
 from = "focus.moved"
 to = "focus.reset"
+
+[[mappings]]
+state = "toggle_accessibility.initial"
+scenario = "toggle accessibility"
+checkpoint = "initial"
+owner = "tests::toggle_accessibility_preserves_name_description_activation_and_reset"
+
+[[mappings]]
+state = "toggle_accessibility.changed"
+scenario = "toggle accessibility"
+checkpoint = "changed"
+owner = "tests::toggle_accessibility_preserves_name_description_activation_and_reset"
+
+[[mappings]]
+state = "toggle_accessibility.reset"
+scenario = "toggle accessibility"
+checkpoint = "reset"
+owner = "tests::toggle_accessibility_preserves_name_description_activation_and_reset"
+
+[[transitions]]
+from = "toggle_accessibility.initial"
+to = "toggle_accessibility.changed"
+
+[[transitions]]
+from = "toggle_accessibility.changed"
+to = "toggle_accessibility.reset"

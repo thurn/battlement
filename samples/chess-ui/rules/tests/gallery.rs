@@ -141,6 +141,73 @@ fn focus_visible_follows_navigation_modality_across_every_interaction_specimen()
   self::assert_gradient_start(&mut client, reset, Color::hex(0x4ba3ff));
 }
 
+#[test]
+fn toggle_accessibility_preserves_name_description_activation_and_reset() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-13");
+  client.ui().click(page);
+  client.poll();
+  let (checkbox, checked, hint) = {
+    let node = self::snapshot(&client)
+      .nodes
+      .iter()
+      .find(|node| {
+        node.role == SemanticRole::Checkbox && node.label.as_deref() == Some("Upload Crash Reports")
+      })
+      .unwrap();
+    (node.object_id, node.state.checked, node.hint.clone())
+  };
+  assert_eq!(checked, Some(CheckedState::True));
+  assert_eq!(
+    hint.as_deref(),
+    Some("We upload crash reports to Unity Diagnostics.")
+  );
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .all(|node| node.label.as_deref() != Some("About crash report uploads"))
+  );
+  let surface = self::named(&mut client, "toggle-control-surface");
+  self::assert_gradient_start(&mut client, surface, Color::hex(0x4ba3ff));
+
+  client.ui().toggle_click(checkbox);
+  client.poll();
+  self::assert_checked(&client, checkbox, false);
+  for expected in [true, false] {
+    client
+      .ui()
+      .send_event(UiEvent::click(checkbox, ClickEvent::NavigationSubmit));
+    client.poll();
+    self::assert_checked(&client, checkbox, expected);
+  }
+  client.ui().send_event(UiEvent::new(
+    checkbox,
+    true,
+    false,
+    UiEventBody::AccessibilityAction(UiAccessibilityActionEvent {
+      backend_generation: 3,
+      action: UiAccessibilityAction::Activate,
+    }),
+  ));
+  client.poll();
+  self::assert_checked(&client, checkbox, true);
+
+  client.ui().click(page);
+  client.poll();
+  let reset = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Upload Crash Reports"))
+    .unwrap();
+  assert_eq!(reset.state.checked, Some(CheckedState::True));
+  assert!(!client.ui().contains(checkbox));
+  assert_eq!(
+    client.ui().focused(),
+    Some(self::named(&mut client, "page-heading"))
+  );
+}
+
 impl Component for ToggleInfoFixture {
   fn render(&self) -> impl Render {
     let (info_clicks, set_info_clicks) = hooks::use_state(0_u32);
@@ -665,6 +732,23 @@ fn range_action(client: &mut FakeClient<App>, target: ObjectId, action: UiAccess
     }),
   ));
   client.poll();
+}
+
+fn assert_checked(client: &FakeClient<App>, target: ObjectId, checked: bool) {
+  assert_eq!(
+    self::snapshot(client)
+      .nodes
+      .iter()
+      .find(|node| node.object_id == target)
+      .unwrap()
+      .state
+      .checked,
+    Some(if checked {
+      CheckedState::True
+    } else {
+      CheckedState::False
+    })
+  );
 }
 
 fn assert_checkbox(client: &FakeClient<App>, checked: bool, changes: u32) {

@@ -30,6 +30,8 @@ pub struct ToggleControl {
   checked: bool,
   /// Overrides the accessible name when the visible wording needs clarification.
   aria_label: Option<LocalizedString>,
+  /// Adds assistive context without adding visible copy to the settings row.
+  accessibility_description: Option<LocalizedString>,
   /// Shows crash-report context next to the visible label.
   with_info: bool,
   /// Handles activation of the optional crash-report information badge.
@@ -48,12 +50,18 @@ impl Component for ToggleControl {
           .aria_label
           .as_ref()
           .map_or(label_name, |name| SemanticName::text(name.clone())),
-        self.with_info.then(|| {
-          SemanticDescription::text(tx(
-            "We upload crash reports to Unity Diagnostics.",
-            "Crash report toggle accessibility description.",
-          ))
-        }),
+        self
+          .accessibility_description
+          .as_ref()
+          .map(|description| SemanticDescription::text(description.clone()))
+          .or_else(|| {
+            self.with_info.then(|| {
+              SemanticDescription::text(tx(
+                "We upload crash reports to Unity Diagnostics.",
+                "Crash report toggle accessibility description.",
+              ))
+            })
+          }),
         self.checked,
         false,
         self.on_change.clone(),
