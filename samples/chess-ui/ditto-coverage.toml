@@ -713,3 +713,99 @@ to = "keyboard_rebinding.binding_reset"
 [[transitions]]
 from = "keyboard_rebinding.binding_reset"
 to = "keyboard_rebinding.reset"
+
+[[mappings]]
+state = "font_scale.controls_100"
+scenario = "font scale"
+checkpoint = "controls-100"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.controls_150"
+scenario = "font scale"
+checkpoint = "controls-150"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.controls_200"
+scenario = "font scale"
+checkpoint = "controls-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.select_200"
+scenario = "font scale"
+checkpoint = "select-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.navigation_200"
+scenario = "font scale"
+checkpoint = "navigation-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.headings_200"
+scenario = "font scale"
+checkpoint = "headings-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.dialog_200"
+scenario = "font scale"
+checkpoint = "dialog-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.input_200"
+scenario = "font scale"
+checkpoint = "input-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.input_scrolled_200"
+scenario = "font scale"
+checkpoint = "input-scrolled-200"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[mappings]]
+state = "font_scale.reset"
+scenario = "font scale"
+checkpoint = "reset"
+owner = "font_scale::text_sizes_reflow_controls_preserve_tabs_and_reveal_the_input_tail"
+
+[[transitions]]
+from = "font_scale.controls_100"
+to = "font_scale.controls_150"
+
+[[transitions]]
+from = "font_scale.controls_150"
+to = "font_scale.controls_200"
+
+[[transitions]]
+from = "font_scale.controls_200"
+to = "font_scale.select_200"
+
+[[transitions]]
+from = "font_scale.select_200"
+to = "font_scale.navigation_200"
+
+[[transitions]]
+from = "font_scale.navigation_200"
+to = "font_scale.headings_200"
+
+[[transitions]]
+from = "font_scale.headings_200"
+to = "font_scale.dialog_200"
+
+[[transitions]]
+from = "font_scale.dialog_200"
+to = "font_scale.input_200"
+
+[[transitions]]
+from = "font_scale.input_200"
+to = "font_scale.input_scrolled_200"
+
+[[transitions]]
+from = "font_scale.input_scrolled_200"
+to = "font_scale.reset"

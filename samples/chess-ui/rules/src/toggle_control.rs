@@ -2,7 +2,12 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{check_mark::CheckMark, setting_row::SettingRow, use_interaction};
+use crate::{
+  check_mark::CheckMark,
+  font_scale::{self, FontScaleRole},
+  setting_row::SettingRow,
+  use_interaction,
+};
 use battlement::{
   Align, Color, FontStyle, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Scale,
   Shadow, Style, TextAnchor, Translate,
@@ -44,6 +49,7 @@ pub struct ToggleControl {
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let font_scale = font_scale::use_font_scale();
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
       control_behavior::checkbox(
         self
@@ -85,8 +91,8 @@ impl Component for ToggleControl {
                 Style::new()
                   .position(Position::Relative)
                   .align_items(Align::Center)
-                  .width(77)
-                  .height(77)
+                  .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                  .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
                   .margin_left(8)
                   .translate(Translate::two_dimensional(
                     Length::Px(0.0),
@@ -97,7 +103,12 @@ impl Component for ToggleControl {
                 View::new()
                   .name("toggle-control-surface")
                   .picking_mode(PickingMode::Ignore)
-                  .style(Style::new().width(77).height(77).border_radius(11))
+                  .style(
+                    Style::new()
+                      .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .border_radius(11),
+                  )
                   .paint(self::surface_paint())
                   .initial(false)
                   .animate(self::surface_target(interaction.state))
@@ -116,8 +127,8 @@ impl Component for ToggleControl {
                       .position(Position::Absolute)
                       .left(0)
                       .top(0)
-                      .width(77)
-                      .height(77)
+                      .width(77.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .height(77.0 * font_scale.dynamic(FontScaleRole::Control))
                       .margin(0)
                       .padding(0)
                       .border_width(0)
@@ -250,6 +261,7 @@ pub struct InfoBadge {
 
 impl Component for InfoBadge {
   fn render(&self) -> impl Render {
+    let font_scale = font_scale::use_font_scale();
     Button::content(Text::new(tx("i", "Crash report toggle interface label.")))
       .semantic_name(SemanticName::text(tx(
         "About crash report uploads",
@@ -260,17 +272,17 @@ impl Component for InfoBadge {
       .style(
         Style::new()
           .position(Position::Absolute)
-          .left(205)
+          .left(205.0 * font_scale.factor())
           .bottom(37)
-          .width(38)
-          .height(38)
+          .width(38.0 * font_scale.dynamic(FontScaleRole::Control))
+          .height(38.0 * font_scale.dynamic(FontScaleRole::Control))
           .padding(0)
           .border_width(2)
           .border_color(Color::rgb8(85, 184, 255))
           .border_radius(19)
           .background_color(Color::TRANSPARENT)
           .color(Color::rgb8(188, 244, 255))
-          .font_size(27)
+          .font_size(27.0 * font_scale.dynamic(FontScaleRole::Control))
           .unity_font_style_and_weight(FontStyle::Bold)
           .unity_text_align(TextAnchor::MiddleCenter)
           .align_items(Align::Center)

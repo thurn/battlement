@@ -547,3 +547,79 @@ to = "keyboard_rebinding.binding_reset"
 [[transitions]]
 from = "keyboard_rebinding.binding_reset"
 to = "keyboard_rebinding.reset"
+
+[[states]]
+key = "font_scale.controls_100"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.controls_150"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.controls_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.select_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.navigation_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.headings_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.dialog_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.input_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.input_scrolled_200"
+screen = "font_scale"
+
+[[states]]
+key = "font_scale.reset"
+screen = "font_scale"
+
+[[transitions]]
+from = "font_scale.controls_100"
+to = "font_scale.controls_150"
+
+[[transitions]]
+from = "font_scale.controls_150"
+to = "font_scale.controls_200"
+
+[[transitions]]
+from = "font_scale.controls_200"
+to = "font_scale.select_200"
+
+[[transitions]]
+from = "font_scale.select_200"
+to = "font_scale.navigation_200"
+
+[[transitions]]
+from = "font_scale.navigation_200"
+to = "font_scale.headings_200"
+
+[[transitions]]
+from = "font_scale.headings_200"
+to = "font_scale.dialog_200"
+
+[[transitions]]
+from = "font_scale.dialog_200"
+to = "font_scale.input_200"
+
+[[transitions]]
+from = "font_scale.input_200"
+to = "font_scale.input_scrolled_200"
+
+[[transitions]]
+from = "font_scale.input_scrolled_200"
+to = "font_scale.reset"

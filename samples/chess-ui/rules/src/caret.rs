@@ -9,6 +9,8 @@ use battlement_reactant::{
   render::Render,
 };
 
+use crate::font_scale::{self, FontScaleRole};
+
 /// The decorative direction indicator on a select trigger.
 #[builder]
 pub struct Caret {
@@ -18,15 +20,16 @@ pub struct Caret {
 
 impl Component for Caret {
   fn render(&self) -> impl Render {
+    let font_scale = font_scale::use_font_scale();
     View::decorative()
       .name("select-caret")
       .style(
         Style::new()
           .position(Position::Absolute)
           .top(Length::Percent(50.0))
-          .right(45)
-          .width(30)
-          .height(18)
+          .right(45.0 * font_scale.dynamic(FontScaleRole::Control))
+          .width(30.0 * font_scale.dynamic(FontScaleRole::Control))
+          .height(18.0 * font_scale.dynamic(FontScaleRole::Control))
           .translate(Translate::two_dimensional(
             Length::Px(0.0),
             Length::Percent(-50.0),

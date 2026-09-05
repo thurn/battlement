@@ -2117,6 +2117,105 @@ accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cel
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "font scale"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless" }
+
+[[scenarios.steps]]
+screenshot = { name = "controls-100", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "150%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "controls-150", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "200%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "controls-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "list-box", name = "Display Mode options" }, role = "list-box", name = "Display Mode options" }
+
+[[scenarios.steps]]
+screenshot = { name = "select-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Navigation" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab", name = "Gameplay" }, role = "tab", name = "Gameplay", selected = true }
+
+[[scenarios.steps]]
+screenshot = { name = "navigation-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Headings" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Settings" }, role = "heading", name = "Settings" }
+
+[[scenarios.steps]]
+screenshot = { name = "headings-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Dialog" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Open dialog" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Pause" }, role = "dialog", name = "Pause" }
+
+[[scenarios.steps]]
+screenshot = { name = "dialog-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cancel" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Input table" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "row-header", name = "Restart" }, role = "row-header", name = "Restart" }
+
+[[scenarios.steps]]
+screenshot = { name = "input-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "input-scrolled-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206822\u2069. \u2068FontScale\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Borderless" }, role = "button", name = "Display Mode Borderless" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }

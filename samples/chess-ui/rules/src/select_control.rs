@@ -3,7 +3,11 @@
 use trox::{ls, tx};
 
 use crate::{
-  caret::Caret, select_navigation, select_option::SelectOption, setting_row::SettingRow,
+  caret::Caret,
+  font_scale::{FontScale, FontScaleRole},
+  select_navigation,
+  select_option::SelectOption,
+  setting_row::SettingRow,
   use_interaction,
 };
 use battlement::{
@@ -31,6 +35,7 @@ pub struct SelectControl {
   label: Child,
   /// Omits the separator above the first row.
   first: bool,
+  font_scale: FontScale,
   /// Offsets the control vertically without moving its row label.
   offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
@@ -134,8 +139,8 @@ impl Component for SelectControl {
           .style(
             Style::new()
               .position(Position::Relative)
-              .width(396)
-              .height(106)
+              .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
+              .height(106.0 * (1.0 + (self.font_scale.factor() - 1.0) * 0.35))
               .flex_shrink(0.0)
               .align_items(Align::Center)
               .translate(Translate::two_dimensional(
@@ -150,8 +155,8 @@ impl Component for SelectControl {
               .style(
                 Style::new()
                   .position(Position::Relative)
-                  .width(396)
-                  .height(106),
+                  .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
+                  .height(106.0 * (1.0 + (self.font_scale.factor() - 1.0) * 0.35)),
               )
               .child(
                 interaction
@@ -202,13 +207,13 @@ impl Component for SelectControl {
                       .margin(0)
                       .padding_top(0)
                       .padding_bottom(0)
-                      .padding_left(39)
-                      .padding_right(74)
+                      .padding_left(39.0 * self.font_scale.dynamic(FontScaleRole::Control))
+                      .padding_right(74.0 * self.font_scale.dynamic(FontScaleRole::Control))
                       .border_width(0)
                       .background_color(Color::TRANSPARENT)
                       .color(Color::rgb8(245, 246, 251))
                       .unity_font_definition(VALUE_FONT)
-                      .font_size(60)
+                      .font_size(60.0 * self.font_scale.dynamic(FontScaleRole::Control))
                       .unity_text_align(TextAnchor::MiddleLeft),
                   )
                   .paint(
@@ -248,7 +253,17 @@ impl Component for SelectControl {
                 Overlay::popover(self.overlay.clone().unwrap(), anchor)
                   .host_name("select-popover")
                   .placement(PopoverPlacement::bottom_start().offset(6.0))
-                  .style(Style::new().width(396.0 * popover_scale).height(250))
+                  .style(
+                    Style::new()
+                      .width((396.0 + (self.font_scale.factor() - 1.0) * 300.0) * popover_scale)
+                      .height(
+                        (22.0
+                          + self.options.len() as f32
+                            * 76.0
+                            * self.font_scale.dynamic(FontScaleRole::Control))
+                          * popover_scale,
+                      ),
+                  )
                   .child(
                     ListBox::new(tx(
                       "Display Mode options",
@@ -257,8 +272,13 @@ impl Component for SelectControl {
                     .host_name("select-listbox")
                     .style(
                       Style::new()
-                        .width(396)
-                        .height(250)
+                        .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
+                        .height(
+                          22.0
+                            + self.options.len() as f32
+                              * 76.0
+                              * self.font_scale.dynamic(FontScaleRole::Control),
+                        )
                         .padding_top(11)
                         .padding_bottom(11)
                         .padding_left(9)
@@ -324,6 +344,8 @@ impl Component for SelectControl {
                         .map(|(index, option)| {
                           SelectOption::new()
                             .active(index == active_index)
+                            .control_scale(self.font_scale.dynamic(FontScaleRole::Control))
+                            .font_scale(self.font_scale.factor())
                             .index(index)
                             .label(option.clone())
                             .selected(option == &self.value)

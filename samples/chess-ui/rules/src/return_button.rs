@@ -18,6 +18,10 @@ use battlement_reactant::{
 pub struct ReturnButton {
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
+  /// Overrides the source horizontal position for isolated specimens.
+  left: Option<f32>,
+  /// Overrides the source vertical position for isolated specimens.
+  top: Option<f32>,
   #[builder(required)]
   on_press: EventCallback<()>,
 }
@@ -29,8 +33,8 @@ impl Component for ReturnButton {
       .style(
         Style::new()
           .position(Position::Absolute)
-          .left(328)
-          .top(1358)
+          .left(self.left.unwrap_or(328.0))
+          .top(self.top.unwrap_or(1358.0))
           .width(368)
           .height(120),
       )

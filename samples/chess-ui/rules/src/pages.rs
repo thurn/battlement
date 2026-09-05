@@ -7,6 +7,7 @@ use trox::tx;
 use crate::{
   action_harness::ActionHarness,
   arcade_modal_harness::ArcadeModalHarness,
+  font_scale_harness::FontScaleHarness,
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
@@ -161,7 +162,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("FontScale", "Chess UI showcase title."))
-                .description(tx("FontScale reflows rows and scales text and controls; persistence and complete screens remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("FontScale reflows rows and scales text and controls; persistence and complete screens remain unasserted.", "Chess UI showcase description."))
+                .child(FontScaleHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

@@ -2,7 +2,7 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{select_control, tabs_navigation, tabs_skin, use_interaction};
+use crate::{font_scale, select_control, tabs_navigation, tabs_skin, use_interaction};
 use battlement::{
   Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
   TextShadow, WhiteSpace,
@@ -102,6 +102,7 @@ struct SettingsTabButton {
 impl Component for SettingsTabButton {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let font_scale = font_scale::use_font_scale();
     TabButton::new()
       .label(self.tab.label())
       .index(self.tab as u32)
@@ -132,7 +133,17 @@ impl Component for SettingsTabButton {
               .center_content()
               .overflow(Overflow::Visible)
               .unity_font_definition(select_control::VALUE_FONT)
-              .font_size(if self.active { 55 } else { 51 })
+              .font_size(
+                (if self.active { 55.0 } else { 51.0 })
+                  * (1.0 + (font_scale.factor() - 1.0) * 0.25)
+                  * if font_scale.factor() > 1.0
+                    && matches!(self.tab, SettingsTab::Gameplay | SettingsTab::Graphics)
+                  {
+                    0.92
+                  } else {
+                    1.0
+                  },
+              )
               .letter_spacing(1)
               .color(Color::hex(0xf7f7fb))
               .white_space(WhiteSpace::NoWrap)

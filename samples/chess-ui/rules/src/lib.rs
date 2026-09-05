@@ -60,6 +60,10 @@ mod frame_harness;
 
 mod frame_styles;
 
+pub mod font_scale;
+
+mod font_scale_harness;
+
 pub mod gallery;
 
 pub mod input_settings;

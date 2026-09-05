@@ -17,7 +17,11 @@ use battlement_reactant::{
 };
 use trox::{ls, tx};
 
-use crate::{arcade_modal::ArcadeModal, setting_row::DISPLAY_FONT};
+use crate::{
+  arcade_modal::ArcadeModal,
+  font_scale::{self, FontScaleRole},
+  setting_row::DISPLAY_FONT,
+};
 
 const INPUT_WIDTH: f32 = 839.0;
 const HEADER_HEIGHT: f32 = 100.0;
@@ -66,6 +70,7 @@ impl Component for InputSettings {
     let (status, set_status) = hooks::use_state(None::<String>);
     let capture_focus = use_element_ref();
     let announce = use_announce();
+    let font_scale = font_scale::use_font_scale();
 
     (
       ScrollArea::new(
@@ -80,7 +85,20 @@ impl Component for InputSettings {
       .host_name("input-bindings-scroll")
       .configure_host(|host| {
         host
-          .scroll_offset(Vector::new(0.0, if scrolled { SCROLL_OFFSET } else { 0.0 }))
+          .scroll_offset(Vector::new(
+            0.0,
+            if scrolled {
+              if font_scale.factor() == 1.0 {
+                SCROLL_OFFSET
+              } else {
+                HEADER_HEIGHT * font_scale.dynamic(FontScaleRole::Control)
+                  + 7.0 * ROW_HEIGHT * font_scale.factor()
+                  - 720.0
+              }
+            } else {
+              0.0
+            },
+          ))
           .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
           .vertical_scroller_visibility(ScrollerVisibility::Auto)
           .content_container_style(Style::new().align_items(Align::Center))
@@ -96,7 +114,10 @@ impl Component for InputSettings {
         Table::new(ls("Input bindings"))
           .style(Style::new().width(INPUT_WIDTH))
           .child((
-            self::header(),
+            self::header(
+              font_scale.factor(),
+              font_scale.dynamic(FontScaleRole::Control),
+            ),
             std::array::from_fn::<_, 7, _>(|index| {
               self::binding_row(
                 index,
@@ -104,6 +125,8 @@ impl Component for InputSettings {
                 self.overlay.is_some(),
                 set_capture.clone(),
                 set_status.clone(),
+                font_scale.factor(),
+                font_scale.dynamic(FontScaleRole::Control),
               )
             }),
           )),
@@ -281,14 +304,14 @@ fn capture_modal(
     .overlay(overlay)
 }
 
-fn header() -> TableRow {
+fn header(font_scale: f32, control_scale: f32) -> TableRow {
   TableRow::new()
     .host_name("input-bindings-header")
     .configure_host(|host| host.sticky(Sticky::top(0.0).order(4)))
     .style(
       Style::new()
         .width(INPUT_WIDTH)
-        .height(HEADER_HEIGHT)
+        .height(HEADER_HEIGHT * control_scale)
         .background_color(Color::rgb8(4, 17, 38))
         .border_bottom_width(2)
         .border_bottom_color(Color::rgb8(43, 74, 123).with_alpha(0.3)),
@@ -296,16 +319,16 @@ fn header() -> TableRow {
     .child(
       Grid::new()
         .columns([
-          GridTrack::px(310.0),
-          GridTrack::px(310.0),
+          GridTrack::px(if font_scale > 1.0 { 260.0 } else { 310.0 }),
+          GridTrack::px(if font_scale > 1.0 { 340.0 } else { 310.0 }),
           GridTrack::fr(1.0),
         ])
         .align_items(Align::Center)
         .style(Style::new().full_size())
         .child([
-          ColumnHeader::new(ls("Action")).style(self::heading_style()),
-          ColumnHeader::new(ls("Keyboard")).style(self::heading_style()),
-          ColumnHeader::new(ls("Controller")).style(self::heading_style()),
+          ColumnHeader::new(ls("Action")).style(self::heading_style(font_scale)),
+          ColumnHeader::new(ls("Keyboard")).style(self::heading_style(font_scale)),
+          ColumnHeader::new(ls("Controller")).style(self::heading_style(font_scale)),
         ]),
     )
 }
@@ -316,6 +339,8 @@ fn binding_row(
   interactive: bool,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
+  font_scale: f32,
+  control_scale: f32,
 ) -> TableRow {
   let action = ACTIONS[index];
   TableRow::new()
@@ -326,23 +351,30 @@ fn binding_row(
     .style(
       Style::new()
         .width(INPUT_WIDTH)
-        .height(ROW_HEIGHT)
+        .height(ROW_HEIGHT * font_scale)
         .border_bottom_width(2)
         .border_bottom_color(Color::rgb8(43, 74, 123).with_alpha(0.25)),
     )
     .child(
       Grid::new()
         .columns([
-          GridTrack::px(310.0),
-          GridTrack::px(310.0),
+          GridTrack::px(if font_scale > 1.0 { 260.0 } else { 310.0 }),
+          GridTrack::px(if font_scale > 1.0 { 340.0 } else { 310.0 }),
           GridTrack::fr(1.0),
         ])
         .align_items(Align::Center)
         .style(Style::new().full_size())
         .child((
-          RowHeader::new(ls(action)).style(self::action_style()),
-          self::keyboard_cell(index, keyboard, interactive, set_capture, set_status),
-          TableCell::new(ls(CONTROLLER[index])).style(self::binding_style()),
+          RowHeader::new(ls(action)).style(self::action_style(action, font_scale, control_scale)),
+          self::keyboard_cell(
+            index,
+            keyboard,
+            interactive,
+            set_capture,
+            set_status,
+            font_scale,
+          ),
+          TableCell::new(ls(CONTROLLER[index])).style(self::binding_style(font_scale)),
         )),
     )
 }
@@ -353,11 +385,12 @@ fn keyboard_cell(
   interactive: bool,
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
+  font_scale: f32,
 ) -> TableCell {
   let name = ls(self::key_name(keyboard));
   TableCell::new(name)
     .host_name(format!("keyboard-binding-{index}"))
-    .style(self::binding_style())
+    .style(self::binding_style(font_scale))
     .configure_host(move |host| {
       let host = host
         .focusable(interactive)
@@ -479,30 +512,37 @@ fn key_name(key: PhysicalKey) -> String {
   }
 }
 
-fn heading_style() -> Style {
+fn heading_style(font_scale: f32) -> Style {
   Style::new()
     .color(Color::rgb8(244, 245, 250))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(47)
+    .font_size(47.0 * (1.0 + (font_scale - 1.0) * 0.2))
     .letter_spacing(1.2)
     .unity_text_align(TextAnchor::MiddleCenter)
 }
 
-fn action_style() -> Style {
+fn action_style(action: &str, font_scale: f32, control_scale: f32) -> Style {
   Style::new()
     .padding_left(18)
     .color(Color::rgb8(245, 245, 248))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(54)
+    .font_size(
+      54.0
+        * if action.len() >= 7 {
+          control_scale
+        } else {
+          font_scale
+        },
+    )
     .letter_spacing(1.3)
     .unity_text_align(TextAnchor::MiddleLeft)
 }
 
-fn binding_style() -> Style {
+fn binding_style(font_scale: f32) -> Style {
   Style::new()
     .color(Color::rgb8(246, 246, 250))
     .unity_font_definition(DISPLAY_FONT)
-    .font_size(45)
+    .font_size(45.0 * font_scale)
     .letter_spacing(1.0)
     .unity_text_align(TextAnchor::MiddleCenter)
 }

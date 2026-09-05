@@ -1,6 +1,10 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
-use crate::{action_skin, use_interaction};
+use crate::{
+  action_skin,
+  font_scale::{self, FontScale},
+  use_interaction,
+};
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, MotionProperty, Position, Style, TextAnchor,
   Translate, UiFontAddress, WhiteSpace,
@@ -35,8 +39,10 @@ pub struct ActionButton {
 }
 
 impl ActionButton {
-  fn label_style(&self) -> Style {
-    let scale = 1.0_f32.min(self.max_text_scale.unwrap_or(f32::INFINITY));
+  fn label_style(&self, font_scale: FontScale) -> Style {
+    let scale = font_scale
+      .dynamic(font_scale::FontScaleRole::Navigation)
+      .min(self.max_text_scale.unwrap_or(f32::INFINITY));
     Style::new()
       .position(Position::Relative)
       .flex_direction(FlexDirection::Row)
@@ -59,6 +65,7 @@ impl ActionButton {
 impl Component for ActionButton {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let font_scale = font_scale::use_font_scale();
     View::new()
       .style(
         Style::new()
@@ -70,7 +77,7 @@ impl Component for ActionButton {
         Button::content(
           View::new()
             .name("action-label")
-            .style(self.label_style())
+            .style(self.label_style(font_scale))
             .child(self.children.render()),
         )
         .semantic_name(SemanticName::Contents)

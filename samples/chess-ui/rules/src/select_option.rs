@@ -12,6 +12,10 @@ use battlement_reactant::{element_ref, hooks, paint::PaintStyle, prelude::*};
 #[builder]
 pub(crate) struct SelectOption {
   active: bool,
+  #[builder(required)]
+  control_scale: f32,
+  #[builder(required)]
+  font_scale: f32,
   index: usize,
   #[builder(required)]
   label: String,
@@ -39,7 +43,7 @@ impl Component for SelectOption {
       .host_name(format!("select-option-{}", self.label.to_ascii_lowercase()))
       .element_ref(reference)
       .key(self.index)
-      .style(self::style())
+      .style(self::style(self.font_scale, self.control_scale))
       .paint(self::paint(self.active))
       .hover_style(Style::new().background_color(Color::rgba8(11, 113, 207, 128)))
       .on_press(self.on_press.clone())
@@ -61,24 +65,24 @@ impl Component for SelectOption {
   }
 }
 
-fn style() -> Style {
+fn style(font_scale: f32, control_scale: f32) -> Style {
   Style::new()
     .position(Position::Relative)
     .width(100.pct())
-    .height(76)
-    .min_height(76)
+    .height(76.0 * control_scale)
+    .min_height(76.0 * control_scale)
     .flex_direction(FlexDirection::Row)
     .align_items(Align::Center)
     .justify_content(Justify::SpaceBetween)
-    .padding_top(6)
-    .padding_bottom(6)
-    .padding_left(25)
-    .padding_right(20)
+    .padding_top(6.0 * control_scale)
+    .padding_bottom(6.0 * control_scale)
+    .padding_left(25.0 * control_scale)
+    .padding_right(20.0 * control_scale)
     .border_width(0)
     .background_color(Color::TRANSPARENT)
     .color(Color::hex(0xd9e1f2))
     .unity_font_definition(VALUE_FONT)
-    .font_size(47)
+    .font_size(47.0 * font_scale)
     .unity_text_align(TextAnchor::MiddleLeft)
 }
 

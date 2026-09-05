@@ -2,8 +2,11 @@
 
 use trox::tx;
 
-use crate::header_artwork;
-use battlement::{PickingMode, Position, Style};
+use crate::{
+  font_scale::{self, FontScaleRole},
+  header_artwork,
+};
+use battlement::{Length, PickingMode, Position, Style, Translate};
 use battlement_reactant::{control_behavior, prelude::*};
 
 /// Selects the fixed decorative heading.
@@ -23,6 +26,7 @@ pub struct ScreenHeader {
 
 impl Component for ScreenHeader {
   fn render(&self) -> impl Render {
+    let font_scale = font_scale::use_font_scale();
     View::new()
       .name("screen-header")
       .picking_mode(PickingMode::Ignore)
@@ -80,18 +84,24 @@ impl Component for ScreenHeader {
             .style(
               Style::new()
                 .position(Position::Absolute)
-                .left(0)
+                .left(Length::Percent(50.0))
                 .top(if self.variant == HeaderVariant::Game {
-                  0
+                  165
                 } else {
-                  -58
+                  62
                 })
-                .width(854)
-                .height(if self.variant == HeaderVariant::Game {
-                  330
-                } else {
-                  240
-                }),
+                .width(854.0 * font_scale.dynamic(FontScaleRole::Heading))
+                .height(
+                  (if self.variant == HeaderVariant::Game {
+                    330.0
+                  } else {
+                    240.0
+                  }) * font_scale.dynamic(FontScaleRole::Heading),
+                )
+                .translate(Translate::two_dimensional(
+                  Length::Percent(-50.0),
+                  Length::Percent(-50.0),
+                )),
             ),
           ),
       ))

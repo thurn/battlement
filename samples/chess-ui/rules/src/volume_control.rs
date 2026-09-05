@@ -3,12 +3,14 @@
 use trox::{LocalizedString, tx_args, txa};
 
 use crate::{
+  font_scale,
   setting_row::{self, SettingRow},
   use_interaction, volume_input,
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
 };
 use battlement::{
-  Align, Color, FlexDirection, PickingMode, Position, Style, TextAnchor, WhiteSpace,
+  Align, Color, FlexDirection, Length, PickingMode, Position, Scale, Style, TextAnchor,
+  TransformOrigin, WhiteSpace,
 };
 use battlement_reactant::prelude::{EventCallback, builder, use_control_label};
 use battlement_reactant::{
@@ -35,6 +37,7 @@ pub struct VolumeControl {
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let font_scale = font_scale::use_font_scale();
     let (label, slider) = use_control_label().bind_with(|name| {
       control_behavior::slider(
         name,
@@ -67,7 +70,12 @@ impl Component for VolumeControl {
               .width(398)
               .height(82)
               .flex_shrink(0)
-              .align_items(Align::Center),
+              .align_items(Align::Center)
+              .scale(Scale::uniform(1.0 + (font_scale.factor() - 1.0) * 0.35))
+              .transform_origin(TransformOrigin::two_dimensional(
+                Length::Px(0.0),
+                Length::Percent(50.0),
+              )),
           )
           .child((
             View::new()
@@ -139,7 +147,7 @@ impl Component for VolumeControl {
                 .flex_shrink(0)
                 .color(Color::rgb8(245, 245, 248))
                 .unity_font_definition(setting_row::DISPLAY_FONT)
-                .font_size(55)
+                .font_size(55.0 * font_scale.factor() / (1.0 + (font_scale.factor() - 1.0) * 0.35))
                 .white_space(WhiteSpace::NoWrap)
                 .letter_spacing(1)
                 .unity_text_align(TextAnchor::MiddleLeft),
