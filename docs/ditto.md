@@ -278,13 +278,18 @@ The release benchmark measures 20 scenarios and 40 screenshots. On the pinned
 Apple silicon lane, source hashing must remain at or below 250 ms, a cold player
 launch at or below 20 seconds, and a warm watch cycle at or below 5 seconds.
 Build time is reported separately and is never counted as scenario latency.
-The on-demand gate runs a curated 34 of the 68 authored scenarios across all
-five samples, retaining 89 screenshot checkpoints within 120 seconds of both
-wall-clock and added work. The fixed 20-scenario, 40-screenshot performance
-benchmark remains fully represented in that selection. The remaining authored
-scenarios stay available for targeted runs.
+Every promotion runs every scenario in each canonical `samples/*/ditto.toml`
+suite. New scenarios, assertions, video steps, and screenshots therefore enter
+CI automatically; there is no checked-in selection inventory or required
+scenario count. Missing, duplicate, skipped, or incomplete results fail CI.
 
-Tollgate runs repository CI, cold and warm preparation, all five macOS suites,
+The gate's 120-second wall-time target produces a warning rather than reducing
+coverage. Each sample process has a 180-second timeout, which can be overridden
+with `DITTO_CI_SAMPLE_TIMEOUT_SECONDS`. Tollgate's full CI timeout includes
+player builds separately. The fixed performance workload is independent of
+regression coverage and runs when explicitly requested with `--ditto`.
+
+Tollgate runs repository CI, cold and warm preparation, all six macOS suites,
 WebGL and iOS adapter smokes, the performance budget, and final baseline
 publication. Failed-run archives retain the machine result and diagnostics;
 successful sample archives retain their complete reviewable run.

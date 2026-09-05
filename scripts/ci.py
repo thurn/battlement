@@ -763,11 +763,11 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
 
 
 def run_ditto_validation(reusable_build_seconds: float) -> None:
-    """Run the bounded screenshot gate against prebuilt players."""
+    """Run every canonical Ditto scenario against prebuilt players."""
     environment = os.environ.copy()
     environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = str(reusable_build_seconds)
     run_step(
-        "Run Ditto screenshot gate",
+        "Run Ditto full suite",
         [sys.executable, "scripts/ditto_ci.py", "gate"],
         environment=environment,
     )

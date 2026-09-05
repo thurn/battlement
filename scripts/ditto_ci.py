@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -36,17 +35,14 @@ DITTO = Path(
     os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
 )
 GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "120"))
-SAMPLE_TIMEOUT_SECONDS = float(
-    os.environ.get(
-        "DITTO_CI_SAMPLE_TIMEOUT_SECONDS", str(GATE_BUDGET_SECONDS + 15),
-    )
-)
-ADDED_BUDGET_SECONDS = 120
+SAMPLE_TIMEOUT_SECONDS = float(os.environ.get("DITTO_CI_SAMPLE_TIMEOUT_SECONDS", "180"))
 DEFAULT_ODIFF = (
     Path.home()
     / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"
 )
-SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui", "chess-ui")
+SAMPLES = tuple(
+    path.parent.name for path in sorted((REPOSITORY_ROOT / "samples").glob("*/ditto.toml"))
+)
 ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
     "ios": "ios_simulator_tests",
@@ -282,6 +278,8 @@ def inventory() -> tuple[dict[str, Any], int, int]:
         suite = tomllib.loads(
             (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
         )
+        if not suite.get("scenarios"):
+            raise RuntimeError(f"{sample} canonical suite has no scenarios")
         entries = []
         for scenario in suite["scenarios"]:
             checkpoints = [
@@ -296,78 +294,16 @@ def inventory() -> tuple[dict[str, Any], int, int]:
     return suites, scenarios, screenshots
 
 
-def validate_inventory() -> tuple[dict[str, list[str]], int, int]:
-    expected = json.loads(
-        (REPOSITORY_ROOT / "scripts/ditto_inventory.json").read_text()
-    )
-    if expected.get("schema") != 2:
-        raise RuntimeError("Ditto CI inventory must use schema 2")
-    selection = expected.get("selection")
-    if not isinstance(selection, dict) or set(selection) != set(SAMPLES):
-        raise RuntimeError("Ditto CI inventory must select scenarios for every sample")
-    benchmark = json.loads(
-        (REPOSITORY_ROOT / "benchmarks/ditto/ordinary.json").read_text()
-    )
-    benchmark_scenarios = {
-        sample["name"]: {scenario["name"] for scenario in sample["scenarios"]}
-        for sample in benchmark["samples"]
-    }
-    suites, available_scenarios, _ = inventory()
-    selected_suites = {}
-    scenarios = 0
-    screenshots = 0
-    for sample in SAMPLES:
-        names = selection[sample]
-        if not isinstance(names, list) or not names or len(names) != len(set(names)):
-            raise RuntimeError(f"Ditto CI inventory has invalid selections for {sample}")
-        by_name = {scenario["name"]: scenario for scenario in suites[sample]}
-        unknown = [name for name in names if name not in by_name]
-        if unknown:
-            raise RuntimeError(f"Ditto CI inventory has unknown {sample} scenarios: {unknown}")
-        missing_benchmarks = sorted(benchmark_scenarios.get(sample, set()) - set(names))
-        if missing_benchmarks:
-            raise RuntimeError(
-                f"Ditto CI inventory omits benchmark {sample} scenarios: {missing_benchmarks}"
-            )
-        selected_suites[sample] = [by_name[name] for name in names]
-        scenarios += len(names)
-        screenshots += sum(
-            len(scenario["screenshots"]) for scenario in selected_suites[sample]
-        )
-    if scenarios != (available_scenarios + 1) // 2:
-        raise RuntimeError(
-            f"Ditto CI inventory must select half of {available_scenarios} scenarios, rounded up"
-        )
-    encoded = json.dumps(
-        selected_suites, sort_keys=True, separators=(",", ":")
-    ).encode()
-    actual = {
-        "schema": 2,
-        "sha256": hashlib.sha256(encoded).hexdigest(),
-        "scenarios": scenarios,
-        "screenshots": screenshots,
-    }
-    recorded = {key: expected.get(key) for key in actual}
-    if actual != recorded:
-        raise RuntimeError(
-            "Ditto inventory changed; review it and refresh scripts/ditto_inventory.json: "
-            + json.dumps(actual, sort_keys=True)
-        )
-    return selection, scenarios, screenshots
-
-
 def gate() -> None:
-    """Run the curated scenario inventory concurrently within the CI budget."""
+    """Run every canonical scenario concurrently and report the time target."""
     platform_report()
-    selection, scenario_count, screenshot_count = validate_inventory()
+    _, scenario_count, screenshot_count = inventory()
     started = time.monotonic()
     results = []
     failures = []
     with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
         futures = {
-            executor.submit(
-                execute_sample, sample, scenarios=selection[sample], retain=False
-            ): sample
+            executor.submit(execute_sample, sample, retain=False): sample
             for sample in SAMPLES
         }
         for future in as_completed(futures):
@@ -379,13 +315,10 @@ def gate() -> None:
     duration = time.monotonic() - started
     reusable_build = float(os.environ.get("DITTO_CI_REUSABLE_BUILD_SECONDS", "0"))
     added_duration = duration
+    warnings = []
     if duration > GATE_BUDGET_SECONDS:
-        failures.append(
-            f"wall clock {duration:.3f}s exceeded the {GATE_BUDGET_SECONDS:g}s gate budget"
-        )
-    if added_duration > ADDED_BUDGET_SECONDS:
-        failures.append(
-            f"added work {added_duration:.3f}s exceeded the {ADDED_BUDGET_SECONDS}s CI budget"
+        warnings.append(
+            f"wall clock {duration:.3f}s exceeded the {GATE_BUDGET_SECONDS:g}s target"
         )
     report = {
         "schema": 1,
@@ -395,10 +328,10 @@ def gate() -> None:
         "reusable_build_seconds": round(reusable_build, 3),
         "scenario_execution_seconds": round(duration, 3),
         "added_duration_seconds": round(added_duration, 3),
-        "added_budget_seconds": ADDED_BUDGET_SECONDS,
         "scenario_count": scenario_count,
         "screenshot_count": screenshot_count,
         "samples": sorted(results, key=lambda item: item["sample"]),
+        "warnings": warnings,
         "failures": failures,
     }
     ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)

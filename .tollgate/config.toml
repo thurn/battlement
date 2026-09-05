@@ -8,3 +8,8 @@ name = "ci"
 run = "rustup run 1.98.1 python3 scripts/ci.py --full"
 timeout = "1h"
 semaphores = ["unity"]
+artifact = [
+  { name = "ditto-report", patterns = ["artifacts/ditto-ci/gate.json"], required = true },
+  { name = "ditto-results", patterns = ["artifacts/ditto-ci/*/result.json"], required = true },
+  { name = "ditto-failures", patterns = ["artifacts/ditto-ci/*/run.tar.gz"], required = false },
+]

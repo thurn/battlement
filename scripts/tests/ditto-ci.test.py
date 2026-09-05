@@ -134,12 +134,19 @@ def main() -> None:
         assert gate["status"] == "passed"
         assert len(gate["samples"]) == 6
         assert gate["budget_seconds"] == 120
-        assert gate["added_budget_seconds"] == 120
-        inventory = json.loads(
-            (REPOSITORY_ROOT / "scripts/ditto_inventory.json").read_text()
+        suites = [
+            tomllib.loads(path.read_text())
+            for path in sorted((REPOSITORY_ROOT / "samples").glob("*/ditto.toml"))
+        ]
+        assert gate["scenario_count"] == sum(
+            len(suite["scenarios"]) for suite in suites
         )
-        assert gate["scenario_count"] == inventory["scenarios"]
-        assert gate["screenshot_count"] == inventory["screenshots"]
+        assert gate["screenshot_count"] == sum(
+            "screenshot" in step
+            for suite in suites
+            for scenario in suite["scenarios"]
+            for step in scenario["steps"]
+        )
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)
@@ -151,12 +158,12 @@ def main() -> None:
 
         environment["DITTO_CI_GATE_BUDGET_SECONDS"] = "0.05"
         over_budget = run(["gate"], environment)
-        assert over_budget.returncode == 1
+        assert over_budget.returncode == 0
         gate = json.loads(
             (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
         )
-        assert gate["status"] == "failed"
-        assert any("gate budget" in failure for failure in gate["failures"])
+        assert gate["status"] == "passed"
+        assert any("exceeded" in warning for warning in gate["warnings"])
         environment.pop("DITTO_CI_GATE_BUDGET_SECONDS")
         environment.pop("FAKE_SLEEP")
 

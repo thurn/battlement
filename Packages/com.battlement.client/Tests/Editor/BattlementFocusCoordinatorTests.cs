@@ -66,7 +66,9 @@ namespace Battlement.Tests
             );
             fixture.FocusTarget();
             fixture.SendNavigationKey();
+            fixture.Documents.BeginCommit();
             fixture.ReparentTarget();
+            fixture.Documents.EndCommit();
             Assert.That(
                 fixture.Target.panel!.focusController.focusedElement,
                 Is.SameAs(fixture.Target)
