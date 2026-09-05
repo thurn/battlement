@@ -595,3 +595,49 @@ to = "arcade_modal.backdrop"
 [[transitions]]
 from = "arcade_modal.backdrop"
 to = "arcade_modal.reset"
+
+[[mappings]]
+state = "privacy.initial"
+scenario = "privacy policy help"
+checkpoint = "initial"
+owner = "gallery::privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request"
+
+[[mappings]]
+state = "privacy.open"
+scenario = "privacy policy help"
+checkpoint = "open"
+owner = "gallery::privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request"
+
+[[mappings]]
+state = "privacy.requested"
+scenario = "privacy policy help"
+checkpoint = "requested"
+owner = "gallery::privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request"
+
+[[mappings]]
+state = "privacy.dismissed"
+scenario = "privacy policy help"
+checkpoint = "dismissed"
+owner = "gallery::privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request"
+
+[[mappings]]
+state = "privacy.reset"
+scenario = "privacy policy help"
+checkpoint = "reset"
+owner = "gallery::privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request"
+
+[[transitions]]
+from = "privacy.initial"
+to = "privacy.open"
+
+[[transitions]]
+from = "privacy.open"
+to = "privacy.requested"
+
+[[transitions]]
+from = "privacy.requested"
+to = "privacy.dismissed"
+
+[[transitions]]
+from = "privacy.dismissed"
+to = "privacy.reset"

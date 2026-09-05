@@ -455,3 +455,39 @@ to = "arcade_modal.backdrop"
 [[transitions]]
 from = "arcade_modal.backdrop"
 to = "arcade_modal.reset"
+
+[[states]]
+key = "privacy.initial"
+screen = "privacy"
+
+[[states]]
+key = "privacy.open"
+screen = "privacy"
+
+[[states]]
+key = "privacy.requested"
+screen = "privacy"
+
+[[states]]
+key = "privacy.dismissed"
+screen = "privacy"
+
+[[states]]
+key = "privacy.reset"
+screen = "privacy"
+
+[[transitions]]
+from = "privacy.initial"
+to = "privacy.open"
+
+[[transitions]]
+from = "privacy.open"
+to = "privacy.requested"
+
+[[transitions]]
+from = "privacy.requested"
+to = "privacy.dismissed"
+
+[[transitions]]
+from = "privacy.dismissed"
+to = "privacy.reset"

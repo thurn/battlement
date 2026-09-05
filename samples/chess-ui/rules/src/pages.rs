@@ -12,6 +12,7 @@ use crate::{
   header_harness::HeaderHarness,
   interaction_harness::InteractionHarness,
   portrait_harness::PortraitHarness,
+  privacy_harness::PrivacyHarness,
   review_page::ReviewPage,
   select_harness::SelectHarness,
   select_popover_harness::SelectPopoverHarness,
@@ -141,7 +142,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("InfoBadge and Privacy Policy", "Chess UI showcase title."))
-                .description(tx("InfoBadge opens accessible crash-report help and activates Privacy Policy; data erasure remains absent.", "Chess UI showcase description.")),
+                .description(tx("InfoBadge opens accessible crash-report help and activates Privacy Policy; data erasure remains absent.", "Chess UI showcase description."))
+                .child(PrivacyHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

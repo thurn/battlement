@@ -4,8 +4,8 @@ use trox::{LocalizedString, tx};
 
 use crate::{check_mark::CheckMark, setting_row::SettingRow, use_interaction};
 use battlement::{
-  Align, Color, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Shadow, Style,
-  TextAnchor, Translate,
+  Align, Color, FontStyle, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Scale,
+  Shadow, Style, TextAnchor, Translate,
 };
 use battlement_reactant::{
   control_behavior,
@@ -242,7 +242,8 @@ fn rounded_box() -> Vec<[Length; 2]> {
 }
 
 #[builder]
-struct InfoBadge {
+/// A compact information action positioned beside a setting label.
+pub struct InfoBadge {
   #[builder(required)]
   on_click: EventCallback<()>,
 }
@@ -270,9 +271,20 @@ impl Component for InfoBadge {
           .background_color(Color::TRANSPARENT)
           .color(Color::rgb8(188, 244, 255))
           .font_size(27)
+          .unity_font_style_and_weight(FontStyle::Bold)
           .unity_text_align(TextAnchor::MiddleCenter)
           .align_items(Align::Center)
-          .justify_content(Justify::Center),
+          .justify_content(Justify::Center)
+          .translate(Translate::two_dimensional(Length::Px(0.0), Length::Px(1.0)))
+          .scale(Scale::new(0.957, 1.0)),
+      )
+      .paint(
+        PaintStyle::new()
+          .background(Color::TRANSPARENT)
+          .box_shadow([
+            Shadow::outer(0.0, 0.0, 8.0, 0.0, Color::hex(0x155eff)),
+            Shadow::inset(0.0, 0.0, 7.0, 0.0, Color::rgba8(13, 76, 180, 204)),
+          ]),
       )
   }
 }

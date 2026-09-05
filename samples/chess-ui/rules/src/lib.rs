@@ -66,6 +66,10 @@ pub mod pages;
 
 mod portrait_harness;
 
+mod privacy_harness;
+
+pub mod privacy_policy;
+
 pub mod portrait_viewport;
 
 pub mod return_button;

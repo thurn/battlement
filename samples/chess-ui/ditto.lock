@@ -383,6 +383,56 @@ source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
 
 [[baselines]]
 profile = "macos"
+scenario = "privacy policy help"
+checkpoint = "dismissed"
+sha256 = "9119e4ee0860486d7c086b39443e5a802311c75976b339e60c73d62d277b0528"
+width = 1280
+height = 800
+size_bytes = 127905
+source = "072cdc3663735cd1254d27d8f33cbef7c0f3b0f14650b4130492ceb96efcf10e"
+
+[[baselines]]
+profile = "macos"
+scenario = "privacy policy help"
+checkpoint = "initial"
+sha256 = "b9c47e9db9078ed0abe8ea463a88ca7c7d68aa74e41de5c7e1a6eda0fea6cd14"
+width = 1280
+height = 800
+size_bytes = 128024
+source = "072cdc3663735cd1254d27d8f33cbef7c0f3b0f14650b4130492ceb96efcf10e"
+
+[[baselines]]
+profile = "macos"
+scenario = "privacy policy help"
+checkpoint = "open"
+sha256 = "58a4f54fb97d657c15c6f53ba5fdb39f14fc41406fc6e65d2495bd22d4d5c8f3"
+width = 1280
+height = 800
+size_bytes = 195593
+source = "072cdc3663735cd1254d27d8f33cbef7c0f3b0f14650b4130492ceb96efcf10e"
+
+[[baselines]]
+profile = "macos"
+scenario = "privacy policy help"
+checkpoint = "requested"
+sha256 = "58a4f54fb97d657c15c6f53ba5fdb39f14fc41406fc6e65d2495bd22d4d5c8f3"
+width = 1280
+height = 800
+size_bytes = 195593
+source = "072cdc3663735cd1254d27d8f33cbef7c0f3b0f14650b4130492ceb96efcf10e"
+
+[[baselines]]
+profile = "macos"
+scenario = "privacy policy help"
+checkpoint = "reset"
+sha256 = "b9c47e9db9078ed0abe8ea463a88ca7c7d68aa74e41de5c7e1a6eda0fea6cd14"
+width = 1280
+height = 800
+size_bytes = 128024
+source = "072cdc3663735cd1254d27d8f33cbef7c0f3b0f14650b4130492ceb96efcf10e"
+
+[[baselines]]
+profile = "macos"
 scenario = "screen frame"
 checkpoint = "static"
 sha256 = "b608251cbd4f74a64f9453342d95f6dd781bebda6ce709803fcb8be1274faaef"

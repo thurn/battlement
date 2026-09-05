@@ -1967,6 +1967,63 @@ accessibility_assert = { target = { role = "static-text", name = "Erase confirma
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "privacy policy help"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "About crash report uploads" }, role = "button", name = "About crash report uploads" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "About crash report uploads" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Crash report upload information" }, role = "dialog", name = "Crash report upload information" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "We upload crash reports to Unity Diagnostics." }, role = "static-text", name = "We upload crash reports to Unity Diagnostics.", parent = { role = "dialog", name = "Crash report upload information" } }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "link", name = "Privacy Policy" }, role = "link", name = "Privacy Policy", parent = { role = "dialog", name = "Crash report upload information" } }
+
+[[scenarios.steps]]
+screenshot = { name = "open" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "link", name = "Privacy Policy" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Crash report upload information" }, role = "dialog", name = "Crash report upload information" }
+
+[[scenarios.steps]]
+screenshot = { name = "requested" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Crash report upload information" }, action = "dismiss" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true }
+
+[[scenarios.steps]]
+screenshot = { name = "dismissed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206819\u2069. \u2068InfoBadge and Privacy Policy\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Crash reports: On · Dialog: Closed · Privacy requests: 0" }, role = "static-text", name = "Crash reports: On · Dialog: Closed · Privacy requests: 0" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }

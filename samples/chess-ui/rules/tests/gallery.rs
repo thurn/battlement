@@ -1,24 +1,39 @@
 use battlement::{
-  AccessibilitySnapshot, CheckedState, ClickEvent, Color, CommandBody, CurrentPage, GameObjectKind,
-  Gradient, KeyEvent, KeyModifiers, MotionEventBatch, MotionGestureEvent, MotionGestureEventKind,
-  MotionGestureVector, MotionLayer, MotionPointerDevice, MotionProperty, MotionSequence,
-  MotionValue, NavigationDirection, NavigationMoveEvent, ObjectId, PanelPoint, PhysicalKey,
-  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerCancelEvent, PointerType,
-  PopupKind, Prop, SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent,
-  UiEventBody, UiVisualElementProperties, Vector,
+  AccessibilitySnapshot, CheckedState, ClickEvent, Color, Command, CommandBody, CurrentPage,
+  GameObjectKind, Gradient, KeyEvent, KeyModifiers, LengthUnits, MotionEventBatch,
+  MotionGestureEvent, MotionGestureEventKind, MotionGestureVector, MotionLayer,
+  MotionPointerDevice, MotionProperty, MotionSequence, MotionValue, NavigationDirection,
+  NavigationMoveEvent, ObjectId, PanelPoint, PhysicalKey, PointerBoundaryEvent, PointerButton,
+  PointerButtonEvent, PointerCancelEvent, PointerType, PopupKind, Prop, SemanticRole,
+  UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
+  UiVisualElementProperties, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
-  app::App, asset_generator, component::Component, control_behavior, hooks, host::View,
+  app::App,
+  asset_generator,
+  component::Component,
+  control_behavior, hooks,
+  host::{Stack, View},
+  overlay::OverlayHost,
+  portal::PortalTarget,
+  prelude::use_app,
   render::Render,
 };
 use battlement_rules::{
-  action_button, engine, review_surface::ReviewSurface, select_control, setting_row,
+  action_button, engine,
+  privacy_policy::{PRIVACY_POLICY_URL, PrivacyPolicyHelp},
+  review_surface::ReviewSurface,
+  select_control, setting_row,
   toggle_control::ToggleControl,
 };
 use trox::ls;
 
 struct ToggleInfoFixture;
+
+struct PrivacyHostFixture {
+  overlay: PortalTarget,
+}
 
 #[test]
 fn interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation() {
@@ -1034,6 +1049,110 @@ fn arcade_modal_isolates_focus_dismisses_every_route_and_restores_state() {
   self::assert_page(&mut client, 17);
 }
 
+#[test]
+fn privacy_help_preserves_the_checkbox_and_emits_the_exact_external_request() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-19");
+  client.ui().click(page);
+  client.poll();
+  let checkbox = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Checkbox)
+    .unwrap();
+  assert_eq!(checkbox.label.as_deref(), Some("Upload Crash Reports"));
+  assert_eq!(checkbox.state.checked, Some(CheckedState::True));
+  let info = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("About crash report uploads"))
+    .unwrap();
+  assert_eq!(info.role, SemanticRole::Button);
+  let info = info.object_id;
+
+  client.ui().click(info);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  let dialog = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Dialog)
+    .unwrap();
+  assert_eq!(
+    dialog.label.as_deref(),
+    Some("Crash report upload information")
+  );
+  assert!(snapshot.nodes.iter().any(|node| {
+    node.label.as_deref() == Some("We upload crash reports to Unity Diagnostics.")
+  }));
+  let link = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.label.as_deref() == Some("Privacy Policy"))
+    .unwrap();
+  assert_eq!(link.role, SemanticRole::Link);
+  let link = link.object_id;
+
+  client.ui().click(link);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  assert!(snapshot.nodes.iter().any(|node| {
+    node.role == SemanticRole::Dialog
+      && node.label.as_deref() == Some("Crash report upload information")
+  }));
+  assert!(snapshot.nodes.iter().any(|node| {
+    node.label.as_deref() == Some("Crash reports: On · Dialog: Open · Privacy requests: 1")
+  }));
+
+  let dialog = snapshot
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Dialog)
+    .unwrap()
+    .object_id;
+  self::range_action(&mut client, dialog, UiAccessibilityAction::Dismiss);
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .all(|node| { node.role != SemanticRole::Dialog })
+  );
+  client.ui().click(page);
+  client.poll();
+  let snapshot = self::snapshot(&client);
+  assert!(snapshot.nodes.iter().any(|node| {
+    node.label.as_deref() == Some("Crash reports: On · Dialog: Closed · Privacy requests: 0")
+  }));
+  assert!(!client.ui().contains(info));
+  self::assert_page(&mut client, 18);
+
+  let mut host = self::privacy_host_client();
+  let link = self::named(&mut host, "privacy-policy-link");
+  host.ui().click(link);
+  host.poll();
+  assert!(host.commands().iter().any(|entry| {
+    matches!(
+      &entry.command.body,
+      CommandBody::ApplicationOpenUrl(request) if request.url == PRIVACY_POLICY_URL
+    )
+  }));
+  assert!(self::snapshot(&host).nodes.iter().any(|node| {
+    node.role == SemanticRole::Dialog
+      && node.label.as_deref() == Some("Crash report upload information")
+  }));
+}
+
+impl Component for PrivacyHostFixture {
+  fn render(&self) -> impl Render {
+    let app = use_app();
+    PrivacyPolicyHelp::new()
+      .open(true)
+      .on_open_url(move |url| app.send(Command::open_external_url(url)))
+      .on_close(|| {})
+      .overlay(self.overlay.clone())
+  }
+}
+
 fn assert_modal_closed(client: &FakeClient<App>, confirmations: usize) {
   let snapshot = self::snapshot(client);
   assert!(
@@ -1535,6 +1654,29 @@ fn toggle_info_client() -> FakeClient<App> {
   assets.add_ui_font(setting_row::DISPLAY_FONT);
   let app = App::new("chess-ui/content")
     .ui(ToggleInfoFixture)
+    .document(ReviewSurface::document);
+  let mut client = FakeClient::connect(app, assets);
+  client.poll();
+  client
+}
+
+fn privacy_host_client() -> FakeClient<App> {
+  let mut assets = FakeAssetCatalog::new();
+  assets.add_scene("chess-ui/content");
+  assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
+  assets.add_ui_font(action_button::ACTION_FONT);
+  assets.add_ui_font(select_control::VALUE_FONT);
+  let mut app = App::new("chess-ui/content");
+  let overlay = app.create_portal_target();
+  let app = app
+    .ui(
+      Stack::new()
+        .style(battlement::Style::new().width(100.pct()).height(100.pct()))
+        .child(PrivacyHostFixture {
+          overlay: overlay.clone(),
+        })
+        .child(OverlayHost::new(overlay)),
+    )
     .document(ReviewSurface::document);
   let mut client = FakeClient::connect(app, assets);
   client.poll();
