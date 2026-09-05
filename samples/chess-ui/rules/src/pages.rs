@@ -12,6 +12,7 @@ use crate::{
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
   input_settings::InputSettings,
+  input_skin_harness::InputSkinHarness,
   interaction_harness::InteractionHarness,
   portrait_harness::PortraitHarness,
   privacy_harness::PrivacyHarness,
@@ -175,7 +176,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Input icons and settings panel skin", "Chess UI showcase title."))
-                .description(tx("InputBindingIcons and the settings panel render precisely; rebinding behavior and full composition remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("InputBindingIcons and the settings panel render precisely; rebinding behavior and full composition remain unasserted.", "Chess UI showcase description."))
+                .child(InputSkinHarness::new()),
         )
         .page(
             ReviewPage::new()

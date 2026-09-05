@@ -68,6 +68,10 @@ pub mod gallery;
 
 pub mod input_settings;
 
+pub mod input_binding_icons;
+
+mod input_skin_harness;
+
 pub mod pages;
 
 mod portrait_harness;
@@ -133,6 +137,8 @@ mod volume_input_harness;
 mod volume_skin;
 
 pub mod settings_tabs;
+
+pub mod settings_panel;
 
 mod tabs_harness;
 

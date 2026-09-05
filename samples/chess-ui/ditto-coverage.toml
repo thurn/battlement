@@ -885,3 +885,89 @@ to = "rendering_audit.panel"
 [[transitions]]
 from = "rendering_audit.panel"
 to = "rendering_audit.reset"
+
+[[mappings]]
+state = "input_skin.default_100"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-100"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.default_150"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-150"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.default_200"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-200"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.custom_200"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-200"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.custom_150"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-150"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.custom_100"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-100"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.custom_tail"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-tail"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.panel"
+scenario = "input icons and settings panel skin"
+checkpoint = "panel"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[mappings]]
+state = "input_skin.reset"
+scenario = "input icons and settings panel skin"
+checkpoint = "reset"
+owner = "input_skin::input_glyphs_custom_scales_and_panel_padding_reset_as_one_specimen"
+
+[[transitions]]
+from = "input_skin.default_100"
+to = "input_skin.default_150"
+
+[[transitions]]
+from = "input_skin.default_150"
+to = "input_skin.default_200"
+
+[[transitions]]
+from = "input_skin.default_200"
+to = "input_skin.custom_200"
+
+[[transitions]]
+from = "input_skin.custom_200"
+to = "input_skin.custom_150"
+
+[[transitions]]
+from = "input_skin.custom_150"
+to = "input_skin.custom_100"
+
+[[transitions]]
+from = "input_skin.custom_100"
+to = "input_skin.custom_tail"
+
+[[transitions]]
+from = "input_skin.custom_tail"
+to = "input_skin.panel"
+
+[[transitions]]
+from = "input_skin.panel"
+to = "input_skin.reset"

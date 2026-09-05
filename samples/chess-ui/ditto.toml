@@ -2303,6 +2303,81 @@ accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "bu
 screenshot = { name = "reset", max_changed_percent = 0.3 }
 
 [[scenarios]]
+name = "input icons and settings panel skin"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206824\u2069. \u2068Input icons and settings panel skin\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Left arrow" }, role = "cell", name = "Left arrow" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "D-pad left" }, role = "cell", name = "D-pad left" }
+
+[[scenarios.steps]]
+screenshot = { name = "default-100", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "150%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "default-150", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "200%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "default-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Long/custom" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Backspace" }, role = "cell", name = "Backspace" }
+
+[[scenarios.steps]]
+screenshot = { name = "custom-200", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "150%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "custom-150", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "100%" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "custom-100", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "row-header", name = "Restart" }, role = "row-header", name = "Restart" }
+
+[[scenarios.steps]]
+screenshot = { name = "custom-tail", max_changed_percent = 0.01 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Panel surround" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "scroll-area", name = "Settings panel surround" }, role = "scroll-area", name = "Settings panel surround" }
+
+[[scenarios.steps]]
+screenshot = { name = "panel", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reset specimen" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Left arrow" }, role = "cell", name = "Left arrow" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "screen header"
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }

@@ -683,3 +683,71 @@ to = "rendering_audit.panel"
 [[transitions]]
 from = "rendering_audit.panel"
 to = "rendering_audit.reset"
+
+[[states]]
+key = "input_skin.default_100"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.default_150"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.default_200"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.custom_200"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.custom_150"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.custom_100"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.custom_tail"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.panel"
+screen = "input_skin"
+
+[[states]]
+key = "input_skin.reset"
+screen = "input_skin"
+
+[[transitions]]
+from = "input_skin.default_100"
+to = "input_skin.default_150"
+
+[[transitions]]
+from = "input_skin.default_150"
+to = "input_skin.default_200"
+
+[[transitions]]
+from = "input_skin.default_200"
+to = "input_skin.custom_200"
+
+[[transitions]]
+from = "input_skin.custom_200"
+to = "input_skin.custom_150"
+
+[[transitions]]
+from = "input_skin.custom_150"
+to = "input_skin.custom_100"
+
+[[transitions]]
+from = "input_skin.custom_100"
+to = "input_skin.custom_tail"
+
+[[transitions]]
+from = "input_skin.custom_tail"
+to = "input_skin.panel"
+
+[[transitions]]
+from = "input_skin.panel"
+to = "input_skin.reset"

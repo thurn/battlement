@@ -355,31 +355,31 @@ source = "dfec78c125d7f154efba02395c3a971398eaab149c0aad2552741cd93b8fa4c0"
 profile = "macos"
 scenario = "font scale"
 checkpoint = "input-200"
-sha256 = "2de393cf03e3d253e8d4e033fb4d75aec48c80cbe1540ecfd101e74e2cf09712"
+sha256 = "4538f77e2cec5fa4a664a6cfbb582e21618016fecc1117d42173d919b658e5dd"
 width = 1280
 height = 800
-size_bytes = 130516
-source = "80bd69e7517f1fe6bee4438407dcad84ce0bd78ce92a9cb4b8ffe947f34cba1b"
+size_bytes = 138768
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "font scale"
 checkpoint = "input-scrolled-200"
-sha256 = "84182a1f5ce67a49d9e02c5a181afde49e80146295318e27b9572e614d6c84c2"
+sha256 = "41e468bf997554b3690c8b18335bb3a8033b11d76a634b1caaa327578908d29c"
 width = 1280
 height = 800
-size_bytes = 126533
-source = "80bd69e7517f1fe6bee4438407dcad84ce0bd78ce92a9cb4b8ffe947f34cba1b"
+size_bytes = 143420
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "font scale"
 checkpoint = "navigation-200"
-sha256 = "2476c2c2725116c8d9cf9d5b91204d19bc2257c9e3be119b0fdad2f0b0946eac"
+sha256 = "be7132aa766bcdafa253e6940306414c78ff9abba46c888658ba32e53d3576af"
 width = 1280
 height = 800
-size_bytes = 180138
-source = "94875ec5f6b0b01235604d6acc8b2cfc4c185e4a8769a0d694c713ef7a748934"
+size_bytes = 180006
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
@@ -425,11 +425,11 @@ source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
 profile = "macos"
 scenario = "gallery navigation second"
 checkpoint = "selected"
-sha256 = "8d90a63ee33dd538db39bd075426158b12c2c184dffcae74c4adb56c7d2b34eb"
+sha256 = "2f7943bad8486b3f692a73f296bce4a3ab9595d5d945dfac5c649329bd9c60a8"
 width = 1280
 height = 800
-size_bytes = 125181
-source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+size_bytes = 134545
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
@@ -473,83 +473,173 @@ source = "a51c18f7c242035c959bf44c2d4241d24499962d159ecdf60d42f5aac5972e07"
 
 [[baselines]]
 profile = "macos"
-scenario = "input settings table"
-checkpoint = "initial"
-sha256 = "68719302e33762bd7e152fe2b43f286a9558063c54dc2a94750be67772bbca78"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-100"
+sha256 = "38186ef5e5c09928bde90741d42823f7ebecde113e924a38c7f539d31968e69b"
 width = 1280
 height = 800
-size_bytes = 125186
-source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+size_bytes = 146450
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-150"
+sha256 = "453385c55785e93169c0c8cbf0567d2f157a2ff76099f77558c0f7294e9ec138"
+width = 1280
+height = 800
+size_bytes = 142176
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-200"
+sha256 = "8545bfe1fe8acc63a18518ab3c599689c4dd47ca372bdae2c67dcfc260154c87"
+width = 1280
+height = 800
+size_bytes = 142286
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "custom-tail"
+sha256 = "8cdbf1b9ff5fa48bd440561879b176b78e7d0af579728c8759ceec24f3c3553b"
+width = 1280
+height = 800
+size_bytes = 158872
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-100"
+sha256 = "de09a53f196761fe307fd7def446566757b2842f8f9f7cd5888fad0b99788c60"
+width = 1280
+height = 800
+size_bytes = 148409
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-150"
+sha256 = "b3a16b917bccf12f104cc6295ef7bdb9909bd48b5287b9736ba7063c8a1f56d0"
+width = 1280
+height = 800
+size_bytes = 144224
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "default-200"
+sha256 = "f67c43750fd13ca40f8e7ea63461bffd1d6dac2f25c0a31524144ae09fc823ef"
+width = 1280
+height = 800
+size_bytes = 144557
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "panel"
+sha256 = "325496fc5955b97bc4f88de7ef05cfbd6ff928c60833ec3f1be5c23cd8e5ad49"
+width = 1280
+height = 800
+size_bytes = 156207
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input icons and settings panel skin"
+checkpoint = "reset"
+sha256 = "de09a53f196761fe307fd7def446566757b2842f8f9f7cd5888fad0b99788c60"
+width = 1280
+height = 800
+size_bytes = 148409
+source = "483b86a71f457706abb79e826f4d00c319e951e210aa34a9230faa4c2fdc380b"
+
+[[baselines]]
+profile = "macos"
+scenario = "input settings table"
+checkpoint = "initial"
+sha256 = "2f7943bad8486b3f692a73f296bce4a3ab9595d5d945dfac5c649329bd9c60a8"
+width = 1280
+height = 800
+size_bytes = 134545
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "input settings table"
 checkpoint = "reset"
-sha256 = "68719302e33762bd7e152fe2b43f286a9558063c54dc2a94750be67772bbca78"
+sha256 = "2f7943bad8486b3f692a73f296bce4a3ab9595d5d945dfac5c649329bd9c60a8"
 width = 1280
 height = 800
-size_bytes = 125186
-source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+size_bytes = 134545
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "input settings table"
 checkpoint = "scrolled"
-sha256 = "13e499130440290833dd1b71ccd3de70f5393801623eae594d8f79e5e4eb8cdf"
+sha256 = "e5c6cb5fb250b6f8b58c2c39616467a1243f580c8c1c93ff8026f24cfe3682fb"
 width = 1280
 height = 800
-size_bytes = 122544
-source = "549cafb2550fb217024aae404bab7c138e735497d2713b438086135398714d98"
+size_bytes = 143997
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard rebinding"
 checkpoint = "binding-reset"
-sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+sha256 = "101bc3d0cfc2d96546c2e68bcad6808cb0b6c1b0916815475b0a0f169007b659"
 width = 1280
 height = 800
-size_bytes = 125883
-source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+size_bytes = 146991
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard rebinding"
 checkpoint = "cancelled"
-sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+sha256 = "101bc3d0cfc2d96546c2e68bcad6808cb0b6c1b0916815475b0a0f169007b659"
 width = 1280
 height = 800
-size_bytes = 125883
-source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+size_bytes = 146991
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard rebinding"
 checkpoint = "initial"
-sha256 = "ad5d80a509673d17b161e0283908e4372d34113475e6f5cc83d0d96ab21d014c"
+sha256 = "101bc3d0cfc2d96546c2e68bcad6808cb0b6c1b0916815475b0a0f169007b659"
 width = 1280
 height = 800
-size_bytes = 125883
-source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+size_bytes = 146991
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard rebinding"
 checkpoint = "open"
-sha256 = "7d8efbd695d6c4cd0f9508f6390fe74c949b5f9a5fe48e08b0351c2659117cf9"
+sha256 = "6362589d9971b1131ec8f4cfeadcbaed69581ac41fea01820e58ba2dcb80ca2e"
 width = 1280
 height = 800
-size_bytes = 195261
-source = "1ec4dc418dd15efcf3582747be44619cadb8ab11c09e5981abacfe0c52aca3eb"
+size_bytes = 195357
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard rebinding"
 checkpoint = "reset"
-sha256 = "e1a17a3fd9fcd8e37162d8586650942832fe1a8f4cd97f89668ec619a439ba98"
+sha256 = "028ebf5276769c3e1d1fa89bc770781078c8e176ad76a901ab24bd057214f34c"
 width = 1280
 height = 800
-size_bytes = 128275
-source = "6cc6a1ee1be6dce5ac6cd3b6bf20b2758b3cededc08ccbf49323fc151050ff86"
+size_bytes = 138032
+source = "d95bcf27c6cb64454440c8fab422c4e1ba6c101b8412e0d671ee1124554926f6"
 
 [[baselines]]
 profile = "macos"

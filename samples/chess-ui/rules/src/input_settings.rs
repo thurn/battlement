@@ -2,15 +2,16 @@
 
 use battlement::{
   AccessibilityScrollAxis, AccessibilityScrollDirection, Align, AnimationDirection,
-  AnimationIterations, Color, FlexDirection, GridTrack, KeyEvent, PhysicalKey, ScrollerVisibility,
-  Sticky, Style, TextAnchor, Vector, WhiteSpace,
+  AnimationIterations, Color, FlexDirection, Gradient, GridTrack, KeyEvent, PhysicalKey, Position,
+  ScrollerVisibility, Shadow, Sticky, Style, TextAnchor, Vector, WhiteSpace,
 };
 use battlement_reactant::{
   announcement::{Announce, use_announce},
   component::Component,
   event::ReactantEvent,
   hooks,
-  host::TextField,
+  host::{Label, TextField},
+  paint::{PaintLayer, PaintStyle},
   portal::PortalTarget,
   prelude::*,
   semantics::{SemanticName, SemanticProps},
@@ -18,8 +19,12 @@ use battlement_reactant::{
 use trox::{ls, tx};
 
 use crate::{
+  action_skin,
   arcade_modal::ArcadeModal,
   font_scale::{self, FontScaleRole},
+  input_binding_icons::{
+    ControllerButtonIcon, ControllerLabel, DPadIcon, InputDirection, KeyboardArrow,
+  },
   setting_row::DISPLAY_FONT,
 };
 
@@ -46,6 +51,15 @@ const DEFAULT_KEYBOARD: [PhysicalKey; 7] = [
   PhysicalKey::Escape,
   PhysicalKey::KeyR,
 ];
+const CUSTOM_KEYBOARD: [PhysicalKey; 7] = [
+  PhysicalKey::KeyA,
+  PhysicalKey::KeyD,
+  PhysicalKey::KeyW,
+  PhysicalKey::KeyS,
+  PhysicalKey::Backspace,
+  PhysicalKey::Tab,
+  PhysicalKey::Enter,
+];
 const CONTROLLER: [&str; 7] = [
   "D-pad left",
   "D-pad right",
@@ -56,16 +70,41 @@ const CONTROLLER: [&str; 7] = [
   "Y",
 ];
 
+/// Initial binding set displayed by an input table specimen.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum InputBindingVariant {
+  #[default]
+  Default,
+  Custom,
+}
+
+impl InputBindingVariant {
+  pub(crate) fn label(self) -> &'static str {
+    match self {
+      Self::Default => "Default",
+      Self::Custom => "Long/custom",
+    }
+  }
+
+  fn bindings(self) -> [PhysicalKey; 7] {
+    match self {
+      Self::Default => DEFAULT_KEYBOARD,
+      Self::Custom => CUSTOM_KEYBOARD,
+    }
+  }
+}
+
 /// Displays keyboard and controller bindings in a sticky-header table.
 #[builder]
 pub struct InputSettings {
   overlay: Option<PortalTarget>,
+  variant: InputBindingVariant,
 }
 
 impl Component for InputSettings {
   fn render(&self) -> impl Render {
     let (scrolled, set_scrolled) = hooks::use_state(false);
-    let (bindings, set_bindings) = hooks::use_state(DEFAULT_KEYBOARD);
+    let (bindings, set_bindings) = hooks::use_state(self.variant.bindings());
     let (capture, set_capture) = hooks::use_state(None::<usize>);
     let (status, set_status) = hooks::use_state(None::<String>);
     let capture_focus = use_element_ref();
@@ -373,8 +412,9 @@ fn binding_row(
             set_capture,
             set_status,
             font_scale,
+            control_scale,
           ),
-          TableCell::new(ls(CONTROLLER[index])).style(self::binding_style(font_scale)),
+          self::controller_cell(index),
         )),
     )
 }
@@ -386,24 +426,56 @@ fn keyboard_cell(
   set_capture: hooks::StateSetter<Option<usize>>,
   set_status: hooks::StateSetter<Option<String>>,
   font_scale: f32,
-) -> TableCell {
+  control_scale: f32,
+) -> impl Render {
   let name = ls(self::key_name(keyboard));
-  TableCell::new(name)
-    .host_name(format!("keyboard-binding-{index}"))
-    .style(self::binding_style(font_scale))
-    .configure_host(move |host| {
-      let host = host
-        .focusable(interactive)
-        .tab_index(if interactive { 0 } else { -1 });
-      if interactive {
-        host.on_click(move || {
-          set_status.set(None);
-          set_capture.set(Some(index));
-        })
-      } else {
-        host
-      }
+  let direction = self::key_direction(keyboard);
+  let compact = self::key_name(keyboard).len() == 1 && direction.is_none();
+  let host = View::new()
+    .semantic(SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(name.clone())))
+    .name(format!("keyboard-binding-{index}"))
+    .style(self::keycap_style(compact, font_scale, control_scale))
+    .paint(self::keycap_paint())
+    .child((
+      direction.map(|direction| KeyboardArrow::new().direction(direction)),
+      direction.is_none().then(|| {
+        Label::new(name)
+          .name(format!("keyboard-binding-label-{index}"))
+          .style(self::keycap_label_style(
+            keyboard,
+            font_scale,
+            control_scale,
+          ))
+      }),
+    ))
+    .focusable(interactive)
+    .tab_index(if interactive { 0 } else { -1 });
+  if interactive {
+    host.on_click(move || {
+      set_status.set(None);
+      set_capture.set(Some(index));
     })
+  } else {
+    host
+  }
+}
+
+fn controller_cell(index: usize) -> impl Render {
+  View::new()
+    .name(format!("controller-binding-{index}"))
+    .semantic(
+      SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(ls(CONTROLLER[index]))),
+    )
+    .style(Style::new().center_content())
+    .child((
+      (index == 0).then(|| DPadIcon::new().direction(InputDirection::Left)),
+      (index == 1).then(|| DPadIcon::new().direction(InputDirection::Right)),
+      (index == 2).then(|| DPadIcon::new().direction(InputDirection::Up)),
+      (index == 3).then(|| DPadIcon::new().direction(InputDirection::Down)),
+      (index == 4).then(|| ControllerButtonIcon::new().label(ControllerLabel::A)),
+      (index == 5).then(|| ControllerButtonIcon::new().label(ControllerLabel::Menu)),
+      (index == 6).then(|| ControllerButtonIcon::new().label(ControllerLabel::Y)),
+    ))
 }
 
 fn is_bare_modifier(key: PhysicalKey) -> bool {
@@ -512,6 +584,77 @@ fn key_name(key: PhysicalKey) -> String {
   }
 }
 
+fn key_direction(key: PhysicalKey) -> Option<InputDirection> {
+  match key {
+    PhysicalKey::ArrowLeft => Some(InputDirection::Left),
+    PhysicalKey::ArrowRight => Some(InputDirection::Right),
+    PhysicalKey::ArrowUp => Some(InputDirection::Up),
+    PhysicalKey::ArrowDown => Some(InputDirection::Down),
+    _ => None,
+  }
+}
+
+fn keycap_style(compact: bool, font_scale: f32, control_scale: f32) -> Style {
+  Style::new()
+    .position(Position::Relative)
+    .width(if compact { 120.0 } else { 205.0 } * control_scale)
+    .height(75.0 * control_scale)
+    .padding(3.0 * control_scale)
+    .border_width(0)
+    .align_self(Align::Center)
+    .center_content()
+    .color(Color::hex(0xf6f6fa))
+    .unity_font_definition(DISPLAY_FONT)
+    .font_size(49.0 * font_scale)
+}
+
+fn keycap_paint() -> PaintStyle {
+  PaintStyle::new()
+    .background(
+      Gradient::linear(110.0)
+        .stop(0.0, Color::hex(0x55f1ff))
+        .stop(0.54, Color::hex(0x7ba3ff))
+        .stop(1.0, Color::hex(0xff48c6)),
+    )
+    .paint_filter(PaintFilterList::default().drop_shadow(PaintDropShadow::new(
+      0.0,
+      0.0,
+      7.0,
+      0.0,
+      Color::rgba8(42, 103, 255, 117),
+    )))
+    .clip_polygon(action_skin::clip(10.0, 10.0))
+    .layer(
+      PaintLayer::new(
+        Gradient::linear(180.0)
+          .stop(0.0, Color::hex(0x050b1c))
+          .stop(1.0, Color::hex(0x020611)),
+      )
+      .bounds_inset(3.0)
+      .box_shadow([Shadow::inset(0.0, 0.0, 22.0, 0.0, Color::BLACK)])
+      .clip_polygon(action_skin::clip(7.0, 7.0)),
+    )
+}
+
+fn keycap_label_style(keyboard: PhysicalKey, font_scale: f32, control_scale: f32) -> Style {
+  let value = self::key_name(keyboard);
+  Style::new()
+    .position(Position::Relative)
+    .full_size()
+    .color(Color::hex(0xf6f6fa))
+    .unity_font_definition(DISPLAY_FONT)
+    .font_size(
+      if value.len() > 2 { 49.0 } else { 60.0 }
+        * if value.len() > 2 {
+          control_scale
+        } else {
+          font_scale
+        },
+    )
+    .letter_spacing(if value.len() > 2 { 1.0 } else { 0.0 })
+    .unity_text_align(TextAnchor::MiddleCenter)
+}
+
 fn heading_style(font_scale: f32) -> Style {
   Style::new()
     .color(Color::rgb8(244, 245, 250))
@@ -536,15 +679,6 @@ fn action_style(action: &str, font_scale: f32, control_scale: f32) -> Style {
     )
     .letter_spacing(1.3)
     .unity_text_align(TextAnchor::MiddleLeft)
-}
-
-fn binding_style(font_scale: f32) -> Style {
-  Style::new()
-    .color(Color::rgb8(246, 246, 250))
-    .unity_font_definition(DISPLAY_FONT)
-    .font_size(45.0 * font_scale)
-    .letter_spacing(1.0)
-    .unity_text_align(TextAnchor::MiddleCenter)
 }
 
 fn capture_prompt_style() -> Style {
