@@ -645,6 +645,7 @@ fn property_allowed(kind: DeclarationKind, property: &str) -> bool {
   ];
   const TEXT: &[&str] = &[
     "content",
+    "padding",
     "font-size",
     "font-style",
     "font-weight",

@@ -12,6 +12,7 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
   let value = value::parse(source)?;
   let relation = match property {
     "content" => self::content(&value)?,
+    "padding" => self::padding(&value)?,
     "font-size" => self::font_size(&value)?,
     "font-style" => self::font_style(&value)?,
     "font-weight" => self::font_weight(&value)?,
@@ -39,6 +40,15 @@ pub(super) fn parse(property: &str, source: &str) -> Result<ParsedValue, ValueEr
     dependencies: Vec::new(),
     relation,
   })
+}
+
+fn padding(value: &Value) -> Result<Option<ParsedRelation>, ValueError> {
+  let values = self::atoms(value);
+  if (1..=4).contains(&values.len()) && values.iter().all(|value| self::nonnegative_length(value)) {
+    Ok(None)
+  } else {
+    Err(self::invalid())
+  }
 }
 
 fn content(value: &Value) -> Result<Option<ParsedRelation>, ValueError> {
@@ -253,6 +263,7 @@ fn keyword(value: &Value) -> Option<&str> {
 
 fn tag(property: &str) -> u8 {
   match property {
+    "padding" => 66,
     "content" => 53,
     "font-size" => 54,
     "font-style" => 55,

@@ -3,6 +3,8 @@ use battlement_reactant_asset_syntax::{DiagnosticCategory, parse};
 #[test]
 fn accepts_plain_text_catalog() {
   for declaration in [
+    "padding: 1px",
+    "padding: 18px 24px 34px 4px",
     "font-style: normal",
     "font-style: italic",
     "font-style: oblique 12deg",
@@ -20,6 +22,16 @@ fn accepts_plain_text_catalog() {
     "text-shadow: 1px 2px 3px #1238",
   ] {
     request(declaration).unwrap_or_else(|error| panic!("{declaration}: {error:?}"));
+  }
+}
+
+#[test]
+fn rejects_padding_that_cannot_describe_a_text_box() {
+  for value in ["-1px", "1px 2px 3px 4px 5px", "auto", "red"] {
+    assert_eq!(
+      request(&format!("padding: {value}")).unwrap_err().category,
+      DiagnosticCategory::InvalidValue
+    );
   }
 }
 

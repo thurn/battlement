@@ -39,6 +39,10 @@ display = { width = 1280, height = 800, scale = 1.0 }
 target = "macos"
 display = { width = 1440, height = 1584, scale = 1.0 }
 
+[profiles.desktop]
+target = "macos"
+display = { width = 2560, height = 1440, scale = 1.0 }
+
 [[scenarios]]
 name = "gallery reset"
 
@@ -1482,5 +1486,26 @@ accessibility_assert = { target = { role = "tab", name = "Input" }, role = "tab"
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "Tab selections: 0" }, role = "static-text", name = "Tab selections: 0" }
 
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "screen header"
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution", parent = { role = "region", name = "ScreenHeader" } }
+[[scenarios.steps]]
+screenshot = { name = "game" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Show settings heading" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Settings" }, role = "heading", name = "Settings", parent = { role = "region", name = "ScreenHeader" } }
+[[scenarios.steps]]
+screenshot = { name = "settings" }
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2068ScreenHeader\u2069" }, action = "activate" }
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
 [[scenarios.steps]]
 screenshot = { name = "reset" }

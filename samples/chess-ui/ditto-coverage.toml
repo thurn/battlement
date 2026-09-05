@@ -199,3 +199,21 @@ to = "tabs.changed"
 [[transitions]]
 from = "tabs.changed"
 to = "tabs.reset"
+
+[[mappings]]
+state = "header.game"
+scenario = "screen header"
+checkpoint = "game"
+owner = "gallery::header_variants_expose_one_native_heading_and_reset"
+
+[[mappings]]
+state = "header.settings"
+scenario = "screen header"
+checkpoint = "settings"
+owner = "gallery::header_variants_expose_one_native_heading_and_reset"
+
+[[mappings]]
+state = "header.reset"
+scenario = "screen header"
+checkpoint = "reset"
+owner = "gallery::header_variants_expose_one_native_heading_and_reset"

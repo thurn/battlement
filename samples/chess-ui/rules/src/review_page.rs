@@ -25,6 +25,8 @@ pub struct ReviewPage {
   description: Option<LocalizedString>,
   #[builder(default = Fragment::empty())]
   content: Fragment,
+  /// Overrides the review region layout.
+  style: Style,
 }
 
 impl ReviewPage {
@@ -43,7 +45,12 @@ impl Component for ReviewPage {
   fn render(&self) -> impl Render {
     Region::new(self.title.clone())
       .host_name("page-content")
-      .style(Style::new().full_size().padding(64))
+      .style(
+        Style::new()
+          .full_size()
+          .padding(64)
+          .merge(self.style.clone()),
+      )
       .child((
         self.eyebrow.as_ref().map(|eyebrow| {
           ReviewText::new()

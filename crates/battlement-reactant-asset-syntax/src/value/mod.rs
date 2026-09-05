@@ -121,6 +121,7 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
     "filter" | "transform" | "transform-origin" => effects::parse(property, source),
     "mask" => mask::parse(source),
     "content"
+    | "padding"
     | "font-size"
     | "font-style"
     | "font-weight"

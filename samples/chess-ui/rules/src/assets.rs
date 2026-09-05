@@ -84,28 +84,6 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
-  @text-image GAME_LOGO {
-    @canvas 900px 360px;
-    @subject 0px 45px 900px 250px;
-    @allow-clipping top right bottom left;
-    @filter-mode trilinear;
-    @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
-    content: "CHESS CHESS\nREVOLUTION";
-    font-size: 160px;
-    line-height: 118px;
-    letter-spacing: -4px;
-    text-align: center;
-    white-space: pre;
-    color: transparent;
-    background: linear-gradient(174deg, #ffffff 2%, #e5f5ff 20%, #74c9ff 38%, #f8fbff 51%, #8d72ff 70%, #ff68d9 94%);
-    background-clip: text;
-    -webkit-text-stroke: 1.4px #f9ffff;
-    filter: drop-shadow(4px 6px #092463) drop-shadow(-3px -2px #61096a) drop-shadow(0 12px 8px #000000);
-    transform: scale(1.02, 0.9) skewX(-5deg);
-  }
-}
-
 battlement_reactant::asset_generator::generate_family! {
   @text-image {
     @canvas 480px 146px;

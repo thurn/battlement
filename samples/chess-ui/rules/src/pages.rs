@@ -1,11 +1,13 @@
 //! The ordered examples shown by the chess UI gallery.
 
+use battlement::Style;
 use trox::tx;
 
 use crate::{
   action_harness::ActionHarness,
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
+  header_harness::HeaderHarness,
   portrait_harness::PortraitHarness,
   review_page::ReviewPage,
   select_harness::SelectHarness,
@@ -78,7 +80,9 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ScreenHeader", "Chess UI showcase title."))
-                .description(tx("ScreenHeader renders game and settings variants; generated wordmark, scaling, and animation remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ScreenHeader renders generated heading artwork; text scaling and complete screen composition remain unasserted.", "Chess UI showcase description."))
+                .style(Style::new().padding_top(800))
+                .child(HeaderHarness::new()),
         )
         .page(
             ReviewPage::new()

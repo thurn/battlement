@@ -329,6 +329,7 @@ default is rejected as redundant.
 | Property | Accepted CSS behavior |
 | --- | --- |
 | `content` | Exactly one string and no generated-content functions |
+| `padding` | One to four nonnegative lengths inside the subject box; included in text-fill bounds |
 | `font-size` | One positive length |
 | `font-style` | `normal`, `italic`, or `oblique` with an optional angle |
 | `font-weight` | Integer from 1 through 1000 |

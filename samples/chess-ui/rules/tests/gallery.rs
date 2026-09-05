@@ -35,6 +35,55 @@ impl Component for ToggleInfoFixture {
 }
 
 #[test]
+fn header_variants_expose_one_native_heading_and_reset() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-10");
+  client.ui().click(page);
+  client.poll();
+  for (action, expected) in [
+    (None, "Chess Chess Revolution"),
+    (Some("Show settings heading"), "Settings"),
+    (Some("Show game heading"), "Chess Chess Revolution"),
+    (Some("Show settings heading"), "Settings"),
+  ] {
+    if let Some(action) = action {
+      let target = self::snapshot(&client)
+        .nodes
+        .iter()
+        .find(|node| node.label.as_deref() == Some(action))
+        .unwrap()
+        .object_id;
+      client.ui().click(target);
+      client.poll();
+    }
+    let snapshot = self::snapshot(&client);
+    let titles = snapshot
+      .nodes
+      .iter()
+      .filter(|node| {
+        matches!(
+          node.label.as_deref(),
+          Some("Settings" | "Chess Chess Revolution")
+        )
+      })
+      .collect::<Vec<_>>();
+    assert_eq!(titles.len(), 1);
+    assert_eq!(titles[0].role, SemanticRole::Heading);
+    assert_eq!(titles[0].label.as_deref(), Some(expected));
+  }
+  let page = self::named(&mut client, "review-page-10");
+  client.ui().click(page);
+  client.poll();
+  self::assert_page(&mut client, 9);
+  assert!(
+    self::snapshot(&client)
+      .nodes
+      .iter()
+      .any(|node| { node.label.as_deref() == Some("Chess Chess Revolution") })
+  );
+}
+
+#[test]
 fn gallery_selection_recreates_each_harness_and_restores_heading_focus() {
   let mut client = self::client();
   self::assert_page(&mut client, 0);

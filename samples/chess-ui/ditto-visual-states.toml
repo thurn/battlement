@@ -147,3 +147,15 @@ to = "tabs.changed"
 [[transitions]]
 from = "tabs.changed"
 to = "tabs.reset"
+
+[[states]]
+key = "header.game"
+screen = "header"
+
+[[states]]
+key = "header.settings"
+screen = "header"
+
+[[states]]
+key = "header.reset"
+screen = "header"
