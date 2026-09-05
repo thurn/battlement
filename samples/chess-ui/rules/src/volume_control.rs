@@ -3,7 +3,7 @@
 use trox::{LocalizedString, tx_args, txa};
 
 use crate::{
-  font_scale,
+  control_effects, font_scale,
   setting_row::{self, SettingRow},
   use_interaction, volume_input,
   volume_skin::{VolumeThumb, VolumeTicks, VolumeTrack},
@@ -38,6 +38,7 @@ impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
     let font_scale = font_scale::use_font_scale();
+    let burst = control_effects::use_slider_burst(self.on_change.clone());
     let (label, slider) = use_control_label().bind_with(|name| {
       control_behavior::slider(
         name,
@@ -54,7 +55,7 @@ impl Component for VolumeControl {
         },
         5.0,
         false,
-        self.on_change.clone().map_input(|value: f64| value as u32),
+        burst.on_change.clone().map_input(|value: f64| value as u32),
       )
     });
     SettingRow::new()
@@ -95,30 +96,50 @@ impl Component for VolumeControl {
                 VolumeThumb::new()
                   .value(self.value)
                   .interaction(interaction.state),
+                View::decorative()
+                  .name("volume-release-effect")
+                  .style(
+                    Style::new()
+                      .position(Position::Absolute)
+                      .left(self.value as f32 * 2.84 - 21.5)
+                      .top(0)
+                      .width(43)
+                      .height(64),
+                  )
+                  .after_all(control_effects::slider_burst(
+                    burst.generation,
+                    control_effects::EffectPlayback {
+                      reduced_motion: interaction.state.reduced_motion,
+                      ..Default::default()
+                    },
+                  )),
                 {
                   let slider_reference = slider.reference();
-                  interaction.slider(
+                  interaction.slider_with_release(
                     SliderHost::new()
                       .low_value(0.0)
                       .high_value(100.0)
                       .value(self.value as f32)
                       .name("volume-input")
                       .associated_control(slider)
-                      .on_key_down_event_callback(self.on_change.clone().filter_map_input({
+                      .on_key_down_event_callback(burst.on_change.clone().filter_map_input({
                         let value = self.value;
                         move |event| volume_input::key_down(event, value)
                       }))
-                      .on_navigation_move_event_callback(self.on_change.clone().filter_map_input(
+                      .on_navigation_move_event_callback(burst.on_change.clone().filter_map_input(
                         {
                           let value = self.value;
                           move |event| volume_input::navigation_move(event, value)
                         },
                       )),
                     slider_reference,
+                    burst.on_pointer_begin.clone(),
+                    burst.on_pointer_release.clone(),
+                    burst.on_pointer_cancel.clone(),
                   )
                 }
                 .on_change_value(
-                  self
+                  burst
                     .on_change
                     .clone()
                     .map_input(volume_input::pointer_value),

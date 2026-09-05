@@ -54,7 +54,11 @@ pub mod check_mark;
 
 pub mod concept_frame;
 
+pub mod control_effects;
+
 pub mod engine;
+
+mod effects_harness;
 
 mod frame_harness;
 

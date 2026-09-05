@@ -971,3 +971,119 @@ to = "input_skin.panel"
 [[transitions]]
 from = "input_skin.panel"
 to = "input_skin.reset"
+
+[[mappings]]
+state = "control_effects.action_rest"
+scenario = "control shine and release bursts"
+checkpoint = "action-rest"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.action_shine"
+scenario = "control shine and release bursts"
+checkpoint = "action-shine"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.action_burst"
+scenario = "control shine and release bursts"
+checkpoint = "action-burst"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.action_retrigger"
+scenario = "control shine and release bursts"
+checkpoint = "action-retrigger"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.action_settled"
+scenario = "control shine and release bursts"
+checkpoint = "action-settled"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.tabs_burst"
+scenario = "control shine and release bursts"
+checkpoint = "tabs-burst"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.select_burst"
+scenario = "control shine and release bursts"
+checkpoint = "select-burst"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.checkbox_on"
+scenario = "control shine and release bursts"
+checkpoint = "checkbox-on"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.checkbox_off"
+scenario = "control shine and release bursts"
+checkpoint = "checkbox-off"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.slider_burst"
+scenario = "control shine and release bursts"
+checkpoint = "slider-burst"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.reduced"
+scenario = "control shine and release bursts"
+checkpoint = "reduced"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[mappings]]
+state = "control_effects.reset"
+scenario = "control shine and release bursts"
+checkpoint = "reset"
+owner = "control_effects::controls_restart_keyed_bursts_cancel_cleanly_and_reset_without_residue"
+
+[[transitions]]
+from = "control_effects.action_rest"
+to = "control_effects.action_shine"
+
+[[transitions]]
+from = "control_effects.action_shine"
+to = "control_effects.action_burst"
+
+[[transitions]]
+from = "control_effects.action_burst"
+to = "control_effects.action_retrigger"
+
+[[transitions]]
+from = "control_effects.action_retrigger"
+to = "control_effects.action_settled"
+
+[[transitions]]
+from = "control_effects.action_settled"
+to = "control_effects.tabs_burst"
+
+[[transitions]]
+from = "control_effects.tabs_burst"
+to = "control_effects.select_burst"
+
+[[transitions]]
+from = "control_effects.select_burst"
+to = "control_effects.checkbox_on"
+
+[[transitions]]
+from = "control_effects.checkbox_on"
+to = "control_effects.checkbox_off"
+
+[[transitions]]
+from = "control_effects.checkbox_off"
+to = "control_effects.slider_burst"
+
+[[transitions]]
+from = "control_effects.slider_burst"
+to = "control_effects.reduced"
+
+[[transitions]]
+from = "control_effects.reduced"
+to = "control_effects.reset"

@@ -2,12 +2,15 @@
 
 use trox::{LocalizedString, tx};
 
-use crate::{font_scale, select_control, tabs_navigation, tabs_skin, use_interaction};
+use crate::{
+  control_effects, font_scale, select_control, tabs_navigation, tabs_skin, use_interaction,
+};
 use battlement::{
   Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
   TextShadow, WhiteSpace,
 };
 use battlement_reactant::{
+  hooks,
   host::ButtonHost,
   motion::{Easing, MotionTarget, StyleTarget, Transition},
   prelude::*,
@@ -58,14 +61,26 @@ impl SettingsTab {
 impl Component for SettingsTabs {
   fn render(&self) -> impl Render {
     let references = self::use_references();
+    let (bursts, set_bursts) = hooks::use_state([0_u32; 4]);
     TabStrip::new()
       .label(tx("Settings categories", "Settings category list."))
       .selected_index(self.active_tab as u32)
       .on_select(
-        self
-          .on_select
-          .clone()
-          .map_input(|index| SettingsTab::ALL[index as usize]),
+        EventCallback::new({
+          let set_bursts = set_bursts.clone();
+          move |index: u32| {
+            set_bursts.update(move |mut generations| {
+              generations[index as usize] = generations[index as usize].wrapping_add(1);
+              generations
+            });
+          }
+        })
+        .then(
+          self
+            .on_select
+            .clone()
+            .map_input(|index| SettingsTab::ALL[index as usize]),
+        ),
       )
       .host(
         View::new().name("settings-tabs").style(
@@ -84,6 +99,7 @@ impl Component for SettingsTabs {
           .active(tab == self.active_tab)
           .on_select(self.on_select.clone())
           .references(references.clone())
+          .burst_generation(bursts[tab as usize])
       }))
   }
 }
@@ -97,6 +113,7 @@ struct SettingsTabButton {
   on_select: EventCallback<SettingsTab>,
   #[builder(required)]
   references: [ElementRef; 4],
+  burst_generation: u32,
 }
 
 impl Component for SettingsTabButton {
@@ -150,6 +167,14 @@ impl Component for SettingsTabButton {
               .unity_text_align(TextAnchor::MiddleCenter)
               .text_shadow(TextShadow::new(0.0, 5.0, 7.0, Color::BLACK)),
           )
+          .before_all(control_effects::button_burst(
+            self.burst_generation,
+            true,
+            control_effects::EffectPlayback {
+              reduced_motion: interaction.state.reduced_motion,
+              ..Default::default()
+            },
+          ))
           .paint(tabs_skin::paint(self.active))
           .initial(false)
           .animate(self::target(self.active, interaction.state))

@@ -1271,7 +1271,7 @@ accessibility_action = { target = { role = "button", name = "Change volume from 
 accessibility_assert = { target = { role = "static-text", name = "Volume changes: \u20681\u2069" }, role = "static-text", name = "Volume changes: \u20681\u2069" }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+screenshot = { name = "changed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u20687\u2069. \u2068VolumeControl layout\u2069" }, action = "activate" }
@@ -1290,6 +1290,102 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "control shine and release bursts"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206825\u2069. \u2068Control shine and release bursts\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
+
+[[scenarios.steps]]
+screenshot = { name = "action-rest", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SHINE OFF" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "action-shine", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "action-burst", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "action-retrigger", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "action-settled", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "TABS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Sound" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "tabs-burst", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SELECT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "select-burst", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "CHECKBOX" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "VSync" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "checkbox-on", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "VSync" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "checkbox-off", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SLIDER" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Master Volume" }, action = "increment" }
+
+[[scenarios.steps]]
+screenshot = { name = "slider-burst", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL MOTION" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
 
 [[scenarios]]
 name = "select keyboard navigation"
@@ -1346,7 +1442,10 @@ key = { key = "Escape" }
 accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
 
 [[scenarios.steps]]
-screenshot = { name = "escaped" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "escaped", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206815\u2069. \u2068SelectControl keyboard and controller behavior\u2069" }, action = "activate" }
@@ -1373,13 +1472,19 @@ screenshot = { name = "initial" }
 drag = { from = [0.69, 0.34], to = [0.60, 0.34] }
 
 [[scenarios.steps]]
-screenshot = { name = "low" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "low", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 drag = { from = [0.69, 0.34], to = [0.75, 0.34] }
 
 [[scenarios.steps]]
-screenshot = { name = "high" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "high", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 click = { target = [0.69, 0.34] }
@@ -1388,7 +1493,10 @@ click = { target = [0.69, 0.34] }
 key = { key = "PageUp" }
 
 [[scenarios.steps]]
-screenshot = { name = "paged" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "paged", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 key = { key = "Home" }
@@ -1397,7 +1505,10 @@ key = { key = "Home" }
 key = { key = "RightArrow" }
 
 [[scenarios.steps]]
-screenshot = { name = "keyboard" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "keyboard", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206816\u2069. \u2068VolumeControl input\u2069" }, action = "activate" }
@@ -1427,7 +1538,10 @@ accessibility_action = { target = { role = "checkbox", name = "VSync" }, action 
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = true, parent = { role = "region", name = "useInteraction" } }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "changed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206811\u2069. \u2068useInteraction\u2069" }, action = "activate" }
@@ -1514,7 +1628,10 @@ accessibility_action = { target = { role = "checkbox", name = "Upload Crash Repo
 accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = false, parent = { role = "region", name = "ToggleControl accessibility" } }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "changed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2068ToggleControl accessibility\u2069" }, action = "activate" }
@@ -1577,7 +1694,10 @@ accessibility_assert = { target = { role = "static-text", name = "Action clicks:
 accessibility_assert = { target = { role = "static-text", name = "Return clicks: 1" }, role = "static-text", name = "Return clicks: 1" }
 
 [[scenarios.steps]]
-screenshot = { name = "changed" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "changed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u20688\u2069. \u2068ActionButton\u2069" }, action = "activate" }
@@ -1778,7 +1898,10 @@ click = { target = [0.95, 0.95] }
 accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
 
 [[scenarios.steps]]
-screenshot = { name = "dismissed" }
+wait = { frames = 50 }
+
+[[scenarios.steps]]
+screenshot = { name = "dismissed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206814\u2069. \u2068SelectControl pointer popover\u2069" }, action = "activate" }
@@ -1815,6 +1938,9 @@ key = { key = "Tab" }
 
 [[scenarios.steps]]
 key = { key = "Tab" }
+
+[[scenarios.steps]]
+wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "traversed" }

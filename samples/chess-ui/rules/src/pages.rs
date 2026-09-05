@@ -7,6 +7,7 @@ use trox::tx;
 use crate::{
   action_harness::ActionHarness,
   arcade_modal_harness::ArcadeModalHarness,
+  effects_harness::EffectsHarness,
   font_scale_harness::FontScaleHarness,
   frame_harness::FrameHarness,
   gallery::{Demonstration, Gallery},
@@ -182,7 +183,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Control shine and release bursts", "Chess UI showcase title."))
-                .description(tx("Buttons, checkboxes, and sliders play shine and keyed release bursts; ambient and route effects remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("Buttons, checkboxes, and sliders play shine and keyed release bursts; ambient and route effects remain unasserted.", "Chess UI showcase description."))
+                .child(EffectsHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

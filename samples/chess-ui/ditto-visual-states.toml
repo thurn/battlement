@@ -751,3 +751,95 @@ to = "input_skin.panel"
 [[transitions]]
 from = "input_skin.panel"
 to = "input_skin.reset"
+
+[[states]]
+key = "control_effects.action_rest"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.action_shine"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.action_burst"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.action_retrigger"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.action_settled"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.tabs_burst"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.select_burst"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.checkbox_on"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.checkbox_off"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.slider_burst"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.reduced"
+screen = "control_effects"
+
+[[states]]
+key = "control_effects.reset"
+screen = "control_effects"
+
+[[transitions]]
+from = "control_effects.action_rest"
+to = "control_effects.action_shine"
+
+[[transitions]]
+from = "control_effects.action_shine"
+to = "control_effects.action_burst"
+
+[[transitions]]
+from = "control_effects.action_burst"
+to = "control_effects.action_retrigger"
+
+[[transitions]]
+from = "control_effects.action_retrigger"
+to = "control_effects.action_settled"
+
+[[transitions]]
+from = "control_effects.action_settled"
+to = "control_effects.tabs_burst"
+
+[[transitions]]
+from = "control_effects.tabs_burst"
+to = "control_effects.select_burst"
+
+[[transitions]]
+from = "control_effects.select_burst"
+to = "control_effects.checkbox_on"
+
+[[transitions]]
+from = "control_effects.checkbox_on"
+to = "control_effects.checkbox_off"
+
+[[transitions]]
+from = "control_effects.checkbox_off"
+to = "control_effects.slider_burst"
+
+[[transitions]]
+from = "control_effects.slider_burst"
+to = "control_effects.reduced"
+
+[[transitions]]
+from = "control_effects.reduced"
+to = "control_effects.reset"

@@ -4,6 +4,7 @@ use trox::{ls, tx};
 
 use crate::{
   caret::Caret,
+  control_effects,
   font_scale::{FontScale, FontScaleRole},
   select_navigation,
   select_option::SelectOption,
@@ -51,6 +52,7 @@ pub struct SelectControl {
 impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
     let (restore_focus, set_restore_focus) = hooks::use_state(false);
     let (active_index, set_active_index) = hooks::use_state(select_navigation::selected_index(
@@ -95,6 +97,7 @@ impl Component for SelectControl {
             let set_restore_focus = set_restore_focus.clone();
             move |()| {
               if interactive {
+                set_trigger_burst.update(|generation| generation.wrapping_add(1));
                 select_navigation::toggle(
                   open,
                   selected_index,
@@ -229,6 +232,14 @@ impl Component for SelectControl {
                   )
                   .initial(false)
                   .animate(self::target(interaction.state))
+                  .before_all(control_effects::button_burst(
+                    trigger_burst,
+                    true,
+                    control_effects::EffectPlayback {
+                      reduced_motion: interaction.state.reduced_motion,
+                      ..Default::default()
+                    },
+                  ))
                   .child((
                     control_behavior::name_source_text(ls(self.value.clone()))
                       .name("select-value")

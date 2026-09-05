@@ -4,6 +4,7 @@ use trox::{LocalizedString, tx};
 
 use crate::{
   check_mark::CheckMark,
+  control_effects,
   font_scale::{self, FontScaleRole},
   setting_row::SettingRow,
   use_interaction,
@@ -50,6 +51,7 @@ impl Component for ToggleControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
     let font_scale = font_scale::use_font_scale();
+    let (burst_generation, on_change) = control_effects::use_burst_callback(self.on_change.clone());
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
       control_behavior::checkbox(
         self
@@ -70,7 +72,7 @@ impl Component for ToggleControl {
           }),
         self.checked,
         false,
-        self.on_change.clone(),
+        on_change.clone(),
       )
     });
     View::new()
@@ -112,6 +114,14 @@ impl Component for ToggleControl {
                   .paint(self::surface_paint())
                   .initial(false)
                   .animate(self::surface_target(interaction.state))
+                  .before_all(control_effects::checkbox_burst(
+                    burst_generation,
+                    self.checked,
+                    control_effects::EffectPlayback {
+                      reduced_motion: interaction.state.reduced_motion,
+                      ..Default::default()
+                    },
+                  ))
                   .child(self.checked.then_some(CheckMark::new())),
                 interaction
                   .toggle(
@@ -120,7 +130,7 @@ impl Component for ToggleControl {
                       .name("toggle-control-input")
                       .associated_control(checkbox),
                   )
-                  .on_change_value(self.on_change.clone())
+                  .on_change_value(on_change)
                   .input_style(Style::new().opacity(0.0))
                   .style(
                     Style::new()

@@ -1,7 +1,7 @@
 //! Arcade actions with composed labels and parent-owned callbacks.
 
 use crate::{
-  action_skin, assets,
+  action_skin, assets, control_effects,
   font_scale::{self, FontScale},
   use_interaction,
 };
@@ -13,6 +13,7 @@ use battlement_reactant::prelude::{Children, EventCallback, builder};
 use battlement_reactant::{
   component::Component,
   components::Button,
+  hooks,
   host::View,
   motion::{Easing, MotionTarget, StyleTarget, Transition},
   paint::{PaintLayer, PaintStyle},
@@ -67,6 +68,8 @@ pub struct ActionButton {
   disabled: bool,
   /// Caps the label size relative to its authored arcade typography.
   max_text_scale: Option<f32>,
+  /// Starts the highlight shine for deterministic gallery inspection.
+  shine_active: bool,
   /// Handles an accepted button activation.
   #[builder(default = EventCallback::noop())]
   on_press: EventCallback<()>,
@@ -120,6 +123,7 @@ impl Component for ActionButton {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
     let font_scale = font_scale::use_font_scale();
+    let (burst_generation, set_burst_generation) = hooks::use_state(0_u32);
     View::new()
       .style(
         Style::new()
@@ -148,8 +152,23 @@ impl Component for ActionButton {
         .semantic_name(SemanticName::Contents)
         .host_name("action-button")
         .disabled(self.disabled)
-        .on_press(self.on_press.clone())
-        .configure_host(|host| interaction.button(host))
+        .on_press(
+          set_burst_generation
+            .update_callback(|generation| generation.wrapping_add(1))
+            .then(self.on_press.clone()),
+        )
+        .configure_host(|host| {
+          interaction
+            .button(host)
+            .before_all(control_effects::button_burst(
+              burst_generation,
+              false,
+              control_effects::EffectPlayback {
+                reduced_motion: interaction.state.reduced_motion,
+                ..Default::default()
+              },
+            ))
+        })
         .style(
           Style::new()
             .position(Position::Relative)
@@ -177,7 +196,13 @@ impl Component for ActionButton {
             ),
         )
         .initial(false)
-        .animate(self::target(interaction.state)),
+        .animate(self::target(interaction.state))
+        .after_all(control_effects::shine(
+          interaction.state.hovered || interaction.state.focus_visible || self.shine_active,
+          interaction.state.reduced_motion,
+          760.0,
+          6.0,
+        )),
       )
   }
 }

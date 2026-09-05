@@ -2,7 +2,7 @@
 
 use trox::ls;
 
-use crate::{check_mark::CheckMark, select_control::VALUE_FONT};
+use crate::{check_mark::CheckMark, control_effects, select_control::VALUE_FONT, use_interaction};
 use battlement::{
   Align, Color, FlexDirection, Gradient, Justify, PickingMode, Position, Shadow, Style, TextAnchor,
 };
@@ -27,6 +27,8 @@ pub(crate) struct SelectOption {
 impl Component for SelectOption {
   fn render(&self) -> impl Render {
     let reference = element_ref::use_element_ref();
+    let interaction = use_interaction::use_interaction();
+    let (burst_generation, on_press) = control_effects::use_burst_callback(self.on_press.clone());
     hooks::use_effect(
       {
         let reference = reference.clone();
@@ -46,7 +48,19 @@ impl Component for SelectOption {
       .style(self::style(self.font_scale, self.control_scale))
       .paint(self::paint(self.active))
       .hover_style(Style::new().background_color(Color::rgba8(11, 113, 207, 128)))
-      .on_press(self.on_press.clone())
+      .configure_host(|host| {
+        interaction
+          .button(host)
+          .before_all(control_effects::button_burst(
+            burst_generation,
+            true,
+            control_effects::EffectPlayback {
+              reduced_motion: interaction.state.reduced_motion,
+              ..Default::default()
+            },
+          ))
+      })
+      .on_press(on_press)
       .child(
         View::decorative()
           .name("select-option-mark")
