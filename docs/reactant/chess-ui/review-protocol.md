@@ -7,6 +7,8 @@
 The reviewer receives:
 
 - The complete page diff and rendered evidence
+- Rendering choices and available cost measurements under the
+  [rendering policy](rendering-policy.md)
 - The page description and acceptance checks
 - The complete relevant TypeScript files
 - The current source-line ownership table
@@ -46,6 +48,14 @@ static asset-generator declaration grammar remains available for generated
 PNGs, and runtime animation uses typed Motion builders. The goal is equivalent
 expressive power and behavior, not matching token counts or manufacturing a
 one-to-one translation of JSX syntax.
+
+For Tasks 10–40, evaluate the complete native/procedural/asset solution against
+the rendering policy. A generated static treatment does not require a second
+runtime implementation to demonstrate API expressiveness. Challenge redundant
+paths, unnecessary application wiring, and unsupported performance claims;
+preserve useful shared paint and generator ingredients used elsewhere. Keep
+the blind draft independent, then assess its proposed rendering approach using
+the same fidelity, scaling, memory, and maintenance tradeoffs.
 
 For every relevant component, answer these questions with concrete evidence:
 

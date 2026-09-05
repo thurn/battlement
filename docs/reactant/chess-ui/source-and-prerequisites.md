@@ -81,7 +81,8 @@ weaken these behavior contracts:
   and action. Ditto is the repository's sample scenario runner.
 
 The declarations in `samples/reactant/rules/src/assets.rs` are the source for
-the 18 existing generated assets. The
+the 18 existing generated assets, used as an initial inventory rather than a
+required final catalog under the [rendering policy](rendering-policy.md). The
 [animation coverage ledger](../animations.md#coverage-ledger) is the source for
 motion timing, easing, direction, interruption, seed, and reduced-motion
 requirements. This plan uses those as pinned starting evidence instead of

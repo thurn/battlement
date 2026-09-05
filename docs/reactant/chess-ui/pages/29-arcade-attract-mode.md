@@ -16,3 +16,9 @@ seed/time image. Reduced motion follows the source's static/reduced alternative.
 
 **Deferred.** No logo, menu buttons, music indicator, or audio belongs to
 this background specimen; the assembled main menu is Task 39.
+
+**Rendering.** Keep the effect's geometry, timing, interruption, and state
+live under the [rendering policy](../rendering-policy.md). Static textures may
+supply reusable artwork; they must not replace motion with a captured frame or
+force a second settled control skin. Verify the selected static paint path
+through this page's animated and reduced-motion states.

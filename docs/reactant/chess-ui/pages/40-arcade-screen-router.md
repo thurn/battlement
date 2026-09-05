@@ -29,3 +29,11 @@ review produces a Reactant follow-up, refresh every affected source-coverage
 and correspondence entry before the follow-up candidate. The port is not
 complete until the final promoted follow-up, or the no-follow-up rationale,
 retains a complete terminal audit.
+
+**Final rendering acceptance.** Apply the [rendering policy](../rendering-policy.md)
+to the assembled app. Verify source fidelity, all text scales, semantic names,
+asset loading, and the representative performance path on macOS and Android.
+Record frame-time and texture costs, resolve budget failures, and confirm no
+unused sample recipes or duplicate settled rendering paths remain. Localized
+rasterization differences allowed by the policy are not missing source features;
+all other player-visible requirements remain in scope.

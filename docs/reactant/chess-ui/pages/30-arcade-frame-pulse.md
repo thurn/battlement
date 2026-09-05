@@ -31,3 +31,9 @@ size:     100% 1329px, 297px 75px, 297px 75px
 repeat:   no-repeat
 layers:   three linear-gradient(#000 0 0) masks
 ```
+
+**Rendering.** Keep the effect's geometry, timing, interruption, and state
+live under the [rendering policy](../rendering-policy.md). Static textures may
+supply reusable artwork; they must not replace motion with a captured frame or
+force a second settled control skin. Verify the selected static paint path
+through this page's animated and reduced-motion states.

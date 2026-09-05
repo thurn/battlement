@@ -23,6 +23,11 @@ The port is developed through exactly 40 selectable review pages. Each page
 isolates one responsibility, states what must work, and states what that page
 does not yet assert. The last page composes the pieces into the complete app.
 
+Tasks 10–40 follow the [hybrid rendering policy](chess-ui/rendering-policy.md):
+use generated artwork where it earns its cost, keep native behavior and useful
+shared paint, and judge source fidelity without requiring identical browser
+rasterization. Tasks 1–9 are not reopened by this policy.
+
 ## Reading guide
 
 Start here and open the selected page in the migration order below. The shared
@@ -37,7 +42,7 @@ execution; it cannot narrow the specification or waive a requirement.
 | When | Read |
 | --- | --- |
 | Before the first migration; when a prerequisite or source input changes | [Source, pinned revision, dependencies, and research](chess-ui/source-and-prerequisites.md) |
-| Every implementation | The selected page; [port principles](chess-ui/port-contract.md#port-contract); [workflow](chess-ui/workflow.md); [visual fidelity and ownership](chess-ui/visual-fidelity.md); applicable [validation](chess-ui/validation.md) |
+| Every implementation | The selected page; [rendering policy](chess-ui/rendering-policy.md); [port principles](chess-ui/port-contract.md#port-contract); [workflow](chess-ui/workflow.md); [visual fidelity and ownership](chess-ui/visual-fidelity.md); applicable [validation](chess-ui/validation.md) |
 | Authoring or changing a component | Its entries in [component correspondence](chess-ui/port-contract.md#component-correspondence) and [platform substitutions](chess-ui/port-contract.md#platform-substitutions); the [architectural challenge](chess-ui/review-protocol.md#mandatory-architectural-challenge) |
 | Building or resetting a page harness | [Gallery layout, semantics, and reset](chess-ui/review-gallery.md) |
 | Choosing defaults, settings, dialogs, audio, routes, or input behavior | Relevant [behavioral acceptance](chess-ui/behavior.md) sections, including prototype behavior and keyboard/controller rules |
@@ -59,7 +64,7 @@ The page order begins with horizontal layout and controlled props, then adds
 interaction, focus, accessibility, assets, motion, audio, and composition.
 
 Three pages intentionally group closely coupled work: Task 19 validates one
-help dialog including its link, Task 23 validates one generated-asset batch, and
+help dialog including its link, Task 23 audits rendering choices and assets, and
 Task 35 validates the two state-only settings panels. These remain one review
 boundary because splitting them would not expose an independently meaningful
 player interaction. The approximate 500-line task target still applies.
@@ -94,7 +99,7 @@ player interaction. The approximate 500-line task target still applies.
 
 ### Assets, effects, animation, and audio
 
-23. [Generated control skin integration](chess-ui/pages/23-generated-control-skin-integration.md)
+23. [Rendering and asset audit](chess-ui/pages/23-rendering-and-asset-audit.md)
 24. [Input icons and settings panel skin](chess-ui/pages/24-input-icons-and-settings-panel-skin.md)
 25. [Control shine and release bursts](chess-ui/pages/25-control-shine-and-release-bursts.md)
 26. [Dropdown animation](chess-ui/pages/26-dropdown-animation.md)

@@ -25,3 +25,9 @@ stage.
 
 **Deferred.** Binding icons are Task 24; complete screens Tasks 35--40.
 Window narrowing still scales the portrait stage; it does not trigger reflow.
+
+**Rendering acceptance.** Verify live text and generated decorative lettering
+under the [text and scaling contract](../rendering-policy.md#text-and-scaling).
+Check native semantic names, image resolution, baseline alignment, and memory
+cost at all three sizes. Add finite baked variants only where needed; ordinary
+labels, values, and custom bindings remain live text.

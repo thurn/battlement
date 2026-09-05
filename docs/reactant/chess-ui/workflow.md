@@ -38,20 +38,22 @@ The base-task workflow is:
 
 ### Early visual gate
 
-Choose the smallest state that exposes the hardest in-scope paint or layout
+Choose the intended rendering path using the [rendering policy](rendering-policy.md),
+then the smallest state that exposes the hardest in-scope paint or layout
 requirement: for example, an active and inactive clipped tab with gradients,
 shadows, and text. Capture the unchanged pinned source and a native Ditto
 specimen at the documented logical size and device scale. Verify image
 size, stage alignment, fonts, and state before interpreting differences.
 
-Compare the complete in-scope crop using the existing geometry and color
-tolerances. Retain the source, native image, difference image, measurements,
+Compare the complete in-scope crop using the geometry rules and
+[visual acceptance](rendering-policy.md#visual-acceptance) contract. Retain the
+source, native image, difference image, measurements,
 and every permitted mask with its owner. A few sampled pixels or a successful
 comparison against a newly accepted native baseline do not prove source parity.
 Resolve rendering failures before multiplying states or running broad suites.
-An explanation of a renderer difference does not waive its tolerance; a
-substitution requires explicit user approval. Do not present a known tolerance
-failure as a completed page awaiting routine promotion.
+Document localized rasterization differences allowed by that contract. A missing
+source treatment or conspicuous mismatch is not a rasterization exception and
+must be resolved before declaring the page complete.
 
 Reuse the pinned reference build and captures while their source revision,
 fonts, state, viewport, scale, and relevant rendering inputs remain unchanged.

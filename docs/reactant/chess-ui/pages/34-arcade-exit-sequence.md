@@ -18,3 +18,9 @@ clears. Reset restores the intact initial frame and specimen.
 **Deferred.** Play/Quit wiring and the complete menu are Task 39; full-app
 review-layer dismissal is Task 40. Neither gameplay nor host shutdown will
 be added by those tasks.
+
+**Rendering.** Keep the effect's geometry, timing, interruption, and state
+live under the [rendering policy](../rendering-policy.md). Static textures may
+supply reusable artwork; they must not replace motion with a captured frame or
+force a second settled control skin. Verify the selected static paint path
+through this page's animated and reduced-motion states.

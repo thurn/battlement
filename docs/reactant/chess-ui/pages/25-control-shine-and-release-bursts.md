@@ -22,3 +22,9 @@ particles and keys; reduced motion follows each source branch.
 resting-paint mismatch. EraseControl reuses its source-prescribed compact
 button burst when that control is introduced in Task 35; modal buttons do
 not gain a burst absent from their source.
+
+**Rendering.** Keep the effect's geometry, timing, interruption, and state
+live under the [rendering policy](../rendering-policy.md). Static textures may
+supply reusable artwork; they must not replace motion with a captured frame or
+force a second settled control skin. Verify the selected static paint path
+through this page's animated and reduced-motion states.

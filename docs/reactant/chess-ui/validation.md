@@ -27,6 +27,9 @@ Every task supplies validation appropriate to its page:
 - Ditto initial, changed, and reset scenarios for each applicable page
 - Smoke and reset checks for every previously registered page
 - Targeted screenshot recapture whenever a shared component changes
+- At Task 23, rendering-choice measurements and generated catalog/use audit
+- At Task 40, assembled-app native frame-time and texture-cost evidence under
+  the [rendering policy](rendering-policy.md#choosing-by-evidence)
 - Unity-backend assertions for roles, names, states, relationships, listbox and
   table semantics, landmarks, current-page state, dialog isolation, live
   announcements, and external links
@@ -60,7 +63,8 @@ are current and the complete audit remains terminal.
    explicit scrolling, and every reset value match the gallery contract.
 2. Compare every visually applicable initial, changed, and reset state with its
    unchanged source crop at 1024x1536. Then capture the 2560x1440 integration
-   view. Pass when geometry and pixel evidence meet the documented tolerances.
+   view. Pass when geometry and complete source comparison satisfy the
+   [visual acceptance contract](rendering-policy.md#visual-acceptance).
 3. Exercise hover, press, release, pointer cancellation, focus-visible changes,
    D-pad, left stick, Submit, ignored shoulder buttons, and Cancel. Pass when
    controller and keyboard actions match and pointer focus never gains a

@@ -19,3 +19,7 @@ playhead and clears the pulse until playback is activated again.
 
 **Deferred.** The surrounding main menu is Task 39. Audio status diagnostics
 remain outside the source crop.
+
+**Rendering.** Keep the two-line recommendation live text. A small prepared
+speaker-slash image or vector is appropriate. Heartbeat remains driven by audio
+time and animates the chosen control skin without regenerating static artwork.

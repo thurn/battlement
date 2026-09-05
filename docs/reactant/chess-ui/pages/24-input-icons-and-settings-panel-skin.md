@@ -19,3 +19,9 @@ retaining rebinding and scrolling. Check the final row beneath the sticky header
 
 **Deferred.** Full Input composition is Task 37 and tabs/panels/Return
 integration Task 38. No new rebinding policy or controller editing is added.
+
+**Rendering.** Small prepared PNG or vector glyphs are both valid; the CSS
+asset generator is not mandatory for icons. Keep user-defined binding text live.
+Choose one panel-background implementation using the rendering policy and
+Task 23 evidence; preserve live rows, scrolling, and the stated padding.
+Do not bake the whole table or panel contents into an image.

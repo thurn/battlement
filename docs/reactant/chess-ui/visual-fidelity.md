@@ -43,13 +43,12 @@ disabled, and other settled states that the task exposes. Plain rectangular
 borders, solid-color substitutes for gradients, omitted shadows, generic system
 fonts, and default native control chrome are not acceptable placeholders.
 
-A generated image is an implementation mechanism, not a visual feature. Task 23
-owns the existing batch of generated assets, their declarations, catalog, and
-runtime integration. It does not own the first appearance of a tab's shape or
-gradient, a button's bevel, or a heading's text effects. Earlier tasks use typed
-styles or other supported prepared paint to meet their static reference. Task 23
-may replace that paint with generated assets while preserving approved geometry
-and appearance. No browser render-mode toggle is added to the sample.
+Tasks 10–40 follow the [rendering policy](rendering-policy.md). Use generated
+artwork at its first owning page when it is the intended implementation; do not
+build a procedural substitute solely to defer asset use until Task 23. Task 23
+audits rendering choices, catalog completeness, and performance rather than
+requiring every control to become a texture. No browser render-mode toggle is
+added to the sample.
 
 Interactions and time-varying effects are separate requirements. Before the task
 that owns an effect, render its settled state without that effect: changing a
@@ -66,7 +65,7 @@ Only these visual substitutions are permitted before their named owner:
 
 | Visible feature | Required before its owner | First task requiring the final feature |
 | --- | --- | --- |
-| Generated frame and label textures | Complete matching CSS-reference appearance, rendered with supported paint | 23: generated asset integration |
+| Generated frame and label textures | Use the chosen rendering path at first appearance; preserve complete source treatment | 10: headings; 23: catalog and rendering audit; 24: icons and panel |
 | Keyboard and controller binding icons | Actual binding names as readable text in correctly sized cells | 24: source keycaps, arrows, and controller glyphs |
 | Settings panel frame | No panel required on isolated control pages; behavior harnesses may use a plain dark backdrop | 24: complete panel specimen |
 | Text-size-dependent layout | Source appearance at 100%; no guessed large-text layout | 22: 100%, 150%, and 200% specimens |
@@ -100,18 +99,17 @@ when a static page lists multiple specimens.
 Compare all paint belonging to the current and earlier tasks, including paint
 implemented without generated assets. Mask only the explicitly deferred visual
 features above or in the selected task's Deferred paragraph; record each mask
-and its owner. There is no blanket pre-Task-23 pixel exemption. Task 23
-recaptures affected earlier pages to prove that asset integration preserves
-appearance. Task 24 recaptures binding pages when text substitutes become icons.
+and its owner. Task 23 recaptures any earlier pages whose rendering path changes
+to prove that the selected implementation preserves appearance. Task 24 recaptures binding pages when text substitutes become icons.
 
 Static pages may record their changed-state capture as `N/A`. Interactive pages
 require initial, changed, and reset captures.
 
-Geometry is measured in the unscaled 1024x1536 coordinate system and must be
-within one logical pixel. Screenshots use sRGB and are aligned by the stage
-bounds before comparison. At device scale 1, one logical pixel is one captured
-pixel. Generated raster output matches its recipe. Outside transparent pixels
-and an explicit text-antialiasing mask, no unexplained static difference larger
-than two captured pixels or 2/255 per color channel is accepted. The one-pixel
-geometry rule remains stricter than the screenshot threshold. The user records
-approval in the candidate handoff.
+Geometry is measured in the unscaled 1024x1536 coordinate system and remains
+within one logical pixel. Screenshots use sRGB and align by stage bounds.
+Device scale 1 maps one logical pixel to one captured pixel. For Tasks 10–40,
+[visual acceptance](rendering-policy.md#visual-acceptance) governs source
+comparison: perceptual fidelity with documented localized rasterization
+differences, plus deterministic same-renderer regression checks. These tasks do
+not require browser-to-Unity 2/255 channel equality. The policy does not reopen
+completed Tasks 1–9 or weaken their behavioral contracts.

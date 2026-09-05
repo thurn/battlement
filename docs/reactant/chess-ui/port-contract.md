@@ -136,7 +136,9 @@ than one task when its layout, behavior, and animation are reviewed separately.
 - Tasks 18, 19, and 28 own `ArcadeModal` and `EraseControl` dialog behavior.
 - Tasks 20, 21, 24, and 37 own `InputSettings` and `InputBindingIcons`.
 - Task 22 owns `FontScaleProvider`, `useFontScale`, and scaling helpers.
-- Tasks 23 and 24 own `RasterFrame` and generated or prepared visual assets.
+- Generated or prepared artwork is available at first use under the
+  [rendering policy](rendering-policy.md). Task 10 owns heading artwork, Task 23
+  audits `RasterFrame` and the catalog, and Task 24 owns input icons and panel skin.
 - Tasks 29--32 own attract mode, frame pulse, background music, and playback
   indication.
 - Tasks 33, 34, and 39 own menu transitions, exit behavior, and `MainMenu`.
@@ -153,7 +155,8 @@ of one keyed route with another. `ArcadeScreenRouter` selects `MainMenu` or
 
 The following substitutions are part of the port rather than parity failures:
 
-- `RasterFrame` uses generated Reactant assets instead of browser image URLs.
+- `RasterFrame` uses prepared Reactant assets where the selected rendering path
+  needs them; browser image URLs do not become application responsibilities.
 - `ScreenReaderOnly` contributes directly to the native semantic tree.
 - Browser history becomes controlled `ArcadeScreenRouter` state.
 - Browser autoplay unlocking becomes the Unity audio-start lifecycle.
