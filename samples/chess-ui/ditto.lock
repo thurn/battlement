@@ -193,6 +193,46 @@ source = "ba0e4d5a3b9856252b5bbae8366f31a92af9922d356e0f1c15a29e6174974e97"
 
 [[baselines]]
 profile = "macos"
+scenario = "focus visible"
+checkpoint = "initial"
+sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"
+width = 1280
+height = 800
+size_bytes = 114426
+source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
+
+[[baselines]]
+profile = "macos"
+scenario = "focus visible"
+checkpoint = "keyboard"
+sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"
+width = 1280
+height = 800
+size_bytes = 114426
+source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
+
+[[baselines]]
+profile = "macos"
+scenario = "focus visible"
+checkpoint = "moved"
+sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"
+width = 1280
+height = 800
+size_bytes = 114426
+source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
+
+[[baselines]]
+profile = "macos"
+scenario = "focus visible"
+checkpoint = "reset"
+sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"
+width = 1280
+height = 800
+size_bytes = 114426
+source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
+
+[[baselines]]
+profile = "macos"
 scenario = "gallery navigation first"
 checkpoint = "selected"
 sha256 = "a0b13e15aad8e3ecf228ec2f642d55b9c2a2cfa3611cb7b1cbb7bf640ecb5efe"

@@ -174,10 +174,19 @@ fn filter(highlighted: bool) -> PaintFilterList {
 }
 
 fn target(state: use_interaction::InteractionState) -> MotionTarget {
+  let highlighted = state.hovered || state.focus_visible;
   MotionTarget::new(
     StyleTarget::new()
-      .background_gradient(self::border(state.hovered))
-      .paint_filter(self::filter(state.hovered))
+      .background_gradient(if state.focus_visible {
+        use_interaction::focus_gradient(110.0)
+      } else {
+        self::border(highlighted)
+      })
+      .paint_filter(if state.focus_visible {
+        use_interaction::focus_filter()
+      } else {
+        self::filter(highlighted)
+      })
       .scale(if state.pressed && !state.reduced_motion {
         0.965
       } else {

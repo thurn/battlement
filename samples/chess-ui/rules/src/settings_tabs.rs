@@ -142,6 +142,7 @@ impl Component for SettingsTabButton {
 }
 
 fn target(active: bool, state: use_interaction::InteractionState) -> MotionTarget {
+  let highlighted = state.hovered || state.focus_visible;
   MotionTarget::new(
     StyleTarget::new()
       .y(if active {
@@ -156,8 +157,16 @@ fn target(active: bool, state: use_interaction::InteractionState) -> MotionTarge
       } else {
         1.0
       })
-      .background_gradient(tabs_skin::gradient(active, state.hovered))
-      .paint_filter(tabs_skin::filter(active, state.hovered)),
+      .background_gradient(if state.focus_visible {
+        use_interaction::focus_gradient(110.0)
+      } else {
+        tabs_skin::gradient(active, highlighted)
+      })
+      .paint_filter(if state.focus_visible {
+        use_interaction::focus_filter()
+      } else {
+        tabs_skin::filter(active, highlighted)
+      }),
   )
   .transition(
     Transition::spring()

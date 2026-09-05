@@ -243,3 +243,39 @@ to = "interaction.changed"
 [[transitions]]
 from = "interaction.changed"
 to = "interaction.reset"
+
+[[mappings]]
+state = "focus.initial"
+scenario = "focus visible"
+checkpoint = "initial"
+owner = "gallery::focus_visible_follows_navigation_modality_across_every_interaction_specimen"
+
+[[mappings]]
+state = "focus.keyboard"
+scenario = "focus visible"
+checkpoint = "keyboard"
+owner = "gallery::focus_visible_follows_navigation_modality_across_every_interaction_specimen"
+
+[[mappings]]
+state = "focus.moved"
+scenario = "focus visible"
+checkpoint = "moved"
+owner = "gallery::focus_visible_follows_navigation_modality_across_every_interaction_specimen"
+
+[[mappings]]
+state = "focus.reset"
+scenario = "focus visible"
+checkpoint = "reset"
+owner = "gallery::focus_visible_follows_navigation_modality_across_every_interaction_specimen"
+
+[[transitions]]
+from = "focus.initial"
+to = "focus.keyboard"
+
+[[transitions]]
+from = "focus.keyboard"
+to = "focus.moved"
+
+[[transitions]]
+from = "focus.moved"
+to = "focus.reset"

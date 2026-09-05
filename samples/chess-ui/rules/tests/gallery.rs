@@ -1,9 +1,10 @@
 use battlement::{
-  AccessibilitySnapshot, CheckedState, ClickEvent, CommandBody, CurrentPage, GameObjectKind,
-  KeyModifiers, MotionLayer, MotionProperty, MotionValue, ObjectId, PanelPoint,
-  PointerBoundaryEvent, PointerButton, PointerButtonEvent, PointerType, PopupKind, Prop,
-  SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent, UiEvent, UiEventBody,
-  UiVisualElementProperties, Vector,
+  AccessibilitySnapshot, CheckedState, ClickEvent, Color, CommandBody, CurrentPage, GameObjectKind,
+  Gradient, KeyModifiers, MotionEventBatch, MotionGestureEvent, MotionGestureEventKind,
+  MotionGestureVector, MotionLayer, MotionPointerDevice, MotionProperty, MotionSequence,
+  MotionValue, ObjectId, PanelPoint, PointerBoundaryEvent, PointerButton, PointerButtonEvent,
+  PointerType, PopupKind, Prop, SemanticRole, UiAccessibilityAction, UiAccessibilityActionEvent,
+  UiEvent, UiEventBody, UiVisualElementProperties, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{
@@ -79,6 +80,65 @@ fn interaction_feedback_tracks_hover_press_release_and_drag_out_cancellation() {
   client.poll();
   let reset = self::named(&mut client, "toggle-control-surface");
   self::assert_scale(&mut client, reset, 1.0);
+}
+
+#[test]
+fn focus_visible_follows_navigation_modality_across_every_interaction_specimen() {
+  let mut client = self::client();
+  let page = self::named(&mut client, "review-page-12");
+  client.ui().click(page);
+  client.poll();
+
+  let checkbox = self::named(&mut client, "toggle-control-input");
+  let checkbox_surface = self::named(&mut client, "toggle-control-surface");
+  self::focus_visible(&mut client, checkbox, true, 0);
+  self::assert_gradient_start(&mut client, checkbox_surface, Color::hex(0xfffbd0));
+  self::focus_visible(&mut client, checkbox, false, 1);
+  self::pointer_boundary(&mut client, checkbox, true);
+  client.poll();
+  self::assert_gradient_start(&mut client, checkbox_surface, Color::hex(0x91faff));
+
+  self::select_interaction_specimen(&mut client, "SELECT");
+  let select = self::named(&mut client, "select-trigger");
+  self::focus_visible(&mut client, select, true, 2);
+  self::assert_gradient_start(&mut client, select, Color::hex(0xfffbd0));
+
+  self::select_interaction_specimen(&mut client, "SLIDER");
+  let slider = self::named(&mut client, "volume-input");
+  self::focus_visible(&mut client, slider, true, 3);
+  let track = self::named(&mut client, "volume-track");
+  let thumb = self::named(&mut client, "volume-thumb");
+  self::assert_gradient_start(&mut client, track, Color::hex(0xfffbd0));
+  self::assert_gradient_start(&mut client, thumb, Color::hex(0xfffbd0));
+
+  self::select_interaction_specimen(&mut client, "ACTIONS");
+  let action = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Button && node.label.as_deref() == Some("PLAY"))
+    .unwrap()
+    .object_id;
+  self::focus_visible(&mut client, action, true, 4);
+  self::assert_gradient_start(&mut client, action, Color::hex(0xfffbd0));
+
+  self::select_interaction_specimen(&mut client, "TABS");
+  let tab = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Tab && node.label.as_deref() == Some("Graphics"))
+    .unwrap()
+    .object_id;
+  self::focus_visible_with_device(&mut client, tab, true, 5, MotionPointerDevice::Gamepad);
+  self::assert_gradient_start(&mut client, tab, Color::hex(0xfffbd0));
+
+  client.ui().click(page);
+  client.poll();
+  assert_eq!(
+    client.ui().focused(),
+    Some(self::named(&mut client, "page-heading"))
+  );
+  let reset = self::named(&mut client, "toggle-control-surface");
+  self::assert_gradient_start(&mut client, reset, Color::hex(0x4ba3ff));
 }
 
 impl Component for ToggleInfoFixture {
@@ -718,6 +778,74 @@ fn click_label(client: &mut FakeClient<App>, label: ObjectId) {
   client.poll();
 }
 
+fn select_interaction_specimen(client: &mut FakeClient<App>, label: &str) {
+  let target = self::snapshot(client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Button && node.label.as_deref() == Some(label))
+    .unwrap()
+    .object_id;
+  client.ui().click(target);
+  client.poll();
+}
+
+fn focus_visible(client: &mut FakeClient<App>, target: ObjectId, visible: bool, sequence: u64) {
+  self::focus_visible_with_device(
+    client,
+    target,
+    visible,
+    sequence,
+    MotionPointerDevice::Keyboard,
+  );
+}
+
+fn focus_visible_with_device(
+  client: &mut FakeClient<App>,
+  target: ObjectId,
+  visible: bool,
+  sequence: u64,
+  device: MotionPointerDevice,
+) {
+  let descriptor = match &client
+    .ui()
+    .element(target)
+    .element()
+    .visual_element()
+    .motion
+  {
+    Prop::Set(value) => value.clone(),
+    _ => panic!("focusable control has no motion descriptor"),
+  };
+  let sequence = MotionSequence(sequence);
+  client.submit_motion(MotionEventBatch {
+    first_sequence: sequence,
+    last_sequence: sequence,
+    events: Vec::new(),
+    samples: Vec::new(),
+    value_samples: Vec::new(),
+    playback_events: Vec::new(),
+    gesture_events: vec![MotionGestureEvent {
+      descriptor_id: descriptor.descriptor_id,
+      generation: descriptor.generation,
+      kind: if visible {
+        MotionGestureEventKind::FocusVisibleStart
+      } else {
+        MotionGestureEventKind::FocusVisibleEnd
+      },
+      pointer_id: -1,
+      device,
+      point: MotionGestureVector::default(),
+      delta: MotionGestureVector::default(),
+      offset: MotionGestureVector::default(),
+      velocity: MotionGestureVector::default(),
+      axis: None,
+      momentum_generation: 0,
+      constrained: false,
+    }],
+  });
+  client.poll();
+}
+
 fn pointer_boundary(client: &mut FakeClient<App>, target: ObjectId, enter: bool) {
   let body = PointerBoundaryEvent {
     pointer_id: 0,
@@ -787,6 +915,36 @@ fn assert_scale(client: &mut FakeClient<App>, target: ObjectId, expected: f32) {
   assert!(
     matches!(value, MotionValue::Vector2([x, y]) if (*x - expected).abs() < f32::EPSILON && (*y - expected).abs() < f32::EPSILON),
     "expected scale {expected}, found {value:?}"
+  );
+}
+
+fn assert_gradient_start(client: &mut FakeClient<App>, target: ObjectId, expected: Color) {
+  let motion = match &client
+    .ui()
+    .element(target)
+    .element()
+    .visual_element()
+    .motion
+  {
+    Prop::Set(value) => value.clone(),
+    _ => panic!("interaction surface has no motion descriptor"),
+  };
+  let value = motion
+    .slots
+    .iter()
+    .find(|slot| slot.layer == MotionLayer::Animate)
+    .unwrap()
+    .target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::BackgroundGradient)
+    .unwrap()
+    .values
+    .last()
+    .unwrap();
+  assert!(
+    matches!(value, MotionValue::Gradient(Gradient::Linear { stops, .. }) if stops.first().is_some_and(|stop| stop.color == expected)),
+    "expected gradient to start with {expected:?}, found {value:?}"
   );
 }
 

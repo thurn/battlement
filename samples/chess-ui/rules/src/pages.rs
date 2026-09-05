@@ -94,7 +94,8 @@ pub fn gallery() -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Focus-visible behavior", "Chess UI showcase title."))
-                .description(tx("Keyboard and controller focus-visible states render correctly while pointer focus hides the keyboard-only ring; complete controls remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("Keyboard and controller focus-visible states render correctly while pointer focus hides the keyboard-only ring; complete controls remain unasserted.", "Chess UI showcase description."))
+                .child(InteractionHarness::new()),
         )
         .page(
             ReviewPage::new()

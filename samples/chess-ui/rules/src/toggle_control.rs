@@ -127,7 +127,7 @@ impl Component for ToggleControl {
 fn surface_paint() -> PaintStyle {
   PaintStyle::new()
     .background(self::flat_gradient(Color::rgb8(75, 163, 255)))
-    .box_shadow(self::shadows(false))
+    .box_shadow(self::shadows(false, false))
     .clip_polygon(self::rounded_box())
     .layer(
       PaintLayer::new(
@@ -143,13 +143,21 @@ fn surface_paint() -> PaintStyle {
 fn surface_target(state: use_interaction::InteractionState) -> MotionTarget {
   MotionTarget::new(
     StyleTarget::new()
-      .background_gradient(self::flat_gradient(if state.hovered {
-        Color::hex(0x91faff)
+      .background_gradient(if state.focus_visible {
+        use_interaction::focus_gradient(110.0)
       } else {
-        Color::hex(0x4ba3ff)
-      }))
-      .box_shadow(self::shadows(state.hovered))
-      .paint_filter(PaintFilterList::default().brightness(if state.pressed { 0.76 } else { 1.0 }))
+        self::flat_gradient(if state.hovered {
+          Color::hex(0x91faff)
+        } else {
+          Color::hex(0x4ba3ff)
+        })
+      })
+      .box_shadow(self::shadows(state.hovered, state.focus_visible))
+      .paint_filter(if state.focus_visible {
+        use_interaction::focus_filter()
+      } else {
+        PaintFilterList::default().brightness(if state.pressed { 0.76 } else { 1.0 })
+      })
       .scale(if state.pressed && !state.reduced_motion {
         0.88
       } else if state.hovered {
@@ -179,8 +187,14 @@ fn flat_gradient(color: Color) -> Gradient {
   Gradient::linear(0.0).stop(0.0, color).stop(1.0, color)
 }
 
-fn shadows(hovered: bool) -> Vec<Shadow> {
-  if hovered {
+fn shadows(hovered: bool, focus_visible: bool) -> Vec<Shadow> {
+  if focus_visible {
+    vec![
+      self::shadow(14.0, Color::BLACK, true),
+      self::shadow(4.0, Color::WHITE, false),
+      self::shadow(16.0, Color::hex(0xffd900), false),
+    ]
+  } else if hovered {
     vec![
       self::shadow(12.0, Color::BLACK, true),
       self::shadow(15.0, Color::hex(0x2acfff), false),

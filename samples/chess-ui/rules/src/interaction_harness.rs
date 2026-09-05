@@ -21,7 +21,7 @@ enum Specimen {
   Tabs,
 }
 
-/// Selects each control family and exposes its pointer-feedback states.
+/// Selects each control family and exposes its interaction-feedback states.
 #[builder]
 pub struct InteractionHarness;
 

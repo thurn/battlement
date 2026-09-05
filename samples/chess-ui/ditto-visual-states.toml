@@ -179,3 +179,31 @@ to = "interaction.changed"
 [[transitions]]
 from = "interaction.changed"
 to = "interaction.reset"
+
+[[states]]
+key = "focus.initial"
+screen = "focus"
+
+[[states]]
+key = "focus.keyboard"
+screen = "focus"
+
+[[states]]
+key = "focus.moved"
+screen = "focus"
+
+[[states]]
+key = "focus.reset"
+screen = "focus"
+
+[[transitions]]
+from = "focus.initial"
+to = "focus.keyboard"
+
+[[transitions]]
+from = "focus.keyboard"
+to = "focus.moved"
+
+[[transitions]]
+from = "focus.moved"
+to = "focus.reset"

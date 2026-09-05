@@ -13,7 +13,7 @@ use battlement_reactant::{
   render::Render,
 };
 
-use crate::use_interaction::InteractionState;
+use crate::use_interaction::{self, InteractionState};
 
 /// The filled portion of a zero-to-one-hundred slider track.
 #[builder]
@@ -57,7 +57,7 @@ impl Component for VolumeTrack {
       .animate(self::track_target(self.interaction))
       .paint(
         self::gradient(0.0, self::track_colors(self.interaction.hovered))
-          .box_shadow(self::track_shadows(self.interaction.hovered)),
+          .box_shadow(self::track_shadows(self.interaction.hovered, false)),
       )
       .child(
         View::new()
@@ -175,8 +175,12 @@ impl Component for VolumeThumb {
 fn track_target(state: InteractionState) -> MotionTarget {
   MotionTarget::new(
     StyleTarget::new()
-      .background_gradient(self::gradient_value(0.0, self::track_colors(state.hovered)))
-      .box_shadow(self::track_shadows(state.hovered))
+      .background_gradient(if state.focus_visible {
+        use_interaction::focus_gradient(110.0)
+      } else {
+        self::gradient_value(0.0, self::track_colors(state.hovered))
+      })
+      .box_shadow(self::track_shadows(state.hovered, state.focus_visible))
       .paint_filter(PaintFilterList::default().brightness(if state.pressed { 0.74 } else { 1.0 }))
       .scale_y(if state.pressed && !state.reduced_motion {
         0.82
@@ -190,11 +194,20 @@ fn track_target(state: InteractionState) -> MotionTarget {
 fn thumb_target(state: InteractionState) -> MotionTarget {
   MotionTarget::new(
     StyleTarget::new()
-      .background_gradient(self::gradient_value(
-        45.0,
-        self::thumb_colors(state.hovered),
-      ))
-      .paint_filter(
+      .background_gradient(if state.focus_visible {
+        use_interaction::focus_gradient(110.0)
+      } else {
+        self::gradient_value(45.0, self::thumb_colors(state.hovered))
+      })
+      .paint_filter(if state.focus_visible {
+        PaintFilterList::default().drop_shadow(PaintDropShadow::new(
+          0.0,
+          0.0,
+          10.0,
+          0.0,
+          Color::hex(0xffe600),
+        ))
+      } else {
         PaintFilterList::default()
           .brightness(if state.hovered { 1.16 } else { 1.0 })
           .drop_shadow(PaintDropShadow::new(
@@ -203,8 +216,8 @@ fn thumb_target(state: InteractionState) -> MotionTarget {
             if state.hovered { 10.0 } else { 7.0 },
             0.0,
             Color::hex(if state.hovered { 0x2bc8ff } else { 0x1479ff }),
-          )),
-      )
+          ))
+      })
       .scale(if state.pressed && !state.reduced_motion {
         0.88
       } else {
@@ -262,8 +275,14 @@ fn thumb_colors(hovered: bool) -> &'static [(f32, u32)] {
   }
 }
 
-fn track_shadows(hovered: bool) -> Vec<Shadow> {
-  if hovered {
+fn track_shadows(hovered: bool, focus_visible: bool) -> Vec<Shadow> {
+  if focus_visible {
+    vec![
+      self::shadow(0.0, 0.0, 4.0, 0.0, 0xffffff, 1.0, false),
+      self::shadow(0.0, 0.0, 15.0, 0.0, 0xffdb00, 0.92, false),
+      self::shadow(0.0, 0.0, 8.0, 0.0, 0x000000, 1.0, true),
+    ]
+  } else if hovered {
     vec![
       self::shadow(0.0, 0.0, 15.0, 0.0, 0x31bdff, 0.88, false),
       self::shadow(0.0, 0.0, 7.0, 0.0, 0x000000, 1.0, true),

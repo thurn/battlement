@@ -1322,6 +1322,60 @@ accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = 
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "focus visible"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "Focus-visible behavior" } }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+screenshot = { name = "keyboard" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "down" }
+
+[[scenarios.steps]]
+key = { key = "Tab" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "up" }
+
+[[scenarios.steps]]
+screenshot = { name = "moved" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206812\u2069. \u2068Focus-visible behavior\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = false, parent = { role = "region", name = "Focus-visible behavior" } }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
 name = "action buttons"
 
 [[scenarios.steps]]
