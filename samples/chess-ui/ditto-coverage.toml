@@ -1173,3 +1173,89 @@ to = "dropdown_animation.reduced_opening"
 [[transitions]]
 from = "dropdown_animation.reduced_opening"
 to = "dropdown_animation.reset"
+
+[[mappings]]
+state = "arcade_tab_transition.initial"
+scenario = "arcade tab transition"
+checkpoint = "initial"
+owner = "arcade_tab_transition::tabs_use_source_directional_motion_and_hide_exiting_semantics"
+
+[[mappings]]
+state = "arcade_tab_transition.right_transition"
+scenario = "arcade tab transition"
+checkpoint = "right-transition"
+owner = "arcade_tab_transition::tabs_use_source_directional_motion_and_hide_exiting_semantics"
+
+[[mappings]]
+state = "arcade_tab_transition.right_settled"
+scenario = "arcade tab transition"
+checkpoint = "right-settled"
+owner = "arcade_tab_transition::tabs_use_source_directional_motion_and_hide_exiting_semantics"
+
+[[mappings]]
+state = "arcade_tab_transition.left_transition"
+scenario = "arcade tab transition"
+checkpoint = "left-transition"
+owner = "arcade_tab_transition::tabs_use_source_directional_motion_and_hide_exiting_semantics"
+
+[[mappings]]
+state = "arcade_tab_transition.left_settled"
+scenario = "arcade tab transition"
+checkpoint = "left-settled"
+owner = "arcade_tab_transition::tabs_use_source_directional_motion_and_hide_exiting_semantics"
+
+[[mappings]]
+state = "arcade_tab_transition.interrupted"
+scenario = "arcade tab transition"
+checkpoint = "interrupted"
+owner = "arcade_tab_transition::interruption_wrap_reduced_motion_and_reset_leave_one_panel"
+
+[[mappings]]
+state = "arcade_tab_transition.interrupted_settled"
+scenario = "arcade tab transition"
+checkpoint = "interrupted-settled"
+owner = "arcade_tab_transition::interruption_wrap_reduced_motion_and_reset_leave_one_panel"
+
+[[mappings]]
+state = "arcade_tab_transition.reduced_settled"
+scenario = "arcade tab transition"
+checkpoint = "reduced-settled"
+owner = "arcade_tab_transition::interruption_wrap_reduced_motion_and_reset_leave_one_panel"
+
+[[mappings]]
+state = "arcade_tab_transition.reset"
+scenario = "arcade tab transition"
+checkpoint = "reset"
+owner = "arcade_tab_transition::interruption_wrap_reduced_motion_and_reset_leave_one_panel"
+
+[[transitions]]
+from = "arcade_tab_transition.initial"
+to = "arcade_tab_transition.right_transition"
+
+[[transitions]]
+from = "arcade_tab_transition.right_transition"
+to = "arcade_tab_transition.right_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.right_settled"
+to = "arcade_tab_transition.left_transition"
+
+[[transitions]]
+from = "arcade_tab_transition.left_transition"
+to = "arcade_tab_transition.left_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.left_settled"
+to = "arcade_tab_transition.interrupted"
+
+[[transitions]]
+from = "arcade_tab_transition.interrupted"
+to = "arcade_tab_transition.interrupted_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.interrupted_settled"
+to = "arcade_tab_transition.reduced_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.reduced_settled"
+to = "arcade_tab_transition.reset"

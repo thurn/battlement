@@ -263,6 +263,96 @@ source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "initial"
+sha256 = "0565a87ab15450fd7386c246c81fb699ff64e244a06204d3e1453956f3e3f573"
+width = 1280
+height = 800
+size_bytes = 165420
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "interrupted"
+sha256 = "b975288291156a544bba92c13d8389e99448e53a218dedb2d6d1527abbcff114"
+width = 1280
+height = 800
+size_bytes = 165669
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "interrupted-settled"
+sha256 = "a8e8ca0dc9b6246527f029edb93f00f272c9e477b27babb0b66c94bc759d9786"
+width = 1280
+height = 800
+size_bytes = 164209
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "left-settled"
+sha256 = "33f9f6b32b467f44f02a436719ea8352bb9bfcfff8d1cd0f95a8b988565a2954"
+width = 1280
+height = 800
+size_bytes = 165406
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "left-transition"
+sha256 = "33f7505716bc3694ae5fab10e3bac331ee23b365586d7139679a1479e0729cea"
+width = 1280
+height = 800
+size_bytes = 165946
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "reduced-settled"
+sha256 = "3f2bc1437f29061204adb9da7fb6b8b6625d8dabe6ef03b82eb1bdddf3e650d7"
+width = 1280
+height = 800
+size_bytes = 164463
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "reset"
+sha256 = "f239b187fe8cc1e5c5959d87ae251e86e57a0584c59e19b293e5f2e04069ee5d"
+width = 1280
+height = 800
+size_bytes = 165866
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "right-settled"
+sha256 = "1be272dacf705a268b2b310a1aac8e93291c55a114edd9200d439b01754f8c6a"
+width = 1280
+height = 800
+size_bytes = 165393
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade tab transition"
+checkpoint = "right-transition"
+sha256 = "a933b0f923edc3bf9500be0c45bacb776c835fffab2cdb2264ea293b2d4de80f"
+width = 1280
+height = 800
+size_bytes = 170001
+source = "21448c470b53fdd706e3ea491d2b2ceee81ded7b8b400f0a9c9f0eb7f83d466d"
+
+[[baselines]]
+profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "action-burst"
 sha256 = "73e58cfe352199391ada275385fb69803d6d9be9a8b9b4c5c3126e707b7f906b"

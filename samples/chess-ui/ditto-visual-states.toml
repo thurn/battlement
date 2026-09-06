@@ -911,3 +911,71 @@ to = "dropdown_animation.reduced_opening"
 [[transitions]]
 from = "dropdown_animation.reduced_opening"
 to = "dropdown_animation.reset"
+
+[[states]]
+key = "arcade_tab_transition.initial"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.right_transition"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.right_settled"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.left_transition"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.left_settled"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.interrupted"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.interrupted_settled"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.reduced_settled"
+screen = "arcade_tab_transition"
+
+[[states]]
+key = "arcade_tab_transition.reset"
+screen = "arcade_tab_transition"
+
+[[transitions]]
+from = "arcade_tab_transition.initial"
+to = "arcade_tab_transition.right_transition"
+
+[[transitions]]
+from = "arcade_tab_transition.right_transition"
+to = "arcade_tab_transition.right_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.right_settled"
+to = "arcade_tab_transition.left_transition"
+
+[[transitions]]
+from = "arcade_tab_transition.left_transition"
+to = "arcade_tab_transition.left_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.left_settled"
+to = "arcade_tab_transition.interrupted"
+
+[[transitions]]
+from = "arcade_tab_transition.interrupted"
+to = "arcade_tab_transition.interrupted_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.interrupted_settled"
+to = "arcade_tab_transition.reduced_settled"
+
+[[transitions]]
+from = "arcade_tab_transition.reduced_settled"
+to = "arcade_tab_transition.reset"

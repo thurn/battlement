@@ -17,7 +17,7 @@ use battlement_reactant::{
 };
 
 /// The settings categories in their display order.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum SettingsTab {
   #[default]
   Gameplay,
@@ -45,6 +45,31 @@ impl SettingsTab {
       Self::Graphics => tx("Graphics", "Settings category."),
       Self::Sound => tx("Sound", "Settings category."),
       Self::Input => tx("Input", "Settings category."),
+    }
+  }
+
+  /// Returns the zero-based source order used for directional transitions.
+  pub const fn index(self) -> usize {
+    self as usize
+  }
+
+  /// Returns the stable lowercase identity used by panel hosts.
+  pub const fn slug(self) -> &'static str {
+    match self {
+      Self::Gameplay => "gameplay",
+      Self::Graphics => "graphics",
+      Self::Sound => "sound",
+      Self::Input => "input",
+    }
+  }
+
+  /// Returns the untranslated source label for diagnostic specimen copy.
+  pub const fn label_text(self) -> &'static str {
+    match self {
+      Self::Gameplay => "Gameplay",
+      Self::Graphics => "Graphics",
+      Self::Sound => "Sound",
+      Self::Input => "Input",
     }
   }
 

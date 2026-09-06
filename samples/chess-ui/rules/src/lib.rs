@@ -46,6 +46,8 @@ pub mod arcade_modal;
 
 mod arcade_modal_harness;
 
+pub mod arcade_tab_transition;
+
 mod assets;
 
 pub mod caret;
@@ -155,6 +157,8 @@ mod tabs_harness;
 mod tabs_navigation;
 
 mod tabs_skin;
+
+mod tab_transition_harness;
 
 mod header_artwork;
 

@@ -23,6 +23,7 @@ use crate::{
   select_harness::SelectHarness,
   select_popover_harness::SelectPopoverHarness,
   setting_row_harness::SettingRowHarness,
+  tab_transition_harness::TabTransitionHarness,
   tabs_harness::TabsHarness,
   toggle_accessibility_harness::ToggleAccessibilityHarness,
   toggle_harness::ToggleHarness,
@@ -196,7 +197,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeTabTransition", "Chess UI showcase title."))
-                .description(tx("ArcadeTabTransition enters, exits, and sweeps by direction; complete tab contents and routing remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeTabTransition enters, exits, and sweeps by direction; complete tab contents and routing remain unasserted.", "Chess UI showcase description."))
+                .child(TabTransitionHarness::new()),
         )
         .page(
             ReviewPage::new()

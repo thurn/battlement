@@ -1292,6 +1292,105 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "arcade tab transition"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206827\u2069. \u2068ArcadeTabTransition\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Gameplay" }, role = "tab-panel", name = "Gameplay" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Graphics" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Graphics" }, role = "tab-panel", name = "Graphics" }
+
+[[scenarios.steps]]
+screenshot = { name = "right-transition", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+advance = { frames = 45 }
+
+[[scenarios.steps]]
+screenshot = { name = "right-settled", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Gameplay" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Gameplay" }, role = "tab-panel", name = "Gameplay" }
+
+[[scenarios.steps]]
+screenshot = { name = "left-transition", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+advance = { frames = 45 }
+
+[[scenarios.steps]]
+screenshot = { name = "left-settled", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Graphics" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Sound" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Sound" }, role = "tab-panel", name = "Sound" }
+
+[[scenarios.steps]]
+screenshot = { name = "interrupted", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+advance = { frames = 45 }
+
+[[scenarios.steps]]
+screenshot = { name = "interrupted-settled", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL MOTION" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "tab", name = "Input" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 20 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Input" }, role = "tab-panel", name = "Input" }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-settled", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "tab-panel", name = "Gameplay" }, role = "tab-panel", name = "Gameplay" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "control shine and release bursts"
 
 [[scenarios.steps]]
