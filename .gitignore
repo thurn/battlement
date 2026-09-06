@@ -79,7 +79,7 @@ crashlytics-build.properties
 # macOS metadata.
 .DS_Store
 
-# Track only maintained agent guidance and the retained chess plan.
+# Track maintained agent guidance and retained implementation plans.
 *.md
 !/AGENTS.md
 !/crates/AGENTS.md
@@ -88,6 +88,7 @@ crashlytics-build.properties
 !/docs/reactant/chess-ui-implementation-plan.md
 !/docs/reactant/chess-ui-assets.md
 !/docs/reactant/chess-ui/**/*.md
+!/plans/engine/**/*.md
 
 # Git
 .worktrees
