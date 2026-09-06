@@ -21,7 +21,7 @@ snapshots and animation while menus stay responsive. MCTS calls the same rules
 with a simulation context and an index-returning policy.
 
 The [rules/session contract](interfaces.md) and its [compiling
-sketch](../../crates/battlement-reactant/src/proposal.rs) are the complete
+sketch](interfaces.md#complete-contract-sketch) are the complete
 public contract for this part of the system. The topic pages and tasks below use
 that contract; a compiling placeholder is not a working engine.
 
@@ -42,8 +42,9 @@ cx.present(state, || StateAnimation::EnergyGained(1));
 
 Interactive publication calls `Game::logical_clone`; simulation skips both the
 copy and the lazy animation builder. Prompt data owns its choices, and policies
-borrow the shared prompt enum to inspect them. Each implementation task must
-prove the public behavior, including typed human responses and policy indices.
+inspect a borrowed `Cow` wrapper in the same enum used for owned display data.
+Each implementation task must prove the public behavior, including typed human
+responses and policy indices.
 
 The display component uses the current snapshot to describe both domains:
 

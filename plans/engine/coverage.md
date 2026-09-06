@@ -31,14 +31,17 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
   accepted_state copy remains independent. Status hooks expose recovery.
 
 - Generic response handles infer response type from matched prompt data, verify
-  the handle's request identity at runtime, and distinguish human from live-AI requests.
+  the handle's request identity at runtime, and distinguish human from live-AI
+  requests.
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
   [40](tasks/40-hearts-simulation-ai.md).
 
-  **Verify:** Compile replies for two games/two answer types, including zero-sized
-  prompt data. Caller-supplied choices cannot override stored legality; human
-  replies cannot resolve an AI-owned request.
+  **Verify:** Compile replies for two games/two answer types, including
+  zero-sized prompt data. Caller-supplied choices cannot override stored
+  legality; human replies cannot resolve an AI-owned request. Borrowed policy
+  wrappers neither clone nor allocate; owned display copies preserve the typed
+  validator's choices.
 
 - UI-only apps need no game state or worker; default movement needs no
   configuration.

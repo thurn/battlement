@@ -5,7 +5,7 @@ It may publish snapshots or ask for typed choices. The display owns the queue
 and animation sequencing; Unity's main thread remains responsive.
 
 Read the [complete API](interfaces.md) and [contract
-sketch](../../crates/battlement-reactant/src/proposal.rs) first. Related pages:
+sketch](interfaces.md#complete-contract-sketch) first. Related pages:
 [presentation](presentation.md), [Hearts](hearts.md), and
 [validation](validation.md).
 
@@ -106,9 +106,11 @@ checkpoint has no semantic event.
 
 ## Choice waits
 
-`PromptData<T>` owns its choice data and provides a stable iterator, validation,
-and conversion to/from the game's shared prompt enum. Simulation and display
-read that same enum. Rules get a concrete `ResponseType` back:
+`PromptData<G>` owns its choice data and provides a stable iterator, validation,
+and infallible wrapping into the game's lifetime-parameterized prompt enum.
+`as_prompt` borrows the typed data; `into_prompt` owns it. There is no
+conversion back out of the enum. Simulation and display inspect the same enum
+definition. Rules get a concrete `ResponseType` back:
 
 ```rust
 let card: CardId = context.choose(state, PlayCardPrompt { choices });
@@ -121,14 +123,15 @@ its own snapshot. The worker cannot mutate state during the wait.
 
 Human requests expose `PresentedPrompt { prompt, handle }`. The display matches
 the enum and calls `handle.submit(prompt_data, response)`. The concrete prompt
-argument determines the Rust response type. The handle supplies request identity;
-runtime checks verify the expected concrete prompt and response types.
+argument determines the Rust response type. The handle supplies request
+identity; runtime checks verify the expected concrete prompt and response types.
 
-- Use the actual published prompt as validation authority, never a caller's
-  lookalike value. Retain it through request resolution. Do not use prompt
-  addresses as identity: zero-sized prompt data is allowed.
-- An active invalid response, mismatched prompt/response type, or human response to an
-  AI-owned request is a programming error. Panic inside Rust; never unwind
+- Retain the original typed prompt in the internal request as validation
+  authority; publish its owned clone in the enum. Never validate against a
+  caller's lookalike value. Keep both alive through request resolution. Do not
+  use prompt addresses as identity: zero-sized prompt data is allowed.
+- An active invalid response, mismatched prompt/response type, or human response
+  to an AI-owned request is a programming error. Panic inside Rust; never unwind
   through the C ABI. An app-callback boundary turns active callback panics into
   session failure; a direct Rust call still exposes the programming-error panic.
 - Ended-request replies are ignored before inspecting their payload. This
@@ -148,14 +151,18 @@ internal; test-driver observations can expose them for stale-delivery scenarios.
 connection's `choose` for a human or `choose_with_policy` for an AI. Reactant
 owns publication/wait mechanics, not player identification.
 
-The live helper clones the enum for display and keeps the original prompt on the
-worker. `Game::Prompt: Clone` permits this without requiring `Sync`. Human
-publication moves its prompt; simulation makes no display copy.
+Both live helpers retain the concrete prompt in an internal `Arc<P>` request and
+publish `prompt.clone().into_prompt()` after reserving capacity. The display
+owns the enum copy and validates replies through the original typed request;
+there is no enum extraction. Live AI also borrows that original for its policy.
+Concrete prompt data requires `Clone + Send + Sync` and remains immutable for
+the request lifetime. Human requests make the same one display copy. Simulation
+keeps `P` locally, allocates no request, and makes no clone.
 
-The live policy receives `&Game::State` and `&Game::Prompt` on the rules worker
-after the prompt's snapshot is displayed. It returns a stable option index. The
-helper recovers the concrete prompt, validates the selected answer, and checks
-abandonment before returning. Human input cannot win an AI request.
+The live policy receives `&Game::State` and a borrowed `Game::Prompt<'_>`
+wrapper on the rules worker after the snapshot is displayed. It returns a stable
+option index. The helper selects directly from retained `P`, validates, and
+checks abandonment before returning. Human input cannot win an AI request.
 
 Simulation constructs the same domain context in simulation mode and calls
 `Game::execute` directly. It runs synchronously on its caller's thread:

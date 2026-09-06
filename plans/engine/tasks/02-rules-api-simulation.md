@@ -34,20 +34,22 @@ prompt returns `[CardId; 3]`; there is no game-wide answer enum.
 ## Implementation
 
 1. Implement the rules types and signatures in interfaces.md and the linked
-   contract sketch: `Game`, `GameContext`, `PromptData<T>`, and `ChoicePolicy`.
+   contract sketch: `Game`, `GameContext`, `PromptData<G>`, and `ChoicePolicy`.
    Keep them independent of Unity/components. Context is game-owned and may
    branch on its mode. Do not introduce a required generic execution-mode type.
 
-2. Implement prompt enum conversion and stable option-index mapping. Prompt data
-   owns its choices and may enumerate lazily. Invalid selected indices or
-   responses panic. Policy code receives state and the same enum the display
-   will inspect; hidden-state sampling belongs to the game.
+2. Implement infallible `as_prompt`/`into_prompt` wrapping into one Cow-based
+   prompt enum. Keep `P` for direct option-index mapping; never extract it back
+   from the enum. Prompt data owns its choices and may enumerate lazily. Invalid
+   selected indices or responses panic. Policy code receives state and the same
+   enum the display will inspect; hidden-state sampling belongs to the game.
 
 3. Make simulation `present` skip both snapshot cloning and the lazy animation
    builder. Simulation `choose` calls the policy inline with no display
-   connection or wait. There is no explicit cancellation-check primitive.
+   connection or wait. Borrowing the enum must neither allocate nor clone the
+   prompt. There is no explicit cancellation-check primitive.
 
-4. Compile a choice-free game (`Prompt = ()`), two distinct response types
+4. Compile a choice-free game (`Prompt<'a> = ()`), two distinct response types
    through nested rules, and a second game's generic prompt handling. Exercise
    the same rules with a recording context and a simulation context. Task 11
    supplies actual App startup and worker integration.

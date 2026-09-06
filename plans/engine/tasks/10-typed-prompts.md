@@ -26,7 +26,7 @@ A matched prompt determines the required answer type:
 ```rust
 if let Some(presented) = use_game_prompt::<HeartsGame>() {
     if let HeartsPrompt::PlayCard(prompt) = &presented.prompt {
-        presented.handle.submit(prompt, selected_card);
+        presented.handle.submit(prompt.as_ref(), selected_card);
     }
 }
 ```
@@ -37,15 +37,16 @@ to a current request is a programming error; an ended-request reply is ignored.
 ## Implementation
 
 1. Publish snapshot and owned `PresentedPrompt<T>` in checkpoint order. The
-   wrapper contains the enum and `ResponseHandle<T>`. Keep the published data in
-   storage through resolution. The handle identifies the request; the prompt
-   argument selects the response type. Do not compare prompt addresses.
+   wrapper contains `G::Prompt<'static>` and its `ResponseHandle`. Retain the
+   original concrete P in a private typed request and publish one owned clone;
+   keep both alive through resolution. The handle identifies the request; the
+   prompt argument selects the response type. Do not compare prompt addresses.
 
-2. Implement generic `submit<P: PromptData<T>>(&P, P::ResponseType)` for all
-   games. Validate session/run/request, concrete prompt/response type,
-   human/AI ownership, and legality against the stored request. Valid input
-   resumes once. Worker wakeup checks request/type and cancellation before
-   returning.
+2. Implement the generic `ResponseHandle<T>::submit<G, P>` signature from
+   interfaces.md, tying T to the game's owned prompt enum. Validate
+   session/run/request, concrete prompt/response type, human/AI ownership, and
+   legality against the stored request. Valid input resumes once. Worker wakeup
+   checks request/type and cancellation before returning.
 
 3. Ignore ended-request replies before decoding or checking their payload. Panic
    on active illegal/mismatched replies through a Rust boundary that never
@@ -53,16 +54,18 @@ to a current request is a programming error; an ended-request reply is ignored.
    input; do not add a recoverable invalid-response result type.
 
 4. Implement connection helpers for human input and policy-owned live requests.
-   For live AI, clone the enum for display and retain the original on the
-   worker; no Sync bound is needed. Human publication moves the enum. Both
-   become active with their snapshots. A live policy runs on the rules worker
-   after presentation and returns an index; human handles cannot resolve its
-   request. Player routing remains in game context.
+   Both retain P in internal Arc-backed storage and publish one owned clone
+   after reserving capacity. Concrete data is Clone + Send + Sync. The typed
+   validator uses retained P without enum extraction. Live AI borrows
+   P.as_prompt() on the rules worker after presentation, then maps its index
+   directly through P. Human handles cannot resolve AI requests. Player routing
+   remains in game context.
 
 5. Exercise two response types and another game's prompt enum. Retain compile
    checks for wrong response types, fault-injected transport mismatch, stable
    indices, zero-sized prompt data, and local selection/menu state independent
-   of rules.
+   of rules. Verify borrowed policy calls do not clone and temporary wrappers
+   cannot escape into owned display storage.
 
 ## Acceptance
 

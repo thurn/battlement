@@ -6,11 +6,10 @@ implementation without reading whole directories. Related pages:
 [validation](validation.md). Task 06 must update these pointers after moving
 crates so later assignments still lead to the right files.
 
-The [contract sketch](../../crates/battlement-reactant/src/proposal.rs) is a
-standalone compiling specification, not an exported runtime module. Its `App`
-placeholder describes the additions to the existing app. Task 06 must preserve
-this reference when relocating the crate and update inbound links. The complete
-rules/session API is documented in [interfaces](interfaces.md).
+The [complete contract sketch](interfaces.md#complete-contract-sketch) lives in
+the rules/session planning document. Extract its Rust block for standalone
+compilation; it is not an exported runtime module. Its `App` placeholder
+describes additions to the existing app, not a replacement for its UI API.
 
 ## Existing implementation roles
 

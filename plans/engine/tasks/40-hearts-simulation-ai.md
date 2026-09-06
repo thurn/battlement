@@ -33,9 +33,10 @@ return the candidate's original legal-option index
 ## Implementation
 
 1. Build HeartsPolicy on `ChoicePolicy<HeartsGame>`. It receives &HeartsState
-   and &HeartsPrompt. Sample hidden hands from actor knowledge, public history,
-   and void constraints; do not inspect real hidden assignments when sampling or
-   scoring heuristic input. Reactant does not sanitize state for the policy.
+   and &HeartsPrompt<'_>. Sample hidden hands from actor knowledge, public
+   history, and void constraints; do not inspect real hidden assignments when
+   sampling or scoring heuristic input. Reactant does not sanitize state for the
+   policy.
 
 2. Use Game::execute and a simulation HeartsContext for rollout transitions.
    Finish the current hand, include moon scoring, and minimize mean additional

@@ -6,7 +6,7 @@ synchronous rules for interactive execution and simulation. Display components
 read immutable clones of the full state and a shared prompt enum.
 
 Read the [complete rules/session API](interfaces.md) and [compiling
-sketch](../../crates/battlement-reactant/src/proposal.rs) for the contract.
+sketch](interfaces.md#complete-contract-sketch) for the contract.
 Related pages: [overview](README.md), [execution](execution.md), [world
 objects](world.md), and [starting code](source-map.md).
 
@@ -37,8 +37,10 @@ The roles are:
   and immutable snapshots for display; there is no separate view type.
 - `HeartsContext` owns the interactive/simulation mode and domain data such as
   policies or RNGs. It routes human versus AI choices in a live game.
-- `HeartsPrompt` contains owned choice structs, shared by display and policies.
-  `PresentedPrompt<HeartsPrompt>` adds a request-bound response handle for UI.
+- `HeartsPrompt<'a>` wraps concrete choice structs in `Cow`: borrowed for policy
+  calls, owned for display. There is no separate reference enum.
+  `PresentedPrompt<HeartsPrompt<'static>>` adds a request-bound response handle
+  for UI.
 - `HeartsAnimation` describes what happened. Display registrations translate
   that event into movements, sound, and particles.
 - `HeartsDisplay` is a component that builds the scene from the displayed

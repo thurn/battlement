@@ -101,7 +101,9 @@ For passing, identify the seat currently choosing, not only the future trick
 leader. Human confirmation submits a typed response to that request, never
 another competing `PlayTurn` action.
 
-Both paths publish the snapshot and the same owned `HeartsPrompt` enum in order.
+Both paths retain the typed prompt for validation and publish one owned clone
+inside `HeartsPrompt<'static>` with the snapshot. Policies borrow a
+`HeartsPrompt<'_>` wrapper around the original; there is no reverse conversion.
 After its snapshot is displayed, a live AI policy runs on the rules worker and
 returns an option index. Human handles cannot resolve AI-owned requests. Display
 code may show “West is choosing” while hiding West's card choices. There is no
@@ -143,11 +145,11 @@ reorientation during an in-flight pass without restarting that occurrence.
 ## AI and shared simulation
 
 Use seeded, bounded Monte Carlo rollouts through the same `Game::execute`
-method. The policy receives `&HeartsState` and `&HeartsPrompt`. Its game-owned
-sampler uses the acting seat's known cards, public play history, and observed
-void suits to randomize hidden hands before search. The sampler must not use the
-real hidden assignment as knowledge. The engine neither sanitizes state nor
-creates an observation type.
+method. The policy receives `&HeartsState` and `&HeartsPrompt<'_>`. Its
+game-owned sampler uses the acting seat's known cards, public play history, and
+observed void suits to randomize hidden hands before search. The sampler must
+not use the real hidden assignment as knowledge. The engine neither sanitizes
+state nor creates an observation type.
 
 For each decision, sample 32 possible deals consistent with what the player
 knows. A **rollout** plays the rest of a sampled hand using a cheap legal policy
