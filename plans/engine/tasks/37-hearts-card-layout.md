@@ -1,6 +1,6 @@
 # 37. Compose Hearts cards, hands, tricks, and inspection views
 
-The actual Hearts view renders a readable 3D table with stable cards and
+The Hearts display component renders a readable 3D table with stable cards and
 independent inspection copies.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -13,30 +13,30 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Identity and state](../identity.md)
 - [Animation](../motion.md)
 
-**Prerequisite:** [Task 36: Implement the fixed Hearts rules through the generic
-executor](36-hearts-rules.md) and all its required follow-ups must be
+**Prerequisite:** [Task 36: Implement fixed Hearts rules through the shared
+context contract](36-hearts-rules.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Hearts shell/assets; world primitives/layouts; player
-view projection.
+**Starting code:** Hearts shell/assets; world primitives/layouts; player cloned
+state snapshots.
 
 ## Example
 
-The root display owns world and UI composition; a rules view supplies
-visible data:
+The root display owns world and UI composition; the displayed state snapshot
+supplies its data:
 
 ```rust
 (
-    TableLayout::new().view(view),
-    UiRoot::new().child(HeartsScoreboard::new().scores(view.scores())),
+    TableLayout::new().state(state),
+    UiRoot::new().child(HeartsScoreboard::new().scores(state.scores())),
 )
 ```
 
 ## Implementation
 
 1. Create `HeartsDisplay` with reusable `CardView`, `Hand`, `Trick`,
-   `CapturedPile`, `Seat`, and table components from the view. Build front/back
-   surfaces and independent hit regions in Rust.
+   `CapturedPile`, `Seat`, and table components from the snapshot. Build
+   front/back surfaces and independent hit regions in Rust.
 
 2. Assign stable deal-lifetime presentation UUIDs from game/display data; never
    generate IDs during render. Reuse identities for hand/trick/pile transfer and

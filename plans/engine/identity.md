@@ -103,14 +103,15 @@ retain an old attachment point without retaining the logical card.
 
 ## Read only the state a component needs
 
-Components may use props or optional selectors to read the presented view. A
-selector compares the selected value and suppresses component evaluation when it
-is equal. This helps sparse updates without changing visible behavior.
+Components may use props or optional selectors to read the displayed snapshot. A
+selector compares its output and suppresses subscription-triggered component
+evaluation when equal. The selector may still run to compute that comparison.
+This helps sparse updates without changing visible behavior.
 
 For example, a score label need not rerender when only a hand changes:
 
 ```rust
-let score = use_view_selector(|view: &HeartsView| view.south_score);
+let score = use_game_selector::<HeartsGame, _>(|state| state.south_score);
 ScoreLabel::new().score(score)
 ```
 

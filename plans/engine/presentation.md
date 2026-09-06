@@ -12,8 +12,8 @@ checkpoints](execution.md), [animation](motion.md), [identity](identity.md), and
 
 ## Prepare before changing what the player sees
 
-A render reads one immutable game view and one version of display stores. It
-describes the new tree, matches object identities, computes layout, and
+A render reads one immutable state snapshot and one version of display stores.
+It describes the new tree, matches object identities, computes layout, and
 constructs animation/effect requests. Required assets, host properties, and
 inactive native objects must be ready before the result becomes visible.
 
@@ -79,10 +79,11 @@ a failure surface; do not pretend arbitrary native changes can be rolled back.
 
 ## Tell the display when a checkpoint may advance
 
-Each checkpoint collects the animation completions or labels it must wait for.
-This collection is its **advancement gate**: all required entries must be
-satisfied before the next checkpoint can replace it. Ordinary movement is
-required by default; cosmetic animation does not block progress.
+The display collects the animation completions or labels each checkpoint must
+wait for. Rules publish snapshots/events; they do not sequence the display. This
+collection is its **advancement gate**: all required entries must be satisfied
+before the next checkpoint can replace it. Ordinary movement is required by
+default; cosmetic animation does not block progress.
 
 For example, one checkpoint moves two cards while a glow continues indefinitely:
 
@@ -98,12 +99,15 @@ replaces its default arrival requirement; it does not add a second requirement
 that still waits for arrival. Other cards' requirements remain. After the
 earlier label, remaining movement and cosmetic effects may continue.
 
+A checkpoint has at most one semantic event, but any number of display
+registrations may interpret it. Choice and final checkpoints have no event;
+default movement and frame requirements still apply.
+
 A registration is a callback that builds animation from one typed
 `StateAnimation`. The component reads the current checkpoint with
-`use_checkpoint::<StateAnimation>()`,
-obtains scoped animation controls with `use_animate()`, and creates its
-compatible card and anchor refs during rendering. It declares the refs on its
-world children.
+`use_checkpoint::<StateAnimation>()`, obtains scoped animation controls with
+`use_animate()`, and creates its compatible card and anchor refs during
+rendering. It declares the refs on its world children.
 
 For example, a `CardView` component filters the game's state-animation enum to
 draws of that card. The scoped name identifies this callback; the pattern

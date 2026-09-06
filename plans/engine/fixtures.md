@@ -32,8 +32,8 @@ maps or mutable rules state as shortcuts for assertions.
 
 Controlled builders/services provide public worker-started, builder-entered, and
 worker-stopped synchronization. They let tests pause at a known point without
-guessed sleeps. For example, hold `Game::view`, exit, then release it and verify
-that its late view is never displayed.
+guessed sleeps. For example, hold `Game::logical_clone`, exit, then release it
+and verify that its late snapshot is never displayed.
 
 ## Identity, composition, layout, and input scenes
 
@@ -51,7 +51,7 @@ transfer.
 | `mixed-input` | Exercise UI blocking/passthrough, nested modals, captured touch, and visible keyboard/controller focus |
 | `composed-card` | Switch normal, compact table, hidden, and UI faces with rich text, badges, outlines, outcome preview, and a conditional action button |
 | `contained-layout` | Arrange child cards inside a parent and resize its rest bounds; animated scale must not feed back into layout |
-| `stores` | Change independent fields and write during render; equal selectors avoid reevaluation and later writes appear in a later complete update |
+| `stores` | Change independent fields and write during render; equal selected values avoid subscriber renders and later writes appear in a later complete update |
 | `card-browser` | Open a grid from a deck pile, select/reorder cards, cancel or confirm, and retain rules-zone membership while browsing |
 | `card-selection-scenes` | Choose a draft card, buy a displayed shop card, and select a quest deck; move cards among offers, selection, and destination layouts |
 | `simulation-preview` | Evaluate a hypothetical choice with the shared rules and render its outcome beside the primary view without changing the live game |
@@ -74,15 +74,16 @@ the inspector. Task 45 completes the set, building on the earlier feature tasks.
 | `material-effects` | Drive separate card instances with independent overrides; dissolve sprites, fade text, and reverse the effect |
 | `attached-effects` | Compare live/captured anchors, trails, projectiles, light/audio properties, and retention after removal |
 | `occurrence-replay` | Deliver a sound/burst twice, seek, resume, and replay; show exactly when each should emit |
-| `prompt-cycle` | Select/deselect, submit invalid or stale answers, and use settings while waiting |
-| `cancellation` | Cancel at publication waits, inside builders, prompt waits, answer/completion races, and explicit computation checks |
+| `prompt-cycle` | Select/deselect, fault-inject an invalid active reply, ignore stale replies, and use settings while waiting |
+| `cancellation` | Cancel at publication waits, inside builders, prompt waits, answer/completion races, and bounded ordinary computation reaching a helper/return boundary |
 | `preparation` | Delay assets, supersede a prepared update, fail a required asset, and verify complete visible updates |
 | `gate-replacement` | Replace required movement before/after a label, include multiple required animations, and reject old completion events |
-| `save-failure` | Fail a save after an action is accepted; retain playable in-memory state and retry durability |
+| `save-failure` | Explicitly save accepted state, fail its write/flush, retain playable state, and retry durability |
 
 Include cancellation on entry to primitives before any new builder, after a
-builder finishes, and before returning an answer or final state. Check cleanup
-before stopped status and distinguish an ordinary panic from cancellation.
+builder finishes, and before returning an answer or final state. Public Stopped
+appears immediately; worker-stopped follows cleanup. Distinguish an ordinary
+panic from expected cancellation.
 
 Effects scenes include game-owned Rust fallback selection, simultaneous effects,
 optional RON configuration, and captured configuration during an active
@@ -118,8 +119,9 @@ last rendered frame: 80; completion has not occurred
 Provide pause, slower playback, one-frame advance, supported seek, and explicit
 replay. Show unavailable controls when native effects cannot seek. Inspection
 must not accidentally answer prompts, satisfy live animation requirements, or
-change rules state. Keep hidden Hearts hands out of normal player/inspector
-views; fixture-only private data must be explicitly separate.
+change rules state. Although snapshots contain full state, keep hidden Hearts
+hands out of normal player/inspector output. Fixture-only private diagnostics
+must be explicit.
 
 Geometry and motion reporting are opt-in. Turning the inspector off must remove
 per-frame reporting that ordinary host playback does not need.

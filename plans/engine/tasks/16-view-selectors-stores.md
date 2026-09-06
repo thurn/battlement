@@ -1,6 +1,6 @@
-# 16. Add stable view selectors and queued display stores
+# 16. Add stable state selectors and queued display stores
 
-Sparse view/store changes reevaluate only affected subscribers without
+Sparse snapshot/store changes reevaluate only affected subscribers without
 tearing one render or breaking moved components.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -17,20 +17,20 @@ visuals](15-incarnations-and-removal.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** External stores; context/hooks; runtime scheduling; presented
-view provider.
+snapshot provider.
 
 ## Example
 
 Changing a hand should not reevaluate a component subscribed only to the score:
 
 ```rust
-let score = use_view_selector(|view: &HeartsView| view.south_score);
+let score = use_game_selector::<HeartsGame, _>(|state| state.south_score);
 ScoreLabel::new().score(score)
 ```
 
 ## Implementation
 
-1. Expose optional presented-view selector subscriptions with explicit
+1. Expose optional displayed-snapshot selector subscriptions with explicit
    equality. Keep props as a complete equivalent path and avoid introducing a
    game-global mutable model into component handlers.
 
@@ -47,8 +47,8 @@ ScoreLabel::new().score(score)
 
 ## Acceptance
 
-- Updating an unrelated field leaves an equal selector's evaluation count
-  unchanged through a public fixture counter.
+- Updating an unrelated field leaves the subscribed component's render count
+  unchanged. The selector itself may still run to compare its output.
 
 - A store write during rendering appears in a later complete generation, never
   half of the current frame.

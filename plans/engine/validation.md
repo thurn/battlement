@@ -13,7 +13,7 @@ Primary engine/game coverage is standalone Rust scenario files through
 reactant-testing's public display driver and Battlement fakes. Test inputs are
 public actions, prompt answers, pointer/key/controller input, virtual time, and
 frame advancement. Outputs are presented objects/text/poses, effects/audio,
-prompt/checkpoint identities, accepted-state availability, and run lifecycle.
+prompt/checkpoint identities, accepted-state copies, and run lifecycle.
 
 Do not assert private tree maps, internal channel occupancy, generated commands,
 or hidden Hearts hands as a substitute for visible behavior. Small unit tests
@@ -27,17 +27,15 @@ the expected order of execution.
 
 ## Display driver contract
 
-The intended public surface includes these operations (names may evolve):
+The rules/session surface is fixed in [interfaces](interfaces.md). The separate
+public display test driver supplies worker barriers and virtual host controls,
+including these operations:
 
-~~~rust
-display.dispatch(action);
-display.wait_for_prompt();
-display.answer(request, answer);
-display.advance_time(Duration::from_millis(125));
-display.advance_frame();
+~~~rust display.dispatch(action); display.wait_for_prompt(); // Match the
+returned PresentedPrompt and submit through its typed handle.
+display.advance_time(Duration::from_millis(125)); display.advance_frame();
 display.advance_to_label("ready");
-display.object(card_id).assert_in_layout(hand);
-~~~
+display.object(card_id).assert_in_layout(hand); ~~~
 
 Provide wait_for_worker_started/stopped and builder-entered observations for
 controlled fixture builders, plus advance_to_next_checkpoint and settle.
@@ -117,9 +115,11 @@ browser service for automation.
 
 The benchmark workloads and reporting targets are in [fixtures](fixtures.md).
 Run the fixed release captures and publish measured distributions and misses.
-The numeric values are not completion gates. Simulation's no-builder,
-no-mandatory-allocation, static-dispatch contract is still a correctness/API
-requirement and must be proven separately.
+The numeric values are not completion gates. Simulation skips snapshot/event
+builders and display waits. Primitive calls require no extra allocation or
+vtable; context-mode branching is allowed. Measure owned prompt construction and
+policy work separately, and prove the primitive contract independently of the
+frame-rate targets.
 
 Keep a physical-device certification checklist with build IDs, commands,
 fixture/deal, expected observations, and fields for device/OS/results. Missing

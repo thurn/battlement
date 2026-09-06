@@ -223,9 +223,10 @@ control flow:
 
 Rerendering must not play the same card sound again. A **transient occurrence**
 is one intended sound, burst, or other one-time effect. Its identity combines
-the action run, checkpoint, state-animation index, and stable effect name within
-that animation. Engine-assigned stable positions may supply names when
-unambiguous.
+the action run, checkpoint, state-animation index zero, and stable effect name
+within that event. Each publication has at most one semantic event; it may
+produce many tracks and effects. Engine-assigned stable positions may supply
+names when unambiguous.
 
 For example, two sounds in one state animation need separate identities:
 

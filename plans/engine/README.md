@@ -12,20 +12,26 @@ moves to the table when its next declaration puts it there. Its UUID preserves
 its component state and visual identity during that move. UI and 3D objects
 share props, hooks, context, and event propagation.
 
-Each game implements a `Game` trait that associates its state, player actions,
-player-visible view, and `StateAnimation` type. `Game::apply_action` executes on
-a worker as ordinary synchronous Rust. It can publish an intermediate state,
-ask a player to choose a card, and continue after that choice. Unity's main
-thread remains free to animate the table and respond to menus. AI simulations
-call the same method without building display views or waiting for animation.
+Each game implements `Game` with state, actions, a shared prompt enum, semantic
+animation events, and a domain-specific context. `App::start_game` supplies the
+interactive connection and returns a session handle. `Game::execute` runs on a
+worker as ordinary synchronous Rust. It can publish a state snapshot, ask a
+player to choose a card, and continue after that response. The display sequences
+snapshots and animation while menus stay responsive. MCTS calls the same rules
+with a simulation context and an index-returning policy.
+
+The [rules/session contract](interfaces.md) and its [compiling
+sketch](../../crates/battlement-reactant/src/proposal.rs) are the complete
+public contract for this part of the system. The topic pages and tasks below use
+that contract; a compiling placeholder is not a working engine.
 
 ## A small example
 
-A **checkpoint** is an immutable `Game::View` together with ordered
-`StateAnimation` values. The view says what is visible; the state animations say
-how to present the transition. The display presents checkpoints in order. For
-example, a draw should become visible before the energy it grants changes on
-screen:
+A **checkpoint** is an immutable logical clone of `Game::State`, optionally
+paired with one `StateAnimation` event or an active prompt. The snapshot says
+what is visible; display code interprets the event to select movements, sounds,
+and effects. The display presents checkpoints in order. For example, a draw
+should become visible before the energy it grants changes on screen:
 
 ```rust
 draw_card(state);
@@ -34,17 +40,17 @@ gain_energy(state);
 cx.present(state, || StateAnimation::EnergyGained(1));
 ```
 
-These are proposed APIs. `Game::view` constructs the immutable view only in
-interactive execution, and the closure keeps state-animation construction out
-of simulations. The implementation task for each API must add a compiling
-example with the same authoring simplicity.
+Interactive publication calls `Game::logical_clone`; simulation skips both the
+copy and the lazy animation builder. Prompt data owns its choices, and policies
+borrow the shared prompt enum to inspect them. Each implementation task must
+prove the public behavior, including typed human responses and policy indices.
 
-The display component uses the current view to describe both domains:
+The display component uses the current snapshot to describe both domains:
 
 ```rust
 (
-    Hand::new().cards(view.hand()),
-    UiRoot::new().child(EnergyLabel::new().amount(view.energy())),
+    Hand::new().cards(state.hand()),
+    UiRoot::new().child(EnergyLabel::new().amount(state.energy())),
 )
 ```
 
@@ -66,16 +72,18 @@ sample that exercises the engine as an application.
 - **One animation system:** property changes, layout movement, gestures,
   sequences, audio, and particles share timing and playback controls. Ordinary
   movement has an engine default; applications need not configure it.
-- **Synchronous rules:** intermediate views, typed choices, safe
+- **Synchronous rules:** intermediate state snapshots, typed choices, safe
   cancellation, and final state acceptance after presentation finishes.
 - **Simulation:** the same rules with inline choice policies and no mandatory
-  allocation or display work in execution primitives.
+  allocation or display work in execution primitives; owned prompt construction
+  and policy work are measured separately.
 - **Sample migration:** preserve tic-tac-toe, chess, the Reactant laboratory,
   and the implemented chess-ui gallery. Keep basic and ui as direct Battlement
   examples. Preserve player-visible tests, replacing assertions about obsolete
   commands with assertions about the behavior those commands produced.
 - **Hearts:** one human and three AI players, a 3D table, full mouse/touch and
-  keyboard/controller input, scoring, and durable save/resume.
+  keyboard/controller input, scoring, and explicit durable save/load. V1 has no
+  autosave.
 - **Validation tools:** a public display test driver, a presentation inspector,
   focused interactive examples, and fixed 300/500-card performance workloads.
 
@@ -100,7 +108,7 @@ its part of the implementation; it links the relevant topics and starting code.
 | When should you read this? | Document |
 | --- | --- |
 | Understanding what game code looks like and who owns what | [Architecture](architecture.md) |
-| Implementing or simplifying the rules API | [API examples and defaults](interfaces.md) |
+| Implementing or simplifying the rules API | [Rules and session API](interfaces.md) |
 | Working on rules, choices, cancellation, simulation, or saving | [Execution](execution.md) |
 | Updating visible objects or waiting for animation before advancing | [Presentation](presentation.md) |
 | Moving components, preserving refs, or removing objects | [Identity and state](identity.md) |
@@ -132,7 +140,7 @@ archive; earlier engine work does not depend on those assets.
 
 1. [Establish behavioral baselines and classify existing
    tests](tasks/01-behavior-baseline.md)
-2. [Define the typed rules API and prove the simulation fast
+2. [Define the typed rules API and prove the simulation
    path](tasks/02-rules-api-simulation.md)
 3. [Prove native worker cancellation and Rust
    cleanup](tasks/03-native-cancellation.md)
@@ -149,9 +157,9 @@ archive; earlier engine work does not depend on those assets.
 9. [Publish immutable checkpoints with at most one
    waiting](tasks/09-checkpoint-publication.md)
 10. [Implement typed interactive prompts and validated
-    answers](tasks/10-typed-prompts.md)
-11. [Accept completed actions and recover from
-    failures](tasks/11-accepted-action-runtime.md)
+    responses](tasks/10-typed-prompts.md)
+11. [Start game sessions, accept actions, and expose
+    recovery](tasks/11-accepted-action-runtime.md)
 12. [Prepare native updates and acknowledge rendered
     frames](tasks/12-host-transactions.md)
 
@@ -163,7 +171,7 @@ archive; earlier engine work does not depend on those assets.
     portals](tasks/14-global-presentation-identity.md)
 15. [Remove components while keeping unfinished exit
     visuals](tasks/15-incarnations-and-removal.md)
-16. [Add stable view selectors and queued display
+16. [Add stable state selectors and queued display
     stores](tasks/16-view-selectors-stores.md)
 17. [Add sprites, meshes, world text, and material
     overrides](tasks/17-world-rendering-primitives.md)
@@ -209,8 +217,8 @@ archive; earlier engine work does not depend on those assets.
 
 35. [Prepare Hearts assets and its 3D sample
     shell](tasks/35-hearts-assets-shell.md)
-36. [Implement the fixed Hearts rules through the generic
-    executor](tasks/36-hearts-rules.md)
+36. [Implement fixed Hearts rules through the shared context
+    contract](tasks/36-hearts-rules.md)
 37. [Compose Hearts cards, hands, tricks, and inspection
     views](tasks/37-hearts-card-layout.md)
 38. [Connect Hearts passing prompts and simultaneous
@@ -223,8 +231,8 @@ archive; earlier engine work does not depend on those assets.
     behavior](tasks/41-hearts-pointer-touch.md)
 42. [Finish Hearts keyboard/controller navigation and
     menus](tasks/42-hearts-navigation-menus.md)
-43. [Save completed Hearts actions durably and resume
-    them](tasks/43-hearts-save-resume.md)
+43. [Save Hearts explicitly and resume accepted
+    state](tasks/43-hearts-save-resume.md)
 
 ### Complete coverage and integration
 

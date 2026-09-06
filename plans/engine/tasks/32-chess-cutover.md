@@ -34,15 +34,17 @@ reset during AI -> new game ignores the old result
 ## Implementation
 
 1. Connect the existing AI search policy through bounded off-main-thread action
-   execution. Preserve difficulty/think-time behavior and cancellation between
-   search work units.
+   execution. Preserve difficulty/think-time behavior. Existing game-owned
+   search cancellation may remain; do not add an explicit engine cancellation
+   primitive.
 
 2. Port play/start/reset, spawn beats, selection effects, music and
    move/capture/check/castle sounds to checkpoint registrations and shared
    sequences. Reuse existing licensed assets and fallback selection logic in
    Rust.
 
-3. Adapt persistence to accepted-state notifications and preserve
+3. Adapt existing persistence through accepted_state and app-owned status
+   scheduling, without an engine acceptance callback. Preserve
    diagnostics/controller/global-key behavior. Save failure must not invalidate
    an already accepted in-memory action.
 

@@ -17,11 +17,11 @@ New or migrated Reactant builders use argument-free `new()` and setters.
 For example, a card's artwork, text, and hit region are separate children:
 
 ```rust
-WorldGroup::new().sort_order(view.sort_order).children((
-    WorldSprite::new().sprite(view.art).layer(0),
+WorldGroup::new().sort_order(card.sort_order).children((
+    WorldSprite::new().sprite(card.art).layer(0),
     WorldSprite::new().sprite(assets.frame).layer(1),
-    WorldText::new().text(&view.rules).font(assets.rules_font).layer(2),
-    BoxHitRegion::new().size(view.hit_size).center(view.hit_center),
+    WorldText::new().text(&card.rules).font(assets.rules_font).layer(2),
+    BoxHitRegion::new().size(card.hit_size).center(card.hit_center),
 ))
 ```
 
@@ -31,7 +31,7 @@ selection, rich text, wrapping, alignment, tint, and opacity. Meshes use
 prepared mesh/material assets with explicit scaling and orientation.
 
 Face changes are ordinary conditional children. A card can show normal, compact
-table, hidden, or UI representations from the same view data. Badges, outlines,
+table, hidden, or UI representations from the same card props. Badges, outlines,
 outcome previews, and conditional action buttons are additional components.
 Nested card layouts are normal children, not native prefab behavior.
 
@@ -52,7 +52,7 @@ A shared Motion value can drive dissolve on several sprites, while a separate
 opacity track fades text:
 
 ```rust
-WorldSprite::new().sprite(view.art)
+WorldSprite::new().sprite(card.art)
     .material(assets.dissolve)
     .parameter(CardShader::Clip, dissolve_progress.clone())
 ```
@@ -118,16 +118,16 @@ See [automatic movement](motion.md#movement-works-without-configuration).
 ## Displayed placement need not change the rules location
 
 A browser or prompt can rearrange cards locally without moving them between
-rules zones. Rust combines the game view and local interaction state to select
-the displayed layout.
+rules zones. Rust combines the game snapshot and local interaction state to
+select the displayed layout.
 
 For example, opening a deck browser can show the same deck in a grid:
 
 ```rust
 if browser.is_open() {
-    CardGrid::new().cards(view.deck()).into_node()
+    CardGrid::new().cards(state.deck()).into_node()
 } else {
-    CardPile::new().cards(view.deck()).into_node()
+    CardPile::new().cards(state.deck()).into_node()
 }
 ```
 

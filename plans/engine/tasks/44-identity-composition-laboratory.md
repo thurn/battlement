@@ -13,8 +13,8 @@ map](../source-map.md) · [Validation](../validation.md)
 - [World objects and input](../world.md)
 - [Validation](../validation.md)
 
-**Prerequisite:** [Task 43: Save completed Hearts actions durably and resume
-them](43-hearts-save-resume.md) and all its required follow-ups must be
+**Prerequisite:** [Task 43: Save Hearts explicitly and resume accepted
+state](43-hearts-save-resume.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Reactant laboratory/inspector; world primitives; UI/world

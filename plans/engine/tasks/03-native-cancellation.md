@@ -12,7 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 02: Define the typed rules API and prove the simulation
-fast path](02-rules-api-simulation.md) and all its required follow-ups must be
+path](02-rules-api-simulation.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Native C ABI and Engine; existing exported-engine fixture;

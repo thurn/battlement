@@ -36,9 +36,8 @@ let draw = draw
    captured positions explicitly.
 
 2. Use run/checkpoint/animation-index/effect-name identity across registrations
-   and
-   host delivery. Reject duplicate effect names and deduplicate delivered
-   starts.
+   and host delivery. The single semantic event uses animation index zero.
+   Reject duplicate effect names and deduplicate delivered starts.
 
 3. Execute occurrence crossings locally alongside labels/tracks in declaration
    order. Expose public audio/effect occurrence observations in fake/native

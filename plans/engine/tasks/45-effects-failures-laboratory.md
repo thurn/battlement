@@ -42,9 +42,10 @@ seek/replay completion -> never satisfies live gameplay
    overrides, persistent auras, projectile/trail retention, live/captured
    anchors, and simultaneous sound/burst labels.
 
-3. Add controlled publication/builder/prompt/answer/completion races and
-   explicit long-computation cancellation points. Observe worker-stopped and
-   fixture-owned drops without private channel assertions.
+3. Add controlled publication/builder/prompt/answer/completion races and bounded
+   ordinary computation released to a helper/return boundary. Verify immediate
+   public Stopped and later worker-stopped after fixture-owned drops, without
+   pretending computation was forcibly interrupted.
 
 4. Cover superseded asset preparation, missing required targets, duplicate
    effect names, invalid graphs, required failure, early gate labels, and stale

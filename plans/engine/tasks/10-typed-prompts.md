@@ -1,15 +1,14 @@
-# 10. Implement typed interactive prompts and validated answers
+# 10. Implement typed interactive prompts and validated responses
 
-Synchronous rules can request typed choices while the public display exposes
-only the currently actionable prompt.
+Synchronous rules return typed responses while display code examines the same
+owned prompt enum used by policies.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Rules and choices](../execution.md)
 - [Validation](../validation.md)
 
@@ -17,59 +16,78 @@ map](../source-map.md) · [Validation](../validation.md)
 waiting](09-checkpoint-publication.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Choice specifications/execution modes from task 02; worker
+**Starting code:** PromptData and domain-context modes from task 02; worker
 connection from task 09; display driver.
 
 ## Example
 
-A component answers through a typed handle for the current presented prompt:
+A matched prompt determines the required answer type:
 
 ```rust
-let presented = use_game_prompt::<CardGame>();
-presented.answer.submit(Answer::Card(selected_card));
-// An illegal card produces feedback and keeps this request active.
+if let Some(presented) = use_game_prompt::<HeartsGame>() {
+    if let HeartsPrompt::PlayCard(prompt) = &presented.prompt {
+        presented.handle.submit(prompt, selected_card);
+    }
+}
 ```
+
+A three-card answer in that branch is a compile error. An illegal card submitted
+to a current request is a programming error; an ended-request reply is ignored.
 
 ## Implementation
 
-1. Publish prompt views in the checkpoint stream with run/request identities.
-   Keep the concrete specification on the worker, construct its owned public
-   representation, and attach the engine-owned typed answer handle outside the
-   game prompt value.
+1. Publish snapshot and owned `PresentedPrompt<T>` in checkpoint order. The
+   wrapper contains the enum and `ResponseHandle<T>`. Keep the published data in
+   storage through resolution. The handle identifies the request; the prompt
+   argument selects the response type. Do not compare prompt addresses.
 
-2. Validate typed answer messages against the current request and immutable
-   choice specification. Return a concrete typed answer only after successful
-   validation and a final cancellation check.
+2. Implement generic `submit<P: PromptData<T>>(&P, P::ResponseType)` for all
+   games. Validate session/run/request, concrete prompt/response type,
+   human/AI ownership, and legality against the stored request. Valid input
+   resumes once. Worker wakeup checks request/type and cancellation before
+   returning.
 
-3. Report invalid-answer feedback publicly while retaining the unanswered
-   request. Reject stale identities without resuming the worker.
+3. Ignore ended-request replies before decoding or checking their payload. Panic
+   on active illegal/mismatched replies through a Rust boundary that never
+   unwinds across the C ABI. UI uses the same validator to disable illegal
+   input; do not add a recoverable invalid-response result type.
 
-4. Build a neutral select/deselect cycle fixture and two different answer types.
-   Keep display-only selection/menu stores independent from the immutable legal
-   specification.
+4. Implement connection helpers for human input and policy-owned live requests.
+   For live AI, clone the enum for display and retain the original on the
+   worker; no Sync bound is needed. Human publication moves the enum. Both
+   become active with their snapshots. A live policy runs on the rules worker
+   after presentation and returns an index; human handles cannot resolve its
+   request. Player routing remains in game context.
+
+5. Exercise two response types and another game's prompt enum. Retain compile
+   checks for wrong response types, fault-injected transport mismatch, stable
+   indices, zero-sized prompt data, and local selection/menu state independent
+   of rules.
 
 ## Acceptance
 
-- An invalid or wrong-type answer leaves the same request active; a valid answer
-  resumes exactly once.
+- Valid responses resume once. Active invalid replies panic; stopped, replaced,
+  and already-resolved request replies are ignored without resuming anything.
 
-- A prompt behind an unfinished earlier checkpoint is not actionable.
-  Replacement invalidates old answers even if request numbers repeat in another
-  run.
+- Earlier required presentation prevents actionability. Reused numeric request
+  IDs in a different session/run cannot admit an old handle.
 
-- Cancellation wins over a queued answer when already observed at the final
-  check, and a prompt cycle exits silently with cleanup.
+- A caller-created prompt cannot broaden legal choices. An AI-owned request
+  cannot be answered by human UI even if the value would be legal.
+
+- Cancellation already observed before returning an answer wins. Menus remain
+  responsive during both human waits and bounded live AI computation.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Native animation gates are task 25. Use the existing public
-presentation-consumer barrier to hold earlier checkpoints until the host
-protocol exists.
+Native animation gates arrive in task 25. Use the public presentation barrier
+until host conformance is connected; do not replace the real response path.
 
 ## Manual QA
 
-Wait at a prompt, open settings, submit an invalid answer, then replace the game
-and submit the old answer. Confirm the replacement remains unchanged.
+Wait at a human prompt, change selection and settings, answer once, then submit
+a duplicate. In a fault fixture submit an illegal current reply and observe
+failure. Restart and deliver an old reply; the replacement remains unchanged.

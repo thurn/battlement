@@ -8,14 +8,13 @@ map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Presentation timing](../presentation.md)
 - [Rules and choices](../execution.md)
 - [Validation](../validation.md)
 
-**Prerequisite:** [Task 11: Accept completed actions and recover from
-failures](11-accepted-action-runtime.md) and all its required follow-ups must be
+**Prerequisite:** [Task 11: Start game sessions, accept actions, and expose
+recovery](11-accepted-action-runtime.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Protocol messages/commands; native batch/snapshot handling;

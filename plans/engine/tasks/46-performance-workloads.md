@@ -68,7 +68,8 @@ report CPU/GPU/frame/input distributions and every missed target
   correctness defects still do.
 
 - Public simulation primitive benchmarks still meet the separate
-  no-allocation/static-dispatch contract.
+  no-extra-primitive-allocation/no-vtable contract, with mode branching allowed
+  and owned prompt construction/search costs measured separately.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

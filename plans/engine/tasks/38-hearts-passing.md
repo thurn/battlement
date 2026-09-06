@@ -38,13 +38,14 @@ Pass -> validate answer, then present all four players' transfers together
    native UI.
 
 2. Submit one typed answer only when exactly three distinct owned cards are
-   selected. Validate on the worker; invalid/stale answers preserve the prompt
-   and show feedback.
+   selected. Validate against the actual request; active invalid replies panic
+   and ended-request replies are ignored. UI prevents illegal submission.
 
-3. Answer AI-owned passing prompts after presentation with the deterministic
-   policy until task 40, using the private controller observation and unchanged
-   pre-exchange hands. Publish all four transfers together with ordered semantic
-   records. Do not expose AI decision payloads to UI props.
+3. Route AI passing through the context and choose_with_policy after
+   presentation, using the deterministic policy until task 40 and unchanged
+   pre-exchange hands. Publish all transfers with one semantic exchange event.
+   Display code hides AI choices even though the shared prompt enum contains
+   them.
 
 4. Animate the pass through movement policies and a required arrival label. Keep
    menus and inspection usable while the worker waits or cards move.
@@ -71,8 +72,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Final card-play flow is task 39, advanced AI task 40, and durable autosave task
-43. Accepted-state notifications must already occur correctly.
+Card-play flow is task 39, advanced AI task 40, and explicit durable save/load
+is task 43. Status and accepted_state access must already work; no autosave.
 
 ## Manual QA
 

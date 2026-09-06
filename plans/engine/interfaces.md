@@ -1,323 +1,348 @@
-# Rules API: one Game trait
+# Rules and session API
 
-A game exposes one coherent contract instead of registering state, view,
-animation, validation, and rules callbacks separately. The `Game` trait gives
-the engine enough information to run the same action interactively or in a
-headless simulation.
+A game supplies ordinary state, synchronous rules, and a domain-specific
+context. Reactant supplies the live session, a connection to the display, and
+typed response delivery. The same rules run directly with a simulation context.
 
-Read this for tasks 02 and 09–11. Related pages: [application
-composition](architecture.md), the complete [action execution
-sequence](execution.md#from-dispatch-to-accepted-state), and [presentation
-timing](presentation.md). These are proposed interfaces. Task 02 must compile
-the trait, executor, and rules examples. Task 11 must compile the `App`
-registration example.
+The [compiling contract
+sketch](../../crates/battlement-reactant/src/proposal.rs) defines the complete
+rules/session surface. Its private storage and method bodies are implementation
+placeholders, not permission to omit public API. This page explains the
+contract; [execution](execution.md) defines ordering and failure behavior. See
+also [architecture](architecture.md), [presentation](presentation.md), and
+[Hearts](hearts.md).
 
 ## The game owns its associated types
 
-The application registers a concrete game value. Its implementation names every
-type that belongs to the game, so no type-only builder calls are necessary.
-
-```rust
-App::new()
-    .game(HeartsGame::new(saved_or_new))
-    .root(HeartsDisplay::new())
-```
-
-The engine infers `HeartsState`, `Action`, `HeartsView`, and `StateAnimation`
-from `HeartsGame`. In particular, `StateAnimation` is not the action type:
-
-- `Action` describes what the player asks the rules to do.
-- `StateAnimation` describes how the display should present a published state.
-
-For example, `Action::PlayCard(card)` enters the game once. That action may
-publish several checkpoints with animations such as
-`StateAnimation::CardPlayed(card)` and
-`StateAnimation::TrickCollected(winner)`.
-
-A suitable starting interface is:
+There is no separate display-data type. A **snapshot** is an independent logical
+clone of `Game::State`, held immutable while components read it. A
+`StateAnimation` describes an event such as collecting a trick; display code
+chooses its movements, sounds, and effects.
 
 ```rust
 trait Game: Sized + Send + 'static {
     type State: Send + 'static;
-    type View: Send + 'static;
     type Action: Send + 'static;
     type StateAnimation: Send + 'static;
-    type Prompt: Send + 'static;
-    type ControllerPrompt: Send + 'static;
-    type Answer: Send + 'static;
-    type Decision<'a> where Self: 'a;
+    type Prompt: Clone + Send + 'static;
+    type Context: GameContext<Self> + Send + 'static;
 
-    fn into_state(self) -> Self::State;
     fn logical_clone(state: &Self::State) -> Self::State;
-    fn view(state: &Self::State) -> Self::View;
-    fn validate_action(state: &Self::State, action: &Self::Action)
-        -> Result<(), ActionRejection> { Ok(()) }
-    fn apply_action<M: ExecutionMode<Self>>(
-        state: &mut Self::State, action: Self::Action,
-        cx: &mut Executor<Self, M>,
+    fn is_legal_action(state: &Self::State, action: &Self::Action) -> bool;
+    fn execute(
+        context: &mut Self::Context,
+        state: &mut Self::State,
+        action: Self::Action,
     );
-    fn final_state_animations(
-        _state: &Self::State,
-    ) -> Vec<Self::StateAnimation> { Vec::new() }
 }
 ```
 
-`Game` is implemented by game code, not supplied as a registration builder.
-The implementation may use `Clone` inside `logical_clone`, but the trait also
-supports persistent or otherwise custom state copies. A logical clone and every
-returned view must not share mutable interior state with the accepted state.
+- `Action` starts rules execution. Answering an already active prompt does not
+  dispatch another action.
+- `Prompt` is one game-wide enum whose variants contain concrete prompt data.
+  Display and simulation policies inspect the same enum.
+- `Context` belongs to the game. It may hold an RNG, policies, and other
+  domain-specific data alongside an interactive connection or simulation mode.
+- `logical_clone` must not share mutable data with its source. Immutable shared
+  data may use `Arc`. The engine does not deep-copy arbitrary Rust values.
+- A choice-free game uses `Prompt = ()`. A game without semantic animation
+  events uses `StateAnimation = ()`. There are no extra associated answer,
+  decision, controller-message, or view types to register.
 
-Games without prompts use `()` for `Prompt`, `Answer`, and `Decision`. Games
-without checkpoint-specific presentation use `()` for `StateAnimation`. No
-builder call is needed to register any of those defaults.
+The context lives for the session and moves to the active worker for execution;
+only one action borrows it at a time. Normal return makes it available for the
+next action after acceptance. A failed or stopped run cannot reuse interrupted
+context; restarting constructs a fresh context. State required for deterministic
+restoration must be included in the game's saved data or supplied explicitly
+when constructing that context.
 
-## A small complete game
+## Start and replace a session
 
-This counter shows how registration, rules, and display fit together. The game
-value owns the initial state, while the associated state remains an ordinary
-domain type.
+`App` owns session attachment. Starting a game also supplies the matching
+connection to the game's context factory; there is no separate attachment call.
 
 ```rust
-struct CounterGame(Counter);
+impl App {
+    fn start_game<G: Game>(
+        &mut self,
+        initial_state: G::State,
+        make_context: impl FnOnce(DisplayConnection<G>) -> G::Context,
+    ) -> GameHandle<G>;
+}
+```
 
-impl Game for CounterGame {
-    type State = Counter;
-    type View = Counter;
-    type Action = Add;
-    type StateAnimation = ();
-    type Prompt = ();
-    type ControllerPrompt = ();
-    type Answer = ();
-    type Decision<'a> = ();
-
-    fn into_state(self) -> Counter { self.0 }
-    fn logical_clone(state: &Counter) -> Counter { state.clone() }
-    fn view(state: &Counter) -> Counter { state.clone() }
-
-    fn apply_action<M: ExecutionMode<Self>>(
-        state: &mut Counter, action: Add, cx: &mut Executor<Self, M>,
-    ) {
-        state.total += action.amount;
-        cx.present(state, || ());
+```rust
+let game = app.start_game::<HeartsGame>(initial_state, |connection| {
+    HeartsContext {
+        human_player,
+        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
     }
-}
+});
 ```
 
-`cx.present` receives the current state by immutable borrow. Interactive mode
-calls `CounterGame::view` and retains the resulting immutable value. Simulation
-mode calls neither the view method nor the lazy animation builder.
+The factory runs once on the app thread. Its returned context is `Send` and is
+owned by the session. The initial state is accepted immediately and a clone is
+queued for entry presentation. The session remains `Busy` until that initial
+presentation finishes. Starting alone does not call `Game::execute`.
 
-The display reads the associated view and dispatches the associated action:
+Calling `start_game` again stops the old session and attaches the new one to the
+app's display and hooks. Existing old handles stay tied to the stopped session.
+UI-only apps need no game session. Dropping an app stops its attached session;
+dropping one cloned handle does not stop a session still owned by the app.
+
+## Dispatch, stop, inspect, and save explicitly
+
+`GameHandle<G>` is cloneable. Clones share one session without cloning its
+state. The handle and component hooks are used on the app/display thread.
 
 ```rust
-fn counter_display() -> impl Render {
-    let view = use_game_view::<CounterGame>();
-    let actions = use_game_actions::<CounterGame>();
-    (
-        Label::new().text(view.total.to_string()),
-        Button::new().text("Add one")
-            .on_click(move |_| actions.dispatch(Add { amount: 1 })),
-    )
+impl<G: Game> GameHandle<G> {
+    fn dispatch(&self, action: G::Action) -> DispatchResult;
+    fn accepted_state(&self) -> G::State;
+    fn stop(&self);
+    fn status(&self) -> GameStatus;
 }
+
+enum DispatchResult { Started, Busy }
+enum GameStatus { Ready, Busy, Failed, Stopped }
 ```
 
-The action handle returns `Started`, `Busy`, or `Invalid`. It never mutates the
-presented view directly. A new value appears only when the worker publishes and
-the display commits a checkpoint.
+- Dispatch returns `Busy` first if entry presentation, an action, a prompt, or
+  final presentation is unfinished. It does not queue another action or run its
+  validator in that case.
+- Otherwise `is_legal_action` runs against accepted state. False is a
+  programming error and panics before cloning state or starting a worker.
+- `Started` means execution was scheduled, not completed. Session/run identities
+  remain internal; `Started` carries no run ID.
+- Dispatching to a `Failed` or `Stopped` session is a programming error.
+- `accepted_state()` always returns a logical clone of the last accepted state,
+  including while busy, failed, or stopped. It never returns in-progress rules
+  state. Explicit saving can therefore save the previous completed action while
+  a new action is being displayed.
+- `stop()` is idempotent and immediately sets `Stopped`. It invalidates pending
+  output and wakes waits without joining ordinary computation. It preserves
+  accepted state for existing handles.
+- Active worker or required-animation failure sets `Failed`, retains accepted
+  state, and reports diagnostic details. The UI provides restart/exit controls.
 
-## Hearts separates rules state from the visible view
+There is no acceptance callback or autosave in v1. The application owns explicit
+save/load operations using `accepted_state()` and `App::start_game()`.
 
-`HeartsState` contains every player's cards, so display components must never
-receive it. `HeartsGame::view` returns a `HeartsView` containing only
-information visible to the south player.
+## Publish and choose through the game context
+
+Rules call this small interface regardless of the context's mode:
 
 ```rust
-fn view(state: &HeartsState) -> HeartsView {
-    HeartsView {
-        south_hand: state.hand(SOUTH).clone(),
-        hand_sizes: state.hand_sizes(),
-        trick: state.current_trick.clone(),
-        scores: state.scores,
-    }
+trait GameContext<G: Game> {
+    fn present(
+        &mut self,
+        state: &G::State,
+        animation: impl FnOnce() -> G::StateAnimation,
+    );
+    fn choose<P: PromptData<G::Prompt>>(
+        &mut self, state: &G::State, prompt: P,
+    ) -> P::ResponseType;
 }
 ```
-
-`HeartsDisplay` reads the complete `HeartsView`. A `CardView` is an individual
-component rendered from one visible card within that game-wide view.
-
-The trait method contains the game's action routing:
-
-```rust
-fn apply_action<M: ExecutionMode<Self>>(
-    state: &mut HeartsState, action: Action,
-    cx: &mut Executor<Self, M>,
-) {
-    match action {
-        Action::PlayTurn => play_turn(state, cx),
-        Action::PassCards(cards) => pass_cards(state, cards, cx),
-    }
-}
-```
-
-Private helper functions may keep the rules readable. There is no separately
-registered rules callback.
-
-## Publish state animations with views
-
-A **checkpoint** contains an immutable `Game::View` and an ordered collection of
-`Game::StateAnimation` values. The view says what is visible now. Each state
-animation says how the display should explain the transition to that view.
 
 ```rust
 state.play(card);
-cx.present(state, || StateAnimation::CardPlayed(card));
-
-state.collect_trick();
-cx.present_many(state, || [
-    StateAnimation::TrickCollected(winner),
-    StateAnimation::ScoreChanged(winner),
-]);
+context.present(state, || HeartsAnimation::CardPlayed(card));
+let next = context.choose(state, PlayCardPrompt { choices: legal_cards });
 ```
 
-The animation builders remain lazy so simulation does not construct display
-data. Single-animation publication assigns index zero. Group indices follow
-iteration order. The engine publishes a final view automatically when
-`apply_action` returns. Its animation list comes from
-`Game::final_state_animations`, whose default is empty.
+Interactive `present` queues a state snapshot and one semantic animation event.
+One event can describe several related changes; display code can start many
+movements/effects for it. There is no grouped-publication method or final-event
+callback. Normal return automatically publishes a final snapshot with no
+semantic event. Default movement still applies to changes in that snapshot.
 
-`StateAnimation` is semantic animation input, not an imperative Unity command.
-Presentation code decides which motion, sound, particle, or gate corresponds to
-each variant.
+Interactive `choose` publishes a snapshot and owned prompt together, even when
+rules did not call `present` first. Simulation creates no snapshots and invokes
+no animation builder. Its `choose` calls the configured policy inline.
+
+Cancellation is internal to interactive publication, choice, and action-return
+boundaries. There is no explicit cancellation-check method. Ordinary rules or
+policy computation runs until it reaches a boundary; abandoning a session makes
+its late output harmless immediately.
 
 ## Choices remain typed
 
-A **choice specification** describes one decision and validates its answer.
-Selecting one card can return `CardId`; selecting three cards can return a
-three-card collection. The game-wide `Prompt`, `Answer`, and `Decision` enums
-provide the worker boundary, while each specification exposes its concrete
-answer type to rules code.
+Prompt data owns the set of legal choices or the data needed to enumerate them.
+The iterator can be lazy. Its order must remain stable for that prompt.
 
 ```rust
-trait ChoiceSpec<G: Game> {
-    type Output;
-    fn prompt(&self, state: &G::State) -> G::Prompt;
-    fn controller_prompt(
-        &self, state: &G::State,
-    ) -> Option<G::ControllerPrompt> { None }
-    fn decision<'a>(&'a self, state: &'a G::State) -> G::Decision<'a>;
-    fn validate(
-        &self, state: &G::State, answer: G::Answer,
-    ) -> Result<Self::Output, ChoiceRejection>;
+trait PromptData<T>: Sized + Send + 'static {
+    type ResponseType: Send + 'static;
+    fn options(&self) -> impl Iterator<Item = Self::ResponseType>;
+    fn is_valid_response(&self, response: &Self::ResponseType) -> bool;
+    fn into_prompt(self) -> T;
+    fn from_prompt(prompt: &T) -> &Self;
 }
 ```
 
-`Game::Prompt` contains public display data only. The engine wraps it in a
-`PresentedPrompt<G>` containing an `AnswerHandle<G::Answer>` bound to the
-current run and request. Game code therefore does not manufacture or store
-engine handles inside its prompt enum.
-
 ```rust
-struct PresentedPrompt<G: Game> {
-    value: G::Prompt,
-    answer: AnswerHandle<G::Answer>,
+#[derive(Clone)]
+struct PlayCardPrompt { choices: Vec<CardId> }
+#[derive(Clone)]
+struct PassCardsPrompt { choices: Vec<[CardId; 3]> }
+#[derive(Clone)]
+enum HeartsPrompt {
+    PlayCard(PlayCardPrompt),
+    PassCards(PassCardsPrompt),
 }
 ```
 
-`Game::ControllerPrompt` is a separate owned, controller-only message. A choice
-returns one when an application-owned AI job needs private observation data.
-The application controller may receive it; components and `Game::View` may not.
-Simulation uses the borrowed `Game::Decision` directly and never constructs
-either owned prompt.
+Each struct defines its fields and legality logic once. `into_prompt` moves it
+into the enum without copying choices. `from_prompt` borrows that same data and
+panics for a mismatched variant. The iterator yields owned response values.
 
-`ChoicePolicy<G>` consumes `G::Decision<'_>` and returns `G::Answer`.
-Interactive execution validates the answer submitted through the presented
-prompt; simulation obtains an answer from the concrete policy and runs the same
-validation. Wrong policy output is a developer error. Wrong player input leaves
-the interactive prompt open with public feedback.
+Rules still receive a concrete answer:
 
 ```rust
-let legal = state.legal_cards(player);
-let card = cx.choose(state, SelectOne::new().options(&legal));
-state.play(card);
+let card: CardId = context.choose(state, PlayCardPrompt { choices });
 ```
 
-Each specification must:
+No borrowed prompt or `Cow` conversion is required. Constructing a vector may
+allocate once per constructed prompt; borrowing the resulting prompt for policy
+evaluation does not copy it again. Simulations that construct new prompts pay
+those construction costs, which must be measured rather than hidden.
 
-- Borrow legal options and observation data while the synchronous call runs.
-- Build an owned `Game::Prompt` only for interactive display.
-- Convert a `Game::Answer` into its concrete answer type and validate it.
-- Return invalid-answer feedback without consuming the pending request.
-- Prevent the policy from observing hidden authoritative state.
+## One prompt enum for display and policies
 
-The executor calls `Game::view` when an interactive choice needs a presented
-view. It never retains a hidden pointer to mutable worker state. The rules
-function cannot mutate that state while `choose` is waiting.
-
-The display reads the engine-owned wrapper around the game-wide prompt enum:
+Interactive presentation wraps the enum and a response connection:
 
 ```rust
-let presented = use_game_prompt::<HeartsGame>();
-if let Prompt::PlayCard { legal } = &presented.value {
-    let answer = presented.answer.clone();
-    Button::new().text("Play")
-        .enabled(legal.contains(&selected))
-        .on_click(move |_| answer.submit(Answer::PlayCard(selected)))
+struct PresentedPrompt<T> {
+    pub prompt: T,
+    pub handle: ResponseHandle<T>,
+}
+impl<T> ResponseHandle<T> {
+    fn submit<P: PromptData<T>>(&self, prompt: &P, response: P::ResponseType);
 }
 ```
 
-The handle accepts the `Game::Answer` type for `HeartsGame`, so unrelated Rust
-types cannot be submitted. Transport decoding and the retained choice
-specification reject the wrong answer variant, stale handles, and illegal
-values. A private controller prompt carries a clone of this same answer handle
-through its controller-only envelope.
-
-## Simulation uses the same Game implementation
-
-Simulation invokes `Game::apply_action` directly on an independent state value.
-It does not start an interactive worker unless its caller schedules the whole
-simulation on one.
-
 ```rust
-let mut simulated = HeartsGame::logical_clone(accepted);
-let policy = HeartsPolicy::new().seed(seed);
-let mut cx = Executor::simulation(policy);
-HeartsGame::apply_action(&mut simulated, Action::PlayTurn, &mut cx);
-display.preview(HeartsGame::view(&simulated));
+if let Some(presented) = use_game_prompt::<HeartsGame>() {
+    if let HeartsPrompt::PlayCard(prompt) = &presented.prompt {
+        presented.handle.submit(prompt, selected_card);
+    }
+}
 ```
 
-The simulation specialization has these requirements:
+The concrete prompt argument makes Rust require `CardId` in that branch. Passing
+three cards there is a compile error. Runtime checks still bind the handle to
+its exact session/run/request, verify the concrete prompt and response types,
+and validate against the stored prompt. The supplied value determines the type;
+it does not prove object identity. This also supports zero-sized prompt structs.
+A caller-constructed prompt cannot broaden the stored request's legal choices. The UI may retain the
+`Rc<PresentedPrompt<T>>` in its handler and match it again when submitting; it
+need not clone the prompt data.
 
-- `present` builds neither a view nor a `StateAnimation`.
-- `choose` calls the concrete policy inline.
-- `check_cancelled` is an inline no-op.
-- No primitive requires allocation, dynamic dispatch, or blocking.
+An invalid response to an active, human-owned request is a programming error and
+panics. The UI uses the same validation logic to disable illegal choices.
+Ended-request replies, including duplicate replies after resolution, are
+ignored. An AI-owned request cannot be answered by a human response handle. A
+valid human response resumes the waiting rules exactly once.
 
-`display.preview` renders an independent view and never installs simulated state
-as the accepted live state. Hearts policies receive only the acting player's
-observation, public history, and inferred constraints—not opponents' real
-hands.
+## Simulation and live AI use the same policy interface
 
-## Prove the API before expanding it
+Policies can inspect concrete prompt variants and state for tree statistics,
+random choice, or fast rollout heuristics. They return an option index:
 
-Task 02 must include compiling examples for a choice-free game, a game with two
-choice types, and the same nested rules body in simulation. The examples must
-show application registration, associated-type inference, and direct simulation
-through the same `Game` implementation.
+```rust
+trait ChoicePolicy<G: Game> {
+    fn choose(&mut self, state: &G::State, prompt: &G::Prompt) -> usize;
+}
+```
 
-Verify that simulation skips panicking view and animation builders and performs
-no mandatory allocation, dynamic dispatch, blocking, or interactive
-cancellation checks in `present`, `choose`, and `check_cancelled`. Retain
-allocation measurements and optimized-code inspection rather than inferring
-zero overhead from generic signatures.
+The context recovers the concrete prompt through `P::from_prompt`, selects the
+indexed item from `options()`, validates it, and returns `P::ResponseType`.
+Out-of-range indices or invalid selected responses panic. No answer enum is
+needed. Stable option ordering is part of the prompt contract, not a policy
+restriction on which heuristics it can use.
 
-Host protocol records are engine implementation details described in
-[presentation](presentation.md). Game authors never construct those records
-when publishing checkpoints or answering prompts.
+```rust
+let mut state = HeartsGame::logical_clone(&accepted);
+let mut context = HeartsContext {
+    human_player,
+    mode: HeartsMode::Simulation(rollout_policy),
+};
+HeartsGame::execute(&mut context, &mut state, action);
+```
+
+This call runs synchronously on the caller's thread and does not start or attach
+a live session. Simulation can branch on the context mode; the API does not
+require compile-time execution-mode specialization. Primitive dispatch must not
+require a heap allocation, vtable, display connection, wait, or snapshot. Owned
+prompt construction and game policy work have separate measured costs.
+
+The policy receives `&G::State`. Hidden-state randomization and information-safe
+heuristics belong to the game, not an engine observation/controller subsystem.
+Hearts must still avoid using opponents' real hidden cards when choosing a move.
+
+## The interactive connection
+
+Reactant creates `DisplayConnection<G>` for the session; game contexts delegate
+interactive mechanics to it. Its fields and constructor are private.
+
+```rust
+impl<G: Game> DisplayConnection<G> {
+    fn present(&mut self, state: &G::State,
+        animation: impl FnOnce() -> G::StateAnimation);
+    fn choose<P: PromptData<G::Prompt>>(
+        &mut self, state: &G::State, prompt: G::Prompt,
+    ) -> P::ResponseType;
+    fn choose_with_policy<P: PromptData<G::Prompt>>(
+        &mut self, state: &G::State, prompt: G::Prompt,
+        policy: &mut impl ChoicePolicy<G>,
+    ) -> P::ResponseType;
+}
+```
+
+In interactive Hearts, the context routes a human decision to `choose` and an AI
+decision to `choose_with_policy`. Both publish the snapshot/prompt in order. The
+latter clones the owned enum for display and retains the original for the policy
+on the rules worker. This is why `Game::Prompt` requires `Clone`; no `Sync`
+bound is needed. Human publication moves the prompt and simulation makes no
+extra display copy. The policy runs only after presentation, without waiting for
+human input. It validates the resulting option index and checks cancellation
+before returning. The connection does not identify players.
+
+A session owns one connection and one context. Helpers reject use outside that
+session's current action rather than allowing unrelated publication. The app
+owns normal-return publication; contexts do not expose or call a finish helper.
+
+## Component access
+
+Hooks refer to the session attached to their app. They panic when no matching
+game is attached; `use_game_prompt` returns `None` when that game has no active
+prompt. Replacement switches subscriptions atomically with the displayed state.
+
+```rust
+fn use_game_state<G: Game>() -> Rc<G::State>;
+fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt>>>;
+fn use_game_status<G: Game>() -> GameStatus;
+fn use_game_selector<G: Game, T: Clone + PartialEq + 'static>(
+    selector: impl Fn(&G::State) -> T + 'static,
+) -> T;
+```
+
+Selectors compare outputs between displayed snapshots. Equal results do not
+trigger a component render through that subscription; selectors themselves may
+still run to compute equality. Other props, hooks, and context can still render
+the component. Props remain a complete way to pass selected data to children.
+
+Pass a cloned `GameHandle<G>` through ordinary props/context when a component
+needs to dispatch. There is no additional game-action hook. Status subscription
+can drive next-action scheduling and failure controls; it is not autosave.
 
 ## Manual QA
 
-Implement the counter and card-selection examples from this page. Confirm that
-the application infers the action, view, and state-animation types from the
-registered game. Run the same nested rules in simulation. Submit an illegal card
-through the display and verify the player can correct it without losing the
-prompt.
+Start a new state and a loaded state through the context factory. Dispatch while
+busy, inject an illegal action, stop during a choice, and restart using the same
+app. Verify old handles remain stopped and the accepted-state copy stays stable.
+Run two typed choices through human and policy paths, deliberately misuse an
+active reply in a fault fixture, and deliver a stale reply after replacement.
+Compare simulation outcomes and confirm its snapshot/animation builders never
+run. Exercise selectors, status-driven recovery, and an explicit save/load.

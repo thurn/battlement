@@ -1,7 +1,7 @@
-# 43. Save completed Hearts actions durably and resume them
+# 43. Save Hearts explicitly and resume accepted state
 
-Hearts resumes the latest durably saved accepted boundary across native and
-WebGL sessions without replaying old effects.
+An explicit Save captures an accepted state and durably restores it on native
+and WebGL. V1 does not autosave or save implicitly on exit.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -17,76 +17,70 @@ map](../source-map.md) · [Validation](../validation.md)
 menus](42-hearts-navigation-menus.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Accepted-state notifications; generic persistent-data host
-support; chess save integration; Hearts state.
+**Starting code:** GameHandle::accepted_state and explicit menu actions; generic
+persistent-data host support; chess save integration; Hearts state.
 
 ## Example
 
-Save completions must identify the exact state that reached durable storage:
+Saving during animation captures the last completed action:
 
 ```text
-accepted state 8 queued; write for state 7 completes
-state 8 is still not marked saved
-state 8 write and durable flush finish
-reload now restores state 8, with fresh prompt and effect identities
+accepted state 7; action 8 is still being displayed
+Save -> capture an owned copy of state 7
+write and durable flush complete -> report state 7 saved
+reload -> restore state 7 with fresh prompt/effect identities
 ```
 
 ## Implementation
 
-1. Serialize complete accepted Hearts state, including the initial NewGame deal,
-   PRNG, and passing-cycle state, outside the worker. Use one serial writer with
-   match ID and accepted-state sequence number; supersede queued older-match
-   writes and prevent stale completions from acknowledging a newer save. Never
-   serialize mutable worker state.
+1. Add explicit Save to the menu. Capture game.accepted_state outside rules and
+   serialize the complete state, including initial-deal, PRNG, and passing-cycle
+   data. A busy session returns the previous accepted boundary. Never save
+   mutable worker state or subscribe to acceptance for autosave.
 
-2. Use atomic temporary-write/replace on native. Add or reuse a generic browser
-   durable-storage flush/acknowledgement capability so a WebGL save is not
-   reported complete while only in memory.
+2. Use one explicit write at a time and disable duplicate Save while pending.
+   Native writes use temporary-write/atomic replace where supported. WebGL must
+   acknowledge durable storage flush. Bind success/failure to that captured
+   copy; later actions or New Game do not change what the write contains.
 
-3. Enable Continue only for a valid persisted state; restore the visible
-   position without transient replay and then schedule from the accepted phase:
-   passing, card play for the correct seat, or completed-match results. Every
-   new prompt gets a fresh identity.
+3. Continue loads valid state through App::start_game with a fresh context.
+   Restore entry visuals without old transient replay, then schedule passing,
+   play, or results from the accepted phase after entry presentation. Old
+   response handles cannot act on restored prompts.
 
-4. Show nonblocking save failure with retry; keep accepted in-memory state
-   usable. Normal Exit asynchronously flushes the newest accepted state and
-   offers retry/exit-without-saving on failure. Handle corrupted data with an
-   explanation/New Game choice before replacing it.
+4. Keep New Game and completed actions from writing automatically. Exit does not
+   capture a newer state. If an explicit write is already pending, normal Exit
+   waits for it with retry/exit-without-finishing on failure. Forced exit
+   restores the last durably acknowledged explicit save.
 
-5. Capture pending-save and durable-save observations through public fixture
-   services for deterministic tests.
+5. Expose write/flush failure and retry without invalidating in-memory play.
+   Explain corrupt saves and offer New Game without silent overwrite. Use public
+   fixture save services to observe exact captured/durable state.
 
 ## Acceptance
 
-- Autosave occurs after the initial accepted deal, accepted passing, and each
-  accepted card action, never while required final presentation is pending.
+- No save occurs at startup, acceptance, New Game, or Exit without explicit
+  Save. The initial deal and previous accepted state while busy can be saved.
 
-- New Game followed by normal Exit/reload during its first passing prompt
-  restores that new deal, including when an older match had a save/write
-  pending. Forced termination before durable acknowledgement restores only the
-  last durable state.
+- A new action completing during a write cannot be reported as saved by that
+  earlier write. Duplicate Save cannot start concurrent writes.
 
-- Reload after a durable acknowledgement restores the same deal, scores, turn,
-  and future seeded behavior on native and WebGL.
+- Native and WebGL reload the exact acknowledged deal, scores, phase, turn, and
+  future seeded behavior. Fresh requests do not replay old effects.
 
-- Exiting during a later action restores the previous accepted save; old
-  request/effect identities are not replayed.
-
-- Restoration into PassingDue starts a fresh passing request; restoration into
-  Playing starts the correct seat, and MatchComplete remains on results.
-
-- Write/flush failure preserves in-memory play and surfaces retry; corrupt saves
-  are not silently overwritten.
+- Write/flush failure preserves the prior durable save and playable state.
+  Corrupt data is explained, and New Game alone does not overwrite it.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-No save-format backward-compatibility scheme or cloud accounts. Physical-device
-durability checks join separate certification.
+No acceptance subscription, autosave, save-format migration framework, or cloud
+accounts. Physical-device durability checks remain separate certification.
 
 ## Manual QA
 
-Save, close/reopen, resume into both human and AI turns, then repeat with an
-injected write/flush failure and a corrupt save.
+Explicitly save at initial entry, during a human choice, and during trick
+collection. Reload each captured boundary. Repeat with write/flush failure and
+corrupt data; verify ordinary actions and Exit do not start an automatic save.

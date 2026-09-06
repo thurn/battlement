@@ -1,7 +1,7 @@
 # 40. Choose Hearts moves by simulating possible hands
 
-Three AI players choose passes and plays using reproducible bounded rollouts
-without observing hidden opponent cards.
+Three live AI players use game-owned sampling and bounded rollouts through the
+same rules and shared prompt enum, returning stable legal-option indices.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -16,68 +16,72 @@ map](../source-map.md) · [Validation](../validation.md)
 scoring](39-hearts-play-scoring.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Hearts public player observations/rules; generic Simulation
+**Starting code:** Hearts state, prompt enum, and rules; generic simulation
 policy; worker scheduling.
 
 ## Example
 
-Compare candidates on the same possible hidden hands and seeds:
+Compare candidates on the same sampled deals:
 
 ```text
-sample 32 possible deals consistent with the actor's knowledge
+sample 32 hidden deals from the actor's known/public information
 for each candidate: finish the current hand on each sampled deal
-apply normal scoring, including shooting the moon
-choose lowest mean additional penalty; use stable tie-breaking
+apply normal hand scoring, including shooting the moon
+return the candidate's original legal-option index
 ```
 
 ## Implementation
 
-1. Sample possible hidden hands consistent with the acting player's known cards,
-   public play history, and void-suit information. Ensure sampling cannot
-   duplicate/omit cards or violate observed constraints.
+1. Build HeartsPolicy on `ChoicePolicy<HeartsGame>`. It receives &HeartsState
+   and &HeartsPrompt. Sample hidden hands from actor knowledge, public history,
+   and void constraints; do not inspect real hidden assignments when sampling or
+   scoring heuristic input. Reactant does not sanitize state for the policy.
 
-2. Use the shared Hearts rules/executor for rollout transitions and legal
-   choices. Finish the current hand, apply moon scoring, and minimize mean
-   additional penalty for the acting player. Evaluate candidates on the same
-   sampled deals/seeds. Passing uses simultaneous sampled opponent passes and
-   the same end-of-hand objective. Implement the cheap rollout
-   heuristic/shortlist from hearts.md.
+2. Use Game::execute and a simulation HeartsContext for rollout transitions.
+   Finish the current hand, include moon scoring, and minimize mean additional
+   actor penalty. Reuse sampled deals/seeds across candidates. Passing commits
+   simultaneous sampled choices and uses the same hand-scoring objective.
 
-3. Apply the default 32 possible deals per decision, one rollout per legal play
-   candidate, and top eight passing combinations. Make work counts explicit
-   fixture/config inputs and stable tie-breaking deterministic.
+3. Apply the 32-deal default, one rollout per legal play candidate, and eight
+   heuristic-shortlisted passing combinations from hearts.md. Preserve a mapping
+   from any shortlist back to the original prompt order. Stable tie-breaking and
+   seeded rollout heuristics remain game-owned.
 
-4. Route presented AI-owned prompts to an application-owned simulation job using
-   only that seat's owned observation. Return its answer through the normal
-   run/request validation path while the synchronous rules worker waits. Cancel
-   bounded batches on abandonment or request replacement; keep simulation
-   primitives free of interactive cancellation branches.
+4. Route live AI through DisplayConnection::choose_with_policy after its
+   snapshot/prompt is presented. Run bounded computation on the rules worker,
+   never Unity's thread. Stop invalidates output immediately; the policy may
+   finish computation before the helper observes cancellation. No independent
+   controller-message job or explicit engine cancellation primitive is required.
 
-5. Record seed/work count and public decisions for reproduction; keep private
-   sampled hands out of normal player UI/diagnostics.
+5. Measure owned prompt construction, policy work, and primitive overhead
+   separately. Record reproducible seed/work count and public choices; do not
+   reveal sampled or real hidden hands through player UI/diagnostics.
 
 ## Acceptance
 
-- Identical observations, seed, and work count yield identical choices.
+- Equivalent actor knowledge and seeds produce the same decision distribution
+  even when real hidden assignments differ. Samplers preserve all card and
+  observed void constraints.
 
-- Two private deals indistinguishable to an AI produce the same decision
-  distribution for the same observation/seed.
+- Every returned index selects a legal option from the original prompt order;
+  rollout and full search may use different heuristics without extra enums.
 
-- Every chosen action is legal; samplers respect cards already played and known
-  void suits.
+- Replacement stays responsive during bounded AI work. Old results are discarded
+  at the choice boundary and cannot answer a replacement request.
 
-- Abandonment between rollout batches stops further decisions without blocking
-  menus, and primitive allocation/codegen guarantees remain intact.
+- Simulation skips snapshot/event builders and display waits. Report its
+  construction/search allocations instead of claiming all prompts are free.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Advanced difficulty levels and competitive-strength targets are outside scope.
-Performance reporting is task 46.
+Competitive-strength targets and extra difficulty levels remain outside this
+task. Fixed workload performance reporting is task 46.
 
 ## Manual QA
 
-Play against the three opponents, repeat a saved explicit decision with its
-seed, and inspect batch cancellation while opening a menu.
+Repeat an explicit decision with fixed seeds, alter only unknowable real cards,
+and compare decisions. Restart during a rollout while using menus; verify no old
+result appears in the replacement game.

@@ -6,6 +6,12 @@ implementation without reading whole directories. Related pages:
 [validation](validation.md). Task 06 must update these pointers after moving
 crates so later assignments still lead to the right files.
 
+The [contract sketch](../../crates/battlement-reactant/src/proposal.rs) is a
+standalone compiling specification, not an exported runtime module. Its `App`
+placeholder describes the additions to the existing app. Task 06 must preserve
+this reference when relocating the crate and update inbound links. The complete
+rules/session API is documented in [interfaces](interfaces.md).
+
 ## Existing implementation roles
 
 These are starting points, not instructions to load whole directories.
@@ -44,11 +50,12 @@ These are starting points, not instructions to load whole directories.
 ## Planned additions
 
 The numbered tasks introduce the following code:
-- reactant-rules: execution modes, choice specifications, worker communication,
-  worker lifecycle.
+- reactant-rules: Game/GameContext, owned PromptData, ChoicePolicy, typed
+  responses, DisplayConnection, and private worker lifecycle.
 - reactant-core/reactant-ui/reactant: extracted runtime and public facade.
 - reactant-testing: public display driver and observation/barrier APIs.
-- samples/hearts: rules, views, authoring inputs, tests, Ditto configuration.
+- samples/hearts: rules/context/policies, snapshot-driven components, explicit
+  save/load, authoring inputs, tests, and Ditto configuration.
 - Generic host transaction and frame acknowledgement protocol.
 - Host-neutral Motion property adapters and completion-relative scheduling.
 

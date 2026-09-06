@@ -25,9 +25,9 @@ notes; source-map; maintained guidance.
 Check application code as well as the dependency graph:
 
 ```rust
-App::new().root(SettingsPanel::new())
-// Games add state and rules; ordinary movement needs no setup.
-App::new().game(game).root(HeartsDisplay::new())
+// UI-only app uses ordinary component setup, with no game session.
+// A game app starts and attaches its session in one call:
+let game = app.start_game::<HeartsGame>(initial_state, make_context);
 ```
 
 ## Implementation

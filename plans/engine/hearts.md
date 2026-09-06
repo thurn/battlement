@@ -1,8 +1,8 @@
 # A playable four-player Hearts sample
 
 Hearts demonstrates the engine in a complete game: one human and three AI
-players, a 3D table, UI menus and scores, and durable save/resume. Read this for
-rules, interaction, AI, and persistence requirements. See
+players, a 3D table, UI menus and scores, and explicit durable save/load. Read
+this for rules, interaction, AI, and persistence requirements. See
 [execution](execution.md), [world](world.md), and [validation](validation.md).
 The focused engine laboratory is specified in [fixtures](fixtures.md).
 
@@ -58,71 +58,62 @@ deals for rare cases rather than searching random seeds.
 
 ## Actions and checkpoints
 
-An action becomes accepted after its final required animation and rendered
-frame. Keep actions small enough that autosave can preserve useful progress.
-NewGame prepares a dealt initial state, presents its entry behavior, and accepts
-it after the same animation-and-rendered-frame requirements. Autosave that
-initial accepted deal before any passing/card action has completed.
-ResolvePassing is one action with a human typed choice and AI selections; it
-accepts only after the simultaneous exchange has been presented. PlayTurn
-accepts one card play. If it completes a trick or hand, that same action also
-resolves collection, scores, and any next-hand deal through ordered checkpoints
-before acceptance.
+`App::start_game` accepts a prepared new deal or a loaded state and creates
+`HeartsContext` with the session connection. Initial entry presentation must
+finish before gameplay dispatch. Starting does not itself execute an action or
+save anything.
+
+`ResolvePassing` is one action with human and AI choices against unchanged
+pre-exchange hands; commit all transfers together. `PlayTurn` accepts one card
+play. If that completes a trick or hand, the same action also collects, scores,
+and deals the next hand through ordered checkpoints before acceptance.
 
 `HeartsState` includes hands, current trick, captured cards, turn/leader, broken
-hearts, hand/match scores, passing phase, and PRNG state. Display views
-contain only the human-visible information; opponent faces remain hidden. Keep
-full private state out of normal UI props and the player inspector.
+hearts, scores, passing phase, and saved random state. The display receives a
+full immutable logical clone. It is responsible for showing opponent backs and
+for omitting private values from player inspection. Do not add a separate
+filtered view type or serialize full state into Unity.
 
-~~~text
-fourth card played -> full trick visible -> collect trick
--> update hand score if final trick -> results/deal if continuing
--> final checkpoint rendered -> accept/save -> next action
-~~~
+For a fourth card, publish card play before trick collection, then score/deal
+checkpoints as needed. One semantic event can describe all related effects.
+Normal return adds a final snapshot without an event; acceptance waits for final
+required animation and a subsequent rendered frame.
 
-After every accepted boundary or completed restoration, inspect the accepted
-phase before scheduling: PassingDue starts ResolvePassing, Playing starts one
-PlayTurn, and MatchComplete starts no action. Never unconditionally start
-PlayTurn after a card action: its final checkpoint may already contain a newly
-dealt hand requiring a pass. Do not schedule while another action, failure
-surface, or restoration presentation is active. Show hand summaries without
-requiring a separate continuation action; match results wait for New Game.
-
-The worker publishes a typed prompt for the acting seat. A human card
-confirmation answers that prompt; it must not dispatch a second competing
-PlayTurn action.
-
-An AI-owned prompt is answered by an application-owned simulation job only after
-the prompt view is presented. That job receives an owned observation for its
-acting seat, never the full private state, and returns through the same
-run/request validation path as a human answer. This is an independent AI worker
-permitted in addition to the display thread and waiting rules worker. Cancel its
-bounded work on abandonment/request replacement and discard stale results.
-
-Route private AI observation data only to the application controller that starts
-the AI job. UI components receive a separate human-visible prompt, such as "West
-is choosing a card", and no hidden hand data. The simulation executor chooses
-inline and never starts these interactive automation jobs. During passing,
-collect choices against the unchanged pre-exchange hands, then apply all
-transfers together.
-
-Give every card a stable presentation UUID for its deal lifetime. Transfers
-preserve it. An inspection copy gets another UUID. A new deal gets new
-identities even when rank/suit repeats.
-
-For example, the application chooses its next action from the accepted phase:
+Schedule the next action when `use_game_status::<HeartsGame>()` becomes `Ready`,
+using a fresh `accepted_state()` copy or the matching displayed snapshot:
 
 ```rust
 match accepted.phase {
-    Phase::PassingDue => dispatch(Action::ResolvePassing),
-    Phase::Playing => dispatch(Action::PlayTurn),
-    Phase::MatchComplete => show_results(),
-}
+    Phase::PassingDue => game.dispatch(Action::ResolvePassing),
+    Phase::Playing => game.dispatch(Action::PlayTurn),
+    Phase::MatchComplete => return,
+};
 ```
 
-This dispatch runs only when the application is idle and restoration has
-finished. A human confirms an answer to the resulting prompt. An AI job answers
-that same kind of pending request through its typed handle.
+Schedule in an app callback/effect, not by mutating rules during render. One
+controller owns automatic next-action scheduling. Do not dispatch repeatedly
+while busy or unconditionally play after a last-card action: the next phase may
+require passing. Match results wait for New Game. Menus remain responsive.
+
+The context routes each live choice using its acting seat and prompt. Human
+choices call `DisplayConnection::choose`; AI choices call `choose_with_policy`.
+For passing, identify the seat currently choosing, not only the future trick
+leader. Human confirmation submits a typed response to that request, never
+another competing `PlayTurn` action.
+
+Both paths publish the snapshot and the same owned `HeartsPrompt` enum in order.
+After its snapshot is displayed, a live AI policy runs on the rules worker and
+returns an option index. Human handles cannot resolve AI-owned requests. Display
+code may show “West is choosing” while hiding West's card choices. There is no
+private controller-message channel or engine-created independent AI job.
+
+A simulation context always chooses inline using its configured policy. Game
+code may schedule independent simulations, but the engine does not require it.
+An abandoned live policy may finish bounded computation; its result is discarded
+at the choice boundary and cannot affect a replacement.
+
+Give every card a stable presentation UUID for its deal lifetime. Transfers
+preserve it; inspection copies and new deals get separate identities.
 
 ## Interaction and layout
 
@@ -143,7 +134,7 @@ inspection uses an explicit Inspect control after selection.
 Keyboard arrows/controller directions navigate cards and UI. Enter/primary
 button activates; Escape/back closes inspection or menus and returns focus to
 its invoker. Illegal cards remain inspectable but cannot be played. Modal menus
-block table actions, preserve selection, and expose Resume/New Game/Exit.
+block table actions, preserve selection, and expose Resume/Save/New Game/Exit.
 
 Adapt hand spacing and camera framing to portrait and landscape viewports. Keep
 card faces readable at the selected native review resolutions. Handle
@@ -151,11 +142,12 @@ reorientation during an in-flight pass without restarting that occurrence.
 
 ## AI and shared simulation
 
-Use seeded, bounded Monte Carlo rollouts through the same `Game::apply_action`
-method.
-Sample opponent hands consistent with known cards, played cards, and observed
-void suits. An AI receives its own observation, not the full private state. Do
-not accidentally expose opponents' hands via a choice specification.
+Use seeded, bounded Monte Carlo rollouts through the same `Game::execute`
+method. The policy receives `&HeartsState` and `&HeartsPrompt`. Its game-owned
+sampler uses the acting seat's known cards, public play history, and observed
+void suits to randomize hidden hands before search. The sampler must not use the
+real hidden assignment as knowledge. The engine neither sanitizes state nor
+creates an observation type.
 
 For each decision, sample 32 possible deals consistent with what the player
 knows. A **rollout** plays the rest of a sampled hand using a cheap legal policy
@@ -178,14 +170,17 @@ Passing and play use this same objective. Reuse each sampled deal and rollout
 seed across candidates so they are compared on the same hidden information.
 
 For a passing candidate, force the acting player's three cards and choose the
-other players' passes with the cheap rollout policy on their own sampled
-observations; commit the exchange simultaneously. Rollouts then play through the
-end of that hand. All subsequent actors still use their own observations.
+other players' passes with the cheap rollout policy using their own information
+in the sampled state; commit the exchange simultaneously. Rollouts then play
+through the end of that hand. Rollout heuristics must respect the acting seat's
+information.
 
-Run decisions off the Unity thread. Check cancellation between bounded rollout
-batches; simulation primitives themselves retain the no-op cancellation fast
-path. Fixtures can override the work count with a fixed smaller count. Record
-decisions/seeds for reproduction, not private cards in the player UI.
+Run live decisions on the rules worker, off the Unity thread. Keep search
+bounded. Abandonment invalidates output immediately; ordinary search can finish
+before the next choice/return boundary. Game-owned batch cancellation is
+allowed, but Reactant exposes no explicit cancellation-check primitive. Fixtures
+can override the work count with a fixed smaller count. Record decisions/seeds
+for reproduction, not private cards in the player UI.
 
 For example, compare playing a low club and a high club on the same possible
 deals. Apply normal moon scoring before comparing penalties:
@@ -197,52 +192,50 @@ choose the candidate with the lower mean; break ties by stable card order
 ```
 
 The sampled hands are simulation inputs, not knowledge granted to later acting
-players. Each simulated choice still receives only its actor's observation.
+players. Each simulated choice receives sampled state and the shared prompt
+enum; game-owned heuristics control which information they inspect.
 
-## Autosave and resume
+## Explicit save and resume
 
-After the initial accepted NewGame deal, accepted passing, and each accepted
-PlayTurn, save the newest accepted state asynchronously outside the worker. The
-game owns its save schema. Serialize saves in acceptance order; use temporary
-write plus atomic replacement where supported. On WebGL provide an explicit
-durable storage flush/acknowledgement; an in-memory filesystem write alone is
-not a completed save.
+V1 has no autosave, acceptance callback, or implicit save-on-exit. Save is an
+explicit menu command. It calls `game.accepted_state()` and writes that owned
+copy outside the rules worker. During an action it captures the previous
+accepted boundary; before any action, it captures the initial deal. Tell the
+player which completed position was saved rather than implying in-flight work
+was accepted.
 
-Use one writer that handles saves in order. Identify each write by match ID and
-accepted-state sequence number. Starting New Game invalidates queued older-match
-writes; let an already running write finish before the new initial save replaces
-it. An old completion cannot mark a newer state durably saved. The normal Exit
-flow asynchronously flushes the newest accepted save before closing, with
-retry/exit-without-saving choices on failure. Forced process termination
-restores the last durable acknowledgement, not an unacknowledged in-memory
-state.
+The game owns its save schema, including all data required to restore future
+seeded behavior. Use atomic temporary-write/replace where supported. WebGL must
+acknowledge a durable storage flush; an in-memory filesystem write is not
+enough. Permit one explicit save write at a time and disable duplicate Save
+while it is pending. Report success only for that exact captured state after
+acknowledgement. A later game/action does not retroactively change the saved
+copy.
 
-Startup offers Continue when a valid save exists, otherwise New Game. Resume
-reconstructs the current visible state without replaying old transient effects
-and then schedules an AI turn if needed. Opening a human prompt creates a new
-run/request identity; stale answers from before restoration are invalid.
+Startup offers Continue when a valid save exists, otherwise New Game. Load calls
+`App::start_game` with the saved state and a freshly constructed context.
+Restore current visuals without replaying old transient events, then schedule
+from the accepted phase after entry presentation. A restored human choice gets
+fresh session/run/request identity.
 
-Save failures show nonblocking feedback and allow retry while in-memory play
-remains valid. Corrupt/incompatible saves show an explanation and offer New
-Game; do not silently overwrite the only save before that choice. No backward
-compatibility/version migration framework is required.
+Starting New Game does not overwrite an existing save. Exit does not capture or
+save a newer state automatically. If an explicit write is pending, normal Exit
+waits for that write, with retry or exit-without-finishing on failure. Forced
+termination restores the last durably acknowledged explicit save.
 
-For example, New Game must not let an older save overwrite the new deal:
-
-```text
-old match write is running; another old write is queued
-New Game: discard the queued old write; queue the accepted new deal
-running old write finishes; new-deal write runs next
-Exit: wait for the newest accepted state to be durably acknowledged
-```
-
-A completion identifies the exact write it finished. It cannot mark a newer
-state as saved merely because the writer became idle.
+Write/flush failures preserve playable in-memory state and show retry feedback.
+Corrupt/incompatible saves show an explanation and offer New Game without
+silently overwriting the only save. No save-version migration framework is
+required. The existing chess sample's save behavior is preserved through its own
+application logic, not by adding an engine autosave service.
 
 ## Manual QA
 
-Play through passing, a complete hand, scoring, and a new deal with all input
-methods. Exercise moon scoring and a tied match using explicit fixture deals.
-Exit during passing and during trick collection, then resume the last accepted
-boundary. Inject a save failure and confirm play continues with visible
-feedback.
+Play passing, a complete hand, moon scoring, and tied match results using
+explicit fixture deals and all input methods. Save during a human prompt and
+during trick collection; reload the captured accepted boundary with fresh
+response handles. Verify new deals and completed actions do not save
+automatically. Inject explicit write/flush failure, retry, and confirm normal
+play and the previous durable save remain valid. Change only real hidden
+opponent hands and verify AI sampling and decision distributions do not gain
+knowledge from them.

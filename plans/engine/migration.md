@@ -14,7 +14,7 @@ separate work.
 | --- | --- |
 | basic | Remains a direct Battlement example; regression coverage stays active |
 | ui | Remains a direct Battlement UI protocol example |
-| tictactoe | Reactant components, worker actions, presented views |
+| tictactoe | Reactant components, worker actions, displayed snapshots |
 | chess | Reactant world composition/actions/Motion; opaque piece prefabs permitted |
 | reactant | Unified component APIs plus neutral engine laboratory |
 | chess-ui | Migrated currently implemented UI/gallery with behavior preserved |
@@ -61,7 +61,7 @@ display.object(captured_piece).assert_absent();
 Keep the established timing and visible outcome. Whether the engine emitted a
 particular tween command is a lower-level protocol concern.
 
-## Timing and views
+## Timing and state snapshots
 
 The legacy world fake jumps to tween endpoints and ignores waits. Extend
 virtual-time behavior and explicit settle helpers before relying on intermediate
@@ -70,13 +70,16 @@ as a hidden wall-clock sleep.
 
 For tic-tac-toe, preserve the visible immediate human move and 100 ms AI delay.
 The public driver may synchronize until the human checkpoint is presented at
-unchanged virtual time; that does not require `Game::apply_action` to run inside
-the click callback. At 99 ms the AI mark is absent; at 100 ms it can become
-visible after deterministic worker/frame synchronization.
+unchanged virtual time; that does not require `Game::execute` to run inside the
+click callback. At 99 ms the AI mark is absent; at 100 ms it can become visible
+after deterministic worker/frame synchronization.
 
 Preserve chess move paths, capture timing, castling, promotion, spawn beats,
 audio, input/focus, saved-game behavior, diagnostics, and reset flows. Observe
 their visible outcomes rather than retaining obsolete batch representation.
+Existing chess save triggers remain game-owned and may use status-driven app
+logic plus accepted_state; do not add an engine acceptance callback or impose
+Hearts' explicit-save UI on chess.
 
 ## No permanent duplicate engine
 

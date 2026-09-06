@@ -34,11 +34,12 @@ match accepted.phase {
 
 ## Implementation
 
-1. Dispatch from the accepted phase: ResolvePassing for PassingDue, one PlayTurn
-   for Playing, and no action for MatchComplete. Connect legal-card selection
-   and Play confirmation to the resulting human prompt answer, not a second
-   action dispatch. Keep illegal cards inspectable but reject submission with
-   public feedback.
+1. Use status-driven application scheduling when Ready, dispatching from the
+   accepted phase: ResolvePassing for PassingDue, one PlayTurn for Playing, and
+   no action for MatchComplete. Connect legal-card selection and Play
+   confirmation to the resulting human prompt answer, not a second action
+   dispatch. Keep illegal cards inspectable but disable illegal submission using
+   prompt validation. Fault-injected active invalid replies panic.
 
 2. Register card-play, full-trick hold, collection, score update, and next-hand
    deal sequences against their semantic checkpoint occurrences.
@@ -50,9 +51,10 @@ match accepted.phase {
 4. Show hand totals, match totals, moon outcome, next-hand passing direction,
    and shared-win match results in native UI.
 
-5. Route AI-owned prompts to automatic answers only after their view is
-   presented. Keep action dispatch at accepted boundaries and gameplay input
-   gated while earlier presentation is required. Menus remain usable.
+5. Route AI-owned prompts through the context to choose_with_policy only after
+   their snapshot is presented. Keep action dispatch at accepted boundaries and
+   gameplay input gated while earlier presentation is required. Menus remain
+   usable.
 
 ## Acceptance
 

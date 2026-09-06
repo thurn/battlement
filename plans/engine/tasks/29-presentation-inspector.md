@@ -48,8 +48,8 @@ worker: waiting to publish next checkpoint
    laboratory. Label later unavailable test scenes explicitly and make selection
    deterministic.
 
-5. Distinguish game-visible view fields from fixture-only diagnostics; the
-   normal Hearts inspector may not reveal opponent hands.
+5. Select safe fields from full snapshots for normal inspection; fixture-only
+   diagnostics must be explicit. Never reveal opponent hands in the normal UI.
 
 ## Acceptance
 

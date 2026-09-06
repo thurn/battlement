@@ -12,7 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Presentation timing](../presentation.md)
 - [Identity and state](../identity.md)
 
-**Prerequisite:** [Task 16: Add stable view selectors and queued display
+**Prerequisite:** [Task 16: Add stable state selectors and queued display
 stores](16-view-selectors-stores.md) and all its required follow-ups must be
 integrated.
 

@@ -1,326 +1,273 @@
 # Run synchronous rules without blocking the display
 
-A game action runs through `Game::apply_action` on a Rust worker that owns a
-private copy of game state. The method can publish intermediate views or wait
-for a player choice. Unity's main thread presents those views and keeps menus
-and animation responsive. Independent AI simulations may run on additional
-workers.
+`Game::execute` runs on a Rust worker with private state and the game's context.
+It may publish snapshots or ask for typed choices. The display owns the queue
+and animation sequencing; Unity's main thread remains responsive.
 
-Read this when implementing execution, choices, cancellation, or saving. Related
-pages: [API examples](interfaces.md), [presentation](presentation.md), [Hearts
-rules and AI](hearts.md), and [validation](validation.md).
+Read the [complete API](interfaces.md) and [contract
+sketch](../../crates/battlement-reactant/src/proposal.rs) first. Related pages:
+[presentation](presentation.md), [Hearts](hearts.md), and
+[validation](validation.md).
 
 ## Three state values serve different purposes
 
-The engine must distinguish computation from what the player has seen and what
-can safely be saved.
+- The **accepted state** is the initial state or the last action whose final
+  presentation has completed. It remains available for explicit saves/recovery.
+- The worker mutates a private logical clone while computing the next action.
+- The **displayed snapshot** is an immutable logical clone currently read by
+  components. It may lag behind the worker.
 
-- The **accepted state** is the last completed action whose final presentation
-  has finished. The application retains it for saving and recovery.
-- The worker mutates its own copy while computing the next action.
-- The **presented view** is the immutable `Game::View` currently exposed to
-  components and gameplay input. It can lag behind the worker.
+For example, rules can increase energy while the display animates a card draw.
+The current snapshot contains the drawn card and old energy; the next queued
+snapshot contains the increased energy. Neither changes when the worker mutates.
 
-For example, the worker may already have increased energy while the display is
-still animating the preceding card draw:
+`Game::logical_clone` creates both worker copies and display snapshots. These
+copies must not share mutable interior data. Immutable sharing is allowed.
+`Game::State` is owned and `Send + 'static`; the main thread wraps received
+snapshots in `Rc`. Do not add `Sync` unless actual sharing requires it.
 
-```text
-accepted state: before the action
-worker state:  card drawn, energy increased
-visible state: card drawn, energy unchanged
-next view:     card drawn, energy increased
-```
-
-State and views must not share mutable interior data. `Game::logical_clone` and
-`Game::view` must enforce that requirement; the engine cannot deep-copy an
-arbitrary Rust type. Shared immutable data can use `Arc`. Published values must
-be owned and `Send + 'static`; require `Sync` only when their actual sharing
-needs it. The main thread can wrap received views in `Rc` for components.
-
-A worker owns ordinary Rust memory and immutable game data. Persistence,
-networking, native handles, and display services belong to the application.
-Rules receive publication, choice, and cancellation operations, not Unity APIs.
+Snapshots contain the whole state. Display components are responsible for
+concealing hidden information. Only resulting visual declarations reach Unity;
+state and game-specific decisions stay in Rust.
 
 ## From dispatch to accepted state
 
-Normal interactive action execution follows one defined sequence. Registering a
-game does not call `apply_action` and does not start a worker by itself.
+`App::start_game(initial_state, make_context)` stops/replaces the old session,
+constructs the context using its connection, and attaches the session
+internally. It accepts the initial state, queues entry presentation, and returns
+a cloneable `GameHandle`. Status is `Busy` until entry presentation completes,
+then `Ready`. Starting does not execute an action.
 
-1. A display component dispatches a `Game::Action`.
-2. The main thread returns `Busy` if another action, prompt, or required final
-   presentation is unfinished.
-3. The main thread calls `Game::validate_action` against the accepted state.
-   Rejection returns `Invalid(reason)` without starting a worker.
-4. The engine calls `Game::logical_clone` and schedules `Game::apply_action`
-   with that private state on its Rust worker pool. Dispatch returns
-   `Started(run_id)`.
-5. `apply_action` runs synchronously on that worker. It mutates only the private
-   state and may call `present`, `choose`, or `check_cancelled`.
-6. Each `present` asks `Game::view` for an immutable view and publishes it with
-   ordered `Game::StateAnimation` values. Unity prepares and commits that view
-   on its main thread.
-7. A `choose` call publishes a view and prompt, then blocks the worker until a
-   valid answer or cancellation arrives. Unity's main thread remains responsive.
-8. Returning from `apply_action` publishes the final state, final view, and
-   `Game::final_state_animations`. A return does not immediately modify the
-   accepted state.
-9. After the final presentation gate completes and Unity reports a subsequent
-   rendered frame, the engine installs the worker state as accepted. Saving and
-   the next action may now proceed.
+An interactive action follows this sequence:
 
-The engine chooses the interactive worker automatically. It may reuse a pool
-thread rather than create one OS thread per action. A direct simulation call to
-`Game::apply_action` runs on the caller's thread; the method itself does not
-spawn anything.
+1. `GameHandle::dispatch(action)` returns `Busy` before validating if entry,
+   another action, a prompt, or final presentation is unfinished. It queues no
+   extra action. Dispatch to `Failed` or `Stopped` is a programming error.
+2. `Game::is_legal_action` checks accepted state. False panics without cloning
+   or starting a worker. The UI prevents ordinary illegal inputs from
+   dispatching.
+3. The engine logically clones accepted state, schedules `Game::execute` with
+   the session's context on its Rust worker pool, and returns `Started`.
+4. Rules mutate private state and call `present` or `choose` as needed.
+5. Interactive `present` reserves queue capacity, logically clones current
+   state, invokes its lazy animation builder, and publishes the pair.
+6. Interactive `choose` publishes a snapshot and owned prompt in the same queue.
+   The context chooses human input or an AI policy. Human input waits on the
+   worker; a live AI policy runs there after its prompt is displayed.
+7. Normal return reserves capacity and publishes final state with a final
+   snapshot and no semantic animation event. It does not accept the result yet.
+8. The display finishes required final animation and a subsequent rendered
+   frame. Only then does the session install the new accepted state and become
+   `Ready`.
 
-Invalid and stale prompt answers follow [choice handling](#choice-waits).
-Cancellation follows [worker cancellation](#worker-cancellation). Rules panics
-and presentation failures follow [failure handling](#failure-handling). None of
-those branches installs the worker's private state as accepted.
+The worker pool may reuse threads. The app processes dispatch, host events,
+presentation commits, status, and accepted-state updates serially. Context is
+available to only one action at a time and returns to the session after normal
+completion. Failure/stop discards interrupted context; replacement constructs a
+fresh one. The engine does not roll back game-owned external side effects.
+
+`accepted_state()` always returns a clone of the last accepted value. During
+steps 3-8, that is still the previous completed state. Saving that previous
+state is allowed; saving the new action must wait for acceptance.
 
 ## Publish meaningful intermediate states
 
-A **checkpoint** contains an immutable `Game::View` and an ordered collection of
-game-defined `Game::StateAnimation` values. Assign its run-local checkpoint ID
-and animation indices once, when publishing it. Retrying display preparation
-does not change them.
-
-`Game::apply_action` publishes after each coherent operation:
+A **checkpoint** is a queued state snapshot with an optional semantic animation
+and optional presented prompt. `present` contributes exactly one animation;
+choice and automatic final checkpoints have none. The display can turn one event
+into any number of related movements, sounds, and particles.
 
 ```rust
 draw_card(state);
-cx.present(state, || StateAnimation::CardDrawn(card));
+context.present(state, || StateAnimation::CardDrawn(card));
 gain_energy(state);
-cx.present(state, || StateAnimation::EnergyGained(1));
+context.present(state, || StateAnimation::EnergyGained(1));
 ```
 
-The worker may compute ahead, but only one checkpoint may wait for display. This
-limit prevents a fast worker from retaining a long history of views. It also
-prevents building views that the display cannot yet accept.
+The display controls when it advances; rules may compute ahead. Only one
+checkpoint may wait for display, including native preparation. Reserve capacity
+before snapshot cloning and animation construction, and release it only when
+that checkpoint commits as the displayed checkpoint.
 
-For example:
+If A is displayed and B is preparing, `present(C)` waits before cloning C. Once
+B commits, C may be built and wait while B's required animation finishes. Never
+move B into another unbounded queue to release capacity early.
 
-```text
-A is visible; B is being prepared for display.
-The worker reaches present(C) and waits before calling C's builders.
-B replaces A on screen; the worker may now build C.
-C waits while B's required animation finishes.
-```
+Cloning runs to completion before rules mutate that state again. Retained data
+includes accepted and working states, the current snapshot, and one pending
+snapshot. Final publication transfers the working state rather than retaining an
+unbounded history. Native preparation has its own resource lifetimes.
 
-Keep B counted as the one pending checkpoint while its assets and objects are
-being prepared. Do not move B into another unbounded queue and free capacity
-early. Release capacity when B commits as the displayed checkpoint.
-
-`Game::view` runs to completion on the worker before rules mutate that state
-again. The retained values are the current view, one pending view, accepted
-state, and worker state. Inactive native resources being prepared have a
-separate lifetime described in [presentation](presentation.md).
+Assign session/run/checkpoint identities once at publication. The sole semantic
+event uses animation index zero where occurrence identity needs an index.
+Registration names distinguish its multiple effects. Retries do not mint new
+identities. Default layout movement and frame requirements still apply when a
+checkpoint has no semantic event.
 
 ## Choice waits
 
-`choose` returns a typed answer directly to `Game::apply_action`. Interactive
-execution first creates an owned prompt and view, presents them
-in checkpoint order, and waits. Simulation instead calls its policy inline. See
-[choice APIs](interfaces.md#choices-remain-typed).
+`PromptData<T>` owns its choice data and provides a stable iterator, validation,
+and conversion to/from the game's shared prompt enum. Simulation and display
+read that same enum. Rules get a concrete `ResponseType` back:
 
 ```rust
-let card = cx.choose(state, PlayCard::new().observation(state.observe(player)));
+let card: CardId = context.choose(state, PlayCardPrompt { choices });
 state.play(card);
-cx.present(state, || StateAnimation::CardPlayed(card));
 ```
 
-During an interactive wait:
+Interactive choice publication clones current state even without a preceding
+`present`. Earlier checkpoints finish first. The prompt becomes active only with
+its own snapshot. The worker cannot mutate state during the wait.
 
-- Earlier checkpoints finish their required presentation first.
-- The prompt becomes actionable only when its own view is presented.
-- The worker's decision and legal-answer set remain unchanged.
-- One prompt is outstanding within that action.
-- Menus, settings, inspection, and local selection may continue changing.
+Human requests expose `PresentedPrompt { prompt, handle }`. The display matches
+the enum and calls `handle.submit(prompt_data, response)`. The concrete prompt
+argument determines the Rust response type. The handle supplies request identity;
+runtime checks verify the expected concrete prompt and response types.
 
-Each request gets an ID within its action run. A new legal-answer set requires a
-new request. Invalid answers produce public feedback and leave the same request
-unanswered. A valid answer resumes the function once. The main thread rejects
-stale IDs before delivery, and the worker checks them again after it wakes.
-Type-erased transport must also validate the answer's Rust type.
+- Use the actual published prompt as validation authority, never a caller's
+  lookalike value. Retain it through request resolution. Do not use prompt
+  addresses as identity: zero-sized prompt data is allowed.
+- An active invalid response, mismatched prompt/response type, or human response to an
+  AI-owned request is a programming error. Panic inside Rust; never unwind
+  through the C ABI. An app-callback boundary turns active callback panics into
+  session failure; a direct Rust call still exposes the programming-error panic.
+- Ended-request replies are ignored before inspecting their payload. This
+  includes duplicate replies, replacement, and late callbacks from an old run.
+- A valid answer resumes exactly once. Worker wakeup checks the request again
+  and checks cancellation before returning the response.
+- Local selection, menus, inspection, and settings can change while waiting.
+  Illegal UI selections stay local and disabled; they are not submitted as
+  intentionally recoverable invalid responses.
 
-For example, a menu can be opened while selecting three cards to pass. Toggling
-selection is display state. Pressing Pass submits one typed answer; selecting
-two cards is invalid and does not restart the action. Rules-defined cycles of
-selection and deselection may issue successive requests and remain cancellable.
+A new legal-choice set requires a new request. Run/request identities remain
+internal; test-driver observations can expose them for stale-delivery scenarios.
+
+## Live AI and simulation
+
+`HeartsContext` routes using state and prompt. It calls the interactive
+connection's `choose` for a human or `choose_with_policy` for an AI. Reactant
+owns publication/wait mechanics, not player identification.
+
+The live helper clones the enum for display and keeps the original prompt on the
+worker. `Game::Prompt: Clone` permits this without requiring `Sync`. Human
+publication moves its prompt; simulation makes no display copy.
+
+The live policy receives `&Game::State` and `&Game::Prompt` on the rules worker
+after the prompt's snapshot is displayed. It returns a stable option index. The
+helper recovers the concrete prompt, validates the selected answer, and checks
+abandonment before returning. Human input cannot win an AI request.
+
+Simulation constructs the same domain context in simulation mode and calls
+`Game::execute` directly. It runs synchronously on its caller's thread:
+
+- `present` invokes neither `logical_clone` nor the animation closure.
+- `choose` calls the policy inline, maps its index, validates, and returns.
+- No primitive needs a display connection, blocking wait, allocation, or vtable.
+- Mode branches are allowed. Prompt vectors and policy search may allocate;
+  measure those costs separately from primitive overhead.
+
+The game's MCTS code owns hidden-state sampling and rollout heuristics. Reactant
+does not construct observations or private controller messages. A bounded live
+policy may finish computing after stop, but its result cannot reach a
+replacement. Game-owned search can implement its own cancellation; there is no
+additional engine cancellation API for arbitrary computation.
 
 ## Worker communication is private engine code
 
-Game authors call `present` and `choose`; they do not assemble channel messages.
-Implementors need a small synchronized connection between the worker and main
-thread. Use a mutex and condition variable with predicates checked in a loop.
-Update a predicate before notifying so cancellation cannot lose a wakeup.
+Implement the connection with synchronized predicates and bounded payload
+storage. A mutex/condition-variable implementation must update predicates before
+notification and recheck them in loops so cancellation cannot lose a wakeup.
 
-The connection carries these values. The names illustrate internal records, not
-an additional public API:
+The connection carries:
 
-```text
-worker to display:
-  view + state animations
-  view + public prompt + typed answer handle
-  final state + final view + final state animations
-  execution failed / worker stopped
+- Snapshot and semantic event for `present`.
+- Snapshot, prompt, response connection, and human/AI ownership for `choose`.
+- Final state and snapshot on normal return.
+- Response, presentation readiness, stop, and failure/stopped observations.
 
-worker to application controller:
-  owned private controller prompt + the same typed answer handle
+The first three publications share one pending slot. Keep failure and cleanup
+status separately so a full slot cannot hide shutdown. All output identifies its
+session and run. Workers never mutate the tree, call Unity, or reenter the C
+ABI.
 
-display to worker:
-  answer to the current request
-  cancellation requested
-```
-
-The first three records share the one-pending-checkpoint limit. Failure and
-stopped status are stored separately so a full checkpoint queue cannot hide
-shutdown. Every output identifies its run. The main thread handles host events,
-action dispatch, presentation commits, and accepted-state updates serially in
-normal Unity engine callbacks. Workers touch only their state and synchronized
-connection; they never reenter the C ABI or mutate the component tree.
-
-The public prompt and private controller prompt belong to one request. The main
-thread exposes only the public value to components and routes the private value
-only to the application controller. It starts an AI job only after the public
-view is presented. Both human and AI answers return through the same run and
-request validation path. The private controller value is part of the prompt
-publication; it does not create another checkpoint or unbounded queue.
-
-On normal return, reserve checkpoint capacity before building the final view and
-state animations. Publish them together with final state. Normal completion
-must not bypass lazy construction or create an extra view queue.
+For live AI, presentation readiness wakes the waiting helper to call its policy
+on the rules worker. There is no engine-managed independent AI job or controller
+message queue. Simulations may be scheduled elsewhere by game-owned code.
 
 ## Worker cancellation
 
-Exit, restart, or replacement immediately makes a run inactive. The main thread
-discards its queued output, cancels its prepared display work, and wakes its
-worker. Old views, answers, animation callbacks, and final results cannot
-change the replacement game, even if the old worker has not stopped yet.
+`stop`, replacement, or app teardown immediately invalidates the run, discards
+pending/prepared output, and wakes blocked helpers. Public status becomes
+`Stopped` immediately. The separate worker-stopped observation occurs only after
+worker-owned context/state and destructors have finished.
 
-The worker stops cooperatively at defined checks. Closing its communication
-connection also requests cancellation.
-
-| Worker position | What cancellation does |
+| Worker position | Cancellation behavior |
 | --- | --- |
-| Waiting to publish | Wake, release locks, and unwind |
-| Building a view or prompt | Finish the builder, discard its result, and unwind |
-| Waiting for an answer | Wake, release locks, and unwind |
-| Entering `present` or `choose` | Unwind before calling any builder or policy |
-| Computing ordinary rules | Stop at the next explicit or built-in cancellation check |
-| Returning final state | Check again and discard the result if cancelled |
+| Waiting for publication capacity | Wake, release locks, unwind |
+| Cloning a snapshot or building an event | Finish, discard the value, unwind |
+| Waiting for a human or presentation readiness | Wake, release locks, unwind |
+| Entering interactive `present` or `choose` | Unwind before helper work |
+| Computing ordinary rules or a policy | Continue until a helper/return boundary |
+| Returning an answer or final state | Check and discard if abandoned |
 
-Check on entry to each primitive, after acquiring capacity, after constructing
-data, after every wait, before returning a valid answer, and before publishing
-normal completion. If cancellation has already been observed before returning an
-answer, cancellation wins over that queued answer. A cancellation arriving just
-after a check is handled at the next one; run validation still rejects abandoned
-output in the meantime.
+Helpers check internally on entry, after capacity acquisition/construction,
+after waits, and before returning or publishing completion. Observed
+cancellation wins over a queued answer. A later cancellation is caught at the
+next boundary; identity checks already prevent stale output from affecting the
+display.
 
-Long computations add explicit checks:
-
-```rust
-for candidate in candidates {
-    cx.check_cancelled();
-    evaluate_candidate(state, candidate);
-}
-```
-
-Builders, external waits, and destructors must terminate. Detaching a worker
-keeps Unity from blocking on a join; it does not forcibly stop arbitrary code.
-Publish worker-stopped only after worker-owned state and destructors finish.
-Process shutdown may proceed while detached workers are still stopping.
+There is no public explicit cancellation check. Detachment keeps Unity from
+blocking on a join; it does not forcibly interrupt Rust computation. Builders,
+policies, and destructors must terminate. Platform proofs exercise actual helper
+waits and controlled ordinary computation, not pretend preemptive cancellation.
 
 ## Failure handling
 
-Use a private cancellation payload with `resume_unwind`. It bypasses the panic
-hook, so expected cancellation produces no panic report. Catch it once around
-the complete worker action, before returning through any C ABI boundary.
+Use a private cancellation payload and `resume_unwind`, which bypasses the panic
+hook for expected cancellation. Catch it once at the worker boundary, before
+returning through any C ABI frame.
 
-```rust
-struct Cancelled;
-fn unwind_cancelled() -> ! {
-    std::panic::resume_unwind(Box::new(Cancelled))
-}
-```
+- Normal return publishes final state, subject to abandonment checks.
+- Expected cancellation discards interrupted computation silently.
+- Other panics discard private state and set the active session to `Failed`.
 
-The boundary distinguishes three outcomes:
+Release communication locks before unwinding. Inner catch handlers propagate
+unknown payloads. Explain each `AssertUnwindSafe` in terms of discarded private
+state and valid surviving synchronization. Destructors must not panic again
+while unwinding. Process-aborting failures cannot be recovered by this boundary.
 
-- Normal return: publish final state, subject to cancellation and run checks.
-- Private `Cancelled` payload: discard the interrupted computation silently.
-- Any other panic: discard the private state and report execution failure.
+Interactive native and threaded WebGL release paths must support Rust unwinding
+and demonstrate nested cleanup through Unity. Mobile build/evidence requirements
+remain in [validation](validation.md). A late failure from an old session cannot
+fail its replacement.
 
-Release communication locks before unwinding. Inner `catch_unwind` handlers must
-propagate payloads they do not recognize. Every `AssertUnwindSafe` use needs a
-local ownership explanation: interrupted state is discarded, and surviving
-shared synchronization remains valid. Destructors must not let a second panic
-escape while unwinding.
-
-All interactive release builds require compatible `panic = "unwind"` and
-linker/runtime settings. Cancellation must remain inside Rust frames. Validate
-nested calls and destructor cleanup through the real Unity integration on native
-and threaded WebGL paths; flags alone do not prove support. Mobile build and
-physical-device requirements are in [validation](validation.md).
-
-An active execution failure shows exit/restart controls and retains accepted
-state. A late failure from an abandoned run is ignored. A required animation
-failure follows the same recovery behavior. Unexpected failure during a native
-visible update stops the session, as described in
-[presentation](presentation.md). Process-aborting failures cannot be caught by
-this unwind boundary.
-
-## Simulate with the same rules
-
-Simulation calls the same `Game::apply_action` method on independent mutable
-state, using a concrete policy for each choice. It runs in the caller's thread
-and may share immutable data with other simulations.
-
-The executor specialization must make these operations cheap:
-
-```text
-present(state, animation_builder): call neither view nor animation builder
-choose(specification):             call the policy inline
-check_cancelled():                 inline no-op
-```
-
-No primitive requires heap allocation, a vtable, blocking, interactive
-cancellation checks, or an owned UI prompt. Candidate construction and policy
-search have their own costs; measure those separately. Verify the primitives
-with public-entry benchmarks, allocation traces, and optimized-code inspection.
-
-The application controls scheduling and cancellation between bounded simulation
-batches. Display previews run the same rules with a suitable policy and render
-the result through the normal display API. Do not implement a second rules
-engine for previews or AI.
+`GameHandle::status` and `use_game_status` expose `Ready`, `Busy`, `Failed`, and
+`Stopped`. Detailed errors go to diagnostics. Failed sessions retain accepted
+state and offer restart/exit. Required-animation failure follows this path;
+unexpected native visible-update failure also stops further work and shows the
+failure surface rather than claiming native rollback.
 
 ## Accept final state only after it has been presented
 
-Computing an action is not the same as completing it for the player. Retain the
-worker's final state privately until all of these are true:
+The display owns animation sequencing and the advancement gate. Acceptance
+requires the final checkpoint to be committed, its required animation/label to
+finish, and a subsequent rendering opportunity for that visible generation. Even
+a checkpoint without a semantic event needs a rendered frame.
 
-1. Its final checkpoint is displayed.
-2. Required animation completion or the chosen sequence label has occurred.
-3. Unity reports a rendering opportunity at or after that event for the current
-   checkpoint and visible update.
-
-Only then replace accepted state and allow the next action or save. Even a
-checkpoint with no animation needs a rendered frame.
-
-Action dispatch first returns `Busy` if an action or required final presentation
-is unfinished. Otherwise it runs the game's bounded, pure validator against
-accepted state. Invalid input returns `Invalid(reason)` without cloning state or
-starting a worker. A legal action returns `Started(run_id)`; this means work
-began, not that its final state is accepted.
-
-Persistence is game-owned and runs outside rules. Save an immutable copy of
-accepted state. A write failure leaves the in-memory action valid and reports
-nonfatal feedback. [Hearts](hearts.md#autosave-and-resume) specifies ordered
-writes, durable browser storage, and restart behavior for that sample.
+Until then, dispatch returns `Busy` and `accepted_state()` returns the prior
+accepted state. When ready, installation and status change occur together.
+Explicit save/load is game-owned and uses a returned state copy. There is no v1
+autosave, acceptance subscription, or implicit save-on-exit. A write failure
+cannot invalidate an already accepted in-memory action. See [Hearts
+save/load](hearts.md#explicit-save-and-resume).
 
 ## Manual QA
 
-Pause a worker while waiting to publish, inside a controlled builder, and at a
-prompt. Replace the game each time and verify responsive menus, rejected old
-answers, silent cancellation, and stopped status after cleanup. Separately
-trigger a genuine panic. Hold final animation completion and confirm that the
-next action and saving wait for both completion and a subsequent rendered frame.
+Hold publication capacity, snapshot cloning, human choice, and final animation
+with deterministic fixture barriers. Stop/replace at each point, verify
+immediate `Stopped`, then release barriers and verify later cleanup without
+stale output. Stop during bounded ordinary computation and verify it is not
+forcibly stopped. Inject rules, response, and required-animation failures;
+verify `Failed`, stable accepted state, and restart. Save the previous accepted
+state while busy, then save the new one after final animation and a real
+rendered frame.

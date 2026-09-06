@@ -1,15 +1,14 @@
 # 25. Start checkpoint animations and wait before advancing
 
 Each checkpoint starts its declared animations once. The next checkpoint and
-saving wait for the required completion or label and a rendered frame.
+acceptance wait for required completion or a label and a rendered frame.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Presentation timing](../presentation.md)
 - [Animation](../motion.md)
 - [Rules and choices](../execution.md)
@@ -42,11 +41,10 @@ checkpoint.on_animation(card_ref.scoped_name("draw"), move |animation, cx| {
 ## Implementation
 
 1. Add callbacks for typed state animations, identified by a stable name within
-   each animation. Provide scoped names based on stable presentation
-   identity and resolve declared refs before evaluating the callback. Evaluate
-   it during preparation, reserve playback handles, and atomically install
-   visible tree, playback registration, occurrences, and required contributions
-   at commit.
+   each animation. Provide scoped names based on stable presentation identity
+   and resolve declared refs before evaluating the callback. Evaluate it during
+   preparation, reserve playback handles, and atomically install visible tree,
+   playback registration, occurrences, and required contributions at commit.
 
 2. Default gate contributions to required layout movement. Let a registration
    choose an earlier label for its own contribution while preserving other
@@ -78,8 +76,9 @@ checkpoint.on_animation(card_ref.scoped_name("draw"), move |animation, cx| {
 - Required failure abandons the action and exposes accepted-state recovery;
   cosmetic stop does not.
 
-- A final worker result enables saving only after its real gate and rendering
-  acknowledgement.
+- A final worker result becomes the state returned by accepted_state only after
+  its real gate and rendering acknowledgement; prior accepted state stays
+  readable.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
@@ -92,4 +91,4 @@ shortcut may satisfy the live gate.
 ## Manual QA
 
 Exercise gate-replacement just before/after a label event, then step a final
-checkpoint frame by frame and observe when saving becomes available.
+checkpoint frame by frame and observe when accepted_state changes.

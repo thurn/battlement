@@ -1,15 +1,14 @@
-# 02. Define the typed rules API and prove the simulation fast path
+# 02. Define the typed rules API and prove the simulation path
 
-A new reactant-rules crate can run one `Game::apply_action` implementation with
-typed choices and no simulation publication overhead.
+The rules crate runs the agreed `Game::execute` contract with owned prompt data,
+index-returning policies, and no display work during simulation.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Architecture](../architecture.md)
 - [Rules and choices](../execution.md)
 - [Validation](../validation.md)
@@ -23,67 +22,63 @@ AI; Cargo workspace conventions.
 
 ## Example
 
-The final application shape registers one value implementing `Game`:
+Rules receive the same concrete answer through human input or a policy:
 
 ```rust
-App::new()
-    .game(CounterGame::new(Counter::default()))
-    .root(CounterDisplay::new())
+let card: CardId = context.choose(state, PlayCardPrompt { choices });
 ```
 
-Task 02 compiles the same `CounterGame` through its registration-only harness.
-Task 11 compiles the `App` integration shown above. Task 02 also compiles a
-second game with two typed choices.
+The policy reads the shared prompt enum and returns an option index. A second
+prompt returns `[CardId; 3]`; there is no game-wide answer enum.
 
 ## Implementation
 
-1. Implement the `Game` trait and infer its state, view, action,
-   `StateAnimation`, prompt, answer, and decision types from the registered game
-   value. Add `Executor<Game, Mode>`, typed choice specifications, built-in
-   selections, and concrete simulation policies as described in
-   interfaces.md. Keep the rules crate independent of Unity/components; use a
-   registration-only harness until App integration in task 11.
+1. Implement the rules types and signatures in interfaces.md and the linked
+   contract sketch: `Game`, `GameContext`, `PromptData<T>`, and `ChoicePolicy`.
+   Keep them independent of Unity/components. Context is game-owned and may
+   branch on its mode. Do not introduce a required generic execution-mode type.
 
-2. Make `present` accept state plus a lazy state-animation builder. In
-   simulation, invoke neither `Game::view` nor that builder. Evaluate choice
-   specifications through a statically dispatched
-   concrete policy without constructing its owned UI prompt. Make
-   check_cancelled an inline no-op.
+2. Implement prompt enum conversion and stable option-index mapping. Prompt data
+   owns its choices and may enumerate lazily. Invalid selected indices or
+   responses panic. Policy code receives state and the same enum the display
+   will inspect; hidden-state sampling belongs to the game.
 
-3. Create a small neutral rules fixture with nested calls and two distinct typed
-   choices, including borrowed data through nested calls. Run its real public
-   entry point in simulation and a synchronous recording test mode to prove the
-   same function works across modes; do not create a production
-   pretend-interactive adapter.
+3. Make simulation `present` skip both snapshot cloning and the lazy animation
+   builder. Simulation `choose` calls the policy inline with no display
+   connection or wait. There is no explicit cancellation-check primitive.
 
-4. Add public-entry allocation benchmarks and retained optimized-code inspection
-   commands. Exclude game policy allocations from primitive measurements. Update
-   execution.md with the final compiling authoring example and exact type names.
+4. Compile a choice-free game (`Prompt = ()`), two distinct response types
+   through nested rules, and a second game's generic prompt handling. Exercise
+   the same rules with a recording context and a simulation context. Task 11
+   supplies actual App startup and worker integration.
+
+5. Measure primitive overhead separately from constructing owned prompt vectors
+   and policy search. Retain public-entry allocation measurements and optimized
+   code inspection. Context-mode branching is permitted; do not claim the entire
+   simulation or every game-owned prompt is allocation-free.
 
 ## Acceptance
 
-- A choice-free game uses one small `Game` implementation and needs no prompt
-  enum, answer enum, movement setup, or custom view type. Two typed choices work
-  in the same nested method, and wrong simulation-policy variants are rejected
-  as developer errors.
+- One Game implementation runs in both contexts. Prompt fields/legality are
+  defined once; stable option order maps policy indices to the correct typed
+  response. An out-of-range index panics.
 
-- Panicking view/state-animation/prompt builders are never called in simulation.
+- A panicking snapshot-clone or animation builder is never invoked by simulation
+  `present`. Simulation choice makes no display publication or worker wait.
 
-- A measured loop of present, choose, and check_cancelled performs zero
-  mandatory executor allocations and has no virtual dispatch or interactive
-  cancellation path in optimized code.
+- After prompt construction, primitives require no extra heap allocation or
+  virtual dispatch. Report prompt-construction and rollout allocations
+  separately.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Background workers begin in task 03. Interactive prompt handles, transport
-validation, and waits belong to task 10. This task does not change existing
-sample execution.
+Background workers begin in task 03. Interactive response transport is task 10;
+App startup, handles, and attachment are task 11. Do not migrate samples here.
 
 ## Manual QA
 
-Run the public fixture in recording and simulation modes and compare final
-outcomes. Inspect the benchmark commands and optimized output from a clean
-release build.
+Run the same nested fixture in recording and simulation contexts. Inspect its
+selected response types and compare final outcomes and allocation evidence.

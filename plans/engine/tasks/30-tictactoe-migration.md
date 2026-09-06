@@ -35,9 +35,9 @@ display.advance_frame();
 
 ## Implementation
 
-1. Separate board/outcome/RNG state from view construction. Implement game
-   actions with lazy human-move and AI-response checkpoints and stable mark
-   identities.
+1. Keep board/outcome/RNG in clonable rules state for display snapshots.
+   Implement game actions with lazy human-move and AI-response checkpoints and
+   stable mark identities.
 
 2. Build board, title, status, and marks as world components using existing
    artwork. Route the board's committed hit through Reactant events and dispatch

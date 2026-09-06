@@ -1,91 +1,66 @@
 # Writing a game with Reactant
 
-Reactant lets Rust components describe both a game's world objects and its UI.
-A game implements one `Game` trait that names its state, actions, player-visible
-view, state animations, and synchronous action method. A separate display
-component reads the immutable view and describes the visible result. Unity
-executes generic capabilities; it does not decide how Hearts or chess should
-look or behave.
+Reactant lets Rust components describe a game's world objects and UI. A game
+implements `Game`, supplies a domain-specific `GameContext`, and uses the same
+synchronous rules for interactive execution and simulation. Display components
+read immutable clones of the full state and a shared prompt enum.
 
-Read this when adding an application, separating crate responsibilities, or
-working on component composition. Related pages: [overview](README.md), [API
-examples](interfaces.md), [rules](execution.md), [world objects](world.md), and
-[starting code](source-map.md).
+Read the [complete rules/session API](interfaces.md) and [compiling
+sketch](../../crates/battlement-reactant/src/proposal.rs) for the contract.
+Related pages: [overview](README.md), [execution](execution.md), [world
+objects](world.md), and [starting code](source-map.md).
 
-## The Game trait owns the rules contract
+## The app owns the live session
 
-The application registers one game value. Its `Game` implementation associates
-all types that the engine would otherwise have to register through unrelated
-builder calls. This example is the API to build, not an existing API:
+Use the existing app/component setup, then start a new or loaded game:
 
 ```rust
-App::new()
-    .game(HeartsGame::new(saved_or_new))
-    .root(HeartsDisplay::new())
+let game = app.start_game::<HeartsGame>(initial_state, |connection| {
+    HeartsContext {
+        human_player,
+        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
+    }
+});
 ```
 
-`HeartsGame` owns the accepted `HeartsState` supplied at registration and
-implements `Game`. The associated types make their roles explicit:
+`start_game` creates the connection, constructs the context, and attaches the
+session to the display and hooks. It returns a cloneable `GameHandle` for
+`dispatch`, `accepted_state`, `status`, and `stop`. Calling it again replaces
+the old session. No separate registration, attachment, or acceptance callback is
+required. Starting alone does not execute rules.
 
-- `HeartsState` is the complete rules state: all hands, tricks, scores, and
-  saved random-number-generator state.
-- `Action` is a request from the display, such as playing a card. The engine
-  infers it from the `Game::Action` associated type for `HeartsGame`.
-- `HeartsView` is immutable data the south player may see. It excludes the
-  contents of opponents' hands and is the value read by display components.
-- `StateAnimation` describes how a newly published view should be presented,
-  such as `CardPlayed` or `TrickCollected`. It is not the action type and is not
-  an automatically computed state diff.
-- `Prompt` is public choice data. `ControllerPrompt` separately carries any
-  owned private observation needed by an application-controlled AI job.
-- `HeartsDisplay` is the root component. It reads `HeartsView` and composes the
-  table, menus, scores, prompts, and individual `CardView` components.
+The roles are:
 
-This abridged shape shows its central responsibilities:
+- `HeartsGame` names associated types and implements `logical_clone`,
+  `is_legal_action`, and `execute` as static methods.
+- `HeartsState` holds rules data. Logical clones serve as accepted/worker state
+  and immutable snapshots for display; there is no separate view type.
+- `HeartsContext` owns the interactive/simulation mode and domain data such as
+  policies or RNGs. It routes human versus AI choices in a live game.
+- `HeartsPrompt` contains owned choice structs, shared by display and policies.
+  `PresentedPrompt<HeartsPrompt>` adds a request-bound response handle for UI.
+- `HeartsAnimation` describes what happened. Display registrations translate
+  that event into movements, sound, and particles.
+- `HeartsDisplay` is a component that builds the scene from the displayed
+  snapshot and active prompt. `CardView` is a component, not a game-state type.
 
-```rust
-trait Game: Sized + Send + 'static {
-    type State: Send + 'static;
-    type View: Send + 'static;
-    type Action: Send + 'static;
-    type StateAnimation: Send + 'static;
+Display components can read full state, but must render opponents' cards as
+backs and keep hidden values out of normal player UI/inspection. Policies
+likewise receive state; the game's search code owns hidden-state randomization
+and information-safe heuristics. Reactant supplies no separate observation or
+controller-message types.
 
-    fn logical_clone(state: &Self::State) -> Self::State;
-    fn view(state: &Self::State) -> Self::View;
-    fn validate_action(state: &Self::State, action: &Self::Action)
-        -> Result<(), ActionRejection>;
-    fn apply_action<M: ExecutionMode<Self>>(
-        state: &mut Self::State, action: Self::Action,
-        cx: &mut Executor<Self, M>,
-    );
-    fn final_state_animations(
-        _state: &Self::State,
-    ) -> Vec<Self::StateAnimation> { Vec::new() }
-}
-```
+Rules use one `present` event per checkpoint and typed `choose` responses. The
+[dispatch sequence](execution.md#from-dispatch-to-accepted-state) defines worker
+ownership, bounded publication, and final acceptance. The display owns the queue
+and decides when required animation is complete; rules may compute ahead.
 
-The canonical trait, including initial-state and choice types, is in [API
-examples](interfaces.md#the-game-owns-its-associated-types). `validate_action`
-has an accept-all default. The engine calls these methods; the application does
-not register or manually sequence separate callbacks.
+Movement needs no configuration. Existing objects use an engine default
+transition, customizable locally or through inherited `MotionConfig`. Entry and
+restoration show current state without replaying past transient events.
 
-`HeartsView` is game-wide presentation data, while `CardView` is one component
-that renders a card from that data. Game-wide data types use the `View` suffix
-because they implement `Game::View`; component names describe what they render.
-
-The full dispatch, worker, checkpoint, and acceptance order is specified in
-[action execution](execution.md#from-dispatch-to-accepted-state).
-
-Movement is optional configuration. With no `.movement()` call, an existing
-object moves using the engine's default transition. A game can customize that
-transition locally or through inherited `MotionConfig`. Entry and restoration
-show the current state using entry behavior; they do not replay past actions.
-
-A UI-only application needs no game registration or worker:
-
-```rust
-App::new().root(SettingsPanel::new())
-```
+A UI-only application uses the existing `App::ui`/root setup without a game
+session or worker. Keep basic and ui as direct Battlement examples.
 
 ## One component can produce UI and 3D objects
 
@@ -114,7 +89,7 @@ optional optimization: a score label can subscribe only to the score and avoid
 reevaluation when the hand changes. Local menus and inspection use hooks or
 stores, rather than mutating the rules worker's state.
 
-Store writes schedule another render. Each render sees one game view and one
+Store writes schedule another render. Each render sees one game snapshot and one
 stable store version. Ordinary host animation does not trigger a component
 render every frame. Input handlers may synchronously prevent native defaults;
 reconciliation happens afterward.
@@ -129,8 +104,8 @@ existing standalone sample workspaces.
   refs, shared animation authoring, and host interfaces.
 - `reactant-ui` owns UI controls, UI properties, and UI Toolkit adapters using
   the shared runtime.
-- `reactant-rules` owns execution, worker communication, generic choice
-  machinery, and simulation. It has no component or Unity dependency.
+- `reactant-rules` owns execution, worker communication, generic typed response
+  machinery, and connection mechanics. It has no component or Unity dependency.
 - `reactant` owns application registration, world components, layouts,
   checkpoint presentation, effects, and convenient reexports.
 - `reactant-testing` owns public display scenarios using Battlement's fake host.
@@ -138,7 +113,7 @@ existing standalone sample workspaces.
   generated paint, and related preparation.
 - Battlement owns the protocol, C ABI, generic Unity hosts, generic asset
   loading, and low-level fakes.
-- Game Rust code owns rules, state, action validation, choice specifications and
+- Game Rust code owns rules, state, action validation, owned prompt data and
   policies, AI, saves, display components, and effect selection.
 
 The dependency goes from Reactant to Battlement. This includes Rust crates,

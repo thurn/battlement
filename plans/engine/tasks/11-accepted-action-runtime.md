@@ -1,21 +1,20 @@
-# 11. Accept completed actions and recover from failures
+# 11. Start game sessions, accept actions, and expose recovery
 
-A game App coordinates private worker actions while retaining a safe accepted
-state and responsive display stores.
+App-owned sessions construct domain contexts, expose cloneable handles, and keep
+displayed snapshots separate from accepted and worker state.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Rules and choices](../execution.md)
 - [Presentation timing](../presentation.md)
 - [Architecture](../architecture.md)
 
 **Prerequisite:** [Task 10: Implement typed interactive prompts and validated
-answers](10-typed-prompts.md) and all its required follow-ups must be
+responses](10-typed-prompts.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Application/engine integration; worker completion records; UI
@@ -23,61 +22,69 @@ failure surface; existing chess saves.
 
 ## Example
 
-Do not equate starting work with accepting its final state:
+Start and attachment are one operation:
 
-```text
-dispatch legal action -> Started(run_id)
-worker returns        -> still busy while final animation runs
-animation and frame finish -> accept state; allow next action and save
+```rust
+let game = app.start_game::<HeartsGame>(initial_state, |connection| {
+    HeartsContext {
+        human_player,
+        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
+    }
+});
 ```
+
+Handle clones refer to the same session. Calling start again stops/replaces it.
 
 ## Implementation
 
-1. Add the game application adapter around the `Game` trait, including
-   `logical_clone`, action dispatch, presented-view access, accepted-state
-   notification, and active-run lifecycle.
+1. Implement the complete session surface in interfaces.md: the context factory,
+   `GameHandle` methods, `DispatchResult`, `GameStatus`, state/prompt/status
+   hooks, and app-owned attachment. Accept initial state immediately, hold Busy
+   through entry presentation, and execute nothing merely because a game starts.
 
-2. Return Busy while an action/prompt is unresolved. Otherwise run the game's
-   pure bounded validate_action against accepted state; return Invalid(reason)
-   without a worker for illegal actions, or Started(run_id) for admitted work.
-   Handle prompt answers through their typed request path. Keep menus and
-   inspection available.
+2. Dispatch returns Busy before validation while entry/action/final presentation
+   is unfinished. Otherwise call is_legal_action; false panics before cloning or
+   worker creation. Legal work returns Started. Failed/stopped dispatch is a
+   programming error. Run IDs are internal.
 
-3. Retain final worker state pending presentation acceptance; make acceptance
-   depend on a presentation-completion interface that will receive real host
-   acknowledgements in task 12 and motion gates in task 25.
+3. Transfer the session context to one active worker at a time. Retain final
+   state pending display completion; automatic final publication has no semantic
+   event. Return the context after normal completion; discard interrupted
+   context on failure/stop and construct a new one for replacement.
 
-4. Route worker panic to an active-run failure surface with exit/restart from
-   accepted state. Never poison a replacement run for abandoned output.
+4. Implement idempotent nonjoining stop, old-handle isolation, and
+   Ready/Busy/Failed/Stopped status. App teardown stops its session. Distinguish
+   immediate public Stopped from the later cleanup-complete worker observation.
 
-5. Add persistence notification outside the worker; a failing fixture store
-   leaves accepted state usable. No game-specific save format belongs in the
-   engine.
+5. Return an independent logical clone from accepted_state in every session
+   status. It returns the previous completed state while busy. Expose status
+   subscriptions for UI recovery/next-action scheduling, with no acceptance
+   callback or autosave service. Preserve detailed failures in diagnostics.
 
 ## Acceptance
 
-- A worker completing computation does not immediately enable a next action or
-  save; explicit presentation acceptance does.
+- Startup and replacement construct exactly one context with the correct
+  connection. Old handles remain stopped; cloned current handles share state.
 
-- Invalid action dispatch starts no worker and changes no accepted/presented
-  state; Busy and Started are distinct from final state acceptance.
+- Busy dispatch queues no work and invokes no validator. Illegal idle dispatch
+  panics. Started does not imply completion.
 
-- An abandoned or panicking action leaves the previous accepted state available
-  for restart.
+- While final presentation is held, accepted_state returns the old stable copy
+  and next dispatch is Busy. Acceptance atomically installs state and Ready.
 
-- Menus/store updates remain responsive while the worker publishes or waits, and
-  only one interactive action is active.
+- Rules/required-animation failure retains accepted state and exposes Failed.
+  Restart works; ended-run output cannot affect it. No automatic save occurs.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Do not ship a fake 'rendered immediately' implementation: until task 12,
-exercise acceptance through the explicit public fixture host. Motion-dependent
-acceptance is task 25.
+Task 12 supplies actual host frame acknowledgements and task 25 motion gates.
+Use the explicit public fixture host until then, never an immediate-render fake.
 
 ## Manual QA
 
-Hold final presentation acceptance, observe saving/next action disabled, then
-release it. Trigger a worker failure and restart from the last accepted state.
+Start, dispatch, hold final acceptance, explicitly copy accepted state, and
+stop. Restart in the same app. Inject a worker failure and observe status-driven
+recovery controls without losing the last accepted state.

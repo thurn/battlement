@@ -1,6 +1,6 @@
 # 09. Publish immutable checkpoints with at most one waiting
 
-A worker publishes ordered immutable views with at most one pending
+A worker publishes ordered immutable state snapshots with at most one pending
 checkpoint, using lazy builders after reservation.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -8,8 +8,7 @@ map](../source-map.md) · [Validation](../validation.md)
 
 ## Read before implementing
 
-- [API examples and defaults](../interfaces.md)
-
+- [Rules and session API](../interfaces.md)
 - [Rules and choices](../execution.md)
 - [Presentation timing](../presentation.md)
 - [Validation](../validation.md)
@@ -18,7 +17,7 @@ map](../source-map.md) · [Validation](../validation.md)
 time](08-public-display-driver.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** reactant-rules modes/worker connection from tasks 02-03;
+**Starting code:** reactant-rules contexts/worker connection from tasks 02-03;
 public display driver.
 
 ## Example
@@ -34,17 +33,17 @@ worker changes private state: A and B remain immutable
 
 ## Implementation
 
-1. Add checkpoint ID/animation indices and owned payload records to the worker
-   connection. Reserve the single pending-checkpoint capacity before building
-   view/state-animation data; keep it reserved while the main thread prepares
-   that checkpoint.
+1. Add checkpoint IDs, optional index-zero semantic events, and owned payload
+   records to the worker connection. Reserve the single pending-checkpoint
+   capacity before building snapshot/state-animation data; keep it reserved
+   while the main thread prepares that checkpoint.
 
 2. Implement cancellation checks on entry, after capacity acquisition, after
    payload construction, and after waits. Wake capacity waiters on
    abandonment/closure using the shared predicate protocol.
 
-3. Preserve independent accepted, worker-private, and presented-view state. Add
-   a deliberately shared-mutable fixture to document invalid game view
+3. Preserve independent accepted, worker-private, and displayed-snapshot state.
+   Add a deliberately shared-mutable fixture to document invalid logical-clone
    ownership without designing a runtime deep-copy system.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
@@ -58,7 +57,7 @@ worker changes private state: A and B remain immutable
   construction.
 
 - Mutation of worker state after publication does not change the displayed
-  view in a correct game-owned view fixture.
+  snapshot in a correct logical-clone fixture.
 
 - Cancellation while blocked or building discards late output, unwinds after
   builder completion, and reports stopped after cleanup.
@@ -74,6 +73,6 @@ assertion.
 
 ## Manual QA
 
-Use a controlled `Game::view` implementation to hold publication, abandon the
-run, release the builder, and verify the replacement display never sees the
-stale checkpoint.
+Use a controlled `Game::logical_clone` implementation to hold publication,
+abandon the run, release the builder, and verify the replacement display never
+sees the stale checkpoint.

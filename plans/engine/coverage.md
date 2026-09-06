@@ -13,13 +13,32 @@ Related pages: [overview and task order](README.md), [test scenes](fixtures.md),
 Games should be simple to register, and every layer should have one clear owner.
 Read [architecture](architecture.md) and [API examples](interfaces.md).
 
-- One `Game` trait owns state, view, action, `StateAnimation`, validation, and
-  synchronous action application. Registration infers all associated types.
+- One `Game` trait owns state, action, prompt, context, semantic animation,
+  validation, and synchronous execution. App startup uses a context factory.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [11](tasks/11-accepted-action-runtime.md).
 
   **Verify:** Compile a choice-free game and a game with two typed choices.
+
+- App-owned start/replacement, factory-supplied connection, cloneable handles,
+  Busy-before-validation dispatch, illegal-action panic, explicit state copies,
+  idempotent stop, and Ready/Busy/Failed/Stopped status.
+
+  **Tasks:** [11](tasks/11-accepted-action-runtime.md).
+
+  **Verify:** Start/load/replace in one app; old handles stay stopped and a busy
+  accepted_state copy remains independent. Status hooks expose recovery.
+
+- Generic response handles infer response type from matched prompt data, verify
+  the handle's request identity at runtime, and distinguish human from live-AI requests.
+
+  **Tasks:** [10](tasks/10-typed-prompts.md),
+  [40](tasks/40-hearts-simulation-ai.md).
+
+  **Verify:** Compile replies for two games/two answer types, including zero-sized
+  prompt data. Caller-supplied choices cannot override stored legality; human
+  replies cannot resolve an AI-owned request.
 
 - UI-only apps need no game state or worker; default movement needs no
   configuration.
@@ -65,18 +84,18 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
 
 ## Rules, choices, cancellation, and saving
 
-A worker computes privately while the display presents ordered immutable views.
-Read [execution](execution.md) and [presentation](presentation.md).
+A worker computes privately while the display presents ordered immutable state
+snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
-- Run-local checkpoint IDs and fixed ordered animation indices, including a
-  single animation at index zero.
+- Run-local checkpoint IDs and at most one semantic event at animation index
+  zero; choice/final checkpoints have no semantic event.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [09](tasks/09-checkpoint-publication.md).
 
-  **Verify:** Retry presentation without changing IDs or animation order.
+  **Verify:** Retry presentation without changing IDs or replaying effects.
 
-- Immutable owned `Send` views, independent accepted state and worker copy;
+- Immutable owned `Send` state snapshots, independent accepted and worker state;
   optional immutable sharing.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
@@ -93,8 +112,8 @@ Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** With A visible and B pending, C builders have not run.
 
-- Typed choices return directly on the synchronous stack; owned UI data is built
-  only interactively.
+- Typed choices return directly on the synchronous stack; prompt data owns its
+  choices and display/policy share one enum. Policies return stable indices.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [10](tasks/10-typed-prompts.md).
@@ -103,13 +122,13 @@ Read [execution](execution.md) and [presentation](presentation.md).
   modes.
 
 - One unchanged outstanding prompt; previous required presentation finishes
-  first; invalid answers retain the request.
+  first; active invalid responses panic and ended-request responses are ignored.
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
   [25](tasks/25-checkpoint-motion-gates.md).
 
-  **Verify:** Reject illegal/wrong-type answers; allow correction without
-  restarting the request.
+  **Verify:** Wrong typed replies fail compilation; fault-injected active
+  invalid replies panic without crossing the C ABI. Valid replies resume once.
 
 - Run/request IDs reject stale answers and output; changed legal sets get new
   requests.
@@ -152,8 +171,8 @@ Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** Cancel a select/deselect cycle and a full publication queue.
 
-- Builders finish before cancellation check; explicit checks in long
-  calculations; detached shutdown; stopped only after cleanup.
+- Builders and ordinary computation reach helper/return boundaries before
+  unwinding. Public Stopped is immediate; worker-stopped follows cleanup.
 
   **Tasks:** [03](tasks/03-native-cancellation.md),
   [04](tasks/04-threaded-webgl-proof.md), [05](tasks/05-mobile-build-paths.md),
@@ -200,11 +219,11 @@ Read [execution](execution.md) and [presentation](presentation.md).
   [25](tasks/25-checkpoint-motion-gates.md),
   [43](tasks/43-hearts-save-resume.md).
 
-  **Verify:** Saving and next action remain disabled while any condition is
-  missing.
+  **Verify:** Next dispatch is Busy and accepted_state returns the prior state
+  until all conditions hold; that prior state can still be explicitly saved.
 
-- Persistence outside rules; ordered immutable saves; write failure does not
-  undo accepted gameplay.
+- Explicit persistence outside rules, no v1 autosave/acceptance callback; a
+  write failure does not undo accepted gameplay.
 
   **Tasks:** [11](tasks/11-accepted-action-runtime.md),
   [32](tasks/32-chess-cutover.md), [43](tasks/43-hearts-save-resume.md).
@@ -212,7 +231,8 @@ Read [execution](execution.md) and [presentation](presentation.md).
   **Verify:** Retry failed saves and restore the last durable state.
 
 - Same synchronous simulation with lazy builders skipped, inline policy, no
-  mandatory primitive allocation, no-op cancellation.
+  mandatory primitive allocation or display wait. Mode branches are allowed;
+  prompt construction/search costs are measured separately.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [40](tasks/40-hearts-simulation-ai.md),
@@ -295,8 +315,8 @@ Movement preserves a live component; removal ends its lifetime. Read
   **Verify:** Old completion cannot destroy replacement; projectile retains only
   original resources.
 
-- Props complete without selectors; equal selectors skip evaluation; stable
-  store version and queued writes.
+- Props complete without selectors; equal selected values skip subscriber
+  renders; stable store version and queued writes.
 
   **Tasks:** [16](tasks/16-view-selectors-stores.md),
   [44](tasks/44-identity-composition-laboratory.md).
@@ -429,7 +449,7 @@ and [presentation](presentation.md).
 
   **Verify:** Input cannot start another action during required presentation.
 
-- Stable render view/store version; inactive preparation can span frames;
+- Stable render snapshot/store version; inactive preparation can span frames;
   current display remains usable.
 
   **Tasks:** [12](tasks/12-host-transactions.md),
@@ -671,13 +691,13 @@ scenes](fixtures.md), and [validation](validation.md).
   **Verify:** Complete match, rare-rule deals, simultaneous passing, and
   phase-correct next-hand flow.
 
-- Hearts persistence: initial accepted deal, passing and each play; ordered
-  writes, durable native/WebGL storage, retry/resume.
+- Hearts persistence: explicit Save captures accepted_state, one write at a
+  time, durable native/WebGL storage, retry/resume; no implicit saves.
 
   **Tasks:** [43](tasks/43-hearts-save-resume.md).
 
-  **Verify:** New Game races with old saves; Exit flushes newest accepted state;
-  corrupted data is explained.
+  **Verify:** New Game/acceptance/Exit start no save. A pending explicit write
+  acknowledges only its captured state; corrupted data is explained.
 
 - Public display scenarios with virtual interpolation, labels/effects, input,
   anchors, prompts, and worker barriers.
