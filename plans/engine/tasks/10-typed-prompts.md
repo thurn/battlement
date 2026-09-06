@@ -1,28 +1,34 @@
 # 10. Implement typed interactive prompts and validated answers
 
+Synchronous rules can request typed choices while the public display exposes
+only the currently actionable prompt.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Minimum interfaces](../interfaces.md)
+- [API examples and defaults](../interfaces.md)
 
-- [Execution contract](../execution.md)
-- [Validation contract](../validation.md)
+- [Rules and choices](../execution.md)
+- [Validation](../validation.md)
 
-**Prerequisite:** [Task 09: Implement immutable checkpoint publication and
-backpressure](09-checkpoint-publication.md) and all its required follow-ups must
-be integrated.
+**Prerequisite:** [Task 09: Publish immutable checkpoints with at most one
+waiting](09-checkpoint-publication.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** ChoiceSpec/modes from task 02; bounded endpoint from task 09;
-display driver. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** Choice specifications/execution modes from task 02; worker
+connection from task 09; display driver.
 
-## Result
+## Example
 
-Synchronous rules can request typed choices while the public display exposes
-only the currently actionable prompt.
+A component answers through a typed handle for the current presented prompt:
+
+```rust
+let prompt = use_prompt::<SelectOne<CardId>>();
+prompt.answer(selected_card);
+// An illegal card produces feedback and keeps this request active.
+```
 
 ## Implementation
 
@@ -30,8 +36,8 @@ only the currently actionable prompt.
    identities. Keep the concrete specification on the worker and construct only
    its owned public representation for display.
 
-2. Validate answer envelopes against the current request and immutable choice
-   specification. Return a concrete typed answer only after successful
+2. Validate typed answer messages against the current request and immutable
+   choice specification. Return a concrete typed answer only after successful
    validation and a final cancellation check.
 
 3. Report invalid-answer feedback publicly while retaining the unanswered
@@ -43,8 +49,8 @@ only the currently actionable prompt.
 
 ## Acceptance
 
-- An invalid or wrong-variant answer leaves the same request active; a valid
-  answer resumes exactly once.
+- An invalid or wrong-type answer leaves the same request active; a valid answer
+  resumes exactly once.
 
 - A prompt behind an unfinished earlier checkpoint is not actionable.
   Replacement invalidates old answers even if request numbers repeat in another
@@ -53,12 +59,10 @@ only the currently actionable prompt.
 - Cancellation wins over a queued answer when already observed at the final
   check, and a prompt cycle exits silently with cleanup.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Native animation gates are task 25. Use the existing public
 presentation-consumer barrier to hold earlier checkpoints until the host

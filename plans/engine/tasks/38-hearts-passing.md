@@ -1,28 +1,35 @@
 # 38. Connect Hearts passing prompts and simultaneous transfers
 
+A human can choose and confirm a three-card pass while all players' transfers
+present as one coherent exchange.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [Execution contract](../execution.md)
-- [Presentation contract](../presentation.md)
-- [Motion contract](../motion.md)
+- [Hearts rules and behavior](../hearts.md)
+- [Rules and choices](../execution.md)
+- [Presentation timing](../presentation.md)
+- [Animation](../motion.md)
 
 **Prerequisite:** [Task 37: Compose Hearts cards, hands, tricks, and inspection
 views](37-hearts-card-layout.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Hearts rules/Card components; typed prompt API; checkpoint
-registration. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** Hearts rules/Card components; typed prompt API; checkpoint
+registration.
 
-## Result
+## Example
 
-A human can choose and confirm a three-card pass while all players' transfers
-present as one coherent exchange.
+Selection remains local until one valid three-card answer is submitted:
+
+```text
+select two cards -> Pass disabled
+select third -> Pass enabled
+open/close menu -> selection retained
+Pass -> validate answer, then present all four players' transfers together
+```
 
 ## Implementation
 
@@ -59,12 +66,10 @@ present as one coherent exchange.
 - Abandoning the prompt or transfer rejects its late answer/effects and leaves a
   replacement game responsive.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Final card-play flow is task 39, advanced AI task 40, and durable autosave task
 43. Accepted-state notifications must already occur correctly.

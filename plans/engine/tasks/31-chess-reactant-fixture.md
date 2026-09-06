@@ -1,28 +1,36 @@
 # 31. Port chess board composition and move presentation in a fixture
 
+A separate deterministic chess fixture renders representative legal moves
+through Reactant while the existing playable entrypoint remains intact.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Migration contract](../migration.md)
-- [World contract](../world.md)
-- [Motion contract](../motion.md)
-- [Execution contract](../execution.md)
+- [Sample migration](../migration.md)
+- [World objects and input](../world.md)
+- [Animation](../motion.md)
+- [Rules and choices](../execution.md)
 
 **Prerequisite:** [Task 30: Migrate tic-tac-toe through the unified rules and
 display path](30-tictactoe-migration.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Chess rules/src/lib.rs, spawn/movement helpers, gameplay
-tests; opaque assets; public fixture driver. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Chess rules/src/lib.rs, spawn/movement helpers, gameplay
+tests; opaque assets; public fixture driver.
 
-## Result
+## Example
 
-A separate deterministic chess fixture renders representative legal moves
-through Reactant while the existing playable entrypoint remains intact.
+Run the same fixed position through both displays before changing the default
+chess entrypoint:
+
+```text
+position: legal kingside castle
+action: castle
+observe: king and rook follow established paths and reach their squares
+compare: same visible result and timing in old and Reactant fixtures
+```
 
 ## Implementation
 
@@ -58,12 +66,10 @@ through Reactant while the existing playable entrypoint remains intact.
 - The default chess sample and all existing scenarios remain functional
   throughout this task.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Default-entrypoint cutover, spawn choreography, full AI/audio/save/diagnostics
 integration, and removal of the old engine are task 32.

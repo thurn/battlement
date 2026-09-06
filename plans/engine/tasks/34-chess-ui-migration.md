@@ -1,34 +1,41 @@
 # 34. Migrate the currently implemented chess UI gallery
 
+The current chess-ui gallery uses the unified runtime with its implemented
+behavior and appearance preserved.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Migration contract](../migration.md)
-- [Architecture contract](../architecture.md)
-- [Motion contract](../motion.md)
-- [Validation contract](../validation.md)
+- [Sample migration](../migration.md)
+- [Architecture](../architecture.md)
+- [Animation](../motion.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 33: Migrate the existing Reactant laboratory to the
 unified APIs](33-reactant-sample-migration.md) and all its required follow-ups
 must be integrated.
 
-**Source roles:** samples/chess-ui/rules/src and tests; retained chess UI plan's
-applicable contracts/pages. Resolve these through source-map.md; its links track
-the current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** samples/chess-ui/rules/src, tests, and native gallery
+scenarios.
 
-## Result
+## Example
 
-The current chess-ui gallery uses the unified runtime with its implemented
-behavior and appearance preserved.
+Preserve existing gallery interactions through the new runtime:
+
+```text
+open an implemented settings page
+change a controlled value; verify its visible state
+rebind a key; activate the control using that binding
+reset and compare the existing native baseline
+```
 
 ## Implementation
 
 1. Inventory the actually implemented gallery pages in the selected checkout.
-   Use the retained chess UI plan only for those pages' behavior/fidelity
-   requirements.
+   Use their current implementation, tests, and native baselines to establish
+   behavior and appearance.
 
 2. Migrate imports, component composition, stores, portals, focus, Motion
    controls, and asset setup to the new facade without introducing worker
@@ -49,18 +56,16 @@ behavior and appearance preserved.
 - Controlled props, inline child composition, focus/default prevention, and
   motion do not require extra per-sample framework plumbing.
 
-- Unimplemented retained-plan pages stay explicitly unimplemented; this
-  migration does not invent or waive their acceptance.
+- Unimplemented gallery pages stay explicitly unimplemented; migrate the
+  existing page behavior without inventing additional pages.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
-Remaining original chess UI port pages are outside the overhaul. No visual
-redesign belongs here.
+Unimplemented chess UI pages are outside the overhaul. No visual redesign
+belongs here.
 
 ## Manual QA
 

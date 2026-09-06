@@ -1,42 +1,49 @@
 # 28. Implement safe seek, resume, and explicit presentation replay
 
+Developers can inspect supported visual tracks and replay an occurrence without
+changing game state or live checkpoint progress.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Motion contract](../motion.md)
-- [Presentation contract](../presentation.md)
-- [Fixtures contract](../fixtures.md)
+- [Animation](../motion.md)
+- [Presentation timing](../presentation.md)
+- [Test scenes](../fixtures.md)
 
 **Prerequisite:** [Task 27: Retain exits, anchors, and effects after logical
 unmount](27-effect-exit-retention.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Playback controls; occurrence journal; checkpoint gate
-evaluator; retained visual ownership. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Playback controls; delivered-effect history; checkpoint gate
+evaluator; retained visual ownership.
 
-## Result
+## Example
 
-Developers can inspect supported visual tracks and replay an occurrence without
-changing game state or live checkpoint progress.
+Seeking and explicit replay must produce different sound behavior:
+
+```text
+sound already played -> seek before its label -> resume: no second sound
+explicit replay: one new sound
+repeat delivery of that replay: no duplicate sound
+none of these operations advances a live game checkpoint
+```
 
 ## Implementation
 
 1. Add capability-reported seeking for supported visual tracks and preserve the
-   delivered sound/burst journal when sampling earlier/later times.
+   delivered sound/burst history when sampling earlier/later times.
 
 2. Resume live playback with only undelivered occurrences eligible. Save/restore
    the live inspected playback state so inspection cannot masquerade as normal
    timeline advancement.
 
 3. Allocate a session-unique replay identity in a separate namespace; preserve
-   slots within one replay and allocate a new ID for another replay.
+   effect names within one replay and allocate a new ID for another replay.
 
 4. Reject inspection/replay events in the live gate evaluator. Keep replay
-   resource leases independent from live/exit owners.
+   resource references independent from live/exit owners.
 
 5. Expose unsupported native seek capabilities explicitly rather than resetting
    particles and claiming equivalent replay.
@@ -54,12 +61,10 @@ changing game state or live checkpoint progress.
 
 - Stopping replay releases only its retained resources.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 User-facing developer controls are task 29; test the public playback/inspection
 API here.

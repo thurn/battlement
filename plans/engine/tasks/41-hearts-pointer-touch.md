@@ -1,27 +1,34 @@
 # 41. Finish Hearts pointer, touch, drag, and inspection behavior
 
+Mouse and touch users can pass, play, inspect, and cancel interactions without
+accidental rules changes.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [World contract](../world.md)
-- [Motion contract](../motion.md)
+- [Hearts rules and behavior](../hearts.md)
+- [World objects and input](../world.md)
+- [Animation](../motion.md)
 
-**Prerequisite:** [Task 40: Add bounded information-respecting Hearts
-simulations](40-hearts-simulation-ai.md) and all its required follow-ups must be
+**Prerequisite:** [Task 40: Choose Hearts moves by simulating possible
+hands](40-hearts-simulation-ai.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Hearts card/choice UI; unified pointer arbitration; world
-capture and movement ownership. Resolve these through source-map.md; its links
-track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Hearts card/choice UI; unified pointer arbitration; world
+capture and movement ownership.
 
-## Result
+## Example
 
-Mouse and touch users can pass, play, inspect, and cancel interactions without
-accidental rules changes.
+An unsuccessful drag changes presentation but never commits a card play:
+
+```text
+drag a legal card outside the central play region
+release or lose capture
+return smoothly to the latest hand destination
+keep the same unanswered prompt and rules state
+```
 
 ## Implementation
 
@@ -57,12 +64,10 @@ accidental rules changes.
 - Portrait/landscape reorientation during drag preserves target eligibility and
   smooth return.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Full keyboard/controller game navigation is task 42; no new rules or AI changes.
 

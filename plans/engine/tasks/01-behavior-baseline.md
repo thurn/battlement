@@ -1,24 +1,32 @@
 # 01. Establish behavioral baselines and classify existing tests
 
+The migration has a repeatable external behavior contract before changing any
+engine or sample behavior.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Migration contract](../migration.md)
-- [Validation contract](../validation.md)
+- [Sample migration](../migration.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** None. Begin from the current certified release.
 
-**Source roles:** Existing game tests; existing sample declarations; repository
-validation. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** Existing game tests; existing sample declarations; repository
+validation.
 
-## Result
+## Example
 
-The migration has a repeatable external behavior contract before changing any
-engine or sample behavior.
+Preserve the behavior behind a coupled assertion. For a chess capture, record
+what the player sees before deciding which test to keep:
+
+```text
+input: capture a piece in a fixed board position
+observe: moving piece follows its path; captured visual remains until impact
+keep: that path and disappearance timing
+replace: assertions about exact command counts
+```
 
 ## Implementation
 
@@ -52,12 +60,10 @@ engine or sample behavior.
   for later migrations, including chess capture paths, spawn beats,
   save/restore, and input modes.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Temporal fake improvements and remaining timed-assertion replacements belong to
 task 08. No game or framework refactor belongs here.

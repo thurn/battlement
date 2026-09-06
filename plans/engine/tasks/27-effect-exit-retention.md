@@ -1,32 +1,39 @@
 # 27. Retain exits, anchors, and effects after logical unmount
 
+Dissolves and projectiles finish on retained old visuals without keeping logical
+components alive or affecting a replacement incarnation.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Identity contract](../identity.md)
-- [Motion contract](../motion.md)
-- [World contract](../world.md)
+- [Identity and state](../identity.md)
+- [Animation](../motion.md)
+- [World objects and input](../world.md)
 
-**Prerequisite:** [Task 26: Schedule sound, particles, and attached effects on
-the shared clock](26-effect-occurrences.md) and all its required follow-ups must
-be integrated.
+**Prerequisite:** [Task 26: Schedule sounds, particles, and attached
+effects](26-effect-occurrences.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** Incarnation/visual lease ownership; scoped controls; generic
-effects; asset lifetime. Resolve these through source-map.md; its links track
-the current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** Incarnation/retained visual reference ownership; scoped
+controls; generic effects; asset lifetime.
 
-## Result
+## Example
 
-Dissolves and projectiles finish on retained old visuals without keeping logical
-components alive or affecting a replacement incarnation.
+An effect retains the native resources it still needs, not the logical card:
+
+```text
+remove card: detach handlers and subscriptions immediately
+dissolve and projectile continue on old native objects
+dissolve ends: projectile still retains its old anchor
+projectile ends: release the last retained resources
+```
 
 ## Implementation
 
 1. Transfer declared exit tracks and retaining effects from scoped component
-   ownership to task 15's frozen visual leases.
+   ownership to task 15's retained native visuals.
 
 2. Track host/material/font/anchor dependencies until their final exit/effect
    use. Keep anchors attached to the original incarnation while effects finish.
@@ -53,12 +60,10 @@ components alive or affecting a replacement incarnation.
 - Required exit work follows its gate contract; a stale completion cannot
   satisfy the replacement's gate.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 The full inspector/replay UI is task 29; this task exposes the observations
 needed to test retention.

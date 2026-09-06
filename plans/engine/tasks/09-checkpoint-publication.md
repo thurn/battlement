@@ -1,35 +1,43 @@
-# 09. Implement immutable checkpoint publication and backpressure
+# 09. Publish immutable checkpoints with at most one waiting
+
+A worker publishes ordered immutable snapshots with at most one pending
+checkpoint, using lazy builders after reservation.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Minimum interfaces](../interfaces.md)
+- [API examples and defaults](../interfaces.md)
 
-- [Execution contract](../execution.md)
-- [Presentation contract](../presentation.md)
-- [Validation contract](../validation.md)
+- [Rules and choices](../execution.md)
+- [Presentation timing](../presentation.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 08: Add public display driving and deterministic virtual
 time](08-public-display-driver.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** reactant-rules modes/worker endpoint from tasks 02-03; public
-display driver. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** reactant-rules modes/worker connection from tasks 02-03;
+public display driver.
 
-## Result
+## Example
 
-A worker publishes ordered immutable snapshots with at most one pending
-checkpoint, using lazy builders after reservation.
+The pending checkpoint limit must stop construction, not just queue insertion:
+
+```text
+checkpoint A visible; B pending
+worker reaches present(C): C builders have not run
+B commits: C may be built
+worker changes private state: A and B remain immutable
+```
 
 ## Implementation
 
-1. Add checkpoint ID/change indices and owned payload records to the endpoint.
-   Reserve the single publication slot before building snapshot/change data;
-   keep it reserved while the main thread prepares that checkpoint.
+1. Add checkpoint ID/change indices and owned payload records to the worker
+   connection. Reserve the single pending-checkpoint capacity before building
+   snapshot/change data; keep it reserved while the main thread prepares that
+   checkpoint.
 
 2. Implement cancellation checks on entry, after capacity acquisition, after
    payload construction, and after waits. Wake capacity waiters on
@@ -40,13 +48,14 @@ checkpoint, using lazy builders after reservation.
    ownership without designing a runtime deep-copy system.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
-   same bounded slot. Expose only public checkpoint/lifecycle observations to
-   scenarios.
+   same one-pending-checkpoint limit. Expose only public checkpoint/lifecycle
+   observations to scenarios.
 
 ## Acceptance
 
 - With checkpoint A presented and B pending, a worker attempting C has not
-  invoked C's builders. Releasing B's slot permits exactly one construction.
+  invoked C's builders. Releasing the capacity held by B permits exactly one
+  construction.
 
 - Mutation of worker state after publication does not change the displayed
   snapshot in a correct game-owned snapshot fixture.
@@ -54,15 +63,13 @@ checkpoint, using lazy builders after reservation.
 - Cancellation while blocked or building discards late output, unwinds after
   builder completion, and reports stopped after cleanup.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Prompt publication is task 10, application acceptance task 11, host-acknowledged
-commit task 12. Use a public endpoint consumer fixture, not a private channel
+commit task 12. Use a public display consumer fixture, not a private channel
 assertion.
 
 ## Manual QA

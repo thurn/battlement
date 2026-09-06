@@ -1,26 +1,34 @@
 # 05. Prepare iOS and Android release validation paths
 
+The cancellation fixture and future samples have reproducible iOS/Android build
+and validation entrypoints.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Execution contract](../execution.md)
-- [Validation contract](../validation.md)
+- [Rules and choices](../execution.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 04: Prove cancellation in the threaded WebGL release
 path](04-threaded-webgl-proof.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Plugin builds; Unity release/adapter builders; repository
-validation. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** Plugin builds; Unity release/adapter builders; repository
+validation.
 
-## Result
+## Example
 
-The cancellation fixture and future samples have reproducible iOS/Android build
-and validation entrypoints.
+Record which platform actually ran the fixture. Build success and device
+execution are separate observations:
+
+```text
+target: iOS Simulator / Android emulator / physical device
+artifact: exact release build ID
+scenario: cancel nested action; verify cleanup before stopped
+result: pass, fail, or not run with the missing prerequisite
+```
 
 ## Implementation
 
@@ -54,12 +62,10 @@ and validation entrypoints.
   distinction, all key flows, and sustained captures without blocking this
   overhaul on physical access.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Physical device execution remains a separate certification. Mobile sample
 content is added by its owning later task.

@@ -1,7 +1,9 @@
 # Validation and release evidence
 
-Read this for every task's acceptance and handoff. Also read the applicable
-repository [CI skill](../../.agents/skills/battlement-ci/SKILL.md), [Ditto
+Validate engine behavior through the public display API, then check actual Unity
+rendering and integration with native scenarios. Read this for each task's
+acceptance and review evidence. Also read the applicable repository [CI
+skill](../../.agents/skills/battlement-ci/SKILL.md), [Ditto
 skill](../../.agents/skills/battlement-ditto/SKILL.md), and [web
 skill](../../.agents/skills/battlement-web/SKILL.md) when relevant.
 
@@ -51,12 +53,12 @@ bounded event-driven waits; no fake-only direct call to a rules closure.
 ## Host conformance
 
 For each new host capability, test it through the Rust fake and a native Ditto
-specimen. The two executors consume the same public protocol, but a fake result
-alone does not establish Unity behavior.
+test scene. The two executors consume the same public protocol, but a fake
+result alone does not establish Unity behavior.
 
 Required native coverage includes interpolation, text/sprite ordering, shader
 overrides, particles/audio timing, input capture/modals, live anchor movement,
-inactive preparation, and no mixed commit generation on input.
+inactive preparation, and input handlers matching the complete visible update.
 
 Protocol fixture tests must include serialization, Unity consumption, and
 correlated returned events. Exercise duplicate delivery and stale IDs, not only
@@ -126,7 +128,7 @@ final overhaul can complete with that certification explicitly outstanding.
 
 ## Manual QA
 
-Use each task's exact specimen and reset instructions. Inspect rendered output
+Use each task's exact test scene and reset instructions. Inspect rendered output
 when appearance changes. For final acceptance, play Hearts, replay every
 migrated sample's required scenarios, then exercise the laboratory's failure,
 identity, and timing cases through the public inspector.

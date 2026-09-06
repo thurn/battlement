@@ -1,27 +1,34 @@
 # 46. Measure complete-card workloads and repair structural hotspots
 
+Fixed 300/500-card release workloads produce reproducible
+CPU/GPU/latency/allocation evidence and concrete bottleneck follow-ups.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Fixtures contract](../fixtures.md)
-- [Validation contract](../validation.md)
-- [Architecture contract](../architecture.md)
+- [Test scenes](../fixtures.md)
+- [Validation](../validation.md)
+- [Architecture](../architecture.md)
 
-**Prerequisite:** [Task 45: Complete effects, preparation, cancellation, and
-gate laboratory cases](45-effects-failures-laboratory.md) and all its required
-follow-ups must be integrated.
+**Prerequisite:** [Task 45: Complete animation, cancellation, and failure test
+scenes](45-effects-failures-laboratory.md) and all its required follow-ups must
+be integrated.
 
-**Source roles:** Existing motion performance capture; runtime
-reconciliation/layout; inspector counters; Hearts AI. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Existing motion performance capture; runtime
+reconciliation/layout; inspector counters; Hearts AI.
 
-## Result
+## Example
 
-Fixed 300/500-card release workloads produce reproducible
-CPU/GPU/latency/allocation evidence and concrete bottleneck follow-ups.
+Record the unchanged workload alongside measurements so results are comparable:
+
+```text
+cards: 300 and 500 complete composed views
+layouts: 30; concurrent movement/effect tracks: 30
+duration: at least ten minutes after warmup; AI enabled
+report CPU/GPU/frame/input distributions and every missed target
+```
 
 ## Implementation
 
@@ -63,12 +70,10 @@ CPU/GPU/latency/allocation evidence and concrete bottleneck follow-ups.
 - Public simulation primitive benchmarks still meet the separate
   no-allocation/static-dispatch contract.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Physical sustained device captures remain separate certification. Final
 cross-platform regression consolidation is task 47.

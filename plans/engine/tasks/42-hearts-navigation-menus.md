@@ -1,27 +1,34 @@
 # 42. Finish Hearts keyboard/controller navigation and menus
 
+The complete Hearts flow works without pointer input and communicates legal
+choices and focus visibly.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [World contract](../world.md)
-- [Validation contract](../validation.md)
+- [Hearts rules and behavior](../hearts.md)
+- [World objects and input](../world.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 41: Finish Hearts pointer, touch, drag, and inspection
 behavior](41-hearts-pointer-touch.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Hearts controls; world focus/navigation; existing UI
-modal/focus behavior. Resolve these through source-map.md; its links track the
-current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** Hearts controls; world focus/navigation; existing UI
+modal/focus behavior.
 
-## Result
+## Example
 
-The complete Hearts flow works without pointer input and communicates legal
-choices and focus visibly.
+Selection, focus, and legality are independent visible states:
+
+```text
+focus an illegal card -> it remains inspectable
+activate Play -> cannot submit that card
+open/close menu -> restore focus without losing selection
+switch to pointer -> do not submit a duplicate answer
+```
 
 ## Implementation
 
@@ -52,12 +59,10 @@ choices and focus visibly.
 - Pointer-to-controller switching does not lose selected cards or trigger a
   duplicate answer.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Continue-from-disk is connected by task 43. The menu may expose it only when the
 persistence capability exists.

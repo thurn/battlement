@@ -1,33 +1,40 @@
 # 24. Animate layout movement with continuous retargeting
 
+Layout changes, bespoke sequences, and explicit UI/world projection preserve
+visual continuity and arrive at current destinations.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Motion contract](../motion.md)
-- [World contract](../world.md)
-- [Identity contract](../identity.md)
-- [Presentation contract](../presentation.md)
+- [Animation](../motion.md)
+- [World objects and input](../world.md)
+- [Identity and state](../identity.md)
+- [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 23: Implement world Flexbox, Grid, fans, piles, and
 arcs](23-world-layout.md) and all its required follow-ups must be integrated.
 
-**Source roles:** World layouts; existing UI layout projection; unified Motion;
-UUID movement/ref matching. Resolve these through source-map.md; its links track
-the current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** World layouts; existing UI layout projection; unified Motion;
+UUID movement/ref matching.
 
-## Result
+## Example
 
-Layout changes, bespoke sequences, and explicit UI/world projection preserve
-visual continuity and arrive at current destinations.
+An ordinary identified card should move without root movement configuration:
+
+```rust
+Hand::new().child(Card::new().id(card_id))
+// Moving it on the next render uses the engine default spring.
+Table::new().child(Card::new().id(card_id))
+```
 
 ## Implementation
 
-1. Add root/default, inherited, and object movement policies resolved from the
-   destination logical ancestry. Policies receive source/destination
-   layout/pose, refs, and typed checkpoint changes when available.
+1. Supply the engine default spring movement with no required App setup. Add
+   inherited and object overrides resolved from the destination logical
+   ancestry. Policies receive source/destination layout/pose, refs, and typed
+   checkpoint changes when available.
 
 2. Implement live layout destinations as native targets. Reflow preserves
    playback identity/arrival dependencies, spring velocity, and current
@@ -46,6 +53,9 @@ visual continuity and arrive at current destinations.
 
 ## Acceptance
 
+- A game with no `.movement()` or MotionConfig declaration moves identified
+  objects automatically; inherited/object overrides still work.
+
 - A reveal step follows its own anchor while hand reflow changes only the
   pending destination; ready waits for actual arrival after the hand step
   starts.
@@ -59,12 +69,10 @@ visual continuity and arrive at current destinations.
 - Missing projection fails preparation; no implicit pixel/world conversion is
   invented.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Required checkpoint policy binding arrives in task 25. Hearts uses these
 policies in tasks 37-39.

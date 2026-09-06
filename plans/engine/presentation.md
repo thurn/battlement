@@ -1,116 +1,200 @@
-# Preparation, commit, and checkpoint advancement
+# Present complete states and wait for the right animation
 
-Read this when changing reconciliation delivery, assets, frame acknowledgements,
-required animation work, or failure recovery. See [execution](execution.md),
-[motion](motion.md), and [identity](identity.md).
+The display must never show half of a checkpoint or accept input using handlers
+from a different visible state. Prepare expensive work first, then update the
+visible objects and their handlers together. Keep the previous display usable
+while new assets load.
 
-## Generations and preparation
+Read this for reconciliation delivery, native resource loading, animation
+requirements, and frame acknowledgements. Related pages: [rules and
+checkpoints](execution.md), [animation](motion.md), [identity](identity.md), and
+[validation](validation.md).
 
-A **commit generation** identifies one complete visible host tree and handler
-table. A prepared proposal carries run ID, checkpoint ID, base commit
-generation, and desired render revision. Treat these as a structured identity,
-not a timestamp.
+## Prepare before changing what the player sees
 
-Rendering reads one presented/proposed snapshot and stable store version. It
-resolves identity, layout, assets, effect registrations, and inactive host
-resources before changing visible objects. The previous committed generation
-remains visible and interactive while preparation spans frames.
+A render reads one immutable game snapshot and one version of display stores. It
+describes the new tree, matches object identities, computes layout, and
+constructs animation/effect requests. Required assets, host properties, and
+inactive native objects must be ready before the result becomes visible.
 
-Immediately before committing, revalidate the proposal identity on the serial
-main-thread path. A newer store revision, replacement session, or different base
-commit invalidates obsolete preparation. Release its inactive resources and
-reserved playbacks, then prepare the newest revision for the same pending
-checkpoint. Do not skip a required checkpoint because display state changed.
+For example, loading artwork for a newly revealed card can span several frames:
 
-## Host transaction
+```text
+visible: face-down card, existing handlers, running hover animation
+prepare: load artwork; create inactive face; validate material parameters
+commit:  replace face, update handlers, start reveal animation together
+```
 
-Add typed prepare/ready/commit/discard operations and correlated results to the
-Battlement protocol. A preparation ID names the host-side inactive resource set.
-Each operation also carries the session and proposed commit identity. Preparing
-must not start animation, emit effects, or expose new input handlers.
+A **commit** is that complete visible update. A **commit generation** is its
+monotonically increasing identifier. Events use the identifier to reject work
+from an older visible state.
 
-At commit:
-1. Recheck the run and desired revision.
-2. Extract/reparent surviving identified hosts before destroying ancestors.
-3. Apply validated properties, attachment changes, and visibility changes.
-4. Install handler/ref mappings, playbacks, occurrences, and checkpoint gates.
-5. Publish the new generation and only then admit input against it.
+Each preparation records the run, checkpoint, current commit generation, and
+requested display revision. Recheck them immediately before committing. If the
+player changes a setting during preparation, discard the obsolete inactive
+resources and prepare the new version of that same pending checkpoint. Do not
+skip a required checkpoint just because display state changed.
 
-Unity executes the visible swap without yielding to another frame or input
-callback. Resource loading and large construction belong to preparation. This is
-not a promise of database rollback after arbitrary Unity failure: validate
-predictable failures before commit; an unexpected apply failure stops the
-session and exposes its failure surface.
+Abandonment also invalidates preparation. Discard reserved playback handles and
+inactive resources without starting sounds, particles, or input handlers.
 
-Rust's committed state advances on the correlated successful host commit.
-Maintain pending versus acknowledged trees explicitly. Until acknowledgement, do
-not dispatch new-generation events against the old handler table or accept a
-later commit. The fake must exercise the same prepare/commit/ack ordering.
+## Native preparation and acknowledgement
 
-## Required advancement gate
+Add prepare, ready, commit, and discard operations to the Battlement protocol.
+The following is an example exchange; game code does not construct it:
 
-A checkpoint has one advancement gate, composed from its required registrations.
-By default it waits for all required movement introduced by that checkpoint. A
-registration can bind its movement contribution to an earlier sequence label;
-other required contributions still apply. Cosmetic work never blocks it.
+```text
+Rust -> Unity: prepare update 18 for checkpoint 4
+Unity -> Rust: update 18 ready; all required assets loaded
+Rust -> Unity: commit update 18 as generation 9
+Unity -> Rust: generation 9 committed
+Unity -> Rust: checkpoint 4 had a rendering opportunity in generation 9
+```
 
-For example:
+Preparation IDs are scoped to the session. Requests and responses carry the
+session and preparation ID, with the run/checkpoint and revision data needed to
+reject obsolete work. A repeated request with the same identity and body has no
+additional effect. A different body using an existing identity is invalid.
+Missing required dependencies produce an identified preparation failure, not a
+successful response with missing resources.
 
-~~~text
-checkpoint 12:
-  card A -> sequence draw-A label ready
-  card B -> default layout movement complete
-  aura   -> cosmetic, excluded
-gate = draw-A.ready AND card-B.arrived
-~~~
+At commit, Unity performs these operations without yielding to another frame or
+input callback:
 
-An empty/equal-pose gate is immediately satisfied, but the rendering opportunity
-is still required. A checkpoint with no movement is not skipped in the same
-frame. Admit at most one checkpoint commit per rendered frame initially.
+1. Extract and reparent surviving identified objects before removing ancestors.
+2. Apply validated properties, attachments, and visibility changes.
+3. Install new handler/ref mappings and animation/effect registrations.
+4. Publish the new generation and allow input against it.
 
-## Rendering opportunity
+Rust retains pending and acknowledged trees separately. It adopts the new tree
+only after the matching commit acknowledgement. If an input event is queued
+before Rust processes that acknowledgement, hold it until the new handlers are
+installed, then validate its generation. Never dispatch it through old handlers
+or require a reentrant call into Rust.
 
-Unity reports a frame generation only after the committed checkpoint has had an
-opportunity to render with the gate already satisfied. A pre-gate frame does not
-count, nor does a frame from an earlier commit or abandoned run.
+Large object populations must be constructed inactive during preparation. The
+final visible swap must fit in one frame. Predictable failures are caught before
+commit. An unexpected Unity failure during the swap stops the session and shows
+a failure surface; do not pretend arbitrary native changes can be rolled back.
 
-Use a post-render/end-of-frame acknowledgement containing run, checkpoint,
-commit generation, and frame sequence. Do not treat command receipt, poll(), or
-elapsed wall-clock time as proof of presentation. The fake's advance_frame()
-performs the equivalent boundary and produces the same acknowledgement.
+## Tell the display when a checkpoint may advance
 
-Suspended/minimized hosts do not invent frames to unblock gameplay. Local pause
-policy may freeze playback; on resume the normal acknowledgement resumes.
+Each checkpoint collects the animation completions or labels it must wait for.
+This collection is its **advancement gate**: all required entries must be
+satisfied before the next checkpoint can replace it. Ordinary movement is
+required by default; cosmetic animation does not block progress.
 
-## Replacing required work
+For example, one checkpoint moves two cards while a glow continues indefinitely:
 
-A validated event permanently satisfies its contribution. Reflow keeps the
-existing playback/dependency; an authored replacement atomically rebinds an
-unsatisfied contribution to a successor playback ID, generation, and target
-label/completion.
+```text
+card A: wait for its draw sequence's "ready" label
+card B: wait until its ordinary movement arrives
+glow:   cosmetic; do not wait
+advance only when A is ready AND B has arrived
+```
 
-Accept host events and replacement commits on one serial path. An event accepted
-before replacement may satisfy the old contribution; after replacement, the old
-generation is stale even if it completed earlier on the host. A successor starts
-from the displayed pose. Never convert interrupted required work to success.
+An animation registration can choose an earlier label for its own movement. That
+replaces its default arrival requirement; it does not add a second requirement
+that still waits for arrival. Other cards' requirements remain. After the
+earlier label, remaining movement and cosmetic effects may continue.
 
-Required-track failure abandons the action. Cosmetic tracks may stop freely. A
-preparation error cannot silently omit required assets, targets, or gates.
+A registration is a callback that builds animation from one typed change. The
+component reads the current checkpoint with `use_checkpoint::<Change>()`,
+obtains scoped animation controls with `use_animate()`, and creates its
+compatible card and anchor refs during rendering. It declares the refs on its
+world children.
 
-## Checkpoint registrations
+For example, a `Card` component filters the game's change enum to draws of that
+card. The scoped name identifies this callback; the pattern selects which
+changes it handles:
 
-Provide a presentation-effect registration keyed by checkpoint, change index,
-and stable registration slot. It runs during preparation with typed changes,
-refs, and scoped animation controls. start() reserves a handle; require() binds
-its gate contribution. Playback starts only at successful commit.
+```rust
+let checkpoint = use_checkpoint::<Change>();
+let animate = use_animate();
+checkpoint.on_change(card_ref.scoped_name("draw"), move |change, requirement| {
+    if let Change::CardDrawn(id) = change {
+        if *id == card_id {
+            let playback = animate.start(draw_sequence(card_ref, reveal_ref));
+            requirement.require(playback.reached("ready"));
+        }
+    }
+});
+```
 
-Retrying preparation or rerendering reuses the occurrence identity. Do not start
-playback from ordinary render side effects. Event-driven animations use the same
-preparation machinery without needing a rules checkpoint.
+Here `card_id` is the rules card ID; `card_ref` is a typed ref on that
+component's native card group, and `reveal_ref` identifies a Rust-created
+anchor. The runtime resolves these against the prepared tree before running the
+callback. Missing or incompatible required refs fail preparation before any
+effect starts.
+
+The registration name is stable within that change and must be unique. The
+`scoped_name` helper combines this object's stable presentation identity with
+"draw", so multiple card components can declare the same local name safely. A
+parent can instead register one callback that handles several moved cards.
+Reject duplicate registrations with the same complete identity.
+
+The callback reserves playback rather than starting Unity work immediately.
+Rerenders, preparation retries, and duplicate delivery reuse the
+checkpoint/change/registration identity. Commit installs the playback and
+requirement together and starts it once. Event-driven `use_animate` uses the
+same preparation machinery without requiring a gameplay checkpoint.
+
+## A rendered frame is also required
+
+The next checkpoint needs both satisfied animation requirements and a rendering
+opportunity after satisfaction. Command receipt, a poll, or elapsed time is not
+proof that the player could see the state.
+
+Unity sends a post-render/end-of-frame acknowledgement containing run ID,
+checkpoint ID, commit generation, and frame sequence. Ignore acknowledgements
+for abandoned runs, old generations, or frames before the requirements were
+satisfied. The fake's `advance_frame()` produces the equivalent boundary.
+
+```text
+frame 10: card is still moving       -> cannot advance
+between frames: "ready" is reached   -> still cannot advance
+frame 11: checkpoint can render      -> next checkpoint may be committed
+```
+
+No-movement and equal-pose checkpoints satisfy animation requirements
+immediately, but still need this frame. Initially admit at most one checkpoint
+commit per rendered frame. Suspended or minimized hosts must not invent frames
+to unblock rules. On resume, use real playback and frame acknowledgements.
+
+## Replace animation without losing required work
+
+A reflow updates a movement's destination without changing what completion
+means. An explicitly authored replacement sequence must take over every
+unfinished requirement that belonged to the animation it replaces.
+
+For example, a draw waiting for `ready` can switch to a shorter animation:
+
+```text
+before replacement: wait for playback 20, generation 1, label "ready"
+after replacement:  wait for playback 21, generation 1, label "ready"
+late completion from playback 20: ignore
+```
+
+Process accepted events and replacement commits serially on the main thread. If
+an event satisfied the old requirement before replacement committed, retain that
+satisfaction permanently. Otherwise update the requirement to the new playback,
+generation, and label/completion atomically with replacement. Even if the old
+host animation finished earlier, an event accepted after replacement cannot
+satisfy the new requirement.
+
+Start replacement from the actual displayed pose. Cosmetic tracks may stop
+freely. Unfinished required work must finish, transfer responsibility, or fail
+and abandon the action. Never silently delete a requirement to make it pass.
+Inspection seeking and replay events cannot satisfy live requirements.
+
+A failed required track abandons the worker and that action's presentation,
+retains the last accepted state, and shows exit/restart. A new game must reject
+all late events from the failed run.
 
 ## Manual QA
 
-Hold asset preparation across frames while opening a menu. Replace that proposal
-and verify it never flashes onscreen or plays sound. Present two zero-duration
-checkpoints and confirm each receives its own rendered frame. Replace required
-motion just before and after a completion event and inspect the accepted gate.
+Delay artwork loading, change a setting, and verify only the latest prepared
+version becomes visible. During the swap, click the affected object and check
+that its visible state and handler agree. Step two no-animation checkpoints one
+frame at a time. Replace a required draw before and after `ready`, inject an old
+completion event, and verify advancement follows the rules above.

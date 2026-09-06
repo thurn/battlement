@@ -1,89 +1,128 @@
-# Reactant game engine implementation plan
+# Build a Rust component engine for Unity
 
-This is the execution package for replacing Battlement's UI-centric Reactant
-integration with a unified Rust component game engine. It is written for serial
-implementation by Luna subagents: select one numbered task, read its linked
-contracts, implement its concrete acceptance scenarios, and integrate it before
-starting the next.
+Reactant currently provides React-like UI components in Battlement. This work
+extends that component system to describe an entire turn-based game: its 3D
+objects, menus, animations, effects, and interaction. Game rules stay in Rust.
+Unity renders the result and supplies reusable input, animation, and audio
+capabilities.
 
-The target combines synchronous worker-owned rules, immutable presented
-checkpoints, a shared UI/world logical tree, application-wide UUID identity, and
-one host-executed Motion model. Battlement remains the generic Unity execution
-layer. Reactant and Battlement stay in this repository with a one-way
-Reactant-to-Battlement dependency.
+The central change is that a game describes what should be visible instead of
+manually sending Unity a sequence of object commands. A card declared in a hand
+moves to the table when its next declaration puts it there. Its UUID preserves
+its component state and visual identity during that move. UI and 3D objects
+share props, hooks, context, and event propagation.
 
-## Authority and fixed delivery contract
+Rules execute on a worker as ordinary synchronous functions. They can publish an
+intermediate state, ask a player to choose a card, and continue after that
+choice. Unity's main thread remains free to animate the table and respond to
+menus. AI simulations call those same rules functions without building display
+snapshots or waiting for animation.
 
-This package translates the high-level Reactant game-engine proposal and the
-resolved design decisions into implementation requirements. It is standalone:
-implementors do not need the original Downloads file or the planning
-conversation. Read shared contracts as normative behavior; code examples
-illustrate intended authoring and may improve within those contracts.
+## A small example
 
-- Implement the full proposed v1 engine with neutral fixtures and a playable
-  Hearts reference. No Dreamtides repository, port, code, or assets are in
-  scope.
-- Keep basic and ui as direct Battlement examples. Migrate tictactoe, chess,
-  reactant, and currently implemented chess-ui content while preserving
-  behavior.
-- Rework or delete tests that assert implementation details. Preserve meaningful
-  external guarantees and prove replacement assertions before sample migration.
-- Chess may retain opaque visual prefabs. Hearts cards use Rust-composed hosts.
-  Typed prefab-part binding and humanoid root motion remain outside v1.
-- Rules may expose generic mode/policy parameters. One synchronous
-  implementation serves interactive play and statically dispatched
-  allocation-free primitives in simulation.
-- Hearts is a fixed-rule four-player game: one human, three bounded simulation
-  AI opponents, angled 3D tabletop, full input support, autosave and resume. Its
-  exact rules/UX/defaults are in [Hearts](hearts.md).
-- Desktop native and actual threaded WebGL functional validation are required.
-  Add mobile support and reproducible validation paths; physical iPhone 17 and
-  Galaxy S25 certification is a separate follow-up.
-- Keep the 300/500-card benchmarks and sustained captures. Report the proposal's
-  performance numbers as targets, not completion gates. Correctness and the
-  simulation primitive contract remain mandatory.
-- Implementors may improve APIs and add reusable engine capabilities needed by
-  their task. Changes to agreed semantics, scope, or acceptance need a user
-  decision. Update the owning contract and dependent callers when APIs evolve.
+A **checkpoint** is an immutable snapshot of game state together with
+descriptions of what changed. The display presents checkpoints in order. For
+example, a draw should become visible before the energy it grants changes on
+screen:
 
-## Reading guide
+```rust
+draw_card(state);
+cx.present(|| state.clone(), || Change::CardDrawn(card));
+gain_energy(state);
+cx.present(|| state.clone(), || Change::EnergyGained(1));
+```
 
-Start with this document, then open only the selected task and relevant shared
-contracts. Each rule has one authoritative home; task acceptance specializes it.
+These are proposed APIs. The closure arguments keep snapshot construction out of
+simulations. The implementation task for each API must add a compiling example
+with the same authoring simplicity.
+
+The display component uses the current snapshot to describe both domains:
+
+```rust
+(
+    Hand::new().cards(view.hand()),
+    UiRoot::new().child(EnergyLabel::new().amount(view.energy())),
+)
+```
+
+The display can animate the drawn card before showing the next checkpoint.
+Hover, inspection, and settings remain usable while that animation runs. [Rules
+and choices](execution.md) explains the worker behavior; [animation](motion.md)
+shows the corresponding draw sequence.
+
+## What this implementation includes
+
+The deliverable is a working engine, migrated samples, and a playable Hearts
+sample that exercises the engine as an application.
+
+- **One component runtime:** shared state and identity for UI Toolkit elements
+  and Unity world objects, including movement between parents and portals.
+- **Rust-built visuals:** sprites, meshes, world text, hit regions, attachment
+  points, layouts, material effects, and card hierarchies composed in Rust.
+- **One animation system:** property changes, layout movement, gestures,
+  sequences, audio, and particles share timing and playback controls. Ordinary
+  movement has an engine default; applications need not configure it.
+- **Synchronous rules:** intermediate snapshots, typed choices, safe
+  cancellation, and final state acceptance after presentation finishes.
+- **Simulation:** the same rules with inline choice policies and no mandatory
+  allocation or display work in execution primitives.
+- **Sample migration:** preserve tic-tac-toe, chess, the Reactant laboratory,
+  and the implemented chess-ui gallery. Keep basic and ui as direct Battlement
+  examples. Preserve player-visible tests, replacing assertions about obsolete
+  commands with assertions about the behavior those commands produced.
+- **Hearts:** one human and three AI players, a 3D table, full mouse/touch and
+  keyboard/controller input, scoring, and durable save/resume.
+- **Validation tools:** a public display test driver, a presentation inspector,
+  focused interactive examples, and fixed 300/500-card performance workloads.
+
+Reactant depends on Battlement in this repository. Battlement supplies generic
+Unity execution and must not depend on Reactant, including in build tools. Chess
+may keep its opaque piece prefabs. Rust builds the Hearts cards and the richer
+card-composition examples from primitives. Typed access to prefab parts and
+humanoid root motion are not included in this implementation.
+
+Desktop native and threaded desktop WebGL must pass functional validation. Add
+reproducible iOS and Android build and validation paths. Physical iPhone 17 and
+Galaxy S25 certification is tracked separately. The numerical performance
+targets in [test scenes and performance](fixtures.md) guide measurement and
+improvement; missed targets must be reported, but do not waive correctness or
+change the workload.
+
+## Where to read next
+
+The topic documents explain the design. A numbered task is the assignment for
+its part of the implementation; it links the relevant topics and starting code.
 
 | When should you read this? | Document |
 | --- | --- |
-| Starting or handing off any task | [Serial workflow](workflow.md) and [validation](validation.md) |
-| Finding existing code or following moved modules | [Source map](source-map.md) |
-| Choosing crate/API/host ownership | [Architecture and authoring](architecture.md) |
-| Implementing game/choice traits, endpoint records, host messages | [Minimum interfaces](interfaces.md) |
-| Rules, choices, simulation, cancellation, saving | [Execution](execution.md) |
-| Preparation, commit identity, frames, required gates | [Presentation](presentation.md) |
-| UUID moves, refs, context, removal, stores | [Identity](identity.md) |
-| Animation, effects, property owners, sequencing, replay | [Motion](motion.md) |
-| Primitives, layouts, projection, hit testing/input | [World](world.md) |
-| Existing samples or test rewrites | [Migration](migration.md) |
-| Hearts rules, assets, AI, input, persistence | [Hearts](hearts.md) |
-| Inspector, neutral specimens, performance fixtures | [Fixtures](fixtures.md) |
-| Checking that all proposal requirements have an owner | [Coverage](coverage.md) |
+| Understanding what game code looks like and who owns what | [Architecture](architecture.md) |
+| Implementing or simplifying the rules API | [API examples and defaults](interfaces.md) |
+| Working on rules, choices, cancellation, simulation, or saving | [Execution](execution.md) |
+| Updating visible objects or waiting for animation before advancing | [Presentation](presentation.md) |
+| Moving components, preserving refs, or removing objects | [Identity and state](identity.md) |
+| Building transitions, sequences, effects, or replay controls | [Animation](motion.md) |
+| Adding world visuals, layouts, or input | [World objects](world.md) |
+| Migrating a sample or its tests | [Migration](migration.md) |
+| Implementing the playable card game | [Hearts](hearts.md) |
+| Building interactive examples, inspector tools, or benchmarks | [Test scenes and performance](fixtures.md) |
+| Checking requirements against their tasks and evidence | [Coverage checklist](coverage.md) |
+| Finding the current implementation | [Source map](source-map.md) |
+| Starting a task or validating a completed one | [Workflow](workflow.md) and [validation](validation.md) |
 
-## Task order
+## Implementation order
 
-The sequence is strictly serial. Every task depends on all earlier integrated
-tasks, even when its page highlights only the immediate predecessor. Task
-numbers are review/integration boundaries, not permission to leave unmentioned
-behavior broken.
+Execute the tasks below serially. Each task builds on all earlier completed
+ones. Keep existing callers working when an API changes; a later sample
+migration is not permission to leave that sample unable to compile.
 
-Each task supplies source roles, ordered work, exact observable acceptance,
-named deferrals, and manual QA. The source map resolves roles to actual files
-and must be updated when files move. A task changing an API updates all current
-callers immediately; later sample tasks migrate behavior, not broken imports.
+Improve API ergonomics and add reusable capabilities when the assigned behavior
+needs them. Keep the examples and affected task pages consistent with those
+improvements. Do not remove requirements or change game behavior to fit an
+implementation shortcut.
 
-Tasks 03-05 are real platform work, not speculative design spikes that can be
-declared successful from compiler flags. Missing toolchain or asset
-prerequisites must be reported concretely. Task 35 needs access to the KayKit
-EXTRA archive; earlier engine tasks do not.
-
+Tasks 03–05 establish working platform support, including actual worker
+cancellation through Rust/Unity. Task 35 needs access to the KayKit EXTRA asset
+archive; earlier engine work does not depend on those assets.
 
 ### Execution foundations
 
@@ -103,23 +142,23 @@ EXTRA archive; earlier engine tasks do not.
    Battlement](tasks/07-asset-tooling-boundary.md)
 8. [Add public display driving and deterministic virtual
    time](tasks/08-public-display-driver.md)
-9. [Implement immutable checkpoint publication and
-   backpressure](tasks/09-checkpoint-publication.md)
+9. [Publish immutable checkpoints with at most one
+   waiting](tasks/09-checkpoint-publication.md)
 10. [Implement typed interactive prompts and validated
     answers](tasks/10-typed-prompts.md)
-11. [Integrate action admission, accepted state, and failure
-    surfaces](tasks/11-accepted-action-runtime.md)
-12. [Add prepared host commits and rendered-frame
-    acknowledgement](tasks/12-host-transactions.md)
+11. [Accept completed actions and recover from
+    failures](tasks/11-accepted-action-runtime.md)
+12. [Prepare native updates and acknowledge rendered
+    frames](tasks/12-host-transactions.md)
 
 ### Unified objects, input, and motion
 
 13. [Render world and UI contributions from one logical
     tree](tasks/13-mixed-logical-tree.md)
-14. [Preserve UUID identity across parents, roots, and
+14. [Keep UUID identity across parents, roots, and
     portals](tasks/14-global-presentation-identity.md)
-15. [Separate logical unmount from retained visual
-    lifetime](tasks/15-incarnations-and-removal.md)
+15. [Remove components while keeping unfinished exit
+    visuals](tasks/15-incarnations-and-removal.md)
 16. [Add stable snapshot selectors and queued display
     stores](tasks/16-snapshot-selectors-stores.md)
 17. [Add sprites, meshes, world text, and material
@@ -130,10 +169,10 @@ EXTRA archive; earlier engine tasks do not.
     capture](tasks/19-unified-pointer-routing.md)
 20. [Extend focus, controller navigation, and touch across
     domains](tasks/20-world-focus-touch.md)
-21. [Use shared Motion drivers for UI, world, and native
-    properties](tasks/21-shared-motion-drivers.md)
-22. [Implement immutable sequences and completion-relative
-    labels](tasks/22-sequence-dependencies.md)
+21. [Animate UI, world objects, and effects with shared
+    drivers](tasks/21-shared-motion-drivers.md)
+22. [Build sequences with labels that follow actual
+    completion](tasks/22-sequence-dependencies.md)
 23. [Implement world Flexbox, Grid, fans, piles, and
     arcs](tasks/23-world-layout.md)
 24. [Animate layout movement with continuous
@@ -141,10 +180,10 @@ EXTRA archive; earlier engine tasks do not.
 
 ### Presentation and existing sample migrations
 
-25. [Bind checkpoint registrations to Motion and rendered
-    acceptance](tasks/25-checkpoint-motion-gates.md)
-26. [Schedule sound, particles, and attached effects on the shared
-    clock](tasks/26-effect-occurrences.md)
+25. [Start checkpoint animations and wait before
+    advancing](tasks/25-checkpoint-motion-gates.md)
+26. [Schedule sounds, particles, and attached
+    effects](tasks/26-effect-occurrences.md)
 27. [Retain exits, anchors, and effects after logical
     unmount](tasks/27-effect-exit-retention.md)
 28. [Implement safe seek, resume, and explicit presentation
@@ -174,33 +213,32 @@ EXTRA archive; earlier engine tasks do not.
     transfers](tasks/38-hearts-passing.md)
 39. [Complete Hearts card play, trick collection, and
     scoring](tasks/39-hearts-play-scoring.md)
-40. [Add bounded information-respecting Hearts
-    simulations](tasks/40-hearts-simulation-ai.md)
+40. [Choose Hearts moves by simulating possible
+    hands](tasks/40-hearts-simulation-ai.md)
 41. [Finish Hearts pointer, touch, drag, and inspection
     behavior](tasks/41-hearts-pointer-touch.md)
 42. [Finish Hearts keyboard/controller navigation and
     menus](tasks/42-hearts-navigation-menus.md)
-43. [Implement durable accepted-boundary Hearts
-    saves](tasks/43-hearts-save-resume.md)
+43. [Save completed Hearts actions durably and resume
+    them](tasks/43-hearts-save-resume.md)
 
 ### Complete coverage and integration
 
-44. [Complete identity, composition, layout, and input laboratory
-    cases](tasks/44-identity-composition-laboratory.md)
-45. [Complete effects, preparation, cancellation, and gate laboratory
-    cases](tasks/45-effects-failures-laboratory.md)
+44. [Complete component, layout, and input test
+    scenes](tasks/44-identity-composition-laboratory.md)
+45. [Complete animation, cancellation, and failure test
+    scenes](tasks/45-effects-failures-laboratory.md)
 46. [Measure complete-card workloads and repair structural
     hotspots](tasks/46-performance-workloads.md)
-47. [Run final native, threaded-WebGL, and mobile build
-    conformance](tasks/47-release-conformance.md)
+47. [Validate native, threaded WebGL, and mobile
+    builds](tasks/47-release-conformance.md)
 48. [Remove transitional machinery and audit the finished
     architecture](tasks/48-retire-adapters-final-audit.md)
 
 ## Manual QA
 
-A coordinator should hand one task to a fresh reader with only this package and
-the repository. The reader must locate the starting code, explain the fixed
-contracts, and identify the exact behavior/tests that make the task complete.
-For the final engine, play Hearts and the migrated samples, then use the
-laboratory/inspector to exercise identity, failure, cancellation, and timing
-cases.
+Open the task you are implementing and follow its linked examples and source
+pointers. You should be able to explain the intended user interaction and the
+observations that prove it works. For final validation, play Hearts and each
+migrated sample, then exercise cancellation, object movement, and animation
+replacement in the test scenes using the inspector.

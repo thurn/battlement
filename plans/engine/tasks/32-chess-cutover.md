@@ -1,28 +1,35 @@
 # 32. Complete chess application integration and remove the old engine
 
+The default playable chess sample runs entirely through Reactant without losing
+its current game flow or effects.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Migration contract](../migration.md)
-- [Execution contract](../execution.md)
-- [Motion contract](../motion.md)
-- [Validation contract](../validation.md)
+- [Sample migration](../migration.md)
+- [Rules and choices](../execution.md)
+- [Animation](../motion.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 31: Port chess board composition and move presentation
 in a fixture](31-chess-reactant-fixture.md) and all its required follow-ups must
 be integrated.
 
-**Source roles:** Task 31 chess fixture; existing chess AI, persistence,
-diagnostics, audio, spawn and input code. Resolve these through source-map.md;
-its links track the current owner after crate moves. Inspect the concrete caller
-and host/fake counterpart before editing.
+**Starting code:** Task 31 chess fixture; existing chess AI, persistence,
+diagnostics, audio, spawn and input code.
 
-## Result
+## Example
 
-The default playable chess sample runs entirely through Reactant without losing
-its current game flow or effects.
+The completed sample must retain more than legal board moves:
+
+```text
+start -> opening piece animation and music
+move -> AI response, movement sounds, optional check sound
+save and reopen -> same accepted board and settings
+reset during AI -> new game ignores the old result
+```
 
 ## Implementation
 
@@ -60,12 +67,10 @@ its current game flow or effects.
 - No legacy chess engine or temporary adapter remains necessary for normal
   gameplay.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 No new chess rules, AI-strength redesign, or completion of unrelated chess-ui
 pages.

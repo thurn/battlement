@@ -1,26 +1,34 @@
 # 04. Prove cancellation in the threaded WebGL release path
 
+The real threaded WebGL plugin/player executes and catches the same cancellation
+unwind as native.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Execution contract](../execution.md)
-- [Validation contract](../validation.md)
+- [Rules and choices](../execution.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 03: Prove native worker cancellation and Rust
 cleanup](03-native-cancellation.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Plugin builds; Unity release/adapter builders; native
-cancellation fixture from task 03. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Plugin builds; Unity release/adapter builders; native
+cancellation fixture from task 03.
 
-## Result
+## Example
 
-The real threaded WebGL plugin/player executes and catches the same cancellation
-unwind as native.
+The proof must run through the browser-hosted Unity player, not only a Rust test
+executable:
+
+```text
+release WebGL player: actual thread starts the rules action
+Cancel: Rust unwinds and runs its nested destructors
+replacement menu: still responds
+ordinary panic: reports execution failure instead of cancellation
+```
 
 ## Implementation
 
@@ -36,7 +44,7 @@ unwind as native.
    SharedArrayBuffer/thread operation. Verify the rules action runs off the UI
    thread and the cancellation boundary stays inside Rust.
 
-4. Retain a reproducible release build/run check for nested cleanup, endpoint
+4. Retain a reproducible release build/run check for nested cleanup, worker
    cancellation, and ordinary panic. Treat unsupported toolchain behavior as a
    task blocker to repair, not permission to substitute abort or cooperative
    main-thread execution.
@@ -52,12 +60,10 @@ unwind as native.
 - The tested build proves actual threading and isolation, and its build inputs
   enforce the required panic/runtime compatibility.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Physical mobile certification and performance thresholds are not this task.
 Mobile build paths follow in task 05.

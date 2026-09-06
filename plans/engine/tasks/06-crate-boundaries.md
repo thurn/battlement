@@ -1,27 +1,33 @@
 # 06. Extract shared Reactant core, UI layer, and facade
 
+The existing UI behavior runs through the new crate boundaries without a second
+component runtime.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Architecture contract](../architecture.md)
-- [Identity contract](../identity.md)
-- [Migration contract](../migration.md)
+- [Architecture](../architecture.md)
+- [Identity and state](../identity.md)
+- [Sample migration](../migration.md)
 
 **Prerequisite:** [Task 05: Prepare iOS and Android release validation
 paths](05-mobile-build-paths.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Application and engine integration; tree representation;
-hooks/context; input/focus; asset declarations. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Application and engine integration; tree representation;
+hooks/context; input/focus; asset declarations.
 
-## Result
+## Example
 
-The existing UI behavior runs through the new crate boundaries without a second
-component runtime.
+A local settings panel must remain independent of game execution after the crate
+move:
+
+```rust
+App::new().root(SettingsPanel::new())
+// No game state, action type, or rules worker is needed.
+```
 
 ## Implementation
 
@@ -55,12 +61,10 @@ component runtime.
 - Cargo dependency inspection shows UI -> core and facade -> core/UI/rules with
   no reverse facade dependency or duplicated hook runtime.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 The Reactant asset CLI reversal is task 07; world host construction is task 13.
 Do not redesign sample behavior here.

@@ -1,27 +1,35 @@
 # 13. Render world and UI contributions from one logical tree
 
+One stateful component can own a world hierarchy and a UI portal contribution
+with shared hooks/context.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Architecture contract](../architecture.md)
-- [Identity contract](../identity.md)
-- [Presentation contract](../presentation.md)
+- [Architecture](../architecture.md)
+- [Identity and state](../identity.md)
+- [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 12: Add prepared host commits and rendered-frame
-acknowledgement](12-host-transactions.md) and all its required follow-ups must
-be integrated.
+**Prerequisite:** [Task 12: Prepare native updates and acknowledge rendered
+frames](12-host-transactions.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** Extracted tree construction and host adapter; application
-roots; existing GameObject protocol. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Extracted tree construction and host adapter; application
+roots; existing GameObject protocol.
 
-## Result
+## Example
 
-One stateful component can own a world hierarchy and a UI portal contribution
-with shared hooks/context.
+A card component can share selection state between a world visual and a UI
+portal:
+
+```rust
+(
+    CardVisual::new().card(card),
+    Portal::to(details_panel).child(CardDetails::new().card(card)),
+)
+```
 
 ## Implementation
 
@@ -52,12 +60,10 @@ with shared hooks/context.
 - Adding/removing a UI contribution does not remount its sibling world component
   or vice versa.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Cross-parent UUID continuity is task 14. Rich world primitives arrive in tasks
 17-18. Existing group/prefab rendering must work now.

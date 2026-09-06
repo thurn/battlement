@@ -1,33 +1,49 @@
-# 25. Bind checkpoint registrations to Motion and rendered acceptance
+# 25. Start checkpoint animations and wait before advancing
+
+Each checkpoint starts its declared animations once. The next checkpoint and
+saving wait for the required completion or label and a rendered frame.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Minimum interfaces](../interfaces.md)
+- [API examples and defaults](../interfaces.md)
 
-- [Presentation contract](../presentation.md)
-- [Motion contract](../motion.md)
-- [Execution contract](../execution.md)
+- [Presentation timing](../presentation.md)
+- [Animation](../motion.md)
+- [Rules and choices](../execution.md)
 
 **Prerequisite:** [Task 24: Animate layout movement with continuous
 retargeting](24-layout-movement-projection.md) and all its required follow-ups
 must be integrated.
 
-**Source roles:** Application checkpoint admission; host transactions/frame
-acknowledgement; sequence events; movement policies. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Application checkpoint admission; host transactions/frame
+acknowledgement; sequence events; movement policies.
 
-## Result
+## Example
 
-Typed checkpoint changes prepare exactly-once animations whose required
-labels/completions pace gameplay and saving.
+A change callback chooses which animation event allows this checkpoint to
+advance; playback still begins only after preparation commits:
+
+```rust
+let checkpoint = use_checkpoint::<Change>();
+let animate = use_animate();
+checkpoint.on_change(card_ref.scoped_name("draw"), move |change, required| {
+    if let Change::CardDrawn(id) = change {
+        if *id == card_id {
+            let playback = animate.start(draw_sequence(card_ref, reveal_ref));
+            required.require(playback.reached("ready"));
+        }
+    }
+});
+```
 
 ## Implementation
 
-1. Add the checkpoint/change/registration-slot presentation-effect API. Evaluate
+1. Add callbacks for typed checkpoint changes, identified by a stable name
+   within each change. Provide scoped names based on stable presentation
+   identity and resolve declared refs before evaluating the callback. Evaluate
    it during preparation, reserve playback handles, and atomically install
    visible tree, playback registration, occurrences, and required contributions
    at commit.
@@ -36,9 +52,10 @@ labels/completions pace gameplay and saving.
    choose an earlier label for its own contribution while preserving other
    required contributors.
 
-3. Implement permanent satisfaction and atomic successor rebinding for
-   unfinished required work. Serialize event acceptance with replacement commits
-   and reject stale playback generations.
+3. Keep an already accepted completion satisfied. When replacing unfinished
+   animation, update its requirement to the successor playback and label in the
+   same commit. Serialize event acceptance with replacement commits and reject
+   stale playback generations.
 
 4. Require a rendering opportunity at or after gate satisfaction before
    admitting another checkpoint or accepting final state. Keep cosmetic work
@@ -64,12 +81,10 @@ labels/completions pace gameplay and saving.
 - A final worker result enables saving only after its real gate and rendering
   acknowledgement.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Sound/burst occurrences are task 26 and replay isolation task 28. No fake-only
 shortcut may satisfy the live gate.

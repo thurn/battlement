@@ -1,34 +1,41 @@
-# 11. Integrate action admission, accepted state, and failure surfaces
+# 11. Accept completed actions and recover from failures
+
+A game App coordinates private worker actions while retaining a safe accepted
+state and responsive display stores.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Minimum interfaces](../interfaces.md)
+- [API examples and defaults](../interfaces.md)
 
-- [Execution contract](../execution.md)
-- [Presentation contract](../presentation.md)
-- [Architecture contract](../architecture.md)
+- [Rules and choices](../execution.md)
+- [Presentation timing](../presentation.md)
+- [Architecture](../architecture.md)
 
 **Prerequisite:** [Task 10: Implement typed interactive prompts and validated
 answers](10-typed-prompts.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Application/engine integration; worker completion records; UI
-failure surface; existing chess saves. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Application/engine integration; worker completion records; UI
+failure surface; existing chess saves.
 
-## Result
+## Example
 
-A game App coordinates private worker actions while retaining a safe accepted
-state and responsive display stores.
+Do not equate starting work with accepting its final state:
+
+```text
+dispatch legal action -> Started(run_id)
+worker returns        -> still busy while final animation runs
+animation and frame finish -> accept state; allow next action and save
+```
 
 ## Implementation
 
-1. Add the game application adapter with fork_state, action dispatch, presented
-   snapshot provider, accepted-state notification, and active-run lifecycle.
+1. Add the game application adapter with default/custom state copying, action
+   dispatch, presented snapshot provider, accepted-state notification, and
+   active-run lifecycle.
 
 2. Return Busy while an action/prompt is unresolved. Otherwise run the game's
    pure bounded validate_action against accepted state; return Invalid(reason)
@@ -61,12 +68,10 @@ state and responsive display stores.
 - Menus/store updates remain responsive while the worker publishes or waits, and
   only one interactive action is active.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Do not ship a fake 'rendered immediately' implementation: until task 12,
 exercise acceptance through the explicit public fixture host. Motion-dependent

@@ -1,165 +1,270 @@
-# Minimum public interfaces and implementation starting shapes
+# Rules API: start with state and a function
 
-Read this with [execution](execution.md), [architecture](architecture.md), and
-[presentation](presentation.md) when implementing tasks 02, 09-12, or 25. These
-sketches make the data flow concrete for implementors. They are proposed Rust
-shapes, not APIs that already exist. Task 02 must replace its sketch with a
-compiling example once implemented.
+A simple game should need ordinary state and a rules function, not a collection
+of framework-specific types. Register that function with the application, then
+use an executor to present intermediate states or request choices. This page
+specifies the public authoring contract and the small amount of type machinery
+needed to support both interactive play and simulation.
 
-## Game and choice interfaces
+Read this for tasks 02 and 09–11. Related pages: [application
+composition](architecture.md), [worker behavior](execution.md), and
+[presentation timing](presentation.md). The API examples describe the interface
+to implement. Task 02 must make the representative examples compile before other
+tasks build on them.
 
-The game supplies mutable state, immutable snapshots, ordered changes, typed
-prompt/answer envelopes, and a borrowed decision view for simulation policies.
-Keep the borrowed decision view separate from the owned display prompt: building
-an interactive prompt must never be necessary for a simulation choice.
+## The default case
 
-A suitable starting trait shape is:
+A rules function receives state, an action, and its execution context. The same
+function is generic over interactive or simulation execution:
 
-~~~rust
-trait Game: Sized + 'static {
-    type State: Send + 'static;
-    type Snapshot: Send + 'static;
-    type Change: Send + 'static;
-    type Changes: IntoIterator<Item = Self::Change> + Send + 'static;
-    type Action: Send + 'static;
-    type Prompt: Send + 'static;
-    type Answer: Send + 'static;
-    type Decision<'a> where Self: 'a;
-
-    fn validate_action(state: &Self::State, action: &Self::Action)
-        -> Result<(), ActionRejection>;
-    fn fork_state(state: &Self::State) -> Self::State;
-    fn final_checkpoint(state: &Self::State)
-        -> (Self::Snapshot, Self::Changes);
+```rust
+fn apply<M: ExecutionMode<Counter>>(
+    state: &mut Counter, action: Add, cx: &mut Executor<Counter, M>,
+) {
+    state.total += action.amount;
+    cx.present(|| state.clone(), || ());
 }
-~~~
+```
 
-Use a separate generic execute method/function that takes State, Action, and
-Executor<Game, Mode>. A Game registration can bind that function to App without
-a trait-object call inside each rules primitive. It is acceptable to erase the
-outer action dispatch once per action; simulation's inner choose/present path
-must remain statically dispatched.
+Registration infers the state and action types. The interactive function is
+specialized when passed to `.rules`; type inference should make an explicit mode
+argument unnecessary in the normal application call:
 
-Each typed choice builds an owned prompt only for interactive mode. A
-ChoiceRejection is public invalid-answer feedback, such as wrong variant or
-illegal card; it is not a worker failure.
+```rust
+let game = Game::new().state(Counter::default()).rules(apply);
+App::new().game(game).root(CounterDisplay::new())
+```
 
-~~~rust
-trait ChoiceSpec<G: Game> {
-    type Answer;
-    fn prompt(&self, state: &G::State) -> G::Prompt;
-    fn decision<'a>(&'a self, state: &'a G::State) -> G::Decision<'a>;
-    fn validate(&self, state: &G::State, answer: G::Answer)
-        -> Result<Self::Answer, ChoiceRejection>;
+Implement these defaults:
+
+- Clone state to create the worker's private copy and the final snapshot.
+- Use `()` when the game has no semantic change descriptions.
+- Accept actions when no validator is supplied. The application still returns
+  `Busy` while another action is running or awaiting presentation.
+- Publish a final snapshot automatically when the rules function returns.
+- Require no prompt or answer types for a game that never asks a question.
+- Use the engine's default movement transition without application setup.
+
+`Game` is a builder supplied by the engine. Game authors do not implement it.
+There is no game-wide associated-type list for state, snapshot, action, changes,
+prompt, answer, or policy decisions.
+
+The display reads the current snapshot and dispatches actions through context.
+For example, clicking Add updates the counter through the registered function:
+
+```rust
+fn counter_display() -> impl Render {
+    let view = use_game_snapshot::<Counter>();
+    let actions = use_game_actions::<Add>();
+    (
+        Label::new().text(view.total.to_string()),
+        Button::new().text("Add one")
+            .on_click(move |_| actions.dispatch(Add { amount: 1 })),
+    )
 }
-trait ChoicePolicy<G: Game> {
-    fn choose(&mut self, decision: G::Decision<'_>) -> G::Answer;
+```
+
+The action handle returns `Started`, `Busy`, or `Invalid`. It does not directly
+mutate the snapshot. The new value appears when the worker's checkpoint is
+presented. `CounterDisplay` is the component wrapping this render function.
+
+## Customize only what the game needs
+
+A larger game can choose cheaper or safer copies and typed change descriptions.
+These are independent callbacks on the registration, inferred from their values:
+
+```rust
+Game::new()
+    .state(saved_or_new)
+    .fork(HeartsState::clone)
+    .snapshot(HeartsState::visible_to_south)
+    .changes::<Change>()
+    .validate(validate_action)
+    .rules(resolve)
+```
+
+Omitting `.fork()` uses `Clone`. A custom fork must produce an independent
+mutable state; sharing immutable data through `Arc` is fine. A state that is not
+`Clone` must provide its own fork and snapshot callbacks. Builder methods can
+change the builder's Rust type to express these choices on stable Rust; do not
+rely on unstable associated-type defaults.
+
+The `.snapshot()` callback also supplies snapshots for prompts and normal
+completion. Explicit `present` calls must produce that same snapshot type. The
+optional `.changes::<Change>()` selects the typed changes for this game;
+omitting it uses `()`. An implemented API may infer that type from a callback
+instead, provided ordinary call sites remain clear. The final checkpoint has an
+empty change list by default. Provide an optional final-change builder for games
+that need a distinct completion animation, without duplicating the final
+snapshot.
+
+For example, a game can publish a single change or an ordered group. Builders
+are lazy in both cases:
+
+```rust
+cx.present(|| state.visible_to_south(), || Change::CardPlayed(card));
+cx.present_many(|| state.visible_to_south(), || [
+    Change::TrickCollected(winner), Change::ScoreChanged(winner),
+]);
+```
+
+Single-change publication assigns index zero. Group indices follow iteration
+order. The executor must accept game-selected immutable snapshots and change
+collections; it must not require a separate collection type on a game trait.
+
+## Choices have local types
+
+A **choice specification** describes one decision and how to validate its
+answer. For example, selecting a card returns `CardId`; selecting three cards
+returns a three-card collection. These types belong to that choice, not a
+mandatory game-wide prompt/answer enum.
+
+Provide built-in single- and multiple-selection specifications. They borrow
+eligible values for simulation and create an owned display prompt only when
+interactive execution needs it:
+
+```rust
+let legal = state.legal_cards(player);
+let card = cx.choose(state, SelectOne::new().options(&legal));
+state.play(card);
+```
+
+`choose` receives an immutable borrow of the current rules state explicitly. The
+executor passes that borrow to the registered snapshot callback when it needs to
+publish an interactive prompt. It never keeps a hidden pointer to the worker's
+mutable state. The choice can borrow legal options while the call waits; the
+synchronous rules function cannot mutate that state during the wait. Simulation
+receives the same borrow but does not construct a snapshot from it.
+
+A custom specification can supply its own owned prompt, answer type, and
+validator. For Hearts it also describes the acting player's observation. Its
+implementation contract is:
+
+- Borrow legal options and observation data while the synchronous call runs.
+- Build an owned, `Send + 'static` prompt lazily for interactive display.
+- Validate answers against the unchanged decision, returning invalid-answer
+  feedback without consuming a pending request.
+- Expose a typed answer handle with the prompt, so a component can answer
+  without assembling IDs or converting an answer to a game-wide enum.
+- Allow a game to use an enum when useful, but do not require one.
+
+For example, the human card picker uses the currently presented prompt:
+
+```rust
+let prompt = use_prompt::<SelectOne<CardId>>();
+Button::new().text("Play")
+    .enabled(prompt.allows(selected))
+    .on_click(move |_| prompt.answer(selected))
+```
+
+The handle carries the run and request IDs internally. Transport decoding must
+reject the wrong answer type, stale handles, and illegal values. Normal typed
+callers should be unable to send an answer of the wrong Rust type.
+
+## Static simulation without a large game trait
+
+Simulation specializes the same function for a concrete policy. It never builds
+owned prompts, snapshots, or changes merely to satisfy an interactive interface.
+A choice policy receives the choice's borrowed decision data and returns its
+typed answer inline.
+
+The implementation can express this using an `ExecutionMode<State, View,
+Change>` bound for publication and a `ResolveChoice<State, Spec>` bound for each
+choice. `View` and `Change` default to `State` and `()` on the engine trait, so
+the choice-free example keeps its short bound. A rules module with several
+choices can give their combined bounds a local trait name to keep its function
+signatures short. The trait is a convenience over ordinary bounds, not another
+state model.
+
+For Hearts, define the combined mode bound once beside its rules entrypoint. The
+bound below uses ordinary stable Rust supertraits and a blanket implementation;
+it does not require each game to implement another adapter:
+
+```rust
+trait HeartsMode: ExecutionMode<HeartsState, HeartsView, Change>
+    + for<'a> ResolveChoice<HeartsState, PassCards<'a>>
+    + for<'a> ResolveChoice<HeartsState, PlayCard<'a>> {}
+impl<M> HeartsMode for M where
+    M: ExecutionMode<HeartsState, HeartsView, Change>
+        + for<'a> ResolveChoice<HeartsState, PassCards<'a>>
+        + for<'a> ResolveChoice<HeartsState, PlayCard<'a>> {}
+```
+
+The rules functions then use `M: HeartsMode`. For example, the card-playing
+branch of `resolve` calls this nested function:
+
+```rust
+fn play_card<M: HeartsMode>(state: &mut HeartsState,
+                           cx: &mut Executor<HeartsState, M>) {
+    let choice = PlayCard::new().observation(state.observe(state.turn));
+    let card = cx.choose(state, choice);
+    state.play(card);
+    cx.present(|| state.visible_to_south(), || Change::CardPlayed(card));
 }
-~~~
+```
 
-For Hearts, Decision can be a borrowed enum with Pass and Play variants. Pass
-exposes the acting player's observation and eligible hand; Play also exposes
-public trick/history and a borrowed legal-card view. It must not carry the true
-opponents' hands. Game-owned candidate enumeration may allocate; that is
-measured separately from executor overhead.
+The choice structs borrow only the acting player's observation and options.
+Their policy implementations take a choice, not the full state. For example:
 
-A concrete Simulation<Policy> calls policy.choose(spec.decision(state)), then
-spec.validate to recover the typed answer. Invalid policy output is a developer
-error and may panic. Interactive invalid user input instead leaves the prompt
-unanswered and emits ChoiceRejection. Neither path needs a vtable or mandatory
-owned prompt allocation.
+```rust
+impl ChoicePolicy<PlayCard<'_>> for HeartsPolicy {
+    fn choose(&mut self, choice: &PlayCard<'_>) -> CardId {
+        self.evaluate_legal_cards(choice.observation(), choice.options())
+    }
+}
+```
 
-## Endpoint records and serial ownership
+Provide the corresponding `ChoicePolicy<PassCards<'_>>` implementation returning
+three cards. `Simulation<HeartsPolicy>` implements the resolution bounds by
+calling these concrete methods directly. Its resolution adapter receives state
+for the shared method signature but does not pass it into the policy.
 
-Use opaque monotonically allocated IDs scoped to their documented lifetime. Do
-not recycle IDs within a run or session. Presentation UUIDs remain distinct from
-numeric execution/commit identifiers.
+A caller runs the same rules entrypoint without an application or Unity:
 
-~~~text
-Worker output:
-  Checkpoint { run, checkpoint, snapshot, ordered changes }
-  Prompt     { run, checkpoint, request, snapshot, owned prompt }
-  Completed  { run, checkpoint, final state, snapshot, ordered changes }
-  Failed     { run, public failure }
-  Stopped    { run }
+```rust
+let mut simulated = accepted.clone();
+let policy = HeartsPolicy::new().seed(seed);
+let mut cx = Executor::new().mode(Simulation::new().policy(policy));
+resolve(&mut simulated, Action::PlayTurn, &mut cx);
+let preview = simulated.visible_to_south();
+display.preview(preview);
+```
 
-Main-thread input:
-  Answer { run, request, answer envelope }
-  Abandon { run }
-~~~
+This shows the call shape Task 02 must prove with a small two-choice fixture;
+Hearts implements its policy in task 40. `display.preview` renders an
+independent view and never installs simulated state as the accepted live state.
 
-Checkpoint/Prompt/Completed occupy the bounded publication slot. Failed/Stopped
-are terminal lifecycle state notifications, not extra checkpoint history: store
-the endpoint's terminal state separately so a full publication slot cannot
-prevent shutdown/failure notification.
+Interactive mode may erase prompt and callback types at its thread-message
+boundary and recover them through checked typed handles. This cost is absent
+from the simulation specialization. Do not use a runtime registry or vtable for
+each simulated choice. Invalid simulation-policy answers are developer errors;
+invalid human answers produce feedback and keep the prompt waiting.
 
-At normal return, reserve the publication slot before invoking final_checkpoint,
-check cancellation before/after building it, and publish Completed. This applies
-the same laziness/backpressure contract to final output.
+For Hearts, the policy sees only the acting player's cards, public history, and
+inferred constraints. Construct that observation before calling the policy.
+Never hand the policy the authoritative state containing opponents' real hands.
+Game-owned candidate enumeration and observation construction have their own
+costs; benchmark them separately from executor overhead.
 
-The worker validates interactive answer envelopes. The main thread rejects
-obviously stale run/request submissions before enqueueing, and the worker
-revalidates identity and cancellation after wakeup. A validation failure cannot
-consume the prompt's completion.
+## Prove the API before expanding it
 
-The application serializes host events, action admission, commit results, and
-accepted-state changes on Unity's main-thread engine callbacks. Worker threads
-only touch their private State and synchronized endpoint.
+Task 02 must include compiling examples for a choice-free game, a game with two
+choice types, and the same nested rules body in simulation. The examples must
+show ordinary application registration, not just isolated generic helpers. Task
+10 adds actual typed UI answers through the worker.
 
-## Prepared host and frame interfaces
+Verify that simulation skips panicking display builders and performs no
+mandatory allocation, dynamic dispatch, blocking, or interactive cancellation
+checks in `present`, `choose`, and `check_cancelled`. A generic signature alone
+is not proof: retain allocation measurements and optimized-code inspection.
 
-A suitable protocol request/response family is:
-
-~~~text
-Prepare { session, preparation, proposal identity, inactive host plan }
-Ready   { session, preparation, resolved host dependencies }
-Commit  { session, preparation, commit generation }
-Committed { session, preparation, commit generation }
-Discard { session, preparation }
-Rendered { session, run, checkpoint, commit generation, frame sequence }
-~~~
-
-The proposal identity contains run/checkpoint, base commit generation, and
-desired render revision. Missing required resources yield a correlated
-preparation failure, not Ready with missing members. A repeated Prepare or
-Commit with the same identity is idempotent; a mismatched body is rejected.
-
-Input/event delivery cannot overtake Committed on the main-thread response
-stream. If the transport queues an event before Rust installs acknowledged
-handlers, hold it until that acknowledgement is processed, then validate its
-generation. Never dispatch through the old table or require reentrant Rust.
-
-Large assets/objects are prepared inactive; the commit plan contains only the
-validated dependency-ordered visible changes, handler/ref identity swap, and
-playback/gate registration. Do not encode checkpoint semantics as a chain of
-unrelated legacy TimeWait batches.
-
-## Registration and gate interface
-
-A checkpoint registration uses one stable registration slot and receives typed
-semantic changes, compatible refs, scoped controls, and a gate builder. It
-returns prepared requests; it has no immediate host side effects.
-
-~~~rust
-checkpoint.on_change(ChangeKind::Draw, slot("draw"), |change, cx| {
-    let playback = cx.animate().start(draw_sequence(change.card));
-    cx.require(playback.reached("ready"));
-});
-~~~
-
-Each contribution identifies its owning movement/registration so an early-label
-override replaces that contribution rather than duplicating its default arrival
-requirement. The checkpoint gate is the conjunction of all remaining required
-contributions. Cosmetic work does not register a contribution.
-
-If a label is already satisfied before an authored replacement is processed,
-keep that satisfaction permanently. Otherwise atomically rebind the contribution
-to the successor's playback/generation/label. Inspection and replay handles
-cannot be passed as live requirements.
+Host protocol records are engine implementation details and are described with
+worked examples in [presentation](presentation.md). Game authors never construct
+those records when publishing a checkpoint or answering a prompt.
 
 ## Manual QA
 
-Have a reader implement the small neutral two-choice rules fixture from task 02
-using these shapes. Verify that they can explain how the policy chooses without
-an owned prompt, how final output reserves capacity, and how host input waits
-for the correct committed handler table.
+Write the counter example and a card-selection example from this page. Check
+that defaults work without a game trait, movement setup, prompt enum, or answer
+enum. Run the same nested rules in simulation. Submit an illegal card through
+the display and verify the player can correct it without losing the prompt.

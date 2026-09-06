@@ -1,34 +1,42 @@
 # 37. Compose Hearts cards, hands, tricks, and inspection views
 
+The actual Hearts snapshot renders a readable 3D table with stable cards and
+independent inspection copies.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [World contract](../world.md)
-- [Identity contract](../identity.md)
-- [Motion contract](../motion.md)
+- [Hearts rules and behavior](../hearts.md)
+- [World objects and input](../world.md)
+- [Identity and state](../identity.md)
+- [Animation](../motion.md)
 
 **Prerequisite:** [Task 36: Implement the fixed Hearts rules through the generic
 executor](36-hearts-rules.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Hearts shell/assets; world primitives/layouts; player snapshot
-projection. Resolve these through source-map.md; its links track the current
-owner after crate moves. Inspect the concrete caller and host/fake counterpart
-before editing.
+**Starting code:** Hearts shell/assets; world primitives/layouts; player
+snapshot projection.
 
-## Result
+## Example
 
-The actual Hearts snapshot renders a readable 3D table with stable cards and
-independent inspection copies.
+The root display owns world and UI composition; a rules snapshot supplies
+visible data:
+
+```rust
+(
+    TableLayout::new().view(view),
+    UiRoot::new().child(HeartsScoreboard::new().scores(view.scores())),
+)
+```
 
 ## Implementation
 
-1. Create reusable Card, Hand, Trick, CapturedPile, Seat, and Table components
-   from the snapshot. Build front/back surfaces and independent hit regions in
-   Rust.
+1. Create HeartsDisplay with reusable Card, Hand, Trick, CapturedPile, Seat, and
+   table components from the snapshot. Build front/back surfaces and independent
+   hit regions in Rust.
 
 2. Assign stable deal-lifetime presentation UUIDs from game/display data; never
    generate IDs during render. Reuse identities for hand/trick/pile transfer and
@@ -56,12 +64,10 @@ independent inspection copies.
 - Portrait/landscape native views keep the human hand and UI readable without
   overlapping active hit targets incorrectly.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Passing and play animations/actions are tasks 38-39; detailed drag/keyboard UX
 is tasks 41-42.

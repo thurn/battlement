@@ -1,28 +1,37 @@
 # 30. Migrate tic-tac-toe through the unified rules and display path
 
+Tic-tac-toe preserves its visible behavior using Rust components, worker-owned
+rules, and checkpoint-paced presentation.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Migration contract](../migration.md)
-- [Execution contract](../execution.md)
-- [Presentation contract](../presentation.md)
-- [World contract](../world.md)
+- [Sample migration](../migration.md)
+- [Rules and choices](../execution.md)
+- [Presentation timing](../presentation.md)
+- [World objects and input](../world.md)
 
 **Prerequisite:** [Task 29: Build the reusable presentation
 inspector](29-presentation-inspector.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Tic-tac-toe rules/src and gameplay tests; new App/driver;
-existing assets/native scenarios. Resolve these through source-map.md; its links
-track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Tic-tac-toe rules/src and gameplay tests; new App/driver;
+existing assets/native scenarios.
 
-## Result
+## Example
 
-Tic-tac-toe preserves its visible behavior using Rust components, worker-owned
-rules, and checkpoint-paced presentation.
+Keep the existing observable AI delay using virtual presentation time:
+
+```rust
+display.click(empty_cell);
+display.wait_for_checkpoint(); // synchronize without advancing time
+display.advance_time(Duration::from_millis(99));
+display.assert_ai_mark_absent();
+display.advance_time(Duration::from_millis(1));
+display.advance_frame();
+```
 
 ## Implementation
 
@@ -59,12 +68,10 @@ rules, and checkpoint-paced presentation.
 - Rules state is private to the worker; no sample event handler writes it
   directly.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 No new game features or UI redesign. The sample should now be a complete simple
 reference for later implementors.

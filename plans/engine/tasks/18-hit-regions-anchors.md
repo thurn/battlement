@@ -1,27 +1,35 @@
 # 18. Add independent hit regions and typed Rust-created anchors
 
+Game components author collision geometry and effect attachment points
+independently of visual meshes or prefab parts.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [World contract](../world.md)
-- [Identity contract](../identity.md)
-- [Presentation contract](../presentation.md)
+- [World objects and input](../world.md)
+- [Identity and state](../identity.md)
+- [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 17: Add sprites, meshes, world text, and material
 overrides](17-world-rendering-primitives.md) and all its required follow-ups
 must be integrated.
 
-**Source roles:** World adapter/primitives; pointer host; refs; prepared
-asset/host ownership. Resolve these through source-map.md; its links track the
-current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** World adapter/primitives; pointer host; refs; prepared
+asset/host ownership.
 
-## Result
+## Example
 
-Game components author collision geometry and effect attachment points
-independently of visual meshes or prefab parts.
+The hit box and effect attachment point are explicit children, independent of
+the artwork:
+
+```rust
+WorldGroup::new().children((
+    BoxHitRegion::new().size(hit_size).center(hit_center),
+    Anchor::new().reference(spark_origin).position(offset),
+))
+```
 
 ## Implementation
 
@@ -47,17 +55,15 @@ independently of visual meshes or prefab parts.
   moves.
 
 - A ref from an old incarnation cannot target its replacement, and retained refs
-  remain tied to their old host lease.
+  remain tied to their old retained host.
 
 - Incorrect target kind or missing required ref fails before any visible effect
   starts.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Geometric/modal arbitration is task 19; effect playback at anchors is task 26.
 This is explicitly not typed prefab binding.

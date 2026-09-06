@@ -1,27 +1,35 @@
-# 22. Implement immutable sequences and completion-relative labels
+# 22. Build sequences with labels that follow actual completion
+
+Sequences coordinate locally executed tracks with fixed-time and
+actual-completion dependencies.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Motion contract](../motion.md)
-- [Presentation contract](../presentation.md)
-- [Validation contract](../validation.md)
+- [Animation](../motion.md)
+- [Presentation timing](../presentation.md)
+- [Validation](../validation.md)
 
-**Prerequisite:** [Task 21: Use shared Motion drivers for UI, world, and native
-properties](21-shared-motion-drivers.md) and all its required follow-ups must be
+**Prerequisite:** [Task 21: Animate UI, world objects, and effects with shared
+drivers](21-shared-motion-drivers.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Animation controls/sequences; host-neutral Motion driver;
-protocol graph definitions; fake time driver. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Animation controls/sequences; host-neutral Motion driver;
+protocol graph definitions; fake time driver.
 
-## Result
+## Example
 
-Sequences coordinate locally executed tracks with fixed-time and
-actual-completion dependencies.
+A label after a variable-duration move follows actual completion, whereas an
+absolute-time entry retains its timestamp:
+
+```text
+move starts; nominal duration is 250 ms
+destination changes at 100 ms
+"arrived" occurs at actual arrival, even if later than 250 ms
+entry at absolute 250 ms still runs at 250 ms
+```
 
 ## Implementation
 
@@ -55,12 +63,10 @@ actual-completion dependencies.
 
 - Replacing a property interrupts the old owner; unrelated properties continue.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Live layout destinations become real in task 24, checkpoint gate binding in task
 25, and sound/burst entries in task 26.

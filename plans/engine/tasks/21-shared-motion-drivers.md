@@ -1,27 +1,33 @@
-# 21. Use shared Motion drivers for UI, world, and native properties
+# 21. Animate UI, world objects, and effects with shared drivers
+
+The same transition and playback controls animate UI properties, world
+transforms, and typed native parameters.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Motion contract](../motion.md)
-- [World contract](../world.md)
-- [Validation contract](../validation.md)
+- [Animation](../motion.md)
+- [World objects and input](../world.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 20: Extend focus, controller navigation, and touch
 across domains](20-world-focus-touch.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** UI Motion sampler/timeline; Reactant targets/values; world
-property writers; fake scheduling. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** UI Motion sampler/timeline; Reactant targets/values; world
+property writers; fake scheduling.
 
-## Result
+## Example
 
-The same transition and playback controls animate UI properties, world
-transforms, and typed native parameters.
+UI and world properties use the same transition and control behavior:
+
+```rust
+let transition = Transition::spring();
+Button::new().animate(target().opacity(1.0)).transition(transition.clone());
+WorldGroup::new().animate(target().scale(1.0)).transition(transition);
+```
 
 ## Implementation
 
@@ -57,12 +63,10 @@ transforms, and typed native parameters.
 - Existing UI motion regression tests and native captures remain valid,
   including reduced-motion behavior.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Completion-relative sequences are task 22 and layout ownership is tasks 23-24.
 Static parameter support from task 17 now becomes animatable.

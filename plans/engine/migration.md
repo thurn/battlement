@@ -6,8 +6,9 @@ selected task.
 
 ## Sample destinations
 
-The migration preserves existing player-visible behavior and licensed assets. It
-does not complete unimplemented pages of the retained chess UI port.
+The migration preserves existing player-visible behavior and licensed assets.
+Only implemented chess-ui pages are migrated; unfinished gallery pages are
+separate work.
 
 | Sample | Destination |
 | --- | --- |
@@ -17,7 +18,7 @@ does not complete unimplemented pages of the retained chess UI port.
 | chess | Reactant world composition/actions/Motion; opaque piece prefabs permitted |
 | reactant | Unified component APIs plus neutral engine laboratory |
 | chess-ui | Migrated currently implemented UI/gallery with behavior preserved |
-| hearts | New playable reference sample, independent of Dreamtides |
+| hearts | New playable reference sample |
 
 Mechanical crate/API edits needed to keep all callers compiling belong to the
 task that changes the API. The named later sample tasks change runtime behavior
@@ -46,6 +47,19 @@ For each coupled assertion:
 A protocol command test can remain in Battlement when it tests that protocol
 capability directly; it is not game-level evidence of behavior preservation. No
 compatibility shim should emit obsolete command patterns solely for tests.
+
+For example, a capture test should observe the captured piece through time:
+
+```rust
+display.dispatch(capture_move);
+display.advance_time(before_capture);
+display.object(captured_piece).assert_visible();
+display.advance_time(remaining_capture_time);
+display.object(captured_piece).assert_absent();
+```
+
+Keep the established timing and visible outcome. Whether the engine emitted a
+particular tween command is a lower-level protocol concern.
 
 ## Timing and snapshots
 

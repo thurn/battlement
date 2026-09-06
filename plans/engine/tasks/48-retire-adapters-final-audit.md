@@ -1,28 +1,34 @@
 # 48. Remove transitional machinery and audit the finished architecture
 
+The repository presents one coherent Reactant engine architecture with no
+forgotten migration adapters or unsupported completion claims.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Architecture contract](../architecture.md)
-- [Migration contract](../migration.md)
-- [Validation contract](../validation.md)
-- [Workflow contract](../workflow.md)
+- [Architecture](../architecture.md)
+- [Sample migration](../migration.md)
+- [Validation](../validation.md)
+- [Workflow](../workflow.md)
 
-**Prerequisite:** [Task 47: Run final native, threaded-WebGL, and mobile build
-conformance](47-release-conformance.md) and all its required follow-ups must be
+**Prerequisite:** [Task 47: Validate native, threaded WebGL, and mobile
+builds](47-release-conformance.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Workspace dependency graph; all temporary adapter removal
-notes; source-map; maintained guidance. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Workspace dependency graph; all temporary adapter removal
+notes; source-map; maintained guidance.
 
-## Result
+## Example
 
-The repository presents one coherent Reactant engine architecture with no
-forgotten migration adapters or unsupported completion claims.
+Check application code as well as the dependency graph:
+
+```rust
+App::new().root(SettingsPanel::new())
+// Games add state and rules; ordinary movement needs no setup.
+App::new().game(game).root(HeartsDisplay::new())
+```
 
 ## Implementation
 
@@ -60,15 +66,13 @@ forgotten migration adapters or unsupported completion claims.
 - Final tests/CI pass after cleanup and the requirement coverage matrix has
   evidence for every in-scope v1 contract.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
-Dreamtides work, prefab binding, root motion, extra Hearts variants, and
-physical certification remain outside this overhaul.
+Typed prefab binding, humanoid root motion, and extra Hearts variants are
+separate work. Physical device execution follows its certification checklist.
 
 ## Manual QA
 

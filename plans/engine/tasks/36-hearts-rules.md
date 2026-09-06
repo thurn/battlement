@@ -1,33 +1,42 @@
 # 36. Implement the fixed Hearts rules through the generic executor
 
+One synchronous Hearts rules implementation handles dealing, passing, legal
+play, tricks, scoring, and match completion.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [Execution contract](../execution.md)
-- [Validation contract](../validation.md)
+- [Hearts rules and behavior](../hearts.md)
+- [Rules and choices](../execution.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 35: Prepare Hearts assets and its 3D sample
 shell](35-hearts-assets-shell.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** reactant-rules public API; Hearts shell; public display
-driver. Resolve these through source-map.md; its links track the current owner
-after crate moves. Inspect the concrete caller and host/fake counterpart before
-editing.
+**Starting code:** reactant-rules public API; Hearts shell; public display
+driver.
 
-## Result
+## Example
 
-One synchronous Hearts rules implementation handles dealing, passing, legal
-play, tricks, scoring, and match completion.
+Use explicit deals for rare rule cases instead of searching random seeds:
+
+```text
+first trick; player cannot follow clubs
+if a non-penalty discard exists: reject heart or queen of spades
+if only penalty discards are legal: allow one
+queen of spades alone does not allow a later heart lead
+```
 
 ## Implementation
 
-1. Define State, public Snapshot, Action, Change, Prompt, Answer, fork_state,
-   and saved RNG representation. Use stable rank/suit ordering and a documented
-   seeded shuffle.
+1. Define HeartsState, human-visible HeartsView, Action, Change, and saved RNG
+   state. Register ordinary rules functions with snapshot and validation
+   callbacks. Use typed passing/card choices without mandatory game-wide prompt
+   or answer enums. Use stable rank/suit ordering and a documented seeded
+   shuffle.
 
 2. Implement ResolvePassing and PlayTurn with typed choice specs and lazy
    coherent checkpoints. Resolve all four passes simultaneously; include
@@ -57,12 +66,10 @@ play, tricks, scoring, and match completion.
 - A complete hand terminates after thirteen tricks and a match ends only after
   hand scoring.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Real card layout and user interactions are tasks 37-39; Monte Carlo opponents
 are task 40. Use a deterministic legal policy here.

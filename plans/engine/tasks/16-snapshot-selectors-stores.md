@@ -1,27 +1,32 @@
 # 16. Add stable snapshot selectors and queued display stores
 
+Sparse snapshot/store changes reevaluate only affected subscribers without
+tearing one render or breaking moved components.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Identity contract](../identity.md)
-- [Execution contract](../execution.md)
-- [Architecture contract](../architecture.md)
+- [Identity and state](../identity.md)
+- [Rules and choices](../execution.md)
+- [Architecture](../architecture.md)
 
-**Prerequisite:** [Task 15: Separate logical unmount from retained visual
-lifetime](15-incarnations-and-removal.md) and all its required follow-ups must
-be integrated.
+**Prerequisite:** [Task 15: Remove components while keeping unfinished exit
+visuals](15-incarnations-and-removal.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** External stores; context/hooks; runtime scheduling; presented
-snapshot provider. Resolve these through source-map.md; its links track the
-current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** External stores; context/hooks; runtime scheduling; presented
+snapshot provider.
 
-## Result
+## Example
 
-Sparse snapshot/store changes reevaluate only affected subscribers without
-tearing one render or breaking moved components.
+Changing a hand should not reevaluate a component subscribed only to the score:
+
+```rust
+let score = use_snapshot_selector(|view: &HeartsView| view.south_score);
+ScoreLabel::new().score(score)
+```
 
 ## Implementation
 
@@ -31,7 +36,7 @@ tearing one render or breaking moved components.
 
 2. Capture a stable store version for each render/preparation. Queue writes
    during rendering for a subsequent desired revision; do not mutate the current
-   proposal in place.
+   prepared update in place.
 
 3. Commit subscription/effect changes only with the corresponding tree
    generation. Cancel obsolete preparation subscriptions and clean up removed
@@ -48,18 +53,16 @@ tearing one render or breaking moved components.
 - A store write during rendering appears in a later complete generation, never
   half of the current frame.
 
-- An aborted proposal does not publish a subscription, and a moved consumer
+- An abandoned render does not publish a subscription, and a moved consumer
   reads the new provider exactly once.
 
 - The same visible fixture works when selectors are replaced with explicit
   props.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Performance captures are task 46. This task establishes correctness and
 localized reevaluation, not numerical budgets.

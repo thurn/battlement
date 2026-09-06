@@ -1,27 +1,35 @@
 # 07. Move Reactant asset preparation out of Battlement
 
+Battlement tooling can build direct samples without depending on Reactant, while
+Reactant samples retain automatic asset preparation.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Architecture contract](../architecture.md)
-- [Migration contract](../migration.md)
-- [Validation contract](../validation.md)
+- [Architecture](../architecture.md)
+- [Sample migration](../migration.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 06: Extract shared Reactant core, UI layer, and
 facade](06-crate-boundaries.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Reactant asset pipeline; sample build/author preparation;
-Unity editor generated assets. Resolve these through source-map.md; its links
-track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Reactant asset pipeline; sample build/author preparation;
+Unity editor generated assets.
 
-## Result
+## Example
 
-Battlement tooling can build direct samples without depending on Reactant, while
-Reactant samples retain automatic asset preparation.
+Preparation needs an executable and separate arguments, so paths containing
+spaces are not interpreted by a shell:
+
+```text
+working directory: the selected sample
+executable: checkout Reactant CLI
+arguments: asset command and explicit project inputs
+nonzero exit: stop before plugin/player build
+```
 
 ## Implementation
 
@@ -54,12 +62,10 @@ Reactant samples retain automatic asset preparation.
 - A sample path with spaces is handled correctly; a failing preparation
   executable prevents plugin/player build and reports its failure.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 New Hearts assets belong to task 35. This task changes ownership and invocation,
 not artwork.

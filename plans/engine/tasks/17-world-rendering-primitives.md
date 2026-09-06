@@ -1,27 +1,34 @@
 # 17. Add sprites, meshes, world text, and material overrides
 
+Rust can compose neutral card visuals from independently prepared assets with
+predictable sorting and per-instance properties.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [World contract](../world.md)
-- [Presentation contract](../presentation.md)
-- [Identity contract](../identity.md)
+- [World objects and input](../world.md)
+- [Presentation timing](../presentation.md)
+- [Identity and state](../identity.md)
 
 **Prerequisite:** [Task 16: Add stable snapshot selectors and queued display
 stores](16-snapshot-selectors-stores.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** World adapter; object protocol/builders; Unity world creation;
-prepared assets; fake asset catalog. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** World adapter; object protocol/builders; Unity world
+creation; prepared assets; fake asset catalog.
 
-## Result
+## Example
 
-Rust can compose neutral card visuals from independently prepared assets with
-predictable sorting and per-instance properties.
+Build the visual hierarchy from independent assets in Rust:
+
+```rust
+WorldGroup::new().children((
+    WorldSprite::new().sprite(art).layer(0),
+    WorldText::new().text(rules).font(font).layer(1),
+))
+```
 
 ## Implementation
 
@@ -37,7 +44,7 @@ predictable sorting and per-instance properties.
    apply per-instance overrides without mutating the shared material. Expose
    these properties to later Motion adapters.
 
-4. Create an early composed-card specimen with two cards using one shared
+4. Create an early composed-card test scene with two cards using one shared
    material but different static parameters and hit-independent visual geometry.
 
 ## Acceptance
@@ -54,12 +61,10 @@ predictable sorting and per-instance properties.
 - Mesh scale/orientation and text wrapping match explicit props in fake
   observations and native geometry.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Hit regions/anchors are task 18; animated material values are task 21; full
 rich-card laboratory coverage is task 44.

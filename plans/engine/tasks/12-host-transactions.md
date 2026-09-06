@@ -1,29 +1,36 @@
-# 12. Add prepared host commits and rendered-frame acknowledgement
+# 12. Prepare native updates and acknowledge rendered frames
+
+Unity prepares a complete update, applies its objects and handlers together, and
+tells Rust when that checkpoint has had a rendering opportunity.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Minimum interfaces](../interfaces.md)
+- [API examples and defaults](../interfaces.md)
 
-- [Presentation contract](../presentation.md)
-- [Execution contract](../execution.md)
-- [Validation contract](../validation.md)
+- [Presentation timing](../presentation.md)
+- [Rules and choices](../execution.md)
+- [Validation](../validation.md)
 
-**Prerequisite:** [Task 11: Integrate action admission, accepted state, and
-failure surfaces](11-accepted-action-runtime.md) and all its required follow-ups
-must be integrated.
+**Prerequisite:** [Task 11: Accept completed actions and recover from
+failures](11-accepted-action-runtime.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** Protocol messages/commands; native batch/snapshot handling;
-runtime commit receipt; world/UI fakes. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Protocol messages/commands; native batch/snapshot handling;
+runtime commit receipt; world/UI fakes.
 
-## Result
+## Example
 
-Host preparation, visible commit, Rust acknowledgement, and rendered opportunity
-have correlated identities and atomic input behavior.
+A delayed card face must not expose its new handler before the face appears:
+
+```text
+prepare: load front texture while back remains visible
+commit: swap face and handler together
+acknowledge: Rust installs the committed tree
+rendered frame: checkpoint may advance if animation is also complete
+```
 
 ## Implementation
 
@@ -60,12 +67,10 @@ have correlated identities and atomic input behavior.
 - Input during a commit observes one complete generation, and an injected
   unexpected host failure shows the session failure surface.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 New world primitives and full animation registration are later tasks, but their
 transaction protocol must be real and usable now.
@@ -73,5 +78,5 @@ transaction protocol must be real and usable now.
 ## Manual QA
 
 Delay preparation across frames, change a setting to supersede it, and verify
-only the newest proposal commits. Step the zero-duration two-checkpoint fixture
-frame by frame.
+only the newest prepared update commits. Step the two-checkpoint, zero-duration
+fixture frame by frame.

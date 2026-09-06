@@ -1,87 +1,132 @@
-# Logical identity, ancestry, and retained visuals
+# Preserve object state when its position changes
 
-Read this for tree matching, portals, refs, effect cleanup, host replacement, or
-removal. See [architecture](architecture.md) and
-[presentation](presentation.md).
+A card moving from a hand to the table should keep its component state, refs,
+and compatible native objects. Reactant uses a stable UUID to recognize that it
+is the same presentation even when its parent changes. Removing the card is
+different: it ends that component's lifetime, even if an exit animation remains
+visible for a while.
 
-## Matching and moving
+Read this for matching, portals, context, subscriptions, refs, and removal.
+Related pages: [component architecture](architecture.md), [visible
+updates](presentation.md), [animation](motion.md), and [world
+objects](world.md).
 
-Any component or host can declare id(Uuid). The UUID identifies one live logical
-presentation across all active roots and both host domains. Ordinary key()
-remains sibling-scoped. No string/numeric overload silently substitutes for
-UUID.
+## Put the identity on the component whose state should move
 
-A **mounted incarnation** identifies one continuous mounted lifetime of that
-presentation. A host reference carries both presentation and incarnation
-identity, plus its host kind; retained visuals cannot masquerade as new mounts.
+Any component, UI element, or world object may declare `.id(Uuid)`. This UUID
+identifies one live presentation across all active application roots. Ordinary
+`.key()` remains scoped to siblings under one parent.
 
-Build the proposed UUID index before any visible commit. Reject duplicates
-across roots, UI containers, portals, and world objects atomically. Never use a
-first-match-wins policy.
+The same card declaration can move between layouts without remounting:
 
-Match the UUID-bearing position before evaluating descendants, so an ancestry
-move can reuse its hook storage. The algorithm must handle a proposed parent
-containing a child formerly under an ancestor that disappears in this commit.
+```rust
+Hand::new().child(Card::new().card(card).id(card.presentation_id))
+// A later render puts that same card on the table:
+Table::new().child(Card::new().card(card).id(card.presentation_id))
+```
 
-~~~text
-old: root -> hand -> Card(id=A, hook counter=3)
-new: root -> table -> Card(id=A, hook counter=3)
-result: same mounted Card; context and event path now come from table
-~~~
+Place `.id()` on `Card` if its hooks and refs should move with the visual.
+Putting it only on an inner sprite does not preserve its parent's hook state.
+Allocate or derive the UUID once and retain it in game or display data; a new
+UUID on every render describes a new object every time.
 
-Extract moved nodes before disposing unmatched former ancestors. Preserve
-compatible descendants, hooks, refs, and native handles. Component type changes
-reset that component's hook storage; do not reinterpret slots of another type.
+A card and its simultaneous inspection copy need separate presentation UUIDs,
+even though they show the same rules object. The same rule applies to a UI
+thumbnail and a second enlarged view. A rules ID may double as a presentation
+UUID only when exactly one live presentation uses it.
 
-Provider lookup and capture/bubble paths come from the new logical ancestry.
-Reevaluate moved context consumers. Clean up effects whose dependencies changed
-before installing replacements. Avoid double subscription during the move.
+## Match before removing the former parent
 
-## Host compatibility
+Build an application-wide index of proposed UUIDs before changing native
+objects. Reject duplicate live declarations across UI, world, portals, and
+active roots before committing anything.
 
-Reuse a native host only if kind and property contract are compatible. A stable
-world group can keep its transform while its visual children change face/type.
-Prepare incompatible visual replacements inactive before committing.
+Match the identified component before reconciling its descendants. This allows
+Reactant to preserve its existing hooks instead of evaluating a new component
+and trying to copy state afterward.
 
-UI-to-world or world-to-UI continuity requires an explicit projection policy
-mapping source rendered geometry to the destination plane/camera. Do not infer
-pixel-to-world scale. Preserve logical identity while connecting compatible
-old/new visuals; lack of a required projection is a preparation error.
+For example, removing a hand must not destroy the card that moves out of it:
 
-## Removal and reappearance
+```text
+before: Hand contains Card A, whose local counter is 3
+after:  Hand is absent; Table contains Card A
+result: Card A still has counter 3 and the same compatible refs
+```
 
-Absence from a committed tree unmounts the logical object immediately. Detach
-input, stores, context subscriptions, and callbacks; discard hooks. An object
-absent only from abandoned preparation has not unmounted.
+Extract surviving moved objects before destroying unmatched ancestors. Preserve
+compatible descendants and native handles. Changing a component's type creates
+fresh hook storage; do not interpret one type's hook slots as another's.
 
-**Exit visuals** are frozen host representations with prepared animation,
-anchors, and assets retained after logical removal. They do not continue
-rendering components or accepting gameplay input.
+After a move, resolve context and capture/bubble events from the new logical
+ancestry. Reevaluate context consumers and clean up effects whose dependencies
+changed before installing their replacements. A retained subscription must not
+continue reading the old provider or be installed twice.
 
-If the same UUID reappears, allocate a new incarnation and fresh hook state,
-even while the old visual exits. Live UUID uniqueness does not count retained
-old incarnations. Events and effect targets must validate incarnation as well as
-UUID. Old callbacks cannot update or destroy the new object.
+## Reuse only compatible native objects
 
-Reference-count retained visual dependencies by actual ownership. Release hosts,
-material instances, anchors, and assets when their last exit/effect use ends. A
-retained projectile can follow its original anchor without retaining the logical
-Card component.
+A Unity sprite cannot become a UI Toolkit label merely by keeping its ID. Reuse
+a native host only when its kind and property contract are compatible. A stable
+world group may retain its transform while replacing its face sprites or text.
+Prepare incompatible replacements before making them visible.
 
-## Selectors and display stores
+Moving a UI element to a world representation requires an explicit mapping
+between its screen rectangle and a world plane/camera. Preserve logical state
+while connecting the old and new visuals through that mapping. See [UI/world
+projection](world.md#move-between-ui-and-world-space). Missing required
+projection data is a preparation error; the engine must not guess pixel scale.
 
-Selectors compare the selected value and suppress component evaluation when it
-is equal. Explicit props must produce identical behavior without subscriptions.
-A moved component preserves its subscription identity but reads from the new
-provider ancestry.
+## Removal ends logical state immediately
 
-Store notifications are queued. Rendering captures a stable version; writes
-during that render become later revisions and cannot tear the proposal. Aborted
-proposals must not publish new subscriptions or cleanup committed ones.
+Absence from a committed tree unmounts the component. An abandoned proposed
+render does not. Unmount detaches handlers and subscriptions and discards hooks.
+
+An **incarnation** is one continuous mounted lifetime of a UUID. Native refs and
+callbacks carry this lifetime ID as well as the UUID and host kind. This lets an
+old exit animation coexist safely with a newly mounted object of the same UUID:
+
+```text
+Card A, incarnation 1: removed; dissolving; no input or hooks
+Card A, incarnation 2: newly mounted; fresh hooks; accepts current input
+old dissolve completes: release incarnation 1 only
+```
+
+**Exit visuals** are the native objects and resources retained to finish removal
+animation. Their component no longer renders or receives input. Retained
+animation may change their visual properties, but it cannot access a live
+component closure to keep old hooks running.
+
+Uniqueness applies to live declarations, so the old retained visual does not
+make incarnation 2 a duplicate. Events from incarnation 1 cannot update or
+destroy incarnation 2. Release each native object, material instance, anchor,
+and asset after its last retained animation or effect use ends. A projectile may
+retain an old attachment point without retaining the logical card.
+
+## Read only the state a component needs
+
+Components may use props or optional selectors to read the presented snapshot. A
+selector compares the selected value and suppresses component evaluation when it
+is equal. This helps sparse updates without changing visible behavior.
+
+For example, a score label need not rerender when only a hand changes:
+
+```rust
+let score = use_snapshot_selector(|view: &HeartsView| view.south_score);
+ScoreLabel::new().score(score)
+```
+
+External stores hold display state such as selection and settings. Their writes
+queue notifications. Each render captures a stable version; a write during that
+render appears in a later complete update, never halfway through the current
+one. Aborted preparation must not install new subscriptions or clean up those
+belonging to the still-visible tree.
+
+Test the same scene using explicit props as well as selectors. A moved consumer
+keeps its hook identity but reads from its new provider.
 
 ## Manual QA
 
-Move a stateful Card between layouts and UI portal containers while changing
-providers. Its counter/ref survive, but context and events change ancestry.
-Remove it during an exit effect and recreate the same UUID; verify fresh state,
-two isolated visual incarnations, and no input on the exiting representation.
+Move a card with a visible local counter between layouts, roots, and a UI
+portal. Change the provider at its new parent and verify the counter survives
+while context and event propagation change. Remove and recreate its UUID during
+a dissolve; confirm fresh state, isolated input, and correct cleanup of both
+incarnations. Attempt a duplicate live UUID and verify the old display remains.

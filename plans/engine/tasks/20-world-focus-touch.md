@@ -1,27 +1,34 @@
 # 20. Extend focus, controller navigation, and touch across domains
 
+Keyboard and controller users can visibly focus and activate world controls.
+Touch follows the same pointer capture and modal rules as mouse input.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [World contract](../world.md)
-- [Validation contract](../validation.md)
-- [Migration contract](../migration.md)
+- [World objects and input](../world.md)
+- [Validation](../validation.md)
+- [Sample migration](../migration.md)
 
 **Prerequisite:** [Task 19: Unify UI/world hit testing, propagation, and modal
 capture](19-unified-pointer-routing.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Existing focus/control behavior; Unity keyboard/controller
-input; task 19 pointer routing. Resolve these through source-map.md; its links
-track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Existing focus/control behavior; Unity keyboard/controller
+input; task 19 pointer routing.
 
-## Result
+## Example
 
-World controls participate in visible focus and semantic activation, while touch
-uses the same capture/modal contract.
+Exercise navigation and activation without converting them to pointer clicks:
+
+```text
+Right: focus the next eligible world control
+Activate: open its modal
+Back: close modal and restore visible focus
+remove focused control: select another target without activating it
+```
 
 ## Implementation
 
@@ -51,12 +58,10 @@ uses the same capture/modal contract.
 
 - Existing chess-ui input and keyboard-rebinding tests still pass.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Hearts card navigation and touch inspection UX are tasks 41-42. This task
 establishes reusable engine capabilities.

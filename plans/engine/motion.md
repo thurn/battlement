@@ -1,145 +1,280 @@
-# One Motion model for UI, world objects, and effects
+# Animate properties, movement, and effects with one system
 
-Read this for transitions, property ownership, sequences, layout movement,
-effects, or replay. See [presentation](presentation.md), [world](world.md), and
-[identity](identity.md).
+Reactant adapts Motion's component animation model to UI and Unity objects.
+Components describe target values; transitions say how to reach them; sequences
+coordinate those same animations. Unity advances prepared animation locally so
+ordinary playback does not require Rust rendering on every frame.
 
-## Shared authoring and execution
+Read this for property animation, layout movement, sequences, effects, and
+inspection controls. Related pages: [world objects](world.md), [identity and
+removal](identity.md), [checkpoint timing](presentation.md), and
+[validation](validation.md). Existing implementation pointers and Motion
+references are in the [source map](source-map.md).
 
-Reactant describes typed targets, transitions, variants, gestures, layout
-movement, Motion values, and immutable sequences. Unity evaluates one shared
-playback model through domain-specific property writers. The fake independently
-implements its observable contract.
+## Start with target values
 
-Retain the existing useful spring/tween samplers and UI behavior. Extract
-host-neutral timing, ownership, and scheduling from the UI-specific executor.
-Keep UI property writing in its adapter and world/material/audio writing in
-their adapters. Do not add a separate world animation scheduler.
+An **animation target** describes desired property values. A **transition**
+selects spring behavior, duration, or easing for reaching them. These concepts
+apply to UI opacity, world transforms, material parameters, light intensity,
+particle emission rate, and audio volume.
 
-~~~rust
-WorldGroup::new()
-    .animate(target().scale(1.0))
-    .while_hover(target().local_offset_y(0.12))
+For example, a button can become dim when disabled and enlarge on hover:
+
+```rust
+Button::new().text("Inspect")
+    .animate(target().opacity(if enabled { 1.0 } else { 0.4 }))
+    .while_hover(target().scale(1.05))
     .transition(Transition::spring())
-~~~
+```
 
-This is an illustrative API. MotionConfig supplies inherited defaults; objects
-and individual properties can override them. Preserve initial, animate, exit,
-variants, descendant orchestration, pause/resume, speed, stop, and
-reduced-motion behavior. Native property sampling does not cause a Rust
-component render.
+Preserve the familiar authoring features across host kinds:
 
-## Property ownership
+- `initial`, `animate`, and `exit` describe entry, current, and removal targets.
+- `variants` name reusable targets and can coordinate descendants.
+- Hover, tap, and drag supply interaction targets.
+- `MotionConfig` supplies inherited defaults, overridable per object/property.
+- Motion values drive host properties without a component render per sample.
+- Controls pause, resume, change speed, stop, and inspect supported tracks.
+- Reduced-motion behavior stays consistent with existing UI behavior.
 
-Each property has one effective owner across declarative targets, gestures, and
-explicit controls. Layout owns base placement unless a sequence or permitted
-drag claims it. Hover lift/tilt uses a separate local offset that composes after
-base placement.
+Reuse existing spring/tween sampling and UI property writers. Extract shared
+timing and control code for world/material/audio adapters; do not introduce a
+separate world scheduler. The fake must implement the same observable behavior.
 
-Gesture targets temporarily override declarative values and return to the latest
-underlying target on release. Explicit sequences claim their declared property
-sets. Preparation rejects accidental overlapping writes inside a sequence; an
-explicit replacement annotation permits intentional overlap.
+## Movement works without configuration
 
-Starting replacement work interrupts previous property owners. Disjoint
-properties can run concurrently. A required owner must transfer its gate
-responsibility or take the explicit failure/abandonment path. Disable game drag
-while required motion owns placement; hover/menu input remains responsive.
+When an existing object's layout target changes, animate it using the engine's
+default spring transition. No application `.movement()` setting is required.
+Equal poses complete immediately. Applications may override defaults through
+inherited `MotionConfig`, an object policy, or an authored sequence.
 
-## Targets and retargeting
+For example, keeping the UUID while moving a card between layouts is sufficient:
 
-Position targets are fixed coordinates, typed anchors, or live layout
-destinations. Anchor constructors explicitly select follow-live or capture-at-
-start behavior. Layout destinations always resolve to the latest layout result.
+```rust
+Hand::new().child(Card::new().id(card_id))
+// In a later render:
+Table::new().child(Card::new().id(card_id))
+```
 
-Each step follows its own target: a reveal step follows its chosen reveal
-anchor, even while the hand reflows. The later hand-placement step resolves the
-latest hand destination when it starts, then retargets if that destination
-changes.
+Resolve overrides from the new logical ancestry. A movement policy may select a
+transition or construct a sequence using source/destination layouts and poses,
+stable refs and anchors, typed checkpoint changes, and current configuration.
+Unhandled moves fall back to the engine default.
 
-Retarget from the actual displayed pose at host application time. Preserve
-spring velocity. Restart a fixed-duration tween's configured duration from its
-current pose. Convert across layout spaces through world coordinates. Reflow
-does not replace the playback identity or its arrival dependency.
+UI layout supplies native target rectangles, including supported size changes.
+World layouts supply world-space transforms. Initial connection, restoration,
+and new mounts use entry behavior; removed objects use exit behavior.
 
-Equal poses complete immediately. Repeated reflow can delay arrival; stable
-destinations must eventually complete. On sequence handoff back to layout, adopt
-current pose/velocity so the object does not jump.
+## Separate placement from hover and drag
 
-## Sequences and labels
+One effective animation controls each property. Layout normally controls base
+placement. A custom sequence can temporarily take over that placement while
+layout continues computing the eventual destination.
 
-Compile sequence data into typed tracks, discrete occurrences, and a dependency
-graph executed locally by the host. Support sequential steps, absolute times,
-relative offsets, concurrent starts, and named labels.
+Hover lift and tilt are separate local offsets applied after base placement:
 
-~~~rust
-let sequence = AnimationSequence::new()
-    .animate(card, target().position(reveal.follow()), quick())
+```rust
+WorldGroup::new()
+    .while_hover(target().local_offset_y(0.12))
+    .child(CardFaces::new().card(card))
+```
+
+This allows a card to respond to hover while it travels. Gesture targets
+temporarily override declarative targets and return smoothly to the latest
+underlying value on release. Disjoint properties may animate concurrently.
+
+Explicit controls claim their declared properties. Reject accidental overlapping
+writes inside a sequence during preparation; permit them only with explicit
+replacement. A new playback interrupts the former writer for those properties.
+Required work must transfer its completion requirement or abandon the action.
+
+Drag can take placement only when gameplay eligibility permits it. It cannot
+steal a card from a required draw sequence. On release, move smoothly to the
+latest valid destination; inspection and menus remain responsive throughout.
+
+## Retarget from what is actually on screen
+
+Position targets may be coordinates, typed anchors, or live layout destinations.
+A **live layout destination** is a reference to the object's latest computed
+layout target. Anchors explicitly choose follow-live or capture-at-start.
+
+```rust
+target().position(card.layout_destination())
+target().position(reveal_anchor.follow())
+target().position(reveal_anchor.capture_at_start())
+```
+
+When the target changes, the host starts from the displayed pose at the moment
+it applies the update. Convert between layout spaces through world coordinates.
+Preserve spring velocity; a fixed-duration tween restarts its configured
+duration from the current pose. Reflow retains the playback ID and arrival
+requirement.
+
+During a reveal step, hand reflow changes the pending hand destination while the
+card still follows its reveal anchor. The later placement step reads the latest
+hand destination when it starts and continues to retarget during movement.
+Repeated reflow can postpone arrival; once the layout stabilizes, it completes.
+Returning control from a sequence to ordinary layout must not cause a jump.
+
+## Coordinate a draw with a sequence
+
+An **animation sequence** is immutable data describing animations, labels, and
+timing dependencies. It uses the same targets, transitions, property ownership,
+and controls as a single animation.
+
+For example, rules can place a drawn card in the hand immediately, while display
+code moves its existing face-down visual through reveal, flip, and placement:
+
+```rust
+let draw = AnimationSequence::new()
+    .animate(card, target().position(reveal.follow()), quick_move())
     .label("reveal")
-    .animate(card, target().rotation(face_up), flip())
+    .animate(card, target().rotation(face_up), flip_transition())
     .animate(card, target().position(card.layout_destination()), settle())
     .label("ready");
-~~~
+```
 
-Known-duration timing follows the familiar Motion timeline model.
-Completion-relative successors wait for actual completion, including retargeted
-arrival. Absolute-time entries keep their timestamps. A label after a retargeted
-movement means actual arrival, not the original estimated duration.
+Use `use_animate` during component rendering to obtain scoped controls. Build
+the sequence in a checkpoint change callback and require `ready` before the
+checkpoint advances. The callback reserves a playback during preparation; commit
+starts it.
+[Presentation](presentation.md#tell-the-display-when-a-checkpoint-may-advance)
+explains how retries avoid duplicate playback and how earlier labels work.
 
-Reject cycles, missing labels/targets, required dependencies on infinite loops,
-and unsupported properties during preparation. Same-timestamp entries run in
-declaration order; completion follows terminal labels and occurrences.
+Event-driven animations use the same machinery without needing a checkpoint.
+Rust constructs sequences and game-specific replacements. Unity executes the
+prepared tracks, labels, sounds, and successors without calling back to Rust for
+each step. Game-specific callbacks still run in Rust.
 
-Every playback has an instance ID and generation. Each track terminates once
-with completed, interrupted, or failed. Aggregate playback controls preserve
-these outcomes; stale generations cannot affect live gates.
+## Labels can follow actual completion
 
-## Effects and occurrence identity
+Support sequential steps, concurrent starts using `at`, absolute times, and
+offsets relative to a label or another step. Known-duration transitions follow
+the familiar Motion timeline behavior.
 
-Continuous material parameters, light intensity, particle emission, and audio
-volume are ordinary animatable properties. Sound starts and particle bursts are
-discrete sequence entries. Projectiles combine a visual and normal movement.
-Persistent auras are desired component children with ordinary animate/exit.
+A label after movement that can retarget must follow actual arrival:
 
-A transient slot is unique within its change record across all registrations and
-sequences. Its live occurrence key is:
+```text
+move into hand: estimated 250 ms
+at 100 ms: hand reflows, destination changes
+"ready": emitted when the card reaches the new destination
+sound scheduled at "ready": starts at that actual event
+absolute entry at 250 ms: keeps its fixed timestamp
+```
 
-~~~text
-(run ID, checkpoint ID, change index, stable effect slot)
-~~~
+Reject cycles, missing labels/targets, unsupported properties, and required
+dependencies on infinite cosmetic loops before playback. Same-time labels and
+effects run in declaration order; final completion follows terminal entries.
 
-Preparation retries, rerenders, and repeated delivery reuse this key. Two
-intended sounds need different slots. Reject duplicate declarations before
-commit. Deduplicate starts at the host as well as the Rust registration layer.
+Every playback has an ID and generation. Each track finishes once with
+completed, interrupted, or failed. Stale events cannot satisfy current gameplay
+requirements. Retargeting keeps the requirement; replacement explicitly moves
+unfinished responsibility to its successor. Already accepted completion remains
+satisfied. See [replacement
+behavior](presentation.md#replace-animation-without-losing-required-work).
 
-Prepare required assets and targets before starting anything. Optional missing
-configuration is omitted by game Rust code; missing required assets fail
-preparation. Effect selection/fallbacks remain ordinary Rust, not a host rule
-language. RON may populate typed constants/assets but contains no control flow.
-Active playbacks retain captured configuration; future playbacks use new values.
+## Combine sounds, particles, and material effects
 
-## Resource lifetime and inspection
+Continuous effect properties use ordinary targets. Starting a sound or emitting
+a burst is a discrete event in a sequence. A projectile combines an instantiated
+visual and normal movement. A persistent aura is a component child with ordinary
+`animate` and `exit` behavior.
 
-Scoped controls stop ordinary work on unmount. Declared exits and effects
-requiring visual retention transfer to frozen visual ownership. Their references
-stay tied to the original incarnation. Release resources after their last use,
-not merely when a component disappears.
+For example, attach reveal effects to the draw's label:
 
-Pause/seek samples supported visual tracks without replaying already delivered
-sound/burst occurrences. Resume emits only undelivered occurrences. Native
-capabilities report their seek support; do not claim particles can be rewound
-when their executor cannot reproduce that state.
+```rust
+let draw = draw
+    .play_sound(config.draw_sound).at("reveal")
+    .emit(config.reveal_particles, card.spark_anchor()).at("reveal");
+```
 
-Explicit replay allocates a session-unique replay ID in a namespace separate
-from live checkpoints. Slots remain stable within one replay; another replay
-gets another ID. Replay/inspection events cannot satisfy or replace live gates.
-Provide snapshot/restore of inspected playback state so leaving inspection
-returns to the live presentation without changing game state.
+Game code selects effects using ordinary Rust. A chess move can choose a castle
+sound, fall back to the piece sound or default, and separately add a check
+sound:
+
+```rust
+let sound = castle_sound
+    .or_else(|| config.pieces.get(&piece.kind))
+    .unwrap_or(&config.default_move);
+let mut sequence = movement.play_sound(sound).at("move");
+if gives_check {
+    sequence = sequence.play_sound(&config.check).at("arrived");
+}
+```
+
+Required assets and targets must be prepared before playback. Omit optional
+configuration while constructing the sequence; missing required assets fail
+preparation. Active playbacks retain captured configuration, while later
+playbacks use current values.
+
+RON is optional data input for ordinary Rust configuration types. It can
+populate constants, assets, and typed parameters; Rust retains conditions and
+control flow:
+
+```ron
+(
+    default_move_seconds: 0.25,
+    draw_sound: "audio/draw",
+    reveal_particles: "effects/reveal",
+)
+```
+
+## Play each transient effect once
+
+Rerendering must not play the same card sound again. A **transient occurrence**
+is one intended sound, burst, or other one-time effect. Its identity combines
+the action run, checkpoint, change index, and stable effect name within that
+change. Engine-assigned stable positions may supply names when unambiguous.
+
+For example, two different sounds in one change need separate identities:
+
+```text
+(run 7, checkpoint 3, change 0, "move-sound")
+(run 7, checkpoint 3, change 0, "check-sound")
+```
+
+Require unique effect names across all registrations and sequences for that
+change. Reject duplicates before commit. Retrying preparation or delivering a
+request twice reuses the same identity. Deduplicate at both the Rust
+registration layer and native start boundary. A new session renders current
+state and emits transients only for subsequent changes.
+
+## Keep visuals for their last effect, then release them
+
+Scoped controls stop ordinary animation when their component unmounts. Declared
+exit animation and effects that still need visuals retain the prepared native
+objects, anchors, and assets. Logical handlers and subscriptions detach at once.
+
+For example, a removed card can dissolve while a projectile still follows an
+anchor on its old visual. Those refs keep the old incarnation, even if the UUID
+is mounted again. Release resources after their final retained use, not merely
+when hooks disappear. [Identity](identity.md) defines this lifetime separation.
+
+## Inspect and replay without changing game progress
+
+Seeking samples supported visual tracks without replaying sounds and bursts that
+have already occurred. Resume emits only occurrences not previously delivered.
+Native capabilities must report seek support; unavailable particle rewinding
+must be visible in the inspector rather than simulated inaccurately.
+
+Explicit replay requests a fresh presentation of the sequence. It gets a new
+session-unique replay ID separate from live checkpoint IDs:
+
+```text
+seek backward over reveal, then resume: do not repeat its delivered sound
+explicitly replay the draw: play the sound once for this new replay
+replay again: allocate another replay ID and play it once again
+```
+
+Neither seeking nor replay can advance a live checkpoint or mutate rules state.
+Preserve the live playback state so leaving inspection returns to the current
+game presentation. Repeated delivery within one replay is still deduplicated.
 
 ## Manual QA
 
-Use identical settings for a UI property, world property, default move, and
-authored sequence. Compare pause, speed, interruption, and retargeting. Reflow a
-hand during reveal: hover stays responsive and ready occurs only at arrival.
-Seek around a sound/burst label, resume, then explicitly replay; verify
-occurrence counts and live gate isolation.
+Compare a UI property, world property, default layout move, and custom sequence
+using the same transition settings. Omit application movement configuration.
+Pause, slow, interrupt, and retarget each. Reflow a hand during reveal and check
+that hover responds while `ready` waits for arrival. Seek across sound/burst
+labels, resume, and explicitly replay. Remove a card during dissolve and an
+attached projectile, then verify final resource cleanup.

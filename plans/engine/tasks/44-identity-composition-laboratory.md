@@ -1,34 +1,42 @@
-# 44. Complete identity, composition, layout, and input laboratory cases
+# 44. Complete component, layout, and input test scenes
+
+The test scenes exercise rich card composition and identity changes that Hearts'
+simple card artwork does not demonstrate.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Fixtures contract](../fixtures.md)
-- [Identity contract](../identity.md)
-- [World contract](../world.md)
-- [Validation contract](../validation.md)
+- [Test scenes](../fixtures.md)
+- [Identity and state](../identity.md)
+- [World objects and input](../world.md)
+- [Validation](../validation.md)
 
-**Prerequisite:** [Task 43: Implement durable accepted-boundary Hearts
-saves](43-hearts-save-resume.md) and all its required follow-ups must be
+**Prerequisite:** [Task 43: Save completed Hearts actions durably and resume
+them](43-hearts-save-resume.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Reactant laboratory/inspector; world primitives; UI/world
-projection; public display driver. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** Reactant laboratory/inspector; world primitives; UI/world
+projection; public display driver.
 
-## Result
+## Example
 
-The neutral laboratory proves the full composition/identity contract beyond
-Hearts' simple card artwork.
+Exercise richer composition than a playing-card texture:
+
+```text
+card: artwork + frame + rich text + badges + outline + action button
+open browser: change pile to grid without changing rules location
+show simulation preview: independent presentation, live state unchanged
+move across parents: preserve hooks, update context and event path
+```
 
 ## Implementation
 
 1. Complete identity-transfer, duplicate-identity, incarnation-exit,
    ui-world-transfer, mixed-input, stores, composed-card, and contained-layout
-   specimens.
+   test scenes. Also add card-browser, card-selection-scenes, and
+   simulation-preview as specified in fixtures.md.
 
 2. Use neutral synthetic rich text, badges, outline visuals, face variants, UI
    preview, nested cards, and conditional action controls. Add a reusable
@@ -42,10 +50,14 @@ Hearts' simple card artwork.
    fixture output. Validate material isolation and changed hit geometry in
    native captures.
 
-5. Keep specimen reset deterministic and assert cleanup rather than accumulating
-   retained objects across selections.
+5. Keep test scene reset deterministic and assert cleanup rather than
+   accumulating retained objects across selections.
 
 ## Acceptance
+
+- Browser/deck-order, draft/shop/quest-deck selection, and simulated outcome
+  previews work through shared rules/display APIs. Local rearrangement and
+  previews leave live rules state unchanged until a valid choice is committed.
 
 - Every configured layout-pair transfer has public-driver coverage and
   representative native evidence.
@@ -59,17 +71,15 @@ Hearts' simple card artwork.
 - Native geometry confirms screen-space continuity, context-dependent hit
   regions, and resize/reorientation behavior.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Effect/replay/failure matrix completion is task 45. This task cannot replace
 rich composed cards with Hearts texture-only cards.
 
 ## Manual QA
 
-Select each completed specimen and perform its visible exercise/reset. Inspect a
-rich card moving across domains and reappearing during an exit.
+Select each completed test scene and perform its visible exercise/reset. Inspect
+a rich card moving across domains and reappearing during an exit.

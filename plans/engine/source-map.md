@@ -1,9 +1,10 @@
 # Source map and reading guide for relocated code
 
-Read this to locate the implementation role named by a task. Paths below were
-verified at planning baseline 7ee563836921dd0cbe0a024ccd99807df5f3f002. Task 06
-must update current-owner pointers after crate extraction; preserve the role
-names so later tasks remain findable.
+Tasks name the source areas they change. Use this page to locate their current
+implementation without reading whole directories. Related pages:
+[architecture](architecture.md), [workflow](workflow.md), and
+[validation](validation.md). Task 06 must update these pointers after moving
+crates so later assignments still lead to the right files.
 
 ## Existing implementation roles
 
@@ -39,12 +40,12 @@ These are starting points, not instructions to load whole directories.
 | Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/gameplay.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
-| Prior plan structure | [chess UI entry point](../../docs/reactant/chess-ui-implementation-plan.md) |
 
 ## Planned additions
 
-These do not exist at the planning baseline:
-- reactant-rules: execution modes, choice specs, endpoint, worker lifecycle.
+The numbered tasks introduce the following code:
+- reactant-rules: execution modes, choice specifications, worker communication,
+  worker lifecycle.
 - reactant-core/reactant-ui/reactant: extracted runtime and public facade.
 - reactant-testing: public display driver and observation/barrier APIs.
 - samples/hearts: rules, views, authoring inputs, tests, Ditto configuration.
@@ -56,9 +57,8 @@ asynchronous resource executor for the rules executor.
 
 ## External references
 
-The contracts in this package are self-contained and supersede illustrative API
-spelling in the original proposal. These references explain familiar concepts,
-not additional scope:
+These references explain animation, layout, and Rust unwind behavior used by the
+engine. The requirements to implement are fully specified in this plan:
 - [Motion animation](https://motion.dev/docs/react-animation)
 - [Motion useAnimate](https://motion.dev/docs/react-use-animate)
 - [Motion sequences](https://motion.dev/docs/animate#timeline-sequences)

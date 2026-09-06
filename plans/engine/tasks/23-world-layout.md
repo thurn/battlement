@@ -1,27 +1,35 @@
 # 23. Implement world Flexbox, Grid, fans, piles, and arcs
 
+World arrangements compute stable target poses from declared planes and rest
+measurements.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [World contract](../world.md)
-- [Motion contract](../motion.md)
-- [Identity contract](../identity.md)
+- [World objects and input](../world.md)
+- [Animation](../motion.md)
+- [Identity and state](../identity.md)
 
-**Prerequisite:** [Task 22: Implement immutable sequences and
-completion-relative labels](22-sequence-dependencies.md) and all its required
-follow-ups must be integrated.
+**Prerequisite:** [Task 22: Build sequences with labels that follow actual
+completion](22-sequence-dependencies.md) and all its required follow-ups must be
+integrated.
 
-**Source roles:** World host descriptions; existing UI layout concepts; prepared
-rest bounds and geometry observations. Resolve these through source-map.md; its
-links track the current owner after crate moves. Inspect the concrete caller and
-host/fake counterpart before editing.
+**Starting code:** World host descriptions; existing UI layout concepts;
+prepared rest bounds and geometry observations.
 
-## Result
+## Example
 
-World arrangements compute stable target poses from declared planes and rest
-measurements.
+World layout receives world-unit bounds and a declared plane:
+
+```rust
+WorldFlex::new()
+    .plane(table_plane)
+    .extent((12.0, 3.0))
+    .gap(0.1)
+    .children(cards)
+```
 
 ## Implementation
 
@@ -53,12 +61,10 @@ measurements.
 - Animating a visual's scale does not change rest-layout positions unless its
   authored layout box also changes.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Animating to these destinations and UI/world transfer projection is task 24.
 Hearts-specific hand spacing is task 37.

@@ -1,31 +1,38 @@
-# 40. Add bounded information-respecting Hearts simulations
+# 40. Choose Hearts moves by simulating possible hands
+
+Three AI players choose passes and plays using reproducible bounded rollouts
+without observing hidden opponent cards.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [Execution contract](../execution.md)
-- [Fixtures contract](../fixtures.md)
+- [Hearts rules and behavior](../hearts.md)
+- [Rules and choices](../execution.md)
+- [Test scenes](../fixtures.md)
 
 **Prerequisite:** [Task 39: Complete Hearts card play, trick collection, and
 scoring](39-hearts-play-scoring.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Hearts public player observations/rules; generic Simulation
-policy; worker scheduling. Resolve these through source-map.md; its links track
-the current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** Hearts public player observations/rules; generic Simulation
+policy; worker scheduling.
 
-## Result
+## Example
 
-Three AI players choose passes and plays using reproducible bounded rollouts
-without observing hidden opponent cards.
+Compare candidates on the same possible hidden hands and seeds:
+
+```text
+sample 32 possible deals consistent with the actor's knowledge
+for each candidate: finish the current hand on each sampled deal
+apply normal scoring, including shooting the moon
+choose lowest mean additional penalty; use stable tie-breaking
+```
 
 ## Implementation
 
-1. Generate determinizations consistent with the acting player's known cards,
+1. Sample possible hidden hands consistent with the acting player's known cards,
    public play history, and void-suit information. Ensure sampling cannot
    duplicate/omit cards or violate observed constraints.
 
@@ -36,8 +43,8 @@ without observing hidden opponent cards.
    the same end-of-hand objective. Implement the cheap rollout
    heuristic/shortlist from hearts.md.
 
-3. Apply the default 32 determinizations per decision, one rollout per legal
-   play candidate, and top eight passing combinations. Make work counts explicit
+3. Apply the default 32 possible deals per decision, one rollout per legal play
+   candidate, and top eight passing combinations. Make work counts explicit
    fixture/config inputs and stable tie-breaking deterministic.
 
 4. Route presented AI-owned prompts to an application-owned simulation job using
@@ -62,12 +69,10 @@ without observing hidden opponent cards.
 - Abandonment between rollout batches stops further decisions without blocking
   menus, and primitive allocation/codegen guarantees remain intact.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Advanced difficulty levels and competitive-strength targets are outside scope.
 Performance reporting is task 46.

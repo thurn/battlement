@@ -1,44 +1,52 @@
-# 43. Implement durable accepted-boundary Hearts saves
+# 43. Save completed Hearts actions durably and resume them
+
+Hearts resumes the latest durably saved accepted boundary across native and
+WebGL sessions without replaying old effects.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Hearts contract](../hearts.md)
-- [Execution contract](../execution.md)
-- [Presentation contract](../presentation.md)
-- [Validation contract](../validation.md)
+- [Hearts rules and behavior](../hearts.md)
+- [Rules and choices](../execution.md)
+- [Presentation timing](../presentation.md)
+- [Validation](../validation.md)
 
 **Prerequisite:** [Task 42: Finish Hearts keyboard/controller navigation and
 menus](42-hearts-navigation-menus.md) and all its required follow-ups must be
 integrated.
 
-**Source roles:** Accepted-state notifications; generic persistent-data host
-support; chess save integration; Hearts state. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Accepted-state notifications; generic persistent-data host
+support; chess save integration; Hearts state.
 
-## Result
+## Example
 
-Hearts resumes the latest durably saved accepted boundary across native and
-WebGL sessions without replaying old effects.
+Save completions must identify the exact state that reached durable storage:
+
+```text
+accepted state 8 queued; write for state 7 completes
+state 8 is still not marked saved
+state 8 write and durable flush finish
+reload now restores state 8, with fresh prompt and effect identities
+```
 
 ## Implementation
 
 1. Serialize complete accepted Hearts state, including the initial NewGame deal,
    PRNG, and passing-cycle state, outside the worker. Use one serial writer with
-   match epoch/accepted-state sequence; supersede queued older-match writes and
-   prevent stale completions from acknowledging a newer save. Never serialize
-   mutable worker state.
+   match ID and accepted-state sequence number; supersede queued older-match
+   writes and prevent stale completions from acknowledging a newer save. Never
+   serialize mutable worker state.
 
 2. Use atomic temporary-write/replace on native. Add or reuse a generic browser
    durable-storage flush/acknowledgement capability so a WebGL save is not
    reported complete while only in memory.
 
 3. Enable Continue only for a valid persisted state; restore the visible
-   position without transient replay and then issue fresh human prompt identity
-   or schedule the next AI turn.
+   position without transient replay and then schedule from the accepted phase:
+   passing, card play for the correct seat, or completed-match results. Every
+   new prompt gets a fresh identity.
 
 4. Show nonblocking save failure with retry; keep accepted in-memory state
    usable. Normal Exit asynchronously flushes the newest accepted state and
@@ -70,12 +78,10 @@ WebGL sessions without replaying old effects.
 - Write/flush failure preserves in-memory play and surfaces retry; corrupt saves
   are not silently overwritten.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 No save-format backward-compatibility scheme or cloud accounts. Physical-device
 durability checks join separate certification.

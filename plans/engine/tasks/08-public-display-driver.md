@@ -1,27 +1,35 @@
 # 08. Add public display driving and deterministic virtual time
 
+Scenarios can independently control worker progress, presentation time, and
+rendered frames through a public test surface.
+
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Validation contract](../validation.md)
-- [Migration contract](../migration.md)
-- [Presentation contract](../presentation.md)
+- [Validation](../validation.md)
+- [Sample migration](../migration.md)
+- [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 07: Move Reactant asset preparation out of
 Battlement](07-asset-tooling-boundary.md) and all its required follow-ups must
 be integrated.
 
-**Source roles:** World fake; UI fake; existing game tests; native batches and
-tween execution. Resolve these through source-map.md; its links track the
-current owner after crate moves. Inspect the concrete caller and host/fake
-counterpart before editing.
+**Starting code:** World fake; UI fake; existing game tests; native batches and
+tween execution.
 
-## Result
+## Example
 
-Scenarios can independently control worker progress, presentation time, and
-rendered frames through a public test surface.
+Separate time advancement from a rendered frame and worker synchronization:
+
+```rust
+display.dispatch(move_card);
+display.wait_for_worker_started();
+display.advance_time(Duration::from_millis(125));
+display.object(card_id).assert_position(halfway);
+display.advance_frame();
+```
 
 ## Implementation
 
@@ -56,12 +64,10 @@ rendered frames through a public test surface.
 - The original tic-tac-toe 99/100 ms and chess capture/spawn timing guarantees
   are now expressed as observable behavior and pass before migration.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 New Motion features extend this driver in their own tasks. The checkpoint/frame
 protocol arrives in task 12; its current frame operation must be explicit and

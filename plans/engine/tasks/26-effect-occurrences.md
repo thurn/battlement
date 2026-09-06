@@ -1,27 +1,33 @@
-# 26. Schedule sound, particles, and attached effects on the shared clock
+# 26. Schedule sounds, particles, and attached effects
+
+Sequences start prepared sound/burst/effect work locally once per intended
+occurrence, with explicit following or captured attachment points.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
 
-## Read and start
+## Read before implementing
 
-- [Motion contract](../motion.md)
-- [World contract](../world.md)
-- [Presentation contract](../presentation.md)
+- [Animation](../motion.md)
+- [World objects and input](../world.md)
+- [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 25: Bind checkpoint registrations to Motion and rendered
-acceptance](25-checkpoint-motion-gates.md) and all its required follow-ups must
+**Prerequisite:** [Task 25: Start checkpoint animations and wait before
+advancing](25-checkpoint-motion-gates.md) and all its required follow-ups must
 be integrated.
 
-**Source roles:** Unified Motion graph; asset preparation; Unity particle/audio
-services; typed anchors; fake occurrence history. Resolve these through
-source-map.md; its links track the current owner after crate moves. Inspect the
-concrete caller and host/fake counterpart before editing.
+**Starting code:** Unified Motion graph; asset preparation; Unity particle/audio
+services; typed anchors; fake occurrence history.
 
-## Result
+## Example
 
-Sequences start prepared sound/burst/effect work locally with stable occurrence
-identity and typed attachment semantics.
+Sound and particles are prepared sequence entries scheduled at a label:
+
+```rust
+let draw = draw
+    .play_sound(config.draw_sound).at("reveal")
+    .emit(config.reveal_particles, card.spark_anchor()).at("reveal");
+```
 
 ## Implementation
 
@@ -29,8 +35,8 @@ identity and typed attachment semantics.
    children. Resolve targets/assets during preparation; select live-following or
    captured positions explicitly.
 
-2. Use run/checkpoint/change-index/effect-slot identity across registrations and
-   host delivery. Reject duplicate declared slots and deduplicate delivered
+2. Use run/checkpoint/change-index/effect-name identity across registrations and
+   host delivery. Reject duplicate effect names and deduplicate delivered
    starts.
 
 3. Execute occurrence crossings locally alongside labels/tracks in declaration
@@ -46,8 +52,8 @@ identity and typed attachment semantics.
 
 ## Acceptance
 
-- Two intended sounds at one label use different slots; duplicate delivery of
-  either produces one occurrence.
+- Two intended sounds at one label use different effect names; duplicate
+  delivery of either produces one occurrence.
 
 - Optional absent configuration omits an effect, while a missing required asset
   prevents all dependent playback.
@@ -57,12 +63,10 @@ identity and typed attachment semantics.
 - Simultaneous dissolve/light/audio properties compose through disjoint property
   ownership; shared property conflicts are detected.
 
-Use standalone public scenarios for these assertions and the appropriate native
-specimen for rendered claims. Run affected regressions and the required staged
-aggregate CI as described in validation.md. Preserve concrete evidence for each
-bullet; a compiling API or placeholder specimen is not acceptance.
+Run the public scenarios, affected regressions, native checks for rendered
+claims, and staged aggregate CI described in [validation](../validation.md).
 
-## Named deferrals
+## Scope of this task
 
 Retention after logical unmount is task 27 and seek/replay occurrence history is
 task 28.
