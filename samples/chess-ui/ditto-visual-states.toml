@@ -1047,3 +1047,31 @@ to = "arcade_modal_animation.reduced_open"
 [[transitions]]
 from = "arcade_modal_animation.reduced_open"
 to = "arcade_modal_animation.reset"
+
+[[states]]
+key = "arcade_attract_mode.initial"
+screen = "arcade_attract_mode"
+
+[[states]]
+key = "arcade_attract_mode.advanced"
+screen = "arcade_attract_mode"
+
+[[states]]
+key = "arcade_attract_mode.reset"
+screen = "arcade_attract_mode"
+
+[[states]]
+key = "arcade_attract_mode.reduced"
+screen = "arcade_attract_mode"
+
+[[transitions]]
+from = "arcade_attract_mode.initial"
+to = "arcade_attract_mode.advanced"
+
+[[transitions]]
+from = "arcade_attract_mode.advanced"
+to = "arcade_attract_mode.reset"
+
+[[transitions]]
+from = "arcade_attract_mode.reset"
+to = "arcade_attract_mode.reduced"

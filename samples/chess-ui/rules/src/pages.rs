@@ -8,6 +8,7 @@ use crate::{
   action_harness::ActionHarness,
   arcade_modal_animation_harness::ArcadeModalAnimationHarness,
   arcade_modal_harness::ArcadeModalHarness,
+  attract_mode_harness::AttractModeHarness,
   dropdown_animation_harness::DropdownAnimationHarness,
   effects_harness::EffectsHarness,
   font_scale_harness::FontScaleHarness,
@@ -210,7 +211,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeAttractMode", "Chess UI showcase title."))
-                .description(tx("ArcadeAttractMode animates seeded grid and particles deterministically; menu controls and audio remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeAttractMode animates seeded grid and particles deterministically; menu controls and audio remain unasserted.", "Chess UI showcase description."))
+                .child(AttractModeHarness::new()),
         )
         .page(
             ReviewPage::new()

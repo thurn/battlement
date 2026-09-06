@@ -193,6 +193,46 @@ source = "94875ec5f6b0b01235604d6acc8b2cfc4c185e4a8769a0d694c713ef7a748934"
 
 [[baselines]]
 profile = "macos"
+scenario = "arcade attract mode"
+checkpoint = "advanced"
+sha256 = "bcd025bb69b0438773766514c489e6a9e2705a40457cfc389592a87502a28810"
+width = 1280
+height = 800
+size_bytes = 169059
+source = "ec066b6844e36b268286c64e76a26427e016ad3d9563179f5142e6b31d5b1685"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade attract mode"
+checkpoint = "initial"
+sha256 = "63bae9de2a9ec214f733e37e044b7e2085cbce751f736f8301c47c7a678a0bec"
+width = 1280
+height = 800
+size_bytes = 166767
+source = "ec066b6844e36b268286c64e76a26427e016ad3d9563179f5142e6b31d5b1685"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade attract mode"
+checkpoint = "reduced"
+sha256 = "7fe8bceb93501b27542c840cf2f358e1c8f5cf6116602804f6766d8cb1842bfd"
+width = 1280
+height = 800
+size_bytes = 150965
+source = "ec066b6844e36b268286c64e76a26427e016ad3d9563179f5142e6b31d5b1685"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade attract mode"
+checkpoint = "reset"
+sha256 = "5d42f27c4d1767ef1b3c095162aae6ddb7483d7e93422c453fa8520a60560a07"
+width = 1280
+height = 800
+size_bytes = 166760
+source = "ec066b6844e36b268286c64e76a26427e016ad3d9563179f5142e6b31d5b1685"
+
+[[baselines]]
+profile = "macos"
 scenario = "arcade modal animation"
 checkpoint = "closed"
 sha256 = "28c68a5e8d9bd1e2c0f5487dbb43a97186e13813303234b2b4c957a516bb0e81"

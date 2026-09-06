@@ -48,6 +48,10 @@ mod arcade_modal_harness;
 
 mod arcade_modal_animation_harness;
 
+pub mod arcade_attract_mode;
+
+mod attract_mode_harness;
+
 pub mod arcade_tab_transition;
 
 mod assets;

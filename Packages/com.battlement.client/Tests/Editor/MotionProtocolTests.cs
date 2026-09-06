@@ -190,6 +190,70 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledClockCommandsUseTheDirectOperationPayload()
+        {
+            SessionId session = new(Id("de8ab6a6-2022-43bc-8453-e4873be72085").Value);
+            ObjectId clockId = Id("030b27a6-8f4a-4d4b-9b11-67d84fd7c920");
+            Response response = new(
+                session,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(Id("fd9eb52d-bda4-4302-bd51-e14bd89bb1ca").Value),
+                            session,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    new[]
+                                    {
+                                        new Command(
+                                            new CommandId(
+                                                Id("7cd0fced-04bd-4af1-95db-3aa9901e649a").Value
+                                            ),
+                                            new CommandBody.Motion.ControlledClock(
+                                                new MotionControlledClockOperation(
+                                                    clockId,
+                                                    new MotionControlledClockCommand.Advance(
+                                                        1_500_000
+                                                    )
+                                                )
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
+
+            byte[] json = BattlementJson.SerializeResponse(response);
+            Response decoded = BattlementJson.DeserializeResponse(json);
+            var batch = (ResponseMessage<Command>.BatchMessage)decoded.Messages[0];
+            var body = (CommandBody.Motion.ControlledClock)batch.Batch.Groups[0].Commands[0].Body;
+            var advance = (MotionControlledClockCommand.Advance)body.Payload.Command;
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(json));
+
+            Assert.That(body.Payload.ClockId, Is.EqualTo(clockId));
+            Assert.That(advance.DeltaMicros, Is.EqualTo(1_500_000));
+            Assert.That(
+                root.SelectToken(
+                    "messages[0].Batch.groups[0].commands[0].body.MotionControlledClock.payload"
+                ),
+                Is.Null
+            );
+            Assert.That(
+                root.SelectToken(
+                            "messages[0].Batch.groups[0].commands[0].body"
+                                + ".MotionControlledClock.clock_id"
+                        )!
+                    .Value<string>(),
+                Is.EqualTo(clockId.Value.ToString())
+            );
+        }
+
+        [Test]
         public void MotionEventActionsUseTheDirectBatchPayload()
         {
             ObjectId descriptorId = Id("7b2064dd-0ca2-4bb9-b748-c527919bc3d2");

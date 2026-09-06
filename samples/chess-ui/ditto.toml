@@ -1292,6 +1292,42 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "arcade attract mode"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206829\u2069. \u2068ArcadeAttractMode\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "FULL" }, role = "static-text", name = "FULL" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ADVANCE" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "advanced", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "FULL" }, role = "static-text", name = "FULL" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL MOTION" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "REDUCED" }, role = "static-text", name = "REDUCED" }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "arcade modal animation"
 
 [[scenarios.steps]]

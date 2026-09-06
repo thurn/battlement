@@ -915,6 +915,7 @@ namespace Battlement
             || type == typeof(CommandBody.GeometryObservation)
             || type == typeof(CommandBody.AccessibilityUpdate)
             || type == typeof(CommandBody.Diagnostics)
+            || type == typeof(CommandBody.Motion.ControlledClock)
             || type == typeof(CommandBody.Motion.DragControl)
             || type == typeof(ActionBody.GeometryObservations)
             || type == typeof(ActionBody.MotionEvents)
