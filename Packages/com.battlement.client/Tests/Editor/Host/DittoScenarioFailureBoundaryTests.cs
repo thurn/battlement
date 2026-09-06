@@ -174,6 +174,10 @@ namespace Battlement.Tests
             for (var advance = 0; advance < 8 && executor.CurrentStepIndex is null; advance++)
             {
                 Assert.That(executor.Advance(), Is.False);
+                if (executor.AwaitingPresentation)
+                {
+                    executor.CompletePresentedFrame();
+                }
             }
             Assert.That(executor.CurrentStepIndex, Is.EqualTo(0));
             BattlementLogStore.Add(
@@ -245,18 +249,8 @@ namespace Battlement.Tests
                 5_000,
                 new[]
                 {
-                    new DittoResolvedStep(
-                        0,
-                        "active",
-                        1_000,
-                        new DittoStepAction.Wait(new DittoWait.Frames(300))
-                    ),
-                    new DittoResolvedStep(
-                        1,
-                        "unreached",
-                        1_000,
-                        new DittoStepAction.Wait(new DittoWait.Frames(1))
-                    ),
+                    new DittoResolvedStep(0, "active", 1_000, new DittoStepAction.Advance(300)),
+                    new DittoResolvedStep(1, "unreached", 1_000, new DittoStepAction.Advance(1)),
                 }
             );
 
@@ -279,7 +273,13 @@ namespace Battlement.Tests
 
         private static void Drain(DittoScenarioExecutor executor)
         {
-            for (var index = 0; index < 20 && !executor.Advance(); index++) { }
+            for (var index = 0; index < 20 && !executor.Advance(); index++)
+            {
+                if (executor.AwaitingPresentation)
+                {
+                    executor.CompletePresentedFrame();
+                }
+            }
             Assert.That(executor.Result, Is.Not.Null);
         }
 

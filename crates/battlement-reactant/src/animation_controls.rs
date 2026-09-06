@@ -287,7 +287,11 @@ impl AnimationSequence {
       .steps
       .last()
       .map_or(Duration::ZERO, |value| value.start + value.duration);
-    let duration = Duration::from_micros(target.total_duration_micros(None));
+    let duration = Duration::from_micros(
+      target
+        .total_duration_micros(None)
+        .expect("animation sequence steps must be finite"),
+    );
     self.steps.push(SequenceStep {
       selector,
       target,

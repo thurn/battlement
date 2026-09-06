@@ -40,6 +40,9 @@ namespace Battlement.UI
 
         public void SetModalResolver(Func<IPanel?, VisualElement?> value) => activeModal = value;
 
+        internal bool HasPendingWork =>
+            activeCommits != 0 || pendingAutoFocus is not null || pendingHierarchyFocus is not null;
+
         public void SetFocusVisibleWriter(Action<VisualElement, bool> value) =>
             setFocusVisible = value;
 

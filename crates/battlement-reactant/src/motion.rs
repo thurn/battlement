@@ -815,14 +815,15 @@ impl MotionTarget {
     self
   }
 
-  pub(crate) fn total_duration_micros(&self, inherited: Option<&Transition>) -> u64 {
+  pub(crate) fn total_duration_micros(&self, inherited: Option<&Transition>) -> Option<u64> {
     self
       .descriptor(inherited, 0)
       .tracks
       .iter()
       .map(|track| transition_duration_micros(&track.transition))
-      .max()
-      .unwrap_or(0)
+      .try_fold(0, |longest, duration| {
+        duration.map(|value| longest.max(value))
+      })
   }
 
   pub(crate) fn variant_orchestration(&self) -> VariantOrchestration {
@@ -1071,7 +1072,7 @@ fn visibility_value(value: Visibility) -> &'static str {
   }
 }
 
-fn transition_duration_micros(value: &TransitionDefinition) -> u64 {
+fn transition_duration_micros(value: &TransitionDefinition) -> Option<u64> {
   let active = match &value.generator {
     TransitionGenerator::Immediate => 0,
     TransitionGenerator::Tween {
@@ -1092,11 +1093,13 @@ fn transition_duration_micros(value: &TransitionDefinition) -> u64 {
   let plays = match value.repeat {
     MotionRepeat::None => 1,
     MotionRepeat::Count(count) => u64::from(count) + 1,
-    MotionRepeat::Forever => panic!("infinite variants cannot sequence parent and children"),
+    MotionRepeat::Forever => return None,
   };
-  value.delay_micros.max(0) as u64
-    + active.saturating_mul(plays)
-    + value.repeat_delay_micros.saturating_mul(plays - 1)
+  Some(
+    value.delay_micros.max(0) as u64
+      + active.saturating_mul(plays)
+      + value.repeat_delay_micros.saturating_mul(plays - 1),
+  )
 }
 
 pub(crate) fn micros(value: f64, allow_zero: bool) -> u64 {

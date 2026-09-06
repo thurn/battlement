@@ -43,10 +43,11 @@ namespace Battlement
             None,
             StartupSettle,
             Input,
+            ActionPresentation,
             Settle,
             ScreenshotSettle,
             ScreenshotCapture,
-            FrameWait,
+            FrameAdvance,
             ObjectWait,
         }
 
@@ -74,7 +75,7 @@ namespace Battlement
         private Phase phase;
         private ulong settleDurationMs;
         private ulong captureDurationMs;
-        private uint waitFrames;
+        private uint advanceFrames;
         private DittoObjectCondition? waitCondition;
         private DittoScreenshotStepOutcome? screenshotOutcome;
         private DittoDeadlineKind? scenarioExpiry;
@@ -92,6 +93,7 @@ namespace Battlement
         private bool videoMotionOverridden;
         private bool presentationChanged;
         private int startupQuietFrames;
+        private bool awaitingPresentation;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -182,6 +184,8 @@ namespace Battlement
 
         public ulong LastCommittedFrame => committedFrame;
 
+        public bool AwaitingPresentation => awaitingPresentation;
+
         public bool Advance()
         {
             ThrowIfDisposed();
@@ -196,7 +200,7 @@ namespace Battlement
                 }
                 if (
                     motion.Motion == DittoMotion.RealTime
-                    || phase is not Phase.FrameWait and not Phase.ObjectWait
+                    || phase is not Phase.FrameAdvance and not Phase.ObjectWait
                 )
                 {
                     return false;
@@ -214,6 +218,10 @@ namespace Battlement
             if (complete)
             {
                 return true;
+            }
+            if (awaitingPresentation)
+            {
+                return false;
             }
             if (AdvanceBoundary())
             {
@@ -245,7 +253,7 @@ namespace Battlement
                         }
                         return complete;
                     }
-                    AdvanceFrame();
+                    PrepareFrame();
                     AdvanceBoundary();
                     return complete;
                 }
@@ -376,12 +384,12 @@ namespace Battlement
                     input.Key(key.Value, key.Action);
                     phase = Phase.Input;
                     break;
-                case DittoStepAction.Wait { Value: DittoWait.Frames frames }:
-                    waitFrames = frames.Count;
-                    phase = Phase.FrameWait;
+                case DittoStepAction.Advance advance:
+                    advanceFrames = advance.Frames;
+                    phase = Phase.FrameAdvance;
                     break;
-                case DittoStepAction.Wait { Value: DittoWait.Object condition }:
-                    waitCondition = condition.Condition;
+                case DittoStepAction.Wait wait:
+                    waitCondition = wait.Condition;
                     phase = Phase.ObjectWait;
                     EvaluateObjectWait(step);
                     break;
@@ -401,8 +409,7 @@ namespace Battlement
                         )
                     )
                     {
-                        motion.RestartQuietWindow();
-                        phase = Phase.Settle;
+                        phase = Phase.ActionPresentation;
                         phaseStarted = now();
                     }
                     else
@@ -432,16 +439,42 @@ namespace Battlement
             }
         }
 
-        private void AdvanceFrame()
+        private void PrepareFrame()
         {
-            motion.PrepareFrame();
-            if (phase == Phase.Input)
+            motion.PrepareFrame(phase == Phase.FrameAdvance);
+            if (phase == Phase.Input && input.CanQueueNextFrame)
             {
-                input.QueueNextFrame();
-                InputSystem.Update();
+                DittoInputFrame frame = input.QueueNextFrame();
+                if (frame.Key is not null)
+                {
+                    if (!targets.DispatchKey(frame, input, out string? diagnostic))
+                    {
+                        FailStep(
+                            scenario.Steps[nextStep],
+                            DittoErrorCode.InputUnreachable,
+                            diagnostic!
+                        );
+                        return;
+                    }
+                }
+                else
+                {
+                    InputSystem.Update();
+                }
             }
             runner.RunFrame();
             runner.CompleteNativeFrame();
+            awaitingPresentation = true;
+        }
+
+        public void CompletePresentedFrame()
+        {
+            ThrowIfDisposed();
+            if (!awaitingPresentation)
+            {
+                throw new InvalidOperationException("No Ditto frame is awaiting presentation.");
+            }
+            awaitingPresentation = false;
             DittoCommittedFrame frame = motion.ObserveCommittedFrame();
             committedFrame = frame.Index;
             presentationChanged = frame.LayoutChanged;
@@ -455,7 +488,10 @@ namespace Battlement
                 if (Expired(null).HasValue)
                 {
                     scenarioExpiry = Expired(null);
-                    FailRemaining(scenarioExpiry!.Value, "Scenario setup exceeded its deadline.");
+                    FailRemaining(
+                        scenarioExpiry!.Value,
+                        $"Scenario setup exceeded its deadline ({motion.PendingDiagnostic()})."
+                    );
                     return;
                 }
                 startupQuietFrames = frame.IsSettled ? startupQuietFrames + 1 : 0;
@@ -477,9 +513,9 @@ namespace Battlement
             switch (phase)
             {
                 case Phase.Input when input.PendingFrameCount == 0:
-                    if (step.Action is DittoStepAction.Click { Settle: false })
+                case Phase.ActionPresentation:
+                    if (NextStepIsAdvance())
                     {
-                        presentationReady = true;
                         PassStep(step);
                     }
                     else
@@ -500,11 +536,11 @@ namespace Battlement
                     phase = Phase.None;
                     Capture(step);
                     break;
-                case Phase.FrameWait:
-                    waitFrames--;
-                    if (waitFrames == 0)
+                case Phase.FrameAdvance:
+                    advanceFrames--;
+                    if (advanceFrames == 0)
                     {
-                        motion.PreserveExactWaitState();
+                        motion.PreserveExactAdvanceState();
                         presentationReady = true;
                         PassStep(step);
                     }
@@ -537,11 +573,15 @@ namespace Battlement
             }
             else if (condition.Matches)
             {
-                motion.PreserveExactWaitState();
-                presentationReady = true;
-                PassStep(step);
+                motion.RestartQuietWindow();
+                phase = Phase.Settle;
+                phaseStarted = now();
             }
         }
+
+        private bool NextStepIsAdvance() =>
+            nextStep + 1 < scenario.Steps.Count
+            && scenario.Steps[nextStep + 1].Action is DittoStepAction.Advance;
 
         private void Assert(DittoResolvedStep step, DittoObjectCondition condition)
         {
@@ -675,7 +715,8 @@ namespace Battlement
             FailStep(
                 step,
                 DittoErrorCode.DeadlineExpired,
-                $"The {expired.Value.ToString().ToLowerInvariant()} deadline expired.",
+                $"The {expired.Value.ToString().ToLowerInvariant()} deadline expired "
+                    + $"({motion.PendingDiagnostic()}).",
                 expired: expired
             );
             return true;

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEngine.UIElements;
 
@@ -69,6 +70,7 @@ namespace Battlement.UI
         private ulong currentMicros;
         private bool pendingStaticSync = true;
         private readonly BattlementPseudoStyleState? previous;
+        private readonly MotionClockSource clock;
         private bool hover;
         private bool focus;
         private bool active;
@@ -79,6 +81,7 @@ namespace Battlement.UI
             IReadOnlyList<MotionPseudoStyle> styles,
             IReadOnlyCollection<MotionProperty> baselineProperties,
             StyleTransitionDescriptor? transition,
+            MotionClockSource clock,
             ulong clockMicros,
             BattlementPseudoStyleState? previous
         )
@@ -92,6 +95,7 @@ namespace Battlement.UI
                     null,
                     false
                 );
+            this.clock = clock;
             currentMicros = clockMicros;
             this.previous = previous;
             foreach (MotionPseudoStyle style in styles)
@@ -181,6 +185,26 @@ namespace Battlement.UI
         }
 
         public void SynchronizeStaticStyles() => SyncStaticBaseline();
+
+        internal int ActiveFiniteTimelineCount =>
+            clock is MotionClockSource.Controlled
+                ? 0
+                : tracks.Count(track => !track.Done && !track.IsInfinite);
+
+        internal int ActiveInfiniteTimelineCount =>
+            tracks.Count(track => !track.Done && track.IsInfinite);
+
+        internal int ActiveHeldTimelineCount =>
+            clock is MotionClockSource.Controlled
+                ? tracks.Count(track => !track.Done && !track.IsInfinite)
+                : 0;
+
+        internal IEnumerable<string> ActiveTimelineDiagnostics() =>
+            tracks
+                .Where(track => !track.Done && !track.IsInfinite)
+                .Select(track =>
+                    $"pseudo-property={track.Definition.Property},clock={clock.GetType().Name}"
+                );
 
         public void CommitPaint()
         {
@@ -475,6 +499,21 @@ namespace Battlement.UI
                 entry.Sample(clockMicros, layout, reducedMotion);
         }
 
+        internal int ActiveFiniteTimelineCount =>
+            entries.Values.Sum(entry => entry.ActiveFiniteTimelineCount);
+
+        internal int ActiveInfiniteTimelineCount =>
+            entries.Values.Sum(entry => entry.ActiveInfiniteTimelineCount);
+
+        internal int ActiveHeldTimelineCount =>
+            entries.Values.Sum(entry => entry.ActiveHeldTimelineCount);
+
+        internal IEnumerable<string> ActiveTimelineDiagnostics() =>
+            entries.Values.SelectMany(entry => entry.ActiveTimelineDiagnostics());
+
+        internal int CompleteReadySlots() =>
+            entries.Values.Sum(entry => entry.CompleteReadySlots());
+
         public void Dispose()
         {
             foreach (DecorationEntry entry in entries.Values)
@@ -567,6 +606,29 @@ namespace Battlement.UI
 
             public VisualElement Element { get; }
 
+            internal int ActiveFiniteTimelineCount => slots.Count(slot => slot.IsFiniteActive);
+
+            internal int ActiveInfiniteTimelineCount => slots.Count(slot => slot.IsInfiniteActive);
+
+            internal int ActiveHeldTimelineCount => slots.Count(slot => slot.IsHeldActive);
+
+            internal IEnumerable<string> ActiveTimelineDiagnostics() =>
+                slots.Where(slot => slot.IsFiniteActive).Select(slot => slot.ReadinessDiagnostic());
+
+            internal int CompleteReadySlots()
+            {
+                var completed = 0;
+                foreach (SlotState slot in slots)
+                {
+                    if (!slot.Terminal && !slot.Paused && slot.AllTracksDone)
+                    {
+                        slot.MarkCompleted();
+                        completed++;
+                    }
+                }
+                return completed;
+            }
+
             public void Sample(ulong clockMicros, bool layout, bool reducedMotion)
             {
                 foreach (SlotState slot in slots)
@@ -590,9 +652,7 @@ namespace Battlement.UI
                 }
                 if (layout)
                     return;
-                foreach (SlotState slot in slots)
-                    if (!slot.Terminal && !slot.Paused && slot.AllTracksDone)
-                        slot.MarkCompleted();
+                CompleteReadySlots();
             }
 
             private CssAnimationDescriptor? FindDefinition(ulong slot) =>

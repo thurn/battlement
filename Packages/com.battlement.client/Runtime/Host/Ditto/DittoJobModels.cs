@@ -105,7 +105,7 @@ namespace Battlement
 
     internal abstract record DittoStepAction
     {
-        internal sealed record Click(DittoInputTarget Target, bool Settle = true) : DittoStepAction;
+        internal sealed record Click(DittoInputTarget Target) : DittoStepAction;
 
         internal sealed record Hover(DittoInputTarget Target) : DittoStepAction;
 
@@ -113,7 +113,9 @@ namespace Battlement
 
         internal sealed record Key(string Value, DittoKeyAction Action) : DittoStepAction;
 
-        internal sealed record Wait(DittoWait Value) : DittoStepAction;
+        internal sealed record Advance(uint Frames) : DittoStepAction;
+
+        internal sealed record Wait(DittoObjectCondition Condition) : DittoStepAction;
 
         internal sealed record Assert(DittoObjectCondition Condition) : DittoStepAction;
 
@@ -148,13 +150,6 @@ namespace Battlement
         internal sealed record Object(string Id) : DittoInputTarget;
 
         internal sealed record Coordinates(double X, double Y) : DittoInputTarget;
-    }
-
-    internal abstract record DittoWait
-    {
-        internal sealed record Frames(uint Count) : DittoWait;
-
-        internal sealed record Object(DittoObjectCondition Condition) : DittoWait;
     }
 
     internal sealed record DittoObjectCondition(string Object, DittoObjectState State);

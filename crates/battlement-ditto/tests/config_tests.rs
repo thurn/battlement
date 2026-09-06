@@ -206,7 +206,7 @@ fn targets_waits_profiles_and_baselines_reject_cross_field_errors() {
     ),
     (
       MINIMAL_SUITE.replace("motion = \"controlled\"", "motion = \"real-time\""),
-      "frame wait requires controlled scenario motion",
+      "frame advance requires controlled scenario motion",
     ),
     (
       MINIMAL_SUITE.replace(
@@ -345,7 +345,7 @@ motion = "controlled"
 click = { target = [0.25, 0.75] }
 
 [[scenarios.steps]]
-wait = { frames = 1 }
+advance = { frames = 1 }
 
 [[scenarios.steps]]
 key = { key = "Enter", action = "tap" }
@@ -434,7 +434,7 @@ key = { key = "Enter", action = "down" }
 key = { key = "Enter", action = "up" }
 
 [[scenarios.steps]]
-wait = { frames = 3 }
+advance = { frames = 3 }
 
 [[scenarios.steps]]
 timeout = "500ms"

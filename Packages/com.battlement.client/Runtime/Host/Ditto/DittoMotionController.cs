@@ -9,6 +9,7 @@ namespace Battlement
         TimeSpan Elapsed,
         bool HasPendingWork,
         bool HasInfiniteOperations,
+        bool HasHeldOperations,
         bool StateChanged,
         bool LayoutChanged,
         int QuietFrameCount
@@ -21,7 +22,13 @@ namespace Battlement
         ulong StateVersion,
         ulong LayoutFingerprint,
         bool HasPendingWork,
-        bool HasInfiniteOperations
+        bool HasInfiniteOperations,
+        bool HasHeldOperations,
+        int ActiveFiniteTimelineCount,
+        int ActiveInfiniteTimelineCount,
+        int ActiveHeldTimelineCount,
+        bool HasDeferredUiWork,
+        string ActiveTimelineDiagnostic
     );
 
     internal sealed class DittoMotionController
@@ -31,6 +38,8 @@ namespace Battlement
         private bool started;
         private ulong frameIndex;
         private int quietFrames;
+        private bool advanceControlledTime;
+        private TimeSpan motionEpoch;
 
         public DittoMotionController(BattlementRunner runner)
         {
@@ -55,21 +64,24 @@ namespace Battlement
 
             runner.BeginDittoMotion(motion);
             Motion = motion;
+            motionEpoch = runner.DittoElapsed;
             previous = runner.ObserveDittoWork();
             frameIndex = 0;
             quietFrames = 0;
+            advanceControlledTime = true;
             started = true;
         }
 
-        public TimeSpan PrepareFrame()
+        public TimeSpan PrepareFrame(bool forceAdvance = false)
         {
             RequireStarted();
-            return runner.PrepareDittoFrame();
+            return runner.PrepareDittoFrame(forceAdvance || advanceControlledTime);
         }
 
         public DittoCommittedFrame ObserveCommittedFrame()
         {
             RequireStarted();
+            runner.CompleteDittoPresentedFrame();
             DittoWorkObservation current = runner.ObserveDittoWork();
             DittoWorkObservation prior = previous!;
             bool stateChanged = current.StateVersion != prior.StateVersion;
@@ -83,19 +95,40 @@ namespace Battlement
                 quietFrames++;
             }
 
+            advanceControlledTime =
+                current.HasPendingWork
+                || (!current.HasInfiniteOperations && !current.HasHeldOperations);
+
             previous = current;
             return new DittoCommittedFrame(
                 ++frameIndex,
                 runner.DittoElapsed,
                 current.HasPendingWork,
                 current.HasInfiniteOperations,
+                current.HasHeldOperations,
                 stateChanged,
                 layoutChanged,
                 quietFrames
             );
         }
 
-        public void PreserveExactWaitState()
+        public string PendingDiagnostic()
+        {
+            RequireStarted();
+            DittoWorkObservation work = runner.ObserveDittoWork();
+            string finite = $"finite-motion={work.ActiveFiniteTimelineCount}";
+            string infinite = $"infinite-motion={work.ActiveInfiniteTimelineCount}";
+            string held = $"held-motion={work.ActiveHeldTimelineCount}";
+            string elapsed =
+                $"controlled-elapsed-ms={(runner.DittoElapsed - motionEpoch).TotalMilliseconds:0}";
+            string timelines = string.IsNullOrEmpty(work.ActiveTimelineDiagnostic)
+                ? ""
+                : $", timelines=[{work.ActiveTimelineDiagnostic}]";
+            return $"pending={work.HasPendingWork}, {finite}, {infinite}, {held}, {elapsed}, "
+                + $"deferred-ui={work.HasDeferredUiWork}{timelines}";
+        }
+
+        public void PreserveExactAdvanceState()
         {
             RestartQuietWindow();
         }
@@ -151,9 +184,9 @@ namespace Battlement
             controlledFrames = 0;
         }
 
-        public TimeSpan PrepareFrame()
+        public TimeSpan PrepareFrame(bool advance)
         {
-            if (IsControlled)
+            if (IsControlled && advance)
             {
                 controlledFrames++;
             }

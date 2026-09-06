@@ -6,6 +6,7 @@ using System.Linq;
 using Battlement.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using UnityPanelRenderMode = UnityEngine.UIElements.PanelRenderMode;
@@ -171,6 +172,109 @@ namespace Battlement
             return dispatched;
         }
 
+        public bool DispatchKey(
+            DittoInputFrame frame,
+            DittoVirtualInput input,
+            out string? diagnostic
+        )
+        {
+            if (frame.Key is not Key key)
+                throw new ArgumentException("A keyboard frame requires a key.", nameof(frame));
+            if (runner.DittoInputDiagnostic is string unavailable)
+            {
+                diagnostic = $"Keyboard {key}: {unavailable}";
+                return false;
+            }
+
+            bool pressed = frame.Kind == DittoInputFrameKind.KeyDown;
+            PhysicalKey physical = BattlementKeyboardInput.Physical(key);
+            if (!runner.DispatchDittoKey(physical, pressed))
+            {
+                diagnostic = $"Keyboard {key}: the global input action was rejected.";
+                return false;
+            }
+
+            UIDocument[] inputDocuments = documents
+                .InputDocuments.Where(document =>
+                    document != null
+                    && document.isActiveAndEnabled
+                    && document.rootVisualElement.panel != null
+                )
+                .OrderByDescending(document => document.sortingOrder)
+                .ToArray();
+            VisualElement? target = inputDocuments
+                .Select(document =>
+                    document.rootVisualElement.panel.focusController.focusedElement as VisualElement
+                )
+                .FirstOrDefault(element => element != null);
+            UIDocument? topmostDocument = inputDocuments.FirstOrDefault();
+            if (target is null && topmostDocument != null)
+                target = topmostDocument.rootVisualElement;
+            if (target is null)
+            {
+                diagnostic = null;
+                return true;
+            }
+
+            KeyCode keyCode = BattlementUiKeyboardMapper.Unity(physical);
+            EventModifiers modifiers = Modifiers(input);
+            char character =
+                pressed && !input.HasCommandModifiers ? input.TextCharacter(key) ?? '\0' : '\0';
+            using EventBase value = pressed
+                ? KeyDownEvent.GetPooled(character, keyCode, modifiers)
+                : KeyUpEvent.GetPooled(character, keyCode, modifiers);
+            value.target = target;
+            target.SendEvent(value);
+            if (pressed)
+                DispatchNavigation(target, physical, modifiers);
+            diagnostic = null;
+            return true;
+        }
+
+        private static void DispatchNavigation(
+            VisualElement target,
+            PhysicalKey key,
+            EventModifiers modifiers
+        )
+        {
+            EventBase? navigation = key switch
+            {
+                PhysicalKey.ArrowLeft => NavigationMoveEvent.GetPooled(
+                    NavigationMoveEvent.Direction.Left,
+                    modifiers
+                ),
+                PhysicalKey.ArrowUp => NavigationMoveEvent.GetPooled(
+                    NavigationMoveEvent.Direction.Up,
+                    modifiers
+                ),
+                PhysicalKey.ArrowRight => NavigationMoveEvent.GetPooled(
+                    NavigationMoveEvent.Direction.Right,
+                    modifiers
+                ),
+                PhysicalKey.ArrowDown => NavigationMoveEvent.GetPooled(
+                    NavigationMoveEvent.Direction.Down,
+                    modifiers
+                ),
+                PhysicalKey.Tab => NavigationMoveEvent.GetPooled(
+                    modifiers.HasFlag(EventModifiers.Shift)
+                        ? NavigationMoveEvent.Direction.Previous
+                        : NavigationMoveEvent.Direction.Next,
+                    modifiers
+                ),
+                PhysicalKey.Space or PhysicalKey.Enter or PhysicalKey.NumpadEnter =>
+                    NavigationSubmitEvent.GetPooled(),
+                PhysicalKey.Escape => NavigationCancelEvent.GetPooled(),
+                _ => null,
+            };
+            if (navigation is null)
+                return;
+            using (navigation)
+            {
+                navigation.target = target;
+                target.SendEvent(navigation);
+            }
+        }
+
         private AccessibilityNodeSnapshot[] AccessibilityMatches(DittoAccessibilityTarget target) =>
             documents
                 .ActiveAccessibility.Where(node =>
@@ -178,6 +282,20 @@ namespace Battlement
                     && string.Equals(node.Label, target.Name, StringComparison.Ordinal)
                 )
                 .ToArray();
+
+        private static EventModifiers Modifiers(DittoVirtualInput input)
+        {
+            EventModifiers result = EventModifiers.None;
+            if (input.IsHeld(Key.LeftShift) || input.IsHeld(Key.RightShift))
+                result |= EventModifiers.Shift;
+            if (input.IsHeld(Key.LeftCtrl) || input.IsHeld(Key.RightCtrl))
+                result |= EventModifiers.Control;
+            if (input.IsHeld(Key.LeftAlt) || input.IsHeld(Key.RightAlt))
+                result |= EventModifiers.Alt;
+            if (input.IsHeld(Key.LeftMeta) || input.IsHeld(Key.RightMeta))
+                result |= EventModifiers.Command;
+            return result;
+        }
 
         public DittoInputResolution Resolve(DittoInputTarget target)
         {

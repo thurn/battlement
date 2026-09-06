@@ -494,6 +494,7 @@ fn step_kind(kind: &StepKind) -> StepName {
     StepKind::Hover { .. } => StepName::Hover,
     StepKind::Drag { .. } => StepName::Drag,
     StepKind::Key { .. } => StepName::Key,
+    StepKind::Advance(_) => StepName::Advance,
     StepKind::Wait(_) => StepName::Wait,
     StepKind::Assert(_) => StepName::Assert,
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,

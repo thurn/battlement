@@ -11,14 +11,13 @@ use crate::{
     KeyAction as AuthoredKeyAction, Motion as AuthoredMotion,
     ObjectCondition as AuthoredObjectCondition, ObjectState as AuthoredObjectState, Profile,
     Step as AuthoredStep, StepKind as AuthoredStepKind, VideoStep as AuthoredVideoStep,
-    WaitStep as AuthoredWaitStep,
   },
   selection::{Disposition, Selection},
   wire::job::{
     AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
-    Capability, Command, Comparison, Display, FrameWait, InputTarget, Job, KeyAction, Motion,
+    Capability, Command, Comparison, Display, FrameAdvance, InputTarget, Job, KeyAction, Motion,
     ObjectCondition, ObjectState, Platform, ResolvedProfile, ResolvedScenario, ResolvedStep,
-    ScreenshotStep, StepKind, VideoStep, WaitStep,
+    ScreenshotStep, StepKind, VideoStep,
   },
 };
 
@@ -181,9 +180,8 @@ fn resolved_step(
     name: step.name.clone(),
     timeout_ms: step.timeout.as_millis(),
     action: match &step.action {
-      AuthoredStepKind::Click { target, settle } => StepKind::Click {
+      AuthoredStepKind::Click { target } => StepKind::Click {
         target: input_target(target, aliases)?,
-        settle: *settle,
       },
       AuthoredStepKind::Hover { target } => StepKind::Hover {
         target: input_target(target, aliases)?,
@@ -196,12 +194,8 @@ fn resolved_step(
         key: key.clone(),
         action: key_action(*action),
       },
-      AuthoredStepKind::Wait(AuthoredWaitStep::Frames(frames)) => {
-        StepKind::Wait(WaitStep::Frames(FrameWait { frames: *frames }))
-      }
-      AuthoredStepKind::Wait(AuthoredWaitStep::Object(condition)) => {
-        StepKind::Wait(WaitStep::Object(object_condition(condition, aliases)?))
-      }
+      AuthoredStepKind::Advance { frames } => StepKind::Advance(FrameAdvance { frames: *frames }),
+      AuthoredStepKind::Wait(condition) => StepKind::Wait(object_condition(condition, aliases)?),
       AuthoredStepKind::Assert(condition) => {
         StepKind::Assert(object_condition(condition, aliases)?)
       }

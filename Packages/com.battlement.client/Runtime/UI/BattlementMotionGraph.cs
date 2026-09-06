@@ -29,6 +29,18 @@ namespace Battlement.UI
 
         public int LastEvaluationCount { get; private set; }
 
+        internal int ActiveFiniteTimelineCount =>
+            playbacks.Values.Count(playback => playback.IsFiniteActive);
+
+        internal int ActiveInfiniteTimelineCount =>
+            playbacks.Values.Count(playback => playback.IsInfiniteActive)
+            + ActiveContinuousValueCount();
+
+        internal IEnumerable<string> ActiveTimelineDiagnostics() =>
+            playbacks
+                .Values.Where(playback => playback.IsFiniteActive)
+                .Select(playback => playback.ReadinessDiagnostic());
+
         public static void ValidateDescriptor(MotionDescriptor descriptor)
         {
             IReadOnlyList<MotionValueDescriptor> values =
@@ -388,6 +400,37 @@ namespace Battlement.UI
                 clockSamples.Add(source, sample);
             }
             return sample;
+        }
+
+        private int ActiveContinuousValueCount()
+        {
+            var observable = new HashSet<Guid>();
+            foreach (Registration registration in registrations.Values)
+            {
+                foreach (
+                    MotionValueBinding binding in registration.Descriptor.ValueBindings
+                        ?? Array.Empty<MotionValueBinding>()
+                )
+                    observable.Add(binding.ValueId.Value);
+                foreach (
+                    MotionValueSubscription subscription in registration
+                        .Descriptor
+                        .ValueSubscriptions
+                        ?? Array.Empty<MotionValueSubscription>()
+                )
+                    observable.Add(subscription.ValueId.Value);
+            }
+            return observable.Count(id => IsTimeDerived(id, new HashSet<Guid>()));
+        }
+
+        private bool IsTimeDerived(Guid id, HashSet<Guid> visited)
+        {
+            if (!visited.Add(id))
+                return false;
+            MotionValueSource source = nodes[id].Descriptor.Source;
+            if (source is MotionValueSource.Time)
+                return true;
+            return Dependencies(source).Any(dependency => IsTimeDerived(dependency, visited));
         }
 
         private static MotionValue Adapt(MotionProperty property, MotionValue value)
@@ -897,6 +940,13 @@ namespace Battlement.UI
             public uint Generation { get; }
 
             public bool Terminal => Outcome is not null;
+
+            public bool IsFiniteActive => !paused && transition.Repeat is not MotionRepeat.Forever;
+
+            public bool IsInfiniteActive => !paused && transition.Repeat is MotionRepeat.Forever;
+
+            public string ReadinessDiagnostic() =>
+                $"motion-value={Node.Descriptor.ValueId.Value},elapsed-ms={held / 1000}";
 
             public MotionPlaybackOutcome? Outcome { get; private set; }
 

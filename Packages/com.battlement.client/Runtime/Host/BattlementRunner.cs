@@ -138,6 +138,16 @@ namespace Battlement
 
         internal void EndDittoInput() => dittoInputActive = false;
 
+        internal bool DispatchDittoKey(PhysicalKey key, bool pressed)
+        {
+            EnsureMainThread();
+            if (!CanEmitInput)
+                return false;
+            if (!IsGlobalKeyEnabled(key))
+                return true;
+            return EmitAction(pressed ? new ActionBody.KeyDown(key) : new ActionBody.KeyUp(key));
+        }
+
         internal BattlementNativeTransport DittoNativeTransport =>
             RequireOptions().Transport as BattlementNativeTransport
             ?? throw new InvalidOperationException("Ditto requires the native transport.");
@@ -148,23 +158,46 @@ namespace Battlement
             dittoMotionClock!.Begin(motion);
         }
 
-        internal TimeSpan PrepareDittoFrame()
+        internal TimeSpan PrepareDittoFrame(bool advance = true)
         {
             EnsureMainThread();
-            return dittoMotionClock!.PrepareFrame();
+            return dittoMotionClock!.PrepareFrame(advance);
+        }
+
+        internal void CompleteDittoPresentedFrame()
+        {
+            EnsureMainThread();
+            int completed = uiDocuments?.CompleteDittoPresentedFrame() ?? 0;
+            dittoStateVersion += checked((ulong)completed);
         }
 
         internal DittoWorkObservation ObserveDittoWork()
         {
             EnsureMainThread();
+            int finiteMotion =
+                (uiDocuments?.DittoActiveFiniteTimelineCount ?? 0)
+                + (batchScheduler?.FiniteOperationCount ?? 0);
+            int infiniteMotion =
+                (uiDocuments?.DittoActiveInfiniteTimelineCount ?? 0)
+                + (batchScheduler?.InfiniteOperationCount ?? 0);
+            int heldMotion = uiDocuments?.DittoActiveHeldTimelineCount ?? 0;
+            bool deferredUi = uiDocuments?.DittoHasPendingDeferredWork == true;
             return new DittoWorkObservation(
                 dittoStateVersion + (batchScheduler?.ActivityVersion ?? 0),
                 uiDocuments?.DittoLayoutFingerprint() ?? 0,
                 responses.HasPending
                     || snapshotReplacement?.IsPending == true
                     || batchScheduler?.HasPendingWork == true
-                    || geometryFrames.HasPending,
-                batchScheduler?.HasInfiniteOperations == true
+                    || geometryFrames.HasPending
+                    || finiteMotion != 0
+                    || deferredUi,
+                batchScheduler?.HasInfiniteOperations == true || infiniteMotion != 0,
+                heldMotion != 0,
+                finiteMotion,
+                infiniteMotion,
+                heldMotion,
+                deferredUi,
+                uiDocuments?.DittoActiveTimelineDiagnostic ?? ""
             );
         }
 
@@ -328,7 +361,11 @@ namespace Battlement
                 this,
                 () => dittoMotionClock.Elapsed,
                 audioSources.MotionTime,
-                RecordUiEventPrevention
+                RecordUiEventPrevention,
+                () =>
+                    dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
+                        ? dittoMotionClock.Elapsed
+                        : TimeSpan.FromSeconds(Time.timeAsDouble)
             );
             geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(

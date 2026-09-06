@@ -645,6 +645,28 @@ fn same_frame_retargets_advance_generation_without_recreating_the_host() {
 }
 
 #[test]
+fn infinite_motion_can_play_concurrently_with_logical_children() {
+  let document = document();
+  let mut reactant = runtime_support::reactant(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    View::new()
+      .animate(StyleTarget::new().x(8.0))
+      .transition(Transition::tween().repeat(Repeat::Forever))
+      .child(View::new())
+  });
+
+  let rendered = start(&mut reactant, &mut (), &document);
+  let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+    panic!("infinite motion should lower a descriptor");
+  };
+  assert_eq!(
+    descriptor.slots[0].target.tracks[0].transition.repeat,
+    MotionRepeat::Forever,
+  );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
 fn variants_propagate_merge_in_order_and_schedule_logical_children() {
   #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
   enum TestVariant {

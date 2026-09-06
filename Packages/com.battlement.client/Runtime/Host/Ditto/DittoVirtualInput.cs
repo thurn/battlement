@@ -50,8 +50,8 @@ namespace Battlement
         private readonly uint width;
         private readonly uint height;
         private Mouse? mouse;
-        private Keyboard? keyboard;
         private Touchscreen? touchscreen;
+        private InputDevice? awaitingDevice;
         private bool pointerHeld;
         private bool disposed;
 
@@ -68,16 +68,17 @@ namespace Battlement
             this.platform = platform;
             this.width = width;
             this.height = height;
+            InputSystem.onAfterUpdate += ObserveInputUpdate;
             if (platform != DittoPlatform.IosSimulator)
             {
                 mouse = InputSystem.AddDevice<Mouse>(VirtualMouseName);
                 mouse.MakeCurrent();
-                keyboard = InputSystem.AddDevice<Keyboard>("Ditto Virtual Keyboard");
-                keyboard.MakeCurrent();
             }
         }
 
-        public int PendingFrameCount => frames.Count;
+        public int PendingFrameCount => frames.Count + (awaitingDevice is null ? 0 : 1);
+
+        public bool CanQueueNextFrame => awaitingDevice is null && frames.Count != 0;
 
         public bool SupportsHover => platform != DittoPlatform.IosSimulator;
 
@@ -210,8 +211,8 @@ namespace Battlement
             }
 
             disposed = true;
+            InputSystem.onAfterUpdate -= ObserveInputUpdate;
             Remove(mouse);
-            Remove(keyboard);
             Remove(touchscreen);
             frames.Clear();
         }
@@ -245,6 +246,7 @@ namespace Battlement
                 _ => pointerHeld,
             };
             mouse ??= InputSystem.AddDevice<Mouse>(VirtualMouseName);
+            awaitingDevice = mouse;
             InputSystem.QueueStateEvent(
                 mouse,
                 new MouseState { position = ToInputPosition(frame.Position!.Value) }.WithButton(
@@ -265,6 +267,7 @@ namespace Battlement
             };
             pointerHeld = phase != InputTouchPhase.Ended;
             touchscreen ??= InputSystem.AddDevice<Touchscreen>("Ditto Virtual Touchscreen");
+            awaitingDevice = touchscreen;
             InputSystem.QueueStateEvent(
                 touchscreen,
                 new TouchState
@@ -287,16 +290,18 @@ namespace Battlement
             {
                 heldKeys.Remove(key);
             }
-            keyboard ??= InputSystem.AddDevice<Keyboard>("Ditto Virtual Keyboard");
-            keyboard.MakeCurrent();
-            InputSystem.QueueStateEvent(keyboard, new KeyboardState(heldKeys.ToArray()));
-            if (pressed && TextCharacter(key) is char character && !HasCommandModifier())
-            {
-                InputSystem.QueueTextEvent(keyboard, character);
-            }
         }
 
-        private char? TextCharacter(Key key)
+        private void ObserveInputUpdate()
+        {
+            if (
+                awaitingDevice is not null
+                && InputState.currentUpdateType == InputUpdateType.Dynamic
+            )
+                awaitingDevice = null;
+        }
+
+        public char? TextCharacter(Key key)
         {
             string name = key.ToString();
             if (name.Length == 1 && name[0] is >= 'A' and <= 'Z')
@@ -315,6 +320,10 @@ namespace Battlement
         }
 
         private bool HasCommandModifier() => heldKeys.Overlaps(CommandModifiers);
+
+        public bool HasCommandModifiers => HasCommandModifier();
+
+        public bool IsHeld(Key key) => heldKeys.Contains(key);
 
         private Vector2 ToInputPosition(Vector2 position) =>
             new(position.x, height - 1 - position.y);

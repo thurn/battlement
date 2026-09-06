@@ -150,6 +150,7 @@ pub(super) struct RawStep {
   pub hover: Option<RawHover>,
   pub drag: Option<RawDrag>,
   pub key: Option<RawKey>,
+  pub advance: Option<RawAdvance>,
   pub wait: Option<RawWait>,
   #[serde(rename = "assert")]
   pub assertion: Option<RawCondition>,
@@ -233,12 +234,6 @@ pub(super) enum RawAccessibilityAction {
 #[serde(deny_unknown_fields)]
 pub(super) struct RawClick {
   pub target: RawInputTarget,
-  #[serde(default = "default_settle")]
-  pub settle: bool,
-}
-
-fn default_settle() -> bool {
-  true
 }
 
 #[derive(Debug, Deserialize)]
@@ -279,9 +274,14 @@ pub(super) enum RawKeyAction {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RawWait {
-  pub frames: Option<u32>,
-  pub object: Option<String>,
-  pub state: Option<RawObjectState>,
+  pub object: String,
+  pub state: RawObjectState,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawAdvance {
+  pub frames: u32,
 }
 
 #[derive(Debug, Deserialize)]

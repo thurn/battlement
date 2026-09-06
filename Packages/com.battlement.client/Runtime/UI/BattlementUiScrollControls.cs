@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using ProtocolDirection = Battlement.UiSliderDirection;
@@ -30,6 +31,8 @@ namespace Battlement.UI
             BattlementUiEventForwarder eventForwarder,
             Func<TimeSpan> currentTime
         ) => (events, now) = (eventForwarder, currentTime);
+
+        internal bool HasPendingSettlement => scrolls.Values.Any(state => state.Armed);
 
         public void ApplyCreate(VisualElement target, ObjectId objectId, UiElement value)
         {

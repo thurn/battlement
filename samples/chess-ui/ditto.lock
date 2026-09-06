@@ -165,11 +165,11 @@ source = "4f59bad0d6baef8a002a63be6db351d10f3eb1e6e140f9ea3bc35e82b7f1518f"
 profile = "macos"
 scenario = "action buttons"
 checkpoint = "changed"
-sha256 = "4734e395633c50d5db70046e759551e168999b32e69e30759266f538b5f6367e"
+sha256 = "9abfab9598a69f92aa19d1df3c87c9bcbfedf890731facca53edb34445c6c379"
 width = 1280
 height = 800
-size_bytes = 174152
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 167911
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -195,11 +195,11 @@ source = "94875ec5f6b0b01235604d6acc8b2cfc4c185e4a8769a0d694c713ef7a748934"
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "backdrop"
-sha256 = "f4432f20ce5dc07aa12b7cbdf62a254d726c77ab2ba7badd1787a458bf5a768d"
+sha256 = "b9c80320858c883c8c1b3d92e2f436354419ec0c5baba7b71bb8b70b17c10752"
 width = 1280
 height = 800
-size_bytes = 124230
-source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+size_bytes = 124153
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
@@ -215,61 +215,61 @@ source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "confirmed"
-sha256 = "f4432f20ce5dc07aa12b7cbdf62a254d726c77ab2ba7badd1787a458bf5a768d"
+sha256 = "b9c80320858c883c8c1b3d92e2f436354419ec0c5baba7b71bb8b70b17c10752"
 width = 1280
 height = 800
-size_bytes = 124230
-source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+size_bytes = 124153
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "escaped"
-sha256 = "50631e1cc4c7010f898715bda5a9a9c9c43e3d621ae129a3bca14d926aac346c"
+sha256 = "900175a2ad27563077409282fbad5222eecf017bc891e6184e231da70a67ecef"
 width = 1280
 height = 800
-size_bytes = 124361
-source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+size_bytes = 124305
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "open"
-sha256 = "fa685135fec08ce482d6e9865f168769006db0f8978aa9d2437d873d48ff0bb3"
+sha256 = "04284881be83423256cce42753c8589fa0cf64be2219a6c247b2b64ae8b3e1d2"
 width = 1280
 height = 800
-size_bytes = 214102
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 214103
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "reset"
-sha256 = "50631e1cc4c7010f898715bda5a9a9c9c43e3d621ae129a3bca14d926aac346c"
+sha256 = "900175a2ad27563077409282fbad5222eecf017bc891e6184e231da70a67ecef"
 width = 1280
 height = 800
-size_bytes = 124361
-source = "8479342e9c2d9919c9eec3a5d7176bbb35d0977944e46e60aba4c5d31cf29c31"
+size_bytes = 124305
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "arcade modal behavior"
 checkpoint = "traversed"
-sha256 = "fa685135fec08ce482d6e9865f168769006db0f8978aa9d2437d873d48ff0bb3"
+sha256 = "04284881be83423256cce42753c8589fa0cf64be2219a6c247b2b64ae8b3e1d2"
 width = 1280
 height = 800
-size_bytes = 214102
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 214103
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "action-burst"
-sha256 = "e3da2715d5458fd974aedd0edd63aea1bf0b8c2a14ee188641fcc0c7e9427770"
+sha256 = "73e58cfe352199391ada275385fb69803d6d9be9a8b9b4c5c3126e707b7f906b"
 width = 1280
 height = 800
-size_bytes = 131728
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 131152
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
@@ -285,51 +285,51 @@ source = "0e33addb4dc018f4007fbae73962f648d9c25403d5f9bf8f6ef6b672a855b832"
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "action-retrigger"
-sha256 = "0d2672a98c8a744ae44d871797f01ea7a2a9d6902da5bf9458b13a9dec223634"
+sha256 = "f026208022a94ac2f7e9957732536746a427f9dec9dc2f2277bfaa05c197647c"
 width = 1280
 height = 800
-size_bytes = 131853
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 131165
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "action-settled"
-sha256 = "19c4dc4224f96f2871131aeb851147bbcf3b63a7d94fd236b277fe964ffa9050"
+sha256 = "3dcc7856ebfd4f9acd5ffd46954f74a77e82da8388b984c04a645ecfce38a323"
 width = 1280
 height = 800
-size_bytes = 131760
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 129683
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "action-shine"
-sha256 = "06e31cfec303a7ca222667014bb5c0ba1ec934250ff45d9e235a613ceb2d4671"
+sha256 = "c449c0b136b60cfd30e070ca10216ea65709fdf2e4a66bcfc9199885314b97c9"
 width = 1280
 height = 800
-size_bytes = 130366
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 130266
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "checkbox-off"
-sha256 = "ac986ccc3ec50363b290da9965c031534006107f28e87b618a1d108b772fdb65"
+sha256 = "bf375000308bf7696bd9e90ea5ad0adb6683b0bbaf30085fafa45c2059d9a5bc"
 width = 1280
 height = 800
-size_bytes = 123264
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 121961
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "checkbox-on"
-sha256 = "9fdc011c9f2a040db9a0d89e878b58f734b631776ca203cbe9de85fd2b8b6af3"
+sha256 = "80aa91ad813d1bed132cadb8e6cc308a3d24228ffbc4b5126292cd4764200b91"
 width = 1280
 height = 800
-size_bytes = 124048
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 122523
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
@@ -355,31 +355,31 @@ source = "0e33addb4dc018f4007fbae73962f648d9c25403d5f9bf8f6ef6b672a855b832"
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "select-burst"
-sha256 = "d4af4deb11608f36b389c5c303525ab18ae51c96d4b19e5f16019f3f2a1f5388"
+sha256 = "36f3b6fdc26c62ddb7bca7ce343d20c4ddec8feb42ce6dd64963fb8cd96a1f6a"
 width = 1280
 height = 800
-size_bytes = 138173
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 137695
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "slider-burst"
-sha256 = "4786c06468a1546051f7818b63fb8bd4335f1dc69ed594cf9830ad668b080670"
+sha256 = "a98bdf60995a047af633b2d372ee1508f97716f6493c8df55999257c61967669"
 width = 1280
 height = 800
-size_bytes = 128106
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 127540
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
 scenario = "control shine and release bursts"
 checkpoint = "tabs-burst"
-sha256 = "1a9a0aa36d18799ea4b0a2fc4cbf5eb9d868faf48d9dddc33bdfb28737f9e7ff"
+sha256 = "daa6fa5af22a5f277bc3ce497497b68e7b71cc4ad6a4e578df19678a572b81f7"
 width = 1280
 height = 800
-size_bytes = 135320
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 135535
+source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
@@ -415,11 +415,11 @@ source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
 profile = "macos"
 scenario = "focus visible"
 checkpoint = "reset"
-sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"
+sha256 = "cedd6b4700639b9e9c698d798f3ab026bf2f48009c5e9fd503bb59715f7649c1"
 width = 1280
 height = 800
-size_bytes = 114426
-source = "492c5fddfe0ce044672157ae3335ee49c32fa17b54e3f47ec1f1c8b7bae680e8"
+size_bytes = 114296
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -985,11 +985,11 @@ source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
 profile = "macos"
 scenario = "select keyboard navigation"
 checkpoint = "escaped"
-sha256 = "e827b2567eb85f11fceb44a19bcaf9b4a4428ce6f28ad587a41fd9ba004ec760"
+sha256 = "f499089ca34595231cb7f9d5f79ec1fc9ade2d4245f391929873fb3d77f1a4fa"
 width = 1280
 height = 800
-size_bytes = 141478
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 130732
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -1015,11 +1015,11 @@ source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
 profile = "macos"
 scenario = "select keyboard navigation"
 checkpoint = "reset"
-sha256 = "fc958c9e47ab39cc6e755025bfcdaebe97d8e41dfb748344a95ac2a0a30b997a"
+sha256 = "4a650ede8d394529fcda21fd1d482c111b4ca5b6ba9795c036de9a93050a6db3"
 width = 1280
 height = 800
-size_bytes = 130558
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 130343
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -1165,11 +1165,11 @@ source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
 profile = "macos"
 scenario = "settings tabs navigation"
 checkpoint = "traversed"
-sha256 = "74d347291aae3cea53772f2220b0729a1115c8c4045bfadc09f00dd801aad488"
+sha256 = "f190263dc9b08781e87a8a0083aade3a9ac03b816b48674a163aef09c33e6639"
 width = 1280
 height = 800
-size_bytes = 140839
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 141170
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -1305,11 +1305,11 @@ source = "f5536797b041e12f4f3fb0ccb392a3eb80600ff5060330180f99349712b4919c"
 profile = "macos"
 scenario = "volume input"
 checkpoint = "keyboard"
-sha256 = "4475acadf1a5b2e8dc49ebf8946b96d600618d9f40482178a7cc06ad6dc2ce7f"
+sha256 = "4deaf75cfcc534f2feb3fa495950b46fd93fb8546428f273e46172cab1b5e349"
 width = 1280
 height = 800
-size_bytes = 124320
-source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
+size_bytes = 122325
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"
@@ -1325,11 +1325,11 @@ source = "7e04dc2049651b8d4affaa0f1a5c89329067baf18270a6886e716c4051d21ab5"
 profile = "macos"
 scenario = "volume input"
 checkpoint = "paged"
-sha256 = "5c8a7996989d9464e77a852d1009477aa8fed2ccd0c80a1716d46153ffb6fbd2"
+sha256 = "d052fc5bb95ff71d164a10012f6316e367a0a1f3a31f2760ab475f53894bc25c"
 width = 1280
 height = 800
-size_bytes = 123207
-source = "cdefa477d0f113387f86c26423cb56a5a2c5f492a63f83081e5f86a56a6b93c0"
+size_bytes = 123347
+source = "798edcb2e21faef12417ef49805f985884b1758b64e8ab7f76775c16d2e6d177"
 
 [[baselines]]
 profile = "macos"

@@ -26,6 +26,13 @@ Fragments inherit the selected suite. Capture does not change baselines.
 Use existing suite examples and `crates/battlement-ditto/src/config/scenario.rs` to add
 semantic actions and assertions. Prefer waiting for state over arbitrary delays.
 
+Every ordinary action, semantic wait, assertion, and screenshot observes readiness
+only after Rust responses, deferred UI work, finite motion, layout, and the rendered
+frame are complete. Do not add elapsed frames to make one pass. For a controlled
+animation checkpoint, place `advance = { frames = N }` immediately after the action;
+this deliberately samples that animation time. Infinite motion is sampled at a
+frozen controlled-time phase and does not prevent otherwise-ready capture.
+
 Inspect the terminal result, screenshots, and retained logs; keep their paths
 and run identity. `review` opens the retained run; stop its owned server after use.
 A passing screenshot comparison is not evidence of fidelity to a supplied

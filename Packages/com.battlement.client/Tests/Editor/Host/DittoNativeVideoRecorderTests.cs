@@ -295,9 +295,14 @@ namespace Battlement.Tests
         {
             for (var frame = 0; frame < 256; frame++)
             {
+                UnityEngine.InputSystem.InputSystem.Update();
                 if (executor.Advance())
                 {
                     return;
+                }
+                if (executor.AwaitingPresentation)
+                {
+                    executor.CompletePresentedFrame();
                 }
             }
             Assert.Fail("Video scenario did not complete.");

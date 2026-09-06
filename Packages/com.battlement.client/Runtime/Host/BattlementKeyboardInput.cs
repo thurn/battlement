@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine.InputSystem;
 
 namespace Battlement
@@ -93,6 +94,9 @@ namespace Battlement
             suppressed.Clear();
             needsSynchronization = true;
         }
+
+        internal static PhysicalKey Physical(Key key) =>
+            Mappings.Single(mapping => mapping.Key == key).Code;
 
         private void Synchronize(Keyboard keyboard)
         {

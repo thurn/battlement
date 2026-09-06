@@ -21,7 +21,7 @@ namespace Battlement.Tests
             harness.Runner.Connect();
             DittoResolvedScenario scenario = Scenario(
                 10_000,
-                Step(0, new DittoStepAction.Wait(new DittoWait.Frames(2)))
+                Step(0, new DittoStepAction.Advance(2))
             );
             using (
                 DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero)
@@ -62,12 +62,12 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ControlledWaitFramesCompleteInOneHostAdvance()
+        public void ControlledAdvanceConsumesPresentedFrames()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             DittoResolvedScenario scenario = Scenario(
                 10_000,
-                Step(0, new DittoStepAction.Wait(new DittoWait.Frames(200)))
+                Step(0, new DittoStepAction.Advance(200))
             );
             using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
 
@@ -77,7 +77,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ControlledInputYieldsAfterOneVirtualFrame()
+        public void ActionDoesNotCommitBeforeItsRenderedFrameCompletes()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             DittoResolvedScenario scenario = Scenario(
@@ -87,10 +87,40 @@ namespace Battlement.Tests
             using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
 
             Assert.That(executor.Advance(), Is.False);
+            Assert.That(executor.AwaitingPresentation, Is.True);
+            Assert.That(executor.LastCommittedFrame, Is.Zero);
+            executor.CompletePresentedFrame();
             Assert.That(executor.LastCommittedFrame, Is.EqualTo(1));
 
             Drain(executor);
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void VirtualPointerStateIsConsumedBeforeItsPresentedFrame()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            for (var frame = 0; frame < 8; frame++)
+            {
+                Assert.That(executor.Advance(), Is.False);
+                CompletePresentation(executor);
+                Mouse? pointer = InputSystem
+                    .devices.OfType<Mouse>()
+                    .SingleOrDefault(value => value.name == DittoVirtualInput.VirtualMouseName);
+                if (pointer is not null && pointer.position.ReadValue() != default)
+                {
+                    Assert.That(pointer.leftButton.isPressed, Is.False);
+                    return;
+                }
+            }
+
+            Assert.Fail("Ditto did not consume the queued virtual pointer state.");
         }
 
         [Test]
@@ -106,6 +136,7 @@ namespace Battlement.Tests
             while (executor.CurrentStepIndex is null)
             {
                 Assert.That(executor.Advance(), Is.False);
+                CompletePresentation(executor);
             }
             ulong inputStartedAt = executor.LastCommittedFrame;
 
@@ -124,11 +155,9 @@ namespace Battlement.Tests
                 Step(
                     0,
                     new DittoStepAction.Wait(
-                        new DittoWait.Object(
-                            new DittoObjectCondition(
-                                Guid.NewGuid().ToString("D"),
-                                DittoObjectState.Absent
-                            )
+                        new DittoObjectCondition(
+                            Guid.NewGuid().ToString("D"),
+                            DittoObjectState.Absent
                         )
                     )
                 )
@@ -146,21 +175,23 @@ namespace Battlement.Tests
         )
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
+            harness.Runner.Connect();
+            harness.Transport.EnqueueSubmit(FakeBattlementTransport.SnapshotResponse(session));
             string missing = Guid.NewGuid().ToString("D");
             string artifact = Guid.NewGuid().ToString("D");
             DittoResolvedScenario scenario = Scenario(
                 5_000,
                 Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)), "click"),
-                Step(1, new DittoStepAction.Wait(new DittoWait.Frames(2)), "frames"),
+                Step(1, new DittoStepAction.Advance(2), "frames"),
                 Step(2, new DittoStepAction.Hover(Coordinates(0.3, 0.4)), "hover"),
                 Step(3, new DittoStepAction.Drag(Coordinates(0.3, 0.4), Coordinates(0.8, 0.7))),
                 Step(4, new DittoStepAction.Key("Enter", DittoKeyAction.Tap), "key"),
                 Step(
                     5,
                     new DittoStepAction.Wait(
-                        new DittoWait.Object(
-                            new DittoObjectCondition(missing, DittoObjectState.Absent)
-                        )
+                        new DittoObjectCondition(missing, DittoObjectState.Absent)
                     )
                 ),
                 Step(
@@ -211,8 +242,7 @@ namespace Battlement.Tests
                 mouse.position.ReadValue().y,
                 Is.EqualTo((Screen.height - 1) * 0.3f).Within(0.01f)
             );
-            Keyboard keyboard = InputSystem.devices.OfType<Keyboard>().Single();
-            Assert.That(keyboard.enterKey.isPressed, Is.False);
+            Assert.That(InputSystem.devices.OfType<Keyboard>(), Is.Empty);
             foreach (DittoPlayerStepResult step in result.Steps)
             {
                 DittoCompletionValidation.ValidateStepResult(scenario.Steps[(int)step.Index], step);
@@ -305,11 +335,9 @@ namespace Battlement.Tests
                 Step(
                     0,
                     new DittoStepAction.Wait(
-                        new DittoWait.Object(
-                            new DittoObjectCondition(
-                                Guid.NewGuid().ToString("D"),
-                                DittoObjectState.Exists
-                            )
+                        new DittoObjectCondition(
+                            Guid.NewGuid().ToString("D"),
+                            DittoObjectState.Exists
                         )
                     ),
                     timeout: stepTimeout
@@ -327,6 +355,7 @@ namespace Battlement.Tests
             for (var advance = 0; advance < 8 && executor.CurrentStepIndex is null; advance++)
             {
                 Assert.That(executor.Advance(), Is.False);
+                CompletePresentation(executor);
             }
             Assert.That(executor.CurrentStepIndex, Is.EqualTo(0));
             current = TimeSpan.FromMilliseconds(
@@ -336,6 +365,8 @@ namespace Battlement.Tests
             {
                 current = TimeSpan.FromMilliseconds(setupDuration + stepTimeout);
             }
+            Assert.That(executor.Advance(), Is.False);
+            CompletePresentation(executor);
             Assert.That(executor.Advance(), Is.True);
 
             DittoScenarioExecution result = executor.Result!;
@@ -409,14 +440,24 @@ namespace Battlement.Tests
 
         private static void Drain(DittoScenarioExecutor executor)
         {
-            for (var frame = 0; frame < 256; frame++)
+            for (var frame = 0; frame < 512; frame++)
             {
+                InputSystem.Update();
                 if (executor.Advance())
                 {
                     return;
                 }
+                CompletePresentation(executor);
             }
-            Assert.Fail("Scenario did not finish within 256 committed frames.");
+            Assert.Fail("Scenario did not finish within 512 presented frames.");
+        }
+
+        private static void CompletePresentation(DittoScenarioExecutor executor)
+        {
+            if (executor.AwaitingPresentation)
+            {
+                executor.CompletePresentedFrame();
+            }
         }
     }
 }

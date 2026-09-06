@@ -407,7 +407,7 @@ fn target_side(index: usize, phase: u32) -> bool {
 fn repeating_tween(index: usize) -> Transition {
   Transition::tween()
     .duration_secs(0.7 + (index % 9) as f64 * 0.037)
-    .repeat(Repeat::Count(9_999))
+    .repeat(Repeat::Forever)
     .repeat_type(RepeatType::Mirror)
 }
 

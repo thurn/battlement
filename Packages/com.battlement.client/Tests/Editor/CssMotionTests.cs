@@ -31,6 +31,92 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PseudoTransitionParticipatesInReadinessUntilItsFinalSample()
+        {
+            ObjectId id = Id("03bf6ed2-90ad-42c3-ade9-85c8eb0b8bd2");
+            var target = new VisualElement { focusable = true };
+            target.style.opacity = 0.2f;
+            double now = 0;
+            using var world = new BattlementMotionWorld(
+                unscaledTime: () => now,
+                registerPlayerLoop: false
+            );
+            world.Install(
+                target,
+                id,
+                Descriptor(id, pseudo: true, clock: new MotionClockSource.Unscaled())
+            );
+
+            world.SetPseudoState(id, MotionPseudoState.Active, true);
+            world.PostLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.EqualTo(1));
+
+            now = 0.3;
+            world.PostLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(target.style.opacity.value, Is.EqualTo(1f).Within(0.00001));
+        }
+
+        [Test]
+        public void MixedFiniteAndInfiniteTracksSettleAfterTheFiniteTrackCompletes()
+        {
+            ObjectId id = Id("be26478a-38be-4c64-a28c-e9c8a0ff2778");
+            var target = new VisualElement();
+            double now = 0;
+            TransitionDefinition finite = Tween(new MotionRepeat.None());
+            TransitionDefinition infinite = Tween(new MotionRepeat.Forever());
+            CssAnimationDescriptor animation = new(
+                100,
+                1,
+                1001,
+                new[]
+                {
+                    new CssPropertyTrack(
+                        MotionProperty.Opacity,
+                        new MotionValue[] { new MotionValue.Scalar(0), new MotionValue.Scalar(1) },
+                        new double[] { 0, 1 },
+                        finite
+                    ),
+                    new CssPropertyTrack(
+                        MotionProperty.ScaleX,
+                        new MotionValue[] { new MotionValue.Scalar(1), new MotionValue.Scalar(2) },
+                        new double[] { 0, 1 },
+                        infinite
+                    ),
+                },
+                AnimationDirection.Normal,
+                AnimationFill.Both,
+                AnimationPlayState.Running,
+                AnimationComposition.Replace,
+                "mixed"
+            );
+            using var world = new BattlementMotionWorld(
+                unscaledTime: () => now,
+                registerPlayerLoop: false
+            );
+            world.Install(
+                target,
+                id,
+                Motion(
+                    id,
+                    1,
+                    animations: new[] { animation },
+                    clock: new MotionClockSource.Unscaled()
+                )
+            );
+
+            world.PostLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.EqualTo(1));
+            Assert.That(world.ActiveInfiniteTimelineCount, Is.EqualTo(1));
+
+            now = 1.1;
+            world.PostLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(world.ActiveInfiniteTimelineCount, Is.EqualTo(1));
+            Assert.That(target.style.opacity.value, Is.EqualTo(1f).Within(0.00001));
+        }
+
+        [Test]
         public void CssAnimationUsesExactIterationsPauseDirectionAndFill()
         {
             ObjectId id = Id("5c4a141a-fb84-462f-ac42-ab5d676330ae");
@@ -337,6 +423,49 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DecorationTimelinesParticipateInReadinessCounts()
+        {
+            ObjectId id = Id("ec62b6a3-1811-4ec6-8507-344c3e95f08d");
+            var target = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                target,
+                id,
+                Motion(
+                    id,
+                    1,
+                    decorations: Decorations(
+                        Animation(generation: 1, restartKey: 5005, repeat: new MotionRepeat.None())
+                    ),
+                    clock: new MotionClockSource.Unscaled()
+                )
+            );
+
+            Assert.That(world.ActiveFiniteTimelineCount, Is.EqualTo(1));
+            Assert.That(world.ActiveInfiniteTimelineCount, Is.Zero);
+
+            world.Install(
+                target,
+                id,
+                Motion(
+                    id,
+                    2,
+                    decorations: Decorations(
+                        Animation(
+                            generation: 2,
+                            restartKey: 6006,
+                            repeat: new MotionRepeat.Forever()
+                        )
+                    ),
+                    clock: new MotionClockSource.Unscaled()
+                )
+            );
+
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(world.ActiveInfiniteTimelineCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void StaticStyleChangesTransitionFromTheRenderedPresentation()
         {
             ObjectId id = Id("db564bd4-16d2-4757-9c64-d6885c17dafd");
@@ -366,7 +495,8 @@ namespace Battlement.Tests
             AnimationPlayState playState = AnimationPlayState.Running,
             AnimationComposition composition = AnimationComposition.Replace,
             AnimationDirection direction = AnimationDirection.Alternate,
-            MotionRepeat? repeat = null
+            MotionRepeat? repeat = null,
+            MotionClockSource? clock = null
         )
         {
             TransitionDefinition tween = new(
@@ -419,7 +549,7 @@ namespace Battlement.Tests
                     generation,
                     false,
                     Array.Empty<MotionSlotDescriptor>(),
-                    new MotionClockSource.Controlled(id),
+                    clock ?? new MotionClockSource.Controlled(id),
                     ReducedMotionPolicy.Never,
                     null,
                     pseudoStyles,
@@ -485,6 +615,19 @@ namespace Battlement.Tests
                 "test"
             );
 
+        private static TransitionDefinition Tween(MotionRepeat repeat) =>
+            new(
+                new TransitionGenerator.Tween(
+                    1_000_000,
+                    new MotionEasing[] { new MotionEasing.Linear() },
+                    null
+                ),
+                0,
+                repeat,
+                0,
+                MotionRepeatType.Loop
+            );
+
         private static MotionDecorationDescriptor[] Decorations(CssAnimationDescriptor animation) =>
             new[]
             {
@@ -502,7 +645,8 @@ namespace Battlement.Tests
             ObjectId id,
             uint generation,
             IReadOnlyList<CssAnimationDescriptor>? animations = null,
-            IReadOnlyList<MotionDecorationDescriptor>? decorations = null
+            IReadOnlyList<MotionDecorationDescriptor>? decorations = null,
+            MotionClockSource? clock = null
         ) =>
             Prop<MotionDescriptor>.Set(
                 new MotionDescriptor(
@@ -511,7 +655,7 @@ namespace Battlement.Tests
                     generation,
                     false,
                     Array.Empty<MotionSlotDescriptor>(),
-                    new MotionClockSource.Controlled(id),
+                    clock ?? new MotionClockSource.Controlled(id),
                     ReducedMotionPolicy.Never,
                     null,
                     Array.Empty<MotionPseudoStyle>(),

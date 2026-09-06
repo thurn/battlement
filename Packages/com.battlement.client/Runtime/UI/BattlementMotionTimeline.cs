@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -146,6 +147,7 @@ namespace Battlement.UI
                     pseudo,
                     baselineProperties,
                     styleTransition,
+                    descriptor.Clock,
                     clockMicros,
                     previous?.pseudoStyles
                 );
@@ -190,6 +192,28 @@ namespace Battlement.UI
                 return count;
             }
         }
+
+        internal int ActiveFiniteTimelineCount =>
+            slots.Count(slot => slot.IsFiniteActive)
+            + (pseudoStyles?.ActiveFiniteTimelineCount ?? 0)
+            + (decorations?.ActiveFiniteTimelineCount ?? 0);
+
+        internal int ActiveInfiniteTimelineCount =>
+            slots.Count(slot => slot.IsInfiniteActive)
+            + (pseudoStyles?.ActiveInfiniteTimelineCount ?? 0)
+            + (decorations?.ActiveInfiniteTimelineCount ?? 0);
+
+        internal int ActiveHeldTimelineCount =>
+            slots.Count(slot => slot.IsHeldActive)
+            + (pseudoStyles?.ActiveHeldTimelineCount ?? 0)
+            + (decorations?.ActiveHeldTimelineCount ?? 0);
+
+        internal IEnumerable<string> ActiveTimelineDiagnostics() =>
+            slots
+                .Where(slot => slot.IsFiniteActive)
+                .Select(slot => slot.ReadinessDiagnostic())
+                .Concat(pseudoStyles?.ActiveTimelineDiagnostics() ?? Enumerable.Empty<string>())
+                .Concat(decorations?.ActiveTimelineDiagnostics() ?? Enumerable.Empty<string>());
 
         public int ActiveLayoutTrackCount
         {
@@ -352,10 +376,12 @@ namespace Battlement.UI
                 if (slot.Definition.Callbacks.Update)
                     world.MarkUpdate(this, slot);
             }
+            CompleteSlots(world);
         }
 
-        public void CompleteSlots(BattlementMotionWorld world)
+        public int CompleteSlots(BattlementMotionWorld world)
         {
+            var completed = 0;
             foreach (SlotState slot in slots)
             {
                 if (!slot.Active)
@@ -368,9 +394,11 @@ namespace Battlement.UI
                 if (slot.Terminal || slot.Paused || !slot.AllTracksDone)
                     continue;
                 slot.MarkCompleted();
+                completed++;
                 if (slot.Definition.Callbacks.Complete)
                     world.Emit(this, slot, new MotionEventKind.Completed(), slot.LastElapsedMicros);
             }
+            return completed + (decorations?.CompleteReadySlots() ?? 0);
         }
 
         public void CancelActiveSlots(BattlementMotionWorld world, ulong clockMicros)
@@ -509,6 +537,29 @@ namespace Battlement.UI
 
         public bool Active { get; private set; }
 
+        internal bool IsFiniteActive =>
+            Active
+            && !Terminal
+            && !Paused
+            && Clock is not MotionClockSource.Controlled
+            && (tracks.Any(track => !track.Done && !track.IsInfinite) || SeekPending);
+
+        internal bool IsInfiniteActive =>
+            Active && !Terminal && !Paused && tracks.Any(track => !track.Done && track.IsInfinite);
+
+        internal bool IsHeldActive =>
+            Active
+            && !Terminal
+            && !Paused
+            && Clock is MotionClockSource.Controlled
+            && tracks.Any(track => !track.Done && !track.IsInfinite);
+
+        internal string ReadinessDiagnostic() =>
+            $"layer={Definition.Layer},clock={Clock.GetType().Name},"
+            + $"elapsed-ms={LastElapsedMicros / 1000},incomplete-tracks="
+            + $"{tracks.Count(track => !track.Done && !track.IsInfinite)},"
+            + $"seek-pending={SeekPending}";
+
         public int TrackCount => tracks.Length;
 
         public int LayoutTrackCount
@@ -538,7 +589,7 @@ namespace Battlement.UI
                 foreach (TrackState track in tracks)
                     if (!track.Done)
                         return false;
-                return tracks.Length != 0;
+                return true;
             }
         }
 

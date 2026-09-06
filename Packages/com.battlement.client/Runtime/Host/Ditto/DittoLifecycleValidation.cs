@@ -238,6 +238,7 @@ namespace Battlement
                 DittoStepAction.Hover => DittoStepName.Hover,
                 DittoStepAction.Drag => DittoStepName.Drag,
                 DittoStepAction.Key => DittoStepName.Key,
+                DittoStepAction.Advance => DittoStepName.Advance,
                 DittoStepAction.Wait => DittoStepName.Wait,
                 DittoStepAction.Assert => DittoStepName.Assert,
                 DittoStepAction.AccessibilityAssert => DittoStepName.AccessibilityAssert,

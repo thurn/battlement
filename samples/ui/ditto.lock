@@ -225,11 +225,11 @@ source = "25ee65d7eec4da0d9440a66bc4b44137e5b6977d73237a03871da13ba0ded91d"
 profile = "macos"
 scenario = "buttons controls"
 checkpoint = "keyboard"
-sha256 = "911ed591d9d98a325dc451c0ab318d44f5bda2bfa8fc9baa80d778efb634d001"
+sha256 = "776f2738025182f0680ff1ea095f7aa77c281728983d9acc5d058a0ec14076be"
 width = 1280
 height = 720
-size_bytes = 185425
-source = "25ee65d7eec4da0d9440a66bc4b44137e5b6977d73237a03871da13ba0ded91d"
+size_bytes = 187001
+source = "533cc2045ef5bf14c4ddac770a7e8fa3d122f85c35574cb9954c360b09bb85e3"
 
 [[baselines]]
 profile = "macos"
@@ -465,21 +465,21 @@ source = "3e2d5f2639f6dba4d225868dac1396666b187c8067eff7297b3f8d907fad74be"
 profile = "macos"
 scenario = "keyboard navigation"
 checkpoint = "navigation-move"
-sha256 = "398139ecbaed1cc81870b9c28e14e5ad450599e77cb38ae4ecf7626cb29c3be7"
+sha256 = "66e78b67233e40fe5f16917c913c1b5b3cf52537f822c9ca7511274429a97b45"
 width = 1280
 height = 720
-size_bytes = 178999
-source = "3e2d5f2639f6dba4d225868dac1396666b187c8067eff7297b3f8d907fad74be"
+size_bytes = 177184
+source = "228d38d5345398f5448dca129557f70a41b6fd30fa39dbe87db30236bdec5643"
 
 [[baselines]]
 profile = "macos"
 scenario = "keyboard navigation"
 checkpoint = "physical-key"
-sha256 = "266cc3bdbac5a9de9d147a818ed42b6fb4ed2820461be8860d4b3f14988a651b"
+sha256 = "ecbd245c28b6247ef5ba7b4dd8acbbdee3a3cf790dad997755db05b97d4dfb2b"
 width = 1280
 height = 720
-size_bytes = 178219
-source = "3e2d5f2639f6dba4d225868dac1396666b187c8067eff7297b3f8d907fad74be"
+size_bytes = 177053
+source = "228d38d5345398f5448dca129557f70a41b6fd30fa39dbe87db30236bdec5643"
 
 [[baselines]]
 profile = "macos"

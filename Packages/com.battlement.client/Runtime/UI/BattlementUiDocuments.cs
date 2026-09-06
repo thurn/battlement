@@ -57,9 +57,12 @@ namespace Battlement.UI
             IBattlementUiAssetLookup? assetLookup = null,
             Func<TimeSpan>? now = null,
             Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null,
-            System.Action? uiEventPreventionApplied = null
+            System.Action? uiEventPreventionApplied = null,
+            Func<TimeSpan>? scaledNow = null
         )
         {
+            Func<TimeSpan> uiTime =
+                now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             properties = new BattlementUiElementProperties(
                 emitUiEvent,
                 assetLookup,
@@ -75,10 +78,7 @@ namespace Battlement.UI
                     && elements[id] is not UnityEngine.UIElements.RepeatButton
             );
             lifecycleEvents = new BattlementUiLifecycleEvents(events, Route);
-            scrollControls = new BattlementUiScrollControls(
-                properties.EventForwarder,
-                now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
-            );
+            scrollControls = new BattlementUiScrollControls(properties.EventForwarder, uiTime);
             actions = new BattlementUiActions(Require, IsDescendant, scrollControls);
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
@@ -116,6 +116,8 @@ namespace Battlement.UI
                 overlayCoordinator
             );
             motionWorld = new BattlementMotionWorld(
+                unscaledTime: () => uiTime().TotalSeconds,
+                scaledTime: scaledNow is null ? null : () => scaledNow().TotalSeconds,
                 assetLookup: assetLookup,
                 audioTime: audioTime is null
                     ? null
@@ -129,7 +131,7 @@ namespace Battlement.UI
                     },
                 resolveElement: id =>
                     elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
-                gestureTime: now,
+                gestureTime: uiTime,
                 presentationChanged: presentationLayout.Refresh
             );
             focusCoordinator.SetFocusVisibleWriter(
@@ -269,6 +271,23 @@ namespace Battlement.UI
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
 
         internal BattlementAccessibilityManager AccessibilityForTests => accessibility;
+
+        internal int DittoActiveFiniteTimelineCount => motionWorld.ActiveFiniteTimelineCount;
+
+        internal int DittoActiveInfiniteTimelineCount => motionWorld.ActiveInfiniteTimelineCount;
+
+        internal int DittoActiveHeldTimelineCount => motionWorld.ActiveHeldTimelineCount;
+
+        internal string DittoActiveTimelineDiagnostic => motionWorld.ActiveTimelineDiagnostic;
+
+        internal int CompleteDittoPresentedFrame() =>
+            repeatControls.CompletePendingSettlement() + motionWorld.CompleteReadySlots();
+
+        internal bool DittoHasPendingDeferredWork =>
+            focusCoordinator.HasPendingWork
+            || scrollControls.HasPendingSettlement
+            || stickyCoordinator.HasPendingWork
+            || repeatControls.HasPendingSettlement;
 
         internal IReadOnlyCollection<AccessibilityNodeSnapshot> ActiveAccessibility =>
             accessibility.Active;

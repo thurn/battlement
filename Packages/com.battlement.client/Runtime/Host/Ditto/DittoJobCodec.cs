@@ -165,7 +165,8 @@ namespace Battlement
                 "hover" => new DittoStepAction.Hover(TargetBody(body)),
                 "drag" => Drag(body),
                 "key" => Key(body),
-                "wait" => new DittoStepAction.Wait(Wait(body)),
+                "advance" => Advance(body),
+                "wait" => new DittoStepAction.Wait(Condition(body)),
                 "assert" => new DittoStepAction.Assert(Condition(body)),
                 "accessibility-assert" => new DittoStepAction.AccessibilityAssert(
                     AccessibilityAssertion(body)
@@ -280,11 +281,8 @@ namespace Battlement
 
         private static DittoStepAction.Click Click(JObject value)
         {
-            Exact(value, "target", "settle");
-            return new DittoStepAction.Click(
-                Target(Field(value, "target")),
-                Boolean(Field(value, "settle"))
-            );
+            Exact(value, "target");
+            return new DittoStepAction.Click(Target(Field(value, "target")));
         }
 
         private static DittoInputTarget TargetBody(JObject value)
@@ -325,14 +323,10 @@ namespace Battlement
             return new DittoInputTarget.Coordinates(Number(coordinates[0]), Number(coordinates[1]));
         }
 
-        private static DittoWait Wait(JObject value)
+        private static DittoStepAction.Advance Advance(JObject value)
         {
-            if (value.Property("frames") is not null)
-            {
-                Exact(value, "frames");
-                return new DittoWait.Frames(UInt32(Field(value, "frames")));
-            }
-            return new DittoWait.Object(Condition(value));
+            Exact(value, "frames");
+            return new DittoStepAction.Advance(UInt32(Field(value, "frames")));
         }
 
         private static DittoObjectCondition Condition(JObject value)

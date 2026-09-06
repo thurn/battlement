@@ -266,9 +266,6 @@ click = { target = [0.926, 0.535] }
 drag = { from = [0.89, 0.537], to = [0.85, 0.537] }
 
 [[scenarios.steps]]
-wait = { frames = 10 }
-
-[[scenarios.steps]]
 screenshot = { name = "changed" }
 
 [[scenarios]]

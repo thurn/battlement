@@ -446,7 +446,6 @@ fn scenario(index: u32) -> ResolvedScenario {
       timeout_ms: 50,
       action: StepKind::Click {
         target: InputTarget::Coordinates([0.5, 0.5]),
-        settle: true,
       },
     }],
   }

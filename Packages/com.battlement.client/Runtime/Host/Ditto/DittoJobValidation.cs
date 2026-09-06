@@ -188,8 +188,15 @@ namespace Battlement
                     Capability(job, DittoCapability.Key);
                     Key(key, state);
                     break;
+                case DittoStepAction.Advance advance:
+                    Require(advance.Frames > 0, "frame advance must be positive");
+                    Require(
+                        scenario.Motion == DittoMotion.Controlled,
+                        "frame advance requires controlled motion"
+                    );
+                    break;
                 case DittoStepAction.Wait wait:
-                    Wait(scenario.Motion, wait.Value);
+                    Identifier("object condition", wait.Condition.Object);
                     break;
                 case DittoStepAction.Assert assertion:
                     Identifier("object condition", assertion.Condition.Object);
@@ -249,25 +256,6 @@ namespace Battlement
 
         private static bool Coordinate(double value) =>
             double.IsFinite(value) && value is >= 0 and <= 1;
-
-        private static void Wait(DittoMotion motion, DittoWait wait)
-        {
-            switch (wait)
-            {
-                case DittoWait.Frames frames:
-                    Require(frames.Count > 0, "frame wait must be positive");
-                    Require(
-                        motion == DittoMotion.Controlled,
-                        "frame wait requires controlled motion"
-                    );
-                    break;
-                case DittoWait.Object value:
-                    Identifier("object condition", value.Condition.Object);
-                    break;
-                default:
-                    throw new JsonSerializationException("Unknown wait variant.");
-            }
-        }
 
         private static void Key(DittoStepAction.Key key, ScenarioState state)
         {

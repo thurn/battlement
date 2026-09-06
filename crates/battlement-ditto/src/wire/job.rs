@@ -134,7 +134,6 @@ pub struct ResolvedStep {
 pub enum StepKind {
   Click {
     target: InputTarget,
-    settle: bool,
   },
   Hover {
     target: InputTarget,
@@ -147,7 +146,8 @@ pub enum StepKind {
     key: String,
     action: KeyAction,
   },
-  Wait(WaitStep),
+  Advance(FrameAdvance),
+  Wait(ObjectCondition),
   Assert(ObjectCondition),
   AccessibilityAssert(AccessibilityAssertion),
   AccessibilityAction {
@@ -233,17 +233,9 @@ pub enum InputTarget {
   Coordinates([f64; 2]),
 }
 
-/// An exact frame wait or black-box object wait.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum WaitStep {
-  Frames(FrameWait),
-  Object(ObjectCondition),
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct FrameWait {
+pub struct FrameAdvance {
   pub frames: u32,
 }
 

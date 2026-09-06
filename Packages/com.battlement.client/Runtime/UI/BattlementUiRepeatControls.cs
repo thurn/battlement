@@ -13,6 +13,10 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, (long Delay, long Interval)> defaultTimings = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> timings = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> pendingTimings = new();
+        private readonly Dictionary<
+            Guid,
+            (NativeRepeatButton Target, long Delay, long Interval)
+        > scheduledTimings = new();
         private readonly Dictionary<Guid, Dictionary<int, VisualElement>> captures = new();
         private readonly HashSet<Guid> pressed = new();
         private readonly BattlementUiEventForwarder events;
@@ -25,6 +29,16 @@ namespace Battlement.UI
         {
             events = eventForwarder;
             route = routeFor;
+        }
+
+        public bool HasPendingSettlement => scheduledTimings.Count != 0;
+
+        public int CompletePendingSettlement()
+        {
+            int count = scheduledTimings.Count;
+            foreach (Guid objectId in new List<Guid>(scheduledTimings.Keys))
+                ApplyReleasedTiming(objectId);
+            return count;
         }
 
         public NativeRepeatButton Create(ObjectId objectId, UiElement.RepeatButton value)
@@ -104,6 +118,7 @@ namespace Battlement.UI
             defaultTimings.Remove(objectId);
             timings.Remove(objectId);
             pendingTimings.Remove(objectId);
+            scheduledTimings.Remove(objectId);
             pressed.Remove(objectId);
             if (captures.Remove(objectId, out Dictionary<int, VisualElement> owned))
                 ReleaseCaptures(owned);
@@ -115,6 +130,7 @@ namespace Battlement.UI
             defaultTimings.Clear();
             timings.Clear();
             pendingTimings.Clear();
+            scheduledTimings.Clear();
             pressed.Clear();
             foreach (Dictionary<int, VisualElement> owned in captures.Values)
                 ReleaseCaptures(owned);
@@ -125,6 +141,7 @@ namespace Battlement.UI
         {
             pressed.Clear();
             pendingTimings.Clear();
+            scheduledTimings.Clear();
             foreach (Dictionary<int, VisualElement> owned in captures.Values)
                 ReleaseCaptures(owned);
         }
@@ -134,14 +151,23 @@ namespace Battlement.UI
             pressed.Remove(objectId);
             if (!pendingTimings.Remove(objectId, out (long Delay, long Interval) timing))
                 return;
-            long previousInterval = timings[objectId].Interval;
-            target
-                .schedule.Execute(() =>
-                {
-                    target.SetAction(actions[objectId], timing.Delay, timing.Interval);
-                    timings[objectId] = timing;
-                })
-                .StartingIn(previousInterval + 1);
+            scheduledTimings[objectId] = (target, timing.Delay, timing.Interval);
+            target.schedule.Execute(() => ApplyReleasedTiming(objectId));
+        }
+
+        private void ApplyReleasedTiming(Guid objectId)
+        {
+            if (
+                !scheduledTimings.Remove(
+                    objectId,
+                    out (NativeRepeatButton Target, long Delay, long Interval) timing
+                )
+            )
+                return;
+            if (!actions.TryGetValue(objectId, out System.Action action))
+                return;
+            timing.Target.SetAction(action, timing.Delay, timing.Interval);
+            timings[objectId] = (timing.Delay, timing.Interval);
         }
 
         private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)

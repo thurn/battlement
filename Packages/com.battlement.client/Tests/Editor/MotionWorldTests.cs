@@ -17,6 +17,37 @@ namespace Battlement.Tests
     public sealed class MotionWorldTests
     {
         [Test]
+        public void DocumentMotionKeepsScaledAndUnscaledClocksDistinct()
+        {
+            ObjectId host = Id("c857700c-8af5-4e2d-8516-061269d5660b");
+            ObjectId descriptor = Id("3c2f1e09-7581-443e-86dc-6c73b8092174");
+            ObjectId clock = Id("87cf3f1c-1d29-4f16-8234-72a763c3bb92");
+            TimeSpan unscaled = TimeSpan.FromSeconds(10);
+            TimeSpan scaled = TimeSpan.FromSeconds(0.25);
+            var target = new VisualElement();
+            target.style.opacity = 0;
+            using var documents = new BattlementUiDocuments(
+                now: () => unscaled,
+                scaledNow: () => scaled
+            );
+            BattlementMotionWorld world = documents.MotionWorldForTests;
+            world.Install(
+                target,
+                host,
+                Descriptor(descriptor, host, clock, 1, 1, 1) with
+                {
+                    Clock = new MotionClockSource.Scaled(),
+                }
+            );
+
+            unscaled = TimeSpan.FromSeconds(30);
+            scaled = TimeSpan.FromSeconds(0.75);
+            world.PostLayout();
+
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+        }
+
+        [Test]
         public void ControlledClockSamplesAndRetargetsFromVisiblePresentation()
         {
             ObjectId clock = Id("115dc154-b3bd-4b66-bf06-3236cad8db9f");
@@ -591,6 +622,7 @@ namespace Battlement.Tests
                     )
                 )
             );
+            Assert.That(world.ActiveFiniteTimelineCount, Is.EqualTo(1));
             world.Apply(
                 new MotionValueOperation(
                     source,
@@ -603,11 +635,39 @@ namespace Battlement.Tests
 
             now = 1.1;
             world.PreLayout();
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
             MotionPlaybackEvent completed = world.DrainEventBatch()!.PlaybackEvents.Single();
             Assert.That(completed.PlaybackId, Is.EqualTo(second));
             Assert.That(completed.Outcome, Is.EqualTo(MotionPlaybackOutcome.Completed));
             world.PreLayout();
             Assert.That(world.DrainEventBatch(), Is.Null);
+        }
+
+        [Test]
+        public void TimeDerivedMotionValuesAreClassifiedAsContinuousMotion()
+        {
+            ObjectId host = Id("1aff84da-9715-460f-a88a-a5352b39a67b");
+            ObjectId value = Id("a5fd1b9f-e1ef-4da4-b5dc-0bf09407cdcb");
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                new VisualElement(),
+                host,
+                GraphDescriptor(
+                    host,
+                    new[]
+                    {
+                        new MotionValueDescriptor(
+                            value,
+                            new MotionValue.Scalar(0),
+                            new MotionValueSource.Time(new MotionClockSource.Unscaled())
+                        ),
+                    },
+                    new[] { new MotionValueBinding(MotionProperty.Opacity, value) }
+                )
+            );
+
+            Assert.That(world.ActiveInfiniteTimelineCount, Is.EqualTo(1));
+            Assert.That(world.ActiveFiniteTimelineCount, Is.Zero);
         }
 
         [Test]

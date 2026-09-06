@@ -71,6 +71,11 @@ namespace Battlement.Tests
                 );
                 up.target = repeat;
                 repeat.SendEvent(up);
+                Assert.That(documents.DittoHasPendingDeferredWork, Is.True);
+
+                Assert.That(documents.CompleteDittoPresentedFrame(), Is.EqualTo(1));
+                Assert.That(documents.DittoHasPendingDeferredWork, Is.False);
+                Assert.That(RepeatClickable(repeat), Is.Not.SameAs(clickable));
             }
             finally
             {

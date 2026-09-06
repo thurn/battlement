@@ -58,6 +58,19 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DittoKeyCodesRoundTripEveryPhysicalKey()
+        {
+            foreach (PhysicalKey key in Enum.GetValues(typeof(PhysicalKey)))
+            {
+                Assert.That(
+                    BattlementUiKeyboardMapper.Physical(BattlementUiKeyboardMapper.Unity(key)),
+                    Is.EqualTo(key),
+                    key.ToString()
+                );
+            }
+        }
+
+        [Test]
         public void PreventDefaultDispositionIsAppliedBeforeTheNativeCallbackReturns()
         {
             using var fixture = new KeyboardFixture(UiEventDisposition.PreventDefault);

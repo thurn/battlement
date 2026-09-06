@@ -50,6 +50,7 @@ struct VariantSchedule {
 struct VariantProgress {
   next_child: u32,
   max_completion_micros: u64,
+  has_infinite_completion: bool,
 }
 
 pub(crate) struct ResolvedVariants {
@@ -329,12 +330,12 @@ impl MotionProps {
     }
   }
 
-  pub(crate) fn resolved_duration_micros(&self, resolved: &ResolvedVariants) -> u64 {
+  pub(crate) fn resolved_duration_micros(&self, resolved: &ResolvedVariants) -> Option<u64> {
     resolved
       .target
       .as_ref()
       .or(self.animate.as_ref())
-      .map_or(0, |value| {
+      .map_or(Some(0), |value| {
         value.total_duration_micros(self.transition.as_ref())
       })
   }
@@ -436,9 +437,12 @@ impl VariantScope {
     let target = animate_resolved.map(|value| value.target);
     let exit_participates = exit_resolved.is_some();
     let before_delay = if orchestration.when == VariantWhen::BeforeChildren {
-      target.as_ref().map_or(0, |value| {
-        value.total_duration_micros(props.transition.as_ref())
-      })
+      target
+        .as_ref()
+        .map_or(Some(0), |value| {
+          value.total_duration_micros(props.transition.as_ref())
+        })
+        .expect("an infinite parent variant cannot play before children")
     } else {
       0
     };
@@ -533,9 +537,13 @@ impl VariantScope {
     )
   }
 
-  fn record_completion(&self, value: u64) {
+  fn record_completion(&self, value: Option<u64>) {
     let mut progress = self.progress.borrow_mut();
-    progress.max_completion_micros = progress.max_completion_micros.max(value);
+    if let Some(value) = value {
+      progress.max_completion_micros = progress.max_completion_micros.max(value);
+    } else {
+      progress.has_infinite_completion = true;
+    }
   }
 
   fn resolve_exit(
@@ -652,6 +660,10 @@ impl ExitBlueprint {
 impl ResolvedVariants {
   pub(crate) fn final_delay_micros(&self) -> u64 {
     if self.when == VariantWhen::AfterChildren {
+      assert!(
+        !self.child_scope.progress.borrow().has_infinite_completion,
+        "a parent variant cannot play after an infinite child",
+      );
       self
         .base_delay_micros
         .checked_add(self.child_scope.progress.borrow().max_completion_micros)
@@ -661,12 +673,13 @@ impl ResolvedVariants {
     }
   }
 
-  pub(crate) fn complete(&self, parent: &VariantScope, duration_micros: u64) {
-    parent.record_completion(
+  pub(crate) fn complete(&self, parent: &VariantScope, duration_micros: Option<u64>) {
+    let completion = duration_micros.map(|duration_micros| {
       self
         .final_delay_micros()
         .checked_add(duration_micros)
-        .expect("variant completion time exhausted"),
-    );
+        .expect("variant completion time exhausted")
+    });
+    parent.record_completion(completion);
   }
 }

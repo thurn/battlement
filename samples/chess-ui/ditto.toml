@@ -1307,10 +1307,16 @@ screenshot = { name = "action-rest", max_changed_percent = 0.3 }
 accessibility_action = { target = { role = "button", name = "SHINE OFF" }, action = "activate" }
 
 [[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
 screenshot = { name = "action-shine", max_changed_percent = 0.3 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
 
 [[scenarios.steps]]
 screenshot = { name = "action-burst", max_changed_percent = 0.3 }
@@ -1319,10 +1325,13 @@ screenshot = { name = "action-burst", max_changed_percent = 0.3 }
 accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
 
 [[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
 screenshot = { name = "action-retrigger", max_changed_percent = 0.3 }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
 
 [[scenarios.steps]]
 screenshot = { name = "action-settled", max_changed_percent = 0.3 }
@@ -1334,6 +1343,9 @@ accessibility_action = { target = { role = "button", name = "TABS" }, action = "
 accessibility_action = { target = { role = "tab", name = "Sound" }, action = "activate" }
 
 [[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
 screenshot = { name = "tabs-burst", max_changed_percent = 0.3 }
 
 [[scenarios.steps]]
@@ -1341,6 +1353,9 @@ accessibility_action = { target = { role = "button", name = "SELECT" }, action =
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
 
 [[scenarios.steps]]
 screenshot = { name = "select-burst", max_changed_percent = 0.3 }
@@ -1365,6 +1380,9 @@ accessibility_action = { target = { role = "button", name = "SLIDER" }, action =
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "slider", name = "Master Volume" }, action = "increment" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
 
 [[scenarios.steps]]
 screenshot = { name = "slider-burst", max_changed_percent = 0.3 }
@@ -1442,9 +1460,6 @@ key = { key = "Escape" }
 accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
-
-[[scenarios.steps]]
 screenshot = { name = "escaped", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
@@ -1472,16 +1487,10 @@ screenshot = { name = "initial" }
 drag = { from = [0.69, 0.34], to = [0.60, 0.34] }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
-
-[[scenarios.steps]]
 screenshot = { name = "low", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
 drag = { from = [0.69, 0.34], to = [0.75, 0.34] }
-
-[[scenarios.steps]]
-wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "high", max_changed_percent = 0.1 }
@@ -1493,9 +1502,6 @@ click = { target = [0.69, 0.34] }
 key = { key = "PageUp" }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
-
-[[scenarios.steps]]
 screenshot = { name = "paged", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
@@ -1503,9 +1509,6 @@ key = { key = "Home" }
 
 [[scenarios.steps]]
 key = { key = "RightArrow" }
-
-[[scenarios.steps]]
-wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "keyboard", max_changed_percent = 0.1 }
@@ -1536,9 +1539,6 @@ accessibility_action = { target = { role = "checkbox", name = "VSync" }, action 
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "checkbox", name = "VSync" }, role = "checkbox", name = "VSync", checked = true, parent = { role = "region", name = "useInteraction" } }
-
-[[scenarios.steps]]
-wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "changed", max_changed_percent = 0.1 }
@@ -1616,9 +1616,6 @@ accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2
 accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true, parent = { role = "region", name = "ToggleControl accessibility" } }
 
 [[scenarios.steps]]
-wait = { frames = 4 }
-
-[[scenarios.steps]]
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
@@ -1628,9 +1625,6 @@ accessibility_action = { target = { role = "checkbox", name = "Upload Crash Repo
 accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = false, parent = { role = "region", name = "ToggleControl accessibility" } }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
-
-[[scenarios.steps]]
 screenshot = { name = "changed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
@@ -1638,9 +1632,6 @@ accessibility_action = { target = { role = "button", name = "\u206813\u2069. \u2
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true, parent = { role = "region", name = "ToggleControl accessibility" } }
-
-[[scenarios.steps]]
-wait = { frames = 4 }
 
 [[scenarios.steps]]
 screenshot = { name = "reset" }
@@ -1692,9 +1683,6 @@ accessibility_assert = { target = { role = "static-text", name = "Action clicks:
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "static-text", name = "Return clicks: 1" }, role = "static-text", name = "Return clicks: 1" }
-
-[[scenarios.steps]]
-wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "changed", max_changed_percent = 0.1 }
@@ -1898,9 +1886,6 @@ click = { target = [0.95, 0.95] }
 accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
 
 [[scenarios.steps]]
-wait = { frames = 50 }
-
-[[scenarios.steps]]
 screenshot = { name = "dismissed", max_changed_percent = 0.1 }
 
 [[scenarios.steps]]
@@ -1938,9 +1923,6 @@ key = { key = "Tab" }
 
 [[scenarios.steps]]
 key = { key = "Tab" }
-
-[[scenarios.steps]]
-wait = { frames = 50 }
 
 [[scenarios.steps]]
 screenshot = { name = "traversed" }
@@ -2171,9 +2153,6 @@ screenshot = { name = "initial" }
 accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
 
 [[scenarios.steps]]
-wait = { frames = 2 }
-
-[[scenarios.steps]]
 screenshot = { name = "scrolled" }
 
 [[scenarios.steps]]
@@ -2193,9 +2172,6 @@ accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
-
-[[scenarios.steps]]
-wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "initial" }
@@ -2325,9 +2301,6 @@ screenshot = { name = "input-200", max_changed_percent = 0.3 }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
-
-[[scenarios.steps]]
-wait = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "input-scrolled-200", max_changed_percent = 0.3 }

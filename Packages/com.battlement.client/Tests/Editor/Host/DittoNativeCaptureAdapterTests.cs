@@ -163,8 +163,11 @@ namespace Battlement.Tests
             );
 
             Assert.That(executor.Advance(), Is.False);
+            executor.CompletePresentedFrame();
             Assert.That(executor.Advance(), Is.False);
+            executor.CompletePresentedFrame();
             Assert.That(executor.Advance(), Is.False);
+            executor.CompletePresentedFrame();
             Assert.That(executor.Advance(), Is.False);
             Assert.That(finishCapture, Is.Not.Null);
             Assert.That(capturedFrame, Is.GreaterThanOrEqualTo(2));

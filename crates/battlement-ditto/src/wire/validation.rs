@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::wire::job::{
   AccessibilityTarget, Capability, Comparison, Display, InputTarget, Job, KeyAction, Motion,
-  ObjectCondition, Platform, ResolvedScenario, ResolvedStep, StepKind, VideoStep, WaitStep,
+  ObjectCondition, Platform, ResolvedScenario, ResolvedStep, StepKind, VideoStep,
 };
 
 pub(super) fn validate_job(job: &Job) -> Result<()> {
@@ -216,7 +216,15 @@ fn validate_step<'a>(
       capability(job, Capability::Key)?;
       key_step(key, *action, state)
     }
-    StepKind::Wait(wait) => wait_step(scenario.motion, wait),
+    StepKind::Advance(advance) => {
+      ensure!(advance.frames > 0, "frame advance must be positive");
+      ensure!(
+        scenario.motion == Motion::Controlled,
+        "frame advance requires controlled motion"
+      );
+      Ok(())
+    }
+    StepKind::Wait(condition) => object_condition(condition),
     StepKind::Assert(condition) => object_condition(condition),
     StepKind::AccessibilityAssert(assertion) => {
       accessibility_target(&assertion.target)?;
@@ -276,20 +284,6 @@ fn input_target(target: &InputTarget) -> Result<()> {
 
 fn object_condition(condition: &ObjectCondition) -> Result<()> {
   identifier("object condition", &condition.object)
-}
-
-fn wait_step(motion: Motion, wait: &WaitStep) -> Result<()> {
-  match wait {
-    WaitStep::Frames(wait) => {
-      ensure!(wait.frames > 0, "frame wait must be positive");
-      ensure!(
-        motion == Motion::Controlled,
-        "frame wait requires controlled motion"
-      );
-      Ok(())
-    }
-    WaitStep::Object(condition) => object_condition(condition),
-  }
 }
 
 fn key_step<'a>(key: &'a String, action: KeyAction, state: &mut ScenarioState<'a>) -> Result<()> {

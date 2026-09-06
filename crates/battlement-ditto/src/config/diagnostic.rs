@@ -47,6 +47,7 @@ const KEYS: &[&str] = &[
   "hover",
   "drag",
   "key",
+  "advance",
   "wait",
   "assert",
   "screenshot",

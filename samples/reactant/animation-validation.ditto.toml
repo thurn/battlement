@@ -55,7 +55,7 @@ click = { target = [0.08, 0.06] }
 click = { target = [0.82, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 2 }
+advance = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "physical-initial" }
@@ -64,7 +64,7 @@ screenshot = { name = "physical-initial" }
 click = { target = [0.34, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 2 }
+advance = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "physical-checkpoint" }
@@ -73,7 +73,7 @@ screenshot = { name = "physical-checkpoint" }
 click = { target = [0.43, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 2 }
+advance = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "physical-interrupted" }
@@ -82,7 +82,7 @@ screenshot = { name = "physical-interrupted" }
 click = { target = [0.91, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 2 }
+advance = { frames = 2 }
 
 [[scenarios.steps]]
 screenshot = { name = "physical-completed" }
@@ -103,7 +103,7 @@ click = { target = [0.82, 0.285] }
 click = { target = [0.40, 0.345] }
 
 [[scenarios.steps]]
-wait = { frames = 3 }
+advance = { frames = 3 }
 
 [[scenarios.steps]]
 screenshot = { name = "styles-baseline" }
@@ -112,7 +112,7 @@ screenshot = { name = "styles-baseline" }
 click = { target = [0.34, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 3 }
+advance = { frames = 3 }
 
 [[scenarios.steps]]
 screenshot = { name = "styles-checkpoint" }
@@ -121,7 +121,7 @@ screenshot = { name = "styles-checkpoint" }
 click = { target = [0.45, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 3 }
+advance = { frames = 3 }
 
 [[scenarios.steps]]
 screenshot = { name = "styles-burst" }
@@ -145,7 +145,7 @@ click = { target = [0.40, 0.345] }
 click = { target = [0.75, 0.28] }
 
 [[scenarios.steps]]
-wait = { frames = 3 }
+advance = { frames = 3 }
 
 [[scenarios.steps]]
 video = { action = "start", name = "variants-orchestration-focused", motion = "controlled", max_duration = "8s" }
@@ -166,7 +166,7 @@ click = { target = [0.66, 0.285] }
 click = { target = [0.75, 0.285] }
 
 [[scenarios.steps]]
-wait = { frames = 4 }
+advance = { frames = 4 }
 
 [[scenarios.steps]]
 video = { action = "stop" }

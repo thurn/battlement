@@ -21,13 +21,14 @@ namespace Battlement.Tests
             var motion = new DittoMotionController(harness.Runner);
             motion.Begin(DittoMotion.Controlled);
             Submit(harness, session, Tween(objectId, 30));
+            Assert.That(motion.PendingDiagnostic(), Does.Contain("finite-motion=1"));
             var journal = new List<MotionFrame>();
 
             for (var index = 0; index < 15; index++)
             {
                 journal.Add(Advance(harness, motion, target));
             }
-            motion.PreserveExactWaitState();
+            motion.PreserveExactAdvanceState();
 
             Assert.That(target.localPosition.x, Is.EqualTo(15f).Within(0.001f));
             Assert.That(journal[^1].Frame.Elapsed, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
@@ -59,6 +60,34 @@ namespace Battlement.Tests
             {
                 Assert.That(first[index], Is.EqualTo(index + 1).Within(0.01f));
             }
+        }
+
+        [Test]
+        public void InfiniteMotionFreezesAtTheFirstObservedStateAndDoesNotBlockSettlement()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            (SessionId session, ObjectId objectId, Transform target) = Connect(harness);
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            Submit(
+                harness,
+                session,
+                Tween(objectId, 30, repeat: new TweenRepeat.Forever(RepeatMode.Restart))
+            );
+
+            MotionFrame first = Advance(harness, motion, target);
+            MotionFrame second = Advance(harness, motion, target);
+            MotionFrame settled = Advance(harness, motion, target);
+
+            Assert.That(first.Frame.HasInfiniteOperations, Is.True);
+            Assert.That(first.Frame.HasPendingWork, Is.False);
+            Assert.That(second.Frame.Elapsed, Is.EqualTo(first.Frame.Elapsed));
+            Assert.That(settled.Frame.Elapsed, Is.EqualTo(first.Frame.Elapsed));
+            Assert.That(settled.Position, Is.EqualTo(first.Position).Within(0.001f));
+            Assert.That(settled.Frame.IsSettled, Is.True);
+            Assert.That(motion.PendingDiagnostic(), Does.Contain("infinite-motion=1"));
         }
 
         [Test]
@@ -158,7 +187,12 @@ namespace Battlement.Tests
             return (session, objectId, target);
         }
 
-        private static Command Tween(ObjectId id, double x, double seconds = 1) =>
+        private static Command Tween(
+            ObjectId id,
+            double x,
+            double seconds = 1,
+            TweenRepeat? repeat = null
+        ) =>
             new(
                 new CommandId(Guid.NewGuid()),
                 new CommandBody.Transform.TweenLocalPosition(
@@ -168,7 +202,7 @@ namespace Battlement.Tests
                         TimeSpan.FromSeconds(seconds),
                         TimeSpan.Zero,
                         Easing.Linear,
-                        new TweenRepeat.Once()
+                        repeat ?? new TweenRepeat.Once()
                     )
                 )
             )

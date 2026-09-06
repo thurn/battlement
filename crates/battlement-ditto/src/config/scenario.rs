@@ -7,12 +7,12 @@ use crate::config::{
   model::{
     AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
     InputTarget, KeyAction, Motion, ObjectCondition, ObjectState, Scenario, ScreenshotStep, Step,
-    StepKind, VideoStep, WaitStep,
+    StepKind, VideoStep,
   },
   raw::{
     RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
     RawCondition, RawInputTarget, RawKeyAction, RawMotion, RawObjectState, RawScenario, RawStep,
-    RawVideo, RawVideoAction, RawWait,
+    RawVideo, RawVideoAction,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -164,6 +164,7 @@ fn step_value(
     raw.hover.is_some(),
     raw.drag.is_some(),
     raw.key.is_some(),
+    raw.advance.is_some(),
     raw.wait.is_some(),
     raw.assertion.is_some(),
     raw.accessibility_assert.is_some(),
@@ -185,7 +186,6 @@ fn step_value(
   let action = if let Some(click) = raw.click.take() {
     StepKind::Click {
       target: input_target(validation, &format!("{key}.click.target"), click.target)?,
-      settle: click.settle,
     }
   } else if let Some(hover) = raw.hover.take() {
     StepKind::Hover {
@@ -198,8 +198,19 @@ fn step_value(
     }
   } else if let Some(key_step) = raw.key.take() {
     key_step_value(validation, &key, key_step.key, key_step.action, state)?
+  } else if let Some(advance) = raw.advance.take() {
+    StepKind::Advance {
+      frames: advance_step(validation, &key, scenario_motion, advance.frames)?,
+    }
   } else if let Some(wait) = raw.wait.take() {
-    StepKind::Wait(wait_step(validation, &key, scenario_motion, wait)?)
+    StepKind::Wait(condition(
+      validation,
+      &format!("{key}.wait"),
+      RawCondition {
+        object: wait.object,
+        state: wait.state,
+      },
+    )?)
   } else if let Some(assertion) = raw.assertion.take() {
     StepKind::Assert(condition(validation, &format!("{key}.assert"), assertion)?)
   } else if let Some(assertion) = raw.accessibility_assert.take() {
@@ -406,39 +417,28 @@ fn key_step_value(
   Ok(StepKind::Key { key: value, action })
 }
 
-fn wait_step(
+fn advance_step(
   validation: &Validation<'_>,
   key: &str,
   scenario_motion: Motion,
-  raw: RawWait,
-) -> Result<WaitStep, ConfigError> {
-  match (raw.frames, raw.object, raw.state) {
-    (Some(frames), None, None) if frames > 0 && scenario_motion == Motion::Controlled => {
-      Ok(WaitStep::Frames(frames))
-    }
-    (Some(0), None, None) => Err(invalid(
+  frames: u32,
+) -> Result<u32, ConfigError> {
+  if frames == 0 {
+    Err(invalid(
       validation.path,
       validation.source,
-      format!("{key}.wait.frames"),
-      "frame wait must be positive",
-    )),
-    (Some(_), None, None) => Err(invalid(
+      format!("{key}.advance.frames"),
+      "frame advance must be positive",
+    ))
+  } else if scenario_motion != Motion::Controlled {
+    Err(invalid(
       validation.path,
       validation.source,
-      format!("{key}.wait.frames"),
-      "frame wait requires controlled scenario motion",
-    )),
-    (None, Some(object), Some(state)) => Ok(WaitStep::Object(condition(
-      validation,
-      &format!("{key}.wait"),
-      RawCondition { object, state },
-    )?)),
-    _ => Err(invalid(
-      validation.path,
-      validation.source,
-      format!("{key}.wait"),
-      "wait requires exactly frames or object with state",
-    )),
+      format!("{key}.advance.frames"),
+      "frame advance requires controlled scenario motion",
+    ))
+  } else {
+    Ok(frames)
   }
 }
 

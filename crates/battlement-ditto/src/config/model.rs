@@ -144,7 +144,6 @@ pub struct Step {
 pub enum StepKind {
   Click {
     target: InputTarget,
-    settle: bool,
   },
   Hover {
     target: InputTarget,
@@ -157,7 +156,10 @@ pub enum StepKind {
     key: String,
     action: KeyAction,
   },
-  Wait(WaitStep),
+  Advance {
+    frames: u32,
+  },
+  Wait(ObjectCondition),
   Assert(ObjectCondition),
   AccessibilityAssert(AccessibilityAssertion),
   AccessibilityAction {
@@ -244,13 +246,6 @@ pub enum KeyAction {
   Down,
   Up,
   Tap,
-}
-
-/// A frame or black-box object wait.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum WaitStep {
-  Frames(u32),
-  Object(ObjectCondition),
 }
 
 /// A black-box object condition.

@@ -17,6 +17,8 @@ namespace Battlement.UI
 
         public int EntryCount => entries.Count;
 
+        internal bool HasPendingWork => surfaces.Values.Any(surface => surface.HasPendingWork);
+
         public void Apply(VisualElement target, Prop<Sticky> value, int sourceOrdinal)
         {
             BattlementStickyItems.Apply(target, value);
@@ -219,6 +221,8 @@ namespace Battlement.UI
             }
 
             public int Count => entries.Count;
+
+            public bool HasPendingWork => refreshScheduled;
 
             public VisualElement Root { get; }
 

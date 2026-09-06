@@ -47,7 +47,7 @@ fn complete_job_round_trips_every_step_and_union_variant() {
   let decoded: Job = serde_json::from_str(&encoded).unwrap();
   assert_eq!(decoded, job);
   assert!(encoded.contains(r#""fixture":"fixture-one""#));
-  assert!(encoded.contains(r#""wait":{"frames":2}"#));
+  assert!(encoded.contains(r#""advance":{"frames":2}"#));
   assert!(encoded.contains(r#""wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1""#));
   assert!(encoded.contains(r#""video":{"action":"start""#));
   assert!(encoded.contains(r#""video":{"action":"stop"}"#));
@@ -137,7 +137,7 @@ fn serde_rejects_unknown_fields_variants_and_malformed_unions() {
     ),
     with(
       &base,
-      "/scenarios/0/steps/6/action/wait/unexpected",
+      "/scenarios/0/steps/6/action/advance/unexpected",
       json!(true),
     ),
     with(
@@ -290,7 +290,6 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
   invalid("object UUID", |job| {
     job.scenarios[0].steps[0].action = StepKind::Click {
       target: battlement_ditto::wire::job::InputTarget::Object("alias".to_owned()),
-      settle: true,
     }
   });
   invalid("coordinate range", |job| {
@@ -300,9 +299,7 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
   });
   invalid("frame count", |job| {
     job.scenarios[0].steps[6].action =
-      StepKind::Wait(battlement_ditto::wire::job::WaitStep::Frames(
-        battlement_ditto::wire::job::FrameWait { frames: 0 },
-      ))
+      StepKind::Advance(battlement_ditto::wire::job::FrameAdvance { frames: 0 })
   });
   invalid("frame motion", |job| {
     job.scenarios[0].motion = Motion::RealTime
@@ -459,13 +456,13 @@ const VALID_JOB: &str = r#"{
     "motion":"controlled",
     "timeout_ms":10000,
     "steps":[
-      {"index":0,"name":"click object","timeout_ms":1000,"action":{"click":{"target":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","settle":true}}},
+      {"index":0,"name":"click object","timeout_ms":1000,"action":{"click":{"target":"4aac8ca0-af3d-409e-958e-62954e6cb3d1"}}},
       {"index":1,"name":null,"timeout_ms":1000,"action":{"hover":{"target":[0.5,0.75]}}},
       {"index":2,"name":null,"timeout_ms":1000,"action":{"drag":{"from":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","to":[0.75,0.75]}}},
       {"index":3,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"down"}}},
       {"index":4,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"up"}}},
       {"index":5,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Enter","action":"tap"}}},
-      {"index":6,"name":null,"timeout_ms":1000,"action":{"wait":{"frames":2}}},
+      {"index":6,"name":null,"timeout_ms":1000,"action":{"advance":{"frames":2}}},
       {"index":7,"name":null,"timeout_ms":1000,"action":{"wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"visible"}}},
       {"index":8,"name":null,"timeout_ms":1000,"action":{"assert":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"enabled"}}},
       {"index":9,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"ready","comparison":{"threshold":"0.05","anti_alias":false,"max_changed_percent":"0"}}}},

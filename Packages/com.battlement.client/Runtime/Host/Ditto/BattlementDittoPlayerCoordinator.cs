@@ -2,6 +2,7 @@
 
 #if BATTLEMENT_DITTO_DIAGNOSTICS
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -53,6 +54,7 @@ namespace Battlement
         private int preparedMacosFrame;
         private double jobStartedAt;
         private bool warmJob;
+        private bool presentationCommitPending;
 
         private void Awake() => BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
 
@@ -417,19 +419,53 @@ namespace Battlement
                 {
                     BeginFailureFrameOrBoundary();
                 }
+                else if (executor.AwaitingPresentation && !presentationCommitPending)
+                {
+                    StartCoroutine(CompletePresentedFrame());
+                }
             }
             catch (Exception exception)
             {
-                executor!.Freeze(
-                    scenarioContext!.ReportFunctionalError(
-                        DittoErrorCode.RuntimeFatal,
-                        exception.Message
-                    )
-                );
-                if (executor.Result is not null)
+                FreezeExecutor(exception);
+            }
+        }
+
+        private IEnumerator CompletePresentedFrame()
+        {
+            presentationCommitPending = true;
+            yield return new WaitForEndOfFrame();
+            try
+            {
+                if (phase == Phase.Executing && executor?.AwaitingPresentation == true)
                 {
-                    BeginFailureFrameOrBoundary();
+                    executor.CompletePresentedFrame();
+                    if (executor.Result is not null)
+                    {
+                        BeginFailureFrameOrBoundary();
+                    }
                 }
+            }
+            catch (Exception exception)
+            {
+                FreezeExecutor(exception);
+            }
+            finally
+            {
+                presentationCommitPending = false;
+            }
+        }
+
+        private void FreezeExecutor(Exception exception)
+        {
+            executor!.Freeze(
+                scenarioContext!.ReportFunctionalError(
+                    DittoErrorCode.RuntimeFatal,
+                    exception.Message
+                )
+            );
+            if (executor.Result is not null)
+            {
+                BeginFailureFrameOrBoundary();
             }
         }
 

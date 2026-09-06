@@ -409,7 +409,6 @@ fn job(build: &BuildHandle, count: u32) -> Job {
           timeout_ms: 100,
           action: StepKind::Click {
             target: InputTarget::Coordinates([0.5, 0.5]),
-            settle: true,
           },
         }],
       })

@@ -28,7 +28,7 @@ namespace Battlement.Tests
             var journal = new List<DesktopFrame>();
 
             Assert.That(Mouse.current, Is.Not.SameAs(hostMouse));
-            Assert.That(Keyboard.current, Is.Not.SameAs(hostKeyboard));
+            Assert.That(Keyboard.current, Is.SameAs(hostKeyboard));
 
             input.Click(new Vector2(25, 30));
             DrainDesktop(input, hostMouse, hostKeyboard, journal);
@@ -169,55 +169,54 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void FirstAuthoredKeyTapReachesBattlementKeyboardInput()
+        public void AuthoredKeyFramesDoNotMutateTheHostKeyboard()
         {
-            var actions = new List<ActionBody>();
             Keyboard hostKeyboard = InputSystem.AddDevice<Keyboard>("Host Fixture Keyboard");
-            InputSystem.QueueStateEvent(hostKeyboard, new KeyboardState());
+            InputSystem.QueueStateEvent(hostKeyboard, new KeyboardState(Key.Space));
             InputSystem.Update();
             using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
-            var keyboard = new BattlementKeyboardInput(
-                _ => true,
-                action =>
-                {
-                    actions.Add(action);
-                    return true;
-                }
-            );
-            keyboard.Update(true);
 
             input.Key("Enter", DittoKeyAction.Tap);
-            Advance(input);
-            keyboard.Update(true);
-            Advance(input);
-            keyboard.Update(true);
+            DittoInputFrame down = input.QueueNextFrame();
+            DittoInputFrame up = input.QueueNextFrame();
 
-            Assert.That(
-                actions,
-                Is.EqualTo(
-                    new ActionBody[]
-                    {
-                        new ActionBody.KeyDown(PhysicalKey.Enter),
-                        new ActionBody.KeyUp(PhysicalKey.Enter),
-                    }
-                )
-            );
+            Assert.That(down.Kind, Is.EqualTo(DittoInputFrameKind.KeyDown));
+            Assert.That(up.Kind, Is.EqualTo(DittoInputFrameKind.KeyUp));
+            Assert.That(hostKeyboard.spaceKey.isPressed, Is.True);
+            Assert.That(hostKeyboard.enterKey.isPressed, Is.False);
         }
 
         [Test]
-        public void PrintableKeyTapAlsoQueuesTextInput()
+        public void PointerFramesRemainPendingUntilInputSystemConsumesTheirState()
         {
             using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
-            Keyboard virtualKeyboard = Keyboard.current;
-            InputSystem.AddDevice<Keyboard>("Host Fixture Keyboard").MakeCurrent();
-            var text = new List<char>();
-            virtualKeyboard.onTextInput += text.Add;
+            input.Click(new Vector2(20, 30));
+
+            input.QueueNextFrame();
+            Assert.That(input.CanQueueNextFrame, Is.False);
+            Assert.That(input.PendingFrameCount, Is.EqualTo(3));
+
+            InputSystem.Update();
+            Assert.That(input.CanQueueNextFrame, Is.True);
+            Assert.That(input.PendingFrameCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void PrintableKeyTextRespectsShiftAndCommandModifiers()
+        {
+            using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
 
             input.Key("A", DittoKeyAction.Tap);
-            Advance(input);
-            Advance(input);
+            DittoInputFrame lower = input.QueueNextFrame();
+            Assert.That(input.TextCharacter(lower.Key!.Value), Is.EqualTo('a'));
+            input.QueueNextFrame();
 
-            Assert.That(text, Is.EqualTo(new[] { 'a' }));
+            input.Key("LeftShift", DittoKeyAction.Down);
+            input.QueueNextFrame();
+            input.Key("A", DittoKeyAction.Down);
+            DittoInputFrame upper = input.QueueNextFrame();
+
+            Assert.That(input.TextCharacter(upper.Key!.Value), Is.EqualTo('A'));
         }
 
         [Test]
@@ -256,15 +255,12 @@ namespace Battlement.Tests
                 Mouse virtualMouse = InputSystem
                     .devices.OfType<Mouse>()
                     .Single(value => value != hostMouse);
-                Keyboard virtualKeyboard = InputSystem
-                    .devices.OfType<Keyboard>()
-                    .SingleOrDefault(value => value != hostKeyboard)!;
                 journal.Add(
                     new DesktopFrame(
                         frame.Kind,
                         virtualMouse?.position.ReadValue() ?? default,
                         virtualMouse?.leftButton.isPressed ?? false,
-                        virtualKeyboard?.enterKey.isPressed ?? false,
+                        input.IsHeld(Key.Enter),
                         hostMouse.position.ReadValue(),
                         hostMouse.rightButton.isPressed,
                         hostKeyboard.spaceKey.isPressed

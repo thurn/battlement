@@ -316,7 +316,6 @@ fn job(build: &BuildHandle) -> Job {
         timeout_ms: 100,
         action: StepKind::Click {
           target: InputTarget::Coordinates([0.5, 0.5]),
-          settle: true,
         },
       }],
     }],

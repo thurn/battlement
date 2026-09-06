@@ -27,6 +27,8 @@ namespace Battlement.UI
 
         public bool Done { get; private set; }
 
+        public bool IsInfinite => Definition.Transition.Repeat is MotionRepeat.Forever;
+
         public uint Iteration { get; private set; }
 
         public bool Suppressed { get; private set; }

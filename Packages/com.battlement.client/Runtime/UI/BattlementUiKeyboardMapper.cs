@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -68,6 +69,68 @@ namespace Battlement.UI
                 KeyCode.KeypadDivide => PhysicalKey.NumpadDivide,
                 KeyCode.KeypadEnter => PhysicalKey.NumpadEnter,
                 _ => null,
+            };
+        }
+
+        public static KeyCode Unity(PhysicalKey value)
+        {
+            if (value >= PhysicalKey.KeyA && value <= PhysicalKey.KeyZ)
+                return (KeyCode)((int)KeyCode.A + (value - PhysicalKey.KeyA));
+            if (value >= PhysicalKey.Digit0 && value <= PhysicalKey.Digit9)
+                return (KeyCode)((int)KeyCode.Alpha0 + (value - PhysicalKey.Digit0));
+            if (value >= PhysicalKey.F1 && value <= PhysicalKey.F12)
+                return (KeyCode)((int)KeyCode.F1 + (value - PhysicalKey.F1));
+            if (value >= PhysicalKey.Numpad0 && value <= PhysicalKey.Numpad9)
+                return (KeyCode)((int)KeyCode.Keypad0 + (value - PhysicalKey.Numpad0));
+            return value switch
+            {
+                PhysicalKey.Escape => KeyCode.Escape,
+                PhysicalKey.Backquote => KeyCode.BackQuote,
+                PhysicalKey.Minus => KeyCode.Minus,
+                PhysicalKey.Equal => KeyCode.Equals,
+                PhysicalKey.Backspace => KeyCode.Backspace,
+                PhysicalKey.Tab => KeyCode.Tab,
+                PhysicalKey.BracketLeft => KeyCode.LeftBracket,
+                PhysicalKey.BracketRight => KeyCode.RightBracket,
+                PhysicalKey.Backslash => KeyCode.Backslash,
+                PhysicalKey.CapsLock => KeyCode.CapsLock,
+                PhysicalKey.Semicolon => KeyCode.Semicolon,
+                PhysicalKey.Quote => KeyCode.Quote,
+                PhysicalKey.Enter => KeyCode.Return,
+                PhysicalKey.ShiftLeft => KeyCode.LeftShift,
+                PhysicalKey.ShiftRight => KeyCode.RightShift,
+                PhysicalKey.ControlLeft => KeyCode.LeftControl,
+                PhysicalKey.ControlRight => KeyCode.RightControl,
+                PhysicalKey.AltLeft => KeyCode.LeftAlt,
+                PhysicalKey.AltRight => KeyCode.RightAlt,
+                PhysicalKey.MetaLeft => KeyCode.LeftCommand,
+                PhysicalKey.MetaRight => KeyCode.RightCommand,
+                PhysicalKey.Comma => KeyCode.Comma,
+                PhysicalKey.Period => KeyCode.Period,
+                PhysicalKey.Slash => KeyCode.Slash,
+                PhysicalKey.Space => KeyCode.Space,
+                PhysicalKey.ContextMenu => KeyCode.Menu,
+                PhysicalKey.Insert => KeyCode.Insert,
+                PhysicalKey.Delete => KeyCode.Delete,
+                PhysicalKey.Home => KeyCode.Home,
+                PhysicalKey.End => KeyCode.End,
+                PhysicalKey.PageUp => KeyCode.PageUp,
+                PhysicalKey.PageDown => KeyCode.PageDown,
+                PhysicalKey.ArrowLeft => KeyCode.LeftArrow,
+                PhysicalKey.ArrowRight => KeyCode.RightArrow,
+                PhysicalKey.ArrowUp => KeyCode.UpArrow,
+                PhysicalKey.ArrowDown => KeyCode.DownArrow,
+                PhysicalKey.PrintScreen => KeyCode.Print,
+                PhysicalKey.ScrollLock => KeyCode.ScrollLock,
+                PhysicalKey.Pause => KeyCode.Pause,
+                PhysicalKey.NumLock => KeyCode.Numlock,
+                PhysicalKey.NumpadDecimal => KeyCode.KeypadPeriod,
+                PhysicalKey.NumpadAdd => KeyCode.KeypadPlus,
+                PhysicalKey.NumpadSubtract => KeyCode.KeypadMinus,
+                PhysicalKey.NumpadMultiply => KeyCode.KeypadMultiply,
+                PhysicalKey.NumpadDivide => KeyCode.KeypadDivide,
+                PhysicalKey.NumpadEnter => KeyCode.KeypadEnter,
+                _ => throw new ArgumentOutOfRangeException(nameof(value)),
             };
         }
 

@@ -11,6 +11,7 @@ pub enum StepName {
   Hover,
   Drag,
   Key,
+  Advance,
   Wait,
   Assert,
   AccessibilityAssert,

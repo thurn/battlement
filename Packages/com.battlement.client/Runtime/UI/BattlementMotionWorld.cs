@@ -70,6 +70,29 @@ namespace Battlement.UI
 
         public BattlementMotionPerformanceSnapshot Performance => performance.Snapshot;
 
+        internal int ActiveFiniteTimelineCount =>
+            descriptors.Values.Sum(value => value.ActiveFiniteTimelineCount)
+            + graph.ActiveFiniteTimelineCount;
+
+        internal int ActiveInfiniteTimelineCount =>
+            descriptors.Values.Sum(value => value.ActiveInfiniteTimelineCount)
+            + graph.ActiveInfiniteTimelineCount;
+
+        internal int ActiveHeldTimelineCount =>
+            descriptors.Values.Sum(value => value.ActiveHeldTimelineCount);
+
+        internal string ActiveTimelineDiagnostic =>
+            string.Join(
+                ";",
+                descriptors
+                    .Values.SelectMany(value => value.ActiveTimelineDiagnostics())
+                    .Concat(graph.ActiveTimelineDiagnostics())
+                    .Take(8)
+            );
+
+        internal int CompleteReadySlots() =>
+            descriptors.Values.Sum(descriptor => descriptor.CompleteSlots(this));
+
         public void RecordPerformanceTraffic(int payloadBytes) =>
             performance.RecordTraffic(payloadBytes);
 
@@ -643,6 +666,8 @@ namespace Battlement.UI
             performance.BeginFrame(Time.realtimeSinceStartupAsDouble);
             graph.Sample();
             Sample(layout: true);
+            foreach (DescriptorState descriptor in descriptors.Values)
+                descriptor.CompleteSlots(this);
         }
 
         public void PostLayout()
@@ -656,8 +681,6 @@ namespace Battlement.UI
                     IsReduced(descriptor.Descriptor)
                 );
             presentationChanged?.Invoke();
-            foreach (DescriptorState descriptor in descriptors.Values)
-                descriptor.CompleteSlots(this);
             CompleteImperativePlaybacks();
             foreach (BattlementGestureState gesture in gestures.Values)
                 gesture.Sample();
