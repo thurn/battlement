@@ -13,6 +13,7 @@ use crate::{
   effects_harness::EffectsHarness,
   font_scale_harness::FontScaleHarness,
   frame_harness::FrameHarness,
+  frame_pulse_harness::FramePulseHarness,
   gallery::{Demonstration, Gallery},
   header_harness::HeaderHarness,
   input_settings::InputSettings,
@@ -217,7 +218,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeFramePulse", "Chess UI showcase title."))
-                .description(tx("ArcadeFramePulse animates border comets around the restored Return cutout; exits and route effects remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeFramePulse animates border comets around the restored Return cutout; exits and route effects remain unasserted.", "Chess UI showcase description."))
+                .child(FramePulseHarness::new()),
         )
         .page(
             ReviewPage::new()

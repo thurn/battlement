@@ -1075,3 +1075,39 @@ to = "arcade_attract_mode.reset"
 [[transitions]]
 from = "arcade_attract_mode.reset"
 to = "arcade_attract_mode.reduced"
+
+[[states]]
+key = "arcade_frame_pulse.main_initial"
+screen = "arcade_frame_pulse"
+
+[[states]]
+key = "arcade_frame_pulse.main_pulse"
+screen = "arcade_frame_pulse"
+
+[[states]]
+key = "arcade_frame_pulse.settings_cutout"
+screen = "arcade_frame_pulse"
+
+[[states]]
+key = "arcade_frame_pulse.settings_reduced"
+screen = "arcade_frame_pulse"
+
+[[states]]
+key = "arcade_frame_pulse.reset"
+screen = "arcade_frame_pulse"
+
+[[transitions]]
+from = "arcade_frame_pulse.main_initial"
+to = "arcade_frame_pulse.main_pulse"
+
+[[transitions]]
+from = "arcade_frame_pulse.main_pulse"
+to = "arcade_frame_pulse.settings_cutout"
+
+[[transitions]]
+from = "arcade_frame_pulse.settings_cutout"
+to = "arcade_frame_pulse.settings_reduced"
+
+[[transitions]]
+from = "arcade_frame_pulse.settings_reduced"
+to = "arcade_frame_pulse.reset"

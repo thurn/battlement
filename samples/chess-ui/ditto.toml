@@ -1292,6 +1292,57 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "arcade frame pulse"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206830\u2069. \u2068ArcadeFramePulse\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Show pulse preview" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "MAIN" }, role = "button", name = "MAIN" }
+
+[[scenarios.steps]]
+screenshot = { name = "main-initial", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ADVANCE" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "main-pulse", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "MAIN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "SETTINGS" }, role = "button", name = "SETTINGS" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "RETURN" }, role = "button", name = "RETURN" }
+
+[[scenarios.steps]]
+screenshot = { name = "settings-cutout", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "REDUCED" }, role = "button", name = "REDUCED" }
+
+[[scenarios.steps]]
+screenshot = { name = "settings-reduced", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "MAIN" }, role = "button", name = "MAIN" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "arcade attract mode"
 
 [[scenarios.steps]]

@@ -1381,3 +1381,49 @@ to = "arcade_attract_mode.reset"
 [[transitions]]
 from = "arcade_attract_mode.reset"
 to = "arcade_attract_mode.reduced"
+
+[[mappings]]
+state = "arcade_frame_pulse.main_initial"
+scenario = "arcade frame pulse"
+checkpoint = "main-initial"
+owner = "arcade_frame_pulse::frame_comets_follow_the_source_perimeter_timeline"
+
+[[mappings]]
+state = "arcade_frame_pulse.main_pulse"
+scenario = "arcade frame pulse"
+checkpoint = "main-pulse"
+owner = "arcade_frame_pulse::frame_comets_follow_the_source_perimeter_timeline"
+
+[[mappings]]
+state = "arcade_frame_pulse.settings_cutout"
+scenario = "arcade frame pulse"
+checkpoint = "settings-cutout"
+owner = "arcade_frame_pulse::settings_cutout_and_reduced_motion_are_explicit_review_states"
+
+[[mappings]]
+state = "arcade_frame_pulse.settings_reduced"
+scenario = "arcade frame pulse"
+checkpoint = "settings-reduced"
+owner = "arcade_frame_pulse::settings_cutout_and_reduced_motion_are_explicit_review_states"
+
+[[mappings]]
+state = "arcade_frame_pulse.reset"
+scenario = "arcade frame pulse"
+checkpoint = "reset"
+owner = "arcade_frame_pulse::settings_cutout_and_reduced_motion_are_explicit_review_states"
+
+[[transitions]]
+from = "arcade_frame_pulse.main_initial"
+to = "arcade_frame_pulse.main_pulse"
+
+[[transitions]]
+from = "arcade_frame_pulse.main_pulse"
+to = "arcade_frame_pulse.settings_cutout"
+
+[[transitions]]
+from = "arcade_frame_pulse.settings_cutout"
+to = "arcade_frame_pulse.settings_reduced"
+
+[[transitions]]
+from = "arcade_frame_pulse.settings_reduced"
+to = "arcade_frame_pulse.reset"

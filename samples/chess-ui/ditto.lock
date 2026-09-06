@@ -233,6 +233,56 @@ source = "ec066b6844e36b268286c64e76a26427e016ad3d9563179f5142e6b31d5b1685"
 
 [[baselines]]
 profile = "macos"
+scenario = "arcade frame pulse"
+checkpoint = "main-initial"
+sha256 = "788120e19ea0bfeacb8a607f3a06ab72324bd6b4ecde0461dd05815e37473cb9"
+width = 1280
+height = 800
+size_bytes = 105732
+source = "052a37269c877e757e6ce01e037a7be196e0e54c51576634e02f16410b5cb7ae"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade frame pulse"
+checkpoint = "main-pulse"
+sha256 = "1f11d3b6d6a478e8d86c5cb68b25425fb787f32b670a652c6f5f9a929d6e38be"
+width = 1280
+height = 800
+size_bytes = 106114
+source = "052a37269c877e757e6ce01e037a7be196e0e54c51576634e02f16410b5cb7ae"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade frame pulse"
+checkpoint = "reset"
+sha256 = "788120e19ea0bfeacb8a607f3a06ab72324bd6b4ecde0461dd05815e37473cb9"
+width = 1280
+height = 800
+size_bytes = 105732
+source = "052a37269c877e757e6ce01e037a7be196e0e54c51576634e02f16410b5cb7ae"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade frame pulse"
+checkpoint = "settings-cutout"
+sha256 = "800b8c4b70c63d204e44e82ce9be4ca37082b4f3776185d4707336d3fc7b8fca"
+width = 1280
+height = 800
+size_bytes = 114327
+source = "052a37269c877e757e6ce01e037a7be196e0e54c51576634e02f16410b5cb7ae"
+
+[[baselines]]
+profile = "macos"
+scenario = "arcade frame pulse"
+checkpoint = "settings-reduced"
+sha256 = "840282dbe4a49a10abc0a8cb075047be357651abf32d6fa4514e07d3ae4b3418"
+width = 1280
+height = 800
+size_bytes = 115377
+source = "052a37269c877e757e6ce01e037a7be196e0e54c51576634e02f16410b5cb7ae"
+
+[[baselines]]
+profile = "macos"
 scenario = "arcade modal animation"
 checkpoint = "closed"
 sha256 = "28c68a5e8d9bd1e2c0f5487dbb43a97186e13813303234b2b4c957a516bb0e81"

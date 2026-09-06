@@ -52,6 +52,10 @@ pub mod arcade_attract_mode;
 
 mod attract_mode_harness;
 
+pub mod arcade_frame_pulse;
+
+mod frame_pulse_harness;
+
 pub mod arcade_tab_transition;
 
 mod assets;
