@@ -416,6 +416,16 @@ impl StyleTarget {
     self.set(MotionProperty::SkewX, vec![MotionValue::Angle(value)], None)
   }
 
+  /// Sets horizontal chrome-skew keyframes in degrees.
+  #[must_use]
+  pub fn skew_x_keyframes(self, value: Keyframes<f32>) -> Self {
+    self.set(
+      MotionProperty::SkewX,
+      value.values.into_iter().map(MotionValue::Angle).collect(),
+      value.times,
+    )
+  }
+
   /// Sets vertical chrome skew in degrees.
   #[must_use]
   pub fn skew_y(self, value: f32) -> Self {

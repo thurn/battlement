@@ -4,8 +4,8 @@ use trox::{LocalizedString, tx};
 
 use crate::{action_button, action_skin};
 use battlement::{
-  Align, Color, FlexDirection, Gradient, Justify, KeyEvent, LengthUnits, PhysicalKey, PickingMode,
-  Position, Shadow, Style, TextAnchor, WhiteSpace,
+  Align, Color, FlexDirection, Gradient, Justify, KeyEvent, LengthUnits, Overflow, PhysicalKey,
+  PickingMode, Position, Shadow, Style, TextAnchor, WhiteSpace,
 };
 use battlement_reactant::{
   component::Component,
@@ -17,7 +17,11 @@ use battlement_reactant::{
   overlay::Overlay,
   paint::{PaintLayer, PaintStyle},
   portal::PortalTarget,
-  prelude::{Children, Either, EventCallback, PaintDropShadow, PaintFilterList, builder},
+  prelude::{
+    AnimatePresence, Children, Easing, Either, EventCallback, Keyframes, MotionFilterList,
+    MotionTarget, Node, PaintDropShadow, PaintFilterList, Repeat, StyleTarget, Transition, builder,
+    use_is_present,
+  },
   render::Render,
   semantics::SemanticName,
 };
@@ -50,6 +54,7 @@ pub struct ArcadeModal {
 
 #[builder]
 struct OpenArcadeModal {
+  open: bool,
   title: Option<LocalizedString>,
   aria_label: Option<LocalizedString>,
   #[builder(required, into)]
@@ -71,6 +76,23 @@ struct OpenArcadeModal {
 }
 
 #[builder]
+struct ModalBody {
+  title: Option<LocalizedString>,
+  #[builder(required, into)]
+  children: Children,
+  #[builder(required)]
+  confirm_label: LocalizedString,
+  cancel_label: Option<LocalizedString>,
+  danger: bool,
+  close_on_escape: bool,
+  reduce_motion: bool,
+  #[builder(required)]
+  on_confirm: EventCallback<()>,
+  #[builder(required)]
+  on_close: EventCallback<()>,
+}
+
+#[builder]
 struct ModalButton {
   #[builder(required)]
   label: LocalizedString,
@@ -87,21 +109,20 @@ struct ModalButton {
 
 impl Component for ArcadeModal {
   fn render(&self) -> impl Render {
-    self.open.then(|| {
-      OpenArcadeModal::new()
-        .title(self.title.clone())
-        .aria_label(self.aria_label.clone())
-        .children(self.children.clone())
-        .confirm_label(self.confirm_label.clone())
-        .cancel_label(self.cancel_label.clone())
-        .danger(self.danger)
-        .close_on_escape(self.close_on_escape)
-        .reduce_motion(self.reduce_motion)
-        .on_confirm(self.on_confirm.clone())
-        .on_close(self.on_close.clone())
-        .initial_focus(self.initial_focus.clone())
-        .overlay(self.overlay.clone())
-    })
+    OpenArcadeModal::new()
+      .open(self.open)
+      .title(self.title.clone())
+      .aria_label(self.aria_label.clone())
+      .children(self.children.clone())
+      .confirm_label(self.confirm_label.clone())
+      .cancel_label(self.cancel_label.clone())
+      .danger(self.danger)
+      .close_on_escape(self.close_on_escape)
+      .reduce_motion(self.reduce_motion)
+      .on_confirm(self.on_confirm.clone())
+      .on_close(self.on_close.clone())
+      .initial_focus(self.initial_focus.clone())
+      .overlay(self.overlay.clone())
   }
 }
 
@@ -114,96 +135,299 @@ impl OpenArcadeModal {
       .expect("ArcadeModal requires a title or aria_label")
   }
 
-  fn overlay(&self, cancel: ElementRef, confirm: ElementRef) -> Overlay {
-    let overlay = Overlay::modal(self.overlay.clone(), SemanticName::Text(self.dialog_name()))
-      .host_name("arcade-modal")
-      .initial_focus(self.initial_focus.clone().unwrap_or_else(|| {
-        if self.cancel_label.is_some() {
-          cancel
-        } else {
-          confirm
-        }
-      }));
-    if self.close_on_escape {
-      overlay.on_dismiss(self.on_close.clone())
+  fn overlay(&self) -> Overlay {
+    if self.open {
+      let overlay = Overlay::modal(self.overlay.clone(), SemanticName::Text(self.dialog_name()))
+        .host_name("arcade-modal");
+      let overlay = if let Some(initial_focus) = self.initial_focus.clone() {
+        overlay.initial_focus(initial_focus)
+      } else {
+        overlay
+      };
+      if self.close_on_escape {
+        overlay.on_dismiss(self.on_close.clone())
+      } else {
+        overlay
+      }
     } else {
-      overlay
+      Overlay::layer(self.overlay.clone()).host_name("arcade-modal-exit")
     }
+  }
+
+  fn backdrop(&self) -> View {
+    View::new()
+      .name("arcade-modal-backdrop")
+      .on_click(self.on_close.clone())
+      .on_pointer_down(self.on_close.clone())
+      .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
+      .on_navigation_cancel(self.on_close.clone())
+      .style(self::backdrop_style())
+      .paint(self::backdrop_paint())
+      .initial(StyleTarget::new().opacity(0.0))
+      .animate(
+        MotionTarget::new(StyleTarget::new().opacity(1.0)).transition(
+          Transition::tween()
+            .duration_secs(if self.reduce_motion { 0.01 } else { 0.2 })
+            .ease(Easing::EaseOut),
+        ),
+      )
+      .exit(
+        MotionTarget::new(StyleTarget::new().opacity(0.0)).transition(
+          Transition::tween()
+            .duration_secs(if self.reduce_motion { 0.01 } else { 0.2 })
+            .ease(Easing::EaseOut),
+        ),
+      )
+      .child(
+        ModalBody::new()
+          .title(self.title.clone())
+          .children(self.children.clone())
+          .confirm_label(self.confirm_label.clone())
+          .cancel_label(self.cancel_label.clone())
+          .danger(self.danger)
+          .close_on_escape(self.close_on_escape)
+          .reduce_motion(self.reduce_motion)
+          .on_confirm(self.on_confirm.clone())
+          .on_close(self.on_close.clone()),
+      )
   }
 }
 
 impl Component for OpenArcadeModal {
   fn render(&self) -> impl Render {
-    let cancel = use_element_ref();
-    let confirm = use_element_ref();
-    self.overlay(cancel.clone(), confirm.clone()).child(
-      View::new()
-        .name("arcade-modal-backdrop")
-        .on_click(self.on_close.clone())
-        .on_pointer_down(self.on_close.clone())
-        .on_key_down_event_callback(self.on_close.clone().filter_map_input(self::escape))
-        .on_navigation_cancel(self.on_close.clone())
-        .style(self::backdrop_style())
-        .paint(self::backdrop_paint())
-        .child(
-          View::new()
-            .name("arcade-modal-panel")
-            .on_click_event(|event| event.stop_propagation())
-            .on_pointer_down_event(|event| event.stop_propagation())
-            .style(self::panel_style())
-            .paint(self::panel_paint())
-            .child(self.title.as_ref().map(|title| {
-              TextElement::new(title.clone())
-                .picking_mode(PickingMode::Ignore)
-                .style(self::title_style(self.danger))
-            }))
-            .child(
-              View::new()
-                .name("arcade-modal-description")
-                .style(self::description_style(self.title.is_some()))
-                .child(self.children.render()),
-            )
-            .child(
-              View::new()
-                .style(self::actions_style())
-                .child(self.cancel_label.as_ref().map(|label| {
-                  ModalButton::new()
-                    .label(label.clone())
-                    .autofocus(true)
-                    .reference(cancel)
-                    .on_press(self.on_close.clone())
-                    .on_close(self.on_close.clone())
-                    .close_on_escape(self.close_on_escape)
-                }))
-                .child(
-                  ModalButton::new()
-                    .label(self.confirm_label.clone())
-                    .autofocus(self.cancel_label.is_none())
-                    .danger(self.danger)
-                    .reference(confirm)
-                    .on_press(self.on_confirm.clone())
-                    .on_close(self.on_close.clone())
-                    .close_on_escape(self.close_on_escape),
-                ),
-            ),
-        ),
+    self.overlay().child(
+      AnimatePresence::new().child(
+        self
+          .open
+          .then(|| Node::new(self.backdrop().key("arcade-modal-presence"))),
+      ),
     )
   }
 }
 
+impl Component for ModalBody {
+  fn render(&self) -> impl Render {
+    let cancel = use_element_ref();
+    let confirm = use_element_ref();
+    self::panel_motion(View::new(), self.reduce_motion)
+      .name("arcade-modal-panel")
+      .on_click_event(|event| event.stop_propagation())
+      .on_pointer_down_event(|event| event.stop_propagation())
+      .style(self::panel_style())
+      .child(self::panel_chrome(self.reduce_motion))
+      .child(self::panel_shine(self.reduce_motion))
+      .child(self.title.as_ref().map(|title| {
+        TextElement::new(title.clone())
+          .picking_mode(PickingMode::Ignore)
+          .style(self::title_style(self.danger))
+      }))
+      .child(
+        View::new()
+          .name("arcade-modal-description")
+          .style(self::description_style(self.title.is_some()))
+          .child(self.children.render()),
+      )
+      .child(
+        View::new()
+          .style(self::actions_style())
+          .child(self.cancel_label.as_ref().map(|label| {
+            ModalButton::new()
+              .label(label.clone())
+              .autofocus(true)
+              .reference(cancel.clone())
+              .on_press(self.on_close.clone())
+              .on_close(self.on_close.clone())
+              .close_on_escape(self.close_on_escape)
+          }))
+          .child(
+            ModalButton::new()
+              .label(self.confirm_label.clone())
+              .autofocus(self.cancel_label.is_none())
+              .danger(self.danger)
+              .reference(confirm)
+              .on_press(self.on_confirm.clone())
+              .on_close(self.on_close.clone())
+              .close_on_escape(self.close_on_escape),
+          ),
+      )
+  }
+}
+
+fn panel_motion(panel: View, reduce_motion: bool) -> View {
+  if reduce_motion {
+    return panel
+      .initial(StyleTarget::new().opacity(0.0))
+      .animate(
+        MotionTarget::new(StyleTarget::new().opacity(1.0)).transition(
+          Transition::tween()
+            .duration_secs(0.01)
+            .ease(Easing::EaseOut),
+        ),
+      )
+      .exit(
+        MotionTarget::new(StyleTarget::new().opacity(0.0)).transition(
+          Transition::tween()
+            .duration_secs(0.01)
+            .ease(Easing::EaseOut),
+        ),
+      );
+  }
+
+  panel
+    .initial(
+      StyleTarget::new()
+        .opacity(0.0)
+        .scale_x(0.72)
+        .scale_y(0.04)
+        .x(-30.0)
+        .filter(MotionFilterList::default().blur(5.0)),
+    )
+    .animate(
+      MotionTarget::new(
+        StyleTarget::new()
+          .opacity_keyframes(Keyframes::new([0.0, 1.0, 0.72, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
+          .scale_x_keyframes(Keyframes::new([0.72, 1.04, 0.985, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
+          .scale_y_keyframes(Keyframes::new([0.04, 1.08, 0.97, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
+          .x_keyframes(Keyframes::new([-30.0, 18.0, -7.0, 0.0]).times([0.0, 0.48, 0.72, 1.0]))
+          .filter_keyframes(
+            Keyframes::new([
+              MotionFilterList::default().blur(5.0),
+              MotionFilterList::default().blur(0.0),
+              MotionFilterList::default().blur(0.0),
+              MotionFilterList::default().blur(0.0),
+            ])
+            .times([0.0, 0.48, 0.72, 1.0]),
+          ),
+      )
+      .transition(
+        Transition::tween()
+          .duration_secs(0.42)
+          .ease(Easing::EaseOut),
+      ),
+    )
+    .exit(
+      MotionTarget::new(
+        StyleTarget::new()
+          .opacity_keyframes(Keyframes::new([1.0, 0.8, 0.0]).times([0.0, 0.5, 1.0]))
+          .scale_x_keyframes(Keyframes::new([1.0, 1.07, 0.78]).times([0.0, 0.5, 1.0]))
+          .scale_y_keyframes(Keyframes::new([1.0, 0.82, 0.035]).times([0.0, 0.5, 1.0]))
+          .x_keyframes(Keyframes::new([0.0, -18.0, 34.0]).times([0.0, 0.5, 1.0]))
+          .filter_keyframes(
+            Keyframes::new([
+              MotionFilterList::default().blur(0.0),
+              MotionFilterList::default().blur(0.0),
+              MotionFilterList::default().blur(5.0),
+            ])
+            .times([0.0, 0.5, 1.0]),
+          ),
+      )
+      .transition(Transition::tween().duration_secs(0.3).ease(Easing::EaseOut)),
+    )
+}
+
+fn panel_chrome(reduce_motion: bool) -> View {
+  let chrome = View::decorative()
+    .name("arcade-modal-panel-chrome")
+    .style(Style::new().position(Position::Absolute).inset(0))
+    .paint(self::panel_paint());
+  if reduce_motion {
+    return chrome;
+  }
+  chrome
+    .initial(
+      StyleTarget::new()
+        .skew_x(-7.0)
+        .paint_filter(PaintFilterList::default().brightness(1.0)),
+    )
+    .animate(
+      MotionTarget::new(
+        StyleTarget::new()
+          .skew_x_keyframes(Keyframes::new([-7.0, 2.5, -1.0, 0.0]).times([0.0, 0.48, 0.72, 1.0]))
+          .paint_filter_keyframes(
+            Keyframes::new([
+              PaintFilterList::default().brightness(1.0),
+              PaintFilterList::default().brightness(1.0),
+              PaintFilterList::default().brightness(1.7),
+              PaintFilterList::default().brightness(1.0),
+            ])
+            .times([0.0, 0.48, 0.72, 1.0]),
+          ),
+      )
+      .transition(
+        Transition::tween()
+          .duration_secs(0.42)
+          .ease(Easing::EaseOut),
+      ),
+    )
+    .exit(
+      MotionTarget::new(
+        StyleTarget::new()
+          .skew_x_keyframes(Keyframes::new([0.0, -3.0, 8.0]).times([0.0, 0.5, 1.0]))
+          .paint_filter_keyframes(
+            Keyframes::new([
+              PaintFilterList::default().brightness(1.0),
+              PaintFilterList::default().brightness(2.0),
+              PaintFilterList::default().brightness(1.0),
+            ])
+            .times([0.0, 0.5, 1.0]),
+          ),
+      )
+      .transition(Transition::tween().duration_secs(0.3).ease(Easing::EaseOut)),
+    )
+}
+
+fn panel_shine(reduce_motion: bool) -> Option<View> {
+  if reduce_motion {
+    return None;
+  }
+  Some(
+    View::decorative()
+      .name("arcade-modal-shine")
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .top(0)
+          .bottom(0)
+          .left(312)
+          .width(165),
+      )
+      .paint(PaintStyle::new().background(self::shine_gradient()))
+      .initial(StyleTarget::new().x(-190.0).skew_x(-16.0))
+      .animate(
+        MotionTarget::new(StyleTarget::new().x(190.0).skew_x(-16.0)).transition(
+          Transition::tween()
+            .duration_secs(1.8)
+            .ease(Easing::Linear)
+            .repeat(Repeat::Forever)
+            .repeat_delay_secs(1.2),
+        ),
+      ),
+  )
+}
+
+fn shine_gradient() -> Gradient {
+  Gradient::linear(90.0)
+    .stop(0.0, Color::TRANSPARENT)
+    .stop(0.36, Color::TRANSPARENT)
+    .stop(0.48, Color::rgba8(104, 241, 255, 20))
+    .stop(0.62, Color::rgba8(255, 106, 222, 31))
+    .stop(1.0, Color::TRANSPARENT)
+}
+
 impl Component for ModalButton {
   fn render(&self) -> impl Render {
+    let is_present = use_is_present();
     hooks::use_effect(
       {
         let reference = self.reference.clone();
-        let autofocus = self.autofocus;
+        let autofocus = self.autofocus && is_present;
         move || {
           if autofocus {
             reference.focus();
           }
         }
       },
-      self.autofocus,
+      (self.autofocus, is_present),
     );
     match self.close_on_escape {
       true => Either::left(
@@ -284,6 +508,7 @@ fn panel_style() -> Style {
     .flex_direction(FlexDirection::Column)
     .align_items(Align::Center)
     .justify_content(Justify::Center)
+    .overflow(Overflow::Hidden)
     .color(Color::hex(0xf7fbff))
 }
 

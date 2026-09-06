@@ -3,11 +3,12 @@
 use battlement::{
   AccessibilityScrollAxis, AccessibilityScrollDirection, Align, AnimationDirection,
   AnimationIterations, Color, FlexDirection, Gradient, GridTrack, KeyEvent, PhysicalKey, Position,
-  ScrollerVisibility, Shadow, Sticky, Style, TextAnchor, Vector, WhiteSpace,
+  ScrollerVisibility, SemanticRole, Shadow, Sticky, Style, TextAnchor, Vector, WhiteSpace,
 };
 use battlement_reactant::{
   announcement::{Announce, use_announce},
   component::Component,
+  components::Button,
   event::ReactantEvent,
   hooks,
   host::{Label, TextField},
@@ -431,6 +432,28 @@ fn keyboard_cell(
   let name = ls(self::key_name(keyboard));
   let direction = self::key_direction(keyboard);
   let compact = self::key_name(keyboard).len() == 1 && direction.is_none();
+  let accessibility_button = interactive.then(|| {
+    let set_capture = set_capture.clone();
+    let set_status = set_status.clone();
+    Button::content(())
+      .semantic_name(SemanticName::Text(ls(format!(
+        "Change {} keyboard binding",
+        ACTIONS[index]
+      ))))
+      .on_press(move || {
+        set_status.set(None);
+        set_capture.set(Some(index));
+      })
+      .host_name(format!("keyboard-binding-action-{index}"))
+      .style(
+        Style::new()
+          .position(Position::Absolute)
+          .inset(0)
+          .padding(0)
+          .border_width(0)
+          .background_color(Color::TRANSPARENT),
+      )
+  });
   let host = View::new()
     .semantic(SemanticProps::new(SemanticRole::Cell).name(SemanticName::Text(name.clone())))
     .name(format!("keyboard-binding-{index}"))
@@ -439,7 +462,7 @@ fn keyboard_cell(
     .child((
       direction.map(|direction| KeyboardArrow::new().direction(direction)),
       direction.is_none().then(|| {
-        Label::new(name)
+        Label::new(name.clone())
           .name(format!("keyboard-binding-label-{index}"))
           .style(self::keycap_label_style(
             keyboard,
@@ -447,6 +470,7 @@ fn keyboard_cell(
             control_scale,
           ))
       }),
+      accessibility_button,
     ))
     .focusable(interactive)
     .tab_index(if interactive { 0 } else { -1 });

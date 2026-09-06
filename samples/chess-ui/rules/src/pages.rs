@@ -6,6 +6,7 @@ use trox::tx;
 
 use crate::{
   action_harness::ActionHarness,
+  arcade_modal_animation_harness::ArcadeModalAnimationHarness,
   arcade_modal_harness::ArcadeModalHarness,
   dropdown_animation_harness::DropdownAnimationHarness,
   effects_harness::EffectsHarness,
@@ -203,7 +204,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeModal animation", "Chess UI showcase title."))
-                .description(tx("ArcadeModal animates backdrop, panel, and shine with reduced-motion alternatives; screen composition remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeModal animates backdrop, panel, and shine with reduced-motion alternatives; screen composition remains unasserted.", "Chess UI showcase description."))
+                .child(ArcadeModalAnimationHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

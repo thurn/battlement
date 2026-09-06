@@ -1259,3 +1259,89 @@ to = "arcade_tab_transition.reduced_settled"
 [[transitions]]
 from = "arcade_tab_transition.reduced_settled"
 to = "arcade_tab_transition.reset"
+
+[[mappings]]
+state = "arcade_modal_animation.closed"
+scenario = "arcade modal animation"
+checkpoint = "closed"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.erase_entrance"
+scenario = "arcade modal animation"
+checkpoint = "erase-entrance"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.erase_open"
+scenario = "arcade modal animation"
+checkpoint = "erase-open"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.erase_exit"
+scenario = "arcade modal animation"
+checkpoint = "erase-exit"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.erase_reopened"
+scenario = "arcade modal animation"
+checkpoint = "erase-reopened"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.help_open"
+scenario = "arcade modal animation"
+checkpoint = "help-open"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.rebinding_open"
+scenario = "arcade modal animation"
+checkpoint = "rebinding-open"
+owner = "arcade_modal_animation::modal_preserves_source_frames_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "arcade_modal_animation.reduced_open"
+scenario = "arcade modal animation"
+checkpoint = "reduced-open"
+owner = "arcade_modal_animation::reduced_motion_uses_short_fades_and_reset_removes_shine"
+
+[[mappings]]
+state = "arcade_modal_animation.reset"
+scenario = "arcade modal animation"
+checkpoint = "reset"
+owner = "arcade_modal_animation::reduced_motion_uses_short_fades_and_reset_removes_shine"
+
+[[transitions]]
+from = "arcade_modal_animation.closed"
+to = "arcade_modal_animation.erase_entrance"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_entrance"
+to = "arcade_modal_animation.erase_open"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_open"
+to = "arcade_modal_animation.erase_exit"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_exit"
+to = "arcade_modal_animation.erase_reopened"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_reopened"
+to = "arcade_modal_animation.help_open"
+
+[[transitions]]
+from = "arcade_modal_animation.help_open"
+to = "arcade_modal_animation.rebinding_open"
+
+[[transitions]]
+from = "arcade_modal_animation.rebinding_open"
+to = "arcade_modal_animation.reduced_open"
+
+[[transitions]]
+from = "arcade_modal_animation.reduced_open"
+to = "arcade_modal_animation.reset"

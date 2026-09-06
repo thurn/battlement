@@ -979,3 +979,71 @@ to = "arcade_tab_transition.reduced_settled"
 [[transitions]]
 from = "arcade_tab_transition.reduced_settled"
 to = "arcade_tab_transition.reset"
+
+[[states]]
+key = "arcade_modal_animation.closed"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.erase_entrance"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.erase_open"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.erase_exit"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.erase_reopened"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.help_open"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.rebinding_open"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.reduced_open"
+screen = "arcade_modal_animation"
+
+[[states]]
+key = "arcade_modal_animation.reset"
+screen = "arcade_modal_animation"
+
+[[transitions]]
+from = "arcade_modal_animation.closed"
+to = "arcade_modal_animation.erase_entrance"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_entrance"
+to = "arcade_modal_animation.erase_open"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_open"
+to = "arcade_modal_animation.erase_exit"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_exit"
+to = "arcade_modal_animation.erase_reopened"
+
+[[transitions]]
+from = "arcade_modal_animation.erase_reopened"
+to = "arcade_modal_animation.help_open"
+
+[[transitions]]
+from = "arcade_modal_animation.help_open"
+to = "arcade_modal_animation.rebinding_open"
+
+[[transitions]]
+from = "arcade_modal_animation.rebinding_open"
+to = "arcade_modal_animation.reduced_open"
+
+[[transitions]]
+from = "arcade_modal_animation.reduced_open"
+to = "arcade_modal_animation.reset"

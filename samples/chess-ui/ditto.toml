@@ -1292,6 +1292,120 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "arcade modal animation"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206828\u2069. \u2068ArcadeModal animation\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "closed", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ERASE" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 8 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Erase Saved Data?" }, role = "dialog", name = "Erase Saved Data?" }
+
+[[scenarios.steps]]
+screenshot = { name = "erase-entrance", max_changed_percent = 12.0 }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+screenshot = { name = "erase-open", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Erase Saved Data?" }, action = "dismiss" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+screenshot = { name = "erase-exit", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ERASE" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Erase Saved Data?" }, role = "dialog", name = "Erase Saved Data?" }
+
+[[scenarios.steps]]
+screenshot = { name = "erase-reopened", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Erase Saved Data?" }, action = "dismiss" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "HELP" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Crash report upload information" }, role = "dialog", name = "Crash report upload information" }
+
+[[scenarios.steps]]
+screenshot = { name = "help-open", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Crash report upload information" }, action = "dismiss" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "REBIND" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "dialog", name = "Rebind Move Left" }, role = "dialog", name = "Rebind Move Left" }
+
+[[scenarios.steps]]
+screenshot = { name = "rebinding-open", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Rebind Move Left" }, action = "dismiss" }
+
+[[scenarios.steps]]
+advance = { frames = 30 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL MOTION" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ERASE" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 1 }
+
+[[scenarios.steps]]
+screenshot = { name = "reduced-open", max_changed_percent = 0.3 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "dialog", name = "Erase Saved Data?" }, action = "dismiss" }
+
+[[scenarios.steps]]
+advance = { frames = 2 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset", max_changed_percent = 0.3 }
+
+[[scenarios]]
 name = "arcade tab transition"
 
 [[scenarios.steps]]
@@ -2367,6 +2481,7 @@ screenshot = { name = "reset" }
 
 [[scenarios]]
 name = "keyboard rebinding"
+motion = "instant"
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "\u206821\u2069. \u2068Keyboard rebinding\u2069" }, action = "activate" }
@@ -2378,7 +2493,7 @@ accessibility_action = { target = { role = "scroll-area", name = "Input bindings
 screenshot = { name = "initial" }
 
 [[scenarios.steps]]
-click = { target = [0.64, 0.50] }
+accessibility_action = { target = { role = "button", name = "Change Move Piece keyboard binding" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "dialog", name = "Change Shortcut" }, role = "dialog", name = "Change Shortcut" }
@@ -2399,7 +2514,7 @@ accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cel
 screenshot = { name = "cancelled" }
 
 [[scenarios.steps]]
-click = { target = [0.64, 0.50] }
+accessibility_action = { target = { role = "button", name = "Change Move Piece keyboard binding" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "Reset" }, action = "activate" }

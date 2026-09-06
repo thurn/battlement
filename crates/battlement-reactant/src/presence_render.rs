@@ -366,13 +366,21 @@ fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
       current.motion_callback_history = previous.motion_callback_history.clone();
     }
   }
-  for child in &mut current.children.positions {
-    if let Some(prior) = previous
-      .children
-      .positions
-      .iter()
-      .find(|prior| prior.key == child.key && prior.descriptor == child.descriptor)
-    {
+  for (index, child) in current.children.positions.iter_mut().enumerate() {
+    let prior = if child.key.is_some() {
+      previous
+        .children
+        .positions
+        .iter()
+        .find(|prior| prior.key == child.key && prior.descriptor == child.descriptor)
+    } else {
+      previous
+        .children
+        .positions
+        .get(index)
+        .filter(|prior| prior.key.is_none() && prior.descriptor == child.descriptor)
+    };
+    if let Some(prior) = prior {
       freeze_exit_motion(child, prior);
     }
   }
