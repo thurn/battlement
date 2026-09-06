@@ -7,6 +7,7 @@ use trox::tx;
 use crate::{
   action_harness::ActionHarness,
   arcade_modal_harness::ArcadeModalHarness,
+  dropdown_animation_harness::DropdownAnimationHarness,
   effects_harness::EffectsHarness,
   font_scale_harness::FontScaleHarness,
   frame_harness::FrameHarness,
@@ -189,7 +190,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Dropdown animation", "Chess UI showcase title."))
-                .description(tx("Dropdown and options animate presence, stagger, selection flash, and interruption; settings composition remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("Dropdown and options animate presence, stagger, selection flash, and interruption; settings composition remains unasserted.", "Chess UI showcase description."))
+                .child(DropdownAnimationHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

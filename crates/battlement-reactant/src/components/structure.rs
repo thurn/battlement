@@ -39,6 +39,7 @@ pub type RowHeader = SemanticText<RowHeaderKind>;
 pub struct SemanticContainer<K> {
   host: View,
   kind: K,
+  visibility: SemanticVisibility,
 }
 
 #[doc(hidden)]
@@ -172,6 +173,7 @@ impl<K> SemanticContainer<K> {
     Self {
       host: View::new(),
       kind,
+      visibility: SemanticVisibility::Exposed,
     }
   }
 
@@ -193,6 +195,12 @@ impl<K> SemanticContainer<K> {
     self
   }
 
+  /// Selects whether this container subtree participates in accessibility.
+  pub fn semantic_visibility(mut self, visibility: SemanticVisibility) -> Self {
+    self.visibility = visibility;
+    self
+  }
+
   /// Applies advanced native View customization.
   pub fn configure_host(mut self, configure: impl FnOnce(View) -> View) -> Self {
     self.host = configure(self.host);
@@ -205,7 +213,10 @@ where
   K: ContainerKind,
 {
   fn render(&self) -> impl Render {
-    self.host.clone().semantic(self.kind.semantic())
+    self
+      .host
+      .clone()
+      .semantic(self.kind.semantic().visibility(self.visibility))
   }
 }
 

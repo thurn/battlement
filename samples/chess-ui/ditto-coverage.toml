@@ -1087,3 +1087,89 @@ to = "control_effects.reduced"
 [[transitions]]
 from = "control_effects.reduced"
 to = "control_effects.reset"
+
+[[mappings]]
+state = "dropdown_animation.closed"
+scenario = "dropdown animation"
+checkpoint = "closed"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.opening"
+scenario = "dropdown animation"
+checkpoint = "opening"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.open"
+scenario = "dropdown animation"
+checkpoint = "open"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.selection_flash"
+scenario = "dropdown animation"
+checkpoint = "selection-flash"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.interrupted"
+scenario = "dropdown animation"
+checkpoint = "interrupted"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.reopened"
+scenario = "dropdown animation"
+checkpoint = "reopened"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.dismissed"
+scenario = "dropdown animation"
+checkpoint = "dismissed"
+owner = "dropdown_animation::dropdown_uses_source_motion_and_reconnects_an_interrupted_exit"
+
+[[mappings]]
+state = "dropdown_animation.reduced_opening"
+scenario = "dropdown animation"
+checkpoint = "reduced-opening"
+owner = "dropdown_animation::reduced_motion_keeps_dropdown_spatially_still"
+
+[[mappings]]
+state = "dropdown_animation.reset"
+scenario = "dropdown animation"
+checkpoint = "reset"
+owner = "dropdown_animation::reduced_motion_keeps_dropdown_spatially_still"
+
+[[transitions]]
+from = "dropdown_animation.closed"
+to = "dropdown_animation.opening"
+
+[[transitions]]
+from = "dropdown_animation.opening"
+to = "dropdown_animation.open"
+
+[[transitions]]
+from = "dropdown_animation.open"
+to = "dropdown_animation.selection_flash"
+
+[[transitions]]
+from = "dropdown_animation.selection_flash"
+to = "dropdown_animation.interrupted"
+
+[[transitions]]
+from = "dropdown_animation.interrupted"
+to = "dropdown_animation.reopened"
+
+[[transitions]]
+from = "dropdown_animation.reopened"
+to = "dropdown_animation.dismissed"
+
+[[transitions]]
+from = "dropdown_animation.dismissed"
+to = "dropdown_animation.reduced_opening"
+
+[[transitions]]
+from = "dropdown_animation.reduced_opening"
+to = "dropdown_animation.reset"

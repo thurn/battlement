@@ -60,6 +60,10 @@ pub mod engine;
 
 mod effects_harness;
 
+mod dropdown_motion;
+
+mod dropdown_animation_harness;
+
 mod frame_harness;
 
 mod frame_styles;
@@ -115,6 +119,8 @@ mod select_harness;
 mod select_navigation;
 
 mod select_option;
+
+mod select_popover;
 
 mod select_popover_harness;
 

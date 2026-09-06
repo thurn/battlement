@@ -383,6 +383,96 @@ source = "3e841eb8c8e55d33964f9f9786c24ea586ceb0ad80920fa1fbdd7240caab0291"
 
 [[baselines]]
 profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "closed"
+sha256 = "a96231cf7e391b1c179996adbd1540fb96a903816a243eea6d3accdb7c51f284"
+width = 1280
+height = 800
+size_bytes = 117916
+source = "7911c29fe9371dfbac545291d1e8921120f3b2b42ea1ce6aef127d90d7420f88"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "dismissed"
+sha256 = "140c16b775acc00602e6ce78bd8fa0f727a3b4c81808fc0f4bfb4feac7a0a099"
+width = 1280
+height = 800
+size_bytes = 117582
+source = "7911c29fe9371dfbac545291d1e8921120f3b2b42ea1ce6aef127d90d7420f88"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "interrupted"
+sha256 = "0812287cc74a4e6d6ccc55827acaaa77e4c0df4c6dc418b8c7a42b72e48c00ee"
+width = 1280
+height = 800
+size_bytes = 129574
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "open"
+sha256 = "9d5500c250f3d76b80cf6996b46a84709b85d09109a8ff0ccfffd23c9583fb74"
+width = 1280
+height = 800
+size_bytes = 129447
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "opening"
+sha256 = "412fa85238fc767b189ee8367846696dc8e50b766774d6177734741dcd730512"
+width = 1280
+height = 800
+size_bytes = 130413
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "reduced-opening"
+sha256 = "11b0350668328355ead4b6e5dc0fb43b42db40336ee6d51052a8406f0b97630e"
+width = 1280
+height = 800
+size_bytes = 129159
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "reopened"
+sha256 = "9eaef226413b30f9d1190e4eb9031599e6133f9ae1769747e32e80c00f46d168"
+width = 1280
+height = 800
+size_bytes = 128203
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "reset"
+sha256 = "a96231cf7e391b1c179996adbd1540fb96a903816a243eea6d3accdb7c51f284"
+width = 1280
+height = 800
+size_bytes = 117916
+source = "7911c29fe9371dfbac545291d1e8921120f3b2b42ea1ce6aef127d90d7420f88"
+
+[[baselines]]
+profile = "macos"
+scenario = "dropdown animation"
+checkpoint = "selection-flash"
+sha256 = "3ee16ca1d0993c8275ecc14b20375fcbccb3eee14aa9cd8544409a5ced1617f8"
+width = 1280
+height = 800
+size_bytes = 129230
+source = "163ae97457982c8e0d33500e2435293dc95faa0e491cfff09dee1d2334bf957b"
+
+[[baselines]]
+profile = "macos"
 scenario = "focus visible"
 checkpoint = "initial"
 sha256 = "4f69d72106b285d1dd903ba59ce5e34cefd63b1e47b97ef139abeee90bf3e119"

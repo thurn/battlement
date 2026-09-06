@@ -2,11 +2,18 @@
 
 use trox::ls;
 
-use crate::{check_mark::CheckMark, control_effects, select_control::VALUE_FONT, use_interaction};
+use crate::{
+  check_mark::CheckMark, control_effects, dropdown_motion, select_control::VALUE_FONT,
+  use_interaction,
+};
 use battlement::{
   Align, Color, FlexDirection, Gradient, Justify, PickingMode, Position, Shadow, Style, TextAnchor,
 };
-use battlement_reactant::{element_ref, hooks, paint::PaintStyle, prelude::*};
+use battlement_reactant::{
+  element_ref, hooks,
+  paint::{PaintLayer, PaintStyle},
+  prelude::*,
+};
 
 /// Renders one controlled option and focuses it while it is active.
 #[builder]
@@ -16,6 +23,7 @@ pub(crate) struct SelectOption {
   control_scale: f32,
   #[builder(required)]
   font_scale: f32,
+  focus_generation: u32,
   index: usize,
   #[builder(required)]
   label: String,
@@ -28,7 +36,12 @@ impl Component for SelectOption {
   fn render(&self) -> impl Render {
     let reference = element_ref::use_element_ref();
     let interaction = use_interaction::use_interaction();
-    let (burst_generation, on_press) = control_effects::use_burst_callback(self.on_press.clone());
+    let (selection_flash, set_selection_flash) = hooks::use_state(0_u32);
+    let (burst_generation, on_press) = control_effects::use_burst_callback(
+      set_selection_flash
+        .update_callback(|generation| generation.wrapping_add(1))
+        .then(self.on_press.clone()),
+    );
     hooks::use_effect(
       {
         let reference = reference.clone();
@@ -39,13 +52,24 @@ impl Component for SelectOption {
           }
         }
       },
-      self.active,
+      (self.active, self.focus_generation),
     );
     ListBoxOption::new(ls(self.label.clone()), self.selected)
       .host_name(format!("select-option-{}", self.label.to_ascii_lowercase()))
       .element_ref(reference)
       .key(self.index)
       .style(self::style(self.font_scale, self.control_scale))
+      .initial(dropdown_motion::option_initial(
+        interaction.state.reduced_motion,
+      ))
+      .animate(dropdown_motion::option_visible())
+      .exit(dropdown_motion::option_exit(
+        interaction.state.reduced_motion,
+      ))
+      .transition(dropdown_motion::option_transition(
+        interaction.state.reduced_motion,
+        self.index,
+      ))
       .paint(self::paint(self.active))
       .hover_style(Style::new().background_color(Color::rgba8(11, 113, 207, 128)))
       .configure_host(|host| {
@@ -61,7 +85,48 @@ impl Component for SelectOption {
           ))
       })
       .on_press(on_press)
-      .child(
+      .child((
+        (selection_flash > 0).then(|| {
+          View::decorative()
+            .name("select-option-flash")
+            .key(("selection-flash", selection_flash))
+            .picking_mode(PickingMode::Ignore)
+            .style(
+              Style::new()
+                .position(Position::Absolute)
+                .left(3)
+                .right(3)
+                .top(3)
+                .bottom(3)
+                .border_width(2)
+                .border_color(Color::hex(0x66f6ff)),
+            )
+            .paint(
+              PaintStyle::new()
+                .box_shadow(Some(Shadow::inset(
+                  0.0,
+                  0.0,
+                  12.0,
+                  0.0,
+                  Color::rgba8(47, 143, 255, 140),
+                )))
+                .layer(
+                  PaintLayer::new(Color::TRANSPARENT).box_shadow(Some(Shadow::outer(
+                    0.0,
+                    0.0,
+                    10.0,
+                    0.0,
+                    Color::hex(0xff50d1),
+                  ))),
+                ),
+            )
+            .initial(dropdown_motion::flash_initial(
+              interaction.state.reduced_motion,
+            ))
+            .animate(dropdown_motion::flash_target(
+              interaction.state.reduced_motion,
+            ))
+        }),
         View::decorative()
           .name("select-option-mark")
           .picking_mode(PickingMode::Ignore)
@@ -75,7 +140,7 @@ impl Component for SelectOption {
               .flex_shrink(0.0),
           )
           .child(self.selected.then(|| CheckMark::new().scale(0.62))),
-      )
+      ))
   }
 }
 

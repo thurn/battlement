@@ -843,3 +843,71 @@ to = "control_effects.reduced"
 [[transitions]]
 from = "control_effects.reduced"
 to = "control_effects.reset"
+
+[[states]]
+key = "dropdown_animation.closed"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.opening"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.open"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.selection_flash"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.interrupted"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.reopened"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.dismissed"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.reduced_opening"
+screen = "dropdown_animation"
+
+[[states]]
+key = "dropdown_animation.reset"
+screen = "dropdown_animation"
+
+[[transitions]]
+from = "dropdown_animation.closed"
+to = "dropdown_animation.opening"
+
+[[transitions]]
+from = "dropdown_animation.opening"
+to = "dropdown_animation.open"
+
+[[transitions]]
+from = "dropdown_animation.open"
+to = "dropdown_animation.selection_flash"
+
+[[transitions]]
+from = "dropdown_animation.selection_flash"
+to = "dropdown_animation.interrupted"
+
+[[transitions]]
+from = "dropdown_animation.interrupted"
+to = "dropdown_animation.reopened"
+
+[[transitions]]
+from = "dropdown_animation.reopened"
+to = "dropdown_animation.dismissed"
+
+[[transitions]]
+from = "dropdown_animation.dismissed"
+to = "dropdown_animation.reduced_opening"
+
+[[transitions]]
+from = "dropdown_animation.reduced_opening"
+to = "dropdown_animation.reset"

@@ -7,13 +7,13 @@ use crate::{
   control_effects,
   font_scale::{FontScale, FontScaleRole},
   select_navigation,
-  select_option::SelectOption,
+  select_popover::SelectPopover,
   setting_row::SettingRow,
   use_interaction,
 };
 use battlement::{
-  Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, PopoverPlacement,
-  Position, Scale, Style, TextAnchor, TransformOrigin, Translate, UiFontAddress,
+  Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, Position, Style,
+  TextAnchor, Translate, UiFontAddress,
 };
 use battlement_reactant::{
   control_behavior, element_ref, geometry, hooks,
@@ -54,6 +54,7 @@ impl Component for SelectControl {
     let interaction = use_interaction::use_interaction();
     let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
+    let (open_generation, set_open_generation) = hooks::use_state(0_u32);
     let (restore_focus, set_restore_focus) = hooks::use_state(false);
     let (active_index, set_active_index) = hooks::use_state(select_navigation::selected_index(
       &self.options,
@@ -75,6 +76,7 @@ impl Component for SelectControl {
       let set_open = set_open.clone();
       let set_active_index = set_active_index.clone();
       let set_restore_focus = set_restore_focus.clone();
+      let set_open_generation = set_open_generation.clone();
       let value_label = value_label.clone();
       let interactive = self.overlay.is_some() && !self.options.is_empty();
       let selected_index = select_navigation::selected_index(&self.options, &self.value);
@@ -95,8 +97,12 @@ impl Component for SelectControl {
             let set_open = set_open.clone();
             let set_active_index = set_active_index.clone();
             let set_restore_focus = set_restore_focus.clone();
+            let set_open_generation = set_open_generation.clone();
             move |()| {
               if interactive {
+                if !open {
+                  set_open_generation.update(|generation| generation.wrapping_add(1));
+                }
                 set_trigger_burst.update(|generation| generation.wrapping_add(1));
                 select_navigation::toggle(
                   open,
@@ -171,9 +177,13 @@ impl Component for SelectControl {
                         let set_open = set_open.clone();
                         let set_active_index = set_active_index.clone();
                         let set_restore_focus = set_restore_focus.clone();
+                        let set_open_generation = set_open_generation.clone();
                         let selected_index =
                           select_navigation::selected_index(&self.options, &self.value);
                         move |event| {
+                          if !open {
+                            set_open_generation.update(|generation| generation.wrapping_add(1));
+                          }
                           select_navigation::trigger_key(
                             event,
                             selected_index,
@@ -187,9 +197,13 @@ impl Component for SelectControl {
                         let set_open = set_open.clone();
                         let set_active_index = set_active_index.clone();
                         let set_restore_focus = set_restore_focus.clone();
+                        let set_open_generation = set_open_generation.clone();
                         let selected_index =
                           select_navigation::selected_index(&self.options, &self.value);
                         move |event| {
+                          if !open {
+                            set_open_generation.update(|generation| generation.wrapping_add(1));
+                          }
                           select_navigation::trigger_navigation(
                             event,
                             selected_index,
@@ -248,187 +262,46 @@ impl Component for SelectControl {
                   )),
               ),
             (open && self.overlay.is_some()).then(|| {
-              (
-                Overlay::layer(self.overlay.clone().unwrap()).child(
-                  View::new()
-                    .name("select-dismiss-layer")
-                    .style(Style::new().width(100.pct()).height(100.pct()))
-                    .on_click({
-                      let set_open = set_open.clone();
-                      let set_restore_focus = set_restore_focus.clone();
-                      move || {
-                        select_navigation::dismiss(set_open.clone(), set_restore_focus.clone());
-                      }
-                    }),
-                ),
-                Overlay::popover(self.overlay.clone().unwrap(), anchor)
-                  .host_name("select-popover")
-                  .placement(PopoverPlacement::bottom_start().offset(6.0))
-                  .style(
-                    Style::new()
-                      .width((396.0 + (self.font_scale.factor() - 1.0) * 300.0) * popover_scale)
-                      .height(
-                        (22.0
-                          + self.options.len() as f32
-                            * 76.0
-                            * self.font_scale.dynamic(FontScaleRole::Control))
-                          * popover_scale,
-                      ),
-                  )
-                  .child(
-                    ListBox::new(tx(
-                      "Display Mode options",
-                      "Display mode options interface label.",
-                    ))
-                    .host_name("select-listbox")
-                    .style(
-                      Style::new()
-                        .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
-                        .height(
-                          22.0
-                            + self.options.len() as f32
-                              * 76.0
-                              * self.font_scale.dynamic(FontScaleRole::Control),
-                        )
-                        .padding_top(11)
-                        .padding_bottom(11)
-                        .padding_left(9)
-                        .padding_right(9)
-                        .scale(Scale::uniform(popover_scale))
-                        .transform_origin(TransformOrigin::two_dimensional(
-                          Length::Px(0.0),
-                          Length::Px(0.0),
-                        )),
-                    )
-                    .configure_host({
-                      let options = self.options.clone();
-                      let set_active_index = set_active_index.clone();
-                      let set_open = set_open.clone();
-                      let set_restore_focus = set_restore_focus.clone();
-                      move |host| {
-                        host
-                          .paint(self::popover_paint())
-                          .on_key_down_event({
-                            let options = options.clone();
-                            let set_active_index = set_active_index.clone();
-                            let set_open = set_open.clone();
-                            let set_restore_focus = set_restore_focus.clone();
-                            move |event| {
-                              select_navigation::list_key(
-                                event,
-                                active_index,
-                                &options,
-                                set_active_index.clone(),
-                                set_open.clone(),
-                                set_restore_focus.clone(),
-                              );
-                            }
-                          })
-                          .on_navigation_move_event({
-                            let set_active_index = set_active_index.clone();
-                            move |event| {
-                              select_navigation::list_navigation(
-                                event,
-                                active_index,
-                                options.len(),
-                                set_active_index.clone(),
-                              );
-                            }
-                          })
-                          .on_navigation_cancel({
-                            let set_open = set_open.clone();
-                            let set_restore_focus = set_restore_focus.clone();
-                            move || {
-                              select_navigation::dismiss(
-                                set_open.clone(),
-                                set_restore_focus.clone(),
-                              );
-                            }
-                          })
-                      }
-                    })
-                    .child(
-                      self
-                        .options
-                        .iter()
-                        .enumerate()
-                        .map(|(index, option)| {
-                          SelectOption::new()
-                            .active(index == active_index)
-                            .control_scale(self.font_scale.dynamic(FontScaleRole::Control))
-                            .font_scale(self.font_scale.factor())
-                            .index(index)
-                            .label(option.clone())
-                            .selected(option == &self.value)
-                            .on_press(
-                              self
-                                .on_change
-                                .clone()
-                                .map_input({
-                                  let option = option.clone();
-                                  move |()| option.clone()
-                                })
-                                .then(set_active_index.callback().map_input(move |()| index))
-                                .then(EventCallback::new({
-                                  let set_open = set_open.clone();
-                                  let set_restore_focus = set_restore_focus.clone();
-                                  move |()| {
-                                    select_navigation::dismiss(
-                                      set_open.clone(),
-                                      set_restore_focus.clone(),
-                                    );
-                                  }
-                                })),
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                    ),
-                  ),
+              Overlay::layer(self.overlay.clone().unwrap()).child(
+                View::new()
+                  .name("select-dismiss-layer")
+                  .style(Style::new().width(100.pct()).height(100.pct()))
+                  .on_click({
+                    let set_open = set_open.clone();
+                    let set_restore_focus = set_restore_focus.clone();
+                    move || {
+                      select_navigation::dismiss(set_open.clone(), set_restore_focus.clone());
+                    }
+                  }),
               )
             }),
+            AnimatePresence::new()
+              .initial(false)
+              .child((open && self.overlay.is_some()).then(|| {
+                Node::new(
+                  SelectPopover::new()
+                    .active_index(active_index)
+                    .anchor(anchor)
+                    .font_scale(self.font_scale)
+                    .on_change(self.on_change.clone())
+                    .options(self.options.clone())
+                    .open_generation(open_generation)
+                    .overlay(self.overlay.clone().unwrap())
+                    .popover_scale(popover_scale)
+                    .reduced_motion(interaction.state.reduced_motion)
+                    .set_active_index(set_active_index.clone())
+                    .set_open(set_open.clone())
+                    .set_restore_focus(set_restore_focus.clone())
+                    .value(self.value.clone())
+                    .key("select-popover-presence"),
+                )
+              })),
           )),
       )
       .associated_label(label)
       .first(self.first)
       .row_height(self.row_height)
   }
-}
-
-fn popover_paint() -> PaintStyle {
-  PaintStyle::new()
-    .background(
-      Gradient::linear(145.0)
-        .stop(0.0, Color::hex(0x5df5ff))
-        .stop(0.48, Color::hex(0x718cff))
-        .stop(1.0, Color::hex(0xff4bc9)),
-    )
-    .paint_filter(
-      PaintFilterList::default()
-        .drop_shadow(PaintDropShadow::new(
-          0.0,
-          10.0,
-          14.0,
-          0.0,
-          Color::BLACK.with_alpha(0.72),
-        ))
-        .drop_shadow(PaintDropShadow::new(
-          0.0,
-          0.0,
-          8.0,
-          0.0,
-          Color::hex(0x2b7eff).with_alpha(0.65),
-        )),
-    )
-    .clip_polygon(self::clip(10.0))
-    .layer(
-      PaintLayer::new(
-        Gradient::linear(180.0)
-          .stop(0.0, Color::hex(0x07152e))
-          .stop(1.0, Color::hex(0x020611)),
-      )
-      .bounds_inset(3.0)
-      .clip_polygon(self::clip(7.0)),
-    )
 }
 
 fn border(highlighted: bool) -> Gradient {
@@ -494,7 +367,7 @@ fn target(state: use_interaction::InteractionState) -> MotionTarget {
   )
 }
 
-fn clip(cut: f32) -> Vec<[Length; 2]> {
+pub(crate) fn clip(cut: f32) -> Vec<[Length; 2]> {
   let near = Length::px(cut);
   let far = Length::calc(-cut, 100.0);
   let zero = Length::px(0.0);

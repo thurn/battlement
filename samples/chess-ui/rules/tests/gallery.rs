@@ -674,7 +674,13 @@ fn select_keyboard_navigation_tracks_active_option_and_restores_trigger() {
 
   client.ui().navigation_submit(trigger);
   client.poll();
-  let windowed = self::named(&mut client, "select-option-windowed");
+  client.poll();
+  let windowed = self::snapshot(&client)
+    .nodes
+    .iter()
+    .find(|node| node.role == SemanticRole::Option && node.label.as_deref() == Some("Windowed"))
+    .unwrap()
+    .object_id;
   assert_eq!(client.ui().focused(), Some(windowed));
   self::key_down(&mut client, windowed, PhysicalKey::Escape, "");
   client.poll();
