@@ -1,8 +1,9 @@
 # Writing a game with Reactant
 
 Reactant lets Rust components describe both a game's world objects and its UI.
-The game supplies state and synchronous rules functions. A separate display
-component reads immutable snapshots and describes the visible result. Unity
+A game implements one `Game` trait that names its state, actions, player-visible
+view, state animations, and synchronous action method. A separate display
+component reads the immutable view and describes the visible result. Unity
 executes generic capabilities; it does not decide how Hearts or chess should
 look or behave.
 
@@ -11,34 +12,69 @@ working on component composition. Related pages: [overview](README.md), [API
 examples](interfaces.md), [rules](execution.md), [world objects](world.md), and
 [starting code](source-map.md).
 
-## State, rules, and display are separate
+## The Game trait owns the rules contract
 
-Use ordinary game types and functions. There is no requirement to implement a
-large `Game` trait just to start an application.
-
-- `HeartsState` holds hands, tricks, scores, and the other rules data.
-- `resolve` is a synchronous Rust function that changes a private state copy.
-- `HeartsView` contains the information the human player may see.
-- `HeartsDisplay` is the root component. It composes the 3D table and cards as
-  well as UI menus, scores, and prompts.
-
-For example, application registration can infer its types from state and
-callbacks. This illustrates the API to build, rather than an existing API:
+The application registers one game value. Its `Game` implementation associates
+all types that the engine would otherwise have to register through unrelated
+builder calls. This example is the API to build, not an existing API:
 
 ```rust
-let game = Game::new()
-    .state(saved_or_new)
-    .snapshot(HeartsState::visible_to_south)
-    .changes::<Change>()
-    .validate(validate_action)
-    .rules(resolve);
-App::new().game(game).root(HeartsDisplay::new())
+App::new()
+    .game(HeartsGame::new(saved_or_new))
+    .root(HeartsDisplay::new())
 ```
 
-The snapshot callback is optional when cloning the whole state is appropriate.
-Hearts supplies it because normal UI must never receive opponents' hidden cards.
-`Game` here is a registration builder, not a game-defined trait or a second
-state object. [API examples](interfaces.md) specifies inference and defaults.
+`HeartsGame` owns the accepted `HeartsState` supplied at registration and
+implements `Game`. The associated types make their roles explicit:
+
+- `HeartsState` is the complete rules state: all hands, tricks, scores, and
+  saved random-number-generator state.
+- `Action` is a request from the display, such as playing a card. The engine
+  infers it from the `Game::Action` associated type for `HeartsGame`.
+- `HeartsView` is immutable data the south player may see. It excludes the
+  contents of opponents' hands and is the value read by display components.
+- `StateAnimation` describes how a newly published view should be presented,
+  such as `CardPlayed` or `TrickCollected`. It is not the action type and is not
+  an automatically computed state diff.
+- `Prompt` is public choice data. `ControllerPrompt` separately carries any
+  owned private observation needed by an application-controlled AI job.
+- `HeartsDisplay` is the root component. It reads `HeartsView` and composes the
+  table, menus, scores, prompts, and individual `CardView` components.
+
+This abridged shape shows its central responsibilities:
+
+```rust
+trait Game: Sized + Send + 'static {
+    type State: Send + 'static;
+    type View: Send + 'static;
+    type Action: Send + 'static;
+    type StateAnimation: Send + 'static;
+
+    fn logical_clone(state: &Self::State) -> Self::State;
+    fn view(state: &Self::State) -> Self::View;
+    fn validate_action(state: &Self::State, action: &Self::Action)
+        -> Result<(), ActionRejection>;
+    fn apply_action<M: ExecutionMode<Self>>(
+        state: &mut Self::State, action: Self::Action,
+        cx: &mut Executor<Self, M>,
+    );
+    fn final_state_animations(
+        _state: &Self::State,
+    ) -> Vec<Self::StateAnimation> { Vec::new() }
+}
+```
+
+The canonical trait, including initial-state and choice types, is in [API
+examples](interfaces.md#the-game-owns-its-associated-types). `validate_action`
+has an accept-all default. The engine calls these methods; the application does
+not register or manually sequence separate callbacks.
+
+`HeartsView` is game-wide presentation data, while `CardView` is one component
+that renders a card from that data. Game-wide data types use the `View` suffix
+because they implement `Game::View`; component names describe what they render.
+
+The full dispatch, worker, checkpoint, and acceptance order is specified in
+[action execution](execution.md#from-dispatch-to-accepted-state).
 
 Movement is optional configuration. With no `.movement()` call, an existing
 object moves using the engine's default transition. A game can customize that
@@ -62,7 +98,7 @@ UI panel. Both read the same card data and selection context:
 
 ```rust
 (
-    CardVisual::new().card(card)
+    CardView::new().card(card)
         .on_click(move |_| selection.inspect(card.id)),
     Portal::to(details_panel)
         .child(CardDetails::new().card(card)),
@@ -78,7 +114,7 @@ optional optimization: a score label can subscribe only to the score and avoid
 reevaluation when the hand changes. Local menus and inspection use hooks or
 stores, rather than mutating the rules worker's state.
 
-Store writes schedule another render. Each render sees one snapshot and one
+Store writes schedule another render. Each render sees one game view and one
 stable store version. Ordinary host animation does not trigger a component
 render every frame. Input handlers may synchronously prevent native defaults;
 reconciliation happens afterward.
@@ -89,16 +125,21 @@ Reuse the existing runtime and animation code while separating UI-specific
 implementation from shared component behavior. Keep one Cargo workspace and the
 existing standalone sample workspaces.
 
-| Owner | Responsibility |
-| --- | --- |
-| `reactant-core` | Component tree, hooks, context, stores, identity, refs, shared animation authoring, and host interfaces |
-| `reactant-ui` | UI controls, UI properties, and UI Toolkit adapters using the shared runtime |
-| `reactant-rules` | Synchronous execution, worker communication, choices, and simulation; no component or Unity dependency |
-| `reactant` | Application registration, world components, layouts, checkpoint presentation, effects, and convenient reexports |
-| `reactant-testing` | Public display scenarios using Battlement's fake host |
-| Reactant asset libraries and CLI | Reactant asset declarations, generated paint, and related preparation |
-| Battlement | Protocol, C ABI, generic Unity hosts, generic asset loading, and low-level fakes |
-| Game Rust code | Rules, state, action validation, choices, AI, save format, display components, and effect selection |
+- `reactant-core` owns the component tree, hooks, context, stores, identity,
+  refs, shared animation authoring, and host interfaces.
+- `reactant-ui` owns UI controls, UI properties, and UI Toolkit adapters using
+  the shared runtime.
+- `reactant-rules` owns execution, worker communication, generic choice
+  machinery, and simulation. It has no component or Unity dependency.
+- `reactant` owns application registration, world components, layouts,
+  checkpoint presentation, effects, and convenient reexports.
+- `reactant-testing` owns public display scenarios using Battlement's fake host.
+- Reactant asset libraries and the CLI own Reactant asset declarations,
+  generated paint, and related preparation.
+- Battlement owns the protocol, C ABI, generic Unity hosts, generic asset
+  loading, and low-level fakes.
+- Game Rust code owns rules, state, action validation, choice specifications and
+  policies, AI, saves, display components, and effect selection.
 
 The dependency goes from Reactant to Battlement. This includes Rust crates,
 Unity assemblies, tests, and build tools. Core cannot depend on the facade or UI

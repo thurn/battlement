@@ -12,31 +12,34 @@ moves to the table when its next declaration puts it there. Its UUID preserves
 its component state and visual identity during that move. UI and 3D objects
 share props, hooks, context, and event propagation.
 
-Rules execute on a worker as ordinary synchronous functions. They can publish an
-intermediate state, ask a player to choose a card, and continue after that
-choice. Unity's main thread remains free to animate the table and respond to
-menus. AI simulations call those same rules functions without building display
-snapshots or waiting for animation.
+Each game implements a `Game` trait that associates its state, player actions,
+player-visible view, and `StateAnimation` type. `Game::apply_action` executes on
+a worker as ordinary synchronous Rust. It can publish an intermediate state,
+ask a player to choose a card, and continue after that choice. Unity's main
+thread remains free to animate the table and respond to menus. AI simulations
+call the same method without building display views or waiting for animation.
 
 ## A small example
 
-A **checkpoint** is an immutable snapshot of game state together with
-descriptions of what changed. The display presents checkpoints in order. For
+A **checkpoint** is an immutable `Game::View` together with ordered
+`StateAnimation` values. The view says what is visible; the state animations say
+how to present the transition. The display presents checkpoints in order. For
 example, a draw should become visible before the energy it grants changes on
 screen:
 
 ```rust
 draw_card(state);
-cx.present(|| state.clone(), || Change::CardDrawn(card));
+cx.present(state, || StateAnimation::CardDrawn(card));
 gain_energy(state);
-cx.present(|| state.clone(), || Change::EnergyGained(1));
+cx.present(state, || StateAnimation::EnergyGained(1));
 ```
 
-These are proposed APIs. The closure arguments keep snapshot construction out of
-simulations. The implementation task for each API must add a compiling example
-with the same authoring simplicity.
+These are proposed APIs. `Game::view` constructs the immutable view only in
+interactive execution, and the closure keeps state-animation construction out
+of simulations. The implementation task for each API must add a compiling
+example with the same authoring simplicity.
 
-The display component uses the current snapshot to describe both domains:
+The display component uses the current view to describe both domains:
 
 ```rust
 (
@@ -47,8 +50,9 @@ The display component uses the current snapshot to describe both domains:
 
 The display can animate the drawn card before showing the next checkpoint.
 Hover, inspection, and settings remain usable while that animation runs. [Rules
-and choices](execution.md) explains the worker behavior; [animation](motion.md)
-shows the corresponding draw sequence.
+and choices](execution.md#from-dispatch-to-accepted-state) defines the complete
+dispatch-to-acceptance sequence; [animation](motion.md) shows the corresponding
+draw sequence.
 
 ## What this implementation includes
 
@@ -62,7 +66,7 @@ sample that exercises the engine as an application.
 - **One animation system:** property changes, layout movement, gestures,
   sequences, audio, and particles share timing and playback controls. Ordinary
   movement has an engine default; applications need not configure it.
-- **Synchronous rules:** intermediate snapshots, typed choices, safe
+- **Synchronous rules:** intermediate views, typed choices, safe
   cancellation, and final state acceptance after presentation finishes.
 - **Simulation:** the same rules with inline choice policies and no mandatory
   allocation or display work in execution primitives.
@@ -159,8 +163,8 @@ archive; earlier engine work does not depend on those assets.
     portals](tasks/14-global-presentation-identity.md)
 15. [Remove components while keeping unfinished exit
     visuals](tasks/15-incarnations-and-removal.md)
-16. [Add stable snapshot selectors and queued display
-    stores](tasks/16-snapshot-selectors-stores.md)
+16. [Add stable view selectors and queued display
+    stores](tasks/16-view-selectors-stores.md)
 17. [Add sprites, meshes, world text, and material
     overrides](tasks/17-world-rendering-primitives.md)
 18. [Add independent hit regions and typed Rust-created

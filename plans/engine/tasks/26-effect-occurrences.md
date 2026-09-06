@@ -35,7 +35,8 @@ let draw = draw
    children. Resolve targets/assets during preparation; select live-following or
    captured positions explicitly.
 
-2. Use run/checkpoint/change-index/effect-name identity across registrations and
+2. Use run/checkpoint/animation-index/effect-name identity across registrations
+   and
    host delivery. Reject duplicate effect names and deduplicate delivered
    starts.
 

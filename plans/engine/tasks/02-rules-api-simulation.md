@@ -1,6 +1,6 @@
 # 02. Define the typed rules API and prove the simulation fast path
 
-A new reactant-rules crate can run one synchronous generic rules function with
+A new reactant-rules crate can run one `Game::apply_action` implementation with
 typed choices and no simulation publication overhead.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -23,26 +23,30 @@ AI; Cargo workspace conventions.
 
 ## Example
 
-The simplest game should need state and a function. Compile this style of
-registration, then compile a second example with two typed choices:
+The final application shape registers one value implementing `Game`:
 
 ```rust
-let game = Game::new().state(Counter::default()).rules(apply);
-App::new().game(game).root(CounterDisplay::new())
+App::new()
+    .game(CounterGame::new(Counter::default()))
+    .root(CounterDisplay::new())
 ```
+
+Task 02 compiles the same `CounterGame` through its registration-only harness.
+Task 11 compiles the `App` integration shown above. Task 02 also compiles a
+second game with two typed choices.
 
 ## Implementation
 
-1. Implement registration using state and a rules function with inferred action
-   types, default Clone fork/snapshot behavior, optional callbacks, and no
-   mandatory Game trait. Add Executor<State, Mode>, typed choice specifications
-   and handles, built-in selections, and concrete simulation policies as
-   described in interfaces.md. Keep the rules crate independent of
-   Unity/components; use a registration-only harness until App integration in
-   task 11.
+1. Implement the `Game` trait and infer its state, view, action,
+   `StateAnimation`, prompt, answer, and decision types from the registered game
+   value. Add `Executor<Game, Mode>`, typed choice specifications, built-in
+   selections, and concrete simulation policies as described in
+   interfaces.md. Keep the rules crate independent of Unity/components; use a
+   registration-only harness until App integration in task 11.
 
-2. Make present accept lazy snapshot/change builders. In simulation, invoke
-   neither. Evaluate choice specifications through a statically dispatched
+2. Make `present` accept state plus a lazy state-animation builder. In
+   simulation, invoke neither `Game::view` nor that builder. Evaluate choice
+   specifications through a statically dispatched
    concrete policy without constructing its owned UI prompt. Make
    check_cancelled an inline no-op.
 
@@ -58,11 +62,12 @@ App::new().game(game).root(CounterDisplay::new())
 
 ## Acceptance
 
-- A choice-free game needs no framework trait, prompt enum, answer enum,
-  movement setup, or custom snapshot type. Two typed choices work in the same
-  nested function; wrong transport answer types are rejected by validation.
+- A choice-free game uses one small `Game` implementation and needs no prompt
+  enum, answer enum, movement setup, or custom view type. Two typed choices work
+  in the same nested method, and wrong simulation-policy variants are rejected
+  as developer errors.
 
-- Panicking snapshot/change/prompt builders are never called in simulation.
+- Panicking view/state-animation/prompt builders are never called in simulation.
 
 - A measured loop of present, choose, and check_cancelled performs zero
   mandatory executor allocations and has no virtual dispatch or interactive
@@ -73,8 +78,9 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Background workers and interactive waits begin in task 03. This task does not
-change existing sample execution.
+Background workers begin in task 03. Interactive prompt handles, transport
+validation, and waits belong to task 10. This task does not change existing
+sample execution.
 
 ## Manual QA
 

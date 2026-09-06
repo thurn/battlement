@@ -32,8 +32,8 @@ maps or mutable rules state as shortcuts for assertions.
 
 Controlled builders/services provide public worker-started, builder-entered, and
 worker-stopped synchronization. They let tests pause at a known point without
-guessed sleeps. For example, hold a snapshot builder, exit, then release it and
-verify that its late snapshot is never displayed.
+guessed sleeps. For example, hold `Game::view`, exit, then release it and verify
+that its late view is never displayed.
 
 ## Identity, composition, layout, and input scenes
 

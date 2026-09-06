@@ -37,9 +37,10 @@ compare: same visible result and timing in old and Reactant fixtures
 1. Create a Reactant chess board component and immutable board-view data using
    the existing opaque piece prefabs, highlights, camera, and table assets.
 
-2. Implement typed move/change descriptions and a worker action adapter around
-   the existing chess rules library. Preserve UUIDs for moving pieces; use a new
-   incarnation/visual where promotion changes the host contract.
+2. Implement typed move `StateAnimation` descriptions and a worker action
+   adapter around the existing chess rules library. Preserve UUIDs for moving
+   pieces; use a new incarnation/visual where promotion changes the host
+   contract.
 
 3. Translate normal moves, knight paths, capture retention, castling, en
    passant, and promotion into movement policies/sequences/effects using

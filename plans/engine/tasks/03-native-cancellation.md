@@ -32,7 +32,7 @@ expected cancellation produces no panic report
 
 ## Implementation
 
-1. Add the private cancellation payload and one worker boundary owning a forked
+1. Add the private cancellation payload and one worker boundary owning a cloned
    state. Use resume_unwind for cancellation, catch/downcast at the worker
    boundary, and report genuine panic separately.
 

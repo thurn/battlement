@@ -58,7 +58,7 @@ Table::new().child(Card::new().id(card_id))
 
 Resolve overrides from the new logical ancestry. A movement policy may select a
 transition or construct a sequence using source/destination layouts and poses,
-stable refs and anchors, typed checkpoint changes, and current configuration.
+stable refs and anchors, typed state animations, and current configuration.
 Unhandled moves fall back to the engine default.
 
 UI layout supplies native target rectangles, including supported size changes.
@@ -135,7 +135,7 @@ let draw = AnimationSequence::new()
 ```
 
 Use `use_animate` during component rendering to obtain scoped controls. Build
-the sequence in a checkpoint change callback and require `ready` before the
+the sequence in a state-animation callback and require `ready` before the
 checkpoint advances. The callback reserves a playback during preparation; commit
 starts it.
 [Presentation](presentation.md#tell-the-display-when-a-checkpoint-may-advance)
@@ -223,21 +223,22 @@ control flow:
 
 Rerendering must not play the same card sound again. A **transient occurrence**
 is one intended sound, burst, or other one-time effect. Its identity combines
-the action run, checkpoint, change index, and stable effect name within that
-change. Engine-assigned stable positions may supply names when unambiguous.
+the action run, checkpoint, state-animation index, and stable effect name within
+that animation. Engine-assigned stable positions may supply names when
+unambiguous.
 
-For example, two different sounds in one change need separate identities:
+For example, two sounds in one state animation need separate identities:
 
 ```text
-(run 7, checkpoint 3, change 0, "move-sound")
-(run 7, checkpoint 3, change 0, "check-sound")
+(run 7, checkpoint 3, animation 0, "move-sound")
+(run 7, checkpoint 3, animation 0, "check-sound")
 ```
 
 Require unique effect names across all registrations and sequences for that
-change. Reject duplicates before commit. Retrying preparation or delivering a
+animation. Reject duplicates before commit. Retrying preparation or delivering a
 request twice reuses the same identity. Deduplicate at both the Rust
 registration layer and native start boundary. A new session renders current
-state and emits transients only for subsequent changes.
+state and emits transients only for subsequent state animations.
 
 ## Keep visuals for their last effect, then release them
 

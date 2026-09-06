@@ -34,7 +34,7 @@ Table::new().child(Card::new().id(card_id))
 1. Supply the engine default spring movement with no required App setup. Add
    inherited and object overrides resolved from the destination logical
    ancestry. Policies receive source/destination layout/pose, refs, and typed
-   checkpoint changes when available.
+   state animations when available.
 
 2. Implement live layout destinations as native targets. Reflow preserves
    playback identity/arrival dependencies, spring velocity, and current

@@ -118,7 +118,7 @@ See [automatic movement](motion.md#movement-works-without-configuration).
 ## Displayed placement need not change the rules location
 
 A browser or prompt can rearrange cards locally without moving them between
-rules zones. Rust combines the snapshot and local interaction state to select
+rules zones. Rust combines the game view and local interaction state to select
 the displayed layout.
 
 For example, opening a deck browser can show the same deck in a grid:

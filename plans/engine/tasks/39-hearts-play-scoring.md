@@ -50,7 +50,7 @@ match accepted.phase {
 4. Show hand totals, match totals, moon outcome, next-hand passing direction,
    and shared-win match results in native UI.
 
-5. Route AI-owned prompts to automatic answers only after their snapshot is
+5. Route AI-owned prompts to automatic answers only after their view is
    presented. Keep action dispatch at accepted boundaries and gameplay input
    gated while earlier presentation is required. Menus remain usable.
 

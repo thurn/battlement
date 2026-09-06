@@ -33,9 +33,9 @@ animation and frame finish -> accept state; allow next action and save
 
 ## Implementation
 
-1. Add the game application adapter with default/custom state copying, action
-   dispatch, presented snapshot provider, accepted-state notification, and
-   active-run lifecycle.
+1. Add the game application adapter around the `Game` trait, including
+   `logical_clone`, action dispatch, presented-view access, accepted-state
+   notification, and active-run lifecycle.
 
 2. Return Busy while an action/prompt is unresolved. Otherwise run the game's
    pure bounded validate_action against accepted state; return Invalid(reason)

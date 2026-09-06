@@ -12,7 +12,7 @@ checkpoints](execution.md), [animation](motion.md), [identity](identity.md), and
 
 ## Prepare before changing what the player sees
 
-A render reads one immutable game snapshot and one version of display stores. It
+A render reads one immutable game view and one version of display stores. It
 describes the new tree, matches object identities, computes layout, and
 constructs animation/effect requests. Required assets, host properties, and
 inactive native objects must be ready before the result becomes visible.
@@ -98,24 +98,25 @@ replaces its default arrival requirement; it does not add a second requirement
 that still waits for arrival. Other cards' requirements remain. After the
 earlier label, remaining movement and cosmetic effects may continue.
 
-A registration is a callback that builds animation from one typed change. The
-component reads the current checkpoint with `use_checkpoint::<Change>()`,
+A registration is a callback that builds animation from one typed
+`StateAnimation`. The component reads the current checkpoint with
+`use_checkpoint::<StateAnimation>()`,
 obtains scoped animation controls with `use_animate()`, and creates its
 compatible card and anchor refs during rendering. It declares the refs on its
 world children.
 
-For example, a `Card` component filters the game's change enum to draws of that
-card. The scoped name identifies this callback; the pattern selects which
-changes it handles:
+For example, a `CardView` component filters the game's state-animation enum to
+draws of that card. The scoped name identifies this callback; the pattern
+selects which animations it handles:
 
 ```rust
-let checkpoint = use_checkpoint::<Change>();
+let checkpoint = use_checkpoint::<StateAnimation>();
 let animate = use_animate();
-checkpoint.on_change(card_ref.scoped_name("draw"), move |change, requirement| {
-    if let Change::CardDrawn(id) = change {
+checkpoint.on_animation(card_ref.scoped_name("draw"), move |animation, cx| {
+    if let StateAnimation::CardDrawn(id) = animation {
         if *id == card_id {
             let playback = animate.start(draw_sequence(card_ref, reveal_ref));
-            requirement.require(playback.reached("ready"));
+            cx.require(playback.reached("ready"));
         }
     }
 });
@@ -127,7 +128,7 @@ anchor. The runtime resolves these against the prepared tree before running the
 callback. Missing or incompatible required refs fail preparation before any
 effect starts.
 
-The registration name is stable within that change and must be unique. The
+The registration name is stable within that animation and must be unique. The
 `scoped_name` helper combines this object's stable presentation identity with
 "draw", so multiple card components can declare the same local name safely. A
 parent can instead register one callback that handles several moved cards.
@@ -135,7 +136,7 @@ Reject duplicate registrations with the same complete identity.
 
 The callback reserves playback rather than starting Unity work immediately.
 Rerenders, preparation retries, and duplicate delivery reuse the
-checkpoint/change/registration identity. Commit installs the playback and
+checkpoint/animation/registration identity. Commit installs the playback and
 requirement together and starts it once. Event-driven `use_animate` uses the
 same preparation machinery without requiring a gameplay checkpoint.
 

@@ -32,10 +32,11 @@ queen of spades alone does not allow a later heart lead
 
 ## Implementation
 
-1. Define HeartsState, human-visible HeartsView, Action, Change, and saved RNG
-   state. Register ordinary rules functions with snapshot and validation
-   callbacks. Use typed passing/card choices without mandatory game-wide prompt
-   or answer enums. Use stable rank/suit ordering and a documented seeded
+1. Define `HeartsGame`, `HeartsState`, human-visible `HeartsView`, `Action`,
+   `StateAnimation`, and saved RNG state. Implement the `Game` trait, including
+   `logical_clone`, view construction, action validation, and synchronous action
+   application. Use typed passing/card choices through the game prompt and
+   answer boundary. Use stable rank/suit ordering and a documented seeded
    shuffle.
 
 2. Implement ResolvePassing and PlayTurn with typed choice specs and lazy
@@ -61,7 +62,7 @@ queen of spades alone does not allow a later heart lead
 - The same seeded scripted action sequence produces the same final state in
   interactive and simulation modes.
 
-- Public player snapshots never expose opponent faces or full private hands.
+- Public player views never expose opponent faces or full private hands.
 
 - A complete hand terminates after thirteen tricks and a match ends only after
   hand scoring.

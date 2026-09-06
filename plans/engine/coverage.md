@@ -13,9 +13,8 @@ Related pages: [overview and task order](README.md), [test scenes](fixtures.md),
 Games should be simple to register, and every layer should have one clear owner.
 Read [architecture](architecture.md) and [API examples](interfaces.md).
 
-- State plus a synchronous function; inferred types; default cloning and
-  optional snapshot/validation callbacks; no mandatory game trait or prompt
-  enum.
+- One `Game` trait owns state, view, action, `StateAnimation`, validation, and
+  synchronous action application. Registration infers all associated types.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [11](tasks/11-accepted-action-runtime.md).
@@ -47,7 +46,7 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
 
   **Tasks:** [13](tasks/13-mixed-logical-tree.md),
   [14](tasks/14-global-presentation-identity.md),
-  [16](tasks/16-snapshot-selectors-stores.md).
+  [16](tasks/16-view-selectors-stores.md).
 
   **Verify:** One component contributes a world card and UI details with shared
   state.
@@ -66,18 +65,18 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
 
 ## Rules, choices, cancellation, and saving
 
-A worker computes privately while the display presents ordered immutable states.
+A worker computes privately while the display presents ordered immutable views.
 Read [execution](execution.md) and [presentation](presentation.md).
 
-- Run-local checkpoint IDs and fixed ordered change indices, including a single
-  change at index zero.
+- Run-local checkpoint IDs and fixed ordered animation indices, including a
+  single animation at index zero.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [09](tasks/09-checkpoint-publication.md).
 
-  **Verify:** Retry presentation without changing IDs or change order.
+  **Verify:** Retry presentation without changing IDs or animation order.
 
-- Immutable owned Send snapshots, independent accepted state and worker copy;
+- Immutable owned `Send` views, independent accepted state and worker copy;
   optional immutable sharing.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
@@ -127,7 +126,7 @@ Read [execution](execution.md) and [presentation](presentation.md).
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
   [11](tasks/11-accepted-action-runtime.md),
-  [16](tasks/16-snapshot-selectors-stores.md),
+  [16](tasks/16-view-selectors-stores.md),
   [41](tasks/41-hearts-pointer-touch.md),
   [42](tasks/42-hearts-navigation-menus.md).
 
@@ -259,7 +258,7 @@ Movement preserves a live component; removal ends its lifetime. Read
   replacement; compatible descendants survive.
 
   **Tasks:** [14](tasks/14-global-presentation-identity.md),
-  [16](tasks/16-snapshot-selectors-stores.md),
+  [16](tasks/16-view-selectors-stores.md),
   [44](tasks/44-identity-composition-laboratory.md).
 
   **Verify:** Moved counter retains state but reads new provider with one
@@ -299,7 +298,7 @@ Movement preserves a live component; removal ends its lifetime. Read
 - Props complete without selectors; equal selectors skip evaluation; stable
   store version and queued writes.
 
-  **Tasks:** [16](tasks/16-snapshot-selectors-stores.md),
+  **Tasks:** [16](tasks/16-view-selectors-stores.md),
   [44](tasks/44-identity-composition-laboratory.md).
 
   **Verify:** Compare props/selector scenes; render-time writes appear in a
@@ -430,11 +429,11 @@ and [presentation](presentation.md).
 
   **Verify:** Input cannot start another action during required presentation.
 
-- Stable render snapshot/store version; inactive preparation can span frames;
+- Stable render view/store version; inactive preparation can span frames;
   current display remains usable.
 
   **Tasks:** [12](tasks/12-host-transactions.md),
-  [16](tasks/16-snapshot-selectors-stores.md),
+  [16](tasks/16-view-selectors-stores.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
   **Verify:** Delay assets and update settings without exposing partially
@@ -529,7 +528,7 @@ and [presentation](presentation.md).
   **Verify:** No per-step Rust callback is needed for prepared motion and
   effects.
 
-- Checkpoint change callbacks prepare once and commit once across retries;
+- State-animation callbacks prepare once and commit once across retries;
   event-driven controls share machinery.
 
   **Tasks:** [22](tasks/22-sequence-dependencies.md),
@@ -585,7 +584,7 @@ and [presentation](presentation.md).
   **Verify:** Native and fake timelines agree on start order and resource
   lifetime.
 
-- Unique run/checkpoint/change/effect identity; duplicate names rejected;
+- Unique run/checkpoint/animation/effect identity; duplicate names rejected;
   rerenders/retries/delivery deduplicated.
 
   **Tasks:** [26](tasks/26-effect-occurrences.md),
@@ -713,7 +712,7 @@ scenes](fixtures.md), and [validation](validation.md).
 - No redundant unchanged-tree serialization, global layout rebuilding,
   unconditional quadratic matching, or mandatory geometry streaming.
 
-  **Tasks:** [16](tasks/16-snapshot-selectors-stores.md),
+  **Tasks:** [16](tasks/16-view-selectors-stores.md),
   [23](tasks/23-world-layout.md), [29](tasks/29-presentation-inspector.md),
   [46](tasks/46-performance-workloads.md).
 

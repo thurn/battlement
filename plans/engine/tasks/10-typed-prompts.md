@@ -25,16 +25,17 @@ connection from task 09; display driver.
 A component answers through a typed handle for the current presented prompt:
 
 ```rust
-let prompt = use_prompt::<SelectOne<CardId>>();
-prompt.answer(selected_card);
+let presented = use_game_prompt::<CardGame>();
+presented.answer.submit(Answer::Card(selected_card));
 // An illegal card produces feedback and keeps this request active.
 ```
 
 ## Implementation
 
-1. Publish prompt snapshots in the checkpoint stream with run/request
-   identities. Keep the concrete specification on the worker and construct only
-   its owned public representation for display.
+1. Publish prompt views in the checkpoint stream with run/request identities.
+   Keep the concrete specification on the worker, construct its owned public
+   representation, and attach the engine-owned typed answer handle outside the
+   game prompt value.
 
 2. Validate typed answer messages against the current request and immutable
    choice specification. Return a concrete typed answer only after successful

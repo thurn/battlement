@@ -26,7 +26,7 @@ portal:
 
 ```rust
 (
-    CardVisual::new().card(card),
+    CardView::new().card(card),
     Portal::to(details_panel).child(CardDetails::new().card(card)),
 )
 ```

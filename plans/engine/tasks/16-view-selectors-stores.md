@@ -1,6 +1,6 @@
-# 16. Add stable snapshot selectors and queued display stores
+# 16. Add stable view selectors and queued display stores
 
-Sparse snapshot/store changes reevaluate only affected subscribers without
+Sparse view/store changes reevaluate only affected subscribers without
 tearing one render or breaking moved components.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -17,20 +17,20 @@ visuals](15-incarnations-and-removal.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** External stores; context/hooks; runtime scheduling; presented
-snapshot provider.
+view provider.
 
 ## Example
 
 Changing a hand should not reevaluate a component subscribed only to the score:
 
 ```rust
-let score = use_snapshot_selector(|view: &HeartsView| view.south_score);
+let score = use_view_selector(|view: &HeartsView| view.south_score);
 ScoreLabel::new().score(score)
 ```
 
 ## Implementation
 
-1. Expose optional presented-snapshot selector subscriptions with explicit
+1. Expose optional presented-view selector subscriptions with explicit
    equality. Keep props as a complete equivalent path and avoid introducing a
    game-global mutable model into component handlers.
 

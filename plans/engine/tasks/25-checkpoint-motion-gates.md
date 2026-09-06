@@ -23,17 +23,17 @@ acknowledgement; sequence events; movement policies.
 
 ## Example
 
-A change callback chooses which animation event allows this checkpoint to
+A state-animation callback chooses which event allows this checkpoint to
 advance; playback still begins only after preparation commits:
 
 ```rust
-let checkpoint = use_checkpoint::<Change>();
+let checkpoint = use_checkpoint::<StateAnimation>();
 let animate = use_animate();
-checkpoint.on_change(card_ref.scoped_name("draw"), move |change, required| {
-    if let Change::CardDrawn(id) = change {
+checkpoint.on_animation(card_ref.scoped_name("draw"), move |animation, cx| {
+    if let StateAnimation::CardDrawn(id) = animation {
         if *id == card_id {
             let playback = animate.start(draw_sequence(card_ref, reveal_ref));
-            required.require(playback.reached("ready"));
+            cx.require(playback.reached("ready"));
         }
     }
 });
@@ -41,8 +41,8 @@ checkpoint.on_change(card_ref.scoped_name("draw"), move |change, required| {
 
 ## Implementation
 
-1. Add callbacks for typed checkpoint changes, identified by a stable name
-   within each change. Provide scoped names based on stable presentation
+1. Add callbacks for typed state animations, identified by a stable name within
+   each animation. Provide scoped names based on stable presentation
    identity and resolve declared refs before evaluating the callback. Evaluate
    it during preparation, reserve playback handles, and atomically install
    visible tree, playback registration, occurrences, and required contributions

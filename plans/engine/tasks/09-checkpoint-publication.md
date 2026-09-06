@@ -1,6 +1,6 @@
 # 09. Publish immutable checkpoints with at most one waiting
 
-A worker publishes ordered immutable snapshots with at most one pending
+A worker publishes ordered immutable views with at most one pending
 checkpoint, using lazy builders after reservation.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -34,17 +34,17 @@ worker changes private state: A and B remain immutable
 
 ## Implementation
 
-1. Add checkpoint ID/change indices and owned payload records to the worker
+1. Add checkpoint ID/animation indices and owned payload records to the worker
    connection. Reserve the single pending-checkpoint capacity before building
-   snapshot/change data; keep it reserved while the main thread prepares that
-   checkpoint.
+   view/state-animation data; keep it reserved while the main thread prepares
+   that checkpoint.
 
 2. Implement cancellation checks on entry, after capacity acquisition, after
    payload construction, and after waits. Wake capacity waiters on
    abandonment/closure using the shared predicate protocol.
 
-3. Preserve independent accepted, worker-private, and snapshot state. Add a
-   deliberately shared-mutable fixture to document invalid game snapshot
+3. Preserve independent accepted, worker-private, and presented-view state. Add
+   a deliberately shared-mutable fixture to document invalid game view
    ownership without designing a runtime deep-copy system.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
@@ -58,7 +58,7 @@ worker changes private state: A and B remain immutable
   construction.
 
 - Mutation of worker state after publication does not change the displayed
-  snapshot in a correct game-owned snapshot fixture.
+  view in a correct game-owned view fixture.
 
 - Cancellation while blocked or building discards late output, unwinds after
   builder completion, and reports stopped after cleanup.
@@ -74,5 +74,6 @@ assertion.
 
 ## Manual QA
 
-Use a controlled snapshot builder to hold publication, abandon the run, release
-the builder, and verify the replacement display never sees the stale checkpoint.
+Use a controlled `Game::view` implementation to hold publication, abandon the
+run, release the builder, and verify the replacement display never sees the
+stale checkpoint.

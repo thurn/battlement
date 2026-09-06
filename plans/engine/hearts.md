@@ -70,7 +70,7 @@ resolves collection, scores, and any next-hand deal through ordered checkpoints
 before acceptance.
 
 `HeartsState` includes hands, current trick, captured cards, turn/leader, broken
-hearts, hand/match scores, passing phase, and PRNG state. Display snapshots
+hearts, hand/match scores, passing phase, and PRNG state. Display views
 contain only the human-visible information; opponent faces remain hidden. Keep
 full private state out of normal UI props and the player inspector.
 
@@ -93,7 +93,7 @@ confirmation answers that prompt; it must not dispatch a second competing
 PlayTurn action.
 
 An AI-owned prompt is answered by an application-owned simulation job only after
-the prompt snapshot is presented. That job receives an owned observation for its
+the prompt view is presented. That job receives an owned observation for its
 acting seat, never the full private state, and returns through the same
 run/request validation path as a human answer. This is an independent AI worker
 permitted in addition to the display thread and waiting rules worker. Cancel its
@@ -151,7 +151,8 @@ reorientation during an in-flight pass without restarting that occurrence.
 
 ## AI and shared simulation
 
-Use seeded, bounded Monte Carlo rollouts through the same rules functions.
+Use seeded, bounded Monte Carlo rollouts through the same `Game::apply_action`
+method.
 Sample opponent hands consistent with known cards, played cards, and observed
 void suits. An AI receives its own observation, not the full private state. Do
 not accidentally expose opponents' hands via a choice specification.

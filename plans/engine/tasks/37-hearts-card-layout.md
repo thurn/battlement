@@ -1,6 +1,6 @@
 # 37. Compose Hearts cards, hands, tricks, and inspection views
 
-The actual Hearts snapshot renders a readable 3D table with stable cards and
+The actual Hearts view renders a readable 3D table with stable cards and
 independent inspection copies.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
@@ -18,11 +18,11 @@ executor](36-hearts-rules.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Hearts shell/assets; world primitives/layouts; player
-snapshot projection.
+view projection.
 
 ## Example
 
-The root display owns world and UI composition; a rules snapshot supplies
+The root display owns world and UI composition; a rules view supplies
 visible data:
 
 ```rust
@@ -34,9 +34,9 @@ visible data:
 
 ## Implementation
 
-1. Create HeartsDisplay with reusable Card, Hand, Trick, CapturedPile, Seat, and
-   table components from the snapshot. Build front/back surfaces and independent
-   hit regions in Rust.
+1. Create `HeartsDisplay` with reusable `CardView`, `Hand`, `Trick`,
+   `CapturedPile`, `Seat`, and table components from the view. Build front/back
+   surfaces and independent hit regions in Rust.
 
 2. Assign stable deal-lifetime presentation UUIDs from game/display data; never
    generate IDs during render. Reuse identities for hand/trick/pile transfer and
