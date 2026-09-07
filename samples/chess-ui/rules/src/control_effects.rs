@@ -4,8 +4,7 @@ use battlement::{
   Color, Gradient, Length, LengthUnits, Overflow, Position, Rotate, Style, TransformOrigin,
 };
 use battlement_reactant::prelude::{
-  Animation, AnimationFill, AnimationPlayState, Decoration, DecorationOverflow, Easing, Keyframes,
-  StyleTarget,
+  Animation, AnimationFill, Decoration, DecorationOverflow, Easing, Keyframes, StyleTarget,
 };
 use battlement_reactant::{hooks, prelude::EventCallback};
 
@@ -42,13 +41,9 @@ const SLIDER_PARTICLES: [(f32, f32, f32, f32); 8] = [
   (-41.0, 2.0, -8.0, 11.0),
 ];
 
-/// Playback controls used by deterministic review specimens.
+/// Playback controls for arcade effects.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct EffectPlayback {
-  /// Samples the effect this many seconds after its start.
-  pub elapsed: f64,
-  /// Holds the sampled frame instead of advancing the native clock.
-  pub paused: bool,
   /// Uses the source's short reduced-motion duration.
   pub reduced_motion: bool,
 }
@@ -472,20 +467,15 @@ fn animated(
   duration: f64,
   delay: f64,
   easing: Easing,
-  playback: EffectPlayback,
+  _playback: EffectPlayback,
   key: impl std::hash::Hash,
 ) -> Decoration {
   decoration.overflow(DecorationOverflow::Visible).animation(
     Animation::new(frames)
       .duration_secs(duration)
-      .delay_secs(delay - playback.elapsed)
+      .delay_secs(delay)
       .ease(easing)
       .fill(AnimationFill::Both)
-      .play_state(if playback.paused {
-        AnimationPlayState::Paused
-      } else {
-        AnimationPlayState::Running
-      })
       .animation_key(key),
   )
 }

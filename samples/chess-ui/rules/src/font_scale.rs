@@ -36,7 +36,6 @@ pub enum FontScale {
 /// Text roles with distinct source growth rates.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FontScaleRole {
-  Body,
   Control,
   Navigation,
   Heading,
@@ -64,12 +63,6 @@ pub fn use_font_scale_state() -> (FontScale, StateSetter<FontScale>) {
   context
     .map(|context| (context.scale, context.set_scale))
     .unwrap_or(fallback)
-}
-
-/// Reads the nearest text size unless an isolated specimen supplies an override.
-pub fn use_font_scale_override(override_scale: Option<FontScale>) -> FontScale {
-  let context_scale = use_font_scale();
-  override_scale.unwrap_or(context_scale)
 }
 
 impl FontScale {
@@ -100,7 +93,6 @@ impl FontScale {
     1.0
       + growth
         * match role {
-          FontScaleRole::Body => 1.0,
           FontScaleRole::Control => 0.65,
           FontScaleRole::Navigation => 0.45,
           FontScaleRole::Heading => 0.2,

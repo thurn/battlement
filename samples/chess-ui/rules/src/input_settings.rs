@@ -52,15 +52,6 @@ const DEFAULT_KEYBOARD: [PhysicalKey; 7] = [
   PhysicalKey::Escape,
   PhysicalKey::KeyR,
 ];
-const CUSTOM_KEYBOARD: [PhysicalKey; 7] = [
-  PhysicalKey::KeyA,
-  PhysicalKey::KeyD,
-  PhysicalKey::KeyW,
-  PhysicalKey::KeyS,
-  PhysicalKey::Backspace,
-  PhysicalKey::Tab,
-  PhysicalKey::Enter,
-];
 const CONTROLLER: [&str; 7] = [
   "D-pad left",
   "D-pad right",
@@ -71,43 +62,16 @@ const CONTROLLER: [&str; 7] = [
   "Y",
 ];
 
-/// Initial binding set displayed by an input table specimen.
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-pub enum InputBindingVariant {
-  #[default]
-  Default,
-  Custom,
-}
-
-impl InputBindingVariant {
-  pub(crate) fn label(self) -> &'static str {
-    match self {
-      Self::Default => "Default",
-      Self::Custom => "Long/custom",
-    }
-  }
-
-  fn bindings(self) -> [PhysicalKey; 7] {
-    match self {
-      Self::Default => DEFAULT_KEYBOARD,
-      Self::Custom => CUSTOM_KEYBOARD,
-    }
-  }
-}
-
 /// Displays keyboard and controller bindings in a sticky-header table.
 #[builder]
 pub struct InputSettings {
   overlay: Option<PortalTarget>,
-  variant: InputBindingVariant,
-  /// Uses the source 971-pixel panel viewport instead of the isolated specimen crop.
-  full_panel: bool,
 }
 
 impl Component for InputSettings {
   fn render(&self) -> impl Render {
     let (scrolled, set_scrolled) = hooks::use_state(false);
-    let (bindings, set_bindings) = hooks::use_state(self.variant.bindings());
+    let (bindings, set_bindings) = hooks::use_state(DEFAULT_KEYBOARD);
     let (capture, set_capture) = hooks::use_state(None::<usize>);
     let (status, set_status) = hooks::use_state(None::<String>);
     let capture_focus = use_element_ref();
@@ -148,8 +112,8 @@ impl Component for InputSettings {
       .style(
         Style::new()
           .width(INPUT_WIDTH)
-          .height(if self.full_panel { 971.0 } else { 720.0 })
-          .margin_top(if self.full_panel { 0.0 } else { 48.0 })
+          .height(971)
+          .margin_top(0)
           .background_color(Color::rgb8(4, 17, 38)),
       )
       .child(

@@ -11,20 +11,11 @@ pub const BACKGROUND_MUSIC: AudioClipAddress =
 
 const PLAYBACK_ID: ObjectId = object_id!("31000000-0000-4000-8000-000000000001");
 
-/// Host playback availability exposed by the review fixture.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum PlaybackAvailability {
-  #[default]
-  Available,
-  Unavailable,
-}
-
 /// Current lifecycle state for the shared background track.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BackgroundMusicStatus {
   Stopped,
   Playing,
-  Unavailable,
 }
 
 /// Values and actions exposed by [`use_background_music`].
@@ -50,7 +41,6 @@ pub struct BackgroundMusicContext {
   pub playhead: Duration,
   app: AppHandle,
   audio: AudioPlayback,
-  availability: PlaybackAvailability,
   set_master_volume: StateSetter<u32>,
   set_music_volume: StateSetter<u32>,
   set_mute_in_background: StateSetter<bool>,
@@ -63,11 +53,6 @@ pub struct BackgroundMusicContext {
 impl BackgroundMusicContext {
   /// Requests looping playback when the host can supply the track.
   pub fn start_music(&self) {
-    if self.availability == PlaybackAvailability::Unavailable {
-      self.set_playing.set(false);
-      self.set_playhead.set(Duration::ZERO);
-      return;
-    }
     if self.playback_active.get() {
       self.set_playing.set(true);
       return;
@@ -104,29 +89,9 @@ impl BackgroundMusicContext {
     self.set_sound_muted.set(muted);
   }
 
-  /// Stops playback and restores the source defaults.
-  pub fn reset(&self) {
-    if self.playback_active.replace(false) {
-      self.app.send(self.audio.stop(Duration::ZERO));
-    }
-    self.set_master_volume.set(80);
-    self.set_music_volume.set(65);
-    self.set_mute_in_background.set(false);
-    self.set_sound_muted.set(false);
-    self.set_playing.set(false);
-    self.set_playhead.set(Duration::ZERO);
-  }
-
   /// Returns the native audio clock shared by music-synchronized visuals.
   pub fn motion_time_source(&self) -> MotionTimeSource {
     MotionTimeSource::Audio(self.audio)
-  }
-
-  pub(crate) fn seek_for_review(&self, position: Duration) {
-    if self.playback_active.get() {
-      self.app.send(self.audio.seek(position));
-      self.set_playhead.set(position);
-    }
   }
 
   fn output_volume(&self) -> f64 {
@@ -161,17 +126,9 @@ pub fn use_background_music() -> BackgroundMusicContext {
   hooks::use_required_context::<BackgroundMusicContext>()
 }
 
-pub(crate) fn availability_provider(
-  availability: PlaybackAvailability,
-  child: impl Render,
-) -> impl Render {
-  ContextProvider::new().context(availability).child(child)
-}
-
 fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
   let app = use_app();
   let application = application::use_application_state();
-  let availability = hooks::use_context::<PlaybackAvailability>();
   let (master_volume, set_master_volume) = hooks::use_state(80_u32);
   let (music_volume, set_music_volume) = hooks::use_state(65_u32);
   let (mute_in_background, set_mute_in_background) = hooks::use_state(false);
@@ -189,10 +146,10 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
   let visible = !application.paused;
   let effective_volume = f64::from(master_volume) * f64::from(music_volume) / 10_000.0;
   let muted = sound_muted || (mute_in_background && !visible);
-  let status = match (availability, playing) {
-    (PlaybackAvailability::Unavailable, _) => BackgroundMusicStatus::Unavailable,
-    (PlaybackAvailability::Available, true) => BackgroundMusicStatus::Playing,
-    (PlaybackAvailability::Available, false) => BackgroundMusicStatus::Stopped,
+  let status = if playing {
+    BackgroundMusicStatus::Playing
+  } else {
+    BackgroundMusicStatus::Stopped
   };
   let output_volume = if muted { 0.0 } else { effective_volume };
 
@@ -207,23 +164,6 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
       }
     },
     (playing, output_volume),
-  );
-  hooks::use_effect(
-    {
-      let app = app.clone();
-      let set_playing = set_playing.clone();
-      let set_playhead = set_playhead.clone();
-      let playback_active = playback_active.clone();
-      move || {
-        if availability == PlaybackAvailability::Unavailable && playing {
-          app.send(audio.stop(Duration::ZERO));
-          playback_active.replace(false);
-          set_playing.set(false);
-          set_playhead.set(Duration::ZERO);
-        }
-      }
-    },
-    availability,
   );
   hooks::use_effect(
     {
@@ -252,7 +192,6 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
     playhead,
     app,
     audio,
-    availability,
     set_master_volume,
     set_music_volume,
     set_mute_in_background,

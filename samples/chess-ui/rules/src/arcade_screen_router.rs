@@ -1,16 +1,11 @@
-//! Complete two-screen application composition and review-layer dismissal.
+//! Complete two-screen application composition.
 
 use battlement::{Command, KeyEvent, PhysicalKey, Position, Style};
 use battlement_reactant::{portal::PortalTarget, prelude::*};
 
 use crate::{
-  arcade_frame_pulse::ArcadeScreen,
-  arcade_menu_transition::ArcadeMenuTransition,
-  arcade_route_transition::{self, ArcadeRouteTransition},
-  font_scale::FontScaleProvider,
-  main_menu::MainMenu,
-  portrait_viewport::PortraitViewport,
-  screen_frame::ExitAwareScreenFrame,
+  arcade_frame_pulse::ArcadeScreen, arcade_menu_transition::ArcadeMenuTransition,
+  arcade_route_transition, main_menu::MainMenu, screen_frame::ExitAwareScreenFrame,
   settings_screen::SettingsScreen,
 };
 
@@ -19,8 +14,6 @@ use crate::{
 pub struct ArcadeScreenRouter {
   #[builder(required)]
   overlay: PortalTarget,
-  #[builder(required)]
-  on_close: EventCallback<()>,
 }
 
 impl Component for ArcadeScreenRouter {
@@ -36,7 +29,7 @@ fn router(
   navigation: arcade_route_transition::ArcadeNavigationContext,
   app: AppHandle,
 ) -> View {
-  let dismiss = self::dismiss_action(navigation.clone(), component.on_close.clone());
+  let dismiss = self::dismiss_action(navigation.clone());
   View::new()
     .name("arcade-application-input-boundary")
     .style(Style::new().position(Position::Absolute).inset(0))
@@ -68,13 +61,12 @@ fn router(
 
 fn dismiss_action(
   navigation: arcade_route_transition::ArcadeNavigationContext,
-  on_close: EventCallback<()>,
 ) -> EventCallback<()> {
-  if navigation.active_screen == ArcadeScreen::Settings {
-    EventCallback::new(move |()| navigation.navigate(ArcadeScreen::Main))
-  } else {
-    on_close
-  }
+  EventCallback::new(move |()| {
+    if navigation.active_screen == ArcadeScreen::Settings {
+      navigation.navigate(ArcadeScreen::Main);
+    }
+  })
 }
 
 fn escape(event: ReactantEvent<KeyEvent>) -> Option<()> {
@@ -82,23 +74,4 @@ fn escape(event: ReactantEvent<KeyEvent>) -> Option<()> {
     event.prevent_default();
     event.stop_propagation();
   })
-}
-
-/// Creates the unanchored review layer and complete application provider tree.
-pub fn application_layer(overlay: PortalTarget, on_close: EventCallback<()>) -> Overlay {
-  let application_overlay = overlay.clone();
-  Overlay::layer(overlay)
-    .host_name("chess-ui-application-layer")
-    .style(Style::new().background_color(battlement::Color::BLACK))
-    .child(
-      FontScaleProvider::new().children(
-        PortraitViewport::new().child(
-          ArcadeRouteTransition::new().children(
-            ArcadeScreenRouter::new()
-              .overlay(application_overlay)
-              .on_close(on_close),
-          ),
-        ),
-      ),
-    )
 }

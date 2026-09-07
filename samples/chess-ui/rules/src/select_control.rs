@@ -5,7 +5,7 @@ use trox::{ls, tx};
 use crate::{
   caret::Caret,
   control_effects,
-  font_scale::{self, FontScale, FontScaleRole},
+  font_scale::{self, FontScaleRole},
   select_navigation,
   select_popover::SelectPopover,
   setting_row::SettingRow,
@@ -36,8 +36,6 @@ pub struct SelectControl {
   label: Child,
   /// Omits the separator above the first row.
   first: bool,
-  /// Overrides the nearest text-size provider for isolated specimens.
-  font_scale: Option<FontScale>,
   /// Offsets the control vertically without moving its row label.
   offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
@@ -52,7 +50,7 @@ pub struct SelectControl {
 
 impl Component for SelectControl {
   fn render(&self) -> impl Render {
-    let font_scale = font_scale::use_font_scale_override(self.font_scale);
+    let font_scale = font_scale::use_font_scale();
     let interaction = use_interaction::use_interaction();
     let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
@@ -253,7 +251,6 @@ impl Component for SelectControl {
                     true,
                     control_effects::EffectPlayback {
                       reduced_motion: interaction.state.reduced_motion,
-                      ..Default::default()
                     },
                   ))
                   .child((

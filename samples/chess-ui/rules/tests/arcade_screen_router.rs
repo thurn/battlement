@@ -1,25 +1,26 @@
 use battlement::{
-  AccessibilitySnapshot, CheckedState, CommandBody, GameObjectKind, KeyEvent, KeyModifiers,
-  MotionDescriptor, MotionEventBatch, MotionEventKind, MotionLayer, MotionLifecycleEvent,
-  MotionSequence, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole, StyleValue, UiEvent,
-  UiEventBody, UiVisualElementProperties,
+  AccessibilitySnapshot, AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent,
+  KeyModifiers, MotionDescriptor, MotionEventBatch, MotionEventKind, MotionLayer,
+  MotionLifecycleEvent, MotionSequence, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole,
+  StyleValue, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{app::App, asset_generator};
-use battlement_rules::{
-  action_button, background_music::BACKGROUND_MUSIC, engine, select_control, setting_row,
-};
+use battlement_rules::engine;
+
+const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
+const BACKGROUND_MUSIC: AudioClipAddress =
+  AudioClipAddress::from_static("chess-ui/audio/drag-and-dread");
+const DISPLAY_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/display");
+const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/control");
 
 #[test]
-fn full_screen_router_preserves_settings_then_closes_and_resets() {
+fn complete_mockup_launches_directly_and_preserves_settings() {
   self::with_render_stack(self::full_screen_router_scenario);
 }
 
 fn full_screen_router_scenario() {
   let mut client = self::client();
-  self::click_named(&mut client, "review-page-40");
-  let launcher = self::named(&mut client, "arcade-app-launcher");
-  self::click_named(&mut client, "arcade-app-launcher");
 
   self::semantic(&client, SemanticRole::Heading, "Chess Chess Revolution");
   let settings_heading = self::named(&mut client, "screen-header-heading");
@@ -28,16 +29,11 @@ fn full_screen_router_scenario() {
     Some(settings_heading),
     "settings heading should receive route focus"
   );
-  self::assert_gallery_inert(&mut client, true);
-
   self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
   client.poll();
   self::semantic(&client, SemanticRole::Heading, "Settings");
   assert!(
-    client
-      .ui()
-      .focused()
-      .is_some_and(|focused| focused != launcher),
+    client.ui().focused().is_some(),
     "settings route should keep focus inside the application"
   );
   self::choose(&mut client, "Text Size 100%", "200%");
@@ -52,28 +48,15 @@ fn full_screen_router_scenario() {
   let return_button = self::semantic(&client, SemanticRole::Button, "RETURN");
   self::escape(&mut client, return_button);
   self::semantic(&client, SemanticRole::Heading, "Chess Chess Revolution");
-
-  let play = self::semantic(&client, SemanticRole::Button, "PLAY");
-  self::escape(&mut client, play);
-  self::assert_gallery_inert(&mut client, false);
-  assert_eq!(client.ui().focused(), Some(launcher));
-
-  self::click_named(&mut client, "arcade-app-launcher");
-  self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
-  self::semantic(&client, SemanticRole::Button, "Text Size 100%");
-  self::assert_checkbox(&client, "Reduce Motion", false);
 }
 
 #[test]
-fn controller_cancel_obeys_route_precedence_and_then_restores_launcher_focus() {
+fn controller_cancel_returns_to_main_menu_without_dismissing_the_app() {
   self::with_render_stack(self::controller_cancel_scenario);
 }
 
 fn controller_cancel_scenario() {
   let mut client = self::client();
-  self::click_named(&mut client, "review-page-40");
-  let launcher = self::named(&mut client, "arcade-app-launcher");
-  self::click_named(&mut client, "arcade-app-launcher");
   self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
 
   let return_button = self::semantic(&client, SemanticRole::Button, "RETURN");
@@ -81,23 +64,17 @@ fn controller_cancel_scenario() {
   let play = self::semantic(&client, SemanticRole::Button, "PLAY");
   self::cancel(&mut client, play);
 
-  self::semantic(&client, SemanticRole::Button, "Launch Chess UI");
-  self::assert_gallery_inert(&mut client, false);
-  assert_eq!(client.ui().focused(), Some(launcher));
+  self::semantic(&client, SemanticRole::Heading, "Chess Chess Revolution");
 }
 
 #[test]
-fn play_and_quit_reach_terminal_black_before_the_layer_can_close() {
+fn play_and_quit_reach_terminal_black() {
   self::with_render_stack(|| {
     for (sequence, action) in ["PLAY", "QUIT"].into_iter().enumerate() {
       let mut client = self::client();
-      self::click_named(&mut client, "review-page-40");
-      self::click_named(&mut client, "arcade-app-launcher");
       self::click_semantic(&mut client, SemanticRole::Button, action);
       self::complete_exit(&mut client, (sequence + 1) as u64);
-      let black = self::semantic(&client, SemanticRole::Region, "Dismissed arcade stage");
-      self::escape(&mut client, black);
-      self::semantic(&client, SemanticRole::Button, "Launch Chess UI");
+      self::semantic(&client, SemanticRole::Region, "Dismissed arcade stage");
     }
   });
 }
@@ -206,19 +183,6 @@ fn assert_checkbox(client: &FakeClient<App>, label: &str, expected: bool) {
   );
 }
 
-fn assert_gallery_inert(client: &mut FakeClient<App>, expected: bool) {
-  let gallery = self::named(client, "gallery");
-  assert_eq!(
-    client
-      .ui()
-      .element(gallery)
-      .element()
-      .visual_element()
-      .inert,
-    Prop::Set(expected)
-  );
-}
-
 fn assert_px(client: &mut FakeClient<App>, name: &str, property: &str, expected: f32) {
   let id = self::named(client, name);
   let ui = client.ui();
@@ -261,12 +225,6 @@ fn snapshot(client: &FakeClient<App>) -> &AccessibilitySnapshot {
     .expect("arcade screen semantics")
 }
 
-fn click_named(client: &mut FakeClient<App>, name: &str) {
-  let target = self::named(client, name);
-  client.ui().click(target);
-  client.poll();
-}
-
 fn named(client: &mut FakeClient<App>, name: &str) -> ObjectId {
   let mut pending = client
     .world()
@@ -292,9 +250,9 @@ fn client() -> FakeClient<App> {
   assets.add_scene("chess-ui/content");
   assets.add_audio_clip(BACKGROUND_MUSIC);
   assets.add_textures(asset_generator::registrations().map(|asset| asset.address));
-  assets.add_ui_font(setting_row::DISPLAY_FONT);
-  assets.add_ui_font(select_control::VALUE_FONT);
-  assets.add_ui_font(action_button::ACTION_FONT);
+  assets.add_ui_font(DISPLAY_FONT);
+  assets.add_ui_font(VALUE_FONT);
+  assets.add_ui_font(ACTION_FONT);
   let mut client = FakeClient::connect(engine::create_engine(), assets);
   client.poll();
   client

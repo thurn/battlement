@@ -68,8 +68,6 @@ pub struct ActionButton {
   disabled: bool,
   /// Caps the label size relative to its authored arcade typography.
   max_text_scale: Option<f32>,
-  /// Starts the highlight shine for deterministic gallery inspection.
-  shine_active: bool,
   /// Handles an accepted button activation.
   #[builder(default = EventCallback::noop())]
   on_press: EventCallback<()>,
@@ -165,7 +163,6 @@ impl Component for ActionButton {
               false,
               control_effects::EffectPlayback {
                 reduced_motion: interaction.state.reduced_motion,
-                ..Default::default()
               },
             ))
         })
@@ -198,7 +195,7 @@ impl Component for ActionButton {
         .initial(false)
         .animate(self::target(interaction.state))
         .after_all(control_effects::shine(
-          interaction.state.hovered || interaction.state.focus_visible || self.shine_active,
+          interaction.state.hovered || interaction.state.focus_visible,
           interaction.state.reduced_motion,
           760.0,
           6.0,

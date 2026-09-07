@@ -63,7 +63,7 @@ impl SettingsTab {
     }
   }
 
-  /// Returns the untranslated source label for diagnostic specimen copy.
+  /// Returns the untranslated source label for accessibility copy.
   pub const fn label_text(self) -> &'static str {
     match self {
       Self::Gameplay => "Gameplay",
@@ -197,7 +197,6 @@ impl Component for SettingsTabButton {
             true,
             control_effects::EffectPlayback {
               reduced_motion: interaction.state.reduced_motion,
-              ..Default::default()
             },
           ))
           .paint(tabs_skin::paint(self.active))

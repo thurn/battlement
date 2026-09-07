@@ -197,7 +197,7 @@ fn panel(
   overlay: PortalTarget,
 ) -> impl Render {
   if active_tab == SettingsTab::Input {
-    return Either::Left(InputSettings::new().overlay(overlay).full_panel(true));
+    return Either::Left(InputSettings::new().overlay(overlay));
   }
 
   let index = active_tab.index();

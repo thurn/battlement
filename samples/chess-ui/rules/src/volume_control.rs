@@ -110,7 +110,6 @@ impl Component for VolumeControl {
                     burst.generation,
                     control_effects::EffectPlayback {
                       reduced_motion: interaction.state.reduced_motion,
-                      ..Default::default()
                     },
                   )),
                 {

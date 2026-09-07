@@ -119,7 +119,6 @@ impl Component for ToggleControl {
                     self.checked,
                     control_effects::EffectPlayback {
                       reduced_motion: interaction.state.reduced_motion,
-                      ..Default::default()
                     },
                   ))
                   .child(self.checked.then_some(CheckMark::new())),

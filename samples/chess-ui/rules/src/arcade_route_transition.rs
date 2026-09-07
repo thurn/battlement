@@ -33,11 +33,6 @@ impl ArcadeNavigationContext {
     EventCallback::new(move |()| navigation.navigate(screen))
   }
 
-  /// Replaces the player-selected reduced-motion policy.
-  pub fn set_reduce_motion(&self, reduce_motion: bool) {
-    self.set_reduce_motion.set(reduce_motion);
-  }
-
   /// Builds a controlled callback for the reduced-motion setting.
   pub fn reduce_motion_callback(&self) -> EventCallback<bool> {
     self.set_reduce_motion.callback()
