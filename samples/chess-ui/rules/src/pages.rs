@@ -31,6 +31,7 @@ use crate::{
   select_harness::SelectHarness,
   select_popover_harness::SelectPopoverHarness,
   setting_row_harness::SettingRowHarness,
+  sound_settings_harness::SoundSettingsHarness,
   tab_transition_harness::TabTransitionHarness,
   tabs_harness::TabsHarness,
   toggle_accessibility_harness::ToggleAccessibilityHarness,
@@ -259,7 +260,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("SoundSettings", "Chess UI showcase title."))
-                .description(tx("SoundSettings composes three sliders and background mute against shared audio state; Input settings remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("SoundSettings composes three sliders and background mute against shared audio state; Input settings remain unasserted.", "Chess UI showcase description."))
+                .child(SoundSettingsHarness::new()),
         )
         .page(
             ReviewPage::new()

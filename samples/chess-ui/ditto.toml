@@ -1292,6 +1292,63 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "sound settings"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206836\u2069. \u2068SoundSettings\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Music Volume" }, role = "slider", name = "Music Volume" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Effects Volume" }, role = "slider", name = "Effects Volume" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Mute in Background" }, role = "checkbox", name = "Mute in Background", checked = false }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "START" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Master Volume" }, action = "increment" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Music Volume" }, action = "decrement" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Effects Volume" }, action = "increment" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Mute in Background" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "VISIBLE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "HIDDEN" }, role = "button", name = "HIDDEN" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "100%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Sound settings controls" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Mute in Background" }, role = "checkbox", name = "Mute in Background", checked = true }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "100%" }, role = "button", name = "100%" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Mute in Background" }, role = "checkbox", name = "Mute in Background", checked = false }
+
+[[scenarios]]
 name = "music indicator and heartbeat"
 
 [[scenarios.steps]]

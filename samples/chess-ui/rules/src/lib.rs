@@ -107,6 +107,10 @@ pub mod graphics_settings;
 
 mod gameplay_graphics_harness;
 
+pub mod sound_settings;
+
+mod sound_settings_harness;
+
 pub mod gallery;
 
 pub mod input_settings;
