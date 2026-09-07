@@ -1292,6 +1292,63 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "music indicator and heartbeat"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206832\u2069. \u2068Music indicator and heartbeat\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playing with sound" }, role = "static-text", name = "Playing with sound" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "is recommended!" }, role = "static-text", name = "is recommended!" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Enable background music" }, role = "button", name = "Enable background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Enable background music" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Mute background music" }, role = "button", name = "Mute background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PULSE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Mute background music" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Enable background music" }, role = "button", name = "Enable background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ZERO VOLUME" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Enable background music" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Mute background music" }, role = "button", name = "Mute background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PULSE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "AVAILABLE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Enable background music" }, role = "button", name = "Enable background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Enable background music" }, role = "button", name = "Enable background music" }
+
+[[scenarios]]
 name = "background music provider"
 
 [[scenarios.steps]]

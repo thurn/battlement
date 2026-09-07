@@ -60,6 +60,11 @@ pub mod background_music;
 
 mod background_music_harness;
 
+pub mod music_heartbeat;
+pub mod music_playback_indicator;
+
+mod music_heartbeat_harness;
+
 pub mod arcade_tab_transition;
 
 mod assets;

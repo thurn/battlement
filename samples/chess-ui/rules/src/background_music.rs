@@ -68,6 +68,10 @@ impl BackgroundMusicContext {
       self.set_playhead.set(Duration::ZERO);
       return;
     }
+    if self.playback_active.get() {
+      self.set_playing.set(true);
+      return;
+    }
     self.app.send(
       self.audio.play_command(
         BACKGROUND_MUSIC,
@@ -111,6 +115,18 @@ impl BackgroundMusicContext {
     self.set_sound_muted.set(false);
     self.set_playing.set(false);
     self.set_playhead.set(Duration::ZERO);
+  }
+
+  /// Returns the native audio clock shared by music-synchronized visuals.
+  pub fn motion_time_source(&self) -> MotionTimeSource {
+    MotionTimeSource::Audio(self.audio)
+  }
+
+  pub(crate) fn seek_for_review(&self, position: Duration) {
+    if self.playback_active.get() {
+      self.app.send(self.audio.seek(position));
+      self.set_playhead.set(position);
+    }
   }
 
   fn output_volume(&self) -> f64 {

@@ -20,6 +20,7 @@ use crate::{
   input_settings::InputSettings,
   input_skin_harness::InputSkinHarness,
   interaction_harness::InteractionHarness,
+  music_heartbeat_harness::MusicHeartbeatHarness,
   portrait_harness::PortraitHarness,
   privacy_harness::PrivacyHarness,
   rendering_audit::RenderingAudit,
@@ -231,7 +232,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Music indicator and heartbeat", "Chess UI showcase title."))
-                .description(tx("MusicPlaybackIndicator mutes or enables sound while controls pulse from audio time; complete menu composition is not asserted.", "Chess UI showcase description.")),
+                .description(tx("MusicPlaybackIndicator mutes or enables sound while controls pulse from audio time; complete menu composition is not asserted.", "Chess UI showcase description."))
+                .child(MusicHeartbeatHarness::new()),
         )
         .page(
             ReviewPage::new()
