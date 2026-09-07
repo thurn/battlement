@@ -107,13 +107,15 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** Mutating the worker never changes a published or accepted value.
 
-- At most one pending checkpoint; reserve before builders, including prompts and
-  final output; no extra queue during preparation.
+- Exactly 32 pending checkpoint slots; reserve before builders, including
+  prompts and final output. Preparation counts; displayed state does not. No
+  extra queue, dropped entries, or coalescing.
 
   **Tasks:** [09](tasks/09-checkpoint-publication.md),
   [10](tasks/10-typed-prompts.md), [12](tasks/12-host-transactions.md).
 
-  **Verify:** With A visible and B pending, C builders have not run.
+  **Verify:** With A held, B1-B32 enqueue and return. B33 waits before builders;
+  committing B1 releases exactly one slot. Measure peak retained queue bytes.
 
 - Typed choices return directly on the synchronous stack; prompt data owns its
   choices and display/policy share one enum. Policies return stable indices.
@@ -124,8 +126,9 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   **Verify:** Two different typed choices run through nested functions in both
   modes.
 
-- One unchanged outstanding prompt; previous required presentation finishes
-  first; active invalid responses panic and ended-request responses are ignored.
+- One unresolved rules choice at a time. Human replies wait for prompt
+  visibility; AI policies start after enqueueing and may resolve before display.
+  Active invalid responses panic and ended-request responses are ignored.
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
   [25](tasks/25-checkpoint-motion-gates.md).

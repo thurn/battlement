@@ -64,9 +64,13 @@ finish before gameplay dispatch. Starting does not itself execute an action or
 save anything.
 
 `ResolvePassing` is one action with human and AI choices against unchanged
-pre-exchange hands; commit all transfers together. `PlayTurn` accepts one card
-play. If that completes a trick or hand, the same action also collects, scores,
-and deals the next hand through ordered checkpoints before acceptance.
+pre-exchange hands; commit all transfers together. `PlayTurn` resolves any
+leading AI plays, one human card choice, and the following consecutive AI plays
+until the next human choice or a hand boundary. Each AI decision runs its policy
+inside that same `execute()` call; there is no per-card handle dispatch. If a
+card completes a trick or hand, collect, score, and deal through ordered
+checkpoints before acceptance. A completed hand ends the action even if it ends
+before that action reaches its human choice.
 
 `HeartsState` includes hands, current trick, captured cards, turn/leader, broken
 hearts, scores, passing phase, and saved random state. The display receives a
@@ -91,9 +95,10 @@ match accepted.phase {
 ```
 
 Schedule in an app callback/effect, not by mutating rules during render. One
-controller owns automatic next-action scheduling. Do not dispatch repeatedly
-while busy or unconditionally play after a last-card action: the next phase may
-require passing. Match results wait for New Game. Menus remain responsive.
+UI/app controller owns next-action scheduling; AI policies never receive a
+`GameHandle`. Do not dispatch repeatedly while busy or unconditionally play
+after a last-card action: the next phase may require passing. Match results wait
+for New Game. Menus remain responsive.
 
 The context routes each live choice using its acting seat and prompt. Human
 choices call `DisplayConnection::choose`; AI choices call `choose_with_policy`.
@@ -104,10 +109,14 @@ another competing `PlayTurn` action.
 Both paths retain the typed prompt for validation and publish one owned clone
 inside `HeartsPrompt<'static>` with the snapshot. Policies borrow a
 `HeartsPrompt<'_>` wrapper around the original; there is no reverse conversion.
-After its snapshot is displayed, a live AI policy runs on the rules worker and
-returns an option index. Human handles cannot resolve AI-owned requests. Display
-code may show “West is choosing” while hiding West's card choices. There is no
-private controller-message channel or engine-created independent AI job.
+After its snapshot is queued, a live AI policy immediately runs on the rules
+worker and returns an option index. Animation and prompt visibility do not delay
+search while fewer than 32 checkpoint slots are occupied. Human handles cannot
+resolve AI-owned requests. Display code may identify West's decision while
+hiding West's card choices. A queued AI prompt may already be resolved when
+displayed; it is informational, not a new input request or a claim that search
+is still running. There is no private controller-message channel or
+engine-created independent AI job.
 
 A simulation context always chooses inline using its configured policy. Game
 code may schedule independent simulations, but the engine does not require it.

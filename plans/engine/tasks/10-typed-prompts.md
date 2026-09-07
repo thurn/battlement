@@ -12,8 +12,8 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Rules and choices](../execution.md)
 - [Validation](../validation.md)
 
-**Prerequisite:** [Task 09: Publish immutable checkpoints with at most one
-waiting](09-checkpoint-publication.md) and all its required follow-ups must be
+**Prerequisite:** [Task 09: Publish immutable checkpoints through a 32-slot
+queue](09-checkpoint-publication.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** PromptData and domain-context modes from task 02; worker
@@ -57,9 +57,10 @@ to a current request is a programming error; an ended-request reply is ignored.
    Both retain P in internal Arc-backed storage and publish one owned clone
    after reserving capacity. Concrete data is Clone + Send + Sync. The typed
    validator uses retained P without enum extraction. Live AI borrows
-   P.as_prompt() on the rules worker after presentation, then maps its index
-   directly through P. Human handles cannot resolve AI requests. Player routing
-   remains in game context.
+   P.as_prompt() on the rules worker immediately after enqueueing, then maps its
+   index directly through P. Only full-queue capacity can delay AI publication;
+   there is no wait for animation or visibility. Human handles cannot resolve AI
+   requests. Player routing remains in game context.
 
 5. Exercise two response types and another game's prompt enum. Retain compile
    checks for wrong response types, fault-injected transport mismatch, stable
@@ -72,7 +73,8 @@ to a current request is a programming error; an ended-request reply is ignored.
 - Valid responses resume once. Active invalid replies panic; stopped, replaced,
   and already-resolved request replies are ignored without resuming anything.
 
-- Earlier required presentation prevents actionability. Reused numeric request
+- Earlier required presentation prevents human actionability, but does not gate
+  live AI computation while the 32-slot queue has room. Reused numeric request
   IDs in a different session/run cannot admit an old handle.
 
 - A caller-created prompt cannot broaden legal choices. An AI-owned request

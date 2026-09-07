@@ -51,10 +51,11 @@ match accepted.phase {
 4. Show hand totals, match totals, moon outcome, next-hand passing direction,
    and shared-win match results in native UI.
 
-5. Route AI-owned prompts through the context to choose_with_policy only after
-   their snapshot is presented. Keep action dispatch at accepted boundaries and
-   gameplay input gated while earlier presentation is required. Menus remain
-   usable.
+5. Route AI-owned prompts through the context to choose_with_policy immediately
+   after enqueueing. Keep consecutive AI plays inside PlayTurn rather than
+   dispatching once per AI card. Only a full 32-slot queue blocks their
+   progress. UI dispatch stays at accepted boundaries; human prompt replies wait
+   for their displayed snapshot. Menus remain usable.
 
 ## Acceptance
 

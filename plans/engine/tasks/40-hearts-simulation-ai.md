@@ -48,11 +48,13 @@ return the candidate's original legal-option index
    from any shortlist back to the original prompt order. Stable tie-breaking and
    seeded rollout heuristics remain game-owned.
 
-4. Route live AI through DisplayConnection::choose_with_policy after its
-   snapshot/prompt is presented. Run bounded computation on the rules worker,
-   never Unity's thread. Stop invalidates output immediately; the policy may
-   finish computation before the helper observes cancellation. No independent
-   controller-message job or explicit engine cancellation primitive is required.
+4. Route live AI through DisplayConnection::choose_with_policy immediately after
+   its snapshot/prompt is queued. Do not wait for visibility or animation. The
+   shared queue applies backpressure only at 32 pending entries. Run bounded
+   computation on the rules worker, never Unity's thread. Stop invalidates
+   output immediately; the policy may finish computation before the helper
+   observes cancellation. No independent controller-message job or explicit
+   engine cancellation primitive is required.
 
 5. Measure owned prompt construction, policy work, and primitive overhead
    separately. Record reproducible seed/work count and public choices; do not
@@ -70,8 +72,14 @@ return the candidate's original legal-option index
 - Replacement stays responsive during bounded AI work. Old results are discarded
   at the choice boundary and cannot answer a replacement request.
 
-- Simulation skips snapshot/event builders and display waits. Report its
-  construction/search allocations instead of claiming all prompts are free.
+- Hold display while running five consecutive AI choices in one execution with
+  fewer than 32 pending entries. Each policy runs without a display-ready
+  signal; snapshots remain ordered. A subsequent human choice still waits for
+  visibility.
+
+- Simulation skips snapshot/event builders and display waits, even when the live
+  queue is full. Report its construction/search allocations instead of claiming
+  all prompts are free.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

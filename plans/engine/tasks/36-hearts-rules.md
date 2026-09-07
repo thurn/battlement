@@ -39,7 +39,11 @@ queen of spades alone -> hearts remain unbroken
 
 2. Implement ResolvePassing and PlayTurn with typed responses and lazy semantic
    events. Collect passing choices against unchanged hands and commit all
-   transfers together. Include trick/hand resolution in the final-card action.
+   transfers together. PlayTurn includes leading AI plays, one human choice, and
+   subsequent AI plays until the next human choice or hand boundary. All those
+   AI choices run within one execute call. Include trick/hand resolution when
+   the last card is played. End the action at a completed hand even if no human
+   choice was reached in that action.
 
 3. Route human/live-AI choices in HeartsContext; identify the deciding seat
    during passing as well as play. Simulation always uses its configured policy.

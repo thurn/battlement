@@ -5,11 +5,11 @@ context. Reactant supplies the live session, a connection to the display, and
 typed response delivery. The same rules run directly with a simulation context.
 
 The [complete contract sketch](#complete-contract-sketch) below defines the
-complete rules/session surface. Its private storage and method bodies are implementation
-placeholders, not permission to omit public API. This page explains the
-contract; [execution](execution.md) defines ordering and failure behavior. See
-also [architecture](architecture.md), [presentation](presentation.md), and
-[Hearts](hearts.md).
+complete rules/session surface. Its private storage and method bodies are
+implementation placeholders, not permission to omit public API. This page
+explains the contract; [execution](execution.md) defines ordering and failure
+behavior. See also [architecture](architecture.md),
+[presentation](presentation.md), and [Hearts](hearts.md).
 
 ## The game owns its associated types
 
@@ -64,7 +64,10 @@ dropping one cloned handle does not stop a session still owned by the app.
 ## Dispatch, stop, inspect, and save explicitly
 
 `GameHandle<G>` is cloneable. Clones share one session without cloning its
-state. The handle and component hooks are used on the app/display thread.
+state. The handle and component hooks are used on the app/display thread. AI
+policies receive state and a prompt, never a handle. A dispatched action may
+include a complete AI turn with many choices; each choice invokes the policy
+inside `execute()`, rather than returning to UI dispatch between card plays.
 
 - Dispatch returns `Busy` first if entry presentation, an action, a prompt, or
   final presentation is unfinished. It does not queue another action or run its
@@ -98,10 +101,22 @@ let next = context.choose(state, PlayCardPrompt { choices: legal_cards });
 ```
 
 Interactive `present` queues a state snapshot and one semantic animation event.
-One event can describe several related changes; display code can start many
-movements/effects for it. There is no grouped-publication method or final-event
-callback. Normal return automatically publishes a final snapshot with no
-semantic event. Default movement still applies to changes in that snapshot.
+The fixed FIFO holds 32 pending snapshots, including builders and native
+preparation but excluding the displayed snapshot. Reserve capacity before
+cloning/building; wait only when all 32 slots are occupied. Otherwise return
+after enqueueing without waiting for animation. Commit releases a slot; merely
+starting preparation does not. For example, one UI-dispatched EndTurn action can
+run five successive AI searches and card plays while the display is held, as
+long as their combined prompt/present/final entries fit in the queue. The 33rd
+pending entry waits for a slot. Simulation has no queue and never waits.
+
+Normal action completion still waits for final presentation before another UI
+dispatch. Keep consecutive AI plays within one execution so this UI boundary
+does not gate each search. One event can describe several related changes;
+display code can start many movements/effects for it. There is no
+grouped-publication method or final-event callback. Normal return automatically
+publishes a final snapshot with no semantic event. Default movement still
+applies to changes in that snapshot.
 
 Interactive `choose` publishes a snapshot and owned prompt together, even when
 rules did not call `present` first. Simulation creates no snapshots and invokes
@@ -228,10 +243,12 @@ lets the live worker borrow it for policy evaluation. `Clone + Send + Sync`
 apply to concrete prompt data; the request and its erased response transport are
 private engine details.
 
-The policy borrows `prompt.as_prompt()` only after presentation, without waiting
-for human input. Select its response directly from retained `P`, then check
-cancellation before returning. The connection does not identify players.
-Simulation allocates no request and makes no display copy.
+The policy borrows `prompt.as_prompt()` immediately after enqueueing its prompt,
+without waiting for animation, display readiness, or human input. Full-queue
+backpressure can delay enqueueing, but visibility is not an AI prerequisite.
+Select its response directly from retained `P`, then check cancellation before
+returning. The connection does not identify players. Simulation allocates no
+request and makes no display copy.
 
 A session owns one connection and one context. Helpers reject use outside that
 session's current action rather than allowing unrelated publication. The app
@@ -240,8 +257,11 @@ owns normal-return publication; contexts do not expose or call a finish helper.
 ## Component access
 
 Hooks refer to the session attached to their app. They panic when no matching
-game is attached; `use_game_prompt` returns `None` when that game has no active
-prompt. Replacement switches subscriptions atomically with the displayed state.
+game is attached. `use_game_prompt` exposes the displayed snapshot's prompt, not
+a newer queued request. Human prompts close after their response. Resolved AI
+prompts may appear informationally until their next checkpoint; their ended
+handles cannot resume rules. Return `None` when no prompt is displayed.
+Replacement switches subscriptions atomically with the displayed state.
 
 Selectors compare outputs between displayed snapshots. Equal results do not
 trigger a component render through that subscription; selectors themselves may
@@ -395,7 +415,9 @@ fn use_game_state<G: Game>() -> Rc<G::State> {
 }
 
 fn use_game_prompt<G: Game>() -> Option<Rc<PresentedPrompt<G::Prompt<'static>>>> {
-  // State and prompt become visible together; ended prompts stop being active.
+  // State and prompt become visible together. Human prompts close after reply.
+  // Already-resolved AI prompts can appear informationally in queued display;
+  // their ended handles cannot resume rules. The next checkpoint replaces them.
   todo!()
 }
 
@@ -450,7 +472,10 @@ struct DisplayConnection<G: Game> {
 impl<G: Game> DisplayConnection<G> {
   fn present(&mut self, state: &G::State, animation: impl FnOnce() -> G::StateAnimation) {
     // Reserve capacity before cloning state and constructing the animation.
-    // Queue them together. At most one snapshot waits, including preparation.
+    // Queue them together in the session's 32-slot pending FIFO. The displayed
+    // snapshot is excluded; reserved builders and native preparation count.
+    // Wait only if all 32 slots are occupied, otherwise return after enqueueing.
+    // Commit releases a slot. Never drop or coalesce checkpoints.
     // Display code sequences entries and determines required animation completion.
     // Cancellation wakes blocked publication and unwinds inside the Rust worker.
     todo!()
@@ -474,11 +499,12 @@ impl<G: Game> DisplayConnection<G> {
     prompt: P,
     policy: &mut impl ChoicePolicy<G>,
   ) -> P::ResponseType {
-    // Publish the snapshot and prompt in display order before asking the policy
-    // on this worker. Retain the typed P in the request as for human input;
+    // Enqueue the snapshot and prompt in display order, then ask the policy on
+    // this worker immediately. Do not wait for prompt visibility or animation. Retain the typed P in the request as for human input;
     // clone P into the owned display enum and borrow P.as_prompt() for the policy.
     // P is Sync so the typed validator can be shared with the display thread.
-    // The AI owns this request; human replies cannot resolve it.
+    // The AI owns this request; human replies cannot resolve it. Its display
+    // snapshot may arrive after computation has already resolved the request.
     // Simulation does not make this display copy or allocate a request.
     // Convert the selected index with select_response. Check cancellation before
     // returning. The game chooses this route; Reactant does not identify players

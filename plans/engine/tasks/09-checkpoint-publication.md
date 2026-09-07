@@ -1,7 +1,7 @@
-# 09. Publish immutable checkpoints with at most one waiting
+# 09. Publish immutable checkpoints through a 32-slot queue
 
-A worker publishes ordered immutable state snapshots with at most one pending
-checkpoint, using lazy builders after reservation.
+A worker can publish 32 pending immutable state snapshots before waiting for
+display capacity. Lazy builders run after reservation.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -25,18 +25,20 @@ public display driver.
 The pending checkpoint limit must stop construction, not just queue insertion:
 
 ```text
-checkpoint A visible; B pending
-worker reaches present(C): C builders have not run
-B commits: C may be built
-worker changes private state: A and B remain immutable
+checkpoint A visible; hold display advancement
+present(B1) through present(B32): enqueue and return
+present(B33): wait before cloning or animation construction
+B1 commits: one slot opens and B33 may be built
+worker changes private state: published snapshots remain immutable
 ```
 
 ## Implementation
 
 1. Add checkpoint IDs, optional index-zero semantic events, and owned payload
-   records to the worker connection. Reserve the single pending-checkpoint
-   capacity before building snapshot/state-animation data; keep it reserved
-   while the main thread prepares that checkpoint.
+   records to the worker connection. Use one FIFO with exactly 32 pending slots.
+   Reserve before building snapshot/state-animation data. Reserved builders and
+   native preparation count; the displayed checkpoint does not. Release only on
+   display commit. Return after enqueueing; wait only when capacity is full.
 
 2. Implement cancellation checks on entry, after capacity acquisition, after
    payload construction, and after waits. Wake capacity waiters on
@@ -47,14 +49,18 @@ worker changes private state: A and B remain immutable
    ownership without designing a runtime deep-copy system.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
-   same one-pending-checkpoint limit. Expose only public checkpoint/lifecycle
-   observations to scenarios.
+   same 32-pending-checkpoint limit. Never drop/coalesce entries. Expose only
+   public checkpoint/lifecycle observations to scenarios.
 
 ## Acceptance
 
-- With checkpoint A presented and B pending, a worker attempting C has not
-  invoked C's builders. Releasing the capacity held by B permits exactly one
-  construction.
+- With A displayed and held, publication B1-B32 completes. B33's snapshot and
+  animation builders have not run. Moving B1 into preparation does not release
+  capacity; committing B1 permits exactly one additional construction.
+
+- Mix present, prompt, and final entries in the same bound. Deliver all entries
+  in FIFO order without dropping or coalescing. Report peak retained bytes for
+  representative states; the count bound does not promise a fixed byte budget.
 
 - Mutation of worker state after publication does not change the displayed
   snapshot in a correct logical-clone fixture.

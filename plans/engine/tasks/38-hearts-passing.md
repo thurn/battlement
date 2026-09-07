@@ -41,8 +41,8 @@ Pass -> validate answer, then present all four players' transfers together
    selected. Validate against the actual request; active invalid replies panic
    and ended-request replies are ignored. UI prevents illegal submission.
 
-3. Route AI passing through the context and choose_with_policy after
-   presentation, using the deterministic policy until task 40 and unchanged
+3. Route AI passing through the context and choose_with_policy immediately after
+   enqueueing, using the deterministic policy until task 40 and unchanged
    pre-exchange hands. Publish all transfers with one semantic exchange event.
    Display code hides AI choices even though the shared prompt enum contains
    them.

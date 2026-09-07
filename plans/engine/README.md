@@ -17,13 +17,14 @@ animation events, and a domain-specific context. `App::start_game` supplies the
 interactive connection and returns a session handle. `Game::execute` runs on a
 worker as ordinary synchronous Rust. It can publish a state snapshot, ask a
 player to choose a card, and continue after that response. The display sequences
-snapshots and animation while menus stay responsive. MCTS calls the same rules
-with a simulation context and an index-returning policy.
+snapshots and animation while menus stay responsive. A 32-slot pending queue
+lets live AI choices run ahead; only a full queue delays their publication. MCTS
+calls the same rules with a simulation context and an index-returning policy.
 
 The [rules/session contract](interfaces.md) and its [compiling
-sketch](interfaces.md#complete-contract-sketch) are the complete
-public contract for this part of the system. The topic pages and tasks below use
-that contract; a compiling placeholder is not a working engine.
+sketch](interfaces.md#complete-contract-sketch) are the complete public contract
+for this part of the system. The topic pages and tasks below use that contract;
+a compiling placeholder is not a working engine.
 
 ## A small example
 
@@ -155,8 +156,8 @@ archive; earlier engine work does not depend on those assets.
    Battlement](tasks/07-asset-tooling-boundary.md)
 8. [Add public display driving and deterministic virtual
    time](tasks/08-public-display-driver.md)
-9. [Publish immutable checkpoints with at most one
-   waiting](tasks/09-checkpoint-publication.md)
+9. [Publish immutable checkpoints through a 32-slot
+   queue](tasks/09-checkpoint-publication.md)
 10. [Implement typed interactive prompts and validated
     responses](tasks/10-typed-prompts.md)
 11. [Start game sessions, accept actions, and expose

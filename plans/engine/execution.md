@@ -53,12 +53,20 @@ An interactive action follows this sequence:
    state, invokes its lazy animation builder, and publishes the pair.
 6. Interactive `choose` publishes a snapshot and owned prompt in the same queue.
    The context chooses human input or an AI policy. Human input waits on the
-   worker; a live AI policy runs there after its prompt is displayed.
+   worker; a live AI policy runs there once its prompt is queued, without
+   waiting for that prompt to be displayed.
 7. Normal return reserves capacity and publishes final state with a final
    snapshot and no semantic animation event. It does not accept the result yet.
 8. The display finishes required final animation and a subsequent rendered
    frame. Only then does the session install the new accepted state and become
    `Ready`.
+
+`GameHandle` belongs to the UI/app. The AI policy never receives one. Put a
+complete AI turn, including successive card choices and searches, inside the
+triggering UI action's `execute()`. Do not dispatch an action per AI card
+through UI status changes: the final acceptance gate would serialize those
+searches behind presentation. The 32-slot FIFO controls how far that execution
+can run ahead; simulation primitives never consult it.
 
 The worker pool may reuse threads. The app processes dispatch, host events,
 presentation commits, status, and accepted-state updates serially. Context is
@@ -84,19 +92,30 @@ gain_energy(state);
 context.present(state, || StateAnimation::EnergyGained(1));
 ```
 
-The display controls when it advances; rules may compute ahead. Only one
-checkpoint may wait for display, including native preparation. Reserve capacity
-before snapshot cloning and animation construction, and release it only when
-that checkpoint commits as the displayed checkpoint.
+The display controls when it advances; rules may compute ahead. The session has
+one FIFO with a fixed capacity of **32 pending checkpoints**, shared by
+`present`, human/AI prompt publication, and automatic final publication. The
+displayed checkpoint does not count toward those 32. Reserved builders and
+checkpoints in native preparation still count; no second staging queue releases
+capacity early.
 
-If A is displayed and B is preparing, `present(C)` waits before cloning C. Once
-B commits, C may be built and wait while B's required animation finishes. Never
-move B into another unbounded queue to release capacity early.
+Reserve a slot before cloning state or building the animation, then return as
+soon as the completed entry is enqueued. `.present()` waits for capacity only
+when all 32 slots are occupied; it does not otherwise wait for animation or a
+rendered frame. A slot is released when its checkpoint commits as the displayed
+checkpoint, not when dequeued for preparation. Never drop or coalesce entries.
+
+For example, hold displayed checkpoint A. The worker can enqueue B1 through B32
+without advancing display. `present(B33)` then waits before cloning B33 or
+invoking its animation builder. When B1 commits, exactly one slot opens and B33
+can be built even while B1 animates. Cancellation wakes capacity waiters.
 
 Cloning runs to completion before rules mutate that state again. Retained data
-includes accepted and working states, the current snapshot, and one pending
-snapshot. Final publication transfers the working state rather than retaining an
-unbounded history. Native preparation has its own resource lifetimes.
+includes accepted and working states, the current snapshot, and up to 32 pending
+snapshots. This is a snapshot-count limit, not a byte limit: measure actual peak
+queue bytes using representative full game states. Final publication transfers
+the working state rather than retaining an unbounded history. Native preparation
+has its own resource lifetimes.
 
 Assign session/run/checkpoint identities once at publication. The sole semantic
 event uses animation index zero where occurrence identity needs an index.
@@ -118,8 +137,10 @@ state.play(card);
 ```
 
 Interactive choice publication clones current state even without a preceding
-`present`. Earlier checkpoints finish first. The prompt becomes active only with
-its own snapshot. The worker cannot mutate state during the wait.
+`present` and uses the same 32-slot FIFO. Human input becomes eligible only when
+its prompt snapshot is displayed after earlier checkpoints. A human `choose`
+waits for that response; the worker cannot mutate state during the wait. Live AI
+starts once its prompt is queued and does not wait for display readiness.
 
 Human requests expose `PresentedPrompt { prompt, handle }`. The display matches
 the enum and calls `handle.submit(prompt_data, response)`. The concrete prompt
@@ -160,9 +181,10 @@ the request lifetime. Human requests make the same one display copy. Simulation
 keeps `P` locally, allocates no request, and makes no clone.
 
 The live policy receives `&Game::State` and a borrowed `Game::Prompt<'_>`
-wrapper on the rules worker after the snapshot is displayed. It returns a stable
-option index. The helper selects directly from retained `P`, validates, and
-checks abandonment before returning. Human input cannot win an AI request.
+wrapper on the rules worker as soon as its snapshot/prompt is queued. It returns
+a stable option index without waiting for earlier animation or prompt
+visibility. The helper selects directly from retained `P`, validates, and checks
+abandonment before returning. Human input cannot win an AI request.
 
 Simulation constructs the same domain context in simulation mode and calls
 `Game::execute` directly. It runs synchronously on its caller's thread:
@@ -190,16 +212,20 @@ The connection carries:
 - Snapshot and semantic event for `present`.
 - Snapshot, prompt, response connection, and human/AI ownership for `choose`.
 - Final state and snapshot on normal return.
-- Response, presentation readiness, stop, and failure/stopped observations.
+- Response, human-input eligibility, stop, and failure/stopped observations.
 
-The first three publications share one pending slot. Keep failure and cleanup
-status separately so a full slot cannot hide shutdown. All output identifies its
-session and run. Workers never mutate the tree, call Unity, or reenter the C
-ABI.
+The first three publications share the 32-slot pending FIFO. Keep failure and
+cleanup status separately so a full queue cannot hide shutdown. All output
+identifies its session and run. Workers never mutate the tree, call Unity, or
+reenter the C ABI.
 
-For live AI, presentation readiness wakes the waiting helper to call its policy
-on the rules worker. There is no engine-managed independent AI job or controller
-message queue. Simulations may be scheduled elsewhere by game-owned code.
+Live AI calls its policy on the rules worker immediately after enqueueing its
+prompt; there is no presentation-readiness wait for AI. Several AI choices can
+resolve while their snapshots are still queued. The display may show those
+prompts informationally in order, but their ended response handles cannot resume
+rules. A subsequent human prompt remains non-actionable until displayed. There
+is no engine-managed independent AI job or controller-message queue. Simulations
+may be scheduled elsewhere by game-owned code.
 
 ## Worker cancellation
 
@@ -212,7 +238,7 @@ worker-owned context/state and destructors have finished.
 | --- | --- |
 | Waiting for publication capacity | Wake, release locks, unwind |
 | Cloning a snapshot or building an event | Finish, discard the value, unwind |
-| Waiting for a human or presentation readiness | Wake, release locks, unwind |
+| Waiting for a human response, including prompt visibility | Wake, release locks, unwind |
 | Entering interactive `present` or `choose` | Unwind before helper work |
 | Computing ordinary rules or a policy | Continue until a helper/return boundary |
 | Returning an answer or final state | Check and discard if abandoned |
@@ -270,11 +296,15 @@ save/load](hearts.md#explicit-save-and-resume).
 
 ## Manual QA
 
-Hold publication capacity, snapshot cloning, human choice, and final animation
-with deterministic fixture barriers. Stop/replace at each point, verify
-immediate `Stopped`, then release barriers and verify later cleanup without
-stale output. Stop during bounded ordinary computation and verify it is not
-forcibly stopped. Inject rules, response, and required-animation failures;
-verify `Failed`, stable accepted state, and restart. Save the previous accepted
-state while busy, then save the new one after final animation and a real
-rendered frame.
+Hold displayed checkpoint A while filling all 32 pending slots. Verify B1-B32
+publish, B33 waits before its builders run, and committing B1 releases one slot.
+Hold snapshot cloning, human choice, and final animation with deterministic
+fixture barriers. Run five sequential AI choices while display is held and the
+queue has room; each search must finish without presentation readiness.
+Simulation must continue without queue allocation or waits even when the live
+queue is full. Stop/replace at each point, verify immediate `Stopped`, then
+release barriers and verify later cleanup without stale output. Stop during
+bounded ordinary computation and verify it is not forcibly stopped. Inject
+rules, response, and required-animation failures; verify `Failed`, stable
+accepted state, and restart. Save the previous accepted state while busy, then
+save the new one after final animation and a real rendered frame.

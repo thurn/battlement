@@ -75,6 +75,7 @@ the inspector. Task 45 completes the set, building on the earlier feature tasks.
 | `attached-effects` | Compare live/captured anchors, trails, projectiles, light/audio properties, and retention after removal |
 | `occurrence-replay` | Deliver a sound/burst twice, seek, resume, and replay; show exactly when each should emit |
 | `prompt-cycle` | Select/deselect, fault-inject an invalid active reply, ignore stale replies, and use settings while waiting |
+| `snapshot-queue` | Hold display, enqueue 32 mixed checkpoints, verify the 33rd waits before builders, then commit one and observe one slot released; run consecutive AI searches without display readiness while capacity remains |
 | `cancellation` | Cancel at publication waits, inside builders, prompt waits, answer/completion races, and bounded ordinary computation reaching a helper/return boundary |
 | `preparation` | Delay assets, supersede a prepared update, fail a required asset, and verify complete visible updates |
 | `gate-replacement` | Replace required movement before/after a label, include multiple required animations, and reject old completion events |
