@@ -3,6 +3,16 @@ name: battlement-ditto
 description: Validate player-visible behavior with native Ditto scenarios or temporary capture fragments, inspect retained results, and update intentional screenshot baselines.
 ---
 
+Ditto is a screenshot testing tool for Unity.
+
+Determinism and stability are mandatory goals of ditto. It should be
+*architecturally impossible* to write a nondeterministic scenario in
+ditto, not just something you can achieve with careful programming.
+**Ditto should not allow you to test things if it cannot guarantee
+determinism**. Please  do not add Ditto features which cannot meet this
+bar, and please aggressively investigate any nondeterminism as an
+utmost priority issue.
+
 # Native scenario checks
 
 Run from the worktree root using
