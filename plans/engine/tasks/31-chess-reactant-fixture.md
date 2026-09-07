@@ -40,8 +40,8 @@ compare: same visible result and timing in old and Reactant fixtures
 
 2. Implement typed move `StateAnimation` descriptions and a worker action
    adapter around the existing chess rules library. Preserve UUIDs for moving
-   pieces; use a new incarnation/visual where promotion changes the host
-   contract.
+   pieces; preserve the promoted piece's UUID while replacing any incompatible
+   inner visual host required by its new piece kind.
 
 3. Translate normal moves, knight paths, capture retention, castling, en
    passant, and promotion into movement policies/sequences/effects using

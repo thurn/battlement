@@ -80,4 +80,5 @@ correctness scenarios.
 ## Manual QA
 
 Use the inspector to walk through delayed asset loading, draw reflow,
-dissolve/recreate, seek/replay, prompt cancellation, and required-track failure.
+hide/show reversal, destroyed-target dissolve cleanup, seek/replay, prompt
+cancellation, and required-track failure.

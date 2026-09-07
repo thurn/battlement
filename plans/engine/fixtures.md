@@ -3,7 +3,7 @@
 The Reactant sample is the home for small, repeatable engine demonstrations.
 Hearts proves that the engine supports a complete game; these scenes exercise
 behaviors that an ordinary Hearts match does not show, such as a card moving
-between UI and world space or reappearing during its old exit animation.
+between UI and world space or reversing an unfinished hide transition.
 
 Read this when implementing test scenes, the inspector, or performance capture.
 Related pages: [validation](validation.md), [requirement
@@ -46,7 +46,7 @@ transfer.
 | --- | --- |
 | `identity-transfer` | Move a card with local state among hand, pile, grid, fan, portal, and active roots; preserve state/refs and use new ancestry |
 | `duplicate-identity` | Declare a duplicate live UUID in a different root or domain; reject the update and retain the old display |
-| `incarnation-exit` | Remove and recreate a UUID during its old exit; fresh state/input belongs only to the new mount |
+| `visibility-transition` | Hide and show one UUID during its transition; preserve state/ref, keep one visual, and reject input while hidden |
 | `ui-world-transfer` | Transfer between UI and world using explicit orthographic and perspective mappings; preserve screen-space continuity |
 | `mixed-input` | Exercise UI blocking/passthrough, nested modals, captured touch, and visible keyboard/controller focus |
 | `composed-card` | Switch normal, compact table, hidden, and UI faces with rich text, badges, outlines, outcome preview, and a conditional action button |
@@ -100,7 +100,7 @@ Show:
 
 - Latest rendered snapshot and prompt; label these as Rust state, which may be
   ahead of playback.
-- Object UUID and mounted lifetime, including retained exits.
+- Object UUID and visible, hidden, destroyed, or retained-exit state.
 - Layout destination and actual displayed transform.
 - The animation controlling each property and the current blocking operations.
 - Sound/burst history and retained effect resources.

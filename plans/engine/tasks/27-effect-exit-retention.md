@@ -1,7 +1,7 @@
 # 27. Retain exits, anchors, and effects after logical unmount
 
 Dissolves and projectiles finish on retained old visuals without keeping logical
-components alive or affecting a replacement incarnation.
+components alive or allowing the destroyed UUID to identify another object.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -16,16 +16,16 @@ map](../source-map.md) · [Validation](../validation.md)
 effects](26-effect-occurrences.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Incarnation/retained visual reference ownership; scoped
-controls; generic effects; asset lifetime.
+**Starting code:** Retained visual reference ownership; scoped controls; generic
+effects; asset lifetime.
 
 ## Example
 
-An effect retains the native resources it still needs, not the logical card:
+An effect retains the native resources it still needs, not the logical entity:
 
 ```text
-remove card: detach handlers and subscriptions immediately
-dissolve and projectile continue on old native objects
+destroy fixture target: detach handlers and subscriptions immediately
+dissolve and projectile continue on its old native objects
 dissolve ends: projectile still retains its old anchor
 projectile ends: release the last retained resources
 ```
@@ -36,7 +36,7 @@ projectile ends: release the last retained resources
    ownership to task 15's retained native visuals.
 
 2. Track host/material/font/anchor dependencies until their final exit/effect
-   use. Keep anchors attached to the original incarnation while effects finish.
+   use. Keep anchors attached to the destroyed visual while effects finish.
 
 3. Keep blocking exit operations alive on retained visuals until they finish.
    A stop cancels them through existing host cleanup; it cannot accept the
@@ -51,8 +51,8 @@ projectile ends: release the last retained resources
 - Logical handlers/subscriptions detach immediately while the dissolve remains
   visible.
 
-- A new component with the same UUID has fresh state and independent
-  materials/effects while the old exit continues.
+- The destroyed UUID remains retired, and attempted reuse rejects the update
+  without disturbing its retained exit.
 
 - Multiple retaining effects release the host only after the last one ends, with
   no leaked assets after reset.
@@ -70,5 +70,6 @@ needed to test retention.
 
 ## Manual QA
 
-Remove/recreate a dissolving card, interact with the new one, and watch an old
-anchored projectile complete. Inspect resource counts after both lifetimes end.
+Destroy a dissolving fixture object while an anchored projectile continues.
+Attempt to reuse its UUID, then inspect resource counts after every retained use
+ends.

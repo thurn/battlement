@@ -33,7 +33,7 @@ move across parents: preserve hooks, update context and event path
 
 ## Implementation
 
-1. Complete identity-transfer, duplicate-identity, incarnation-exit,
+1. Complete identity-transfer, duplicate-identity, visibility-transition,
    ui-world-transfer, mixed-input, stores, composed-card, and contained-layout
    test scenes. Also add card-browser, card-selection-scenes, and
    simulation-preview as specified in fixtures.md.
@@ -65,8 +65,8 @@ move across parents: preserve hooks, update context and event path
 - Rich card faces, badges/text/outline ordering, contained layout, conditional
   controls, and independent inspection are visibly correct.
 
-- Duplicate rejection and old/new incarnation isolation pass across UI/world
-  roots.
+- Duplicate rejection and single-visual hide/show identity pass across UI/world
+  roots; destroyed UUID reuse is rejected.
 
 - Native geometry confirms screen-space continuity, context-dependent hit
   regions, and resize/reorientation behavior.
@@ -82,4 +82,4 @@ rich composed cards with Hearts texture-only cards.
 ## Manual QA
 
 Select each completed test scene and perform its visible exercise/reset. Inspect
-a rich card moving across domains and reappearing during an exit.
+a rich card moving across domains and reversing an unfinished hide transition.

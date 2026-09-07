@@ -183,8 +183,8 @@ archive; earlier engine work does not depend on those assets.
     tree](tasks/13-mixed-logical-tree.md)
 14. [Keep UUID identity across parents, roots, and
     portals](tasks/14-global-presentation-identity.md)
-15. [Remove components while keeping unfinished exit
-    visuals](tasks/15-incarnations-and-removal.md)
+15. [Destroy components while keeping unfinished exit
+    visuals](tasks/15-destruction-and-exit-retention.md)
 16. [Add stable state selectors and queued display
     stores](tasks/16-view-selectors-stores.md)
 17. [Add sprites, meshes, world text, and material

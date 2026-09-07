@@ -125,8 +125,13 @@ code may schedule independent simulations, but the engine does not require it.
 An abandoned live policy may finish bounded computation; its result is discarded
 at the choice boundary and cannot affect a replacement.
 
-Give every card a stable presentation UUID for its deal lifetime. Transfers
-preserve it; inspection copies and new deals get separate identities.
+Give each of the 52 cards one stable UUID that persists across deals, saves,
+loads, and new matches. A card always remains declared in exactly one logical
+zone such as the deck, a hand, the current trick, or a captured pile. Face-down,
+offstage, and inactive cards are hidden presentations of that entity, not
+destroyed cards. Transfers and visibility changes preserve the UUID; only
+simultaneous inspection and outcome-preview copies use separate presentation
+identities.
 
 ## Interaction and layout
 

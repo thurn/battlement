@@ -66,9 +66,9 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Old/new incarnation overlap on removal is task 15; animated cross-domain
-projection is task 24. This task proves logical continuity with static
-compatible hosts.
+Hidden-versus-destroyed lifetime behavior is task 15; animated cross-domain
+projection is task 24. This task proves logical continuity with static compatible
+hosts.
 
 ## Manual QA
 

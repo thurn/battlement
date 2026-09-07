@@ -268,7 +268,7 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
 ## Identity, components, and world layout
 
-Movement preserves a live component; removal ends its lifetime. Read
+Movement and hiding preserve an entity; committed absence destroys it. Read
 [identity](identity.md) and [world objects](world.md).
 
 - id(Uuid) applies across UI/world roots and portals; keys remain
@@ -310,25 +310,29 @@ Movement preserves a live component; removal ends its lifetime. Read
   **Verify:** Verify logical continuity, compatible visual reuse, and
   screen-space transfer.
 
-- Committed absence unmounts immediately; abandoned render does not; old
-  exits have no hooks/input.
+- Hidden entities remain mounted with stable state/refs and no input; showing
+  during a hide transition reuses one visual. Committed absence destroys and
+  unmounts immediately; abandoned render does not; terminal exits have no
+  hooks/input.
 
-  **Tasks:** [15](tasks/15-incarnations-and-removal.md),
+  **Tasks:** [15](tasks/15-destruction-and-exit-retention.md),
   [27](tasks/27-effect-exit-retention.md),
   [44](tasks/44-identity-composition-laboratory.md).
 
-  **Verify:** Remove and recreate the same UUID while its old visual exits.
+  **Verify:** Hide/show preserves identity without duplicate visuals; destruction
+  retires the UUID while its native exit finishes.
 
-- Separate mounted lifetimes; callbacks/refs target original lifetime; release
-  resources after final retained use.
+- Destroyed UUIDs cannot be reused; late callbacks are rejected through their
+  existing request/subscription/playback/session identity; release resources
+  after final retained use.
 
-  **Tasks:** [15](tasks/15-incarnations-and-removal.md),
+  **Tasks:** [15](tasks/15-destruction-and-exit-retention.md),
   [18](tasks/18-hit-regions-anchors.md),
   [27](tasks/27-effect-exit-retention.md), [28](tasks/28-inspection-replay.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
-  **Verify:** Old completion cannot destroy replacement; projectile retains only
-  original resources.
+  **Verify:** Late input cannot reach a destroyed target; a projectile retains
+  only the destroyed object's required resources.
 
 - Props complete without selectors; equal selected values skip subscriber
   renders; stable store version and queued writes.

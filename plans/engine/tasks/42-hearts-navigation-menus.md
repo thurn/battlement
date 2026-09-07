@@ -42,8 +42,9 @@ switch to pointer -> do not submit a duplicate answer
 3. Finish Resume/New Game/Exit menu flows, score/results focus order, and
    return-focus to the original card/control after a modal closes.
 
-4. Ensure a new request or removed card chooses a deterministic eligible focus
-   target without firing activation. Preserve existing sample input mappings.
+4. Ensure a new request or card that leaves the hand chooses a deterministic
+   eligible focus target without firing activation. Preserve existing sample
+   input mappings.
 
 ## Acceptance
 
@@ -53,8 +54,8 @@ switch to pointer -> do not submit a duplicate answer
 - Opening a modal excludes table activation and closing it restores visible
   focus.
 
-- Focus moves safely when its card is played/removed; stale activation cannot
-  affect a new incarnation.
+- Focus moves safely when its card leaves the hand or becomes hidden; stale
+  activation cannot answer a later request after the same card is shown again.
 
 - Pointer-to-controller switching does not lose selected cards or trigger a
   duplicate answer.

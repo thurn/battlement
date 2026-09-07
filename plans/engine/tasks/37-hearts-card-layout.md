@@ -38,9 +38,10 @@ supplies its data:
    `CapturedPile`, `Seat`, and table components from the snapshot. Build
    front/back surfaces and independent hit regions in Rust.
 
-2. Assign stable deal-lifetime presentation UUIDs from game/display data; never
-   generate IDs during render. Reuse identities for hand/trick/pile transfer and
-   use distinct IDs for inspection copies.
+2. Assign one stable UUID to each of the 52 cards from game/display data; never
+   generate IDs during render. Preserve it across every deal, save/load, new
+   match, hand/trick/pile transfer, and hidden presentation. Use distinct IDs
+   only for simultaneous inspection or outcome-preview copies.
 
 3. Implement South's fan, opponent back-facing hands, center trick positions,
    captured piles, scores, and active-seat/passing indicators. Preserve card
@@ -57,6 +58,9 @@ supplies its data:
 
 - Moving an explicit fixture card between hand/trick/pile retains its component
   state/ref/UUID.
+
+- Collecting and redealing all 52 cards preserves every UUID; offstage and
+  face-down cards remain declared rather than being destroyed.
 
 - An inspection copy has its own presentation identity and cannot collide with
   or move the primary card.

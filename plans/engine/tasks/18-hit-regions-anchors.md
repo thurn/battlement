@@ -34,8 +34,8 @@ WorldGroup::new().children((
 ## Implementation
 
 1. Implement BoxHitRegion and typed Anchor hosts with position/size/center
-   setters. Attach them to logical/world owners and retain refs
-   bound to the mounted lifetime.
+   setters. Attach them to logical/world owners and retain refs bound to the
+   entity UUID until destruction cleanup.
 
 2. Generate hit geometry and visual changes in the same render and order their
    ordinary commands together. Permit a Card
@@ -56,8 +56,8 @@ WorldGroup::new().children((
 - An anchor follows its parent's transform and survives compatible ancestry
   moves.
 
-- A ref from an old incarnation cannot target its replacement, and retained refs
-  remain tied to their old retained host.
+- A hidden entity keeps its ref, while a destroyed entity's retained refs remain
+  tied only to its terminal exit host and cannot target another object.
 
 - Incorrect target kind or missing required ref fails before any visible effect
   starts.
@@ -73,4 +73,4 @@ This is explicitly not typed prefab binding.
 ## Manual QA
 
 Move and rotate the parent while observing its anchor marker, change hit size,
-then remove/recreate the parent and inspect ref validity.
+then hide/show and finally destroy the parent while inspecting ref validity.

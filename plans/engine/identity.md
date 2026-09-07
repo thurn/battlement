@@ -2,9 +2,9 @@
 
 A card moving from a hand to the table should keep its component state, refs,
 and compatible native objects. Reactant uses a stable UUID to recognize that it
-is the same presentation even when its parent changes. Removing the card is
-different: it ends that component's lifetime, even if an exit animation remains
-visible for a while.
+is the same entity even when its parent or visibility changes. Hiding an entity
+does not destroy it. Committed absence does, even if a terminal exit animation
+remains visible for a while.
 
 Read this for matching, portals, context, subscriptions, refs, and removal.
 Related pages: [component architecture](architecture.md), [visible
@@ -14,8 +14,10 @@ objects](world.md).
 ## Put the identity on the component whose state should move
 
 Any component, UI element, or world object may declare `.id(Uuid)`. This UUID
-identifies one live presentation across all active application roots. Ordinary
-`.key()` remains scoped to siblings under one parent.
+identifies one persistent entity across all active application roots. Ordinary
+`.key()` remains scoped to siblings under one parent. An identified entity keeps
+the same UUID whenever it is hidden, shown, or moved; destroying it retires that
+UUID for the presentation runtime.
 
 The same card declaration can move between layouts without remounting:
 
@@ -33,7 +35,7 @@ UUID on every render describes a new object every time.
 A card and its simultaneous inspection copy need separate presentation UUIDs,
 even though they show the same rules object. The same rule applies to a UI
 thumbnail and a second enlarged view. A rules ID may double as a presentation
-UUID only when exactly one live presentation uses it.
+UUID only when exactly one persistent presentation uses it.
 
 ## Match before removing the former parent
 
@@ -75,36 +77,43 @@ while connecting the old and new visuals through that mapping. See [UI/world
 projection](world.md#move-between-ui-and-world-space). Missing required
 projection data is a render validation error; the engine must not guess pixel scale.
 
-## Removal ends logical state immediately
+## Hide without destroying identity
+
+Keep an entity declared while it is temporarily invisible. Its hidden
+presentation disables input and native visibility without unmounting hooks,
+subscriptions, refs, or compatible hosts. Moving an entity into a hidden deck,
+offstage group, or inactive presentation is still an ordinary identity-preserving
+move.
+
+Showing the entity again reconciles that same component and retargets, cancels,
+or reverses an unfinished hide transition on its existing visual. It does not
+create a second copy. Use a separate presentation UUID only for an intentional
+simultaneous representation such as an inspection or outcome preview.
+
+## Destruction ends logical state immediately
 
 Absence from a committed tree unmounts the component. An abandoned proposed
-render does not. Unmount detaches handlers and subscriptions and discards hooks.
+render does not. Unmount detaches handlers and subscriptions, discards hooks,
+and retires an identified entity's UUID. Reject any later declaration of that
+retired UUID before changing the committed display.
 
 With rendering ahead, logical unmount can precede native removal. Queue native
 removal after earlier commands that use the object; retain their data and native
 resources until execution and any retained effects finish. Dropping hooks must
 not cancel earlier queued movement or destroy its targets immediately.
 
-An **incarnation** is one continuous mounted lifetime of a UUID. Native refs and
-callbacks carry this lifetime ID as well as the UUID and host kind. This lets an
-old exit animation coexist safely with a newly mounted object of the same UUID:
-
-```text
-Card A, incarnation 1: removed; dissolving; no input or hooks
-Card A, incarnation 2: newly mounted; fresh hooks; accepts current input
-old dissolve completes: release incarnation 1 only
-```
-
 **Exit visuals** are the native objects and resources retained to finish removal
 animation. Their component no longer renders or receives input. Retained
 animation may change their visual properties, but it cannot access a live
 component closure to keep old hooks running.
 
-Uniqueness applies to live declarations, so the old retained visual does not
-make incarnation 2 a duplicate. Events from incarnation 1 cannot update or
-destroy incarnation 2. Release each native object, material instance, anchor,
-and asset after its last retained animation or effect use ends. A projectile may
-retain an old attachment point without retaining the logical card.
+Retained exit visuals remain addressed by the destroyed entity's retired UUID
+until cleanup; they cannot be reclaimed as a new entity. Drop late input for
+destroyed targets, and validate asynchronous callbacks using their existing
+request, subscription, playback, or session identities. Release each native
+object, material instance, anchor, and asset after its last retained animation
+or effect use ends. A projectile may retain an old attachment point without
+retaining the logical entity.
 
 ## Read only the state a component needs
 
@@ -134,6 +143,7 @@ keeps its hook identity but reads from its new provider.
 
 Move a card with a visible local counter between layouts, roots, and a UI
 portal. Change the provider at its new parent and verify the counter survives
-while context and event propagation change. Remove and recreate its UUID during
-a dissolve; confirm fresh state, isolated input, and correct cleanup of both
-incarnations. Attempt a duplicate live UUID and verify the old display remains.
+while context and event propagation change. Hide and show it during a transition;
+confirm its state and ref survive without creating a second visual. Destroy a
+separate object during a retained exit, verify its cleanup, and confirm reuse of
+its retired UUID is rejected without changing the display.

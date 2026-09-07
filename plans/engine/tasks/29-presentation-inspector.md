@@ -34,9 +34,9 @@ worker: action complete; Unity still playing queued commands
 ## Implementation
 
 1. Add a hidden-by-default inspector mount with checkpoint/prompt,
-   UUID/incarnation, layout targets/current transforms, property owners,
-   playbacks/labels/effects, active batch and blocking operations, and worker
-   lifecycle panels.
+   UUID and visible/hidden/destroyed state, layout targets/current transforms,
+   property owners, playbacks/labels/effects, active batch and blocking
+   operations, and worker lifecycle panels.
 
 2. Connect pause, speed, one-frame advance, supported seek, and explicit replay
    to the public inspection API. Keep inspection copies separate from live gameplay.

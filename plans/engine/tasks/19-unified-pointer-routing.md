@@ -27,7 +27,7 @@ Check actual geometric targeting before testing event callbacks:
 UI menu overlaps world card -> click reaches menu only
 UI decoration allows passthrough -> click may reach card
 card moves to another parent while captured -> drag stays captured
-card is removed -> emit capture loss once
+object is hidden or destroyed -> emit capture loss once
 ```
 
 ## Implementation
@@ -39,9 +39,10 @@ card is removed -> emit capture loss once
 2. Implement UI blocking with explicit passthrough, ordered modal scopes, and
    world candidate ordering by interaction layer/depth/stable sibling order.
 
-3. Use existing input identity and refs bound to the mounted lifetime. Validate
-   gameplay eligibility through status/prompt handles. Preserve capture across
-   reparenting; emit capture loss on removal and reject stale target events.
+3. Use existing input subscription identity and refs bound to the entity UUID.
+   Validate gameplay eligibility through status/prompt handles. Preserve capture
+   across reparenting; emit capture loss on hiding or destruction and reject
+   events generated for an inert or destroyed target.
 
 4. Add geometric public-driver input rather than requiring tests to bypass
    arbitration with a target ID. Retain direct low-level helpers only for
@@ -55,8 +56,8 @@ card is removed -> emit capture loss once
 - Exact-depth world ties resolve deterministically and obey interaction-layer
   priority.
 
-- A captured object can reparent without losing capture; removal loses capture
-  once and the new incarnation receives no old drag events.
+- A captured object can reparent without losing capture; hiding or destruction
+  loses capture once, and showing a hidden object cannot resume the old drag.
 
 - Portal capture/bubble order follows logical ancestry and default prevention
   returns synchronously.

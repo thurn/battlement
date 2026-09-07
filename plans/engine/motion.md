@@ -239,10 +239,12 @@ Scoped controls stop ordinary animation when their component unmounts. Declared
 exit animation and effects that still need visuals retain the prepared native
 objects, anchors, and assets. Logical handlers and subscriptions detach at once.
 
-For example, a removed card can dissolve while a projectile still follows an
-anchor on its old visual. Those refs keep the old incarnation, even if the UUID
-is mounted again. Release resources after their final retained use, not merely
-when hooks disappear. [Identity](identity.md) defines this lifetime separation.
+For example, a destroyed fixture target can dissolve while a projectile still
+follows an anchor on its old visual. Those refs keep the destroyed visual, and
+its UUID cannot be reused as a new entity. Release resources after their final
+retained use, not merely when hooks disappear. Hidden entities instead stay
+mounted and retarget, cancel, or reverse their visibility transitions when shown
+again. [Identity](identity.md) defines this distinction.
 
 ## Inspect and replay without changing game progress
 
@@ -271,5 +273,5 @@ Compare a UI property, world property, default layout move, and custom sequence
 using the same transition settings. Omit application movement configuration.
 Pause, slow, interrupt, and retarget each. Reflow a hand during reveal and check
 that hover responds while the blocking move waits for arrival. Seek across sound/burst
-labels, resume, and explicitly replay. Remove a card during dissolve and an
-attached projectile, then verify final resource cleanup.
+labels, resume, and explicitly replay. Destroy a fixture target during dissolve
+and an attached projectile, then verify final resource cleanup.
