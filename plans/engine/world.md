@@ -10,25 +10,30 @@ Related pages: [architecture](architecture.md), [identity](identity.md),
 
 ## Build a card from independent assets
 
-Provide builders for `WorldGroup`, `WorldSprite`, `WorldMesh`, `WorldText`,
-`BoxHitRegion`, and `Anchor`, plus cameras, lights, and opaque prefab visuals.
-New or migrated Reactant builders use argument-free `new()` and setters.
+Provide `world::Group`, `world::Sprite`, `world::Mesh`, `world::Text`, and
+`world::BoxHitRegion` builders, plus cameras, lights, and opaque prefab visuals.
+The namespace distinguishes scene objects from Reactant's UI components without
+repeating `World` in every type name. New or migrated Reactant builders use
+argument-free `new()` and setters.
 
 For example, a card's artwork, text, and hit region are separate children:
 
 ```rust
-WorldGroup::new().sort_order(card.sort_order).children((
-    WorldSprite::new().sprite(card.art).layer(0),
-    WorldSprite::new().sprite(assets.frame).layer(1),
-    WorldText::new().text(&card.rules).font(assets.rules_font).layer(2),
-    BoxHitRegion::new().size(card.hit_size).center(card.hit_center),
+world::Group::new().sort_order(card.sort_order).children((
+    world::Sprite::new().sprite(card.art).layer(0),
+    world::Sprite::new().sprite(assets.frame).layer(1),
+    world::Text::new().text(&card.rules).font(assets.rules_font).layer(2),
+    world::BoxHitRegion::new().size(card.hit_size).center(card.hit_center),
 ))
 ```
 
 A group establishes transform and optional render sorting. Mixed sprite/text
-ordering must work where glyphs overlap sprites. World text supports font
-selection, rich text, wrapping, alignment, tint, and opacity. Meshes use
-prepared mesh/material assets with explicit scaling and orientation.
+ordering must work where glyphs overlap sprites. The text builder adapts
+Battlement's existing world-space `GameObjectKind::Text` and `TextState`; do not
+introduce a parallel text protocol or native host. Preserve its font selection,
+rich text, wrapping, alignment, tint, and opacity while adding Reactant
+reconciliation and mixed render ordering. Meshes use prepared mesh/material
+assets with explicit scaling and orientation.
 
 Face changes are ordinary conditional children. A card can show normal, compact
 table, hidden, or UI representations from the same card props. Badges, outlines,
@@ -52,7 +57,7 @@ A shared Motion value can drive dissolve on several sprites, while a separate
 opacity track fades text:
 
 ```rust
-WorldSprite::new().sprite(card.art)
+world::Sprite::new().sprite(card.art)
     .material(assets.dissolve)
     .parameter(CardShader::Clip, dissolve_progress.clone())
 ```
@@ -63,25 +68,28 @@ retention keeps the necessary native objects alive until it finishes. Reverse
 dissolve uses the same properties with reversed targets. See
 [effects](motion.md#combine-sounds-particles-and-material-effects).
 
-## Author attachment points instead of looking inside prefabs
+## Target local points through object refs
 
-An **anchor** is a transform created by Rust to identify an attachment point.
-Typed refs connect effects to it without searching native object names.
+Effects target a local point on a typed world-object ref. The point combines an
+object identity with a position in that object's local space, so callers do not
+search prefab children or create empty attachment objects.
 
-For example, a card exposes separate projectile and trail origins:
+For example, a card can expose a trail origin:
 
 ```rust
-WorldGroup::new().children((
-    Anchor::new().reference(projectile_origin).position((0.0, 1.0, 0.0)),
-    Anchor::new().reference(trail_origin.clone()).position(skin.trail_position),
-    Trail::new().asset(assets.trail).attach_to(trail_origin),
-))
+let trail_origin = card_ref.local_point(skin.trail_position);
+
+Trail::new()
+    .asset(assets.trail)
+    .attach_to(trail_origin.follow())
 ```
 
-A target explicitly chooses to follow a live anchor or capture its position at
-start. Validate required refs and native kinds before command submission. Refs carry
-the mounted lifetime ID, so retained effects continue targeting the original
-object if the same UUID is later mounted again.
+A target explicitly chooses to follow the referenced object's transformed local
+point or capture its world position at start. Validate required refs and native
+kinds before command submission. Refs carry the mounted lifetime ID, so retained
+effects continue targeting the original object if the same UUID is later mounted
+again. When a point needs its own animated transform or children, use a
+referenced `world::Group` at that offset.
 
 ## Layout uses stable sizes in an explicit plane
 
@@ -93,7 +101,7 @@ A world layout declares an origin, orthogonal X/Y basis vectors, available
 extent, ordered child IDs and layout boxes, and algorithm parameters:
 
 ```rust
-WorldFlex::new()
+world::Flex::new()
     .plane(table_plane)
     .extent((12.0, 3.0))
     .gap(0.1)
