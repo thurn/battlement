@@ -97,7 +97,15 @@ namespace Battlement
             }
             if (!Structured(record, out string errorId, out string type, out string source))
             {
-                return null;
+                return CoreExecutionFailure(record)
+                    ? new DittoDetectedFailure(
+                        DittoErrorCode.RuntimeFatal,
+                        DittoErrorSource.DittoPlayer,
+                        entry.Sequence,
+                        null,
+                        record.Message
+                    )
+                    : null;
             }
             if (type == nameof(BattlementErrorType.Logged) && source == "Unity")
             {
@@ -130,6 +138,13 @@ namespace Battlement
             && record.Message.Contains(
                 nameof(BattlementCaughtFailureException),
                 StringComparison.Ordinal
+            );
+
+        private static bool CoreExecutionFailure(BattlementLogRecord record) =>
+            record.Severity == BattlementLogSeverity.Error
+            && (
+                record.EventName == "battlement.batch.failed"
+                || record.EventName == "battlement.operation.failed"
             );
 
         private static bool Structured(

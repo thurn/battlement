@@ -39,6 +39,24 @@ namespace Battlement.Tests
             Assert.That(failure.BattlementErrorId, Is.Null);
         }
 
+        [TestCase("battlement.batch.failed")]
+        [TestCase("battlement.operation.failed")]
+        public void FunctionalGateClassifiesCoreExecutionFailures(string eventName)
+        {
+            using var gate = new DittoFunctionalErrorGate(BattlementLogStore.Observe());
+            gate.Open();
+            BattlementLogStore.Add(
+                "battlement",
+                new BattlementLogRecord(BattlementLogSeverity.Error, eventName, "fixture failure")
+            );
+
+            DittoDetectedFailure failure = gate.Poll()!;
+
+            Assert.That(failure.Code, Is.EqualTo(DittoErrorCode.RuntimeFatal));
+            Assert.That(failure.Source, Is.EqualTo(DittoErrorSource.DittoPlayer));
+            Assert.That(failure.BattlementErrorId, Is.Null);
+        }
+
         [Test]
         public void FunctionalDiagnosticSurvivesTheSerializedErrorEvent()
         {

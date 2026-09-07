@@ -175,6 +175,10 @@ fn assert_preparation(response: &Response, action: ActionId, fonts: &[&str]) {
       .contains(&PreparedAsset::scene("app/content"))
   );
   assert!(response.messages.len() > 1);
+  let ResponseMessage::Batch(mutations) = &response.messages[1] else {
+    panic!("mutation batch");
+  };
+  assert_eq!(mutations.start, BatchStart::AfterEarlierBlockingWork);
 }
 
 #[test]

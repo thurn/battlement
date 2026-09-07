@@ -55,7 +55,7 @@ impl Delivery {
             .flat_map(|group| &group.commands)
             .all(|command| matches!(command.body, CommandBody::OperationCancel(_)))
           {
-            batch.start = BatchStart::AfterEarlierAssetPreparation;
+            batch.start = BatchStart::AfterEarlierBlockingWork;
           }
         }
       }
