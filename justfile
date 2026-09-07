@@ -9,8 +9,12 @@ battlement *args:
     cargo run --quiet -p battlement-cli -- "$@"
 
 # Build and run the chess sample; append flags such as `--web` or use `battlement` for another sample.
-sample *args:
+chess *args:
     cargo run --quiet -p battlement-cli -- sample run chess "$@"
+
+# Build and run the chess sample; append flags such as `--web` or use `battlement` for another sample.
+chess-ui *args:
+    cargo run --quiet -p battlement-cli -- sample run chess-ui "$@"
 
 # Open the chess Unity project for authoring; append flags such as `--release`.
 author *args:
