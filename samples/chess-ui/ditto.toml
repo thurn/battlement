@@ -1391,6 +1391,51 @@ accessibility_action = { target = { role = "button", name = "RESET" }, action = 
 accessibility_assert = { target = { role = "region", name = "Main transition specimen" }, role = "region", name = "Main transition specimen" }
 
 [[scenarios]]
+name = "arcade exit sequence"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206834\u2069. \u2068ArcadeExitSequence\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Arcade exit content" }, role = "region", name = "Arcade exit content" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "EXIT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "COLLAPSE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "BLACK" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Dismissed arcade stage" }, role = "region", name = "Dismissed arcade stage" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Arcade exit content" }, role = "region", name = "Arcade exit content" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "EXIT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "BLACK" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Dismissed arcade stage" }, role = "region", name = "Dismissed arcade stage" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Arcade exit content" }, role = "region", name = "Arcade exit content" }
+
+[[scenarios]]
 name = "background music provider"
 
 [[scenarios.steps]]

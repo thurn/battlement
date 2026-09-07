@@ -300,6 +300,10 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
               ])
               .times([0.0, 1.0]),
             )
+            .top_keyframes(
+              Keyframes::new([Length::percent(7.0), Length::percent(50.0)]).times([0.0, 1.0]),
+            )
+            .bottom(Length::percent(7.0))
             .x(24.0),
         )
         .transition_end(StyleTarget::new().opacity(0.7)),
@@ -330,7 +334,7 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
   descriptor.validate().unwrap();
   assert_eq!(descriptor.slots.len(), 1);
   let target = &descriptor.slots[0].target;
-  assert_eq!(target.tracks.len(), 3);
+  assert_eq!(target.tracks.len(), 5);
   assert_eq!(target.transition_end[0].value, MotionValue::Scalar(0.7));
   let opacity = target
     .tracks
@@ -366,6 +370,26 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
     ]
   );
   assert_eq!(clip.times.as_deref(), Some(&[0.0, 1.0][..]));
+  let top = target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::Top)
+    .unwrap();
+  assert_eq!(
+    top.values,
+    [
+      MotionValue::Length(Length::percent(7.0)),
+      MotionValue::Length(Length::percent(50.0)),
+    ]
+  );
+  assert_eq!(top.times.as_deref(), Some(&[0.0, 1.0][..]));
+  assert!(
+    target
+      .tracks
+      .iter()
+      .any(|track| track.property == MotionProperty::Bottom
+        && track.values == [MotionValue::Length(Length::percent(7.0))])
+  );
   let x = target
     .tracks
     .iter()

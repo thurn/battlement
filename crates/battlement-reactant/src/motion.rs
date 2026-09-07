@@ -227,6 +227,30 @@ impl StyleTarget {
     self.bind(MotionProperty::Opacity, value.erase())
   }
 
+  /// Sets the top inset.
+  #[must_use]
+  pub fn top(self, value: Length) -> Self {
+    self.length(MotionProperty::Top, value)
+  }
+
+  /// Sets top-inset keyframes.
+  #[must_use]
+  pub fn top_keyframes(self, value: Keyframes<Length>) -> Self {
+    self.length_keyframes(MotionProperty::Top, value)
+  }
+
+  /// Sets the bottom inset.
+  #[must_use]
+  pub fn bottom(self, value: Length) -> Self {
+    self.length(MotionProperty::Bottom, value)
+  }
+
+  /// Sets bottom-inset keyframes.
+  #[must_use]
+  pub fn bottom_keyframes(self, value: Keyframes<Length>) -> Self {
+    self.length_keyframes(MotionProperty::Bottom, value)
+  }
+
   /// Sets horizontal translation in panel pixels.
   #[must_use]
   pub fn x(self, value: f32) -> Self {

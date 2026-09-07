@@ -12,6 +12,7 @@ use crate::{
   background_music_harness::BackgroundMusicHarness,
   dropdown_animation_harness::DropdownAnimationHarness,
   effects_harness::EffectsHarness,
+  exit_sequence_harness::ExitSequenceHarness,
   font_scale_harness::FontScaleHarness,
   frame_harness::FrameHarness,
   frame_pulse_harness::FramePulseHarness,
@@ -245,7 +246,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeExitSequence", "Chess UI showcase title."))
-                .description(tx("ArcadeExitSequence and frame collapse synchronize dismissal; gameplay, quitting, and routed composition remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeExitSequence and frame collapse synchronize dismissal; gameplay, quitting, and routed composition remain unasserted.", "Chess UI showcase description."))
+                .child(ExitSequenceHarness::new()),
         )
         .page(
             ReviewPage::new()
