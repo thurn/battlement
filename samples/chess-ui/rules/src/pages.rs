@@ -20,6 +20,7 @@ use crate::{
   input_settings::InputSettings,
   input_skin_harness::InputSkinHarness,
   interaction_harness::InteractionHarness,
+  menu_transition_harness::MenuTransitionHarness,
   music_heartbeat_harness::MusicHeartbeatHarness,
   portrait_harness::PortraitHarness,
   privacy_harness::PrivacyHarness,
@@ -238,7 +239,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeMenuTransition", "Chess UI showcase title."))
-                .description(tx("ArcadeMenuTransition swaps keyed screens with beam and reveal effects; complete routed screens remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("ArcadeMenuTransition swaps keyed screens with beam and reveal effects; complete routed screens remain unasserted.", "Chess UI showcase description."))
+                .child(MenuTransitionHarness::new()),
         )
         .page(
             ReviewPage::new()

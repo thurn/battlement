@@ -21,7 +21,7 @@ const SETTINGS_SIDE_WIDTH: f32 = 297.0;
 const LAP_TIMES: [f64; 9] = [0.0, 0.24, 0.25, 0.49, 0.5, 0.74, 0.75, 0.99, 1.0];
 
 /// Application screen that determines frame-specific pulse geometry.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ArcadeScreen {
   Main,
   Settings,

@@ -56,6 +56,10 @@ pub mod arcade_frame_pulse;
 
 mod frame_pulse_harness;
 
+pub mod arcade_menu_transition;
+
+mod menu_transition_harness;
+
 pub mod background_music;
 
 mod background_music_harness;

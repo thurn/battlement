@@ -288,6 +288,18 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
         MotionTarget::new(
           StyleTarget::new()
             .opacity_keyframes(Keyframes::new([0.0, 0.8, 1.0]).times([0.0, 0.2, 1.0]))
+            .clip_inset_keyframes(
+              Keyframes::new([
+                [
+                  Length::percent(50.0),
+                  Length::px(0.0),
+                  Length::percent(50.0),
+                  Length::px(0.0),
+                ],
+                [Length::px(0.0); 4],
+              ])
+              .times([0.0, 1.0]),
+            )
             .x(24.0),
         )
         .transition_end(StyleTarget::new().opacity(0.7)),
@@ -318,7 +330,7 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
   descriptor.validate().unwrap();
   assert_eq!(descriptor.slots.len(), 1);
   let target = &descriptor.slots[0].target;
-  assert_eq!(target.tracks.len(), 2);
+  assert_eq!(target.tracks.len(), 3);
   assert_eq!(target.transition_end[0].value, MotionValue::Scalar(0.7));
   let opacity = target
     .tracks
@@ -336,6 +348,24 @@ fn public_targets_serialize_keyframes_overrides_repeats_and_transition_end() {
       ..
     } if easings == &[MotionEasing::Linear]
   ));
+  let clip = target
+    .tracks
+    .iter()
+    .find(|track| track.property == MotionProperty::ClipInset)
+    .unwrap();
+  assert_eq!(
+    clip.values,
+    [
+      MotionValue::ClipInset([
+        Length::percent(50.0),
+        Length::px(0.0),
+        Length::percent(50.0),
+        Length::px(0.0),
+      ]),
+      MotionValue::ClipInset([Length::px(0.0); 4]),
+    ]
+  );
+  assert_eq!(clip.times.as_deref(), Some(&[0.0, 1.0][..]));
   let x = target
     .tracks
     .iter()

@@ -19,6 +19,7 @@ fn audit_uses_only_retained_assets_and_exposes_every_runtime_treatment() {
       "battlement_rules::assets::ACTION_LABEL_QUIT",
       "battlement_rules::assets::ACTION_LABEL_RETURN",
       "battlement_rules::assets::ACTION_LABEL_SETTINGS",
+      "battlement_rules::assets::MENU_REVEAL_SCAN",
       "battlement_rules::assets::SETTINGS_PANEL_FRAME",
       "battlement_rules::header_artwork::GAME_LOGO",
       "battlement_rules::header_artwork::SETTINGS_TITLE",

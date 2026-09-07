@@ -14,6 +14,19 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
+battlement_reactant::asset_generator::generate! {
+  @background MENU_REVEAL_SCAN {
+    @canvas 966px 1388px;
+    @allow-clipping top right bottom left;
+    @filter-mode trilinear;
+    @raster-scale 1;
+    background: repeating-linear-gradient(0deg, transparent 0 7px, #64caff2e 7px 9px), linear-gradient(90deg, #0079ff1a, #9debff6b 48%, #e769ff24);
+    box-shadow: inset 0 0 54px #60beff29;
+    clip-path: polygon(4.5% 0%, 14.7% 0%, 17% 1.9%, 83% 1.9%, 85.3% 0%, 95.5% 0%, 100% 3.2%, 100% 18.7%, 98.1% 20%, 98.1% 98.6%, 96.5% 100%, 3.5% 100%, 1.9% 98.6%, 1.9% 20%, 0% 18.7%, 0% 3.2%);
+    isolation: isolate;
+  }
+}
+
 battlement_reactant::asset_generator::generate_family! {
   @text-image {
     @canvas 480px 146px;

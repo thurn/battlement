@@ -1349,6 +1349,48 @@ accessibility_action = { target = { role = "button", name = "RESET" }, action = 
 accessibility_assert = { target = { role = "button", name = "Enable background music" }, role = "button", name = "Enable background music" }
 
 [[scenarios]]
+name = "arcade menu transition"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206833\u2069. \u2068ArcadeMenuTransition\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Main transition specimen" }, role = "region", name = "Main transition specimen" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Settings transition specimen" }, role = "region", name = "Settings transition specimen" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "MIDPOINT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "MAIN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Main transition specimen" }, role = "region", name = "Main transition specimen" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "MIDPOINT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Settings transition specimen" }, role = "region", name = "Settings transition specimen" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Main transition specimen" }, role = "region", name = "Main transition specimen" }
+
+[[scenarios]]
 name = "background music provider"
 
 [[scenarios.steps]]

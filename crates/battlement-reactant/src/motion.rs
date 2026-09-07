@@ -525,6 +525,20 @@ impl StyleTarget {
     )
   }
 
+  /// Sets rectangular clip-inset keyframes in top-right-bottom-left order.
+  #[must_use]
+  pub fn clip_inset_keyframes(self, value: Keyframes<[Length; 4]>) -> Self {
+    self.set(
+      MotionProperty::ClipInset,
+      value
+        .values
+        .into_iter()
+        .map(MotionValue::ClipInset)
+        .collect(),
+      value.times,
+    )
+  }
+
   /// Clips this host's decorative painted surface to a stable polygon.
   ///
   /// This does not clip descendants or change picking geometry.
