@@ -47,7 +47,7 @@ Pass -> validate answer, then present all four players' transfers together
    Display code hides AI choices even though the shared prompt enum contains
    them.
 
-4. Animate the pass through movement policies and a required arrival label. Keep
+4. Animate the pass through movement policies producing blocking commands. Keep
    menus and inspection usable while the worker waits or cards move.
 
 5. Reset selection appropriately when the prompt/request changes, not on

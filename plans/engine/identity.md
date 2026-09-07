@@ -73,12 +73,17 @@ Moving a UI element to a world representation requires an explicit mapping
 between its screen rectangle and a world plane/camera. Preserve logical state
 while connecting the old and new visuals through that mapping. See [UI/world
 projection](world.md#move-between-ui-and-world-space). Missing required
-projection data is a preparation error; the engine must not guess pixel scale.
+projection data is a render validation error; the engine must not guess pixel scale.
 
 ## Removal ends logical state immediately
 
 Absence from a committed tree unmounts the component. An abandoned proposed
 render does not. Unmount detaches handlers and subscriptions and discards hooks.
+
+With rendering ahead, logical unmount can precede native removal. Queue native
+removal after earlier commands that use the object; retain their data and native
+resources until execution and any retained effects finish. Dropping hooks must
+not cancel earlier queued movement or destroy its targets immediately.
 
 An **incarnation** is one continuous mounted lifetime of a UUID. Native refs and
 callbacks carry this lifetime ID as well as the UUID and host kind. This lets an
@@ -103,7 +108,7 @@ retain an old attachment point without retaining the logical card.
 
 ## Read only the state a component needs
 
-Components may use props or optional selectors to read the displayed snapshot. A
+Components may use props or optional selectors to read the rendered snapshot. A
 selector compares its output and suppresses subscription-triggered component
 evaluation when equal. The selector may still run to compute that comparison.
 This helps sparse updates without changing visible behavior.
@@ -118,8 +123,9 @@ ScoreLabel::new().score(score)
 External stores hold display state such as selection and settings. Their writes
 queue notifications. Each render captures a stable version; a write during that
 render appears in a later complete update, never halfway through the current
-one. Aborted preparation must not install new subscriptions or clean up those
-belonging to the still-visible tree.
+one. Abandoned rendering must not install new subscriptions or clean up those
+belonging to the current tree. Use Reactant's existing render/commit lifecycle;
+these are local tree changes, not a host acknowledgement protocol.
 
 Test the same scene using explicit props as well as selectors. A moved consumer
 keeps its hook identity but reads from its new provider.

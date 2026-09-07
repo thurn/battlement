@@ -12,8 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Identity and state](../identity.md)
 - [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 12: Prepare native updates and acknowledge rendered
-frames](12-host-transactions.md) and all its required follow-ups must be
+**Prerequisite:** [Task 12: Connect snapshot rendering to the existing command queue](12-command-queue-integration.md) and all its required follow-ups must be
 integrated.
 
 **Starting code:** Extracted tree construction and host adapter; application
@@ -41,7 +40,7 @@ portal:
    Physical transforms/documents must not become the hook/context ownership
    hierarchy.
 
-3. Lower mixed hosts through task 12's preparation/commit protocol. Ensure
+3. Lower mixed hosts through task 12's existing command-batch path. Ensure
    events/refs retain a logical owner even when native hosts are physically
    elsewhere.
 
@@ -51,8 +50,8 @@ portal:
 
 ## Acceptance
 
-- Updating a shared prop/context changes the world and UI outputs in one commit
-  generation.
+- Updating a shared prop/context changes the world and UI outputs from the same
+  snapshot through ordered command groups.
 
 - Hooks run once per logical component, and portal events follow that
   component's logical ancestry.

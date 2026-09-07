@@ -50,7 +50,7 @@ physical iPhone 17/Galaxy S25: actual result or explicitly not run
    accepted deferral.
 
 5. Confirm performance reports remain advisory, while simulation and
-   concurrency/identity/commit contracts remain mandatory.
+   concurrency/identity/command-queue contracts remain mandatory.
 
 ## Acceptance
 

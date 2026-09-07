@@ -16,8 +16,8 @@ map](../source-map.md) · [Validation](../validation.md)
 unmount](27-effect-exit-retention.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Playback controls; delivered-effect history; checkpoint gate
-evaluator; retained visual ownership.
+**Starting code:** Playback controls; delivered-effect history; existing command/playback
+controls; retained visual ownership.
 
 ## Example
 
@@ -35,15 +35,16 @@ none of these operations advances a live game checkpoint
 1. Add capability-reported seeking for supported visual tracks and preserve the
    delivered sound/burst history when sampling earlier/later times.
 
-2. Resume live playback with only undelivered occurrences eligible. Save/restore
-   the live inspected playback state so inspection cannot masquerade as normal
-   timeline advancement.
+2. Pause live playback and inspect a separate visual copy. Seeking changes only
+   the copy. Leaving inspection resumes live playback at its paused position,
+   with only undelivered sound/burst entries eligible.
 
-3. Allocate a session-unique replay identity in a separate namespace; preserve
-   effect names within one replay and allocate a new ID for another replay.
+3. Submit replay commands with fresh ordinary batch/command/playback IDs. Reuse
+   normal duplicate handling and sequence-entry history for each playback.
 
-4. Reject inspection/replay events in the live gate evaluator. Keep replay
-   resource references independent from live/exit owners.
+4. Keep inspection batches separate from the active gameplay batch, so their
+   controls cannot modify queued gameplay operations. Keep resource
+   references independent from live/exit owners.
 
 5. Expose unsupported native seek capabilities explicitly rather than resetting
    particles and claiming equivalent replay.
@@ -56,8 +57,8 @@ none of these operations advances a live game checkpoint
 - Two explicit replays each play their occurrences once, while repeated delivery
   within one replay is deduplicated.
 
-- Seeking past ready or replaying a completion cannot advance a live checkpoint
-  or accept/save a game action.
+- Seeking past the animation end or replaying a completion cannot advance a live checkpoint
+  or mutate accepted rules state.
 
 - Stopping replay releases only its retained resources.
 
@@ -72,4 +73,4 @@ API here.
 ## Manual QA
 
 Pause before a reveal sound, seek around it, resume, then replay twice. Observe
-occurrence counts and an unchanged live checkpoint gate.
+occurrence counts and unchanged live game progress while inspecting the copy.

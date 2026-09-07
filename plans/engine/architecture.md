@@ -43,8 +43,8 @@ The roles are:
   for UI.
 - `HeartsAnimation` describes what happened. Display registrations translate
   that event into movements, sound, and particles.
-- `HeartsDisplay` is a component that builds the scene from the displayed
-  snapshot and active prompt. `CardView` is a component, not a game-state type.
+- `HeartsDisplay` is a component that builds the scene from each queued
+  snapshot and its prompt. `CardView` is a component, not a game-state type.
 
 Display components can read full state, but must render opponents' cards as
 backs and keep hidden values out of normal player UI/inspection. Policies
@@ -53,9 +53,11 @@ and information-safe heuristics. Reactant supplies no separate observation or
 controller-message types.
 
 Rules use one `present` event per checkpoint and typed `choose` responses. The
-[dispatch sequence](execution.md#from-dispatch-to-accepted-state) defines worker
-ownership, bounded publication, and final acceptance. The display owns the queue
-and decides when required animation is complete; rules may compute ahead.
+[dispatch sequence](execution.md#from-dispatch-to-accepted-state) defines
+worker ownership, bounded publication, and final acceptance. The Rust consumer
+renders queued snapshots and submits ordinary ordered Battlement batches
+without waiting for Unity. Battlement waits for blocking operations before
+executing subsequent commands.
 
 Movement needs no configuration. Existing objects use an engine default
 transition, customizable locally or through inherited `MotionConfig`. Entry and
@@ -109,12 +111,12 @@ existing standalone sample workspaces.
 - `reactant-rules` owns execution, worker communication, generic typed response
   machinery, and connection mechanics. It has no component or Unity dependency.
 - `reactant` owns application registration, world components, layouts,
-  checkpoint presentation, effects, and convenient reexports.
+  snapshot-to-batch integration, effects, and convenient reexports.
 - `reactant-testing` owns public display scenarios using Battlement's fake host.
 - Reactant asset libraries and the CLI own Reactant asset declarations,
   generated paint, and related preparation.
 - Battlement owns the protocol, C ABI, generic Unity hosts, generic asset
-  loading, and low-level fakes.
+  loading, command scheduling and operation completion, and low-level fakes.
 - Game Rust code owns rules, state, action validation, owned prompt data and
   policies, AI, saves, display components, and effect selection.
 

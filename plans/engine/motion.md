@@ -86,7 +86,9 @@ underlying value on release. Disjoint properties may animate concurrently.
 Explicit controls claim their declared properties. Reject accidental overlapping
 writes inside a sequence during preparation; permit them only with explicit
 replacement. A new playback interrupts the former writer for those properties.
-Required work must transfer its completion requirement or abandon the action.
+For blocking gameplay placement, defer conflicting sequences until the active
+operation finishes. Local interaction cannot cancel that operation. Cosmetic
+replacement uses existing Motion controls and command conflict behavior.
 
 Drag can take placement only when gameplay eligibility permits it. It cannot
 steal a card from a required draw sequence. On release, move smoothly to the
@@ -105,10 +107,10 @@ target().position(reveal_anchor.capture_at_start())
 ```
 
 When the target changes, the host starts from the displayed pose at the moment
-it applies the update. Convert between layout spaces through world coordinates.
-Preserve spring velocity; a fixed-duration tween restarts its configured
-duration from the current pose. Reflow retains the playback ID and arrival
-requirement.
+it applies the update. Convert between layout spaces through world
+coordinates. Preserve spring velocity; a fixed-duration tween restarts its
+configured duration from the current pose. Reflow updates the current
+operation in place; it stays unfinished until arrival.
 
 During a reveal step, hand reflow changes the pending hand destination while the
 card still follows its reveal anchor. The later placement step reads the latest
@@ -130,21 +132,20 @@ let draw = AnimationSequence::new()
     .animate(card, target().position(reveal.follow()), quick_move())
     .label("reveal")
     .animate(card, target().rotation(face_up), flip_transition())
-    .animate(card, target().position(card.layout_destination()), settle())
-    .label("ready");
+    .animate(card, target().position(card.layout_destination()), settle());
 ```
 
-Use `use_animate` during component rendering to obtain scoped controls. Build
-the sequence in a state-animation callback and require `ready` before the
-checkpoint advances. The callback reserves a playback during preparation; commit
-starts it.
-[Presentation](presentation.md#tell-the-display-when-a-checkpoint-may-advance)
-explains how retries avoid duplicate playback and how earlier labels work.
+Use scoped `use_animate` controls to author the draw when consuming the snapshot's
+`StateAnimation`. Submit it with the tree's ordinary commands as a blocking
+operation. Reaching the end lets Battlement execute the next queued group or
+batch; Rust may have rendered later snapshots already. No checkpoint-specific
+completion callback or label requirement is needed.
 
-Event-driven animations use the same machinery without needing a checkpoint.
-Rust constructs sequences and game-specific replacements. Unity executes the
-prepared tracks, labels, sounds, and successors without calling back to Rust for
-each step. Game-specific callbacks still run in Rust.
+The custom sequence replaces default placement for this card. Other cards still
+produce their own movement commands. Hover and cosmetic work are nonblocking.
+Event-driven controls use the same Motion and command machinery without a game
+snapshot. Unity executes sequence steps locally without a Rust callback for each
+step. [Presentation](presentation.md) defines snapshot consumption.
 
 ## Labels can follow actual completion
 
@@ -166,12 +167,12 @@ Reject cycles, missing labels/targets, unsupported properties, and required
 dependencies on infinite cosmetic loops before playback. Same-time labels and
 effects run in declaration order; final completion follows terminal entries.
 
-Every playback has an ID and generation. Each track finishes once with
-completed, interrupted, or failed. Stale events cannot satisfy current gameplay
-requirements. Retargeting keeps the requirement; replacement explicitly moves
-unfinished responsibility to its successor. Already accepted completion remains
-satisfied. See [replacement
-behavior](presentation.md#replace-animation-without-losing-required-work).
+Use existing Motion playback identities and outcomes. Adapt finite playback to
+Battlement's `IBattlementCommandOperation` so the scheduler waits for actual
+completion, not descriptor installation. Keep its blocking flag on the generated
+command. A nonblocking tail may continue after the batch finishes; an infinite
+operation cannot be blocking. Labels remain optional animation-authoring aids,
+not a second way to advance game state.
 
 ## Combine sounds, particles, and material effects
 
@@ -221,25 +222,16 @@ control flow:
 
 ## Play each transient effect once
 
-Rerendering must not play the same card sound again. A **transient occurrence**
-is one intended sound, burst, or other one-time effect. Its identity combines
-the action run, checkpoint, state-animation index zero, and stable effect name
-within that event. Each publication has at most one semantic event; it may
-produce many tracks and effects. Engine-assigned stable positions may supply
-names when unambiguous.
+Consume a snapshot's semantic event once when submitting its commands. Subsequent
+hover, selection, or settings renders use the same state without emitting that
+event again. Two intended sounds are two sequence entries; applications do not
+name a run/checkpoint/effect tuple to distinguish them.
 
-For example, two sounds in one state animation need separate identities:
-
-```text
-(run 7, checkpoint 3, animation 0, "move-sound")
-(run 7, checkpoint 3, animation 0, "check-sound")
-```
-
-Require unique effect names across all registrations and sequences for that
-animation. Reject duplicates before commit. Retrying preparation or delivering a
-request twice reuses the same identity. Deduplicate at both the Rust
-registration layer and native start boundary. A new session renders current
-state and emits transients only for subsequent state animations.
+Use existing batch/command duplicate suppression for redelivery and existing
+playback identity plus sequence-entry position for sound/burst delivery history.
+Repeated delivery of the same batch must not start it again. Reusing a command ID
+in a different batch remains a protocol error. A new game renders its current
+state without emitting past transient events.
 
 ## Keep visuals for their last effect, then release them
 
@@ -259,8 +251,8 @@ have already occurred. Resume emits only occurrences not previously delivered.
 Native capabilities must report seek support; unavailable particle rewinding
 must be visible in the inspector rather than simulated inaccurately.
 
-Explicit replay requests a fresh presentation of the sequence. It gets a new
-session-unique replay ID separate from live checkpoint IDs:
+Explicit replay runs a fresh playback with new ordinary command/playback IDs
+on an inspection copy, separate from the active gameplay batch:
 
 ```text
 seek backward over reveal, then resume: do not repeat its delivered sound
@@ -268,15 +260,16 @@ explicitly replay the draw: play the sound once for this new replay
 replay again: allocate another replay ID and play it once again
 ```
 
-Neither seeking nor replay can advance a live checkpoint or mutate rules state.
-Preserve the live playback state so leaving inspection returns to the current
-game presentation. Repeated delivery within one replay is still deduplicated.
+Pause the live playback while inspecting a copy; seeking/replay changes only
+that copy. Inspection playback never replaces the queued gameplay operations.
+Leaving inspection restores the live presentation and resumes from its paused
+position. Repeated delivery within one replay is still deduplicated.
 
 ## Manual QA
 
 Compare a UI property, world property, default layout move, and custom sequence
 using the same transition settings. Omit application movement configuration.
 Pause, slow, interrupt, and retarget each. Reflow a hand during reveal and check
-that hover responds while `ready` waits for arrival. Seek across sound/burst
+that hover responds while the blocking move waits for arrival. Seek across sound/burst
 labels, resume, and explicitly replay. Remove a card during dissolve and an
 attached projectile, then verify final resource cleanup.

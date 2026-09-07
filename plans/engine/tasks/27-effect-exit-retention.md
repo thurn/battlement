@@ -38,9 +38,9 @@ projectile ends: release the last retained resources
 2. Track host/material/font/anchor dependencies until their final exit/effect
    use. Keep anchors attached to the original incarnation while effects finish.
 
-3. Resolve required work on unmount by finishing it, rebinding to a successor,
-   or explicit abandonment. Never mark interruption as successful gate
-   completion.
+3. Keep blocking exit operations alive on retained visuals until they finish.
+   A stop cancels them through existing host cleanup; it cannot accept the
+   abandoned action. Cosmetic exits remain nonblocking.
 
 4. Implement neutral dissolve/reverse-dissolve with a shared material Motion
    value and separate text opacity, plus a projectile that outlives its source
@@ -57,8 +57,8 @@ projectile ends: release the last retained resources
 - Multiple retaining effects release the host only after the last one ends, with
   no leaked assets after reset.
 
-- Required exit work follows its gate contract; a stale completion cannot
-  satisfy the replacement's gate.
+- Blocking exits delay their batch; cosmetic exits do not. Old cleanup cannot
+  release objects belonging to a new mount.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

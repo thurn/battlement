@@ -12,26 +12,29 @@ moves to the table when its next declaration puts it there. Its UUID preserves
 its component state and visual identity during that move. UI and 3D objects
 share props, hooks, context, and event propagation.
 
-Each game implements `Game` with state, actions, a shared prompt enum, semantic
-animation events, and a domain-specific context. `App::start_game` supplies the
-interactive connection and returns a session handle. `Game::execute` runs on a
-worker as ordinary synchronous Rust. It can publish a state snapshot, ask a
-player to choose a card, and continue after that response. The display sequences
-snapshots and animation while menus stay responsive. A 32-slot pending queue
-lets live AI choices run ahead; only a full queue delays their publication. MCTS
-calls the same rules with a simulation context and an index-returning policy.
+Each game implements `Game` with state, actions, a shared prompt enum,
+semantic animation events, and a domain-specific context. `App::start_game`
+supplies the interactive connection and returns a session handle.
+`Game::execute` runs on a worker as ordinary synchronous Rust. It can publish
+a state snapshot, ask a player to choose a card, and continue after that
+response. Reactant renders queued snapshots ahead of playback; Battlement
+sequences the generated commands while menus stay responsive. A 32-slot
+snapshot queue connects the rules worker to Reactant. Live AI choices run
+inside the same execution without waiting for Unity. MCTS calls the same rules
+with a simulation context and an index-returning policy.
 
 The [rules/session contract](interfaces.md) and its [compiling
-sketch](interfaces.md#complete-contract-sketch) are the complete public contract
-for this part of the system. The topic pages and tasks below use that contract;
-a compiling placeholder is not a working engine.
+sketch](interfaces.md#complete-contract-sketch) are the complete
+public contract for this part of the system. The topic pages and tasks below use
+that contract; a compiling placeholder is not a working engine.
 
 ## A small example
 
 A **checkpoint** is an immutable logical clone of `Game::State`, optionally
 paired with one `StateAnimation` event or an active prompt. The snapshot says
-what is visible; display code interprets the event to select movements, sounds,
-and effects. The display presents checkpoints in order. For example, a draw
+what to render; display code interprets the event to select movements, sounds,
+and effects. Reactant renders these queued snapshots into ordinary Battlement
+command batches. For example, a draw
 should become visible before the energy it grants changes on screen:
 
 ```rust
@@ -56,7 +59,9 @@ The display component uses the current snapshot to describe both domains:
 )
 ```
 
-The display can animate the drawn card before showing the next checkpoint.
+Reactant can render the next snapshot immediately. Battlement delays execution
+of its commands until preceding blocking movement finishes; particles continue
+through existing nonblocking operations.
 Hover, inspection, and settings remain usable while that animation runs. [Rules
 and choices](execution.md#from-dispatch-to-accepted-state) defines the complete
 dispatch-to-acceptance sequence; [animation](motion.md) shows the corresponding
@@ -71,11 +76,13 @@ sample that exercises the engine as an application.
   and Unity world objects, including movement between parents and portals.
 - **Rust-built visuals:** sprites, meshes, world text, hit regions, attachment
   points, layouts, material effects, and card hierarchies composed in Rust.
+- **Existing command queue:** Reactant generates batches from queued snapshots;
+  Battlement owns ordering, blocking, cancellation, and duplicate delivery.
 - **One animation system:** property changes, layout movement, gestures,
   sequences, audio, and particles share timing and playback controls. Ordinary
   movement has an engine default; applications need not configure it.
 - **Synchronous rules:** intermediate state snapshots, typed choices, safe
-  cancellation, and final state acceptance after presentation finishes.
+  cancellation, and final state acceptance when rules finish publishing.
 - **Simulation:** the same rules with inline choice policies and no mandatory
   allocation or display work in execution primitives; owned prompt construction
   and policy work are measured separately.
@@ -112,7 +119,7 @@ its part of the implementation; it links the relevant topics and starting code.
 | Understanding what game code looks like and who owns what | [Architecture](architecture.md) |
 | Implementing or simplifying the rules API | [Rules and session API](interfaces.md) |
 | Working on rules, choices, cancellation, simulation, or saving | [Execution](execution.md) |
-| Updating visible objects or waiting for animation before advancing | [Presentation](presentation.md) |
+| Rendering snapshots into the existing command queue | [Presentation](presentation.md) |
 | Moving components, preserving refs, or removing objects | [Identity and state](identity.md) |
 | Building transitions, sequences, effects, or replay controls | [Animation](motion.md) |
 | Adding world visuals, layouts, or input | [World objects](world.md) |
@@ -162,8 +169,7 @@ archive; earlier engine work does not depend on those assets.
     responses](tasks/10-typed-prompts.md)
 11. [Start game sessions, accept actions, and expose
     recovery](tasks/11-accepted-action-runtime.md)
-12. [Prepare native updates and acknowledge rendered
-    frames](tasks/12-host-transactions.md)
+12. [Connect snapshot rendering to the existing command queue](tasks/12-command-queue-integration.md)
 
 ### Unified objects, input, and motion
 
@@ -194,8 +200,7 @@ archive; earlier engine work does not depend on those assets.
 
 ### Presentation and existing sample migrations
 
-25. [Start checkpoint animations and wait before
-    advancing](tasks/25-checkpoint-motion-gates.md)
+25. [Generate blocking and nonblocking animation commands from snapshots](tasks/25-snapshot-animation-commands.md)
 26. [Schedule sounds, particles, and attached
     effects](tasks/26-effect-occurrences.md)
 27. [Retain exits, anchors, and effects after logical

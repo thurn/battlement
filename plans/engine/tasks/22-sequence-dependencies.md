@@ -37,8 +37,9 @@ entry at absolute 250 ms still runs at 250 ms
    dependency graph containing targets, absolute/relative scheduling, completion
    edges, labels, and stable declaration order.
 
-2. Add typed ref targets and live/captured anchor resolution. Reserve a playback
-   handle during preparation and start only on commit.
+2. Add typed ref targets and live/captured anchor resolution. Lower sequence
+   starts into ordinary commands using the existing playback IDs; starting an
+   operation happens when the command queue executes the command.
 
 3. Validate cycles, missing labels/targets, unsupported properties, infinite
    required dependencies, and accidental overlapping property writes before
@@ -46,7 +47,8 @@ entry at absolute 250 ms still runs at 250 ms
 
 4. Execute prepared successor tracks and labels locally in Unity/fake without
    waiting for Rust callbacks. Emit correlated terminal and label events once
-   per live generation.
+   using existing playback identity. Expose a sequence as an ordinary blocking
+   or nonblocking command operation, without a separate progress evaluator.
 
 5. Expose pause/resume/speed/stop consistently through scoped use_animate
    controls and update the public authoring example.
@@ -68,8 +70,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Live layout destinations become real in task 24, checkpoint gate binding in task
-25, and sound/burst entries in task 26.
+Live layout destinations become real in task 24, snapshot animation commands in
+task 25, and sound/burst entries in task 26.
 
 ## Manual QA
 

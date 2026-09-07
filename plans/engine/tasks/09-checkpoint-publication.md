@@ -1,7 +1,7 @@
 # 09. Publish immutable checkpoints through a 32-slot queue
 
-A worker can publish 32 pending immutable state snapshots before waiting for
-display capacity. Lazy builders run after reservation.
+A worker publishes immutable snapshots through a 32-slot FIFO to the Rust
+consumer. Lazy builders run only after reserving capacity.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -25,44 +25,41 @@ public display driver.
 The pending checkpoint limit must stop construction, not just queue insertion:
 
 ```text
-checkpoint A visible; hold display advancement
+Rust consumer held on A
 present(B1) through present(B32): enqueue and return
-present(B33): wait before cloning or animation construction
-B1 commits: one slot opens and B33 may be built
-worker changes private state: published snapshots remain immutable
+present(B33): wait before snapshot/animation builders
+consumer takes B1: B33 may be built, even while Unity is paused
+worker changes private state: A and B remain immutable
 ```
 
 ## Implementation
 
-1. Add checkpoint IDs, optional index-zero semantic events, and owned payload
-   records to the worker connection. Use one FIFO with exactly 32 pending slots.
-   Reserve before building snapshot/state-animation data. Reserved builders and
-   native preparation count; the displayed checkpoint does not. Release only on
-   display commit. Return after enqueueing; wait only when capacity is full.
+1. Add owned snapshot/optional-event/optional-prompt records to the worker
+   connection. Preserve publication order and internal cancellation identity.
+   Use exactly 32 pending slots shared by all publication kinds. Reserved
+   builders count; taking an entry for rendering releases its slot. Reserve
+   before building and wait only if full. No host checkpoint ID is needed.
 
 2. Implement cancellation checks on entry, after capacity acquisition, after
    payload construction, and after waits. Wake capacity waiters on
    abandonment/closure using the shared predicate protocol.
 
-3. Preserve independent accepted, worker-private, and displayed-snapshot state.
+3. Preserve independent accepted, worker-private, and rendered-snapshot state.
    Add a deliberately shared-mutable fixture to document invalid logical-clone
    ownership without designing a runtime deep-copy system.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
-   same 32-pending-checkpoint limit. Never drop/coalesce entries. Expose only
-   public checkpoint/lifecycle observations to scenarios.
+   same 32-slot limit. Never drop/coalesce entries. Expose public publication
+   observations and measure peak snapshot bytes separately from native commands.
 
 ## Acceptance
 
-- With A displayed and held, publication B1-B32 completes. B33's snapshot and
-  animation builders have not run. Moving B1 into preparation does not release
-  capacity; committing B1 permits exactly one additional construction.
+- With the Rust consumer held on A, B1-B32 enqueue and B33 waits before its
+  builders. Taking B1 permits one more construction. Unity pause alone does not
+  prevent publication or consumption. Mix prompt/present/final entries and prove
+  FIFO order without dropping/coalescing; report peak retained bytes.
 
-- Mix present, prompt, and final entries in the same bound. Deliver all entries
-  in FIFO order without dropping or coalescing. Report peak retained bytes for
-  representative states; the count bound does not promise a fixed byte budget.
-
-- Mutation of worker state after publication does not change the displayed
+- Mutation of worker state after publication does not change the published
   snapshot in a correct logical-clone fixture.
 
 - Cancellation while blocked or building discards late output, unwinds after
@@ -73,9 +70,9 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Prompt publication is task 10, application acceptance task 11, host-acknowledged
-commit task 12. Use a public display consumer fixture, not a private channel
-assertion.
+Prompt publication is task 10, application acceptance task 11, and existing
+command-queue integration task 12. Use a public display consumer fixture, not a
+private channel assertion.
 
 ## Manual QA
 

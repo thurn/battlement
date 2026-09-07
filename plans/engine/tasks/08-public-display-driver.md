@@ -25,7 +25,7 @@ Separate time advancement from a rendered frame and worker synchronization:
 
 ```rust
 display.dispatch(move_card);
-display.wait_for_worker_started();
+display.wait_for_render_submission();
 display.advance_time(Duration::from_millis(125));
 display.object(card_id).assert_position(halfway);
 display.advance_frame();
@@ -69,9 +69,10 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-New Motion features extend this driver in their own tasks. The checkpoint/frame
-protocol arrives in task 12; its current frame operation must be explicit and
-ready to forward that acknowledgement.
+New Motion features extend this driver in their own tasks. Task 12 connects
+snapshot consumption to existing queue delivery without a native completion
+wait. Frame stepping remains a visual test control, not a prerequisite for
+advancing every snapshot.
 
 ## Manual QA
 

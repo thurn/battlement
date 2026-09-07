@@ -74,8 +74,8 @@ return the candidate's original legal-option index
 
 - Hold display while running five consecutive AI choices in one execution with
   fewer than 32 pending entries. Each policy runs without a display-ready
-  signal; snapshots remain ordered. A subsequent human choice still waits for
-  visibility.
+  signal; snapshots remain ordered. A subsequent human choice waits for a response; its native controls
+  become usable in queue order without a visibility acknowledgement.
 
 - Simulation skips snapshot/event builders and display waits, even when the live
   queue is full. Report its construction/search allocations instead of claiming

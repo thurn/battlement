@@ -52,7 +52,7 @@ Table::new().child(Card::new().id(card_id))
 - A counter/ref-bearing component moves from a soon-to-be-deleted parent to
   another root with state intact.
 
-- Duplicate UUIDs in different UI/world roots reject the entire prepared update
+- Duplicate UUIDs in different UI/world roots reject the entire rendered update
   and leave the previous display unchanged.
 
 - New provider values and capture/bubble paths apply after the move, with

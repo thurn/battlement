@@ -1,78 +1,71 @@
 # Run synchronous rules without blocking the display
 
 `Game::execute` runs on a Rust worker with private state and the game's context.
-It may publish snapshots or ask for typed choices. The display owns the queue
-and animation sequencing; Unity's main thread remains responsive.
+It may publish snapshots or ask for typed choices. Reactant renders queued
+snapshots
+into Reactant trees and ordinary Battlement batches. The existing command queue
+sequences blocking animation; Unity's main thread remains responsive.
 
 Read the [complete API](interfaces.md) and [contract
 sketch](interfaces.md#complete-contract-sketch) first. Related pages:
 [presentation](presentation.md), [Hearts](hearts.md), and
 [validation](validation.md).
 
-## Three state values serve different purposes
+## Rules state and rendered state can be ahead of Unity
 
-- The **accepted state** is the initial state or the last action whose final
-  presentation has completed. It remains available for explicit saves/recovery.
-- The worker mutates a private logical clone while computing the next action.
-- The **displayed snapshot** is an immutable logical clone currently read by
-  components. It may lag behind the worker.
+- The **accepted state** is the initial state or the last normally completed
+  action whose final publication has been consumed in Rust. It is available for
+  explicit saves/recovery, even while Unity still animates earlier commands.
+- The worker mutates a private logical clone while computing an action.
+- The **rendered snapshot** is the immutable clone most recently consumed by
+  Reactant. It supplies the next tree diff; it need not match Unity's current pose.
 
-For example, rules can increase energy while the display animates a card draw.
-The current snapshot contains the drawn card and old energy; the next queued
-snapshot contains the increased energy. Neither changes when the worker mutates.
+For example, Reactant can render the drawn card and increased energy while Unity
+is still animating the played card. Their commands wait in order on Unity.
+There is no separate accepted-display state or host acknowledgement handshake.
 
-`Game::logical_clone` creates both worker copies and display snapshots. These
-copies must not share mutable interior data. Immutable sharing is allowed.
-`Game::State` is owned and `Send + 'static`; the main thread wraps received
-snapshots in `Rc`. Do not add `Sync` unless actual sharing requires it.
-
-Snapshots contain the whole state. Display components are responsible for
-concealing hidden information. Only resulting visual declarations reach Unity;
-state and game-specific decisions stay in Rust.
+`Game::logical_clone` creates worker copies and snapshots. These copies must not
+share mutable interior data. Immutable sharing is allowed. State is owned and
+`Send` and the app may wrap received snapshots in `Rc`; do not add `Sync` unless
+actual sharing requires it. Only generated visual commands reach Unity.
+Components must conceal hidden information in player output.
 
 ## From dispatch to accepted state
 
-`App::start_game(initial_state, make_context)` stops/replaces the old session,
-constructs the context using its connection, and attaches the session
-internally. It accepts the initial state, queues entry presentation, and returns
-a cloneable `GameHandle`. Status is `Busy` until entry presentation completes,
-then `Ready`. Starting does not execute an action.
+`App::start_game(initial_state, make_context)` replaces the old session,
+accepts initial state, and queues its initial render. It constructs the context
+and returns a handle. `Busy` lasts until that entry is consumed in Rust, not
+until Unity finishes entry animation. Starting executes no rules action.
 
 An interactive action follows this sequence:
 
-1. `GameHandle::dispatch(action)` returns `Busy` before validating if entry,
-   another action, a prompt, or final presentation is unfinished. It queues no
-   extra action. Dispatch to `Failed` or `Stopped` is a programming error.
-2. `Game::is_legal_action` checks accepted state. False panics without cloning
-   or starting a worker. The UI prevents ordinary illegal inputs from
-   dispatching.
-3. The engine logically clones accepted state, schedules `Game::execute` with
-   the session's context on its Rust worker pool, and returns `Started`.
+1. `dispatch` returns `Busy` if initial publication or another rules action is
+   pending, including a human choice. It queues no extra action in that case.
+2. `is_legal_action` checks accepted state. False panics before cloning or
+   starting a worker; normal UI offers legal actions.
+3. Clone accepted state, move context to the worker, and return `Started`.
 4. Rules mutate private state and call `present` or `choose` as needed.
-5. Interactive `present` reserves queue capacity, logically clones current
-   state, invokes its lazy animation builder, and publishes the pair.
-6. Interactive `choose` publishes a snapshot and owned prompt in the same queue.
-   The context chooses human input or an AI policy. Human input waits on the
-   worker; a live AI policy runs there once its prompt is queued, without
-   waiting for that prompt to be displayed.
-7. Normal return reserves capacity and publishes final state with a final
-   snapshot and no semantic animation event. It does not accept the result yet.
-8. The display finishes required final animation and a subsequent rendered
-   frame. Only then does the session install the new accepted state and become
-   `Ready`.
+5. `present` reserves publication capacity, clones state, builds the animation
+   event, and publishes it. The Rust consumer renders and submits commands in
+   order, without waiting for Unity.
+6. `choose` publishes a snapshot and owned prompt. A human response resumes the
+   worker. A live AI policy runs after publication without waiting for display.
+7. Normal return publishes the final state with no semantic animation event.
+8. After the final entry is consumed and its commands submitted, install accepted
+   state, return context to the session, and set `Ready`. Empty output needs no
+   host command. Unity may still be playing any earlier submitted animation.
 
-`GameHandle` belongs to the UI/app. The AI policy never receives one. Put a
-complete AI turn, including successive card choices and searches, inside the
-triggering UI action's `execute()`. Do not dispatch an action per AI card
-through UI status changes: the final acceptance gate would serialize those
-searches behind presentation. The 32-slot FIFO controls how far that execution
-can run ahead; simulation primitives never consult it.
+AI policies receive state and a prompt, never a `GameHandle`. A UI-dispatched
+action can perform a complete AI turn with successive choices inside `execute`
+without returning to UI dispatch between cards. Live policies run immediately
+after enqueueing; only a full Rust publication queue delays that enqueue.
 
-The worker pool may reuse threads. The app processes dispatch, host events,
-presentation commits, status, and accepted-state updates serially. Context is
-available to only one action at a time and returns to the session after normal
-completion. Failure/stop discards interrupted context; replacement constructs a
-fresh one. The engine does not roll back game-owned external side effects.
+The app processes publications, responses, stop/failure, and acceptance serially.
+`Ready` means rules readiness, not visual completion. The application may compute
+and append another action while animation runs. Native gameplay controls are
+queued at the intended decision point; menus remain independently usable.
+Interrupted context is discarded on failure/stop and replaced on restart.
+The engine does not roll back game-owned external side effects.
 
 `accepted_state()` always returns a clone of the last accepted value. During
 steps 3-8, that is still the previous completed state. Saving that previous
@@ -92,36 +85,23 @@ gain_energy(state);
 context.present(state, || StateAnimation::EnergyGained(1));
 ```
 
-The display controls when it advances; rules may compute ahead. The session has
-one FIFO with a fixed capacity of **32 pending checkpoints**, shared by
-`present`, human/AI prompt publication, and automatic final publication. The
-displayed checkpoint does not count toward those 32. Reserved builders and
-checkpoints in native preparation still count; no second staging queue releases
-capacity early.
+The Rust consumer renders snapshots in order, submits their commands, and
+continues immediately. One FIFO has exactly 32 pending slots shared by present,
+human/AI prompts, and final publication. Reserve before cloning/building;
+release a slot when the consumer takes its entry. The snapshot being rendered
+is outside the pending queue. Never drop or coalesce entries.
 
-Reserve a slot before cloning state or building the animation, then return as
-soon as the completed entry is enqueued. `.present()` waits for capacity only
-when all 32 slots are occupied; it does not otherwise wait for animation or a
-rendered frame. A slot is released when its checkpoint commits as the displayed
-checkpoint, not when dequeued for preparation. Never drop or coalesce entries.
+Hold the Rust consumer on A: B1-B32 can enqueue, then B33 waits before its
+builders run. Taking B1 opens one slot. Pausing Unity alone does not hold slots:
+generated batches can accumulate under existing transport/queue limits. This
+bounds snapshot count, not bytes or downstream commands; measure peak queue bytes.
 
-For example, hold displayed checkpoint A. The worker can enqueue B1 through B32
-without advancing display. `present(B33)` then waits before cloning B33 or
-invoking its animation builder. When B1 commits, exactly one slot opens and B33
-can be built even while B1 animates. Cancellation wakes capacity waiters.
-
-Cloning runs to completion before rules mutate that state again. Retained data
-includes accepted and working states, the current snapshot, and up to 32 pending
-snapshots. This is a snapshot-count limit, not a byte limit: measure actual peak
-queue bytes using representative full game states. Final publication transfers
-the working state rather than retaining an unbounded history. Native preparation
-has its own resource lifetimes.
-
-Assign session/run/checkpoint identities once at publication. The sole semantic
-event uses animation index zero where occurrence identity needs an index.
-Registration names distinguish its multiple effects. Retries do not mint new
-identities. Default layout movement and frame requirements still apply when a
-checkpoint has no semantic event.
+Keep accepted state, working state, the snapshot being rendered, and up to 32
+waiting snapshots as needed. Final publication transfers working state instead of keeping
+an unbounded snapshot history. Internal session/run identity rejects abandoned
+worker output; existing batch/command IDs govern native delivery. No host
+checkpoint ID or animation index is needed. Consume each semantic event once;
+ordinary rerenders do not emit it again.
 
 ## Choice waits
 
@@ -137,10 +117,10 @@ state.play(card);
 ```
 
 Interactive choice publication clones current state even without a preceding
-`present` and uses the same 32-slot FIFO. Human input becomes eligible only when
-its prompt snapshot is displayed after earlier checkpoints. A human `choose`
-waits for that response; the worker cannot mutate state during the wait. Live AI
-starts once its prompt is queued and does not wait for display readiness.
+`present`. Its render queues prompt controls after preceding gameplay commands.
+The request exists in Rust immediately; native controls become usable when Unity
+reaches them. No visibility acknowledgement is needed. The worker cannot mutate
+state while waiting for a human response.
 
 Human requests expose `PresentedPrompt { prompt, handle }`. The display matches
 the enum and calls `handle.submit(prompt_data, response)`. The concrete prompt
@@ -181,10 +161,10 @@ the request lifetime. Human requests make the same one display copy. Simulation
 keeps `P` locally, allocates no request, and makes no clone.
 
 The live policy receives `&Game::State` and a borrowed `Game::Prompt<'_>`
-wrapper on the rules worker as soon as its snapshot/prompt is queued. It returns
-a stable option index without waiting for earlier animation or prompt
-visibility. The helper selects directly from retained `P`, validates, and checks
-abandonment before returning. Human input cannot win an AI request.
+wrapper on the rules worker after publishing the snapshot, without waiting for
+Unity. It returns a stable option index. The helper selects directly from
+retained `P`, validates, and checks abandonment before returning. Human input
+cannot win an AI request.
 
 Simulation constructs the same domain context in simulation mode and calls
 `Game::execute` directly. It runs synchronously on its caller's thread:
@@ -212,25 +192,22 @@ The connection carries:
 - Snapshot and semantic event for `present`.
 - Snapshot, prompt, response connection, and human/AI ownership for `choose`.
 - Final state and snapshot on normal return.
-- Response, human-input eligibility, stop, and failure/stopped observations.
+- Response, stop, and failure/stopped observations.
 
-The first three publications share the 32-slot pending FIFO. Keep failure and
-cleanup status separately so a full queue cannot hide shutdown. All output
-identifies its session and run. Workers never mutate the tree, call Unity, or
-reenter the C ABI.
+The first three publications share the 32-slot pending FIFO. Keep failure and cleanup
+status separately so a full slot cannot hide shutdown. All output identifies its
+session and run. Workers never mutate the tree, call Unity, or reenter the C
+ABI.
 
-Live AI calls its policy on the rules worker immediately after enqueueing its
-prompt; there is no presentation-readiness wait for AI. Several AI choices can
-resolve while their snapshots are still queued. The display may show those
-prompts informationally in order, but their ended response handles cannot resume
-rules. A subsequent human prompt remains non-actionable until displayed. There
-is no engine-managed independent AI job or controller-message queue. Simulations
-may be scheduled elsewhere by game-owned code.
+Live AI calls its policy after publishing the snapshot. It needs no display
+readiness signal, independent engine AI job, or controller-message queue.
+Simulations may be scheduled elsewhere by game-owned code.
 
 ## Worker cancellation
 
 `stop`, replacement, or app teardown immediately invalidates the run, discards
-pending/prepared output, and wakes blocked helpers. Public status becomes
+pending output, cancels outstanding host work through the existing queue, and
+wakes blocked helpers. Public status becomes
 `Stopped` immediately. The separate worker-stopped observation occurs only after
 worker-owned context/state and destructors have finished.
 
@@ -238,7 +215,7 @@ worker-owned context/state and destructors have finished.
 | --- | --- |
 | Waiting for publication capacity | Wake, release locks, unwind |
 | Cloning a snapshot or building an event | Finish, discard the value, unwind |
-| Waiting for a human response, including prompt visibility | Wake, release locks, unwind |
+| Waiting for a human response | Wake, release locks, unwind |
 | Entering interactive `present` or `choose` | Unwind before helper work |
 | Computing ordinary rules or a policy | Continue until a helper/return boundary |
 | Returning an answer or final state | Check and discard if abandoned |
@@ -276,35 +253,32 @@ fail its replacement.
 
 `GameHandle::status` and `use_game_status` expose `Ready`, `Busy`, `Failed`, and
 `Stopped`. Detailed errors go to diagnostics. Failed sessions retain accepted
-state and offer restart/exit. Required-animation failure follows this path;
-unexpected native visible-update failure also stops further work and shows the
-failure surface rather than claiming native rollback.
+state and offer restart/exit. A host gameplay failure stops presentation and
+reports recovery, but it cannot revert rules actions already accepted. Rebuild
+from accepted state on restart. Late nonblocking cosmetic failures are diagnostic
+and cannot fail a replacement session.
 
-## Accept final state only after it has been presented
+## Accept completed rules without waiting for animation
 
-The display owns animation sequencing and the advancement gate. Acceptance
-requires the final checkpoint to be committed, its required animation/label to
-finish, and a subsequent rendering opportunity for that visible generation. Even
-a checkpoint without a semantic event needs a rendered frame.
+When normal return's final publication is consumed in Rust, install the final
+state and set `Ready`. Submission to the existing command queue is sufficient;
+Unity need not report completion. A worker failure before that point retains
+the previous accepted state. Host failures never roll accepted state backward.
 
-Until then, dispatch returns `Busy` and `accepted_state()` returns the prior
-accepted state. When ready, installation and status change occur together.
-Explicit save/load is game-owned and uses a returned state copy. There is no v1
-autosave, acceptance subscription, or implicit save-on-exit. A write failure
-cannot invalidate an already accepted in-memory action. See [Hearts
-save/load](hearts.md#explicit-save-and-resume).
+`accepted_state()` copies the most recently completed rules action. During rules
+execution it returns the previous action; during playback it may return a state
+Unity has not yet reached visually. Explicit saves capture that logical state.
+There is no v1 autosave or implicit save-on-exit, and write failures do not undo
+accepted gameplay. See [Hearts save/load](hearts.md#explicit-save-and-resume).
 
 ## Manual QA
 
-Hold displayed checkpoint A while filling all 32 pending slots. Verify B1-B32
-publish, B33 waits before its builders run, and committing B1 releases one slot.
-Hold snapshot cloning, human choice, and final animation with deterministic
-fixture barriers. Run five sequential AI choices while display is held and the
-queue has room; each search must finish without presentation readiness.
-Simulation must continue without queue allocation or waits even when the live
-queue is full. Stop/replace at each point, verify immediate `Stopped`, then
-release barriers and verify later cleanup without stale output. Stop during
-bounded ordinary computation and verify it is not forcibly stopped. Inject
-rules, response, and required-animation failures; verify `Failed`, stable
-accepted state, and restart. Save the previous accepted state while busy, then
-save the new one after final animation and a real rendered frame.
+Hold the Rust consumer on A, publish B1-B32, and verify B33 waits before building.
+Taking B1 opens one slot. Run five consecutive live AI choices while Unity is
+paused; simulation still runs without a queue even when the live FIFO is full.
+Hold snapshot cloning and human choice with fixture barriers.
+Stop/replace at each point and verify immediate `Stopped`, then cleanup without
+stale output. Separately pause Unity while Rust consumes multiple snapshots and
+accepts a completed action. Save that accepted state, resume playback, and verify
+command order. Inject worker failure before acceptance and host failure after
+acceptance; recovery retains the correct logical state in both cases.

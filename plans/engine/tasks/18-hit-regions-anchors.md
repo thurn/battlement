@@ -34,22 +34,24 @@ WorldGroup::new().children((
 ## Implementation
 
 1. Implement BoxHitRegion and typed Anchor hosts with position/size/center
-   setters. Attach them to logical/world owners and correlate prepared ref
-   resolution with incarnation identity.
+   setters. Attach them to logical/world owners and retain refs
+   bound to the mounted lifetime.
 
-2. Keep hit geometry updates atomic with the visible commit. Permit a Card
+2. Generate hit geometry and visual changes in the same render and order their
+   ordinary commands together. Permit a Card
    face/context to change its collider dimensions through ordinary Rust props.
 
 3. Expose typed anchor references and live/captured target descriptors for later
    movement/effects. Reject a wrong native kind or missing required anchor
-   during preparation.
+   before submitting dependent commands.
 
 4. Create a fixture with a moving parent, an offset anchor, and a marker showing
    its current world position. Do not look up named prefab children.
 
 ## Acceptance
 
-- A collider size/center change agrees with the committed visible generation.
+- A collider size/center change follows the corresponding visual update through
+  the existing command path; native clicks exercise the resulting hit area.
 
 - An anchor follows its parent's transform and survives compatible ancestry
   moves.

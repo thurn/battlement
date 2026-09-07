@@ -1,205 +1,152 @@
-# Present complete states and wait for the right animation
+# Render game snapshots into the existing command queue
 
-The display must never show half of a checkpoint or accept input using handlers
-from a different visible state. Prepare expensive work first, then update the
-visible objects and their handlers together. Keep the previous display usable
-while new assets load.
+Rules publish the moments the player should see. Reactant renders those states
+into trees and generates ordinary Battlement commands. Unity works through its
+existing command queue, waiting for blocking operations and letting nonblocking
+operations continue.
 
-Read this for reconciliation delivery, native resource loading, animation
-requirements, and frame acknowledgements. Related pages: [rules and
-checkpoints](execution.md), [animation](motion.md), [identity](identity.md), and
-[validation](validation.md).
-
-## Prepare before changing what the player sees
-
-A render reads one immutable state snapshot and one version of display stores.
-It describes the new tree, matches object identities, computes layout, and
-constructs animation/effect requests. Required assets, host properties, and
-inactive native objects must be ready before the result becomes visible.
-
-For example, loading artwork for a newly revealed card can span several frames:
+For example, playing a card draws another card and grants one energy:
 
 ```text
-visible: face-down card, existing handlers, running hover animation
-prepare: load artwork; create inactive face; validate material parameters
-commit:  replace face, update handlers, start reveal animation together
+Rust                                       Unity command queue
+state: card played -> tree -> commands      move card to table (blocking)
+state: card drawn  -> tree -> commands       reveal and draw card (blocking)
+state: energy +1   -> tree -> commands       update energy label
+                                           particles continue (nonblocking)
 ```
 
-A **commit** is that complete visible update. A **commit generation** is its
-monotonically increasing identifier. Events use the identifier to reject work
-from an older visible state.
+Rust can generate all three updates before Unity finishes the first movement.
+It does not wait for animation, batch completion, or a rendered frame before
+rendering the next state. The command queue already provides the ordering.
 
-Each preparation records the run, checkpoint, current commit generation, and
-requested display revision. Recheck them immediately before committing. If the
-player changes a setting during preparation, discard the obsolete inactive
-resources and prepare the new version of that same pending checkpoint. Do not
-skip a required checkpoint just because display state changed.
+Read [execution](execution.md) for publication, prompts, and cancellation, and
+[animation](motion.md) for choosing how objects move.
 
-Abandonment also invalidates preparation. Discard reserved playback handles and
-inactive resources without starting sounds, particles, or input handlers.
+## The snapshot queue carries data
 
-## Native preparation and acknowledgement
+A queue entry contains an immutable `Game::State`, an optional `StateAnimation`,
+and an optional presented prompt. Other pages call this a **checkpoint**: it is
+simply a snapshot to render. Rules call `present` for intermediate changes and
+`choose` for a prompt. Normal return publishes the final state automatically.
 
-Add prepare, ready, commit, and discard operations to the Battlement protocol.
-The following is an example exchange; game code does not construct it:
+The Rust consumer takes entries in order, renders each against the previously
+rendered tree, and appends the resulting commands to Battlement. It can
+continue as soon as it has handed off those commands. Keep a FIFO of exactly
+32 pending snapshots between worker and consumer. Reserve before
+cloning/building; release a slot when the consumer takes the entry. Never drop
+or coalesce entries. This bounds snapshot count, not bytes or the number of
+commands Unity has yet to execute. Measure retained snapshot bytes separately.
+Do not claim a one-command-batch memory bound or introduce an animation wait
+to enforce it. Existing transport/queue limits still apply.
 
-```text
-Rust -> Unity: prepare update 18 for checkpoint 4
-Unity -> Rust: update 18 ready; all required assets loaded
-Rust -> Unity: commit update 18 as generation 9
-Unity -> Rust: generation 9 committed
-Unity -> Rust: checkpoint 4 had a rendering opportunity in generation 9
-```
+The component tree represents the most recently rendered state, which may be
+ahead of Unity's playback. Retain that tree for the next diff, not an additional
+host-acknowledged tree. The engine does not stream game snapshots into Unity.
 
-Preparation IDs are scoped to the session. Requests and responses carry the
-session and preparation ID, with the run/checkpoint and revision data needed to
-reject obsolete work. A repeated request with the same identity and body has no
-additional effect. A different body using an existing identity is invalid.
-Missing required dependencies produce an identified preparation failure, not a
-successful response with missing resources.
+## Generate ordinary ordered commands
 
-At commit, Unity performs these operations without yielding to another frame or
-input callback:
+Tree differences supply create, update, reparent, and remove commands. A changed
+layout target supplies a blocking movement by default. A `StateAnimation` can
+select a custom sequence, such as reveal, flip, then arrive in the hand.
 
-1. Extract and reparent surviving identified objects before removing ancestors.
-2. Apply validated properties, attachments, and visibility changes.
-3. Install new handler/ref mappings and animation/effect registrations.
-4. Publish the new generation and allow input against it.
+Several movements in a parallel group all finish before its successor starts.
+Cosmetic sounds, particles, hover, and loops are nonblocking. A custom sequence
+owns its selected properties instead of also generating default movement for
+those properties. To continue before a decorative tail ends, make the tail
+nonblocking. Optional sequence labels schedule steps or sounds; they are not a
+game-progress API.
 
-Rust retains pending and acknowledged trees separately. It adopts the new tree
-only after the matching commit acknowledgement. If an input event is queued
-before Rust processes that acknowledgement, hold it until the new handlers are
-installed, then validate its generation. Never dispatch it through old handlers
-or require a reentrant call into Rust.
+Preserve ordering across responses with existing `BatchStart` dependencies.
+Reactant's current app delivery sets batches to `AfterEarlierAssetPreparation`;
+the game-snapshot path must preserve `AfterEarlierBlockingWork` for ordered game
+updates rather than overwrite it. Keep local UI work independent. Dependencies
+between create/move/remove operations belong in normal ordered command groups.
 
-Large object populations must be constructed inactive during preparation. The
-final visible swap must fit in one frame. Predictable failures are caught before
-commit. An unexpected Unity failure during the swap stops the session and shows
-a failure surface; do not pretend arbitrary native changes can be rolled back.
+No-change output needs no command and no special frame boundary. If the player
+needs time to read a state, author an ordinary finite `TimeWait` in its display
+sequence. Rules do not sleep for animation.
 
-## Tell the display when a checkpoint may advance
+## Reuse the scheduler and Motion
 
-The display collects the animation completions or labels each checkpoint must
-wait for. Rules publish snapshots/events; they do not sequence the display. This
-collection is its **advancement gate**: all required entries must be satisfied
-before the next checkpoint can replace it. Ordinary movement is required by
-default; cosmetic animation does not block progress.
+[Reactant delivery](../../crates/battlement-reactant/src/app_delivery.rs)
+already submits [commits as
+batches](../../crates/battlement-reactant/src/commit.rs).
+[Commands](../../crates/battlement/src/commands/command.rs) carry blocking
+flags, and the
+[scheduler](../../Packages/com.battlement.client/Runtime/Host/BattlementBatchScheduler.cs)
+already waits on `IBattlementCommandOperation`.
 
-For example, one checkpoint moves two cards while a glow continues indefinitely:
+Connect generated Motion starts to that existing operation interface: the
+operation stays unfinished during playback, rather than completing when its
+descriptor is installed. Preserve blocking flags through Reactant lowering and
+reuse Motion's playback state, cancellation, and the command operation registry.
+The fake must exercise the same queue behavior. This is an adapter, not another
+scheduler. No batch-success notification or presentation-completion protocol is
+required.
 
-```text
-card A: wait for its draw sequence's "ready" label
-card B: wait until its ordinary movement arrives
-glow:   cosmetic; do not wait
-advance only when A is ready AND B has arrived
-```
+Load assets with existing asset commands and dependencies. Validate declarations
+and refs before submitting their dependent commands. Use inactive objects and
+ordered activation where a particular visual needs them. There is no general
+prepare/ready/commit/discard transaction, display generation, atomic scene swap,
+or per-snapshot rendered-frame receipt.
 
-An animation registration can choose an earlier label for its own movement. That
-replaces its default arrival requirement; it does not add a second requirement
-that still waits for arrival. Other cards' requirements remain. After the
-earlier label, remaining movement and cosmetic effects may continue.
+## Prompts and local interaction
 
-A checkpoint has at most one semantic event, but any number of display
-registrations may interpret it. Choice and final checkpoints have no event;
-default movement and frame requirements still apply.
+A human choice publishes its snapshot and waits for a response. Queue the prompt
+controls after earlier blocking gameplay commands, with the existing native
+enabled/hit-region properties determining when the player can use them. Submit
+answers through request-bound handles. A queued prompt does not need to tell
+Rust when it becomes visible; its eventual response is the necessary return
+message. Live AI can choose after publication and queue subsequent states
+without waiting for Unity at all.
 
-A registration is a callback that builds animation from one typed
-`StateAnimation`. The component reads the current checkpoint with
-`use_checkpoint::<StateAnimation>()`, obtains scoped animation controls with
-`use_animate()`, and creates its compatible card and anchor refs during
-rendering. It declares the refs on its world children.
+Request-specific actionable children use distinct existing native object IDs
+and retain their response handles. Do not reuse a still-visible old prompt's
+input target for a newer request. A stale target/ended request is ignored, never
+dispatched through a newer prompt's closure. Stable card visuals can remain
+identified while their actionable children change. Apply this to pointer,
+keyboard, and controller activation.
 
-For example, a `CardView` component filters the game's state-animation enum to
-draws of that card. The scoped name identifies this callback; the pattern
-selects which animations it handles:
+Menus and inspection use independent display state. Native hover offsets remain
+responsive without rerendering game state. Local menu commands may use existing
+independent batches; changes to the gameplay subtree must follow its queued
+commands, so a settings rerender cannot reveal the final hand or score early.
+Classify delivery by the affected commands, not merely by whether a click or
+worker caused the render. Do not resend a complete future game tree to implement
+a local hover or menu update.
 
-```rust
-let checkpoint = use_checkpoint::<StateAnimation>();
-let animate = use_animate();
-checkpoint.on_animation(card_ref.scoped_name("draw"), move |animation, cx| {
-    if let StateAnimation::CardDrawn(id) = animation {
-        if *id == card_id {
-            let playback = animate.start(draw_sequence(card_ref, reveal_ref));
-            cx.require(playback.reached("ready"));
-        }
-    }
-});
-```
+Render each semantic event once when its queue entry is consumed. Later settings
+or selection renders update ordinary props without replaying that event. Reuse
+existing batch/command duplicate suppression and Motion playback identity for
+transport redelivery; game code needs no checkpoint/effect numbering scheme.
 
-Here `card_id` is the rules card ID; `card_ref` is a typed ref on that
-component's native card group, and `reveal_ref` identifies a Rust-created
-anchor. The runtime resolves these against the prepared tree before running the
-callback. Missing or incompatible required refs fail preparation before any
-effect starts.
+Reflow retargets the currently executing move in place when it can be expressed
+as a host layout/target update. Future gameplay moves remain ordered commands.
+A rerender based on a future state cannot overtake those commands. Hover and drag
+cannot cancel blocking gameplay placement; cosmetic replacement uses existing
+controls. There is no transfer of progress requirements between playbacks.
 
-The registration name is stable within that animation and must be unique. The
-`scoped_name` helper combines this object's stable presentation identity with
-"draw", so multiple card components can declare the same local name safely. A
-parent can instead register one callback that handles several moved cards.
-Reject duplicate registrations with the same complete identity.
+## Rules completion and failure
 
-The callback reserves playback rather than starting Unity work immediately.
-Rerenders, preparation retries, and duplicate delivery reuse the
-checkpoint/animation/registration identity. Commit installs the playback and
-requirement together and starts it once. Event-driven `use_animate` uses the
-same preparation machinery without requiring a gameplay checkpoint.
+Normal rules return accepts the final logical state once its final publication
+has been handed to the Rust consumer. It does not wait for Unity. `Ready` means
+the rules can accept another action, not that animation has stopped. Application
+code may enqueue the next action; normal player controls become available at
+their authored position in the native command queue.
 
-## A rendered frame is also required
-
-The next checkpoint needs both satisfied animation requirements and a rendering
-opportunity after satisfaction. Command receipt, a poll, or elapsed time is not
-proof that the player could see the state.
-
-Unity sends a post-render/end-of-frame acknowledgement containing run ID,
-checkpoint ID, commit generation, and frame sequence. Ignore acknowledgements
-for abandoned runs, old generations, or frames before the requirements were
-satisfied. The fake's `advance_frame()` produces the equivalent boundary.
-
-```text
-frame 10: card is still moving       -> cannot advance
-between frames: "ready" is reached   -> still cannot advance
-frame 11: checkpoint can render      -> next checkpoint may be committed
-```
-
-No-movement and equal-pose checkpoints satisfy animation requirements
-immediately, but still need this frame. Initially admit at most one checkpoint
-commit per rendered frame. Suspended or minimized hosts must not invent frames
-to unblock rules. On resume, use real playback and frame acknowledgements.
-
-## Replace animation without losing required work
-
-A reflow updates a movement's destination without changing what completion
-means. An explicitly authored replacement sequence must take over every
-unfinished requirement that belonged to the animation it replaces.
-
-For example, a draw waiting for `ready` can switch to a shorter animation:
-
-```text
-before replacement: wait for playback 20, generation 1, label "ready"
-after replacement:  wait for playback 21, generation 1, label "ready"
-late completion from playback 20: ignore
-```
-
-Process accepted events and replacement commits serially on the main thread. If
-an event satisfied the old requirement before replacement committed, retain that
-satisfaction permanently. Otherwise update the requirement to the new playback,
-generation, and label/completion atomically with replacement. Even if the old
-host animation finished earlier, an event accepted after replacement cannot
-satisfy the new requirement.
-
-Start replacement from the actual displayed pose. Cosmetic tracks may stop
-freely. Unfinished required work must finish, transfer responsibility, or fail
-and abandon the action. Never silently delete a requirement to make it pass.
-Inspection seeking and replay events cannot satisfy live requirements.
-
-A failed required track abandons the worker and that action's presentation,
-retains the last accepted state, and shows exit/restart. A new game must reject
-all late events from the failed run.
+A worker failure retains the previous accepted state. A host failure stops
+presentation and offers restart/exit; it does not undo rules actions that have
+already been accepted. Restart rebuilds from accepted state without replaying
+old events. Stop/replacement discards pending snapshots and uses existing host
+session/cancellation cleanup to cancel queued and running game commands. Old
+session messages cannot affect the replacement.
 
 ## Manual QA
 
-Delay artwork loading, change a setting, and verify only the latest prepared
-version becomes visible. During the swap, click the affected object and check
-that its visible state and handler agree. Step two no-animation checkpoints one
-frame at a time. Replace a required draw before and after `ready`, inject an old
-completion event, and verify advancement follows the rules above.
+Hold Unity playback on the played card while Rust renders draw and energy.
+Release playback and verify the existing queue preserves all three steps and
+nonblocking particles continue. Use menus while commands remain queued. Check
+that future state does not appear early, old prompt controls cannot answer a
+new request, and a new prompt becomes usable in command order. Exercise empty
+updates, explicit waits, delayed assets, stop/restart, and host failure after
+rules acceptance. Neither normal rendering nor live AI waits for Unity replies.

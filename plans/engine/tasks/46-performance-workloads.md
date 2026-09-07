@@ -36,8 +36,8 @@ report CPU/GPU/frame/input distributions and every missed target
    assets/seeds and recorded node/text/material counts. Include sparse/mass
    updates, 30 simultaneous tracks, prompts/menus, and concurrent AI.
 
-2. Instrument Rust render/layout/reconcile, complete host CPU, preparation
-   versus visible swap, GPU, allocations, queue depth, and
+2. Instrument Rust render/layout/reconcile, complete host CPU, asset loading,
+   command generation/execution, GPU, allocations, queue depth, and
    state-to-visible/input latency separately.
 
 3. Remove unconditional quadratic sibling/mutation planning on this workload

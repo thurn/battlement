@@ -25,21 +25,21 @@ inspection; performance counters.
 The inspector should answer why gameplay is waiting in plain terms:
 
 ```text
-checkpoint 12: visible
-waiting for card A: draw sequence, label "ready"
+latest rendered snapshot: energy increased
+Unity command queue: waiting for card A to arrive
 latest target: hand position updated after resize
-worker: waiting to publish next checkpoint
+worker: action complete; Unity still playing queued commands
 ```
 
 ## Implementation
 
 1. Add a hidden-by-default inspector mount with checkpoint/prompt,
    UUID/incarnation, layout targets/current transforms, property owners,
-   playbacks/labels/effects, preparation/commit/frame identity, and worker
+   playbacks/labels/effects, active batch and blocking operations, and worker
    lifecycle panels.
 
 2. Connect pause, speed, one-frame advance, supported seek, and explicit replay
-   to the public inspection API. Keep live gameplay gates isolated.
+   to the public inspection API. Keep inspection copies separate from live gameplay.
 
 3. Expose timing/allocation/publication counters with opt-in expensive
    observations; normal animation must not stream every transform to Rust.
@@ -53,10 +53,10 @@ worker: waiting to publish next checkpoint
 
 ## Acceptance
 
-- The inspector explains which required contribution is delaying a checkpoint
-  and which generation owns a property.
+- The inspector explains which blocking operation is delaying the next queued command group
+  and which animation currently controls a property.
 
-- Pause/step/replay controls obey task 28's gate/occurrence isolation and show
+- Pause/step/replay controls obey task 28's inspection/playback isolation and show
   unavailable seek controls honestly.
 
 - Reset abandons old runs, releases fixture resources, and starts one clean test
@@ -74,5 +74,5 @@ tasks 44-45 rather than fabricated now.
 
 ## Manual QA
 
-Use the inspector alone to diagnose delayed preparation, a pending prompt, a
+Use the inspector alone to diagnose delayed asset loading, a pending prompt, a
 retargeted movement, and an abandoned worker.

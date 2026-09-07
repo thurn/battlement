@@ -16,7 +16,7 @@ map](../source-map.md) · [Validation](../validation.md)
 portals](14-global-presentation-identity.md) and all its required follow-ups
 must be integrated.
 
-**Starting code:** Presence; refs; effect cleanup; host transactions; UUID
+**Starting code:** Presence; refs; effect cleanup; command delivery; UUID
 index.
 
 ## Example
@@ -36,8 +36,9 @@ old exit finishes: destroy lifetime 1 only
    live object.
 
 2. On committed absence, detach handlers/subscriptions, drop hook state, and
-   freeze the prepared host representation. Do not retain a live component
-   closure to implement exit visuals.
+   retain the existing host representation. Do not retain a live component
+   closure to implement exit visuals. Native removal stays ordered after earlier
+   queued uses; logical unmount must not cancel those earlier movements.
 
 3. Create a reference-counted retained visual/anchor/asset ownership record.
    Existing finite UI exits or an explicit fixture-held retained visual
@@ -58,8 +59,9 @@ old exit finishes: destroy lifetime 1 only
 - Logical subscriptions clean up at removal, and retained native resources
   release exactly once after the last retained use.
 
-- An abandoned preparation that omits the object does not unmount the committed
-  component.
+- An abandoned render that omits the object does not unmount the committed
+  component. Render a move and removal ahead with Unity paused; playback must
+  still move the object before its queued removal.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

@@ -30,17 +30,18 @@ ScoreLabel::new().score(score)
 
 ## Implementation
 
-1. Expose optional displayed-snapshot selector subscriptions with explicit
+1. Expose optional rendered-snapshot selector subscriptions with explicit
    equality. Keep props as a complete equivalent path and avoid introducing a
    game-global mutable model into component handlers.
 
-2. Capture a stable store version for each render/preparation. Queue writes
-   during rendering for a subsequent desired revision; do not mutate the current
-   prepared update in place.
+2. Capture a stable store version for each render. Writes during rendering
+   schedule a later render without replaying a semantic event. Independent menu
+   commands may run immediately; commands changing gameplay follow its earlier
+   queued work, so a rerender cannot expose a future state early.
 
-3. Commit subscription/effect changes only with the corresponding tree
-   generation. Cancel obsolete preparation subscriptions and clean up removed
-   consumers.
+3. Use Reactant's existing local commit lifecycle for subscriptions/effects.
+   An abandoned render installs nothing; clean up removed consumers when the
+   tree changes. There is no host display-generation handshake.
 
 4. Integrate moved-context consumers from task 14 so retained hook state does
    not imply a stale provider or duplicate subscription.
@@ -50,8 +51,8 @@ ScoreLabel::new().score(score)
 - Updating an unrelated field leaves the subscribed component's render count
   unchanged. The selector itself may still run to compare its output.
 
-- A store write during rendering appears in a later complete generation, never
-  half of the current frame.
+- A store write during rendering appears in a later render, without
+  changing the values being read by the current render.
 
 - An abandoned render does not publish a subscription, and a moved consumer
   reads the new provider exactly once.

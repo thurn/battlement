@@ -12,8 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [World objects and input](../world.md)
 - [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 25: Start checkpoint animations and wait before
-advancing](25-checkpoint-motion-gates.md) and all its required follow-ups must
+**Prerequisite:** [Task 25: Generate blocking and nonblocking animation commands from snapshots](25-snapshot-animation-commands.md) and all its required follow-ups must
 be integrated.
 
 **Starting code:** Unified Motion graph; asset preparation; Unity particle/audio
@@ -35,9 +34,10 @@ let draw = draw
    children. Resolve targets/assets during preparation; select live-following or
    captured positions explicitly.
 
-2. Use run/checkpoint/animation-index/effect-name identity across registrations
-   and host delivery. The single semantic event uses animation index zero.
-   Reject duplicate effect names and deduplicate delivered starts.
+2. Consume semantic events once at snapshot submission. Reuse existing
+   batch/command duplicate suppression and playback/sequence-entry delivery
+   history. Two intended effects are separate entries; require no new
+   run/checkpoint/effect identity or registration-name API.
 
 3. Execute occurrence crossings locally alongside labels/tracks in declaration
    order. Expose public audio/effect occurrence observations in fake/native
@@ -52,8 +52,8 @@ let draw = draw
 
 ## Acceptance
 
-- Two intended sounds at one label use different effect names; duplicate
-  delivery of either produces one occurrence.
+- Two intended sounds at one label are separate entries; batch redelivery and
+  ordinary rerenders produce no extra occurrences.
 
 - Optional absent configuration omits an effect, while a missing required asset
   prevents all dependent playback.

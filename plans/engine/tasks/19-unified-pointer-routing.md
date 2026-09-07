@@ -39,7 +39,8 @@ card is removed -> emit capture loss once
 2. Implement UI blocking with explicit passthrough, ordered modal scopes, and
    world candidate ordering by interaction layer/depth/stable sibling order.
 
-3. Carry commit/incarnation identity on input. Preserve capture across
+3. Use existing input identity and refs bound to the mounted lifetime. Validate
+   gameplay eligibility through status/prompt handles. Preserve capture across
    reparenting; emit capture loss on removal and reject stale target events.
 
 4. Add geometric public-driver input rather than requiring tests to bypass

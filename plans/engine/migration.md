@@ -14,7 +14,7 @@ separate work.
 | --- | --- |
 | basic | Remains a direct Battlement example; regression coverage stays active |
 | ui | Remains a direct Battlement UI protocol example |
-| tictactoe | Reactant components, worker actions, displayed snapshots |
+| tictactoe | Reactant components, worker actions, rendered snapshots |
 | chess | Reactant world composition/actions/Motion; opaque piece prefabs permitted |
 | reactant | Unified component APIs plus neutral engine laboratory |
 | chess-ui | Migrated currently implemented UI/gallery with behavior preserved |

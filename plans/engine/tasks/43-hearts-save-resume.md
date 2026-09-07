@@ -45,7 +45,7 @@ reload -> restore state 7 with fresh prompt/effect identities
 
 3. Continue loads valid state through App::start_game with a fresh context.
    Restore entry visuals without old transient replay, then schedule passing,
-   play, or results from the accepted phase after entry presentation. Old
+   play, or results from the accepted phase after submitting entry rendering. Old
    response handles cannot act on restored prompts.
 
 4. Keep New Game and completed actions from writing automatically. Exit does not
@@ -60,7 +60,9 @@ reload -> restore state 7 with fresh prompt/effect identities
 ## Acceptance
 
 - No save occurs at startup, acceptance, New Game, or Exit without explicit
-  Save. The initial deal and previous accepted state while busy can be saved.
+  Save. The initial deal and previous accepted state while rules are busy can
+  be saved. While Unity is paused, saving a later accepted action and reloading
+  restores that logical result without replaying pending commands.
 
 - A new action completing during a write cannot be reported as saved by that
   earlier write. Duplicate Save cannot start concurrent writes.

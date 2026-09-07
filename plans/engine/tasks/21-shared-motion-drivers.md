@@ -46,8 +46,11 @@ WorldGroup::new().animate(target().scale(1.0)).transition(transition);
    contract, using independent code paths where needed rather than calling Unity
    or production tree internals.
 
-5. Route retained generic low-level tween execution through shared drivers where
-   semantics match; do not break basic/ui protocol contracts.
+5. Expose running Motion as existing `IBattlementCommandOperation` instances,
+   including finite/infinite behavior, completion, cancellation, and failures.
+   Preserve generated command blocking flags; verify blocking waits and
+   nonblocking continuation through the existing batch scheduler. Reuse generic
+   low-level tween drivers where semantics match; preserve direct sample contracts.
 
 ## Acceptance
 

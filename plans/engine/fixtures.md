@@ -23,7 +23,7 @@ selector: draw-reflow
 reset: card face-down in deck, empty hand
 Draw: move to reveal, flip, and move into hand
 Reflow hand: change its target while the draw is running
-expected: no jump; "ready" occurs only when the latest target is reached
+expected: no jump; blocking draw ends when the latest target is reached
 ```
 
 Tests drive these scenes through the public display API and observe objects,
@@ -75,10 +75,9 @@ the inspector. Task 45 completes the set, building on the earlier feature tasks.
 | `attached-effects` | Compare live/captured anchors, trails, projectiles, light/audio properties, and retention after removal |
 | `occurrence-replay` | Deliver a sound/burst twice, seek, resume, and replay; show exactly when each should emit |
 | `prompt-cycle` | Select/deselect, fault-inject an invalid active reply, ignore stale replies, and use settings while waiting |
-| `snapshot-queue` | Hold display, enqueue 32 mixed checkpoints, verify the 33rd waits before builders, then commit one and observe one slot released; run consecutive AI searches without display readiness while capacity remains |
 | `cancellation` | Cancel at publication waits, inside builders, prompt waits, answer/completion races, and bounded ordinary computation reaching a helper/return boundary |
-| `preparation` | Delay assets, supersede a prepared update, fail a required asset, and verify complete visible updates |
-| `gate-replacement` | Replace required movement before/after a label, include multiple required animations, and reject old completion events |
+| `asset-loading` | Delay or fail assets; dependent commands wait or fail through the existing queue while unrelated menus work |
+| `snapshot-queue` | Play, draw, gain energy; wait for two blocking moves while particles continue; test a held Rust consumer filling 32 slots and blocking the 33rd builder, render ahead with Unity paused, then no-change entries, explicit waits, batch redelivery, and stop/restart |
 | `save-failure` | Explicitly save accepted state, fail its write/flush, retain playable state, and retry durability |
 
 Include cancellation on entry to primitives before any new builder, after a
@@ -99,28 +98,30 @@ moving?" or "Why has the next prompt not appeared?"
 
 Show:
 
-- Current checkpoint and presented prompt.
+- Latest rendered snapshot and prompt; label these as Rust state, which may be
+  ahead of playback.
 - Object UUID and mounted lifetime, including retained exits.
 - Layout destination and actual displayed transform.
-- The animation controlling each property, active labels, and required work.
+- The animation controlling each property and the current blocking operations.
 - Sound/burst history and retained effect resources.
-- Pending preparation, committed update, and rendered-frame acknowledgement.
+- Host command backlog and blocking operations, pending assets, and waiting
+  Rust snapshot. Host inspection is opt-in and never drives rules progress.
 - Running, cancellation-requested, and worker-stopped status.
 - Timing, allocation, and pending-checkpoint counters.
 
 For example, a delayed checkpoint might show:
 
 ```text
-checkpoint 12 is visible
-waiting for: card A / draw / "ready"
+latest rendered snapshot: energy increased
+Unity command queue: waiting for card A to arrive
+queued after draw: energy label update
 card A destination: hand slot 4 (updated after resize)
-last rendered frame: 80; completion has not occurred
 ```
 
 Provide pause, slower playback, one-frame advance, supported seek, and explicit
 replay. Show unavailable controls when native effects cannot seek. Inspection
-must not accidentally answer prompts, satisfy live animation requirements, or
-change rules state. Although snapshots contain full state, keep hidden Hearts
+must not accidentally answer prompts, finish gameplay operations by seeking,
+or change rules state. Although snapshots contain full state, keep hidden Hearts
 hands out of normal player/inspector output. Fixture-only private diagnostics
 must be explicit.
 
@@ -157,7 +158,7 @@ cards, simplify their content, or disable effects to improve the numbers. Report
 misses with the responsible code and reproducible follow-up cases.
 
 Record GPU time, allocations, pending-checkpoint count, state-to-visible
-latency, preparation cost, and final visible-swap cost separately. Use release
+latency, asset loading, command generation, and host command execution separately. Use release
 builds, warmup, and at least ten minutes of sustained operation. Record
 device/OS, resolution, graphics settings, refresh cap, browser version, build
 settings, and AI worker count.

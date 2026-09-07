@@ -90,13 +90,13 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
 A worker computes privately while the display presents ordered immutable state
 snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
-- Run-local checkpoint IDs and at most one semantic event at animation index
-  zero; choice/final checkpoints have no semantic event.
+- Ordered state/optional-animation/optional-prompt queue entries; choice/final
+  entries have no semantic event. No host checkpoint numbering is needed.
 
   **Tasks:** [02](tasks/02-rules-api-simulation.md),
   [09](tasks/09-checkpoint-publication.md).
 
-  **Verify:** Retry presentation without changing IDs or replaying effects.
+  **Verify:** Rerender the latest rendered snapshot without replaying its semantic event.
 
 - Immutable owned `Send` state snapshots, independent accepted and worker state;
   optional immutable sharing.
@@ -107,15 +107,16 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** Mutating the worker never changes a published or accepted value.
 
-- Exactly 32 pending checkpoint slots; reserve before builders, including
-  prompts and final output. Preparation counts; displayed state does not. No
-  extra queue, dropped entries, or coalescing.
+- Exactly 32 pending snapshot slots; reserve before builders, including prompts
+  and final output. The consumer releases a slot when taking its entry. Never
+  drop/coalesce. This bounds snapshot count, not bytes or native command backlog.
 
   **Tasks:** [09](tasks/09-checkpoint-publication.md),
-  [10](tasks/10-typed-prompts.md), [12](tasks/12-host-transactions.md).
+  [10](tasks/10-typed-prompts.md), [12](tasks/12-command-queue-integration.md).
 
-  **Verify:** With A held, B1-B32 enqueue and return. B33 waits before builders;
-  committing B1 releases exactly one slot. Measure peak retained queue bytes.
+  **Verify:** Hold the Rust consumer on A; B1-B32 enqueue and B33 waits before
+  builders. Taking B1 opens one slot. Unity playback alone does not hold capacity.
+  Measure peak snapshot bytes and run five AI choices without waiting for Unity.
 
 - Typed choices return directly on the synchronous stack; prompt data owns its
   choices and display/policy share one enum. Policies return stable indices.
@@ -126,12 +127,12 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   **Verify:** Two different typed choices run through nested functions in both
   modes.
 
-- One unresolved rules choice at a time. Human replies wait for prompt
-  visibility; AI policies start after enqueueing and may resolve before display.
-  Active invalid responses panic and ended-request responses are ignored.
+- One unresolved rules choice at a time. Human native controls follow earlier
+  commands; AI choices resolve after enqueueing, possibly before rendering.
+  Active invalid replies panic and ended-request replies are ignored.
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
-  [25](tasks/25-checkpoint-motion-gates.md).
+  [25](tasks/25-snapshot-animation-commands.md).
 
   **Verify:** Wrong typed replies fail compilation; fault-injected active
   invalid replies panic without crossing the C ABI. Valid replies resume once.
@@ -208,25 +209,27 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   enforce compatible panic/runtime settings.
 
 - Rules own Rust memory, not persistence/network/native handles; accepted state
-  survives worker or required-animation failure.
+  survives worker or host failure; accepted actions are never rolled back by
+  presentation failures.
 
   **Tasks:** [11](tasks/11-accepted-action-runtime.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
+  [25](tasks/25-snapshot-animation-commands.md),
   [43](tasks/43-hearts-save-resume.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
   **Verify:** Restart from the last accepted state after failure.
 
-- Final state accepted only after final checkpoint, required animation/label,
-  and a qualifying rendered frame.
+- Final state accepted when normal-return publication is consumed in Rust,
+  independently of Unity playback. Ready permits another rules action.
 
   **Tasks:** [11](tasks/11-accepted-action-runtime.md),
-  [12](tasks/12-host-transactions.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
+  [12](tasks/12-command-queue-integration.md),
+  [25](tasks/25-snapshot-animation-commands.md),
   [43](tasks/43-hearts-save-resume.md).
 
-  **Verify:** Next dispatch is Busy and accepted_state returns the prior state
-  until all conditions hold; that prior state can still be explicitly saved.
+  **Verify:** Hold final publication to observe Busy and the prior accepted
+  state; consume it with Unity paused and observe Ready and the new accepted
+  state. Save/reload that state without replaying queued commands.
 
 - Explicit persistence outside rules, no v1 autosave/acceptance callback; a
   write failure does not undo accepted gameplay.
@@ -301,7 +304,7 @@ Movement preserves a live component; removal ends its lifetime. Read
   **Verify:** Verify logical continuity, compatible visual reuse, and
   screen-space transfer.
 
-- Committed absence unmounts immediately; aborted preparation does not; old
+- Committed absence unmounts immediately; abandoned render does not; old
   exits have no hooks/input.
 
   **Tasks:** [15](tasks/15-incarnations-and-removal.md),
@@ -444,46 +447,49 @@ and [presentation](presentation.md).
   **Verify:** Cancel drag, remove focus, restore modal focus, and switch input
   modes safely.
 
-- Only presented decision points change game state; local inspection/settings
-  available throughout.
+- Native human controls become usable at their queued decision points;
+  application-driven rules may compute ahead. Local menus remain usable.
 
   **Tasks:** [10](tasks/10-typed-prompts.md),
   [11](tasks/11-accepted-action-runtime.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
+  [25](tasks/25-snapshot-animation-commands.md),
   [41](tasks/41-hearts-pointer-touch.md),
   [42](tasks/42-hearts-navigation-menus.md).
 
-  **Verify:** Input cannot start another action during required presentation.
+  **Verify:** Old native controls cannot submit a new request; queued controls
+  become usable in order while application-driven actions may compute ahead.
 
-- Stable render snapshot/store version; inactive preparation can span frames;
-  current display remains usable.
+- Stable snapshot/store values per render; independent menu updates can bypass
+  animation, while gameplay-subtree changes preserve earlier command ordering.
 
-  **Tasks:** [12](tasks/12-host-transactions.md),
+  **Tasks:** [12](tasks/12-command-queue-integration.md),
   [16](tasks/16-view-selectors-stores.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
-  **Verify:** Delay assets and update settings without exposing partially
-  prepared objects.
+  **Verify:** Hover/settings stay responsive without consuming queued snapshots
+  or replaying their events; future state does not appear early.
 
-- Revalidate run/checkpoint/base generation/display revision before commit;
-  discard obsolete resources and reserved playback.
+- Existing asset commands and dependencies precede commands that use resources;
+  normal Reactant refs/handlers and prompt validation govern input.
 
-  **Tasks:** [12](tasks/12-host-transactions.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
-  [45](tasks/45-effects-failures-laboratory.md).
+  **Tasks:** [12](tasks/12-command-queue-integration.md),
+  [18](tasks/18-hit-regions-anchors.md),
+  [19](tasks/19-unified-pointer-routing.md).
 
-  **Verify:** Replacement or newer store state prevents the obsolete update from
-  committing.
+  **Verify:** Delayed assets block dependent commands; removed handlers and old
+  prompt handles cannot answer a new prompt. Check actual native input.
 
-- Dependency-ordered native changes, handlers, refs, and animation installed
-  together; acknowledge before dispatching new events.
+- Snapshot-to-batch integration uses the existing scheduler, operation registry,
+  blocking flags, duplicate handling, cancellation, and failures.
 
-  **Tasks:** [12](tasks/12-host-transactions.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
-  [45](tasks/45-effects-failures-laboratory.md).
+  **Tasks:** [12](tasks/12-command-queue-integration.md),
+  [21](tasks/21-shared-motion-drivers.md),
+  [25](tasks/25-snapshot-animation-commands.md).
 
-  **Verify:** Repeated delivery has one effect; input never sees a mismatched
-  handler; unexpected apply failure stops session.
+  **Verify:** Motion exposes an unfinished command operation during playback.
+  Rust renders/submits later snapshots with Unity paused. Existing queue
+  dependencies preserve order across batches and no success notification is
+  required. There is no second animation scheduler.
 
 - Targets/transitions/variants/gestures/initial/exit/Motion values with
   inherited defaults and shared playback controls.
@@ -499,10 +505,10 @@ and [presentation](presentation.md).
   new/restored objects; exits for removal.
 
   **Tasks:** [24](tasks/24-layout-movement-projection.md),
-  [25](tasks/25-checkpoint-motion-gates.md).
+  [25](tasks/25-snapshot-animation-commands.md).
 
   **Verify:** No-configuration movement works; equal poses finish immediately
-  but still need a frame.
+  without a frame wait; explicit `TimeWait` supplies authored pacing.
 
 - One writer per property; sequences own placement, layout keeps destination
   current, hover uses separate offsets.
@@ -554,51 +560,45 @@ and [presentation](presentation.md).
   **Verify:** No per-step Rust callback is needed for prepared motion and
   effects.
 
-- State-animation callbacks prepare once and commit once across retries;
-  event-driven controls share machinery.
+- Consume a semantic event once at snapshot command submission; local rerenders
+  do not repeat effects. Event-driven controls use the same command machinery.
 
   **Tasks:** [22](tasks/22-sequence-dependencies.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
+  [25](tasks/25-snapshot-animation-commands.md),
   [26](tasks/26-effect-occurrences.md).
 
-  **Verify:** Rerendering starts no duplicate playback.
+  **Verify:** Settings changes start no duplicate playback; custom movement
+  replaces default movement only for the properties it owns.
 
-- Wait for all required movement by default; early label replaces only its
-  movement requirement; cosmetic work independent.
+- Default movement and authored gameplay sequences produce blocking commands;
+  cosmetic tails and loops are nonblocking. Labels only schedule sequence steps.
 
-  **Tasks:** [25](tasks/25-checkpoint-motion-gates.md),
+  **Tasks:** [25](tasks/25-snapshot-animation-commands.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
-  **Verify:** Two cards contribute; choosing an early label does not retain a
-  hidden arrival requirement.
+  **Verify:** Both parallel card moves finish before the energy update while
+  particles continue. No per-snapshot rendered frame is required.
 
-- Rendering opportunity after satisfaction in current run/checkpoint/generation;
-  bounded admission per frame.
-
-  **Tasks:** [12](tasks/12-host-transactions.md),
-  [25](tasks/25-checkpoint-motion-gates.md).
-
-  **Verify:** Old/pre-completion frames cannot advance; empty checkpoints each
-  receive a frame.
-
-- Track has one completed/interrupted/failed outcome; unfinished requirements
-  transfer on replacement; accepted satisfaction persists.
+- Retarget blocking movement in place; defer conflicting gameplay sequences
+  until it finishes. Cosmetic replacement uses existing controls.
 
   **Tasks:** [21](tasks/21-shared-motion-drivers.md),
-  [25](tasks/25-checkpoint-motion-gates.md),
-  [45](tasks/45-effects-failures-laboratory.md).
+  [24](tasks/24-layout-movement-projection.md),
+  [25](tasks/25-snapshot-animation-commands.md).
 
-  **Verify:** Test event-before-replacement and event-after-replacement
-  separately.
+  **Verify:** Reflow waits for the new destination without jumping; hover/drag
+  cannot cancel blocking gameplay placement.
 
-- Required failure abandons action with accepted-state recovery;
-  stale/replay/inspection events excluded.
+- Gameplay host failure stops presentation without undoing accepted actions;
+  stop cancels queued/running work. Inspection copies leave gameplay commands alone.
 
-  **Tasks:** [25](tasks/25-checkpoint-motion-gates.md),
+  **Tasks:** [12](tasks/12-command-queue-integration.md),
+  [25](tasks/25-snapshot-animation-commands.md),
   [28](tasks/28-inspection-replay.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
-  **Verify:** Cosmetic stop is harmless; required failure shows restart/exit.
+  **Verify:** Failure shows restart/exit; late cosmetic failure cannot revoke an
+  accepted action. Old-session messages and inspection cannot mutate rules state.
 
 - Material/light/emission/volume continuous properties; discrete sound/burst;
   projectile visuals and persistent aura children.
@@ -610,13 +610,14 @@ and [presentation](presentation.md).
   **Verify:** Native and fake timelines agree on start order and resource
   lifetime.
 
-- Unique run/checkpoint/animation/effect identity; duplicate names rejected;
-  rerenders/retries/delivery deduplicated.
+- Existing command/batch duplicate suppression and playback/sequence-entry
+  history prevent repeated transients; no additional effect identity scheme.
 
   **Tasks:** [26](tasks/26-effect-occurrences.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
-  **Verify:** Two intended sounds use distinct identities; each plays once.
+  **Verify:** Two intended sequence entries each play once, including after
+  rerendering and redelivery of the same batch.
 
 - Rust effect fallback/composition; optional typed RON constants; captured
   configuration; required dependencies prepared.
@@ -637,8 +638,8 @@ and [presentation](presentation.md).
   **Verify:** Resume emits only undelivered sounds; unsupported native seeking
   is visible.
 
-- Explicit replay uses fresh session-unique IDs separate from live checkpoints;
-  leaving inspection restores live playback.
+- Explicit replay uses fresh ordinary batch/command/playback IDs on a separate
+  inspection copy; leaving inspection resumes the paused live playback.
 
   **Tasks:** [28](tasks/28-inspection-replay.md),
   [29](tasks/29-presentation-inspector.md),
@@ -742,7 +743,7 @@ scenes](fixtures.md), and [validation](validation.md).
   [23](tasks/23-world-layout.md), [29](tasks/29-presentation-inspector.md),
   [46](tasks/46-performance-workloads.md).
 
-  **Verify:** Measure sparse updates and final swaps; keep ordinary motion
+  **Verify:** Measure sparse updates and host command execution; keep ordinary motion
   host-local.
 
 - Functional desktop native/threaded WebGL, preserved macOS/Windows support,

@@ -55,8 +55,8 @@ WorldGroup::new().children((
 - Changing one card's material parameter does not change the other card or the
   source material.
 
-- Missing required assets fail preparation before visible replacement; prepared
-  incompatible children replace without a partial frame.
+- Missing required assets fail existing asset loading before dependent commands; prepared
+  assets are reused for replacement children through ordered commands.
 
 - Mesh scale/orientation and text wrapping match explicit props in fake
   observations and native geometry.

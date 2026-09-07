@@ -31,17 +31,24 @@ The rules/session surface is fixed in [interfaces](interfaces.md). The separate
 public display test driver supplies worker barriers and virtual host controls,
 including these operations:
 
-~~~rust display.dispatch(action); display.wait_for_prompt(); // Match the
-returned PresentedPrompt and submit through its typed handle.
-display.advance_time(Duration::from_millis(125)); display.advance_frame();
-display.advance_to_label("ready");
-display.object(card_id).assert_in_layout(hand); ~~~
+```rust
+display.dispatch(action);
+display.wait_for_render_submission(); // Rust has handed commands to the host.
+display.advance_time(Duration::from_millis(125));
+display.object(card_id).assert_position(halfway);
+display.settle();
+let prompt = display.wait_for_prompt();
+// Match PresentedPrompt and submit through its typed handle.
+```
 
 Provide wait_for_worker_started/stopped and builder-entered observations for
-controlled fixture builders, plus advance_to_next_checkpoint and settle.
+controlled fixture builders, plus wait_for_render_submission and settle.
+Submission waits synchronize the Rust consumer without advancing host time.
+Observe actual playback separately through host poses, text, and effects.
 Document that settle advances only finite work and stops at an unanswered
-prompt; it must not spin forever on cosmetic loops or silently satisfy a gate by
-seeking.
+prompt; it must not spin forever on cosmetic loops. Seeking an inspection copy
+cannot finish the active gameplay batch. `advance_frame` remains available for
+visual observations, with no mandatory per-snapshot frame boundary.
 
 Virtual time, worker scheduling, and rendered frames are independent. Each
 helper specifies which it advances. Deterministic synchronization may pump
@@ -56,7 +63,9 @@ result alone does not establish Unity behavior.
 
 Required native coverage includes interpolation, text/sprite ordering, shader
 overrides, particles/audio timing, input capture/modals, live anchor movement,
-inactive preparation, and input handlers matching the complete visible update.
+asset command dependencies, command-operation completion, and safe input while
+gameplay commands are queued. Inspect actual visible behavior; do not require a
+whole-display atomic swap or a rendered-frame receipt.
 
 Protocol fixture tests must include serialization, Unity consumption, and
 correlated returned events. Exercise duplicate delivery and stale IDs, not only

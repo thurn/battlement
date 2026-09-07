@@ -1,7 +1,7 @@
 # 11. Start game sessions, accept actions, and expose recovery
 
 App-owned sessions construct domain contexts, expose cloneable handles, and keep
-displayed snapshots separate from accepted and worker state.
+rendered snapshots separate from accepted and worker state.
 
 [Plan and order](../README.md) · [Workflow](../workflow.md) · [Source
 map](../source-map.md) · [Validation](../validation.md)
@@ -40,15 +40,16 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
 1. Implement the complete session surface in interfaces.md: the context factory,
    `GameHandle` methods, `DispatchResult`, `GameStatus`, state/prompt/status
    hooks, and app-owned attachment. Accept initial state immediately, hold Busy
-   through entry presentation, and execute nothing merely because a game starts.
+   until initial publication is consumed, and execute nothing merely because
+   a game starts. Unity playback never determines rules readiness.
 
-2. Dispatch returns Busy before validation while entry/action/final presentation
-   is unfinished. Otherwise call is_legal_action; false panics before cloning or
+2. Dispatch returns Busy before validation during initial publication, rules
+   execution, a human wait, or unconsumed final publication. Otherwise call is_legal_action; false panics before cloning or
    worker creation. Legal work returns Started. Failed/stopped dispatch is a
    programming error. Run IDs are internal.
 
 3. Transfer the session context to one active worker at a time. Retain final
-   state pending display completion; automatic final publication has no semantic
+   state until the Rust consumer submits final output; automatic final publication has no semantic
    event. Return the context after normal completion; discard interrupted
    context on failure/stop and construct a new one for replacement.
 
@@ -69,19 +70,22 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
 - Busy dispatch queues no work and invokes no validator. Illegal idle dispatch
   panics. Started does not imply completion.
 
-- While final presentation is held, accepted_state returns the old stable copy
-  and next dispatch is Busy. Acceptance atomically installs state and Ready.
+- Holding final publication in Rust keeps the previous accepted state and Busy.
+  Consuming it installs the new state and Ready even with Unity playback paused.
+  Another legal action may submit commands behind the earlier action.
 
-- Rules/required-animation failure retains accepted state and exposes Failed.
-  Restart works; ended-run output cannot affect it. No automatic save occurs.
+- Worker failure retains the previous accepted state. Host failure retains the
+  latest accepted state, including actions completed ahead of playback. Restart
+  reconstructs from it; ended-session output is ignored. No automatic save occurs.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Task 12 supplies actual host frame acknowledgements and task 25 motion gates.
-Use the explicit public fixture host until then, never an immediate-render fake.
+Task 12 connects the consumer to existing ordered batches and task 25 adds Motion
+commands. Use a public Rust-consumer fixture until then. Do not tie acceptance
+or status to native completion.
 
 ## Manual QA
 

@@ -37,7 +37,7 @@ Nested card layouts are normal children, not native prefab behavior.
 
 The hit region is independent of the artwork. For example, a compact table face
 can use a smaller collider selected by Rust props. Geometry and input must
-change in the same visible commit.
+generate matching visual and hit-geometry commands in the same render.
 
 Hearts uses face/back textures on Rust-created surfaces. Chess can retain opaque
 piece prefabs, but no sample may use prefab child lookup as a substitute for the
@@ -79,7 +79,7 @@ WorldGroup::new().children((
 ```
 
 A target explicitly chooses to follow a live anchor or capture its position at
-start. Validate required refs and native kinds during preparation. Refs carry
+start. Validate required refs and native kinds before command submission. Refs carry
 the mounted lifetime ID, so retained effects continue targeting the original
 object if the same UUID is later mounted again.
 
@@ -155,7 +155,7 @@ move/resize continuously to the destination rectangle
 Commit logical identity and context changes once. Retained source visuals do not
 retain hooks. Begin with an orthographic scene of known dimensions, then verify
 the same screen-space continuity on the perspective tabletop. Missing required
-projection data fails preparation before visible replacement.
+projection data fails render validation before submitting replacement commands.
 
 ## Route input through the visible component tree
 
@@ -176,8 +176,8 @@ even if the card's collider is geometrically under the pointer. A decorative UI
 overlay can explicitly permit passthrough.
 
 Capture remains attached to the same live target until release or removal.
-Reparenting is not removal. Removal emits capture loss; stale commit or lifetime
-IDs cannot deliver old drag callbacks to a new mount. Native default prevention
+Reparenting is not removal. Removal emits capture loss; old-session or
+removed-lifetime callbacks cannot reach a new mount. Native default prevention
 stays synchronous without reentrant engine calls.
 
 Gameplay input answers the current presented prompt or starts an action at a

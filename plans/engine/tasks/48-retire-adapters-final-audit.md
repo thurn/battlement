@@ -41,7 +41,9 @@ let game = app.start_game::<HeartsGame>(initial_state, make_context);
    capabilities, routing shared animation behavior consistently.
 
 3. Audit actual Hearts/tic-tac-toe/chess/chess-ui authoring for unnecessary
-   framework plumbing. Fix confirmed ergonomic gaps within the fixed contracts
+   framework plumbing. Verify snapshot rendering uses Battlement's existing
+   scheduler and operation registry, with no separate presentation transactions
+   or animation-progress evaluator. Fix confirmed ergonomic gaps within the contracts
    and update relevant callers/examples.
 
 4. Update source-map and incorrect maintained guidance by replacement, keeping

@@ -17,8 +17,8 @@ map](../source-map.md) · [Validation](../validation.md)
 transfers](38-hearts-passing.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** Hearts fixed rules and layouts; passing UI; required gate
-API.
+**Starting code:** Hearts fixed rules and layouts; passing UI; snapshot-to-command
+integration.
 
 ## Example
 
@@ -46,16 +46,18 @@ match accepted.phase {
 
 3. Require a finite readable full-trick presentation before collection, using a
    600 ms default hold captured in game presentation configuration. Acceptance
-   remains after required collection/scoring/deal presentation.
+   follows normal rules completion and final publication; the hold only delays
+   Unity's subsequent commands.
 
 4. Show hand totals, match totals, moon outcome, next-hand passing direction,
    and shared-win match results in native UI.
 
-5. Route AI-owned prompts through the context to choose_with_policy immediately
-   after enqueueing. Keep consecutive AI plays inside PlayTurn rather than
-   dispatching once per AI card. Only a full 32-slot queue blocks their
-   progress. UI dispatch stays at accepted boundaries; human prompt replies wait
-   for their displayed snapshot. Menus remain usable.
+5. Route AI-owned prompts through choose_with_policy after publication without
+   waiting for Unity. Keep consecutive AI plays inside PlayTurn with policy
+   calls in one execute, not per-card handle dispatch. The 32-slot queue applies
+   backpressure only to publication. Schedule from accepted state. Queue human
+   prompt controls after earlier gameplay commands; menus remain usable while
+   both rules computation and native playback progress independently.
 
 ## Acceptance
 

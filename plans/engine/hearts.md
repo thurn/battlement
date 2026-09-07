@@ -59,8 +59,8 @@ deals for rare cases rather than searching random seeds.
 ## Actions and checkpoints
 
 `App::start_game` accepts a prepared new deal or a loaded state and creates
-`HeartsContext` with the session connection. Initial entry presentation must
-finish before gameplay dispatch. Starting does not itself execute an action or
+`HeartsContext` with the session connection. Initial rendering is submitted
+before gameplay commands. Starting does not itself execute an action or
 save anything.
 
 `ResolvePassing` is one action with human and AI choices against unchanged
@@ -80,11 +80,13 @@ filtered view type or serialize full state into Unity.
 
 For a fourth card, publish card play before trick collection, then score/deal
 checkpoints as needed. One semantic event can describe all related effects.
-Normal return adds a final snapshot without an event; acceptance waits for final
-required animation and a subsequent rendered frame.
+Normal return adds a final snapshot without an event. Accept the logical result
+when that publication is consumed in Rust; Unity may still be executing earlier
+commands. Native prompt controls appear at their ordered point in playback.
 
 Schedule the next action when `use_game_status::<HeartsGame>()` becomes `Ready`,
-using a fresh `accepted_state()` copy or the matching displayed snapshot:
+using a fresh `accepted_state()` copy. `Ready` means rules readiness, so this
+can enqueue subsequent turns while Unity animates earlier ones:
 
 ```rust
 match accepted.phase {
@@ -213,7 +215,9 @@ explicit menu command. It calls `game.accepted_state()` and writes that owned
 copy outside the rules worker. During an action it captures the previous
 accepted boundary; before any action, it captures the initial deal. Tell the
 player which completed position was saved rather than implying in-flight work
-was accepted.
+was accepted. During animation the saved state can already include completed
+actions that Unity has not yet shown; Continue restores that logical state
+without replaying the remaining command backlog.
 
 The game owns its save schema, including all data required to restore future
 seeded behavior. Use atomic temporary-write/replace where supported. WebGL must
@@ -226,7 +230,7 @@ copy.
 Startup offers Continue when a valid save exists, otherwise New Game. Load calls
 `App::start_game` with the saved state and a freshly constructed context.
 Restore current visuals without replaying old transient events, then schedule
-from the accepted phase after entry presentation. A restored human choice gets
+from the accepted phase after submitting entry rendering. A restored human choice gets
 fresh session/run/request identity.
 
 Starting New Game does not overwrite an existing save. Exit does not capture or

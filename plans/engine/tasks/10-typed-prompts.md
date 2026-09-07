@@ -57,10 +57,10 @@ to a current request is a programming error; an ended-request reply is ignored.
    Both retain P in internal Arc-backed storage and publish one owned clone
    after reserving capacity. Concrete data is Clone + Send + Sync. The typed
    validator uses retained P without enum extraction. Live AI borrows
-   P.as_prompt() on the rules worker immediately after enqueueing, then maps its
-   index directly through P. Only full-queue capacity can delay AI publication;
-   there is no wait for animation or visibility. Human handles cannot resolve AI
-   requests. Player routing remains in game context.
+   P.as_prompt() on the rules worker immediately after enqueueing, without
+   waiting for Unity; only full 32-slot capacity delays publication. Then map its index
+   directly through P. Human handles cannot resolve AI requests. Player routing
+   remains in game context.
 
 5. Exercise two response types and another game's prompt enum. Retain compile
    checks for wrong response types, fault-injected transport mismatch, stable
@@ -73,9 +73,9 @@ to a current request is a programming error; an ended-request reply is ignored.
 - Valid responses resume once. Active invalid replies panic; stopped, replaced,
   and already-resolved request replies are ignored without resuming anything.
 
-- Earlier required presentation prevents human actionability, but does not gate
-  live AI computation while the 32-slot queue has room. Reused numeric request
-  IDs in a different session/run cannot admit an old handle.
+- Native prompt controls are queued after earlier blocking commands. Request
+  handles are valid in Rust before display; distinct native targets prevent an
+  old visible prompt from invoking a newer handle. Cover all activation modes.
 
 - A caller-created prompt cannot broaden legal choices. An AI-owned request
   cannot be answered by human UI even if the value would be legal.
@@ -88,8 +88,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Native animation gates arrive in task 25. Use the public presentation barrier
-until host conformance is connected; do not replace the real response path.
+Task 12 connects queued native prompt controls. Use the public input/consumer
+fixture until then; never add a presentation-ready wait for live AI.
 
 ## Manual QA
 

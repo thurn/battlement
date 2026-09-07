@@ -32,7 +32,8 @@ These are starting points, not instructions to load whole directories.
 | Native C ABI and Engine | [engine.rs](../../crates/battlement-native/src/engine.rs), [lib.rs](../../crates/battlement-native/src/lib.rs) |
 | Protocol messages and commands | [messages.rs](../../crates/battlement/src/messages.rs), [body.rs](../../crates/battlement/src/commands/body.rs), [objects.rs](../../crates/battlement/src/objects.rs) |
 | Unity runner | [BattlementRunner.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs) |
-| Unity batches and snapshots | [BattlementBatchScheduler.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementBatchScheduler.cs), [BattlementSnapshotReplacement.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementSnapshotReplacement.cs) |
+| Unity command queue and snapshots | [BattlementBatchScheduler.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementBatchScheduler.cs), [BattlementSnapshotReplacement.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementSnapshotReplacement.cs) |
+| Unity command operations | [BattlementOperations.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementOperations.cs) |
 | Unity world and tween execution | [BattlementWorld.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementWorld.cs), [BattlementTweenAdapter.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementTweenAdapter.cs) |
 | Unity UI Motion | [BattlementMotionTimeline.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionTimeline.cs), [BattlementMotionWorld.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionWorld.cs) |
 | World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [tween.rs](../../crates/battlement-fake/src/tween.rs) |
@@ -55,7 +56,8 @@ The numbered tasks introduce the following code:
 - reactant-testing: public display driver and observation/barrier APIs.
 - samples/hearts: rules/context/policies, snapshot-driven components, explicit
   save/load, authoring inputs, tests, and Ditto configuration.
-- Generic host transaction and frame acknowledgement protocol.
+- Snapshot rendering through existing ordered Battlement batches and Motion
+  adapters for existing command operations; no completion notification protocol.
 - Host-neutral Motion property adapters and completion-relative scheduling.
 
 Use the corresponding task to create them; do not mistake a same-named existing

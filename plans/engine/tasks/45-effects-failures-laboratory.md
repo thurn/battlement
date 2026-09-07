@@ -23,19 +23,19 @@ barriers; generic failure surfaces.
 
 ## Example
 
-Test a completion racing with replacement in both possible acceptance orders:
+Test rendering ahead, native queue order, and session cancellation:
 
 ```text
-old completion accepted before replacement -> requirement stays satisfied
-replacement accepted first -> wait for successor completion
-late old completion -> ignored
-seek/replay completion -> never satisfies live gameplay
+two blocking card moves + nonblocking particles -> wait for both cards
+Unity paused; Rust finishes                    -> later commands queued, state accepted
+stop/restart with queued old commands           -> replacement stays unchanged
+inspect/replay another playback                -> live batch stays paused
 ```
 
 ## Implementation
 
 1. Complete motion-equivalence, draw-reflow, material-effects, attached-effects,
-   occurrence-replay, prompt-cycle, cancellation, preparation, gate-replacement,
+   occurrence-replay, prompt-cycle, cancellation, asset-loading, snapshot-queue,
    and save-failure test scenes.
 
 2. Exercise material dissolve/reverse, separate text fade, independent
@@ -47,9 +47,10 @@ seek/replay completion -> never satisfies live gameplay
    public Stopped and later worker-stopped after fixture-owned drops, without
    pretending computation was forcibly interrupted.
 
-4. Cover superseded asset preparation, missing required targets, duplicate
-   effect names, invalid graphs, required failure, early gate labels, and stale
-   event generations.
+4. Cover delayed/failed asset commands, missing targets, batch redelivery,
+   rerenders without replay, invalid graphs, blocking failure, no-change entries,
+   explicit waits, local UI during animation, and old-session messages. Pause
+   Unity while rules finish, then inject a host failure without reversing state.
 
 5. Demonstrate typed Rust effect fallback plus optional RON values and
    captured-versus-current configuration behavior.
@@ -62,7 +63,7 @@ seek/replay completion -> never satisfies live gameplay
 - Sound/burst occurrences deduplicate through retry/delivery and remain isolated
   across inspection/replay.
 
-- Required/cosmetic ownership, retarget/replacement, asset preparation, and
+- Blocking/nonblocking commands, in-place retargeting, asset dependencies, and
   resource release match their shared contracts.
 
 - Native captures prove shader/text/particle behavior that fake observations
@@ -78,5 +79,5 @@ correctness scenarios.
 
 ## Manual QA
 
-Use the inspector to walk through delayed preparation, draw reflow,
+Use the inspector to walk through delayed asset loading, draw reflow,
 dissolve/recreate, seek/replay, prompt cancellation, and required-track failure.

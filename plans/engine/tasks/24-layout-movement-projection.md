@@ -49,7 +49,7 @@ Table::new().child(Card::new().id(card_id))
    retained transition representation.
 
 5. Add draw-reflow and ui-world-transfer fixtures, initially driven by event
-   animations rather than checkpoint gates.
+   animations through ordinary command operations.
 
 ## Acceptance
 
@@ -57,8 +57,8 @@ Table::new().child(Card::new().id(card_id))
   objects automatically; inherited/object overrides still work.
 
 - A reveal step follows its own anchor while hand reflow changes only the
-  pending destination; ready waits for actual arrival after the hand step
-  starts.
+  pending destination; the blocking operation waits for arrival after the hand
+  step starts.
 
 - Repeated retargeting causes no pose jump and does not produce duplicate
   completion identities.
@@ -66,7 +66,7 @@ Table::new().child(Card::new().id(card_id))
 - Cross-root and portal UI moves retain identity and animate rendered geometry;
   UI/world transfer has continuous screen-space correspondence.
 
-- Missing projection fails preparation; no implicit pixel/world conversion is
+- Missing projection fails render validation; no implicit pixel/world conversion is
   invented.
 
 Run the public scenarios, affected regressions, native checks for rendered
@@ -74,7 +74,7 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Required checkpoint policy binding arrives in task 25. Hearts uses these
+Snapshot movement-command generation arrives in task 25. Hearts uses these
 policies in tasks 37-39.
 
 ## Manual QA
