@@ -71,6 +71,10 @@ mod background_music_harness;
 pub mod music_heartbeat;
 pub mod music_playback_indicator;
 
+pub mod main_menu;
+
+mod main_menu_harness;
+
 mod music_heartbeat_harness;
 
 pub mod arcade_tab_transition;

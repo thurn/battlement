@@ -23,6 +23,7 @@ use crate::{
   input_settings_composition_harness::InputSettingsCompositionHarness,
   input_skin_harness::InputSkinHarness,
   interaction_harness::InteractionHarness,
+  main_menu_harness::MainMenuHarness,
   menu_transition_harness::MenuTransitionHarness,
   music_heartbeat_harness::MusicHeartbeatHarness,
   portrait_harness::PortraitHarness,
@@ -280,7 +281,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("MainMenu", "Chess UI showcase title."))
-                .description(tx("MainMenu composes background, header, buttons, music, and exit behavior; the complete router remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("MainMenu composes background, header, buttons, music, and exit behavior; the complete router remains unasserted.", "Chess UI showcase description."))
+                .child(MainMenuHarness::new()),
         )
         .page(
             ReviewPage::new()

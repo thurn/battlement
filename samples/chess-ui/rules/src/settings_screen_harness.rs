@@ -6,7 +6,6 @@ use trox::{ls, tx};
 
 use crate::{
   arcade_frame_pulse::{ArcadeFramePulse, ArcadeScreen},
-  background_music::BackgroundMusicProvider,
   portrait_viewport::PortraitViewport,
   review_button::ReviewButton,
   screen_frame::ScreenFrame,
@@ -54,25 +53,23 @@ impl Component for SettingsScreenHarness {
           .style(Style::new().flex_grow(1).min_height(0))
           .child(
             PortraitViewport::new().child(
-              BackgroundMusicProvider::new().children(
-                ScreenFrame::new().children((
-                  SettingsScreen::new()
-                    .overlay(self.overlay.clone())
-                    .on_return(set_return_requests.update_callback(|value| value + 1))
-                    .on_open_url(
-                      set_privacy_requests
-                        .update_callback(|value| value + 1)
-                        .map_input(|_: String| ()),
-                    )
-                    .key(generation),
-                  MotionConfig::new(
-                    ArcadeFramePulse::new()
-                      .active_screen(ArcadeScreen::Settings)
-                      .reduce_motion(false),
+              ScreenFrame::new().children((
+                SettingsScreen::new()
+                  .overlay(self.overlay.clone())
+                  .on_return(set_return_requests.update_callback(|value| value + 1))
+                  .on_open_url(
+                    set_privacy_requests
+                      .update_callback(|value| value + 1)
+                      .map_input(|_: String| ()),
                   )
-                  .time_source(MotionTimeSource::Controlled(clock)),
-                )),
-              ),
+                  .key(generation),
+                MotionConfig::new(
+                  ArcadeFramePulse::new()
+                    .active_screen(ArcadeScreen::Settings)
+                    .reduce_motion(false),
+                )
+                .time_source(MotionTimeSource::Controlled(clock)),
+              )),
             ),
           ),
       ))

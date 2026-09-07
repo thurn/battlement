@@ -21,7 +21,9 @@ use battlement_reactant::{
   render::Render,
 };
 use battlement_rules::{
-  action_button, engine,
+  action_button,
+  background_music::BACKGROUND_MUSIC,
+  engine,
   privacy_policy::{PRIVACY_POLICY_URL, PrivacyPolicyHelp},
   review_surface::ReviewSurface,
   select_control, setting_row,
@@ -1648,6 +1650,7 @@ fn client() -> FakeClient<App> {
   assets.add_ui_font(setting_row::DISPLAY_FONT);
   assets.add_ui_font(select_control::VALUE_FONT);
   assets.add_ui_font(action_button::ACTION_FONT);
+  assets.add_audio_clip(BACKGROUND_MUSIC);
   let mut client = FakeClient::connect(engine::create_engine(), assets);
   client.poll();
   client

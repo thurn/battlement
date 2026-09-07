@@ -143,11 +143,13 @@ impl BackgroundMusicContext {
 pub struct BackgroundMusicProvider {
   #[builder(required, into)]
   children: Children,
+  /// Exposes playing state before a menu-owned startup effect commits.
+  autoplay: bool,
 }
 
 impl Component for BackgroundMusicProvider {
   fn render(&self) -> impl Render {
-    let context = use_background_music_provider();
+    let context = use_background_music_provider(self.autoplay);
     ContextProvider::new()
       .context(context)
       .child(self.children.render())
@@ -166,7 +168,7 @@ pub(crate) fn availability_provider(
   ContextProvider::new().context(availability).child(child)
 }
 
-fn use_background_music_provider() -> BackgroundMusicContext {
+fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
   let app = use_app();
   let application = application::use_application_state();
   let availability = hooks::use_context::<PlaybackAvailability>();
@@ -174,7 +176,7 @@ fn use_background_music_provider() -> BackgroundMusicContext {
   let (music_volume, set_music_volume) = hooks::use_state(65_u32);
   let (mute_in_background, set_mute_in_background) = hooks::use_state(false);
   let (sound_muted, set_sound_muted) = hooks::use_state(false);
-  let (playing, set_playing) = hooks::use_state(false);
+  let (playing, set_playing) = hooks::use_state(autoplay);
   let (playhead, set_playhead) = hooks::use_state(Duration::ZERO);
   let playback_active = hooks::use_ref(false);
   let audio = AudioPlayback::new(PLAYBACK_ID);
@@ -197,8 +199,9 @@ fn use_background_music_provider() -> BackgroundMusicContext {
   hooks::use_effect(
     {
       let app = app.clone();
+      let playback_active = playback_active.clone();
       move || {
-        if playing {
+        if playback_active.get() {
           app.send(audio.set_volume(output_volume));
         }
       }

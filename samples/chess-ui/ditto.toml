@@ -2974,6 +2974,67 @@ accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cel
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "main menu"
+motion = "instant"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206839\u2069. \u2068MainMenu\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Mute background music" }, role = "button", name = "Mute background music" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ABOUT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Settings requests: 1" }, role = "static-text", name = "Settings requests: 1" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Mute background music" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Enable background music" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Dismissed arcade stage" }, role = "region", name = "Dismissed arcade stage" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "FULL" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "QUIT" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "region", name = "Dismissed arcade stage" }, role = "region", name = "Dismissed arcade stage" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "PLAY" }, role = "button", name = "PLAY" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Mute background music" }, role = "button", name = "Mute background music" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Settings requests: 0" }, role = "static-text", name = "Settings requests: 0" }
+
+[[scenarios]]
 name = "settings screen"
 motion = "instant"
 

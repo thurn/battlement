@@ -1,6 +1,10 @@
 //! Synchronized arcade-screen collapse and terminal black stage.
 
-use crate::{assets, frame_styles, screen_frame, screen_frame::ScreenFrame};
+use crate::{
+  arcade_frame_pulse::{ArcadeFramePulse, ArcadeScreen},
+  assets, frame_styles, screen_frame,
+  screen_frame::ScreenFrame,
+};
 use battlement::{
   Color, Gradient, ImageScaleMode, Length, LengthUnits, Overflow, PickingMode, Position,
   SemanticRole, Shadow, Style, TransformOrigin,
@@ -20,6 +24,8 @@ pub struct ArcadeExitStage {
   reduce_motion: bool,
   #[builder(required, into)]
   children: Children,
+  /// Adds the main-screen frame comet to complete menu compositions.
+  frame_pulse: bool,
 }
 
 impl Component for ArcadeExitStage {
@@ -80,6 +86,11 @@ fn stage(component: &ArcadeExitStage, dismissed: bool, set_dismissed: StateSette
             component.reduce_motion,
             set_dismissed,
           ),
+          component.frame_pulse.then(|| {
+            ArcadeFramePulse::new()
+              .active_screen(ArcadeScreen::Main)
+              .reduce_motion(component.reduce_motion)
+          }),
           ArcadeExitSequence::new()
             .active(motion_active)
             .reduce_motion(component.reduce_motion),
