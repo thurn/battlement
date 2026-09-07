@@ -16,8 +16,12 @@ objects](world.md).
 Any component, UI element, or world object may declare `.id(Uuid)`. This UUID
 identifies one persistent entity across all active application roots. Ordinary
 `.key()` remains scoped to siblings under one parent. An identified entity keeps
-the same UUID whenever it is hidden, shown, or moved; destroying it retires that
-UUID for the presentation runtime.
+the same UUID whenever it is hidden, shown, or moved. Reusing an ID after
+destruction within that game presentation lifetime is unsupported application
+usage; v1 requires neither a retired-ID history nor a diagnostic for such reuse.
+Session replacement starts a fresh game presentation lifetime, so load/new game
+may declare saved card IDs with fresh hooks and native handles. Persistent app
+UI outside the game subtree is unaffected.
 
 The same card declaration can move between layouts without remounting:
 
@@ -94,8 +98,8 @@ simultaneous representation such as an inspection or outcome preview.
 
 Absence from a committed tree unmounts the component. An abandoned proposed
 render does not. Unmount detaches handlers and subscriptions, discards hooks,
-and retires an identified entity's UUID. Reject any later declaration of that
-retired UUID before changing the committed display.
+and ends that entity's logical lifetime. Do not promise that redeclaring a
+destroyed entity restores its former state.
 
 With rendering ahead, logical unmount can precede native removal. Queue native
 removal after earlier commands that use the object; retain their data and native
@@ -107,8 +111,8 @@ animation. Their component no longer renders or receives input. Retained
 animation may change their visual properties, but it cannot access a live
 component closure to keep old hooks running.
 
-Retained exit visuals remain addressed by the destroyed entity's retired UUID
-until cleanup; they cannot be reclaimed as a new entity. Drop late input for
+Retained exit visuals keep their original native handles until cleanup; a
+replacement session cannot reclaim those handles. Drop late input for
 destroyed targets, and validate asynchronous callbacks using their existing
 request, subscription, playback, or session identities. Release each native
 object, material instance, anchor, and asset after its last retained animation
@@ -145,5 +149,4 @@ Move a card with a visible local counter between layouts, roots, and a UI
 portal. Change the provider at its new parent and verify the counter survives
 while context and event propagation change. Hide and show it during a transition;
 confirm its state and ref survive without creating a second visual. Destroy a
-separate object during a retained exit, verify its cleanup, and confirm reuse of
-its retired UUID is rejected without changing the display.
+separate object during a retained exit, verify its cleanup, and confirm stale callbacks cannot reach a replacement session.

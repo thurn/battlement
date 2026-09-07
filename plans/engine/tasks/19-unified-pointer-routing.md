@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 18: Add independent hit regions and typed Rust-created
-anchors](18-hit-regions-anchors.md) and all its required follow-ups must be
-integrated.
+anchors](18-hit-regions-anchors.md) is integrated.
 
 **Starting code:** Core event dispatch; Unity pointer/panel coordinators; world
 hit regions; fake pointer helpers.

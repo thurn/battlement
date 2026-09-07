@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 21: Animate UI, world objects, and effects with shared
-drivers](21-shared-motion-drivers.md) and all its required follow-ups must be
-integrated.
+drivers](21-shared-motion-drivers.md) is integrated.
 
 **Starting code:** Animation controls/sequences; host-neutral Motion driver;
 protocol graph definitions; fake time driver.

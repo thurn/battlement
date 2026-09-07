@@ -94,7 +94,8 @@ is outside the pending queue. Never drop or coalesce entries.
 Hold the Rust consumer on A: B1-B32 can enqueue, then B33 waits before its
 builders run. Taking B1 opens one slot. Pausing Unity alone does not hold slots:
 generated batches can accumulate under existing transport/queue limits. This
-bounds snapshot count, not bytes or downstream commands; measure peak queue bytes.
+bounds snapshot count, not bytes or downstream commands; task group 46 owns
+peak queue-byte profiling.
 
 Keep accepted state, working state, the snapshot being rendered, and up to 32
 waiting snapshots as needed. Final publication transfers working state instead of keeping

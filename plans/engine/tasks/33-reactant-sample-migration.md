@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Test scenes](../fixtures.md)
 
 **Prerequisite:** [Task 32: Complete chess application integration and remove
-the old engine](32-chess-cutover.md) and all its required follow-ups must be
-integrated.
+the old engine](32-chess-cutover.md) is integrated.
 
 **Starting code:** samples/reactant/rules/src; its Ditto selections; extracted
 facade and inspector.

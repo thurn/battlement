@@ -39,8 +39,9 @@ and verify that its late snapshot is never displayed.
 
 These scenes require more than plain playing-card textures. Use independent
 licensed or synthetic assets, rich text, and multiple renderers composed in
-Rust. Task 44 completes this set and tests every configured layout-pair
-transfer.
+Rust. Task group 44 completes demonstrated gaps using representative transfers
+and explicit cross-domain, portal, root, removed-ancestor, and interrupted-move
+boundaries. Do not generate every source/destination layout pair.
 
 | Selector | Required interaction and result |
 | --- | --- |
@@ -73,7 +74,7 @@ the inspector. Task 45 completes the set, building on the earlier feature tasks.
 | `draw-reflow` | Reveal, flip, and arrive at a changing hand destination; keep hover responsive and wait for actual arrival |
 | `material-effects` | Drive separate card instances with independent overrides; dissolve sprites, fade text, and reverse the effect |
 | `attached-effects` | Compare live/captured anchors, trails, projectiles, light/audio properties, and retention after removal |
-| `occurrence-replay` | Deliver a sound/burst twice, seek, resume, and replay; show exactly when each should emit |
+| `occurrence-delivery` | Redeliver a sound/burst command, pause/resume, then start a fresh intended occurrence; each intended effect emits once |
 | `prompt-cycle` | Select/deselect, fault-inject an invalid active reply, ignore stale replies, and use settings while waiting |
 | `cancellation` | Cancel at publication waits, inside builders, prompt waits, answer/completion races, and bounded ordinary computation reaching a helper/return boundary |
 | `asset-loading` | Delay or fail assets; dependent commands wait or fail through the existing queue while unrelated menus work |
@@ -90,43 +91,20 @@ optional RON configuration, and captured configuration during an active
 playback. Validate shaders, text rasterization, particle rendering, and sound
 timing in Unity as well as through the fake.
 
-## The inspector explains current display behavior
+## A small inspector explains current display behavior
 
-Provide a reusable developer UI, hidden by default in ordinary player flows. It
-reports the state needed to answer questions such as "Why is this card still
-moving?" or "Why has the next prompt not appeared?"
+Provide a hidden-by-default diagnostic panel with the current safe prompt,
+worker status, command backlog/blocking operation, and a selected object's UUID,
+visibility, layout target, and displayed position. Label the latest Rust snapshot
+as potentially ahead of Unity. Keep hidden Hearts hands out of player and
+inspector output; game code supplies safe labels, not a generic state serializer.
 
-Show:
-
-- Latest rendered snapshot and prompt; label these as Rust state, which may be
-  ahead of playback.
-- Object UUID and visible, hidden, destroyed, or retained-exit state.
-- Layout destination and actual displayed transform.
-- The animation controlling each property and the current blocking operations.
-- Sound/burst history and retained effect resources.
-- Host command backlog and blocking operations, pending assets, and waiting
-  Rust snapshot. Host inspection is opt-in and never drives rules progress.
-- Running, cancellation-requested, and worker-stopped status.
-- Timing, allocation, and pending-checkpoint counters.
-
-For example, a delayed checkpoint might show:
-
-```text
-latest rendered snapshot: energy increased
-Unity command queue: waiting for card A to arrive
-queued after draw: energy label update
-card A destination: hand slot 4 (updated after resize)
-```
-
-Provide pause, slower playback, one-frame advance, supported seek, and explicit
-replay. Show unavailable controls when native effects cannot seek. Inspection
-must not accidentally answer prompts, finish gameplay operations by seeking,
-or change rules state. Although snapshots contain full state, keep hidden Hearts
-hands out of normal player/inspector output. Fixture-only private diagnostics
-must be explicit.
-
-Geometry and motion reporting are opt-in. Turning the inspector off must remove
-per-frame reporting that ordinary host playback does not need.
+Reuse existing diagnostics and the scene selector/reset UI. Fetch detailed poses
+only while inspecting a selected object; disabling the panel removes optional
+per-frame reporting. Performance instrumentation belongs to task group 46.
+Do not build a generic resource browser, scene copier, timeline editor, or
+seek/replay UI. Laboratory reset starts the fixture again through its ordinary
+entrypoint. Enlarged card inspection remains normal game UI.
 
 ## Measure complete card views under sustained load
 
@@ -155,7 +133,9 @@ failure:
 
 Keep correctness and simulation primitive requirements mandatory. Do not reduce
 cards, simplify their content, or disable effects to improve the numbers. Report
-misses with the responsible code and reproducible follow-up cases.
+misses with measured bottlenecks and reproducible follow-up cases. Optimize only
+when measurements justify the change; numerical misses and suspected complexity
+patterns alone are not mandatory refactoring gates.
 
 Record GPU time, allocations, pending-checkpoint count, state-to-visible
 latency, asset loading, command generation, and host command execution separately. Use release

@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Sample migration](../migration.md)
 
 **Prerequisite:** [Task 19: Unify UI/world hit testing, propagation, and modal
-capture](19-unified-pointer-routing.md) and all its required follow-ups must be
-integrated.
+capture](19-unified-pointer-routing.md) is integrated.
 
 **Starting code:** Existing focus/control behavior; Unity keyboard/controller
 input; task 19 pointer routing.

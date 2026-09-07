@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 14: Keep UUID identity across parents, roots, and
-portals](14-global-presentation-identity.md) and all its required follow-ups
-must be integrated.
+portals](14-global-presentation-identity.md) is integrated.
 
 **Starting code:** Presence; refs; effect cleanup; command delivery; UUID index.
 
@@ -36,8 +35,8 @@ effect target B: destroyed; hooks and input are gone; terminal visual exits
    objects while disabling input and visibility. Showing one reconciles the same
    component and retargets, cancels, or reverses unfinished hide work.
 
-2. On committed absence, detach handlers/subscriptions, drop hook state, retire
-   the UUID for this presentation runtime, and retain the existing host
+2. On committed absence, detach handlers/subscriptions, drop hook state, end
+   the entity's logical lifetime, and retain the existing host
    representation. Do not retain a live component closure to implement exit
    visuals. Native removal stays ordered after earlier queued uses; logical
    unmount must not cancel those earlier movements.
@@ -46,7 +45,9 @@ effect target B: destroyed; hooks and input are gone; terminal visual exits
    Existing finite UI exits or an explicit fixture-held retained visual
    reference can demonstrate retention before unified world effects exist.
 
-4. Reject duplicate and retired UUID declarations before visible mutation. Drop
+4. Reject duplicate live UUID declarations before visible mutation. Destroyed-ID
+   reuse is unsupported; do not add a permanent retirement registry or reuse
+   diagnostic. Replacement sessions get fresh native handles. Drop
    late input for destroyed targets, and use existing request, subscription,
    playback, and session identities for asynchronous callback validation.
 
@@ -55,8 +56,8 @@ effect target B: destroyed; hooks and input are gone; terminal visual exits
 - Hide/show during an unfinished transition preserves hook state, ref identity,
   and one compatible native visual while input remains unavailable when hidden.
 
-- A committed absence cleans up logical state immediately, and reuse of its UUID
-  rejects the complete update even while its terminal visual remains.
+- A committed absence cleans up logical state immediately. Its retained visual
+  receives no logical input or subscriptions while its exit finishes.
 
 - Logical subscriptions clean up at destruction, and retained native resources
   release exactly once after the last retained use.
@@ -77,5 +78,5 @@ not claim those effects are implemented yet.
 
 Hide/show an entity during its transition and verify one identity and visual are
 preserved. Hold a terminal visual reference for a separate destroyed object,
-attempt to reuse its UUID, then release the reference and verify rejection and
+deliver a stale callback after replacement, then release the reference and verify isolation and
 cleanup.

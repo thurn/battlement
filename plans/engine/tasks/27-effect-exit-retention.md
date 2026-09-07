@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [World objects and input](../world.md)
 
 **Prerequisite:** [Task 26: Schedule sounds, particles, and attached
-effects](26-effect-occurrences.md) and all its required follow-ups must be
-integrated.
+effects](26-effect-occurrences.md) is integrated.
 
 **Starting code:** Retained visual reference ownership; scoped controls; generic
 effects; asset lifetime.
@@ -51,8 +50,9 @@ projectile ends: release the last retained resources
 - Logical handlers/subscriptions detach immediately while the dissolve remains
   visible.
 
-- The destroyed UUID remains retired, and attempted reuse rejects the update
-  without disturbing its retained exit.
+- Retained visuals keep their original native handles; stale callbacks or
+  cleanup from the old session cannot affect replacement resources. Destroyed-ID
+  reuse within a lifetime is unsupported, not a retirement-registry feature.
 
 - Multiple retaining effects release the host only after the last one ends, with
   no leaked assets after reset.
@@ -65,11 +65,11 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-The full inspector/replay UI is task 29; this task exposes the observations
+The small diagnostic inspector is task 29; this task exposes the observations
 needed to test retention.
 
 ## Manual QA
 
 Destroy a dissolving fixture object while an anchored projectile continues.
-Attempt to reuse its UUID, then inspect resource counts after every retained use
-ends.
+Replace the session, deliver a stale callback, and inspect resource counts
+after every retained use ends.

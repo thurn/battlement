@@ -12,8 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Identity and state](../identity.md)
 - [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 12: Connect snapshot rendering to the existing command queue](12-command-queue-integration.md) and all its required follow-ups must be
-integrated.
+**Prerequisite:** [Task 12: Connect snapshot rendering to the existing command queue](12-command-queue-integration.md) is integrated.
 
 **Starting code:** Extracted tree construction and host adapter; application
 roots; existing GameObject protocol.

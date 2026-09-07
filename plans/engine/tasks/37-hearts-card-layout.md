@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Animation](../motion.md)
 
 **Prerequisite:** [Task 36: Implement fixed Hearts rules through the shared
-context contract](36-hearts-rules.md) and all its required follow-ups must be
-integrated.
+context contract](36-hearts-rules.md) is integrated.
 
 **Starting code:** Hearts shell/assets; world primitives/layouts; player cloned
 state snapshots.

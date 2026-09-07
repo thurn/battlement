@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 13: Render world and UI contributions from one logical
-tree](13-mixed-logical-tree.md) and all its required follow-ups must be
-integrated.
+tree](13-mixed-logical-tree.md) is integrated.
 
 **Starting code:** Core tree construction/matching; keys; hooks/context; portal
 adapter; native reparent planning.

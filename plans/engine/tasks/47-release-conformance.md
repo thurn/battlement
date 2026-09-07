@@ -41,9 +41,11 @@ physical iPhone 17/Galaxy S25: actual result or explicitly not run
    fixtures, Hearts full-flow/save durability, and representative mixed world/UI
    motion/input/asset cases.
 
-3. Build the completed fixtures/samples for iOS and Android and run available
-   automated platform scenarios. Update certification.md with exact final
-   build/fixture inputs for physical device execution.
+3. Build the cancellation fixture and Hearts for iOS and Android. Run one
+   minimal smoke on iOS Simulator and one Android emulator: fixture cleanup,
+   Hearts launch, a pass/card play, menu pause/resume, and restart. Reuse task
+   05's runners; add no all-sample or full-match mobile matrix. Record missing
+   required SDK/modules as blockers. Update certification.md with final inputs.
 
 4. Check the proposed requirement-to-task coverage matrix against concrete
    evidence; any uncovered requirement is a defect to repair, not a silently
@@ -77,4 +79,4 @@ retirement cleanup remains task 48.
 ## Manual QA
 
 Perform the final Hearts walkthrough, a chess/tic-tac-toe regression pass, and
-the inspector's cancellation/replay flows in actual release players.
+the inspector's cancellation/pause flows in actual release players.

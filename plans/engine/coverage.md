@@ -122,7 +122,9 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** Hold the Rust consumer on A; B1-B32 enqueue and B33 waits before
   builders. Taking B1 opens one slot. Unity playback alone does not hold capacity.
-  Measure peak snapshot bytes and run five AI choices without waiting for Unity.
+  Task 10 extends the queue proof with actual prompts and five generic AI
+  choices; task 46 measures retained bytes. Hearts does not need a synthetic
+  five-consecutive-AI turn.
 
 - Typed choices return directly on the synchronous stack; prompt data owns its
   choices and display/policy share one enum. Policies return stable indices.
@@ -253,8 +255,9 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   [40](tasks/40-hearts-simulation-ai.md),
   [46](tasks/46-performance-workloads.md).
 
-  **Verify:** Allocation trace and optimized-code inspection through public
-  entrypoints.
+  **Verify:** One focused public-entry allocation measurement plus review of
+  static dispatch. Inspect optimized code only if dispatch remains uncertain;
+  do not maintain compiler-output snapshots.
 
 - Independent simulation states and shared immutable data; previews use the
   normal display path.
@@ -320,15 +323,16 @@ Movement and hiding preserve an entity; committed absence destroys it. Read
   [44](tasks/44-identity-composition-laboratory.md).
 
   **Verify:** Hide/show preserves identity without duplicate visuals; destruction
-  retires the UUID while its native exit finishes.
+  ends logical state while its native exit finishes.
 
-- Destroyed UUIDs cannot be reused; late callbacks are rejected through their
+- Destroyed-ID reuse is unsupported, with no permanent retirement registry;
+  replacement sessions mount saved entity IDs afresh. Late callbacks use their
   existing request/subscription/playback/session identity; release resources
   after final retained use.
 
   **Tasks:** [15](tasks/15-destruction-and-exit-retention.md),
   [18](tasks/18-hit-regions-anchors.md),
-  [27](tasks/27-effect-exit-retention.md), [28](tasks/28-inspection-replay.md),
+  [27](tasks/27-effect-exit-retention.md), [28](tasks/28-gameplay-pause.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
   **Verify:** Late input cannot reach a destroyed target; a projectile retains
@@ -391,7 +395,8 @@ Movement and hiding preserve an entity; committed absence destroys it. Read
   [24](tasks/24-layout-movement-projection.md),
   [44](tasks/44-identity-composition-laboratory.md).
 
-  **Verify:** Check all layout pairs on two planes and during reflow.
+  **Verify:** Check each layout algorithm on explicit geometry and representative transfers
+  across the boundaries named in fixtures.md.
 
 - Declared plane/extents and stable rest boxes/pivots; cached measurements
   before commit; localized invalidation.
@@ -600,15 +605,15 @@ and [presentation](presentation.md).
   cannot cancel blocking gameplay placement.
 
 - Gameplay host failure stops presentation without undoing accepted actions;
-  stop cancels queued/running work. Inspection copies leave gameplay commands alone.
+  stop cancels queued/running work, including while paused.
 
   **Tasks:** [12](tasks/12-command-queue-integration.md),
   [25](tasks/25-snapshot-animation-commands.md),
-  [28](tasks/28-inspection-replay.md),
+  [28](tasks/28-gameplay-pause.md),
   [45](tasks/45-effects-failures-laboratory.md).
 
   **Verify:** Failure shows restart/exit; late cosmetic failure cannot revoke an
-  accepted action. Old-session messages and inspection cannot mutate rules state.
+  accepted action. Old-session messages cannot mutate replacement state.
 
 - Material/light/emission/volume continuous properties; discrete sound/burst;
   projectile visuals and persistent aura children.
@@ -638,25 +643,29 @@ and [presentation](presentation.md).
   **Verify:** Change settings during playback; old playback keeps values and
   next one uses new values.
 
-- Scoped cleanup plus retained exits/effects; seek capability reporting;
-  delivered history preserved on seek/resume.
+- Scoped cleanup retains only resources still used by exits/effects.
 
-  **Tasks:** [27](tasks/27-effect-exit-retention.md),
-  [28](tasks/28-inspection-replay.md), [29](tasks/29-presentation-inspector.md),
-  [45](tasks/45-effects-failures-laboratory.md).
+  **Tasks:** [27](tasks/27-effect-exit-retention.md).
 
-  **Verify:** Resume emits only undelivered sounds; unsupported native seeking
-  is visible.
+  **Verify:** Logical handlers detach immediately; final retained use releases
+  native resources. Reuse the focused lifetime scenario.
 
-- Explicit replay uses fresh ordinary batch/command/playback IDs on a separate
-  inspection copy; leaving inspection resumes the paused live playback.
+- App-owned gameplay pause freezes animations, waits, and later gameplay commands
+  while workers and independent menu UI continue.
 
-  **Tasks:** [28](tasks/28-inspection-replay.md),
-  [29](tasks/29-presentation-inspector.md),
-  [45](tasks/45-effects-failures-laboratory.md).
+  **Tasks:** [28](tasks/28-gameplay-pause.md),
+  [42](tasks/42-hearts-navigation-menus.md).
 
-  **Verify:** Each replay emits once without accepting an action or retaining
-  leaked resources.
+  **Verify:** Pause a trick hold, let rules finish, operate the menu, and resume
+  from the same presentation time without duplicate transients. Stop while paused.
+
+- Small diagnostic inspector shows safe prompt, worker status, blocking work,
+  and selected-object target versus displayed position.
+
+  **Tasks:** [29](tasks/29-presentation-inspector.md).
+
+  **Verify:** Diagnose a held move without revealing hidden cards. Disabling the
+  inspector removes optional pose reporting. No seek/replay or live-scene copying.
 
 ## Samples, tests, performance, and platform support
 
@@ -714,7 +723,9 @@ scenes](fixtures.md), and [validation](validation.md).
   **Tasks:** [43](tasks/43-hearts-save-resume.md).
 
   **Verify:** New Game/acceptance/Exit start no save. A pending explicit write
-  acknowledges only its captured state; corrupted data is explained.
+  acknowledges only its captured state; corrupted data is explained. After forced
+  termination, loading a complete durable write whose success message was never
+  shown is valid.
 
 - Public display scenarios with virtual interpolation, labels/effects, input,
   anchors, prompts, and worker barriers.
@@ -746,8 +757,9 @@ scenes](fixtures.md), and [validation](validation.md).
   **Verify:** Record counts/environment plus CPU/GPU/frame/latency/allocation
   distributions and missed targets.
 
-- No redundant unchanged-tree serialization, global layout rebuilding,
-  unconditional quadratic matching, or mandatory geometry streaming.
+- Sparse-update measurements guide optimization; ordinary animation stays
+  host-local and detailed geometry observations remain opt-in. No prescribed
+  complexity bound or unmeasured optimization is a completion gate.
 
   **Tasks:** [16](tasks/16-view-selectors-stores.md),
   [23](tasks/23-world-layout.md), [29](tasks/29-presentation-inspector.md),
@@ -757,7 +769,8 @@ scenes](fixtures.md), and [validation](validation.md).
   host-local.
 
 - Functional desktop native/threaded WebGL, preserved macOS/Windows support,
-  iOS/Android builds and automated paths.
+  iOS/Android builds and minimal cancellation-fixture/Hearts smoke checks.
+  No new all-sample mobile matrix; physical certification remains separate.
 
   **Tasks:** [03](tasks/03-native-cancellation.md),
   [04](tasks/04-threaded-webgl-proof.md), [05](tasks/05-mobile-build-paths.md),

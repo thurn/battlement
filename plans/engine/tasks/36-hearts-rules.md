@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 35: Prepare Hearts assets and its 3D sample
-shell](35-hearts-assets-shell.md) and all its required follow-ups must be
-integrated.
+shell](35-hearts-assets-shell.md) is integrated.
 
 **Starting code:** reactant-rules public API; Hearts shell; public display
 driver.

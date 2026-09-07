@@ -12,8 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 03: Prove native worker cancellation and Rust
-cleanup](03-native-cancellation.md) and all its required follow-ups must be
-integrated.
+cleanup](03-native-cancellation.md) is integrated.
 
 **Starting code:** Plugin builds; Unity release/adapter builders; native
 cancellation fixture from task 03.

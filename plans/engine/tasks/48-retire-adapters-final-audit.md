@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Workflow](../workflow.md)
 
 **Prerequisite:** [Task 47: Validate native, threaded WebGL, and mobile
-builds](47-release-conformance.md) and all its required follow-ups must be
-integrated.
+builds](47-release-conformance.md) is integrated.
 
 **Starting code:** Workspace dependency graph; all temporary adapter removal
 notes; source-map; maintained guidance.

@@ -153,6 +153,11 @@ Keyboard arrows/controller directions navigate cards and UI. Enter/primary
 button activates; Escape/back closes inspection or menus and returns focus to
 its invoker. Illegal cards remain inspectable but cannot be played. Modal menus
 block table actions, preserve selection, and expose Resume/Save/New Game/Exit.
+Opening the menu pauses game presentation as defined in
+[animation](motion.md#pause-gameplay-presentation-without-stopping-rules), including
+timed waits and subsequent gameplay commands, but not workers or snapshot
+consumption. Closing it resumes from the paused position. The menu itself stays
+responsive. Save may capture accepted state ahead of that paused position.
 
 Adapt hand spacing and camera framing to portrait and landscape viewports. Keep
 card faces readable at the selected native review resolutions. Handle
@@ -241,7 +246,10 @@ fresh session/run/request identity.
 Starting New Game does not overwrite an existing save. Exit does not capture or
 save a newer state automatically. If an explicit write is pending, normal Exit
 waits for that write, with retry or exit-without-finishing on failure. Forced
-termination restores the last durably acknowledged explicit save.
+termination restores the latest complete durable save. A pending write may have
+reached storage before its success message appeared; loading that complete save
+is valid. Never load a partial write. No extra commit journal is required to
+remember which success message the player saw.
 
 Write/flush failures preserve playable in-memory state and show retry feedback.
 Corrupt/incompatible saves show an explanation and offer New Game without

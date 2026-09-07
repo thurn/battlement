@@ -20,10 +20,13 @@ or hidden Hearts hands as a substitute for visible behavior. Small unit tests
 are justified for complex algorithms such as dependency-cycle detection or
 projection mathematics, but cannot replace end-to-end scenarios.
 
-Each task adds the acceptance scenarios named in its page. Create complete
-fixtures with stable seeds and public barriers. Never wait a guessed number of
-milliseconds for a worker. Wall-clock timeouts detect hangs; they do not control
-the expected order of execution.
+Each task proves its acceptance behaviors using existing coverage where it fits.
+Add a scenario only for a distinct behavior or failure mode not already covered;
+one scenario may satisfy multiple bullets. Use representative combinations plus
+explicit boundaries, not Cartesian products of layouts, effects, inputs, and
+platforms. Keep fixtures small, with stable seeds and public barriers. Wall-clock
+timeouts detect hangs; they never control worker ordering. Rules-only algorithms
+may be checked through the public rules API without a display or native fixture.
 
 ## Display driver contract
 
@@ -46,8 +49,7 @@ controlled fixture builders, plus wait_for_render_submission and settle.
 Submission waits synchronize the Rust consumer without advancing host time.
 Observe actual playback separately through host poses, text, and effects.
 Document that settle advances only finite work and stops at an unanswered
-prompt; it must not spin forever on cosmetic loops. Seeking an inspection copy
-cannot finish the active gameplay batch. `advance_frame` remains available for
+prompt; it must not spin forever on cosmetic loops. `advance_frame` remains available for
 visual observations, with no mandatory per-snapshot frame boundary.
 
 Virtual time, worker scheduling, and rendered frames are independent. Each
@@ -57,9 +59,10 @@ bounded event-driven waits; no fake-only direct call to a rules closure.
 
 ## Host conformance
 
-For each new host capability, test it through the Rust fake and a native Ditto
-test scene. The two executors consume the same public protocol, but a fake
-result alone does not establish Unity behavior.
+For each new host capability, cover logical behavior through the public driver
+and obtain focused native evidence for what the fake cannot establish. Reuse one
+scene across related capabilities. A fake result alone does not establish Unity
+rendering; native checks need not repeat every logical permutation.
 
 Required native coverage includes interpolation, text/sprite ordering, shader
 overrides, particles/audio timing, input capture/modals, live anchor movement,
@@ -67,17 +70,22 @@ asset command dependencies, command-operation completion, and safe input while
 gameplay commands are queued. Inspect actual visible behavior; do not require a
 whole-display atomic swap or a rendered-frame receipt.
 
-Protocol fixture tests must include serialization, Unity consumption, and
-correlated returned events. Exercise duplicate delivery and stale IDs, not only
-a happy-path animation.
+Changed protocol capabilities need serialization and Unity-consumption coverage,
+plus returned events where that capability has them. Reuse existing protocol
+checks. Duplicate delivery and stale-ID scenarios belong to their engine owners
+and are reused by later features unless a new failure mode warrants extension.
 
 ## Platform evidence
 
 Tasks 03-05 establish actual Rust/Unity worker cancellation and release-build
 plumbing early. Desktop native and threaded desktop WebGL are required
-functional integration targets. Preserve existing macOS/Windows support. Prepare
-iOS and Android build paths and reproducible device scenarios here; physical
-iPhone 17/Galaxy S25 execution is a separately tracked certification.
+functional integration targets. Preserve existing macOS/Windows support. The mobile gate is minimal: build the cancellation fixture and Hearts for iOS
+and Android, run the fixture on one iOS Simulator and one Android emulator, and
+smoke-test Hearts launch, a pass/card play, menu pause/resume, and restart on each.
+Task 05 establishes the fixture path; task 47 adds the completed Hearts smoke.
+Keep existing sample regression coverage, without adding an all-sample mobile
+matrix. Missing required SDKs/modules are explicit blockers. Physical
+iPhone 17/Galaxy S25 execution is separate certification.
 
 For each supported release build, verify panic=unwind configuration. Native and
 threaded WebGL fixtures must demonstrate nested rules unwinding, destructor
@@ -95,7 +103,9 @@ Do not declare the architecture supported from compiler flags alone.
 
 ## Checks and evidence
 
-Run each package check below once its owning task has introduced that package:
+Use the affected package checks below once their owning tasks introduce them.
+The required aggregate CI remains the final gate; do not separately rerun every
+package suite merely because its package now exists:
 - cargo test -p reactant-rules
 - cargo test -p reactant-core
 - cargo test -p reactant-ui
@@ -111,8 +121,8 @@ After task 07, CLI contract tests must also prove:
 
 - Cargo metadata exposes `rt` as the sole project-tool binary, removes
   `cargo-battlement`, and leaves `battlement-ditto` library-only.
-- Help and parser snapshots contain the general subcommands without sample names
-  or Battlement/Reactant namespaces.
+- Help/parser behavior exposes the general subcommands without sample names
+  or Battlement/Reactant namespaces; a full help snapshot is not required.
 - An external project whose path contains spaces resolves `reactant.toml`,
   applies explicit-over-file precedence, and reports relative paths from the
   project root.
@@ -123,8 +133,9 @@ After task 07, CLI contract tests must also prove:
 - Reactant Ditto fixtures run shared asset preparation before the generic Ditto
   library; direct Battlement fixtures skip it; the Ditto library has no Reactant
   dependency.
-- Repository recipe tests prove that only `justfile` chooses sample names and
-  defaults; parameterized scripts receive explicit paths.
+- Inspect repository recipes and parameterized scripts to verify that only
+  `justfile` chooses sample names/defaults. Exercise representative recipes; do
+  not add source-text assertion tests for this structural ownership rule.
 
 Before a package's creating task, run its predecessor checks from the source
 map. In particular, existing UI checks use battlement-reactant before task 06,

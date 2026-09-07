@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 01: Establish behavioral baselines and classify existing
-tests](01-behavior-baseline.md) and all its required follow-ups must be
-integrated.
+tests](01-behavior-baseline.md) is integrated.
 
 **Starting code:** Existing asynchronous executor (for distinction only); chess
 AI; Cargo workspace conventions.
@@ -53,18 +52,20 @@ prompt returns `[CardId; 3]`; there is no game-wide answer enum.
 
 4. Compile a choice-free game (`Prompt<'a> = ()`), two distinct response types
    through nested rules, and a second game's generic prompt handling. Exercise
-   the same game-owned context with a recording interactive connection and a
-   simulation execution mode. Task 11 supplies actual App startup and worker
-   integration.
+   simulation mode through nested calls. Declare the interactive API shape
+   without inventing a public recording connection or claiming live execution.
+   Tasks 09–11 supply interactive publication, replies, and App integration;
+   task 11 owns end-to-end equivalence through the same game.
 
 5. Measure primitive overhead separately from constructing owned prompt vectors
-   and policy search. Retain public-entry allocation measurements and optimized
-   code inspection. Context-mode branching is permitted; do not claim the entire
+   and policy search. Retain one focused public-entry allocation measurement and
+   review static dispatch. Inspect optimized code only if dispatch is uncertain;
+   no compiler-output snapshots or general benchmark framework are required. Context-mode branching is permitted; do not claim the entire
    simulation or every game-owned prompt is allocation-free.
 
 ## Acceptance
 
-- One Game implementation runs in both contexts. Prompt fields/legality are
+- One Game implementation compiles for both modes and runs in simulation. Prompt fields/legality are
   defined once; stable option order maps policy indices to the correct typed
   response. An out-of-range index panics.
 
@@ -85,6 +86,6 @@ App startup, handles, and attachment are task 11. Do not migrate samples here.
 
 ## Manual QA
 
-Run the same nested fixture with a recording interactive connection and a
-simulation execution mode. Inspect its selected response types and compare
-final outcomes and allocation evidence.
+Run nested simulation choices through the public rules API. Inspect typed
+responses, deterministic outcomes, and primitive allocation evidence. Actual
+interactive equivalence is verified in task 11.

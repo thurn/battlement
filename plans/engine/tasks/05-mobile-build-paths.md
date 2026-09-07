@@ -12,8 +12,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 04: Prove cancellation in the threaded WebGL release
-path](04-threaded-webgl-proof.md) and all its required follow-ups must be
-integrated.
+path](04-threaded-webgl-proof.md) is integrated.
 
 **Starting code:** Plugin builds; Unity release/adapter builders; repository
 validation.
@@ -41,7 +40,7 @@ result: pass, fail, or not run with the missing prerequisite
    physical-device evidence in results.
 
 3. Verify the native library exports and link/runtime compatibility; run the
-   cancellation fixture on available automated simulator/emulator targets.
+   cancellation fixture once on iOS Simulator and once on an Android emulator.
    Required SDK/module setup is an explicit prerequisite, not a silently skipped
    check.
 
@@ -67,8 +66,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Physical device execution remains a separate certification. Mobile sample
-content is added by its owning later task.
+Physical device execution remains a separate certification. Task 47 adds only the completed Hearts smoke. Existing sample coverage stays;
+no new all-sample mobile matrix is required.
 
 ## Manual QA
 

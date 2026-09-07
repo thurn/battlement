@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Architecture](../architecture.md)
 
 **Prerequisite:** [Task 15: Destroy components while keeping unfinished exit
-visuals](15-destruction-and-exit-retention.md) and all its required follow-ups
-must be integrated.
+visuals](15-destruction-and-exit-retention.md) is integrated.
 
 **Starting code:** External stores; context/hooks; runtime scheduling; presented
 snapshot provider.

@@ -87,8 +87,7 @@ Trail::new()
 A target explicitly chooses to follow the referenced object's transformed local
 point or capture its world position at start. Validate required refs and native
 kinds before command submission. Retained effects continue targeting the
-destroyed object's retained host; its UUID remains retired and cannot identify a
-new object. Hidden objects remain mounted, so their refs continue to target that
+destroyed object's retained host through its original native handle. Hidden objects remain mounted, so their refs continue to target that
 same entity. When a point needs its own animated transform or children, use a
 referenced `world::Group` at that offset.
 
@@ -187,7 +186,7 @@ overlay can explicitly permit passthrough.
 Capture remains attached to the same live target until release, hiding, or
 destruction. Reparenting is neither hiding nor destruction. Hiding and
 destruction emit capture loss; input generated for an inert or destroyed target
-cannot dispatch after that entity is shown elsewhere or the UUID is retired.
+cannot dispatch after that entity is shown elsewhere or the original native handle is destroyed.
 Native default prevention stays synchronous without reentrant engine calls.
 
 Gameplay input answers the current presented prompt or starts an action at a

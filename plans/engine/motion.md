@@ -74,7 +74,7 @@ layout continues computing the eventual destination.
 Hover lift and tilt are separate local offsets applied after base placement:
 
 ```rust
-WorldGroup::new()
+world::Group::new()
     .while_hover(target().local_offset_y(0.12))
     .child(CardFaces::new().card(card))
 ```
@@ -240,38 +240,37 @@ exit animation and effects that still need visuals retain the prepared native
 objects, anchors, and assets. Logical handlers and subscriptions detach at once.
 
 For example, a destroyed fixture target can dissolve while a projectile still
-follows an anchor on its old visual. Those refs keep the destroyed visual, and
-its UUID cannot be reused as a new entity. Release resources after their final
+follows an anchor on its old visual. Those refs keep the destroyed visual, without retaining logical component state. Release resources after their final
 retained use, not merely when hooks disappear. Hidden entities instead stay
 mounted and retarget, cancel, or reverse their visibility transitions when shown
 again. [Identity](identity.md) defines this distinction.
 
-## Inspect and replay without changing game progress
+## Pause gameplay presentation without stopping rules
 
-Seeking samples supported visual tracks without replaying sounds and bursts that
-have already occurred. Resume emits only occurrences not previously delivered.
-Native capabilities must report seek support; unavailable particle rewinding
-must be visible in the inspector rather than simulated inaccurately.
+The game presentation has an app-owned pause/resume control outside the rules
+API. Pausing freezes its active animation/sequence clock, finite waits, and
+execution of later gameplay commands. Rules workers and snapshot consumption
+continue; their output remains queued. Do not queue the pause command behind the
+blocking operation it must pause. Stop/replacement must still cancel paused work.
+Independent menu commands and menu animations remain responsive.
 
-Explicit replay runs a fresh playback with new ordinary command/playback IDs
-on an inspection copy, separate from the active gameplay batch:
+Resume continues from the paused position without replaying already delivered
+sounds/bursts or charging paused wall time against durations. Freeze gameplay
+particles and pause gameplay audio where their existing native controls support
+it; already emitted sound is not undone. Asset preparation may continue while
+visible gameplay execution is paused. Opening Hearts' menu uses this control;
+closing it resumes the game clock without overriding independently paused Motion
+tracks. Nested menu UI does not resume gameplay while the menu remains open.
 
-```text
-seek backward over reveal, then resume: do not repeat its delivered sound
-explicitly replay the draw: play the sound once for this new replay
-replay again: allocate another replay ID and play it once again
-```
-
-Pause the live playback while inspecting a copy; seeking/replay changes only
-that copy. Inspection playback never replaces the queued gameplay operations.
-Leaving inspection restores the live presentation and resumes from its paused
-position. Repeated delivery within one replay is still deduplicated.
+Developer seek, explicit replay, and independent copies of live scenes are
+outside v1. Existing UI-only Motion controls remain supported. Enlarged card
+inspection and hypothetical outcome components remain ordinary components with
+separate identities; they do not clone a live animation timeline.
 
 ## Manual QA
 
 Compare a UI property, world property, default layout move, and custom sequence
 using the same transition settings. Omit application movement configuration.
 Pause, slow, interrupt, and retarget each. Reflow a hand during reveal and check
-that hover responds while the blocking move waits for arrival. Seek across sound/burst
-labels, resume, and explicitly replay. Destroy a fixture target during dissolve
+that hover responds while the blocking move waits for arrival. Pause across sound/burst labels, then resume without duplicates. Destroy a fixture target during dissolve
 and an attached projectile, then verify final resource cleanup.

@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 08: Add public display driving and deterministic virtual
-time](08-public-display-driver.md) and all its required follow-ups must be
-integrated.
+time](08-public-display-driver.md) is integrated.
 
 **Starting code:** reactant-rules contexts/worker connection from tasks 02-03;
 public display driver.
@@ -45,19 +44,21 @@ worker changes private state: A and B remain immutable
    abandonment/closure using the shared predicate protocol.
 
 3. Preserve independent accepted, worker-private, and rendered-snapshot state.
-   Add a deliberately shared-mutable fixture to document invalid logical-clone
-   ownership without designing a runtime deep-copy system.
+   Document logical_clone ownership at its API; do not build a runtime
+   deep-copy validator or a fixture that deliberately violates its contract.
 
 4. Represent completion as a final-state/final-checkpoint publication using the
    same 32-slot limit. Never drop/coalesce entries. Expose public publication
-   observations and measure peak snapshot bytes separately from native commands.
+   observations. Reuse this fixture in task 10 rather than duplicating the queue
+   matrix. Memory profiling belongs to task group 46.
 
 ## Acceptance
 
 - With the Rust consumer held on A, B1-B32 enqueue and B33 waits before its
   builders. Taking B1 permits one more construction. Unity pause alone does not
-  prevent publication or consumption. Mix prompt/present/final entries and prove
-  FIFO order without dropping/coalescing; report peak retained bytes.
+  prevent publication or consumption. Mix present/final entries and prove
+  FIFO order without dropping/coalescing. Task 10 extends this same scenario
+  with actual prompts. Record snapshot counts; byte profiling belongs to task 46.
 
 - Mutation of worker state after publication does not change the published
   snapshot in a correct logical-clone fixture.

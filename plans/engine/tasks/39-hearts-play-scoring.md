@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Animation](../motion.md)
 
 **Prerequisite:** [Task 38: Connect Hearts passing prompts and simultaneous
-transfers](38-hearts-passing.md) and all its required follow-ups must be
-integrated.
+transfers](38-hearts-passing.md) is integrated.
 
 **Starting code:** Hearts fixed rules and layouts; passing UI; snapshot-to-command
 integration.

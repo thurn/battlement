@@ -68,8 +68,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Retention after logical unmount is task 27 and seek/replay occurrence history is
-task 28.
+Retention after logical unmount is task 27 and pause/resume is task 28.
+Developer seek/replay is outside v1.
 
 ## Manual QA
 

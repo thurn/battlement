@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Rules and choices](../execution.md)
 
 **Prerequisite:** [Task 24: Animate layout movement with continuous
-retargeting](24-layout-movement-projection.md) and all its required follow-ups
-must be integrated.
+retargeting](24-layout-movement-projection.md) is integrated.
 
 **Starting code:** Task 12's snapshot-to-batch consumer; Motion command-operation
 adapters; layout movement policies; Reactant event hooks and scoped controls.
@@ -31,7 +30,9 @@ particle trail                       -> nonblocking operation
 ## Implementation
 
 1. Let components interpret each queued snapshot's typed `StateAnimation` using
-   scoped animation controls and declared refs. Collect authored commands with
+   scoped animation controls and declared refs. This task owns the minimal
+   facade authoring API that exposes the typed event during its consuming render;
+   the rules/session surface stays as defined in interfaces.md. Collect commands with
    that render and consume the event once at submission. A local rerender must
    not start it again. No playback reservation/commit handshake is needed.
 2. Emit default layout movement as blocking commands. A custom sequence owns
@@ -63,7 +64,7 @@ in [validation](../validation.md).
 
 ## Scope of this task
 
-Task 26 adds sequence sound/burst entries and task 28 inspection/replay. They use
+Task 26 adds sequence sound/burst entries and task 28 gameplay pause. They use
 existing command/playback identities, not a parallel presentation protocol.
 
 ## Manual QA

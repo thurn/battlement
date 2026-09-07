@@ -37,12 +37,14 @@ replace: assertions about exact command counts
 
 2. Classify command variants/counts, prefab-kind checks, exact host counts, and
    sleep/poll loops. For each, identify the actual behavior it protects, if any.
-   Rework straightforward cases to existing public world/text/input observations
-   and delete tests that protect only internal representation.
+   Record which assertions need replacement when their owning behavior changes.
+   Rework only straightforward assertions that obstruct an imminent change; do
+   not rewrite unaffected suites as a prerequisite to engine implementation.
 
 3. Capture current native motion/effect behavior where the fake cannot observe
    time. Leave those coupled timing assertions temporarily in place with task 08
-   named as their rework owner; do not invent interpolation evidence.
+   named as their earliest possible rework owner; migrate the remaining assertions
+   with their sample before cutover. Do not invent interpolation evidence.
 
 4. Retain existing native baselines. Run focused old suites before and after
    test-only edits so the replacements demonstrably pass against the original

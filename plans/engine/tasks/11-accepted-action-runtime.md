@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Architecture](../architecture.md)
 
 **Prerequisite:** [Task 10: Implement typed interactive prompts and validated
-responses](10-typed-prompts.md) and all its required follow-ups must be
-integrated.
+responses](10-typed-prompts.md) is integrated.
 
 **Starting code:** Application/engine integration; worker completion records; UI
 failure surface; existing chess saves.
@@ -55,7 +54,7 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
    event. Return the context after normal completion; discard interrupted
    context on failure/stop and construct a new one for replacement.
 
-4. Implement idempotent nonjoining stop, old-handle isolation, and
+4. Implement idempotent nonjoining stop, old-handle isolation, fresh game-subtree presentation lifetime on replacement, and
    Ready/Busy/Failed/Stopped status. App teardown stops its session. Distinguish
    immediate public Stopped from the later cleanup-complete worker observation.
 
@@ -65,6 +64,10 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
    callback or autosave service. Preserve detailed failures in diagnostics.
 
 ## Acceptance
+
+- The same deterministic rules fixture reaches equivalent state through
+  interactive App dispatch/typed replies and direct simulation. This completes
+  task 02's deferred live-path proof without a test-only execution facade.
 
 - Startup and replacement construct exactly one context with the correct
   connection. Old handles remain stopped; cloned current handles share state.

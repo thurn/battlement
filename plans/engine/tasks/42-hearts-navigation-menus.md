@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 41: Finish Hearts pointer, touch, drag, and inspection
-behavior](41-hearts-pointer-touch.md) and all its required follow-ups must be
-integrated.
+behavior](41-hearts-pointer-touch.md) is integrated.
 
 **Starting code:** Hearts controls; world focus/navigation; existing UI
 modal/focus behavior.
@@ -40,7 +39,9 @@ switch to pointer -> do not submit a duplicate answer
    illegal card remains inspectable but cannot submit a play.
 
 3. Finish Resume/New Game/Exit menu flows, score/results focus order, and
-   return-focus to the original card/control after a modal closes.
+   return-focus to the original card/control after a modal closes. Opening the
+   menu acquires task 28's game-presentation pause; closing releases it. Workers
+   and snapshot consumption continue, and the menu remains responsive.
 
 4. Ensure a new request or card that leaves the hand chooses a deterministic
    eligible focus target without firing activation. Preserve existing sample
@@ -51,8 +52,9 @@ switch to pointer -> do not submit a duplicate answer
 - A user can start, pass, play a hand, inspect cards, open/close menus, and
   handle results using keyboard or controller only.
 
-- Opening a modal excludes table activation and closing it restores visible
-  focus.
+- Opening the menu pauses gameplay animation, waits, and later commands while
+  workers continue. Closing resumes at the paused time and restores visible
+  focus; queued future state cannot become visible while paused.
 
 - Focus moves safely when its card leaves the hand or becomes hidden; stale
   activation cannot answer a later request after the same card is shown again.

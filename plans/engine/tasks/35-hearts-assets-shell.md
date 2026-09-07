@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 34: Migrate the currently implemented chess UI
-gallery](34-chess-ui-migration.md) and all its required follow-ups must be
-integrated.
+gallery](34-chess-ui-migration.md) is integrated.
 
 **Starting code:** Existing sample authoring/build patterns; KayKit
 subset/license; new Reactant asset tooling.

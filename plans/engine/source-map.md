@@ -52,6 +52,9 @@ These are starting points, not instructions to load whole directories.
 
 ## Planned additions
 
+Some numbered entries are task groups: their linked lettered leaves are the
+actual serial assignments. Use the group index to find the current owner.
+
 The numbered tasks introduce the following code:
 - reactant-rules: Game, ExecutionMode, owned PromptData, ChoicePolicy, typed
   responses, DisplayConnection, and private worker lifecycle.

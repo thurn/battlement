@@ -62,7 +62,9 @@ has submitted that initial output; it does not wait for Unity playback.
 Starting alone does not call `Game::execute`.
 
 Calling `start_game` again stops the old session and attaches the new one to the
-app's display and hooks. Existing old handles stay tied to the stopped session.
+app's display and hooks. It starts a fresh game presentation lifetime: saved
+entity UUIDs can appear in the replacement with fresh component state and native
+handles. Persistent app/menu components outside the game subtree remain mounted. Existing old handles stay tied to the stopped session.
 UI-only apps need no game session. Dropping an app stops its attached session;
 dropping one cloned handle does not stop a session still owned by the app.
 
@@ -237,7 +239,8 @@ Hearts must still avoid using opponents' real hidden cards when choosing a move.
 
 Reactant creates `DisplayConnection<G>` for the session and places it in an
 interactive `ExecutionMode`. The mode owns all interactive-versus-simulation
-branching. Its fields and constructors are private.
+branching. `ExecutionMode` variants are public as shown in the sketch; the
+connection's storage and constructors are private.
 
 For an interactive choice, `ExecutionMode` first asks `ChoicePolicy::owner`
 whether the prompt belongs to a human or the policy. It routes a human decision

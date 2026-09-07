@@ -26,7 +26,7 @@ and ownership. Do not leave a sample broken until its migration number arrives.
 
 ## Establish behavior before changing it
 
-Task 01 records the existing scenario inventory and classifies assertions:
+Task 01 records the existing scenario inventory and identifies affected assertions:
 observable behavior, host/protocol contract, or implementation coupling. Do not
 simply label every current test black-box because it calls FakeClient.
 
@@ -34,7 +34,7 @@ Examples of coupling already present include exact TransformTween command
 variants, TimeWait entries, command order/counts, prefab host-kind checks, exact
 internal object counts, and sleep/poll loops tied to engine scheduling.
 
-For each coupled assertion:
+When an implementation change affects a coupled assertion:
 1. Identify the behavioral guarantee, if any.
 2. Rework it to observe displayed state, timed motion, sound/effect occurrence,
    input eligibility, or public lifecycle state.

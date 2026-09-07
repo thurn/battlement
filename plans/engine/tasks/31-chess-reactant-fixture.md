@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Rules and choices](../execution.md)
 
 **Prerequisite:** [Task 30: Migrate tic-tac-toe through the unified rules and
-display path](30-tictactoe-migration.md) and all its required follow-ups must be
-integrated.
+display path](30-tictactoe-migration.md) is integrated.
 
 **Starting code:** Chess rules/src/lib.rs, spawn/movement helpers, gameplay
 tests; opaque assets; public fixture driver.

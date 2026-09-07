@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Animation](../motion.md)
 
 **Prerequisite:** [Task 37: Compose Hearts cards, hands, tricks, and inspection
-views](37-hearts-card-layout.md) and all its required follow-ups must be
-integrated.
+views](37-hearts-card-layout.md) is integrated.
 
 **Starting code:** Hearts rules/Card components; typed prompt API; checkpoint
 registration.

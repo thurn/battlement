@@ -13,35 +13,35 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Presentation timing](../presentation.md)
 
 **Prerequisite:** [Task 17: Add sprites, meshes, world text, and material
-overrides](17-world-rendering-primitives.md) and all its required follow-ups
-must be integrated.
+overrides](17-world-rendering-primitives.md) is integrated.
 
 **Starting code:** World adapter/primitives; pointer host; refs; prepared
 asset/host ownership.
 
 ## Example
 
-The hit box and effect attachment point are explicit children, independent of
-the artwork:
+The hit box is an independent child; an effect attachment is a local point on a
+typed object ref:
 
 ```rust
-WorldGroup::new().children((
-    BoxHitRegion::new().size(hit_size).center(hit_center),
-    Anchor::new().reference(spark_origin).position(offset),
-))
+world::Group::new().reference(card_ref).child(
+    world::BoxHitRegion::new().size(hit_size).center(hit_center),
+)
+let spark_origin = card_ref.local_point(offset);
 ```
 
 ## Implementation
 
-1. Implement BoxHitRegion and typed Anchor hosts with position/size/center
-   setters. Attach them to logical/world owners and retain refs bound to the
-   entity UUID until destruction cleanup.
+1. Implement world::BoxHitRegion with size/center setters and typed ref
+   local_point(offset) targets. A local point is ref-plus-offset data, not a new
+   Anchor host/protocol. Use an ordinary referenced world::Group only when the
+   attachment needs its own animated transform or children.
 
 2. Generate hit geometry and visual changes in the same render and order their
    ordinary commands together. Permit a Card
    face/context to change its collider dimensions through ordinary Rust props.
 
-3. Expose typed anchor references and live/captured target descriptors for later
+3. Expose follow-live/capture-at-start descriptors on typed local points for later
    movement/effects. Reject a wrong native kind or missing required anchor
    before submitting dependent commands.
 

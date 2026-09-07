@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Animation](../motion.md)
 
 **Prerequisite:** [Task 40: Choose Hearts moves by simulating possible
-hands](40-hearts-simulation-ai.md) and all its required follow-ups must be
-integrated.
+hands](40-hearts-simulation-ai.md) is integrated.
 
 **Starting code:** Hearts card/choice UI; unified pointer arbitration; world
 capture and movement ownership.

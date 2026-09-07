@@ -13,8 +13,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 09: Publish immutable checkpoints through a 32-slot
-queue](09-checkpoint-publication.md) and all its required follow-ups must be
-integrated.
+queue](09-checkpoint-publication.md) is integrated.
 
 **Starting code:** PromptData and ExecutionMode from task 02; worker
 connection from task 09; display driver.
@@ -62,7 +61,8 @@ to a current request is a programming error; an ended-request reply is ignored.
    directly through P. Human handles cannot resolve AI requests. Player routing
    remains in game context.
 
-5. Exercise two response types and another game's prompt enum. Retain compile
+5. Extend task 09's existing FIFO scenario with actual prompt entries and add
+   prompt-aware finite settle. Exercise two response types and another game's prompt enum. Retain compile
    checks for wrong response types, fault-injected transport mismatch, stable
    indices, zero-sized prompt data, and local selection/menu state independent
    of rules. Verify borrowed policy calls do not clone and temporary wrappers
@@ -73,9 +73,9 @@ to a current request is a programming error; an ended-request reply is ignored.
 - Valid responses resume once. Active invalid replies panic; stopped, replaced,
   and already-resolved request replies are ignored without resuming anything.
 
-- Native prompt controls are queued after earlier blocking commands. Request
-  handles are valid in Rust before display; distinct native targets prevent an
-  old visible prompt from invoking a newer handle. Cover all activation modes.
+- Request handles are valid before display consumption. A public consumer/input
+  fixture exercises stale requests and distinct response types. Task 12 owns
+  actual queued native controls; tasks 19–20 extend their world input modes.
 
 - A caller-created prompt cannot broaden legal choices. An AI-owned request
   cannot be answered by human UI even if the value would be legal.

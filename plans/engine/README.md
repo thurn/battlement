@@ -97,7 +97,7 @@ sample that exercises the engine as an application.
   run, authoring, Ditto, plugin, Addressables, and Reactant asset workflows.
   Repository `just` recipes select and run Battlement samples without teaching
   `rt` about this checkout.
-- **Validation tools:** a public display test driver, a presentation inspector,
+- **Validation tools:** a public display test driver, a small diagnostic inspector,
   focused interactive examples, and fixed 300/500-card performance workloads.
 
 Reactant depends on Battlement in this repository. Battlement supplies generic
@@ -106,10 +106,13 @@ Reactant. The Reactant-owned `rt` command may use that support. Repository
 sample selection and defaults belong in [justfile](../../justfile), not in the
 public CLI. Chess may keep its opaque piece prefabs. Rust builds the Hearts
 cards and the richer card-composition examples from primitives. Typed access to
-prefab parts and humanoid root motion are not included in this implementation.
+prefab parts, humanoid root motion, developer seek/replay, and live-scene copying
+are outside v1. `rt` is a standalone CLI, not an SDK distribution project.
 
-Desktop native and threaded desktop WebGL must pass functional validation. Add
-reproducible iOS and Android build and validation paths. Physical iPhone 17 and
+Desktop native and threaded desktop WebGL must pass functional validation. Mobile
+validation is a minimal cancellation-fixture and Hearts smoke on iOS Simulator
+and Android emulator, with reproducible mobile builds; see
+[the platform contract](validation.md#platform-evidence). Physical iPhone 17 and
 Galaxy S25 certification is tracked separately. The numerical performance
 targets in [test scenes and performance](fixtures.md) guide measurement and
 improvement; missed targets must be reported, but do not waive correctness or
@@ -127,7 +130,7 @@ its part of the implementation; it links the relevant topics and starting code.
 | Working on rules, choices, cancellation, simulation, or saving | [Execution](execution.md) |
 | Rendering snapshots into the existing command queue | [Presentation](presentation.md) |
 | Moving components, preserving refs, or removing objects | [Identity and state](identity.md) |
-| Building transitions, sequences, effects, or replay controls | [Animation](motion.md) |
+| Building transitions, sequences, effects, or pause controls | [Animation](motion.md) |
 | Adding world visuals, layouts, or input | [World objects](world.md) |
 | Migrating a sample or its tests | [Migration](migration.md) |
 | Implementing the playable card game | [Hearts](hearts.md) |
@@ -138,8 +141,9 @@ its part of the implementation; it links the relevant topics and starting code.
 
 ## Implementation order
 
-Execute the tasks below serially. Each task builds on all earlier completed
-ones. Keep existing callers working when an API changes; a later sample
+Execute the tasks below serially. A task group links lettered leaf assignments;
+complete and integrate each leaf before the next, then continue to the next
+number. Each leaf builds on all earlier completed ones. Keep existing callers working when an API changes; a later sample
 migration is not permission to leave that sample unable to compile.
 
 Improve API ergonomics and add reusable capabilities when the assigned behavior
@@ -164,18 +168,18 @@ archive; earlier engine work does not depend on those assets.
 5. [Prepare iOS and Android release validation
    paths](tasks/05-mobile-build-paths.md)
 6. [Extract shared Reactant core, UI layer, and
-   facade](tasks/06-crate-boundaries.md)
+   facade](tasks/06-crate-boundaries.md) — serial task group
 7. [Unify Reactant project tooling under
-   `rt`](tasks/07-asset-tooling-boundary.md)
+   `rt`](tasks/07-asset-tooling-boundary.md) — serial task group
 8. [Add public display driving and deterministic virtual
-   time](tasks/08-public-display-driver.md)
+   time](tasks/08-public-display-driver.md) — serial task group
 9. [Publish immutable checkpoints through a 32-slot
    queue](tasks/09-checkpoint-publication.md)
 10. [Implement typed interactive prompts and validated
     responses](tasks/10-typed-prompts.md)
 11. [Start game sessions, accept actions, and expose
     recovery](tasks/11-accepted-action-runtime.md)
-12. [Connect snapshot rendering to the existing command queue](tasks/12-command-queue-integration.md)
+12. [Connect snapshot rendering to the existing command queue](tasks/12-command-queue-integration.md) — serial task group
 
 ### Unified objects, input, and motion
 
@@ -188,7 +192,7 @@ archive; earlier engine work does not depend on those assets.
 16. [Add stable state selectors and queued display
     stores](tasks/16-view-selectors-stores.md)
 17. [Add sprites, meshes, world text, and material
-    overrides](tasks/17-world-rendering-primitives.md)
+    overrides](tasks/17-world-rendering-primitives.md) — serial task group
 18. [Add independent hit regions and typed Rust-created
     anchors](tasks/18-hit-regions-anchors.md)
 19. [Unify UI/world hit testing, propagation, and modal
@@ -196,13 +200,13 @@ archive; earlier engine work does not depend on those assets.
 20. [Extend focus, controller navigation, and touch across
     domains](tasks/20-world-focus-touch.md)
 21. [Animate UI, world objects, and effects with shared
-    drivers](tasks/21-shared-motion-drivers.md)
+    drivers](tasks/21-shared-motion-drivers.md) — serial task group
 22. [Build sequences with labels that follow actual
     completion](tasks/22-sequence-dependencies.md)
 23. [Implement world Flexbox, Grid, fans, piles, and
-    arcs](tasks/23-world-layout.md)
+    arcs](tasks/23-world-layout.md) — serial task group
 24. [Animate layout movement with continuous
-    retargeting](tasks/24-layout-movement-projection.md)
+    retargeting](tasks/24-layout-movement-projection.md) — serial task group
 
 ### Presentation and existing sample migrations
 
@@ -211,8 +215,7 @@ archive; earlier engine work does not depend on those assets.
     effects](tasks/26-effect-occurrences.md)
 27. [Retain exits, anchors, and effects after logical
     unmount](tasks/27-effect-exit-retention.md)
-28. [Implement safe seek, resume, and explicit presentation
-    replay](tasks/28-inspection-replay.md)
+28. [Pause gameplay presentation while workers continue](tasks/28-gameplay-pause.md)
 29. [Build the reusable presentation
     inspector](tasks/29-presentation-inspector.md)
 30. [Migrate tic-tac-toe through the unified rules and display
@@ -220,7 +223,7 @@ archive; earlier engine work does not depend on those assets.
 31. [Port chess board composition and move presentation in a
     fixture](tasks/31-chess-reactant-fixture.md)
 32. [Complete chess application integration and remove the old
-    engine](tasks/32-chess-cutover.md)
+    engine](tasks/32-chess-cutover.md) — serial task group
 33. [Migrate the existing Reactant laboratory to the unified
     APIs](tasks/33-reactant-sample-migration.md)
 34. [Migrate the currently implemented chess UI
@@ -239,22 +242,22 @@ archive; earlier engine work does not depend on those assets.
 39. [Complete Hearts card play, trick collection, and
     scoring](tasks/39-hearts-play-scoring.md)
 40. [Choose Hearts moves by simulating possible
-    hands](tasks/40-hearts-simulation-ai.md)
+    hands](tasks/40-hearts-simulation-ai.md) — serial task group
 41. [Finish Hearts pointer, touch, drag, and inspection
     behavior](tasks/41-hearts-pointer-touch.md)
 42. [Finish Hearts keyboard/controller navigation and
     menus](tasks/42-hearts-navigation-menus.md)
 43. [Save Hearts explicitly and resume accepted
-    state](tasks/43-hearts-save-resume.md)
+    state](tasks/43-hearts-save-resume.md) — serial task group
 
 ### Complete coverage and integration
 
 44. [Complete component, layout, and input test
-    scenes](tasks/44-identity-composition-laboratory.md)
+    scenes](tasks/44-identity-composition-laboratory.md) — serial task group
 45. [Complete animation, cancellation, and failure test
-    scenes](tasks/45-effects-failures-laboratory.md)
+    scenes](tasks/45-effects-failures-laboratory.md) — serial task group
 46. [Measure complete-card workloads and repair structural
-    hotspots](tasks/46-performance-workloads.md)
+    hotspots](tasks/46-performance-workloads.md) — serial task group
 47. [Validate native, threaded WebGL, and mobile
     builds](tasks/47-release-conformance.md)
 48. [Remove transitional machinery and audit the finished

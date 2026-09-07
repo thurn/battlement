@@ -159,6 +159,12 @@ richer card test scenes must construct their visual children in Rust.
 
 ## One CLI owns project workflows
 
+`rt` is a standalone CLI tool. External projects may use explicit local Cargo
+and Unity package dependencies. Required runtime resources travel with their
+owning tool/package; build/run cannot read an assumed Battlement checkout.
+SDK distribution, installers, package publishing, scaffolding, and automatic
+dependency downloads are outside v1.
+
 `rt` is the only public command-line entry point. It belongs to Reactant and
 works from explicit project inputs rather than knowledge of Battlement's
 repository layout. Its general commands include:

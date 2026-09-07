@@ -107,7 +107,9 @@ dispatched through a newer prompt's closure. Stable card visuals can remain
 identified while their actionable children change. Apply this to pointer,
 keyboard, and controller activation.
 
-Menus and inspection use independent display state. Native hover offsets remain
+Menus and card inspection use independent display state. Hearts menu pause uses
+the [game presentation pause control](motion.md#pause-gameplay-presentation-without-stopping-rules);
+workers keep running while visible gameplay and its command queue are paused. Native hover offsets remain
 responsive without rerendering game state. Local menu commands may use existing
 independent batches; changes to the gameplay subtree must follow its queued
 commands, so a settings rerender cannot reveal the final hand or score early.
@@ -128,8 +130,8 @@ controls. There is no transfer of progress requirements between playbacks.
 
 ## Rules completion and failure
 
-Normal rules return accepts the final logical state once its final publication
-has been handed to the Rust consumer. It does not wait for Unity. `Ready` means
+Normal rules return accepts the final logical state once the Rust consumer has
+rendered its final publication and submitted the generated commands. It does not wait for Unity. `Ready` means
 the rules can accept another action, not that animation has stopped. Application
 code may enqueue the next action; normal player controls become available at
 their authored position in the native command queue.

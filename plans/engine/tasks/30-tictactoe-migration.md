@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [World objects and input](../world.md)
 
 **Prerequisite:** [Task 29: Build the reusable presentation
-inspector](29-presentation-inspector.md) and all its required follow-ups must be
-integrated.
+inspector](29-presentation-inspector.md) is integrated.
 
 **Starting code:** Tic-tac-toe rules/src and gameplay tests; new App/driver;
 existing assets/native scenarios.
@@ -26,7 +25,7 @@ Keep the existing observable AI delay using virtual presentation time:
 
 ```rust
 display.click(empty_cell);
-display.wait_for_checkpoint(); // synchronize without advancing time
+display.wait_for_render_submission(); // synchronize without advancing time
 display.advance_time(Duration::from_millis(99));
 display.assert_ai_mark_absent();
 display.advance_time(Duration::from_millis(1));

@@ -1,9 +1,10 @@
 # Implement one task at a time
 
-The numbered task is the assignment. Read its expected result, implementation
-requirements, acceptance examples, and linked topic documents. Complete it and
-integrate it before starting the next task in the [implementation
-order](README.md#implementation-order).
+The numbered leaf task is the assignment. Some numbers name a task group whose
+lettered assignments run serially; the group page is an index, not one large
+implementation task. Read the leaf assignment and its linked contracts, then
+complete and integrate it before starting the next leaf in the
+[implementation order](README.md#implementation-order).
 
 Related pages: [starting code](source-map.md), [validation](validation.md),
 [migration](migration.md), and the repository's [instructions](../../AGENTS.md).
@@ -73,10 +74,12 @@ Follow [validation](validation.md) for public scenarios, native checks, and the
 required aggregate CI run. Retain commands, seed/deal inputs, results, and
 rendered evidence so a reviewer can repeat the important cases.
 
-Every acceptance bullet needs evidence or a specific unresolved blocker. A test
-rewrite must explain the behavior it preserves. An API change must include an
-actual authoring example. Complete review and validation before freezing and
-submitting a candidate through the repository workflow.
+Every acceptance behavior needs evidence or a specific unresolved blocker. One
+existing scenario may cover several bullets and tasks; a bullet does not require
+a new test. Later integration tasks reuse that evidence and fill demonstrated
+gaps. A test rewrite explains the behavior it preserves. An API change includes
+an actual authoring example. Complete review and validation before submitting a
+candidate through the repository workflow.
 
 Keep current code guidance accurate when files move. Update the source map for
 later tasks and replace incorrect instructions rather than appending conflicting

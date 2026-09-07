@@ -13,12 +13,9 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Presentation timing](../presentation.md)
 - [Rules and choices](../execution.md)
 
-**Prerequisite:** [Task 28: Implement safe seek, resume, and explicit
-presentation replay](28-inspection-replay.md) and all its required follow-ups
-must be integrated.
+**Prerequisite:** [Task 28: Pause gameplay presentation while workers continue](28-gameplay-pause.md) is integrated.
 
-**Starting code:** Public display observations; Reactant UI; playback
-inspection; performance counters.
+**Starting code:** Public display observations; Reactant UI; playback status; existing native diagnostics.
 
 ## Example
 
@@ -33,44 +30,31 @@ worker: action complete; Unity still playing queued commands
 
 ## Implementation
 
-1. Add a hidden-by-default inspector mount with checkpoint/prompt,
-   UUID and visible/hidden/destroyed state, layout targets/current transforms,
-   property owners, playbacks/labels/effects, active batch and blocking
-   operations, and worker lifecycle panels.
-
-2. Connect pause, speed, one-frame advance, supported seek, and explicit replay
-   to the public inspection API. Keep inspection copies separate from live gameplay.
-
-3. Expose timing/allocation/publication counters with opt-in expensive
-   observations; normal animation must not stream every transform to Rust.
-
-4. Add stable test scene selection/reset controls to the existing Reactant
-   laboratory. Label later unavailable test scenes explicitly and make selection
-   deterministic.
-
-5. Select safe fields from full snapshots for normal inspection; fixture-only
-   diagnostics must be explicit. Never reveal opponent hands in the normal UI.
+1. Add a hidden-by-default diagnostic panel using existing observations: safe
+   current prompt, worker status, queued/blocking work, and a selected object's
+   UUID, visibility, layout target, and displayed position. Label Rust state as
+   potentially ahead of playback. Game code supplies safe labels; do not dump
+   full states or hidden Hearts hands.
+2. Reuse the laboratory's existing selector/reset controls. Reset through the
+   ordinary fixture entrypoint and show unavailable scenes honestly.
+3. Fetch detailed poses only for the selected object while the panel is open.
+   Disable optional per-frame reporting when it closes.
 
 ## Acceptance
 
-- The inspector explains which blocking operation is delaying the next queued command group
-  and which animation currently controls a property.
+- The panel explains a blocked move and a waiting worker without revealing game
+  secrets or changing rules/presentation progress.
+- Reset abandons the old run and releases its resources through existing cleanup.
+- Closing the panel removes optional per-frame pose reporting.
 
-- Pause/step/replay controls obey task 28's inspection/playback isolation and show
-  unavailable seek controls honestly.
-
-- Reset abandons old runs, releases fixture resources, and starts one clean test
-  scene.
-
-- Disabling optional geometry observations eliminates their per-frame reporting.
-
-Run the public scenarios, affected regressions, native checks for rendered
-claims, and staged aggregate CI described in [validation](../validation.md).
+Reuse the relevant scene observations and obtain one native panel capture; run
+staged aggregate CI from [validation](../validation.md).
 
 ## Scope of this task
 
-Hearts content starts at task 35. Additional test scene coverage is added by
-tasks 44-45 rather than fabricated now.
+No generic resource browser, timeline editor, scene cloning, seek/replay UI, or
+allocation dashboard. Performance instrumentation belongs to task group 46.
+Hearts' enlarged card inspection remains ordinary game UI.
 
 ## Manual QA
 

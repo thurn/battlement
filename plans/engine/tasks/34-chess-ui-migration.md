@@ -14,8 +14,7 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Validation](../validation.md)
 
 **Prerequisite:** [Task 33: Migrate the existing Reactant laboratory to the
-unified APIs](33-reactant-sample-migration.md) and all its required follow-ups
-must be integrated.
+unified APIs](33-reactant-sample-migration.md) is integrated.
 
 **Starting code:** samples/chess-ui/rules/src, tests, and native gallery
 scenarios.
