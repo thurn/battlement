@@ -69,6 +69,9 @@ namespace Battlement.Editor
                             $"Ditto player build failed with {report.summary.totalErrors} errors."
                         );
                     }
+#if UNITY_EDITOR_OSX
+                    ConfigureMacosApplication(output);
+#endif
                 }
             }
             finally
@@ -160,6 +163,37 @@ namespace Battlement.Editor
         }
 
 #if UNITY_EDITOR_OSX
+        private static void ConfigureMacosApplication(string output)
+        {
+            string path = Path.Combine(output, "Contents", "Info.plist");
+            var document = new PlistDocument();
+            document.ReadFromFile(path);
+            document.root.SetBoolean("LSUIElement", true);
+            document.WriteToFile(path);
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "/usr/bin/codesign",
+                Arguments = $"--force --sign - {Quote(output)}",
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            using System.Diagnostics.Process process =
+                System.Diagnostics.Process.Start(startInfo)
+                ?? throw new InvalidOperationException("Could not start '/usr/bin/codesign'.");
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"'/usr/bin/codesign' exited with code {process.ExitCode}: {error.Trim()}"
+                );
+            }
+        }
+
+        private static string Quote(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
+
         /// <summary>Builds one release iOS Simulator Xcode project.</summary>
         public static void BuildIosSimulator()
         {
