@@ -3254,3 +3254,58 @@ accessibility_action = { target = { role = "button", name = "\u206810\u2069. \u2
 accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
 [[scenarios.steps]]
 screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "input settings composition"
+motion = "instant"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206837\u2069. \u2068InputSettings composition\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "table", name = "Input bindings" }, role = "table", name = "Input bindings" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change Move Piece keyboard binding" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Press a key for Move Piece" }, role = "static-text", name = "Press a key for Move Piece" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cancel" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change Move Piece keyboard binding" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Reset" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cell", name = "Space" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Change Restart keyboard binding" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Press a key for Restart" }, role = "static-text", name = "Press a key for Restart" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Cancel" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "100%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Input bindings" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "row-header", name = "Restart" }, role = "row-header", name = "Restart" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cell", name = "Space" }

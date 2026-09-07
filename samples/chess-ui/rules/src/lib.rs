@@ -115,6 +115,8 @@ pub mod gallery;
 
 pub mod input_settings;
 
+mod input_settings_composition_harness;
+
 pub mod input_binding_icons;
 
 mod input_skin_harness;

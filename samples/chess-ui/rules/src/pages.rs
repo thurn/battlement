@@ -20,6 +20,7 @@ use crate::{
   gameplay_graphics_harness::GameplayGraphicsHarness,
   header_harness::HeaderHarness,
   input_settings::InputSettings,
+  input_settings_composition_harness::InputSettingsCompositionHarness,
   input_skin_harness::InputSkinHarness,
   interaction_harness::InteractionHarness,
   menu_transition_harness::MenuTransitionHarness,
@@ -266,7 +267,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("InputSettings composition", "Chess UI showcase title."))
-                .description(tx("InputSettings composes bindings, icons, scrolling, rebinding, and its modal; cross-tab integration is not asserted.", "Chess UI showcase description.")),
+                .description(tx("InputSettings composes bindings, icons, scrolling, rebinding, and its modal; cross-tab integration is not asserted.", "Chess UI showcase description."))
+                .child(InputSettingsCompositionHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

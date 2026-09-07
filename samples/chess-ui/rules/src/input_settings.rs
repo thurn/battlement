@@ -100,6 +100,8 @@ impl InputBindingVariant {
 pub struct InputSettings {
   overlay: Option<PortalTarget>,
   variant: InputBindingVariant,
+  /// Uses the source 971-pixel panel viewport instead of the isolated specimen crop.
+  full_panel: bool,
 }
 
 impl Component for InputSettings {
@@ -146,8 +148,8 @@ impl Component for InputSettings {
       .style(
         Style::new()
           .width(INPUT_WIDTH)
-          .height(720)
-          .margin_top(48)
+          .height(if self.full_panel { 971.0 } else { 720.0 })
+          .margin_top(if self.full_panel { 0.0 } else { 48.0 })
           .background_color(Color::rgb8(4, 17, 38)),
       )
       .child(
