@@ -93,14 +93,20 @@ sample that exercises the engine as an application.
 - **Hearts:** one human and three AI players, a 3D table, full mouse/touch and
   keyboard/controller input, scoring, and explicit durable save/load. V1 has no
   autosave.
+- **Project tools:** one Reactant-owned `rt` command for general project build,
+  run, authoring, Ditto, plugin, Addressables, and Reactant asset workflows.
+  Repository `just` recipes select and run Battlement samples without teaching
+  `rt` about this checkout.
 - **Validation tools:** a public display test driver, a presentation inspector,
   focused interactive examples, and fixed 300/500-card performance workloads.
 
 Reactant depends on Battlement in this repository. Battlement supplies generic
-Unity execution and must not depend on Reactant, including in build tools. Chess
-may keep its opaque piece prefabs. Rust builds the Hearts cards and the richer
-card-composition examples from primitives. Typed access to prefab parts and
-humanoid root motion are not included in this implementation.
+Unity execution and reusable lower-level build support, and must not depend on
+Reactant. The Reactant-owned `rt` command may use that support. Repository
+sample selection and defaults belong in [justfile](../../justfile), not in the
+public CLI. Chess may keep its opaque piece prefabs. Rust builds the Hearts
+cards and the richer card-composition examples from primitives. Typed access to
+prefab parts and humanoid root motion are not included in this implementation.
 
 Desktop native and threaded desktop WebGL must pass functional validation. Add
 reproducible iOS and Android build and validation paths. Physical iPhone 17 and
@@ -159,8 +165,8 @@ archive; earlier engine work does not depend on those assets.
    paths](tasks/05-mobile-build-paths.md)
 6. [Extract shared Reactant core, UI layer, and
    facade](tasks/06-crate-boundaries.md)
-7. [Move Reactant asset preparation out of
-   Battlement](tasks/07-asset-tooling-boundary.md)
+7. [Unify Reactant project tooling under
+   `rt`](tasks/07-asset-tooling-boundary.md)
 8. [Add public display driving and deterministic virtual
    time](tasks/08-public-display-driver.md)
 9. [Publish immutable checkpoints through a 32-slot

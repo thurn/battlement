@@ -113,8 +113,9 @@ existing standalone sample workspaces.
 - `reactant` owns application registration, world components, layouts,
   snapshot-to-batch integration, effects, and convenient reexports.
 - `reactant-testing` owns public display scenarios using Battlement's fake host.
-- Reactant asset libraries and the CLI own Reactant asset declarations,
-  generated paint, and related preparation.
+- The Reactant-owned `rt` command owns general project build, run, authoring,
+  Ditto, plugin, Addressables, and Reactant asset workflows. Reactant asset
+  libraries own declarations, generated paint, and related preparation.
 - Battlement owns the protocol, C ABI, generic Unity hosts, generic asset
   loading, command scheduling and operation completion, and low-level fakes.
 - Game Rust code owns rules, state, action validation, owned prompt data and
@@ -152,21 +153,96 @@ continue using existing piece models this way. It does not introduce named-part
 lookup, typed prefab binding, or game-specific C# callbacks. Hearts and the
 richer card test scenes must construct their visual children in Rust.
 
-## Asset preparation follows the same dependency direction
+## One CLI owns project workflows
 
-Battlement continues to build native plugins and Unity players and generate
-Addressables identifiers. Reactant-specific asset generation moves to
-`reactant-cli` and Reactant's Unity editor integration.
+`rt` is the only public command-line entry point. It belongs to Reactant and
+works from explicit project inputs rather than knowledge of Battlement's
+repository layout. Its general commands include:
 
-A sample can configure a preparation executable and argument list in
-`sample.toml`. The generic builder executes it from the sample directory,
-without a shell, before importing generated inputs. A nonzero result stops the
-build and reports the failure. Reactant samples configure this hook to invoke
-the checkout's Reactant CLI.
+```text
+rt build --project path/to/game
+rt run --project path/to/game
+rt author --project path/to/game
+rt ditto --config path/to/game/ditto.toml gallery
+rt addressables check --project path/to/game
+rt plugin inspect path/to/game.app
+```
 
-Generic Unity import helpers remain in Battlement. Reactant-specific preparation
-uses those helpers from its own assembly; Battlement assemblies never import
-Reactant assemblies. Repository CI may orchestrate both projects.
+`rt build` prepares Reactant assets, builds the Rust application plugin and
+Unity player, and reports the output. `rt run` invokes that same build operation
+before launching the native player or serving the Web build; normal Cargo and
+Unity incremental behavior may avoid unchanged work. `build` and `run` preserve
+the existing `--web` and `--release` choices. Web runs accept `--port`,
+defaulting to 8000. `rt author` prepares the same project inputs, opens Unity,
+and enters Play mode. Typed identifier generation and checking live under
+`rt addressables`. Native-plugin inspection, installation, restoration, and
+verification remain under `rt plugin` with their existing macOS application and
+signing scope. Reactant asset discovery, generation, checking, and preview
+remain under `rt assets`.
+
+`rt ditto` supports both Reactant projects and direct Battlement fixtures. A
+Ditto player's configuration explicitly declares whether it uses Reactant:
+
+```toml
+[player]
+reactant = true
+unity_project = "."
+```
+
+When `reactant` is true, `rt` resolves `unity_project` relative to the Ditto
+configuration, loads that project's `reactant.toml`, and runs the same asset
+preparation used by `rt build` before calling the generic Ditto library. When it
+is false, `rt` skips Reactant preparation. The generic Ditto library performs
+player build and execution in both cases without depending on Reactant crates.
+
+For `build`, `run`, `author`, and `assets`, `--project` identifies the Unity
+project root and defaults to the current directory. That root contains
+`reactant.toml`, whose minimum project contract is:
+
+```toml
+[project]
+application = "Card Table"
+scene = "Assets/Scenes/CardTable.unity"
+manifest-path = "rules/Cargo.toml"
+```
+
+`application` and `scene` are required. `manifest-path` defaults to
+`rules/Cargo.toml`; it names the Rust application plugin for either a game or a
+UI-only Reactant app. Paths in the file resolve from the project root. Explicit
+command flags override the corresponding file values. Target, profile, output,
+and Web-server options remain command flags because they describe an invocation,
+not the project. `addressables` needs only an explicit Unity project path and
+`plugin` uses explicit application/library inputs; neither command requires
+`reactant.toml`. `ditto` uses its explicit configuration to decide whether to
+load Reactant metadata. The CLI must not enumerate sample names, assume a
+`samples/` directory, default to chess, or contain any other
+Battlement-checkout policy.
+
+Repository convenience belongs in [justfile](../../justfile). Its recipes map
+sample names and repository defaults to explicit `rt` invocations. For example:
+
+```text
+just sample reactant --web
+# delegates to rt run --project samples/reactant --web
+```
+
+Direct Battlement examples such as basic and ui remain independent of Reactant.
+Only `justfile` selects their names and repository defaults. Lower-level scripts
+must accept explicit project paths and options, and must not contain their own
+sample registry. These fixtures do not justify a second public CLI.
+
+Battlement owns reusable native-plugin, Unity-player, Addressables, and import
+mechanics. `rt` composes those lower-level operations with Reactant preparation,
+so the dependency still points from Reactant to Battlement. Reactant-specific
+Unity preparation uses generic import helpers from its own assembly;
+Battlement assemblies never import Reactant assemblies. A preparation or build
+failure stops the enclosing `rt` command and reports the failed operation.
+
+The existing `battlement-cli` package is renamed and moved to Reactant ownership
+as the `rt` package. It declares one binary, also named `rt`; the
+`cargo-battlement` binary is removed. The `battlement-ditto` package becomes
+library-only. Reusable implementations from both packages remain library code
+called by `rt`, not alternate public entry points.
 
 ## Manual QA
 

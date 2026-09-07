@@ -12,9 +12,9 @@ map](../source-map.md) · [Validation](../validation.md)
 - [Sample migration](../migration.md)
 - [Presentation timing](../presentation.md)
 
-**Prerequisite:** [Task 07: Move Reactant asset preparation out of
-Battlement](07-asset-tooling-boundary.md) and all its required follow-ups must
-be integrated.
+**Prerequisite:** [Task 07: Unify Reactant project tooling under
+`rt`](07-asset-tooling-boundary.md) and all its required follow-ups must be
+integrated.
 
 **Starting code:** World fake; UI fake; existing game tests; native batches and
 tween execution.

@@ -95,16 +95,40 @@ Do not declare the architecture supported from compiler flags alone.
 
 ## Checks and evidence
 
-Use the current checkout's commands, with the relevant sample manifest:
+Run each package check below once its owning task has introduced that package:
 - cargo test -p reactant-rules
 - cargo test -p reactant-core
+- cargo test -p reactant-ui
+- cargo test -p reactant
 - cargo test -p reactant-testing
+- cargo test -p rt
 - cargo test --manifest-path samples/hearts/rules/Cargo.toml
-- The selected sample's Ditto scenarios through the documented CLI.
+- A selected Reactant project's Ditto scenarios through `rt ditto` with an
+  explicit configuration path. Repository sample shortcuts use the documented
+  `just` recipes.
 
-These package names are targets introduced by the task sequence, not commands
-available at the planning baseline. Before task 06, existing UI checks use
-battlement-reactant. Follow source-map for relocation.
+After task 07, CLI contract tests must also prove:
+
+- Cargo metadata exposes `rt` as the sole project-tool binary, removes
+  `cargo-battlement`, and leaves `battlement-ditto` library-only.
+- Help and parser snapshots contain the general subcommands without sample names
+  or Battlement/Reactant namespaces.
+- An external project whose path contains spaces resolves `reactant.toml`,
+  applies explicit-over-file precedence, and reports relative paths from the
+  project root.
+- `rt run` invokes the same build operation as `rt build`, and build/preparation
+  failure prevents player launch.
+- Plugin, typed Addressables, Reactant asset, and Ditto contract tests preserve
+  their arguments, exit behavior, and interruption behavior through `rt`.
+- Reactant Ditto fixtures run shared asset preparation before the generic Ditto
+  library; direct Battlement fixtures skip it; the Ditto library has no Reactant
+  dependency.
+- Repository recipe tests prove that only `justfile` chooses sample names and
+  defaults; parameterized scripts receive explicit paths.
+
+Before a package's creating task, run its predecessor checks from the source
+map. In particular, existing UI checks use battlement-reactant before task 06,
+and public display-driver checks begin in task 08.
 
 Stage intended inputs and run ./scripts/ci.py successfully before completing
 every implementation task, including this plan's documentation updates. Use

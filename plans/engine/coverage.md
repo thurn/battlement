@@ -62,7 +62,13 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
   [48](tasks/48-retire-adapters-final-audit.md).
 
   **Verify:** Build direct basic/ui samples without a Reactant dependency;
-  inspect all dependency edges.
+  inspect all dependency edges; run an external/path-with-spaces Reactant
+  project through shared `rt build`/`rt run` handling; verify configuration
+  precedence and failure-before-launch; preserve plugin, Addressables, Reactant
+  asset, and Ditto behavior through `rt`; prove direct Ditto skips Reactant
+  preparation; confirm repository sample selection exists only in `just`
+  recipes; use Cargo metadata to prove `rt` is the sole project-tool binary and
+  `battlement-ditto` is Reactant-free and library-only.
 
 - One logical tree for UI and world props, hooks, context, events, and cleanup.
 

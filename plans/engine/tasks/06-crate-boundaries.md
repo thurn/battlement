@@ -45,10 +45,11 @@ App::new().root(SettingsPanel::new())
 
 4. Mechanically update all workspace and standalone sample
    manifests/imports/macros in this task. Remove the old battlement-reactant
-   package rather than keeping a compatibility facade. Update source-map.md to
-   current locations.
+   package rather than keeping a compatibility facade. Update generated-asset
+   source scanning to recognize the new exact declaration paths. Update
+   source-map.md to current locations.
 
-5. Keep asset-tooling dependencies temporarily at their existing owner only
+5. Keep project-tooling dependencies temporarily at their existing owner only
    until task 07; explicitly record that remaining edge there.
 
 ## Acceptance
@@ -61,13 +62,14 @@ App::new().root(SettingsPanel::new())
 - Cargo dependency inspection shows UI -> core and facade -> core/UI/rules with
   no reverse facade dependency or duplicated hook runtime.
 
-Run the public scenarios, affected regressions, native checks for rendered
-claims, and staged aggregate CI described in [validation](../validation.md).
+Run the public scenarios available at this task, affected regressions, native
+checks for rendered claims, and staged aggregate CI described in
+[validation](../validation.md).
 
 ## Scope of this task
 
-The Reactant asset CLI reversal is task 07; world host construction is task 13.
-Do not redesign sample behavior here.
+The single `rt` command and project-tooling boundary are task 07; world host
+construction is task 13. Do not redesign sample behavior here.
 
 ## Manual QA
 
