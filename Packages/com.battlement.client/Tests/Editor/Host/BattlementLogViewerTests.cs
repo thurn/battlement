@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -89,6 +90,61 @@ namespace Battlement.Tests
             {
                 Object.DestroyImmediate(parent);
             }
+        }
+
+        [Test]
+        public void CopyButtonCopiesOnlyTheBottom250LinesOfTheFilteredView()
+        {
+            var parent = new GameObject("Battlement Log Viewer Copy Test");
+            string previousClipboard = GUIUtility.systemCopyBuffer;
+            BattlementLogStore.Clear();
+            try
+            {
+                for (int index = 0; index < 100; index++)
+                {
+                    AddLog(BattlementLogSeverity.Warning, $"warning-{index:D3}");
+                    AddLog(BattlementLogSeverity.Error, $"error-{index:D3}");
+                }
+
+                using var viewer = new BattlementLogViewer(parent.transform);
+                viewer.SetVisible(true);
+                UIDocument document = parent.GetComponentInChildren<UIDocument>(true);
+                DropdownField severity = document
+                    .rootVisualElement.Query<DropdownField>(className: "battlement-log-filter")
+                    .ToList()
+                    .Single(field => field.label == "Severity");
+                severity.value = "error";
+                Button copy = document.rootVisualElement.Q<Button>(
+                    className: "battlement-log-copy"
+                );
+
+                Click(copy);
+
+                string clipboard = GUIUtility.systemCopyBuffer;
+                Assert.That(clipboard.Count(character => character == '\n'), Is.EqualTo(250));
+                Assert.That(clipboard, Does.Contain("error-099"));
+                Assert.That(clipboard, Does.Not.Contain("error-000"));
+                Assert.That(clipboard, Does.Not.Contain("warning-"));
+            }
+            finally
+            {
+                BattlementLogStore.Clear();
+                GUIUtility.systemCopyBuffer = previousClipboard;
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        private static void AddLog(BattlementLogSeverity severity, string eventName) =>
+            BattlementLogStore.Add(
+                "battlement",
+                new BattlementLogRecord(severity, eventName, eventName)
+            );
+
+        private static void Click(VisualElement target)
+        {
+            using NavigationSubmitEvent submit = NavigationSubmitEvent.GetPooled();
+            submit.target = target;
+            target.SendEvent(submit);
         }
     }
 }

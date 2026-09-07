@@ -19,11 +19,13 @@ namespace Battlement
         private ulong renderedVersion = ulong.MaxValue;
         private bool refreshRequested;
         private float nextRefresh;
+        private string currentOutput = string.Empty;
 
         public BattlementLogViewer(Transform parent)
         {
             dialog = new BattlementLogDialog(parent);
             dialog.Close.clicked += dialog.Hide;
+            dialog.Copy.clicked += CopyCurrentView;
             dialog.SourceFilter.RegisterValueChangedCallback(_ => Render());
             dialog.SeverityFilter.RegisterValueChangedCallback(_ => Render());
             dialog.Search.RegisterValueChangedCallback(_ => Render());
@@ -129,10 +131,38 @@ namespace Battlement
                 AppendRecord(text, record);
             }
 
-            dialog.Details.text = text.Length == 0 ? "No matching log records." : text.ToString();
+            currentOutput = text.ToString();
+            dialog.Details.text =
+                currentOutput.Length == 0 ? "No matching log records." : currentOutput;
             dialog.Status.text = $"{visible.Length} of {records.Count} records";
             dialog.Status.tooltip = "Most recent records from this run.";
             dialog.ScrollToBottom();
+        }
+
+        private void CopyCurrentView() =>
+            GUIUtility.systemCopyBuffer = BottomLines(currentOutput, maximumLines: 250);
+
+        private static string BottomLines(string value, int maximumLines)
+        {
+            int index = value.Length - 1;
+            if (index >= 0 && value[index] == '\n')
+            {
+                index--;
+            }
+
+            for (int lines = 1; index >= 0; index--)
+            {
+                if (value[index] != '\n')
+                {
+                    continue;
+                }
+                if (++lines > maximumLines)
+                {
+                    return value.Substring(index + 1);
+                }
+            }
+
+            return value;
         }
 
         private static void UpdateChoices(DropdownField field, IEnumerable<string?> values)
@@ -261,7 +291,18 @@ namespace Battlement
             VisualElement header = Add<VisualElement>(content, "battlement-log-header");
             Label title = Add<Label>(header, "battlement-log-title");
             title.text = "Battlement logs";
-            Close = Add<Button>(header, "battlement-log-close");
+            VisualElement actions = Add<VisualElement>(header, "battlement-log-header-actions");
+            Copy = Add<Button>(actions, "battlement-log-header-button");
+            Copy.AddToClassList("battlement-log-copy");
+            Copy.tooltip = "Copy logs";
+            VisualElement copyIcon = Add<VisualElement>(Copy, "battlement-log-copy-icon");
+            copyIcon.pickingMode = PickingMode.Ignore;
+            Add<VisualElement>(copyIcon, "battlement-log-copy-icon-back").pickingMode =
+                PickingMode.Ignore;
+            Add<VisualElement>(copyIcon, "battlement-log-copy-icon-front").pickingMode =
+                PickingMode.Ignore;
+            Close = Add<Button>(actions, "battlement-log-header-button");
+            Close.AddToClassList("battlement-log-close");
             Close.text = "×";
             Close.tooltip = "Close";
 
@@ -301,6 +342,8 @@ namespace Battlement
         }
 
         public Button Close { get; }
+
+        public Button Copy { get; }
 
         public DropdownField SourceFilter { get; }
 

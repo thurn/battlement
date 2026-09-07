@@ -189,7 +189,14 @@
     margin: 0;
 }
 
-.battlement-log-close {
+.battlement-log-header-actions {
+    flex-direction: row;
+    align-items: center;
+}
+
+.battlement-log-header-button {
+    align-items: center;
+    justify-content: center;
     width: 36px;
     height: 36px;
     min-width: 36px;
@@ -198,12 +205,66 @@
     padding: 0;
     color: white;
     background-image: none;
-    background-color: rgb(226, 85, 101);
     border-width: 0;
     border-radius: 6px;
+    -unity-text-align: middle-center;
+}
+
+.battlement-log-copy {
+    margin-right: 8px;
+    background-color: rgb(124, 129, 139);
+}
+
+.battlement-log-copy:hover {
+    background-color: rgb(142, 147, 157);
+}
+
+.battlement-log-copy:active {
+    background-color: rgb(102, 107, 117);
+}
+
+.battlement-log-copy .battlement-log-copy-icon-front {
+    background-color: rgb(124, 129, 139);
+}
+
+.battlement-log-copy:hover .battlement-log-copy-icon-front {
+    background-color: rgb(142, 147, 157);
+}
+
+.battlement-log-copy:active .battlement-log-copy-icon-front {
+    background-color: rgb(102, 107, 117);
+}
+
+.battlement-log-copy-icon {
+    position: relative;
+    width: 18px;
+    height: 18px;
+}
+
+.battlement-log-copy-icon-back,
+.battlement-log-copy-icon-front {
+    position: absolute;
+    width: 11px;
+    height: 11px;
+    border-color: white;
+    border-width: 2px;
+    border-radius: 1px;
+}
+
+.battlement-log-copy-icon-back {
+    left: 1px;
+    top: 1px;
+}
+
+.battlement-log-copy-icon-front {
+    left: 6px;
+    top: 6px;
+}
+
+.battlement-log-close {
+    background-color: rgb(226, 85, 101);
     font-size: 25px;
     -unity-font-style: bold;
-    -unity-text-align: middle-center;
 }
 
 .battlement-log-close:hover {
@@ -214,7 +275,7 @@
     background-color: rgb(196, 66, 82);
 }
 
-.battlement-log-close:focus {
+.battlement-log-header-button:focus {
     border-color: rgb(141, 185, 242);
     border-width: 2px;
 }
