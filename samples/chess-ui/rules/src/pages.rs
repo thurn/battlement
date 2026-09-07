@@ -9,6 +9,7 @@ use crate::{
   arcade_modal_animation_harness::ArcadeModalAnimationHarness,
   arcade_modal_harness::ArcadeModalHarness,
   attract_mode_harness::AttractModeHarness,
+  background_music_harness::BackgroundMusicHarness,
   dropdown_animation_harness::DropdownAnimationHarness,
   effects_harness::EffectsHarness,
   font_scale_harness::FontScaleHarness,
@@ -224,7 +225,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("BackgroundMusicProvider", "Chess UI showcase title."))
-                .description(tx("BackgroundMusic loops audio, applies effective volume and background mute, and exposes playback context; heartbeat remains unasserted.", "Chess UI showcase description.")),
+                .description(tx("BackgroundMusic loops audio, applies effective volume and background mute, and exposes playback context; heartbeat remains unasserted.", "Chess UI showcase description."))
+                .child(BackgroundMusicHarness::new()),
         )
         .page(
             ReviewPage::new()

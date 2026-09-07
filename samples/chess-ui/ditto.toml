@@ -1292,6 +1292,73 @@ accessibility_assert = { target = { role = "static-text", name = "Volume changes
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "background music provider"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206831\u2069. \u2068BackgroundMusicProvider\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playback: stopped" }, role = "static-text", name = "Playback: stopped" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Master Volume" }, role = "slider", name = "Master Volume" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "slider", name = "Music Volume" }, role = "slider", name = "Music Volume" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Mute in Background" }, role = "checkbox", name = "Mute in Background", checked = false }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "START" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playback: playing" }, role = "static-text", name = "Playback: playing" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "slider", name = "Master Volume" }, action = "increment" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Effective: 55%" }, role = "static-text", name = "Effective: 55%" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Mute in Background" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "VISIBLE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Visibility: hidden" }, role = "static-text", name = "Visibility: hidden" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Output: muted" }, role = "static-text", name = "Output: muted" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playback: playing" }, role = "static-text", name = "Playback: playing" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "HIDDEN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Output: audible" }, role = "static-text", name = "Output: audible" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "AVAILABLE" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playback: unavailable" }, role = "static-text", name = "Playback: unavailable" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Playback: stopped" }, role = "static-text", name = "Playback: stopped" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Effective: 52%" }, role = "static-text", name = "Effective: 52%" }
+
+
+[[scenarios]]
 name = "arcade frame pulse"
 
 [[scenarios.steps]]
