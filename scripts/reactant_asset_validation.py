@@ -20,6 +20,7 @@ import time
 from typing import Callable
 
 from resource_slots import unity_editor_lease
+from unity_transaction import UnityProjectTransaction, unity_project_transaction
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -55,13 +56,15 @@ def run(
     cwd: Path = REPOSITORY_ROOT,
     environment: dict[str, str] | None = None,
     capture: bool = False,
+    transaction: UnityProjectTransaction | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run one public validation command and echo it into the transcript."""
     print(f"$ {' '.join(command)}", flush=True)
     started = time.monotonic()
     status = "failed"
     try:
-        completed = subprocess.run(
+        runner = transaction.run if transaction is not None else subprocess.run
+        completed = runner(
             command,
             cwd=cwd,
             env=environment,
@@ -178,25 +181,29 @@ def unity(category: str, evidence: Path | None = None) -> None:
     log = Path(os.devnull)
     lease = unity_editor_lease() if platform.system() != "Windows" else nullcontext()
     with lease:
-        run(
-            [
-                str(editor),
-                "-batchmode",
-                "-nographics",
-                "--burst-disable-compilation",
-                "-projectPath",
-                str(REPOSITORY_ROOT),
-                "-runTests",
-                "-testPlatform",
-                "EditMode",
-                "-testCategory",
-                category,
-                "-testResults",
-                str(results),
-                "-logFile",
-                str(log),
-            ]
-        )
+        with unity_project_transaction(
+            REPOSITORY_ROOT, f"reactant-assets-{category}"
+        ) as transaction:
+            run(
+                [
+                    str(editor),
+                    "-batchmode",
+                    "-nographics",
+                    "--burst-disable-compilation",
+                    "-projectPath",
+                    str(REPOSITORY_ROOT),
+                    "-runTests",
+                    "-testPlatform",
+                    "EditMode",
+                    "-testCategory",
+                    category,
+                    "-testResults",
+                    str(results),
+                    "-logFile",
+                    str(log),
+                ],
+                transaction=transaction,
+            )
     contents = results.read_text(encoding="utf-8", errors="replace")
     if 'result="Passed"' not in contents:
         raise RuntimeError(f"Unity category {category} did not report a passing run")

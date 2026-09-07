@@ -30,6 +30,7 @@ from platform_support import (
 )
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 from resource_slots import unity_editor_lease
+from unity_transaction import recover_unity_transactions, unity_project_transaction
 import perf_log
 
 
@@ -522,16 +523,6 @@ def run_unity_edit_mode_tests() -> None:
     native_fixture_link = REPOSITORY_ROOT / (
         "battlement_rules.dll" if platform.system() == "Windows" else "battlement_rules"
     )
-    mutable_project_files = tuple(
-        REPOSITORY_ROOT / relative
-        for relative in (
-            "ProjectSettings/ProjectAuditorSettings.asset",
-            "ProjectSettings/TimeManager.asset",
-        )
-    )
-    project_file_state = {
-        path: path.read_bytes() if path.is_file() else None for path in mutable_project_files
-    }
     tests_passed = False
     try:
         subprocess.run(
@@ -557,16 +548,17 @@ def run_unity_edit_mode_tests() -> None:
             "Battlement.Integration.EditorTests;Battlement.EditorTests;"
             "Battlement.HostEditorTests"
         )
-        result = subprocess.run(
-            [
-                str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
-                "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
-                "EditMode", "-assemblyNames", assembly_names, "-testResults",
-                str(test_results), "-logFile", str(test_log),
-            ],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-        )
+        with unity_project_transaction(REPOSITORY_ROOT, "edit-mode-tests") as transaction:
+            result = transaction.run(
+                [
+                    str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
+                    "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
+                    "EditMode", "-assemblyNames", assembly_names, "-testResults",
+                    str(test_results), "-logFile", str(test_log),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+            )
         if result.returncode != 0:
             # Unity can leave its empty project lock behind when compilation aborts
             # batch mode before normal editor shutdown. The process above has exited
@@ -616,11 +608,6 @@ def run_unity_edit_mode_tests() -> None:
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)
-        for path, contents in project_file_state.items():
-            if contents is None:
-                path.unlink(missing_ok=True)
-            else:
-                path.write_bytes(contents)
 
 
 def skip_desktop_full_validation() -> None:
@@ -833,6 +820,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         [sys.executable, "scripts/tests/resource-slots.test.py"],
     )
     run_step(
+        "Test Unity transactions",
+        [sys.executable, "scripts/tests/unity-transaction.test.py"],
+    )
+    run_step(
         "Test Web sample server",
         [sys.executable, "scripts/tests/serve-web.test.py"],
     )
@@ -925,6 +916,7 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
 
 def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     """Run the configured continuous-integration suite."""
+    recover_unity_transactions(REPOSITORY_ROOT)
     run_step("Check Rust toolchain", function=check_rust_toolchain)
     run_ci(full, use_ci_cache, ditto)
 

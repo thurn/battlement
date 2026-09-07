@@ -102,6 +102,7 @@ fn every_build_input_category_selects_a_distinct_entry() {
     "repo/game/Assets/Scenes/Game.unity",
     "unity scene changed\n",
   );
+  fixture.stage("game/Assets/Scenes/Game.unity");
   fingerprints.push(fixture.build_fingerprint());
   fixture.write(
     "repo/package/Runtime/Player.cs",
@@ -225,7 +226,39 @@ impl Fixture {
     fixture.write("repo/rules/src/lib.rs", "pub fn rules() {}\n");
     fixture.write_executable("tools/cargo", &fixture.cargo_script());
     fixture.write_executable("tools/Unity", &fixture.unity_script());
+    fixture.write(
+      "repo/scripts/unity_transaction.py",
+      include_str!("../../../scripts/unity_transaction.py"),
+    );
+    fixture.initialize_repository();
     fixture
+  }
+
+  fn initialize_repository(&self) {
+    Command::new("git")
+      .args(["init", "--quiet"])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
+    Command::new("git")
+      .args(["add", "."])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
+    Command::new("git")
+      .args([
+        "-c",
+        "user.name=CI Fixture",
+        "-c",
+        "user.email=ci@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "fixture",
+      ])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
   }
 
   fn request(&self) -> MacosBuildRequest {
@@ -285,6 +318,17 @@ impl Fixture {
     let mut permissions = fs::metadata(&path).unwrap().permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(path, permissions).unwrap();
+  }
+
+  fn stage(&self, relative: &str) {
+    assert!(
+      Command::new("git")
+        .args(["add", relative])
+        .current_dir(self.path("repo"))
+        .status()
+        .unwrap()
+        .success()
+    );
   }
 
   fn cargo_script(&self) -> String {

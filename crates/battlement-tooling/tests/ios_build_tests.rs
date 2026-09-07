@@ -1,6 +1,6 @@
 #![cfg(target_os = "macos")]
 
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command};
 
 use battlement_tooling::{
   build_cache::{BUILD_LOG_FILE, BuildCache, SOURCE_MANIFEST_FILE},
@@ -124,7 +124,39 @@ impl Fixture {
     fixture.executable("tools/cargo", &fixture.cargo_script());
     fixture.executable("tools/Unity", &fixture.unity_script());
     fixture.executable("tools/xcodebuild", &fixture.xcode_script());
+    fixture.write(
+      "repo/scripts/unity_transaction.py",
+      include_str!("../../../scripts/unity_transaction.py"),
+    );
+    fixture.initialize_repository();
     fixture
+  }
+
+  fn initialize_repository(&self) {
+    Command::new("git")
+      .args(["init", "--quiet"])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
+    Command::new("git")
+      .args(["add", "."])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
+    Command::new("git")
+      .args([
+        "-c",
+        "user.name=CI Fixture",
+        "-c",
+        "user.email=ci@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "fixture",
+      ])
+      .current_dir(self.path("repo"))
+      .status()
+      .unwrap();
   }
 
   fn request(&self) -> IosBuildRequest {

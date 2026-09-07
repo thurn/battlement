@@ -9,7 +9,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use tempfile::{Builder, TempDir};
+use tempfile::Builder;
 
 use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
 
@@ -25,17 +25,6 @@ struct PreparedSample {
   manifest: PathBuf,
   package: String,
   editor: PathBuf,
-}
-
-struct ProjectState {
-  _backup: TempDir,
-  paths: Vec<SavedPath>,
-  restored: bool,
-}
-
-struct SavedPath {
-  path: PathBuf,
-  backup: Option<PathBuf>,
 }
 
 const DEFAULT_WEB_PORT: u16 = 8000;
@@ -89,12 +78,11 @@ fn build_prepared(prepared: PreparedSample, web: bool, release: bool) -> Result<
   if interrupted() {
     bail!("sample build interrupted");
   }
-  let mut state = ProjectState::capture(&project)?;
   let unity_log = Builder::new()
     .prefix("battlement-sample-build.")
     .tempfile()
     .context("failed to create the Unity sample build log")?;
-  let mut command = Command::new(editor);
+  let mut command = battlement_tooling::transactional_unity_command(&project, &editor)?;
   let mut child = command
     .args([
       "-batchmode",
@@ -128,9 +116,8 @@ fn build_prepared(prepared: PreparedSample, web: bool, release: bool) -> Result<
     .spawn()
     .context("failed to launch Unity")?;
   let status = self::wait_for_child(&mut child).context("failed to wait for Unity")?;
-  state.restore()?;
   if interrupted() {
-    bail!("Unity sample build interrupted; restored the Unity project");
+    bail!("Unity sample build interrupted");
   }
   let log = fs::read_to_string(unity_log.path()).context("failed to read the Unity build log")?;
   if !status.success() {
@@ -590,111 +577,6 @@ fn config_value(contents: &str, key: &str) -> Result<String> {
     .with_context(|| format!("sample.toml has no quoted {key} value"))
 }
 
-impl ProjectState {
-  fn capture(project: &Path) -> Result<Self> {
-    let backup = tempfile::tempdir().context("failed to create Unity project backup")?;
-    let paths = [
-      "Assets/AddressableAssetsData",
-      "Assets/DefaultVolumeProfile.asset",
-      "Assets/DefaultVolumeProfile.asset.meta",
-      "Assets/Generated",
-      "Assets/Generated.meta",
-      "Assets/Original",
-      "Assets/Scenes.meta",
-      "Assets/UniversalRenderPipelineGlobalSettings.asset",
-      "Assets/UniversalRenderPipelineGlobalSettings.asset.meta",
-      "Packages/packages-lock.json",
-      "ProjectSettings/EditorBuildSettings.asset",
-      "ProjectSettings/GraphicsSettings.asset",
-      "ProjectSettings/ProjectAuditorSettings.asset",
-      "ProjectSettings/ProjectSettings.asset",
-      "ProjectSettings/ShaderGraphSettings.asset",
-      "ProjectSettings/TimeManager.asset",
-    ]
-    .into_iter()
-    .enumerate()
-    .map(|(index, relative)| {
-      SavedPath::capture(
-        project.join(relative),
-        backup.path().join(index.to_string()),
-      )
-    })
-    .collect::<Result<Vec<_>>>()?;
-    Ok(Self {
-      _backup: backup,
-      paths,
-      restored: false,
-    })
-  }
-
-  fn restore(&mut self) -> Result<()> {
-    let mut error = None;
-    for path in &self.paths {
-      if let Err(current) = path.restore()
-        && error.is_none()
-      {
-        error = Some(current);
-      }
-    }
-    if let Some(error) = error {
-      return Err(error).context("failed to restore the Unity project after building");
-    }
-    self.restored = true;
-    Ok(())
-  }
-}
-
-impl Drop for ProjectState {
-  fn drop(&mut self) {
-    if !self.restored {
-      let _ = self.restore();
-    }
-  }
-}
-
-impl SavedPath {
-  fn capture(path: PathBuf, backup: PathBuf) -> Result<Self> {
-    let backup = if path.exists() {
-      copy_path(&path, &backup)?;
-      Some(backup)
-    } else {
-      None
-    };
-    Ok(Self { path, backup })
-  }
-
-  fn restore(&self) -> Result<()> {
-    remove_path(&self.path)?;
-    if let Some(backup) = &self.backup {
-      copy_path(backup, &self.path)?;
-    }
-    Ok(())
-  }
-}
-
-fn copy_path(source: &Path, destination: &Path) -> Result<()> {
-  if source.is_dir() {
-    fs::create_dir_all(destination)?;
-    for entry in fs::read_dir(source)? {
-      let entry = entry?;
-      copy_path(&entry.path(), &destination.join(entry.file_name()))?;
-    }
-  } else {
-    fs::create_dir_all(destination.parent().expect("backup path has a parent"))?;
-    fs::copy(source, destination)?;
-  }
-  Ok(())
-}
-
-fn remove_path(path: &Path) -> Result<()> {
-  if path.is_dir() {
-    fs::remove_dir_all(path)?;
-  } else if path.exists() {
-    fs::remove_file(path)?;
-  }
-  Ok(())
-}
-
 fn print_tail(contents: &str, count: usize) {
   let lines = contents.lines().collect::<Vec<_>>();
   eprintln!("{}", lines[lines.len().saturating_sub(count)..].join("\n"));
@@ -806,103 +688,6 @@ mod tests {
     assert!(error.to_string().contains("Contents/MacOS/Missing Player"));
     Ok(())
   }
-  #[test]
-  fn project_state_restores_user_files_and_removes_build_residue() -> Result<()> {
-    let directory = tempfile::tempdir()?;
-    let project = directory.path();
-    let addressables = project.join("Assets/AddressableAssetsData/group.asset");
-    let default_volume = project.join("Assets/DefaultVolumeProfile.asset");
-    let render_settings = project.join("Assets/UniversalRenderPipelineGlobalSettings.asset");
-    let editor_settings = project.join("ProjectSettings/EditorBuildSettings.asset");
-    let graphics_settings = project.join("ProjectSettings/GraphicsSettings.asset");
-    let auditor_settings = project.join("ProjectSettings/ProjectAuditorSettings.asset");
-    let project_settings = project.join("ProjectSettings/ProjectSettings.asset");
-    let shader_graph_settings = project.join("ProjectSettings/ShaderGraphSettings.asset");
-    let packages_lock = project.join("Packages/packages-lock.json");
-    let original_metadata = project.join("Assets/Original/source.svg.meta");
-    for (path, contents) in [
-      (&addressables, "user addressables\n"),
-      (&default_volume, "user default volume\n"),
-      (&render_settings, "user render settings\n"),
-      (&editor_settings, "user editor settings\n"),
-      (&graphics_settings, "user graphics settings\n"),
-      (&auditor_settings, "user auditor settings\n"),
-      (&project_settings, "user project settings\n"),
-      (&shader_graph_settings, "user shader graph settings\n"),
-      (&packages_lock, "user packages lock\n"),
-      (&original_metadata, "user importer metadata\n"),
-    ] {
-      fs::create_dir_all(path.parent().expect("fixture file has a parent"))?;
-      fs::write(path, contents)?;
-    }
-
-    let mut state = ProjectState::capture(project)?;
-    fs::write(&addressables, "temporary addressables\n")?;
-    fs::write(&default_volume, "temporary default volume\n")?;
-    fs::write(&render_settings, "temporary render settings\n")?;
-    fs::write(&editor_settings, "temporary editor settings\n")?;
-    fs::write(&graphics_settings, "temporary graphics settings\n")?;
-    fs::write(&auditor_settings, "temporary auditor settings\n")?;
-    fs::write(&project_settings, "temporary project settings\n")?;
-    fs::write(&shader_graph_settings, "temporary shader graph settings\n")?;
-    fs::write(&packages_lock, "temporary packages lock\n")?;
-    fs::write(&original_metadata, "temporary importer metadata\n")?;
-    let generated_scenes_meta = project.join("Assets/Scenes.meta");
-    let generated_render_settings_meta =
-      project.join("Assets/UniversalRenderPipelineGlobalSettings.asset.meta");
-    fs::write(&generated_scenes_meta, "temporary scenes metadata\n")?;
-    fs::write(
-      &generated_render_settings_meta,
-      "temporary render settings metadata\n",
-    )?;
-    let generated = project.join("Assets/Generated/BattlementOpus/track.wav");
-    fs::create_dir_all(generated.parent().expect("fixture file has a parent"))?;
-    fs::write(&generated, "temporary audio")?;
-    fs::write(
-      project.join("Assets/Generated/BattlementOpus.meta"),
-      "temporary metadata\n",
-    )?;
-
-    state.restore()?;
-
-    assert_eq!(fs::read_to_string(addressables)?, "user addressables\n");
-    assert_eq!(fs::read_to_string(default_volume)?, "user default volume\n");
-    assert_eq!(
-      fs::read_to_string(render_settings)?,
-      "user render settings\n"
-    );
-    assert_eq!(
-      fs::read_to_string(editor_settings)?,
-      "user editor settings\n"
-    );
-    assert_eq!(
-      fs::read_to_string(graphics_settings)?,
-      "user graphics settings\n"
-    );
-    assert_eq!(
-      fs::read_to_string(auditor_settings)?,
-      "user auditor settings\n"
-    );
-    assert_eq!(
-      fs::read_to_string(project_settings)?,
-      "user project settings\n"
-    );
-    assert_eq!(
-      fs::read_to_string(shader_graph_settings)?,
-      "user shader graph settings\n"
-    );
-    assert_eq!(fs::read_to_string(packages_lock)?, "user packages lock\n");
-    assert_eq!(
-      fs::read_to_string(original_metadata)?,
-      "user importer metadata\n"
-    );
-    assert!(!generated_scenes_meta.exists());
-    assert!(!generated_render_settings_meta.exists());
-    assert!(!project.join("Assets/Generated").exists());
-    assert!(!project.join("Assets/Generated.meta").exists());
-    Ok(())
-  }
-
   #[test]
   fn interrupted_child_is_stopped() -> Result<()> {
     reset_interrupted();

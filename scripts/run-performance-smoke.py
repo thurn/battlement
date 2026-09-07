@@ -10,6 +10,8 @@ import platform
 import subprocess
 import tempfile
 
+from unity_transaction import unity_project_transaction
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
@@ -38,23 +40,24 @@ def main() -> None:
         report = root / "report.txt"
         environment = os.environ.copy()
         environment["BATTLEMENT_PERFORMANCE_BUILD_PATH"] = str(application)
-        build = subprocess.run(
-            [
-                str(editor),
-                "-batchmode",
-                "-nographics",
-                "--burst-disable-compilation",
-                "-quit",
-                "-projectPath",
-                str(REPOSITORY_ROOT),
-                "-executeMethod",
-                "Battlement.Editor.PerformanceSmokeBuild.Build",
-                "-logFile",
-                str(build_log),
-            ],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-        )
+        with unity_project_transaction(REPOSITORY_ROOT, "performance-smoke") as transaction:
+            build = transaction.run(
+                [
+                    str(editor),
+                    "-batchmode",
+                    "-nographics",
+                    "--burst-disable-compilation",
+                    "-quit",
+                    "-projectPath",
+                    str(REPOSITORY_ROOT),
+                    "-executeMethod",
+                    "Battlement.Editor.PerformanceSmokeBuild.Build",
+                    "-logFile",
+                    str(build_log),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+            )
         require_success(build, build_log, "Unity development-player build")
 
         executables = [

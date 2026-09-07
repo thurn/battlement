@@ -181,7 +181,8 @@ fn export(project: &Path) -> Result<Vec<ExportEntry>> {
   let temporary = Builder::new().prefix("battlement-addresses-").tempdir()?;
   let export_path = temporary.path().join("addresses.json");
   let log_path = temporary.path().join("unity.log");
-  let status = Command::new(self::unity_editor(project)?)
+  let editor = self::unity_editor(project)?;
+  let status = battlement_tooling::transactional_unity_command(project, &editor)?
     .args([
       "-batchmode",
       "-nographics",

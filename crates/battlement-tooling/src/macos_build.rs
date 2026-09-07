@@ -302,14 +302,10 @@ fn build_pending(
   let startup_bytes = self::json_bytes(&startup)?;
   fs::write(pending.path().join(STARTUP_IDENTITY_FILE), &startup_bytes)?;
   let _lease = UnityEditorLease::acquire(&request.resource_slots)?;
-  let staging = ProjectStaging::new(
-    &request.unity_project,
-    &plugin,
-    &startup_bytes,
-    &pending.path().join(".project-backup"),
-  )?;
+  let staging = ProjectStaging::new(&request.unity_project, &plugin, &startup_bytes)?;
   let unity_log = pending.path().join("unity.log");
-  let mut unity = Command::new(&request.tools.unity_editor);
+  let mut unity =
+    crate::transactional_unity_command(&request.unity_project, &request.tools.unity_editor)?;
   unity
     .args(["-batchmode", "-nographics", "-quit", "-projectPath"])
     .arg(&request.unity_project)

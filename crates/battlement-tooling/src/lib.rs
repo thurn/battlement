@@ -18,7 +18,11 @@ mod build_cache_io;
 mod fingerprint_rust;
 mod macos_build_staging;
 
-use std::path::{Component, Path, PathBuf};
+use std::{
+  env,
+  path::{Component, Path, PathBuf},
+  process::Command,
+};
 
 use anyhow::{Context, Result, bail};
 
@@ -35,6 +39,28 @@ pub fn repository_root(path: &Path) -> Result<PathBuf> {
   PathBuf::from(String::from_utf8(output.stdout)?.trim())
     .canonicalize()
     .context("failed to resolve the Git worktree root")
+}
+
+/// Creates a Unity command guarded by the repository's source transaction journal.
+pub fn transactional_unity_command(project: &Path, editor: &Path) -> Result<Command> {
+  let Ok(repository) = self::repository_root(project) else {
+    return Ok(Command::new(editor));
+  };
+  let python = env::var_os("PYTHON").unwrap_or_else(|| {
+    if cfg!(windows) {
+      "python".into()
+    } else {
+      "python3".into()
+    }
+  });
+  let mut command = Command::new(python);
+  command
+    .arg(repository.join("scripts/unity_transaction.py"))
+    .arg("--project")
+    .arg(project)
+    .arg("--")
+    .arg(editor);
+  Ok(command)
 }
 
 /// Resolves a relative path while rejecting traversal outside `root`.

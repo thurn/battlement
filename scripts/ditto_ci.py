@@ -47,7 +47,6 @@ ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
     "ios": "ios_simulator_tests",
 }
-UNITY_GENERATED_DIRECTORIES = ("Library", "Logs", "Temp", "UserSettings")
 
 
 def command(
@@ -184,13 +183,6 @@ def validate_result(
     }
     if adapters != {"native-screen-capture"}:
         raise RuntimeError(f"{sample} did not exercise native screen capture")
-
-
-def clean_unity_workspace(sample: str) -> None:
-    """Remove generated Unity project state before Tollgate scans artifacts."""
-    root = REPOSITORY_ROOT / "samples" / sample
-    for name in UNITY_GENERATED_DIRECTORIES:
-        shutil.rmtree(root / name, ignore_errors=True)
 
 
 def execute_sample(
@@ -348,10 +340,7 @@ def prepare(mode: str) -> None:
         command(["cargo", "build", "--release", "-p", "battlement-ditto"])
     samples = []
     for sample in SAMPLES:
-        try:
-            samples.append(execute_sample(sample, preparation=mode))
-        finally:
-            clean_unity_workspace(sample)
+        samples.append(execute_sample(sample, preparation=mode))
     report = {
         "schema": 1,
         "status": "passed",
@@ -367,10 +356,7 @@ def prepare(mode: str) -> None:
 def sample_suite(sample: str) -> None:
     if sample not in SAMPLES:
         raise RuntimeError(f"unknown sample: {sample}")
-    try:
-        execute_sample(sample)
-    finally:
-        clean_unity_workspace(sample)
+    execute_sample(sample)
 
 
 def adapter(name: str) -> None:
