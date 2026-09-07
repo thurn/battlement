@@ -220,7 +220,8 @@ namespace Battlement.Editor
             {
                 FileName = Executable,
                 Arguments =
-                    $"-v error -i {Quote(Path.GetFullPath(assetPath))} -f f32le -acodec pcm_f32le "
+                    $"-nostdin -v error -i {Quote(Path.GetFullPath(assetPath))} "
+                    + "-f f32le -acodec pcm_f32le "
                     + $"-ar {OpusAudioImporter.SampleRate} "
                     + $"-ac {OpusAudioImporter.ChannelCount} pipe:1",
                 CreateNoWindow = true,
@@ -258,7 +259,7 @@ namespace Battlement.Editor
             {
                 FileName = Executable,
                 Arguments =
-                    $"-v error -y -i {Quote(Path.GetFullPath(sourcePath))} -c:a pcm_s16le "
+                    $"-nostdin -v error -y -i {Quote(Path.GetFullPath(sourcePath))} -c:a pcm_s16le "
                     + $"-ar {OpusAudioImporter.SampleRate} -ac {OpusAudioImporter.ChannelCount} "
                     + Quote(Path.GetFullPath(outputPath)),
                 CreateNoWindow = true,

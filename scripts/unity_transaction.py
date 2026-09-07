@@ -312,6 +312,10 @@ class UnityProjectTransaction:
         check = options.pop("check", False)
         input_value = options.pop("input", None)
         timeout = options.pop("timeout", None)
+        # Batch tools in a separate process group must not inherit the caller's
+        # terminal: a descendant's terminal access can suspend the whole group.
+        if options.get("stdin") is None:
+            options["stdin"] = subprocess.PIPE if input_value is not None else subprocess.DEVNULL
         if options.pop("capture_output", False):
             if options.get("stdout") is not None or options.get("stderr") is not None:
                 raise ValueError("stdout and stderr may not be used with capture_output")
