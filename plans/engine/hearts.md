@@ -102,11 +102,11 @@ UI/app controller owns next-action scheduling; AI policies never receive a
 after a last-card action: the next phase may require passing. Match results wait
 for New Game. Menus remain responsive.
 
-The context routes each live choice using its acting seat and prompt. Human
-choices call `DisplayConnection::choose`; AI choices call `choose_with_policy`.
-For passing, identify the seat currently choosing, not only the future trick
-leader. Human confirmation submits a typed response to that request, never
-another competing `PlayTurn` action.
+`HeartsPolicy::owner` classifies each live choice using its acting seat and
+prompt. `ExecutionMode` calls `DisplayConnection::choose` for human choices and
+`choose_with_policy` for policy choices. For passing, identify the seat currently
+choosing, not only the future trick leader. Human confirmation submits a typed
+response to that request, never another competing `PlayTurn` action.
 
 Both paths retain the typed prompt for validation and publish one owned clone
 inside `HeartsPrompt<'static>` with the snapshot. Policies borrow a

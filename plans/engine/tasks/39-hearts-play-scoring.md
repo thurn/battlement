@@ -52,9 +52,10 @@ match accepted.phase {
 4. Show hand totals, match totals, moon outcome, next-hand passing direction,
    and shared-win match results in native UI.
 
-5. Route AI-owned prompts through choose_with_policy after publication without
-   waiting for Unity. Keep consecutive AI plays inside PlayTurn with policy
-   calls in one execute, not per-card handle dispatch. The 32-slot queue applies
+5. Classify AI-owned prompts in `HeartsPolicy::owner`; `ExecutionMode` routes
+   them through choose_with_policy after publication without waiting for Unity.
+   Keep consecutive AI plays inside PlayTurn with policy calls in one execute,
+   not per-card handle dispatch. The 32-slot queue applies
    backpressure only to publication. Schedule from accepted state. Queue human
    prompt controls after earlier gameplay commands; menus remain usable while
    both rules computation and native playback progress independently.

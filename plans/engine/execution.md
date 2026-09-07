@@ -80,9 +80,9 @@ into any number of related movements, sounds, and particles.
 
 ```rust
 draw_card(state);
-context.present(state, || StateAnimation::CardDrawn(card));
+context.execution.present(state, || StateAnimation::CardDrawn(card));
 gain_energy(state);
-context.present(state, || StateAnimation::EnergyGained(1));
+context.execution.present(state, || StateAnimation::EnergyGained(1));
 ```
 
 The Rust consumer renders snapshots in order, submits their commands, and
@@ -112,7 +112,7 @@ conversion back out of the enum. Simulation and display inspect the same enum
 definition. Rules get a concrete `ResponseType` back:
 
 ```rust
-let card: CardId = context.choose(state, PlayCardPrompt { choices });
+let card: CardId = context.execution.choose(state, PlayCardPrompt { choices });
 state.play(card);
 ```
 
@@ -148,9 +148,11 @@ internal; test-driver observations can expose them for stale-delivery scenarios.
 
 ## Live AI and simulation
 
-`HeartsContext` routes using state and prompt. It calls the interactive
-connection's `choose` for a human or `choose_with_policy` for an AI. Reactant
-owns publication/wait mechanics, not player identification.
+`ExecutionMode` asks the game policy whether each live choice belongs to a
+human or the policy. It calls the interactive connection's `choose` for a human
+or `choose_with_policy` for the policy. Reactant owns publication/wait mechanics,
+not player identification. Simulation ignores live ownership and always calls
+the policy inline.
 
 Both live helpers retain the concrete prompt in an internal `Arc<P>` request and
 publish `prompt.clone().into_prompt()` after reserving capacity. The display
@@ -166,13 +168,13 @@ Unity. It returns a stable option index. The helper selects directly from
 retained `P`, validates, and checks abandonment before returning. Human input
 cannot win an AI request.
 
-Simulation constructs the same domain context in simulation mode and calls
+Simulation constructs the same domain context with a simulation execution mode and calls
 `Game::execute` directly. It runs synchronously on its caller's thread:
 
 - `present` invokes neither `logical_clone` nor the animation closure.
 - `choose` calls the policy inline, maps its index, validates, and returns.
 - No primitive needs a display connection, blocking wait, allocation, or vtable.
-- Mode branches are allowed. Prompt vectors and policy search may allocate;
+- Game-context logic may branch as needed. Prompt vectors and policy search may allocate;
   measure those costs separately from primitive overhead.
 
 The game's MCTS code owns hidden-state sampling and rollout heuristics. Reactant

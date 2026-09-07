@@ -1,9 +1,10 @@
 # Writing a game with Reactant
 
 Reactant lets Rust components describe a game's world objects and UI. A game
-implements `Game`, supplies a domain-specific `GameContext`, and uses the same
-synchronous rules for interactive execution and simulation. Display components
-read immutable clones of the full state and a shared prompt enum.
+implements `Game`, supplies its own context struct with an embedded
+`ExecutionMode`, and uses the same synchronous rules for interactive execution
+and simulation. Display components read immutable clones of the full state and
+a shared prompt enum.
 
 Read the [complete rules/session API](interfaces.md) and [compiling
 sketch](interfaces.md#complete-contract-sketch) for the contract.
@@ -17,8 +18,10 @@ Use the existing app/component setup, then start a new or loaded game:
 ```rust
 let game = app.start_game::<HeartsGame>(initial_state, |connection| {
     HeartsContext {
-        human_player,
-        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
+        execution: ExecutionMode::Interactive {
+            connection,
+            policy: HeartsPolicy { human_player },
+        },
     }
 });
 ```
@@ -35,8 +38,9 @@ The roles are:
   `is_legal_action`, and `execute` as static methods.
 - `HeartsState` holds rules data. Logical clones serve as accepted/worker state
   and immutable snapshots for display; there is no separate view type.
-- `HeartsContext` owns the interactive/simulation mode and domain data such as
-  policies or RNGs. It routes human versus AI choices in a live game.
+- `HeartsContext` is a general home for Hearts-specific data and logic. It
+  embeds an `ExecutionMode`, while `HeartsPolicy` classifies live choices as
+  human- or policy-owned and computes policy responses.
 - `HeartsPrompt<'a>` wraps concrete choice structs in `Cow`: borrowed for policy
   calls, owned for display. There is no separate reference enum.
   `PresentedPrompt<HeartsPrompt<'static>>` adds a request-bound response handle

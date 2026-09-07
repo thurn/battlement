@@ -39,9 +39,9 @@ should become visible before the energy it grants changes on screen:
 
 ```rust
 draw_card(state);
-cx.present(state, || StateAnimation::CardDrawn(card));
+cx.execution.present(state, || StateAnimation::CardDrawn(card));
 gain_energy(state);
-cx.present(state, || StateAnimation::EnergyGained(1));
+cx.execution.present(state, || StateAnimation::EnergyGained(1));
 ```
 
 Interactive publication calls `Game::logical_clone`; simulation skips both the

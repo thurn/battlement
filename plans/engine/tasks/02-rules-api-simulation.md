@@ -25,7 +25,7 @@ AI; Cargo workspace conventions.
 Rules receive the same concrete answer through human input or a policy:
 
 ```rust
-let card: CardId = context.choose(state, PlayCardPrompt { choices });
+let card: CardId = context.execution.choose(state, PlayCardPrompt { choices });
 ```
 
 The policy reads the shared prompt enum and returns an option index. A second
@@ -34,9 +34,10 @@ prompt returns `[CardId; 3]`; there is no game-wide answer enum.
 ## Implementation
 
 1. Implement the rules types and signatures in interfaces.md and the linked
-   contract sketch: `Game`, `GameContext`, `PromptData<G>`, and `ChoicePolicy`.
-   Keep them independent of Unity/components. Context is game-owned and may
-   branch on its mode. Do not introduce a required generic execution-mode type.
+   contract sketch: `Game`, `ExecutionMode<G, C>`, `PromptData<G>`, and
+   `ChoicePolicy`. Keep them independent of Unity/components. Each game owns its
+   context struct and embeds the reusable execution mode alongside arbitrary
+   game-specific data and logic; there is no `GameContext` implementation.
 
 2. Implement infallible `as_prompt`/`into_prompt` wrapping into one Cow-based
    prompt enum. Keep `P` for direct option-index mapping; never extract it back
@@ -45,14 +46,16 @@ prompt returns `[CardId; 3]`; there is no game-wide answer enum.
    enum the display will inspect; hidden-state sampling belongs to the game.
 
 3. Make simulation `present` skip both snapshot cloning and the lazy animation
-   builder. Simulation `choose` calls the policy inline with no display
-   connection or wait. Borrowing the enum must neither allocate nor clone the
-   prompt. There is no explicit cancellation-check primitive.
+   builder. Simulation `choose` ignores live choice ownership and calls the
+   policy inline with no display connection or wait. Borrowing the enum must
+   neither allocate nor clone the prompt. There is no explicit
+   cancellation-check primitive.
 
 4. Compile a choice-free game (`Prompt<'a> = ()`), two distinct response types
    through nested rules, and a second game's generic prompt handling. Exercise
-   the same rules with a recording context and a simulation context. Task 11
-   supplies actual App startup and worker integration.
+   the same game-owned context with a recording interactive connection and a
+   simulation execution mode. Task 11 supplies actual App startup and worker
+   integration.
 
 5. Measure primitive overhead separately from constructing owned prompt vectors
    and policy search. Retain public-entry allocation measurements and optimized
@@ -82,5 +85,6 @@ App startup, handles, and attachment are task 11. Do not migrate samples here.
 
 ## Manual QA
 
-Run the same nested fixture in recording and simulation contexts. Inspect its
-selected response types and compare final outcomes and allocation evidence.
+Run the same nested fixture with a recording interactive connection and a
+simulation execution mode. Inspect its selected response types and compare
+final outcomes and allocation evidence.

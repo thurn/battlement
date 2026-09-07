@@ -53,7 +53,7 @@ These are starting points, not instructions to load whole directories.
 ## Planned additions
 
 The numbered tasks introduce the following code:
-- reactant-rules: Game/GameContext, owned PromptData, ChoicePolicy, typed
+- reactant-rules: Game, ExecutionMode, owned PromptData, ChoicePolicy, typed
   responses, DisplayConnection, and private worker lifecycle.
 - reactant-core/reactant-ui/reactant: extracted runtime and public facade.
 - reactant-testing: public display driver and observation/barrier APIs.

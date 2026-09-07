@@ -1,8 +1,10 @@
 # Rules and session API
 
 A game supplies ordinary state, synchronous rules, and a domain-specific
-context. Reactant supplies the live session, a connection to the display, and
-typed response delivery. The same rules run directly with a simulation context.
+context. That context embeds Reactant's reusable execution mode alongside any
+game-specific data and logic. Reactant supplies the live session, a connection
+to the display, and typed response delivery. The same rules run directly with
+the context configured for simulation.
 
 The [complete contract sketch](#complete-contract-sketch) below defines the
 complete rules/session surface. Its private storage and method bodies are implementation
@@ -22,8 +24,8 @@ chooses its movements, sounds, and effects.
   dispatch another action.
 - `Prompt` is one game-wide enum whose variants contain concrete prompt data.
   Display and simulation policies inspect the same enum.
-- `Context` belongs to the game. It may hold an RNG, policies, and other
-  domain-specific data alongside an interactive connection or simulation mode.
+- `Context` belongs to the game. It embeds an `ExecutionMode` and may hold an
+  RNG and any other domain-specific data or logic alongside it.
 - `logical_clone` must not share mutable data with its source. Immutable shared
   data may use `Arc`. The engine does not deep-copy arbitrary Rust values.
 - A choice-free game uses `Prompt<'a> = ()`. A game without semantic animation
@@ -45,8 +47,10 @@ connection to the game's context factory; there is no separate attachment call.
 ```rust
 let game = app.start_game::<HeartsGame>(initial_state, |connection| {
     HeartsContext {
-        human_player,
-        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
+        execution: ExecutionMode::Interactive {
+            connection,
+            policy: HeartsPolicy { human_player },
+        },
     }
 });
 ```
@@ -93,14 +97,16 @@ include a complete AI turn with many policy choices inside one `execute()` call.
 There is no acceptance callback or autosave in v1. The application owns explicit
 save/load operations using `accepted_state()` and `App::start_game()`.
 
-## Publish and choose through the game context
+## Publish and choose through the execution mode
 
-Rules call `GameContext` regardless of the context's mode:
+Each game embeds the reusable `ExecutionMode` in its domain-specific context.
+Rules call that field for publication and choices while using the rest of the
+context for arbitrary game-specific data and logic:
 
 ```rust
 state.play(card);
-context.present(state, || HeartsAnimation::CardPlayed(card));
-let next = context.choose(state, PlayCardPrompt { choices: legal_cards });
+context.execution.present(state, || HeartsAnimation::CardPlayed(card));
+let next = context.execution.choose(state, PlayCardPrompt { choices: legal_cards });
 ```
 
 Interactive `present` queues a state snapshot and one semantic animation event.
@@ -153,7 +159,7 @@ Game state and the rest of the context do not gain a `Sync` bound.
 Rules still receive a concrete answer:
 
 ```rust
-let card: CardId = context.choose(state, PlayCardPrompt { choices });
+let card: CardId = context.execution.choose(state, PlayCardPrompt { choices });
 ```
 
 Constructing a vector may allocate once per constructed prompt. Simulation wraps
@@ -212,17 +218,16 @@ restriction on which heuristics it can use.
 ```rust
 let mut state = HeartsGame::logical_clone(&accepted);
 let mut context = HeartsContext {
-    human_player,
-    mode: HeartsMode::Simulation(rollout_policy),
+    execution: ExecutionMode::Simulation { policy: rollout_policy },
 };
 HeartsGame::execute(&mut context, &mut state, action);
 ```
 
 This call runs synchronously on the caller's thread and does not start or attach
-a live session. Simulation can branch on the context mode; the API does not
-require compile-time execution-mode specialization. Primitive dispatch must not
-require a heap allocation, vtable, display connection, wait, or snapshot. Owned
-prompt construction and game policy work have separate measured costs.
+a live session. The embedded mode handles simulation without compile-time
+execution specialization. Primitive dispatch must not require a heap allocation,
+vtable, display connection, wait, or snapshot. Owned prompt construction and
+game policy work have separate measured costs.
 
 The policy receives `&G::State`. Hidden-state randomization and information-safe
 heuristics belong to the game, not an engine observation/controller subsystem.
@@ -230,24 +235,27 @@ Hearts must still avoid using opponents' real hidden cards when choosing a move.
 
 ## The interactive connection
 
-Reactant creates `DisplayConnection<G>` for the session; game contexts delegate
-interactive mechanics to it. Its fields and constructor are private.
+Reactant creates `DisplayConnection<G>` for the session and places it in an
+interactive `ExecutionMode`. The mode owns all interactive-versus-simulation
+branching. Its fields and constructors are private.
 
-In interactive Hearts, the context routes a human decision to `choose` and an AI
-decision to `choose_with_policy`. Both receive the concrete `P`, retain it in an
-internal typed request, and publish `prompt.clone().into_prompt()` with the
-snapshot in display order. Reserve publication capacity before cloning. This one
-copy is required for human requests as well as live AI: the display owns an enum
-while the request retains `P` for validation without reverse conversion.
-Internal `Arc<P>` storage lets the display validate against the original and
-lets the live worker borrow it for policy evaluation. `Clone + Send + Sync`
-apply to concrete prompt data; the request and its erased response transport are
-private engine details.
+For an interactive choice, `ExecutionMode` first asks `ChoicePolicy::owner`
+whether the prompt belongs to a human or the policy. It routes a human decision
+to the connection's `choose` and a policy decision to `choose_with_policy`.
+Both receive the concrete `P`, retain it in an internal typed request, and
+publish `prompt.clone().into_prompt()` with the snapshot in display order.
+Reserve publication capacity before cloning. This one copy is required for
+human requests as well as live AI: the display owns an enum while the request
+retains `P` for validation without reverse conversion. Internal `Arc<P>`
+storage lets the display validate against the original and lets the live worker
+borrow it for policy evaluation. `Clone + Send + Sync` apply to concrete prompt
+data; the request and its erased response transport are private engine details.
 
 The policy borrows `prompt.as_prompt()` after publishing the snapshot, without
 waiting for Unity or human input. Select its response directly from retained
 `P`, then check cancellation before returning. The connection does not
-identify players. Simulation allocates no request and makes no display copy.
+identify players. Simulation ignores live ownership, always invokes the policy
+inline, allocates no request, and makes no display copy.
 
 A session owns one connection and one context. Helpers reject use outside that
 session's current action rather than allowing unrelated publication. The app
@@ -284,21 +292,14 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-trait GameContext<G: Game> {
-  // Interactive publication pairs an independent logical_clone(state) with the
-  // animation. Simulation calls neither logical_clone nor the animation builder.
-  fn present(&mut self, state: &G::State, animation: impl FnOnce() -> G::StateAnimation);
-  fn choose<P>(&mut self, state: &G::State, prompt: P) -> P::ResponseType
-  where
-    P: PromptData<G>;
-}
-
 trait Game: Sized + Send + 'static {
   type State: Send + 'static;
   type Action: Send + 'static;
   type StateAnimation: Send + 'static;
   type Prompt<'a>: Send + 'a;
-  type Context: GameContext<Self> + Send + 'static;
+  // The game owns this struct. It embeds an ExecutionMode and may contain any
+  // other game-specific state, services, and helper logic.
+  type Context: Send + 'static;
 
   // Copies must not share mutable data with the source. Used for the worker's
   // private state and for snapshots read by display components.
@@ -317,10 +318,20 @@ trait Game: Sized + Send + 'static {
 }
 
 trait ChoicePolicy<G: Game> {
+  // Classifies a live choice before it is published. Simulation ignores this
+  // classification and always invokes choose inline.
+  fn owner(&self, state: &G::State, prompt: &G::Prompt<'_>) -> ChoiceOwner;
+
   // Returns an index into the prompt's stable option order. Policies may inspect
   // the concrete prompt variant and state for tree search or rollout heuristics.
   // Hidden-state randomization is the game's responsibility, outside Reactant.
   fn choose(&mut self, state: &G::State, prompt: &G::Prompt<'_>) -> usize;
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ChoiceOwner {
+  Human,
+  Policy,
 }
 
 // Existing Reactant App; only its game-session entry point is shown here.
@@ -436,8 +447,7 @@ fn use_game_selector<G: Game, T: Clone + PartialEq + 'static>(
 struct HeartsGame;
 
 struct HeartsContext {
-  mode: HeartsMode,
-  human_player: PlayerId,
+  execution: ExecutionMode<HeartsGame, HeartsPolicy>,
   // Other domain-specific data, such as the game's RNG, can live here.
 }
 
@@ -447,20 +457,21 @@ fn start_hearts(
   human_player: PlayerId,
 ) -> GameHandle<HeartsGame> {
   app.start_game::<HeartsGame>(initial_state, |connection| HeartsContext {
-    human_player,
-    mode: HeartsMode::Interactive {
+    execution: ExecutionMode::Interactive {
       connection,
-      policy: HeartsPolicy,
+      policy: HeartsPolicy { human_player },
     },
   })
 }
 
-enum HeartsMode {
+enum ExecutionMode<G: Game, C: ChoicePolicy<G>> {
   Interactive {
-    connection: DisplayConnection<HeartsGame>,
-    policy: HeartsPolicy,
+    connection: DisplayConnection<G>,
+    policy: C,
   },
-  Simulation(HeartsPolicy),
+  Simulation {
+    policy: C,
+  },
 }
 
 // Placeholder for Reactant's worker/display connection.
@@ -510,9 +521,19 @@ impl<G: Game> DisplayConnection<G> {
   }
 }
 
-struct HeartsPolicy;
+struct HeartsPolicy {
+  human_player: PlayerId,
+}
 
 impl ChoicePolicy<HeartsGame> for HeartsPolicy {
+  fn owner(&self, state: &HeartsState, prompt: &HeartsPrompt<'_>) -> ChoiceOwner {
+    if state.current_player == self.human_player {
+      ChoiceOwner::Human
+    } else {
+      ChoiceOwner::Policy
+    }
+  }
+
   fn choose(&mut self, state: &HeartsState, prompt: &HeartsPrompt<'_>) -> usize {
     match prompt {
       HeartsPrompt::PlayCard(prompt) => {
@@ -626,29 +647,35 @@ fn submit_selected_pass(
   }
 }
 
-impl GameContext<HeartsGame> for HeartsContext {
-  fn present(&mut self, state: &HeartsState, animation: impl FnOnce() -> HeartsAnimation) {
-    if let HeartsMode::Interactive { connection, .. } = &mut self.mode {
+impl<G, C> ExecutionMode<G, C>
+where
+  G: Game,
+  C: ChoicePolicy<G>,
+{
+  fn present(&mut self, state: &G::State, animation: impl FnOnce() -> G::StateAnimation) {
+    if let Self::Interactive { connection, .. } = self {
       connection.present(state, animation);
     }
     // Simulation skips both snapshot creation and the animation builder.
   }
 
-  fn choose<P>(&mut self, state: &HeartsState, prompt: P) -> P::ResponseType
+  fn choose<P>(&mut self, state: &G::State, prompt: P) -> P::ResponseType
   where
-    P: PromptData<HeartsGame>,
+    P: PromptData<G>,
   {
-    match &mut self.mode {
-      HeartsMode::Simulation(policy) => {
+    match self {
+      Self::Simulation { policy } => {
         let index = policy.choose(state, &prompt.as_prompt());
-        select_response::<HeartsGame, P>(&prompt, index)
+        select_response::<G, P>(&prompt, index)
       }
-      HeartsMode::Interactive { connection, policy } => {
-        // Hearts owns human/AI routing. Simulation always uses its own policy.
-        if state.current_player == self.human_player {
-          connection.choose::<P>(state, prompt)
-        } else {
-          connection.choose_with_policy::<P>(state, prompt, policy)
+      Self::Interactive { connection, policy } => {
+        let owner = {
+          let wrapped = prompt.as_prompt();
+          policy.owner(state, &wrapped)
+        };
+        match owner {
+          ChoiceOwner::Human => connection.choose::<P>(state, prompt),
+          ChoiceOwner::Policy => connection.choose_with_policy::<P>(state, prompt, policy),
         }
       }
     }

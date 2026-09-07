@@ -27,8 +27,10 @@ Start and attachment are one operation:
 ```rust
 let game = app.start_game::<HeartsGame>(initial_state, |connection| {
     HeartsContext {
-        human_player,
-        mode: HeartsMode::Interactive { connection, policy: HeartsPolicy },
+        execution: ExecutionMode::Interactive {
+            connection,
+            policy: HeartsPolicy { human_player },
+        },
     }
 });
 ```

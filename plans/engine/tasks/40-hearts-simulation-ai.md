@@ -38,18 +38,20 @@ return the candidate's original legal-option index
    sampling or scoring heuristic input. Reactant does not sanitize state for the
    policy.
 
-2. Use Game::execute and a simulation HeartsContext for rollout transitions.
-   Finish the current hand, include moon scoring, and minimize mean additional
-   actor penalty. Reuse sampled deals/seeds across candidates. Passing commits
-   simultaneous sampled choices and uses the same hand-scoring objective.
+2. Use Game::execute and a HeartsContext containing a simulation ExecutionMode
+   for rollout transitions. Finish the current hand, include moon scoring, and
+   minimize mean additional actor penalty. Reuse sampled deals/seeds across
+   candidates. Passing commits simultaneous sampled choices and uses the same
+   hand-scoring objective.
 
 3. Apply the 32-deal default, one rollout per legal play candidate, and eight
    heuristic-shortlisted passing combinations from hearts.md. Preserve a mapping
    from any shortlist back to the original prompt order. Stable tie-breaking and
    seeded rollout heuristics remain game-owned.
 
-4. Route live AI through DisplayConnection::choose_with_policy immediately after
-   its snapshot/prompt is queued. Do not wait for visibility or animation. The
+4. Classify each live choice in `HeartsPolicy::owner`; `ExecutionMode` routes AI
+   through DisplayConnection::choose_with_policy immediately after its
+   snapshot/prompt is queued. Do not wait for visibility or animation. The
    shared queue applies backpressure only at 32 pending entries. Run bounded
    computation on the rules worker, never Unity's thread. Stop invalidates
    output immediately; the policy may finish computation before the helper

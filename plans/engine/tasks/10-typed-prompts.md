@@ -16,7 +16,7 @@ map](../source-map.md) · [Validation](../validation.md)
 queue](09-checkpoint-publication.md) and all its required follow-ups must be
 integrated.
 
-**Starting code:** PromptData and domain-context modes from task 02; worker
+**Starting code:** PromptData and ExecutionMode from task 02; worker
 connection from task 09; display driver.
 
 ## Example
