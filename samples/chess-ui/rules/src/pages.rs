@@ -8,6 +8,7 @@ use crate::{
   action_harness::ActionHarness,
   arcade_modal_animation_harness::ArcadeModalAnimationHarness,
   arcade_modal_harness::ArcadeModalHarness,
+  arcade_screen_router_harness::ArcadeScreenRouterHarness,
   attract_mode_harness::AttractModeHarness,
   background_music_harness::BackgroundMusicHarness,
   dropdown_animation_harness::DropdownAnimationHarness,
@@ -287,6 +288,7 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("ArcadeScreenRouter", "Chess UI showcase title."))
-                .description(tx("ArcadeScreenRouter composes every accessible mockup behavior; no player-visible behavior remains outside this page's scope.", "Chess UI showcase description.")),
+                .description(tx("ArcadeScreenRouter composes every accessible mockup behavior; no player-visible behavior remains outside this page's scope.", "Chess UI showcase description."))
+                .child(ArcadeScreenRouterHarness::new().overlay(overlay)),
         )
 }

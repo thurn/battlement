@@ -7,7 +7,7 @@ use crate::{
   header_artwork,
 };
 use battlement::{Length, PickingMode, Position, Style, Translate};
-use battlement_reactant::{control_behavior, prelude::*};
+use battlement_reactant::{control_behavior, element_behavior, focus::FocusProps, prelude::*};
 
 /// Selects the fixed decorative heading.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -22,11 +22,13 @@ pub enum HeaderVariant {
 pub struct ScreenHeader {
   #[builder(required)]
   variant: HeaderVariant,
+  autofocus: bool,
 }
 
 impl Component for ScreenHeader {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
+    let heading = element_behavior::use_focus_when(self.autofocus.then_some(()));
     View::new()
       .name("screen-header")
       .picking_mode(PickingMode::Ignore)
@@ -63,6 +65,12 @@ impl Component for ScreenHeader {
           }),
         View::new()
           .name("screen-header-heading")
+          .element_ref(self.autofocus.then_some(heading))
+          .focus_props(if self.autofocus {
+            FocusProps::new().focusable(true).tab_index(-1)
+          } else {
+            FocusProps::new()
+          })
           .semantic(control_behavior::heading(
             if self.variant == HeaderVariant::Game {
               tx("Chess Chess Revolution", "Game title.")

@@ -2974,6 +2974,88 @@ accessibility_assert = { target = { role = "cell", name = "Space" }, role = "cel
 screenshot = { name = "reset" }
 
 [[scenarios]]
+name = "complete arcade screen router"
+motion = "instant"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206840\u2069. \u2068ArcadeScreenRouter\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Launch Chess UI" }, role = "button", name = "Launch Chess UI" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Launch Chess UI" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Settings" }, role = "heading", name = "Settings" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text Size 100%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "200%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Reduce Motion" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Text Size 200%" }, role = "button", name = "Text Size 200%" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Reduce Motion" }, role = "checkbox", name = "Reduce Motion", checked = true }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Launch Chess UI" }, role = "button", name = "Launch Chess UI" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Launch Chess UI" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Text Size 100%" }, role = "button", name = "Text Size 100%" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Reduce Motion" }, role = "checkbox", name = "Reduce Motion", checked = false }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "PLAY" }, action = "activate" }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Launch Chess UI" }, role = "button", name = "Launch Chess UI" }
+
+[[scenarios]]
 name = "main menu"
 motion = "instant"
 

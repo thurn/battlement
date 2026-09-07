@@ -129,6 +129,8 @@ pub struct ReviewButton {
   on_press: EventCallback<()>,
   /// Reveals the current entry in its navigation column on each new visit.
   reveal_generation: Option<u64>,
+  /// Supplies a stable reference when the harness must restore focus.
+  element_ref: Option<ElementRef>,
   #[builder(default = ReviewButtonKind::Action)]
   kind: ReviewButtonKind,
 }
@@ -147,16 +149,20 @@ impl Component for ReviewButton {
       hooks::use_context::<Option<ElementRef>>(),
       self.reveal_generation.filter(|_| self.kind.is_current()),
     );
-    Button::new(self.label.clone())
-      .host_name(self.name.clone())
-      .element_ref(reference)
-      .current_page(self.kind.is_current())
-      .disabled(self.disabled)
-      .on_press(self.on_press.clone())
-      .style(self.kind.style())
-      .hover_style(self.kind.hover_style())
-      .active_style(self.kind.active_style())
-      .while_focus_visible(self.kind.focus_style())
-      .disabled_style(self.kind.disabled_style())
+    self::button(self, reference)
   }
+}
+
+fn button(component: &ReviewButton, fallback: ElementRef) -> impl Render {
+  Button::new(component.label.clone())
+    .host_name(component.name.clone())
+    .element_ref(component.element_ref.clone().unwrap_or(fallback))
+    .current_page(component.kind.is_current())
+    .disabled(component.disabled)
+    .on_press(component.on_press.clone())
+    .style(component.kind.style())
+    .hover_style(component.kind.hover_style())
+    .active_style(component.kind.active_style())
+    .while_focus_visible(component.kind.focus_style())
+    .disabled_style(component.kind.disabled_style())
 }

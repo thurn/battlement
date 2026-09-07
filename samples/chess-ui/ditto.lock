@@ -895,11 +895,11 @@ source = "72a50d2ea0d6047b9952e63a08902079ed8b4be6194e406e79d8c8dd873bda39"
 profile = "macos"
 scenario = "gallery navigation fourth"
 checkpoint = "selected"
-sha256 = "1199c3c897330f7d6d90277dea0506b4800ddbf53e86832fa6ab56f82faf77dd"
+sha256 = "47ee82b5b5bc54af79f687c60c1cfe7bf1c860fa0b03a42a100b0cb272ce8bf2"
 width = 1280
 height = 800
-size_bytes = 98344
-source = "5a7929dc35842bc4778bc448331edcc1437871d5ce42b6712e3391144b4cb891"
+size_bytes = 101491
+source = "05ab814b598b2ad03258c44fd191716583e0abf4aca8ff130f10bf6a32e8e484"
 
 [[baselines]]
 profile = "macos"

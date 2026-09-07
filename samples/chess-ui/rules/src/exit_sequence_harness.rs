@@ -7,6 +7,7 @@ use crate::{
   arcade_exit_sequence::ArcadeExitStage,
   portrait_viewport::PortraitViewport,
   review_button::ReviewButton,
+  screen_frame::ExitAwareScreenFrame,
   screen_header::{HeaderVariant, ScreenHeader},
 };
 use battlement::{Align, Color, FlexDirection, Gradient, Position, Style};
@@ -91,11 +92,13 @@ impl Component for ExitSequenceHarness {
           .child(
             PortraitViewport::new().child(
               MotionConfig::new(
-                ArcadeExitStage::new()
-                  .active(active)
-                  .reduce_motion(reduce_motion)
-                  .children(ExitSpecimen::new())
-                  .key(reset_generation),
+                ExitAwareScreenFrame::new().children(
+                  ArcadeExitStage::new()
+                    .active(active)
+                    .reduce_motion(reduce_motion)
+                    .children(ExitSpecimen::new())
+                    .key(reset_generation),
+                ),
               )
               .time_source(MotionTimeSource::Controlled(clock)),
             ),

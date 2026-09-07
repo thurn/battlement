@@ -62,6 +62,12 @@ mod exit_sequence_harness;
 
 pub mod arcade_menu_transition;
 
+pub mod arcade_route_transition;
+
+pub mod arcade_screen_router;
+
+mod arcade_screen_router_harness;
+
 mod menu_transition_harness;
 
 pub mod background_music;

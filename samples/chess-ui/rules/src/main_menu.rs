@@ -8,7 +8,8 @@ use crate::{
   action_button::{ActionButton, ActionLabel},
   arcade_attract_mode::ArcadeAttractMode,
   arcade_exit_sequence::ArcadeExitStage,
-  background_music, font_scale,
+  arcade_frame_pulse::ArcadeScreen,
+  arcade_route_transition, background_music, font_scale,
   music_playback_indicator::MusicPlaybackIndicator,
   screen_header::{HeaderVariant, ScreenHeader},
 };
@@ -22,16 +23,14 @@ const MENU_GAP: f32 = 24.0;
 /// The source main menu, including attract mode, music, and terminal exit behavior.
 #[builder]
 pub struct MainMenu {
-  #[builder(required)]
-  reduce_motion: bool,
-  #[builder(required)]
-  on_settings: EventCallback<()>,
+  autofocus_heading: bool,
 }
 
 impl Component for MainMenu {
   fn render(&self) -> impl Render {
     let (exiting, set_exiting) = hooks::use_state(false);
     let music = background_music::use_background_music();
+    let navigation = arcade_route_transition::use_arcade_navigation();
     hooks::use_effect(
       {
         let music = music.clone();
@@ -41,13 +40,15 @@ impl Component for MainMenu {
     );
     ArcadeExitStage::new()
       .active(exiting)
-      .reduce_motion(self.reduce_motion)
-      .frame_pulse(true)
+      .reduce_motion(navigation.reduce_motion)
       .children(
         MainMenuContent::new()
           .exiting(exiting)
-          .reduce_motion(self.reduce_motion)
-          .on_settings(self.on_settings.clone())
+          .reduce_motion(navigation.reduce_motion)
+          .autofocus_heading(self.autofocus_heading)
+          .on_settings(EventCallback::new(move |()| {
+            navigation.navigate(ArcadeScreen::Settings)
+          }))
           .on_exit(set_exiting.callback().map_input(|_| true)),
       )
   }
@@ -59,6 +60,7 @@ struct MainMenuContent {
   exiting: bool,
   #[builder(required)]
   reduce_motion: bool,
+  autofocus_heading: bool,
   #[builder(required)]
   on_settings: EventCallback<()>,
   #[builder(required)]
@@ -81,7 +83,9 @@ impl Component for MainMenuContent {
       )
       .child((
         ArcadeAttractMode::new().reduce_motion(self.reduce_motion),
-        ScreenHeader::new().variant(HeaderVariant::Game),
+        ScreenHeader::new()
+          .variant(HeaderVariant::Game)
+          .autofocus(self.autofocus_heading),
         Region::new(tx("Main navigation", "Main menu navigation label."))
           .host_name("main-menu-actions")
           .style(

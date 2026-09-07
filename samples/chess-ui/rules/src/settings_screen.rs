@@ -36,19 +36,20 @@ enum SettingsModal {
 pub struct SettingsScreen {
   #[builder(required)]
   overlay: PortalTarget,
-  #[builder(required)]
+  #[builder(default = EventCallback::noop())]
   on_return: EventCallback<()>,
   #[builder(required)]
   on_open_url: EventCallback<String>,
+  autofocus_heading: bool,
 }
 
 impl Component for SettingsScreen {
   fn render(&self) -> impl Render {
     let (active_tab, set_active_tab) = hooks::use_state(SettingsTab::Gameplay);
     let (tab_direction, set_tab_direction) = hooks::use_state(1_i32);
-    let (font_scale, set_font_scale) = hooks::use_state(FontScale::Percent100);
+    let (font_scale, set_font_scale) = font_scale::use_font_scale_state();
     let (language, set_language) = hooks::use_state(String::from("English"));
-    let (reduce_motion, set_reduce_motion) = hooks::use_state(false);
+    let navigation = crate::arcade_route_transition::use_arcade_navigation();
     let (increase_move_duration, set_increase_move_duration) = hooks::use_state(true);
     let (upload_crash_reports, set_upload_crash_reports) = hooks::use_state(true);
     let (resolution, set_resolution) = hooks::use_state(String::from("1920 × 1080"));
@@ -72,7 +73,9 @@ impl Component for SettingsScreen {
             .overflow(battlement::Overflow::Hidden),
         )
         .child((
-          ScreenHeader::new().variant(HeaderVariant::Settings),
+          ScreenHeader::new()
+            .variant(HeaderVariant::Settings)
+            .autofocus(self.autofocus_heading),
           View::new()
             .name("settings-screen-composition")
             .style(
@@ -103,15 +106,15 @@ impl Component for SettingsScreen {
                 ArcadeTabTransition::new()
                   .active_key(active_tab)
                   .direction(tab_direction)
-                  .reduce_motion(reduce_motion)
+                  .reduce_motion(navigation.reduce_motion)
                   .children(self::panel(
                     active_tab,
                     font_scale,
                     &set_font_scale,
                     &language,
                     &set_language,
-                    reduce_motion,
-                    &set_reduce_motion,
+                    navigation.reduce_motion,
+                    &navigation.reduce_motion_callback(),
                     increase_move_duration,
                     &set_increase_move_duration,
                     upload_crash_reports,
@@ -147,13 +150,13 @@ impl Component for SettingsScreen {
             .confirm_label(tx("Erase", "Saved-data confirmation action."))
             .cancel_label(tx("Cancel", "Saved-data cancellation action."))
             .danger(true)
-            .reduce_motion(reduce_motion)
+            .reduce_motion(navigation.reduce_motion)
             .on_confirm(set_active_modal.callback().map_input(|_| None))
             .on_close(set_active_modal.callback().map_input(|_| None))
             .overlay(self.overlay.clone()),
           PrivacyPolicyHelp::new()
             .open(active_modal == Some(SettingsModal::Privacy))
-            .reduce_motion(reduce_motion)
+            .reduce_motion(navigation.reduce_motion)
             .on_open_url(self.on_open_url.clone())
             .on_close(set_active_modal.callback().map_input(|_| None))
             .overlay(self.overlay.clone()),
@@ -170,7 +173,7 @@ fn panel(
   language: &str,
   set_language: &StateSetter<String>,
   reduce_motion: bool,
-  set_reduce_motion: &StateSetter<bool>,
+  set_reduce_motion: &EventCallback<bool>,
   increase_move_duration: bool,
   set_increase_move_duration: &StateSetter<bool>,
   upload_crash_reports: bool,
@@ -296,7 +299,7 @@ fn gameplay(
   language: &str,
   set_language: &StateSetter<String>,
   reduce_motion: bool,
-  set_reduce_motion: &StateSetter<bool>,
+  set_reduce_motion: &EventCallback<bool>,
   increase_move_duration: bool,
   set_increase_move_duration: &StateSetter<bool>,
   upload_crash_reports: bool,

@@ -13,6 +13,21 @@ use crate::{
 };
 use battlement_reactant::{hooks, prelude::*};
 
+#[derive(Clone, PartialEq)]
+pub(crate) struct ReviewAppLayerContext {
+  set_open: StateSetter<bool>,
+}
+
+impl ReviewAppLayerContext {
+  pub(crate) fn set_open(&self, open: bool) {
+    self.set_open.set(open);
+  }
+}
+
+pub(crate) fn use_review_app_layer() -> ReviewAppLayerContext {
+  hooks::use_required_context::<ReviewAppLayerContext>()
+}
+
 /// The demo application's root component: navigation beside one live example.
 ///
 /// Each selection mounts a fresh page, including selecting the current page
@@ -51,47 +66,54 @@ impl Gallery {
 impl Component for Gallery {
   fn render(&self) -> impl Render {
     let (selection, select) = hooks::use_state(Selection::default());
-    ReviewSurface::new().child((
-      ReviewNavigation::new()
-        .title(tx("CHESS UI", "Review page count label."))
-        .caption(txa(
-          "{page_count} review pages",
-          tx_args![page_count => self.pages.len() as u32],
-          "Review page count label.",
-        ))
-        .children(self.pages.iter().enumerate().map(|(index, page)| {
-          ReviewButton::new()
-            .label(txa(
-              "{position}. {title}",
-              tx_args![
-                position => (index + 1) as u32,
-                title => opaque(page.title_text()),
-              ],
-              "Numbered navigation label for a Chess UI review page.",
+    let (app_open, set_app_open) = hooks::use_state(false);
+    ContextProvider::new()
+      .context(ReviewAppLayerContext {
+        set_open: set_app_open,
+      })
+      .child(
+        ReviewSurface::new().inert(app_open).child((
+          ReviewNavigation::new()
+            .title(tx("CHESS UI", "Review page count label."))
+            .caption(txa(
+              "{page_count} review pages",
+              tx_args![page_count => self.pages.len() as u32],
+              "Review page count label.",
             ))
-            .navigation(selection.index == index)
-            .reveal_generation(selection.generation)
-            .name(format!("review-page-{}", index + 1))
-            .on_press(select.update_callback(move |old| Selection {
-              index,
-              generation: old.generation + 1,
-            }))
-            .key(index + 1)
-        })),
-      ReviewStage::new().child(self.pages.get(selection.index).map(|page| {
-        page
-          .clone()
-          .eyebrow(txa(
-            "REVIEW {review_index} / {page_count}",
-            tx_args![
-              review_index => format!("{:02}", selection.index + 1),
-              page_count => self.pages.len() as u32,
-            ],
-            "Current review page indicator.",
-          ))
-          .key((selection.index, selection.generation))
-      })),
-    ))
+            .children(self.pages.iter().enumerate().map(|(index, page)| {
+              ReviewButton::new()
+                .label(txa(
+                  "{position}. {title}",
+                  tx_args![
+                    position => (index + 1) as u32,
+                    title => opaque(page.title_text()),
+                  ],
+                  "Numbered navigation label for a Chess UI review page.",
+                ))
+                .navigation(selection.index == index)
+                .reveal_generation(selection.generation)
+                .name(format!("review-page-{}", index + 1))
+                .on_press(select.update_callback(move |old| Selection {
+                  index,
+                  generation: old.generation + 1,
+                }))
+                .key(index + 1)
+            })),
+          ReviewStage::new().child(self.pages.get(selection.index).map(|page| {
+            page
+              .clone()
+              .eyebrow(txa(
+                "REVIEW {review_index} / {page_count}",
+                tx_args![
+                  review_index => format!("{:02}", selection.index + 1),
+                  page_count => self.pages.len() as u32,
+                ],
+                "Current review page indicator.",
+              ))
+              .key((selection.index, selection.generation))
+          })),
+        )),
+      )
   }
 }
 

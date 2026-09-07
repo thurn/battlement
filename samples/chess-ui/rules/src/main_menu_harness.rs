@@ -5,7 +5,14 @@ use battlement_reactant::{control_behavior, hooks, prelude::*};
 use trox::{ls, tx};
 
 use crate::{
-  main_menu::MainMenu, portrait_viewport::PortraitViewport, review_button::ReviewButton,
+  arcade_frame_pulse::ArcadeScreen,
+  arcade_route_transition::{ArcadeRouteTransition, use_arcade_navigation},
+  background_music,
+  font_scale::FontScaleProvider,
+  main_menu::MainMenu,
+  portrait_viewport::PortraitViewport,
+  review_button::ReviewButton,
+  screen_frame::ExitAwareScreenFrame,
 };
 
 /// Exercises navigation, sound, exit completion, reduced motion, and reset.
@@ -14,19 +21,25 @@ pub struct MainMenuHarness;
 
 impl Component for MainMenuHarness {
   fn render(&self) -> impl Render {
-    MainMenuHarnessContent::new()
+    let (generation, set_generation) = hooks::use_state(0_u32);
+    FontScaleProvider::new().children(
+      ArcadeRouteTransition::new()
+        .children(MainMenuHarnessContent::new().reset_generation(set_generation))
+        .key(generation),
+    )
   }
 }
 
 #[builder]
-struct MainMenuHarnessContent;
+struct MainMenuHarnessContent {
+  #[builder(required)]
+  reset_generation: StateSetter<u32>,
+}
 
 impl Component for MainMenuHarnessContent {
   fn render(&self) -> impl Render {
-    let (generation, set_generation) = hooks::use_state(0_u32);
-    let (settings_requests, set_settings_requests) = hooks::use_state(0_u32);
-    let (reduce_motion, set_reduce_motion) = hooks::use_state(false);
-    let music = crate::background_music::use_background_music();
+    let navigation = use_arcade_navigation();
+    let music = background_music::use_background_music();
     View::new()
       .name("main-menu-harness")
       .style(Style::new().flex_grow(1).min_height(0).margin_top(24))
@@ -37,33 +50,42 @@ impl Component for MainMenuHarnessContent {
           .style(Style::new().height(86).align_items(Align::Center))
           .child((
             ReviewButton::new()
-              .label(ls(if reduce_motion { "REDUCED" } else { "FULL" }))
+              .label(ls(if navigation.reduce_motion {
+                "REDUCED"
+              } else {
+                "FULL"
+              }))
               .name("main-menu-motion-policy")
-              .on_press(set_reduce_motion.update_callback(|value| !value)),
+              .on_press(EventCallback::new({
+                let navigation = navigation.clone();
+                move |()| navigation.set_reduce_motion(!navigation.reduce_motion)
+              })),
             ReviewButton::new()
               .label(tx("RESET", "Reset the complete main menu."))
               .name("main-menu-reset")
-              .on_press(
-                EventCallback::new({
-                  let music = music.clone();
-                  move |()| music.set_sound_muted(false)
-                })
-                .then(set_generation.update_callback(|value| value.wrapping_add(1)))
-                .then(set_settings_requests.callback().map_input(|_| 0))
-                .then(set_reduce_motion.callback().map_input(|_| false)),
-              ),
-            control_behavior::static_label(ls(format!("Settings requests: {settings_requests}")))
-              .name("main-menu-status")
-              .style(Style::new().height(54).font_size(24)),
+              .on_press(EventCallback::new({
+                let music = music.clone();
+                let reset_generation = self.reset_generation.clone();
+                move |()| {
+                  music.set_sound_muted(false);
+                  reset_generation.update(|value| value.wrapping_add(1));
+                }
+              })),
+            control_behavior::static_label(ls(format!(
+              "Settings requests: {}",
+              u32::from(navigation.has_navigated)
+            )))
+            .name("main-menu-status")
+            .style(Style::new().height(54).font_size(24)),
           )),
         View::new()
           .style(Style::new().flex_grow(1).min_height(0))
           .child(
             PortraitViewport::new().child(
-              MainMenu::new()
-                .reduce_motion(reduce_motion)
-                .on_settings(set_settings_requests.update_callback(|value| value + 1))
-                .key(generation),
+              ExitAwareScreenFrame::new()
+                .frame_pulse(ArcadeScreen::Main)
+                .reduce_motion(navigation.reduce_motion)
+                .children(MainMenu::new()),
             ),
           ),
       ))

@@ -18,6 +18,11 @@ impl ReviewSurface {
     self.view = self.view.child(content);
     self
   }
+  /// Makes gallery content unavailable while its full-screen app layer is open.
+  pub fn inert(mut self, inert: bool) -> Self {
+    self.view = self.view.inert(inert);
+    self
+  }
   /// Applies the surface's sizing and theme to its native document root.
   pub fn document(document: UiDocument) -> UiDocument {
     document.style(Self::style())

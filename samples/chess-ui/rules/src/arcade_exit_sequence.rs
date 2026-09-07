@@ -1,16 +1,11 @@
 //! Synchronized arcade-screen collapse and terminal black stage.
 
-use crate::{
-  arcade_frame_pulse::{ArcadeFramePulse, ArcadeScreen},
-  assets, frame_styles, screen_frame,
-  screen_frame::ScreenFrame,
-};
+use crate::{assets, frame_styles, screen_frame};
 use battlement::{
   Color, Gradient, ImageScaleMode, Length, LengthUnits, Overflow, PickingMode, Position,
   SemanticRole, Shadow, Style, TransformOrigin,
 };
 use battlement_reactant::{hooks, paint::PaintStyle, prelude::*, semantics::SemanticVisibility};
-use trox::ls;
 
 /// Duration shared by the menu content and frame collapse.
 pub const ARCADE_EXIT_DURATION_SECS: f64 = 0.62;
@@ -24,24 +19,34 @@ pub struct ArcadeExitStage {
   reduce_motion: bool,
   #[builder(required, into)]
   children: Children,
-  /// Adds the main-screen frame comet to complete menu compositions.
-  frame_pulse: bool,
 }
 
 impl Component for ArcadeExitStage {
   fn render(&self) -> impl Render {
     let (dismissed, set_dismissed) = hooks::use_state(false);
+    let exit_frame = screen_frame::use_screen_frame_exit();
     hooks::use_effect(
       {
         let set_dismissed = set_dismissed.clone();
+        let exit_frame = exit_frame.clone();
         let active = self.active;
+        let reduce_motion = self.reduce_motion;
         move || {
+          exit_frame.set(active, reduce_motion);
           if !active {
             set_dismissed.set(false);
           }
+          move || exit_frame.set(false, reduce_motion)
         }
       },
-      self.active,
+      (self.active, self.reduce_motion),
+    );
+    hooks::use_effect(
+      {
+        let exit_frame = exit_frame.clone();
+        move || exit_frame.set_terminal(dismissed)
+      },
+      dismissed,
     );
     self::stage(self, dismissed, set_dismissed)
   }
@@ -71,31 +76,19 @@ fn stage(component: &ArcadeExitStage, dismissed: bool, set_dismissed: StateSette
         .position(Position::Relative)
         .width(crate::portrait_viewport::PORTRAIT_DESIGN_WIDTH)
         .height(crate::portrait_viewport::PORTRAIT_DESIGN_HEIGHT)
-        .overflow(Overflow::Hidden)
-        .background_color(Color::BLACK),
+        .overflow(Overflow::Hidden),
     )
     .child((
-      ScreenFrame::new()
-        .exit_active(motion_active)
-        .reduce_motion(component.reduce_motion)
-        .children((
-          self::content_surface(
-            component.children.clone(),
-            motion_active,
-            component.active,
-            component.reduce_motion,
-            set_dismissed,
-          ),
-          component.frame_pulse.then(|| {
-            ArcadeFramePulse::new()
-              .active_screen(ArcadeScreen::Main)
-              .reduce_motion(component.reduce_motion)
-          }),
-          ArcadeExitSequence::new()
-            .active(motion_active)
-            .reduce_motion(component.reduce_motion),
-        )),
-      dismissed.then(self::black_stage),
+      self::content_surface(
+        component.children.clone(),
+        motion_active,
+        component.active,
+        component.reduce_motion,
+        set_dismissed,
+      ),
+      ArcadeExitSequence::new()
+        .active(motion_active)
+        .reduce_motion(component.reduce_motion),
     ))
 }
 
@@ -345,10 +338,4 @@ fn interior_style() -> Style {
     .right(frame_styles::OUTER_INSET + frame_styles::BORDER_THICKNESS)
     .bottom(frame_styles::OUTER_BOTTOM + frame_styles::BORDER_THICKNESS)
     .left(frame_styles::OUTER_INSET + frame_styles::BORDER_THICKNESS)
-}
-
-fn black_stage() -> impl Render {
-  Region::new(ls("Dismissed arcade stage"))
-    .host_name("arcade-exit-black-stage")
-    .style(Style::new().absolute_fill().background_color(Color::BLACK))
 }
