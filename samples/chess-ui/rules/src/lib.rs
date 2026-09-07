@@ -101,6 +101,12 @@ pub mod font_scale;
 
 mod font_scale_harness;
 
+pub mod erase_control;
+
+pub mod graphics_settings;
+
+mod gameplay_graphics_harness;
+
 pub mod gallery;
 
 pub mod input_settings;

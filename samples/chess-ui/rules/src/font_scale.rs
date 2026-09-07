@@ -30,6 +30,12 @@ pub fn use_font_scale() -> FontScale {
   hooks::use_context::<Option<FontScale>>().unwrap_or_default()
 }
 
+/// Reads the nearest text size unless an isolated specimen supplies an override.
+pub fn use_font_scale_override(override_scale: Option<FontScale>) -> FontScale {
+  let context_scale = use_font_scale();
+  override_scale.unwrap_or(context_scale)
+}
+
 impl FontScale {
   /// All supported sizes in selector order.
   pub const ALL: [Self; 3] = [Self::Percent100, Self::Percent150, Self::Percent200];

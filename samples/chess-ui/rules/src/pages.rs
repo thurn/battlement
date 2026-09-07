@@ -17,6 +17,7 @@ use crate::{
   frame_harness::FrameHarness,
   frame_pulse_harness::FramePulseHarness,
   gallery::{Demonstration, Gallery},
+  gameplay_graphics_harness::GameplayGraphicsHarness,
   header_harness::HeaderHarness,
   input_settings::InputSettings,
   input_skin_harness::InputSkinHarness,
@@ -252,7 +253,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("Gameplay and Graphics settings", "Chess UI showcase title."))
-                .description(tx("Gameplay and Graphics settings compose matching controls and props; other tabs and final transitions remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("Gameplay and Graphics settings compose matching controls and props; other tabs and final transitions remain unasserted.", "Chess UI showcase description."))
+                .child(GameplayGraphicsHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()

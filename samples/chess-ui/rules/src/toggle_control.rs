@@ -77,7 +77,7 @@ impl Component for ToggleControl {
     });
     View::new()
       .name("toggle-control-label")
-      .style(Style::new().height(self.row_height))
+      .style(Style::new().height(self.row_height.map(|height| height * font_scale.factor())))
       .child(
         SettingRow::new()
           .label((

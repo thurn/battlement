@@ -5,7 +5,7 @@ use trox::{ls, tx};
 use crate::{
   caret::Caret,
   control_effects,
-  font_scale::{FontScale, FontScaleRole},
+  font_scale::{self, FontScale, FontScaleRole},
   select_navigation,
   select_popover::SelectPopover,
   setting_row::SettingRow,
@@ -36,7 +36,8 @@ pub struct SelectControl {
   label: Child,
   /// Omits the separator above the first row.
   first: bool,
-  font_scale: FontScale,
+  /// Overrides the nearest text-size provider for isolated specimens.
+  font_scale: Option<FontScale>,
   /// Offsets the control vertically without moving its row label.
   offset_y: f32,
   /// Sets the minimum row height in portrait design pixels.
@@ -51,6 +52,7 @@ pub struct SelectControl {
 
 impl Component for SelectControl {
   fn render(&self) -> impl Render {
+    let font_scale = font_scale::use_font_scale_override(self.font_scale);
     let interaction = use_interaction::use_interaction();
     let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
@@ -148,8 +150,8 @@ impl Component for SelectControl {
           .style(
             Style::new()
               .position(Position::Relative)
-              .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
-              .height(106.0 * (1.0 + (self.font_scale.factor() - 1.0) * 0.35))
+              .width(396.0 + (font_scale.factor() - 1.0) * 300.0)
+              .height(106.0 * (1.0 + (font_scale.factor() - 1.0) * 0.35))
               .flex_shrink(0.0)
               .align_items(Align::Center)
               .translate(Translate::two_dimensional(
@@ -164,8 +166,8 @@ impl Component for SelectControl {
               .style(
                 Style::new()
                   .position(Position::Relative)
-                  .width(396.0 + (self.font_scale.factor() - 1.0) * 300.0)
-                  .height(106.0 * (1.0 + (self.font_scale.factor() - 1.0) * 0.35)),
+                  .width(396.0 + (font_scale.factor() - 1.0) * 300.0)
+                  .height(106.0 * (1.0 + (font_scale.factor() - 1.0) * 0.35)),
               )
               .child(
                 interaction
@@ -224,13 +226,13 @@ impl Component for SelectControl {
                       .margin(0)
                       .padding_top(0)
                       .padding_bottom(0)
-                      .padding_left(39.0 * self.font_scale.dynamic(FontScaleRole::Control))
-                      .padding_right(74.0 * self.font_scale.dynamic(FontScaleRole::Control))
+                      .padding_left(39.0 * font_scale.dynamic(FontScaleRole::Control))
+                      .padding_right(74.0 * font_scale.dynamic(FontScaleRole::Control))
                       .border_width(0)
                       .background_color(Color::TRANSPARENT)
                       .color(Color::rgb8(245, 246, 251))
                       .unity_font_definition(VALUE_FONT)
-                      .font_size(60.0 * self.font_scale.dynamic(FontScaleRole::Control))
+                      .font_size(60.0 * font_scale.dynamic(FontScaleRole::Control))
                       .unity_text_align(TextAnchor::MiddleLeft),
                   )
                   .paint(
@@ -282,7 +284,7 @@ impl Component for SelectControl {
                   SelectPopover::new()
                     .active_index(active_index)
                     .anchor(anchor)
-                    .font_scale(self.font_scale)
+                    .font_scale(font_scale)
                     .on_change(self.on_change.clone())
                     .options(self.options.clone())
                     .open_generation(open_generation)

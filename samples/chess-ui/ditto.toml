@@ -1436,6 +1436,90 @@ accessibility_action = { target = { role = "button", name = "RESET" }, action = 
 accessibility_assert = { target = { role = "region", name = "Arcade exit content" }, role = "region", name = "Arcade exit content" }
 
 [[scenarios]]
+name = "gameplay and graphics settings"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "\u206835\u2069. \u2068Gameplay and Graphics settings\u2069" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Language English" }, role = "button", name = "Language English" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Language English" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Deutsch" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Text Size 100%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "200%" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "scroll-area", name = "Gameplay settings controls" }, action = "scroll-forward" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Reduce Motion" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Increase Move Duration" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Upload Crash Reports" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "About crash report uploads" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Erase Saved Data" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "static-text", name = "Gameplay · Text 200% · Help 1 · Erase 1" }, role = "static-text", name = "Gameplay · Text 200% · Help 1 · Erase 1" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "GRAPHICS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Resolution 1920 × 1080" }, role = "button", name = "Resolution 1920 × 1080" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Resolution 1920 × 1080" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "3840 × 2160" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Max Framerate 144 FPS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "240 FPS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Display Mode Borderless" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "option", name = "Windowed" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Screenshake" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "VSync" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Display Mode Windowed" }, role = "button", name = "Display Mode Windowed" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RESET" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "button", name = "Language English" }, role = "button", name = "Language English" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "checkbox", name = "Upload Crash Reports" }, role = "checkbox", name = "Upload Crash Reports", checked = true }
+
+[[scenarios]]
 name = "background music provider"
 
 [[scenarios.steps]]
