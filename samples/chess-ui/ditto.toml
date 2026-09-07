@@ -71,3 +71,18 @@ accessibility_action = { target = { role = "button", name = "RETURN" }, action =
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios]]
+name = "settings route transition"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+screenshot = { name = "settings", max_changed_percent = 0.1 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }

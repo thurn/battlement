@@ -7,3 +7,9 @@ state = "application.main"
 scenario = "complete chess ui"
 checkpoint = "main-menu"
 owner = "arcade_screen_router::complete_mockup_launches_directly_and_preserves_settings"
+
+[[mappings]]
+state = "application.settings"
+scenario = "settings route transition"
+checkpoint = "settings"
+owner = "arcade_screen_router::complete_mockup_launches_directly_and_preserves_settings"

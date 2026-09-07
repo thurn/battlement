@@ -3,3 +3,7 @@ version = 1
 [[states]]
 key = "application.main"
 screen = "main-menu"
+
+[[states]]
+key = "application.settings"
+screen = "settings"

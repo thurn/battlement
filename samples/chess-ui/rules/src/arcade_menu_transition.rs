@@ -111,24 +111,23 @@ fn screen(component: &ArcadeMenuScreen, is_present: bool) -> View {
 
 fn screen_variants() -> Variants<ScreenVariant, ()> {
   Variants::new()
-    .target(ScreenVariant::Enter, self::collapsed_screen(2.2))
+    .target(ScreenVariant::Enter, self::collapsed_screen())
     .target(
       ScreenVariant::Center,
       MotionTarget::new(
         StyleTarget::new()
           .clip_inset([Length::px(0.0); 4])
-          .filter(self::screen_filter(1.0, 0.0))
           .opacity(1.0),
       )
       .transition(self::screen_transition()),
     )
     .target(
       ScreenVariant::Exit,
-      MotionTarget::new(self::collapsed_screen(2.35)).transition(self::screen_transition()),
+      MotionTarget::new(self::collapsed_screen()).transition(self::screen_transition()),
     )
 }
 
-fn collapsed_screen(contrast: f32) -> StyleTarget {
+fn collapsed_screen() -> StyleTarget {
   StyleTarget::new()
     .clip_inset([
       Length::percent(49.35),
@@ -136,12 +135,7 @@ fn collapsed_screen(contrast: f32) -> StyleTarget {
       Length::percent(49.35),
       Length::percent(8.0),
     ])
-    .filter(self::screen_filter(contrast, 3.0))
     .opacity(0.0)
-}
-
-fn screen_filter(contrast: f32, blur: f32) -> MotionFilterList {
-  MotionFilterList::default().contrast(contrast).blur(blur)
 }
 
 fn screen_transition() -> Transition {

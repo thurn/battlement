@@ -10,3 +10,13 @@ width = 1280
 height = 800
 size_bytes = 177717
 source = "a02f78b22cad20993f247751f8da2092c93fc81203bdf416a966198e5c22d777"
+
+[[baselines]]
+profile = "macos"
+scenario = "settings route transition"
+checkpoint = "settings"
+sha256 = "5df4055d624caafc5a6d30adb8dc6f456bf7a411e14a004f1f2f6f24d426dc34"
+width = 1280
+height = 800
+size_bytes = 152388
+source = "f5c8cf389f8402eee8b5439dfcc62bd763ce3ecef079b59eae8edf4de498fc2c"
