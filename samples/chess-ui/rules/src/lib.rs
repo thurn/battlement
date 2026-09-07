@@ -111,6 +111,10 @@ pub mod sound_settings;
 
 mod sound_settings_harness;
 
+pub mod settings_screen;
+
+mod settings_screen_harness;
+
 pub mod gallery;
 
 pub mod input_settings;

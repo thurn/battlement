@@ -21,6 +21,7 @@ pub struct PrivacyPolicyHelp {
   on_close: EventCallback<()>,
   #[builder(required)]
   overlay: PortalTarget,
+  reduce_motion: bool,
 }
 
 impl Component for PrivacyPolicyHelp {
@@ -58,7 +59,7 @@ impl Component for PrivacyPolicyHelp {
               ),
           )),
       )
-      .reduce_motion(false)
+      .reduce_motion(self.reduce_motion)
       .on_confirm(self.on_close.clone())
       .on_close(self.on_close.clone())
       .overlay(self.overlay.clone())

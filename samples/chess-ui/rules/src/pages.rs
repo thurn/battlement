@@ -32,6 +32,7 @@ use crate::{
   select_harness::SelectHarness,
   select_popover_harness::SelectPopoverHarness,
   setting_row_harness::SettingRowHarness,
+  settings_screen_harness::SettingsScreenHarness,
   sound_settings_harness::SoundSettingsHarness,
   tab_transition_harness::TabTransitionHarness,
   tabs_harness::TabsHarness,
@@ -273,7 +274,8 @@ pub fn gallery(overlay: PortalTarget) -> Gallery {
         .page(
             ReviewPage::new()
                 .title(tx("SettingsScreen", "Chess UI showcase title."))
-                .description(tx("SettingsScreen composes tabs, panels, Return, and both dialogs; main menu and route transition remain unasserted.", "Chess UI showcase description.")),
+                .description(tx("SettingsScreen composes tabs, panels, Return, and both dialogs; main menu and route transition remain unasserted.", "Chess UI showcase description."))
+                .child(SettingsScreenHarness::new().overlay(overlay.clone())),
         )
         .page(
             ReviewPage::new()
