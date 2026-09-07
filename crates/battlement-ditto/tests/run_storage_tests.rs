@@ -243,6 +243,23 @@ fn authoritative_result_ignores_stale_recovery_files() {
 }
 
 #[test]
+fn indexed_terminal_result_does_not_block_store_open_after_schema_change() {
+  let temporary = TempDir::new().unwrap();
+  let root = temporary.path().join("runs");
+  let path = terminal_run(&root, RUN_A, 10);
+  fs::write(path.join("result.json"), b"{\"legacy\":true}\n").unwrap();
+
+  let reopened = RunStore::open(&root).unwrap();
+
+  assert_eq!(reopened.entries().len(), 1);
+  assert_eq!(reopened.entries()[0].run_id, RUN_A);
+  assert_eq!(
+    reopened.entries()[0].terminal_status,
+    Some(RunStatus::Passed)
+  );
+}
+
+#[test]
 fn pending_marker_makes_even_a_present_result_commit_uncertain() {
   let temporary = TempDir::new().unwrap();
   let root = temporary.path().join("runs");

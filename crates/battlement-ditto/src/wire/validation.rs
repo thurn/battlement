@@ -75,7 +75,28 @@ fn validate_profile(job: &Job) -> Result<()> {
     &job.profile.source_fingerprint,
   )?;
   display(job.profile.platform, &job.profile.display)?;
-  profile_capabilities(job.profile.platform, &job.profile.capabilities)
+  profile_capabilities(job.profile.platform, &job.profile.capabilities)?;
+  ensure!(
+    job.profile.determinism_contract == "ditto-v1",
+    "profile requires the ditto-v1 determinism contract"
+  );
+  match job.profile.platform {
+    Platform::Webgl => {
+      ensure!(
+        job.profile.native_execution_id.is_none(),
+        "WebGL must not claim native execution ownership"
+      );
+      Ok(())
+    }
+    Platform::Macos | Platform::IosSimulator => identifier(
+      "profile.native_execution_id",
+      job
+        .profile
+        .native_execution_id
+        .as_deref()
+        .unwrap_or_default(),
+    ),
+  }
 }
 
 pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capability]) -> Result<()> {
@@ -92,6 +113,10 @@ pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capabilit
   ensure!(
     unsupported.is_none_or(|capability| !unique.contains(&capability)),
     "profile contains a capability unsupported by its platform"
+  );
+  ensure!(
+    !unique.contains(&Capability::Hover) && !unique.contains(&Capability::Drag),
+    "profile contains a capability without a deterministic delivery contract"
   );
   Ok(())
 }
@@ -143,6 +168,10 @@ pub(super) fn display(platform: Platform, display: &Display) -> Result<()> {
 }
 
 fn validate_scenario(job: &Job, scenario: &ResolvedScenario) -> Result<()> {
+  ensure!(
+    scenario.motion != Motion::RealTime,
+    "real-time motion violates the deterministic execution contract"
+  );
   ensure!(scenario.timeout_ms > 0, "scenario timeout must be positive");
   ensure!(
     scenario.timeout_ms <= job.remaining_run_timeout_ms,
@@ -203,15 +232,8 @@ fn validate_step<'a>(
       capability(job, Capability::Click)?;
       input_target(target)
     }
-    StepKind::Hover { target } => {
-      capability(job, Capability::Hover)?;
-      input_target(target)
-    }
-    StepKind::Drag { from, to } => {
-      capability(job, Capability::Drag)?;
-      input_target(from)?;
-      input_target(to)
-    }
+    StepKind::Hover { .. } => anyhow::bail!("hover has no deterministic delivery contract"),
+    StepKind::Drag { .. } => anyhow::bail!("drag has no deterministic delivery contract"),
     StepKind::Key { key, action } => {
       capability(job, Capability::Key)?;
       key_step(key, *action, state)
@@ -270,14 +292,8 @@ fn capability(job: &Job, required: Capability) -> Result<()> {
 fn input_target(target: &InputTarget) -> Result<()> {
   match target {
     InputTarget::Object(value) => identifier("input target", value),
-    InputTarget::Coordinates(coordinates) => {
-      ensure!(
-        coordinates
-          .iter()
-          .all(|value| value.is_finite() && (0.0..=1.0).contains(value)),
-        "input coordinates must be finite and from 0.0 through 1.0"
-      );
-      Ok(())
+    InputTarget::Coordinates(_) => {
+      anyhow::bail!("coordinate input has no deterministic semantic delivery contract")
     }
   }
 }
@@ -322,8 +338,8 @@ fn video_step<'a>(video: &'a VideoStep, state: &mut ScenarioState<'a>) -> Result
         "video names must be unique within a scenario"
       );
       ensure!(
-        *motion != Motion::Instant,
-        "video motion must not be instant"
+        *motion == Motion::Controlled,
+        "video motion must be controlled"
       );
       ensure!(
         *max_duration_ms > 0 && *max_duration_ms <= 30_000,

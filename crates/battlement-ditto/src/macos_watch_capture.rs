@@ -15,6 +15,7 @@ use battlement_tooling::macos_build;
 
 use crate::{
   macos_capture::{MacosCaptureOutcome, MacosCaptureRequest, MacosPlayerLauncher},
+  native_execution::NativeExecutionClaim,
   player_supervision::PlayerSupervisor,
   scenario_orchestration::{ScenarioMaterializer, ScenarioOrchestrator},
   session_server::PlayerSessionServer,
@@ -38,6 +39,7 @@ pub(crate) struct WarmMacosPlayer {
   startup_report: StartupReport,
   player_log_source: std::path::PathBuf,
   timeouts: crate::macos_capture::MacosCaptureTimeouts,
+  _native_claim: NativeExecutionClaim,
 }
 
 impl WarmMacosPlayer {
@@ -48,6 +50,7 @@ impl WarmMacosPlayer {
     materializer: Arc<dyn ScenarioMaterializer>,
     interrupted: &AtomicBool,
   ) -> Result<WarmLaunch> {
+    let native_claim = request.native_execution.claim_capture()?;
     validate(&request)?;
     let player_session_id = uuid::Uuid::new_v4().to_string();
     let origin = Instant::now();
@@ -74,6 +77,7 @@ impl WarmMacosPlayer {
       &request.player_log_source,
       request.job.profile.display.width,
       request.job.profile.display.height,
+      Some(request.native_execution.id()),
     )?;
     let mut supervisor = PlayerSupervisor::macos(child);
     let launch_duration = elapsed_ms(launch_started);
@@ -159,6 +163,7 @@ impl WarmMacosPlayer {
       startup_report: report,
       player_log_source: request.player_log_source,
       timeouts: request.timeouts,
+      _native_claim: native_claim,
     };
     let outcome = player.finish_job(
       orchestrator,
@@ -342,6 +347,11 @@ fn validate(request: &MacosCaptureRequest<'_>) -> Result<()> {
   ensure!(
     request.requirements.unity_version == identity.unity_version,
     "runtime selected another Unity version"
+  );
+  ensure!(
+    request.job.profile.native_execution_id.as_deref() == Some(request.native_execution.id())
+      && request.requirements.native_execution_id.as_deref() == Some(request.native_execution.id()),
+    "warm macOS capture does not own the job's native execution lease"
   );
   Ok(())
 }

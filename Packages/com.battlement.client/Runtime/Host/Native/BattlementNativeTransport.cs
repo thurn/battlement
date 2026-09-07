@@ -215,6 +215,21 @@ namespace Battlement
             }
         }
 
+        internal bool SupportsDittoDeterminism
+        {
+            get
+            {
+                try
+                {
+                    return BattlementNativeMethods.battlement_ditto_determinism_contract() == 1;
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    return false;
+                }
+            }
+        }
+
         internal BattlementTransportResult ConnectDittoEngine(ReadOnlyMemory<byte> json)
         {
             lock (callGate)

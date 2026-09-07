@@ -83,5 +83,8 @@ namespace Battlement
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_logging_drain(out BattlementNativeBuffer records);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern uint battlement_ditto_determinism_contract();
     }
 }

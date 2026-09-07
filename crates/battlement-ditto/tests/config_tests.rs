@@ -34,12 +34,12 @@ fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
     suite.profiles["iphone-ci"],
     Profile::IosSimulator { .. }
   ));
-  assert_eq!(suite.scenarios[0].steps.len(), 13);
+  assert_eq!(suite.scenarios[0].steps.len(), 10);
   assert!(matches!(
-    suite.scenarios[0].steps[10].action,
+    suite.scenarios[0].steps[7].action,
     StepKind::Video(VideoStep::Start { .. })
   ));
-  let StepKind::Screenshot(screenshot) = &suite.scenarios[0].steps[9].action else {
+  let StepKind::Screenshot(screenshot) = &suite.scenarios[0].steps[6].action else {
     panic!("expected screenshot");
   };
   assert_eq!(screenshot.comparison.threshold.as_str(), "0.05");
@@ -176,7 +176,7 @@ fn scenario_names_steps_checkpoints_keys_and_videos_are_bounded_and_balanced() {
     (
       MINIMAL_SUITE.replace(
         "screenshot = { name = \"connected\" }",
-        "video = { action = \"start\", name = \"clip\" }",
+        "video = { action = \"start\", name = \"clip\", motion = \"controlled\" }",
       ),
       "has no stop step",
     ),
@@ -201,12 +201,12 @@ fn scenario_names_steps_checkpoints_keys_and_videos_are_bounded_and_balanced() {
 fn targets_waits_profiles_and_baselines_reject_cross_field_errors() {
   let cases = [
     (
-      MINIMAL_SUITE.replace("[0.25, 0.75]", "[1.25, 0.75]"),
-      "input coordinates must be finite",
+      MINIMAL_SUITE.replace("target = \"item\"", "target = [0.25, 0.75]"),
+      "coordinate input has no deterministic semantic delivery contract",
     ),
     (
       MINIMAL_SUITE.replace("motion = \"controlled\"", "motion = \"real-time\""),
-      "frame advance requires controlled scenario motion",
+      "real-time motion violates the deterministic execution contract",
     ),
     (
       MINIMAL_SUITE.replace(
@@ -227,6 +227,56 @@ fn targets_waits_profiles_and_baselines_reject_cross_field_errors() {
       "namespace contains an invalid segment",
     ),
   ];
+  for (source, expected) in cases {
+    let error = Fixture::new(&source).load().unwrap_err().to_string();
+    assert!(
+      error.contains(expected),
+      "expected {expected:?} in {error:?}"
+    );
+  }
+}
+
+#[test]
+fn deterministic_contract_rejects_uncontrolled_scenario_capabilities() {
+  let cases = [
+    (
+      MINIMAL_SUITE.replace("motion = \"controlled\"", "motion = \"real-time\""),
+      "real-time motion violates the deterministic execution contract",
+    ),
+    (
+      MINIMAL_SUITE.replace("target = \"item\"", "target = [0.25, 0.75]"),
+      "coordinate input has no deterministic semantic delivery contract",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "click = { target = \"item\" }",
+        "hover = { target = \"item\" }",
+      ),
+      "hover has no deterministic semantic delivery contract",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "click = { target = \"item\" }",
+        "drag = { from = \"item\", to = \"item\" }",
+      ),
+      "drag has no deterministic semantic delivery contract",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "screenshot = { name = \"connected\" }",
+        "video = { action = \"start\", name = \"clip\" }",
+      ),
+      "video motion must explicitly select controlled execution",
+    ),
+    (
+      MINIMAL_SUITE.replace(
+        "screenshot = { name = \"connected\" }",
+        "video = { action = \"start\", name = \"clip\", motion = \"real-time\" }",
+      ),
+      "video motion must be controlled",
+    ),
+  ];
+
   for (source, expected) in cases {
     let error = Fixture::new(&source).load().unwrap_err().to_string();
     assert!(
@@ -342,7 +392,7 @@ name = "connected scene"
 motion = "controlled"
 
 [[scenarios.steps]]
-click = { target = [0.25, 0.75] }
+click = { target = "item" }
 
 [[scenarios.steps]]
 advance = { frames = 1 }
@@ -419,15 +469,6 @@ name = "click alias"
 click = { target = "item" }
 
 [[scenarios.steps]]
-click = { target = [0.5, 0.75] }
-
-[[scenarios.steps]]
-hover = { target = "other" }
-
-[[scenarios.steps]]
-drag = { from = "item", to = [0.75, 0.75] }
-
-[[scenarios.steps]]
 key = { key = "Enter", action = "down" }
 
 [[scenarios.steps]]
@@ -447,7 +488,7 @@ assert = { object = "other", state = "enabled" }
 screenshot = { name = "strict", threshold = 0.0500, max_changed_percent = 0.0 }
 
 [[scenarios.steps]]
-video = { action = "start", name = "move", motion = "real-time", max_duration = "5s" }
+video = { action = "start", name = "move", motion = "controlled", max_duration = "5s" }
 
 [[scenarios.steps]]
 click = { target = "other" }

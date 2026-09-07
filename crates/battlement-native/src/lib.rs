@@ -20,6 +20,9 @@ pub use adapter::*;
 pub use engine::*;
 pub use logging::*;
 
+/// Wire version implemented by engines that opt into Ditto's deterministic runtime contract.
+pub const DITTO_DETERMINISM_CONTRACT_V1: u32 = 1;
+
 /// Exports the fixed Battlement C symbols for one concrete engine factory.
 ///
 /// The factory expression must implement [`EngineFactory`], typically a
@@ -119,6 +122,20 @@ macro_rules! export_engine {
     pub unsafe extern "C" fn battlement_buffer_free(buffer: $crate::BattlementBuffer) {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
       unsafe { $crate::ffi_buffer_free(buffer) }
+    }
+  };
+}
+
+/// Exports an engine together with the deterministic Ditto capability handshake.
+#[macro_export]
+macro_rules! export_deterministic_engine {
+  ($factory:path $(,)?) => {
+    $crate::export_engine!($factory);
+
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn battlement_ditto_determinism_contract() -> u32 {
+      $crate::DITTO_DETERMINISM_CONTRACT_V1
     }
   };
 }

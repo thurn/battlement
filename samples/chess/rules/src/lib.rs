@@ -1006,4 +1006,4 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
   }
 }
 
-battlement_native::export_engine!(create_engine);
+battlement_native::export_deterministic_engine!(create_engine);

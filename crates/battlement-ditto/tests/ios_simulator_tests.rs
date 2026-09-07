@@ -28,6 +28,7 @@ fn exact_device_boots_launches_copies_media_and_deletes() {
       &fixture.app,
       "http://127.0.0.1:43123/ditto/token",
       Orientation::LandscapeLeft,
+      "e2575e27-3f14-4475-b914-3e70649b7951",
     )
     .unwrap();
   assert!(simulator.is_running().unwrap());
@@ -42,7 +43,7 @@ fn exact_device_boots_launches_copies_media_and_deletes() {
   simulator.terminate().unwrap();
 
   let transcript = fs::read_to_string(&fixture.transcript).unwrap();
-  assert!(transcript.contains("launch --terminate-running-process AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE com.example.ditto --battlement-ditto-url http://127.0.0.1:43123/ditto/token --battlement-ditto-orientation landscape-left"));
+  assert!(transcript.contains("launch --terminate-running-process AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE com.example.ditto --battlement-ditto-url http://127.0.0.1:43123/ditto/token --battlement-ditto-orientation landscape-left --battlement-ditto-native-execution e2575e27-3f14-4475-b914-3e70649b7951"));
   assert!(transcript.contains("env-url=http://127.0.0.1:43123/ditto/token"));
   assert!(transcript.contains("spawn AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE /bin/kill -0 4242"));
   assert!(transcript.contains("delete AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"));

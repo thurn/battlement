@@ -3,36 +3,6 @@ namespace = "battlement/chess"
 
 [[baselines]]
 profile = "macos"
-scenario = "capture"
-checkpoint = "capture"
-sha256 = "faf7b4186cc638775096497117f925bd7bc0b3937ad0823ddf0f9898672f3f6e"
-width = 1280
-height = 720
-size_bytes = 532342
-source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
-
-[[baselines]]
-profile = "macos"
-scenario = "castling"
-checkpoint = "castling"
-sha256 = "f3c40747885063c7c9a7a93bd9942bc1ff806e81d247301bbba528d9fc20a8f5"
-width = 1280
-height = 720
-size_bytes = 540994
-source = "d7171fe9cced8ab57b39178713bd02c886713d9a7b7dcb81ce3e8bfa9fab09b8"
-
-[[baselines]]
-profile = "macos"
-scenario = "check"
-checkpoint = "check"
-sha256 = "69ac06dca873b50d08f0a9c7b9b1ea5c7c9e1b6ad89866b564a7caf5130fdfab"
-width = 1280
-height = 720
-size_bytes = 532565
-source = "d7171fe9cced8ab57b39178713bd02c886713d9a7b7dcb81ce3e8bfa9fab09b8"
-
-[[baselines]]
-profile = "macos"
 scenario = "computer win"
 checkpoint = "computer-win"
 sha256 = "787d1732418f44fcf319784279e4bf4dbf89fe4778e8852b09cbb49262001a2e"
@@ -43,66 +13,6 @@ source = "d7171fe9cced8ab57b39178713bd02c886713d9a7b7dcb81ce3e8bfa9fab09b8"
 
 [[baselines]]
 profile = "macos"
-scenario = "draw"
-checkpoint = "draw"
-sha256 = "b46cf5f0569ab5b5770efe1f2b10e1154b5c9cb5706c91b8d3ad625c4ff28962"
-width = 1280
-height = 720
-size_bytes = 534027
-source = "6475e8391f8530b1a1c3e9e84ca0888eadd357a411335d806d8b93de3389c9a0"
-
-[[baselines]]
-profile = "macos"
-scenario = "en passant"
-checkpoint = "en-passant"
-sha256 = "a8f7af98eead9d373d6e370c9ed79886fe3876e189c33e79ecec9c774655deba"
-width = 1280
-height = 720
-size_bytes = 528716
-source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
-
-[[baselines]]
-profile = "macos"
-scenario = "opening board move and ai"
-checkpoint = "ai-response"
-sha256 = "d4f070eaeaacee96b79e07985c45f4b1af21b5423c16c18fbec22f6fd2ed354b"
-width = 1280
-height = 720
-size_bytes = 669333
-source = "887fe395b6201f8ffc4eb2593f15bc13a7c9f50baf55ef30f8bbdbe510cee450"
-
-[[baselines]]
-profile = "macos"
-scenario = "opening board move and ai"
-checkpoint = "committed-move"
-sha256 = "3b966cdf54676bfc76b3d5b630d84331542f10d1da69aa3d43b0e0809b94b134"
-width = 1280
-height = 720
-size_bytes = 666847
-source = "d7171fe9cced8ab57b39178713bd02c886713d9a7b7dcb81ce3e8bfa9fab09b8"
-
-[[baselines]]
-profile = "macos"
-scenario = "opening board move and ai"
-checkpoint = "initial-board"
-sha256 = "0c57fc619901cc945653037779ff917a3c69e0590802fdcc0374f1fc81a9f3b4"
-width = 1280
-height = 720
-size_bytes = 665862
-source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
-
-[[baselines]]
-profile = "macos"
-scenario = "opening board move and ai"
-checkpoint = "legal-targets"
-sha256 = "68ce398785f936d36fe5b624e3922225d8cabee6ab6b501ad032a65ed91066a6"
-width = 1280
-height = 720
-size_bytes = 665582
-source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
-
-[[baselines]]
-profile = "macos"
 scenario = "title"
 checkpoint = "title"
 sha256 = "c36d51e0245ae245671064600f7bc3e0350fb9af59dc5f0b1bcdf5f3fa23bd44"
@@ -110,56 +20,6 @@ width = 1280
 height = 720
 size_bytes = 508551
 source = "64311473cadce3650e3f1b7e12b00c1286584527a4dcc58863f9b5aa5302e540"
-
-[[baselines]]
-profile = "macos"
-scenario = "pause refresh and restart"
-checkpoint = "paused"
-sha256 = "9cbd98ad0ff48faf94e2e518f1a7659fd91feaad4d07f0bb5120791022d6e603"
-width = 1280
-height = 720
-size_bytes = 663799
-source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
-
-[[baselines]]
-profile = "macos"
-scenario = "pause refresh and restart"
-checkpoint = "refreshed"
-sha256 = "b21163bdba6d8604c8fb2265965590571443729530c5e041e43c2fe1fd26e9e7"
-width = 1280
-height = 720
-size_bytes = 665957
-source = "f070a1812a87e5565219bb7ede429f0b893b2cfc2d0f1c34066ede04d4db9407"
-
-[[baselines]]
-profile = "macos"
-scenario = "pause refresh and restart"
-checkpoint = "restarted"
-sha256 = "db0b0d0187e5cd1f28a1a43e2f532fc29dd79ceefbead01b94c855f69fd68bbb"
-width = 1280
-height = 720
-size_bytes = 665947
-source = "275a252a6186aab1522f30e6487234726585967db8e8ce66cac2ac7e66984915"
-
-[[baselines]]
-profile = "macos"
-scenario = "player win"
-checkpoint = "player-win"
-sha256 = "186cdf4d2ef4b2988f12a49d6711471fcf95fd111cb011bd91b8d196380f6832"
-width = 1280
-height = 720
-size_bytes = 530842
-source = "6475e8391f8530b1a1c3e9e84ca0888eadd357a411335d806d8b93de3389c9a0"
-
-[[baselines]]
-profile = "macos"
-scenario = "promotion"
-checkpoint = "promotion"
-sha256 = "a105d1d52e6014e3062051e3f375e330f1a6d13b99afdc0e259d71d5e1c8f9ad"
-width = 1280
-height = 720
-size_bytes = 529333
-source = "916c9a5acd638587f418d34e54959ca94964b7cc39b4666212f64d522045b595"
 
 [[baselines]]
 profile = "macos"

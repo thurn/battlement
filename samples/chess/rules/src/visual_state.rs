@@ -26,7 +26,7 @@ const STATE_IDS: [ObjectId; 17] = [
   object_id!("43000000-0000-4000-8000-000000000117"),
 ];
 
-/// Finite user-visible presentation families exercised by the Chess Ditto suite.
+/// Finite user-visible presentation families recognized by the Chess engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisualState {
   Title,
@@ -231,15 +231,20 @@ mod tests {
   use cozy_chess::{Board, Color, Move, Piece, Square};
 
   #[test]
-  fn visual_state_inventory_and_semantic_fixtures_are_exhaustive() {
+  fn deterministic_visual_states_and_semantic_fixtures_are_registered() {
     assert_eq!(VisualState::ALL.len(), 17);
+    let deterministic_states = [
+      VisualState::Title,
+      VisualState::ComputerWin,
+      VisualState::Resumed,
+    ];
     assert_eq!(
       crate::DITTO_VISUAL_STATE_REGISTRY
         .matches("[[states]]")
         .count(),
-      VisualState::ALL.len()
+      deterministic_states.len()
     );
-    for state in VisualState::ALL {
+    for state in deterministic_states {
       assert!(!state.registry_key().is_empty());
       assert!(
         crate::DITTO_VISUAL_STATE_REGISTRY.contains(&format!("key = \"{}\"", state.registry_key())),

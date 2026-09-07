@@ -624,12 +624,14 @@ const JOB: &str = r#"{
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+    "determinism_contract":"ditto-v1",
+    "native_execution_id":"0197b35f-6ef0-78df-8b96-b31bc9959999",
     "capabilities":["png","video"]},
   "scenarios":[{"id":"0197b35f-6e24-75d8-9482-aa6c22a15133","run_index":0,
     "name":"lifecycle","motion":"controlled","timeout_ms":10000,"steps":[
       {"index":0,"name":null,"timeout_ms":1000,"action":{"assert":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"visible"}}},
       {"index":1,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"snap","comparison":{"threshold":"0.05","anti_alias":false,"max_changed_percent":"0"}}}},
-      {"index":2,"name":null,"timeout_ms":1000,"action":{"video":{"action":"start","name":"clip","motion":"real-time","max_duration_ms":5000}}},
+      {"index":2,"name":null,"timeout_ms":1000,"action":{"video":{"action":"start","name":"clip","motion":"controlled","max_duration_ms":5000}}},
       {"index":3,"name":null,"timeout_ms":1000,"action":{"video":{"action":"stop"}}},
       {"index":4,"name":null,"timeout_ms":1000,"action":{"assert":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"enabled"}}}
     ]}]
@@ -643,6 +645,8 @@ const STARTED: &str = r#"{
   "identity":{"startup_report":{"platform":"macos","capture_adapter":"unity-async-readback-png",
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+    "determinism_contract":"ditto-v1",
+    "native_execution_id":"0197b35f-6ef0-78df-8b96-b31bc9959999",
     "unity_version":"6000.0.56f1","diagnostics":true,
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},
     "capabilities":["png","video"]}}

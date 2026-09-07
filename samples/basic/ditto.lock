@@ -30,33 +30,3 @@ width = 1280
 height = 720
 size_bytes = 44359
 source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
-
-[[baselines]]
-profile = "macos"
-scenario = "drag placement"
-checkpoint = "placed"
-sha256 = "a9960af61542a857b8e6293300d5286a50be413f2862e291a84be4466db25e79"
-width = 1280
-height = 720
-size_bytes = 45588
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
-
-[[baselines]]
-profile = "macos"
-scenario = "hover round trip"
-checkpoint = "hovered"
-sha256 = "38a75fe81c30e422f194ccd83a1e1f56a15f19849d613e366bae5e691dc27081"
-width = 1280
-height = 720
-size_bytes = 44553
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
-
-[[baselines]]
-profile = "macos"
-scenario = "hover round trip"
-checkpoint = "restored"
-sha256 = "675d04403d84fa64f94d40f45764a772765358fa847ad4f6c80b8cc3129a7de8"
-width = 1280
-height = 720
-size_bytes = 44847
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"

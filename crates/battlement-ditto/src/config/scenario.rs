@@ -11,8 +11,8 @@ use crate::config::{
   },
   raw::{
     RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
-    RawCondition, RawInputTarget, RawKeyAction, RawMotion, RawObjectState, RawScenario, RawStep,
-    RawVideo, RawVideoAction,
+    RawCondition, RawInputTarget, RawKeyAction, RawObjectState, RawScenario, RawStep, RawVideo,
+    RawVideoAction,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -41,6 +41,14 @@ pub(super) fn validate(
     ));
   }
   let scenario_motion = raw.motion.map_or(validation.defaults.motion, motion);
+  if scenario_motion == Motion::RealTime {
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.motion"),
+      "real-time motion violates the deterministic execution contract",
+    ));
+  }
   let timeout = raw.timeout.as_deref().map_or_else(
     || Ok(validation.defaults.scenario_timeout),
     |value| {
@@ -188,14 +196,21 @@ fn step_value(
       target: input_target(validation, &format!("{key}.click.target"), click.target)?,
     }
   } else if let Some(hover) = raw.hover.take() {
-    StepKind::Hover {
-      target: input_target(validation, &format!("{key}.hover.target"), hover.target)?,
-    }
+    let _ = hover.target;
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.hover"),
+      "hover has no deterministic semantic delivery contract",
+    ));
   } else if let Some(drag) = raw.drag.take() {
-    StepKind::Drag {
-      from: input_target(validation, &format!("{key}.drag.from"), drag.from)?,
-      to: input_target(validation, &format!("{key}.drag.to"), drag.to)?,
-    }
+    let _ = (drag.from, drag.to);
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.drag"),
+      "drag has no deterministic semantic delivery contract",
+    ));
   } else if let Some(key_step) = raw.key.take() {
     key_step_value(validation, &key, key_step.key, key_step.action, state)?
   } else if let Some(advance) = raw.advance.take() {
@@ -360,18 +375,13 @@ fn input_target(
       Ok(InputTarget::Object(value))
     }
     RawInputTarget::Coordinates(coordinates) => {
-      if coordinates
-        .iter()
-        .any(|value| !value.is_finite() || !(0.0..=1.0).contains(value))
-      {
-        return Err(invalid(
-          validation.path,
-          validation.source,
-          key,
-          "input coordinates must be finite and from 0.0 through 1.0",
-        ));
-      }
-      Ok(InputTarget::Coordinates(coordinates))
+      let _ = coordinates;
+      Err(invalid(
+        validation.path,
+        validation.source,
+        key,
+        "coordinate input has no deterministic semantic delivery contract",
+      ))
     }
   }
 }
@@ -499,13 +509,21 @@ fn video_step(
           format!("duplicate video name {video_name:?}"),
         ));
       }
-      let video_motion = motion(raw.motion.unwrap_or(RawMotion::RealTime));
-      if video_motion == Motion::Instant {
+      let Some(raw_motion) = raw.motion else {
         return Err(invalid(
           validation.path,
           validation.source,
           format!("{key}.video.motion"),
-          "video motion must be controlled or real-time",
+          "video motion must explicitly select controlled execution",
+        ));
+      };
+      let video_motion = motion(raw_motion);
+      if video_motion != Motion::Controlled {
+        return Err(invalid(
+          validation.path,
+          validation.source,
+          format!("{key}.video.motion"),
+          "video motion must be controlled",
         ));
       }
       let max_duration = raw.max_duration.as_deref().map_or_else(

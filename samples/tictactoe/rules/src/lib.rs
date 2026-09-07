@@ -66,7 +66,7 @@ pub const STATUS_ID: ObjectId = object_id!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1
 /// Stable identity of the visible game title.
 pub const TITLE_ID: ObjectId = object_id!("860e3fa1-d047-45ae-869d-3321e9cd3142");
 
-/// Finite user-visible states exercised by the Tic-Tac-Toe Ditto suite.
+/// Finite user-visible states recognized by the Tic-Tac-Toe engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisualState {
   EmptyBoard,
@@ -494,4 +494,4 @@ fn status_command(state: VisualState) -> CommandBody {
   CommandBody::set_text(STATUS_ID, self::status_text(state))
 }
 
-battlement_native::export_engine!(create_engine);
+battlement_native::export_deterministic_engine!(create_engine);

@@ -182,7 +182,6 @@ fn ios_startup_accepts_observed_safe_area_but_not_other_display_changes() {
   ios_job.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
   ios_job.profile.capabilities = vec![
     battlement_ditto::wire::job::Capability::Click,
-    battlement_ditto::wire::job::Capability::Drag,
     battlement_ditto::wire::job::Capability::Key,
     battlement_ditto::wire::job::Capability::Png,
     battlement_ditto::wire::job::Capability::Video,
@@ -662,6 +661,7 @@ fn requirements(storage_directory: PathBuf) -> PlayerSessionRequirements {
     unity_version: "6000.0.56f1".to_owned(),
     diagnostics: true,
     storage_directory,
+    native_execution_id: Some("e2575e27-3f14-4475-b914-3e70649b7951".to_owned()),
   }
 }
 

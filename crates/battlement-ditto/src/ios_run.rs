@@ -22,8 +22,9 @@ use crate::{
   image_comparison::OdiffPool,
   ios_capture::{self, IosCaptureRequest, IosCaptureTimeouts},
   ios_simulator::{self, IosSimulator, SimulatorTools},
-  job_resolution, macos_run, maintenance_commands, native_video, reactant_assets, run_preflight,
-  run_progress,
+  job_resolution, macos_run, maintenance_commands,
+  native_execution::NativeExecutionLease,
+  native_video, reactant_assets, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -205,6 +206,10 @@ pub(crate) fn execute(
     &build.metadata().identity.source_fingerprint,
     suite.timeouts.run.as_millis(),
     facts.display,
+    options
+      .native_execution
+      .as_deref()
+      .map(NativeExecutionLease::id),
   )?;
   let roots = maintenance_commands::cache_roots(suite)?;
   let materializer = Arc::new(ExecutionMaterializer::new(
@@ -238,6 +243,11 @@ pub(crate) fn execute(
         unity_version: request.tools.unity_version.clone(),
         diagnostics: true,
         storage_directory: active.path().to_path_buf(),
+        native_execution_id: options
+          .native_execution
+          .as_deref()
+          .map(NativeExecutionLease::id)
+          .map(str::to_owned),
       },
       orchestration_path: active.path().join("orchestration.json"),
       bail_after: options.bail_after,
@@ -247,6 +257,10 @@ pub(crate) fn execute(
         interrupt_grace: Duration::from_secs(2),
         poll_interval: Duration::from_millis(25),
       },
+      native_execution: options
+        .native_execution
+        .clone()
+        .context("native iOS execution has no host-global lease")?,
     },
     materializer.clone(),
     interrupted,

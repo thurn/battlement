@@ -11,7 +11,9 @@
       "display": {"width": 1280, "height": 720, "scale": 1.0, "orientation": null, "safe_area": [0, 0, 1280, 720]},
       "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-      "capabilities": ["png", "video"]
+      "capabilities": ["png", "video"],
+      "determinism_contract": "ditto-v1",
+      "native_execution_id": "e2575e27-3f14-4475-b914-3e70649b7951"
     },
     "scenarios": [{
       "id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
@@ -22,7 +24,7 @@
       "steps": [
         {"index": 0, "name": null, "timeout_ms": 1000, "action": {"assert": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible"}}},
         {"index": 1, "name": null, "timeout_ms": 1000, "action": {"screenshot": {"name": "snap", "comparison": {"threshold": "0.05", "anti_alias": false, "max_changed_percent": "0"}}}},
-        {"index": 2, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "start", "name": "clip", "motion": "real-time", "max_duration_ms": 5000}}},
+        {"index": 2, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "start", "name": "clip", "motion": "controlled", "max_duration_ms": 5000}}},
         {"index": 3, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "stop"}}},
         {"index": 4, "name": null, "timeout_ms": 1000, "action": {"assert": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "enabled"}}}
       ]
@@ -44,7 +46,9 @@
         "unity_version": "6000.0.56f1",
         "diagnostics": true,
         "display": {"width": 1280, "height": 720, "scale": 1.0, "orientation": null, "safe_area": [0, 0, 1280, 720]},
-        "capabilities": ["png", "video"]
+        "capabilities": ["png", "video"],
+        "determinism_contract": "ditto-v1",
+        "native_execution_id": "e2575e27-3f14-4475-b914-3e70649b7951"
       }
     }
   },

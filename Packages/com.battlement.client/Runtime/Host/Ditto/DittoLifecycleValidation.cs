@@ -351,6 +351,9 @@ namespace Battlement
             Name("unity_version", report.UnityVersion);
             Sha256("build_fingerprint", report.BuildFingerprint);
             Sha256("source_fingerprint", report.SourceFingerprint);
+            Name("determinism_contract", report.DeterminismContract);
+            if (report.NativeExecutionId is not null)
+                Identifier("native_execution_id", report.NativeExecutionId);
             ValidateDisplay(report.Platform, report.Display);
             var unique = new HashSet<DittoCapability>(report.Capabilities);
             Require(

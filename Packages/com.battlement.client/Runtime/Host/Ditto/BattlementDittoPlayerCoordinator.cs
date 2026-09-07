@@ -56,7 +56,17 @@ namespace Battlement
         private bool warmJob;
         private bool presentationCommitPending;
 
-        private void Awake() => BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
+        private void Awake()
+        {
+            Debug.Log(
+                "[Battlement/Ditto-trace] player-identity "
+                    + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} "
+                    + $"focus={Application.isFocused} background={Application.runInBackground} "
+                    + $"window=player-main-framebuffer display={Screen.width}x{Screen.height} "
+                    + $"native-lease={BattlementDittoPlayerBootstrap.NativeExecutionId ?? "none"}"
+            );
+            BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
+        }
 
         private void Update()
         {
@@ -76,6 +86,10 @@ namespace Battlement
 
         private void ReceiveJob(DittoJob value)
         {
+            Debug.Log(
+                $"[Battlement/Ditto-trace] job-received run={value.RunId} job={value.JobId} "
+                    + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id}"
+            );
             if (phase is not Phase.Idle and not Phase.Complete)
             {
                 LogFailure("ditto.job-overlap", "A Ditto job arrived while another was active.");
@@ -267,7 +281,9 @@ namespace Battlement
                 RequiredIdentity(identity, "unity_version"),
                 identity.Value<bool?>("diagnostics") ?? false,
                 display,
-                ActualCapabilities(profile.Platform)
+                ActualCapabilities(profile.Platform),
+                runner!.DittoNativeTransport.SupportsDittoDeterminism ? "ditto-v1" : "unavailable",
+                BattlementDittoPlayerBootstrap.NativeExecutionId
             );
         }
 
@@ -870,16 +886,12 @@ namespace Battlement
                 DittoPlatform.Webgl => new[]
                 {
                     DittoCapability.Click,
-                    DittoCapability.Hover,
-                    DittoCapability.Drag,
                     DittoCapability.Key,
                     DittoCapability.Png,
                 },
                 DittoPlatform.Macos => new[]
                 {
                     DittoCapability.Click,
-                    DittoCapability.Hover,
-                    DittoCapability.Drag,
                     DittoCapability.Key,
                     DittoCapability.Png,
                     DittoCapability.Video,
@@ -887,7 +899,6 @@ namespace Battlement
                 DittoPlatform.IosSimulator => new[]
                 {
                     DittoCapability.Click,
-                    DittoCapability.Drag,
                     DittoCapability.Key,
                     DittoCapability.Png,
                     DittoCapability.Video,

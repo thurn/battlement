@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::{
   config::model::Orientation,
   ios_simulator::IosSimulator,
+  native_execution::NativeExecutionLease,
   player_supervision::{PlayerExitStatus, PlayerSupervisor, SimulatorApp},
   scenario_orchestration::{
     ScenarioMaterializer, ScenarioOrchestrationSnapshot, ScenarioOrchestrator,
@@ -55,6 +56,7 @@ pub struct IosCaptureRequest<'a> {
   pub orchestration_path: PathBuf,
   pub bail_after: Option<u32>,
   pub timeouts: IosCaptureTimeouts,
+  pub native_execution: Arc<NativeExecutionLease>,
 }
 
 /// Durable Simulator facts ready to merge into a terminal run result.
@@ -101,6 +103,7 @@ pub fn capture_ios(
   materializer: Arc<dyn ScenarioMaterializer>,
   interrupted: &AtomicBool,
 ) -> Result<IosCaptureOutcome> {
+  let _native_claim = request.native_execution.claim_capture()?;
   let identity = self::validate_build(&request)?;
   self::validate_timeouts(request.timeouts)?;
   let player_session_id = Uuid::new_v4().to_string();
@@ -125,6 +128,7 @@ pub fn capture_ios(
     &ios_build::player_app(request.build)?,
     &server.base_url(),
     request.orientation,
+    request.native_execution.id(),
   )?;
   let mut supervisor =
     PlayerSupervisor::ios_simulator(Box::new(SharedSimulator(request.simulator.clone())));
@@ -307,6 +311,11 @@ fn validate_build(request: &IosCaptureRequest<'_>) -> Result<IosStartupIdentity>
   ensure!(
     request.requirements.unity_version == identity.unity_version,
     "runtime selected another Unity version"
+  );
+  ensure!(
+    request.job.profile.native_execution_id.as_deref() == Some(request.native_execution.id())
+      && request.requirements.native_execution_id.as_deref() == Some(request.native_execution.id()),
+    "iOS capture does not own the job's native execution lease"
   );
   Ok(identity)
 }

@@ -103,10 +103,7 @@ namespace Battlement.Tests
                                 new DittoVideo.Start("clip", DittoMotion.Controlled, 10_000)
                             )
                         ),
-                        Step(
-                            1,
-                            new DittoStepAction.Click(new DittoInputTarget.Coordinates(0.5, 0.5))
-                        ),
+                        Step(1, new DittoStepAction.Advance(1)),
                         Step(
                             2,
                             new DittoStepAction.Screenshot(

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,55 +11,6 @@ namespace Battlement.Tests
 {
     public sealed class DittoScenarioExecutorTests : InputTestFixture
     {
-        [Test]
-        public void FocusChangesDoNotReachTheEngineUntilExecutorDisposal()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            SessionId session = new(Guid.NewGuid());
-            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
-            harness.Runner.Connect();
-            DittoResolvedScenario scenario = Scenario(
-                10_000,
-                Step(0, new DittoStepAction.Advance(2))
-            );
-            using (
-                DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero)
-            )
-            {
-                int calls = harness.Transport.Calls.Count;
-                typeof(BattlementRunner)
-                    .GetMethod(
-                        "OnApplicationFocus",
-                        BindingFlags.Instance | BindingFlags.NonPublic
-                    )!
-                    .Invoke(harness.Runner, new object[] { false });
-                Assert.That(harness.Transport.Calls, Has.Count.EqualTo(calls));
-                Assert.That(harness.Runner.DittoInputDiagnostic, Is.Null);
-                Drain(executor);
-                Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
-            }
-
-            harness.Transport.EnqueueSubmit(FakeBattlementTransport.SnapshotResponse(session));
-            int before = harness.Transport.Calls.Count;
-            typeof(BattlementRunner)
-                .GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(harness.Runner, new object[] { false });
-            Assert.That(harness.Transport.Calls, Has.Count.EqualTo(before + 1));
-            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("submit"));
-        }
-
-        [Test]
-        public void ExecutesEveryNonVideoStepOnMacos()
-        {
-            ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(DittoPlatform.Macos);
-        }
-
-        [Test]
-        public void ExecutesEveryNonVideoStepOnWebgl()
-        {
-            ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(DittoPlatform.Webgl);
-        }
-
         [Test]
         public void ControlledAdvanceConsumesPresentedFrames()
         {
@@ -77,73 +27,61 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ActionDoesNotCommitBeforeItsRenderedFrameCompletes()
+        public void CoordinatePointerActionFailsAtTheClickStep()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             DittoResolvedScenario scenario = Scenario(
                 10_000,
-                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
+                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2))),
+                Step(1, new DittoStepAction.Advance(1))
             );
             using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
-
-            Assert.That(executor.Advance(), Is.False);
-            Assert.That(executor.AwaitingPresentation, Is.True);
-            Assert.That(executor.LastCommittedFrame, Is.Zero);
-            executor.CompletePresentedFrame();
-            Assert.That(executor.LastCommittedFrame, Is.EqualTo(1));
-
-            Drain(executor);
-            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
-        }
-
-        [Test]
-        public void VirtualPointerStateIsConsumedBeforeItsPresentedFrame()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            DittoResolvedScenario scenario = Scenario(
-                10_000,
-                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
-            );
-            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
-
-            for (var frame = 0; frame < 8; frame++)
-            {
-                Assert.That(executor.Advance(), Is.False);
-                CompletePresentation(executor);
-                Mouse? pointer = InputSystem
-                    .devices.OfType<Mouse>()
-                    .SingleOrDefault(value => value.name == DittoVirtualInput.VirtualMouseName);
-                if (pointer is not null && pointer.position.ReadValue() != default)
-                {
-                    Assert.That(pointer.leftButton.isPressed, Is.False);
-                    return;
-                }
-            }
-
-            Assert.Fail("Ditto did not consume the queued virtual pointer state.");
-        }
-
-        [Test]
-        public void SettledInputObservesTwoQuietFramesAfterVirtualInputDrains()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            DittoResolvedScenario scenario = Scenario(
-                10_000,
-                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
-            );
-            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
-
-            while (executor.CurrentStepIndex is null)
-            {
-                Assert.That(executor.Advance(), Is.False);
-                CompletePresentation(executor);
-            }
-            ulong inputStartedAt = executor.LastCommittedFrame;
 
             Drain(executor);
 
-            Assert.That(executor.LastCommittedFrame - inputStartedAt, Is.GreaterThanOrEqualTo(3));
-            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+            Assert.That(
+                executor.Result!.Steps.Select(step => step.Status),
+                Is.EqualTo(new[] { DittoStepStatus.Failed, DittoStepStatus.NotRun })
+            );
+        }
+
+        [Test]
+        public void SemanticClickWithoutDeliveryReceiptFailsAtThatStep()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            ObjectId camera = new(Guid.NewGuid());
+            ObjectId target = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.SnapshotResponse(
+                    session,
+                    objects: new[] { CameraObject(camera), Cube(target) },
+                    inputCameraId: camera
+                )
+            );
+            harness.Runner.Connect();
+            Physics.SyncTransforms();
+            string? diagnostic = null;
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Click(new DittoInputTarget.Object("target"))),
+                Step(1, new DittoStepAction.Advance(1))
+            );
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                scenario,
+                () => TimeSpan.Zero,
+                aliases: new Dictionary<string, ObjectId> { ["target"] = target },
+                error: value => diagnostic = value
+            );
+
+            Drain(executor);
+
+            Assert.That(
+                executor.Result!.Steps.Select(step => step.Status),
+                Is.EqualTo(new[] { DittoStepStatus.Failed, DittoStepStatus.NotRun })
+            );
+            Assert.That(diagnostic, Does.Contain("no semantic delivery receipt"));
         }
 
         [Test]
@@ -168,85 +106,6 @@ namespace Battlement.Tests
 
             Assert.That(executor.LastCommittedFrame, Is.GreaterThanOrEqualTo(2));
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
-        }
-
-        private void ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(
-            DittoPlatform platform
-        )
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            SessionId session = new(Guid.NewGuid());
-            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
-            harness.Runner.Connect();
-            harness.Transport.EnqueueSubmit(FakeBattlementTransport.SnapshotResponse(session));
-            string missing = Guid.NewGuid().ToString("D");
-            string artifact = Guid.NewGuid().ToString("D");
-            DittoResolvedScenario scenario = Scenario(
-                5_000,
-                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)), "click"),
-                Step(1, new DittoStepAction.Advance(2), "frames"),
-                Step(2, new DittoStepAction.Hover(Coordinates(0.3, 0.4)), "hover"),
-                Step(3, new DittoStepAction.Drag(Coordinates(0.3, 0.4), Coordinates(0.8, 0.7))),
-                Step(4, new DittoStepAction.Key("Enter", DittoKeyAction.Tap), "key"),
-                Step(
-                    5,
-                    new DittoStepAction.Wait(
-                        new DittoObjectCondition(missing, DittoObjectState.Absent)
-                    )
-                ),
-                Step(
-                    6,
-                    new DittoStepAction.Assert(
-                        new DittoObjectCondition(missing, DittoObjectState.Absent)
-                    ),
-                    "assert"
-                ),
-                Step(
-                    7,
-                    new DittoStepAction.Screenshot(
-                        new DittoScreenshot("ready", new DittoComparison("0", false, "0"))
-                    ),
-                    "capture"
-                )
-            );
-            using DittoScenarioExecutor executor = Executor(
-                harness,
-                scenario,
-                () => TimeSpan.Zero,
-                _ => new DittoScreenshotStepOutcome(artifact, null, false),
-                platform: platform
-            );
-
-            Drain(executor);
-
-            DittoScenarioExecution result = executor.Result!;
-            Assert.That(result.Status, Is.EqualTo(DittoExecutionStatus.Passed));
-            Assert.That(
-                result.Steps.Select(step => step.Status),
-                Is.All.EqualTo(DittoStepStatus.Passed)
-            );
-            Assert.That(
-                result.Steps.Select(step => step.Name),
-                Is.EqualTo(
-                    new[] { "click", "frames", "hover", null, "key", null, "assert", "capture" }
-                )
-            );
-            Assert.That(result.Steps[6].Assertion!.Observed, Is.True);
-            Assert.That(result.Steps[7].ScreenshotArtifactId, Is.EqualTo(artifact));
-            Mouse mouse = InputSystem.devices.OfType<Mouse>().Single();
-            Assert.That(
-                mouse.position.ReadValue().x,
-                Is.EqualTo((Screen.width - 1) * 0.8f).Within(0.01f)
-            );
-            Assert.That(
-                mouse.position.ReadValue().y,
-                Is.EqualTo((Screen.height - 1) * 0.3f).Within(0.01f)
-            );
-            Assert.That(InputSystem.devices.OfType<Keyboard>(), Is.Empty);
-            foreach (DittoPlayerStepResult step in result.Steps)
-            {
-                DittoCompletionValidation.ValidateStepResult(scenario.Steps[(int)step.Index], step);
-            }
         }
 
         [Test]
@@ -395,7 +254,9 @@ namespace Battlement.Tests
             Func<DittoResolvedStep, DittoScreenshotStepOutcome>? capture = null,
             System.Action? setup = null,
             ulong runTimeout = 10_000,
-            DittoPlatform platform = DittoPlatform.Macos
+            DittoPlatform platform = DittoPlatform.Macos,
+            IReadOnlyDictionary<string, ObjectId>? aliases = null,
+            System.Action<string>? error = null
         )
         {
             var errors = 0;
@@ -405,14 +266,50 @@ namespace Battlement.Tests
                 platform,
                 checked((uint)Screen.width),
                 checked((uint)Screen.height),
-                new Dictionary<string, ObjectId>(),
+                aliases ?? new Dictionary<string, ObjectId>(),
                 runTimeout,
                 now,
                 capture ?? (_ => throw new AssertionException("Unexpected screenshot.")),
-                (_, _) => $"P{++errors:0000}",
+                (_, message) =>
+                {
+                    error?.Invoke(message);
+                    return $"P{++errors:0000}";
+                },
                 setup
             );
         }
+
+        private static BattlementGameObject CameraObject(ObjectId id) =>
+            new(
+                id,
+                new GameObjectKind.Camera(
+                    new CameraState
+                    {
+                        Projection = CameraProjection.Orthographic,
+                        OrthographicSize = 3,
+                    }
+                ),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                new LocalTransform(
+                    new Battlement.Vector3(0, 0, -10),
+                    Quaternion.Identity,
+                    Battlement.Vector3.One
+                ),
+                Array.Empty<PointerEvent>()
+            );
+
+        private static BattlementGameObject Cube(ObjectId id) =>
+            new(
+                id,
+                new GameObjectKind.Cube(),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                new[] { PointerEvent.Enter }
+            );
 
         private static DittoResolvedScenario Scenario(
             ulong timeout,

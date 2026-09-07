@@ -171,7 +171,9 @@ namespace Battlement
         string UnityVersion,
         bool Diagnostics,
         DittoDisplay Display,
-        IReadOnlyList<DittoCapability> Capabilities
+        IReadOnlyList<DittoCapability> Capabilities,
+        string DeterminismContract,
+        string? NativeExecutionId
     );
 
     internal sealed record DittoLogBatchAck(string PlayerSessionId, ulong NextSequence);

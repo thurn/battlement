@@ -43,4 +43,4 @@ fn document(document: UiDocument) -> UiDocument {
   )
 }
 
-battlement_native::export_engine!(self::create_engine);
+battlement_native::export_deterministic_engine!(self::create_engine);

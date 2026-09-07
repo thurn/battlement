@@ -268,6 +268,7 @@ fn request<'a>(
       unity_version: "6000.0.56f1".to_owned(),
       diagnostics: true,
       storage_directory: run.to_owned(),
+      native_execution_id: None,
     },
     orchestration_path: run.join("orchestration.json"),
     browser_log_source: run.join("browser.log"),
@@ -302,6 +303,8 @@ fn job(build: &BuildHandle) -> Job {
       build_fingerprint: build.metadata().identity.fingerprint.clone(),
       source_fingerprint: HASH.to_owned(),
       capabilities: vec![Capability::Click],
+      determinism_contract: "ditto-v1".to_owned(),
+      native_execution_id: None,
     },
     scenarios: vec![ResolvedScenario {
       id: Uuid::new_v4().to_string(),
@@ -315,7 +318,7 @@ fn job(build: &BuildHandle) -> Job {
         name: None,
         timeout_ms: 100,
         action: StepKind::Click {
-          target: InputTarget::Coordinates([0.5, 0.5]),
+          target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
         },
       }],
     }],
@@ -360,6 +363,8 @@ started = {
         'diagnostics': True,
         'display': job['profile']['display'],
         'capabilities': job['profile']['capabilities'],
+        'determinism_contract': job['profile']['determinism_contract'],
+        'native_execution_id': job['profile']['native_execution_id'],
     }},
 }
 assert json.load(send('POST', 'jobs/' + job['job_id'] + '/started', started))['action'] == 'continue'

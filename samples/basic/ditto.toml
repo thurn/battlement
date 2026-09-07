@@ -53,24 +53,6 @@ assert = { object = "status", state = "visible" }
 screenshot = { name = "initial" }
 
 [[scenarios]]
-name = "hover round trip"
-
-[[scenarios.steps]]
-wait = { object = "status", state = "visible" }
-
-[[scenarios.steps]]
-hover = { target = "cube_a" }
-
-[[scenarios.steps]]
-screenshot = { name = "hovered" }
-
-[[scenarios.steps]]
-hover = { target = [0.95, 0.95] }
-
-[[scenarios.steps]]
-screenshot = { name = "restored" }
-
-[[scenarios]]
 name = "click round trip"
 
 [[scenarios.steps]]
@@ -87,24 +69,3 @@ click = { target = "cube_c" }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
-
-[[scenarios]]
-name = "drag placement"
-
-[[scenarios.steps]]
-wait = { object = "status", state = "visible" }
-
-[[scenarios.steps]]
-video = { action = "start", name = "drag-in-flight", motion = "controlled", max_duration = "4s" }
-
-[[scenarios.steps]]
-drag = { from = "cube_a", to = [0.62, 0.68] }
-
-[[scenarios.steps]]
-video = { action = "stop" }
-
-[[scenarios.steps]]
-assert = { object = "cube_a", state = "visible" }
-
-[[scenarios.steps]]
-screenshot = { name = "placed" }

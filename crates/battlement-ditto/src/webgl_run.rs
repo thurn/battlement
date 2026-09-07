@@ -133,6 +133,7 @@ pub(crate) fn execute(
     &build.metadata().identity.fingerprint,
     &build.metadata().identity.source_fingerprint,
     suite.timeouts.run.as_millis(),
+    None,
   )?;
   let roots = maintenance_commands::cache_roots(suite)?;
   let materializer = Arc::new(ExecutionMaterializer::new(
@@ -169,6 +170,7 @@ pub(crate) fn execute(
         unity_version: request.tools.unity_version.clone(),
         diagnostics: true,
         storage_directory: active.path().to_path_buf(),
+        native_execution_id: None,
       },
       orchestration_path: active.path().join("orchestration.json"),
       browser_log_source: browser_log_source.clone(),

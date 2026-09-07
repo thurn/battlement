@@ -180,6 +180,12 @@ namespace Battlement
             System.Action<DittoNativeCaptureResult> completion
         )
         {
+            Debug.Log(
+                $"[Battlement/Ditto-trace] capture-request frame={committedFrame} "
+                    + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} "
+                    + $"source=internal-framebuffer window=player-main-framebuffer "
+                    + $"display={Screen.width}x{Screen.height}"
+            );
             RequireConfigured();
             RequireIdle();
             if (!ready || layout is null)
@@ -379,6 +385,10 @@ namespace Battlement
             }
             System.Action<DittoNativeCaptureResult> completion = captureCompletion;
             captureCompletion = null;
+            Debug.Log(
+                $"[Battlement/Ditto-trace] capture-ack frame={frame} "
+                    + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} bytes={png.Length}"
+            );
             completion(new DittoNativeCaptureResult.Captured(png, width, height, frame));
         }
 

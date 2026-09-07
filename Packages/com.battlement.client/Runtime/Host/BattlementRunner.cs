@@ -64,6 +64,7 @@ namespace Battlement
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
+        private DittoInputTransaction? dittoInputTransaction;
         private ApplicationState? publishedApplicationState;
         private ReducedMotionPreference publishedReducedMotionPreference;
         private bool isDisposed;
@@ -136,7 +137,67 @@ namespace Battlement
             dittoInputActive = true;
         }
 
-        internal void EndDittoInput() => dittoInputActive = false;
+        internal void EndDittoInput()
+        {
+            dittoInputTransaction = null;
+            dittoInputActive = false;
+        }
+
+        internal void BeginDittoPointerTransaction(
+            string transactionId,
+            ObjectId target,
+            ulong committedFrame,
+            ulong expectedInputFrame
+        )
+        {
+            EnsureMainThread();
+            if (!dittoInputActive || dittoInputTransaction is not null)
+                throw new InvalidOperationException(
+                    "Ditto pointer transaction ownership is unavailable."
+                );
+            dittoInputTransaction = new DittoInputTransaction(
+                transactionId,
+                target,
+                committedFrame,
+                expectedInputFrame
+            );
+        }
+
+        internal bool CompleteDittoPointerTransaction(
+            string transactionId,
+            ulong appliedInputFrame,
+            ulong committedFrame,
+            out DittoInputReceipt? receipt,
+            out string? diagnostic
+        )
+        {
+            EnsureMainThread();
+            DittoInputTransaction transaction =
+                dittoInputTransaction
+                ?? throw new InvalidOperationException("No Ditto pointer transaction is active.");
+            if (transaction.Id != transactionId)
+                throw new InvalidOperationException("Ditto pointer transaction identity changed.");
+            dittoInputTransaction = null;
+            return transaction.Complete(
+                appliedInputFrame,
+                committedFrame,
+                out receipt,
+                out diagnostic
+            );
+        }
+
+        internal void RejectDittoPointerTransaction(string reason) =>
+            dittoInputTransaction?.Reject(reason);
+
+        internal void ApplyDittoPointerFrame(string transactionId, ulong frame)
+        {
+            DittoInputTransaction transaction =
+                dittoInputTransaction
+                ?? throw new InvalidOperationException("No Ditto pointer transaction is active.");
+            if (transaction.Id != transactionId)
+                throw new InvalidOperationException("Ditto pointer transaction identity changed.");
+            transaction.Apply(frame);
+        }
 
         internal bool DispatchDittoKey(PhysicalKey key, bool pressed)
         {
@@ -986,8 +1047,15 @@ namespace Battlement
         private void OnApplicationPause(bool pauseStatus)
         {
             isApplicationPaused = pauseStatus;
+            Debug.Log(
+                $"[Battlement/Ditto-trace] application-pause paused={pauseStatus} "
+                    + $"focus={hasApplicationFocus} ditto={dittoInputActive}"
+            );
             if (pauseStatus)
             {
+                RejectDittoPointerTransaction(
+                    "Application suspension interrupted pointer delivery."
+                );
                 pointerInput?.CancelPresses();
                 keyboardInput?.Reset();
                 controllerInput?.Reset();
@@ -998,8 +1066,18 @@ namespace Battlement
         private void OnApplicationFocus(bool hasFocus)
         {
             hasApplicationFocus = hasFocus;
+            Debug.Log(
+                $"[Battlement/Ditto-trace] application-focus focus={hasFocus} "
+                    + $"paused={isApplicationPaused} ditto={dittoInputActive}"
+            );
             if (dittoInputActive)
+            {
+                if (!hasFocus)
+                    RejectDittoPointerTransaction(
+                        "Application focus was lost during pointer delivery."
+                    );
                 return;
+            }
             if (!hasFocus && session.Phase != BattlementSessionPhase.Stopped)
             {
                 pointerInput?.CancelPresses();
@@ -1806,6 +1884,10 @@ namespace Battlement
 
         private bool EmitAction(ActionBody body)
         {
+            Debug.Log(
+                $"[Battlement/Ditto-trace] world-input-dispatch body={body.GetType().Name} "
+                    + $"available={CanEmitInput}"
+            );
             if (!CanEmitInput || session.LastSession is not SessionId currentSession)
             {
                 return false;
@@ -1816,7 +1898,17 @@ namespace Battlement
             using (BattlementProfiler.Serialization.Auto())
                 message = SerializeAction(configured, body);
             Submit(message);
-            return CanEmitInput && session.LastSession == currentSession;
+            bool accepted = CanEmitInput && session.LastSession == currentSession;
+            if (accepted && body is ActionBody.PointerClick click)
+            {
+                Debug.Log(
+                    $"[Battlement/Ditto-trace] input-acknowledgement route=world-pointer-click "
+                        + $"object={click.ObjectId.Value} "
+                        + $"active={dittoInputTransaction is not null}"
+                );
+                dittoInputTransaction?.Observe(click.ObjectId, "world-pointer-click");
+            }
+            return accepted;
         }
 
         private byte[] SerializeAction(BattlementRunnerOptions configured, ActionBody body) =>
@@ -1837,6 +1929,10 @@ namespace Battlement
 
         private UiEventDisposition? EmitUiEvent(UiEvent value)
         {
+            Debug.Log(
+                $"[Battlement/Ditto-trace] ui-input-dispatch object={value.TargetId.Value} "
+                    + $"kind={value.Body.GetType().Name} available={CanEmitInput}"
+            );
             if (!CanEmitInput || session.LastSession is not SessionId currentSession)
             {
                 return null;
@@ -1923,6 +2019,15 @@ namespace Battlement
                     dittoMotionClock.Elapsed - started
                 );
                 inspection.Outcome = BattlementUiEventInspectionOutcome.Completed;
+                if (value.Body is UiEventBody.Click)
+                {
+                    Debug.Log(
+                        $"[Battlement/Ditto-trace] input-acknowledgement route=ui-click "
+                            + $"object={value.TargetId.Value} "
+                            + $"active={dittoInputTransaction is not null}"
+                    );
+                    dittoInputTransaction?.Observe(value.TargetId, "ui-click");
+                }
                 awaitingNativePrevention =
                     result.Disposition == UiEventDisposition.PreventDefault ? inspection : null;
                 return result.Disposition;

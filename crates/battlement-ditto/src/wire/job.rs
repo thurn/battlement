@@ -92,6 +92,8 @@ pub struct ResolvedProfile {
   pub build_fingerprint: String,
   pub source_fingerprint: String,
   pub capabilities: Vec<Capability>,
+  pub determinism_contract: String,
+  pub native_execution_id: Option<String>,
 }
 
 /// The effective player framebuffer and safe area.

@@ -30,7 +30,7 @@ namespace Battlement.Tests
             Assert.That(Mouse.current, Is.Not.SameAs(hostMouse));
             Assert.That(Keyboard.current, Is.SameAs(hostKeyboard));
 
-            input.Click(new Vector2(25, 30));
+            input.Click(new Vector2(25, 30), "test:1");
             DrainDesktop(input, hostMouse, hostKeyboard, journal);
             int segments = input.Drag(new Vector2(10, 20), new Vector2(20, 20));
             DrainDesktop(input, hostMouse, hostKeyboard, journal);
@@ -96,7 +96,7 @@ namespace Battlement.Tests
 
             Assert.That(input.Hover(new Vector2(1, 2)), Is.False);
             Assert.That(input.PendingFrameCount, Is.Zero);
-            input.Click(new Vector2(20, 40));
+            input.Click(new Vector2(20, 40), "test:2");
             DrainTouch(input, journal);
             int segments = input.Drag(new Vector2(20, 40), new Vector2(20, 60));
             DrainTouch(input, journal);
@@ -142,7 +142,7 @@ namespace Battlement.Tests
             InputSystem.QueueStateEvent(hostMouse, new MouseState { position = new Vector2(7, 9) });
             InputSystem.Update();
             using var input = new DittoVirtualInput(DittoPlatform.Macos, 101, 101);
-            input.Click(new Vector2(25, 30));
+            input.Click(new Vector2(25, 30), "test:3");
             Advance(input);
             hostMouse.MakeCurrent();
 
@@ -155,7 +155,7 @@ namespace Battlement.Tests
         public void InterruptedPointerAndKeySequencesReportHeldInput()
         {
             using var pointer = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
-            pointer.Click(new Vector2(50, 50));
+            pointer.Click(new Vector2(50, 50), "test:4");
             Advance(pointer);
             Advance(pointer);
 
@@ -190,7 +190,7 @@ namespace Battlement.Tests
         public void PointerFramesRemainPendingUntilInputSystemConsumesTheirState()
         {
             using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
-            input.Click(new Vector2(20, 30));
+            input.Click(new Vector2(20, 30), "test:5");
 
             input.QueueNextFrame();
             Assert.That(input.CanQueueNextFrame, Is.False);

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 from pathlib import Path
@@ -233,9 +232,10 @@ def execute_sample(
         if timeout_error is not None and not result_path.is_file():
             raise timeout_error
         result = load_result(result_path)
-        ditto_replay.save(recipe, output / "replay.json", result)
+        event_log = source / "logs/events.jsonl" if source is not None else None
+        ditto_replay.save(recipe, output / "replay.json", result, event_log)
         if source is not None:
-            ditto_replay.save(recipe, source / "replay.json", result)
+            ditto_replay.save(recipe, source / "replay.json", result, event_log)
         if timeout_error is not None:
             raise timeout_error
         validate_result(
@@ -287,23 +287,17 @@ def inventory() -> tuple[dict[str, Any], int, int]:
 
 
 def gate() -> None:
-    """Run every canonical scenario concurrently and report the time target."""
+    """Run every canonical scenario under one ordered native-execution lane."""
     platform_report()
     _, scenario_count, screenshot_count = inventory()
     started = time.monotonic()
     results = []
     failures = []
-    with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
-        futures = {
-            executor.submit(execute_sample, sample, retain=False): sample
-            for sample in SAMPLES
-        }
-        for future in as_completed(futures):
-            sample = futures[future]
-            try:
-                results.append(future.result())
-            except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
-                failures.append(f"{sample}: {error}")
+    for sample in SAMPLES:
+        try:
+            results.append(execute_sample(sample, retain=False))
+        except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
+            failures.append(f"{sample}: {error}")
     duration = time.monotonic() - started
     reusable_build = float(os.environ.get("DITTO_CI_REUSABLE_BUILD_SECONDS", "0"))
     added_duration = duration
@@ -429,6 +423,12 @@ def main() -> None:
     replay_parser = subcommands.add_parser("replay", help="Replay a retained CI invocation without rebuilding")
     replay_parser.add_argument("recipe", type=Path)
     replay_parser.add_argument("scenarios", nargs="*")
+    classify_parser = subcommands.add_parser(
+        "classify", help="Classify repeated paired Ditto evidence"
+    )
+    classify_parser.add_argument("--base", type=Path, action="append", required=True)
+    classify_parser.add_argument("--candidate", type=Path, action="append", required=True)
+    classify_parser.add_argument("--output", type=Path, required=True)
     adapter_parser = subcommands.add_parser("adapter")
     adapter_parser.add_argument("name", choices=ADAPTER_TESTS)
     subcommands.add_parser("performance")
@@ -447,6 +447,11 @@ def main() -> None:
             arguments.recipe, REPOSITORY_ROOT, arguments.scenarios,
             ARTIFACT_ROOT / "replays" / str(uuid.uuid4()),
         ))
+    elif arguments.command == "classify":
+        classification = ditto_replay.classify_and_retain(
+            arguments.base, arguments.candidate, arguments.output
+        )
+        print(classification)
     elif arguments.command == "adapter":
         adapter(arguments.name)
     elif arguments.command == "performance":

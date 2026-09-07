@@ -46,6 +46,7 @@ pub struct PlayerSessionRequirements {
   pub unity_version: String,
   pub diagnostics: bool,
   pub storage_directory: PathBuf,
+  pub native_execution_id: Option<String>,
 }
 
 /// One accepted startup payload and the durable decision returned for it.
@@ -978,6 +979,14 @@ fn startup_mismatch<'a>(state: &'a State, report: &'a StartupReport) -> Option<&
   }
   if report.capabilities != profile.capabilities {
     return Some("wrong capabilities");
+  }
+  if report.determinism_contract != profile.determinism_contract {
+    return Some("determinism contract unavailable");
+  }
+  if report.native_execution_id != state.requirements.native_execution_id
+    || report.native_execution_id != profile.native_execution_id
+  {
+    return Some("wrong native execution ownership");
   }
   None
 }

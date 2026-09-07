@@ -12,7 +12,7 @@ fn every_target_materializes_capability_skips_in_stable_run_order() {
   let cases = [
     ("macos-local", vec!["run", "run", "run"]),
     ("web-ci", vec!["run", "unsupported-step:video", "run"]),
-    ("iphone-ci", vec!["unsupported-input:hover", "run", "run"]),
+    ("iphone-ci", vec!["run", "run", "run"]),
   ];
   for (profile, expected) in cases {
     let selection = selection::resolve(
@@ -65,7 +65,7 @@ fn include_unions_and_excludes_preserve_suite_order_without_duplicates() {
       .iter()
       .map(|scenario| (scenario.run_index, scenario.scenario.name.as_str()))
       .collect::<Vec<_>>(),
-    vec![(0, "hover case"), (1, "click case")]
+    vec![(0, "screenshot case"), (1, "click case")]
   );
 }
 
@@ -310,16 +310,14 @@ device = "iPhone 16 Pro"
 orientation = "portrait"
 
 [[scenarios]]
-name = "hover case"
+name = "screenshot case"
 [[scenarios.steps]]
-hover = { target = "item" }
-[[scenarios.steps]]
-screenshot = { name = "hover-screen" }
+screenshot = { name = "static-screen" }
 
 [[scenarios]]
 name = "video case"
 [[scenarios.steps]]
-video = { action = "start", name = "clip" }
+video = { action = "start", name = "clip", motion = "controlled" }
 [[scenarios.steps]]
 screenshot = { name = "video-screen" }
 [[scenarios.steps]]

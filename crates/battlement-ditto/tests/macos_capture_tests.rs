@@ -4,7 +4,7 @@ use std::{
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
   },
   thread,
@@ -14,6 +14,7 @@ use std::{
 use anyhow::Result;
 use battlement_ditto::{
   macos_capture::{MacosCaptureRequest, MacosCaptureTimeouts, MacosPlayerLauncher, capture_macos},
+  native_execution::NativeExecutionLease,
   scenario_orchestration::{MaterializedScenario, ScenarioMaterializer},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -42,9 +43,11 @@ use tempfile::TempDir;
 use uuid::Uuid;
 
 const HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+static CAPTURE_TEST_GATE: Mutex<()> = Mutex::new(());
 
 #[test]
 fn fixture_completes_three_scenarios_and_writes_a_valid_result() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
   let build = FixtureBuild::new(true);
   let run = tempfile::tempdir().unwrap();
   let launcher = FixtureLauncher::new(run.path(), json!({}), "complete");
@@ -82,8 +85,8 @@ fn fixture_completes_three_scenarios_and_writes_a_valid_result() {
 
 #[test]
 fn every_startup_mismatch_stops_before_scenario_setup() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
   let build = FixtureBuild::new(true);
-  let profile = job(&build.handle, 1).profile;
   let cases = [
     (
       "display",
@@ -100,15 +103,21 @@ fn every_startup_mismatch_stops_before_scenario_setup() {
     ("diagnostics", json!({"diagnostics": false})),
     ("adapter", json!({"capture_adapter": "wrong-adapter"})),
     ("capability", json!({"capabilities": []})),
+    (
+      "determinism",
+      json!({"determinism_contract": "unavailable"}),
+    ),
+    (
+      "native ownership",
+      json!({"native_execution_id": "83ef88f8-e5f8-4654-84a9-11410975266d"}),
+    ),
     ("unity", json!({"unity_version": "6000.0.99f1"})),
   ];
   for (name, override_value) in cases {
     let run = tempfile::tempdir().unwrap();
     let launcher = FixtureLauncher::new(run.path(), override_value, "complete");
-    let mut capture = request(&build.handle, run.path(), 1);
-    capture.job.profile = profile.clone();
     let outcome = capture_macos(
-      capture,
+      request(&build.handle, run.path(), 1),
       &launcher,
       Arc::new(PassMaterializer),
       &AtomicBool::new(false),
@@ -123,6 +132,7 @@ fn every_startup_mismatch_stops_before_scenario_setup() {
 
 #[test]
 fn diagnostics_disabled_build_never_starts_and_interrupt_is_bounded() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
   let disabled = FixtureBuild::new(false);
   let rejected_run = tempfile::tempdir().unwrap();
   let rejected = FixtureLauncher::new(rejected_run.path(), json!({}), "complete");
@@ -190,6 +200,7 @@ impl MacosPlayerLauncher for FixtureLauncher {
     log_path: &Path,
     _width: u32,
     _height: u32,
+    _native_execution_id: Option<&str>,
   ) -> Result<Child> {
     fs::write(log_path, b"fixture player log\n")?;
     self.count.fetch_add(1, Ordering::SeqCst);
@@ -351,15 +362,18 @@ fn step_result(player: &PlayerStepResult) -> StepResult {
 }
 
 fn request<'a>(build: &'a BuildHandle, run: &Path, count: u32) -> MacosCaptureRequest<'a> {
+  let native_execution = Arc::new(NativeExecutionLease::acquire().unwrap());
+  let native_execution_id = native_execution.id().to_owned();
   MacosCaptureRequest {
     build,
-    job: job(build, count),
+    job: job(build, count, &native_execution_id),
     requirements: PlayerSessionRequirements {
       origin: None,
       capture_adapter: "native-screen-capture".to_owned(),
       unity_version: "6000.0.56f1".to_owned(),
       diagnostics: true,
       storage_directory: run.to_owned(),
+      native_execution_id: Some(native_execution_id),
     },
     orchestration_path: run.join("orchestration.json"),
     player_log_source: run.join("source-player.log"),
@@ -371,10 +385,11 @@ fn request<'a>(build: &'a BuildHandle, run: &Path, count: u32) -> MacosCaptureRe
       interrupt_grace: Duration::from_millis(500),
       poll_interval: Duration::from_millis(5),
     },
+    native_execution,
   }
 }
 
-fn job(build: &BuildHandle, count: u32) -> Job {
+fn job(build: &BuildHandle, count: u32, native_execution_id: &str) -> Job {
   Job {
     job_id: Uuid::new_v4().to_string(),
     run_id: Uuid::new_v4().to_string(),
@@ -394,6 +409,8 @@ fn job(build: &BuildHandle, count: u32) -> Job {
       build_fingerprint: build.metadata().identity.fingerprint.clone(),
       source_fingerprint: HASH.to_owned(),
       capabilities: vec![Capability::Click],
+      determinism_contract: "ditto-v1".to_owned(),
+      native_execution_id: Some(native_execution_id.to_owned()),
     },
     scenarios: (0..count)
       .map(|index| ResolvedScenario {
@@ -408,7 +425,7 @@ fn job(build: &BuildHandle, count: u32) -> Job {
           name: None,
           timeout_ms: 100,
           action: StepKind::Click {
-            target: InputTarget::Coordinates([0.5, 0.5]),
+            target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
           },
         }],
       })
@@ -475,6 +492,8 @@ report = {
     'diagnostics': True,
     'display': job['profile']['display'],
     'capabilities': job['profile']['capabilities'],
+    'determinism_contract': job['profile']['determinism_contract'],
+    'native_execution_id': job['profile']['native_execution_id'],
 }
 report.update(json.loads(os.environ['DITTO_FIXTURE_OVERRIDE']))
 started = {

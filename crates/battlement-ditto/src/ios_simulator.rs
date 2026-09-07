@@ -162,6 +162,7 @@ impl IosSimulator {
     app: &Path,
     session_url: &str,
     orientation: ProfileOrientation,
+    native_execution_id: &str,
   ) -> Result<()> {
     ensure!(app.is_dir(), "iOS application bundle is missing");
     ensure!(
@@ -199,8 +200,13 @@ impl IosSimulator {
         session_url,
         "--battlement-ditto-orientation",
         orientation,
+        "--battlement-ditto-native-execution",
+        native_execution_id,
       ],
-      &[("SIMCTL_CHILD_BATTLEMENT_DITTO_URL", session_url)],
+      &[
+        ("SIMCTL_CHILD_BATTLEMENT_DITTO_URL", session_url),
+        ("SIMCTL_CHILD_DITTO_NATIVE_EXECUTION", native_execution_id),
+      ],
       self.tools.command_timeout,
     )?;
     self::require_success(&launched, "launch Simulator application")?;

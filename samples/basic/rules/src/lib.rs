@@ -35,7 +35,7 @@ pub const CUBE_IDS: [ObjectId; 3] = [
   object_id!("ab96efc3-f6f8-46b8-ad99-3e8f4319c2a0"),
 ];
 
-/// Finite user-visible states exercised by the Basic Ditto suite.
+/// Finite user-visible states recognized by the Basic engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisualState {
   Connected,
@@ -359,4 +359,4 @@ fn label_id(index: usize) -> ObjectId {
   ][index]
 }
 
-battlement_native::export_engine!(create_engine);
+battlement_native::export_deterministic_engine!(create_engine);

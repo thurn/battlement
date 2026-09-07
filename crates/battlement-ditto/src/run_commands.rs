@@ -2,7 +2,7 @@ use std::{
   fs,
   io::{self, Read, Write},
   path::{Path, PathBuf},
-  sync::atomic::AtomicBool,
+  sync::{Arc, atomic::AtomicBool},
   time::Instant,
   time::{SystemTime, UNIX_EPOCH},
 };
@@ -17,7 +17,9 @@ use crate::{
     self, FragmentInput,
     model::{Motion as AuthoredMotion, Scenario, StepKind, Suite, Target},
   },
-  macos_run, maintenance_commands, review_commands, run_progress,
+  macos_run, maintenance_commands,
+  native_execution::NativeExecutionLease,
+  review_commands, run_progress,
   selection::{self, Disposition},
   watch_commands,
   wire::{
@@ -45,6 +47,7 @@ pub(crate) struct ExecuteOptions {
   pub watch: bool,
   pub base_source: PathBuf,
   pub fragment_source: Option<PathBuf>,
+  pub native_execution: Option<Arc<NativeExecutionLease>>,
 }
 
 pub(crate) struct CompletedCycle {
@@ -77,6 +80,7 @@ pub(crate) fn run(
       watch: options.watch,
       base_source: suite.source,
       fragment_source: None,
+      native_execution: None,
     },
     stdout,
     stderr,
@@ -129,6 +133,7 @@ pub(crate) fn capture(
       watch: options.watch,
       base_source,
       fragment_source,
+      native_execution: None,
     },
     stdout,
     stderr,
@@ -138,11 +143,24 @@ pub(crate) fn capture(
 
 fn execute(
   suite: Suite,
-  options: ExecuteOptions,
+  mut options: ExecuteOptions,
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
 ) -> Result<u8> {
+  let selection = selection::resolve(&suite, &selection_options(&options.selection))?;
+  options.native_execution = (selection.profile.target() != Target::Webgl)
+    .then(NativeExecutionLease::acquire)
+    .transpose()?
+    .map(Arc::new);
+  if let Some(lease) = &options.native_execution {
+    writeln!(
+      stderr,
+      "DITTO_NATIVE_EXECUTION={} path={}",
+      lease.id(),
+      lease.path().display()
+    )?;
+  }
   if options.watch {
     return watch_commands::execute(suite, options, stdout, stderr, interrupted);
   }
@@ -301,6 +319,7 @@ fn macos_options(options: &ExecuteOptions) -> macos_run::Options {
     no_build: options.no_build,
     update: options.update,
     filtered: options.filtered,
+    native_execution: options.native_execution.clone(),
   }
 }
 

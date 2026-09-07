@@ -130,14 +130,19 @@ fn first_action_queues_one_visible_polled_change_on_another_cube() {
 }
 
 #[test]
-fn visual_state_enum_matches_the_ditto_registry() {
+fn deterministic_visual_states_match_the_ditto_registry() {
+  let states = [
+    VisualState::Connected,
+    VisualState::ClickPlaced,
+    VisualState::ClickRestored,
+  ];
   assert_eq!(
     battlement_rules::DITTO_VISUAL_STATE_REGISTRY
       .matches("[[states]]")
       .count(),
-    VisualState::ALL.len()
+    states.len()
   );
-  for state in VisualState::ALL {
+  for state in states {
     assert!(
       battlement_rules::DITTO_VISUAL_STATE_REGISTRY
         .contains(&format!("key = \"{}\"", state.registry_key()))

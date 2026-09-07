@@ -62,7 +62,15 @@ namespace Battlement
                 );
             }
 
-            foreach (Touchscreen touchscreen in InputSystem.devices.OfType<Touchscreen>())
+            Touchscreen[] touchscreens = InputSystem.devices.OfType<Touchscreen>().ToArray();
+            Touchscreen? virtualTouchscreen = touchscreens.FirstOrDefault(device =>
+                device.name == DittoVirtualInput.VirtualTouchscreenName
+            );
+            foreach (
+                Touchscreen touchscreen in virtualTouchscreen is null
+                    ? touchscreens
+                    : new[] { virtualTouchscreen }
+            )
             {
                 AddTouches(samples, knownPointerIds, touchscreen);
             }

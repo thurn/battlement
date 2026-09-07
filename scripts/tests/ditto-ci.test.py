@@ -154,7 +154,7 @@ def main() -> None:
         gate = json.loads(
             (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
         )
-        assert gate["duration_seconds"] < 0.7
+        assert gate["duration_seconds"] >= 1.0
 
         environment["DITTO_CI_GATE_BUDGET_SECONDS"] = "0.05"
         over_budget = run(["gate"], environment)

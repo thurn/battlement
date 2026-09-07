@@ -40,7 +40,7 @@ fn shared_csharp_job_fixture_has_matching_acceptance() {
 }
 
 #[test]
-fn complete_job_round_trips_every_step_and_union_variant() {
+fn complete_job_round_trips_every_deterministic_step_variant() {
   let job = job();
   job.validate().unwrap();
   let encoded = serde_json::to_string(&job).unwrap();
@@ -102,6 +102,7 @@ fn all_platform_profiles_validate_with_their_supported_capabilities() {
 
   let mut webgl = job();
   webgl.profile.platform = Platform::Webgl;
+  webgl.profile.native_execution_id = None;
   webgl.profile.capabilities.pop();
   webgl.scenarios[0]
     .steps
@@ -113,10 +114,6 @@ fn all_platform_profiles_validate_with_their_supported_capabilities() {
   ios.profile.platform = Platform::IosSimulator;
   ios.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
   ios.profile.display.safe_area = [0, 24, 1280, 672];
-  ios.profile.capabilities.remove(1);
-  ios.scenarios[0]
-    .steps
-    .retain(|step| !matches!(step.action, StepKind::Hover { .. }));
   reindex(&mut ios);
   ios.validate().unwrap();
 }
@@ -137,27 +134,27 @@ fn serde_rejects_unknown_fields_variants_and_malformed_unions() {
     ),
     with(
       &base,
-      "/scenarios/0/steps/6/action/advance/unexpected",
+      "/scenarios/0/steps/4/action/advance/unexpected",
       json!(true),
     ),
     with(
       &base,
-      "/scenarios/0/steps/7/action/wait/unexpected",
+      "/scenarios/0/steps/5/action/wait/unexpected",
       json!(true),
     ),
     with(
       &base,
-      "/scenarios/0/steps/8/action/assert/unexpected",
+      "/scenarios/0/steps/6/action/assert/unexpected",
       json!(true),
     ),
     with(
       &base,
-      "/scenarios/0/steps/9/action/screenshot/unexpected",
+      "/scenarios/0/steps/7/action/screenshot/unexpected",
       json!(true),
     ),
     with(
       &base,
-      "/scenarios/0/steps/9/action/screenshot/comparison/unexpected",
+      "/scenarios/0/steps/7/action/screenshot/comparison/unexpected",
       json!(true),
     ),
     with(
@@ -178,7 +175,7 @@ fn serde_rejects_unknown_fields_variants_and_malformed_unions() {
     ),
     with(
       &base,
-      "/scenarios/0/steps/8/action/assert/state",
+      "/scenarios/0/steps/6/action/assert/state",
       json!("unknown"),
     ),
     with(
@@ -193,7 +190,7 @@ fn serde_rejects_unknown_fields_variants_and_malformed_unions() {
     ),
     with(
       &base,
-      "/scenarios/0/steps/6/action/wait",
+      "/scenarios/0/steps/5/action/wait",
       json!({"frames": 2, "object": UUID, "state": "visible"}),
     ),
     with(
@@ -292,44 +289,55 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
       target: battlement_ditto::wire::job::InputTarget::Object("alias".to_owned()),
     }
   });
-  invalid("coordinate range", |job| {
-    job.scenarios[0].steps[1].action = StepKind::Hover {
-      target: battlement_ditto::wire::job::InputTarget::Coordinates([1.1, 0.5]),
+  invalid("coordinate input", |job| {
+    job.scenarios[0].steps[0].action = StepKind::Click {
+      target: battlement_ditto::wire::job::InputTarget::Coordinates([0.5, 0.5]),
+    }
+  });
+  invalid("hover action", |job| {
+    job.scenarios[0].steps[0].action = StepKind::Hover {
+      target: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
+    }
+  });
+  invalid("drag action", |job| {
+    job.scenarios[0].steps[0].action = StepKind::Drag {
+      from: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
+      to: battlement_ditto::wire::job::InputTarget::Object(UUID.to_owned()),
     }
   });
   invalid("frame count", |job| {
-    job.scenarios[0].steps[6].action =
+    job.scenarios[0].steps[4].action =
       StepKind::Advance(battlement_ditto::wire::job::FrameAdvance { frames: 0 })
   });
   invalid("frame motion", |job| {
     job.scenarios[0].motion = Motion::RealTime
   });
   invalid("condition UUID", |job| {
-    if let StepKind::Assert(condition) = &mut job.scenarios[0].steps[8].action {
+    if let StepKind::Assert(condition) = &mut job.scenarios[0].steps[6].action {
       condition.object = "bad".to_owned();
     }
   });
   invalid("checkpoint duplicate", |job| {
-    if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[11].action {
+    if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[9].action {
       screenshot.name = "ready".to_owned();
     }
   });
   for decimal in ["", "-1", "+1", "1e0", ".1", "1.", "00.1", "1.1"] {
     invalid(decimal, |job| {
-      if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[9].action {
+      if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[7].action {
         screenshot.comparison.threshold = decimal.to_owned();
       }
     });
   }
   invalid("percent range", |job| {
-    if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[9].action {
+    if let StepKind::Screenshot(screenshot) = &mut job.scenarios[0].steps[7].action {
       screenshot.comparison.max_changed_percent = "100.01".to_owned();
     }
   });
   let mut too_many = job();
   too_many.scenarios[0].steps = (0..129)
     .map(|index| {
-      let mut step = too_many.scenarios[0].steps[8].clone();
+      let mut step = too_many.scenarios[0].steps[6].clone();
       step.index = index;
       step.name = None;
       step
@@ -341,33 +349,33 @@ fn scenario_step_input_wait_and_comparison_invariants_are_enforced() {
 #[test]
 fn key_video_and_capability_state_is_validated_across_steps() {
   invalid("unreleased key", |job| {
-    job.scenarios[0].steps.remove(4);
+    job.scenarios[0].steps.remove(2);
   });
   invalid("key up without down", |job| {
-    job.scenarios[0].steps.remove(3);
+    job.scenarios[0].steps.remove(1);
   });
   invalid("tap held key", |job| {
-    job.scenarios[0].steps[4].action = StepKind::Key {
+    job.scenarios[0].steps[2].action = StepKind::Key {
       key: "Space".to_owned(),
       action: KeyAction::Tap,
     };
   });
   invalid("invalid key", |job| {
-    if let StepKind::Key { key, .. } = &mut job.scenarios[0].steps[5].action {
+    if let StepKind::Key { key, .. } = &mut job.scenarios[0].steps[3].action {
       *key = "Left Shift".to_owned();
     }
   });
   invalid("video overlap", |job| {
-    job.scenarios[0].steps[11].action = job.scenarios[0].steps[10].action.clone()
+    job.scenarios[0].steps[9].action = job.scenarios[0].steps[8].action.clone()
   });
   invalid("video stop", |job| {
-    job.scenarios[0].steps.remove(10);
+    job.scenarios[0].steps.remove(8);
   });
   invalid("video unclosed", |job| {
     job.scenarios[0].steps.pop();
   });
   invalid("video instant", |job| {
-    if let StepKind::Video(VideoStep::Start { motion, .. }) = &mut job.scenarios[0].steps[10].action
+    if let StepKind::Video(VideoStep::Start { motion, .. }) = &mut job.scenarios[0].steps[8].action
     {
       *motion = Motion::Instant;
     }
@@ -375,7 +383,7 @@ fn key_video_and_capability_state_is_validated_across_steps() {
   invalid("video duration", |job| {
     if let StepKind::Video(VideoStep::Start {
       max_duration_ms, ..
-    }) = &mut job.scenarios[0].steps[10].action
+    }) = &mut job.scenarios[0].steps[8].action
     {
       *max_duration_ms = 30_001;
     }
@@ -384,10 +392,8 @@ fn key_video_and_capability_state_is_validated_across_steps() {
     job.profile.platform = Platform::Webgl;
     job.profile.capabilities.pop();
   });
-  invalid("unsupported hover", |job| {
-    job.profile.platform = Platform::IosSimulator;
-    job.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
-    job.profile.capabilities.remove(1);
+  invalid("forbidden hover capability", |job| {
+    job.profile.capabilities.push(Capability::Hover);
   });
 }
 
@@ -444,9 +450,11 @@ const VALID_JOB: &str = r#"{
     "name":"macos-local",
     "platform":"macos",
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},
+    "determinism_contract":"ditto-v1",
+    "native_execution_id":"e257ed09-a084-46fa-b711-5a8757418e31",
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-    "capabilities":["click","hover","drag","key","png","video"]
+    "capabilities":["click","key","png","video"]
   },
   "scenarios":[{
     "id":"1f160ce4-dcdc-47ac-9613-31011f8afc96",
@@ -457,18 +465,16 @@ const VALID_JOB: &str = r#"{
     "timeout_ms":10000,
     "steps":[
       {"index":0,"name":"click object","timeout_ms":1000,"action":{"click":{"target":"4aac8ca0-af3d-409e-958e-62954e6cb3d1"}}},
-      {"index":1,"name":null,"timeout_ms":1000,"action":{"hover":{"target":[0.5,0.75]}}},
-      {"index":2,"name":null,"timeout_ms":1000,"action":{"drag":{"from":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","to":[0.75,0.75]}}},
-      {"index":3,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"down"}}},
-      {"index":4,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"up"}}},
-      {"index":5,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Enter","action":"tap"}}},
-      {"index":6,"name":null,"timeout_ms":1000,"action":{"advance":{"frames":2}}},
-      {"index":7,"name":null,"timeout_ms":1000,"action":{"wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"visible"}}},
-      {"index":8,"name":null,"timeout_ms":1000,"action":{"assert":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"enabled"}}},
-      {"index":9,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"ready","comparison":{"threshold":"0.05","anti_alias":false,"max_changed_percent":"0"}}}},
-      {"index":10,"name":null,"timeout_ms":1000,"action":{"video":{"action":"start","name":"clip","motion":"real-time","max_duration_ms":5000}}},
-      {"index":11,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"recording","comparison":{"threshold":"1.0","anti_alias":true,"max_changed_percent":"100.0"}}}},
-      {"index":12,"name":null,"timeout_ms":1000,"action":{"video":{"action":"stop"}}}
+      {"index":1,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"down"}}},
+      {"index":2,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Space","action":"up"}}},
+      {"index":3,"name":null,"timeout_ms":1000,"action":{"key":{"key":"Enter","action":"tap"}}},
+      {"index":4,"name":null,"timeout_ms":1000,"action":{"advance":{"frames":2}}},
+      {"index":5,"name":null,"timeout_ms":1000,"action":{"wait":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"visible"}}},
+      {"index":6,"name":null,"timeout_ms":1000,"action":{"assert":{"object":"4aac8ca0-af3d-409e-958e-62954e6cb3d1","state":"enabled"}}},
+      {"index":7,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"ready","comparison":{"threshold":"0.05","anti_alias":false,"max_changed_percent":"0"}}}},
+      {"index":8,"name":null,"timeout_ms":1000,"action":{"video":{"action":"start","name":"clip","motion":"controlled","max_duration_ms":5000}}},
+      {"index":9,"name":null,"timeout_ms":1000,"action":{"screenshot":{"name":"recording","comparison":{"threshold":"1.0","anti_alias":true,"max_changed_percent":"100.0"}}}},
+      {"index":10,"name":null,"timeout_ms":1000,"action":{"video":{"action":"stop"}}}
     ]
   }]
 }"#;

@@ -23,14 +23,17 @@ namespace Battlement
     }
 
     internal sealed record DittoInputFrame(
+        ulong Id,
         DittoInputFrameKind Kind,
         Vector2? Position = null,
-        Key? Key = null
+        Key? Key = null,
+        string? TransactionId = null
     );
 
     internal sealed class DittoVirtualInput : IDisposable
     {
         internal const string VirtualMouseName = "Ditto Virtual Mouse";
+        internal const string VirtualTouchscreenName = "Ditto Virtual Touchscreen";
 
         private const float DragSegmentLength = 0.05f;
         private const int TouchId = 1;
@@ -52,7 +55,10 @@ namespace Battlement
         private Mouse? mouse;
         private Touchscreen? touchscreen;
         private InputDevice? awaitingDevice;
+        private ulong awaitingFrameId;
+        private ulong lastAppliedFrameId;
         private bool pointerHeld;
+        private ulong nextFrameId;
         private bool disposed;
 
         public DittoVirtualInput(DittoPlatform platform, uint width, uint height)
@@ -84,19 +90,24 @@ namespace Battlement
 
         public bool HasHeldInput => pointerHeld || heldKeys.Count > 0;
 
-        public void Click(Vector2 position)
+        public ulong LastAppliedFrameId => lastAppliedFrameId;
+
+        public ulong Click(Vector2 position, string transactionId)
         {
             RequireIdle();
             if (platform == DittoPlatform.IosSimulator)
             {
-                frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.TouchBegin, position));
-                frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.TouchEnd, position));
-                return;
+                Enqueue(DittoInputFrameKind.TouchBegin, position, transactionId: transactionId);
+                return Enqueue(
+                    DittoInputFrameKind.TouchEnd,
+                    position,
+                    transactionId: transactionId
+                );
             }
 
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Move, position));
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Press, position));
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Release, position));
+            Enqueue(DittoInputFrameKind.Move, position, transactionId: transactionId);
+            Enqueue(DittoInputFrameKind.Press, position, transactionId: transactionId);
+            return Enqueue(DittoInputFrameKind.Release, position, transactionId: transactionId);
         }
 
         public bool Hover(Vector2 position)
@@ -107,7 +118,7 @@ namespace Battlement
                 return false;
             }
 
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Move, position));
+            Enqueue(DittoInputFrameKind.Move, position);
             return true;
         }
 
@@ -117,16 +128,16 @@ namespace Battlement
             int segmentCount = DragSegmentCount(from, to);
             if (platform == DittoPlatform.IosSimulator)
             {
-                frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.TouchBegin, from));
+                Enqueue(DittoInputFrameKind.TouchBegin, from);
                 EnqueueSegments(from, to, segmentCount, DittoInputFrameKind.TouchMove);
-                frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.TouchEnd, to));
+                Enqueue(DittoInputFrameKind.TouchEnd, to);
                 return segmentCount;
             }
 
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Move, from));
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Press, from));
+            Enqueue(DittoInputFrameKind.Move, from);
+            Enqueue(DittoInputFrameKind.Press, from);
             EnqueueSegments(from, to, segmentCount, DittoInputFrameKind.Move);
-            frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.Release, to));
+            Enqueue(DittoInputFrameKind.Release, to);
             return segmentCount;
         }
 
@@ -152,16 +163,16 @@ namespace Battlement
             {
                 case DittoKeyAction.Down:
                     RequireKeyState(key, false);
-                    frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.KeyDown, Key: key));
+                    Enqueue(DittoInputFrameKind.KeyDown, key: key);
                     break;
                 case DittoKeyAction.Up:
                     RequireKeyState(key, true);
-                    frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.KeyUp, Key: key));
+                    Enqueue(DittoInputFrameKind.KeyUp, key: key);
                     break;
                 case DittoKeyAction.Tap:
                     RequireKeyState(key, false);
-                    frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.KeyDown, Key: key));
-                    frames.Enqueue(new DittoInputFrame(DittoInputFrameKind.KeyUp, Key: key));
+                    Enqueue(DittoInputFrameKind.KeyDown, key: key);
+                    Enqueue(DittoInputFrameKind.KeyUp, key: key);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action));
@@ -188,6 +199,12 @@ namespace Battlement
             {
                 QueueMouse(frame);
             }
+            Debug.Log(
+                $"[Battlement/Ditto-trace] input-dequeued id={frame.Id} kind={frame.Kind} "
+                    + $"transaction={frame.TransactionId ?? "none"} "
+                    + $"position={frame.Position?.ToString() ?? "none"} "
+                    + $"key={frame.Key?.ToString() ?? "none"}"
+            );
             return frame;
         }
 
@@ -231,10 +248,26 @@ namespace Battlement
         {
             for (int index = 1; index <= count; index++)
             {
-                frames.Enqueue(
-                    new DittoInputFrame(kind, Vector2.Lerp(from, to, (float)index / count))
-                );
+                Enqueue(kind, Vector2.Lerp(from, to, (float)index / count));
             }
+        }
+
+        private ulong Enqueue(
+            DittoInputFrameKind kind,
+            Vector2? position = null,
+            Key? key = null,
+            string? transactionId = null
+        )
+        {
+            var frame = new DittoInputFrame(++nextFrameId, kind, position, key, transactionId);
+            frames.Enqueue(frame);
+            Debug.Log(
+                $"[Battlement/Ditto-trace] input-enqueued id={frame.Id} kind={frame.Kind} "
+                    + $"transaction={frame.TransactionId ?? "none"} "
+                    + $"position={frame.Position?.ToString() ?? "none"} "
+                    + $"key={frame.Key?.ToString() ?? "none"}"
+            );
+            return frame.Id;
         }
 
         private void QueueMouse(DittoInputFrame frame)
@@ -247,6 +280,7 @@ namespace Battlement
             };
             mouse ??= InputSystem.AddDevice<Mouse>(VirtualMouseName);
             awaitingDevice = mouse;
+            awaitingFrameId = frame.Id;
             InputSystem.QueueStateEvent(
                 mouse,
                 new MouseState { position = ToInputPosition(frame.Position!.Value) }.WithButton(
@@ -266,8 +300,9 @@ namespace Battlement
                 _ => throw new InvalidOperationException("Invalid iOS virtual input frame."),
             };
             pointerHeld = phase != InputTouchPhase.Ended;
-            touchscreen ??= InputSystem.AddDevice<Touchscreen>("Ditto Virtual Touchscreen");
+            touchscreen ??= InputSystem.AddDevice<Touchscreen>(VirtualTouchscreenName);
             awaitingDevice = touchscreen;
+            awaitingFrameId = frame.Id;
             InputSystem.QueueStateEvent(
                 touchscreen,
                 new TouchState
@@ -298,7 +333,16 @@ namespace Battlement
                 awaitingDevice is not null
                 && InputState.currentUpdateType == InputUpdateType.Dynamic
             )
+            {
+                Debug.Log(
+                    $"[Battlement/Ditto-trace] input-system-consumed id={awaitingFrameId} "
+                        + $"device={awaitingDevice.name} "
+                        + $"update={InputState.currentUpdateType}"
+                );
+                lastAppliedFrameId = awaitingFrameId;
+                awaitingFrameId = 0;
                 awaitingDevice = null;
+            }
         }
 
         public char? TextCharacter(Key key)

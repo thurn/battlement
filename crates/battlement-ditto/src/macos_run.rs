@@ -31,7 +31,9 @@ use crate::{
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
   macos_watch_capture::WarmMacosPlayer,
-  maintenance_commands, native_video, reactant_assets, run_commands, run_preflight, run_progress,
+  maintenance_commands,
+  native_execution::NativeExecutionLease,
+  native_video, reactant_assets, run_commands, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
@@ -105,6 +107,7 @@ pub(crate) struct Options {
   pub no_build: bool,
   pub update: bool,
   pub filtered: bool,
+  pub native_execution: Option<Arc<NativeExecutionLease>>,
 }
 
 /// Warm process resources retained only by one watch invocation.
@@ -292,6 +295,10 @@ fn execute_inner(
     &build.metadata().identity.fingerprint,
     &build.metadata().identity.source_fingerprint,
     suite.timeouts.run.as_millis(),
+    options
+      .native_execution
+      .as_deref()
+      .map(NativeExecutionLease::id),
   )?;
   let roots = maintenance_commands::cache_roots(suite)?;
   let materializer = Arc::new(ExecutionMaterializer::new(
@@ -320,6 +327,11 @@ fn execute_inner(
       unity_version: macos_build::macos_startup_identity(&build)?.unity_version,
       diagnostics: true,
       storage_directory: active.path().to_path_buf(),
+      native_execution_id: options
+        .native_execution
+        .as_deref()
+        .map(NativeExecutionLease::id)
+        .map(str::to_owned),
     },
     orchestration_path: active.path().join("orchestration.json"),
     player_log_source: active.path().join(".player.log"),
@@ -331,6 +343,10 @@ fn execute_inner(
       interrupt_grace: Duration::from_secs(2),
       poll_interval: Duration::from_millis(10),
     },
+    native_execution: options
+      .native_execution
+      .clone()
+      .context("native macOS execution has no host-global lease")?,
   };
   let capture = match runtime.as_mut() {
     Some(runtime) => runtime.capture(capture_request, materializer.clone(), interrupted)?,

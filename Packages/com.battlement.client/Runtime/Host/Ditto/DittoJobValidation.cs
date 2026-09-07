@@ -83,6 +83,25 @@ namespace Battlement
                 !unsupported.HasValue || !unique.Contains(unsupported.Value),
                 "profile contains a capability unsupported by its platform"
             );
+            Require(
+                !unique.Contains(DittoCapability.Hover) && !unique.Contains(DittoCapability.Drag),
+                "profile contains a capability without a deterministic delivery contract"
+            );
+            Require(
+                profile.DeterminismContract == "ditto-v1",
+                "profile requires the ditto-v1 determinism contract"
+            );
+            if (profile.Platform == DittoPlatform.Webgl)
+            {
+                Require(
+                    profile.NativeExecutionId is null,
+                    "WebGL must not claim native execution ownership"
+                );
+            }
+            else
+            {
+                Identifier("profile.native_execution_id", profile.NativeExecutionId ?? "");
+            }
         }
 
         private static void Display(DittoPlatform platform, DittoDisplay display)
@@ -132,6 +151,10 @@ namespace Battlement
 
         private static void Scenario(DittoJob job, DittoResolvedScenario scenario)
         {
+            Require(
+                scenario.Motion != DittoMotion.RealTime,
+                "real-time motion violates the deterministic execution contract"
+            );
             Require(scenario.TimeoutMs > 0, "scenario timeout must be positive");
             Require(
                 scenario.TimeoutMs <= job.RemainingRunTimeoutMs,
@@ -175,14 +198,11 @@ namespace Battlement
                     Capability(job, DittoCapability.Click);
                     Target(click.Target);
                     break;
-                case DittoStepAction.Hover hover:
-                    Capability(job, DittoCapability.Hover);
-                    Target(hover.Target);
+                case DittoStepAction.Hover:
+                    Require(false, "hover has no deterministic delivery contract");
                     break;
-                case DittoStepAction.Drag drag:
-                    Capability(job, DittoCapability.Drag);
-                    Target(drag.From);
-                    Target(drag.To);
+                case DittoStepAction.Drag:
+                    Require(false, "drag has no deterministic delivery contract");
                     break;
                 case DittoStepAction.Key key:
                     Capability(job, DittoCapability.Key);
@@ -243,19 +263,16 @@ namespace Battlement
                 case DittoInputTarget.Object value:
                     Identifier("input target", value.Id);
                     break;
-                case DittoInputTarget.Coordinates value:
+                case DittoInputTarget.Coordinates:
                     Require(
-                        Coordinate(value.X) && Coordinate(value.Y),
-                        "input coordinates must be finite and from 0.0 through 1.0"
+                        false,
+                        "coordinate input has no deterministic semantic delivery contract"
                     );
                     break;
                 default:
                     throw new JsonSerializationException("Unknown input target.");
             }
         }
-
-        private static bool Coordinate(double value) =>
-            double.IsFinite(value) && value is >= 0 and <= 1;
 
         private static void Key(DittoStepAction.Key key, ScenarioState state)
         {
@@ -315,7 +332,7 @@ namespace Battlement
             Name("video.name", start.Name);
             Require(state.ActiveVideo is null, "videos may not overlap");
             Require(state.Videos.Add(start.Name), "video names must be unique within a scenario");
-            Require(start.Motion != DittoMotion.Instant, "video motion must not be instant");
+            Require(start.Motion == DittoMotion.Controlled, "video motion must be controlled");
             Require(
                 start.MaxDurationMs is > 0 and <= 30_000,
                 "video duration must be from 1 through 30000 milliseconds"

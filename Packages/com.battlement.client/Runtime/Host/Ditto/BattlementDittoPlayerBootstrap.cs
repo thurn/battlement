@@ -16,6 +16,7 @@ namespace Battlement
     {
         private const string SessionArgument = "--battlement-ditto-url";
         private const string SessionEnvironment = "BATTLEMENT_DITTO_URL";
+        private const string NativeExecutionArgument = "--battlement-ditto-native-execution";
 
         private static BattlementDittoPlayerBootstrap? instance;
 
@@ -41,6 +42,8 @@ namespace Battlement
 
         internal static BattlementLogObserver? BootstrapLogs { get; private set; }
 
+        internal static string? NativeExecutionId { get; private set; }
+
         internal static event Action<DittoJob>? JobAvailable;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
@@ -61,6 +64,10 @@ namespace Battlement
             {
                 return;
             }
+            NativeExecutionId = ArgumentValue(
+                Environment.GetCommandLineArgs(),
+                NativeExecutionArgument
+            );
             BootstrapLogs = BattlementLogStore.Observe();
             var host = new GameObject("Battlement Ditto");
             DontDestroyOnLoad(host);
@@ -99,6 +106,16 @@ namespace Battlement
                 return Uri.TryCreate(sessionUrl, UriKind.Absolute, out _);
             }
             return false;
+        }
+
+        private static string? ArgumentValue(string[] arguments, string name)
+        {
+            for (var index = 0; index + 1 < arguments.Length; index++)
+            {
+                if (arguments[index] == name)
+                    return arguments[index + 1];
+            }
+            return null;
         }
 
         private static bool TrySessionUrl(string? value, out string sessionUrl)

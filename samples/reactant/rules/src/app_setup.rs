@@ -59,4 +59,4 @@ pub fn generated_asset_addresses() -> Vec<TextureAddress> {
   assets::addresses()
 }
 
-battlement_native::export_engine!(self::create_engine);
+battlement_native::export_deterministic_engine!(self::create_engine);

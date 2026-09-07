@@ -417,6 +417,14 @@ fn reconcile_index(root: &Path, index: &mut RunIndex) -> Result<bool> {
     let directory = entry.path();
     let pending = directory.join(run_storage_io::PENDING_FILE).is_file();
     let authoritative = directory.join(run_storage_io::RESULT_FILE).is_file() && !pending;
+    if authoritative
+      && index
+        .entries
+        .iter()
+        .any(|entry| entry.run_id == run_id && entry.terminal_status.is_some())
+    {
+      continue;
+    }
     let candidate = if authoritative {
       directory.join(run_storage_io::RESULT_FILE)
     } else {

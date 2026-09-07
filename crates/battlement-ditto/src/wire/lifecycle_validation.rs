@@ -209,6 +209,10 @@ pub(super) fn startup_report(report: &StartupReport) -> Result<()> {
   validation::name("unity_version", &report.unity_version)?;
   validation::sha256("build_fingerprint", &report.build_fingerprint)?;
   validation::sha256("source_fingerprint", &report.source_fingerprint)?;
+  validation::name("determinism_contract", &report.determinism_contract)?;
+  if let Some(id) = &report.native_execution_id {
+    validation::identifier("native_execution_id", id)?;
+  }
   validation::display(report.platform, &report.display)?;
   validation::profile_capabilities(report.platform, &report.capabilities)
 }

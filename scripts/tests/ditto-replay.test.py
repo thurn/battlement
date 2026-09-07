@@ -79,6 +79,66 @@ output.write_text(json.dumps({"status":"passed", "errors":[]}))
         assert marker.read_text() == "executed"
         assert "Original original-failure: failed" in passed.stdout
         assert retained.read_bytes() == original
+        passed_observation = {
+            "semantic_hash": "passed", "event_transcript_hash": "passed-events",
+        }
+        failed_observation = {
+            "semantic_hash": "failed", "event_transcript_hash": "failed-events",
+        }
+        assert ditto_replay.classify_paired_observations(
+            [passed_observation], [failed_observation]
+        ) == "stability-unestablished"
+        assert ditto_replay.classify_paired_observations(
+            [passed_observation, passed_observation],
+            [failed_observation, passed_observation],
+        ) == "nondeterministic-infrastructure"
+        assert ditto_replay.classify_paired_observations(
+            [passed_observation, passed_observation],
+            [failed_observation, failed_observation],
+        ) == "candidate-introduced"
+        base_evidence = [root / "base-one.json", root / "base-two.json"]
+        candidate_evidence = [root / "candidate-one.json", root / "candidate-two.json"]
+        for path in base_evidence:
+            path.write_text(json.dumps({
+                "replay_semantic_hash": "passed",
+                "replay_event_transcript_hash": "passed-events",
+            }))
+        for path in candidate_evidence:
+            path.write_text(json.dumps({
+                "replay_semantic_hash": "failed",
+                "replay_event_transcript_hash": "failed-events",
+            }))
+        classification_path = root / "classification.json"
+        assert ditto_replay.classify_and_retain(
+            base_evidence, candidate_evidence, classification_path
+        ) == "candidate-introduced"
+        retained_classification = json.loads(classification_path.read_text())
+        assert retained_classification["classification"] == "candidate-introduced"
+        assert len(retained_classification["base"]) == 2
+        assert len(retained_classification["candidate"]) == 2
+        first_events = root / "first-events.jsonl"
+        second_events = root / "second-events.jsonl"
+        first_events.write_text(json.dumps({
+            "sequence": 1, "timestamp_unix_us": 10, "job_id": "one",
+            "event_name": "ditto.step", "body": {"scenario_id": "one", "status": "passed"},
+        }) + "\n")
+        second_events.write_text(json.dumps({
+            "sequence": 99, "timestamp_unix_us": 20, "job_id": "two",
+            "event_name": "ditto.step", "body": {"scenario_id": "two", "status": "passed"},
+        }) + "\n")
+        assert ditto_replay.event_transcript_hash(
+            first_events
+        ) == ditto_replay.event_transcript_hash(second_events)
+        second_events.write_text(second_events.read_text() + json.dumps({
+            "event_name": "battlement.frame.slow", "duration_ms": 200,
+        }) + "\n")
+        assert ditto_replay.event_transcript_hash(
+            first_events
+        ) == ditto_replay.event_transcript_hash(second_events)
+        second_events.write_text(second_events.read_text().replace("passed", "failed"))
+        assert ditto_replay.event_transcript_hash(
+            first_events
+        ) != ditto_replay.event_transcript_hash(second_events)
         marker.unlink()
 
         no_comparison = ditto_replay.record(

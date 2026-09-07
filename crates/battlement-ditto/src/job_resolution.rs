@@ -21,6 +21,7 @@ use crate::{
   },
 };
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn resolve(
   selection: &Selection,
   aliases: &BTreeMap<String, Uuid>,
@@ -29,6 +30,7 @@ pub(crate) fn resolve(
   build_fingerprint: &str,
   source_fingerprint: &str,
   timeout_ms: u64,
+  native_execution_id: Option<&str>,
 ) -> Result<Job> {
   let (platform, display, capabilities) = match &selection.profile {
     Profile::Macos { display } => (
@@ -36,8 +38,6 @@ pub(crate) fn resolve(
       display,
       vec![
         Capability::Click,
-        Capability::Hover,
-        Capability::Drag,
         Capability::Key,
         Capability::Png,
         Capability::Video,
@@ -46,13 +46,7 @@ pub(crate) fn resolve(
     Profile::Webgl { display, .. } => (
       Platform::Webgl,
       display,
-      vec![
-        Capability::Click,
-        Capability::Hover,
-        Capability::Drag,
-        Capability::Key,
-        Capability::Png,
-      ],
+      vec![Capability::Click, Capability::Key, Capability::Png],
     ),
     Profile::IosSimulator { .. } => anyhow::bail!("iOS resolution requires observed display facts"),
   };
@@ -73,6 +67,7 @@ pub(crate) fn resolve(
       safe_area: [0, 0, display.width, display.height],
     },
     capabilities,
+    native_execution_id,
   )
 }
 
@@ -86,6 +81,7 @@ pub(crate) fn resolve_ios(
   source_fingerprint: &str,
   timeout_ms: u64,
   display: Display,
+  native_execution_id: Option<&str>,
 ) -> Result<Job> {
   ensure_ios(selection)?;
   self::resolve_inner(
@@ -100,11 +96,11 @@ pub(crate) fn resolve_ios(
     display,
     vec![
       Capability::Click,
-      Capability::Drag,
       Capability::Key,
       Capability::Png,
       Capability::Video,
     ],
+    native_execution_id,
   )
 }
 
@@ -128,6 +124,7 @@ fn resolve_inner(
   platform: Platform,
   display: Display,
   capabilities: Vec<Capability>,
+  native_execution_id: Option<&str>,
 ) -> Result<Job> {
   let job = Job {
     job_id: Uuid::new_v4().to_string(),
@@ -142,6 +139,8 @@ fn resolve_inner(
       build_fingerprint: build_fingerprint.to_owned(),
       source_fingerprint: source_fingerprint.to_owned(),
       capabilities,
+      determinism_contract: "ditto-v1".to_owned(),
+      native_execution_id: native_execution_id.map(str::to_owned),
     },
     scenarios: selection
       .scenarios

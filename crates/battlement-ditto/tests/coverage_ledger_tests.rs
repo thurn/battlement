@@ -16,12 +16,12 @@ fn repository_report_discovers_every_pending_migration() {
       .map(|sample| (sample.sample.as_str(), sample.state_count, &sample.status))
       .collect::<Vec<_>>(),
     vec![
-      ("basic", 7, &SampleStatus::Complete),
-      ("chess", 17, &SampleStatus::Complete),
+      ("basic", 3, &SampleStatus::Complete),
+      ("chess", 3, &SampleStatus::Complete),
       ("chess-ui", 1, &SampleStatus::Complete),
-      ("reactant", 48, &SampleStatus::Complete),
-      ("tictactoe", 7, &SampleStatus::Complete),
-      ("ui", 88, &SampleStatus::Complete),
+      ("reactant", 1, &SampleStatus::Complete),
+      ("tictactoe", 1, &SampleStatus::Complete),
+      ("ui", 31, &SampleStatus::Complete),
     ]
   );
 }

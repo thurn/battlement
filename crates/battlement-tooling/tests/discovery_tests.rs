@@ -157,6 +157,10 @@ fn discovery_uses_host_native_cache_and_pinned_odiff_paths() {
     discovery.caches.root,
     PathBuf::from("/var/cache/tester/Battlement/ditto")
   );
+  assert_eq!(
+    discovery.caches.resource_slots,
+    PathBuf::from("/tmp/Battlement/resource-slots")
+  );
   assert_eq!(discovery.odiff.expected_version.as_deref(), Some("4.5.0"));
   assert!(
     discovery

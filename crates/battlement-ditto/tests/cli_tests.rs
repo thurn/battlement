@@ -3,9 +3,12 @@ use std::{
   fs,
   io::Write,
   process::{Command as ProcessCommand, Stdio},
+  sync::Mutex,
 };
 #[cfg(target_os = "macos")]
 use std::{os::unix::fs::PermissionsExt, path::Path};
+
+static NATIVE_EXECUTION: Mutex<()> = Mutex::new(());
 
 #[test]
 fn core_command_matrix_parses_complete_options() {
@@ -182,6 +185,7 @@ fn parser_output_uses_the_correct_process_stream_and_exit_code() {
 
 #[test]
 fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
+  let _native_execution = NATIVE_EXECUTION.lock().unwrap();
   let temporary = tempfile::tempdir().unwrap();
   let repository = temporary.path().join("repository");
   let baseline = temporary.path().join("baseline-store");
@@ -220,7 +224,7 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
     .args([
       "capture",
       "--profile",
-      "ios",
+      "web",
       "--json",
       "--output",
       output_path.to_str().unwrap(),
@@ -272,6 +276,7 @@ fn missing_odiff_fails_before_building_or_launching_a_player() {
 
 #[cfg(target_os = "macos")]
 fn check_prerequisite_failure(missing_odiff: bool) {
+  let _native_execution = NATIVE_EXECUTION.lock().unwrap();
   let temporary = tempfile::tempdir().unwrap();
   let repository = temporary.path().join("repository");
   let cache = temporary.path().join("cache");
@@ -391,6 +396,7 @@ fn check_prerequisite_failure(missing_odiff: bool) {
 
 #[test]
 fn file_and_standard_input_fragments_produce_complete_handoffs() {
+  let _native_execution = NATIVE_EXECUTION.lock().unwrap();
   let temporary = tempfile::tempdir().unwrap();
   let repository = temporary.path().join("repository");
   let baseline = temporary.path().join("baseline-store");
@@ -443,7 +449,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
     String::from_utf8_lossy(&file.stderr)
   );
   let file_result: serde_json::Value = serde_json::from_slice(&file.stdout).unwrap();
-  assert_eq!(file_result["scenarios"][0]["name"], "fragment hover");
+  assert_eq!(file_result["scenarios"][0]["name"], "fragment assertion");
   assert!(String::from_utf8_lossy(&file.stderr).contains("DITTO_RESULT="));
 
   let mut stdin = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
@@ -469,7 +475,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   );
   let stdin_result: serde_json::Value = serde_json::from_slice(&stdin.stdout).unwrap();
   assert_eq!(stdin_result["suite"], "standard-input");
-  assert_eq!(stdin_result["scenarios"][0]["name"], "fragment hover");
+  assert_eq!(stdin_result["scenarios"][0]["name"], "fragment assertion");
   assert!(String::from_utf8_lossy(&stdin.stderr).contains("DITTO_RESULT="));
 }
 
@@ -482,7 +488,7 @@ fn executable(path: &Path, source: &str) {
 }
 
 const SUITE: &str = r#"name = "fixture"
-default_profile = "ios"
+default_profile = "web"
 
 [player]
 unity_project = "."
@@ -494,16 +500,19 @@ kind = "filesystem"
 namespace = "fixture"
 root = "$BASELINE"
 
-[profiles.ios]
-target = "ios-simulator"
-device = "iPhone 17"
-orientation = "portrait"
+[profiles.web]
+target = "webgl"
+display = { width = 1280, height = 720, scale = 1.0 }
+headless_command = ["fixture-browser", "{url}"]
 
 [[scenarios]]
-name = "unsupported hover"
+name = "unsupported capture"
 
 [[scenarios.steps]]
-hover = { target = [0.5, 0.5] }
+video = { action = "start", name = "capture", motion = "controlled" }
+
+[[scenarios.steps]]
+video = { action = "stop" }
 "#;
 
 #[cfg(target_os = "macos")]
@@ -527,8 +536,11 @@ assert = { object = "00000000-0000-0000-0000-000000000001", state = "exists" }
 "#;
 
 const FRAGMENT: &str = r#"[[scenarios]]
-name = "fragment hover"
+name = "fragment assertion"
 
 [[scenarios.steps]]
-hover = { target = [0.5, 0.5] }
+video = { action = "start", name = "capture", motion = "controlled" }
+
+[[scenarios.steps]]
+video = { action = "stop" }
 "#;

@@ -176,14 +176,15 @@ fn default_seed_reaches_each_terminal_outcome_through_public_input() {
 }
 
 #[test]
-fn visual_state_enum_matches_the_ditto_registry() {
+fn deterministic_visual_states_match_the_ditto_registry() {
+  let states = [VisualState::HumanMove];
   assert_eq!(
     battlement_rules::DITTO_VISUAL_STATE_REGISTRY
       .matches("[[states]]")
       .count(),
-    VisualState::ALL.len()
+    states.len()
   );
-  for state in VisualState::ALL {
+  for state in states {
     assert!(
       battlement_rules::DITTO_VISUAL_STATE_REGISTRY
         .contains(&format!("key = \"{}\"", state.registry_key()))

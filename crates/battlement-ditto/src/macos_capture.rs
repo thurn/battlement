@@ -20,6 +20,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
+  native_execution::NativeExecutionLease,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
   scenario_orchestration::{
     ScenarioMaterializer, ScenarioOrchestrationSnapshot, ScenarioOrchestrator,
@@ -55,6 +56,7 @@ pub struct MacosCaptureRequest<'a> {
   pub player_log_source: PathBuf,
   pub bail_after: Option<u32>,
   pub timeouts: MacosCaptureTimeouts,
+  pub native_execution: Arc<NativeExecutionLease>,
 }
 
 /// Launches the exact executable selected by the immutable build handle.
@@ -66,6 +68,7 @@ pub trait MacosPlayerLauncher {
     log_path: &Path,
     width: u32,
     height: u32,
+    native_execution_id: Option<&str>,
   ) -> Result<Child>;
 }
 
@@ -90,8 +93,10 @@ impl MacosPlayerLauncher for ImmutableMacosLauncher {
     log_path: &Path,
     width: u32,
     height: u32,
+    native_execution_id: Option<&str>,
   ) -> Result<Child> {
-    Command::new(executable)
+    let mut command = Command::new(executable);
+    command
       .arg("--battlement-ditto-url")
       .arg(session_url)
       .arg("-screen-width")
@@ -104,7 +109,11 @@ impl MacosPlayerLauncher for ImmutableMacosLauncher {
       .arg(log_path)
       .stdin(Stdio::null())
       .stdout(Stdio::null())
-      .stderr(Stdio::null())
+      .stderr(Stdio::null());
+    if let Some(id) = native_execution_id {
+      command.arg("--battlement-ditto-native-execution").arg(id);
+    }
+    command
       .spawn()
       .with_context(|| format!("launch immutable macOS player {}", executable.display()))
   }
@@ -141,6 +150,7 @@ pub fn capture_macos(
   materializer: Arc<dyn ScenarioMaterializer>,
   interrupted: &AtomicBool,
 ) -> Result<MacosCaptureOutcome> {
+  let _native_claim = request.native_execution.claim_capture()?;
   let identity = validate_build(&request)?;
   validate_timeouts(request.timeouts)?;
   let player_session_id = Uuid::new_v4().to_string();
@@ -168,6 +178,7 @@ pub fn capture_macos(
     &request.player_log_source,
     request.job.profile.display.width,
     request.job.profile.display.height,
+    Some(request.native_execution.id()),
   )?;
   let mut supervisor = PlayerSupervisor::macos(child);
   let launch_duration = elapsed_ms(launch_started);
@@ -372,6 +383,11 @@ fn validate_build(request: &MacosCaptureRequest<'_>) -> Result<MacosStartupIdent
   ensure!(
     request.requirements.unity_version == identity.unity_version,
     "runtime selected another Unity version"
+  );
+  ensure!(
+    request.job.profile.native_execution_id.as_deref() == Some(request.native_execution.id())
+      && request.requirements.native_execution_id.as_deref() == Some(request.native_execution.id()),
+    "macOS capture does not own the job's native execution lease"
   );
   Ok(identity)
 }

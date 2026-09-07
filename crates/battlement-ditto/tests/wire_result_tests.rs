@@ -709,6 +709,8 @@ fn startup_report() -> StartupReport {
       safe_area: [0, 0, 2, 2],
     },
     capabilities: vec![Capability::Click, Capability::Png, Capability::Video],
+    determinism_contract: "ditto-v1".to_owned(),
+    native_execution_id: None,
   }
 }
 

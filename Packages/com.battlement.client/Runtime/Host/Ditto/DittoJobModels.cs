@@ -75,7 +75,9 @@ namespace Battlement
         DittoDisplay Display,
         string BuildFingerprint,
         string SourceFingerprint,
-        IReadOnlyList<DittoCapability> Capabilities
+        IReadOnlyList<DittoCapability> Capabilities,
+        string DeterminismContract,
+        string? NativeExecutionId
     );
 
     internal sealed record DittoDisplay(

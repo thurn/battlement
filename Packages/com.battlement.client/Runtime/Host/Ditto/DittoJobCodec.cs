@@ -88,17 +88,22 @@ namespace Battlement
                 "name",
                 "platform",
                 "display",
+                "determinism_contract",
+                "native_execution_id",
                 "build_fingerprint",
                 "source_fingerprint",
                 "capabilities"
             );
+            JToken nativeExecutionId = Field(value, "native_execution_id");
             return new DittoResolvedProfile(
                 String(Field(value, "name")),
                 Platform(Field(value, "platform")),
                 Display(Object(Field(value, "display"), "display")),
                 String(Field(value, "build_fingerprint")),
                 String(Field(value, "source_fingerprint")),
-                Array(value, "capabilities", Capability)
+                Array(value, "capabilities", Capability),
+                String(Field(value, "determinism_contract")),
+                nativeExecutionId.Type == JTokenType.Null ? null : String(nativeExecutionId)
             );
         }
 

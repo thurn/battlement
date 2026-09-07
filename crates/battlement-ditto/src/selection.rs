@@ -112,14 +112,8 @@ fn matching_indices(
 
 fn skip_reason(target: Target, scenario: &Scenario) -> Option<String> {
   for step in &scenario.steps {
-    match (&step.action, target) {
-      (StepKind::Hover { .. }, Target::IosSimulator) => {
-        return Some("unsupported-input:hover".to_owned());
-      }
-      (StepKind::Video(_), Target::Webgl) => {
-        return Some("unsupported-step:video".to_owned());
-      }
-      _ => {}
+    if let (StepKind::Video(_), Target::Webgl) = (&step.action, target) {
+      return Some("unsupported-step:video".to_owned());
     }
   }
   None

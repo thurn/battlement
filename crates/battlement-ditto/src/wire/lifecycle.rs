@@ -106,6 +106,8 @@ pub struct StartupReport {
   pub diagnostics: bool,
   pub display: Display,
   pub capabilities: Vec<Capability>,
+  pub determinism_contract: String,
+  pub native_execution_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

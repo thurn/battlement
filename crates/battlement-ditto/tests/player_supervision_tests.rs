@@ -427,6 +427,8 @@ fn job() -> Job {
       build_fingerprint: "a".repeat(64),
       source_fingerprint: "b".repeat(64),
       capabilities: vec![Capability::Click],
+      determinism_contract: "ditto-v1".to_owned(),
+      native_execution_id: Some("e2575e27-3f14-4475-b914-3e70649b7951".to_owned()),
     },
     scenarios: (0..3).map(scenario).collect(),
   }
@@ -445,7 +447,7 @@ fn scenario(index: u32) -> ResolvedScenario {
       name: Some("click".to_owned()),
       timeout_ms: 50,
       action: StepKind::Click {
-        target: InputTarget::Coordinates([0.5, 0.5]),
+        target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
       },
     }],
   }
@@ -461,6 +463,8 @@ fn startup_report() -> StartupReport {
     diagnostics: true,
     display: display(),
     capabilities: vec![Capability::Click],
+    determinism_contract: "ditto-v1".to_owned(),
+    native_execution_id: Some("e2575e27-3f14-4475-b914-3e70649b7951".to_owned()),
   }
 }
 

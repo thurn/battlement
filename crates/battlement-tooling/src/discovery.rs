@@ -100,7 +100,7 @@ fn cache_roots(host: &impl Host, configured: Option<&Path>) -> CacheRoots {
   let resource_slots = host
     .environment("BATTLEMENT_RESOURCE_SLOTS")
     .map(PathBuf::from)
-    .unwrap_or_else(|| user_cache_root(host).join("Battlement/resource-slots"));
+    .unwrap_or_else(|| machine_resource_slots(host));
   CacheRoots {
     runs: root.join("runs"),
     builds: root.join("builds"),
@@ -108,6 +108,17 @@ fn cache_roots(host: &impl Host, configured: Option<&Path>) -> CacheRoots {
     tools: root.join("tools"),
     root,
     resource_slots,
+  }
+}
+
+/// Stable host-level resource root that cannot be partitioned by users or environment overrides.
+pub fn machine_resource_slots(host: &impl Host) -> PathBuf {
+  match host.operating_system() {
+    OperatingSystem::Macos | OperatingSystem::Linux => {
+      PathBuf::from("/tmp/Battlement/resource-slots")
+    }
+    OperatingSystem::Windows => PathBuf::from(r"C:\ProgramData\Battlement\resource-slots"),
+    OperatingSystem::Unsupported => PathBuf::from("/tmp/Battlement/resource-slots"),
   }
 }
 
