@@ -54,6 +54,10 @@ def main(arguments: argparse.Namespace) -> Path:
         perf_log.configured_log_root(), known_operations,
     )
     warnings.extend(operation_warnings)
+    workflow_spans, workflow_warnings = perf_sources.read_workflow_milestones(
+        perf_log.configured_log_root()
+    )
+    warnings.extend(workflow_warnings)
     tollgate_spans = []
     candidates = []
     if not arguments.no_tollgate:
@@ -64,7 +68,7 @@ def main(arguments: argparse.Namespace) -> Path:
     machine_operations = perf_analysis.correlate_activity(
         sessions,
         ci_spans,
-        operation_spans,
+        [*operation_spans, *workflow_spans],
         tollgate_spans,
         candidates,
         REPOSITORY_ROOT,
@@ -284,6 +288,14 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
     )
     _print_ranking("Longest waits", aggregate["longest_waits"], "duration_ms")
     _print_ci_hotspots(aggregate["ci_step_hotspots"])
+    lifecycle = aggregate["lifecycle"]
+    print(
+        "\nLifecycle evidence\n"
+        f"  {lifecycle['synchronized_delivery_count']}/{lifecycle['delivery_count']} "
+        "candidate deliveries reached synchronized remote evidence"
+    )
+    for milestone, count in lifecycle["milestone_counts"].items():
+        print(f"  {count:>9}  {milestone}")
     print("\nAggregate categories")
     for category, duration in sorted(
         aggregate["category_exclusive_ms"].items(),

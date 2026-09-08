@@ -14,6 +14,7 @@ from typing import Any
 import perf_hotspots
 from perf_model import (
     exclusive_durations,
+    format_timestamp,
     interval_difference_ms,
     interval_union_ms,
     SessionTrace,
@@ -217,6 +218,7 @@ def analyze_session(
     normalized_spans = [span.as_dict(exclusive[span.id]) for span in spans]
     return {
         "metadata": session.as_metadata(),
+        "lifecycle": workflow_lifecycle(spans, first),
         "timing": {
             "wall_time_ms": wall_ms,
             "recorded_active_coverage_ms": active_ms,
@@ -263,6 +265,124 @@ def analyze_session(
     }
 
 
+def workflow_lifecycle(spans: list[Span], request_started: float | None) -> dict[str, Any]:
+    """Return explicit task and per-candidate milestones with unknown gaps intact."""
+    milestones = [
+        span
+        for span in spans
+        if span.category == "milestone" and isinstance(span.attributes.get("milestone"), str)
+    ]
+    milestones.sort(key=lambda span: (span.started_at, span.id))
+    events = [
+        {
+            "name": span.attributes["milestone"],
+            "at": format_timestamp(span.started_at),
+            "source": span.source,
+            "status": span.status,
+            "candidate_id": span.attributes.get("candidate_id"),
+            "job_id": span.attributes.get("job_id"),
+        }
+        for span in milestones
+    ]
+
+    def times(name: str, *, passed_only: bool = False) -> list[float]:
+        return [
+            span.started_at
+            for span in milestones
+            if span.attributes.get("milestone") == name
+            and (not passed_only or span.status == "passed")
+        ]
+
+    def elapsed(start: float | None, finish: float | None) -> int | None:
+        if start is None or finish is None or finish < start:
+            return None
+        return round((finish - start) * 1000)
+
+    focused = min(times("focused.passed", passed_only=True), default=None)
+    review = min(times("review.ready", passed_only=True), default=None)
+    submitted = min(times("candidate.submitted", passed_only=True), default=None)
+    synchronized = max(times("candidate.synchronized", passed_only=True), default=None)
+    wrapup = min(times("wrapup.requested"), default=None)
+
+    def first_after(name: str, boundary: float | None) -> float | None:
+        if boundary is None:
+            return None
+        return min((value for value in times(name) if value >= boundary), default=None)
+
+    def last_after(name: str, boundary: float | None) -> float | None:
+        if boundary is None:
+            return None
+        return max((value for value in times(name) if value >= boundary), default=None)
+
+    candidate_ids = sorted(
+        {
+            str(span.attributes["candidate_id"])
+            for span in milestones
+            if span.attributes.get("candidate_id")
+        }
+    )
+    deliveries = []
+    for candidate_id in candidate_ids:
+        candidate = [
+            span for span in milestones if span.attributes.get("candidate_id") == candidate_id
+        ]
+        by_name = {
+            str(span.attributes["milestone"]): span.started_at for span in candidate
+        }
+        deliveries.append(
+            {
+                "candidate_id": candidate_id,
+                "submitted_at": _formatted(by_name.get("candidate.submitted")),
+                "authorized_at": _formatted(by_name.get("candidate.authorized")),
+                "certified_at": _formatted(by_name.get("candidate.certified")),
+                "promoted_at": _formatted(by_name.get("candidate.promoted")),
+                "synchronized_at": _formatted(by_name.get("candidate.synchronized")),
+                "submission_to_remote_ms": elapsed(
+                    by_name.get("candidate.submitted"),
+                    by_name.get("candidate.synchronized"),
+                ),
+                "approval_to_remote_ms": elapsed(
+                    by_name.get("candidate.authorized"),
+                    by_name.get("candidate.synchronized"),
+                ),
+            }
+        )
+    expected = {
+        "focused.passed",
+        "review.ready",
+        "candidate.submitted",
+        "candidate.authorized",
+        "candidate.certified",
+        "candidate.promoted",
+        "candidate.synchronized",
+        "wrapup.requested",
+        "checkpoint.committed",
+        "agent.stopped",
+        "jobs.finished",
+    }
+    observed = {event["name"] for event in events}
+    return {
+        "events": events,
+        "missing": sorted(expected - observed),
+        "durations_ms": {
+            "request_to_first_focused_pass": elapsed(request_started, focused),
+            "request_to_review_ready": elapsed(request_started, review),
+            "request_to_first_candidate": elapsed(request_started, submitted),
+            "request_to_final_remote": elapsed(request_started, synchronized),
+            "wrapup_to_checkpoint": elapsed(
+                wrapup, first_after("checkpoint.committed", wrapup)
+            ),
+            "wrapup_to_agent_stop": elapsed(wrapup, first_after("agent.stopped", wrapup)),
+            "wrapup_to_jobs_finished": elapsed(wrapup, last_after("jobs.finished", wrapup)),
+        },
+        "deliveries": deliveries,
+    }
+
+
+def _formatted(value: float | None) -> str | None:
+    return None if value is None else format_timestamp(value)
+
+
 def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]:
     """Combine session reports without treating parallel work as wall time."""
     operations = [
@@ -274,9 +394,12 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
     findings = [finding for report in reports for finding in report["findings"]]
     waits = [span for report in reports for span in report["longest_waits"]]
     categories: dict[str, int] = defaultdict(int)
+    milestone_counts: dict[str, int] = defaultdict(int)
     for report in reports:
         for category, duration in report["timing"]["category_exclusive_ms"].items():
             categories[category] += duration
+        for event in report.get("lifecycle", {}).get("events", []):
+            milestone_counts[event["name"]] += 1
     longest = sorted(
         operations, key=lambda span: span["duration_ms"], reverse=True
     )[:top]
@@ -312,6 +435,18 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
             report["timing"]["unattributed_agent_turn_ms"] for report in reports
         ),
         "category_exclusive_ms": dict(sorted(categories.items())),
+        "lifecycle": {
+            "milestone_counts": dict(sorted(milestone_counts.items())),
+            "delivery_count": sum(
+                len(report.get("lifecycle", {}).get("deliveries", []))
+                for report in reports
+            ),
+            "synchronized_delivery_count": sum(
+                delivery["synchronized_at"] is not None
+                for report in reports
+                for delivery in report.get("lifecycle", {}).get("deliveries", [])
+            ),
+        },
         "longest_operations": longest,
         "longest_waits": sorted(
             waits, key=lambda span: span["duration_ms"], reverse=True

@@ -21,10 +21,11 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 import perf_analysis  # noqa: E402
 import perf_hotspots  # noqa: E402
 import perf_log  # noqa: E402
-from perf_model import exclusive_durations, interval_difference_ms, interval_union_ms, SessionTrace, Span, Thresholds  # noqa: E402
+from perf_model import exclusive_durations, interval_difference_ms, interval_union_ms, parse_timestamp, SessionTrace, Span, Thresholds  # noqa: E402
 import perf_report  # noqa: E402
 import perf_sources  # noqa: E402
 import perf_timeline_cases  # noqa: E402
+import workflow_event  # noqa: E402
 
 
 def main() -> None:
@@ -41,6 +42,7 @@ def main() -> None:
         _verify_child_folding(root_session, child_session)
         _verify_ci_parsing(root)
         _verify_operation_parsing(root)
+        _verify_workflow_milestones(root)
         _verify_interval_analysis(root_session)
         _verify_ci_step_hotspots()
         _verify_correlation(root, root_session)
@@ -329,6 +331,8 @@ def _verify_operation_parsing(root: Path) -> None:
          "operation_id": "web", "process": process, "exit_code": 0},
         {"timestamp": "2026-01-01T00:00:04Z", "event": "resource.released",
          "operation_id": "web", "resource": "unity-editor"},
+        {"timestamp": "2026-01-01T00:00:04.500Z", "event": "review.ready",
+         "operation_id": "web", "handle_id": "review"},
         {"timestamp": "2026-01-01T00:00:05Z", "event": "operation.finished",
          "operation_id": "web", "outcome": "passed"},
     ])
@@ -345,14 +349,55 @@ def _verify_operation_parsing(root: Path) -> None:
     spans, warnings = perf_sources.read_operation_traces(
         log_root, {"ci-step": "ci-step:ci-step"},
     )
-    assert len(spans) == 5
+    assert len(spans) == 6
     web = next(span for span in spans if span.id == "operation:web")
     assert web.attributes["task_id"] == "root"
     assert web.attributes["build_profile"] == "release"
     assert next(span for span in spans if span.category == "wait").duration_ms == 1000
     assert next(span for span in spans if span.category == "resource").duration_ms == 2000
     assert next(span for span in spans if span.category == "process").name == "cargo"
+    assert next(span for span in spans if span.category == "milestone").name == "review.ready"
     assert any("no terminal event" in warning for warning in warnings)
+
+
+def _verify_workflow_milestones(root: Path) -> None:
+    repository = _repository(root / "workflow-repository")
+    log_root = root / "workflow-logs"
+    workflow_id = "11111111-2222-4333-8444-555555555555"
+    with patch.dict(os.environ, {"CODEX_THREAD_ID": workflow_id}):
+        first = workflow_event.record(
+            "focused.passed",
+            repository=repository,
+            log_root=log_root,
+            workflow_id=workflow_id,
+            outcome="passed",
+        )
+        second = workflow_event.record(
+            "review.ready",
+            repository=repository,
+            log_root=log_root,
+            workflow_id=workflow_id,
+            candidate_id="candidate-1",
+        )
+    assert first == second
+    assert stat.S_IMODE(first.stat().st_mode) == 0o600
+    spans, warnings = perf_sources.read_workflow_milestones(log_root)
+    assert not warnings
+    assert [span.name for span in spans] == ["focused.passed", "review.ready"]
+    assert all(span.attributes["task_id"] == workflow_id for span in spans)
+    assert not perf_log._completed_trace(first)
+    with patch.dict(os.environ, {"CODEX_THREAD_ID": workflow_id}):
+        workflow_event.record(
+            "jobs.finished",
+            repository=repository,
+            log_root=log_root,
+            workflow_id=workflow_id,
+        )
+    assert perf_log._completed_trace(first)
+    malformed = log_root / "workflows/2026-01-01/malformed.jsonl"
+    _write_jsonl(malformed, [{"event": "workflow.milestone", "milestone": "review.ready"}])
+    _, warnings = perf_sources.read_workflow_milestones(log_root)
+    assert any("malformed workflow milestone" in warning for warning in warnings)
 
 
 def _verify_interval_analysis(session: SessionTrace) -> None:
@@ -490,19 +535,26 @@ def _verify_correlation(root: Path, session: SessionTrace) -> None:
         2, 2.5, "passed",
         attributes={"operation_id": "web", "task_id": "root", "root_operation_id": "web"},
     )
+    milestone = Span(
+        "workflow:root:focused", None, None, "workflow", "milestone", "focused.passed",
+        2.75, 2.75, "passed",
+        attributes={"workflow_id": "root", "task_id": "root", "milestone": "focused.passed"},
+    )
     perf_analysis.correlate_activity(
-        [session], [run], [operation], [tollgate], [candidate], repository, warnings,
+        [session], [run], [operation, milestone], [tollgate], [candidate], repository, warnings,
     )
     assert run.session_id == "root"
     assert run.parent_id == wrapper.id
     assert tollgate.session_id == "root"
     assert tollgate.association == "exact_tree"
     assert operation.session_id == "root"
+    assert milestone.session_id == "root"
     report = perf_analysis.analyze_session(session, Thresholds(1, 1, 1, 1), 20)
     assert wrapper.id not in {span["id"] for span in report["longest_operations"]}
     assert next(
         span for span in report["spans"] if span["id"] == wrapper.id
     )["exclusive_duration_ms"] == 1000
+    assert report["lifecycle"]["events"][0]["name"] == "focused.passed"
 
 
 def _verify_tollgate_retries(root: Path) -> None:
@@ -531,13 +583,38 @@ def _verify_tollgate_retries(root: Path) -> None:
         ],
         "history_items": [],
     }
-    with patch.object(perf_sources, "_run_json_command", side_effect=[status, ["unknown"]]):
+    history = [
+        {"kind": "candidate.created", "created_at": "2026-01-01T00:00:08Z", "payload": {"id": candidate_id}},
+        {"kind": "candidate.promotion-authorized", "created_at": "2026-01-01T00:00:09Z", "payload": {"item_id": candidate_id}},
+        {"kind": "queue.item-updated", "created_at": "2026-01-01T00:00:10Z", "payload": {"id": candidate_id, "certificate_id": "certificate"}},
+        {"kind": "promotion.completed", "created_at": "2026-01-01T00:00:11Z", "payload": {"id": candidate_id}},
+        {"kind": "queue.item-updated", "created_at": "2026-01-01T00:00:12Z", "payload": {"id": candidate_id, "remote_state": "synchronized"}},
+        "unknown",
+    ]
+    with patch.object(perf_sources, "_run_json_command", side_effect=[status, history]):
         spans, warnings, candidates = perf_sources.read_tollgate(root)
     assert len([span for span in spans if span.id.startswith("tg-buildset:")]) == 2
     assert candidates[0]["attempts"][1]["attempt"] == 2
     assert any("non-object" in warning for warning in warnings)
     findings = perf_analysis.workflow_findings(spans, Thresholds(1, 1, 1, 1))
     assert any(finding["code"] == "tollgate-retry" for finding in findings)
+    assert len([span for span in spans if span.category == "milestone"]) == 5
+    lifecycle = perf_analysis.workflow_lifecycle(
+        spans, parse_timestamp("2025-12-31T23:59:59Z")
+    )
+    assert lifecycle["deliveries"] == [
+        {
+            "candidate_id": candidate_id,
+            "submitted_at": "2026-01-01T00:00:08.000Z",
+            "authorized_at": "2026-01-01T00:00:09.000Z",
+            "certified_at": "2026-01-01T00:00:10.000Z",
+            "promoted_at": "2026-01-01T00:00:11.000Z",
+            "synchronized_at": "2026-01-01T00:00:12.000Z",
+            "submission_to_remote_ms": 4000,
+            "approval_to_remote_ms": 3000,
+        }
+    ]
+    assert lifecycle["durations_ms"]["request_to_final_remote"] == 13_000
 
 
 def _verify_private_report(root: Path) -> None:

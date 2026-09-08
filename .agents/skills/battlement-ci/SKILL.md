@@ -13,6 +13,11 @@ While editing, choose the smallest check covering the changed behavior:
 `cargo test -p <crate>`, `cargo test --manifest-path samples/<sample>/rules/Cargo.toml`,
 or an existing script test. Prefer black-box behavior and native Ditto for
 player-visible changes; use `battlement-ditto` for suite selection and probes.
+After the first relevant focused pass, record `focused.passed` with
+`scripts/workflow_event.py`; record `review.ready` only when the actual review
+artifact or inspectable change is ready. Tollgate supplies later candidate,
+certificate, promotion, and synchronization milestones to the performance
+report. Record only observed boundaries; missing evidence remains unknown.
 
 Before final validation, stage all intended files and run
 `scripts/ci_job.py start`. Keep its returned job ID; use `status` or bounded

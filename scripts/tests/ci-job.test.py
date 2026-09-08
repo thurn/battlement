@@ -15,6 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import ci_job  # noqa: E402
+import perf_sources  # noqa: E402
 
 
 def await_state(path: Path, state: str, timeout: float = 5) -> dict:
@@ -30,6 +31,8 @@ def await_state(path: Path, state: str, timeout: float = 5) -> dict:
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-job-test.") as temporary:
         os.environ["BATTLEMENT_CI_JOB_ROOT"] = temporary
+        os.environ["BATTLEMENT_LOG_ROOT"] = str(Path(temporary) / "performance")
+        os.environ["CODEX_THREAD_ID"] = "11111111-2222-4333-8444-555555555555"
         command = [sys.executable, "-c",
                    "import time; print('==> Fixture', flush=True); time.sleep(.4)"]
         first = ci_job.start_job(REPOSITORY_ROOT, ["--full"], command=command)
@@ -54,6 +57,12 @@ def main() -> None:
         passed = ci_job.wait_for(path, running["revision"], 5)
         assert passed["state"] == "passed"
         assert passed["timed_out"] is False
+        milestones, warnings = perf_sources.read_workflow_milestones(
+            Path(os.environ["BATTLEMENT_LOG_ROOT"])
+        )
+        assert not warnings
+        completed = next(span for span in milestones if span.attributes["job_id"] == first["job_id"])
+        assert completed.name == "jobs.finished" and completed.status == "passed"
 
         long_command = [sys.executable, "-c", "import time; time.sleep(30)"]
         cancelable = ci_job.start_job(REPOSITORY_ROOT, ["--ditto"], command=long_command)

@@ -601,6 +601,53 @@ def read_operation_traces(
     return spans, warnings
 
 
+def read_workflow_milestones(log_root: Path) -> tuple[list[Span], list[str]]:
+    """Read explicit task milestones without inferring intent from transcript prose."""
+    spans: list[Span] = []
+    warnings: list[str] = []
+    for path in sorted((log_root / "workflows").glob("**/*.jsonl")):
+        for index, record in enumerate(_read_jsonl(path, warnings)):
+            if record.get("event") != "workflow.milestone":
+                warnings.append(f"Ignored unsupported workflow event in {path}.")
+                continue
+            workflow_id = record.get("workflow_id")
+            milestone = record.get("milestone")
+            timestamp = parse_timestamp(record.get("timestamp"))
+            context = record.get("context")
+            if (
+                not isinstance(workflow_id, str)
+                or not isinstance(milestone, str)
+                or timestamp is None
+                or not isinstance(context, dict)
+            ):
+                warnings.append(f"Ignored malformed workflow milestone in {path}.")
+                continue
+            attributes = {
+                **context,
+                "workflow_id": workflow_id,
+                "milestone": milestone,
+                "candidate_id": record.get("candidate_id"),
+                "job_id": record.get("job_id"),
+                "clock_domain": record.get("clock_domain"),
+                "source_path": str(path),
+            }
+            spans.append(
+                Span(
+                    f"workflow:{workflow_id}:{index}:{milestone}",
+                    None,
+                    None,
+                    "workflow",
+                    "milestone",
+                    milestone,
+                    timestamp,
+                    timestamp,
+                    record.get("outcome") or "passed",
+                    attributes=attributes,
+                )
+            )
+    return spans, warnings
+
+
 def _append_operation_children(
     spans: list[Span], records: list[dict[str, Any]], operation_id: str,
     attributes: dict[str, Any], warnings: list[str],
@@ -635,6 +682,18 @@ def _append_operation_children(
             _event_span(spans, parent, f"process:{operation_id}:{index}", "process",
                         record.get("executable", start.get("executable", "Child process")),
                         start, record, attributes)
+        elif event == "review.ready":
+            milestone = {**record, "milestone": "review.ready"}
+            _event_span(
+                spans,
+                parent,
+                f"milestone:{operation_id}:{index}",
+                "milestone",
+                "review.ready",
+                milestone,
+                milestone,
+                attributes,
+            )
     for resource, starts in queued.items():
         for start in starts:
             warnings.append(f"Operation {operation_id} has an unfinished {resource} queue wait.")
@@ -750,17 +809,23 @@ def read_tollgate(repository_root: Path) -> tuple[list[Span], list[str], list[di
     spans: list[Span] = []
     candidates: list[dict[str, Any]] = []
     history_by_candidate: dict[str, list[dict[str, Any]]] = {}
+    unsupported_history_payloads = 0
     for event in history:
         if not isinstance(event, dict):
             warnings.append("Ignored a non-object Tollgate history record.")
             continue
         payload = event.get("payload", {})
         if not isinstance(payload, dict):
-            warnings.append("Ignored a Tollgate history record with a non-object payload.")
+            unsupported_history_payloads += 1
             continue
         candidate_id = payload.get("item_id") or payload.get("id")
         if candidate_id:
             history_by_candidate.setdefault(candidate_id, []).append(event)
+    if unsupported_history_payloads:
+        warnings.append(
+            f"Ignored {unsupported_history_payloads} Tollgate history records with "
+            "non-object payloads."
+        )
     for candidate_id, entry in items_by_id.items():
         item = entry.get("item", {})
         buildset = entry.get("buildset") or {}
@@ -844,6 +909,71 @@ def _append_tollgate_spans(
     authorized = parse_timestamp(item.get("promotion_authorized_at"))
     finished = max(finishes, default=None)
     lifecycle_attributes = {"candidate_id": candidate_id, "candidate_state": item.get("state")}
+    lifecycle_events = (
+        (
+            "candidate.submitted",
+            next((event for event in history if event.get("kind") == "candidate.created"), None),
+        ),
+        (
+            "candidate.authorized",
+            next(
+                (
+                    event
+                    for event in history
+                    if event.get("kind") == "candidate.promotion-authorized"
+                ),
+                None,
+            ),
+        ),
+        (
+            "candidate.certified",
+            next(
+                (
+                    event
+                    for event in history
+                    if event.get("kind") == "queue.item-updated"
+                    and isinstance(event.get("payload"), dict)
+                    and event["payload"].get("certificate_id")
+                ),
+                None,
+            ),
+        ),
+        (
+            "candidate.promoted",
+            next((event for event in history if event.get("kind") == "promotion.completed"), None),
+        ),
+        (
+            "candidate.synchronized",
+            next(
+                (
+                    event
+                    for event in history
+                    if event.get("kind") == "queue.item-updated"
+                    and isinstance(event.get("payload"), dict)
+                    and event["payload"].get("remote_state") == "synchronized"
+                ),
+                None,
+            ),
+        ),
+    )
+    for milestone, event in lifecycle_events:
+        timestamp = parse_timestamp(event.get("created_at")) if event else None
+        if timestamp is None:
+            continue
+        spans.append(
+            Span(
+                f"tg-milestone:{candidate_id}:{milestone}",
+                None,
+                None,
+                "tollgate",
+                "milestone",
+                milestone,
+                timestamp,
+                timestamp,
+                "passed",
+                attributes={**lifecycle_attributes, "milestone": milestone},
+            )
+        )
     if finished is not None and authorized is not None and authorized > finished:
         spans.append(
             Span(

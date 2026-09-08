@@ -269,7 +269,7 @@ def enforce_retention(
     maximum_bytes: int,
     protected: set[Path] | None = None,
 ) -> list[Path]:
-    """Remove oldest generated reports, then completed CI traces, under a cap."""
+    """Remove oldest generated reports, then completed traces, under a cap."""
     protected = {path.resolve() for path in (protected or set())}
     candidates: list[tuple[int, int, Path]] = []
     total = 0
@@ -281,14 +281,19 @@ def enforce_retention(
             retained_ci.add(root_id)
         except (OSError, ValueError):
             retained_ci.add(path.stem)
-    for priority, pattern in ((0, "reports/*.json"), (1, "ci/**/*.jsonl"), (2, "operations/**/*.jsonl")):
+    for priority, pattern in (
+        (0, "reports/*.json"),
+        (1, "ci/**/*.jsonl"),
+        (2, "operations/**/*.jsonl"),
+        (3, "workflows/**/*.jsonl"),
+    ):
         for path in log_root.glob(pattern):
             try:
                 metadata = path.stat()
             except FileNotFoundError:
                 continue
             total += metadata.st_size
-            completed = priority == 0 or _completed_ci_trace(path)
+            completed = priority == 0 or _completed_trace(path)
             if priority == 2:
                 try:
                     with path.open() as source:
@@ -319,7 +324,7 @@ def enforce_retention(
     return removed
 
 
-def _completed_ci_trace(path: Path) -> bool:
+def _completed_trace(path: Path) -> bool:
     try:
         with path.open("rb") as source:
             source.seek(max(0, path.stat().st_size - 4096))
@@ -331,5 +336,11 @@ def _completed_ci_trace(path: Path) -> bool:
             record = json.loads(line)
         except json.JSONDecodeError:
             continue
-        return isinstance(record, dict) and record.get("event") in {"ci.run_finished", "operation.finished"}
+        return isinstance(record, dict) and (
+            record.get("event") in {"ci.run_finished", "operation.finished"}
+            or (
+                record.get("event") == "workflow.milestone"
+                and record.get("milestone") == "jobs.finished"
+            )
+        )
     return False

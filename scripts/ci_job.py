@@ -22,6 +22,7 @@ import perf_log
 import operation_log
 from platform_support import lock_file, unlock_file
 import process_identity
+import workflow_event
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -259,6 +260,18 @@ def supervise(path: Path) -> int:
             "canceled" if canceled else "passed" if result == 0 else "failed")
         update(path, state=state, exit_code=result, finished_at=utc_now(), child_process=None)
         operation.finish(state, result, handle_path=str(path))
+        task_id = job["key"].get("task_id")
+        if task_id:
+            try:
+                workflow_event.record(
+                    "jobs.finished",
+                    repository=repository,
+                    workflow_id=task_id,
+                    job_id=job["job_id"],
+                    outcome=state if state in {"passed", "failed", "canceled"} else "failed",
+                )
+            except (OSError, ValueError):
+                pass
     return result
 
 
