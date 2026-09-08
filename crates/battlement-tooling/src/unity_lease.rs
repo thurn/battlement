@@ -1,8 +1,10 @@
 use std::{
   fs::{self, File, OpenOptions},
   path::{Path, PathBuf},
+  process,
+  sync::atomic::{AtomicU64, Ordering},
   thread,
-  time::Duration,
+  time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context, Result};
@@ -16,10 +18,19 @@ const COMPILER_CAPACITY_UNITS: usize = 3;
 const NATIVE_PLAYER_CAPACITY_UNITS: usize = 2;
 const NATIVE_PLAYER_SLOTS: usize = 3;
 const UNITY_EDITOR_CAPACITY_UNITS: usize = 3;
+const STALE_TICKET_GRACE: Duration = Duration::from_secs(5);
+static TICKET_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
 struct SlotSet {
   files: Vec<(File, PathBuf, usize)>,
+}
+
+#[derive(Debug)]
+struct AdmissionTicket {
+  file: Option<File>,
+  path: PathBuf,
+  prefix: String,
 }
 
 /// Machine capacity held while one bounded Cargo writer is running.
@@ -67,8 +78,11 @@ impl CompilerCapacityLease {
 
   /// Waits for the capacity assigned to one three-job Cargo writer.
   pub fn acquire(directory: &Path) -> Result<Self> {
+    let ticket = AdmissionTicket::join(directory, "machine-heavy")?;
     loop {
-      if let Some(lease) = Self::try_acquire(directory)? {
+      if ticket.is_first()?
+        && let Some(lease) = Self::try_acquire(directory)?
+      {
         return Ok(lease);
       }
       thread::sleep(Duration::from_millis(100));
@@ -91,8 +105,11 @@ impl BrowserCapacityLease {
 
   /// Waits until one bounded browser session can start.
   pub fn acquire(directory: &Path) -> Result<Self> {
+    let ticket = AdmissionTicket::join(directory, "machine-heavy")?;
     loop {
-      if let Some(lease) = Self::try_acquire(directory)? {
+      if ticket.is_first()?
+        && let Some(lease) = Self::try_acquire(directory)?
+      {
         return Ok(lease);
       }
       thread::sleep(Duration::from_millis(100));
@@ -119,8 +136,11 @@ impl NativePlayerCapacityLease {
 
   /// Waits until one bounded native player session can start.
   pub fn acquire(directory: &Path) -> Result<Self> {
+    let ticket = AdmissionTicket::join(directory, "machine-heavy")?;
     loop {
-      if let Some(lease) = Self::try_acquire(directory)? {
+      if ticket.is_first()?
+        && let Some(lease) = Self::try_acquire(directory)?
+      {
         return Ok(lease);
       }
       thread::sleep(Duration::from_millis(100));
@@ -150,8 +170,11 @@ impl UnityEditorLease {
 
   /// Waits until one shared slot can be acquired.
   pub fn acquire(directory: &Path) -> Result<Self> {
+    let ticket = AdmissionTicket::join(directory, "machine-heavy")?;
     loop {
-      if let Some(lease) = Self::try_acquire(directory)? {
+      if ticket.is_first()?
+        && let Some(lease) = Self::try_acquire(directory)?
+      {
         return Ok(lease);
       }
       thread::sleep(Duration::from_millis(100));
@@ -201,6 +224,79 @@ impl Drop for SlotSet {
     for (file, _, _) in &self.files {
       let _ = FileExt::unlock(file);
     }
+  }
+}
+
+impl AdmissionTicket {
+  fn join(directory: &Path, name: &str) -> Result<Self> {
+    fs::create_dir_all(directory)
+      .with_context(|| format!("create resource slot directory {}", directory.display()))?;
+    let prefix = format!(".{name}.queue.");
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let path = directory.join(format!(
+      "{prefix}{timestamp:020}.{:010}.{:010}.lock",
+      process::id(),
+      TICKET_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    let file = OpenOptions::new()
+      .create_new(true)
+      .read(true)
+      .write(true)
+      .open(&path)?;
+    file.set_len(1)?;
+    file.lock_exclusive()?;
+    Ok(Self {
+      file: Some(file),
+      path,
+      prefix,
+    })
+  }
+
+  fn is_first(&self) -> Result<bool> {
+    let mut tickets = fs::read_dir(self.path.parent().expect("ticket path has a parent"))?
+      .filter_map(|entry| entry.ok())
+      .filter(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        name.starts_with(&self.prefix) && name.ends_with(".lock")
+      })
+      .map(|entry| entry.path())
+      .collect::<Vec<_>>();
+    tickets.sort();
+    for path in tickets {
+      if path == self.path {
+        return Ok(true);
+      }
+      let Ok(file) = OpenOptions::new().read(true).write(true).open(&path) else {
+        continue;
+      };
+      if file.try_lock_exclusive().is_ok() {
+        let stale = path
+          .metadata()
+          .and_then(|metadata| metadata.modified())
+          .ok()
+          .and_then(|modified| modified.elapsed().ok())
+          .is_some_and(|age| age >= STALE_TICKET_GRACE);
+        let _ = FileExt::unlock(&file);
+        drop(file);
+        if stale {
+          let _ = fs::remove_file(path);
+          continue;
+        }
+      }
+      return Ok(false);
+    }
+    anyhow::bail!("resource admission ticket disappeared while waiting")
+  }
+}
+
+impl Drop for AdmissionTicket {
+  fn drop(&mut self) {
+    if let Some(file) = self.file.take() {
+      let _ = FileExt::unlock(&file);
+      drop(file);
+    }
+    let _ = fs::remove_file(&self.path);
   }
 }
 

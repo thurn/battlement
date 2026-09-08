@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import itertools
 import os
 from pathlib import Path
 import time
@@ -25,6 +26,55 @@ GLOBAL_RESOURCE_ROOT = Path(
     )
 )
 MACHINE_CAPACITY = 6
+STALE_TICKET_SECONDS = 5
+_TICKET_SEQUENCE = itertools.count()
+
+
+class AdmissionTicket:
+    """One FIFO position for a named cross-process resource."""
+
+    def __init__(self, directory: Path, name: str) -> None:
+        self.directory = directory
+        self.prefix = f".{name}.queue."
+        self.path = directory / (
+            f"{self.prefix}{time.time_ns():020d}.{os.getpid():010d}."
+            f"{next(_TICKET_SEQUENCE):010d}.lock"
+        )
+        self.file = self.path.open("x+")
+        if not try_lock_file(self.file):
+            self.file.close()
+            self.path.unlink(missing_ok=True)
+            raise RuntimeError("new admission ticket could not be locked")
+
+    def is_first(self) -> bool:
+        """Return whether no older live ticket precedes this one."""
+        for path in sorted(self.directory.glob(f"{self.prefix}*.lock")):
+            if path == self.path:
+                return True
+            try:
+                candidate = path.open("a+")
+            except FileNotFoundError:
+                continue
+            try:
+                if try_lock_file(candidate):
+                    age = time.time() - path.stat().st_mtime
+                    unlock_file(candidate)
+                    if age >= STALE_TICKET_SECONDS:
+                        candidate.close()
+                        path.unlink(missing_ok=True)
+                        continue
+                return False
+            finally:
+                if not candidate.closed:
+                    candidate.close()
+        raise RuntimeError("admission ticket disappeared while waiting")
+
+    def close(self) -> None:
+        """Remove this queue position without affecting another waiter."""
+        if not self.file.closed:
+            unlock_file(self.file)
+            self.file.close()
+            self.path.unlink(missing_ok=True)
 
 
 class SlotLease:
@@ -46,8 +96,12 @@ class SlotLease:
         self.directory.mkdir(parents=True, exist_ok=True)
         started = time.monotonic_ns()
         self._event("resource.queued")
-        while not self._try_acquire():
-            time.sleep(0.1)
+        ticket = AdmissionTicket(self.directory, self.name)
+        try:
+            while not ticket.is_first() or not self._try_acquire():
+                time.sleep(0.1)
+        finally:
+            ticket.close()
         self.acquired_ns = time.monotonic_ns()
         self._event(
             "resource.acquired",

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -52,6 +53,34 @@ def main() -> None:
         occupied.close()
         waiter.join(timeout=2)
         assert acquired.is_set(), "an atomic request was not admitted after capacity released"
+
+        held = SlotLease(locks, "fair-heavy", 1).acquire()
+        order = []
+
+        def acquire_in_order(label: str) -> None:
+            with SlotLease(locks, "fair-heavy", 1):
+                order.append(label)
+                time.sleep(0.05)
+
+        first_waiter = threading.Thread(target=acquire_in_order, args=("first",))
+        second_waiter = threading.Thread(target=acquire_in_order, args=("second",))
+        first_waiter.start()
+        while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 1:
+            time.sleep(0.01)
+        second_waiter.start()
+        while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 2:
+            time.sleep(0.01)
+        held.close()
+        first_waiter.join(timeout=2)
+        second_waiter.join(timeout=2)
+        assert order == ["first", "second"], f"queued leases were not FIFO: {order}"
+
+        stale = locks / ".stale-heavy.queue.00000000000000000000.0000000000.0000000000.lock"
+        stale.touch()
+        old = time.time() - 10
+        os.utime(stale, (old, old))
+        with SlotLease(locks, "stale-heavy", 1):
+            assert not stale.exists(), "a stale admission ticket blocked live work"
 
         compiler = SlotLease(locks, "machine-heavy", 6, 3).acquire()
         player = SlotLease(locks, "machine-heavy", 6, 2).acquire()
