@@ -8,10 +8,10 @@ from collections.abc import Callable
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
-import subprocess
 import time
 
 import perf_log
+import operation_log
 
 
 _repository_root = Path(__file__).resolve().parent.parent
@@ -60,12 +60,7 @@ def run_step(
             if function is not None:
                 function()
             else:
-                subprocess.run(
-                    command,
-                    cwd=_repository_root,
-                    env=environment,
-                    check=True,
-                )
+                operation_log.run(command, cwd=_repository_root, environment=environment)
     finally:
         elapsed = time.monotonic() - started
         print(f"<== {name} ({elapsed:.1f}s)", flush=True)

@@ -852,6 +852,10 @@ def run_ci(
         run_reactant_asset_fast_lane()
         reactant_cli_seconds = time.monotonic() - reactant_cli_started
     run_step(
+        "Test operation telemetry",
+        [sys.executable, "scripts/tests/operation-log.test.py"],
+    )
+    run_step(
         "Test resource slots",
         [sys.executable, "scripts/tests/resource-slots.test.py"],
     )

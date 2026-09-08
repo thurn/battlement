@@ -18,6 +18,8 @@ import time
 from typing import Any, TextIO
 import uuid
 
+import operation_log
+
 from platform_support import lock_file, unlock_file
 
 
@@ -110,9 +112,11 @@ class CiTrace:
         monotonic_ns: Callable[[], int] = time.monotonic_ns,
     ) -> None:
         self.run_id = str(uuid.uuid4())
+        self.operation = operation_log.Operation(repository_root, "CI", operation_id=self.run_id, metadata=metadata, log_root=log_root)
         self.log_root = configured_log_root() if log_root is None else log_root
         self.path: Path | None = None
         self._file: TextIO | None = None
+        self.repository_root = repository_root
         self._lock = Lock()
         self._thread_state = local()
         self._monotonic_ns = monotonic_ns
@@ -138,6 +142,8 @@ class CiTrace:
             codex_session_id=os.environ.get("CODEX_SESSION_ID"),
             codex_thread_id=os.environ.get("CODEX_THREAD_ID"),
             python_executable=sys.executable,
+            operation_log_path=str(self.operation.path) if self.operation.path else None,
+            root_operation_id=self.operation.context["root_operation_id"],
             **git_metadata(repository_root),
             **metadata,
         )
@@ -191,7 +197,11 @@ class CiTrace:
         outcome = "passed"
         error_type = None
         try:
-            yield span
+            with operation_log.Operation(
+                self.repository_root, name, operation_id=span.span_id, parent_id=parent,
+                context=self.operation.context, metadata=attributes, log_root=self.log_root,
+            ):
+                yield span
         except BaseException as error:
             outcome = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
             error_type = type(error).__name__
@@ -213,6 +223,7 @@ class CiTrace:
 
     def finish(self, outcome: str, exit_code: int) -> None:
         """Record the run result and close its file."""
+        self.operation.finish(outcome, exit_code)
         duration_ms = round((self._monotonic_ns() - self._started_ns) / 1_000_000)
         self.event(
             "ci.run_finished",
@@ -262,7 +273,15 @@ def enforce_retention(
     protected = {path.resolve() for path in (protected or set())}
     candidates: list[tuple[int, int, Path]] = []
     total = 0
-    for priority, pattern in ((0, "reports/*.json"), (1, "ci/**/*.jsonl")):
+    retained_ci = set()
+    for path in log_root.glob("ci/**/*.jsonl"):
+        try:
+            with path.open() as source:
+                root_id = json.loads(source.readline()).get("root_operation_id", path.stem)
+            retained_ci.add(root_id)
+        except (OSError, ValueError):
+            retained_ci.add(path.stem)
+    for priority, pattern in ((0, "reports/*.json"), (1, "ci/**/*.jsonl"), (2, "operations/**/*.jsonl")):
         for path in log_root.glob(pattern):
             try:
                 metadata = path.stat()
@@ -270,6 +289,14 @@ def enforce_retention(
                 continue
             total += metadata.st_size
             completed = priority == 0 or _completed_ci_trace(path)
+            if priority == 2:
+                try:
+                    with path.open() as source:
+                        root_id = json.loads(source.readline()).get("context", {}).get("root_operation_id")
+                    if root_id in retained_ci:
+                        completed = False
+                except (OSError, ValueError):
+                    completed = False
             if path.resolve() not in protected and completed:
                 candidates.append((priority, metadata.st_mtime_ns, path))
     removed = []
@@ -304,5 +331,5 @@ def _completed_ci_trace(path: Path) -> bool:
             record = json.loads(line)
         except json.JSONDecodeError:
             continue
-        return isinstance(record, dict) and record.get("event") == "ci.run_finished"
+        return isinstance(record, dict) and record.get("event") in {"ci.run_finished", "operation.finished"}
     return False

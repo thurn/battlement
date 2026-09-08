@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 import time
 
+import operation_log
+
 from platform_support import try_lock_file, unlock_file, user_cache_path
 
 
@@ -27,10 +29,14 @@ class SlotLease:
         self.name = name
         self.count = count
         self.file = None
+        self.operation = operation_log.current()
+        self.acquired_ns = None
 
     def acquire(self) -> "SlotLease":
         """Wait for and exclusively lock one named slot."""
         self.directory.mkdir(parents=True, exist_ok=True)
+        started = time.monotonic_ns()
+        self._event("resource.queued")
         while self.file is None:
             for index in range(self.count):
                 candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
@@ -39,6 +45,8 @@ class SlotLease:
                         candidate.close()
                         continue
                     self.file = candidate
+                    self.acquired_ns = time.monotonic_ns()
+                    self._event("resource.acquired", slot=index, queue_duration_ms=round((self.acquired_ns - started) / 1_000_000))
                     break
                 except OSError:
                     candidate.close()
@@ -52,6 +60,12 @@ class SlotLease:
             unlock_file(self.file)
             self.file.close()
             self.file = None
+            self._event("resource.released", held_duration_ms=round((time.monotonic_ns() - self.acquired_ns) / 1_000_000))
+
+    def _event(self, event: str, **attributes) -> None:
+        if self.operation:
+            self.operation.event(event, resource=self.name, capacity=self.count,
+                                 owner=self.operation.process, **attributes)
 
     def __enter__(self) -> "SlotLease":
         return self.acquire()
