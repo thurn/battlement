@@ -853,6 +853,10 @@ def run_ci(
         "Check Trox localization artifacts",
         [sys.executable, "scripts/trox_validation.py"],
     )
+    run_step(
+        "Prepare validation inputs",
+        [sys.executable, "scripts/prepare_validation.py", "check"],
+    )
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     for workspace in sample_workspaces:
         run_step(
@@ -878,6 +882,10 @@ def run_ci(
     run_step(
         "Test operation telemetry",
         [sys.executable, "scripts/tests/operation-log.test.py"],
+    )
+    run_step(
+        "Test validation preparation",
+        [sys.executable, "scripts/tests/prepare-validation.test.py"],
     )
     run_step(
         "Test resource slots",

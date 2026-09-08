@@ -9,6 +9,11 @@ Run from the task worktree root. Use the checkout CLI so commands match source:
 `cargo run --quiet -p battlement-cli -- <command>`. Consult its `--help` for
 options; the parser is `crates/battlement-cli/src/main.rs`.
 
+Before building, run `python3 scripts/prepare_validation.py check`. When it
+identifies stale generated inputs, run `python3 scripts/prepare_validation.py
+generate --sample <sample>`, inspect the returned manifest and patch, then
+stage only the intended files. Command help owns selection and output details.
+
 Read `rust-toolchain.toml`, the chosen sample's `sample.toml`, and its
 `ProjectSettings/ProjectVersion.txt` for tool and player inputs. Do not copy
 version pins into guidance. CLI tool resolution is in
