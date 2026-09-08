@@ -12,16 +12,19 @@ namespace Battlement.UI
         private readonly Func<ObjectId, VisualElement> require;
         private readonly Func<Guid, Guid, bool> isDescendant;
         private readonly BattlementUiScrollControls scrollControls;
+        private readonly BattlementUiParticleStreaks particles;
 
         public BattlementUiActions(
             Func<ObjectId, VisualElement> requireElement,
             Func<Guid, Guid, bool> descendantCheck,
-            BattlementUiScrollControls scrollControlManager
+            BattlementUiScrollControls scrollControlManager,
+            BattlementUiParticleStreaks particles
         ) =>
-            (require, isDescendant, scrollControls) = (
+            (require, isDescendant, scrollControls, this.particles) = (
                 requireElement,
                 descendantCheck,
-                scrollControlManager
+                scrollControlManager,
+                particles
             );
 
         public void Perform(CommandBody.VisualElement.PerformAction command)
@@ -29,6 +32,9 @@ namespace Battlement.UI
             VisualElement target = require(command.ObjectId);
             switch (command.Action)
             {
+                case VisualElementAction.ParticleStreaks burst:
+                    particles.Restart(target, burst.Streaks);
+                    break;
                 case VisualElementAction.Focus:
                     Focus(target);
                     break;
@@ -54,6 +60,7 @@ namespace Battlement.UI
 
         public void Remove(ObjectId objectId, VisualElement target)
         {
+            particles.Remove(target);
             ReleaseTracked(objectId.Value, target);
             if (target.panel?.focusController.focusedElement == target)
                 target.Blur();

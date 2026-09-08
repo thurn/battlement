@@ -20,3 +20,43 @@ width = 1280
 height = 800
 size_bytes = 152388
 source = "f5c8cf389f8402eee8b5439dfcc62bd763ce3ecef079b59eae8edf4de498fc2c"
+
+[[baselines]]
+profile = "macos"
+scenario = "native action streaks"
+checkpoint = "native-streaks"
+sha256 = "6db921d3ae6c7a33759a89a6aa30c3d0f3bbeab8fff526c5d039d42cc3238fef"
+width = 1280
+height = 800
+size_bytes = 177614
+source = "3e776b671b8e853544bddf0675f8179896d68c2b48693ae68f26136b17be290b"
+
+[[baselines]]
+profile = "macos"
+scenario = "native action streaks"
+checkpoint = "native-streaks-finished"
+sha256 = "88a01964922a59759d6e7af8714448e98f59a006e8d18db4232a39195b9f0e68"
+width = 1280
+height = 800
+size_bytes = 179148
+source = "3e776b671b8e853544bddf0675f8179896d68c2b48693ae68f26136b17be290b"
+
+[[baselines]]
+profile = "macos"
+scenario = "native action streaks"
+checkpoint = "native-streaks-reduced-motion"
+sha256 = "373e970f5975e44a4ce63a927e795f295f9246d1e50339766da9a6b5dd9943e8"
+width = 1280
+height = 800
+size_bytes = 159051
+source = "3e776b671b8e853544bddf0675f8179896d68c2b48693ae68f26136b17be290b"
+
+[[baselines]]
+profile = "macos"
+scenario = "native action streaks"
+checkpoint = "native-streaks-repeated"
+sha256 = "64faa0da5f97cdefde691204345292c636cb635129951196d0ddc04c191f1da0"
+width = 1280
+height = 800
+size_bytes = 177614
+source = "3e776b671b8e853544bddf0675f8179896d68c2b48693ae68f26136b17be290b"

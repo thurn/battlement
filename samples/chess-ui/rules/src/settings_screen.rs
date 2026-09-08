@@ -139,7 +139,9 @@ impl Component for SettingsScreen {
                   )),
               ),
             )),
-          ReturnButton::new().on_press(self.on_return.clone()),
+          ReturnButton::new()
+            .reduced_motion(navigation.reduce_motion)
+            .on_press(self.on_return.clone()),
           ArcadeModal::new()
             .open(active_modal == Some(SettingsModal::Erase))
             .title(tx("Erase Saved Data?", "Saved-data confirmation title."))

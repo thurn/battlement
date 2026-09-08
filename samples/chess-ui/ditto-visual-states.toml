@@ -7,3 +7,19 @@ screen = "main-menu"
 [[states]]
 key = "application.settings"
 screen = "settings"
+
+[[states]]
+key = "application.native-streaks-at-100ms"
+screen = "main-menu"
+
+[[states]]
+key = "application.repeated-native-streaks-at-100ms"
+screen = "main-menu"
+
+[[states]]
+key = "application.native-streaks-finished"
+screen = "main-menu"
+
+[[states]]
+key = "application.native-streaks-reduced-motion"
+screen = "main-menu"

@@ -1378,6 +1378,7 @@ namespace Battlement
                     ("Index", typeof(VisualElementUpdate.Index))
                 ),
                 [typeof(VisualElementAction)] = Fixed(
+                    ("ParticleStreaks", typeof(VisualElementAction.ParticleStreaks)),
                     ("Focus", typeof(VisualElementAction.Focus)),
                     ("Blur", typeof(VisualElementAction.Blur)),
                     ("CapturePointer", typeof(VisualElementAction.CapturePointer)),

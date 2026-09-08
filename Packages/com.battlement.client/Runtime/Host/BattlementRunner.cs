@@ -458,7 +458,8 @@ namespace Battlement
                 () =>
                     dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
                         ? dittoMotionClock.Elapsed
-                        : TimeSpan.FromSeconds(Time.timeAsDouble)
+                        : TimeSpan.FromSeconds(Time.timeAsDouble),
+                () => dittoMotionClock.IsInstant
             );
             geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(

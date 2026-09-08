@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -12,6 +13,79 @@ namespace Battlement.Tests
 {
     public sealed class BattlementUiActionTests
     {
+        [Test]
+        public void ParticleBurstsRestartExpireAndReleaseTheirNativeObjects()
+        {
+            using var fixture = new Fixture();
+            var streak = new UiParticleStreak(
+                new[] { 0.5f, 0.5f },
+                new[] { 32f, -20f },
+                new[] { 18f, 4f },
+                22,
+                new Color(0, 1, 1, 1),
+                500,
+                0
+            );
+            var burst = new VisualElementAction.ParticleStreaks(new[] { streak });
+            fixture.Perform(fixture.FocusId, burst);
+            ParticleSystem native = Resources
+                .FindObjectsOfTypeAll<ParticleSystem>()
+                .Single(value => value.name == "Battlement UI particles");
+            VisualElement first = fixture.Focus.Q("native-particle-streaks");
+            Assert.That(first, Is.Not.Null);
+            Assert.That(first.pickingMode, Is.EqualTo(PickingMode.Ignore));
+            Assert.That(fixture.Documents.DittoActiveFiniteTimelineCount, Is.EqualTo(1));
+            fixture.Perform(fixture.FocusId, burst);
+            Assert.That(native == null, Is.True);
+            Assert.That(first.parent, Is.Null);
+            Assert.That(fixture.Documents.DittoActiveFiniteTimelineCount, Is.EqualTo(1));
+
+            fixture.Time = TimeSpan.FromMilliseconds(501);
+            fixture.Documents.Advance();
+            Assert.That(fixture.Focus.Q("native-particle-streaks"), Is.Null);
+            Assert.That(fixture.Documents.DittoActiveFiniteTimelineCount, Is.Zero);
+
+            fixture.Perform(fixture.FocusId, burst);
+            fixture.Perform(
+                fixture.FocusId,
+                new VisualElementAction.ParticleStreaks(Array.Empty<UiParticleStreak>())
+            );
+            Assert.That(fixture.Focus.Q("native-particle-streaks"), Is.Null);
+            fixture.Instant = true;
+            fixture.Perform(fixture.FocusId, burst);
+            Assert.That(fixture.Documents.DittoActiveFiniteTimelineCount, Is.Zero);
+            fixture.Instant = false;
+            fixture.Perform(fixture.FocusId, burst);
+            fixture.Documents.Destroy(new CommandBody.VisualElement.Destroy(fixture.FocusId));
+            Assert.That(fixture.Documents.DittoActiveFiniteTimelineCount, Is.Zero);
+            Assert.That(fixture.Focus.Q("native-particle-streaks"), Is.Null);
+
+            fixture.Perform(fixture.ScrollId, burst);
+            fixture.Documents.Create(
+                new CommandBody.VisualElement.Create(
+                    fixture.ScrollId,
+                    new UiNode(Id("25110000-0000-4000-8000-00000000000a"), new UiElement.Box()),
+                    0
+                )
+            );
+            Assert.That(fixture.Scroll.Q("native-particle-streaks"), Is.Null);
+            Assert.That(
+                Resources
+                    .FindObjectsOfTypeAll<ParticleSystem>()
+                    .Any(value => value.name == "Battlement UI particles"),
+                Is.False
+            );
+
+            Assert.Throws<BattlementUiException>(() =>
+                fixture.Perform(
+                    fixture.OutsideId,
+                    new VisualElementAction.ParticleStreaks(
+                        new[] { streak with { LifetimeMs = 0 } }
+                    )
+                )
+            );
+        }
+
         [Test]
         public void EveryActionUsesPublicStateAndValidatesItsPreconditions()
         {
@@ -122,11 +196,15 @@ namespace Battlement.Tests
                 owned = BattlementUiDocuments.CreateGameObject(
                     new GameObjectKind.UiDocumentState(rootId)
                 );
-                Documents = new BattlementUiDocuments(value =>
-                {
-                    Events.Add(value);
-                    return UiEventDisposition.Continue;
-                });
+                Documents = new BattlementUiDocuments(
+                    value =>
+                    {
+                        Events.Add(value);
+                        return UiEventDisposition.Continue;
+                    },
+                    now: () => Time,
+                    instantMotion: () => Instant
+                );
                 Documents.Replace(
                     new[]
                     {
@@ -183,6 +261,8 @@ namespace Battlement.Tests
             }
 
             public ObjectId FocusId { get; }
+            public TimeSpan Time { get; set; }
+            public bool Instant { get; set; }
             public ObjectId ScrollId { get; }
             public ObjectId ScrollChildId { get; }
             public ObjectId TextId { get; }

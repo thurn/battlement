@@ -13,3 +13,27 @@ state = "application.settings"
 scenario = "settings route transition"
 checkpoint = "settings"
 owner = "arcade_screen_router::complete_mockup_launches_directly_and_preserves_settings"
+
+[[mappings]]
+state = "application.native-streaks-at-100ms"
+scenario = "native action streaks"
+checkpoint = "native-streaks"
+owner = "arcade_screen_router::action_buttons_emit_native_streaks_and_respect_reduced_motion"
+
+[[mappings]]
+state = "application.repeated-native-streaks-at-100ms"
+scenario = "native action streaks"
+checkpoint = "native-streaks-repeated"
+owner = "arcade_screen_router::action_buttons_emit_native_streaks_and_respect_reduced_motion"
+
+[[mappings]]
+state = "application.native-streaks-finished"
+scenario = "native action streaks"
+checkpoint = "native-streaks-finished"
+owner = "arcade_screen_router::action_buttons_emit_native_streaks_and_respect_reduced_motion"
+
+[[mappings]]
+state = "application.native-streaks-reduced-motion"
+scenario = "native action streaks"
+checkpoint = "native-streaks-reduced-motion"
+owner = "arcade_screen_router::action_buttons_emit_native_streaks_and_respect_reduced_motion"

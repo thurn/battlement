@@ -2,6 +2,7 @@
 
 use battlement::{
   Color, Gradient, Length, LengthUnits, Overflow, Position, Rotate, Style, TransformOrigin,
+  UiParticleStreak,
 };
 use battlement_reactant::prelude::{
   Animation, AnimationFill, Decoration, DecorationOverflow, Easing, Keyframes, StyleTarget,
@@ -161,6 +162,43 @@ pub fn shine(active: bool, reduced_motion: bool, width: f32, inset: f32) -> Vec<
 
 /// Full or compact release burst used by arcade buttons.
 pub fn button_burst(generation: u32, compact: bool, playback: EffectPlayback) -> Vec<Decoration> {
+  self::button_burst_parts(generation, compact, playback, true)
+}
+
+/// Rings and beams accompanying a native action-button burst.
+pub fn button_burst_frame(generation: u32, playback: EffectPlayback) -> Vec<Decoration> {
+  self::button_burst_parts(generation, false, playback, false)
+}
+
+/// Cyan and magenta streaks emitted by the native action-button particle system.
+pub fn button_streaks() -> Vec<UiParticleStreak> {
+  BUTTON_PARTICLES
+    .into_iter()
+    .enumerate()
+    .map(
+      |(index, (left, top, x, y, rotation, width))| UiParticleStreak {
+        origin: [left, top],
+        travel: [x, y],
+        size: [width * 1.25, 4.0],
+        rotation,
+        color: if index.is_multiple_of(2) {
+          Color::hex(0x68f7ff)
+        } else {
+          Color::hex(0xff5cda)
+        },
+        lifetime_ms: (620.0 * (0.72 + index as f64 * 0.015)) as u32,
+        delay_ms: index as u32 * 8,
+      },
+    )
+    .collect()
+}
+
+fn button_burst_parts(
+  generation: u32,
+  compact: bool,
+  playback: EffectPlayback,
+  include_streaks: bool,
+) -> Vec<Decoration> {
   if generation == 0 {
     return Vec::new();
   }
@@ -238,6 +276,9 @@ pub fn button_burst(generation: u32, compact: bool, playback: EffectPlayback) ->
       (generation, "button-beam"),
     ),
   ];
+  if !include_streaks {
+    return decorations;
+  }
   decorations.extend(BUTTON_PARTICLES.into_iter().enumerate().map(
     |(index, (left, top, x, y, rotate, width))| {
       let distance = if compact { 0.7 } else { 1.0 };

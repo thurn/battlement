@@ -647,7 +647,7 @@ fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
   let ui = client.ui();
   let text = collect_text(&ui, PAGE_ID);
   for expected in [
-    "ALL 266 CAPABILITIES MAPPED",
+    "ALL 267 CAPABILITIES MAPPED",
     "ELEMENTS",
     "23 / 23",
     "OUTER STYLE",
@@ -657,7 +657,7 @@ fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
     "EVENTS",
     "39 / 39",
     "ACTIONS",
-    "6 / 6",
+    "7 / 7",
     "ASSET SOURCES",
     "8 / 8",
     "DOCUMENT MODES",

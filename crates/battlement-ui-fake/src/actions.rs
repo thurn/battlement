@@ -39,6 +39,11 @@ impl UiWorld {
       .get(&object_id)
       .ok_or(UiWorldError::UnknownObject)?;
     match action {
+      VisualElementAction::ParticleStreaks { streaks } => {
+        if streaks.len() > 128 || streaks.iter().any(|streak| !streak.is_valid()) {
+          return Err(UiWorldError::InvalidProperty);
+        }
+      }
       VisualElementAction::Focus => {
         if !self.enabled_in_hierarchy(object_id) || !focusable(target) {
           return Err(UiWorldError::InvalidProperty);

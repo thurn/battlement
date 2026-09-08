@@ -13,7 +13,7 @@ use battlement_reactant::prelude::{Children, EventCallback, builder};
 use battlement_reactant::{
   component::Component,
   components::Button,
-  hooks,
+  element_ref, hooks,
   host::View,
   motion::{Easing, MotionTarget, StyleTarget, Transition},
   paint::{PaintLayer, PaintStyle},
@@ -66,6 +66,8 @@ pub struct ActionButton {
   artwork: Option<ActionLabel>,
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
+  /// Suppresses spatial feedback in addition to the platform motion preference.
+  reduced_motion: bool,
   /// Caps the label size relative to its authored arcade typography.
   max_text_scale: Option<f32>,
   /// Handles an accepted button activation.
@@ -119,10 +121,24 @@ impl ActionButton {
 
 impl Component for ActionButton {
   fn render(&self) -> impl Render {
-    let interaction = use_interaction::use_interaction();
+    let mut interaction = use_interaction::use_interaction();
+    interaction.state.reduced_motion |= self.reduced_motion;
     let font_scale = font_scale::use_font_scale();
     let (burst_generation, set_burst_generation) = hooks::use_state(0_u32);
+    let particles = element_ref::use_element_ref();
+    let native_burst = EventCallback::new({
+      let particles = particles.clone();
+      let reduced_motion = interaction.state.reduced_motion;
+      move |()| {
+        particles.particle_streaks(if reduced_motion {
+          Vec::new()
+        } else {
+          control_effects::button_streaks()
+        })
+      }
+    });
     View::new()
+      .element_ref(particles)
       .style(
         Style::new()
           .position(Position::Relative)
@@ -153,14 +169,14 @@ impl Component for ActionButton {
         .on_press(
           set_burst_generation
             .update_callback(|generation| generation.wrapping_add(1))
+            .then(native_burst)
             .then(self.on_press.clone()),
         )
         .configure_host(|host| {
           interaction
             .button(host)
-            .before_all(control_effects::button_burst(
+            .before_all(control_effects::button_burst_frame(
               burst_generation,
-              false,
               control_effects::EffectPlayback {
                 reduced_motion: interaction.state.reduced_motion,
               },

@@ -27,6 +27,51 @@ target = "macos"
 display = { width = 1280, height = 800, scale = 1.0 }
 
 [[scenarios]]
+name = "native action streaks"
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ABOUT" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "native-streaks", max_changed_percent = 0.01 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ABOUT" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "native-streaks-repeated", max_changed_percent = 0.01 }
+
+[[scenarios.steps]]
+advance = { frames = 60 }
+
+[[scenarios.steps]]
+screenshot = { name = "native-streaks-finished", max_changed_percent = 0.01 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "checkbox", name = "Reduce Motion" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "RETURN" }, action = "activate" }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "ABOUT" }, action = "activate" }
+
+[[scenarios.steps]]
+advance = { frames = 6 }
+
+[[scenarios.steps]]
+screenshot = { name = "native-streaks-reduced-motion", max_changed_percent = 0.01 }
+
+[[scenarios]]
 name = "complete chess ui"
 motion = "instant"
 

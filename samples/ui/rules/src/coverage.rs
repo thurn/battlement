@@ -168,6 +168,7 @@ pub(crate) const EVENTS: &[&str] = &[
 ];
 
 pub(crate) const ACTIONS: &[&str] = &[
+  "ParticleStreaks",
   "Focus",
   "Blur",
   "CapturePointer",
@@ -217,8 +218,8 @@ pub(crate) const GROUPS: &[CoverageGroup] = &[
   CoverageGroup {
     title: "ACTIONS",
     capabilities: ACTIONS,
-    specimen: "25",
-    test_family: "actions",
+    specimen: "25 / chess-ui ABOUT",
+    test_family: "actions / native action streaks",
   },
   CoverageGroup {
     title: "ASSET SOURCES",

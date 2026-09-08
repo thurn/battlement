@@ -2,7 +2,7 @@ use battlement::{
   AccessibilitySnapshot, AudioClipAddress, CheckedState, CommandBody, GameObjectKind, KeyEvent,
   KeyModifiers, MotionDescriptor, MotionEventBatch, MotionEventKind, MotionLayer,
   MotionLifecycleEvent, MotionSequence, NavigationEvent, ObjectId, PhysicalKey, Prop, SemanticRole,
-  StyleValue, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties,
+  StyleValue, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties, VisualElementAction,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_reactant::{app::App, asset_generator};
@@ -17,6 +17,38 @@ const VALUE_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/con
 #[test]
 fn complete_mockup_launches_directly_and_preserves_settings() {
   self::with_render_stack(self::full_screen_router_scenario);
+}
+
+#[test]
+fn action_buttons_emit_native_streaks_and_respect_reduced_motion() {
+  self::with_render_stack(|| {
+    let mut client = self::client();
+    self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
+    let bursts = client
+      .commands()
+      .iter()
+      .filter_map(|entry| match &entry.command.body {
+        CommandBody::VisualElementPerformAction(action) => match &action.action {
+          VisualElementAction::ParticleStreaks { streaks } => Some(streaks),
+          _ => None,
+        },
+        _ => None,
+      })
+      .collect::<Vec<_>>();
+    assert_eq!(bursts.len(), 1);
+    assert_eq!(bursts[0].len(), 10);
+    assert!(bursts[0].iter().all(|streak| streak.is_valid()));
+
+    self::toggle(&mut client, "Reduce Motion");
+    let start = client.commands().len();
+    self::click_semantic(&mut client, SemanticRole::Button, "RETURN");
+    self::click_semantic(&mut client, SemanticRole::Button, "ABOUT");
+    assert!(client.commands()[start..].iter().any(|entry| matches!(
+      &entry.command.body,
+      CommandBody::VisualElementPerformAction(action)
+        if matches!(&action.action, VisualElementAction::ParticleStreaks { streaks } if streaks.is_empty())
+    )));
+  });
 }
 
 fn full_screen_router_scenario() {

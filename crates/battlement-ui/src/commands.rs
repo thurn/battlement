@@ -1,4 +1,4 @@
-use battlement_types::ObjectId;
+use battlement_types::{Color, ObjectId};
 use serde::{Deserialize, Serialize};
 
 use crate::{UiElement, UiNode};
@@ -110,7 +110,7 @@ pub struct VisualElementDestroy {
 ///
 /// Actions operate on the live element state and are not retained in later
 /// snapshots. The target must support the selected [`VisualElementAction`].
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct VisualElementPerformAction {
   /// Live element receiving the action.
   pub object_id: ObjectId,
@@ -118,9 +118,15 @@ pub struct VisualElementPerformAction {
   pub action: VisualElementAction,
 }
 
-/// One-shot operations on focus, pointer capture, scrolling, and text selection.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// One-shot native UI operations.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum VisualElementAction {
+  /// Restarts native particle streaks in the target's local coordinate space.
+  /// Changing the target's child hierarchy clears an active burst.
+  ParticleStreaks {
+    /// At most 128 finite streaks; an empty list clears the active burst.
+    streaks: Vec<UiParticleStreak>,
+  },
   /// Requests focus for an attached element that Unity allows to receive focus.
   Focus,
   /// Removes focus from the element when it currently owns focus.
@@ -147,4 +153,53 @@ pub enum VisualElementAction {
     /// Selection endpoint as a zero-based UTF-16 code-unit index.
     selection_index: u32,
   },
+}
+
+/// One unlit rectangular particle that travels outward, shrinks, and fades.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UiParticleStreak {
+  /// Top-left origin as fractions in `[0, 1]` of the target's layout rectangle.
+  pub origin: [f32; 2],
+  /// Travel vector in local UI pixels, bounded by ±1024; starts 15% along it.
+  pub travel: [f32; 2],
+  /// Full-size rectangle in local UI pixels, each dimension in `(0, 1024]`.
+  pub size: [f32; 2],
+  /// Clockwise rotation in degrees.
+  pub rotation: f32,
+  /// Unlit particle color.
+  pub color: Color,
+  /// Positive particle lifetime, at most one second.
+  pub lifetime_ms: u32,
+  /// Delay before emission, at most one second.
+  pub delay_ms: u32,
+}
+
+impl UiParticleStreak {
+  /// Checks the finite geometry, color, and lifetime bounds of one streak.
+  #[must_use]
+  pub fn is_valid(&self) -> bool {
+    let origin = self.origin.iter().all(|value| (0.0..=1.0).contains(value));
+    let travel = self
+      .travel
+      .iter()
+      .all(|value| value.is_finite() && value.abs() <= 1024.0);
+    let size = self
+      .size
+      .iter()
+      .all(|value| value.is_finite() && *value > 0.0 && *value <= 1024.0);
+    let color = [self.color.r, self.color.g, self.color.b, self.color.a]
+      .iter()
+      .all(|value| (0.0..=1.0).contains(value));
+    let timing = (1..=1000).contains(&self.lifetime_ms) && self.delay_ms <= 1000;
+    [
+      origin,
+      travel,
+      size,
+      color,
+      timing,
+      self.rotation.is_finite(),
+    ]
+    .into_iter()
+    .all(|valid| valid)
+  }
 }

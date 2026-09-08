@@ -21,6 +21,8 @@ use battlement_reactant::{
 pub struct ReturnButton {
   /// Disables activation while retaining the control’s place in the layout.
   disabled: bool,
+  /// Suppresses spatial feedback when selected in the application's settings.
+  reduced_motion: bool,
   #[builder(required)]
   on_press: EventCallback<()>,
 }
@@ -53,6 +55,7 @@ impl Component for ReturnButton {
           )))
           .max_text_scale(1.35)
           .disabled(self.disabled)
+          .reduced_motion(self.reduced_motion)
           .on_press(self.on_press.clone()),
       ))
   }

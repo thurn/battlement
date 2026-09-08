@@ -13,7 +13,7 @@ use std::{
 
 use battlement::{
   Command, CommandBody, ElementGeometry, ObjectId, Prop, UiElement, UiElementKind, UiNode,
-  UiTextElement, UiVisualElementProperties, VisualElementAction,
+  UiParticleStreak, UiTextElement, UiVisualElementProperties, VisualElementAction,
 };
 
 use crate::{
@@ -156,6 +156,15 @@ impl ElementRef {
   /// Requests removal of focus from the current attachment.
   pub fn blur(&self) {
     self.queue(VisualElementAction::Blur, None);
+  }
+
+  /// Restarts native particle streaks on the current host; an empty list clears them.
+  pub fn particle_streaks(&self, streaks: Vec<UiParticleStreak>) {
+    assert!(
+      streaks.len() <= 128 && streaks.iter().all(UiParticleStreak::is_valid),
+      "invalid UI particle streaks"
+    );
+    self.queue(VisualElementAction::ParticleStreaks { streaks }, None);
   }
 
   /// Captures one pointer on the current attachment.

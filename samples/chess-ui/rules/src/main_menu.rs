@@ -166,6 +166,7 @@ fn action(
         .children(control_behavior::name_source_text(ls(label)))
         .max_text_scale(1.2)
         .disabled(component.exiting)
+        .reduced_motion(component.reduce_motion)
         .on_press(on_press),
     )
 }

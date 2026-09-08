@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Collections.Generic;
+
 namespace Battlement
 {
     public abstract partial record CommandBody
@@ -43,6 +45,10 @@ namespace Battlement
     {
         private VisualElementAction() { }
 
+        /// <summary>Restarts native particle streaks in local UI coordinates.</summary>
+        public sealed record ParticleStreaks(IReadOnlyList<UiParticleStreak> Streaks)
+            : VisualElementAction;
+
         public sealed record Focus : VisualElementAction;
 
         public sealed record Blur : VisualElementAction;
@@ -56,4 +62,15 @@ namespace Battlement
         public sealed record SelectText(uint CursorIndex, uint SelectionIndex)
             : VisualElementAction;
     }
+
+    /// <summary>A finite, unlit rectangular streak anchored within a UI element.</summary>
+    public sealed record UiParticleStreak(
+        IReadOnlyList<float> Origin,
+        IReadOnlyList<float> Travel,
+        IReadOnlyList<float> Size,
+        float Rotation,
+        Color Color,
+        uint LifetimeMs,
+        uint DelayMs
+    );
 }

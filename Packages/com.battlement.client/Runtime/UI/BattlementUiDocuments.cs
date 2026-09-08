@@ -34,6 +34,7 @@ namespace Battlement.UI
         private readonly BattlementPresentationLayout presentationLayout;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiActions actions;
+        private readonly BattlementUiParticleStreaks particles;
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
         private readonly BattlementUiBooleanControls booleanControls;
@@ -58,7 +59,8 @@ namespace Battlement.UI
             Func<TimeSpan>? now = null,
             Func<ObjectId, (TimeSpan Elapsed, bool Discontinuity)>? audioTime = null,
             System.Action? uiEventPreventionApplied = null,
-            Func<TimeSpan>? scaledNow = null
+            Func<TimeSpan>? scaledNow = null,
+            Func<bool>? instantMotion = null
         )
         {
             Func<TimeSpan> uiTime =
@@ -79,7 +81,8 @@ namespace Battlement.UI
             );
             lifecycleEvents = new BattlementUiLifecycleEvents(events, Route);
             scrollControls = new BattlementUiScrollControls(properties.EventForwarder, uiTime);
-            actions = new BattlementUiActions(Require, IsDescendant, scrollControls);
+            particles = new BattlementUiParticleStreaks(uiTime, instantMotion ?? (() => false));
+            actions = new BattlementUiActions(Require, IsDescendant, scrollControls, particles);
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
             booleanControls = new BattlementUiBooleanControls(properties.EventForwarder);
@@ -171,6 +174,7 @@ namespace Battlement.UI
                 motionWorld.Clear();
             try
             {
+                particles.Clear();
                 eventObserver.Clear();
                 lifecycleEvents.Clear();
                 stickyCoordinator.Clear();
@@ -272,7 +276,8 @@ namespace Battlement.UI
 
         internal BattlementAccessibilityManager AccessibilityForTests => accessibility;
 
-        internal int DittoActiveFiniteTimelineCount => motionWorld.ActiveFiniteTimelineCount;
+        internal int DittoActiveFiniteTimelineCount =>
+            motionWorld.ActiveFiniteTimelineCount + particles.ActiveCount;
 
         internal int DittoActiveInfiniteTimelineCount => motionWorld.ActiveInfiniteTimelineCount;
 
@@ -410,6 +415,7 @@ namespace Battlement.UI
         /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
         public void Advance()
         {
+            particles.Advance();
             foreach (Guid root in rootIds)
                 BattlementTextSpacing.Refresh(elements[root]);
             lifecycleEvents.Advance();
@@ -453,6 +459,7 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            particles.Clear();
             motionWorld.Clear();
             eventObserver.Clear();
             lifecycleEvents.Clear();
@@ -1192,6 +1199,7 @@ namespace Battlement.UI
             if (index >= logicalChildren[parentId].Count)
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
+            particles.Remove(parent);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
             stickyCoordinator.PrepareHierarchyChange(target);
             overlayCoordinator.PrepareHierarchyChange(target);
@@ -1220,6 +1228,7 @@ namespace Battlement.UI
             int? index
         )
         {
+            particles.Remove(parent);
             if (parent is BattlementLayoutContainer layout)
             {
                 layout.Adapter.Insert(child, index ?? layout.Adapter.Count);
@@ -1233,6 +1242,7 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement child
         )
         {
+            particles.Remove(parent);
             if (parent is BattlementLayoutContainer layout)
             {
                 layout.Adapter.Detach(child);
