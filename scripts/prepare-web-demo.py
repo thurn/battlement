@@ -16,7 +16,6 @@ import tempfile
 import time
 
 from platform_support import lock_file, user_cache_path
-from resource_slots import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -93,8 +92,7 @@ def prepare(sample: str, release: bool, cache_root: Path) -> Path:
         lock_file(lease)
         if not valid_web_build(cached):
             print(f"Web demo cache miss {key[:12]}; building {sample}", flush=True)
-            with unity_editor_lease():
-                subprocess.run(build_command(sample, release), cwd=REPOSITORY_ROOT, check=True)
+            subprocess.run(build_command(sample, release), cwd=REPOSITORY_ROOT, check=True)
             if not valid_web_build(output):
                 raise RuntimeError(f"Web build is incomplete: {output}")
             publish_directory(output, cached, cache_root / "entries")

@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::host::SystemHost;
 
 pub(crate) fn rules_package(manifest: &Path) -> Result<String> {
   let contents = fs::read_to_string(manifest)
@@ -60,6 +61,10 @@ pub(crate) fn unity_editor(project: &Path) -> Result<PathBuf> {
   return Ok(format!(r"C:\Program Files\Unity\Hub\Editor\{version}\Editor\Unity.exe").into());
   #[cfg(not(windows))]
   Ok(format!("/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity").into())
+}
+
+pub(crate) fn resource_slots() -> PathBuf {
+  battlement_tooling::discovery::resource_slots(&SystemHost)
 }
 
 pub(crate) fn architectures(path: &Path) -> Result<Vec<String>> {

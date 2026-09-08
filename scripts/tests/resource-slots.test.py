@@ -37,6 +37,22 @@ def main() -> None:
         second.close()
         assert acquired.is_set(), "a released slot did not admit the waiting consumer"
 
+        occupied = SlotLease(locks, "atomic-heavy", 6, 4).acquire()
+        blocked = SlotLease(locks, "atomic-heavy", 6, 3)
+        acquired = threading.Event()
+
+        def acquire_atomic_capacity() -> None:
+            with blocked:
+                acquired.set()
+
+        waiter = threading.Thread(target=acquire_atomic_capacity)
+        waiter.start()
+        time.sleep(0.2)
+        assert not blocked.files, "a queued multi-unit request retained partial capacity"
+        occupied.close()
+        waiter.join(timeout=2)
+        assert acquired.is_set(), "an atomic request was not admitted after capacity released"
+
         compiler = SlotLease(locks, "machine-heavy", 6, 3).acquire()
         player = SlotLease(locks, "machine-heavy", 6, 2).acquire()
         browser = SlotLease(locks, "machine-heavy", 6).acquire()

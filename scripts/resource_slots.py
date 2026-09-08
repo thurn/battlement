@@ -46,22 +46,8 @@ class SlotLease:
         self.directory.mkdir(parents=True, exist_ok=True)
         started = time.monotonic_ns()
         self._event("resource.queued")
-        while len(self.files) < self.units:
-            for index in range(self.count):
-                if any(file.name.endswith(f"-{index}.lock") for file in self.files):
-                    continue
-                candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
-                try:
-                    if not try_lock_file(candidate):
-                        candidate.close()
-                        continue
-                    self.files.append(candidate)
-                    if len(self.files) == self.units:
-                        break
-                except OSError:
-                    candidate.close()
-            if len(self.files) < self.units:
-                time.sleep(0.1)
+        while not self._try_acquire():
+            time.sleep(0.1)
         self.acquired_ns = time.monotonic_ns()
         self._event(
             "resource.acquired",
@@ -70,6 +56,29 @@ class SlotLease:
             queue_duration_ms=round((self.acquired_ns - started) / 1_000_000),
         )
         return self
+
+    def _try_acquire(self) -> bool:
+        """Acquire every requested unit atomically or release the partial set."""
+        acquired = []
+        try:
+            for index in range(self.count):
+                candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
+                try:
+                    if not try_lock_file(candidate):
+                        candidate.close()
+                        continue
+                    acquired.append(candidate)
+                    if len(acquired) == self.units:
+                        self.files = acquired
+                        return True
+                except OSError:
+                    candidate.close()
+        finally:
+            if len(acquired) < self.units:
+                for file in reversed(acquired):
+                    unlock_file(file)
+                    file.close()
+        return False
 
     def close(self) -> None:
         """Release the held slot."""
@@ -127,6 +136,22 @@ class LeaseGroup:
 def compiler_capacity_lease() -> SlotLease:
     """Reserve the machine capacity used by one three-job Cargo writer."""
     return SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY, 3)
+
+
+def browser_capacity_lease() -> LeaseGroup:
+    """Reserve one bounded browser session and one machine unit."""
+    return LeaseGroup(
+        SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY),
+        SlotLease(GLOBAL_RESOURCE_ROOT, "browser", 2),
+    )
+
+
+def native_player_capacity_lease() -> LeaseGroup:
+    """Reserve one bounded native player session and two machine units."""
+    return LeaseGroup(
+        SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY, 2),
+        SlotLease(GLOBAL_RESOURCE_ROOT, "native-player", 3),
+    )
 
 
 def unity_editor_lease() -> LeaseGroup:

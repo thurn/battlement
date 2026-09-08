@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use battlement_tooling::web_archive;
+use battlement_tooling::{unity_lease::CompilerCapacityLease, web_archive};
 
 #[cfg(target_os = "macos")]
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
@@ -137,9 +137,11 @@ pub(crate) fn web_rules_plugin(
     "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
     THREADED_RUSTFLAGS,
   );
+  let capacity = CompilerCapacityLease::acquire(&crate::tools::resource_slots())?;
   let status = command
     .status()
     .context("failed to run the Rust WebAssembly build")?;
+  drop(capacity);
   if !status.success() {
     bail!(
       "Rust WebAssembly build exited with status {status}; install its standard library with `rustup target add {WEB_TARGET}`"
@@ -213,7 +215,9 @@ fn build_slice(
   if let Some(manifest_path) = manifest_path {
     command.arg("--manifest-path").arg(manifest_path);
   }
+  let capacity = CompilerCapacityLease::acquire(&crate::tools::resource_slots())?;
   let status = command.status().context("failed to run cargo build")?;
+  drop(capacity);
   if !status.success() {
     bail!("cargo build for {target} exited with status {status}");
   }

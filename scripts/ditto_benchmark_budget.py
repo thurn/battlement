@@ -267,7 +267,7 @@ def main() -> None:
     output = arguments.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     lock_path = Path(tempfile.gettempdir()) / "battlement-ditto-performance.lock"
-    with lock_path.open("w") as lock, benchmark.unity_editor_lease():
+    with lock_path.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         cold = cold_repetitions(definition, binary, output / "cold")
         warm, hashing = warm_repetitions(definition, binary, output / "warm")

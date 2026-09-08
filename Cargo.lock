@@ -674,6 +674,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "battlement-reactant-asset-syntax",
+ "battlement-tooling",
  "bytes",
  "fs2",
  "nix 0.30.1",

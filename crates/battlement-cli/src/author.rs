@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::unity_lease::UnityEditorLease;
 
 use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
 
@@ -51,6 +52,7 @@ pub(crate) fn run(
     bail!("authoring launch interrupted");
   }
 
+  let _capacity = UnityEditorLease::acquire(&tools::resource_slots())?;
   let mut child = Command::new(tools::unity_editor(&project)?)
     .args(["-projectPath"])
     .arg(&project)

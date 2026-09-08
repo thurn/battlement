@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::unity_lease::{NativePlayerCapacityLease, UnityEditorLease};
 use tempfile::Builder;
 
 use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
@@ -82,6 +83,7 @@ fn build_prepared(prepared: PreparedSample, web: bool, release: bool) -> Result<
     .prefix("battlement-sample-build.")
     .tempfile()
     .context("failed to create the Unity sample build log")?;
+  let capacity = UnityEditorLease::acquire(&tools::resource_slots())?;
   let mut command = battlement_tooling::transactional_unity_command(&project, &editor)?;
   let mut child = command
     .args([
@@ -116,6 +118,7 @@ fn build_prepared(prepared: PreparedSample, web: bool, release: bool) -> Result<
     .spawn()
     .context("failed to launch Unity")?;
   let status = self::wait_for_child(&mut child).context("failed to wait for Unity")?;
+  drop(capacity);
   if interrupted() {
     bail!("Unity sample build interrupted");
   }
@@ -233,6 +236,7 @@ pub(crate) fn run(name: &str, web: bool, port: Option<u16>, release: bool) -> Re
 
   let executable = self::native_executable(&output)?;
   reset_interrupted();
+  let _capacity = NativePlayerCapacityLease::acquire(&tools::resource_slots())?;
   let mut player = Command::new(&executable)
     .args(["-logFile", "-"])
     .spawn()

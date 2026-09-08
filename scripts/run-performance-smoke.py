@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 
 from unity_transaction import unity_project_transaction
+from resource_slots import native_player_capacity_lease, unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -40,7 +41,9 @@ def main() -> None:
         report = root / "report.txt"
         environment = os.environ.copy()
         environment["BATTLEMENT_PERFORMANCE_BUILD_PATH"] = str(application)
-        with unity_project_transaction(REPOSITORY_ROOT, "performance-smoke") as transaction:
+        with unity_editor_lease(), unity_project_transaction(
+            REPOSITORY_ROOT, "performance-smoke"
+        ) as transaction:
             build = transaction.run(
                 [
                     str(editor),
@@ -70,25 +73,26 @@ def main() -> None:
                 f"Expected one player executable, found {len(executables)}: {executables}"
             )
         executable = executables[0]
-        player = subprocess.run(
-            [
-                str(executable),
-                "-batchmode",
-                "-screen-width",
-                "640",
-                "-screen-height",
-                "480",
-                "-logFile",
-                str(player_log),
-                "--battlement-performance-report",
-                str(report),
-            ],
-            cwd=REPOSITORY_ROOT,
-            timeout=60,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
+        with native_player_capacity_lease():
+            player = subprocess.run(
+                [
+                    str(executable),
+                    "-batchmode",
+                    "-screen-width",
+                    "640",
+                    "-screen-height",
+                    "480",
+                    "-logFile",
+                    str(player_log),
+                    "--battlement-performance-report",
+                    str(report),
+                ],
+                cwd=REPOSITORY_ROOT,
+                timeout=60,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
         if player.returncode != 0:
             raise RuntimeError(
                 "performance smoke player failed with exit "

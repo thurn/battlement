@@ -97,10 +97,7 @@ fn cache_roots(host: &impl Host, configured: Option<&Path>) -> CacheRoots {
     },
     Path::to_path_buf,
   );
-  let resource_slots = host
-    .environment("BATTLEMENT_RESOURCE_SLOTS")
-    .map(PathBuf::from)
-    .unwrap_or_else(|| machine_resource_slots(host));
+  let resource_slots = resource_slots(host);
   CacheRoots {
     runs: root.join("runs"),
     builds: root.join("builds"),
@@ -120,6 +117,14 @@ pub fn machine_resource_slots(host: &impl Host) -> PathBuf {
     OperatingSystem::Windows => PathBuf::from(r"C:\ProgramData\Battlement\resource-slots"),
     OperatingSystem::Unsupported => PathBuf::from("/tmp/Battlement/resource-slots"),
   }
+}
+
+/// Returns the configured resource root or the stable machine-wide default.
+pub fn resource_slots(host: &impl Host) -> PathBuf {
+  host
+    .environment("BATTLEMENT_RESOURCE_SLOTS")
+    .map(PathBuf::from)
+    .unwrap_or_else(|| machine_resource_slots(host))
 }
 
 fn default_cache_root(host: &impl Host) -> PathBuf {

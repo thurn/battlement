@@ -728,16 +728,15 @@ def build_standalone_samples(
 
     def build_uncached(name: str) -> None:
         if platform.system() != "Darwin":
-            with unity_editor_lease():
-                subprocess.run(
-                    [
-                        "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
-                        "sample", "build", name,
-                    ],
-                    cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(None, f"standalone-{name}"),
-                    check=True,
-                )
+            subprocess.run(
+                [
+                    "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
+                    "sample", "build", name,
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=cargo_environment(None, f"standalone-{name}"),
+                check=True,
+            )
             return
         if ditto_builds is None:
             raise RuntimeError("macOS standalone builds require retained cache leases")

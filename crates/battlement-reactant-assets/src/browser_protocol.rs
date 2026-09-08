@@ -11,6 +11,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
+use battlement_tooling::{discovery, host::SystemHost, unity_lease::BrowserCapacityLease};
 use fs2::FileExt;
 #[cfg(unix)]
 use nix::{
@@ -30,6 +31,7 @@ use crate::{
 pub(crate) struct BrowserSession {
   protocol: Protocol,
   child: Option<Child>,
+  _capacity: BrowserCapacityLease,
   browser_spills: BrowserSpillLease,
   _profile: TempDir,
   context_id: String,
@@ -58,6 +60,7 @@ impl BrowserSession {
     explicit: bool,
     report: &mut WorkReport,
   ) -> Result<(Self, BrowserIdentity)> {
+    let capacity = BrowserCapacityLease::acquire(&discovery::resource_slots(&SystemHost))?;
     let browser_spills = BrowserSpillLease::acquire()?;
     let profile = tempfile::tempdir().context("failed to create isolated browser profile")?;
     let mut command = Command::new(executable);
@@ -126,6 +129,7 @@ impl BrowserSession {
     let mut session = Self {
       protocol: Protocol { socket, next_id: 1 },
       child: Some(child),
+      _capacity: capacity,
       browser_spills,
       _profile: profile,
       context_id: String::new(),

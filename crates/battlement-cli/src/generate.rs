@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use battlement_tooling::unity_lease::UnityEditorLease;
 use serde::Deserialize;
 use tempfile::Builder;
 
@@ -182,6 +183,7 @@ fn export(project: &Path) -> Result<Vec<ExportEntry>> {
   let export_path = temporary.path().join("addresses.json");
   let log_path = temporary.path().join("unity.log");
   let editor = self::unity_editor(project)?;
+  let _capacity = UnityEditorLease::acquire(&crate::tools::resource_slots())?;
   let status = battlement_tooling::transactional_unity_command(project, &editor)?
     .args([
       "-batchmode",

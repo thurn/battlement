@@ -19,7 +19,6 @@ import tomllib
 from typing import Any
 
 from platform_support import user_cache_path
-from resource_slots import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -283,7 +282,7 @@ def measure(
     samples: list[dict[str, Any]] = []
     preparation: list[dict[str, Any]] = []
     lock_path = Path(tempfile.gettempdir()) / "battlement-ditto-performance.lock"
-    with lock_path.open("w") as lock, unity_editor_lease():
+    with lock_path.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if prepare:
             for sample in definition["samples"]:
