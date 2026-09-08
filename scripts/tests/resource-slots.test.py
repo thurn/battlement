@@ -14,7 +14,7 @@ import time
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
-from resource_slots import SlotLease  # noqa: E402
+from resource_slots import LeaseGroup, SlotLease  # noqa: E402
 
 
 def main() -> None:
@@ -36,6 +36,32 @@ def main() -> None:
         waiter.join(timeout=2)
         second.close()
         assert acquired.is_set(), "a released slot did not admit the waiting consumer"
+
+        compiler = SlotLease(locks, "machine-heavy", 6, 3).acquire()
+        player = SlotLease(locks, "machine-heavy", 6, 2).acquire()
+        browser = SlotLease(locks, "machine-heavy", 6).acquire()
+        admitted = threading.Event()
+
+        def acquire_more_capacity() -> None:
+            with SlotLease(locks, "machine-heavy", 6):
+                admitted.set()
+
+        waiter = threading.Thread(target=acquire_more_capacity)
+        waiter.start()
+        time.sleep(0.2)
+        assert not admitted.is_set(), "heavy children exceeded the machine budget"
+        browser.close()
+        waiter.join(timeout=2)
+        player.close()
+        compiler.close()
+        assert admitted.is_set(), "released machine capacity did not admit queued work"
+
+        first = SlotLease(locks, "machine-heavy", 6, 3)
+        second = SlotLease(locks, "unity-editor", 2)
+        with LeaseGroup(first, second):
+            assert len(first.files) == 3
+            assert len(second.files) == 1
+        assert not first.files and not second.files
 
     print("Resource slot tests passed.")
 

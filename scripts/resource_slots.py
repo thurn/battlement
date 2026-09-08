@@ -10,25 +10,34 @@ import time
 
 import operation_log
 
-from platform_support import try_lock_file, unlock_file, user_cache_path
+from platform_support import try_lock_file, unlock_file
 
 
 GLOBAL_RESOURCE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_RESOURCE_SLOTS",
-        user_cache_path("Battlement", "resource-slots"),
+        (
+            Path(os.environ.get("PROGRAMDATA", "C:/ProgramData"))
+            / "Battlement/resource-slots"
+            if os.name == "nt"
+            else Path("/tmp/Battlement/resource-slots")
+        ),
     )
 )
+MACHINE_CAPACITY = 6
 
 
 class SlotLease:
     """Hold one cross-process slot until the lease is closed."""
 
-    def __init__(self, directory: Path, name: str, count: int) -> None:
+    def __init__(self, directory: Path, name: str, count: int, units: int = 1) -> None:
+        if units < 1 or units > count:
+            raise ValueError("slot lease units must be between one and the capacity")
         self.directory = directory
         self.name = name
         self.count = count
-        self.file = None
+        self.units = units
+        self.files = []
         self.operation = operation_log.current()
         self.acquired_ns = None
 
@@ -37,30 +46,43 @@ class SlotLease:
         self.directory.mkdir(parents=True, exist_ok=True)
         started = time.monotonic_ns()
         self._event("resource.queued")
-        while self.file is None:
+        while len(self.files) < self.units:
             for index in range(self.count):
+                if any(file.name.endswith(f"-{index}.lock") for file in self.files):
+                    continue
                 candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
                 try:
                     if not try_lock_file(candidate):
                         candidate.close()
                         continue
-                    self.file = candidate
-                    self.acquired_ns = time.monotonic_ns()
-                    self._event("resource.acquired", slot=index, queue_duration_ms=round((self.acquired_ns - started) / 1_000_000))
-                    break
+                    self.files.append(candidate)
+                    if len(self.files) == self.units:
+                        break
                 except OSError:
                     candidate.close()
-            if self.file is None:
+            if len(self.files) < self.units:
                 time.sleep(0.1)
+        self.acquired_ns = time.monotonic_ns()
+        self._event(
+            "resource.acquired",
+            slots=[Path(file.name).stem.rsplit("-", 1)[1] for file in self.files],
+            units=self.units,
+            queue_duration_ms=round((self.acquired_ns - started) / 1_000_000),
+        )
         return self
 
     def close(self) -> None:
         """Release the held slot."""
-        if self.file is not None:
-            unlock_file(self.file)
-            self.file.close()
-            self.file = None
-            self._event("resource.released", held_duration_ms=round((time.monotonic_ns() - self.acquired_ns) / 1_000_000))
+        if self.files:
+            for file in reversed(self.files):
+                unlock_file(file)
+                file.close()
+            self.files.clear()
+            self._event(
+                "resource.released",
+                units=self.units,
+                held_duration_ms=round((time.monotonic_ns() - self.acquired_ns) / 1_000_000),
+            )
 
     def _event(self, event: str, **attributes) -> None:
         if self.operation:
@@ -74,6 +96,42 @@ class SlotLease:
         self.close()
 
 
-def unity_editor_lease() -> SlotLease:
-    """Return one of two machine-wide Unity Editor capacity leases."""
-    return SlotLease(GLOBAL_RESOURCE_ROOT, "unity-editor", 2)
+class LeaseGroup:
+    """Acquire related leases in a stable order and release them together."""
+
+    def __init__(self, *leases: SlotLease) -> None:
+        self.leases = leases
+        self.acquired = []
+
+    def acquire(self) -> "LeaseGroup":
+        try:
+            for lease in self.leases:
+                self.acquired.append(lease.acquire())
+        except BaseException:
+            self.close()
+            raise
+        return self
+
+    def close(self) -> None:
+        for lease in reversed(self.acquired):
+            lease.close()
+        self.acquired.clear()
+
+    def __enter__(self) -> "LeaseGroup":
+        return self.acquire()
+
+    def __exit__(self, _type, _value, _traceback) -> None:
+        self.close()
+
+
+def compiler_capacity_lease() -> SlotLease:
+    """Reserve the machine capacity used by one three-job Cargo writer."""
+    return SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY, 3)
+
+
+def unity_editor_lease() -> LeaseGroup:
+    """Reserve one editor and its share of the machine-wide heavy-work budget."""
+    return LeaseGroup(
+        SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY, 3),
+        SlotLease(GLOBAL_RESOURCE_ROOT, "unity-editor", 2),
+    )

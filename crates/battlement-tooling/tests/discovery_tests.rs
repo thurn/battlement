@@ -11,7 +11,7 @@ use battlement_tooling::{
   discovery::{DiscoveryRequest, HostDiscovery},
   doctor::{CheckCategory, CheckStatus, DoctorReport, DoctorRequest},
   host::{FilesystemOperation, Host, OperatingSystem},
-  unity_lease::UnityEditorLease,
+  unity_lease::{CompilerCapacityLease, UnityEditorLease},
 };
 use tempfile::TempDir;
 
@@ -207,6 +207,27 @@ fn rust_leases_use_both_legacy_slots_without_overbooking() {
       .slot(),
     0
   );
+}
+
+#[test]
+fn compiler_and_editor_share_the_bounded_machine_budget() {
+  let temporary = TempDir::new().unwrap();
+  let compiler = CompilerCapacityLease::acquire(temporary.path()).unwrap();
+  let editor = UnityEditorLease::try_acquire(temporary.path())
+    .unwrap()
+    .unwrap();
+  assert!(
+    UnityEditorLease::try_acquire(temporary.path())
+      .unwrap()
+      .is_none()
+  );
+  drop(compiler);
+  assert!(
+    UnityEditorLease::try_acquire(temporary.path())
+      .unwrap()
+      .is_some()
+  );
+  drop(editor);
 }
 
 #[test]

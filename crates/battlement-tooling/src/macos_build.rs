@@ -23,7 +23,7 @@ use crate::{
   },
   fingerprint::{CaseSensitivity, FingerprintRequest, GeneratedInput, SourceManifest},
   macos_build_staging::ProjectStaging,
-  unity_lease::UnityEditorLease,
+  unity_lease::{CompilerCapacityLease, UnityEditorLease},
 };
 
 const EDITOR_METHOD: &str = "Battlement.Editor.BattlementDittoBuild.BuildMacos";
@@ -282,7 +282,9 @@ fn build_pending(
     .arg("--lib")
     .args(["--config", RELEASE_DEBUG_CONFIG])
     .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG]);
+  let compiler_capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
   let cargo_output = self::run_logged(cargo, pending.path(), "rust")?;
+  drop(compiler_capacity);
   if !cargo_output.status.success() {
     return self::failed(pending, "rust", &cargo_output, now);
   }

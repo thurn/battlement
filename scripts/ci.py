@@ -72,6 +72,7 @@ ROOT_RUST_INPUTS = (
     "scripts/ci_cache.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
+    "scripts/resource_slots.py",
 )
 UNITY_TEST_INPUTS = (
     "Cargo.toml",
@@ -85,6 +86,7 @@ UNITY_TEST_INPUTS = (
     "scripts/ci_cache.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
+    "scripts/resource_slots.py",
 )
 DOTNET_DIAGNOSTIC_INPUTS = (
     ".config/dotnet-tools.json",
@@ -96,6 +98,7 @@ DOTNET_DIAGNOSTIC_INPUTS = (
     "scripts/ci_cache.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
+    "scripts/resource_slots.py",
 )
 SAMPLE_SHARED_INPUTS = (
     "Cargo.toml",
@@ -107,6 +110,7 @@ SAMPLE_SHARED_INPUTS = (
     "scripts/ci_cache.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
+    "scripts/resource_slots.py",
 )
 IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
     ".git",

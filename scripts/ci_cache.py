@@ -18,6 +18,7 @@ import time
 import uuid
 
 from platform_support import lock_file, resolve_executable, unlock_file
+from resource_slots import compiler_capacity_lease
 
 
 CACHE_SCHEMA = 1
@@ -169,8 +170,9 @@ class CiCache:
                     flush=True,
                 )
             try:
-                self.maintain()
-                yield
+                with compiler_capacity_lease():
+                    self.maintain()
+                    yield
             finally:
                 unlock_file(lease)
 

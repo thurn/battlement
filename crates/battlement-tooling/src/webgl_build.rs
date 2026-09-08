@@ -23,7 +23,7 @@ use crate::{
   },
   fingerprint::{CaseSensitivity, FingerprintRequest, GeneratedInput, SourceManifest},
   macos_build_staging::ProjectStaging,
-  unity_lease::UnityEditorLease,
+  unity_lease::{CompilerCapacityLease, UnityEditorLease},
   web_archive,
 };
 
@@ -279,7 +279,9 @@ fn build_pending(
       emscripten.join("emscripten/emcc"),
     )
     .env("PATH", env::join_paths(paths)?);
+  let compiler_capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
   let cargo_output = self::run_logged(cargo, pending.path(), "rust")?;
+  drop(compiler_capacity);
   if !cargo_output.status.success() {
     return self::failed(pending, "rust", &cargo_output, now);
   }
