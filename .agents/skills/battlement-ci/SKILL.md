@@ -26,9 +26,17 @@ same job; do not launch another copy or configure automatic restarts.
 On failure:
 
 1. Read the failing step's retained log and reproduce that check first.
-2. Fix the cause, verify the focused check, stage the repair, then complete CI.
-3. For timing failures, retain the failed evidence and rerun the exact check
-   without unrelated edits. Avoid competing expensive builds during diagnosis.
+2. Test the failing execution boundary cheaply, including inherited operation
+   IDs or worker configuration when relevant, before another aggregate run.
+3. Fix the cause, verify the focused check, stage the repair, then complete CI.
+4. For a timing or infrastructure hypothesis, retain the failed evidence and
+   permit one unchanged replay after the resource condition changes.
+
+A second failure at the same boundary ends aggregate retries. Spend at most
+fifteen further minutes on focused diagnosis, then make a concrete repair,
+rollback, or committed blocked handoff. Count attempts and elapsed cost; do not
+keep enlarging deadlines or waiting indefinitely for machine load to improve.
+Keep ordinary resource waiting distinct from product failure.
 
 CI logs live under `.logs/ci/`; `scripts/perf_report.py` and `.logs/reports/`
 help investigate repeated work. Read only the relevant report or failing span.
