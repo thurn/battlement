@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 use std::{
   collections::BTreeMap,
   fs,
@@ -261,6 +263,60 @@ fn lru_pressure_skips_active_entries_and_reports_oversize_builds() {
   let report = constrained.enforce_limit(4).unwrap();
   assert_eq!(report.evicted[0].fingerprint, second.fingerprint);
   assert_eq!(report.remaining_bytes, 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn cleanup_preserves_active_builds_pending_staging_and_lock_identity() {
+  let temporary = TempDir::new().unwrap();
+  let cache = BuildCache::open(temporary.path(), 1024 * 1024).unwrap();
+  let active_identity = identity(HASH_A, "active");
+  let pending = expect_pending(
+    cache
+      .acquire(REPOSITORY, "suite-a", &active_identity, 1)
+      .unwrap(),
+  );
+  populate(&pending, b"active player");
+  let active = pending.publish(Path::new("player.app"), 1).unwrap().build;
+  let pending_identity = identity(HASH_B, "pending");
+  let pending = expect_pending(
+    cache
+      .acquire(REPOSITORY, "suite-b", &pending_identity, 2)
+      .unwrap(),
+  );
+  populate(&pending, b"pending player");
+  let active_lock = temporary
+    .path()
+    .join("locks")
+    .join(format!("{}.active", active_identity.fingerprint));
+  let build_lock = temporary
+    .path()
+    .join("locks")
+    .join(format!("{}.build", pending_identity.fingerprint));
+  let active_lock_identity = fs::metadata(&active_lock).unwrap().ino();
+  let build_lock_identity = fs::metadata(&build_lock).unwrap().ino();
+
+  let report = cache.cleanup(&CleanupScope::Global, 3).unwrap();
+  assert_eq!(
+    report.active,
+    std::slice::from_ref(&active_identity.fingerprint)
+  );
+  assert!(active.path().is_dir());
+  assert!(pending.path().is_dir());
+  assert_eq!(
+    fs::metadata(&active_lock).unwrap().ino(),
+    active_lock_identity
+  );
+  assert_eq!(
+    fs::metadata(&build_lock).unwrap().ino(),
+    build_lock_identity
+  );
+
+  let published = pending.publish(Path::new("player.app"), 4).unwrap().build;
+  assert_eq!(
+    fs::read(published.player_path().join("player.bin")).unwrap(),
+    b"pending player"
+  );
 }
 
 #[test]

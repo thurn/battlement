@@ -27,6 +27,7 @@ pub mod watch;
 pub mod webgl_capture;
 pub mod wire;
 
+mod build_lease;
 mod command_execution;
 mod comparison_refresh;
 mod crash_reconstruction;

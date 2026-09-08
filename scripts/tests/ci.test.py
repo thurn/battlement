@@ -36,6 +36,7 @@ def main() -> None:
         _verify_sample_worker_defaults()
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
+        _verify_ditto_build_leases_span_gate(root)
         _verify_unity_project_regeneration(root)
         for name in ("tictactoe", "basic", "chess", "chess-ui"):
             sample = root / "samples" / name
@@ -254,12 +255,62 @@ def _verify_ditto_gate_contract() -> None:
         assert environment is not None
         steps.append((name, command, environment))
 
-    with patch.object(ci, "run_step", side_effect=record):
+    with (
+        patch.object(ci.platform, "system", return_value="Darwin"),
+        patch.object(ci, "run_step", side_effect=record),
+    ):
         ci.run_ditto_validation(1.25)
 
     commands = [command for _name, command, _environment in steps]
-    assert commands == [[sys.executable, "scripts/ditto_ci.py", "gate"]]
+    assert commands == [[
+        "/usr/bin/caffeinate", "-u", "-d", "-i", "--",
+        sys.executable, "scripts/ditto_ci.py", "gate",
+    ]]
     assert steps[0][2]["DITTO_CI_REUSABLE_BUILD_SECONDS"] == "1.25"
+
+
+def _verify_ditto_build_leases_span_gate(root: Path) -> None:
+    class Leases:
+        cache_root = root / "ditto-cache"
+
+        def __init__(self) -> None:
+            self.prepared: list[str] = []
+            self.checked = False
+
+        def prepare(self, sample: str) -> None:
+            self.prepared.append(sample)
+
+        def assert_healthy(self) -> None:
+            self.checked = True
+
+    leases = Leases()
+
+    def completed(command: list[str], **_options: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 0, stdout="")
+
+    with (
+        patch.object(ci.platform, "system", return_value="Darwin"),
+        patch.object(ci.subprocess, "run", side_effect=completed),
+    ):
+        ci.build_standalone_samples(["basic", "chess"], object(), leases)
+    assert sorted(leases.prepared) == ["basic", "chess"]
+
+    steps: list[tuple[list[str], dict[str, str]]] = []
+
+    def record(
+        _name: str,
+        command: list[str] | None = None,
+        environment: dict[str, str] | None = None,
+        **_options: object,
+    ) -> None:
+        assert command is not None and environment is not None
+        steps.append((command, environment))
+
+    with patch.object(ci, "run_step", side_effect=record):
+        ci.run_ditto_validation(2.5, leases, "retained-invocation")
+    assert leases.checked
+    assert steps[0][1]["DITTO_CI_CACHE_ROOT"] == str(leases.cache_root)
+    assert steps[0][1]["DITTO_CI_INVOCATION_ID"] == "retained-invocation"
 
 
 def _verify_rust_configuration() -> None:

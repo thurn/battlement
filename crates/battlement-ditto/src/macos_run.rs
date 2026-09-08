@@ -24,6 +24,7 @@ use crate::{
   baseline_update::{
     self, BaselineProposal, BaselineUpdateRequest, ScenarioUpdate, ScenarioUpdateStatus,
   },
+  build_lease,
   cli::BuildOptions,
   config::model::{Baseline, Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer},
@@ -97,6 +98,10 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
       suite.name,
       build.path().display()
     )?;
+  }
+  stdout.flush()?;
+  if let Some(file_descriptor) = options.retain_until_fd_closed {
+    build_lease::until_eof(file_descriptor)?;
   }
   Ok(0)
 }

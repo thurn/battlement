@@ -13,10 +13,21 @@ static NATIVE_EXECUTION: Mutex<()> = Mutex::new(());
 #[test]
 fn core_command_matrix_parses_complete_options() {
   assert!(matches!(
-    parse_from(["ditto", "build", "--profile", "macos", "--json"])
+    parse_from([
+      "ditto",
+      "build",
+      "--profile",
+      "macos",
+      "--json",
+      "--retain-until-fd-closed",
+      "7",
+    ])
       .unwrap()
       .command,
-    Command::Build(options) if options.profile.as_deref() == Some("macos") && options.json
+    Command::Build(options)
+      if options.profile.as_deref() == Some("macos")
+        && options.json
+        && options.retain_until_fd_closed == Some(7)
   ));
   let run = parse_from([
     "ditto",

@@ -32,6 +32,7 @@ pub struct BuildOptions {
   pub profile: Option<String>,
   pub json: bool,
   pub output: Option<PathBuf>,
+  pub retain_until_fd_closed: Option<i32>,
 }
 
 /// Scenario and profile selectors shared by execution and inspection commands.
@@ -156,6 +157,9 @@ struct BuildArgs {
   /// Copy the build result to this path.
   #[arg(long)]
   output: Option<PathBuf>,
+  /// Retain the selected build until this inherited file descriptor reaches EOF.
+  #[arg(long, hide = true)]
+  retain_until_fd_closed: Option<i32>,
 }
 
 #[derive(Debug, Args)]
@@ -328,6 +332,7 @@ fn command(command: ParsedCommand) -> Command {
       profile: args.profile,
       json: args.json,
       output: args.output,
+      retain_until_fd_closed: args.retain_until_fd_closed,
     }),
     ParsedCommand::Run(args) => Command::Run(RunOptions {
       selection: selection(args.selection),

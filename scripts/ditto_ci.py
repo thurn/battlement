@@ -108,9 +108,9 @@ def terminate_process_group(process: subprocess.Popen[str], *, force: bool) -> N
         pass
 
 
-def ditto_environment() -> dict[str, str]:
+def ditto_environment(cache_root: Path = CACHE_ROOT) -> dict[str, str]:
     environment = os.environ.copy()
-    environment["DITTO_CACHE_ROOT"] = str(CACHE_ROOT)
+    environment["DITTO_CACHE_ROOT"] = str(cache_root)
     environment.pop("DITTO_REPLAY_BUILD_FINGERPRINT", None)
     environment.pop("DITTO_REPLAY_SOURCE_RUN_ID", None)
     if "DITTO_ODIFF_PATH" not in environment and DEFAULT_ODIFF.is_file():
@@ -177,13 +177,17 @@ def load_result(path: Path) -> dict[str, Any]:
 
 
 def validate_result(
-    result: dict[str, Any], sample: str, expected: list[str], expected_disposition: str
+    result: dict[str, Any], sample: str, expected: list[str], expected_disposition: str,
+    expected_fingerprint: str | None = None,
 ) -> None:
     if result.get("status") != "passed":
         raise RuntimeError(f"{sample} suite status is {result.get('status', 'missing')}")
     disposition = (result.get("build") or {}).get("disposition")
     if disposition != expected_disposition:
         raise RuntimeError(f"{sample} used {disposition or 'no'} player build")
+    fingerprint = (result.get("build") or {}).get("fingerprint")
+    if expected_fingerprint is not None and fingerprint != expected_fingerprint:
+        raise RuntimeError(f"{sample} did not consume its prepared player build")
     scenarios = result.get("scenarios") or []
     if [item.get("name") for item in scenarios] != expected:
         raise RuntimeError(f"{sample} did not execute its exact scenario inventory")
@@ -203,6 +207,7 @@ def validate_result(
 def execute_sample(
     sample: str, *, scenarios: list[str] | None = None,
     preparation: str | None = None, retain: bool = True,
+    cache_root: Path = CACHE_ROOT, expected_fingerprint: str | None = None,
 ) -> dict[str, Any]:
     output = artifact_directory(
         f"prepare-{preparation}-{sample}" if preparation else sample
@@ -224,8 +229,10 @@ def execute_sample(
         arguments.append("--no-build")
     if preparation or scenarios is not None:
         arguments.extend(expected)
-    environment = ditto_environment()
-    recipe = ditto_replay.record(REPOSITORY_ROOT, DITTO, CACHE_ROOT, sample, expected, environment)
+    environment = ditto_environment(cache_root)
+    recipe = ditto_replay.record(
+        REPOSITORY_ROOT, DITTO, cache_root, sample, expected, environment
+    )
     ditto_replay.save(recipe, output / "replay.json")
     timeout_error = None
     try:
@@ -259,6 +266,7 @@ def execute_sample(
             sample,
             expected,
             expected_disposition="created" if preparation == "cold" else "reused",
+            expected_fingerprint=expected_fingerprint,
         )
         if completed.returncode != 0:
             raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
@@ -274,6 +282,7 @@ def execute_sample(
         "sample": sample,
         "run_id": result["run_id"],
         "build": result["build"]["disposition"],
+        "fingerprint": result["build"]["fingerprint"],
         "result": str(result_path),
     }
 
@@ -350,19 +359,55 @@ def gate() -> None:
         raise RuntimeError("Ditto gate failed:\n" + "\n".join(failures))
 
 
-def prepare(mode: str) -> None:
+def prepared_cache(report_path: Path) -> tuple[Path, dict[str, str]]:
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if report.get("schema") != 1 or report.get("status") != "passed":
+        raise RuntimeError("cold preparation report is not a completed invocation")
+    if report.get("cache") != "cold":
+        raise RuntimeError("warm preparation requires a cold preparation report")
+    cache_root = Path(report.get("cache_root", "")).resolve()
+    if cache_root.parent != report_path.resolve().parent:
+        raise RuntimeError("cold preparation cache is not owned by its evidence bundle")
+    if not cache_root.is_dir():
+        raise RuntimeError("cold preparation cache is no longer retained")
+    fingerprints = {
+        sample["sample"]: sample["fingerprint"] for sample in report.get("samples", [])
+        if isinstance(sample.get("sample"), str)
+        and isinstance(sample.get("fingerprint"), str)
+    }
+    if set(fingerprints) != set(SAMPLES):
+        raise RuntimeError("cold preparation report omitted a canonical player build")
+    return cache_root, fingerprints
+
+
+def prepare(mode: str, prepared: Path | None) -> None:
     if mode == "cold":
-        shutil.rmtree(CACHE_ROOT / "builds", ignore_errors=True)
+        if prepared is not None:
+            raise RuntimeError("cold preparation does not consume an earlier report")
+        cache_root = INVOCATION_ROOT / "prepared-cache"
+        cache_root.mkdir(parents=True, exist_ok=False)
+        cache_root = cache_root.resolve()
+        fingerprints = {}
         command(["cargo", "build", "--release", "-p", "battlement-ditto"])
+    else:
+        if prepared is None:
+            raise RuntimeError("warm preparation requires --prepared <cold-report>")
+        cache_root, fingerprints = prepared_cache(prepared)
     samples = []
     for sample in SAMPLES:
-        samples.append(execute_sample(sample, preparation=mode))
+        samples.append(execute_sample(
+            sample,
+            preparation=mode,
+            cache_root=cache_root,
+            expected_fingerprint=fingerprints.get(sample),
+        ))
     report = {
         "schema": 1,
         "invocation_id": INVOCATION_ID,
         "artifact_root": str(INVOCATION_ROOT),
         "status": "passed",
         "cache": mode,
+        "cache_root": str(cache_root.resolve()),
         "host": platform_report(),
         "samples": samples,
     }
@@ -441,6 +486,7 @@ def main() -> None:
     subcommands = parser.add_subparsers(dest="command", required=True)
     prepare_parser = subcommands.add_parser("prepare")
     prepare_parser.add_argument("mode", choices=("cold", "warm"))
+    prepare_parser.add_argument("--prepared", type=Path)
     sample_parser = subcommands.add_parser("sample")
     sample_parser.add_argument("name", choices=SAMPLES)
     sample_parser.add_argument("scenarios", nargs="*")
@@ -478,7 +524,7 @@ def main() -> None:
 def dispatch(arguments: argparse.Namespace) -> None:
     """Execute one claimed invocation."""
     if arguments.command == "prepare":
-        prepare(arguments.mode)
+        prepare(arguments.mode, arguments.prepared)
     elif arguments.command == "sample":
         if arguments.scenarios:
             execute_sample(arguments.name, scenarios=arguments.scenarios)

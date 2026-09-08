@@ -25,6 +25,7 @@ import ditto_evidence
 from ci_cache import CiCache
 import ci_steps
 from ci_steps import run_parallel_steps, run_step
+from ditto_build_leases import DittoBuildLeases
 from platform_support import (
     executable_name,
     readline_with_timeout,
@@ -684,7 +685,10 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
-def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
+def build_standalone_samples(
+    samples: list[str], ci_cache: CiCache,
+    ditto_builds: DittoBuildLeases | None = None,
+) -> float:
     def build(name: str) -> None:
         if platform.system() == "Darwin":
             build_uncached(name)
@@ -708,21 +712,9 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
                     check=True,
                 )
             return
-        environment = os.environ.copy()
-        environment["DITTO_CACHE_ROOT"] = os.environ.get(
-            "DITTO_CI_CACHE_ROOT",
-            str(Path.home() / "Library/Caches/Battlement/ditto-ci"),
-        )
-        subprocess.run(
-            [
-                str(REPOSITORY_ROOT / "target/debug/ditto"),
-                "--config", f"samples/{name}/ditto.toml", "build",
-                "--profile", "macos", "--json",
-            ],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
-            check=True,
-        )
+        if ditto_builds is None:
+            raise RuntimeError("macOS standalone builds require retained cache leases")
+        ditto_builds.prepare(name)
         changed = subprocess.run(
             ["git", "diff", "--name-only", "--", f"samples/{name}"],
             cwd=REPOSITORY_ROOT,
@@ -752,20 +744,33 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> float:
     return ditto_preparation_seconds
 
 
-def run_ditto_validation(reusable_build_seconds: float) -> None:
+def run_ditto_validation(
+    reusable_build_seconds: float,
+    ditto_builds: DittoBuildLeases | None = None,
+    invocation_id: str | None = None,
+) -> None:
     """Run every canonical Ditto scenario against prebuilt players."""
     environment = os.environ.copy()
     environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = str(reusable_build_seconds)
-    invocation_id = environment.setdefault("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
+    invocation_id = invocation_id or environment.get(
+        "DITTO_CI_INVOCATION_ID", str(uuid.uuid4())
+    )
+    environment["DITTO_CI_INVOCATION_ID"] = invocation_id
     root = ditto_evidence.invocation_root(REPOSITORY_ROOT, invocation_id)
     environment["DITTO_CI_ARTIFACT_ROOT"] = str(root)
     ci_steps.record_event("ditto.invocation", {
         "invocation_id": invocation_id, "artifact_root": str(root),
         "evidence_path": str(root / "evidence.json"),
     })
+    if ditto_builds is not None:
+        ditto_builds.assert_healthy()
+        environment["DITTO_CI_CACHE_ROOT"] = str(ditto_builds.cache_root)
+    command = [sys.executable, "scripts/ditto_ci.py", "gate"]
+    if platform.system() == "Darwin":
+        command = ["/usr/bin/caffeinate", "-u", "-d", "-i", "--", *command]
     run_step(
         "Run Ditto full suite",
-        [sys.executable, "scripts/ditto_ci.py", "gate"],
+        command,
         environment=environment,
     )
 
@@ -865,6 +870,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         "Test Ditto replay",
         [sys.executable, "scripts/tests/ditto-replay.test.py"],
     )
+    run_step(
+        "Test Ditto build-cache lifetime",
+        [sys.executable, "scripts/tests/ditto-cache-lifetime.test.py"],
+    )
     if full and ditto:
         run_step(
             "Test Ditto performance benchmark",
@@ -905,22 +914,49 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         ),
     )
     ditto_preparation_seconds = [0.0]
-    if full and platform.system() in {"Darwin", "Windows"}:
-        def build_samples() -> None:
-            if platform.system() == "Windows":
-                with ci_cache.invocation():
-                    ditto_preparation_seconds[0] = build_standalone_samples(samples, ci_cache)
-                return
-            ditto_preparation_seconds[0] = build_standalone_samples(samples, ci_cache)
-
-        run_step(
-            "Build standalone samples",
-            function=build_samples,
-        )
-    elif full:
-        run_step("Skip desktop full validation", function=skip_desktop_full_validation)
+    invocation_id = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
+    ditto_builds = None
     if full and platform.system() == "Darwin":
-        run_ditto_validation(ditto_preparation_seconds[0])
+        cache_root = Path(os.environ.get(
+            "DITTO_CI_CACHE_ROOT",
+            Path.home() / "Library/Caches/Battlement/ditto-ci",
+        ))
+        invocation_root = ditto_evidence.invocation_root(
+            REPOSITORY_ROOT, invocation_id
+        )
+        lease_evidence = invocation_root.parent / f"{invocation_id}.prepared-builds"
+        ditto_builds = DittoBuildLeases(
+            REPOSITORY_ROOT,
+            REPOSITORY_ROOT / "target/debug/ditto",
+            cache_root,
+            lease_evidence,
+        )
+    try:
+        if full and platform.system() in {"Darwin", "Windows"}:
+            def build_samples() -> None:
+                if platform.system() == "Windows":
+                    with ci_cache.invocation():
+                        ditto_preparation_seconds[0] = build_standalone_samples(
+                            samples, ci_cache
+                        )
+                    return
+                ditto_preparation_seconds[0] = build_standalone_samples(
+                    samples, ci_cache, ditto_builds
+                )
+
+            run_step(
+                "Build standalone samples",
+                function=build_samples,
+            )
+        elif full:
+            run_step("Skip desktop full validation", function=skip_desktop_full_validation)
+        if full and platform.system() == "Darwin":
+            run_ditto_validation(
+                ditto_preparation_seconds[0], ditto_builds, invocation_id
+            )
+    finally:
+        if ditto_builds is not None:
+            ditto_builds.close()
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 
