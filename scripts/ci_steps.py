@@ -109,6 +109,11 @@ def run_parallel_steps(
 
 def record_cache_event(event: str, attributes: dict[str, object]) -> None:
     """Attach a cache event to the currently executing CI span."""
+    record_event(event, attributes)
+
+
+def record_event(event: str, attributes: dict[str, object]) -> None:
+    """Attach producer evidence to the currently executing CI span."""
     if _trace is None:
         return
     _trace.event(

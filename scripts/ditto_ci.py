@@ -19,6 +19,7 @@ import time
 import tomllib
 import uuid
 
+import ditto_evidence
 import ditto_replay
 from typing import Any
 
@@ -26,7 +27,7 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts/ditto-ci"
 INVOCATION_ID = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
-INVOCATION_ROOT = ARTIFACT_ROOT / "executions" / INVOCATION_ID
+INVOCATION_ROOT = ditto_evidence.invocation_root(REPOSITORY_ROOT, INVOCATION_ID)
 CACHE_ROOT = Path(
     os.environ.get(
         "DITTO_CI_CACHE_ROOT",
@@ -134,7 +135,8 @@ def publish_report(name: str, report: dict[str, Any]) -> None:
     """Atomically publish one invocation report without sharing its evidence."""
     INVOCATION_ROOT.mkdir(parents=True, exist_ok=True)
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
-    (INVOCATION_ROOT / name).write_text(rendered, encoding="utf-8")
+    with (INVOCATION_ROOT / name).open("x", encoding="utf-8") as output:
+        output.write(rendered)
     ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
     temporary = ARTIFACT_ROOT / f".{name}.{INVOCATION_ID}.tmp"
     temporary.write_text(rendered, encoding="utf-8")
@@ -338,6 +340,7 @@ def gate() -> None:
         "added_duration_seconds": round(added_duration, 3),
         "scenario_count": scenario_count,
         "screenshot_count": screenshot_count,
+        "expected_samples": list(SAMPLES),
         "samples": sorted(results, key=lambda item: item["sample"]),
         "warnings": warnings,
         "failures": sorted(failures),
@@ -456,6 +459,24 @@ def main() -> None:
     subcommands.add_parser("publish")
     subcommands.add_parser("gate")
     arguments = parser.parse_args()
+    identity = ditto_evidence.begin(INVOCATION_ROOT, INVOCATION_ID, REPOSITORY_ROOT, arguments.command)
+    status = "failed"
+    try:
+        dispatch(arguments)
+        status = "passed"
+    except SystemExit as error:
+        status = "passed" if error.code in (None, 0) else "failed"
+        raise
+    except KeyboardInterrupt:
+        status = "canceled"
+        raise
+    finally:
+        evidence = ditto_evidence.finish(INVOCATION_ROOT, identity, status)
+        print(f"DITTO_CI_EVIDENCE={evidence}", flush=True)
+
+
+def dispatch(arguments: argparse.Namespace) -> None:
+    """Execute one claimed invocation."""
     if arguments.command == "prepare":
         prepare(arguments.mode)
     elif arguments.command == "sample":

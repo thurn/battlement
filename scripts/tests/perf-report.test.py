@@ -294,12 +294,16 @@ def _verify_ci_parsing(root: Path) -> None:
             {"timestamp": "2026-01-01T00:00:03Z", "event": "ci.step_finished", "run_id": "run", "span_id": "step", "parent_span_id": "run", "name": "tests", "outcome": "passed"},
             {"timestamp": "2026-01-01T00:00:03Z", "event": "ci.cache_wait", "run_id": "run", "parent_span_id": "run", "duration_ms": 100},
             "unknown",
+            {"timestamp": "2026-01-01T00:00:03Z", "event": "ditto.invocation", "run_id": "run", "invocation_id": "missing-invocation", "artifact_root": str(root / "missing-invocation"), "evidence_path": str(root / "missing-invocation/evidence.json")},
             {"timestamp": "2026-01-01T00:00:04Z", "event": "ci.run_finished", "run_id": "run", "outcome": "passed", "exit_code": 0},
         ],
     )
     spans, warnings = perf_sources.read_ci_traces(root / "ci-logs")
     assert any("non-object" in warning for warning in warnings)
     assert len(spans) == 3
+    run = next(span for span in spans if span.id == "ci-run:run")
+    assert run.attributes["ditto_evidence"][0]["integrity"] == "missing"
+    assert any("missing Ditto evidence" in warning for warning in warnings)
     assert next(span for span in spans if span.id == "ci-step:step").duration_ms == 2000
     cache_wait = next(span for span in spans if span.name == "cache wait")
     assert cache_wait.parent_id == "ci-run:run"

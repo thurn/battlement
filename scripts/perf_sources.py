@@ -501,6 +501,18 @@ def read_ci_traces(log_root: Path) -> tuple[list[Span], list[str]]:
             if key not in {"event", "timestamp", "run_id"}
         }
         metadata["source_path"] = str(path)
+        evidence = []
+        for record in records:
+            if record.get("event") != "ditto.invocation":
+                continue
+            reference = {key: record.get(key) for key in ("invocation_id", "artifact_root", "evidence_path")}
+            reference["integrity"] = "not_checked"
+            evidence_path = Path(reference["evidence_path"] or "")
+            if not evidence_path.is_file():
+                reference["integrity"] = "missing"
+                warnings.append(f"CI run {run_id} has missing Ditto evidence: {evidence_path}")
+            evidence.append(reference)
+        metadata["ditto_evidence"] = evidence
         spans.append(
             Span(
                 f"ci-run:{run_id}",

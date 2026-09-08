@@ -18,6 +18,9 @@ import sys
 import tempfile
 import time
 import tomllib
+import uuid
+
+import ditto_evidence
 
 from ci_cache import CiCache
 import ci_steps
@@ -753,6 +756,13 @@ def run_ditto_validation(reusable_build_seconds: float) -> None:
     """Run every canonical Ditto scenario against prebuilt players."""
     environment = os.environ.copy()
     environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = str(reusable_build_seconds)
+    invocation_id = environment.setdefault("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
+    root = ditto_evidence.invocation_root(REPOSITORY_ROOT, invocation_id)
+    environment["DITTO_CI_ARTIFACT_ROOT"] = str(root)
+    ci_steps.record_event("ditto.invocation", {
+        "invocation_id": invocation_id, "artifact_root": str(root),
+        "evidence_path": str(root / "evidence.json"),
+    })
     run_step(
         "Run Ditto full suite",
         [sys.executable, "scripts/ditto_ci.py", "gate"],

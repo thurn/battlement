@@ -18,6 +18,8 @@ import uuid
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "scripts/ditto_ci.py"
+sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
+import ditto_evidence
 
 
 FAKE_DITTO = r'''#!/usr/bin/env python3
@@ -136,6 +138,21 @@ def main() -> None:
             assert diagnostics is not None
             assert diagnostics.read() == b"private failure diagnostics\n"
         assert not (root / "published").exists()
+        owned = artifact_root(passed)
+        manifest = ditto_evidence.read(owned / "evidence.json", owned.name)
+        assert manifest["status"] == "passed"
+        assert "basic/run.tar.gz" in {item["path"] for item in manifest["files"]}
+        duplicate = run(["sample", "basic"], {**environment, "DITTO_CI_INVOCATION_ID": owned.name})
+        assert duplicate.returncode != 0
+        assert ditto_evidence.read(owned / "evidence.json", owned.name) == manifest
+        external_id = f"external-{uuid.uuid4()}"
+        external_root = root / "external" / external_id
+        external = run(["sample", "basic"], {**environment,
+                       "DITTO_CI_INVOCATION_ID": external_id,
+                       "DITTO_CI_ARTIFACT_ROOT": str(external_root)})
+        assert external.returncode == 0, external.stderr
+        assert artifact_root(external) == external_root
+        assert ditto_evidence.read(external_root / "evidence.json", external_id)["status"] == "passed"
 
         gated = run(["gate"], environment)
         assert gated.returncode == 0, gated.stderr
@@ -189,6 +206,42 @@ def main() -> None:
         assert root_a != root_b
         assert json.loads((root_a / "gate.json").read_text())["status"] == "passed"
         assert json.loads((root_b / "gate.json").read_text())["status"] == "passed"
+
+        for invocation_root in (root_a, root_b):
+            verified = ditto_evidence.read(invocation_root / "evidence.json", invocation_root.name)
+            assert verified["status"] == "passed"
+            assert len([item for item in verified["files"] if item["path"].endswith("/result.json")]) == 6
+        # Both failures remain independently discoverable after the latest alias changes.
+        failed_runs = [subprocess.Popen(
+            [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
+            env={**environment, "FAKE_STATUS": "failed"},
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        ) for _ in range(2)]
+        for process in failed_runs:
+            stdout, stderr = process.communicate()
+            assert process.returncode == 1, stderr
+            failed_root = artifact_root(subprocess.CompletedProcess([], 1, stdout, stderr))
+            verified = ditto_evidence.read(failed_root / "evidence.json", failed_root.name)
+            assert verified["status"] == "failed"
+            assert len([item for item in verified["files"] if item["path"].endswith("/run.tar.gz")]) == 6
+        result_path = root_a / "basic/result.json"
+        original_result = result_path.read_bytes()
+        for mutation in ("remove", "alter"):
+            if mutation == "remove":
+                result_path.unlink()
+            else:
+                result_path.write_text("corrupted")
+            try:
+                ditto_evidence.read(root_a / "evidence.json", root_a.name)
+                raise AssertionError("Missing or altered evidence was accepted")
+            except ValueError as error:
+                assert "evidence" in str(error).lower()
+            result_path.write_bytes(original_result)
+        try:
+            ditto_evidence.read(root_a / "evidence.json", root_b.name)
+            raise AssertionError("Wrong invocation was accepted")
+        except ValueError:
+            pass
 
         environment["DITTO_CI_GATE_BUDGET_SECONDS"] = "0.05"
         over_budget = run(["gate"], environment)
