@@ -48,6 +48,26 @@ def main() -> None:
         else:
             raise AssertionError("missing local link was accepted")
 
+        plan.write_text("# Workflow\n\n![Missing image](missing.png)\n", encoding="utf-8")
+        try:
+            prose_validation.validate(root, paths)
+        except RuntimeError as error:
+            assert "local link does not exist" in str(error)
+        else:
+            raise AssertionError("missing local image was accepted")
+
+        outside = root.parent / "outside-plan.md"
+        outside.write_text("# Outside\n", encoding="utf-8")
+        plan.unlink()
+        plan.symlink_to(outside)
+        try:
+            prose_validation.validate(root, paths)
+        except RuntimeError as error:
+            assert "not a symbolic link" in str(error)
+        else:
+            raise AssertionError("symbolic-link plan was accepted")
+
+        plan.unlink()
         plan.write_text("# Workflow\n\nEvidence.\n", encoding="utf-8")
         _git(root, "add", str(plan.relative_to(root)))
         _git(root, "commit", "-qm", "plan")

@@ -18,7 +18,7 @@ import uuid
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 TRUSTED_PATHS = frozenset({"plans/workflow-performance.md"})
-LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
+LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
 def changed_paths(repository: Path, *, tollgate: bool = False) -> list[str]:
@@ -50,6 +50,9 @@ def validate(repository: Path, paths: list[str]) -> None:
     root = repository.resolve()
     for relative in paths:
         path = repository / relative
+        if path.is_symlink():
+            errors.append(f"{relative}: must be a regular repository file, not a symbolic link")
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
