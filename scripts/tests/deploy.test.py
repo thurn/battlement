@@ -6,9 +6,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import tempfile
+import json
+import sys
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("deploy", REPOSITORY_ROOT / "scripts/deploy.py")
 assert SPEC and SPEC.loader
 deploy = importlib.util.module_from_spec(SPEC)
@@ -55,6 +58,39 @@ def main() -> None:
         assert "Cross-Origin-Embedder-Policy: require-corp" in headers
         assert "Content-Type: application/wasm" in headers
         assert "Cache-Control: public, max-age=31536000, immutable" in headers
+
+        revision = "0123456789abcdef"
+        deploy.require_deployable_checkout = lambda: revision
+        deploy.run = lambda command, **_kwargs: commands.append(command) or ""
+        evidence = root / "browser-result.json"
+        def passing_check(_repository, site, selected, source):
+            assert selected == names and source == revision
+            evidence.write_text(json.dumps({"status": "passed", "site_sha256": deploy.site_digest(site)}))
+            return evidence
+        deploy.check_site = passing_check
+        commands.clear()
+        deploy.publish_site(names, revision)
+        assert len(commands) == 1 and commands[0][1] == "deploy"
+
+        for failure in ("browser", "site-drift", "source-drift"):
+            commands.clear()
+            deploy.require_deployable_checkout = lambda: revision
+            def failed_check(repository, site, selected, source):
+                result = passing_check(repository, site, selected, source)
+                if failure == "browser":
+                    raise RuntimeError("The declared sample interaction failed")
+                if failure == "site-drift":
+                    (site / "index.html").write_text("changed after validation")
+                if failure == "source-drift":
+                    deploy.require_deployable_checkout = lambda: "different-revision"
+                return result
+            deploy.check_site = failed_check
+            try:
+                deploy.publish_site(names, revision)
+                raise AssertionError(f"Publication accepted {failure}")
+            except RuntimeError:
+                pass
+            assert commands == [], f"Publishing command ran despite {failure}"
 
 
 if __name__ == "__main__":

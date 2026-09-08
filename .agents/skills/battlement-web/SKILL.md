@@ -5,23 +5,24 @@ description: Prepare a Battlement web review demo and Cloudflare Quick Tunnel, v
 
 # Web review and publishing
 
-For web-visible work, follow the global wt skill's durable-service procedure.
-From the worktree, stage build inputs, then run
-`python3 scripts/prepare-web-demo.py <sample>` (add `--release` when needed).
-Use the returned build directory with
-`python3 scripts/serve_web.py --directory <build-directory> --port <port>`;
-this server supplies the headers required by threaded Unity Web players.
+Shared Rust/Unity behavior uses native Ditto evidence. Use a real browser for
+browser defects, JavaScript integration, WebGL rendering risks, and hosting.
+`scripts/web_selection.py` selects required local contracts during aggregate CI.
+For a platform risk not covered by existing paths, declare the durable risk and
+its affected samples in `web/contracts.toml`; do not substitute a native pass.
 
-Choose a verified-free non-default port. Run the server as a named durable
-service (launchd on macOS), then run a second named durable service executing
-`cloudflared tunnel --no-autoupdate --url http://127.0.0.1:<port>`.
-Record exact service labels, logs, worktree, port, and process identities.
-Do not rely on a turn-scoped terminal or background shell for persistence.
+Stage build inputs, then run `python3 scripts/prepare-web-demo.py <sample>`
+(add `--release` when needed). Use its returned directory with
+`python3 scripts/serve_web.py --directory <build-directory> --port <port>`.
+Choose a verified-free port and record the process, worktree, port, and logs.
+Exercise the affected behavior, inspect console and failed requests through
+asset loading, and verify the rendered result. A loader or canvas is insufficient.
 
-Verify both the local review URL and the generated `https://*.trycloudflare.com`
-URL load the intended screen and exercise its first relevant control. Inspect
-console and failed requests through asset loading; a loader or canvas is not
-proof the application works. Keep tunnel failures distinct from native results.
+Create a public demo only when explicitly requested. Follow the global wt
+skill's durable-service procedure for the local server and a separate service
+running `cloudflared tunnel --no-autoupdate --url http://127.0.0.1:<port>`.
+Record both service labels and verify the requested interaction at the local
+and public URLs. Keep tunnel failures distinct from native validation.
 
 Use only the globally configured Playwright MCP for browser automation. It is
 an isolated-context client of the singleton at `http://localhost:8931/mcp`.
@@ -30,8 +31,8 @@ launch a browser/automation CLI or request a shared context. Prefer snapshots,
 DOM state, and locators; take screenshots when appearance is relevant.
 Close this task's browser context after QA, leaving the shared service running.
 
-Include the exact verified public review URL and a short interaction walkthrough
-in the review handoff. Keep both durable services running through review.
+For a requested public demo, include the verified public URL and interaction
+walkthrough in the handoff. Keep its durable services running through review.
 Immediately before authorizing promotion, stop only the recorded services and
 confirm the port is free and the tunnel process is gone.
 
@@ -44,6 +45,10 @@ Install locked tooling with `npm ci`; check `npm exec -- wrangler whoami` and
 use `npm exec -- wrangler login --use-keyring` if authentication is needed.
 `python3 scripts/deploy.py <sample|all>` rebuilds and publishes the complete
 site even for a named sample. Inspect that script and `wrangler.jsonc` for
-current deployment settings. Verify its live URL checks and intended content.
+current deployment settings. Deployment checks every shipped sample's declared
+interaction on the complete local site before publishing, then checks the live
+hosting response. Browser failure blocks publication; it does not add an
+unconditional Web build to native candidate validation. Review evidence lives
+outside the worktree in the Battlement Web compatibility cache.
 R2 credentials, when needed for baseline storage, are at
 `~/.config/battlement/r2.env`; do not print their contents.

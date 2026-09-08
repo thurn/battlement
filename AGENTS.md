@@ -41,9 +41,10 @@ implementation before changing it; do not load whole document collections.
 - For major work (>500 non-test lines), use
   `~/.llms/skills/independent-review/SKILL.md`, verify findings,
   and fix confirmed issues. Run at most one review per session, including follow-ups.
-- Web-visible features require the demo and Cloudflare Quick Tunnel lifecycle in
-  [battlement-web](.agents/skills/battlement-web/SKILL.md), including cleanup
-  immediately before promotion authorization.
+- Shared/native UI uses retained native Ditto evidence. Browser-specific changes
+  and declared platform risks require the checks selected by
+  [web contracts](web/contracts.toml). Public demos require an explicit request;
+  use [battlement-web](.agents/skills/battlement-web/SKILL.md) for their lifecycle.
 - Do not print a summary of changes.
 
 ## Code guidelines

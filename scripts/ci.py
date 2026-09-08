@@ -876,6 +876,14 @@ def run_ci(
         [sys.executable, "scripts/tests/deploy.test.py"],
     )
     run_step(
+        "Test isolated Playwright transport",
+        [sys.executable, "scripts/tests/playwright-mcp.test.py"],
+    )
+    run_step(
+        "Test browser risk selection",
+        [sys.executable, "scripts/tests/web-selection.test.py"],
+    )
+    run_step(
         "Test CI sample discovery",
         [sys.executable, "scripts/tests/ci.test.py"],
     )
@@ -986,6 +994,8 @@ def run_ci(
     finally:
         if ditto_builds is not None:
             ditto_builds.close()
+    from web_selection import validate_affected
+    run_step("Validate affected browser contracts", function=lambda: validate_affected(REPOSITORY_ROOT))
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 

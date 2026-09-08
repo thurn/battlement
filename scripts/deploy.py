@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 from pathlib import Path
 import re
 import shutil
@@ -13,6 +14,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+
+from web_compatibility import check_site, site_digest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -44,8 +47,8 @@ def require_deployable_checkout() -> str:
     branch = run(["git", "branch", "--show-current"], capture=True)
     if branch != "master":
         raise RuntimeError(f"deployments require branch master; current branch is {branch or 'detached HEAD'}")
-    if run(["git", "status", "--porcelain", "--untracked-files=no"], capture=True):
-        raise RuntimeError("deployments require a clean checkout with no tracked changes")
+    if run(["git", "status", "--porcelain", "--untracked-files=all"], capture=True):
+        raise RuntimeError("deployments require a clean committed checkout")
     return run(["git", "rev-parse", "HEAD"], capture=True)
 
 
@@ -196,6 +199,24 @@ def parse_arguments(names: list[str]) -> argparse.Namespace:
     return parser.parse_args()
 
 
+def publish_site(names: list[str], revision: str) -> None:
+    """Publish only the complete site whose committed source and browser checks still match."""
+    if require_deployable_checkout() != revision:
+        raise RuntimeError("Deployment source changed during site preparation")
+    validate_site(names)
+    evidence = check_site(REPOSITORY_ROOT, STAGING_ROOT, names, revision)
+    report = json.loads(evidence.read_text())
+    if require_deployable_checkout() != revision:
+        raise RuntimeError("Deployment source changed during browser validation")
+    if report["status"] != "passed" or report["site_sha256"] != site_digest(STAGING_ROOT):
+        raise RuntimeError("Prepared site no longer matches passing browser evidence")
+    print(f"Web compatibility evidence: {evidence}", flush=True)
+    run([
+        str(WRANGLER), "deploy", "--strict", "--message",
+        f"Battlement samples at {revision}",
+    ])
+
+
 def main() -> None:
     names = sample_names()
     args = parse_arguments(names)
@@ -203,11 +224,7 @@ def main() -> None:
     require_wrangler()
     build_samples(args.target, names)
     assemble_site(names, revision)
-    validate_site(names)
-    run([
-        str(WRANGLER), "deploy", "--strict", "--message",
-        f"Battlement samples at {revision}",
-    ])
+    publish_site(names, revision)
     try:
         smoke_test(names)
     except RuntimeError as error:
