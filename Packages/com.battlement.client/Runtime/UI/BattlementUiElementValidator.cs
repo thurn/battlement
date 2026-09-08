@@ -53,6 +53,16 @@ namespace Battlement.UI
                 message => Failure(CoreErrorCode.InvalidProperty, message)
             );
             BattlementPaintProperties.Validate(element.Paint);
+            if (element.Paint.IsSet && element is not UiElement.VisualElement)
+                if (
+                    element.Paint.Value.BlendMode
+                    is PaintBlendMode.Screen
+                        or PaintBlendMode.Additive
+                )
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "Subtree blend modes require a decorative View host."
+                    );
             if (element.Motion.IsSet)
                 BattlementMotionValidator.Validate(element.Motion.Value);
             if (

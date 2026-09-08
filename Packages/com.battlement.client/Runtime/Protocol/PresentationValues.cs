@@ -4,6 +4,25 @@ using System.Collections.Generic;
 
 namespace Battlement
 {
+    public enum PaintBlendMode
+    {
+        Normal,
+        Screen,
+        Additive,
+    }
+
+    public enum PaintFillRule
+    {
+        NonZero,
+        EvenOdd,
+    }
+
+    /// <summary>A compound subtree mask in border-box coordinates.</summary>
+    public sealed record PaintClipPath(
+        IReadOnlyList<IReadOnlyList<IReadOnlyList<UiLength>>> Contours,
+        PaintFillRule FillRule
+    );
+
     /// <summary>One typed operation in an authored transform list.</summary>
     public abstract record TransformOperation
     {
@@ -66,6 +85,8 @@ namespace Battlement
         IReadOnlyList<IReadOnlyList<UiLength>>? ClipPolygon = null,
         IReadOnlyList<Shadow>? BoxShadow = null,
         IReadOnlyList<UiLength>? ClipInset = null,
-        IReadOnlyList<PaintLayer>? Layers = null
+        IReadOnlyList<PaintLayer>? Layers = null,
+        PaintClipPath? SubtreeClip = null,
+        PaintBlendMode? BlendMode = null
     );
 }

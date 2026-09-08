@@ -1238,7 +1238,7 @@ mod tests {
         transition: TransitionDefinition::tween(),
       }
       .validate()
-      .is_err()
+      .is_ok()
     );
     assert!(
       MotionPropertyTrack {

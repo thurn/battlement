@@ -604,7 +604,6 @@ namespace Battlement.UI
             IReadOnlyList<UiFilterFunction> values
         )
         {
-            int paintDropShadows = 0;
             foreach (UiFilterFunction value in values)
             {
                 bool paint =
@@ -621,9 +620,6 @@ namespace Battlement.UI
                 else if (value is UiFilterFunction.DropShadow shadow)
                 {
                     ValidateShadow(shadow.Value);
-                    paintDropShadows++;
-                    if (paintDropShadows > 1)
-                        throw Invalid("Owned-paint filter supports one drop-shadow.");
                 }
             }
         }

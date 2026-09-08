@@ -63,6 +63,7 @@ namespace Battlement.UI
             if (!value.IsSet)
                 return;
             PaintStyle paint = value.Value;
+            ValidateComposition(paint);
             if (paint.Background is not null)
                 ValidateFill(paint.Background);
             if (paint.PaintFilter is not null && paint.Background is null)
@@ -87,6 +88,27 @@ namespace Battlement.UI
                 ValidateShadow(shadow);
         }
 
+        private static void ValidateComposition(PaintStyle paint)
+        {
+            if (
+                paint.BlendMode.HasValue
+                && !Enum.IsDefined(typeof(PaintBlendMode), paint.BlendMode.Value)
+            )
+                throw Invalid("Unknown paint blend mode.");
+            if (paint.SubtreeClip is not PaintClipPath path)
+                return;
+            if (!Enum.IsDefined(typeof(PaintFillRule), path.FillRule) || path.Contours.Count == 0)
+                throw Invalid("A subtree clip requires contours and a known fill rule.");
+            int count = 0;
+            foreach (IReadOnlyList<IReadOnlyList<UiLength>> contour in path.Contours)
+            {
+                ValidatePolygon(contour);
+                count += contour.Count;
+            }
+            if (count > 64)
+                throw Invalid("Subtree clips support at most 64 edges.");
+        }
+
         private static void ValidateFill(PaintFill fill)
         {
             if (fill is PaintFill.Color color)
@@ -99,7 +121,6 @@ namespace Battlement.UI
 
         private static void ValidateFilters(IReadOnlyList<UiFilterFunction>? filters)
         {
-            int dropShadows = 0;
             foreach (UiFilterFunction filter in filters ?? Array.Empty<UiFilterFunction>())
             {
                 if (filter is UiFilterFunction.Brightness brightness)
@@ -113,9 +134,6 @@ namespace Battlement.UI
                     if (shadow.Value.Inset)
                         throw Invalid("Paint drop-shadow cannot be inset.");
                     ValidateShadow(shadow.Value);
-                    dropShadows++;
-                    if (dropShadows > 1)
-                        throw Invalid("Paint filters support one drop-shadow.");
                 }
                 else
                     throw Invalid("Paint filter received an unsupported operation.");

@@ -604,7 +604,8 @@ namespace Battlement.UI
                     BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                         target,
                         properties.ObjectId,
-                        properties.Element.Motion
+                        properties.Element.Motion,
+                        properties.Element.Paint
                     );
                     System.Action? commitStyle = motionWorld.PrepareStyle(
                         properties.ObjectId,
@@ -724,7 +725,7 @@ namespace Battlement.UI
             UiElement description = node.Element;
             UnityEngine.UIElements.VisualElement value = description switch
             {
-                UiElement.VisualElement => new UnityEngine.UIElements.VisualElement(),
+                UiElement.VisualElement => new BattlementPaintHost(),
                 UiElement.Flex => new BattlementLayoutContainer(BattlementLayoutContainerKind.Flex),
                 UiElement.Grid => new BattlementLayoutContainer(BattlementLayoutContainerKind.Grid),
                 UiElement.Stack => new BattlementLayoutContainer(
@@ -860,7 +861,8 @@ namespace Battlement.UI
             BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                 value,
                 node.ObjectId,
-                node.Element.Motion
+                node.Element.Motion,
+                node.Element.Paint
             );
             properties.ApplyElement(value, node.ObjectId, node.Element);
             BattlementPaintProperties.Apply(value, node.Element.Paint);
@@ -1049,8 +1051,8 @@ namespace Battlement.UI
         {
             bool matches = element switch
             {
-                UiElement.VisualElement => target.GetType()
-                    == typeof(UnityEngine.UIElements.VisualElement),
+                UiElement.VisualElement => target is BattlementPaintHost
+                    || target.GetType() == typeof(UnityEngine.UIElements.VisualElement),
                 UiElement.Flex => target is BattlementLayoutContainer layout
                     && layout.Kind == BattlementLayoutContainerKind.Flex,
                 UiElement.Grid => target is BattlementLayoutContainer grid

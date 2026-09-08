@@ -79,7 +79,6 @@ impl MotionValue {
     let Self::FilterList(values) = self else {
       return Ok(());
     };
-    let mut paint_drop_shadows = 0;
     for value in values.as_slice() {
       let supported = match property {
         crate::MotionProperty::PaintFilter => matches!(
@@ -91,14 +90,6 @@ impl MotionValue {
       };
       if !supported {
         return Err("motion property received an unsupported filter operation");
-      }
-      if property == crate::MotionProperty::PaintFilter
-        && matches!(value, FilterFunction::DropShadow(_))
-      {
-        paint_drop_shadows += 1;
-        if paint_drop_shadows > 1 {
-          return Err("motion paint filter supports one drop-shadow");
-        }
       }
     }
     Ok(())

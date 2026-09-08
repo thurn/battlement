@@ -6,7 +6,7 @@ pub const OUTER_INSET: f32 = 21.0;
 pub const BORDER_THICKNESS: f32 = 8.0;
 pub const OUTER_BOTTOM: f32 = 111.0;
 
-/// Builds the frame polygon, including the bottom Return cutout.
+/// Builds the shared chamfered frame polygon.
 pub fn clip() -> Vec<[Length; 2]> {
   [
     [4.5, 0.0],
@@ -32,7 +32,7 @@ pub fn clip() -> Vec<[Length; 2]> {
 
 /// Returns the bright metal gradient around the bezel.
 pub fn metal() -> Gradient {
-  Gradient::linear(110.0)
+  Gradient::linear_css(110.0)
     .stop(0.0, Color::hex(0xf4ffff))
     .stop(0.04, Color::hex(0x53dcff))
     .stop(0.12, Color::hex(0x0874ef))

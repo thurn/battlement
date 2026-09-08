@@ -5,58 +5,58 @@ namespace = "battlement/chess-ui"
 profile = "macos"
 scenario = "complete chess ui"
 checkpoint = "main-menu"
-sha256 = "358510c3625bd3d8628a8629179271ab1bcfaf03694c059177bcfc65bc9a64d3"
+sha256 = "1c6687350044bcca9d6c0911393d018cfb3aff7f96c204408253e599a8ded4e0"
 width = 1280
 height = 800
-size_bytes = 177717
-source = "a02f78b22cad20993f247751f8da2092c93fc81203bdf416a966198e5c22d777"
+size_bytes = 179354
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 
 [[baselines]]
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks"
-sha256 = "a13a2cfeab4fea4e7c9058736abb897079c1f7b4d6dc9ba6541a249c5bf38c08"
+sha256 = "abae4b97659716ee3532d7412a89e4d8f853244a6c5cc5a079d2a962aa1a747b"
 width = 1280
 height = 800
-size_bytes = 177575
-source = "2d464283033de57617762d5355873045c122e64ab4f2d1026ceb556d7645aa93"
+size_bytes = 177687
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 
 [[baselines]]
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks-finished"
-sha256 = "87d5c1629a0ee14dd0ba103be8bfb8f24395ee2318fa6f7a64449afb6b27aa04"
+sha256 = "2fc1f21a5dc3e045b81ac506899711aa7fe459789a6cfaa87c36c2cb99a4c639"
 width = 1280
 height = 800
-size_bytes = 179563
-source = "2d464283033de57617762d5355873045c122e64ab4f2d1026ceb556d7645aa93"
+size_bytes = 179604
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 
 [[baselines]]
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks-reduced-motion"
-sha256 = "373e970f5975e44a4ce63a927e795f295f9246d1e50339766da9a6b5dd9943e8"
+sha256 = "e43c47e2710262ba7f82a9f5408b6182b0bc11f66033e2f880627e6623a6f7d2"
 width = 1280
 height = 800
-size_bytes = 159051
-source = "2d464283033de57617762d5355873045c122e64ab4f2d1026ceb556d7645aa93"
+size_bytes = 159218
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 
 [[baselines]]
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks-repeated"
-sha256 = "1722a7cae0b53be4f4d8f6ec1e0abec8f606c702f7da79064f49545c82c99992"
+sha256 = "f9db434e06b474d3743f1410752f02260509e3b3e7c56e6c47612c888d6fa513"
 width = 1280
 height = 800
-size_bytes = 177615
-source = "2d464283033de57617762d5355873045c122e64ab4f2d1026ceb556d7645aa93"
+size_bytes = 177783
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 
 [[baselines]]
 profile = "macos"
 scenario = "settings route transition"
 checkpoint = "settings"
-sha256 = "5df4055d624caafc5a6d30adb8dc6f456bf7a411e14a004f1f2f6f24d426dc34"
+sha256 = "0b7703987504832b12e689345590c1af096fd16ccd65ebb8e0d618bc381d9b51"
 width = 1280
 height = 800
-size_bytes = 152388
-source = "f5c8cf389f8402eee8b5439dfcc62bd763ce3ecef079b59eae8edf4de498fc2c"
+size_bytes = 155188
+source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"

@@ -267,7 +267,7 @@ namespace Battlement.Tests
                 Assert.That(ownedDocument.rootVisualElement.childCount, Is.EqualTo(1));
                 Assert.That(
                     ownedDocument.rootVisualElement[0],
-                    Is.TypeOf<UnityEngine.UIElements.VisualElement>()
+                    Is.InstanceOf<UnityEngine.UIElements.VisualElement>()
                 );
                 Assert.That(ownedDocument.rootVisualElement[0][0], Is.TypeOf<Box>());
                 Assert.That(

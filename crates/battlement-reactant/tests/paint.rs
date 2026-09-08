@@ -2,11 +2,12 @@ mod runtime_support;
 
 use battlement::{
   CameraState, Color, CommandBody, GameObject, GameObjectKind, Length, MotionLayer, ObjectId,
-  PaintFill, PaintStyle, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene,
-  SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiVisualElementProperties,
-  VisualElementUpdate,
+  PaintBlendMode, PaintClipPath, PaintFill, PaintFillRule, PaintStyle, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiVisualElementProperties, VisualElementUpdate,
 };
 use battlement_reactant::{
+  components::EffectGroup,
   executor::{BoxFuture, SpawnedTask, Spawner},
   host::View,
   motion::StyleTarget,
@@ -14,6 +15,37 @@ use battlement_reactant::{
 };
 
 struct IdleSpawner;
+
+#[test]
+fn effect_group_preserves_compound_clip_and_blend_through_serialization() {
+  let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
+  let mut runtime = runtime_support::reactant(IdleSpawner);
+  let path = PaintClipPath::new(PaintFillRule::EvenOdd)
+    .contour([[0., 0.], [100., 0.], [100., 100.], [0., 100.]].map(|p| p.map(Length::percent)))
+    .contour([[20., 20.], [80., 20.], [80., 80.], [20., 80.]].map(|p| p.map(Length::percent)));
+  let authored = path.clone();
+  runtime.register_root(document.clone(), move |_: &()| {
+    EffectGroup::new()
+      .clip_path(authored.clone())
+      .blend_mode(PaintBlendMode::Screen)
+      .child(View::decorative())
+  });
+  let (initial, commit) = runtime
+    .begin_session(&mut ())
+    .unwrap()
+    .into_parts(self::snapshot(&document));
+  let _ = commit.into_groups();
+  let group = &initial.ui[0].children[0];
+  let Prop::Set(paint) = &group.element.visual_element().paint else {
+    panic!("missing group paint")
+  };
+  let encoded = serde_json::to_string(paint).unwrap();
+  let decoded: PaintStyle = serde_json::from_str(&encoded).unwrap();
+  assert_eq!(decoded.subtree_clip_path(), Some(&path));
+  assert_eq!(decoded.paint_blend_mode(), Some(PaintBlendMode::Screen));
+  assert_eq!(group.children.len(), 1);
+  let _ = runtime.shutdown(&mut ()).into_groups();
+}
 
 #[test]
 fn static_paint_updates_and_removal_preserve_the_host_and_gesture_generation() {

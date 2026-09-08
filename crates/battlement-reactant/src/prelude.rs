@@ -66,7 +66,7 @@ pub use crate::{
   callback::Callback as EventCallback,
   component::{Component, Memo, RenderCallback, memo},
   components::{
-    Button, Checkbox, ColumnHeader, Disclosure, Group, Heading, Image, Link, ListBox,
+    Button, Checkbox, ColumnHeader, Disclosure, EffectGroup, Group, Heading, Image, Link, ListBox,
     ListBoxOption, Navigation, PopupButton, Progress, Radio, RadioGroup, Region, RowHeader,
     ScrollArea, Slider, Switch, Tab, TabButton, TabPanel, TabStrip, Table, TableCell, TableRow,
     Tabs, Text,

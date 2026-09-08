@@ -36,12 +36,14 @@
 //! ```
 
 mod choice;
+mod effect_group;
 mod press;
 mod range;
 mod structure;
 mod toggle;
 
 pub use choice::{Radio, RadioGroup, Tab, TabPanel, Tabs};
+pub use effect_group::EffectGroup;
 pub use press::{Button, Disclosure, Link, ListBoxOption, PopupButton};
 pub use range::{Progress, ScrollArea, Slider};
 pub use structure::{

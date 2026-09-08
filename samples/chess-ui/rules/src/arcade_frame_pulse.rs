@@ -1,14 +1,14 @@
 //! Animated comets tracing the arcade frame perimeter.
 
 use crate::frame_styles;
-use battlement::{Color, Gradient, LengthUnits, Overflow, Position, Style};
+use battlement::{Color, Gradient, Length, LengthUnits, Position, Style};
 use battlement_reactant::{
   component::Component,
   host::View,
-  paint::PaintStyle,
+  paint::{PaintBlendMode, PaintClipPath, PaintFillRule, PaintStyle},
   prelude::{
-    Animation, AnimationIterations, Easing, Keyframes, PaintDropShadow, PaintFilterList,
-    StyleTarget, builder,
+    Animation, AnimationIterations, Easing, EffectGroup, Keyframes, PaintDropShadow,
+    PaintFilterList, StyleTarget, builder,
   },
   render::Render,
 };
@@ -27,15 +27,6 @@ pub enum ArcadeScreen {
   Settings,
 }
 
-#[derive(Clone, Copy)]
-struct EdgeWindow {
-  name: &'static str,
-  left: f32,
-  top: f32,
-  width: f32,
-  height: f32,
-}
-
 /// Two glowing comets that travel around the source arcade-frame path.
 #[builder]
 pub struct ArcadeFramePulse {
@@ -47,7 +38,23 @@ pub struct ArcadeFramePulse {
 
 impl Component for ArcadeFramePulse {
   fn render(&self) -> impl Render {
-    View::decorative()
+    let beams = (
+      self::comet(
+        0,
+        270.0,
+        76.0,
+        self::large_comet_paint(),
+        self.reduce_motion,
+      ),
+      self::comet(1, 86.0, 30.0, self::small_comet_paint(), self.reduce_motion),
+    );
+    let mut content = EffectGroup::new()
+      .style(Style::new().absolute_fill())
+      .child(beams);
+    if self.active_screen == ArcadeScreen::Settings {
+      content = content.clip_path(self::settings_clip());
+    }
+    EffectGroup::new()
       .name("arcade-frame-pulse")
       .style(
         Style::new()
@@ -56,148 +63,70 @@ impl Component for ArcadeFramePulse {
           .left(frame_styles::OUTER_INSET)
           .width(FRAME_WIDTH)
           .height(FRAME_HEIGHT)
-          .overflow(Overflow::Hidden)
           .opacity(if self.reduce_motion { 0.28 } else { 1.0 }),
       )
-      .child((
-        self::comet(
-          0,
-          270.0,
-          76.0,
-          self::large_comet_paint(),
-          self.active_screen,
-          self.reduce_motion,
-          self::lap(),
-        ),
-        self::comet(
-          1,
-          86.0,
-          30.0,
-          self::small_comet_paint(),
-          self.active_screen,
-          self.reduce_motion,
-          self::lap(),
-        ),
-      ))
+      .clip_path(self::frame_ring())
+      .blend_mode(PaintBlendMode::Screen)
+      .child(content)
   }
 }
 
-fn comet(
-  index: usize,
-  width: f32,
-  height: f32,
-  paint: PaintStyle,
-  active_screen: ArcadeScreen,
-  reduce_motion: bool,
-  lap: Keyframes<StyleTarget>,
-) -> View {
-  View::decorative()
+fn comet(index: usize, width: f32, height: f32, paint: PaintStyle, reduce_motion: bool) -> View {
+  let beam = View::decorative()
     .name(format!("arcade-frame-comet-{index}"))
-    .style(Style::new().absolute_fill())
-    .children(self::edge_windows(active_screen).into_iter().map(|window| {
-      let beam = View::decorative()
-        .name(format!("arcade-frame-comet-{index}-{}-beam", window.name))
-        .style(
-          Style::new()
-            .position(Position::Absolute)
-            .left(0)
-            .top(0)
-            .width(width)
-            .height(height)
-            .margin_left(-width / 2.0)
-            .margin_top(-height / 2.0)
-            .border_radius(50.pct()),
-        )
-        .paint(paint.clone());
-      let beam = if reduce_motion {
-        beam
-      } else {
-        beam.animation(
-          Animation::new(lap.clone())
-            .duration_secs(6.5)
-            .ease(Easing::Linear)
-            .iterations(AnimationIterations::Forever)
-            .diagnostic_name("arcade-border-comet-lap"),
-        )
-      };
-      View::decorative()
-        .name(format!("arcade-frame-comet-{index}-{}-window", window.name))
-        .style(
-          Style::new()
-            .position(Position::Absolute)
-            .left(window.left)
-            .top(window.top)
-            .width(window.width)
-            .height(window.height)
-            .overflow(Overflow::Hidden),
-        )
-        .child(
-          View::decorative()
-            .style(
-              Style::new()
-                .position(Position::Absolute)
-                .left(-window.left)
-                .top(-window.top)
-                .width(FRAME_WIDTH)
-                .height(FRAME_HEIGHT),
-            )
-            .child(beam),
-        )
-    }))
+    .style(
+      Style::new()
+        .position(Position::Absolute)
+        .left(0)
+        .top(0)
+        .width(width)
+        .height(height)
+        .margin_left(-width / 2.0)
+        .margin_top(-height / 2.0)
+        .border_radius(50.pct()),
+    )
+    .paint(paint);
+  if reduce_motion {
+    beam
+  } else {
+    beam.animation(
+      Animation::new(self::lap())
+        .duration_secs(6.5)
+        .ease(Easing::Linear)
+        .iterations(AnimationIterations::Forever)
+        .diagnostic_name("arcade-border-comet-lap"),
+    )
+  }
 }
 
-fn edge_windows(active_screen: ArcadeScreen) -> Vec<EdgeWindow> {
-  let mut windows = vec![
-    EdgeWindow {
-      name: "top",
-      left: PULSE_THICKNESS,
-      top: 0.0,
-      width: FRAME_WIDTH - PULSE_THICKNESS * 2.0,
-      height: PULSE_THICKNESS,
-    },
-    EdgeWindow {
-      name: "right",
-      left: FRAME_WIDTH - PULSE_THICKNESS,
-      top: 0.0,
-      width: PULSE_THICKNESS,
-      height: FRAME_HEIGHT,
-    },
-    EdgeWindow {
-      name: "left",
-      left: 0.0,
-      top: 0.0,
-      width: PULSE_THICKNESS,
-      height: FRAME_HEIGHT,
-    },
-  ];
-  let bottom_top = FRAME_HEIGHT - PULSE_THICKNESS;
-  if active_screen == ArcadeScreen::Settings {
-    windows.extend([
-      EdgeWindow {
-        name: "bottom-left",
-        left: PULSE_THICKNESS,
-        top: bottom_top,
-        width: SETTINGS_SIDE_WIDTH - PULSE_THICKNESS,
-        height: PULSE_THICKNESS.min(SETTINGS_BOTTOM_HEIGHT),
-      },
-      EdgeWindow {
-        name: "bottom-right",
-        left: FRAME_WIDTH - SETTINGS_SIDE_WIDTH,
-        top: bottom_top,
-        width: SETTINGS_SIDE_WIDTH - PULSE_THICKNESS,
-        height: PULSE_THICKNESS.min(SETTINGS_BOTTOM_HEIGHT),
-      },
-    ]);
-  } else {
-    windows.push(EdgeWindow {
-      name: "bottom",
-      left: PULSE_THICKNESS,
-      top: bottom_top,
-      width: FRAME_WIDTH - PULSE_THICKNESS * 2.0,
-      height: PULSE_THICKNESS,
-    });
-  }
-  windows
+fn frame_ring() -> PaintClipPath {
+  let outer = frame_styles::clip();
+  let inner = outer.iter().map(|point| {
+    point.map(|length| {
+      let [px, percent] = length.components();
+      Length::calc(px + PULSE_THICKNESS * (1.0 - percent / 50.0), percent)
+    })
+  });
+  PaintClipPath::new(PaintFillRule::EvenOdd)
+    .contour(inner)
+    .contour(outer)
+}
+
+fn settings_clip() -> PaintClipPath {
+  let top = FRAME_HEIGHT - SETTINGS_BOTTOM_HEIGHT;
+  PaintClipPath::new(PaintFillRule::NonZero)
+    .contour(self::rectangle(0.0, 0.0, FRAME_WIDTH, top))
+    .contour(self::rectangle(0.0, top, SETTINGS_SIDE_WIDTH, FRAME_HEIGHT))
+    .contour(self::rectangle(
+      FRAME_WIDTH - SETTINGS_SIDE_WIDTH,
+      top,
+      FRAME_WIDTH,
+      FRAME_HEIGHT,
+    ))
+}
+
+fn rectangle(left: f32, top: f32, right: f32, bottom: f32) -> [[Length; 2]; 4] {
+  [[left, top], [right, top], [right, bottom], [left, bottom]].map(|point| point.map(Length::px))
 }
 
 fn lap() -> Keyframes<StyleTarget> {
@@ -222,7 +151,7 @@ fn lap_frame(x: f32, y: f32, rotate: f32) -> StyleTarget {
 fn large_comet_paint() -> PaintStyle {
   PaintStyle::new()
     .background(
-      Gradient::radial([0.5, 0.5], [0.5, 0.5])
+      Gradient::radial([0.5, 0.5], [std::f32::consts::FRAC_1_SQRT_2; 2])
         .stop(0.0, Color::rgba8(255, 255, 255, 242))
         .stop(0.07, Color::rgba8(255, 255, 255, 242))
         .stop(0.24, Color::rgba8(69, 225, 255, 235))
@@ -260,7 +189,7 @@ fn large_comet_paint() -> PaintStyle {
 fn small_comet_paint() -> PaintStyle {
   PaintStyle::new()
     .background(
-      Gradient::radial([0.5, 0.5], [0.5, 0.5])
+      Gradient::radial([0.5, 0.5], [std::f32::consts::FRAC_1_SQRT_2; 2])
         .stop(0.0, Color::WHITE)
         .stop(0.20, Color::WHITE)
         .stop(0.42, Color::hex(0xbdf5ff))

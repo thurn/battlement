@@ -104,10 +104,15 @@ namespace Battlement.UI
         public BattlementPreparedMotionAdmission? Prepare(
             VisualElement target,
             ObjectId hostId,
-            Prop<MotionDescriptor> motion
+            Prop<MotionDescriptor> motion,
+            Prop<PaintStyle> paint = default
         )
         {
             ThrowIfDisposed();
+            MotionDescriptor? nextMotion = motion.IsSet ? motion.Value : null;
+            if (motion.IsUnset && descriptorByHost.TryGetValue(hostId.Value, out Guid currentId))
+                nextMotion = descriptors[currentId].Descriptor;
+            BattlementPaintAdmission.Validate(target, paint, nextMotion);
             if (motion.IsUnset)
                 return null;
             if (motion.IsReset)

@@ -38,16 +38,9 @@ impl PaintFilterList {
     self
   }
 
-  /// Sets the one alpha-silhouette shadow in evaluation order.
+  /// Appends an alpha-silhouette shadow in evaluation order.
   #[must_use]
   pub fn drop_shadow(mut self, value: PaintDropShadow) -> Self {
-    if let Some(index) = self
-      .0
-      .iter()
-      .position(|filter| matches!(filter, PaintFilter::DropShadow(_)))
-    {
-      self.0.remove(index);
-    }
     self.0.push(PaintFilter::DropShadow(value));
     self
   }
@@ -71,12 +64,7 @@ impl PaintFilterList {
       .copied()
       .map(PaintFilter::from_protocol)
       .collect::<Option<Vec<_>>>()?;
-    (filters
-      .iter()
-      .filter(|filter| matches!(filter, PaintFilter::DropShadow(_)))
-      .count()
-      <= 1)
-      .then_some(Self(filters))
+    Some(Self(filters))
   }
 
   pub(crate) fn mix(from: &Self, to: &Self, progress: f64) -> Self {

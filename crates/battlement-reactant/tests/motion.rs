@@ -485,7 +485,8 @@ fn owned_paint_filters_and_blurred_shadows_lower_to_distinct_tracks() {
               shadow.spread,
               shadow.color,
             ))
-            .brightness(0.75),
+            .brightness(0.75)
+            .drop_shadow(PaintDropShadow::new(0.0, 0.0, 18.0, 0.0, Color::WHITE)),
         )
         .box_shadow([shadow]),
     )
@@ -525,6 +526,11 @@ fn owned_paint_filters_and_blurred_shadows_lower_to_distinct_tracks() {
     filters.as_slice()[2],
     FilterFunction::Brightness(0.75)
   ));
+  assert!(matches!(
+    filters.as_slice()[3],
+    FilterFunction::DropShadow(_)
+  ));
+  assert_eq!(filters.as_slice().len(), 4);
   let _ = reactant.shutdown(&mut ()).into_groups();
 }
 

@@ -435,6 +435,20 @@ fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationEr
 
 fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {
   validate_visual(value.visual_element())?;
+  if !matches!(value, UiElement::VisualElement(_))
+    && value
+      .visual_element()
+      .paint
+      .set_value()
+      .is_some_and(|paint| {
+        matches!(
+          paint.paint_blend_mode(),
+          Some(crate::PaintBlendMode::Screen | crate::PaintBlendMode::Additive)
+        )
+      })
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
   validate_parts(value, require_complete)?;
   match value {
     UiElement::Flex(value) => {

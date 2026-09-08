@@ -1,7 +1,7 @@
 use battlement_types::Color;
 use serde::{Deserialize, Serialize};
 
-use crate::{FilterFunction, FilterList, Length};
+use crate::{FilterFunction, FilterList, Length, PaintBlendMode, PaintClipPath};
 
 /// A solid or gradient background painted inside an element's clip geometry.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -27,6 +27,10 @@ impl From<Gradient> for PaintFill {
 /// Static decorative paint in element border-box coordinates.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PaintStyle {
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  subtree_clip: Option<PaintClipPath>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  blend_mode: Option<PaintBlendMode>,
   background: Option<PaintFill>,
   paint_filter: Option<FilterList>,
   clip_polygon: Option<Vec<[Length; 2]>>,
@@ -52,6 +56,8 @@ impl PaintStyle {
   #[must_use]
   pub const fn new() -> Self {
     Self {
+      subtree_clip: None,
+      blend_mode: None,
       background: None,
       paint_filter: None,
       clip_polygon: None,
@@ -65,6 +71,33 @@ impl PaintStyle {
   #[must_use]
   pub fn fill(value: impl Into<PaintFill>) -> Self {
     Self::new().background(value)
+  }
+
+  /// Masks the rendered element and its descendants, including their effects.
+  #[must_use]
+  pub fn subtree_clip(mut self, value: PaintClipPath) -> Self {
+    self.subtree_clip = Some(value);
+    self
+  }
+
+  /// Blends the composited subtree with its backdrop.
+  /// Screen and additive blending require a View host and own its material slot.
+  #[must_use]
+  pub fn blend_mode(mut self, value: PaintBlendMode) -> Self {
+    self.blend_mode = Some(value);
+    self
+  }
+
+  #[must_use]
+  /// Returns the compound mask applied after rendering descendants.
+  pub fn subtree_clip_path(&self) -> Option<&PaintClipPath> {
+    self.subtree_clip.as_ref()
+  }
+
+  #[must_use]
+  /// Returns the composited subtree's backdrop blend mode.
+  pub const fn paint_blend_mode(&self) -> Option<PaintBlendMode> {
+    self.blend_mode
   }
 
   /// Sets the background fill.
@@ -153,6 +186,13 @@ impl PaintStyle {
   }
 
   pub(crate) fn is_valid(&self) -> bool {
+    if !self
+      .subtree_clip
+      .as_ref()
+      .is_none_or(PaintClipPath::is_valid)
+    {
+      return false;
+    }
     let background_valid = self.background.as_ref().is_none_or(|value| match value {
       PaintFill::Color(value) => [value.r, value.g, value.b, value.a]
         .into_iter()
@@ -163,15 +203,13 @@ impl PaintStyle {
       value.len() >= 3 && value.iter().flatten().all(|value| value.is_finite())
     });
     let filters_valid = self.paint_filter.as_ref().is_none_or(|filters| {
-      let mut drop_shadows = 0;
       filters.as_slice().iter().all(|filter| match filter {
         FilterFunction::Brightness(value) => value.is_finite() && *value >= 0.0,
         FilterFunction::DropShadow(value) => {
-          drop_shadows += 1;
           if !shadow_is_finite(*value) || value.inset {
             return false;
           }
-          drop_shadows == 1
+          true
         }
       })
     });
@@ -256,13 +294,9 @@ impl PaintLayer {
       value.len() >= 3 && value.iter().flatten().all(|value| value.is_finite())
     });
     let filters_valid = self.paint_filter.as_ref().is_none_or(|filters| {
-      let mut drop_shadows = 0;
       filters.as_slice().iter().all(|filter| match filter {
         FilterFunction::Brightness(value) => value.is_finite() && *value >= 0.0,
-        FilterFunction::DropShadow(value) => {
-          drop_shadows += 1;
-          !value.inset && shadow_is_finite(*value) && drop_shadows == 1
-        }
+        FilterFunction::DropShadow(value) => !value.inset && shadow_is_finite(*value),
       })
     });
     let insets_valid = self
@@ -527,6 +561,12 @@ impl GradientStop {
 }
 
 impl Gradient {
+  /// Starts a CSS-angle gradient: zero points up and 90 degrees points right.
+  #[must_use]
+  pub const fn linear_css(angle: f32) -> Self {
+    Self::linear(angle - 90.0)
+  }
+
   /// Starts a linear gradient at the supplied angle in degrees.
   #[must_use]
   pub const fn linear(angle: f32) -> Self {

@@ -24,8 +24,13 @@ namespace Battlement.UI
         private IBattlementUiAssetLease? maskLease;
         private IBattlementUiAssetLease? materialLease;
         private StyleColor authoredBackground;
+        private readonly BattlementPaintRaster raster = new();
+        private readonly List<BattlementPaintRaster> layerRasters = new();
+        private BattlementPaintComposition? composition;
         public bool HasStaticFill { get; private set; }
-        public bool HasStaticPaint => staticValues.Count > 0 || staticLayers.Count > 0;
+        public PaintBlendMode? StaticBlendMode { get; private set; }
+        public bool HasStaticPaint =>
+            staticValues.Count > 0 || staticLayers.Count > 0 || composition?.IsActive == true;
 
         public static BattlementAdvancedPaint For(VisualElement target) =>
             All.GetValue(target, element => new BattlementAdvancedPaint(element));
@@ -56,7 +61,15 @@ namespace Battlement.UI
 
         public void ReplaceStatic(PaintStyle? next)
         {
+            composition ??= new BattlementPaintComposition(target);
+            composition.Replace(next?.SubtreeClip, next?.BlendMode);
+            StaticBlendMode = next?.BlendMode;
+            foreach (BattlementPaintRaster layerRaster in layerRasters)
+                layerRaster.Dispose();
+            layerRasters.Clear();
             staticLayers = next?.Layers ?? Array.Empty<PaintLayer>();
+            for (int index = 0; index < staticLayers.Count; index++)
+                layerRasters.Add(new BattlementPaintRaster());
             bool fill = next?.Background is not null;
             if (fill && !HasStaticFill)
                 authoredBackground = target.style.backgroundColor;
@@ -116,6 +129,8 @@ namespace Battlement.UI
 
         public void Write(MotionProperty property, MotionValue value)
         {
+            if (property == MotionProperty.UnityMaterial)
+                BattlementPaintAdmission.ValidateMaterial(StaticBlendMode);
             if (property == MotionProperty.PaintFilter && !EmptyPaint(value))
                 if (!HasStaticFill)
                     throw Failure("Motion paint filters require an owned PaintStyle background.");
@@ -136,6 +151,10 @@ namespace Battlement.UI
 
         public void Dispose()
         {
+            composition?.Dispose();
+            raster.Dispose();
+            foreach (BattlementPaintRaster layerRaster in layerRasters)
+                layerRaster.Dispose();
             target.generateVisualContent -= Paint;
             if (HasStaticFill)
                 target.style.backgroundColor = authoredBackground;
@@ -157,11 +176,29 @@ namespace Battlement.UI
                 IReadOnlyList<Vector2> points = Geometry(rect);
                 if (points.Count >= 3)
                 {
-                    DrawFilterShadows(painter, points);
                     DrawOuterShadows(painter, points);
                     if (maskLease?.Value is Texture2D mask)
                         painter.fillTexture = mask;
-                    if (!PaintGradientSegments(painter, points, rect))
+                    PaintFill fill =
+                        TryValue(MotionProperty.BackgroundGradient, out MotionValue source)
+                        && source is MotionValue.Gradient gradient
+                            ? new PaintFill.Gradient(gradient.Value)
+                            : new PaintFill.Color(
+                                TryValue(MotionProperty.BackgroundColor, out source)
+                                && source is MotionValue.Color color
+                                    ? color.Value
+                                    : new Color(0, 0, 0, 0)
+                            );
+                    if (NeedsRaster(fill, PaintFilters()))
+                        raster.Draw(
+                            context,
+                            rect,
+                            points,
+                            fill,
+                            PaintFilters(),
+                            maskLease?.Value as Texture2D
+                        );
+                    else if (!PaintGradientSegments(painter, points, rect))
                     {
                         painter.BeginPath();
                         Path(painter, points);
@@ -171,8 +208,18 @@ namespace Battlement.UI
                     DrawInsetShadows(painter, points, rect);
                 }
             }
-            foreach (PaintLayer layer in staticLayers)
-                PaintStaticLayer(painter, rect, layer);
+            for (int index = 0; index < staticLayers.Count; index++)
+                PaintStaticLayer(context, rect, staticLayers[index], layerRasters[index]);
+        }
+
+        private static bool NeedsRaster(PaintFill fill, IReadOnlyList<UiFilterFunction> filters)
+        {
+            if (fill is PaintFill.Gradient { Value: Gradient.Radial })
+                return true;
+            foreach (UiFilterFunction filter in filters)
+                if (filter is UiFilterFunction.DropShadow)
+                    return true;
+            return false;
         }
 
         private bool PaintGradientSegments(
@@ -220,8 +267,14 @@ namespace Battlement.UI
 
         private bool HasPaint() => HasPrimaryPaint() || staticLayers.Count > 0;
 
-        private void PaintStaticLayer(Painter2D painter, UnityRect hostRect, PaintLayer layer)
+        private void PaintStaticLayer(
+            MeshGenerationContext context,
+            UnityRect hostRect,
+            PaintLayer layer,
+            BattlementPaintRaster layerRaster
+        )
         {
+            Painter2D painter = context.painter2D;
             UnityRect rect = LayerBounds(hostRect, layer.BoundsInset);
             if (rect.width <= 0 || rect.height <= 0)
                 return;
@@ -236,17 +289,12 @@ namespace Battlement.UI
                 return;
             IReadOnlyList<UiFilterFunction> filters =
                 layer.PaintFilter ?? Array.Empty<UiFilterFunction>();
-            for (int index = 0; index < filters.Count; index++)
-                if (filters[index] is UiFilterFunction.DropShadow dropShadow)
-                    DrawOuterShadow(
-                        painter,
-                        points,
-                        Brightened(dropShadow.Value, filters, index + 1)
-                    );
             foreach (Shadow shadow in layer.BoxShadow ?? Array.Empty<Shadow>())
                 if (!shadow.Inset)
                     DrawOuterShadow(painter, points, shadow);
-            if (layer.Background is PaintFill.Gradient gradient)
+            if (NeedsRaster(layer.Background, filters))
+                layerRaster.Draw(context, rect, points, layer.Background, filters);
+            else if (layer.Background is PaintFill.Gradient gradient)
             {
                 if (
                     !BattlementGradientSegments.Paint(
@@ -488,14 +536,6 @@ namespace Battlement.UI
             );
         }
 
-        private void DrawFilterShadows(Painter2D painter, IReadOnlyList<Vector2> points)
-        {
-            IReadOnlyList<UiFilterFunction> filters = PaintFilters();
-            for (int index = 0; index < filters.Count; index++)
-                if (filters[index] is UiFilterFunction.DropShadow dropShadow)
-                    DrawOuterShadow(painter, points, Brightened(dropShadow.Value, index + 1));
-        }
-
         private void DrawOuterShadows(Painter2D painter, IReadOnlyList<Vector2> points)
         {
             foreach (Shadow shadow in Shadows(false))
@@ -565,22 +605,6 @@ namespace Battlement.UI
             color.g *= brightness;
             color.b *= brightness;
             return color;
-        }
-
-        private Shadow Brightened(Shadow shadow, int startIndex)
-        {
-            UnityColor color = Brightened(ToUnityColor(shadow.Color), startIndex);
-            return shadow with { Color = new Color(color.r, color.g, color.b, color.a) };
-        }
-
-        private static Shadow Brightened(
-            Shadow shadow,
-            IReadOnlyList<UiFilterFunction> filters,
-            int startIndex
-        )
-        {
-            UnityColor color = Brightened(ToUnityColor(shadow.Color), filters, startIndex);
-            return shadow with { Color = new Color(color.r, color.g, color.b, color.a) };
         }
 
         private static UnityColor Brightened(
