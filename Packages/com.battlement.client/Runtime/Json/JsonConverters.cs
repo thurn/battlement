@@ -1386,6 +1386,7 @@ namespace Battlement
                     ("SelectText", typeof(VisualElementAction.SelectText))
                 ),
                 [typeof(ActionBody)] = Nested<ActionBody>(
+                    "Activate",
                     "PointerEnter",
                     "PointerExit",
                     "PointerDown",

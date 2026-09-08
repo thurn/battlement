@@ -63,7 +63,8 @@ namespace Battlement
                     + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} "
                     + $"focus={Application.isFocused} background={Application.runInBackground} "
                     + $"window=player-main-framebuffer display={Screen.width}x{Screen.height} "
-                    + $"native-lease={BattlementDittoPlayerBootstrap.NativeExecutionId ?? "none"}"
+                    + "native-execution="
+                    + (BattlementDittoPlayerBootstrap.NativeExecutionId ?? "none")
             );
             BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
         }
@@ -282,7 +283,9 @@ namespace Battlement
                 identity.Value<bool?>("diagnostics") ?? false,
                 display,
                 ActualCapabilities(profile.Platform),
-                runner!.DittoNativeTransport.SupportsDittoDeterminism ? "ditto-v1" : "unavailable",
+                runner!.DittoNativeTransport.SupportsDittoDeterminism && Application.runInBackground
+                    ? "ditto-v2"
+                    : "unavailable",
                 BattlementDittoPlayerBootstrap.NativeExecutionId
             );
         }
@@ -595,7 +598,8 @@ namespace Battlement
                 new DittoScreenshotStepOutcome(
                     null,
                     scenarioContext!.ReportFunctionalError(failure.Code, failure.Reason),
-                    false
+                    false,
+                    DittoStepStatus.InfrastructureError
                 )
             );
 
@@ -883,23 +887,16 @@ namespace Battlement
         private static IReadOnlyList<DittoCapability> ActualCapabilities(DittoPlatform platform) =>
             platform switch
             {
-                DittoPlatform.Webgl => new[]
-                {
-                    DittoCapability.Click,
-                    DittoCapability.Key,
-                    DittoCapability.Png,
-                },
+                DittoPlatform.Webgl => new[] { DittoCapability.Click, DittoCapability.Png },
                 DittoPlatform.Macos => new[]
                 {
                     DittoCapability.Click,
-                    DittoCapability.Key,
                     DittoCapability.Png,
                     DittoCapability.Video,
                 },
                 DittoPlatform.IosSimulator => new[]
                 {
                     DittoCapability.Click,
-                    DittoCapability.Key,
                     DittoCapability.Png,
                     DittoCapability.Video,
                 },

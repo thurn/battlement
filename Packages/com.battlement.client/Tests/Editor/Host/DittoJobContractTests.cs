@@ -23,7 +23,7 @@ namespace Battlement.Tests
             JObject valid = (JObject)fixture["valid"]!;
             DittoJob job = Decode(valid);
 
-            Assert.That(job.Scenarios[0].Steps.Count, Is.EqualTo(11));
+            Assert.That(job.Scenarios[0].Steps.Count, Is.EqualTo(8));
             Assert.That(job.Profile.Capabilities, Does.Contain(DittoCapability.Video));
             foreach (JObject invalid in fixture["invalid"]!.Children<JObject>())
             {

@@ -4,7 +4,7 @@ use std::{
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   sync::{
-    Arc, Mutex,
+    Arc, Barrier, Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
   },
   thread,
@@ -14,7 +14,7 @@ use std::{
 use anyhow::Result;
 use battlement_ditto::{
   macos_capture::{MacosCaptureRequest, MacosCaptureTimeouts, MacosPlayerLauncher, capture_macos},
-  native_execution::NativeExecutionLease,
+  native_execution::NativeExecution,
   scenario_orchestration::{MaterializedScenario, ScenarioMaterializer},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -104,10 +104,6 @@ fn every_startup_mismatch_stops_before_scenario_setup() {
     ("adapter", json!({"capture_adapter": "wrong-adapter"})),
     ("capability", json!({"capabilities": []})),
     (
-      "determinism",
-      json!({"determinism_contract": "unavailable"}),
-    ),
-    (
       "native ownership",
       json!({"native_execution_id": "83ef88f8-e5f8-4654-84a9-11410975266d"}),
     ),
@@ -168,6 +164,49 @@ fn diagnostics_disabled_build_never_starts_and_interrupt_is_bounded() {
   assert!(run.path().join("logs").read_dir().unwrap().count() == 1);
 }
 
+#[test]
+fn independent_native_captures_overlap_with_distinct_ownership() {
+  let barrier = Arc::new(Barrier::new(2));
+  let captures = (0..2)
+    .map(|_| {
+      let barrier = barrier.clone();
+      thread::spawn(move || {
+        let build = FixtureBuild::new(true);
+        let run = tempfile::tempdir().unwrap();
+        let launcher =
+          FixtureLauncher::new(run.path(), json!({}), "complete").with_launch_barrier(barrier);
+        capture_macos(
+          request(&build.handle, run.path(), 1),
+          &launcher,
+          Arc::new(PassMaterializer),
+          &AtomicBool::new(false),
+        )
+        .unwrap()
+      })
+    })
+    .collect::<Vec<_>>();
+  let outcomes = captures
+    .into_iter()
+    .map(|capture| capture.join().unwrap())
+    .collect::<Vec<_>>();
+
+  assert!(outcomes.iter().all(|outcome| outcome.exit_code == 0));
+  let ownership = outcomes
+    .iter()
+    .map(|outcome| {
+      outcome
+        .player_session
+        .as_ref()
+        .unwrap()
+        .startup_report
+        .native_execution_id
+        .clone()
+        .unwrap()
+    })
+    .collect::<Vec<_>>();
+  assert_ne!(ownership[0], ownership[1]);
+}
+
 struct FixtureLauncher {
   script: PathBuf,
   log: PathBuf,
@@ -175,6 +214,7 @@ struct FixtureLauncher {
   override_value: String,
   mode: &'static str,
   count: Arc<AtomicUsize>,
+  launch_barrier: Option<Arc<Barrier>>,
 }
 
 impl FixtureLauncher {
@@ -188,7 +228,13 @@ impl FixtureLauncher {
       override_value: serde_json::to_string(&override_value).unwrap(),
       mode,
       count: Arc::new(AtomicUsize::new(0)),
+      launch_barrier: None,
     }
+  }
+
+  fn with_launch_barrier(mut self, barrier: Arc<Barrier>) -> Self {
+    self.launch_barrier = Some(barrier);
+    self
   }
 }
 
@@ -204,6 +250,9 @@ impl MacosPlayerLauncher for FixtureLauncher {
   ) -> Result<Child> {
     fs::write(log_path, b"fixture player log\n")?;
     self.count.fetch_add(1, Ordering::SeqCst);
+    if let Some(barrier) = &self.launch_barrier {
+      barrier.wait();
+    }
     Ok(
       Command::new(env::var_os("BATTLEMENT_PYTHON").unwrap_or_else(|| {
         if cfg!(windows) {
@@ -362,7 +411,7 @@ fn step_result(player: &PlayerStepResult) -> StepResult {
 }
 
 fn request<'a>(build: &'a BuildHandle, run: &Path, count: u32) -> MacosCaptureRequest<'a> {
-  let native_execution = Arc::new(NativeExecutionLease::acquire().unwrap());
+  let native_execution = Arc::new(NativeExecution::create());
   let native_execution_id = native_execution.id().to_owned();
   MacosCaptureRequest {
     build,
@@ -409,7 +458,7 @@ fn job(build: &BuildHandle, count: u32, native_execution_id: &str) -> Job {
       build_fingerprint: build.metadata().identity.fingerprint.clone(),
       source_fingerprint: HASH.to_owned(),
       capabilities: vec![Capability::Click],
-      determinism_contract: "ditto-v1".to_owned(),
+      determinism_contract: "ditto-v2".to_owned(),
       native_execution_id: Some(native_execution_id.to_owned()),
     },
     scenarios: (0..count)

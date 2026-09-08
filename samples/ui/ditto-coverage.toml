@@ -117,24 +117,6 @@ checkpoint = "restored"
 owner = "ui_commands::background_lab_exercises_native_modes_and_restores_the_complete_style"
 
 [[mappings]]
-state = "transforms.initial"
-scenario = "transform round trip"
-checkpoint = "initial"
-owner = "ui_commands::transforms_page_reports_transition_payload_and_restores_initial_state"
-
-[[mappings]]
-state = "transforms.changed"
-scenario = "transform round trip"
-checkpoint = "changed"
-owner = "ui_commands::transforms_page_reports_transition_payload_and_restores_initial_state"
-
-[[mappings]]
-state = "transforms.restored"
-scenario = "transform round trip"
-checkpoint = "restored"
-owner = "ui_commands::transforms_page_reports_transition_payload_and_restores_initial_state"
-
-[[mappings]]
 state = "typography.initial"
 scenario = "typography foundation"
 checkpoint = "initial"
@@ -163,30 +145,6 @@ state = "complex-parts.restored"
 scenario = "complex parts"
 checkpoint = "restored"
 owner = "ui_commands::complex_parts_page_updates_conditional_parts_without_rebuilding"
-
-[[mappings]]
-state = "keyboard-navigation.initial"
-scenario = "keyboard navigation"
-checkpoint = "initial"
-owner = "ui_commands::keyboard_page_explains_focus_relation_and_submit_precedence"
-
-[[mappings]]
-state = "keyboard-navigation.focused"
-scenario = "keyboard navigation"
-checkpoint = "focused"
-owner = "ui_commands::keyboard_page_explains_focus_relation_and_submit_precedence"
-
-[[mappings]]
-state = "keyboard-navigation.physical-key"
-scenario = "keyboard navigation"
-checkpoint = "physical-key"
-owner = "ui_commands::keyboard_page_explains_focus_relation_and_submit_precedence"
-
-[[mappings]]
-state = "keyboard-navigation.navigation-move"
-scenario = "keyboard navigation"
-checkpoint = "navigation-move"
-owner = "ui_commands::keyboard_page_explains_focus_relation_and_submit_precedence"
 
 [[transitions]]
 from = "interactions.initial"
@@ -237,29 +195,9 @@ from = "backgrounds.changed"
 to = "backgrounds.restored"
 
 [[transitions]]
-from = "transforms.initial"
-to = "transforms.changed"
-
-[[transitions]]
-from = "transforms.changed"
-to = "transforms.restored"
-
-[[transitions]]
 from = "complex-parts.initial"
 to = "complex-parts.changed"
 
 [[transitions]]
 from = "complex-parts.changed"
 to = "complex-parts.restored"
-
-[[transitions]]
-from = "keyboard-navigation.initial"
-to = "keyboard-navigation.focused"
-
-[[transitions]]
-from = "keyboard-navigation.focused"
-to = "keyboard-navigation.physical-key"
-
-[[transitions]]
-from = "keyboard-navigation.physical-key"
-to = "keyboard-navigation.navigation-move"

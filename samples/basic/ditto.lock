@@ -5,21 +5,21 @@ namespace = "battlement/basic"
 profile = "macos"
 scenario = "click round trip"
 checkpoint = "placed"
-sha256 = "a608dede63b38d6d6f23c857bdcd49e2dd8d8a8f6489d226ad68cd7641f23df6"
+sha256 = "4446af29f19c0725902122adc33bf01cef76b1721cbfef2d7e24d20ee1a87f62"
 width = 1280
 height = 720
-size_bytes = 45820
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+size_bytes = 44451
+source = "1fc04e368157d39d0a63be6452f2008deed5a7d326152ed58f2f6f4c9ef9e767"
 
 [[baselines]]
 profile = "macos"
 scenario = "click round trip"
 checkpoint = "restored"
-sha256 = "375931b332bc643d47427b921c454b5eb5ed2179ce24e3cdae52007ae71e2b15"
+sha256 = "b450a21e8c71e981e7ffcf67b3387b8d992e3406be72d0ff9e4e5eac5bf473a5"
 width = 1280
 height = 720
-size_bytes = 45716
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+size_bytes = 45648
+source = "1fc04e368157d39d0a63be6452f2008deed5a7d326152ed58f2f6f4c9ef9e767"
 
 [[baselines]]
 profile = "macos"

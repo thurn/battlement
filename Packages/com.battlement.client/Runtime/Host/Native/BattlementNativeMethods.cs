@@ -86,5 +86,8 @@ namespace Battlement
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern uint battlement_ditto_determinism_contract();
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern ulong battlement_ditto_determinism_capabilities();
     }
 }

@@ -579,6 +579,9 @@ namespace Battlement.UI
         public bool CanForward(ObjectId objectId, UiEventKind kind) =>
             inputEnabled && emit is not null && IsSubscribed(objectId.Value, kind);
 
+        public bool CanForwardRoute(IReadOnlyList<Guid> route, UiEventKind kind) =>
+            CanForward(route, kind);
+
         public void Remove(Guid objectId) => subscriptions.Remove(objectId);
 
         public void Clear() => subscriptions.Clear();

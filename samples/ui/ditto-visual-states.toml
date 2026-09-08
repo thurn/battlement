@@ -77,18 +77,6 @@ key = "backgrounds.restored"
 screen = "backgrounds"
 
 [[states]]
-key = "transforms.initial"
-screen = "transforms"
-
-[[states]]
-key = "transforms.changed"
-screen = "transforms"
-
-[[states]]
-key = "transforms.restored"
-screen = "transforms"
-
-[[states]]
 key = "typography.initial"
 screen = "typography"
 
@@ -107,22 +95,6 @@ screen = "complex-parts"
 [[states]]
 key = "complex-parts.restored"
 screen = "complex-parts"
-
-[[states]]
-key = "keyboard-navigation.initial"
-screen = "keyboard-navigation"
-
-[[states]]
-key = "keyboard-navigation.focused"
-screen = "keyboard-navigation"
-
-[[states]]
-key = "keyboard-navigation.physical-key"
-screen = "keyboard-navigation"
-
-[[states]]
-key = "keyboard-navigation.navigation-move"
-screen = "keyboard-navigation"
 
 [[transitions]]
 from = "interactions.initial"
@@ -173,29 +145,9 @@ from = "backgrounds.changed"
 to = "backgrounds.restored"
 
 [[transitions]]
-from = "transforms.initial"
-to = "transforms.changed"
-
-[[transitions]]
-from = "transforms.changed"
-to = "transforms.restored"
-
-[[transitions]]
 from = "complex-parts.initial"
 to = "complex-parts.changed"
 
 [[transitions]]
 from = "complex-parts.changed"
 to = "complex-parts.restored"
-
-[[transitions]]
-from = "keyboard-navigation.initial"
-to = "keyboard-navigation.focused"
-
-[[transitions]]
-from = "keyboard-navigation.focused"
-to = "keyboard-navigation.physical-key"
-
-[[transitions]]
-from = "keyboard-navigation.physical-key"
-to = "keyboard-navigation.navigation-move"

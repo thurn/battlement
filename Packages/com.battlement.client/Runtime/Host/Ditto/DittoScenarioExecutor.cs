@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using UnityEngine.InputSystem;
 
 namespace Battlement
 {
@@ -20,7 +19,8 @@ namespace Battlement
     internal sealed record DittoScreenshotStepOutcome(
         string? ArtifactId,
         string? ErrorRef,
-        bool ContinueScenario
+        bool ContinueScenario,
+        DittoStepStatus FailureStatus = DittoStepStatus.Failed
     );
 
     internal sealed record DittoScenarioExecution(
@@ -42,7 +42,6 @@ namespace Battlement
         {
             None,
             StartupSettle,
-            Input,
             ActionPresentation,
             Settle,
             ScreenshotSettle,
@@ -54,7 +53,6 @@ namespace Battlement
         private readonly BattlementRunner runner;
         private readonly DittoResolvedScenario scenario;
         private readonly DittoMotionController motion;
-        private readonly DittoVirtualInput input;
         private readonly DittoInputTargets targets;
         private readonly Func<TimeSpan> now;
         private readonly DittoScreenshotCapture capture;
@@ -94,8 +92,7 @@ namespace Battlement
         private bool presentationChanged;
         private int startupQuietFrames;
         private bool awaitingPresentation;
-        private string? pointerTransactionId;
-        private ulong? pointerReceiptFrame;
+        private string? activationTransactionId;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -175,7 +172,7 @@ namespace Battlement
             videoLayout = nativeVideoLayout;
             runTimeoutMs = remainingRunTimeoutMs;
             motion = new DittoMotionController(runner);
-            input = new DittoVirtualInput(platform, width, height);
+            _ = platform;
             targets = new DittoInputTargets(runner, aliases, width, height);
             runner.BeginDittoInput();
         }
@@ -284,7 +281,6 @@ namespace Battlement
             {
                 videoRecorder.TruncateForRuntimeFailure();
             }
-            input.Dispose();
             runner.EndDittoInput();
         }
 
@@ -345,24 +341,26 @@ namespace Battlement
             {
                 case DittoStepAction.Click click:
                     presentationReady = false;
-                    if (
-                        TryResolve(
-                            click.Target,
-                            step,
-                            out UnityEngine.Vector2 clickPosition,
-                            out ObjectId? clickTarget
-                        )
-                    )
+                    if (TryResolve(click.Target, step, out DittoInputResolution? resolution))
                     {
-                        pointerTransactionId = $"{scenario.Id}:{step.Index}";
-                        ulong expectedInputFrame = input.Click(clickPosition, pointerTransactionId);
-                        runner.BeginDittoPointerTransaction(
-                            pointerTransactionId,
-                            clickTarget!.Value,
-                            committedFrame,
-                            expectedInputFrame
-                        );
-                        phase = Phase.Input;
+                        activationTransactionId = $"{scenario.Id}:{step.Index}";
+                        if (
+                            targets.Activate(
+                                resolution!,
+                                activationTransactionId,
+                                committedFrame,
+                                out string? activationDiagnostic
+                            )
+                        )
+                        {
+                            phase = Phase.ActionPresentation;
+                            phaseStarted = now();
+                        }
+                        else
+                        {
+                            activationTransactionId = null;
+                            FailStep(step, DittoErrorCode.InputUnreachable, activationDiagnostic!);
+                        }
                     }
                     break;
                 case DittoStepAction.Hover:
@@ -373,10 +371,12 @@ namespace Battlement
                         "Hover and drag have no deterministic semantic delivery contract."
                     );
                     break;
-                case DittoStepAction.Key key:
-                    presentationReady = false;
-                    input.Key(key.Value, key.Action);
-                    phase = Phase.Input;
+                case DittoStepAction.Key:
+                    FailStep(
+                        step,
+                        DittoErrorCode.InputUnreachable,
+                        "Physical key input has no deterministic semantic delivery contract."
+                    );
                     break;
                 case DittoStepAction.Advance advance:
                     advanceFrames = advance.Frames;
@@ -395,10 +395,13 @@ namespace Battlement
                     break;
                 case DittoStepAction.AccessibilityAction action:
                     presentationReady = false;
+                    activationTransactionId = $"{scenario.Id}:{step.Index}";
                     if (
                         targets.AccessibilityAction(
                             action.Target,
                             action.Action,
+                            activationTransactionId,
+                            committedFrame,
                             out string? diagnostic
                         )
                     )
@@ -408,6 +411,7 @@ namespace Battlement
                     }
                     else
                     {
+                        activationTransactionId = null;
                         FailStep(step, DittoErrorCode.InputUnreachable, diagnostic!);
                     }
                     break;
@@ -436,37 +440,6 @@ namespace Battlement
         private void PrepareFrame()
         {
             motion.PrepareFrame(phase == Phase.FrameAdvance);
-            if (phase == Phase.Input && input.CanQueueNextFrame)
-            {
-                DittoInputFrame frame = input.QueueNextFrame();
-                UnityEngine.Debug.Log(
-                    $"[Battlement/Ditto-trace] input-dispatch frame={frame.Id} kind={frame.Kind} "
-                        + $"committed={committedFrame} focus={UnityEngine.Application.isFocused} "
-                        + $"background={UnityEngine.Application.runInBackground}"
-                );
-                if (frame.Key is not null)
-                {
-                    if (!targets.DispatchKey(frame, input, out string? diagnostic))
-                    {
-                        FailStep(
-                            scenario.Steps[nextStep],
-                            DittoErrorCode.InputUnreachable,
-                            diagnostic!
-                        );
-                        return;
-                    }
-                }
-                else
-                {
-                    InputSystem.Update();
-                    UnityEngine.Debug.Log(
-                        $"[Battlement/Ditto-trace] input-system-update frame={frame.Id} "
-                            + $"pending={input.PendingFrameCount}"
-                    );
-                    if (frame.TransactionId is string transactionId)
-                        runner.ApplyDittoPointerFrame(transactionId, frame.Id);
-                }
-            }
             runner.RunFrame();
             runner.CompleteNativeFrame();
             awaitingPresentation = true;
@@ -517,51 +490,67 @@ namespace Battlement
 
             switch (phase)
             {
-                case Phase.Input when input.PendingFrameCount == 0:
-                    if (pointerTransactionId is string transactionId)
+                case Phase.ActionPresentation:
+                    if (activationTransactionId is string transactionId)
                     {
-                        if (pointerReceiptFrame is null)
+                        if (
+                            !runner.ValidateDittoActivationDelivery(
+                                transactionId,
+                                out string? deliveryDiagnostic
+                            )
+                        )
                         {
-                            pointerReceiptFrame = checked(frame.Index + 1);
+                            activationTransactionId = null;
+                            runner.CancelDittoActivationTransaction();
+                            FailInfrastructureStep(
+                                step,
+                                DittoErrorCode.InputUnreachable,
+                                deliveryDiagnostic!
+                            );
                             return;
                         }
-                        if (frame.Index < pointerReceiptFrame.Value)
-                            return;
-                        pointerTransactionId = null;
-                        pointerReceiptFrame = null;
+                        activationTransactionId = null;
                         if (
-                            !runner.CompleteDittoPointerTransaction(
+                            !runner.CompleteDittoActivationTransaction(
                                 transactionId,
-                                input.LastAppliedFrameId,
                                 frame.Index,
-                                out DittoInputReceipt? receipt,
+                                out DittoActivationReceipt? receipt,
                                 out string? diagnostic
                             )
                         )
                         {
-                            FailStep(step, DittoErrorCode.InputUnreachable, diagnostic!);
+                            FailInfrastructureStep(
+                                step,
+                                DittoErrorCode.InputUnreachable,
+                                diagnostic!
+                            );
                             return;
                         }
                         UnityEngine.Debug.Log(
-                            "[Battlement/Ditto] input-receipt "
+                            "[Battlement/Ditto] activation-receipt "
                                 + $"transaction={receipt!.TransactionId} "
                                 + $"target={receipt.Target.Value} route={receipt.Route} "
-                                + $"input-frame={receipt.AppliedInputFrame} "
+                                + $"action={receipt.Action.Value} "
                                 + $"resolved-frame={receipt.ResolvedFrame} "
                                 + $"presented-frame={receipt.PresentedFrame}"
                         );
+                        if (!NextStepIsAdvance() && !frame.IsSettled)
+                        {
+                            phase = Phase.Settle;
+                            phaseStarted = now();
+                            motion.RestartQuietWindow();
+                            return;
+                        }
                     }
-                    goto case Phase.ActionPresentation;
-                case Phase.ActionPresentation:
                     if (NextStepIsAdvance())
                     {
                         PassStep(step);
                     }
                     else
                     {
-                        motion.RestartQuietWindow();
-                        phase = Phase.Settle;
-                        phaseStarted = now();
+                        settleDurationMs += PhaseDuration();
+                        presentationReady = true;
+                        PassStep(step);
                     }
                     break;
                 case Phase.Settle when frame.IsSettled:
@@ -587,7 +576,6 @@ namespace Battlement
                 case Phase.ObjectWait:
                     EvaluateObjectWait(step);
                     break;
-                case Phase.Input:
                 case Phase.StartupSettle:
                 case Phase.Settle:
                 case Phase.ScreenshotSettle:
@@ -700,7 +688,7 @@ namespace Battlement
             }
             FinishStep(
                 step,
-                DittoStepStatus.Failed,
+                outcome.FailureStatus,
                 null,
                 outcome.ErrorRef,
                 null,
@@ -712,13 +700,11 @@ namespace Battlement
         private bool TryResolve(
             DittoInputTarget target,
             DittoResolvedStep step,
-            out UnityEngine.Vector2 position,
-            out ObjectId? objectId
+            out DittoInputResolution? resolved
         )
         {
             DittoInputResolution resolution = targets.Resolve(target);
-            position = resolution.Position;
-            objectId = resolution.ObjectId;
+            resolved = resolution;
             UnityEngine.Debug.Log(
                 $"[Battlement/Ditto-trace] target-resolved reachable={resolution.IsReachable} "
                     + $"object={resolution.ObjectId?.Value.ToString() ?? "coordinates"} "
@@ -726,7 +712,7 @@ namespace Battlement
                     + $"bounds={resolution.Bounds?.ToString() ?? "none"} "
                     + $"candidates={resolution.Candidates.Count} committed={committedFrame}"
             );
-            if (resolution.IsReachable && objectId is not null)
+            if (resolution.IsReachable && resolution.ObjectId is not null)
             {
                 return true;
             }
@@ -734,6 +720,7 @@ namespace Battlement
                 ? $"Input target {id.Value} is unreachable."
                 : "Coordinate input has no deterministic semantic delivery contract.";
             FailStep(step, DittoErrorCode.InputUnreachable, diagnostic);
+            resolved = null;
             return false;
         }
 
@@ -760,7 +747,7 @@ namespace Battlement
             {
                 scenarioExpiry = expired;
             }
-            FailStep(
+            FailInfrastructureStep(
                 step,
                 DittoErrorCode.DeadlineExpired,
                 $"The {expired.Value.ToString().ToLowerInvariant()} deadline expired "
@@ -899,6 +886,21 @@ namespace Battlement
                 null
             );
 
+        private void FailInfrastructureStep(
+            DittoResolvedStep step,
+            DittoErrorCode code,
+            string diagnostic,
+            DittoDeadlineKind? expired = null
+        ) =>
+            FinishStep(
+                step,
+                DittoStepStatus.InfrastructureError,
+                expired,
+                reportError(code, diagnostic),
+                null,
+                null
+            );
+
         private void FinishStep(
             DittoResolvedStep step,
             DittoStepStatus status,
@@ -951,6 +953,24 @@ namespace Battlement
         private void FailRemaining(DittoDeadlineKind expired, string diagnostic)
         {
             primaryErrorRef = reportError(DittoErrorCode.DeadlineExpired, diagnostic);
+            if (nextStep < scenario.Steps.Count)
+            {
+                DittoResolvedStep step = scenario.Steps[nextStep++];
+                results.Add(
+                    new DittoPlayerStepResult(
+                        step.Index,
+                        step.Name,
+                        DittoLifecycleValidation.StepName(step.Action),
+                        DittoStepStatus.InfrastructureError,
+                        0,
+                        expired,
+                        new[] { primaryErrorRef! },
+                        null,
+                        null,
+                        null
+                    )
+                );
+            }
             AddNotRunSteps();
             Complete();
         }

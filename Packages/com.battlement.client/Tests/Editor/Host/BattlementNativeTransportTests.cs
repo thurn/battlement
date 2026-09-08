@@ -105,26 +105,42 @@ namespace Battlement.Tests
             string? previous = Environment.GetEnvironmentVariable(
                 DittoNativeEngineSession.SemanticFixtureEnvironment
             );
+            string? previousRuntime = Environment.GetEnvironmentVariable(
+                DittoNativeEngineSession.DeterministicRuntimeEnvironment
+            );
             Environment.SetEnvironmentVariable(
                 DittoNativeEngineSession.SemanticFixtureEnvironment,
                 original
             );
             try
             {
-                string? observed = DittoNativeEngineSession.WithSemanticFixture(
-                    "castling",
-                    () =>
-                        Environment.GetEnvironmentVariable(
-                            DittoNativeEngineSession.SemanticFixtureEnvironment
-                        )
-                );
+                (string? Fixture, string? Runtime) observed =
+                    DittoNativeEngineSession.WithSemanticFixture(
+                        "castling",
+                        () =>
+                            (
+                                Environment.GetEnvironmentVariable(
+                                    DittoNativeEngineSession.SemanticFixtureEnvironment
+                                ),
+                                Environment.GetEnvironmentVariable(
+                                    DittoNativeEngineSession.DeterministicRuntimeEnvironment
+                                )
+                            )
+                    );
 
-                Assert.That(observed, Is.EqualTo("castling"));
+                Assert.That(observed.Fixture, Is.EqualTo("castling"));
+                Assert.That(observed.Runtime, Is.EqualTo("1"));
                 Assert.That(
                     Environment.GetEnvironmentVariable(
                         DittoNativeEngineSession.SemanticFixtureEnvironment
                     ),
                     Is.EqualTo(original)
+                );
+                Assert.That(
+                    Environment.GetEnvironmentVariable(
+                        DittoNativeEngineSession.DeterministicRuntimeEnvironment
+                    ),
+                    Is.EqualTo(previousRuntime)
                 );
             }
             finally

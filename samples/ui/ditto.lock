@@ -5,11 +5,11 @@ namespace = "battlement/ui"
 profile = "macos"
 scenario = "appearance round trip"
 checkpoint = "changed"
-sha256 = "338c8cb58ed888d7c62085828f3b2646d2d68c90b70109c15eb10e3fef9bcb80"
+sha256 = "cd4dffca59fc11254203f0191dc44b858347eee398c01d643cde5dca36ce2133"
 width = 1280
 height = 720
-size_bytes = 138691
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 138670
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -25,21 +25,21 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "appearance round trip"
 checkpoint = "restored"
-sha256 = "bda3459c8a67078f348a7eda9936de706dd87988e82160603eaa28ca7d692c3b"
+sha256 = "3543cf7593467de96f9222589bf4d874b02be6cb06e8ae510cc2dbac20f647ce"
 width = 1280
 height = 720
-size_bytes = 137387
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 137370
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
 scenario = "asset source round trip"
 checkpoint = "changed"
-sha256 = "0d5a5979efb36c4799e2f1ebf914139898120008b8c8b1cec9da794988c2a7fb"
+sha256 = "af957a0aa60608a63d89bf026111f53990096115c6424be9c476a7fcfa939dfa"
 width = 1280
 height = 720
-size_bytes = 139879
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 139882
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -55,21 +55,21 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "asset source round trip"
 checkpoint = "restored"
-sha256 = "74a8f6adf06463821c1ebbc6e6575b49b91b6b3087aba267574e32af734eab80"
+sha256 = "96c34a08087a63fb022b4fa96700f1196a9db1f606593ca0a0ac32ccba4140a1"
 width = 1280
 height = 720
-size_bytes = 139903
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 139922
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
 scenario = "background round trip"
 checkpoint = "changed"
-sha256 = "853a07463ba7e7dc8bb800a9d99affa54263058f2189a86389361301e3a6d3a8"
+sha256 = "fa82ee3425917a8795cb56bfa4e78411a53a3edb52ba6794918940e52618af98"
 width = 1280
 height = 720
-size_bytes = 143313
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 143294
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -85,11 +85,11 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "background round trip"
 checkpoint = "restored"
-sha256 = "89588ea561ecc310c064bdaeeae5bff15f103611f5af7a179a0608f97b290f00"
+sha256 = "13b83e22f9843c73bb602ce01ea3c0151d49cb7afddecef9be7bc47669f714fe"
 width = 1280
 height = 720
-size_bytes = 141899
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 141890
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -135,11 +135,11 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "hierarchy round trip"
 checkpoint = "changed"
-sha256 = "7e7ffede3e97b1b2a3ae8e929a151d30c6a9668eeb956203fa4089317327ed19"
+sha256 = "429e554747fe6abc5b26929adc7e54cd65930c6d1644f95b88171b52eb7d9681"
 width = 1280
 height = 720
 size_bytes = 107718
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -155,21 +155,21 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "hierarchy round trip"
 checkpoint = "restored"
-sha256 = "3e38794913a3854b7e432a80f2d6042241ae2b0b711ae4aeebd5b1807f090b05"
+sha256 = "986fec5273cab4ad6c4c72ce1123f4958dd63ccef8e9709350eb28309dfacbfc"
 width = 1280
 height = 720
 size_bytes = 109716
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
 scenario = "interactions round trip"
 checkpoint = "changed"
-sha256 = "07c4b8637df4713b34b977185807e97895ab7cc9c192d5c232783ea6012ae262"
+sha256 = "6237cbd1aaeca131d7d85703dfdd79c5f230dfaeb562576017ec50616a9866a4"
 width = 1280
 height = 720
-size_bytes = 113728
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 113727
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -185,61 +185,21 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "interactions round trip"
 checkpoint = "restored"
-sha256 = "19057c63d0759fdf0b0e54a070c0e1281d21e4c522d5e0e5f2d74b3b8b1bbcfc"
+sha256 = "fbe0f8b57b35201b2e781dc924a650dc6cc02553f6f286fcf551127e868a83e5"
 width = 1280
 height = 720
-size_bytes = 115643
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
-
-[[baselines]]
-profile = "macos"
-scenario = "keyboard navigation"
-checkpoint = "focused"
-sha256 = "76b6ba8fe517c29abb45974e73e1b27ddecd87b1048b7b276452df155ca7af4c"
-width = 1280
-height = 720
-size_bytes = 175072
-source = "3e2d5f2639f6dba4d225868dac1396666b187c8067eff7297b3f8d907fad74be"
-
-[[baselines]]
-profile = "macos"
-scenario = "keyboard navigation"
-checkpoint = "initial"
-sha256 = "796aa476b32891063b54de9d2e8770eadb83ed6bf685690d0bfe041191eb0b9b"
-width = 1280
-height = 720
-size_bytes = 183794
-source = "3e2d5f2639f6dba4d225868dac1396666b187c8067eff7297b3f8d907fad74be"
-
-[[baselines]]
-profile = "macos"
-scenario = "keyboard navigation"
-checkpoint = "navigation-move"
-sha256 = "66e78b67233e40fe5f16917c913c1b5b3cf52537f822c9ca7511274429a97b45"
-width = 1280
-height = 720
-size_bytes = 177184
-source = "228d38d5345398f5448dca129557f70a41b6fd30fa39dbe87db30236bdec5643"
-
-[[baselines]]
-profile = "macos"
-scenario = "keyboard navigation"
-checkpoint = "physical-key"
-sha256 = "ecbd245c28b6247ef5ba7b4dd8acbbdee3a3cf790dad997755db05b97d4dfb2b"
-width = 1280
-height = 720
-size_bytes = 177053
-source = "228d38d5345398f5448dca129557f70a41b6fd30fa39dbe87db30236bdec5643"
+size_bytes = 115491
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
 scenario = "layout round trip"
 checkpoint = "changed"
-sha256 = "f825eae2885d64978d65e72cabb2124df50b9e17dddbd506eb17cd7c460029ae"
+sha256 = "af96b625025bc893e4b38ecd7014f7a995cd72cbe9722942f98168bb4998f781"
 width = 1280
 height = 720
-size_bytes = 105333
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 105313
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
@@ -255,51 +215,21 @@ source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
 profile = "macos"
 scenario = "layout round trip"
 checkpoint = "restored"
-sha256 = "a8fe77978f67fe7a95f96ad030c3daaa951f604aeb485faebfe4746023383ead"
+sha256 = "fa82bbed3be6894630a8bfa88976fcfe48c2a0444f1cb3598000cb3fd0a5d45b"
 width = 1280
 height = 720
-size_bytes = 107692
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
+size_bytes = 107672
+source = "e9a72676d2778325d8201e60ceb3ade01c281c152883ed7fa415fe424a792ddc"
 
 [[baselines]]
 profile = "macos"
 scenario = "native parts"
 checkpoint = "initial"
-sha256 = "242f0d44577db13f0f9257086a82ade9c6626be0101da4b79cb0b35e943e84d1"
+sha256 = "a8fd84faac18f01f09adc4ec2b4ddf290c99af139560d67adaa40ef0089ac8fe"
 width = 1280
 height = 720
-size_bytes = 214531
-source = "25ee65d7eec4da0d9440a66bc4b44137e5b6977d73237a03871da13ba0ded91d"
-
-[[baselines]]
-profile = "macos"
-scenario = "transform round trip"
-checkpoint = "changed"
-sha256 = "74ed3ec1cc94bfeafa8481133d42f71027b781dbb19cb581d2d691da239ec753"
-width = 1280
-height = 720
-size_bytes = 142693
-source = "462d34ae7c81ceeb91405e4e43124e4c4207b74fa74473f25fb005dcdeff9ecc"
-
-[[baselines]]
-profile = "macos"
-scenario = "transform round trip"
-checkpoint = "initial"
-sha256 = "9d569228d5c92a830fc02e907c3bdcce1b65f85e9cc5027520e1753592a3b164"
-width = 1280
-height = 720
-size_bytes = 135826
-source = "d5e1db472d1eab4c0ac72c51719c20823c487e9c3a18178ee82406c8bf0aa25e"
-
-[[baselines]]
-profile = "macos"
-scenario = "transform round trip"
-checkpoint = "restored"
-sha256 = "66a02528930d8a500db2e08975af520cc0ef72d9d80b90a347899d521bb22598"
-width = 1280
-height = 720
-size_bytes = 135844
-source = "370e9499ab611650311dcc781312643a55fcbf0a8e1072e9cfff02c38d0a4891"
+size_bytes = 214536
+source = "2373dab98bc508e9aa8f4489439ebafa5cdc8b38ebe081b65d9b2deef1638ab7"
 
 [[baselines]]
 profile = "macos"

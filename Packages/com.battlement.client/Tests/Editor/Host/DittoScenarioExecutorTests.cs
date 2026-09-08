@@ -5,11 +5,10 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace Battlement.Tests
 {
-    public sealed class DittoScenarioExecutorTests : InputTestFixture
+    public sealed class DittoScenarioExecutorTests
     {
         [Test]
         public void ControlledAdvanceConsumesPresentedFrames()
@@ -60,6 +59,9 @@ namespace Battlement.Tests
                 )
             );
             harness.Runner.Connect();
+            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
+                new Response(session, Array.Empty<ResponseMessage<Command>>())
+            );
             Physics.SyncTransforms();
             string? diagnostic = null;
             DittoResolvedScenario scenario = Scenario(
@@ -79,9 +81,43 @@ namespace Battlement.Tests
 
             Assert.That(
                 executor.Result!.Steps.Select(step => step.Status),
-                Is.EqualTo(new[] { DittoStepStatus.Failed, DittoStepStatus.NotRun })
+                Is.EqualTo(new[] { DittoStepStatus.InfrastructureError, DittoStepStatus.NotRun })
             );
             Assert.That(diagnostic, Does.Contain("no semantic delivery receipt"));
+        }
+
+        [Test]
+        public void FramebufferFailureIsInfrastructureAtTheScreenshotStep()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                1_000,
+                Step(
+                    0,
+                    new DittoStepAction.Screenshot(
+                        new DittoScreenshot("frame", new DittoComparison("0", false, "0"))
+                    )
+                ),
+                Step(1, new DittoStepAction.Advance(1))
+            );
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                scenario,
+                () => TimeSpan.Zero,
+                _ => new DittoScreenshotStepOutcome(
+                    null,
+                    "P0001",
+                    false,
+                    DittoStepStatus.InfrastructureError
+                )
+            );
+
+            Drain(executor);
+
+            Assert.That(
+                executor.Result!.Steps.Select(step => step.Status),
+                Is.EqualTo(new[] { DittoStepStatus.InfrastructureError, DittoStepStatus.NotRun })
+            );
         }
 
         [Test]
@@ -229,7 +265,7 @@ namespace Battlement.Tests
             Assert.That(executor.Advance(), Is.True);
 
             DittoScenarioExecution result = executor.Result!;
-            Assert.That(result.Steps[0].Status, Is.EqualTo(DittoStepStatus.Failed));
+            Assert.That(result.Steps[0].Status, Is.EqualTo(DittoStepStatus.InfrastructureError));
             Assert.That(result.Steps[0].ExpiredDeadline, Is.EqualTo(expected));
             Assert.That(result.Steps[1].Status, Is.EqualTo(DittoStepStatus.NotRun));
             Assert.That(
@@ -308,7 +344,7 @@ namespace Battlement.Tests
                 null,
                 true,
                 LocalTransform.Identity,
-                new[] { PointerEvent.Enter }
+                new[] { PointerEvent.Click }
             );
 
         private static DittoResolvedScenario Scenario(
@@ -339,7 +375,6 @@ namespace Battlement.Tests
         {
             for (var frame = 0; frame < 512; frame++)
             {
-                InputSystem.Update();
                 if (executor.Advance())
                 {
                     return;

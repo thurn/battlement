@@ -175,6 +175,9 @@ namespace Battlement
     {
         private ActionBody() { }
 
+        /// <summary>Activates an enabled object without synthesizing physical input.</summary>
+        public sealed record Activate(ObjectId ObjectId) : ActionBody;
+
         /// <summary>Pointer began hovering an enabled game object.</summary>
         /// <param name="ObjectId">Game object resolved from the collider hit.</param>
         /// <param name="ScreenPosition">Screen position in pixels from the bottom-left.</param>

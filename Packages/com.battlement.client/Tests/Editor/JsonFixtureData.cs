@@ -36,6 +36,9 @@ namespace Battlement.Tests
                 );
             return new Dictionary<string, byte[]>
             {
+                ["csharp-client-activate.json"] = EncodeAction(
+                    new ActionBody.Activate(new ObjectId(GuidAt(5)))
+                ),
                 ["csharp-client-pointer-enter.json"] = EncodeAction(
                     new ActionBody.PointerEnter(
                         new ObjectId(GuidAt(5)),

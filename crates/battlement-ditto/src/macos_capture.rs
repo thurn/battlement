@@ -20,7 +20,7 @@ use battlement_tooling::{
 use uuid::Uuid;
 
 use crate::{
-  native_execution::NativeExecutionLease,
+  native_execution::NativeExecution,
   player_supervision::{PlayerExitStatus, PlayerSupervisor},
   scenario_orchestration::{
     ScenarioMaterializer, ScenarioOrchestrationSnapshot, ScenarioOrchestrator,
@@ -56,7 +56,7 @@ pub struct MacosCaptureRequest<'a> {
   pub player_log_source: PathBuf,
   pub bail_after: Option<u32>,
   pub timeouts: MacosCaptureTimeouts,
-  pub native_execution: Arc<NativeExecutionLease>,
+  pub native_execution: Arc<NativeExecution>,
 }
 
 /// Launches the exact executable selected by the immutable build handle.
@@ -387,7 +387,7 @@ fn validate_build(request: &MacosCaptureRequest<'_>) -> Result<MacosStartupIdent
   ensure!(
     request.job.profile.native_execution_id.as_deref() == Some(request.native_execution.id())
       && request.requirements.native_execution_id.as_deref() == Some(request.native_execution.id()),
-    "macOS capture does not own the job's native execution lease"
+    "macOS capture does not own the job's native execution identity"
   );
   Ok(identity)
 }

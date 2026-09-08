@@ -3,6 +3,7 @@
 using System;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEngine.InputSystem.UI;
 
 namespace Battlement.Tests
 {
@@ -12,12 +13,13 @@ namespace Battlement.Tests
         public void MissingSemanticReceiptRejectsTheTransaction()
         {
             ObjectId target = new(Guid.NewGuid());
-            var transaction = new DittoInputTransaction("scenario:3", target, 12, 8);
+            var action = new ActionId(Guid.NewGuid());
+            var transaction = new DittoActivationTransaction("scenario:3", target, 12);
+            transaction.BeginDispatch(action);
 
             bool completed = transaction.Complete(
-                8,
                 13,
-                out DittoInputReceipt? receipt,
+                out DittoActivationReceipt? receipt,
                 out string? diagnostic
             );
 
@@ -27,100 +29,198 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ReceiptBindsTargetRouteAndFollowingPresentation()
+        public void RoutedUiActivationRequiresItsCausalResponseBatch()
         {
             ObjectId target = new(Guid.NewGuid());
-            var transaction = new DittoInputTransaction("scenario:4", target, 20, 9);
-            transaction.Apply(9);
-            transaction.Observe(target, "ui-click");
+            var action = new ActionId(Guid.NewGuid());
+            var transaction = new DittoActivationTransaction("scenario:8", target, 40);
+            Assert.That(
+                transaction.TryBeginUiDispatch(
+                    action,
+                    target,
+                    new UiEventBody.Click(new ClickEvent.NavigationSubmit()),
+                    out string? route
+                ),
+                Is.True
+            );
+            Assert.That(route, Is.EqualTo("ui-navigation-submit"));
+            Assert.That(transaction.Complete(41, out _, out _), Is.False);
+
+            transaction.ObserveCausalBatch(action);
+
+            Assert.That(
+                transaction.Complete(
+                    41,
+                    out DittoActivationReceipt? receipt,
+                    out string? diagnostic
+                ),
+                Is.True,
+                diagnostic
+            );
+            Assert.That(receipt!.Route, Is.EqualTo("ui-navigation-submit"));
+        }
+
+        [Test]
+        public void ReceiptBindsTargetActionRouteAndFollowingPresentation()
+        {
+            ObjectId target = new(Guid.NewGuid());
+            var action = new ActionId(Guid.NewGuid());
+            var transaction = new DittoActivationTransaction("scenario:4", target, 20);
+            Assert.That(
+                transaction.TryBeginUiDispatch(
+                    action,
+                    target,
+                    new UiEventBody.AccessibilityAction(
+                        new AccessibilityActionEvent(3, new UiAccessibilityAction.Increment())
+                    ),
+                    out string? route
+                ),
+                Is.True
+            );
+            Assert.That(route, Is.EqualTo("ui-accessibility"));
+            transaction.ObserveHandled(action, target, "ui-accessibility");
 
             bool completed = transaction.Complete(
-                9,
                 21,
-                out DittoInputReceipt? receipt,
+                out DittoActivationReceipt? receipt,
                 out string? diagnostic
             );
 
-            Assert.That(completed, Is.True);
-            Assert.That(diagnostic, Is.Null);
+            Assert.That(completed, Is.True, diagnostic);
             Assert.That(
                 receipt,
-                Is.EqualTo(new DittoInputReceipt("scenario:4", target, 20, 9, 21, "ui-click"))
+                Is.EqualTo(
+                    new DittoActivationReceipt(
+                        "scenario:4",
+                        target,
+                        action,
+                        20,
+                        21,
+                        "ui-accessibility"
+                    )
+                )
             );
         }
 
         [Test]
-        public void SemanticDeliveryFromAnotherInputFrameRejectsTheTransaction()
+        public void ReceiptFromAnotherActionIsRejected()
         {
             ObjectId target = new(Guid.NewGuid());
-            var transaction = new DittoInputTransaction("scenario:7", target, 24, 13);
-            transaction.Apply(12);
-            transaction.Observe(target, "ui-click");
-            transaction.Apply(13);
+            var transaction = new DittoActivationTransaction("scenario:7", target, 24);
+            transaction.BeginDispatch(new ActionId(Guid.NewGuid()));
+            transaction.ObserveHandled(new ActionId(Guid.NewGuid()), target, "ui-accessibility");
 
-            bool completed = transaction.Complete(
-                13,
-                25,
-                out DittoInputReceipt? receipt,
-                out string? diagnostic
-            );
-
-            Assert.That(completed, Is.False);
-            Assert.That(receipt, Is.Null);
-            Assert.That(diagnostic, Does.Contain("semantic delivery on frame 12, not 13"));
+            Assert.That(transaction.Complete(25, out _, out string? diagnostic), Is.False);
+            Assert.That(diagnostic, Does.Contain("received another action"));
         }
 
         [Test]
-        public void ReceiptRejectsAnUnappliedPointerFrame()
-        {
-            ObjectId target = new(Guid.NewGuid());
-            var transaction = new DittoInputTransaction("scenario:6", target, 22, 11);
-            transaction.Observe(target, "world-pointer-click");
-
-            bool completed = transaction.Complete(
-                10,
-                23,
-                out DittoInputReceipt? receipt,
-                out string? diagnostic
-            );
-
-            Assert.That(completed, Is.False);
-            Assert.That(receipt, Is.Null);
-            Assert.That(diagnostic, Does.Contain("did not apply input frame 11"));
-        }
-
-        [TestCase("OnApplicationFocus", false, "focus was lost")]
-        [TestCase("OnApplicationPause", true, "suspension interrupted")]
-        public void ApplicationTransitionDuringPointerDeliveryRejectsTheReceipt(
-            string callback,
-            bool value,
-            string expectedDiagnostic
-        )
+        public void FocusLossDoesNotInterruptSemanticActivation()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var target = new ObjectId(Guid.NewGuid());
+            var action = new ActionId(Guid.NewGuid());
             harness.Runner.BeginDittoInput();
-            harness.Runner.BeginDittoPointerTransaction(
-                "scenario:5",
-                new ObjectId(Guid.NewGuid()),
-                30,
-                10
-            );
+            harness.Runner.BeginDittoActivationTransaction("scenario:5", target, 30);
+            DittoActivationTransaction transaction = (DittoActivationTransaction)
+                typeof(BattlementRunner)
+                    .GetField(
+                        "dittoActivationTransaction",
+                        BindingFlags.Instance | BindingFlags.NonPublic
+                    )!
+                    .GetValue(harness.Runner)!;
+            transaction.BeginDispatch(action);
+            transaction.ObserveHandled(action, target, "ui-accessibility");
 
             typeof(BattlementRunner)
-                .GetMethod(callback, BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(harness.Runner, new object[] { value });
+                .GetMethod("OnApplicationFocus", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(harness.Runner, new object[] { false });
 
-            bool completed = harness.Runner.CompleteDittoPointerTransaction(
+            bool completed = harness.Runner.CompleteDittoActivationTransaction(
                 "scenario:5",
-                10,
                 31,
-                out DittoInputReceipt? receipt,
+                out _,
                 out string? diagnostic
             );
             harness.Runner.EndDittoInput();
+            Assert.That(completed, Is.True, diagnostic);
+        }
+
+        [Test]
+        public void DispatchedActivationOwnsItsPresentationFrameInsteadOfPolling()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Runner.Connect();
+            harness.Runner.BeginDittoInput();
+            harness.Runner.BeginDittoActivationTransaction(
+                "scenario:9",
+                new ObjectId(Guid.NewGuid()),
+                30
+            );
+            DittoActivationTransaction transaction = (DittoActivationTransaction)
+                typeof(BattlementRunner)
+                    .GetField(
+                        "dittoActivationTransaction",
+                        BindingFlags.Instance | BindingFlags.NonPublic
+                    )!
+                    .GetValue(harness.Runner)!;
+            transaction.BeginDispatch(new ActionId(Guid.NewGuid()), "world-activate");
+
+            harness.Runner.RunFrame();
+
+            Assert.That(harness.Transport.Calls, Is.EqualTo(new[] { "connect" }));
+            harness.Runner.CancelDittoActivationTransaction();
+            harness.Runner.EndDittoInput();
+        }
+
+        [Test]
+        public void UnityUpdatesCannotAdvanceTheRunnerWhileDittoOwnsItsClock()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Runner.Connect();
+            harness.Runner.BeginDittoInput();
+            InputSystemUIInputModule inputModule =
+                UnityEngine.Object.FindAnyObjectByType<InputSystemUIInputModule>();
+            Assert.That(inputModule.enabled, Is.False);
+
+            typeof(BattlementRunner)
+                .GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(harness.Runner, null);
+            typeof(BattlementRunner)
+                .GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(harness.Runner, null);
+
+            Assert.That(harness.Transport.Calls, Is.EqualTo(new[] { "connect" }));
+            harness.Runner.EndDittoInput();
+            Assert.That(inputModule.enabled, Is.True);
+        }
+
+        [Test]
+        public void SuspensionRejectsTheAffectedActivation()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Runner.Connect();
+            harness.Runner.BeginDittoInput();
+            harness.Runner.BeginDittoActivationTransaction(
+                "scenario:6",
+                new ObjectId(Guid.NewGuid()),
+                30
+            );
+
+            typeof(BattlementRunner)
+                .GetMethod("OnApplicationPause", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(harness.Runner, new object[] { true });
+
+            bool completed = harness.Runner.CompleteDittoActivationTransaction(
+                "scenario:6",
+                31,
+                out _,
+                out string? diagnostic
+            );
             Assert.That(completed, Is.False);
-            Assert.That(receipt, Is.Null);
-            Assert.That(diagnostic, Does.Contain(expectedDiagnostic));
+            Assert.That(diagnostic, Does.Contain("suspension interrupted"));
+            Assert.That(harness.Transport.Calls, Is.EqualTo(new[] { "connect" }));
+            harness.Runner.EndDittoInput();
         }
     }
 }

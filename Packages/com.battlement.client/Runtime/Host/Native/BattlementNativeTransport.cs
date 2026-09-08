@@ -221,7 +221,10 @@ namespace Battlement
             {
                 try
                 {
-                    return BattlementNativeMethods.battlement_ditto_determinism_contract() == 1;
+                    const ulong requiredCapabilities = 0b1_1111;
+                    return BattlementNativeMethods.battlement_ditto_determinism_contract() == 2
+                        && BattlementNativeMethods.battlement_ditto_determinism_capabilities()
+                            == requiredCapabilities;
                 }
                 catch (EntryPointNotFoundException)
                 {

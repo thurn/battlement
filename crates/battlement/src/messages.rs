@@ -396,6 +396,8 @@ pub enum ActionBody {
   ApplicationStateChanged(ApplicationState),
   /// The host's reduced-motion preference changed.
   ReducedMotionPreferenceChanged(ReducedMotionPreference),
+  /// A deterministic host requested activation of one enabled object.
+  Activate(ActivationPayload),
   /// Pointer began hovering an enabled game object.
   PointerEnter(PointerPayload),
   /// Pointer stopped hovering an enabled game object.
@@ -424,6 +426,13 @@ pub enum ActionBody {
   GeometryObservations(GeometryObservationBatch),
   /// Ordered Motion lifecycle boundaries and coalesced samples.
   MotionEvents(MotionEventBatch),
+}
+
+/// Stable object identity for a coordinate-free activation request.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ActivationPayload {
+  /// Attached, visible, enabled object selected from a committed presentation.
+  pub object_id: ObjectId,
 }
 
 /// Pointer location data shared by enter and exit actions.

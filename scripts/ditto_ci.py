@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 from pathlib import Path
@@ -24,6 +25,8 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts/ditto-ci"
+INVOCATION_ID = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
+INVOCATION_ROOT = ARTIFACT_ROOT / "executions" / INVOCATION_ID
 CACHE_ROOT = Path(
     os.environ.get(
         "DITTO_CI_CACHE_ROOT",
@@ -118,13 +121,24 @@ def ditto_environment() -> dict[str, str]:
 
 
 def artifact_directory(name: str) -> Path:
-    path = ARTIFACT_ROOT / name
+    path = INVOCATION_ROOT / name
     if path.exists():
-        history = ARTIFACT_ROOT / "history" / f"{name}-{uuid.uuid4()}"
-        history.parent.mkdir(parents=True, exist_ok=True)
-        path.rename(history)
+        raise RuntimeError(
+            f"Ditto CI invocation {INVOCATION_ID} already owns artifact {name}"
+        )
     path.mkdir(parents=True)
     return path
+
+
+def publish_report(name: str, report: dict[str, Any]) -> None:
+    """Atomically publish one invocation report without sharing its evidence."""
+    INVOCATION_ROOT.mkdir(parents=True, exist_ok=True)
+    rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    (INVOCATION_ROOT / name).write_text(rendered, encoding="utf-8")
+    ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
+    temporary = ARTIFACT_ROOT / f".{name}.{INVOCATION_ID}.tmp"
+    temporary.write_text(rendered, encoding="utf-8")
+    temporary.replace(ARTIFACT_ROOT / name)
 
 
 def run_directory(stderr: str) -> Path | None:
@@ -287,17 +301,23 @@ def inventory() -> tuple[dict[str, Any], int, int]:
 
 
 def gate() -> None:
-    """Run every canonical scenario under one ordered native-execution lane."""
+    """Run every process-isolated canonical suite concurrently."""
     platform_report()
     _, scenario_count, screenshot_count = inventory()
     started = time.monotonic()
     results = []
     failures = []
-    for sample in SAMPLES:
-        try:
-            results.append(execute_sample(sample, retain=False))
-        except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
-            failures.append(f"{sample}: {error}")
+    with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
+        pending = {
+            executor.submit(execute_sample, sample, retain=False): sample
+            for sample in SAMPLES
+        }
+        for future in as_completed(pending):
+            sample = pending[future]
+            try:
+                results.append(future.result())
+            except Exception as error:  # noqa: BLE001 - aggregate every suite outcome
+                failures.append(f"{sample}: {error}")
     duration = time.monotonic() - started
     reusable_build = float(os.environ.get("DITTO_CI_REUSABLE_BUILD_SECONDS", "0"))
     added_duration = duration
@@ -308,6 +328,8 @@ def gate() -> None:
         )
     report = {
         "schema": 1,
+        "invocation_id": INVOCATION_ID,
+        "artifact_root": str(INVOCATION_ROOT),
         "status": "failed" if failures else "passed",
         "duration_seconds": round(duration, 3),
         "budget_seconds": GATE_BUDGET_SECONDS,
@@ -318,12 +340,9 @@ def gate() -> None:
         "screenshot_count": screenshot_count,
         "samples": sorted(results, key=lambda item: item["sample"]),
         "warnings": warnings,
-        "failures": failures,
+        "failures": sorted(failures),
     }
-    ARTIFACT_ROOT.mkdir(parents=True, exist_ok=True)
-    (ARTIFACT_ROOT / "gate.json").write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    publish_report("gate.json", report)
     if failures:
         raise RuntimeError("Ditto gate failed:\n" + "\n".join(failures))
 
@@ -337,14 +356,14 @@ def prepare(mode: str) -> None:
         samples.append(execute_sample(sample, preparation=mode))
     report = {
         "schema": 1,
+        "invocation_id": INVOCATION_ID,
+        "artifact_root": str(INVOCATION_ROOT),
         "status": "passed",
         "cache": mode,
         "host": platform_report(),
         "samples": samples,
     }
-    (ARTIFACT_ROOT / f"preparation-{mode}.json").write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    publish_report(f"preparation-{mode}.json", report)
 
 
 def sample_suite(sample: str) -> None:
@@ -413,6 +432,8 @@ def publish() -> None:
 
 
 def main() -> None:
+    print(f"DITTO_CI_INVOCATION={INVOCATION_ID}")
+    print(f"DITTO_CI_ARTIFACT_ROOT={INVOCATION_ROOT}")
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
     prepare_parser = subcommands.add_parser("prepare")
@@ -443,9 +464,10 @@ def main() -> None:
         else:
             sample_suite(arguments.name)
     elif arguments.command == "replay":
+        INVOCATION_ROOT.mkdir(parents=True, exist_ok=True)
         raise SystemExit(ditto_replay.replay(
             arguments.recipe, REPOSITORY_ROOT, arguments.scenarios,
-            ARTIFACT_ROOT / "replays" / str(uuid.uuid4()),
+            INVOCATION_ROOT / f"replay-{uuid.uuid4()}",
         ))
     elif arguments.command == "classify":
         classification = ditto_replay.classify_and_retain(

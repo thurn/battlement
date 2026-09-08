@@ -198,7 +198,14 @@ pub fn create_engine() -> Result<FixtureEngine, EngineError> {
   }
 }
 
-battlement_native::export_deterministic_engine!(create_engine);
+battlement_native::export_deterministic_engine!(
+  create_engine,
+  clock = virtualized,
+  randomness = seeded,
+  external_state = isolated,
+  persistent_state = reset,
+  input = semantic,
+);
 
 #[unsafe(no_mangle)]
 /// Returns the fixture adapter's live output allocation count.

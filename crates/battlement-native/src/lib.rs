@@ -21,7 +21,10 @@ pub use engine::*;
 pub use logging::*;
 
 /// Wire version implemented by engines that opt into Ditto's deterministic runtime contract.
-pub const DITTO_DETERMINISM_CONTRACT_V1: u32 = 1;
+pub const DITTO_DETERMINISM_CONTRACT_V2: u32 = 2;
+/// Required v2 declarations: controlled clock and randomness, isolated external state,
+/// reset persistent state, and semantic input delivery.
+pub const DITTO_DETERMINISM_CAPABILITIES_V2: u64 = 0b1_1111;
 
 /// Exports the fixed Battlement C symbols for one concrete engine factory.
 ///
@@ -129,13 +132,26 @@ macro_rules! export_engine {
 /// Exports an engine together with the deterministic Ditto capability handshake.
 #[macro_export]
 macro_rules! export_deterministic_engine {
-  ($factory:path $(,)?) => {
+  (
+    $factory:path,
+    clock = virtualized,
+    randomness = seeded,
+    external_state = isolated,
+    persistent_state = reset,
+    input = semantic $(,)?
+  ) => {
     $crate::export_engine!($factory);
 
     #[doc(hidden)]
     #[unsafe(no_mangle)]
     pub extern "C" fn battlement_ditto_determinism_contract() -> u32 {
-      $crate::DITTO_DETERMINISM_CONTRACT_V1
+      $crate::DITTO_DETERMINISM_CONTRACT_V2
+    }
+
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn battlement_ditto_determinism_capabilities() -> u64 {
+      $crate::DITTO_DETERMINISM_CAPABILITIES_V2
     }
   };
 }

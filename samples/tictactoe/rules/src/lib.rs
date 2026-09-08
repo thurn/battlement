@@ -134,7 +134,12 @@ pub struct TicTacToeEngine {
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<TicTacToeEngine, EngineError> {
-  let mut engine = create_seeded_engine(DITTO_SEED, Instant::now);
+  let mut engine = if std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1") {
+    let epoch = Instant::now();
+    create_seeded_engine(DITTO_SEED, move || epoch)
+  } else {
+    create_seeded_engine(DITTO_SEED, Instant::now)
+  };
   engine.semantic_fixture = std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
     .ok()
     .map(|name| {
@@ -494,4 +499,11 @@ fn status_command(state: VisualState) -> CommandBody {
   CommandBody::set_text(STATUS_ID, self::status_text(state))
 }
 
-battlement_native::export_deterministic_engine!(create_engine);
+battlement_native::export_deterministic_engine!(
+  create_engine,
+  clock = virtualized,
+  randomness = seeded,
+  external_state = isolated,
+  persistent_state = reset,
+  input = semantic,
+);

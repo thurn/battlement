@@ -64,7 +64,7 @@ namespace Battlement
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
-        private DittoInputTransaction? dittoInputTransaction;
+        private DittoActivationTransaction? dittoActivationTransaction;
         private ApplicationState? publishedApplicationState;
         private ReducedMotionPreference publishedReducedMotionPreference;
         private bool isDisposed;
@@ -134,69 +134,101 @@ namespace Battlement
                 throw new InvalidOperationException(
                     "A Ditto executor already owns this runner's input."
                 );
+            pointerInput?.BeginDittoControl();
+            keyboardInput?.Reset();
+            controllerInput?.Reset();
             dittoInputActive = true;
         }
 
         internal void EndDittoInput()
         {
-            dittoInputTransaction = null;
-            dittoInputActive = false;
+            dittoActivationTransaction = null;
+            try
+            {
+                pointerInput?.EndDittoControl();
+            }
+            finally
+            {
+                dittoInputActive = false;
+            }
         }
 
-        internal void BeginDittoPointerTransaction(
+        internal void BeginDittoActivationTransaction(
             string transactionId,
             ObjectId target,
-            ulong committedFrame,
-            ulong expectedInputFrame
+            ulong committedFrame
         )
         {
             EnsureMainThread();
-            if (!dittoInputActive || dittoInputTransaction is not null)
+            if (!dittoInputActive || dittoActivationTransaction is not null)
                 throw new InvalidOperationException(
-                    "Ditto pointer transaction ownership is unavailable."
+                    "Ditto activation transaction ownership is unavailable."
                 );
-            dittoInputTransaction = new DittoInputTransaction(
+            dittoActivationTransaction = new DittoActivationTransaction(
                 transactionId,
                 target,
-                committedFrame,
-                expectedInputFrame
+                committedFrame
             );
         }
 
-        internal bool CompleteDittoPointerTransaction(
+        internal bool CompleteDittoActivationTransaction(
             string transactionId,
-            ulong appliedInputFrame,
             ulong committedFrame,
-            out DittoInputReceipt? receipt,
+            out DittoActivationReceipt? receipt,
             out string? diagnostic
         )
         {
             EnsureMainThread();
-            DittoInputTransaction transaction =
-                dittoInputTransaction
-                ?? throw new InvalidOperationException("No Ditto pointer transaction is active.");
+            DittoActivationTransaction transaction =
+                dittoActivationTransaction
+                ?? throw new InvalidOperationException(
+                    "No Ditto activation transaction is active."
+                );
             if (transaction.Id != transactionId)
-                throw new InvalidOperationException("Ditto pointer transaction identity changed.");
-            dittoInputTransaction = null;
-            return transaction.Complete(
-                appliedInputFrame,
-                committedFrame,
-                out receipt,
-                out diagnostic
-            );
+                throw new InvalidOperationException(
+                    "Ditto activation transaction identity changed."
+                );
+            dittoActivationTransaction = null;
+            return transaction.Complete(committedFrame, out receipt, out diagnostic);
         }
 
-        internal void RejectDittoPointerTransaction(string reason) =>
-            dittoInputTransaction?.Reject(reason);
-
-        internal void ApplyDittoPointerFrame(string transactionId, ulong frame)
+        internal bool ValidateDittoActivationDelivery(string transactionId, out string? diagnostic)
         {
-            DittoInputTransaction transaction =
-                dittoInputTransaction
-                ?? throw new InvalidOperationException("No Ditto pointer transaction is active.");
+            EnsureMainThread();
+            DittoActivationTransaction transaction =
+                dittoActivationTransaction
+                ?? throw new InvalidOperationException(
+                    "No Ditto activation transaction is active."
+                );
             if (transaction.Id != transactionId)
-                throw new InvalidOperationException("Ditto pointer transaction identity changed.");
-            transaction.Apply(frame);
+                throw new InvalidOperationException(
+                    "Ditto activation transaction identity changed."
+                );
+            return transaction.ValidateDelivery(out diagnostic);
+        }
+
+        internal void RejectDittoActivationTransaction(string reason) =>
+            dittoActivationTransaction?.Reject(reason);
+
+        internal void CancelDittoActivationTransaction() => dittoActivationTransaction = null;
+
+        internal bool DispatchDittoActivation(ObjectId target, out string? diagnostic)
+        {
+            EnsureMainThread();
+            DittoActivationTransaction transaction =
+                dittoActivationTransaction
+                ?? throw new InvalidOperationException(
+                    "No Ditto activation transaction is active."
+                );
+            var actionId = new ActionId(Guid.NewGuid());
+            transaction.BeginDispatch(actionId, "world-activate");
+            if (EmitAction(new ActionBody.Activate(target), actionId))
+            {
+                diagnostic = null;
+                return true;
+            }
+            diagnostic = $"Activation of {target.Value} was rejected before dispatch.";
+            return false;
         }
 
         internal bool DispatchDittoKey(PhysicalKey key, bool pressed)
@@ -913,9 +945,10 @@ namespace Battlement
             uiDocuments?.Advance();
             PublishApplicationState();
             PublishReducedMotionPreference();
-            pointerInput?.Update(CanEmitInput);
-            keyboardInput?.Update(CanEmitInput);
-            controllerInput?.Update(CanEmitInput, dittoMotionClock!.Elapsed);
+            bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
+            pointerInput?.Update(physicalInputAvailable);
+            keyboardInput?.Update(physicalInputAvailable);
+            controllerInput?.Update(physicalInputAvailable, dittoMotionClock!.Elapsed);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
@@ -926,6 +959,14 @@ namespace Battlement
             if (started < previous)
             {
                 throw new InvalidOperationException("The Battlement clock must be monotonic.");
+            }
+
+            if (dittoActivationTransaction?.HasDispatched == true)
+            {
+                session.PreviousStepTime = dittoMotionClock.Elapsed;
+                if (!Application.isPlaying)
+                    world?.UpdateBillboards();
+                return;
             }
 
             int payloadBytes = 0;
@@ -1010,12 +1051,17 @@ namespace Battlement
             }
         }
 
-        private void Update() => RunFrame();
+        private void Update()
+        {
+            if (!dittoInputActive)
+                RunFrame();
+        }
 
         private void LateUpdate()
         {
             world?.UpdateBillboards();
-            CompleteNativeFrame();
+            if (!dittoInputActive)
+                CompleteNativeFrame();
             failureSurface?.Refresh(completedInitialSnapshot);
         }
 
@@ -1053,12 +1099,16 @@ namespace Battlement
             );
             if (pauseStatus)
             {
-                RejectDittoPointerTransaction(
-                    "Application suspension interrupted pointer delivery."
+                RejectDittoActivationTransaction(
+                    "Application suspension interrupted semantic activation."
                 );
                 pointerInput?.CancelPresses();
                 keyboardInput?.Reset();
                 controllerInput?.Reset();
+            }
+            if (dittoInputActive)
+            {
+                return;
             }
             PublishApplicationState();
         }
@@ -1072,10 +1122,6 @@ namespace Battlement
             );
             if (dittoInputActive)
             {
-                if (!hasFocus)
-                    RejectDittoPointerTransaction(
-                        "Application focus was lost during pointer delivery."
-                    );
                 return;
             }
             if (!hasFocus && session.Phase != BattlementSessionPhase.Stopped)
@@ -1417,6 +1463,9 @@ namespace Battlement
                     );
                     return;
                 }
+
+                if (batch.CausedByActionId is ActionId actionId)
+                    dittoActivationTransaction?.ObserveCausalBatch(actionId);
 
                 fields["sequence"] = result.Sequence.ToString(CultureInfo.InvariantCulture);
                 fields["start"] = batch.Start.ToString();
@@ -1882,7 +1931,9 @@ namespace Battlement
             }
         }
 
-        private bool EmitAction(ActionBody body)
+        private bool EmitAction(ActionBody body) => EmitAction(body, new ActionId(Guid.NewGuid()));
+
+        private bool EmitAction(ActionBody body, ActionId actionId)
         {
             Debug.Log(
                 $"[Battlement/Ditto-trace] world-input-dispatch body={body.GetType().Name} "
@@ -1896,25 +1947,19 @@ namespace Battlement
             BattlementRunnerOptions configured = RequireOptions();
             byte[] message;
             using (BattlementProfiler.Serialization.Auto())
-                message = SerializeAction(configured, body);
+                message = SerializeAction(configured, body, actionId);
             Submit(message);
-            bool accepted = CanEmitInput && session.LastSession == currentSession;
-            if (accepted && body is ActionBody.PointerClick click)
-            {
-                Debug.Log(
-                    $"[Battlement/Ditto-trace] input-acknowledgement route=world-pointer-click "
-                        + $"object={click.ObjectId.Value} "
-                        + $"active={dittoInputTransaction is not null}"
-                );
-                dittoInputTransaction?.Observe(click.ObjectId, "world-pointer-click");
-            }
-            return accepted;
+            return CanEmitInput && session.LastSession == currentSession;
         }
 
-        private byte[] SerializeAction(BattlementRunnerOptions configured, ActionBody body) =>
+        private byte[] SerializeAction(
+            BattlementRunnerOptions configured,
+            ActionBody body,
+            ActionId? actionId = null
+        ) =>
             configured.ProtocolCodec.SerializeAction(
                 new Action(
-                    new ActionId(Guid.NewGuid()),
+                    actionId ?? new ActionId(Guid.NewGuid()),
                     session.LastSession
                         ?? throw new InvalidOperationException("No Battlement session is active."),
                     body
@@ -1940,6 +1985,14 @@ namespace Battlement
 
             BattlementRunnerOptions configured = RequireOptions();
             var action = new UiEventAction(new ActionId(Guid.NewGuid()), currentSession, value);
+            string? dittoActivationRoute = null;
+            bool beginsDittoActivation =
+                dittoActivationTransaction?.TryBeginUiDispatch(
+                    action.Id,
+                    value.TargetId,
+                    value.Body,
+                    out dittoActivationRoute
+                ) == true;
             var inspection = new BattlementUiEventInspection(action, UiEventKindOf(value.Body));
             AddUiEventInspection(inspection);
             BattlementResponseStream.Reservation? reservation = null;
@@ -2019,14 +2072,27 @@ namespace Battlement
                     dittoMotionClock.Elapsed - started
                 );
                 inspection.Outcome = BattlementUiEventInspectionOutcome.Completed;
-                if (value.Body is UiEventBody.Click)
+                if (beginsDittoActivation && dittoActivationRoute == "ui-accessibility")
                 {
-                    Debug.Log(
-                        $"[Battlement/Ditto-trace] input-acknowledgement route=ui-click "
-                            + $"object={value.TargetId.Value} "
-                            + $"active={dittoInputTransaction is not null}"
-                    );
-                    dittoInputTransaction?.Observe(value.TargetId, "ui-click");
+                    if (result.Disposition == UiEventDisposition.PreventDefault)
+                    {
+                        Debug.Log(
+                            $"[Battlement/Ditto-trace] activation-acknowledgement "
+                                + $"route={dittoActivationRoute} object={value.TargetId.Value} "
+                                + $"active={dittoActivationTransaction is not null}"
+                        );
+                        dittoActivationTransaction?.ObserveHandled(
+                            action.Id,
+                            value.TargetId,
+                            dittoActivationRoute
+                        );
+                    }
+                    else
+                    {
+                        dittoActivationTransaction?.Reject(
+                            $"Semantic activation of {value.TargetId.Value} was not consumed."
+                        );
+                    }
                 }
                 awaitingNativePrevention =
                     result.Disposition == UiEventDisposition.PreventDefault ? inspection : null;

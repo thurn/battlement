@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
-using UnityEngine.InputSystem;
 
 namespace Battlement
 {
@@ -84,12 +83,14 @@ namespace Battlement
                 "profile contains a capability unsupported by its platform"
             );
             Require(
-                !unique.Contains(DittoCapability.Hover) && !unique.Contains(DittoCapability.Drag),
+                !unique.Contains(DittoCapability.Hover)
+                    && !unique.Contains(DittoCapability.Drag)
+                    && !unique.Contains(DittoCapability.Key),
                 "profile contains a capability without a deterministic delivery contract"
             );
             Require(
-                profile.DeterminismContract == "ditto-v1",
-                "profile requires the ditto-v1 determinism contract"
+                profile.DeterminismContract == "ditto-v2",
+                "profile requires the ditto-v2 determinism contract"
             );
             if (profile.Platform == DittoPlatform.Webgl)
             {
@@ -171,7 +172,6 @@ namespace Battlement
                 Require(step.Index == index, "step indices must match authored order");
                 Step(job, scenario, step, state);
             }
-            Require(state.HeldKeys.Count == 0, "keys must be released before the scenario ends");
             Require(state.ActiveVideo is null, "video start must have a matching stop");
         }
 
@@ -204,9 +204,11 @@ namespace Battlement
                 case DittoStepAction.Drag:
                     Require(false, "drag has no deterministic delivery contract");
                     break;
-                case DittoStepAction.Key key:
-                    Capability(job, DittoCapability.Key);
-                    Key(key, state);
+                case DittoStepAction.Key:
+                    Require(
+                        false,
+                        "physical key input has no deterministic semantic delivery contract"
+                    );
                     break;
                 case DittoStepAction.Advance advance:
                     Require(advance.Frames > 0, "frame advance must be positive");
@@ -273,37 +275,6 @@ namespace Battlement
                     throw new JsonSerializationException("Unknown input target.");
             }
         }
-
-        private static void Key(DittoStepAction.Key key, ScenarioState state)
-        {
-            Require(
-                key.Value.Length is > 0 and <= 128 && key.Value.All(IsAsciiAlphaNumeric),
-                "key must be a Unity Input System Key enum name"
-            );
-            Require(
-                Enum.TryParse(key.Value, false, out Key parsed)
-                    && Enum.GetName(typeof(Key), parsed) == key.Value
-                    && parsed != UnityEngine.InputSystem.Key.None,
-                "key must be a Unity Input System Key enum name"
-            );
-            switch (key.Action)
-            {
-                case DittoKeyAction.Down:
-                    Require(state.HeldKeys.Add(key.Value), "key is already held");
-                    break;
-                case DittoKeyAction.Up:
-                    Require(state.HeldKeys.Remove(key.Value), "key is not held");
-                    break;
-                case DittoKeyAction.Tap:
-                    Require(!state.HeldKeys.Contains(key.Value), "key is already held");
-                    break;
-                default:
-                    throw new JsonSerializationException("Unknown key action.");
-            }
-        }
-
-        private static bool IsAsciiAlphaNumeric(char value) =>
-            value is >= '0' and <= '9' || value is >= 'A' and <= 'Z' || value is >= 'a' and <= 'z';
 
         private static void Screenshot(DittoScreenshot screenshot, ScenarioState state)
         {
@@ -415,8 +386,6 @@ namespace Battlement
             public HashSet<string> Checkpoints { get; } = new(StringComparer.Ordinal);
 
             public HashSet<string> Videos { get; } = new(StringComparer.Ordinal);
-
-            public HashSet<string> HeldKeys { get; } = new(StringComparer.Ordinal);
 
             public string? ActiveVideo { get; set; }
         }

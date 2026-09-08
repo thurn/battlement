@@ -58,6 +58,15 @@ fn complete_result_review_exchange_validates() {
 }
 
 #[test]
+fn retained_legacy_result_remains_readable() {
+  let mut result = complete_result();
+  let report = &mut result.player_sessions[0].startup_report;
+  report.determinism_contract = "ditto-v1".to_owned();
+  report.capabilities.insert(1, Capability::Key);
+  result.validate().unwrap();
+}
+
+#[test]
 fn canonical_result_and_baseline_state_bytes_are_stable() {
   let result = complete_result();
   let bytes = result.to_canonical_json().unwrap();
@@ -709,7 +718,7 @@ fn startup_report() -> StartupReport {
       safe_area: [0, 0, 2, 2],
     },
     capabilities: vec![Capability::Click, Capability::Png, Capability::Video],
-    determinism_contract: "ditto-v1".to_owned(),
+    determinism_contract: "ditto-v2".to_owned(),
     native_execution_id: None,
   }
 }

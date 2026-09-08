@@ -6,7 +6,6 @@ using System.Linq;
 using Battlement.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using UnityPanelRenderMode = UnityEngine.UIElements.PanelRenderMode;
@@ -147,6 +146,8 @@ namespace Battlement
         public bool AccessibilityAction(
             DittoAccessibilityTarget target,
             AccessibilityAction action,
+            string transactionId,
+            ulong committedFrame,
             out string? diagnostic
         )
         {
@@ -162,117 +163,64 @@ namespace Battlement
                 diagnostic = $"{request}: matched {matches.Length} active nodes.";
                 return false;
             }
+            runner.BeginDittoActivationTransaction(
+                transactionId,
+                matches[0].ObjectId,
+                committedFrame
+            );
             bool dispatched = documents.DispatchAccessibility(
                 matches[0].ObjectId,
                 action,
                 out diagnostic
             );
             if (!dispatched)
+            {
+                runner.CancelDittoActivationTransaction();
                 diagnostic = $"{request} (object {matches[0].ObjectId.Value}): {diagnostic}";
+            }
             return dispatched;
         }
 
-        public bool DispatchKey(
-            DittoInputFrame frame,
-            DittoVirtualInput input,
+        public bool Activate(
+            DittoInputResolution resolution,
+            string transactionId,
+            ulong committedFrame,
             out string? diagnostic
         )
         {
-            if (frame.Key is not Key key)
-                throw new ArgumentException("A keyboard frame requires a key.", nameof(frame));
-            if (runner.DittoInputDiagnostic is string unavailable)
+            if (!resolution.IsReachable || resolution.ObjectId is not ObjectId target)
+                throw new ArgumentException("Activation requires a resolved object target.");
+            runner.BeginDittoActivationTransaction(transactionId, target, committedFrame);
+            bool dispatched;
+            if (documents.ActiveAccessibility.Any(node => node.ObjectId == target))
             {
-                diagnostic = $"Keyboard {key}: {unavailable}";
-                return false;
+                dispatched = documents.DispatchAccessibility(
+                    target,
+                    new AccessibilityAction.Activate(),
+                    out diagnostic
+                );
             }
-
-            bool pressed = frame.Kind == DittoInputFrameKind.KeyDown;
-            PhysicalKey physical = BattlementKeyboardInput.Physical(key);
-            if (!runner.DispatchDittoKey(physical, pressed))
+            else if (documents.TryGetGeometryTarget(target, out _, out _, out _))
             {
-                diagnostic = $"Keyboard {key}: the global input action was rejected.";
-                return false;
+                dispatched = documents.DispatchSemanticActivation(target, out diagnostic);
             }
-
-            UIDocument[] inputDocuments = documents
-                .InputDocuments.Where(document =>
-                    document != null
-                    && document.isActiveAndEnabled
-                    && document.rootVisualElement.panel != null
-                )
-                .OrderByDescending(document => document.sortingOrder)
-                .ToArray();
-            VisualElement? target = inputDocuments
-                .Select(document =>
-                    document.rootVisualElement.panel.focusController.focusedElement as VisualElement
-                )
-                .FirstOrDefault(element => element != null);
-            UIDocument? topmostDocument = inputDocuments.FirstOrDefault();
-            if (target is null && topmostDocument != null)
-                target = topmostDocument.rootVisualElement;
-            if (target is null)
+            else if (
+                runner.TryGetObject(target, out GameObject? gameObject)
+                && gameObject!.TryGetComponent(out BattlementIdentity identity)
+                && identity.IsAvailableForPointerInput
+                && identity.IsPointerEventEnabled(PointerEvent.Click)
+            )
             {
-                diagnostic = null;
-                return true;
+                dispatched = runner.DispatchDittoActivation(target, out diagnostic);
             }
-
-            KeyCode keyCode = BattlementUiKeyboardMapper.Unity(physical);
-            EventModifiers modifiers = Modifiers(input);
-            char character =
-                pressed && !input.HasCommandModifiers ? input.TextCharacter(key) ?? '\0' : '\0';
-            using EventBase value = pressed
-                ? KeyDownEvent.GetPooled(character, keyCode, modifiers)
-                : KeyUpEvent.GetPooled(character, keyCode, modifiers);
-            value.target = target;
-            target.SendEvent(value);
-            if (pressed)
-                DispatchNavigation(target, physical, modifiers);
-            diagnostic = null;
-            return true;
-        }
-
-        private static void DispatchNavigation(
-            VisualElement target,
-            PhysicalKey key,
-            EventModifiers modifiers
-        )
-        {
-            EventBase? navigation = key switch
+            else
             {
-                PhysicalKey.ArrowLeft => NavigationMoveEvent.GetPooled(
-                    NavigationMoveEvent.Direction.Left,
-                    modifiers
-                ),
-                PhysicalKey.ArrowUp => NavigationMoveEvent.GetPooled(
-                    NavigationMoveEvent.Direction.Up,
-                    modifiers
-                ),
-                PhysicalKey.ArrowRight => NavigationMoveEvent.GetPooled(
-                    NavigationMoveEvent.Direction.Right,
-                    modifiers
-                ),
-                PhysicalKey.ArrowDown => NavigationMoveEvent.GetPooled(
-                    NavigationMoveEvent.Direction.Down,
-                    modifiers
-                ),
-                PhysicalKey.Tab => NavigationMoveEvent.GetPooled(
-                    modifiers.HasFlag(EventModifiers.Shift)
-                        ? NavigationMoveEvent.Direction.Previous
-                        : NavigationMoveEvent.Direction.Next,
-                    modifiers
-                ),
-                PhysicalKey.Space or PhysicalKey.Enter or PhysicalKey.NumpadEnter =>
-                    NavigationSubmitEvent.GetPooled(),
-                PhysicalKey.Escape => NavigationCancelEvent.GetPooled(),
-                _ => null,
-            };
-            if (navigation is null)
-                return;
-            using (navigation)
-            {
-                navigation.target = target;
-                target.SendEvent(navigation);
+                dispatched = false;
+                diagnostic = $"World target {target.Value} is not semantically activatable.";
             }
+            if (!dispatched)
+                runner.CancelDittoActivationTransaction();
+            return dispatched;
         }
 
         private AccessibilityNodeSnapshot[] AccessibilityMatches(DittoAccessibilityTarget target) =>
@@ -282,20 +230,6 @@ namespace Battlement
                     && string.Equals(node.Label, target.Name, StringComparison.Ordinal)
                 )
                 .ToArray();
-
-        private static EventModifiers Modifiers(DittoVirtualInput input)
-        {
-            EventModifiers result = EventModifiers.None;
-            if (input.IsHeld(Key.LeftShift) || input.IsHeld(Key.RightShift))
-                result |= EventModifiers.Shift;
-            if (input.IsHeld(Key.LeftCtrl) || input.IsHeld(Key.RightCtrl))
-                result |= EventModifiers.Control;
-            if (input.IsHeld(Key.LeftAlt) || input.IsHeld(Key.RightAlt))
-                result |= EventModifiers.Alt;
-            if (input.IsHeld(Key.LeftMeta) || input.IsHeld(Key.RightMeta))
-                result |= EventModifiers.Command;
-            return result;
-        }
 
         public DittoInputResolution Resolve(DittoInputTarget target)
         {

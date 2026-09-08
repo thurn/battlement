@@ -32,7 +32,7 @@ use crate::{
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
   macos_watch_capture::WarmMacosPlayer,
   maintenance_commands,
-  native_execution::NativeExecutionLease,
+  native_execution::NativeExecution,
   native_video, reactant_assets, run_commands, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
@@ -107,7 +107,7 @@ pub(crate) struct Options {
   pub no_build: bool,
   pub update: bool,
   pub filtered: bool,
-  pub native_execution: Option<Arc<NativeExecutionLease>>,
+  pub native_execution: Option<Arc<NativeExecution>>,
 }
 
 /// Warm process resources retained only by one watch invocation.
@@ -295,10 +295,7 @@ fn execute_inner(
     &build.metadata().identity.fingerprint,
     &build.metadata().identity.source_fingerprint,
     suite.timeouts.run.as_millis(),
-    options
-      .native_execution
-      .as_deref()
-      .map(NativeExecutionLease::id),
+    options.native_execution.as_deref().map(NativeExecution::id),
   )?;
   let roots = maintenance_commands::cache_roots(suite)?;
   let materializer = Arc::new(ExecutionMaterializer::new(
@@ -330,7 +327,7 @@ fn execute_inner(
       native_execution_id: options
         .native_execution
         .as_deref()
-        .map(NativeExecutionLease::id)
+        .map(NativeExecution::id)
         .map(str::to_owned),
     },
     orchestration_path: active.path().join("orchestration.json"),

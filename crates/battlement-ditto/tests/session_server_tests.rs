@@ -182,7 +182,6 @@ fn ios_startup_accepts_observed_safe_area_but_not_other_display_changes() {
   ios_job.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
   ios_job.profile.capabilities = vec![
     battlement_ditto::wire::job::Capability::Click,
-    battlement_ditto::wire::job::Capability::Key,
     battlement_ditto::wire::job::Capability::Png,
     battlement_ditto::wire::job::Capability::Video,
   ];

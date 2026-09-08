@@ -76,6 +76,85 @@ def journal_root(repository: Path) -> Path:
     return repository / ".logs/ci/unity-transactions"
 
 
+def verify_parallel_transactions_use_private_indexes() -> None:
+    with tempfile.TemporaryDirectory(prefix="unity-transaction-parallel-test.") as temporary:
+        repository = Path(temporary)
+        (repository / ".gitignore").write_text(".logs\n", encoding="utf-8")
+        projects = []
+        for name in ("sample-a", "sample-b"):
+            project = repository / name
+            projects.append(project)
+            for directory in ("Assets", "Packages", "ProjectSettings"):
+                (project / directory).mkdir(parents=True)
+            (project / "Assets/tracked.txt").write_text("committed\n", encoding="utf-8")
+            (project / "Packages/manifest.json").write_text("{}\n", encoding="utf-8")
+            (project / "ProjectSettings/settings.txt").write_text(
+                "settings\n", encoding="utf-8"
+            )
+        git(repository, "init", "--quiet")
+        git(repository, "add", ".")
+        git(
+            repository,
+            "-c",
+            "user.name=CI Fixture",
+            "-c",
+            "user.email=ci@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        )
+        before = git(repository, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+        probe = """
+from pathlib import Path
+import os
+import time
+root = Path.cwd().parent
+name = Path.cwd().name
+logs = root / '.logs'
+logs.mkdir(exist_ok=True)
+(logs / f'{name}.index').write_text(os.environ['GIT_INDEX_FILE'])
+(logs / f'{name}.ready').write_text('ready')
+deadline = time.monotonic() + 5
+peer = 'sample-b' if name == 'sample-a' else 'sample-a'
+while not (logs / f'{peer}.ready').exists() and time.monotonic() < deadline:
+    time.sleep(0.01)
+if not (logs / f'{peer}.ready').exists():
+    raise SystemExit(9)
+"""
+        processes = [
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    str(RUNNER),
+                    "--project",
+                    str(project),
+                    "--label",
+                    "parallel",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    probe,
+                ],
+                cwd=repository,
+            )
+            for project in projects
+        ]
+        assert [process.wait(timeout=10) for process in processes] == [0, 0]
+        indexes = [
+            Path((repository / f".logs/{project.name}.index").read_text())
+            for project in projects
+        ]
+        assert indexes[0] != indexes[1]
+        assert all(
+            index.parent.parent.resolve() == journal_root(repository).resolve()
+            for index in indexes
+        )
+        assert git(
+            repository, "status", "--porcelain=v1", "-z", "--untracked-files=all"
+        ) == before
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="unity-transaction-test.") as temporary:
         repository = Path(temporary)
@@ -154,6 +233,7 @@ while True:
         )
         assert retained.read_text(encoding="utf-8") == "retained diagnostics\n"
 
+    verify_parallel_transactions_use_private_indexes()
     print("Unity transaction tests passed.")
 
 

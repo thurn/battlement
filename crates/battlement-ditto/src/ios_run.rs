@@ -23,7 +23,7 @@ use crate::{
   ios_capture::{self, IosCaptureRequest, IosCaptureTimeouts},
   ios_simulator::{self, IosSimulator, SimulatorTools},
   job_resolution, macos_run, maintenance_commands,
-  native_execution::NativeExecutionLease,
+  native_execution::NativeExecution,
   native_video, reactant_assets, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
@@ -206,10 +206,7 @@ pub(crate) fn execute(
     &build.metadata().identity.source_fingerprint,
     suite.timeouts.run.as_millis(),
     facts.display,
-    options
-      .native_execution
-      .as_deref()
-      .map(NativeExecutionLease::id),
+    options.native_execution.as_deref().map(NativeExecution::id),
   )?;
   let roots = maintenance_commands::cache_roots(suite)?;
   let materializer = Arc::new(ExecutionMaterializer::new(
@@ -246,7 +243,7 @@ pub(crate) fn execute(
         native_execution_id: options
           .native_execution
           .as_deref()
-          .map(NativeExecutionLease::id)
+          .map(NativeExecution::id)
           .map(str::to_owned),
       },
       orchestration_path: active.path().join("orchestration.json"),

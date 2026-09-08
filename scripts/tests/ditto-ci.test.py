@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import time
 import tomllib
+import uuid
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +35,7 @@ if "storage" in arguments:
         output.write(arguments[arguments.index("--config") + 1] + "\n")
     raise SystemExit(0)
 output = Path(arguments[arguments.index("--output") + 1])
-run = Path(os.environ["FAKE_RUN_ROOT"]) / output.parent.name
+run = Path(os.environ["FAKE_RUN_ROOT"]) / output.parent.parent.name / output.parent.name
 run.mkdir(parents=True, exist_ok=True)
 (run / "logs").mkdir(exist_ok=True)
 (run / "logs/events.jsonl").write_text('{"sequence":1}\n')
@@ -94,6 +95,16 @@ def run(
     )
 
 
+def artifact_root(completed: subprocess.CompletedProcess[str]) -> Path:
+    values = [
+        line.removeprefix("DITTO_CI_ARTIFACT_ROOT=")
+        for line in completed.stdout.splitlines()
+        if line.startswith("DITTO_CI_ARTIFACT_ROOT=")
+    ]
+    assert len(values) == 1, completed.stdout
+    return Path(values[0])
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="ditto-ci-test.") as temporary:
         root = Path(temporary)
@@ -118,7 +129,7 @@ def main() -> None:
 
         passed = run(["sample", "basic"], environment)
         assert passed.returncode == 0, passed.stderr
-        artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/basic/run.tar.gz"
+        artifact = artifact_root(passed) / "basic/run.tar.gz"
         with tarfile.open(artifact) as retained:
             assert "run/logs/events.jsonl" in retained.getnames()
             diagnostics = retained.extractfile("run/diagnostics.txt")
@@ -128,9 +139,7 @@ def main() -> None:
 
         gated = run(["gate"], environment)
         assert gated.returncode == 0, gated.stderr
-        gate = json.loads(
-            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
-        )
+        gate = json.loads((artifact_root(gated) / "gate.json").read_text())
         assert gate["status"] == "passed"
         assert len(gate["samples"]) == 6
         assert gate["budget_seconds"] == 120
@@ -151,17 +160,40 @@ def main() -> None:
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)
         assert gated.returncode == 0, gated.stderr
-        gate = json.loads(
-            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
+        gate = json.loads((artifact_root(gated) / "gate.json").read_text())
+        assert 0.2 <= gate["duration_seconds"] < 0.8
+
+        parallel_environment_a = environment.copy()
+        parallel_environment_b = environment.copy()
+        parallel_environment_a["DITTO_CI_INVOCATION_ID"] = f"parallel-a-{uuid.uuid4()}"
+        parallel_environment_b["DITTO_CI_INVOCATION_ID"] = f"parallel-b-{uuid.uuid4()}"
+        started = time.monotonic()
+        parallel_a = subprocess.Popen(
+            [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
+            env=parallel_environment_a, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True,
         )
-        assert gate["duration_seconds"] >= 1.0
+        parallel_b = subprocess.Popen(
+            [sys.executable, str(RUNNER), "gate"], cwd=REPOSITORY_ROOT,
+            env=parallel_environment_b, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True,
+        )
+        stdout_a, stderr_a = parallel_a.communicate()
+        stdout_b, stderr_b = parallel_b.communicate()
+        elapsed = time.monotonic() - started
+        assert parallel_a.returncode == 0, stderr_a
+        assert parallel_b.returncode == 0, stderr_b
+        assert elapsed < 0.8, elapsed
+        root_a = artifact_root(subprocess.CompletedProcess([], 0, stdout_a, stderr_a))
+        root_b = artifact_root(subprocess.CompletedProcess([], 0, stdout_b, stderr_b))
+        assert root_a != root_b
+        assert json.loads((root_a / "gate.json").read_text())["status"] == "passed"
+        assert json.loads((root_b / "gate.json").read_text())["status"] == "passed"
 
         environment["DITTO_CI_GATE_BUDGET_SECONDS"] = "0.05"
         over_budget = run(["gate"], environment)
         assert over_budget.returncode == 0
-        gate = json.loads(
-            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
-        )
+        gate = json.loads((artifact_root(over_budget) / "gate.json").read_text())
         assert gate["status"] == "passed"
         assert any("exceeded" in warning for warning in gate["warnings"])
         environment.pop("DITTO_CI_GATE_BUDGET_SECONDS")
@@ -170,9 +202,7 @@ def main() -> None:
         environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = "61"
         reusable_build = run(["gate"], environment)
         assert reusable_build.returncode == 0
-        gate = json.loads(
-            (REPOSITORY_ROOT / "artifacts/ditto-ci/gate.json").read_text()
-        )
+        gate = json.loads((artifact_root(reusable_build) / "gate.json").read_text())
         assert gate["reusable_build_seconds"] == 61
         assert gate["added_duration_seconds"] == gate["scenario_execution_seconds"]
         environment.pop("DITTO_CI_REUSABLE_BUILD_SECONDS")
@@ -180,14 +210,15 @@ def main() -> None:
         environment["FAKE_STATUS"] = "failed"
         failed = run(["sample", "chess"], environment)
         assert failed.returncode == 1
-        failed_artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/chess/run.tar.gz"
+        failed_artifact = artifact_root(failed) / "chess/run.tar.gz"
         with tarfile.open(failed_artifact) as retained:
             assert "run/diagnostics.txt" in retained.getnames()
         failed_bytes = failed_artifact.read_bytes()
         environment.pop("FAKE_STATUS")
-        assert run(["sample", "chess"], environment).returncode == 0
-        history = REPOSITORY_ROOT / "artifacts/ditto-ci/history"
-        assert any(path.read_bytes() == failed_bytes for path in history.glob("chess-*/run.tar.gz"))
+        succeeding = run(["sample", "chess"], environment)
+        assert succeeding.returncode == 0
+        assert failed_artifact.read_bytes() == failed_bytes
+        assert artifact_root(succeeding) != failed_artifact.parents[1]
         assert not (root / "published").exists()
 
         for result_mode in ("missing", "malformed"):
@@ -195,6 +226,7 @@ def main() -> None:
             environment["FAKE_RESULT"] = result_mode
             invalid_result = run(["sample", "chess"], environment)
             assert invalid_result.returncode == 1
+            failed_artifact = artifact_root(invalid_result) / "chess/run.tar.gz"
             with tarfile.open(failed_artifact) as retained:
                 assert "run/diagnostics.txt" in retained.getnames()
         environment.pop("FAKE_RESULT")
@@ -205,6 +237,7 @@ def main() -> None:
         environment["FAKE_SLEEP"] = "10"
         timed_out = run(["sample", "chess"], environment)
         assert timed_out.returncode == 1
+        failed_artifact = artifact_root(timed_out) / "chess/run.tar.gz"
         time.sleep(0.8)
         assert not marker.exists()
         with tarfile.open(failed_artifact) as retained:
@@ -218,7 +251,7 @@ def main() -> None:
         environment["FAKE_STATUS"] = "infrastructureError"
         timeout_with_result = run(["sample", "chess"], environment)
         assert timeout_with_result.returncode == 1
-        evidence = failed_artifact.parent
+        evidence = artifact_root(timeout_with_result) / "chess"
         recipe_path = evidence / "replay.json"
         recipe = json.loads(recipe_path.read_text())
         assert recipe["source_status"] == "infrastructureError"

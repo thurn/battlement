@@ -370,7 +370,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void NavigationClickAndRepeatTimingUseOneForwardingRoute()
+        public void SemanticClickAndRepeatTimingUseOneForwardingRoute()
         {
             ObjectId documentId = Id("f4208d7a-c0ad-4345-84fc-e12f50612e04");
             ObjectId rootId = Id("67bbd0b2-cdcc-4e97-b45a-2ada85cfaf3a");
@@ -430,24 +430,11 @@ namespace Battlement.Tests
                 );
                 Assert.That(documents.TryGet(buttonId, out VisualElement? button), Is.True);
                 Assert.That(button, Is.TypeOf<Button>());
-                FieldInfo eventsField = typeof(BattlementUiDocuments).GetField(
-                    "events",
-                    BindingFlags.Instance | BindingFlags.NonPublic
-                )!;
-                object forwarding = eventsField.GetValue(documents)!;
-                forwarding
-                    .GetType()
-                    .GetMethod("ForwardNavigationSubmit")!
-                    .Invoke(
-                        forwarding,
-                        new object[]
-                        {
-                            buttonId,
-                            new[] { buttonId.Value, containerId.Value, rootId.Value },
-                            true,
-                            null!,
-                        }
-                    );
+                Assert.That(
+                    documents.DispatchSemanticActivation(buttonId, out string? diagnostic),
+                    Is.True,
+                    diagnostic
+                );
                 Assert.That(events, Has.Count.EqualTo(1));
                 Assert.That(events[0].TargetId, Is.EqualTo(buttonId));
                 Assert.That(events[0].Body, Is.TypeOf<UiEventBody.Click>());

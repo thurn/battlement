@@ -52,6 +52,14 @@ namespace Battlement.UI
             controls.Clear();
         }
 
+        public bool Activate(ObjectId objectId)
+        {
+            if (!controls.TryGetValue(objectId.Value, out BooleanControlState state))
+                return false;
+            state.Target.value = !state.Committed;
+            return true;
+        }
+
         private static void Apply(BooleanControlState state, UiElement value)
         {
             Prop<string> label;

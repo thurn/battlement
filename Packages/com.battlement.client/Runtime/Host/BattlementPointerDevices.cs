@@ -43,11 +43,7 @@ namespace Battlement
         )
         {
             var samples = new SortedDictionary<int, BattlementPointerSample>();
-            Mouse? mouse =
-                InputSystem
-                    .devices.OfType<Mouse>()
-                    .FirstOrDefault(device => device.name == DittoVirtualInput.VirtualMouseName)
-                ?? Mouse.current;
+            Mouse? mouse = Mouse.current;
             if (mouse != null)
             {
                 var buttons = new HashSet<PointerButton>();
@@ -62,15 +58,7 @@ namespace Battlement
                 );
             }
 
-            Touchscreen[] touchscreens = InputSystem.devices.OfType<Touchscreen>().ToArray();
-            Touchscreen? virtualTouchscreen = touchscreens.FirstOrDefault(device =>
-                device.name == DittoVirtualInput.VirtualTouchscreenName
-            );
-            foreach (
-                Touchscreen touchscreen in virtualTouchscreen is null
-                    ? touchscreens
-                    : new[] { virtualTouchscreen }
-            )
+            foreach (Touchscreen touchscreen in InputSystem.devices.OfType<Touchscreen>())
             {
                 AddTouches(samples, knownPointerIds, touchscreen);
             }

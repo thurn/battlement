@@ -7,6 +7,7 @@ namespace Battlement
     internal sealed class DittoNativeEngineSession
     {
         internal const string SemanticFixtureEnvironment = "BATTLEMENT_DITTO_SEMANTIC_FIXTURE";
+        internal const string DeterministicRuntimeEnvironment = "BATTLEMENT_DITTO_ACTIVE";
 
         private readonly BattlementNativeTransport transport;
         private BattlementTransportResult? destroyResult;
@@ -40,14 +41,22 @@ namespace Battlement
         internal static T WithSemanticFixture<T>(string? value, Func<T> action)
         {
             string? previous = Environment.GetEnvironmentVariable(SemanticFixtureEnvironment);
+            string? previousRuntime = Environment.GetEnvironmentVariable(
+                DeterministicRuntimeEnvironment
+            );
             try
             {
                 Environment.SetEnvironmentVariable(SemanticFixtureEnvironment, value);
+                Environment.SetEnvironmentVariable(DeterministicRuntimeEnvironment, "1");
                 return action();
             }
             finally
             {
                 Environment.SetEnvironmentVariable(SemanticFixtureEnvironment, previous);
+                Environment.SetEnvironmentVariable(
+                    DeterministicRuntimeEnvironment,
+                    previousRuntime
+                );
             }
         }
 

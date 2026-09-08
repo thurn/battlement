@@ -351,7 +351,7 @@ fn validate(request: &MacosCaptureRequest<'_>) -> Result<()> {
   ensure!(
     request.job.profile.native_execution_id.as_deref() == Some(request.native_execution.id())
       && request.requirements.native_execution_id.as_deref() == Some(request.native_execution.id()),
-    "warm macOS capture does not own the job's native execution lease"
+    "warm macOS capture does not own the job's native execution identity"
   );
   Ok(())
 }

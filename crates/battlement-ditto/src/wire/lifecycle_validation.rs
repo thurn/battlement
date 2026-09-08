@@ -205,6 +205,24 @@ pub(super) fn failure_value(failure: &PlayerInfrastructureFailure) -> Result<()>
 }
 
 pub(super) fn startup_report(report: &StartupReport) -> Result<()> {
+  startup_report_fields(report)?;
+  ensure!(
+    report.determinism_contract == "ditto-v2",
+    "startup report requires the ditto-v2 determinism contract"
+  );
+  validation::profile_capabilities(report.platform, &report.capabilities)
+}
+
+pub(super) fn retained_startup_report(report: &StartupReport) -> Result<()> {
+  startup_report_fields(report)?;
+  match report.determinism_contract.as_str() {
+    "ditto-v1" => validation::legacy_profile_capabilities(report.platform, &report.capabilities),
+    "ditto-v2" => validation::profile_capabilities(report.platform, &report.capabilities),
+    _ => anyhow::bail!("unsupported retained determinism contract"),
+  }
+}
+
+fn startup_report_fields(report: &StartupReport) -> Result<()> {
   validation::name("capture_adapter", &report.capture_adapter)?;
   validation::name("unity_version", &report.unity_version)?;
   validation::sha256("build_fingerprint", &report.build_fingerprint)?;
@@ -214,7 +232,7 @@ pub(super) fn startup_report(report: &StartupReport) -> Result<()> {
     validation::identifier("native_execution_id", id)?;
   }
   validation::display(report.platform, &report.display)?;
-  validation::profile_capabilities(report.platform, &report.capabilities)
+  Ok(())
 }
 
 pub(super) fn native_video(input: &NativeVideoInput, scenario: &ResolvedScenario) -> Result<()> {

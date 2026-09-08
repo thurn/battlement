@@ -27,13 +27,18 @@ def git(
     repository: Path,
     arguments: list[str],
     *,
+    index_file: Path | None = None,
     input_bytes: bytes | None = None,
     check: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
     """Run a Git command without decoding path-bearing output."""
+    environment = os.environ.copy()
+    if index_file is not None:
+        environment["GIT_INDEX_FILE"] = str(index_file)
     return subprocess.run(
         ["git", *arguments],
         cwd=repository,
+        env=environment,
         input=input_bytes,
         capture_output=True,
         check=check,
@@ -51,23 +56,36 @@ def source_pathspecs(repository: Path, project: Path) -> tuple[str, ...]:
     return tuple((relative / name).as_posix() for name in SOURCE_DIRECTORIES)
 
 
-def listed_paths(repository: Path, arguments: list[str]) -> set[str]:
+def listed_paths(
+    repository: Path,
+    arguments: list[str],
+    *,
+    index_file: Path | None = None,
+) -> set[str]:
     separator = arguments.index("--")
     output = git(
         repository,
         [*arguments[:separator], "-z", *arguments[separator:]],
+        index_file=index_file,
     ).stdout
     return {value.decode("utf-8", "surrogateescape") for value in output.split(b"\0") if value}
 
 
-def untracked_paths(repository: Path, pathspecs: tuple[str, ...]) -> set[str]:
+def untracked_paths(
+    repository: Path,
+    pathspecs: tuple[str, ...],
+    *,
+    index_file: Path | None = None,
+) -> set[str]:
     ordinary = listed_paths(
         repository,
         ["ls-files", "--others", "--exclude-standard", "--", *pathspecs],
+        index_file=index_file,
     )
     ignored = listed_paths(
         repository,
         ["ls-files", "--others", "--ignored", "--exclude-standard", "--", *pathspecs],
+        index_file=index_file,
     )
     return ordinary | ignored
 
@@ -207,26 +225,62 @@ class UnityProjectTransaction:
         self.pathspecs = source_pathspecs(self.repository, self.project)
         self.journal_root = self.repository / ".logs/ci/unity-transactions"
         self.directory = self.journal_root / f"{time.time_ns()}-{uuid.uuid4()}"
+        self.index_file = self.directory / "index"
         self.label = label
         self.journal: dict[str, Any] = {}
 
+    def git(
+        self,
+        arguments: list[str],
+        *,
+        input_bytes: bytes | None = None,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[bytes]:
+        return git(
+            self.repository,
+            arguments,
+            index_file=self.index_file,
+            input_bytes=input_bytes,
+            check=check,
+        )
+
     def prepare(self) -> None:
         recover_unity_transactions(self.repository, self.project)
-        unstaged = git(
-            self.repository,
-            ["diff-files", "--quiet", "--", *self.pathspecs],
+        self.directory.mkdir(parents=True)
+        shared_index = Path(
+            git(self.repository, ["rev-parse", "--git-path", "index"])
+            .stdout.decode()
+            .strip()
+        )
+        if not shared_index.is_absolute():
+            shared_index = self.repository / shared_index
+        shutil.copy2(shared_index, self.index_file)
+        unstaged = self.git(
+            ["diff", "--quiet", "--", *self.pathspecs],
             check=False,
         )
         if unstaged.returncode != 0:
+            detail = unstaged.stderr.decode(errors="replace").strip()
+            if not detail:
+                detail = self.git(
+                    ["diff", "--name-only", "--", *self.pathspecs],
+                    check=False,
+                ).stdout.decode(errors="replace").strip()
+            suffix = f": {detail}" if detail else ""
             raise RuntimeError(
                 "Unity transaction requires tracked project files to match the staged Git index"
+                + suffix
             )
-        self.directory.mkdir(parents=True)
-        before_untracked = sorted(untracked_paths(self.repository, self.pathspecs))
+        before_untracked = sorted(
+            untracked_paths(
+                self.repository,
+                self.pathspecs,
+                index_file=self.index_file,
+            )
+        )
         for relative in before_untracked:
             copy_file(self.repository / relative, self.directory / "untracked-backup" / relative)
-        before_status = git(
-            self.repository,
+        before_status = self.git(
             ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", *self.pathspecs],
         ).stdout
         (self.directory / "before-status.bin").write_bytes(before_status)
@@ -239,7 +293,8 @@ class UnityProjectTransaction:
             "project": str(self.project),
             "pathspecs": self.pathspecs,
             "directories": sorted(project_directories(self.repository, self.pathspecs)),
-            "index_tree": git(self.repository, ["write-tree"]).stdout.decode().strip(),
+            "index_file": str(self.index_file),
+            "index_tree": self.git(["write-tree"]).stdout.decode().strip(),
             "untracked": before_untracked,
             "untracked_digests": {
                 relative: path_digest(self.repository / relative)
@@ -262,6 +317,10 @@ class UnityProjectTransaction:
                 raise ValueError("stdout and stderr may not be used with capture_output")
             options["stdout"] = subprocess.PIPE
             options["stderr"] = subprocess.PIPE
+        environment = options.pop("env", None)
+        environment = dict(os.environ if environment is None else environment)
+        environment["GIT_INDEX_FILE"] = str(self.index_file)
+        options["env"] = environment
         if os.name == "nt":
             options["creationflags"] = options.get("creationflags", 0) | subprocess.CREATE_NEW_PROCESS_GROUP
         else:
@@ -297,17 +356,23 @@ class UnityProjectTransaction:
     def retain_diff_at(directory: Path, journal: dict[str, Any]) -> None:
         repository = Path(journal["repository"])
         pathspecs = tuple(journal["pathspecs"])
+        index_file = Path(journal["index_file"])
         patch = git(
             repository,
             ["diff", "--binary", "--no-ext-diff", "--", *pathspecs],
+            index_file=index_file,
         ).stdout
         (directory / "discarded.patch").write_bytes(patch)
         after = git(
             repository,
             ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", *pathspecs],
+            index_file=index_file,
         ).stdout
         (directory / "after-unity-status.bin").write_bytes(after)
-        created = sorted(untracked_paths(repository, pathspecs) - set(journal["untracked"]))
+        created = sorted(
+            untracked_paths(repository, pathspecs, index_file=index_file)
+            - set(journal["untracked"])
+        )
         (directory / "created-untracked.json").write_text(
             json.dumps(created, indent=2) + "\n", encoding="utf-8"
         )
@@ -337,14 +402,27 @@ class UnityProjectTransaction:
     def restore_journal(directory: Path, journal: dict[str, Any]) -> None:
         repository = Path(journal["repository"])
         pathspecs = tuple(journal["pathspecs"])
-        if git(repository, ["write-tree"]).stdout.decode().strip() != journal["index_tree"]:
+        index_file = Path(journal["index_file"])
+        if (
+            git(repository, ["write-tree"], index_file=index_file).stdout.decode().strip()
+            != journal["index_tree"]
+        ):
             raise RuntimeError("Unity changed the staged Git index")
-        tracked = git(repository, ["ls-files", "-z", "--", *pathspecs]).stdout
+        tracked = git(
+            repository,
+            ["ls-files", "-z", "--", *pathspecs],
+            index_file=index_file,
+        ).stdout
         if tracked:
-            git(repository, ["checkout-index", "--force", "--stdin", "-z"], input_bytes=tracked)
+            git(
+                repository,
+                ["checkout-index", "--force", "--stdin", "-z"],
+                index_file=index_file,
+                input_bytes=tracked,
+            )
         before_untracked = set(journal["untracked"])
         for relative in sorted(
-            untracked_paths(repository, pathspecs) - before_untracked,
+            untracked_paths(repository, pathspecs, index_file=index_file) - before_untracked,
             key=lambda value: (value.count("/"), value),
             reverse=True,
         ):
@@ -370,11 +448,16 @@ class UnityProjectTransaction:
     @staticmethod
     def verify(directory: Path, journal: dict[str, Any]) -> None:
         repository = Path(journal["repository"])
-        if git(repository, ["write-tree"]).stdout.decode().strip() != journal["index_tree"]:
+        index_file = Path(journal["index_file"])
+        if (
+            git(repository, ["write-tree"], index_file=index_file).stdout.decode().strip()
+            != journal["index_tree"]
+        ):
             raise RuntimeError("Unity changed the staged Git index")
         after_status = git(
             repository,
             ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", *journal["pathspecs"]],
+            index_file=index_file,
         ).stdout
         if after_status != (directory / "before-status.bin").read_bytes():
             raise RuntimeError("Unity project did not return to its pre-run Git state")

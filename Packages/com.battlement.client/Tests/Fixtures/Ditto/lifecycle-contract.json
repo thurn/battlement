@@ -12,7 +12,7 @@
       "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
       "capabilities": ["png", "video"],
-      "determinism_contract": "ditto-v1",
+      "determinism_contract": "ditto-v2",
       "native_execution_id": "e2575e27-3f14-4475-b914-3e70649b7951"
     },
     "scenarios": [{
@@ -47,7 +47,7 @@
         "diagnostics": true,
         "display": {"width": 1280, "height": 720, "scale": 1.0, "orientation": null, "safe_area": [0, 0, 1280, 720]},
         "capabilities": ["png", "video"],
-        "determinism_contract": "ditto-v1",
+        "determinism_contract": "ditto-v2",
         "native_execution_id": "e2575e27-3f14-4475-b914-3e70649b7951"
       }
     }

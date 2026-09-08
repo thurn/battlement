@@ -18,7 +18,7 @@ use crate::{
     model::{Motion as AuthoredMotion, Scenario, StepKind, Suite, Target},
   },
   macos_run, maintenance_commands,
-  native_execution::NativeExecutionLease,
+  native_execution::NativeExecution,
   review_commands, run_progress,
   selection::{self, Disposition},
   watch_commands,
@@ -47,7 +47,7 @@ pub(crate) struct ExecuteOptions {
   pub watch: bool,
   pub base_source: PathBuf,
   pub fragment_source: Option<PathBuf>,
-  pub native_execution: Option<Arc<NativeExecutionLease>>,
+  pub native_execution: Option<Arc<NativeExecution>>,
 }
 
 pub(crate) struct CompletedCycle {
@@ -149,17 +149,10 @@ fn execute(
   interrupted: &AtomicBool,
 ) -> Result<u8> {
   let selection = selection::resolve(&suite, &selection_options(&options.selection))?;
-  options.native_execution = (selection.profile.target() != Target::Webgl)
-    .then(NativeExecutionLease::acquire)
-    .transpose()?
-    .map(Arc::new);
-  if let Some(lease) = &options.native_execution {
-    writeln!(
-      stderr,
-      "DITTO_NATIVE_EXECUTION={} path={}",
-      lease.id(),
-      lease.path().display()
-    )?;
+  options.native_execution =
+    (selection.profile.target() != Target::Webgl).then(|| Arc::new(NativeExecution::create()));
+  if let Some(execution) = &options.native_execution {
+    writeln!(stderr, "DITTO_NATIVE_EXECUTION={}", execution.id())?;
   }
   if options.watch {
     return watch_commands::execute(suite, options, stdout, stderr, interrupted);

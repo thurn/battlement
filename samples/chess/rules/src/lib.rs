@@ -121,15 +121,26 @@ pub struct ChessEngine {
   now: Box<dyn Fn() -> Instant>,
   visual_state: VisualState,
   semantic_fixture: Option<VisualState>,
+  deterministic_runtime: bool,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
+  let deterministic_runtime = std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1");
   let engine = match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE").ok() {
     Some(name) => self::engine_for_fixture(
       visual_state::semantic_fixture(&name)
         .unwrap_or_else(|| panic!("unknown Chess semantic fixture {name:?}")),
     )?,
+    None if deterministic_runtime => {
+      let epoch = Instant::now();
+      self::engine_for_board(
+        Board::default(),
+        Duration::ZERO,
+        Rng::with_seed(43),
+        move || epoch,
+      )?
+    }
     None => self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?,
   };
   info!(
@@ -229,6 +240,7 @@ fn engine_for_board_with_fixture(
     now: Box::new(now),
     visual_state: VisualState::Title,
     semantic_fixture,
+    deterministic_runtime: std::env::var("BATTLEMENT_DITTO_ACTIVE").as_deref() == Ok("1"),
   })
 }
 
@@ -241,7 +253,9 @@ impl Engine for ChessEngine {
     self.session_id = SessionId::new_v4();
     self.diagnostics_enabled = diagnostics::is_available(&message);
     self.highlight_ids = array::from_fn(self::highlight_id);
-    self.persistent_data_path = message.persistent_data_path.map(PathBuf::from);
+    self.persistent_data_path = (!self.deterministic_runtime)
+      .then(|| message.persistent_data_path.map(PathBuf::from))
+      .flatten();
     self.screen_aspect = if message.screen.height == 0 {
       16.0 / 9.0
     } else {
@@ -1006,4 +1020,11 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
   }
 }
 
-battlement_native::export_deterministic_engine!(create_engine);
+battlement_native::export_deterministic_engine!(
+  create_engine,
+  clock = virtualized,
+  randomness = seeded,
+  external_state = isolated,
+  persistent_state = reset,
+  input = semantic,
+);

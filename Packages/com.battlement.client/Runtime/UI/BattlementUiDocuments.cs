@@ -302,6 +302,50 @@ namespace Battlement.UI
                 out diagnostic
             );
 
+        internal bool DispatchSemanticActivation(ObjectId target, out string? diagnostic)
+        {
+            if (!TryGetGeometryTarget(target, out VisualElement element, out _, out _))
+            {
+                diagnostic = $"UI target {target.Value} is not attached.";
+                return false;
+            }
+            if (!element.enabledInHierarchy || element.panel is null)
+            {
+                diagnostic = $"UI target {target.Value} is not enabled and attached.";
+                return false;
+            }
+            IReadOnlyList<Guid> route = Route(target.Value);
+            bool supported = element switch
+            {
+                Button => events.CanForwardRoute(route, UiEventKind.Click),
+                Toggle => events.CanForward(target, UiEventKind.ValueCommitted),
+                _ => false,
+            };
+            if (!supported)
+            {
+                diagnostic = $"UI target {target.Value} has no deterministic activation route.";
+                return false;
+            }
+            bool dispatched = element switch
+            {
+                Button => events.ForwardEvent(
+                    target,
+                    route,
+                    UiEventKind.Click,
+                    new UiEventBody.Click(new Battlement.ClickEvent.NavigationSubmit())
+                ),
+                Toggle => booleanControls.Activate(target),
+                _ => false,
+            };
+            if (!dispatched)
+            {
+                diagnostic = $"UI target {target.Value} rejected semantic activation.";
+                return false;
+            }
+            diagnostic = null;
+            return true;
+        }
+
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
         public BattlementMotionPerformanceSnapshot MotionPerformance => motionWorld.Performance;
 

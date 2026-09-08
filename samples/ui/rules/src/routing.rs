@@ -55,7 +55,7 @@ mod tests {
   fn deterministic_page_inventory_matches_the_ditto_registry() {
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      31
+      24
     );
     for screen in [
       "interactions",
@@ -64,7 +64,6 @@ mod tests {
       "layout",
       "appearance",
       "backgrounds",
-      "transforms",
     ] {
       for state in ["initial", "changed", "restored"] {
         assert!(
@@ -101,10 +100,6 @@ mod tests {
         "background round trip",
         &["initial", "changed", "restored"][..],
       ),
-      (
-        "transform round trip",
-        &["initial", "changed", "restored"][..],
-      ),
       ("typography foundation", &["initial"][..]),
     ] {
       let start = suite
@@ -131,30 +126,6 @@ mod tests {
       ("native parts", &["initial"][..]),
       ("complex parts", &["initial", "changed", "restored"][..]),
     ] {
-      let start = suite
-        .find(&format!("name = \"{scenario}\""))
-        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
-      let following = &suite[start..];
-      let block = following
-        .find("\n[[scenarios]]")
-        .map_or(following, |end| &following[..end]);
-      for checkpoint in checkpoints {
-        assert!(
-          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
-          "scenario {scenario} is missing {checkpoint}"
-        );
-      }
-      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
-    }
-  }
-
-  #[test]
-  fn event_and_render_scenarios_cover_the_registered_stable_states() {
-    let suite = include_str!("../../ditto.toml");
-    for (scenario, checkpoints) in [(
-      "keyboard navigation",
-      &["initial", "focused", "physical-key", "navigation-move"][..],
-    )] {
       let start = suite
         .find(&format!("name = \"{scenario}\""))
         .unwrap_or_else(|| panic!("suite is missing {scenario}"));

@@ -4,8 +4,8 @@ use anyhow::{Result, ensure};
 use uuid::Uuid;
 
 use crate::wire::job::{
-  AccessibilityTarget, Capability, Comparison, Display, InputTarget, Job, KeyAction, Motion,
-  ObjectCondition, Platform, ResolvedScenario, ResolvedStep, StepKind, VideoStep,
+  AccessibilityTarget, Capability, Comparison, Display, InputTarget, Job, Motion, ObjectCondition,
+  Platform, ResolvedScenario, ResolvedStep, StepKind, VideoStep,
 };
 
 pub(super) fn validate_job(job: &Job) -> Result<()> {
@@ -77,8 +77,8 @@ fn validate_profile(job: &Job) -> Result<()> {
   display(job.profile.platform, &job.profile.display)?;
   profile_capabilities(job.profile.platform, &job.profile.capabilities)?;
   ensure!(
-    job.profile.determinism_contract == "ditto-v1",
-    "profile requires the ditto-v1 determinism contract"
+    job.profile.determinism_contract == "ditto-v2",
+    "profile requires the ditto-v2 determinism contract"
   );
   match job.profile.platform {
     Platform::Webgl => {
@@ -100,6 +100,25 @@ fn validate_profile(job: &Job) -> Result<()> {
 }
 
 pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capability]) -> Result<()> {
+  platform_capabilities(platform, capabilities)?;
+  let unique: BTreeSet<Capability> = capabilities.iter().copied().collect();
+  ensure!(
+    !unique.contains(&Capability::Hover)
+      && !unique.contains(&Capability::Drag)
+      && !unique.contains(&Capability::Key),
+    "profile contains a capability without a deterministic delivery contract"
+  );
+  Ok(())
+}
+
+pub(super) fn legacy_profile_capabilities(
+  platform: Platform,
+  capabilities: &[Capability],
+) -> Result<()> {
+  platform_capabilities(platform, capabilities)
+}
+
+fn platform_capabilities(platform: Platform, capabilities: &[Capability]) -> Result<()> {
   let unique: BTreeSet<Capability> = capabilities.iter().copied().collect();
   ensure!(
     unique.len() == capabilities.len(),
@@ -113,10 +132,6 @@ pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capabilit
   ensure!(
     unsupported.is_none_or(|capability| !unique.contains(&capability)),
     "profile contains a capability unsupported by its platform"
-  );
-  ensure!(
-    !unique.contains(&Capability::Hover) && !unique.contains(&Capability::Drag),
-    "profile contains a capability without a deterministic delivery contract"
   );
   Ok(())
 }
@@ -190,10 +205,6 @@ fn validate_scenario(job: &Job, scenario: &ResolvedScenario) -> Result<()> {
     validate_step(job, scenario, step, &mut state)?;
   }
   ensure!(
-    state.held_keys.is_empty(),
-    "keys must be released before the scenario ends"
-  );
-  ensure!(
     state.active_video.is_none(),
     "video start must have a matching stop"
   );
@@ -205,7 +216,6 @@ struct ScenarioState<'a> {
   names: BTreeSet<&'a String>,
   checkpoints: BTreeSet<&'a String>,
   videos: BTreeSet<&'a String>,
-  held_keys: BTreeSet<&'a String>,
   active_video: Option<&'a String>,
 }
 
@@ -234,9 +244,8 @@ fn validate_step<'a>(
     }
     StepKind::Hover { .. } => anyhow::bail!("hover has no deterministic delivery contract"),
     StepKind::Drag { .. } => anyhow::bail!("drag has no deterministic delivery contract"),
-    StepKind::Key { key, action } => {
-      capability(job, Capability::Key)?;
-      key_step(key, *action, state)
+    StepKind::Key { .. } => {
+      anyhow::bail!("physical key input has no deterministic semantic delivery contract")
     }
     StepKind::Advance(advance) => {
       ensure!(advance.frames > 0, "frame advance must be positive");
@@ -300,19 +309,6 @@ fn input_target(target: &InputTarget) -> Result<()> {
 
 fn object_condition(condition: &ObjectCondition) -> Result<()> {
   identifier("object condition", &condition.object)
-}
-
-fn key_step<'a>(key: &'a String, action: KeyAction, state: &mut ScenarioState<'a>) -> Result<()> {
-  ensure!(
-    !key.is_empty() && key.len() <= 128 && key.bytes().all(|byte| byte.is_ascii_alphanumeric()),
-    "key must be a Unity Input System Key enum name"
-  );
-  match action {
-    KeyAction::Down => ensure!(state.held_keys.insert(key), "key is already held"),
-    KeyAction::Up => ensure!(state.held_keys.remove(key), "key is not held"),
-    KeyAction::Tap => ensure!(!state.held_keys.contains(key), "key is already held"),
-  };
-  Ok(())
 }
 
 pub(super) fn comparison(comparison: &Comparison) -> Result<()> {

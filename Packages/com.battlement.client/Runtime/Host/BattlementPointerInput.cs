@@ -23,6 +23,7 @@ namespace Battlement
         private readonly InputSystemUIInputModule? ownedInputModule;
         private PhysicsRaycaster? raycaster;
         private bool ownsRaycaster;
+        private bool? inputModuleEnabledBeforeDitto;
 
         public BattlementPointerInput(Transform owner, Func<ActionBody, bool> emitAction)
         {
@@ -100,6 +101,24 @@ namespace Battlement
             {
                 pointer.CancelGestures();
             }
+        }
+
+        public void BeginDittoControl()
+        {
+            if (inputModuleEnabledBeforeDitto is not null)
+                throw new InvalidOperationException("Ditto already controls native input.");
+            inputModuleEnabledBeforeDitto = inputModule.enabled;
+            inputModule.enabled = false;
+            Suspend();
+        }
+
+        public void EndDittoControl()
+        {
+            if (inputModuleEnabledBeforeDitto is not bool wasEnabled)
+                throw new InvalidOperationException("Ditto does not control native input.");
+            inputModule.enabled = wasEnabled;
+            inputModuleEnabledBeforeDitto = null;
+            Reset();
         }
 
         public void Suspend()

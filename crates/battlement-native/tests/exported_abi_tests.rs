@@ -15,6 +15,7 @@ type Poll = unsafe extern "C" fn(*mut c_void, *mut BattlementBuffer) -> i32;
 type BufferFree = unsafe extern "C" fn(BattlementBuffer);
 type Count = unsafe extern "C" fn() -> usize;
 type DeterminismContract = unsafe extern "C" fn() -> u32;
+type DeterminismCapabilities = unsafe extern "C" fn() -> u64;
 type VoidAction = unsafe extern "C" fn();
 type LogAction = unsafe extern "C" fn(*mut BattlementBuffer) -> i32;
 
@@ -134,9 +135,16 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     let determinism_contract: Symbol<'_, DeterminismContract> = library
       .get(b"battlement_ditto_determinism_contract")
       .unwrap();
+    let determinism_capabilities: Symbol<'_, DeterminismCapabilities> = library
+      .get(b"battlement_ditto_determinism_capabilities")
+      .unwrap();
 
     assert!(library.get::<VoidAction>(b"battlement_abi_v1").is_err());
-    assert_eq!(determinism_contract(), 1);
+    assert_eq!(determinism_contract(), 2);
+    assert_eq!(
+      determinism_capabilities(),
+      battlement_native::DITTO_DETERMINISM_CAPABILITIES_V2
+    );
     assert!(
       library
         .get::<LogAction>(b"battlement_logging_initialize")

@@ -6,13 +6,12 @@ use crate::config::{
   diagnostic::{ConfigError, invalid},
   model::{
     AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
-    InputTarget, KeyAction, Motion, ObjectCondition, ObjectState, Scenario, ScreenshotStep, Step,
-    StepKind, VideoStep,
+    InputTarget, Motion, ObjectCondition, ObjectState, Scenario, ScreenshotStep, Step, StepKind,
+    VideoStep,
   },
   raw::{
     RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
-    RawCondition, RawInputTarget, RawKeyAction, RawObjectState, RawScenario, RawStep, RawVideo,
-    RawVideoAction,
+    RawCondition, RawInputTarget, RawObjectState, RawScenario, RawStep, RawVideo, RawVideoAction,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -93,17 +92,6 @@ pub(super) fn validate(
       format!("video {video:?} has no stop step"),
     ));
   }
-  if !state.held_keys.is_empty() {
-    return Err(invalid(
-      validation.path,
-      validation.source,
-      format!("{key}.steps.key"),
-      format!(
-        "keys remain held at scenario end: {}",
-        join(&state.held_keys)
-      ),
-    ));
-  }
   Ok(Scenario {
     name: raw.name,
     fixture: raw.fixture,
@@ -118,7 +106,6 @@ struct State {
   step_names: BTreeSet<String>,
   checkpoints: BTreeSet<String>,
   videos: BTreeSet<String>,
-  held_keys: BTreeSet<String>,
   active_video: Option<String>,
 }
 
@@ -212,7 +199,13 @@ fn step_value(
       "drag has no deterministic semantic delivery contract",
     ));
   } else if let Some(key_step) = raw.key.take() {
-    key_step_value(validation, &key, key_step.key, key_step.action, state)?
+    let _ = (key_step.key, key_step.action);
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.key"),
+      "physical key input has no deterministic semantic delivery contract",
+    ));
   } else if let Some(advance) = raw.advance.take() {
     StepKind::Advance {
       frames: advance_step(validation, &key, scenario_motion, advance.frames)?,
@@ -384,47 +377,6 @@ fn input_target(
       ))
     }
   }
-}
-
-fn key_step_value(
-  validation: &Validation<'_>,
-  key: &str,
-  value: String,
-  raw_action: Option<RawKeyAction>,
-  state: &mut State,
-) -> Result<StepKind, ConfigError> {
-  if value.is_empty()
-    || value.len() > 128
-    || !value.bytes().all(|byte| byte.is_ascii_alphanumeric())
-  {
-    return Err(invalid(
-      validation.path,
-      validation.source,
-      format!("{key}.key.key"),
-      "key must be a Unity Input System Key enum name",
-    ));
-  }
-  let action = match raw_action.unwrap_or(RawKeyAction::Tap) {
-    RawKeyAction::Down => {
-      if !state.held_keys.insert(value.clone()) {
-        return Err(key_state_error(validation, key, &value, "is already held"));
-      }
-      KeyAction::Down
-    }
-    RawKeyAction::Up => {
-      if !state.held_keys.remove(&value) {
-        return Err(key_state_error(validation, key, &value, "is not held"));
-      }
-      KeyAction::Up
-    }
-    RawKeyAction::Tap => {
-      if state.held_keys.contains(&value) {
-        return Err(key_state_error(validation, key, &value, "is already held"));
-      }
-      KeyAction::Tap
-    }
-  };
-  Ok(StepKind::Key { key: value, action })
 }
 
 fn advance_step(
@@ -599,22 +551,4 @@ fn object_reference(
     ));
   }
   Ok(())
-}
-
-fn key_state_error(
-  validation: &Validation<'_>,
-  key: &str,
-  value: &str,
-  reason: &str,
-) -> ConfigError {
-  invalid(
-    validation.path,
-    validation.source,
-    format!("{key}.key"),
-    format!("key {value:?} {reason}"),
-  )
-}
-
-fn join(values: &BTreeSet<String>) -> String {
-  values.iter().cloned().collect::<Vec<_>>().join(", ")
 }

@@ -34,12 +34,12 @@ fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
     suite.profiles["iphone-ci"],
     Profile::IosSimulator { .. }
   ));
-  assert_eq!(suite.scenarios[0].steps.len(), 10);
+  assert_eq!(suite.scenarios[0].steps.len(), 8);
   assert!(matches!(
-    suite.scenarios[0].steps[7].action,
+    suite.scenarios[0].steps[5].action,
     StepKind::Video(VideoStep::Start { .. })
   ));
-  let StepKind::Screenshot(screenshot) = &suite.scenarios[0].steps[6].action else {
+  let StepKind::Screenshot(screenshot) = &suite.scenarios[0].steps[4].action else {
     panic!("expected screenshot");
   };
   assert_eq!(screenshot.comparison.threshold.as_str(), "0.05");
@@ -95,10 +95,6 @@ fn representative_invalid_suites_have_actionable_diagnostics() {
     (
       MINIMAL_SUITE.replace("4aac8ca0-af3d-409e-958e-62954e6cb3d1", "not-a-uuid"),
       "alias value must be a UUID",
-    ),
-    (
-      MINIMAL_SUITE.replace("key = \"Enter\"", "key = \"Enter-Key\""),
-      "key must be a Unity Input System Key enum name",
     ),
   ];
   for (source, expected) in cases {
@@ -171,7 +167,7 @@ fn scenario_names_steps_checkpoints_keys_and_videos_are_bounded_and_balanced() {
         "screenshot = { name = \"connected\" }",
         "key = { key = \"Enter\", action = \"down\" }",
       ),
-      "keys remain held",
+      "physical key input has no deterministic semantic delivery contract",
     ),
     (
       MINIMAL_SUITE.replace(
@@ -398,9 +394,6 @@ click = { target = "item" }
 advance = { frames = 1 }
 
 [[scenarios.steps]]
-key = { key = "Enter", action = "tap" }
-
-[[scenarios.steps]]
 screenshot = { name = "connected" }
 "#;
 
@@ -467,12 +460,6 @@ motion = "controlled"
 [[scenarios.steps]]
 name = "click alias"
 click = { target = "item" }
-
-[[scenarios.steps]]
-key = { key = "Enter", action = "down" }
-
-[[scenarios.steps]]
-key = { key = "Enter", action = "up" }
 
 [[scenarios.steps]]
 advance = { frames = 3 }

@@ -388,39 +388,6 @@ click = { target = "background_action" }
 screenshot = { name = "restored" }
 
 [[scenarios]]
-name = "transform round trip"
-
-[[scenarios.steps]]
-wait = { object = "components_value", state = "visible" }
-
-[[scenarios.steps]]
-click = { target = "transforms_nav" }
-
-[[scenarios.steps]]
-wait = { object = "transform_target", state = "visible" }
-
-[[scenarios.steps]]
-screenshot = { name = "initial" }
-
-[[scenarios.steps]]
-click = { target = "transform_action" }
-
-[[scenarios.steps]]
-wait = { object = "transform_action", state = "enabled" }
-
-[[scenarios.steps]]
-screenshot = { name = "changed" }
-
-[[scenarios.steps]]
-click = { target = "transform_action" }
-
-[[scenarios.steps]]
-wait = { object = "transform_action", state = "enabled" }
-
-[[scenarios.steps]]
-screenshot = { name = "restored" }
-
-[[scenarios]]
 name = "typography foundation"
 
 [[scenarios.steps]]
@@ -434,42 +401,3 @@ assert = { object = "page", state = "visible" }
 
 [[scenarios.steps]]
 screenshot = { name = "initial" }
-
-[[scenarios]]
-name = "keyboard navigation"
-
-[[scenarios.steps]]
-wait = { object = "components_value", state = "visible" }
-
-[[scenarios.steps]]
-click = { target = "keyboard_nav" }
-
-[[scenarios.steps]]
-assert = { object = "keyboard_focus", state = "visible" }
-
-[[scenarios.steps]]
-screenshot = { name = "initial" }
-
-[[scenarios.steps]]
-click = { target = "keyboard_alpha" }
-
-[[scenarios.steps]]
-screenshot = { name = "focused" }
-
-[[scenarios.steps]]
-key = { key = "A" }
-
-[[scenarios.steps]]
-screenshot = { name = "physical-key" }
-
-[[scenarios.steps]]
-key = { key = "RightArrow" }
-
-[[scenarios.steps]]
-screenshot = { name = "navigation-move" }
-
-[[scenarios.steps]]
-key = { key = "Space" }
-
-[[scenarios.steps]]
-key = { key = "Escape" }

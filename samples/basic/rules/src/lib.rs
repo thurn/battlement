@@ -156,8 +156,9 @@ impl Engine for BasicEngine {
           }),
         )),
       ),
-      ActionBody::PointerClick(payload) => {
-        let Some(index) = self::cube_index(payload.object_id) else {
+      ActionBody::Activate(battlement::ActivationPayload { object_id })
+      | ActionBody::PointerClick(battlement::PointerButtonPayload { object_id, .. }) => {
+        let Some(index) = self::cube_index(object_id) else {
           return Ok(empty);
         };
         self.positions[index] = !self.positions[index];
@@ -169,12 +170,12 @@ impl Engine for BasicEngine {
         let x = -2.0 + index as f64 * 2.0;
         let z = if self.positions[index] { 2.0 } else { 0.0 };
         (
-          payload.object_id,
+          object_id,
           "pointer click",
           "500 ms move tween",
           Some(CommandBody::TransformTweenLocalPosition(
             PropertyCommand::canceling(TweenPositionPayload {
-              object_id: payload.object_id,
+              object_id,
               position: Vector3::new(x, 0.0, z),
               tween: Tween::new().duration_ms(500).easing(Easing::InOutSine),
             }),
@@ -359,4 +360,11 @@ fn label_id(index: usize) -> ObjectId {
   ][index]
 }
 
-battlement_native::export_deterministic_engine!(create_engine);
+battlement_native::export_deterministic_engine!(
+  create_engine,
+  clock = virtualized,
+  randomness = seeded,
+  external_state = isolated,
+  persistent_state = reset,
+  input = semantic,
+);

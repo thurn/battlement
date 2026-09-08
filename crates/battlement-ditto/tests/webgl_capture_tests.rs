@@ -303,7 +303,7 @@ fn job(build: &BuildHandle) -> Job {
       build_fingerprint: build.metadata().identity.fingerprint.clone(),
       source_fingerprint: HASH.to_owned(),
       capabilities: vec![Capability::Click],
-      determinism_contract: "ditto-v1".to_owned(),
+      determinism_contract: "ditto-v2".to_owned(),
       native_execution_id: None,
     },
     scenarios: vec![ResolvedScenario {
