@@ -125,7 +125,7 @@ def check_ci_opt_in() -> None:
     assert step["exclude"] == ["plans/workflow-performance.md"]
     assert step["exclude_mode"] == "all"
     assert step["timeout"] == "1h"
-    assert step["semaphores"] == ["unity"]
+    assert "semaphores" not in step
     ci = (REPOSITORY_ROOT / "scripts/ci.py").read_text(encoding="utf-8")
     assert '"--ditto"' in ci
     assert "run_ditto_validation(" in ci

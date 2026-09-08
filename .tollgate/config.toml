@@ -20,7 +20,6 @@ timeout = "1h"
 soft_needs = ["prose"]
 exclude = ["plans/workflow-performance.md"]
 exclude_mode = "all"
-semaphores = ["unity"]
 artifact = [
   { name = "ditto-evidence", patterns = ["artifacts/tollgate-ditto/{{buildset_id}}/evidence.tar.gz"], required = true },
 ]
