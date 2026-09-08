@@ -38,6 +38,8 @@ def main() -> None:
         _verify_ditto_gate_contract()
         _verify_ditto_build_leases_span_gate(root)
         _verify_unity_project_regeneration(root)
+        _verify_unity_execution_selection(root)
+        _verify_unity_native_diagnostics_selection()
         for name in ("tictactoe", "basic", "chess", "chess-ui"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -387,12 +389,82 @@ def _verify_active_rust_toolchain_guard() -> None:
 def _verify_unity_project_regeneration(root: Path) -> None:
     ci.REPOSITORY_ROOT = root
     project = root / "Assembly-CSharp-Editor.csproj"
-    with patch.object(ci, "run_with_unity_lease") as run:
+    assemblies: list[tuple[str, ...]] = []
+    with (
+        patch.object(ci, "run_with_unity_lease", side_effect=lambda function: function()) as run,
+        patch.object(ci, "run_unity_edit_mode_tests", side_effect=assemblies.append),
+    ):
         ci.ensure_unity_project_files()
-        run.assert_called_once_with(ci.run_unity_edit_mode_tests)
+        assert run.call_count == 1
         project.touch()
         ci.ensure_unity_project_files()
-        run.assert_called_once_with(ci.run_unity_edit_mode_tests)
+        assert run.call_count == 1
+    assert assemblies == [ci.unity_test_selection.FULL_ASSEMBLIES]
+
+
+def _verify_unity_execution_selection(root: Path) -> None:
+    class Cache:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[str, ...]]] = []
+
+        def run(self, step: str, inputs: tuple[str, ...], function: object) -> bool:
+            self.calls.append((step, inputs))
+            assert callable(function)
+            function()
+            return True
+
+    skipped = ci.unity_test_selection.Selection(
+        ci.unity_test_selection.Scope.NONE,
+        (),
+        ("irrelevant",),
+        ("Packages",),
+        False,
+    )
+    cache = Cache()
+    with patch.object(ci, "run_step") as run:
+        assert ci.run_selected_unity_tests(skipped, cache) == 0
+        run.assert_not_called()
+    assert cache.calls == []
+
+    native = ci.unity_test_selection.Selection(
+        ci.unity_test_selection.Scope.NATIVE,
+        ci.unity_test_selection.NATIVE_ASSEMBLIES,
+        ("native",),
+        ("Packages", "crates/battlement-native"),
+        False,
+    )
+    executed: list[tuple[str, ...]] = []
+
+    def step(_name: str, *, function: object) -> float:
+        assert callable(function)
+        function()
+        return 1.5
+
+    with (
+        patch.object(ci, "run_step", side_effect=step),
+        patch.object(ci, "run_with_unity_lease", side_effect=lambda function: function()),
+        patch.object(ci, "run_unity_edit_mode_tests", side_effect=executed.append),
+    ):
+        assert ci.run_selected_unity_tests(native, cache) == 1.5
+    assert executed == [ci.unity_test_selection.NATIVE_ASSEMBLIES]
+    assert cache.calls[-1][0] == "unity-edit-mode-native-integration"
+
+
+def _verify_unity_native_diagnostics_selection() -> None:
+    assert ci.native_fixture_diagnostics_passed(
+        ci.unity_test_selection.INTEGRATION_ASSEMBLIES,
+        "",
+    )
+    assert not ci.native_fixture_diagnostics_passed(
+        ci.unity_test_selection.NATIVE_ASSEMBLIES,
+        "",
+    )
+    assert ci.native_fixture_diagnostics_passed(
+        ci.unity_test_selection.NATIVE_ASSEMBLIES,
+        "Preparing fixture connect panic\n"
+        "Triggering fixture connect panic\n"
+        "panicked at crates/battlement-native/tests/fixtures/exported-engine",
+    )
 
 
 def _workspace(root: Path) -> None:

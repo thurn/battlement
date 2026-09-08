@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 import hashlib
+import json
 import os
 from pathlib import Path
 import platform
@@ -38,6 +39,7 @@ from resource_slots import unity_editor_lease
 from unity_transaction import recover_unity_transactions, unity_project_transaction
 import perf_log
 import prose_validation
+import unity_test_selection
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -68,32 +70,6 @@ ROOT_RUST_INPUTS = (
     "rust-toolchain.toml",
     "crates",
     "samples",
-    "scripts/ci.py",
-    "scripts/ci_cache.py",
-    "scripts/ci_steps.py",
-    "scripts/perf_log.py",
-    "scripts/resource_slots.py",
-)
-UNITY_TEST_INPUTS = (
-    "Cargo.toml",
-    "Cargo.lock",
-    "rust-toolchain.toml",
-    "Assets",
-    "Packages",
-    "ProjectSettings",
-    "crates",
-    "scripts/ci.py",
-    "scripts/ci_cache.py",
-    "scripts/ci_steps.py",
-    "scripts/perf_log.py",
-    "scripts/resource_slots.py",
-)
-DOTNET_DIAGNOSTIC_INPUTS = (
-    ".config/dotnet-tools.json",
-    "Assets",
-    "Packages",
-    "ProjectSettings",
-    "battlement-ci.slnx",
     "scripts/ci.py",
     "scripts/ci_cache.py",
     "scripts/ci_steps.py",
@@ -500,7 +476,9 @@ def unity_analyzer_environment() -> dict[str, str]:
 def ensure_unity_project_files() -> None:
     """Generate Unity project files when an earlier test result came from cache."""
     if not (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").is_file():
-        run_with_unity_lease(run_unity_edit_mode_tests)
+        run_with_unity_lease(
+            lambda: run_unity_edit_mode_tests(unity_test_selection.FULL_ASSEMBLIES)
+        )
 
 
 def check_dotnet_diagnostics() -> None:
@@ -542,7 +520,10 @@ def check_dotnet_diagnostics() -> None:
     )
 
 
-def run_unity_edit_mode_tests() -> None:
+def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
+    """Run the selected non-empty set of Unity Edit Mode test assemblies."""
+    if not assemblies:
+        raise ValueError("Unity Edit Mode test assemblies cannot be empty")
     editor = unity_editor()
     if not os.access(editor, os.X_OK):
         raise RuntimeError(f"Unity executable was not found at {editor}. Set UNITY_EDITOR to its executable.")
@@ -575,10 +556,7 @@ def run_unity_edit_mode_tests() -> None:
                 value for value in (str(native_fixture), environment.get(variable)) if value
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
-        assembly_names = (
-            "Battlement.Integration.EditorTests;Battlement.EditorTests;"
-            "Battlement.HostEditorTests"
-        )
+        assembly_names = ";".join(assemblies)
         with unity_project_transaction(REPOSITORY_ROOT, "edit-mode-tests") as transaction:
             result = transaction.run(
                 [
@@ -616,14 +594,7 @@ def run_unity_edit_mode_tests() -> None:
             print(results, file=sys.stderr)
             raise RuntimeError("Unity did not report a passing Edit Mode test run.")
         unity_log = test_log.read_text(errors="replace").replace("\\", "/")
-        preparing = unity_log.find("Preparing fixture connect panic")
-        triggering = unity_log.find("Triggering fixture connect panic")
-        panic = unity_log.find(
-            "panicked at crates/battlement-native/tests/fixtures/exported-engine"
-        )
-        ordered_tracing = preparing >= 0 and triggering >= 0 and preparing < triggering
-        panic_captured = platform.system() == "Windows" or panic >= 0
-        if not ordered_tracing or not panic_captured:
+        if not native_fixture_diagnostics_passed(assemblies, unity_log):
             print_tail(test_log, 120)
             raise RuntimeError(
                 "Unity's log did not preserve the expected Rust failure diagnostics."
@@ -639,6 +610,46 @@ def run_unity_edit_mode_tests() -> None:
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)
+
+
+def native_fixture_diagnostics_passed(
+    assemblies: tuple[str, ...],
+    unity_log: str,
+) -> bool:
+    """Validate native panic diagnostics only when the host tests emitted them."""
+    if unity_test_selection.HOST_ASSEMBLY not in assemblies:
+        return True
+    preparing = unity_log.find("Preparing fixture connect panic")
+    triggering = unity_log.find("Triggering fixture connect panic")
+    panic = unity_log.find(
+        "panicked at crates/battlement-native/tests/fixtures/exported-engine"
+    )
+    ordered_tracing = preparing >= 0 and triggering >= 0 and preparing < triggering
+    panic_captured = platform.system() == "Windows" or panic >= 0
+    return ordered_tracing and panic_captured
+
+
+def run_selected_unity_tests(
+    selection: unity_test_selection.Selection,
+    ci_cache: CiCache,
+) -> float:
+    """Run only the Unity assemblies selected by the candidate dependency boundary."""
+    print(
+        "Unity Edit Mode selection: " + json.dumps(selection.report(), sort_keys=True),
+        flush=True,
+    )
+    if selection.scope == unity_test_selection.Scope.NONE:
+        return 0.0
+    return run_step(
+        f"Run Unity Edit Mode tests ({selection.scope.value})",
+        function=lambda: ci_cache.run(
+            f"unity-edit-mode-{selection.scope.value}",
+            selection.cache_inputs,
+            lambda: run_with_unity_lease(
+                lambda: run_unity_edit_mode_tests(selection.assemblies)
+            ),
+        ),
+    )
 
 
 def skip_desktop_full_validation() -> None:
@@ -925,6 +936,10 @@ def run_ci(
         [sys.executable, "scripts/tests/ci-cache.test.py"],
     )
     run_step(
+        "Test Unity affected-test selection",
+        [sys.executable, "scripts/tests/unity-test-selection.test.py"],
+    )
+    run_step(
         "Test performance reporting",
         [sys.executable, "scripts/tests/perf-report.test.py"],
     )
@@ -962,14 +977,10 @@ def run_ci(
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
     run_step("Check sample runtime preflight", function=lambda: check_sample_runtime_preflight(samples))
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
-    unity_seconds = run_step(
-        "Run Unity Edit Mode tests",
-        function=lambda: ci_cache.run(
-            "unity-edit-mode",
-            UNITY_TEST_INPUTS,
-            lambda: run_with_unity_lease(run_unity_edit_mode_tests),
-        ),
-    )
+    from web_selection import changed_paths
+    _revision, paths = changed_paths(REPOSITORY_ROOT)
+    unity_selection = unity_test_selection.select(REPOSITORY_ROOT, paths)
+    unity_seconds = run_selected_unity_tests(unity_selection, ci_cache)
     if full:
         print(
             "Reactant asset fast-tier timing "
@@ -979,14 +990,17 @@ def run_ci(
             f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
             flush=True,
         )
-    run_step(
-        "Check .NET diagnostics",
-        function=lambda: ci_cache.run(
-            "dotnet-diagnostics",
-            DOTNET_DIAGNOSTIC_INPUTS,
-            check_dotnet_diagnostics,
-        ),
-    )
+    if unity_selection.dotnet_diagnostics:
+        run_step(
+            "Check .NET diagnostics",
+            function=lambda: ci_cache.run(
+                "dotnet-diagnostics",
+                unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS,
+                check_dotnet_diagnostics,
+            ),
+        )
+    else:
+        print(".NET diagnostics selection: skipped; no C# input changed", flush=True)
     ditto_preparation_seconds = [0.0]
     invocation_id = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
     ditto_builds = None
