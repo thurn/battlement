@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import json
 import os
 from pathlib import Path
@@ -25,10 +27,20 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 
 def main(arguments: argparse.Namespace) -> Path:
     """Build, print, and save one deterministic performance report."""
+    _observation_window(arguments)
     repository_url = _repository_url()
     records, children, warnings = perf_sources.discover_codex_threads(
         perf_sources.codex_root(), repository_url
     )
+    if arguments.live_state:
+        snapshot = json.loads(arguments.live_state.read_text())
+        observed = datetime.fromisoformat(snapshot["observed_at"].replace("Z", "+00:00"))
+        if observed.tzinfo is None or observed.timestamp() != arguments.cutoff:
+            raise ValueError("Live-state snapshot must match --observed-at exactly")
+        for thread_id, turn_id in snapshot["running_turns"].items():
+            if thread_id in records:
+                records[thread_id] = replace(records[thread_id], live_turn_id=turn_id,
+                                             live_observed_at=arguments.cutoff)
     sessions = _load_sessions(arguments, records, children)
     ci_spans, ci_warnings = perf_sources.read_ci_traces(perf_log.configured_log_root())
     warnings.extend(ci_warnings)
@@ -62,6 +74,12 @@ def main(arguments: argparse.Namespace) -> Path:
         "generated_at": perf_log.utc_now(),
         "selection": {
             "sessions": arguments.sessions,
+            "date": arguments.date,
+            "timezone": arguments.timezone,
+            "observation_cutoff": arguments.observed_at,
+            "live_state_source": str(arguments.live_state) if arguments.live_state else None,
+            "window_start": arguments.window_start,
+            "window_end": arguments.window_end,
             "thread": arguments.thread,
             "commit": arguments.commit,
             "candidate": arguments.candidate,
@@ -88,6 +106,11 @@ def main(arguments: argparse.Namespace) -> Path:
 def parse_arguments() -> argparse.Namespace:
     """Parse the performance-report command line."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--date", help="Local calendar date (YYYY-MM-DD)")
+    parser.add_argument("--timezone", default="UTC", help="IANA time zone for --date")
+    parser.add_argument("--live-state", type=Path,
+                        help='Live observer JSON: {"observed_at": ISO timestamp, "running_turns": {thread_id: turn_id}}; requires matching --observed-at')
+    parser.add_argument("--observed-at", help="Immutable ISO-8601 observation cutoff with offset")
     parser.add_argument("--sessions", type=_positive_int, default=10)
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--thread")
@@ -101,7 +124,30 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--slow-subagent-seconds", type=_positive_float, default=300.0)
     parser.add_argument("--slow-ci-step-seconds", type=_positive_float, default=60.0)
     parser.add_argument("--long-wait-seconds", type=_positive_float, default=120.0)
-    return parser.parse_args()
+    arguments = parser.parse_args()
+    try:
+        _observation_window(arguments)
+    except (ValueError, KeyError) as error:
+        parser.error(str(error))
+    return arguments
+
+
+def _observation_window(arguments: argparse.Namespace) -> None:
+    if not arguments.observed_at:
+        arguments.observed_at = datetime.now(timezone.utc).isoformat()
+    cutoff = datetime.fromisoformat(arguments.observed_at.replace("Z", "+00:00"))
+    if cutoff.tzinfo is None:
+        raise ValueError("--observed-at requires a time zone offset")
+    zone = ZoneInfo(arguments.timezone)
+    arguments.cutoff = cutoff.timestamp()
+    arguments.window_start = None
+    arguments.window_end = arguments.cutoff
+    if arguments.date:
+        start = datetime.strptime(arguments.date, "%Y-%m-%d").replace(tzinfo=zone)
+        arguments.window_start = start.timestamp()
+        arguments.window_end = min((start + timedelta(days=1)).timestamp(), arguments.cutoff)
+        if arguments.window_end < arguments.window_start:
+            raise ValueError("Observation cutoff precedes the selected date")
 
 
 def _load_sessions(
@@ -120,10 +166,17 @@ def _load_sessions(
     scan_limit = 200 if arguments.commit or arguments.candidate else len(roots)
     sessions = []
     for record in roots[:scan_limit]:
-        session = perf_sources.load_session_tree(record, records, children)
+        session = perf_sources.load_session_tree(record, records, children, arguments.cutoff)
+        session.window_start = arguments.window_start
+        session.window_end = arguments.window_end
+        if arguments.date:
+            if session.latest_event_at is None or session.latest_event_at < arguments.window_start:
+                continue
+            if session.first_user_at is not None and session.first_user_at > arguments.window_end:
+                continue
         if session.completed or arguments.include_incomplete:
             sessions.append(session)
-        if not arguments.commit and not arguments.candidate and len(sessions) >= arguments.sessions:
+        if not arguments.commit and not arguments.candidate and not arguments.date and len(sessions) >= arguments.sessions:
             break
     return sessions
 
@@ -186,8 +239,13 @@ def _output_path(arguments: argparse.Namespace) -> Path:
 
 
 def _write_private_json(path: Path, report: dict[str, Any]) -> None:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path.parent.chmod(0o700)
+    missing = []
+    parent = path.parent
+    while not parent.exists():
+        missing.append(parent)
+        parent = parent.parent
+    for directory in reversed(missing):
+        directory.mkdir(mode=0o700, exist_ok=True)
     descriptor = os.open(path, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
     os.fchmod(descriptor, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as output:
@@ -197,7 +255,8 @@ def _write_private_json(path: Path, report: dict[str, Any]) -> None:
 
 def _print_report(report: dict[str, Any], output: Path) -> None:
     aggregate = report["aggregate"]
-    print(f"Performance report: {aggregate['session_count']} completed sessions")
+    print(f"Performance report: {aggregate['session_count']} sessions")
+    print(" · ".join(f"{count} {status}" for status, count in aggregate["status_counts"].items()))
     print(
         f"Wall time {_duration(aggregate['total_wall_time_ms'])} · "
         f"active {_duration(aggregate['total_active_coverage_ms'])} · "
@@ -317,6 +376,6 @@ if __name__ == "__main__":
                 perf_log.configured_max_log_bytes(),
                 {output_path},
             )
-    except (OSError, sqlite3.Error, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, KeyError, sqlite3.Error, subprocess.SubprocessError) as error:
         print(f"Performance report failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error

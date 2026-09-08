@@ -36,6 +36,8 @@ class ThreadRecord:
     repository_url: str
     updated_at_ms: int
     parent_thread_id: str | None = None
+    live_turn_id: str | None = None
+    live_observed_at: float | None = None
 
 
 def codex_root() -> Path:
@@ -144,19 +146,22 @@ def load_session_tree(
     root: ThreadRecord,
     records: dict[str, ThreadRecord],
     children: dict[str, list[str]],
+    observation_cutoff: float | None = None,
 ) -> SessionTrace:
     """Load a top-level Codex session and fold all descendant agents into it."""
-    session = parse_codex_rollout(root)
+    session = parse_codex_rollout(root, observation_cutoff)
     for child_id in children.get(root.id, []):
         child_record = records.get(child_id)
         if child_record is None:
             continue
-        child = load_session_tree(child_record, records, children)
+        child = load_session_tree(child_record, records, children, observation_cutoff)
         _fold_child(session, child)
     return session
 
 
-def parse_codex_rollout(record: ThreadRecord) -> SessionTrace:
+def parse_codex_rollout(
+    record: ThreadRecord, observation_cutoff: float | None = None,
+) -> SessionTrace:
     """Parse one rollout into normalized turns, tools, and transcript content."""
     session = SessionTrace(
         record.id,
@@ -165,6 +170,7 @@ def parse_codex_rollout(record: ThreadRecord) -> SessionTrace:
         record.repository_url,
         record.parent_thread_id,
     )
+    session.observation_cutoff = observation_cutoff
     pending_turns: dict[str, float] = {}
     pending_tools: dict[str, tuple[float, dict[str, Any]]] = {}
     lifecycle: list[tuple[str, str, bool]] = []
@@ -188,6 +194,9 @@ def parse_codex_rollout(record: ThreadRecord) -> SessionTrace:
                 )
                 continue
             timestamp = parse_timestamp(entry.get("timestamp"))
+            if timestamp is not None and observation_cutoff is not None:
+                if timestamp > observation_cutoff:
+                    continue
             if timestamp is not None:
                 session.latest_event_at = max(session.latest_event_at or timestamp, timestamp)
             _parse_codex_entry(
@@ -202,9 +211,28 @@ def parse_codex_rollout(record: ThreadRecord) -> SessionTrace:
         session.warnings.append(f"Tool call {call_id} has no recorded output.")
         if session.latest_event_at is not None:
             session.spans.append(_tool_span(session, payload, started, session.latest_event_at, {}))
+    for turn_id, started in pending_turns.items():
+        finished = session.latest_event_at if session.latest_event_at is not None else started
+        known_live = record.live_turn_id == turn_id and record.live_observed_at == observation_cutoff
+        if known_live and observation_cutoff is not None:
+            finished = observation_cutoff
+            session.latest_event_at = max(session.latest_event_at or finished, finished)
+            session.status = "running"
+        session.spans.append(Span(
+            f"turn:{turn_id}", None, session.thread_id, "codex", "agent",
+            "Agent turn", started, finished, "running" if known_live else "unknown", container=True,
+            attributes={"missing_terminal": True, "live_state_evidence": known_live},
+        ))
     if lifecycle:
         kind, _turn_id, successful = lifecycle[-1]
-        session.completed = kind == "complete" and successful
+        session.completed = kind == "complete" and successful and not pending_turns
+        if session.completed:
+            session.status = "completed"
+        elif kind == "interrupted":
+            session.status = "interrupted"
+    if pending_turns and session.status != "running":
+        session.status = "unknown"
+        session.warnings.append("Open turns have no live-state evidence; their unobserved tails are unknown.")
     return session
 
 
@@ -287,29 +315,26 @@ def _parse_lifecycle(
             pending_turns[turn_id] = started
             lifecycle.append(("started", turn_id, False))
         return
-    if event != "task_complete" or not turn_id:
+    if event not in {"task_complete", "turn_aborted", "task_aborted"}:
+        return
+    if not turn_id and len(pending_turns) == 1:
+        turn_id = next(iter(pending_turns))
+    if not turn_id:
         return
     finished = parse_timestamp(payload.get("completed_at")) or timestamp
-    started = parse_timestamp(payload.get("started_at")) or pending_turns.pop(turn_id, None)
+    pending = pending_turns.pop(turn_id, None)
+    started = parse_timestamp(payload.get("started_at"))
+    if started is None:
+        started = pending
     if started is None or finished is None:
         return
-    error = payload.get("error")
-    successful = error is None or error == ""
-    session.spans.append(
-        Span(
-            f"turn:{turn_id}",
-            None,
-            session.thread_id,
-            "codex",
-            "agent",
-            "Agent turn",
-            started,
-            finished,
-            "passed" if successful else "failed",
-            container=True,
-        )
-    )
-    lifecycle.append(("complete", turn_id, successful))
+    successful = event == "task_complete" and not payload.get("error")
+    session.spans.append(Span(
+        f"turn:{turn_id}", None, session.thread_id, "codex", "agent",
+        "Agent turn", started, finished, "passed" if successful else "interrupted",
+        container=True,
+    ))
+    lifecycle.append(("complete" if successful else "interrupted", turn_id, successful))
     if successful:
         session.completed_at = max(session.completed_at or finished, finished)
     first_token = payload.get("time_to_first_token_ms")
@@ -327,7 +352,7 @@ def _tool_span(
     name = call.get("name") or "tool"
     metadata = call.get("internal_chat_message_metadata_passthrough", {})
     turn_id = metadata.get("turn_id")
-    category = "wait" if _is_wait_tool(name, call.get("input")) else "tool"
+    category = "wait" if _is_wait_tool(name, call.get("input", call.get("arguments"))) else "tool"
     return Span(
         f"tool:{call.get('call_id') or call.get('id')}",
         f"turn:{turn_id}" if turn_id else None,
@@ -337,13 +362,26 @@ def _tool_span(
         name,
         started,
         finished,
-        "passed" if output else "incomplete",
+        _tool_outcome(output),
         attributes={"tool_name": name},
         content={
-            "input": sanitize(call.get("input")),
+            "input": sanitize(call.get("input", call.get("arguments"))),
             "output": sanitize(output.get("output")),
         },
     )
+
+
+def _tool_outcome(output: dict[str, Any]) -> str:
+    if not output:
+        return "incomplete"
+    values = _structured_json_values(output)
+    codes = [value["exit_code"] for value in values
+             if isinstance(value, dict) and isinstance(value.get("exit_code"), int)]
+    if any(code != 0 for code in codes):
+        return "failed"
+    if any(value.get("isError") is True for value in values if isinstance(value, dict)):
+        return "failed"
+    return "passed" if codes else "unknown"
 
 
 def _is_wait_tool(name: str, raw_input: Any) -> bool:
@@ -359,7 +397,7 @@ def _collect_candidate_ids(
     call: dict[str, Any],
     output: dict[str, Any],
 ) -> None:
-    input_text = flatten_text(call.get("input")).casefold()
+    input_text = flatten_text(call.get("input", call.get("arguments"))).casefold()
     if re.search(r"\btg\b[^\n]*\bcandidate\b", input_text) is None:
         return
     session.candidate_ids.update(_candidate_result_ids(output.get("output")))
@@ -390,7 +428,7 @@ def _structured_json_values(value: Any) -> list[Any]:
             item, _end = decoder.raw_decode(value, match.start())
         except json.JSONDecodeError:
             continue
-        decoded.append(item)
+        decoded.extend(_structured_json_values(item))
     return decoded
 
 
@@ -422,6 +460,11 @@ def _fold_child(parent: SessionTrace, child: SessionTrace) -> None:
             if span.parent_id is None:
                 span.parent_id = summary_id
             parent.spans.append(span)
+    if child.latest_event_at is not None:
+        parent.latest_event_at = max(parent.latest_event_at or child.latest_event_at, child.latest_event_at)
+    if child.status == "running":
+        parent.status = "running"
+        parent.completed = False
     parent.transcript.extend(
         {**item, "session_id": child.thread_id} for item in child.transcript
     )

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 import json
 from pathlib import Path
 import subprocess
@@ -133,15 +134,26 @@ def analyze_session(
     """Calculate interval-aware summaries, rankings, and workflow findings."""
     spans = sorted(session.spans, key=lambda span: (span.started_at, span.finished_at))
     spans.extend(_inter_turn_waits(session, spans))
+    spans = [replace(span,
+                     started_at=max(span.started_at, session.window_start) if session.window_start is not None else span.started_at,
+                     finished_at=min(span.finished_at, session.window_end) if session.window_end is not None else span.finished_at)
+             for span in spans
+             if (session.window_start is None or span.finished_at >= session.window_start)
+             and (session.window_end is None or span.started_at <= session.window_end)]
     exclusive = exclusive_durations(spans)
     first = session.first_user_at
-    finished = session.completed_at or session.latest_event_at
+    endpoints = [value for value in (session.completed_at, session.latest_event_at) if value is not None]
+    finished = max(endpoints) if endpoints else None
+    if first is not None and session.window_start is not None:
+        first = max(first, session.window_start)
+    if finished is not None and session.window_end is not None:
+        finished = min(finished, session.window_end)
     wall_ms = 0 if first is None or finished is None else max(0, round((finished - first) * 1000))
     waits = [span for span in spans if span.category == "wait"]
     wait_intervals = _bounded_intervals(waits, first, finished)
     active_ms = interval_difference_ms(
         _bounded_intervals(
-            [span for span in spans if span.category != "wait"], first, finished
+            [span for span in spans if span.category not in {"wait", "gap"}], first, finished
         ),
         wait_intervals,
     )
@@ -172,7 +184,7 @@ def analyze_session(
             "wall_time_ms": wall_ms,
             "recorded_active_coverage_ms": active_ms,
             "known_wait_union_ms": wait_ms,
-            "inter_turn_user_wait_ms": _span_union_ms(
+            "between_turn_gap_ms": _span_union_ms(
                 spans, source="codex", name="Between agent turns", bounds=(first, finished)
             ),
             "tollgate_queue_ms": _span_union_ms(
@@ -187,9 +199,14 @@ def analyze_session(
             "tollgate_promotion_ms": _span_union_ms(
                 spans, source="tollgate", name="Tollgate promotion", bounds=(first, finished)
             ),
-            "unattributed_agent_turn_ms": sum(
-                exclusive[span.id] for span in spans if span.category == "agent"
+            "unattributed_agent_turn_ms": interval_difference_ms(
+                _bounded_intervals([span for span in spans if span.category == "agent"], first, finished),
+                _bounded_intervals([span for span in spans if span.category not in {"agent", "subagent", "gap"}], first, finished),
             ),
+            "actor_activity_ms": _span_union_ms(spans, source="codex", category="agent", bounds=(first, finished)),
+            "machine_activity_ms": interval_union_ms(_bounded_intervals(
+                [span for span in spans if span.source in {"ci", "tollgate"} and span.category != "wait"], first, finished)),
+            "unobserved_tail_ms": max(0, round(((session.window_end or session.observation_cutoff or finished or 0) - (finished or 0)) * 1000)) if session.status == "unknown" else 0,
             "unattributed_wall_time_ms": max(0, wall_ms - interval_union_ms(
                 [(span.started_at, span.finished_at) for span in spans]
             )),
@@ -245,6 +262,8 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
     )
     return {
         "session_count": len(reports),
+        "status_counts": {status: sum(report["metadata"].get("status", "unknown") == status for report in reports)
+                          for status in ("completed", "running", "interrupted", "unknown")},
         "total_wall_time_ms": sum(report["timing"]["wall_time_ms"] for report in reports),
         "total_active_coverage_ms": sum(
             report["timing"]["recorded_active_coverage_ms"] for report in reports
@@ -435,7 +454,7 @@ def _inter_turn_waits(session: SessionTrace, spans: list[Span]) -> list[Span]:
     return [
         Span(
             f"user-wait:{session.thread_id}:{index}", None, session.thread_id,
-            "codex", "wait", "Between agent turns", previous.finished_at,
+            "codex", "gap", "Between agent turns", previous.finished_at,
             current.started_at, "passed", association="session_timeline",
         )
         for index, (previous, current) in enumerate(zip(turns, turns[1:]), 1)

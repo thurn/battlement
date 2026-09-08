@@ -24,6 +24,7 @@ import perf_log  # noqa: E402
 from perf_model import exclusive_durations, interval_difference_ms, interval_union_ms, SessionTrace, Span, Thresholds  # noqa: E402
 import perf_report  # noqa: E402
 import perf_sources  # noqa: E402
+import perf_timeline_cases  # noqa: E402
 
 
 def main() -> None:
@@ -44,6 +45,7 @@ def main() -> None:
         _verify_correlation(root, root_session)
         _verify_tollgate_retries(root)
         _verify_private_report(root)
+        perf_timeline_cases.verify(root)
         _verify_tollgate_failure(root)
     print("Performance report tests passed.")
 

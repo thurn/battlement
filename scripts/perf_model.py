@@ -71,6 +71,10 @@ class SessionTrace:
     completed_at: float | None = None
     latest_event_at: float | None = None
     completed: bool = False
+    status: str = "unknown"
+    observation_cutoff: float | None = None
+    window_start: float | None = None
+    window_end: float | None = None
     spans: list[Span] = field(default_factory=list)
     transcript: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -86,6 +90,8 @@ class SessionTrace:
             "rollout_path": str(self.rollout_path),
             "repository_url": self.repository_url,
             "completed": self.completed,
+            "status": self.status,
+            "observation_cutoff": format_optional_timestamp(self.observation_cutoff),
             "first_user_at": format_optional_timestamp(self.first_user_at),
             "completed_at": format_optional_timestamp(self.completed_at),
             "agent_name": self.agent_name,
