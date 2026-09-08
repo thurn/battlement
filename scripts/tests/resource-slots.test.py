@@ -54,26 +54,32 @@ def main() -> None:
         waiter.join(timeout=2)
         assert acquired.is_set(), "an atomic request was not admitted after capacity released"
 
-        held = SlotLease(locks, "fair-heavy", 1).acquire()
-        order = []
+        for attempt in range(20):
+            held = SlotLease(locks, "fair-heavy", 1).acquire()
+            order = []
 
-        def acquire_in_order(label: str) -> None:
-            with SlotLease(locks, "fair-heavy", 1):
-                order.append(label)
-                time.sleep(0.05)
+            def acquire_in_order(label: str) -> None:
+                with SlotLease(locks, "fair-heavy", 1):
+                    order.append(label)
+                    time.sleep(0.005)
 
-        first_waiter = threading.Thread(target=acquire_in_order, args=("first",))
-        second_waiter = threading.Thread(target=acquire_in_order, args=("second",))
-        first_waiter.start()
-        while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 1:
-            time.sleep(0.01)
-        second_waiter.start()
-        while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 2:
-            time.sleep(0.01)
-        held.close()
-        first_waiter.join(timeout=2)
-        second_waiter.join(timeout=2)
-        assert order == ["first", "second"], f"queued leases were not FIFO: {order}"
+            first_waiter = threading.Thread(target=acquire_in_order, args=("first",))
+            second_waiter = threading.Thread(target=acquire_in_order, args=("second",))
+            first_waiter.start()
+            while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 1:
+                time.sleep(0.001)
+            second_waiter.start()
+            while len(list(locks.glob(".fair-heavy.queue.*.lock"))) < 2:
+                time.sleep(0.001)
+            held.close()
+            first_waiter.join(timeout=5)
+            second_waiter.join(timeout=5)
+            assert not first_waiter.is_alive() and not second_waiter.is_alive(), (
+                f"queued leases did not finish on attempt {attempt}"
+            )
+            assert order == ["first", "second"], (
+                f"queued leases were not FIFO on attempt {attempt}: {order}"
+            )
 
         stale = locks / ".stale-heavy.queue.00000000000000000000.0000000000.0000000000.lock"
         stale.touch()

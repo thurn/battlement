@@ -7,6 +7,7 @@ from __future__ import annotations
 import itertools
 import os
 from pathlib import Path
+import threading
 import time
 
 import operation_log
@@ -28,6 +29,8 @@ GLOBAL_RESOURCE_ROOT = Path(
 MACHINE_CAPACITY = 6
 STALE_TICKET_SECONDS = 5
 _TICKET_SEQUENCE = itertools.count()
+_ACTIVE_TICKETS = set()
+_ACTIVE_TICKETS_LOCK = threading.Lock()
 
 
 class AdmissionTicket:
@@ -45,19 +48,28 @@ class AdmissionTicket:
             self.file.close()
             self.path.unlink(missing_ok=True)
             raise RuntimeError("new admission ticket could not be locked")
+        with _ACTIVE_TICKETS_LOCK:
+            _ACTIVE_TICKETS.add(self.path)
 
     def is_first(self) -> bool:
         """Return whether no older live ticket precedes this one."""
         for path in sorted(self.directory.glob(f"{self.prefix}*.lock")):
             if path == self.path:
                 return True
+            with _ACTIVE_TICKETS_LOCK:
+                if path in _ACTIVE_TICKETS:
+                    return False
             try:
-                candidate = path.open("a+")
+                candidate = path.open("r+")
             except FileNotFoundError:
                 continue
             try:
                 if try_lock_file(candidate):
-                    age = time.time() - path.stat().st_mtime
+                    try:
+                        age = time.time() - path.stat().st_mtime
+                    except FileNotFoundError:
+                        unlock_file(candidate)
+                        continue
                     unlock_file(candidate)
                     if age >= STALE_TICKET_SECONDS:
                         candidate.close()
@@ -72,6 +84,8 @@ class AdmissionTicket:
     def close(self) -> None:
         """Remove this queue position without affecting another waiter."""
         if not self.file.closed:
+            with _ACTIVE_TICKETS_LOCK:
+                _ACTIVE_TICKETS.discard(self.path)
             unlock_file(self.file)
             self.file.close()
             self.path.unlink(missing_ok=True)

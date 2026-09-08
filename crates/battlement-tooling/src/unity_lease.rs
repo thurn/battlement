@@ -1,8 +1,12 @@
 use std::{
+  collections::BTreeSet,
   fs::{self, File, OpenOptions},
   path::{Path, PathBuf},
   process,
-  sync::atomic::{AtomicU64, Ordering},
+  sync::{
+    LazyLock, Mutex,
+    atomic::{AtomicU64, Ordering},
+  },
   thread,
   time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -20,6 +24,8 @@ const NATIVE_PLAYER_SLOTS: usize = 3;
 const UNITY_EDITOR_CAPACITY_UNITS: usize = 3;
 const STALE_TICKET_GRACE: Duration = Duration::from_secs(5);
 static TICKET_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static ACTIVE_TICKETS: LazyLock<Mutex<BTreeSet<PathBuf>>> =
+  LazyLock::new(|| Mutex::new(BTreeSet::new()));
 
 #[derive(Debug)]
 struct SlotSet {
@@ -245,6 +251,10 @@ impl AdmissionTicket {
       .open(&path)?;
     file.set_len(1)?;
     file.lock_exclusive()?;
+    ACTIVE_TICKETS
+      .lock()
+      .expect("active ticket registry is poisoned")
+      .insert(path.clone());
     Ok(Self {
       file: Some(file),
       path,
@@ -266,6 +276,13 @@ impl AdmissionTicket {
     for path in tickets {
       if path == self.path {
         return Ok(true);
+      }
+      if ACTIVE_TICKETS
+        .lock()
+        .expect("active ticket registry is poisoned")
+        .contains(&path)
+      {
+        return Ok(false);
       }
       let Ok(file) = OpenOptions::new().read(true).write(true).open(&path) else {
         continue;
@@ -292,6 +309,10 @@ impl AdmissionTicket {
 
 impl Drop for AdmissionTicket {
   fn drop(&mut self) {
+    ACTIVE_TICKETS
+      .lock()
+      .expect("active ticket registry is poisoned")
+      .remove(&self.path);
     if let Some(file) = self.file.take() {
       let _ = FileExt::unlock(&file);
       drop(file);

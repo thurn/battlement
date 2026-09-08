@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from typing import NamedTuple
 
 from platform_support import lock_file, user_cache_path
 
@@ -25,28 +26,47 @@ DEFAULT_CACHE_ROOT = Path(
         user_cache_path("Battlement", "web-demos"),
     )
 )
-WEB_SHARED_INPUTS = (
-    "Cargo.toml",
-    "Cargo.lock",
-    "rust-toolchain.toml",
-    "Packages/com.battlement.client",
-    "crates",
-    "web/init.js",
-)
+WEB_SHARED_INPUTS = ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml")
+
+
+class BuildIdentity(NamedTuple):
+    """Exact staged input manifest for one reusable player build."""
+
+    key: str
+    manifest: dict[str, object]
 
 
 def staged_fingerprint(sample: str, release: bool) -> str:
     """Fingerprint staged Web build inputs and the local build toolchain."""
+    return web_build_identity(sample, release).key
+
+
+def web_build_identity(sample: str, release: bool) -> BuildIdentity:
+    """Resolve and fingerprint only inputs that can change player bytes."""
     editor = unity_editor(sample)
     editor_metadata = editor.stat()
-    pathspecs = (*WEB_SHARED_INPUTS, f"samples/{sample}")
-    staged = subprocess.run(
-        ["git", "ls-files", "--stage", "--", *pathspecs],
-        cwd=REPOSITORY_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+    groups = {
+        "toolchain": WEB_SHARED_INPUTS,
+        "build-tool": dependency_pathspecs(sample),
+        "client-runtime": (
+            "Packages/com.battlement.client/Editor",
+            "Packages/com.battlement.client/Editor.meta",
+            "Packages/com.battlement.client/Runtime",
+            "Packages/com.battlement.client/Runtime.meta",
+            "Packages/com.battlement.client/package.json",
+            "Packages/com.battlement.client/package.json.meta",
+        ),
+        "sample-project": (
+            f"samples/{sample}/Assets",
+            f"samples/{sample}/Packages",
+            f"samples/{sample}/ProjectSettings",
+            f"samples/{sample}/sample.toml",
+        ),
+        "sample-rules": (f"samples/{sample}/rules",),
+        "web-bootstrap": ("web/init.js",),
+        "preparation-tool": ("scripts/prepare-web-demo.py",),
+    }
+    pathspecs = tuple(dict.fromkeys(path for paths in groups.values() for path in paths))
     status = subprocess.run(
         [
             "git", "status", "--porcelain=v1", "-z", "--untracked-files=all",
@@ -62,45 +82,151 @@ def staged_fingerprint(sample: str, release: bool) -> str:
         if record
     ):
         raise RuntimeError("Stage all Web demo inputs before preparing a reusable build.")
-    identity = {
-        "schema": 1,
+    inputs = {
+        category: staged_digest(paths)
+        for category, paths in groups.items()
+    }
+    manifest = {
+        "schema": 2,
         "sample": sample,
         "release": release,
-        "staged": staged,
+        "inputs": inputs,
         "host": [platform.system(), platform.machine()],
         "editor": [str(editor.resolve()), editor_metadata.st_mtime_ns, editor_metadata.st_size],
         "cargo": command_version(["cargo", "--version"]),
         "rustc": command_version(["rustc", "-Vv"]),
     }
-    return hashlib.sha256(
-        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    return BuildIdentity(hashlib.sha256(encoded).hexdigest(), manifest)
+
+
+def dependency_pathspecs(sample: str) -> tuple[str, ...]:
+    """Return the transitive local packages used by the builder and sample rules."""
+    root_packages = cargo_packages(REPOSITORY_ROOT / "Cargo.toml")
+    sample_packages = cargo_packages(REPOSITORY_ROOT / f"samples/{sample}/rules/Cargo.toml")
+    by_directory = {
+        str(Path(package["manifest_path"]).resolve().parent): package
+        for package in root_packages
+    }
+    queue = [
+        directory
+        for directory, package in by_directory.items()
+        if package["name"] == "battlement-cli"
+    ]
+    if not queue:
+        raise RuntimeError("Cargo metadata omitted the battlement-cli build package")
+    for package in sample_packages:
+        queue.extend(
+            str(Path(dependency["path"]).resolve())
+            for dependency in package["dependencies"]
+            if dependency.get("path")
+        )
+    selected = set()
+    while queue:
+        directory = queue.pop()
+        if directory in selected:
+            continue
+        selected.add(directory)
+        package = by_directory.get(directory)
+        if package:
+            queue.extend(
+                str(Path(dependency["path"]).resolve())
+                for dependency in package["dependencies"]
+                if dependency.get("path")
+            )
+    repository = REPOSITORY_ROOT.resolve()
+    try:
+        return tuple(sorted(str(Path(directory).relative_to(repository)) for directory in selected))
+    except ValueError as error:
+        raise RuntimeError("Web build depends on a local package outside the repository") from error
+
+
+def cargo_packages(manifest: Path) -> list[dict[str, object]]:
+    output = subprocess.run(
+        [
+            "cargo", "metadata", "--format-version", "1", "--locked", "--no-deps",
+            "--manifest-path", str(manifest),
+        ],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return json.loads(output)["packages"]
+
+
+def staged_digest(pathspecs: tuple[str, ...]) -> str:
+    staged = subprocess.run(
+        ["git", "ls-files", "--stage", "--", *pathspecs],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    return hashlib.sha256(staged).hexdigest()
 
 
 def prepare(sample: str, release: bool, cache_root: Path) -> Path:
     """Materialize one exact cached Web build and return its local path."""
     validate_sample(sample)
-    key = staged_fingerprint(sample, release)
+    identity = web_build_identity(sample, release)
+    key = identity.key
     profile = "release" if release else "debug"
     output_name = "WebThreads"
     output = REPOSITORY_ROOT / "samples" / sample / "Build" / profile / output_name
     cached = cache_root / "entries" / sample / key / output_name
+    manifest_path = cached.parent / "manifest.json"
     lock = cache_root / "locks" / sample / f"{key}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     with lock.open("a+") as lease:
         lock_file(lease)
-        if not valid_web_build(cached):
-            print(f"Web demo cache miss {key[:12]}; building {sample}", flush=True)
+        if not valid_web_build(cached) or read_manifest(manifest_path) != identity.manifest:
+            changed = changed_categories(cached.parent.parent, identity.manifest)
+            print(f"Web demo cache miss {key[:12]} ({changed}); building {sample}", flush=True)
             subprocess.run(build_command(sample, release), cwd=REPOSITORY_ROOT, check=True)
             if not valid_web_build(output):
                 raise RuntimeError(f"Web build is incomplete: {output}")
             publish_directory(output, cached, cache_root / "entries")
+            write_manifest(manifest_path, identity.manifest)
         else:
-            print(f"Web demo cache hit {key[:12]}", flush=True)
+            print(f"Web demo cache hit {key[:12]} (inputs unchanged)", flush=True)
         materialize_directory(cached, output)
     print(f"Prepared {output} in {time.monotonic() - started:.1f}s", flush=True)
     return output
+
+
+def read_manifest(path: Path) -> dict[str, object] | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def write_manifest(path: Path, manifest: dict[str, object]) -> None:
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def changed_categories(entries: Path, manifest: dict[str, object]) -> str:
+    previous = [read_manifest(path) for path in entries.glob("*/manifest.json")]
+    previous = [candidate for candidate in previous if candidate]
+    if not previous:
+        return "no prior reusable build"
+    latest = max(
+        (path for path in entries.glob("*/manifest.json") if read_manifest(path)),
+        key=lambda path: path.stat().st_mtime_ns,
+    )
+    before = read_manifest(latest) or {}
+    categories = [
+        category
+        for category, digest in manifest["inputs"].items()
+        if before.get("inputs", {}).get(category) != digest
+    ]
+    for category in ("host", "editor", "cargo", "rustc", "release"):
+        if before.get(category) != manifest.get(category):
+            categories.append(category)
+    return ", ".join(categories) or "prior artifact invalid"
 
 
 def build_command(sample: str, release: bool) -> list[str]:
