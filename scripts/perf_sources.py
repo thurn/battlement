@@ -532,6 +532,135 @@ def read_ci_traces(log_root: Path) -> tuple[list[Span], list[str]]:
     return spans, warnings
 
 
+def read_operation_traces(
+    log_root: Path, known_operations: dict[str, str] | None = None,
+) -> tuple[list[Span], list[str]]:
+    """Read retained non-CI operation events without duplicating CI spans."""
+    known_operations = known_operations or {}
+    spans: list[Span] = []
+    warnings: list[str] = []
+    for path in sorted((log_root / "operations").glob("**/*.jsonl")):
+        records = _read_jsonl(path, warnings)
+        if not records:
+            continue
+        started = next(
+            (record for record in records if record.get("event") == "operation.started"),
+            None,
+        )
+        if started is None or not started.get("operation_id"):
+            warnings.append(f"Operation trace has no start event: {path}")
+            continue
+        operation_id = started["operation_id"]
+        if operation_id in known_operations:
+            continue
+        start_time = parse_timestamp(started.get("timestamp"))
+        last_time = parse_timestamp(records[-1].get("timestamp"))
+        if start_time is None or last_time is None:
+            warnings.append(f"Operation trace has invalid timestamps: {path}")
+            continue
+        terminal = next(
+            (record for record in reversed(records) if record.get("event") == "operation.finished"),
+            None,
+        )
+        finish_time = parse_timestamp(terminal.get("timestamp")) if terminal else last_time
+        if finish_time is None:
+            finish_time = last_time
+        if terminal is None:
+            warnings.append(f"Operation {operation_id} has no terminal event: {path}")
+        context = started.get("context") if isinstance(started.get("context"), dict) else {}
+        metadata = started.get("metadata") if isinstance(started.get("metadata"), dict) else {}
+        attributes = {
+            **context,
+            **metadata,
+            "root_operation_id": context.get("root_operation_id"),
+            "operation_id": operation_id,
+            "source_path": str(path),
+            "process": started.get("process"),
+            "clock_domain": started.get("clock_domain"),
+            "events": [
+                {
+                    key: value for key, value in record.items()
+                    if key not in {"schema", "operation_id", "monotonic_ns"}
+                }
+                for record in records
+                if record.get("event") in {
+                    "preparation.inputs", "cache.lookup", "artifact.published",
+                    "review.build_identified", "review.ready", "review.inputs_invalidated",
+                }
+            ],
+        }
+        parent = started.get("parent_operation_id")
+        parent_id = known_operations.get(parent, f"operation:{parent}" if parent else None)
+        spans.append(Span(
+            f"operation:{operation_id}", parent_id, None, "operation", "operation",
+            started.get("name", "Operation"), start_time, finish_time,
+            terminal.get("outcome", "incomplete") if terminal else "incomplete",
+            attributes=attributes, container=True,
+        ))
+        _append_operation_children(spans, records, operation_id, attributes, warnings)
+    return spans, warnings
+
+
+def _append_operation_children(
+    spans: list[Span], records: list[dict[str, Any]], operation_id: str,
+    attributes: dict[str, Any], warnings: list[str],
+) -> None:
+    parent = f"operation:{operation_id}"
+    queued: dict[str, list[dict[str, Any]]] = {}
+    held: dict[str, list[dict[str, Any]]] = {}
+    processes: dict[str, list[dict[str, Any]]] = {}
+    for index, record in enumerate(records):
+        event = record.get("event")
+        timestamp = parse_timestamp(record.get("timestamp"))
+        if timestamp is None:
+            continue
+        resource = str(record.get("resource", "unknown"))
+        if event == "resource.queued":
+            queued.setdefault(resource, []).append(record)
+        elif event == "resource.acquired":
+            start = queued.get(resource, []).pop(0) if queued.get(resource) else record
+            _event_span(spans, parent, f"resource-queue:{operation_id}:{index}",
+                        "wait", f"Wait for {resource}", start, record, attributes)
+            held.setdefault(resource, []).append(record)
+        elif event == "resource.released":
+            start = held.get(resource, []).pop(0) if held.get(resource) else record
+            _event_span(spans, parent, f"resource-held:{operation_id}:{index}",
+                        "resource", f"Use {resource}", start, record, attributes)
+        elif event == "process.started":
+            key = json.dumps(record.get("process"), sort_keys=True)
+            processes.setdefault(key, []).append(record)
+        elif event == "process.finished":
+            key = json.dumps(record.get("process"), sort_keys=True)
+            start = processes.get(key, []).pop(0) if processes.get(key) else record
+            _event_span(spans, parent, f"process:{operation_id}:{index}", "process",
+                        record.get("executable", start.get("executable", "Child process")),
+                        start, record, attributes)
+    for resource, starts in queued.items():
+        for start in starts:
+            warnings.append(f"Operation {operation_id} has an unfinished {resource} queue wait.")
+    for resource, starts in held.items():
+        for start in starts:
+            warnings.append(f"Operation {operation_id} did not release {resource}.")
+    for starts in processes.values():
+        for start in starts:
+            warnings.append(f"Operation {operation_id} has an unfinished child process.")
+
+
+def _event_span(
+    spans: list[Span], parent: str, span_id: str, category: str, name: str,
+    started: dict[str, Any], finished: dict[str, Any], attributes: dict[str, Any],
+) -> None:
+    start_time = parse_timestamp(started.get("timestamp"))
+    finish_time = parse_timestamp(finished.get("timestamp"))
+    if start_time is None or finish_time is None:
+        return
+    spans.append(Span(
+        span_id, parent, None, "operation", category, name, start_time, finish_time,
+        "passed" if finished.get("exit_code", 0) == 0 else "failed",
+        attributes={**attributes, **finished},
+    ))
+
+
 def _append_ci_children(
     spans: list[Span],
     records: list[dict[str, Any]],

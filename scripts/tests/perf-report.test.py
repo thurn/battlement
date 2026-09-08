@@ -40,6 +40,7 @@ def main() -> None:
         root_session, child_session = _verify_codex_parsing(root)
         _verify_child_folding(root_session, child_session)
         _verify_ci_parsing(root)
+        _verify_operation_parsing(root)
         _verify_interval_analysis(root_session)
         _verify_ci_step_hotspots()
         _verify_correlation(root, root_session)
@@ -309,6 +310,51 @@ def _verify_ci_parsing(root: Path) -> None:
     assert cache_wait.parent_id == "ci-run:run"
 
 
+def _verify_operation_parsing(root: Path) -> None:
+    log_root = root / "operation-logs"
+    operation = log_root / "operations/2026-01-01/web.jsonl"
+    context = {"task_id": "root", "root_operation_id": "web", "head_oid": "head"}
+    process = {"pid": 42, "birth": "fixture", "host": "host"}
+    _write_jsonl(operation, [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "operation.started",
+         "operation_id": "web", "name": "Web preparation", "context": context,
+         "metadata": {"build_profile": "release"}},
+        {"timestamp": "2026-01-01T00:00:01Z", "event": "resource.queued",
+         "operation_id": "web", "resource": "unity-editor"},
+        {"timestamp": "2026-01-01T00:00:02Z", "event": "resource.acquired",
+         "operation_id": "web", "resource": "unity-editor"},
+        {"timestamp": "2026-01-01T00:00:02Z", "event": "process.started",
+         "operation_id": "web", "process": process, "executable": "cargo"},
+        {"timestamp": "2026-01-01T00:00:03Z", "event": "process.finished",
+         "operation_id": "web", "process": process, "exit_code": 0},
+        {"timestamp": "2026-01-01T00:00:04Z", "event": "resource.released",
+         "operation_id": "web", "resource": "unity-editor"},
+        {"timestamp": "2026-01-01T00:00:05Z", "event": "operation.finished",
+         "operation_id": "web", "outcome": "passed"},
+    ])
+    _write_jsonl(log_root / "operations/2026-01-01/incomplete.jsonl", [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "operation.started",
+         "operation_id": "incomplete", "name": "External", "context": {},
+         "metadata": {}},
+    ])
+    _write_jsonl(log_root / "operations/2026-01-01/duplicate.jsonl", [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "operation.started",
+         "operation_id": "ci-step", "name": "CI duplicate", "context": {},
+         "metadata": {}},
+    ])
+    spans, warnings = perf_sources.read_operation_traces(
+        log_root, {"ci-step": "ci-step:ci-step"},
+    )
+    assert len(spans) == 5
+    web = next(span for span in spans if span.id == "operation:web")
+    assert web.attributes["task_id"] == "root"
+    assert web.attributes["build_profile"] == "release"
+    assert next(span for span in spans if span.category == "wait").duration_ms == 1000
+    assert next(span for span in spans if span.category == "resource").duration_ms == 2000
+    assert next(span for span in spans if span.category == "process").name == "cargo"
+    assert any("no terminal event" in warning for warning in warnings)
+
+
 def _verify_interval_analysis(session: SessionTrace) -> None:
     session.spans.extend(
         [
@@ -439,11 +485,19 @@ def _verify_correlation(root: Path, session: SessionTrace) -> None:
     )
     candidate = {"item": {"id": "candidate", "source_oid": {"bytes": head}}, "buildset": {}}
     warnings: list[str] = []
-    perf_analysis.correlate_activity([session], [run], [tollgate], [candidate], repository, warnings)
+    operation = Span(
+        "operation:web", None, None, "operation", "operation", "Web preparation",
+        2, 2.5, "passed",
+        attributes={"operation_id": "web", "task_id": "root", "root_operation_id": "web"},
+    )
+    perf_analysis.correlate_activity(
+        [session], [run], [operation], [tollgate], [candidate], repository, warnings,
+    )
     assert run.session_id == "root"
     assert run.parent_id == wrapper.id
     assert tollgate.session_id == "root"
     assert tollgate.association == "exact_tree"
+    assert operation.session_id == "root"
     report = perf_analysis.analyze_session(session, Thresholds(1, 1, 1, 1), 20)
     assert wrapper.id not in {span["id"] for span in report["longest_operations"]}
     assert next(

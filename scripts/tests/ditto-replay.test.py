@@ -18,7 +18,10 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="ditto-replay-test.") as temporary:
         root = Path(temporary)
         (root / "scripts").mkdir()
-        for name in ("ditto_ci.py", "ditto_replay.py", "ditto_evidence.py"):
+        for name in (
+            "ditto_ci.py", "ditto_replay.py", "ditto_evidence.py", "operation_log.py",
+            "perf_log.py", "platform_support.py", "process_identity.py",
+        ):
             shutil.copy2(scripts / name, root / "scripts" / name)
         config = root / "samples/chess-ui/ditto.toml"
         config.parent.mkdir(parents=True)

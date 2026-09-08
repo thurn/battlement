@@ -7,6 +7,7 @@ from __future__ import annotations
 import functools
 from http.server import ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -62,7 +63,8 @@ def main() -> None:
                 str(build),
                 "--handle",
                 str(handle),
-            ]
+            ],
+            env={**os.environ, "BATTLEMENT_LOG_ROOT": str(root / "logs")},
         )
         try:
             deadline = time.monotonic() + 5
@@ -72,6 +74,7 @@ def main() -> None:
             started = json.loads(handle.read_text())
             assert started["state"] == "server-ready"
             assert started["readiness"]["server"] == "ready"
+            assert started["operation_id"]
             assert started["build"]["directory"] == str(build.resolve())
             assert len(started["build"]["sha256"]) == 64
             assert started["cleanup_action"][-1] == str(handle.resolve())
@@ -100,6 +103,14 @@ def main() -> None:
             subprocess.run(started["cleanup_action"], check=True, capture_output=True)
             process.wait(timeout=5)
             assert json.loads(handle.read_text())["state"] == "stopped"
+            operation_records = [
+                json.loads(line)
+                for path in (root / "logs/operations").glob("**/*.jsonl")
+                for line in path.read_text().splitlines()
+                if f'"operation_id": "{started["operation_id"]}"' in line
+            ]
+            assert operation_records[-1]["event"] == "operation.finished"
+            assert operation_records[-1]["outcome"] == "inputs-invalidated"
         finally:
             if process.poll() is None:
                 process.terminate()

@@ -25,11 +25,12 @@ from perf_model import (
 def correlate_activity(
     sessions: list[SessionTrace],
     ci_spans: list[Span],
+    operation_spans: list[Span],
     tollgate_spans: list[Span],
     candidates: list[dict[str, Any]],
     repository_root: Path,
     warnings: list[str],
-) -> None:
+) -> list[Span]:
     """Attach CI and Tollgate spans only when an exact association is available."""
     owner_by_thread = {
         thread_id: session
@@ -112,6 +113,32 @@ def correlate_activity(
         if owner is None:
             continue
         _attach(owner[0], span, owner[1])
+    operation_owner: dict[str, tuple[SessionTrace, str]] = {}
+    pending = list(operation_spans)
+    while pending:
+        progressed = False
+        for span in list(pending):
+            thread_id = span.attributes.get("task_id")
+            owner = owner_by_thread.get(thread_id)
+            method = "exact_thread"
+            if owner is None:
+                root_id = span.attributes.get("root_operation_id")
+                inherited = operation_owner.get(root_id) or owner_by_run.get(root_id)
+                if inherited:
+                    owner, method = inherited[0], "exact_operation_parent"
+            if owner is None and span.parent_id:
+                raw_parent = span.parent_id.removeprefix("operation:")
+                inherited = operation_owner.get(raw_parent)
+                if inherited:
+                    owner, method = inherited[0], "exact_operation_parent"
+            if owner is None:
+                continue
+            _attach(owner, span, method)
+            operation_owner[span.attributes.get("operation_id", span.id)] = (owner, method)
+            pending.remove(span)
+            progressed = True
+        if not progressed:
+            break
     unmatched_ci = sum(1 for run in ci_runs if run.id.removeprefix("ci-run:") not in owner_by_run)
     unmatched_candidates = sum(
         1
@@ -124,6 +151,16 @@ def correlate_activity(
         warnings.append(
             f"{unmatched_candidates} Tollgate candidates could not be associated exactly."
         )
+    root_operations = [
+        span for span in operation_spans
+        if span.category == "operation" and span.session_id is None
+    ]
+    if root_operations:
+        warnings.append(
+            f"{len(root_operations)} operation traces could not be associated exactly; "
+            "they remain in machine_operations."
+        )
+    return [span for span in operation_spans if span.session_id is None]
 
 
 def analyze_session(

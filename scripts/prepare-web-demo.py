@@ -16,6 +16,7 @@ import tempfile
 import time
 from typing import NamedTuple
 
+import operation_log
 from platform_support import lock_file, user_cache_path
 
 
@@ -167,10 +168,28 @@ def staged_digest(pathspecs: tuple[str, ...]) -> str:
 
 def prepare(sample: str, release: bool, cache_root: Path) -> Path:
     """Materialize one exact cached Web build and return its local path."""
+    profile = "release" if release else "debug"
+    with operation_log.Operation(
+        REPOSITORY_ROOT,
+        "Web preparation",
+        metadata={"sample": sample, "build_profile": profile, "cache_root": str(cache_root)},
+    ) as operation:
+        return _prepare(sample, release, cache_root, operation)
+
+
+def _prepare(
+    sample: str, release: bool, cache_root: Path, operation: operation_log.Operation,
+) -> Path:
     validate_sample(sample)
     identity = web_build_identity(sample, release)
     key = identity.key
     profile = "release" if release else "debug"
+    operation.event(
+        "preparation.inputs",
+        source_manifest_sha256=key,
+        build_profile=profile,
+        manifest=identity.manifest,
+    )
     output_name = "WebThreads"
     output = REPOSITORY_ROOT / "samples" / sample / "Build" / profile / output_name
     cached = cache_root / "entries" / sample / key / output_name
@@ -178,19 +197,38 @@ def prepare(sample: str, release: bool, cache_root: Path) -> Path:
     lock = cache_root / "locks" / sample / f"{key}.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
+    cache_hit = False
     with lock.open("a+") as lease:
         lock_file(lease)
         if not valid_web_build(cached) or read_manifest(manifest_path) != identity.manifest:
             changed = changed_categories(cached.parent.parent, identity.manifest)
+            operation.event(
+                "cache.lookup", result="miss", reason=changed, cache_key=key,
+                producer_run=operation.id,
+            )
             print(f"Web demo cache miss {key[:12]} ({changed}); building {sample}", flush=True)
-            subprocess.run(build_command(sample, release), cwd=REPOSITORY_ROOT, check=True)
+            operation_log.run(build_command(sample, release), cwd=REPOSITORY_ROOT)
             if not valid_web_build(output):
                 raise RuntimeError(f"Web build is incomplete: {output}")
             publish_directory(output, cached, cache_root / "entries")
             write_manifest(manifest_path, identity.manifest)
         else:
+            cache_hit = True
+            operation.event(
+                "cache.lookup", result="hit", reason="inputs unchanged", cache_key=key,
+                producer_run=operation.id,
+            )
             print(f"Web demo cache hit {key[:12]} (inputs unchanged)", flush=True)
         materialize_directory(cached, output)
+    operation.event(
+        "artifact.published", artifact_kind="web-player", path=str(output.resolve()),
+        source_manifest_sha256=key,
+    )
+    if cache_hit:
+        operation.finish(
+            "reused", 0, artifact_path=str(output.resolve()),
+            source_manifest_sha256=key,
+        )
     print(f"Prepared {output} in {time.monotonic() - started:.1f}s", flush=True)
     return output
 

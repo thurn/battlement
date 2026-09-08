@@ -90,7 +90,7 @@ class OperationTests(unittest.TestCase):
             'resource.released', 'operation.finished'])
         self.assertEqual(events[-1]['exit_code'], 7)
         self.assertEqual(events[-1]['outcome'], 'failed')
-        self.assertEqual(events[-1]['failure_kind'], 'unknown')
+        self.assertEqual(events[-1]['failure_kind'], 'product')
         self.assertGreaterEqual(events[2]['queue_duration_ms'], 0)
         self.assertGreaterEqual(events[3]['held_duration_ms'], 0)
         with SlotLease(self.root / 'slots', 'fixture', 1):

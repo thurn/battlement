@@ -175,7 +175,13 @@ class Operation:
         elif error is not None:
             outcome = 'failed'
             code = getattr(error, 'returncode', None)
+        if isinstance(error, (OSError, subprocess.TimeoutExpired)):
+            failure_kind = 'infrastructure'
+        elif error is not None:
+            failure_kind = 'product'
+        else:
+            failure_kind = None
         self.finish(outcome, code, error_type=type(error).__name__ if error else None,
-                    failure_kind='infrastructure' if isinstance(error, OSError) else 'unknown' if error else None)
+                    failure_kind=failure_kind)
         if self.token is not None:
             _current.reset(self.token)

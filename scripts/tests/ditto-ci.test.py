@@ -127,6 +127,7 @@ def main() -> None:
             "FAKE_EXPECTED_CACHE": str(root / "cache"),
             "FAKE_RUN_ROOT": str(root / "runs"),
             "FAKE_PUBLISH_LOG": str(root / "published"),
+            "BATTLEMENT_LOG_ROOT": str(root / "operation-logs"),
         })
 
         passed = run(["sample", "basic"], environment)
@@ -173,6 +174,23 @@ def main() -> None:
             for scenario in suite["scenarios"]
             for step in scenario["steps"]
         )
+        gate_invocation = artifact_root(gated).name
+        operation_events = [
+            json.loads(line)
+            for path in (root / "operation-logs/operations").glob("**/*.jsonl")
+            for line in path.read_text().splitlines()
+        ]
+        native_start = next(
+            event for event in operation_events
+            if event.get("event") == "operation.started"
+            and event.get("metadata", {}).get("ditto_ci_invocation_id") == gate_invocation
+        )
+        child_processes = [
+            event for event in operation_events
+            if event.get("event") == "process.started"
+            and event.get("operation_id") == native_start["operation_id"]
+        ]
+        assert len(child_processes) == 6
 
         environment["FAKE_SLEEP"] = "0.2"
         gated = run(["gate"], environment)

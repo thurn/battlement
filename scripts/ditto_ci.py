@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import contextvars
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,8 @@ import uuid
 
 import ditto_evidence
 import ditto_replay
+import operation_log
+import process_identity
 from typing import Any
 
 
@@ -64,8 +67,18 @@ def command(
         process_options = {"process_group": 0}
     process = subprocess.Popen(
         arguments, cwd=REPOSITORY_ROOT, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, text=True, env=environment, **process_options,
+        stderr=subprocess.PIPE, text=True,
+        env=operation_log.child_environment(environment), **process_options,
     )
+    observed = process_identity.identity(process.pid)
+    operation = operation_log.current()
+    started = time.monotonic_ns()
+    if operation:
+        operation.event(
+            "process.started", process=observed, executable=Path(arguments[0]).name,
+            containment={"kind": "process-group", "leader": observed},
+        )
+    timeout_error = None
     try:
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -75,9 +88,18 @@ def command(
         except subprocess.TimeoutExpired:
             terminate_process_group(process, force=True)
             stdout, stderr = process.communicate()
-        raise subprocess.TimeoutExpired(
+        timeout_error = subprocess.TimeoutExpired(
             arguments, timeout, output=stdout, stderr=stderr
         )
+    finally:
+        if operation:
+            operation.event(
+                "process.finished", process=observed, exit_code=process.returncode,
+                duration_ms=round((time.monotonic_ns() - started) / 1_000_000),
+                timed_out=timeout_error is not None,
+            )
+    if timeout_error:
+        raise timeout_error
     result = subprocess.CompletedProcess(arguments, process.returncode, stdout, stderr)
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
@@ -320,7 +342,9 @@ def gate() -> None:
     failures = []
     with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
         pending = {
-            executor.submit(execute_sample, sample, retain=False): sample
+            executor.submit(
+                contextvars.copy_context().run, execute_sample, sample, retain=False,
+            ): sample
             for sample in SAMPLES
         }
         for future in as_completed(pending):
@@ -505,20 +529,39 @@ def main() -> None:
     subcommands.add_parser("publish")
     subcommands.add_parser("gate")
     arguments = parser.parse_args()
-    identity = ditto_evidence.begin(INVOCATION_ROOT, INVOCATION_ID, REPOSITORY_ROOT, arguments.command)
-    status = "failed"
-    try:
-        dispatch(arguments)
-        status = "passed"
-    except SystemExit as error:
-        status = "passed" if error.code in (None, 0) else "failed"
-        raise
-    except KeyboardInterrupt:
-        status = "canceled"
-        raise
-    finally:
-        evidence = ditto_evidence.finish(INVOCATION_ROOT, identity, status)
-        print(f"DITTO_CI_EVIDENCE={evidence}", flush=True)
+    with operation_log.Operation(
+        REPOSITORY_ROOT,
+        "Native validation",
+        metadata={
+            "ditto_ci_invocation_id": INVOCATION_ID,
+            "command": arguments.command,
+            "artifact_root": str(INVOCATION_ROOT),
+        },
+    ) as operation:
+        identity = ditto_evidence.begin(
+            INVOCATION_ROOT, INVOCATION_ID, REPOSITORY_ROOT, arguments.command,
+        )
+        operation.event(
+            "preparation.inputs", ditto_ci_invocation_id=INVOCATION_ID,
+            source_manifest_sha256=identity.get("source_index_digest"),
+        )
+        status = "failed"
+        try:
+            dispatch(arguments)
+            status = "passed"
+        except SystemExit as error:
+            status = "passed" if error.code in (None, 0) else "failed"
+            raise
+        except KeyboardInterrupt:
+            status = "canceled"
+            raise
+        finally:
+            evidence = ditto_evidence.finish(INVOCATION_ROOT, identity, status)
+            operation.event(
+                "artifact.published", artifact_kind="ditto-invocation",
+                invocation_id=INVOCATION_ID, evidence_path=str(evidence), status=status,
+            )
+            print(f"DITTO_CI_EVIDENCE={evidence}", flush=True)
 
 
 def dispatch(arguments: argparse.Namespace) -> None:

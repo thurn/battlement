@@ -44,6 +44,16 @@ def main(arguments: argparse.Namespace) -> Path:
     sessions = _load_sessions(arguments, records, children)
     ci_spans, ci_warnings = perf_sources.read_ci_traces(perf_log.configured_log_root())
     warnings.extend(ci_warnings)
+    known_operations = {}
+    for span in ci_spans:
+        if span.id.startswith("ci-run:"):
+            known_operations[span.id.removeprefix("ci-run:")] = span.id
+        elif span.id.startswith("ci-step:"):
+            known_operations[span.id.removeprefix("ci-step:")] = span.id
+    operation_spans, operation_warnings = perf_sources.read_operation_traces(
+        perf_log.configured_log_root(), known_operations,
+    )
+    warnings.extend(operation_warnings)
     tollgate_spans = []
     candidates = []
     if not arguments.no_tollgate:
@@ -51,9 +61,10 @@ def main(arguments: argparse.Namespace) -> Path:
             REPOSITORY_ROOT
         )
         warnings.extend(tollgate_warnings)
-    perf_analysis.correlate_activity(
+    machine_operations = perf_analysis.correlate_activity(
         sessions,
         ci_spans,
+        operation_spans,
         tollgate_spans,
         candidates,
         REPOSITORY_ROOT,
@@ -94,6 +105,7 @@ def main(arguments: argparse.Namespace) -> Path:
         },
         "repository_url": repository_url,
         "warnings": warnings,
+        "machine_operations": [span.as_dict() for span in machine_operations],
         "aggregate": perf_analysis.aggregate_reports(session_reports, arguments.top),
         "sessions": session_reports,
     }
