@@ -37,6 +37,7 @@ use battlement_tooling::{
   },
   fingerprint::SourceManifest,
   macos_build::{MacosStartupIdentity, STARTUP_IDENTITY_FILE},
+  unity_lease::CompilerCapacityLease,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -205,6 +206,34 @@ fn independent_native_captures_overlap_with_distinct_ownership() {
     })
     .collect::<Vec<_>>();
   assert_ne!(ownership[0], ownership[1]);
+}
+
+#[test]
+fn player_startup_deadline_begins_after_machine_capacity_admission() {
+  let _guard = CAPTURE_TEST_GATE.lock().unwrap();
+  let run = tempfile::tempdir().unwrap();
+  let slots = run.path().join("resource-slots");
+  let first = CompilerCapacityLease::acquire(&slots).unwrap();
+  let second = CompilerCapacityLease::acquire(&slots).unwrap();
+  let path = run.path().to_owned();
+  let capture = thread::spawn(move || {
+    let build = FixtureBuild::new(true);
+    let launcher = FixtureLauncher::new(&path, json!({}), "complete");
+    capture_macos(
+      request(&build.handle, &path, 1),
+      &launcher,
+      Arc::new(PassMaterializer),
+      &AtomicBool::new(false),
+    )
+    .unwrap()
+  });
+  thread::sleep(Duration::from_millis(150));
+  assert!(!run.path().join("source-player.log").exists());
+  drop(first);
+  let outcome = capture.join().unwrap();
+  drop(second);
+  assert_eq!(outcome.exit_code, 0);
+  assert!(outcome.phases[0].duration_ms < 2_000);
 }
 
 struct FixtureLauncher {
@@ -426,6 +455,7 @@ fn request<'a>(build: &'a BuildHandle, run: &Path, count: u32) -> MacosCaptureRe
     },
     orchestration_path: run.join("orchestration.json"),
     player_log_source: run.join("source-player.log"),
+    resource_slots: run.join("resource-slots"),
     bail_after: None,
     timeouts: MacosCaptureTimeouts {
       launch: Duration::from_secs(2),

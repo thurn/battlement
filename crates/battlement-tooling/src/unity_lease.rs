@@ -10,7 +10,11 @@ use fs2::FileExt;
 
 const UNITY_EDITOR_SLOTS: usize = 2;
 const MACHINE_CAPACITY_SLOTS: usize = 6;
+const BROWSER_CAPACITY_UNITS: usize = 1;
+const BROWSER_SLOTS: usize = 2;
 const COMPILER_CAPACITY_UNITS: usize = 3;
+const NATIVE_PLAYER_CAPACITY_UNITS: usize = 2;
+const NATIVE_PLAYER_SLOTS: usize = 3;
 const UNITY_EDITOR_CAPACITY_UNITS: usize = 3;
 
 #[derive(Debug)]
@@ -24,6 +28,20 @@ pub struct CompilerCapacityLease {
   _capacity: SlotSet,
 }
 
+/// Machine and browser capacity held for one browser session.
+#[derive(Debug)]
+pub struct BrowserCapacityLease {
+  _capacity: SlotSet,
+  _browser: SlotSet,
+}
+
+/// Machine and player capacity held for one native player session.
+#[derive(Debug)]
+pub struct NativePlayerCapacityLease {
+  _capacity: SlotSet,
+  _player: SlotSet,
+}
+
 /// One machine-wide Unity Editor capacity slot shared with legacy Python CI.
 #[derive(Debug)]
 pub struct UnityEditorLease {
@@ -32,16 +50,81 @@ pub struct UnityEditorLease {
 }
 
 impl CompilerCapacityLease {
-  /// Waits for the capacity assigned to one three-job Cargo writer.
-  pub fn acquire(directory: &Path) -> Result<Self> {
-    Ok(Self {
-      _capacity: SlotSet::acquire(
+  /// Tries to reserve one three-job Cargo writer without waiting.
+  pub fn try_acquire(directory: &Path) -> Result<Option<Self>> {
+    Ok(
+      SlotSet::try_acquire(
         directory,
         "machine-heavy",
         MACHINE_CAPACITY_SLOTS,
         COMPILER_CAPACITY_UNITS,
-      )?,
-    })
+      )?
+      .map(|capacity| Self {
+        _capacity: capacity,
+      }),
+    )
+  }
+
+  /// Waits for the capacity assigned to one three-job Cargo writer.
+  pub fn acquire(directory: &Path) -> Result<Self> {
+    loop {
+      if let Some(lease) = Self::try_acquire(directory)? {
+        return Ok(lease);
+      }
+      thread::sleep(Duration::from_millis(100));
+    }
+  }
+}
+
+impl BrowserCapacityLease {
+  /// Tries to reserve one browser session without waiting.
+  pub fn try_acquire(directory: &Path) -> Result<Option<Self>> {
+    Ok(
+      try_bounded_resource(directory, BROWSER_CAPACITY_UNITS, "browser", BROWSER_SLOTS)?.map(
+        |(capacity, browser)| Self {
+          _capacity: capacity,
+          _browser: browser,
+        },
+      ),
+    )
+  }
+
+  /// Waits until one bounded browser session can start.
+  pub fn acquire(directory: &Path) -> Result<Self> {
+    loop {
+      if let Some(lease) = Self::try_acquire(directory)? {
+        return Ok(lease);
+      }
+      thread::sleep(Duration::from_millis(100));
+    }
+  }
+}
+
+impl NativePlayerCapacityLease {
+  /// Tries to reserve one native player session without waiting.
+  pub fn try_acquire(directory: &Path) -> Result<Option<Self>> {
+    Ok(
+      try_bounded_resource(
+        directory,
+        NATIVE_PLAYER_CAPACITY_UNITS,
+        "native-player",
+        NATIVE_PLAYER_SLOTS,
+      )?
+      .map(|(capacity, player)| Self {
+        _capacity: capacity,
+        _player: player,
+      }),
+    )
+  }
+
+  /// Waits until one bounded native player session can start.
+  pub fn acquire(directory: &Path) -> Result<Self> {
+    loop {
+      if let Some(lease) = Self::try_acquire(directory)? {
+        return Ok(lease);
+      }
+      thread::sleep(Duration::from_millis(100));
+    }
   }
 }
 
@@ -111,15 +194,6 @@ impl SlotSet {
     }
     Ok(None)
   }
-
-  fn acquire(directory: &Path, name: &str, count: usize, units: usize) -> Result<Self> {
-    loop {
-      if let Some(lease) = Self::try_acquire(directory, name, count, units)? {
-        return Ok(lease);
-      }
-      thread::sleep(Duration::from_millis(100));
-    }
-  }
 }
 
 impl Drop for SlotSet {
@@ -128,4 +202,22 @@ impl Drop for SlotSet {
       let _ = FileExt::unlock(file);
     }
   }
+}
+
+fn try_bounded_resource(
+  directory: &Path,
+  capacity_units: usize,
+  name: &str,
+  count: usize,
+) -> Result<Option<(SlotSet, SlotSet)>> {
+  let Some(capacity) = SlotSet::try_acquire(
+    directory,
+    "machine-heavy",
+    MACHINE_CAPACITY_SLOTS,
+    capacity_units,
+  )?
+  else {
+    return Ok(None);
+  };
+  Ok(SlotSet::try_acquire(directory, name, count, 1)?.map(|resource| (capacity, resource)))
 }

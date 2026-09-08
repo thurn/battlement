@@ -11,7 +11,9 @@ use battlement_tooling::{
   discovery::{DiscoveryRequest, HostDiscovery},
   doctor::{CheckCategory, CheckStatus, DoctorReport, DoctorRequest},
   host::{FilesystemOperation, Host, OperatingSystem},
-  unity_lease::{CompilerCapacityLease, UnityEditorLease},
+  unity_lease::{
+    BrowserCapacityLease, CompilerCapacityLease, NativePlayerCapacityLease, UnityEditorLease,
+  },
 };
 use tempfile::TempDir;
 
@@ -228,6 +230,27 @@ fn compiler_and_editor_share_the_bounded_machine_budget() {
       .is_some()
   );
   drop(editor);
+}
+
+#[test]
+fn compiler_player_and_browser_count_their_actual_child_capacity() {
+  let temporary = TempDir::new().unwrap();
+  let compiler = CompilerCapacityLease::acquire(temporary.path()).unwrap();
+  let player = NativePlayerCapacityLease::acquire(temporary.path()).unwrap();
+  let browser = BrowserCapacityLease::acquire(temporary.path()).unwrap();
+  assert!(
+    BrowserCapacityLease::try_acquire(temporary.path())
+      .unwrap()
+      .is_none()
+  );
+  drop(browser);
+  assert!(
+    BrowserCapacityLease::try_acquire(temporary.path())
+      .unwrap()
+      .is_some()
+  );
+  drop(player);
+  drop(compiler);
 }
 
 #[test]

@@ -337,6 +337,7 @@ fn execute_inner(
     },
     orchestration_path: active.path().join("orchestration.json"),
     player_log_source: active.path().join(".player.log"),
+    resource_slots: discovery.caches.resource_slots.clone(),
     bail_after: options.bail_after,
     timeouts: MacosCaptureTimeouts {
       launch: Duration::from_millis(suite.timeouts.launch.as_millis()),

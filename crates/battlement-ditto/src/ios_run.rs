@@ -247,6 +247,7 @@ pub(crate) fn execute(
           .map(str::to_owned),
       },
       orchestration_path: active.path().join("orchestration.json"),
+      resource_slots: discovery.caches.resource_slots.clone(),
       bail_after: options.bail_after,
       timeouts: IosCaptureTimeouts {
         startup: Duration::from_millis(suite.timeouts.launch.as_millis()),

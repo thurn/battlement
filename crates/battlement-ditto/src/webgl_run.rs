@@ -174,6 +174,7 @@ pub(crate) fn execute(
       },
       orchestration_path: active.path().join("orchestration.json"),
       browser_log_source: browser_log_source.clone(),
+      resource_slots: discovery.caches.resource_slots.clone(),
       bail_after: options.bail_after,
       headless_command,
       timeouts: WebglCaptureTimeouts {

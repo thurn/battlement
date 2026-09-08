@@ -272,6 +272,7 @@ fn request<'a>(
     },
     orchestration_path: run.join("orchestration.json"),
     browser_log_source: run.join("browser.log"),
+    resource_slots: run.join("resource-slots"),
     bail_after: None,
     headless_command,
     timeouts: WebglCaptureTimeouts {

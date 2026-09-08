@@ -11,7 +11,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, ensure};
-use battlement_tooling::macos_build;
+use battlement_tooling::{macos_build, unity_lease::NativePlayerCapacityLease};
 
 use crate::{
   macos_capture::{MacosCaptureOutcome, MacosCaptureRequest, MacosPlayerLauncher},
@@ -39,6 +39,7 @@ pub(crate) struct WarmMacosPlayer {
   startup_report: StartupReport,
   player_log_source: std::path::PathBuf,
   timeouts: crate::macos_capture::MacosCaptureTimeouts,
+  _capacity: NativePlayerCapacityLease,
   _native_claim: NativeExecutionClaim,
 }
 
@@ -52,6 +53,7 @@ impl WarmMacosPlayer {
   ) -> Result<WarmLaunch> {
     let native_claim = request.native_execution.claim_capture()?;
     validate(&request)?;
+    let capacity = NativePlayerCapacityLease::acquire(&request.resource_slots)?;
     let player_session_id = uuid::Uuid::new_v4().to_string();
     let origin = Instant::now();
     let now = Arc::new(move || origin.elapsed().as_millis() as u64);
@@ -163,6 +165,7 @@ impl WarmMacosPlayer {
       startup_report: report,
       player_log_source: request.player_log_source,
       timeouts: request.timeouts,
+      _capacity: capacity,
       _native_claim: native_claim,
     };
     let outcome = player.finish_job(

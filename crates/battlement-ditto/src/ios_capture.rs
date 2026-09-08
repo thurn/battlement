@@ -14,6 +14,7 @@ use anyhow::{Context, Result, ensure};
 use battlement_tooling::{
   build_cache::BuildHandle,
   ios_build::{self, IosStartupIdentity},
+  unity_lease::NativePlayerCapacityLease,
 };
 use uuid::Uuid;
 
@@ -54,6 +55,7 @@ pub struct IosCaptureRequest<'a> {
   pub job: Job,
   pub requirements: PlayerSessionRequirements,
   pub orchestration_path: PathBuf,
+  pub resource_slots: PathBuf,
   pub bail_after: Option<u32>,
   pub timeouts: IosCaptureTimeouts,
   pub native_execution: Arc<NativeExecution>,
@@ -106,6 +108,7 @@ pub fn capture_ios(
   let _native_claim = request.native_execution.claim_capture()?;
   let identity = self::validate_build(&request)?;
   self::validate_timeouts(request.timeouts)?;
+  let _capacity = NativePlayerCapacityLease::acquire(&request.resource_slots)?;
   let player_session_id = Uuid::new_v4().to_string();
   let origin = Instant::now();
   let now = Arc::new(move || origin.elapsed().as_millis() as u64);
