@@ -327,9 +327,10 @@ from concurrent writers even when their result keys differ. Two identical
 misses produce one result; cancellation never publishes a passing marker.
 Release writer ownership before independent test execution where supported.
 
-Provide a trusted prose-only route through the existing CI/Tollgate entry
-points. An allowlisted plan edit selects document formatting and link checks,
-without Cargo, Unity, Ditto players, or browser games. Unknown files and mixed
+The trusted prose-only route through the existing CI/Tollgate entry points is
+limited to this file. It selects UTF-8, formatting, and local-link checks and
+publishes explicit evidence that native checks were not selected, without
+starting Cargo, Unity, Ditto players, or browser games. Unknown files and mixed
 changes retain their required checks. `AGENTS.md`, skills, configuration,
 generators, and fixtures are not ordinary prose.
 
