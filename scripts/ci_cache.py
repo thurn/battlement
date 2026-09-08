@@ -152,7 +152,6 @@ class CiCache:
         self.environment = environment
         self.enabled = enabled
         self.event = event
-        self._invocation_lease = None
 
     @contextmanager
     def invocation(self) -> Iterator[None]:
@@ -283,38 +282,50 @@ class CiCache:
         if not self.enabled:
             print(f"    {step}: CI Cache disabled", flush=True)
             self._emit("ci.cache_lookup", step=step, result="disabled")
-            function()
+            with self.invocation():
+                function()
             return True
         if self._has_unstaged_inputs(pathspecs):
             print(f"    {step}: CI Cache bypassed for unstaged inputs", flush=True)
             self._emit("ci.cache_lookup", step=step, result="bypassed")
-            function()
+            with self.invocation():
+                function()
             return True
         key = self._key(step, pathspecs)
         marker = self.cache_root / "entries" / step / f"{key}.json"
+        if self._hit(marker, step, key):
+            return False
         lock = self.cache_root / "locks" / step / f"{key}.lock"
         lock.parent.mkdir(parents=True, exist_ok=True)
         with lock.open("a+") as lease:
             lock_file(lease)
-            if self._valid_marker(marker, step, key):
-                print(f"    {step}: CI Cache hit {key[:12]}", flush=True)
+            if self._hit(marker, step, key):
+                return False
+            with self.invocation():
+                if self._hit(marker, step, key):
+                    return False
+                print(f"    {step}: CI Cache miss {key[:12]}", flush=True)
                 self._emit(
                     "ci.cache_lookup",
                     step=step,
-                    result="hit",
+                    result="miss",
                     cache_key=key,
                 )
-                return False
-            print(f"    {step}: CI Cache miss {key[:12]}", flush=True)
-            self._emit(
-                "ci.cache_lookup",
-                step=step,
-                result="miss",
-                cache_key=key,
-            )
-            function()
-            self._publish(marker, step, key)
-            return True
+                function()
+                self._publish(marker, step, key)
+                return True
+
+    def _hit(self, marker: Path, step: str, key: str) -> bool:
+        if not self._valid_marker(marker, step, key):
+            return False
+        print(f"    {step}: CI Cache hit {key[:12]}", flush=True)
+        self._emit(
+            "ci.cache_lookup",
+            step=step,
+            result="hit",
+            cache_key=key,
+        )
+        return True
 
     def _emit(self, event: str, **attributes: object) -> None:
         if self.event is None:

@@ -837,15 +837,14 @@ def run_ci(
                 "--", "--check",
             ],
         )
-    with ci_cache.invocation():
-        run_step(
-            "Lint Rust workspaces",
-            function=lambda: lint_rust_workspaces(sample_workspaces, ci_cache),
-        )
-        rust_test_seconds = run_step(
-            "Test Rust workspaces",
-            function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
-        )
+    run_step(
+        "Lint Rust workspaces",
+        function=lambda: lint_rust_workspaces(sample_workspaces, ci_cache),
+    )
+    rust_test_seconds = run_step(
+        "Test Rust workspaces",
+        function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
+    )
     reactant_cli_seconds = 0.0
     if full:
         reactant_cli_started = time.monotonic()
@@ -972,10 +971,9 @@ def run_ci(
         if full and platform.system() in {"Darwin", "Windows"}:
             def build_samples() -> None:
                 if platform.system() == "Windows":
-                    with ci_cache.invocation():
-                        ditto_preparation_seconds[0] = build_standalone_samples(
-                            samples, ci_cache
-                        )
+                    ditto_preparation_seconds[0] = build_standalone_samples(
+                        samples, ci_cache
+                    )
                     return
                 ditto_preparation_seconds[0] = build_standalone_samples(
                     samples, ci_cache, ditto_builds

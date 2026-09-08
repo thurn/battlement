@@ -9,6 +9,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from unittest.mock import patch
 
 
@@ -69,6 +71,8 @@ def main() -> None:
             for event, attributes in events
             if event == "ci.cache_lookup"
         ] == ["miss", "hit"]
+        _verify_hit_does_not_wait_for_writer(cache, cache_root, calls)
+        _verify_concurrent_miss_publishes_once(repository, cache_root, root / "calls")
 
         replica = root / "replica"
         subprocess.run(["git", "clone", "--quiet", str(repository), str(replica)], check=True)
@@ -178,6 +182,62 @@ def _verify_chrome_clone_pruning(root: Path) -> None:
     assert old_open.is_dir()
     assert recent.is_dir()
     assert unrelated.is_dir()
+
+
+def _verify_hit_does_not_wait_for_writer(
+    cache: CiCache, cache_root: Path, calls: list[str]
+) -> None:
+    lock = cache_root / "locks/invocation.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    acquired = threading.Event()
+    release = threading.Event()
+
+    def hold_writer() -> None:
+        with lock.open("a+") as lease:
+            ci_cache.lock_file(lease)
+            acquired.set()
+            release.wait(5)
+            ci_cache.unlock_file(lease)
+
+    writer = threading.Thread(target=hold_writer)
+    writer.start()
+    assert acquired.wait(1)
+    started = time.monotonic()
+    assert not cache.run("fixture", ("included.txt",), lambda: calls.append("blocked"))
+    assert time.monotonic() - started < 2
+    release.set()
+    writer.join()
+
+
+def _verify_concurrent_miss_publishes_once(
+    repository: Path, cache_root: Path, calls: Path
+) -> None:
+    source = """
+from pathlib import Path
+import sys
+import time
+sys.path.insert(0, sys.argv[1])
+from ci_cache import CiCache
+repository, cache_root, calls = map(Path, sys.argv[2:])
+cache = CiCache(repository, cache_root, {'toolchain': 'fixture'})
+def execute():
+    time.sleep(0.25)
+    with calls.open('a') as output:
+        output.write('executed\\n')
+cache.run('parallel', ('included.txt',), execute)
+"""
+    arguments = [
+        sys.executable,
+        "-c",
+        source,
+        str(REPOSITORY_ROOT / "scripts"),
+        str(repository),
+        str(cache_root),
+        str(calls),
+    ]
+    children = [subprocess.Popen(arguments) for _ in range(2)]
+    assert all(child.wait(timeout=5) == 0 for child in children)
+    assert calls.read_text().splitlines() == ["executed"]
 
 
 def _verify_maintenance_cadence(cache: CiCache) -> None:
