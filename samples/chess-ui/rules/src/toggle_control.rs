@@ -50,6 +50,7 @@ pub struct ToggleControl {
 impl Component for ToggleControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let heartbeat = crate::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     let (burst_generation, on_change) = control_effects::use_burst_callback(self.on_change.clone());
     let (label, checkbox) = use_control_label().bind_with(|label_name| {
@@ -113,7 +114,7 @@ impl Component for ToggleControl {
                   )
                   .paint(self::surface_paint())
                   .initial(false)
-                  .animate(self::surface_target(interaction.state))
+                  .animate(heartbeat.apply(self::surface_target(interaction.state)))
                   .before_all(control_effects::checkbox_burst(
                     burst_generation,
                     self.checked,

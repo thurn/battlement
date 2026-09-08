@@ -79,7 +79,7 @@ screenshot = { name = "native-streaks-reduced-motion", max_changed_percent = 0.0
 
 [[scenarios]]
 name = "complete chess ui"
-motion = "instant"
+motion = "controlled"
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }

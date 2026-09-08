@@ -62,7 +62,13 @@ impl Component for ArcadeRouteTransition {
         set_has_navigated,
         set_reduce_motion,
       }))
-      .child(self.children.render())
+      .child(
+        MotionConfig::new(self.children.render()).reduced_motion(if reduce_motion {
+          ReducedMotion::Always
+        } else {
+          ReducedMotion::User
+        }),
+      )
   }
 }
 

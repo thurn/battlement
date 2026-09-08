@@ -104,6 +104,16 @@ pub struct MotionValueDescriptor {
   pub source: MotionValueSource,
 }
 
+/// How a graph value participates in a host property.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum MotionBindingComposition {
+  /// Replaces the property with the graph sample.
+  #[default]
+  Replace,
+  /// Multiplies scale after local style and interaction animation.
+  Compose,
+}
+
 /// One host property driven directly by a graph value.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MotionValueBinding {
@@ -111,6 +121,9 @@ pub struct MotionValueBinding {
   pub property: MotionProperty,
   /// Value whose shape must match the property catalog.
   pub value_id: ObjectId,
+  /// Relationship to the host's local style and animation.
+  #[serde(default)]
+  pub composition: MotionBindingComposition,
 }
 
 /// Explicit replaceable event requested for one value.
@@ -333,6 +346,11 @@ pub fn validate_motion_graph(
   }
   let mut properties = HashSet::new();
   for binding in bindings {
+    if binding.composition == MotionBindingComposition::Compose
+      && binding.property != MotionProperty::Scale
+    {
+      return Err("graph composition supports scale factors".to_owned());
+    }
     if !by_id.contains_key(&binding.value_id) {
       return Err("motion-value binding references an unavailable value".to_owned());
     }

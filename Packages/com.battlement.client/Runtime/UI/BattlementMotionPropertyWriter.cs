@@ -142,6 +142,9 @@ namespace Battlement.UI
                     and not MotionProperty.Visibility;
 
         public static MotionValue Read(VisualElement target, MotionProperty property) =>
+            BattlementMotionContributions.Base(target, property) ?? ReadRendered(target, property);
+
+        internal static MotionValue ReadRendered(VisualElement target, MotionProperty property) =>
             property switch
             {
                 MotionProperty.Opacity => Scalar(
@@ -420,7 +423,22 @@ namespace Battlement.UI
         public static MotionValue ReadNativeBackgroundColor(VisualElement target) =>
             Color(Inline(target.style.backgroundColor, target.resolvedStyle.backgroundColor));
 
-        public static void Write(VisualElement target, MotionProperty property, MotionValue value)
+        public static void Write(
+            VisualElement target,
+            MotionProperty property,
+            MotionValue value
+        ) =>
+            WriteRendered(
+                target,
+                property,
+                BattlementMotionContributions.UpdateBase(target, property, value)
+            );
+
+        internal static void WriteRendered(
+            VisualElement target,
+            MotionProperty property,
+            MotionValue value
+        )
         {
             if (value is MotionValue.Scalar scalar)
             {
@@ -546,14 +564,21 @@ namespace Battlement.UI
                 target.style.unitySliceTop = checked((int)Math.Round(number));
             else if (property == MotionProperty.UnityTextOutlineWidth)
                 target.style.unityTextOutlineWidth = number;
-            else if (property == MotionProperty.ScaleX)
-                target.style.scale = new Scale(
-                    new UnityEngine.Vector2(number, target.resolvedStyle.scale.value.y)
+            else if (property is MotionProperty.ScaleX or MotionProperty.ScaleY)
+            {
+                var scale = (MotionValue.Vector2)Read(target, MotionProperty.Scale);
+                Write(
+                    target,
+                    MotionProperty.Scale,
+                    new MotionValue.Vector2(
+                        new[]
+                        {
+                            property == MotionProperty.ScaleX ? value : scale.Value[0],
+                            property == MotionProperty.ScaleY ? value : scale.Value[1],
+                        }
+                    )
                 );
-            else if (property == MotionProperty.ScaleY)
-                target.style.scale = new Scale(
-                    new UnityEngine.Vector2(target.resolvedStyle.scale.value.x, number)
-                );
+            }
             else
                 throw Unsupported(property);
         }

@@ -24,6 +24,7 @@ pub struct EraseControl {
 impl Component for EraseControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let heartbeat = crate::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let scale = font_scale::use_font_scale();
     let (burst_generation, on_click) = control_effects::use_burst_callback(self.on_click.clone());
     let (label, button) = use_control_label()
@@ -77,7 +78,7 @@ impl Component for EraseControl {
               )
               .paint(self::paint())
               .initial(false)
-              .animate(self::target(interaction.state))
+              .animate(heartbeat.apply(self::target(interaction.state)))
               .before_all(control_effects::button_burst(
                 burst_generation,
                 true,

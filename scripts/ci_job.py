@@ -258,7 +258,6 @@ def supervise(path: Path) -> int:
             invalidated = source_identity(repository) != job["key"]["source"]
         state = "inputs-invalidated" if invalidated else (
             "canceled" if canceled else "passed" if result == 0 else "failed")
-        update(path, state=state, exit_code=result, finished_at=utc_now(), child_process=None)
         operation.finish(state, result, handle_path=str(path))
         task_id = job["key"].get("task_id")
         if task_id:
@@ -272,6 +271,7 @@ def supervise(path: Path) -> int:
                 )
             except (OSError, ValueError):
                 pass
+        update(path, state=state, exit_code=result, finished_at=utc_now(), child_process=None)
     return result
 
 

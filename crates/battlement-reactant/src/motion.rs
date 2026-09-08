@@ -1,9 +1,10 @@
 //! Typed Motion authoring for Reactant hosts and forwarding components.
 
 use battlement::{
-  Color, Gradient, Length, MotionProperty, MotionPropertyTrack, MotionPropertyValue, MotionRepeat,
-  MotionRepeatType, MotionTargetDescriptor, MotionValue, ObjectId, Shadow, SpringConfiguration,
-  StepPosition, TransformOperation, TransitionDefinition, TransitionGenerator, Visibility,
+  Color, Gradient, Length, MotionBindingComposition, MotionProperty, MotionPropertyTrack,
+  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionTargetDescriptor, MotionValue,
+  ObjectId, Shadow, SpringConfiguration, StepPosition, TransformOperation, TransitionDefinition,
+  TransitionGenerator, Visibility,
 };
 
 use crate::{
@@ -164,6 +165,7 @@ pub(crate) struct StyleTargetEntry {
   pub(crate) values: Vec<MotionValue>,
   pub(crate) times: Option<Vec<f64>>,
   pub(crate) binding: Option<ErasedMotionValue>,
+  composition: MotionBindingComposition,
 }
 
 impl<T> Keyframes<T> {
@@ -204,7 +206,16 @@ impl StyleTarget {
 
   pub(crate) fn merge(mut self, value: Self) -> Self {
     for entry in value.entries {
-      self = self.set(entry.property, entry.values, entry.times);
+      if !entry.values.is_empty() {
+        self = self.set(entry.property, entry.values, entry.times);
+      }
+      if let Some(binding) = entry.binding {
+        self = if entry.composition == MotionBindingComposition::Compose {
+          self.compose_binding(entry.property, binding)
+        } else {
+          self.bind(entry.property, binding)
+        };
+      }
     }
     self
   }
@@ -312,6 +323,12 @@ impl StyleTarget {
   #[must_use]
   pub fn scale_value(self, value: TypedMotionValue<f32>) -> Self {
     self.bind(MotionProperty::Scale, value.erase())
+  }
+
+  /// Multiplies local scale and interaction animations by a shared graph value.
+  #[must_use]
+  pub fn scale_factor(self, value: TypedMotionValue<f32>) -> Self {
+    self.compose_binding(MotionProperty::Scale, value.erase())
   }
 
   /// Sets horizontal scale.
@@ -653,17 +670,22 @@ impl StyleTarget {
     values: Vec<MotionValue>,
     times: Option<Vec<f64>>,
   ) -> Self {
-    let entry = StyleTargetEntry {
+    let mut entry = StyleTargetEntry {
       property,
       values,
       times,
       binding: None,
+      composition: MotionBindingComposition::Replace,
     };
     if let Some(index) = self
       .entries
       .iter()
       .position(|value| value.property == property)
     {
+      if self.entries[index].composition == MotionBindingComposition::Compose {
+        entry.binding = self.entries[index].binding.clone();
+        entry.composition = MotionBindingComposition::Compose;
+      }
       self.entries[index] = entry;
     } else {
       self.entries.push(entry);
@@ -677,6 +699,7 @@ impl StyleTarget {
       values: Vec::new(),
       times: None,
       binding: Some(binding),
+      composition: MotionBindingComposition::Replace,
     };
     if let Some(index) = self
       .entries
@@ -690,12 +713,31 @@ impl StyleTarget {
     self
   }
 
+  fn compose_binding(mut self, property: MotionProperty, binding: ErasedMotionValue) -> Self {
+    if let Some(entry) = self
+      .entries
+      .iter_mut()
+      .find(|entry| entry.property == property)
+    {
+      entry.binding = Some(binding);
+      entry.composition = MotionBindingComposition::Compose;
+      return self;
+    }
+    self = self.bind(property, binding);
+    self
+      .entries
+      .last_mut()
+      .expect("binding entry exists")
+      .composition = MotionBindingComposition::Compose;
+    self
+  }
+
   fn target(&self, transition: Option<&Transition>) -> MotionTargetDescriptor {
     MotionTargetDescriptor {
       tracks: self
         .entries
         .iter()
-        .filter(|entry| entry.binding.is_none())
+        .filter(|entry| !entry.values.is_empty())
         .map(|entry| MotionPropertyTrack {
           property: entry.property,
           values: entry.values.clone(),
@@ -714,7 +756,7 @@ impl StyleTarget {
     self
       .entries
       .iter()
-      .filter(|entry| entry.binding.is_none())
+      .filter(|entry| !entry.values.is_empty())
       .map(|entry| MotionPropertyValue {
         property: entry.property,
         value: entry
@@ -737,6 +779,7 @@ impl StyleTarget {
           .map(|value| battlement::MotionValueBinding {
             property: entry.property,
             value_id: value.id(),
+            composition: entry.composition,
           })
       })
       .collect()
@@ -777,6 +820,13 @@ impl MotionTarget {
       transition_end: StyleTarget::new(),
       callbacks: MotionCallbacks::new(),
     }
+  }
+
+  /// Merges property targets and shared graph contributions while retaining timing.
+  #[must_use]
+  pub fn with_style(mut self, style: StyleTarget) -> Self {
+    self.style = self.style.merge(style);
+    self
   }
 
   /// Replaces timing for this target.

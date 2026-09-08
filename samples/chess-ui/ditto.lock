@@ -5,11 +5,11 @@ namespace = "battlement/chess-ui"
 profile = "macos"
 scenario = "complete chess ui"
 checkpoint = "main-menu"
-sha256 = "1c6687350044bcca9d6c0911393d018cfb3aff7f96c204408253e599a8ded4e0"
+sha256 = "52cb89a2a46a8906b805e4b31e034f974f9e9ad5460a971cd46e4019be548c5a"
 width = 1280
 height = 800
-size_bytes = 179354
-source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
+size_bytes = 177044
+source = "beb671f16e7dd7cfdae907f36b6f62b82a1a9f036c64bb2e4eb0c4ac016f2d77"
 
 [[baselines]]
 profile = "macos"
@@ -25,21 +25,21 @@ source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks-finished"
-sha256 = "2fc1f21a5dc3e045b81ac506899711aa7fe459789a6cfaa87c36c2cb99a4c639"
+sha256 = "c9bc87a40a68077a606319c57b90c50ba42cb1463718cc6eb30d747d59fb19d9"
 width = 1280
 height = 800
-size_bytes = 179604
-source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
+size_bytes = 179538
+source = "beb671f16e7dd7cfdae907f36b6f62b82a1a9f036c64bb2e4eb0c4ac016f2d77"
 
 [[baselines]]
 profile = "macos"
 scenario = "native action streaks"
 checkpoint = "native-streaks-reduced-motion"
-sha256 = "e43c47e2710262ba7f82a9f5408b6182b0bc11f66033e2f880627e6623a6f7d2"
+sha256 = "723126ec2220408f427383155ec6bc92e6b9aee0d96a157d9485c6ef86cf46c5"
 width = 1280
 height = 800
-size_bytes = 159218
-source = "5505b9809f5ff2343471fc74000c7079ab12f11af74aa2e19a2241b4ca81d190"
+size_bytes = 159739
+source = "beb671f16e7dd7cfdae907f36b6f62b82a1a9f036c64bb2e4eb0c4ac016f2d77"
 
 [[baselines]]
 profile = "macos"

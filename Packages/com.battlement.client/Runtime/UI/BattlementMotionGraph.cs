@@ -72,6 +72,11 @@ namespace Battlement.UI
             {
                 if (!ids.Contains(binding.ValueId.Value))
                     throw Invalid("Motion-value binding references an unavailable value.");
+                if (
+                    binding.Composition == MotionBindingComposition.Compose
+                    && binding.Property != MotionProperty.Scale
+                )
+                    throw Invalid("Graph composition supports scale factors.");
                 if (!properties.Add(binding.Property))
                     throw Invalid("Motion-value bindings repeat a host property.");
                 if (!BattlementMotionPropertyWriter.Supports(binding.Property))
@@ -94,18 +99,25 @@ namespace Battlement.UI
 
         public void Replace(MotionDescriptor descriptor, VisualElement target)
         {
+            if (registrations.TryGetValue(descriptor.DescriptorId.Value, out Registration previous))
+                ClearContributions(previous);
             registrations[descriptor.DescriptorId.Value] = new Registration(descriptor, target);
             Rebuild();
         }
 
         public void Remove(ObjectId descriptorId)
         {
-            if (registrations.Remove(descriptorId.Value))
+            if (registrations.Remove(descriptorId.Value, out Registration previous))
+            {
+                ClearContributions(previous);
                 Rebuild();
+            }
         }
 
         public void Clear()
         {
+            foreach (Registration registration in registrations.Values)
+                ClearContributions(registration);
             registrations.Clear();
             nodes.Clear();
             playbacks.Clear();
@@ -303,6 +315,20 @@ namespace Battlement.UI
             )
             {
                 NodeState node = nodes[binding.ValueId.Value];
+                if (binding.Composition == MotionBindingComposition.Compose)
+                {
+                    MotionValue contribution =
+                        reducedMotion(registration.Descriptor)
+                        && BattlementMotionPropertyWriter.IsSpatial(binding.Property)
+                            ? ReducedValue(registration.Descriptor, binding.Property)
+                            : Adapt(binding.Property, node.SnapshotValue());
+                    BattlementMotionContributions.Set(
+                        registration.Target,
+                        binding.Property,
+                        contribution
+                    );
+                    continue;
+                }
                 if (!reducedMotion(registration.Descriptor) && node.TryScalar(out double scalar))
                 {
                     BattlementMotionPropertyWriter.WriteAdaptedScalar(
@@ -319,6 +345,16 @@ namespace Battlement.UI
                         : Adapt(binding.Property, node.SnapshotValue());
                 BattlementMotionPropertyWriter.Write(registration.Target, binding.Property, value);
             }
+        }
+
+        private static void ClearContributions(Registration registration)
+        {
+            foreach (
+                MotionValueBinding binding in registration.Descriptor.ValueBindings
+                    ?? Array.Empty<MotionValueBinding>()
+            )
+                if (binding.Composition == MotionBindingComposition.Compose)
+                    BattlementMotionContributions.Remove(registration.Target, binding.Property);
         }
 
         private static MotionValue ReducedValue(
@@ -582,7 +618,8 @@ namespace Battlement.UI
             public bool Compatible(MotionValueDescriptor descriptor) =>
                 Descriptor.Source.GetType() == descriptor.Source.GetType();
 
-            public bool Matches(MotionValueDescriptor descriptor) => Descriptor == descriptor;
+            public bool Matches(MotionValueDescriptor descriptor) =>
+                MotionGraphDefinitionEquality.Same(Descriptor, descriptor);
 
             public bool ShouldEvaluate(IReadOnlyDictionary<Guid, NodeState> graph)
             {

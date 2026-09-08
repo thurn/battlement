@@ -37,6 +37,7 @@ pub struct VolumeControl {
 impl Component for VolumeControl {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let heartbeat = crate::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     let burst = control_effects::use_slider_burst(self.on_change.clone());
     let (label, slider) = use_control_label().bind_with(|name| {
@@ -65,6 +66,7 @@ impl Component for VolumeControl {
           .direction(FlexDirection::Row)
           .gap(18.0)
           .name("volume-control")
+          .animate(heartbeat.apply(battlement_reactant::prelude::StyleTarget::new()))
           .style(
             Style::new()
               .position(Position::Relative)

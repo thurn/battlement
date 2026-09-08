@@ -1,6 +1,8 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Battlement
 {
@@ -68,8 +70,19 @@ namespace Battlement
         MotionValueSource Source
     );
 
+    /// <summary>How a graph value participates in a host property.</summary>
+    public enum MotionBindingComposition
+    {
+        Replace,
+        Compose,
+    }
+
     /// <summary>One host property driven directly by a graph value.</summary>
-    public sealed record MotionValueBinding(MotionProperty Property, ObjectId ValueId);
+    public sealed record MotionValueBinding(
+        MotionProperty Property,
+        ObjectId ValueId,
+        MotionBindingComposition Composition = MotionBindingComposition.Replace
+    );
 
     /// <summary>Explicit replaceable event requested for one value.</summary>
     public enum MotionValueEventKind
@@ -188,4 +201,98 @@ namespace Battlement
 
     /// <summary>Addressed animation-scope operation.</summary>
     public sealed record MotionScopeOperation(ObjectId ScopeId, MotionScopeCommand Command);
+
+    internal static class MotionGraphDefinitionEquality
+    {
+        public static bool Same(MotionValueDescriptor a, MotionValueDescriptor b) =>
+            a.ValueId == b.ValueId && Value(a.Initial, b.Initial) && Source(a.Source, b.Source);
+
+        private static bool Source(MotionValueSource a, MotionValueSource b) =>
+            (a, b) switch
+            {
+                (MotionValueSource.Range x, MotionValueSource.Range y) => x.Source == y.Source
+                    && x.Clamp == y.Clamp
+                    && Ranges(x, y),
+                (MotionValueSource.Expression x, MotionValueSource.Expression y) => x.Operation
+                    == y.Operation
+                    && x.Inputs.SequenceEqual(y.Inputs),
+                _ => a == b,
+            };
+
+        private static bool Ranges(MotionValueSource.Range a, MotionValueSource.Range b) =>
+            Sequence(a.Input, b.Input, Value) && Sequence(a.Output, b.Output, Value);
+
+        private static bool Value(MotionValue a, MotionValue b) =>
+            (a, b) switch
+            {
+                (MotionValue.Vector2 x, MotionValue.Vector2 y) => x.Value.SequenceEqual(y.Value),
+                (MotionValue.Vector3 x, MotionValue.Vector3 y) => x.Value.SequenceEqual(y.Value),
+                (MotionValue.TransformList x, MotionValue.TransformList y) => Sequence(
+                    x.Value,
+                    y.Value,
+                    Transform
+                ),
+                (MotionValue.FilterList x, MotionValue.FilterList y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                (MotionValue.ShadowList x, MotionValue.ShadowList y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                (MotionValue.Gradient x, MotionValue.Gradient y) => Gradient(x.Value, y.Value),
+                (MotionValue.ClipInset x, MotionValue.ClipInset y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                (MotionValue.ClipPolygon x, MotionValue.ClipPolygon y) => Sequence(
+                    x.Value,
+                    y.Value,
+                    (left, right) => left.SequenceEqual(right)
+                ),
+                (MotionValue.Discrete x, MotionValue.Discrete y) =>
+                    Newtonsoft.Json.Linq.JToken.DeepEquals(x.Value, y.Value),
+                _ => a == b,
+            };
+
+        private static bool Transform(TransformOperation a, TransformOperation b) =>
+            (a, b) switch
+            {
+                (TransformOperation.Translate x, TransformOperation.Translate y) =>
+                    x.Value.SequenceEqual(y.Value),
+                (TransformOperation.Rotate x, TransformOperation.Rotate y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                (TransformOperation.Skew x, TransformOperation.Skew y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                (TransformOperation.Scale x, TransformOperation.Scale y) => x.Value.SequenceEqual(
+                    y.Value
+                ),
+                _ => false,
+            };
+
+        private static bool Gradient(Gradient a, Gradient b) =>
+            (a, b) switch
+            {
+                (Battlement.Gradient.Linear x, Battlement.Gradient.Linear y) => x.Angle == y.Angle
+                    && x.Stops.SequenceEqual(y.Stops),
+                (Battlement.Gradient.Radial x, Battlement.Gradient.Radial y) =>
+                    x.Center.SequenceEqual(y.Center)
+                        && x.Radius.SequenceEqual(y.Radius)
+                        && x.Stops.SequenceEqual(y.Stops),
+                _ => false,
+            };
+
+        private static bool Sequence<T>(
+            IReadOnlyList<T> a,
+            IReadOnlyList<T> b,
+            Func<T, T, bool> same
+        )
+        {
+            if (a.Count != b.Count)
+                return false;
+            for (int index = 0; index < a.Count; index++)
+                if (!same(a[index], b[index]))
+                    return false;
+            return true;
+        }
+    }
 }

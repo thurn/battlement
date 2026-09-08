@@ -576,6 +576,14 @@ where
   self::use_context_value(ContextIdentity::of::<T>(), context::read::<T>)
 }
 
+/// Returns the nearest provided value, or `None` outside its provider.
+pub fn use_optional_context<T>() -> Option<T>
+where
+  T: Clone + PartialEq + 'static,
+{
+  self::use_context_value(ContextIdentity::of::<T>(), context::read_optional::<T>)
+}
+
 /// Returns the nearest value for `T` or panics when none exists.
 pub fn use_required_context<T>() -> T
 where

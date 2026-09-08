@@ -1,105 +1,70 @@
-//! Audio-clocked two-hit pulse for completed arcade controls.
+//! Shared audio-native pulse composed directly into control hosts.
 
-use crate::background_music::{
-  BackgroundMusicContext, BackgroundMusicStatus, use_background_music,
-};
-use battlement::{Color, LengthUnits, Position, Scale, Style};
-use battlement_reactant::{paint::PaintStyle, prelude::*};
+use std::time::Duration;
+
+use battlement_reactant::{hooks, motion_value::MotionValue, prelude::*};
+
+use crate::background_music::{BackgroundMusicContext, BackgroundMusicStatus};
 
 const HEARTBEAT_PERIOD: f64 = 60.0 / 56.0;
 const HEARTBEAT_SECOND_HIT: f64 = 0.133_93;
 const HEARTBEAT_PHASE: f64 = 1.04;
-const HEARTBEAT_SAMPLES: u32 = 96;
 
-/// Applies the source two-hit heartbeat using the shared native audio clock.
-#[builder]
-pub struct MusicHeartbeat {
-  #[builder(required, into)]
-  children: Children,
-  reduced_motion: bool,
+/// Shared native presentation values for the current song phase.
+#[derive(Clone, PartialEq)]
+pub struct Heartbeat {
+  scale: MotionValue<f32>,
 }
 
-impl Component for MusicHeartbeat {
-  fn render(&self) -> impl Render {
-    let music = use_background_music();
-    MotionConfig::new(self::surface(self, &music)).time_source(music.motion_time_source())
+/// Optional inherited heartbeat for controls that also work outside a music provider.
+pub struct ControlHeartbeat(Option<Heartbeat>);
+
+impl ControlHeartbeat {
+  /// Composes the beat after the control's own interaction target.
+  pub fn apply(&self, target: impl Into<MotionTarget>) -> MotionTarget {
+    let target = target.into();
+    match &self.0 {
+      Some(beat) => target.with_style(StyleTarget::new().scale_factor(beat.scale.clone())),
+      None => target,
+    }
   }
 }
 
-/// Returns the source heartbeat strength for an audio-ledger position.
-pub fn heartbeat_strength(current_time: f64) -> f32 {
-  let cycle_position = (current_time - HEARTBEAT_PHASE).rem_euclid(HEARTBEAT_PERIOD);
-  let second_offset = cycle_position - HEARTBEAT_SECOND_HIT;
-  let time_since_second_hit = if second_offset.abs() < 1e-9 {
-    0.0
-  } else {
-    second_offset.rem_euclid(HEARTBEAT_PERIOD)
-  };
-  let time_since_hit = cycle_position.min(time_since_second_hit);
-  if time_since_hit > 0.14 {
-    0.0
-  } else {
-    (f64::exp(-time_since_hit / 0.045) * (1.0 - time_since_hit / 0.14)) as f32
+/// Reads the shared beat while honoring the control's motion policy.
+pub fn use_control_heartbeat(reduced_motion: bool) -> ControlHeartbeat {
+  let music = hooks::use_optional_context::<BackgroundMusicContext>();
+  ControlHeartbeat(
+    music
+      .filter(|music| !reduced_motion && music.status == BackgroundMusicStatus::Playing)
+      .filter(|music| !music.muted && music.effective_volume > 0.0)
+      .map(|music| music.heartbeat),
+  )
+}
+
+/// Derives one two-hit envelope from absolute native audio time.
+pub fn use_heartbeat(audio_time: MotionValue<Duration>) -> Heartbeat {
+  let phase = use_motion_value(HEARTBEAT_PHASE as f32);
+  let second_hit = use_motion_value(HEARTBEAT_SECOND_HIT as f32);
+  let shifted = use_motion_expression(MotionExpression::seconds(audio_time).subtract(phase));
+  let first = use_motion_expression(MotionExpression::input(shifted).wrap(0.0, HEARTBEAT_PERIOD));
+  let shifted_second =
+    use_motion_expression(MotionExpression::input(first.clone()).subtract(second_hit));
+  let second =
+    use_motion_expression(MotionExpression::input(shifted_second).wrap(0.0, HEARTBEAT_PERIOD));
+  let elapsed = use_motion_expression(MotionExpression::input(first).minimum(second));
+  let decay =
+    use_motion_expression(MotionExpression::input(elapsed.clone()).exponential_decay(1.0 / 0.045));
+  let envelope = use_transform(
+    elapsed,
+    InputRange::new([0.0, 0.14]),
+    OutputRange::new([1.0, 0.0]),
+  );
+  let strength = use_motion_expression(MotionExpression::input(decay).multiply(envelope));
+  Heartbeat {
+    scale: use_transform(
+      strength,
+      InputRange::new([0.0, 1.0]),
+      OutputRange::new([1.0, 1.012]),
+    ),
   }
-}
-
-fn surface(component: &MusicHeartbeat, music: &BackgroundMusicContext) -> View {
-  let surface = View::new()
-    .name("music-heartbeat")
-    .style(
-      Style::new()
-        .position(Position::Relative)
-        .width(100.pct())
-        .height(100.pct())
-        .scale(Scale::uniform(1.0)),
-    )
-    .paint(
-      PaintStyle::new()
-        .background(Color::TRANSPARENT)
-        .paint_filter(self::filter(0.0)),
-    )
-    .child(MotionConfig::new(component.children.render()).time_source(MotionTimeSource::Unscaled));
-  if component.reduced_motion
-    || music.status != BackgroundMusicStatus::Playing
-    || music.muted
-    || music.master_volume == 0
-    || music.music_volume == 0
-  {
-    surface
-  } else {
-    surface.animation(self::heartbeat_animation())
-  }
-}
-
-fn heartbeat_animation() -> Animation {
-  let times = (0..=HEARTBEAT_SAMPLES)
-    .map(|index| f64::from(index) / f64::from(HEARTBEAT_SAMPLES))
-    .collect::<Vec<_>>();
-  let frames = times
-    .iter()
-    .map(|time| self::target(heartbeat_strength(*time * HEARTBEAT_PERIOD)))
-    .collect::<Vec<_>>();
-  Animation::new(Keyframes::new(frames).times(times))
-    .duration_secs(HEARTBEAT_PERIOD)
-    .ease(Easing::Linear)
-    .iterations(AnimationIterations::Forever)
-    .diagnostic_name("music-control-heartbeat")
-}
-
-fn target(strength: f32) -> StyleTarget {
-  StyleTarget::new()
-    .scale(1.0 + strength * 0.012)
-    .paint_filter(self::filter(strength))
-}
-
-fn filter(strength: f32) -> PaintFilterList {
-  PaintFilterList::default()
-    .brightness(1.0 + strength * 0.075)
-    .drop_shadow(PaintDropShadow::new(
-      0.0,
-      0.0,
-      strength * 7.0,
-      0.0,
-      Color::rgb8(91, 224, 255).with_alpha(f64::from(strength) * 0.34),
-    ))
 }

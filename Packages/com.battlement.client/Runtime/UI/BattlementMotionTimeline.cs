@@ -129,7 +129,8 @@ namespace Battlement.UI
                 MotionValueBinding binding in descriptor.ValueBindings
                     ?? Array.Empty<MotionValueBinding>()
             )
-                boundProperties.Add(binding.Property);
+                if (binding.Composition == MotionBindingComposition.Replace)
+                    boundProperties.Add(binding.Property);
             foreach (MotionSlotDescriptor slot in descriptor.Slots)
             {
                 if (slot.Layer is MotionLayer.Animate or MotionLayer.Exit)

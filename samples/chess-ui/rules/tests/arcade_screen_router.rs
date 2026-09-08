@@ -111,6 +111,77 @@ fn play_and_quit_reach_terminal_black() {
   });
 }
 
+#[test]
+fn menu_actions_pulse_from_music_and_respect_reduce_motion() {
+  self::with_render_stack(|| {
+    let mut client = self::client();
+    for name in ["play", "settings", "about", "quit", "music-indicator"] {
+      let host = if name == "music-indicator" {
+        "main-menu-music-indicator".to_owned()
+      } else {
+        format!("main-menu-action-{name}")
+      };
+      let container = self::named(&mut client, &host);
+      self::assert_music_pulse(&mut client, container, true);
+    }
+    self::click_semantic(&mut client, SemanticRole::Button, "Mute background music");
+    let play = self::named(&mut client, "main-menu-action-play");
+    self::assert_music_pulse(&mut client, play, false);
+    self::click_semantic(&mut client, SemanticRole::Button, "Enable background music");
+    self::assert_music_pulse(&mut client, play, true);
+    self::click_semantic(&mut client, SemanticRole::Button, "SETTINGS");
+    let late = self::semantic(&client, SemanticRole::Button, "RETURN");
+    self::assert_music_pulse(&mut client, late, true);
+    self::toggle(&mut client, "Reduce Motion");
+    self::assert_music_pulse(&mut client, late, false);
+    self::click_semantic(&mut client, SemanticRole::Button, "RETURN");
+    let play = self::named(&mut client, "main-menu-action-play");
+    self::assert_music_pulse(&mut client, play, false);
+  });
+}
+
+fn assert_music_pulse(client: &mut FakeClient<App>, root: ObjectId, enabled: bool) {
+  let mut pending = vec![root];
+  while let Some(id) = pending.pop() {
+    let ui = client.ui();
+    let element = ui.element(id);
+    if matches!(
+      element.name(),
+      Some("action-button" | "music-playback-indicator")
+    ) {
+      let properties = element.element().visual_element();
+      let Prop::Set(descriptor) = &properties.motion else {
+        assert!(!enabled, "playing controls must have a heartbeat");
+        return;
+      };
+      let composed = descriptor
+        .value_bindings
+        .iter()
+        .filter(|binding| binding.composition == battlement::MotionBindingComposition::Compose)
+        .collect::<Vec<_>>();
+      assert_eq!(composed.len(), if enabled { 1 } else { 0 });
+      if enabled {
+        assert!(descriptor.values.iter().any(|value| matches!(
+          value.source,
+          battlement::MotionValueSource::Time(battlement::MotionClockSource::Audio(_))
+        )));
+        assert!(
+          descriptor.value_subscriptions.is_empty(),
+          "presentation must not subscribe Rust to every frame"
+        );
+        assert!(
+          composed
+            .iter()
+            .any(|binding| binding.property == battlement::MotionProperty::Scale)
+        );
+      }
+      return;
+    }
+    pending.extend(element.children());
+  }
+  panic!("control must contain a production button host");
+}
+
 fn with_render_stack(scenario: fn()) {
   std::thread::Builder::new()
     .name("complete-chess-ui-render".to_owned())

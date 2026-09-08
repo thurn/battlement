@@ -2,7 +2,7 @@
 
 use crate::{
   background_music::{BackgroundMusicContext, BackgroundMusicStatus, use_background_music},
-  music_heartbeat::MusicHeartbeat,
+  music_heartbeat,
   setting_row::DISPLAY_FONT,
 };
 use battlement::{
@@ -24,13 +24,15 @@ pub struct MusicPlaybackIndicator {
 impl Component for MusicPlaybackIndicator {
   fn render(&self) -> impl Render {
     let music = use_background_music();
-    MusicHeartbeat::new()
-      .reduced_motion(self.reduced_motion)
-      .children(self::button(&music))
+    let heartbeat = music_heartbeat::use_control_heartbeat(self.reduced_motion);
+    self::button(&music, &heartbeat)
   }
 }
 
-fn button(music: &BackgroundMusicContext) -> impl Render {
+fn button(
+  music: &BackgroundMusicContext,
+  heartbeat: &music_heartbeat::ControlHeartbeat,
+) -> impl Render + use<> {
   Button::content(
     View::new()
       .style(
@@ -48,6 +50,7 @@ fn button(music: &BackgroundMusicContext) -> impl Render {
       )),
   )
   .host_name("music-playback-indicator")
+  .animate(heartbeat.apply(StyleTarget::new()))
   .semantic_name(SemanticName::Text(ls(if self::sound_enabled(music) {
     "Mute background music"
   } else {

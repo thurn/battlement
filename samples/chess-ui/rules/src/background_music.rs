@@ -5,6 +5,8 @@ use std::time::Duration;
 use battlement::{AudioClipAddress, ObjectId, object_id};
 use battlement_reactant::{application, context::ContextProvider, hooks, prelude::*};
 
+use crate::music_heartbeat::{self, Heartbeat};
+
 /// Address of the source application's looping background track.
 pub const BACKGROUND_MUSIC: AudioClipAddress =
   AudioClipAddress::from_static("chess-ui/audio/drag-and-dread");
@@ -37,8 +39,8 @@ pub struct BackgroundMusicContext {
   pub muted: bool,
   /// Current playback lifecycle state.
   pub status: BackgroundMusicStatus,
-  /// Latest host audio playhead sample.
-  pub playhead: Duration,
+  /// Shared presentation graph sampled directly from the audio playhead.
+  pub heartbeat: Heartbeat,
   app: AppHandle,
   audio: AudioPlayback,
   set_master_volume: StateSetter<u32>,
@@ -46,7 +48,6 @@ pub struct BackgroundMusicContext {
   set_mute_in_background: StateSetter<bool>,
   set_sound_muted: StateSetter<bool>,
   set_playing: StateSetter<bool>,
-  set_playhead: StateSetter<Duration>,
   playback_active: hooks::Ref<bool>,
 }
 
@@ -89,11 +90,6 @@ impl BackgroundMusicContext {
     self.set_sound_muted.set(muted);
   }
 
-  /// Returns the native audio clock shared by music-synchronized visuals.
-  pub fn motion_time_source(&self) -> MotionTimeSource {
-    MotionTimeSource::Audio(self.audio)
-  }
-
   fn output_volume(&self) -> f64 {
     if self.muted {
       0.0
@@ -134,14 +130,10 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
   let (mute_in_background, set_mute_in_background) = hooks::use_state(false);
   let (sound_muted, set_sound_muted) = hooks::use_state(false);
   let (playing, set_playing) = hooks::use_state(autoplay);
-  let (playhead, set_playhead) = hooks::use_state(Duration::ZERO);
   let playback_active = hooks::use_ref(false);
   let audio = AudioPlayback::new(PLAYBACK_ID);
   let audio_time = use_motion_time(MotionTimeSource::Audio(audio));
-  use_motion_value_event(audio_time, MotionValueEvent::AnimationFrame, {
-    let set_playhead = set_playhead.clone();
-    move |sample| set_playhead.set(sample)
-  });
+  let heartbeat = music_heartbeat::use_heartbeat(audio_time);
 
   let visible = !application.paused;
   let effective_volume = f64::from(master_volume) * f64::from(music_volume) / 10_000.0;
@@ -189,7 +181,7 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
     effective_volume,
     muted,
     status,
-    playhead,
+    heartbeat,
     app,
     audio,
     set_master_volume,
@@ -197,7 +189,6 @@ fn use_background_music_provider(autoplay: bool) -> BackgroundMusicContext {
     set_mute_in_background,
     set_sound_muted,
     set_playing,
-    set_playhead,
     playback_active,
   }
 }

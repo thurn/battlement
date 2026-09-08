@@ -52,6 +52,7 @@ impl Component for SelectControl {
   fn render(&self) -> impl Render {
     let font_scale = font_scale::use_font_scale();
     let interaction = use_interaction::use_interaction();
+    let heartbeat = crate::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let (trigger_burst, set_trigger_burst) = hooks::use_state(0_u32);
     let (open, set_open) = hooks::use_state(false);
     let (open_generation, set_open_generation) = hooks::use_state(0_u32);
@@ -245,7 +246,7 @@ impl Component for SelectControl {
                       ),
                   )
                   .initial(false)
-                  .animate(self::target(interaction.state))
+                  .animate(heartbeat.apply(self::target(interaction.state)))
                   .before_all(control_effects::button_burst(
                     trigger_burst,
                     true,

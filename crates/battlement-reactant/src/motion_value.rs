@@ -624,6 +624,46 @@ impl MotionExpression<f32> {
     }
   }
 
+  /// Reads seconds from a native clock value.
+  pub fn seconds(value: MotionValue<Duration>) -> Self {
+    Self {
+      operation: None,
+      inputs: vec![value.erase()],
+      marker: PhantomData,
+    }
+  }
+
+  /// Selects the lesser scalar input.
+  pub fn minimum(mut self, value: MotionValue<f32>) -> Self {
+    assert!(
+      self.operation.is_none(),
+      "motion expressions compose through graph values"
+    );
+    self.inputs.push(value.erase());
+    self.operation = Some(MotionExpressionOperation::Minimum);
+    self
+  }
+
+  /// Clamps the scalar to inclusive bounds.
+  pub fn clamp(mut self, min: f64, max: f64) -> Self {
+    assert!(
+      self.operation.is_none(),
+      "motion expressions compose through graph values"
+    );
+    self.operation = Some(MotionExpressionOperation::Clamp { min, max });
+    self
+  }
+
+  /// Computes `exp(-input * rate)` on the host.
+  pub fn exponential_decay(mut self, rate: f64) -> Self {
+    assert!(
+      self.operation.is_none(),
+      "motion expressions compose through graph values"
+    );
+    self.operation = Some(MotionExpressionOperation::ExponentialDecay { rate });
+    self
+  }
+
   /// Raises the input to `power`.
   pub fn pow(mut self, power: f64) -> Self {
     assert!(

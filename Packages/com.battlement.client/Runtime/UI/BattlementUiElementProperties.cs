@@ -680,8 +680,21 @@ namespace Battlement.UI
             );
             Apply(
                 value.Scale,
-                item => target.scale = BattlementUiStyleTransformProperties.ToUnity(item),
-                keyword => target.scale = keyword
+                item =>
+                    BattlementMotionPropertyWriter.Write(
+                        element,
+                        MotionProperty.Scale,
+                        new MotionValue.Vector2(new double[] { item.X, item.Y })
+                    ),
+                keyword =>
+                {
+                    BattlementMotionPropertyWriter.Write(
+                        element,
+                        MotionProperty.Scale,
+                        new MotionValue.Vector2(new double[] { 1, 1 })
+                    );
+                    target.scale = keyword;
+                }
             );
             Apply(value.Top, item => target.top = ToUnity(item), keyword => target.top = keyword);
             Apply(

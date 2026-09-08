@@ -3,7 +3,7 @@
 use crate::{
   action_skin, assets, control_effects,
   font_scale::{self, FontScale},
-  use_interaction,
+  music_heartbeat, use_interaction,
 };
 use battlement::{
   Align, Color, FlexDirection, ImageScaleMode, Length, LengthUnits, MotionProperty, PickingMode,
@@ -125,6 +125,7 @@ impl Component for ActionButton {
     interaction.state.reduced_motion |= self.reduced_motion;
     let font_scale = font_scale::use_font_scale();
     let (burst_generation, set_burst_generation) = hooks::use_state(0_u32);
+    let heartbeat = music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let particles = element_ref::use_element_ref();
     let native_burst = EventCallback::new({
       let particles = particles.clone();
@@ -209,7 +210,7 @@ impl Component for ActionButton {
             ),
         )
         .initial(false)
-        .animate(self::target(interaction.state))
+        .animate(heartbeat.apply(self::target(interaction.state)))
         .after_all(control_effects::shine(
           interaction.state.hovered || interaction.state.focus_visible,
           interaction.state.reduced_motion,

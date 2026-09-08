@@ -144,6 +144,7 @@ struct SettingsTabButton {
 impl Component for SettingsTabButton {
   fn render(&self) -> impl Render {
     let interaction = use_interaction::use_interaction();
+    let heartbeat = crate::music_heartbeat::use_control_heartbeat(interaction.state.reduced_motion);
     let font_scale = font_scale::use_font_scale();
     TabButton::new()
       .label(self.tab.label())
@@ -201,7 +202,7 @@ impl Component for SettingsTabButton {
           ))
           .paint(tabs_skin::paint(self.active))
           .initial(false)
-          .animate(self::target(self.active, interaction.state))
+          .animate(heartbeat.apply(self::target(self.active, interaction.state)))
           .child(
             TextElement::new(self.tab.label())
               .picking_mode(PickingMode::Ignore)

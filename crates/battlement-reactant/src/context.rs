@@ -93,6 +93,10 @@ where
   value
 }
 
+pub(crate) fn read_optional<T: Clone + 'static>() -> Option<T> {
+  self::provider_value(ContextIdentity::of::<T>())
+}
+
 pub(crate) fn read_required<T>() -> T
 where
   T: Clone + 'static,
