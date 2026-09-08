@@ -157,7 +157,6 @@ properties! {
   Color => ("color", Color, "linear-rgba", "white", Color, None, None),
   Cursor => ("cursor", Discrete, "cursor", "auto", Discrete, None, None),
   Display => ("display", Discrete, "keyword", "flex", Discrete, None, None),
-  Filter => ("filter", FilterList, "filter-list", "none", Structured, None, None),
   FlexBasis => ("flex_basis", Length, "calc", "auto", Length, ContainingWidth, Sum),
   FlexDirection => ("flex_direction", Discrete, "keyword", "column", Discrete, None, None),
   FlexGrow => ("flex_grow", Scalar, "number", "0", Numeric, None, Sum),

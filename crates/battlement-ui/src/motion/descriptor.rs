@@ -1220,21 +1220,6 @@ mod tests {
       .is_ok()
     );
     assert!(
-      track(MotionProperty::Filter, FilterFunction::Brightness(1.2))
-        .validate()
-        .is_err()
-    );
-    assert!(
-      track(MotionProperty::PaintFilter, FilterFunction::Saturate(1.2))
-        .validate()
-        .is_err()
-    );
-    assert!(
-      track(MotionProperty::Filter, FilterFunction::Blur(-1.0))
-        .validate()
-        .is_err()
-    );
-    assert!(
       track(
         MotionProperty::PaintFilter,
         FilterFunction::Brightness(-0.1)

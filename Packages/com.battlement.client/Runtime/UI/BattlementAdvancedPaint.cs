@@ -129,8 +129,6 @@ namespace Battlement.UI
                 WriteTexture(value, true);
             if (property == MotionProperty.UnityMaterial)
                 WriteMaterial(value);
-            if (property == MotionProperty.Filter && value is MotionValue.FilterList filters)
-                target.style.filter = NativeFilters(filters.Value);
             if (property == MotionProperty.ClipInset)
                 target.style.overflow = Overflow.Hidden;
             target.MarkDirtyRepaint();
@@ -613,63 +611,6 @@ namespace Battlement.UI
             TryValue(property, out MotionValue value) && value is MotionValue.Angle angle
                 ? checked((float)angle.Value)
                 : 0;
-
-        private static StyleList<FilterFunction> NativeFilters(
-            IReadOnlyList<UiFilterFunction> filters
-        )
-        {
-            var result = new List<FilterFunction>();
-            foreach (UiFilterFunction filter in filters)
-            {
-                FilterFunction converted = filter switch
-                {
-                    UiFilterFunction.Tint tint => Tint(tint.Value),
-                    UiFilterFunction.Blur blur => Function(FilterFunctionType.Blur, blur.Value),
-                    UiFilterFunction.Contrast contrast => Function(
-                        FilterFunctionType.Contrast,
-                        contrast.Value
-                    ),
-                    UiFilterFunction.HueRotate hue => Function(
-                        FilterFunctionType.HueRotate,
-                        hue.Value
-                    ),
-                    UiFilterFunction.Opacity opacity => Function(
-                        FilterFunctionType.Opacity,
-                        opacity.Value
-                    ),
-                    UiFilterFunction.Invert invert => Function(
-                        FilterFunctionType.Invert,
-                        invert.Value
-                    ),
-                    UiFilterFunction.Grayscale grayscale => Function(
-                        FilterFunctionType.Grayscale,
-                        grayscale.Value
-                    ),
-                    UiFilterFunction.Sepia sepia => Function(FilterFunctionType.Sepia, sepia.Value),
-                    _ => throw new BattlementUiException(
-                        CoreErrorCode.InvalidProperty,
-                        $"Motion filter {filter.GetType().Name} is unsupported "
-                            + "by the Unity adapter."
-                    ),
-                };
-                result.Add(converted);
-            }
-            return new StyleList<FilterFunction>(result);
-        }
-
-        private static FilterFunction Function(FilterFunctionType type, double value)
-        {
-            var result = new FilterFunction(type);
-            result.AddParameter(new FilterParameter(checked((float)value)));
-            return result;
-        }
-
-        private static FilterFunction Tint(Color value)
-        {
-            var result = new FilterFunction(FilterFunctionType.Tint);
-            result.AddParameter(new FilterParameter(ToUnityColor(value)));
-            return result;
-        }
 
         private FillGradient FillGradient(Gradient value, UnityRect rect) =>
             FillGradient(value, rect, PaintFilters());

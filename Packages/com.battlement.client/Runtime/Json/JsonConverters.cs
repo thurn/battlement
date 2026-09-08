@@ -1075,16 +1075,7 @@ namespace Battlement
                     ("Ratio", typeof(UiAspectRatio.Ratio))
                 ),
                 [typeof(UiFilterFunction)] = Fixed(
-                    ("Tint", typeof(UiFilterFunction.Tint)),
-                    ("Opacity", typeof(UiFilterFunction.Opacity)),
-                    ("Invert", typeof(UiFilterFunction.Invert)),
-                    ("Grayscale", typeof(UiFilterFunction.Grayscale)),
-                    ("Sepia", typeof(UiFilterFunction.Sepia)),
-                    ("Blur", typeof(UiFilterFunction.Blur)),
-                    ("Contrast", typeof(UiFilterFunction.Contrast)),
                     ("Brightness", typeof(UiFilterFunction.Brightness)),
-                    ("Saturate", typeof(UiFilterFunction.Saturate)),
-                    ("HueRotate", typeof(UiFilterFunction.HueRotate)),
                     ("DropShadow", typeof(UiFilterFunction.DropShadow))
                 ),
                 [typeof(ParentScene)] = Fixed(

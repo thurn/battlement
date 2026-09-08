@@ -70,13 +70,10 @@ impl Component for ValuesTimeControls {
         Color::rgba(0.95, 0.3, 0.55, 1.0),
       ]),
     );
-    let filters = use_transform(
+    let opacity = use_transform(
       source.clone(),
       InputRange::new([0.0, 1.0]),
-      OutputRange::new([
-        MotionFilterList::default().blur(0.0).contrast(0.7),
-        MotionFilterList::default().blur(3.0).contrast(1.4),
-      ]),
+      OutputRange::new([0.45_f32, 1.0]),
     );
     let transforms = use_transform(
       source.clone(),
@@ -223,7 +220,7 @@ impl Component for ValuesTimeControls {
             "COLOR",
             StyleTarget::new().background_color_value(color),
           ))
-          .child(probe("FILTER", StyleTarget::new().filter_value(filters)))
+          .child(probe("OPACITY", StyleTarget::new().opacity_value(opacity)))
           .child(probe(
             "TRANSFORM",
             StyleTarget::new().transform_list_value(transforms),

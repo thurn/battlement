@@ -442,30 +442,12 @@ namespace Battlement
 
     public sealed record UiTextShadow(float X, float Y, float BlurRadius, Color Color);
 
-    /// <summary>One standard UI Toolkit post-processing filter.</summary>
+    /// <summary>One filter evaluated only on Battlement-owned decorative paint.</summary>
     public abstract record UiFilterFunction
     {
         private UiFilterFunction() { }
 
-        public sealed record Tint(Color Value) : UiFilterFunction;
-
-        public sealed record Opacity(float Value) : UiFilterFunction;
-
-        public sealed record Invert(float Value) : UiFilterFunction;
-
-        public sealed record Grayscale(float Value) : UiFilterFunction;
-
-        public sealed record Sepia(float Value) : UiFilterFunction;
-
-        public sealed record Blur(float Value) : UiFilterFunction;
-
-        public sealed record Contrast(float Value) : UiFilterFunction;
-
         public sealed record Brightness(float Value) : UiFilterFunction;
-
-        public sealed record Saturate(float Value) : UiFilterFunction;
-
-        public sealed record HueRotate(float Value) : UiFilterFunction;
 
         public sealed record DropShadow(Shadow Value) : UiFilterFunction;
     }
@@ -528,7 +510,6 @@ namespace Battlement
         Color,
         Cursor,
         Display,
-        Filter,
         FlexBasis,
         FlexDirection,
         FlexGrow,
@@ -623,7 +604,6 @@ namespace Battlement
         Prop<UiStyleValue<Color>> Color = default,
         Prop<UiStyleValue<UiCursor>> Cursor = default,
         Prop<UiStyleValue<UiDisplay>> Display = default,
-        Prop<UiStyleValue<IReadOnlyList<UiFilterFunction>>> Filter = default,
         Prop<UiStyleValue<UiLengthOrAuto>> FlexBasis = default,
         Prop<UiStyleValue<UiFlexDirection>> FlexDirection = default,
         Prop<UiStyleValue<float>> FlexGrow = default,

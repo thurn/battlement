@@ -123,10 +123,6 @@ namespace Battlement.UI
                     style.Display,
                     () => target.style.display = Keyword(style.Display)
                 ),
-                MotionProperty.Filter => Change(
-                    style.Filter,
-                    () => target.style.filter = Keyword(style.Filter)
-                ),
                 MotionProperty.FlexBasis => Change(
                     style.FlexBasis,
                     () => target.style.flexBasis = Keyword(style.FlexBasis)

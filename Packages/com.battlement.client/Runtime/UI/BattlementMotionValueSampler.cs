@@ -287,22 +287,10 @@ namespace Battlement.UI
         {
             double from = origin switch
             {
-                UiFilterFunction.Blur filter => filter.Value,
                 UiFilterFunction.Brightness filter => filter.Value,
-                UiFilterFunction.Saturate filter => filter.Value,
-                UiFilterFunction.Contrast filter => filter.Value,
-                UiFilterFunction.HueRotate filter => filter.Value,
-                UiFilterFunction.Opacity filter => filter.Value,
-                UiFilterFunction.Invert filter => filter.Value,
-                UiFilterFunction.Grayscale filter => filter.Value,
-                UiFilterFunction.Sepia filter => filter.Value,
                 null => 0,
                 _ => double.NaN,
             };
-            if (target is UiFilterFunction.Tint tint)
-                return origin is UiFilterFunction.Tint source
-                    ? new UiFilterFunction.Tint(Mix(source.Value, tint.Value, progress))
-                    : null!;
             if (target is UiFilterFunction.DropShadow shadow)
                 return origin is UiFilterFunction.DropShadow source
                     ? new UiFilterFunction.DropShadow(Mix(source.Value, shadow.Value, progress))
@@ -311,29 +299,13 @@ namespace Battlement.UI
                 return null!;
             double to = target switch
             {
-                UiFilterFunction.Blur filter => filter.Value,
                 UiFilterFunction.Brightness filter => filter.Value,
-                UiFilterFunction.Saturate filter => filter.Value,
-                UiFilterFunction.Contrast filter => filter.Value,
-                UiFilterFunction.HueRotate filter => filter.Value,
-                UiFilterFunction.Opacity filter => filter.Value,
-                UiFilterFunction.Invert filter => filter.Value,
-                UiFilterFunction.Grayscale filter => filter.Value,
-                UiFilterFunction.Sepia filter => filter.Value,
                 _ => double.NaN,
             };
             float mixed = checked((float)Lerp(from, to, progress));
             return target switch
             {
-                UiFilterFunction.Blur => new UiFilterFunction.Blur(mixed),
                 UiFilterFunction.Brightness => new UiFilterFunction.Brightness(mixed),
-                UiFilterFunction.Saturate => new UiFilterFunction.Saturate(mixed),
-                UiFilterFunction.Contrast => new UiFilterFunction.Contrast(mixed),
-                UiFilterFunction.HueRotate => new UiFilterFunction.HueRotate(mixed),
-                UiFilterFunction.Opacity => new UiFilterFunction.Opacity(mixed),
-                UiFilterFunction.Invert => new UiFilterFunction.Invert(mixed),
-                UiFilterFunction.Grayscale => new UiFilterFunction.Grayscale(mixed),
-                UiFilterFunction.Sepia => new UiFilterFunction.Sepia(mixed),
                 _ => null!,
             };
         }

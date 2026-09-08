@@ -826,39 +826,16 @@ impl TransformOrigin {
   }
 }
 
-/// One standard UI Toolkit post-processing filter.
-///
-/// Filters are evaluated in authored order. Tint takes a color; opacity,
-/// invert, grayscale, sepia, and contrast take unitless factors; blur is in
-/// pixels; and hue rotation is in degrees. Battlement does not expose Unity's
-/// custom filter definitions.
+/// One filter evaluated only on Battlement-owned decorative paint.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum FilterFunction {
-  /// Multiplies rendered color by the supplied tint.
-  Tint(Color),
-  /// Multiplies rendered alpha by a unitless factor.
-  Opacity(f32),
-  /// Blends rendered color toward its inverse by a unitless factor.
-  Invert(f32),
-  /// Blends rendered color toward grayscale by a unitless factor.
-  Grayscale(f32),
-  /// Blends rendered color toward sepia by a unitless factor.
-  Sepia(f32),
-  /// Applies a blur radius in panel pixels.
-  Blur(f32),
-  /// Adjusts contrast by a unitless factor.
-  Contrast(f32),
   /// Adjusts brightness by a unitless factor.
   Brightness(f32),
-  /// Adjusts saturation by a unitless factor.
-  Saturate(f32),
-  /// Rotates rendered hue by degrees.
-  HueRotate(f32),
   /// Applies one painted drop shadow.
   DropShadow(crate::Shadow),
 }
 
-/// Ordered standard filter functions applied after an element is rendered.
+/// Ordered filters applied only to Battlement-owned decorative paint.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct FilterList(Vec<FilterFunction>);
@@ -883,64 +860,10 @@ impl FilterList {
     self
   }
 
-  /// Appends Gaussian blur in pixels.
-  #[must_use]
-  pub fn blur(self, radius: f32) -> Self {
-    self.operation(FilterFunction::Blur(radius))
-  }
-
-  /// Appends a contrast multiplier.
-  #[must_use]
-  pub fn contrast(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Contrast(amount))
-  }
-
-  /// Appends hue rotation in degrees.
-  #[must_use]
-  pub fn hue_rotate(self, degrees: f32) -> Self {
-    self.operation(FilterFunction::HueRotate(degrees))
-  }
-
-  /// Appends an opacity multiplier.
-  #[must_use]
-  pub fn opacity(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Opacity(amount))
-  }
-
-  /// Appends a color tint multiplier.
-  #[must_use]
-  pub fn tint(self, color: Color) -> Self {
-    self.operation(FilterFunction::Tint(color))
-  }
-
-  /// Appends an inverse-color blend factor.
-  #[must_use]
-  pub fn invert(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Invert(amount))
-  }
-
-  /// Appends a grayscale blend factor.
-  #[must_use]
-  pub fn grayscale(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Grayscale(amount))
-  }
-
-  /// Appends a sepia blend factor.
-  #[must_use]
-  pub fn sepia(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Sepia(amount))
-  }
-
   /// Appends a brightness multiplier.
   #[must_use]
   pub fn brightness(self, amount: f32) -> Self {
     self.operation(FilterFunction::Brightness(amount))
-  }
-
-  /// Appends a saturation multiplier.
-  #[must_use]
-  pub fn saturate(self, amount: f32) -> Self {
-    self.operation(FilterFunction::Saturate(amount))
   }
 
   /// Appends one painted drop shadow.
@@ -1115,8 +1038,6 @@ pub enum TransitionProperty {
   Cursor,
   /// `display`.
   Display,
-  /// `filter`.
-  Filter,
   /// `flex-basis`.
   FlexBasis,
   /// `flex-direction`.
@@ -1478,9 +1399,6 @@ pub struct Style {
   /// Whether this element and its descendants participate in layout and rendering.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display: Prop<StyleValue<Display>>,
-  /// Ordered post-processing functions applied to the rendered element subtree.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
-  pub filter: Prop<StyleValue<FilterList>>,
   /// Initial main-axis size before flex grow and shrink distribute free space.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_basis: Prop<StyleValue<LengthOrAuto>>,
@@ -1753,7 +1671,6 @@ impl Style {
       color,
       cursor,
       display,
-      filter,
       flex_basis,
       flex_direction,
       flex_grow,
@@ -2033,16 +1950,6 @@ impl Style {
   #[must_use]
   pub fn display(mut self, value: impl IntoStyleProp<Display>) -> Self {
     self.display = value.into_style_prop();
-    self
-  }
-
-  /// Sets ordered post-processing filters for this rendered subtree.
-  ///
-  /// Functions run in list order. An empty list removes concrete filter
-  /// functions, while an omitted field preserves the current inline value.
-  #[must_use]
-  pub fn filter(mut self, value: impl IntoStyleProp<FilterList>) -> Self {
-    self.filter = value.into_style_prop();
     self
   }
 
@@ -2580,7 +2487,6 @@ style_value_from_concrete!(
   Display,
   EditorTextRenderingMode,
   EasingFunction,
-  FilterList,
   FlexDirection,
   FlexWrap,
   FloatValue,

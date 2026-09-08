@@ -1,10 +1,9 @@
 use std::num::NonZeroU32;
 
 use battlement::{
-  Color, FilterFunction, ImageScaleMode, LanguageDirection, ObjectId, PickingMode,
-  ScrollerVisibility, TextOverflowPosition, TransformOrigin, UiBox, UiButton, UiElement,
-  UiEventKind, UiImage, UiLabel, UiNode, UiRepeatButton, UiScrollView, UiTextElement,
-  UiVisualElement, UsageHint, WhiteSpace,
+  ImageScaleMode, LanguageDirection, ObjectId, PickingMode, ScrollerVisibility,
+  TextOverflowPosition, TransformOrigin, UiBox, UiButton, UiElement, UiEventKind, UiImage, UiLabel,
+  UiNode, UiRepeatButton, UiScrollView, UiTextElement, UiVisualElement, UsageHint, WhiteSpace,
 };
 
 use crate::{
@@ -339,17 +338,9 @@ pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
     )
     .child(
       node(UiBox::new().style(transform_styles::row()))
-        .child(filter_slot(
-          "Tint",
-          FilterFunction::Tint(Color::rgb(1.0, 0.72, 0.3)),
-        ))
-        .child(filter_slot("Opacity", FilterFunction::Opacity(0.82)))
-        .child(filter_slot("Invert", FilterFunction::Invert(0.65)))
-        .child(filter_slot("Grayscale", FilterFunction::Grayscale(0.8)))
-        .child(filter_slot("Sepia", FilterFunction::Sepia(0.75)))
-        .child(filter_slot("Blur", FilterFunction::Blur(1.5)))
-        .child(filter_slot("Contrast", FilterFunction::Contrast(1.35)))
-        .child(filter_slot("Hue", FilterFunction::HueRotate(110.0))),
+        .child(opacity_slot("Opacity 100%", 1.0))
+        .child(opacity_slot("Opacity 65%", 0.65))
+        .child(opacity_slot("Opacity 30%", 0.3)),
     )
     .child(
       node(UiBox::new().style(transform_styles::transition_stage()))
@@ -393,10 +384,10 @@ fn origin_card(label: &str, origin: TransformOrigin) -> UiNode {
     .child(node(UiLabel::new(label).style(transform_styles::label())))
 }
 
-fn filter_slot(label: &str, filter: FilterFunction) -> UiNode {
-  node(UiBox::new().style(transform_styles::filter_slot()))
+fn opacity_slot(label: &str, opacity: f32) -> UiNode {
+  node(UiBox::new().style(transform_styles::opacity_slot()))
     .child(node(
-      UiBox::new().style(transform_styles::filter_swatch(filter)),
+      UiBox::new().style(transform_styles::opacity_swatch(opacity)),
     ))
     .child(node(UiLabel::new(label).style(transform_styles::label())))
 }

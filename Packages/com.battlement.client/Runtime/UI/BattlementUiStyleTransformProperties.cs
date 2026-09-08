@@ -29,14 +29,6 @@ namespace Battlement.UI
         public static StyleTransformOrigin ToUnity(UiTransformOrigin value) =>
             new(new TransformOrigin(ToUnity(value.X), ToUnity(value.Y), value.Z));
 
-        public static StyleList<FilterFunction> ToUnity(IReadOnlyList<UiFilterFunction> values)
-        {
-            var result = new List<FilterFunction>(values.Count);
-            foreach (UiFilterFunction value in values)
-                result.Add(ToUnity(value));
-            return new StyleList<FilterFunction>(result);
-        }
-
         public static StyleList<TimeValue> ToUnityTimes(IReadOnlyList<float> values)
         {
             var result = new List<TimeValue>(values.Count);
@@ -67,44 +59,6 @@ namespace Battlement.UI
             StylePropertyName value,
             out UiTransitionProperty property
         ) => Properties.TryGetValue(value.ToString(), out property);
-
-        private static FilterFunction ToUnity(UiFilterFunction value)
-        {
-            FilterFunction result = value switch
-            {
-                UiFilterFunction.Tint => new FilterFunction(FilterFunctionType.Tint),
-                UiFilterFunction.Opacity => new FilterFunction(FilterFunctionType.Opacity),
-                UiFilterFunction.Invert => new FilterFunction(FilterFunctionType.Invert),
-                UiFilterFunction.Grayscale => new FilterFunction(FilterFunctionType.Grayscale),
-                UiFilterFunction.Sepia => new FilterFunction(FilterFunctionType.Sepia),
-                UiFilterFunction.Blur => new FilterFunction(FilterFunctionType.Blur),
-                UiFilterFunction.Contrast => new FilterFunction(FilterFunctionType.Contrast),
-                UiFilterFunction.HueRotate => new FilterFunction(FilterFunctionType.HueRotate),
-                _ => throw new ArgumentOutOfRangeException(nameof(value)),
-            };
-            result.AddParameter(
-                value is UiFilterFunction.Tint tint
-                    ? new FilterParameter(ToUnity(tint.Value))
-                    : new FilterParameter(FloatParameter(value))
-            );
-            return result;
-        }
-
-        private static float FloatParameter(UiFilterFunction value) =>
-            value switch
-            {
-                UiFilterFunction.Opacity item => item.Value,
-                UiFilterFunction.Invert item => item.Value,
-                UiFilterFunction.Grayscale item => item.Value,
-                UiFilterFunction.Sepia item => item.Value,
-                UiFilterFunction.Blur item => item.Value,
-                UiFilterFunction.Contrast item => item.Value,
-                UiFilterFunction.HueRotate item => item.Value,
-                _ => throw new ArgumentOutOfRangeException(nameof(value)),
-            };
-
-        private static UnityEngine.Color ToUnity(Color value) =>
-            new((float)value.Red, (float)value.Green, (float)value.Blue, (float)value.Alpha);
 
         private static Length ToUnity(UiLength value) =>
             value switch

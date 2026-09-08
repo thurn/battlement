@@ -559,7 +559,7 @@ namespace Battlement.UI
                 or MotionProperty.SkewX
                 or MotionProperty.SkewY => MotionValueKind.Angle,
                 MotionProperty.TransformList => MotionValueKind.TransformList,
-                MotionProperty.Filter or MotionProperty.PaintFilter => MotionValueKind.FilterList,
+                MotionProperty.PaintFilter => MotionValueKind.FilterList,
                 MotionProperty.TextShadow or MotionProperty.BoxShadow => MotionValueKind.ShadowList,
                 MotionProperty.BackgroundGradient => MotionValueKind.Gradient,
                 MotionProperty.ClipInset => MotionValueKind.ClipInset,
@@ -607,51 +607,17 @@ namespace Battlement.UI
             int paintDropShadows = 0;
             foreach (UiFilterFunction value in values)
             {
-                bool native =
-                    value
-                    is UiFilterFunction.Blur
-                        or UiFilterFunction.Tint
-                        or UiFilterFunction.Contrast
-                        or UiFilterFunction.HueRotate
-                        or UiFilterFunction.Opacity
-                        or UiFilterFunction.Invert
-                        or UiFilterFunction.Grayscale
-                        or UiFilterFunction.Sepia;
                 bool paint =
                     value is UiFilterFunction.Brightness
                     || value is UiFilterFunction.DropShadow dropShadow && !dropShadow.Value.Inset;
-                if (property == MotionProperty.Filter && !native)
-                    throw Invalid("Native Motion filter received an unsupported operation.");
                 if (property == MotionProperty.PaintFilter && !paint)
                     throw Invalid("Owned-paint filter received an unsupported operation.");
-                if (value is UiFilterFunction.Blur blur)
-                {
-                    Finite(blur.Value);
-                    if (blur.Value < 0)
-                        throw Invalid("Motion filter blur must be nonnegative.");
-                }
-                else if (value is UiFilterFunction.Tint tint)
-                    ValidateColor(tint.Value);
-                else if (value is UiFilterFunction.Brightness brightness)
+                if (value is UiFilterFunction.Brightness brightness)
                 {
                     Finite(brightness.Value);
                     if (brightness.Value < 0)
                         throw Invalid("Motion paint brightness must be nonnegative.");
                 }
-                else if (value is UiFilterFunction.Saturate)
-                    throw Invalid("Motion saturation is unsupported by the Unity adapter.");
-                else if (value is UiFilterFunction.Contrast contrast)
-                    Finite(contrast.Value);
-                else if (value is UiFilterFunction.HueRotate hueRotate)
-                    Finite(hueRotate.Value);
-                else if (value is UiFilterFunction.Opacity opacity)
-                    Finite(opacity.Value);
-                else if (value is UiFilterFunction.Invert invert)
-                    Finite(invert.Value);
-                else if (value is UiFilterFunction.Grayscale grayscale)
-                    Finite(grayscale.Value);
-                else if (value is UiFilterFunction.Sepia sepia)
-                    Finite(sepia.Value);
                 else if (value is UiFilterFunction.DropShadow shadow)
                 {
                     ValidateShadow(shadow.Value);

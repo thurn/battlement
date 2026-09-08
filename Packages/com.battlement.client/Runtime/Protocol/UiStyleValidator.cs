@@ -24,7 +24,6 @@ namespace Battlement
             ValidateBackgroundRepeat(SetValue(value.BackgroundRepeat), invalid);
             ValidateBackgroundSize(SetValue(value.BackgroundSize), invalid);
             ValidateCursor(SetValue(value.Cursor), invalid);
-            ValidateFilters(SetValue(value.Filter), invalid);
             ValidateRotate(SetValue(value.Rotate), invalid);
             ValidateScale(SetValue(value.Scale), invalid);
             ValidateTransformOrigin(SetValue(value.TransformOrigin), invalid);
@@ -144,47 +143,6 @@ namespace Battlement
             ValidateNumber(bestFit.MaxSize, true, invalid);
             if (bestFit.MinSize == 0 || bestFit.MaxSize == 0 || bestFit.MinSize > bestFit.MaxSize)
                 throw invalid("UI text auto-size bounds are invalid.");
-        }
-
-        private static void ValidateFilters(
-            UiStyleValue<IReadOnlyList<UiFilterFunction>>? value,
-            Func<string, Exception> invalid
-        )
-        {
-            if (value is null || ValidateKeyword(value.Keyword, invalid))
-                return;
-            foreach (UiFilterFunction function in value.Value)
-            {
-                switch (function)
-                {
-                    case UiFilterFunction.Tint tint:
-                        ValidateColor(new UiStyleValue<Color>(tint.Value), invalid);
-                        break;
-                    case UiFilterFunction.Opacity item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.Invert item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.Grayscale item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.Sepia item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.Blur item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.Contrast item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    case UiFilterFunction.HueRotate item:
-                        ValidateNumber(item.Value, false, invalid);
-                        break;
-                    default:
-                        throw invalid("Unknown UI filter function kind.");
-                }
-            }
         }
 
         private static void ValidateRotate(

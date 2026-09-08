@@ -554,11 +554,6 @@ namespace Battlement.UI
                 keyword => target.display = keyword
             );
             Apply(
-                value.Filter,
-                item => target.filter = BattlementUiStyleTransformProperties.ToUnity(item),
-                keyword => target.filter = keyword
-            );
-            Apply(
                 value.FlexBasis,
                 item => target.flexBasis = ToUnity(item),
                 keyword => target.flexBasis = keyword

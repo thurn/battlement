@@ -277,21 +277,21 @@ fn advanced_specimen(elapsed: f64) -> View {
   specimen(
     "styles-advanced-paint",
     "ADVANCED PAINT",
-    "filter · clip · polygon · gradient · shadow · mask · texture",
+    "opacity · clip · polygon · gradient · shadow · mask · texture",
   )
   .style(advanced_specimen_style())
   .child(
     View::new()
       .style(advanced_row())
       .child(paint_probe(
-        "FILTER / RECT CLIP",
-        "styles-filter-clip",
+        "OPACITY / RECT CLIP",
+        "styles-opacity-clip",
         Animation::new(Keyframes::new([
           StyleTarget::new()
-            .filter(MotionFilterList::default().blur(0.0).contrast(0.8))
+            .opacity(0.65)
             .clip_inset([Length::px(0.0); 4]),
           StyleTarget::new()
-            .filter(MotionFilterList::default().blur(4.0).contrast(1.3))
+            .opacity(1.0)
             .clip_inset([Length::px(7.0); 4]),
         ])),
         elapsed,

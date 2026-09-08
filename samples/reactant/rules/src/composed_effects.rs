@@ -163,7 +163,7 @@ fn dropdown(state: &ComposedEffectsState) -> View {
       .hover_style(
         StyleTarget::new()
           .scale(1.03)
-          .filter(MotionFilterList::default().contrast(1.15)),
+          .background_color(Color::rgb(0.06, 0.22, 0.27)),
       )
       .active_style(StyleTarget::new().scale(0.97))
       .style_transition(StyleTransition::new().all(Transition::tween().duration_secs(0.12)))
@@ -217,7 +217,7 @@ fn modal(state: &ComposedEffectsState) -> View {
   specimen(
     "composed-modal-specimen",
     "MODAL",
-    "backdrop · filter mix · shine",
+    "backdrop · fade · shine",
   )
   .child(
     AnimatePresence::new()
@@ -233,18 +233,8 @@ fn modal(state: &ComposedEffectsState) -> View {
             .child(
               View::new()
                 .style(modal_panel())
-                .initial(
-                  StyleTarget::new()
-                    .y(28.0)
-                    .scale(0.88)
-                    .filter(MotionFilterList::default().blur(8.0).contrast(0.6)),
-                )
-                .animate(
-                  StyleTarget::new()
-                    .y(0.0)
-                    .scale(1.0)
-                    .filter(MotionFilterList::default().blur(0.0).contrast(1.0)),
-                )
+                .initial(StyleTarget::new().y(28.0).scale(0.88).opacity(0.0))
+                .animate(StyleTarget::new().y(0.0).scale(1.0).opacity(1.0))
                 .exit(StyleTarget::new().y(18.0).scale(0.92).opacity(0.0))
                 .after(
                   Decoration::new()

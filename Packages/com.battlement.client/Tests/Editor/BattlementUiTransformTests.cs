@@ -14,7 +14,7 @@ namespace Battlement.Tests
     public sealed class BattlementUiTransformTests
     {
         [Test]
-        public void TransformsFiltersAndTransitionListsApplyToPublicInlineStyle()
+        public void TransformsAndTransitionListsApplyToPublicInlineStyle()
         {
             ObjectId documentId = Id("3fa994f4-e66c-4102-8df0-3dde6c7164d2");
             ObjectId rootId = Id("f328fdba-b086-44c4-a576-b09dbf738551");
@@ -38,15 +38,6 @@ namespace Battlement.Tests
                                     new UiBox
                                     {
                                         Style = new UiStyle(
-                                            Filter: UiStyle.Set<IReadOnlyList<UiFilterFunction>>(
-                                                new UiFilterFunction[]
-                                                {
-                                                    new UiFilterFunction.Tint(
-                                                        new Color(0.2, 0.4, 0.8, 1)
-                                                    ),
-                                                    new UiFilterFunction.Blur(2),
-                                                }
-                                            ),
                                             Rotate: UiStyle.Set(new UiRotate(0, 0, 1, 24)),
                                             Scale: UiStyle.Set(new UiScale(1.2f, 0.8f)),
                                             TransformOrigin: UiStyle.Set(
@@ -96,7 +87,6 @@ namespace Battlement.Tests
                 Assert.That(style.scale.value.value.x, Is.EqualTo(1.2f).Within(0.001));
                 Assert.That(style.translate.value.x.unit, Is.EqualTo(LengthUnit.Percent));
                 Assert.That(style.transformOrigin.value.y.value, Is.EqualTo(100).Within(0.001));
-                Assert.That(style.filter.value.Count, Is.EqualTo(2));
                 Assert.That(style.transitionDelay.value.Count, Is.EqualTo(2));
                 Assert.That(style.transitionDuration.value[0].value, Is.EqualTo(240).Within(0.001));
                 Assert.That(style.transitionProperty.value[0].ToString(), Is.EqualTo("rotate"));
@@ -112,9 +102,6 @@ namespace Battlement.Tests
                             new UiBox
                             {
                                 Style = new UiStyle(
-                                    Filter: UiStyle.Set<IReadOnlyList<UiFilterFunction>>(
-                                        Array.Empty<UiFilterFunction>()
-                                    ),
                                     TransitionDuration: UiStyle.Set<IReadOnlyList<float>>(
                                         Array.Empty<float>()
                                     ),
@@ -132,7 +119,6 @@ namespace Battlement.Tests
                         )
                     )
                 );
-                Assert.That(style.filter.value, Is.Empty);
                 Assert.That(style.transitionDuration.value, Is.Empty);
                 Assert.That(style.transitionProperty.value[0].ToString(), Is.EqualTo("translate"));
                 Assert.That(style.transitionProperty.value[1].ToString(), Is.EqualTo("rotate"));
@@ -163,7 +149,6 @@ namespace Battlement.Tests
                         )
                     )
                 );
-                Assert.That(style.filter.keyword, Is.EqualTo(StyleKeyword.Null));
                 Assert.That(style.rotate.keyword, Is.EqualTo(StyleKeyword.Null));
                 Assert.That(style.scale.keyword, Is.EqualTo(StyleKeyword.Null));
                 Assert.That(style.transformOrigin.keyword, Is.EqualTo(StyleKeyword.Null));
@@ -181,7 +166,6 @@ namespace Battlement.Tests
 
         private static UiStyle ResetTransformStyle() =>
             new(
-                Filter: UiStyle.Reset<IReadOnlyList<UiFilterFunction>>(),
                 Rotate: UiStyle.Reset<UiRotate>(),
                 Scale: UiStyle.Reset<UiScale>(),
                 TransformOrigin: UiStyle.Reset<UiTransformOrigin>(),

@@ -138,10 +138,11 @@ preserved unless an entry explicitly names a paint approximation.
   `.01s` under reduced motion. Use `AnimatePresence`.
 
 - `ArcadeModal.tsx:104`: modal panel. Preserve all source opacity, scale-x,
-  scale-y, x, skew-x, and filter frames, `.42s` entry or `.3s` exit, and
+  scale-y, x, and decorative skew-x frames, `.42s` entry or `.3s` exit, and
   `ease-out`. The three-frame exit uses even per-property spacing when the
   four-value times array is incompatible. Skew deforms panel chrome while live
-  content remains undeformed.
+  content remains undeformed. Whole-subtree filters are omitted under the
+  [paint filtering API policy](../../../crates/battlement-reactant/src/motion_filter.rs).
 
 - `ArcadeModal.tsx:168`: modal shine. X `-115% -> 115%`, `1.8s` linear,
   infinite Motion repetition with `1.2s` repeat delay. Use a decoration target;
@@ -202,11 +203,11 @@ preserved unless an entry explicitly names a paint approximation.
   scale-x `[.08,.08,1,.32,.01]`, scale-y `[.5,.5,1.9,.5,.1]`, shared exit
   duration, times `[0,.52,.72,.87,1]`, ease-out.
 
-- `MainMenu.tsx:101`: main content exit. Preserve the five-frame clip, filter,
+- `MainMenu.tsx:101`: main content exit. Preserve the five-frame
   opacity, scale, and x targets, times `[0,.14,.38,.73,1]`, easing
   `(.65,0,.35,1)`, and shared exit duration. Reduced motion fades in `.08s`.
 
-- `ScreenFrame.tsx:44`: frame exit. Preserve the five-frame clip, filter,
+- `ScreenFrame.tsx:44`: frame exit. Preserve the five-frame
   opacity, scale, and x targets with the same clock as the main content. Its
   independent x values remain literal. Reduced motion fades in `.08s`.
 

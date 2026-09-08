@@ -62,7 +62,6 @@ pub(crate) const OUTER_STYLES: &[&str] = &[
   "color",
   "cursor",
   "display",
-  "filter",
   "flex_basis",
   "flex_direction",
   "flex_grow",

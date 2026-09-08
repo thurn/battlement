@@ -9,7 +9,7 @@ use battlement::{
 use crate::{
   animation_controls::{AnimationControls, AnimationScope},
   gesture::GestureProps,
-  motion_filter::{MotionFilterList, PaintFilterList},
+  motion_filter::PaintFilterList,
   motion_lifecycle::MotionCallbacks,
   motion_value::{ErasedMotionValue, MotionValue as TypedMotionValue},
   motion_variants::VariantOrchestration,
@@ -380,12 +380,6 @@ impl StyleTarget {
     self.bind(MotionProperty::TransformList, value.erase())
   }
 
-  /// Binds the ordered filter list to a native motion value.
-  #[must_use]
-  pub fn filter_value(self, value: TypedMotionValue<MotionFilterList>) -> Self {
-    self.bind(MotionProperty::Filter, value.erase())
-  }
-
   /// Binds owned decorative-paint filters to a native motion value.
   #[must_use]
   pub fn paint_filter_value(self, value: TypedMotionValue<PaintFilterList>) -> Self {
@@ -466,30 +460,6 @@ impl StyleTarget {
       MotionProperty::TransformList,
       vec![MotionValue::TransformList(value.into_iter().collect())],
       None,
-    )
-  }
-
-  /// Sets ordered filter operations.
-  #[must_use]
-  pub fn filter(self, value: MotionFilterList) -> Self {
-    self.set(
-      MotionProperty::Filter,
-      vec![MotionValue::FilterList(value.into())],
-      None,
-    )
-  }
-
-  /// Sets filter-list keyframes.
-  #[must_use]
-  pub fn filter_keyframes(self, value: Keyframes<MotionFilterList>) -> Self {
-    self.set(
-      MotionProperty::Filter,
-      value
-        .values
-        .into_iter()
-        .map(|value| MotionValue::FilterList(value.into()))
-        .collect(),
-      value.times,
     )
   }
 

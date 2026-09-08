@@ -1,6 +1,6 @@
 use battlement::{
-  Align, Color, EasingFunction, FilterFunction, FilterList, FlexDirection, Justify, LengthUnits,
-  Rotate, Scale, Style, TransformOrigin, TransitionList, TransitionProperty, Translate,
+  Align, Color, EasingFunction, FlexDirection, Justify, LengthUnits, Rotate, Scale, Style,
+  TransformOrigin, TransitionList, TransitionProperty, Translate,
 };
 
 use crate::design_system::{
@@ -47,20 +47,20 @@ pub(crate) fn label() -> Style {
     .margin((2, 6))
 }
 
-pub(crate) fn filter_slot() -> Style {
+pub(crate) fn opacity_slot() -> Style {
   Style::new()
     .align_items(Align::Center)
-    .width(12.pct())
+    .width(31.pct())
     .background_color(BACKGROUND)
 }
 
-pub(crate) fn filter_swatch(filter: FilterFunction) -> Style {
+pub(crate) fn opacity_swatch(opacity: f32) -> Style {
   Style::new()
     .width(54)
     .height(36)
     .background_color(Color::rgb(0.22, 0.72, 0.78))
     .border_radius(8)
-    .filter(FilterList::new([filter]))
+    .opacity(opacity)
 }
 
 pub(crate) fn transition_stage() -> Style {

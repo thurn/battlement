@@ -3,7 +3,7 @@ use std::time::Duration;
 use battlement::{Color, Gradient, GradientStop, Length, Shadow, TransformOperation};
 
 use crate::{
-  motion_filter::{MotionFilterList, PaintFilterList},
+  motion_filter::PaintFilterList,
   motion_value::{MotionValueType, SpringValue, private},
 };
 
@@ -119,25 +119,6 @@ impl MotionValueType for Vec<TransformOperation> {
   }
   fn mix(from: &Self, to: &Self, progress: f64) -> Self {
     mix_transforms(from, to, progress)
-  }
-  fn range_scalar(&self) -> Option<f64> {
-    None
-  }
-}
-
-impl private::MotionValueTypeSealed for MotionFilterList {}
-impl MotionValueType for MotionFilterList {
-  fn into_motion_value(self) -> battlement::MotionValue {
-    battlement::MotionValue::FilterList(self.into())
-  }
-  fn from_motion_value(value: &battlement::MotionValue) -> Option<Self> {
-    match value {
-      battlement::MotionValue::FilterList(value) => Self::from_protocol(value),
-      _ => None,
-    }
-  }
-  fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    Self::mix(from, to, progress)
   }
   fn range_scalar(&self) -> Option<f64> {
     None

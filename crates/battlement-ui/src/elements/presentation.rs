@@ -173,7 +173,6 @@ impl PaintStyle {
           }
           drop_shadows == 1
         }
-        _ => false,
       })
     });
     if !background_valid || !clip_valid {
@@ -264,7 +263,6 @@ impl PaintLayer {
           drop_shadows += 1;
           !value.inset && shadow_is_finite(*value) && drop_shadows == 1
         }
-        _ => false,
       })
     });
     let insets_valid = self

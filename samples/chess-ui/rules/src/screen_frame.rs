@@ -8,8 +8,7 @@ use crate::{
 };
 use battlement::{Color, Length, Overflow, Position, Style, TransformOrigin};
 use battlement_reactant::prelude::{
-  Children, Easing, Keyframes, MotionFilter, MotionFilterList, StateSetter, StyleTarget,
-  Transition, builder,
+  Children, Easing, Keyframes, StateSetter, StyleTarget, Transition, builder,
 };
 use battlement_reactant::{
   component::Component,
@@ -171,13 +170,12 @@ pub(crate) fn exit_target(reduce_motion: bool, frame: bool) -> StyleTarget {
   if reduce_motion {
     return StyleTarget::new().opacity(0.0);
   }
-  let (x, opacity, scale_x, scale_y, contrast) = if frame {
+  let (x, opacity, scale_x, scale_y) = if frame {
     (
       [0.0, 4.0, -4.0, 0.0, 0.0],
       [1.0, 1.0, 1.0, 0.94, 0.0],
       [1.0, 1.01, 0.992, 1.018, 0.015],
       [1.0, 0.996, 1.006, 0.045, 0.002],
-      [1.0, 2.55, 1.15, 3.8, 1.0],
     )
   } else {
     (
@@ -185,31 +183,13 @@ pub(crate) fn exit_target(reduce_motion: bool, frame: bool) -> StyleTarget {
       [1.0, 1.0, 1.0, 0.96, 0.0],
       [1.0, 1.008, 0.992, 1.025, 0.02],
       [1.0, 0.994, 1.008, 0.035, 0.002],
-      [1.0, 2.3, 1.18, 3.5, 1.0],
     )
   };
   StyleTarget::new()
-    .filter_keyframes(
-      Keyframes::new([
-        self::exit_filter(contrast[0], 0.0),
-        self::exit_filter(contrast[1], 0.0),
-        self::exit_filter(contrast[2], 0.0),
-        self::exit_filter(contrast[3], 0.75),
-        self::exit_filter(contrast[4], 1.0),
-      ])
-      .times([0.0, 0.14, 0.38, 0.73, 1.0]),
-    )
     .opacity_keyframes(Keyframes::new(opacity).times([0.0, 0.14, 0.38, 0.73, 1.0]))
     .scale_x_keyframes(Keyframes::new(scale_x).times([0.0, 0.14, 0.38, 0.73, 1.0]))
     .scale_y_keyframes(Keyframes::new(scale_y).times([0.0, 0.14, 0.38, 0.73, 1.0]))
     .x_keyframes(Keyframes::new(x).times([0.0, 0.14, 0.38, 0.73, 1.0]))
-}
-
-fn exit_filter(contrast: f32, grayscale: f32) -> MotionFilterList {
-  MotionFilterList::new([
-    MotionFilter::Contrast(contrast),
-    MotionFilter::Grayscale(grayscale),
-  ])
 }
 
 pub(crate) fn exit_transition(reduce_motion: bool) -> Transition {

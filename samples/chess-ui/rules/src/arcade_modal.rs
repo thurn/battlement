@@ -18,9 +18,8 @@ use battlement_reactant::{
   paint::{PaintLayer, PaintStyle},
   portal::PortalTarget,
   prelude::{
-    AnimatePresence, Children, Easing, Either, EventCallback, Keyframes, MotionFilterList,
-    MotionTarget, Node, PaintDropShadow, PaintFilterList, Repeat, StyleTarget, Transition, builder,
-    use_is_present,
+    AnimatePresence, Children, Easing, Either, EventCallback, Keyframes, MotionTarget, Node,
+    PaintDropShadow, PaintFilterList, Repeat, StyleTarget, Transition, builder, use_is_present,
   },
   render::Render,
   semantics::SemanticName,
@@ -279,8 +278,7 @@ fn panel_motion(panel: View, reduce_motion: bool) -> View {
         .opacity(0.0)
         .scale_x(0.72)
         .scale_y(0.04)
-        .x(-30.0)
-        .filter(MotionFilterList::default().blur(5.0)),
+        .x(-30.0),
     )
     .animate(
       MotionTarget::new(
@@ -288,16 +286,7 @@ fn panel_motion(panel: View, reduce_motion: bool) -> View {
           .opacity_keyframes(Keyframes::new([0.0, 1.0, 0.72, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
           .scale_x_keyframes(Keyframes::new([0.72, 1.04, 0.985, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
           .scale_y_keyframes(Keyframes::new([0.04, 1.08, 0.97, 1.0]).times([0.0, 0.48, 0.72, 1.0]))
-          .x_keyframes(Keyframes::new([-30.0, 18.0, -7.0, 0.0]).times([0.0, 0.48, 0.72, 1.0]))
-          .filter_keyframes(
-            Keyframes::new([
-              MotionFilterList::default().blur(5.0),
-              MotionFilterList::default().blur(0.0),
-              MotionFilterList::default().blur(0.0),
-              MotionFilterList::default().blur(0.0),
-            ])
-            .times([0.0, 0.48, 0.72, 1.0]),
-          ),
+          .x_keyframes(Keyframes::new([-30.0, 18.0, -7.0, 0.0]).times([0.0, 0.48, 0.72, 1.0])),
       )
       .transition(
         Transition::tween()
@@ -311,15 +300,7 @@ fn panel_motion(panel: View, reduce_motion: bool) -> View {
           .opacity_keyframes(Keyframes::new([1.0, 0.8, 0.0]).times([0.0, 0.5, 1.0]))
           .scale_x_keyframes(Keyframes::new([1.0, 1.07, 0.78]).times([0.0, 0.5, 1.0]))
           .scale_y_keyframes(Keyframes::new([1.0, 0.82, 0.035]).times([0.0, 0.5, 1.0]))
-          .x_keyframes(Keyframes::new([0.0, -18.0, 34.0]).times([0.0, 0.5, 1.0]))
-          .filter_keyframes(
-            Keyframes::new([
-              MotionFilterList::default().blur(0.0),
-              MotionFilterList::default().blur(0.0),
-              MotionFilterList::default().blur(5.0),
-            ])
-            .times([0.0, 0.5, 1.0]),
-          ),
+          .x_keyframes(Keyframes::new([0.0, -18.0, 34.0]).times([0.0, 0.5, 1.0])),
       )
       .transition(Transition::tween().duration_secs(0.3).ease(Easing::EaseOut)),
     )

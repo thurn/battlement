@@ -1,27 +1,6 @@
-//! Capability-safe filter lists for native host filtering and owned paint.
+//! Filters for Battlement-owned decorative paint.
 
 use battlement::{Color, FilterFunction, FilterList, Shadow};
-
-/// One filter supported by Unity's native host-filter writer.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum MotionFilter {
-  /// Multiplies rendered color by the supplied tint.
-  Tint(Color),
-  /// Multiplies rendered alpha by a unitless factor.
-  Opacity(f32),
-  /// Blends rendered color toward its inverse by a unitless factor.
-  Invert(f32),
-  /// Blends rendered color toward grayscale by a unitless factor.
-  Grayscale(f32),
-  /// Blends rendered color toward sepia by a unitless factor.
-  Sepia(f32),
-  /// Applies a blur radius in panel pixels.
-  Blur(f32),
-  /// Adjusts contrast by a unitless factor.
-  Contrast(f32),
-  /// Rotates rendered hue by degrees.
-  HueRotate(f32),
-}
 
 /// One filter supported by Battlement's owned decorative paint surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -42,79 +21,14 @@ pub struct PaintDropShadow {
   color: Color,
 }
 
-/// Ordered native host filters accepted by Motion.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct MotionFilterList(Vec<MotionFilter>);
-
 /// Ordered filters applied only to Battlement-owned decorative paint.
+///
+/// Whole-subtree filtering is intentionally unavailable: Unity's native filter
+/// path can truncate scaled UI during transitions. Use opacity, scale, clipping,
+/// or separate decorative overlays for similar effects. Filters baked into
+/// generated artwork and filters on owned paint do not use that Unity path.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PaintFilterList(Vec<PaintFilter>);
-
-impl MotionFilterList {
-  /// Creates a native filter list in evaluation order.
-  #[must_use]
-  pub fn new(values: impl IntoIterator<Item = MotionFilter>) -> Self {
-    Self(values.into_iter().collect())
-  }
-
-  /// Returns native filters in evaluation order.
-  #[must_use]
-  pub fn as_slice(&self) -> &[MotionFilter] {
-    &self.0
-  }
-
-  /// Appends one native filter.
-  #[must_use]
-  pub fn operation(mut self, value: MotionFilter) -> Self {
-    self.0.push(value);
-    self
-  }
-
-  /// Appends Gaussian blur in pixels.
-  #[must_use]
-  pub fn blur(self, radius: f32) -> Self {
-    self.operation(MotionFilter::Blur(radius))
-  }
-
-  /// Appends a contrast multiplier.
-  #[must_use]
-  pub fn contrast(self, amount: f32) -> Self {
-    self.operation(MotionFilter::Contrast(amount))
-  }
-
-  /// Appends hue rotation in degrees.
-  #[must_use]
-  pub fn hue_rotate(self, degrees: f32) -> Self {
-    self.operation(MotionFilter::HueRotate(degrees))
-  }
-
-  /// Appends an opacity multiplier.
-  #[must_use]
-  pub fn opacity(self, amount: f32) -> Self {
-    self.operation(MotionFilter::Opacity(amount))
-  }
-
-  /// Appends another native filter list.
-  #[must_use]
-  pub fn then(mut self, value: Self) -> Self {
-    self.0.extend(value.0);
-    self
-  }
-
-  pub(crate) fn from_protocol(value: &FilterList) -> Option<Self> {
-    value
-      .as_slice()
-      .iter()
-      .copied()
-      .map(MotionFilter::from_protocol)
-      .collect::<Option<Vec<_>>>()
-      .map(Self)
-  }
-
-  pub(crate) fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    Self(mix_list(&from.0, &to.0, progress, MotionFilter::mix))
-  }
-}
 
 impl PaintFilterList {
   /// Appends a brightness multiplier.
@@ -215,30 +129,9 @@ impl PaintDropShadow {
   }
 }
 
-impl From<MotionFilterList> for FilterList {
-  fn from(value: MotionFilterList) -> Self {
-    Self::new(value.0.into_iter().map(FilterFunction::from))
-  }
-}
-
 impl From<PaintFilterList> for FilterList {
   fn from(value: PaintFilterList) -> Self {
     Self::new(value.0.into_iter().map(FilterFunction::from))
-  }
-}
-
-impl From<MotionFilter> for FilterFunction {
-  fn from(value: MotionFilter) -> Self {
-    match value {
-      MotionFilter::Tint(value) => Self::Tint(value),
-      MotionFilter::Opacity(value) => Self::Opacity(value),
-      MotionFilter::Invert(value) => Self::Invert(value),
-      MotionFilter::Grayscale(value) => Self::Grayscale(value),
-      MotionFilter::Sepia(value) => Self::Sepia(value),
-      MotionFilter::Blur(value) => Self::Blur(value),
-      MotionFilter::Contrast(value) => Self::Contrast(value),
-      MotionFilter::HueRotate(value) => Self::HueRotate(value),
-    }
   }
 }
 
@@ -251,38 +144,6 @@ impl From<PaintFilter> for FilterFunction {
   }
 }
 
-impl MotionFilter {
-  fn from_protocol(value: FilterFunction) -> Option<Self> {
-    match value {
-      FilterFunction::Tint(value) => Some(Self::Tint(value)),
-      FilterFunction::Opacity(value) => Some(Self::Opacity(value)),
-      FilterFunction::Invert(value) => Some(Self::Invert(value)),
-      FilterFunction::Grayscale(value) => Some(Self::Grayscale(value)),
-      FilterFunction::Sepia(value) => Some(Self::Sepia(value)),
-      FilterFunction::Blur(value) => Some(Self::Blur(value)),
-      FilterFunction::Contrast(value) => Some(Self::Contrast(value)),
-      FilterFunction::HueRotate(value) => Some(Self::HueRotate(value)),
-      FilterFunction::Brightness(_)
-      | FilterFunction::Saturate(_)
-      | FilterFunction::DropShadow(_) => None,
-    }
-  }
-
-  fn mix(from: &Self, to: &Self, progress: f64) -> Self {
-    match (from, to) {
-      (Self::Tint(from), Self::Tint(to)) => Self::Tint(mix_color(*from, *to, progress)),
-      (Self::Opacity(from), Self::Opacity(to)) => Self::Opacity(mix(*from, *to, progress)),
-      (Self::Invert(from), Self::Invert(to)) => Self::Invert(mix(*from, *to, progress)),
-      (Self::Grayscale(from), Self::Grayscale(to)) => Self::Grayscale(mix(*from, *to, progress)),
-      (Self::Sepia(from), Self::Sepia(to)) => Self::Sepia(mix(*from, *to, progress)),
-      (Self::Blur(from), Self::Blur(to)) => Self::Blur(mix(*from, *to, progress)),
-      (Self::Contrast(from), Self::Contrast(to)) => Self::Contrast(mix(*from, *to, progress)),
-      (Self::HueRotate(from), Self::HueRotate(to)) => Self::HueRotate(mix(*from, *to, progress)),
-      _ => *if progress < 0.5 { from } else { to },
-    }
-  }
-}
-
 impl PaintFilter {
   fn from_protocol(value: FilterFunction) -> Option<Self> {
     match value {
@@ -290,7 +151,6 @@ impl PaintFilter {
       FilterFunction::DropShadow(value) => {
         PaintDropShadow::from_protocol(value).map(Self::DropShadow)
       }
-      _ => None,
     }
   }
 

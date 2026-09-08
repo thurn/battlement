@@ -78,7 +78,6 @@ namespace Battlement
         Color,
         Cursor,
         Display,
-        Filter,
         FlexBasis,
         FlexDirection,
         FlexGrow,

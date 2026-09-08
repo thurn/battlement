@@ -51,7 +51,6 @@ namespace Battlement.UI
                 Color = Merge(current.Color, update.Color),
                 Cursor = Merge(current.Cursor, update.Cursor),
                 Display = Merge(current.Display, update.Display),
-                Filter = Merge(current.Filter, update.Filter),
                 FlexBasis = Merge(current.FlexBasis, update.FlexBasis),
                 FlexDirection = Merge(current.FlexDirection, update.FlexDirection),
                 FlexGrow = Merge(current.FlexGrow, update.FlexGrow),

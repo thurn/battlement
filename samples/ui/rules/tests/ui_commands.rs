@@ -647,11 +647,11 @@ fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
   let ui = client.ui();
   let text = collect_text(&ui, PAGE_ID);
   for expected in [
-    "ALL 267 CAPABILITIES MAPPED",
+    "ALL 266 CAPABILITIES MAPPED",
     "ELEMENTS",
     "23 / 23",
     "OUTER STYLE",
-    "87 / 87",
+    "86 / 86",
     "NATIVE PARTS",
     "100 / 100",
     "EVENTS",
@@ -1653,7 +1653,6 @@ fn transforms_page_reports_transition_payload_and_restores_initial_state() {
   {
     let ui = client.ui();
     assert_page_design_contract(&ui, 24);
-    assert_eq!(filter_function_count(&ui, PAGE_ID), 8);
     assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
     assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
     assert!(matches!(initial.transition_property, Prop::Set(_)));
@@ -1718,23 +1717,6 @@ fn transforms_page_reports_transition_payload_and_restores_initial_state() {
   assert_eq!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
   assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
   assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
-}
-
-fn filter_function_count(
-  ui: &UiClient<'_, battlement_rules::UiLabEngine>,
-  object_id: ObjectId,
-) -> usize {
-  let element = ui.element(object_id);
-  let current = match &element.style().filter {
-    Prop::Set(StyleValue::Value(values)) => values.as_slice().len(),
-    Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => 0,
-  };
-  current
-    + element
-      .children()
-      .iter()
-      .map(|child| filter_function_count(ui, *child))
-      .sum::<usize>()
 }
 
 fn enum_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> {

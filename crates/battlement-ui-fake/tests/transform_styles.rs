@@ -1,8 +1,8 @@
-use battlement_types::{Color, ObjectId};
+use battlement_types::ObjectId;
 use battlement_ui::{
-  EasingFunction, FilterFunction, FilterList, LengthUnits, Prop, Rotate, Scale, Style, StyleValue,
-  TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, UiBox, UiDocument,
-  UiElement, UiNode, VisualElementUpdate,
+  EasingFunction, LengthUnits, Prop, Rotate, Scale, Style, StyleValue, TimeValue, TransformOrigin,
+  TransitionList, TransitionProperty, Translate, UiBox, UiDocument, UiElement, UiNode,
+  VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -10,16 +10,6 @@ use battlement_ui_fake::{UiWorld, UiWorldError};
 fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically() {
   let target_id = ObjectId::new_v4();
   let initial = Style::new()
-    .filter(FilterList::new([
-      FilterFunction::Tint(Color::rgb(0.5, 0.8, 1.0)),
-      FilterFunction::Opacity(0.9),
-      FilterFunction::Invert(0.1),
-      FilterFunction::Grayscale(0.2),
-      FilterFunction::Sepia(0.3),
-      FilterFunction::Blur(2.0),
-      FilterFunction::Contrast(1.2),
-      FilterFunction::HueRotate(20.0),
-    ]))
     .rotate(Rotate::degrees(12.0))
     .scale(Scale::new(1.1, 0.9))
     .transform_origin(TransformOrigin::two_dimensional(0.pct(), 100.pct()))
@@ -62,7 +52,6 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
       element: UiElement::from(
         UiBox::default().style(
           Style::new()
-            .filter(FilterList::new([]))
             .transition_duration(TransitionList::new([]))
             .transition_property(TransitionList::new([
               TransitionProperty::Translate,
@@ -74,10 +63,6 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     })
     .unwrap();
   let committed = world.element(target_id).unwrap().style().clone();
-  assert_eq!(
-    committed.filter,
-    Prop::Set(StyleValue::Value(FilterList::new([])))
-  );
   assert_eq!(
     committed.transition_duration,
     Prop::Set(StyleValue::Value(TransitionList::new([])))
@@ -109,7 +94,6 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     Style::new().scale(Scale::new(f32::NAN, 1.0)),
     Style::new().translate(Translate::new(0.px(), 0.px(), f32::INFINITY)),
     Style::new().transition_duration(TransitionList::new([TimeValue(-1.0)])),
-    Style::new().filter(FilterList::new([FilterFunction::Blur(f32::NAN)])),
   ] {
     assert_eq!(
       world.update(VisualElementUpdate::Properties {
@@ -128,7 +112,6 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     })
     .unwrap();
   let reset = world.element(target_id).unwrap().style();
-  assert!(matches!(reset.filter, Prop::Reset));
   assert!(matches!(reset.rotate, Prop::Reset));
   assert!(matches!(reset.scale, Prop::Reset));
   assert!(matches!(reset.transform_origin, Prop::Reset));
@@ -141,7 +124,6 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
 
 fn reset_transform_style() -> Style {
   Style::new()
-    .filter(Prop::Reset)
     .rotate(Prop::Reset)
     .scale(Prop::Reset)
     .transform_origin(Prop::Reset)

@@ -1183,29 +1183,6 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(filters) = prop_concrete(&value.filter) {
-    for function in filters.as_slice() {
-      match function {
-        crate::FilterFunction::Tint(color) => validate_color(color)?,
-        crate::FilterFunction::Opacity(number)
-        | crate::FilterFunction::Invert(number)
-        | crate::FilterFunction::Grayscale(number)
-        | crate::FilterFunction::Sepia(number)
-        | crate::FilterFunction::Blur(number)
-        | crate::FilterFunction::Contrast(number)
-        | crate::FilterFunction::HueRotate(number) => {
-          if !number.is_finite() {
-            return Err(UiValidationError::InvalidProperty);
-          }
-        }
-        crate::FilterFunction::Brightness(_)
-        | crate::FilterFunction::Saturate(_)
-        | crate::FilterFunction::DropShadow(_) => {
-          return Err(UiValidationError::InvalidProperty);
-        }
-      }
-    }
-  }
   if let Some(rotation) = prop_concrete(&value.rotate) {
     let axis = [rotation.x, rotation.y, rotation.z];
     if axis.into_iter().any(|number| !number.is_finite())

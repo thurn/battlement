@@ -82,17 +82,6 @@ impl MotionValue {
     let mut paint_drop_shadows = 0;
     for value in values.as_slice() {
       let supported = match property {
-        crate::MotionProperty::Filter => matches!(
-          value,
-          FilterFunction::Tint(_)
-            | FilterFunction::Opacity(_)
-            | FilterFunction::Invert(_)
-            | FilterFunction::Grayscale(_)
-            | FilterFunction::Sepia(_)
-            | FilterFunction::Blur(_)
-            | FilterFunction::Contrast(_)
-            | FilterFunction::HueRotate(_)
-        ),
         crate::MotionProperty::PaintFilter => matches!(
           value,
           FilterFunction::Brightness(_)
@@ -135,25 +124,11 @@ fn validate_transforms(values: &[TransformOperation]) -> Result<(), &'static str
 fn validate_filters(values: &[FilterFunction]) -> Result<(), &'static str> {
   for value in values {
     let finite = match value {
-      FilterFunction::Blur(value)
-      | FilterFunction::Brightness(value)
-      | FilterFunction::Saturate(value)
-      | FilterFunction::Contrast(value)
-      | FilterFunction::HueRotate(value)
-      | FilterFunction::Opacity(value)
-      | FilterFunction::Invert(value)
-      | FilterFunction::Grayscale(value)
-      | FilterFunction::Sepia(value) => value.is_finite(),
-      FilterFunction::Tint(value) => [value.r, value.g, value.b, value.a]
-        .into_iter()
-        .all(f64::is_finite),
+      FilterFunction::Brightness(value) => value.is_finite(),
       FilterFunction::DropShadow(value) => shadow_is_finite(*value),
     };
     if !finite {
       return Err("motion filter must be finite");
-    }
-    if matches!(value, FilterFunction::Blur(value) if *value < 0.0) {
-      return Err("motion filter blur must be nonnegative");
     }
     if matches!(value, FilterFunction::Brightness(value) if *value < 0.0) {
       return Err("motion paint brightness must be nonnegative");
