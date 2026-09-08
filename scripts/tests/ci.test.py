@@ -236,7 +236,7 @@ def _verify_ditto_gate_contract() -> None:
     )
     assert [step["name"] for step in config["step"]] == ["ci"]
     assert config["step"][0]["run"] == (
-        "rustup run 1.98.1 python3 scripts/ci.py --full"
+        "rustup run 1.98.1 python3 scripts/ci.py --full --tollgate-evidence"
     )
     with patch.object(sys, "argv", ["ci.py", "--full"]):
         assert ci.parse_arguments().ditto is False
@@ -332,7 +332,7 @@ def _verify_rust_configuration() -> None:
         )
         (root / ".tollgate/config.toml").write_text(
             '[[step]]\nname = "ci"\n'
-            'run = "rustup run 1.99.0 python3 scripts/ci.py --full"\n'
+            'run = "rustup run 1.99.0 python3 scripts/ci.py --full --tollgate-evidence"\n'
         )
         try:
             ci.REPOSITORY_ROOT = root
@@ -340,8 +340,8 @@ def _verify_rust_configuration() -> None:
         finally:
             ci.REPOSITORY_ROOT = original_root
     assert errors == [
-        "Tollgate invokes 'rustup run 1.99.0 python3 scripts/ci.py --full'; "
-        "expected 'rustup run 1.98.1 python3 scripts/ci.py --full'"
+        "Tollgate invokes 'rustup run 1.99.0 python3 scripts/ci.py --full --tollgate-evidence'; "
+        "expected 'rustup run 1.98.1 python3 scripts/ci.py --full --tollgate-evidence'"
     ]
 
 

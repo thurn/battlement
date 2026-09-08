@@ -51,6 +51,7 @@ def begin(root: Path, invocation_id: str, repository: Path, command: str) -> dic
         "source_index_digest": _index_digest(repository),
         "task_id": os.environ.get("CODEX_THREAD_ID"),
         "candidate_id": os.environ.get("TOLLGATE_ITEM_ID"),
+        "buildset_id": os.environ.get("TOLLGATE_BUILDSET_ID"),
         "validation_generation_id": os.environ.get("TOLLGATE_VALIDATION_GENERATION_ID"),
     }
     # Exclusive creation rejects duplicate invocation ownership, including retries.
@@ -123,7 +124,7 @@ def read(path: Path, expected_invocation: str, *, expected_tested_oid: str | Non
     if "invocation.json" not in names:
         raise ValueError("Evidence omitted its invocation identity")
     identity = json.loads((path.parent / "invocation.json").read_text())
-    for field in ("invocation_id", "artifact_root", "tested_oid", "source_index_digest", "command"):
+    for field in identity.keys() | {"candidate_id", "validation_generation_id", "buildset_id"}:
         if identity.get(field) != document.get(field):
             raise ValueError(f"Evidence identity differs from its invocation: {field}")
     if document["command"] == "gate":

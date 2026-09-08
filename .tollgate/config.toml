@@ -5,11 +5,9 @@ enabled = true
 
 [[step]]
 name = "ci"
-run = "rustup run 1.98.1 python3 scripts/ci.py --full"
+run = "rustup run 1.98.1 python3 scripts/ci.py --full --tollgate-evidence"
 timeout = "1h"
 semaphores = ["unity"]
 artifact = [
-  { name = "ditto-report", patterns = ["artifacts/ditto-ci/gate.json"], required = true },
-  { name = "ditto-results", patterns = ["artifacts/ditto-ci/*/result.json"], required = true },
-  { name = "ditto-failures", patterns = ["artifacts/ditto-ci/*/run.tar.gz"], required = false },
+  { name = "ditto-evidence", patterns = ["artifacts/tollgate-ditto/{{buildset_id}}/evidence.tar.gz"], required = true },
 ]

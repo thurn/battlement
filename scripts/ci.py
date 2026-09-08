@@ -21,6 +21,7 @@ import tomllib
 import uuid
 
 import ditto_evidence
+import tollgate_evidence
 
 from ci_cache import CiCache
 import ci_steps
@@ -48,7 +49,7 @@ RUST_VERSION_MANIFESTS = (
     "Cargo.toml",
     "crates/battlement-reactant/tests/fixtures/asset-registry/Cargo.toml",
 )
-TOLLGATE_CI_COMMAND = f"rustup run {RUST_VERSION} python3 scripts/ci.py --full"
+TOLLGATE_CI_COMMAND = f"rustup run {RUST_VERSION} python3 scripts/ci.py --full --tollgate-evidence"
 CI_CACHE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_CI_CACHE",
@@ -748,6 +749,7 @@ def run_ditto_validation(
     reusable_build_seconds: float,
     ditto_builds: DittoBuildLeases | None = None,
     invocation_id: str | None = None,
+    evidence_export: tollgate_evidence.Export | None = None,
 ) -> None:
     """Run every canonical Ditto scenario against prebuilt players."""
     environment = os.environ.copy()
@@ -768,11 +770,27 @@ def run_ditto_validation(
     command = [sys.executable, "scripts/ditto_ci.py", "gate"]
     if platform.system() == "Darwin":
         command = ["/usr/bin/caffeinate", "-u", "-d", "-i", "--", *command]
-    run_step(
-        "Run Ditto full suite",
-        command,
-        environment=environment,
-    )
+    failure = None
+    try:
+        run_step("Run Ditto full suite", command, environment=environment)
+    except BaseException as error:
+        failure = error
+        raise
+    finally:
+        if evidence_export is not None:
+            try:
+                bundle = evidence_export.publish(root / "evidence.json", invocation_id)
+                ci_steps.record_event("ditto.tollgate_evidence", {
+                    "invocation_id": invocation_id,
+                    "buildset_id": evidence_export.buildset_id,
+                    "evidence_path": str(bundle),
+                    "sha256": ditto_evidence.digest(bundle),
+                })
+            except Exception as error:
+                if failure is None:
+                    raise
+                failure.add_note(f"Tollgate evidence export failed: {error}")
+                print(f"Tollgate evidence export failed: {error}", file=sys.stderr)
 
 
 def run_reactant_asset_fast_lane() -> None:
@@ -789,7 +807,10 @@ def run_reactant_asset_fast_lane() -> None:
     )
 
 
-def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
+def run_ci(
+    full: bool, use_ci_cache: bool, ditto: bool,
+    evidence_export: tollgate_evidence.Export | None = None,
+) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
     ci_cache = CiCache(
@@ -861,6 +882,10 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     run_step(
         "Test performance reporting",
         [sys.executable, "scripts/tests/perf-report.test.py"],
+    )
+    run_step(
+        "Test Tollgate evidence collection",
+        [sys.executable, "scripts/tests/tollgate-evidence.test.py"],
     )
     run_step(
         "Test Ditto CI",
@@ -952,7 +977,7 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
             run_step("Skip desktop full validation", function=skip_desktop_full_validation)
         if full and platform.system() == "Darwin":
             run_ditto_validation(
-                ditto_preparation_seconds[0], ditto_builds, invocation_id
+                ditto_preparation_seconds[0], ditto_builds, invocation_id, evidence_export
             )
     finally:
         if ditto_builds is not None:
@@ -960,11 +985,16 @@ def run_ci(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 
-def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
+def main(full: bool, use_ci_cache: bool, ditto: bool, export_evidence: bool = False) -> None:
     """Run the configured continuous-integration suite."""
+    evidence_export = None
+    if export_evidence:
+        if not full or platform.system() != "Darwin":
+            raise ValueError("Tollgate evidence requires the full native macOS gate")
+        evidence_export = tollgate_evidence.Export.begin(REPOSITORY_ROOT)
     recover_unity_transactions(REPOSITORY_ROOT)
     run_step("Check Rust toolchain", function=check_rust_toolchain)
-    run_ci(full, use_ci_cache, ditto)
+    run_ci(full, use_ci_cache, ditto, evidence_export)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -984,6 +1014,8 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="execute expensive validation without reading or publishing CI Cache entries",
     )
+    parser.add_argument("--tollgate-evidence", action="store_true",
+                        help="export exact native gate evidence for the current Tollgate buildset")
     parser.add_argument("--test-trace-outcome", choices=("passed", "failed", "interrupted"), help=argparse.SUPPRESS)
     return parser.parse_args()
 
@@ -1010,7 +1042,7 @@ if __name__ == "__main__":
         if arguments.test_trace_outcome:
             ci_steps.trace_smoke_test(arguments.test_trace_outcome)
         else:
-            main(arguments.full, not arguments.no_ci_cache, arguments.ditto)
+            main(arguments.full, not arguments.no_ci_cache, arguments.ditto, arguments.tollgate_evidence)
     except KeyboardInterrupt:
         outcome = "interrupted"
         exit_code = 130
