@@ -4,9 +4,22 @@ version = 1
 enabled = true
 
 [[step]]
+name = "prose"
+run = "python3 scripts/prose_validation.py --tollgate-evidence"
+timeout = "2m"
+include = ["plans/workflow-performance.md"]
+include_mode = "all"
+artifact = [
+  { name = "prose-evidence", patterns = ["artifacts/tollgate-prose/{{buildset_id}}/evidence.json"], required = true },
+]
+
+[[step]]
 name = "ci"
 run = "rustup run 1.98.1 python3 scripts/ci.py --full --tollgate-evidence"
 timeout = "1h"
+soft_needs = ["prose"]
+exclude = ["plans/workflow-performance.md"]
+exclude_mode = "all"
 semaphores = ["unity"]
 artifact = [
   { name = "ditto-evidence", patterns = ["artifacts/tollgate-ditto/{{buildset_id}}/evidence.tar.gz"], required = true },

@@ -15,9 +15,11 @@ or an existing script test. Prefer black-box behavior and native Ditto for
 player-visible changes; use `battlement-ditto` for suite selection and probes.
 
 Before final validation, stage all intended files and run `./scripts/ci.py`.
-Its metadata refresh requires staged changes. Inspect and stage any resulting
-intended metadata, and ensure the final source has valid required evidence.
-Do not substitute a focused pass for the required successful aggregate run.
+Its metadata refresh requires staged changes. The entrypoint selects its narrow
+trusted plan-only check only when every changed path matches the executable
+allowlist; mixed or policy-bearing changes use the aggregate suite. Inspect and
+stage any resulting intended metadata, and ensure the final source has valid
+required evidence. Do not substitute a focused pass for the selected run.
 
 Run CI once as a single execution and retain its session handle, log path,
 exit status, and tested source identity. If observation times out, inspect that

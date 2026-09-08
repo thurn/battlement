@@ -37,6 +37,7 @@ from sample_validation import validate_runtime_ui_package, validate_sample_input
 from resource_slots import unity_editor_lease
 from unity_transaction import recover_unity_transactions, unity_project_transaction
 import perf_log
+import prose_validation
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -50,6 +51,7 @@ RUST_VERSION_MANIFESTS = (
     "crates/battlement-reactant/tests/fixtures/asset-registry/Cargo.toml",
 )
 TOLLGATE_CI_COMMAND = f"rustup run {RUST_VERSION} python3 scripts/ci.py --full --tollgate-evidence"
+TOLLGATE_PROSE_COMMAND = "python3 scripts/prose_validation.py --tollgate-evidence"
 CI_CACHE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_CI_CACHE",
@@ -208,7 +210,8 @@ def rust_configuration_errors() -> list[str]:
     tollgate = tomllib.loads(
         (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
     )
-    ci_steps = [step for step in tollgate.get("step", []) if step.get("name") == "ci"]
+    steps = tollgate.get("step", [])
+    ci_steps = [step for step in steps if step.get("name") == "ci"]
     if len(ci_steps) != 1:
         errors.append(f"Tollgate defines {len(ci_steps)} CI steps named 'ci'; expected one")
     elif ci_steps[0].get("run") != TOLLGATE_CI_COMMAND:
@@ -216,6 +219,25 @@ def rust_configuration_errors() -> list[str]:
             f"Tollgate invokes {ci_steps[0].get('run')!r}; "
             f"expected {TOLLGATE_CI_COMMAND!r}"
         )
+    prose_steps = [step for step in steps if step.get("name") == "prose"]
+    if len(prose_steps) != 1:
+        errors.append(
+            f"Tollgate defines {len(prose_steps)} CI steps named 'prose'; expected one"
+        )
+    elif prose_steps[0].get("run") != TOLLGATE_PROSE_COMMAND:
+        errors.append(
+            f"Tollgate invokes {prose_steps[0].get('run')!r}; "
+            f"expected {TOLLGATE_PROSE_COMMAND!r}"
+        )
+    expected_paths = sorted(prose_validation.TRUSTED_PATHS)
+    if len(prose_steps) == 1:
+        prose = prose_steps[0]
+        if prose.get("include") != expected_paths or prose.get("include_mode") != "all":
+            errors.append("Tollgate prose selection differs from the trusted path allowlist")
+    if len(ci_steps) == 1:
+        full_ci = ci_steps[0]
+        if full_ci.get("exclude") != expected_paths or full_ci.get("exclude_mode") != "all":
+            errors.append("Tollgate full CI does not complement the trusted prose selection")
     return errors
 
 
@@ -899,6 +921,10 @@ def run_ci(
         [sys.executable, "scripts/tests/tollgate-evidence.test.py"],
     )
     run_step(
+        "Test trusted prose validation",
+        [sys.executable, "scripts/tests/prose-validation.test.py"],
+    )
+    run_step(
         "Test Ditto CI",
         [sys.executable, "scripts/tests/ditto-ci.test.py"],
     )
@@ -1004,6 +1030,14 @@ def main(full: bool, use_ci_cache: bool, ditto: bool, export_evidence: bool = Fa
         if not full or platform.system() != "Darwin":
             raise ValueError("Tollgate evidence requires the full native macOS gate")
         evidence_export = tollgate_evidence.Export.begin(REPOSITORY_ROOT)
+    if not full and not export_evidence:
+        paths = prose_validation.changed_paths(REPOSITORY_ROOT)
+        if prose_validation.selected(paths):
+            run_step(
+                "Validate trusted prose",
+                function=lambda: prose_validation.run(REPOSITORY_ROOT),
+            )
+            return
     recover_unity_transactions(REPOSITORY_ROOT)
     run_step("Check Rust toolchain", function=check_rust_toolchain)
     run_ci(full, use_ci_cache, ditto, evidence_export)

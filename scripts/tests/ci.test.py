@@ -234,10 +234,16 @@ def _verify_ditto_gate_contract() -> None:
     config = tomllib.loads(
         (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
     )
-    assert [step["name"] for step in config["step"]] == ["ci"]
-    assert config["step"][0]["run"] == (
+    assert [step["name"] for step in config["step"]] == ["prose", "ci"]
+    prose, full_ci = config["step"]
+    assert prose["run"] == "python3 scripts/prose_validation.py --tollgate-evidence"
+    assert prose["include"] == ["plans/workflow-performance.md"]
+    assert prose["include_mode"] == "all"
+    assert full_ci["run"] == (
         "rustup run 1.98.1 python3 scripts/ci.py --full --tollgate-evidence"
     )
+    assert full_ci["exclude"] == prose["include"]
+    assert full_ci["exclude_mode"] == "all"
     with patch.object(sys, "argv", ["ci.py", "--full"]):
         assert ci.parse_arguments().ditto is False
     with patch.object(sys, "argv", ["ci.py", "--ditto"]):
@@ -331,8 +337,12 @@ def _verify_rust_configuration() -> None:
             '[workspace]\n[workspace.package]\nrust-version = "1.98.1"\n'
         )
         (root / ".tollgate/config.toml").write_text(
+            '[[step]]\nname = "prose"\n'
+            'run = "python3 scripts/prose_validation.py --tollgate-evidence"\n'
+            'include = ["plans/workflow-performance.md"]\ninclude_mode = "all"\n'
             '[[step]]\nname = "ci"\n'
             'run = "rustup run 1.99.0 python3 scripts/ci.py --full --tollgate-evidence"\n'
+            'exclude = ["plans/workflow-performance.md"]\nexclude_mode = "all"\n'
         )
         try:
             ci.REPOSITORY_ROOT = root

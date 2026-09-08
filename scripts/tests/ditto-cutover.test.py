@@ -119,8 +119,11 @@ def check_ci_opt_in() -> None:
         (REPOSITORY_ROOT / "rust-toolchain.toml").read_text(encoding="utf-8")
     )["toolchain"]["channel"]
     assert shlex.split(step["run"]) == [
-        "rustup", "run", toolchain, "python3", "scripts/ci.py", "--full"
+        "rustup", "run", toolchain, "python3", "scripts/ci.py", "--full",
+        "--tollgate-evidence",
     ]
+    assert step["exclude"] == ["plans/workflow-performance.md"]
+    assert step["exclude_mode"] == "all"
     assert step["timeout"] == "1h"
     assert step["semaphores"] == ["unity"]
     ci = (REPOSITORY_ROOT / "scripts/ci.py").read_text(encoding="utf-8")

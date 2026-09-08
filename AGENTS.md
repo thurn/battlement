@@ -27,7 +27,9 @@ implementation before changing it; do not load whole document collections.
   Never edit the main checkout otherwise. Continue follow-ups in this task's
   own worktree until promotion; never use another task's worktree.
 - Stage all intended changes before `./scripts/ci.py`; its metadata refresh
-  requires staged inputs. Run it successfully before completing work.
+  requires staged inputs. The entrypoint selects the trusted plan-only lane
+  only for its exact allowlist; mixed, policy, and executable changes run CI.
+  Run the selected validation successfully before completing work.
 - Prefer black-box tests and native Ditto one-off scenarios. Use unit tests
   sparingly for complex code; do not test simple implementation details.
   Interactive web testing is only for specifically web features.
