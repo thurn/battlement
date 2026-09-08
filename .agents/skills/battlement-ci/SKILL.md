@@ -14,16 +14,21 @@ While editing, choose the smallest check covering the changed behavior:
 or an existing script test. Prefer black-box behavior and native Ditto for
 player-visible changes; use `battlement-ditto` for suite selection and probes.
 
-Before final validation, stage all intended files and run `./scripts/ci.py`.
+Before final validation, stage all intended files and run
+`scripts/ci_job.py start`. Keep its returned job ID; use `status` or bounded
+`wait --after <revision>` calls to resume the same operation after a timeout.
+The handle records source identity and refuses to attach after inputs change.
+Use `scripts/ci.py` directly only inside another supervisor such as Tollgate.
 Its metadata refresh requires staged changes. The entrypoint selects its narrow
 trusted plan-only check only when every changed path matches the executable
 allowlist; mixed or policy-bearing changes use the aggregate suite. Inspect and
 stage any resulting intended metadata, and ensure the final source has valid
 required evidence. Do not substitute a focused pass for the selected run.
 
-Run CI once as a single execution and retain its session handle, log path,
-exit status, and tested source identity. If observation times out, inspect that
-same job; do not launch another copy or configure automatic restarts.
+Run CI once as a single execution and retain its job handle, log path, exit
+status, and tested source identity. If observation times out, inspect that same
+job; do not launch another copy or configure automatic restarts. Cancel through
+the handle so process-birth validation protects unrelated reused PIDs.
 
 On failure:
 

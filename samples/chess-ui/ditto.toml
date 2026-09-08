@@ -51,7 +51,13 @@ screenshot = { name = "native-streaks-repeated", max_changed_percent = 0.01 }
 advance = { frames = 60 }
 
 [[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Mute background music" }, action = "activate" }
+
+[[scenarios.steps]]
 screenshot = { name = "native-streaks-finished", max_changed_percent = 0.01 }
+
+[[scenarios.steps]]
+accessibility_action = { target = { role = "button", name = "Enable background music" }, action = "activate" }
 
 [[scenarios.steps]]
 accessibility_action = { target = { role = "button", name = "SETTINGS" }, action = "activate" }

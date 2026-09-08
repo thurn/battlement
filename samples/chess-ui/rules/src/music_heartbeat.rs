@@ -59,7 +59,12 @@ fn surface(component: &MusicHeartbeat, music: &BackgroundMusicContext) -> View {
         .paint_filter(self::filter(0.0)),
     )
     .child(MotionConfig::new(component.children.render()).time_source(MotionTimeSource::Unscaled));
-  if component.reduced_motion || music.status != BackgroundMusicStatus::Playing {
+  if component.reduced_motion
+    || music.status != BackgroundMusicStatus::Playing
+    || music.muted
+    || music.master_volume == 0
+    || music.music_volume == 0
+  {
     surface
   } else {
     surface.animation(self::heartbeat_animation())

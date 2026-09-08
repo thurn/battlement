@@ -883,6 +883,7 @@ def run_ci(
         "Test operation telemetry",
         [sys.executable, "scripts/tests/operation-log.test.py"],
     )
+    run_step("Test CI job handles", [sys.executable, "scripts/tests/ci-job.test.py"])
     run_step(
         "Test validation preparation",
         [sys.executable, "scripts/tests/prepare-validation.test.py"],
