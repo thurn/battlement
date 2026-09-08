@@ -2,14 +2,19 @@
 [[risks]]
 paths = ["web/init.js", "Packages/com.battlement.client/Runtime/*.jslib"]
 reason = "Browser startup, input, or JavaScript bridge behavior"
-samples = ["*"]
+samples = ["basic"]
 
 [[risks]]
 paths = ["Packages/com.battlement.client/Runtime/*.shader", "Packages/com.battlement.client/Runtime/*.hlsl", "Packages/com.battlement.client/Runtime/*.shadergraph", "samples/*/*.shader", "samples/*/*.hlsl", "samples/*/*.shadergraph"]
 reason = "Shader behavior can differ under WebGL"
-samples = ["*"]
+samples = ["ui"]
 
 [[risks]]
-paths = ["Packages/com.battlement.client/Editor/BattlementSampleBuild.cs", "scripts/serve_web.py"]
-reason = "Web player construction or cross-origin isolation headers"
-samples = ["*"]
+paths = ["Packages/com.battlement.client/Editor/BattlementSampleBuild.cs"]
+reason = "Web player construction"
+samples = ["basic"]
+
+[[risks]]
+paths = ["scripts/serve_web.py"]
+reason = "Cross-origin isolation headers and encoded asset serving"
+kind = "fixture"
