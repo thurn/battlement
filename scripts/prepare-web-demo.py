@@ -304,12 +304,16 @@ def validate_sample(sample: str) -> None:
         raise RuntimeError(f"Unknown sample: {sample}")
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sample")
-    parser.add_argument("--release", action="store_true")
+    parser.add_argument(
+        "--development",
+        action="store_true",
+        help="build an uncompressed development player instead of the deployable release profile",
+    )
     parser.add_argument("--cache-root", type=Path, default=DEFAULT_CACHE_ROOT)
-    return parser.parse_args()
+    return parser.parse_args(arguments)
 
 
 if __name__ == "__main__":
@@ -317,7 +321,7 @@ if __name__ == "__main__":
     try:
         prepare(
             arguments.sample,
-            arguments.release,
+            not arguments.development,
             arguments.cache_root,
         )
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:

@@ -23,6 +23,11 @@ SPEC.loader.exec_module(prepare_web_demo)
 
 
 def main() -> None:
+    arguments = prepare_web_demo.parse_arguments(["tic-tac-toe"])
+    assert arguments.development is False
+    arguments = prepare_web_demo.parse_arguments(["tic-tac-toe", "--development"])
+    assert arguments.development is True
+
     with tempfile.TemporaryDirectory(prefix="battlement-web-demo-test.") as temporary:
         root = Path(temporary)
         source = root / "source"

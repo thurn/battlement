@@ -11,9 +11,12 @@ browser defects, JavaScript integration, WebGL rendering risks, and hosting.
 For a platform risk not covered by existing paths, declare the durable risk and
 its affected samples in `web/contracts.toml`; do not substitute a native pass.
 
-Stage build inputs, then run `python3 scripts/prepare-web-demo.py <sample>`
-(add `--release` when needed). Use its returned directory with
-`python3 scripts/serve_web.py --directory <build-directory> --port <port>`.
+Stage build inputs, then run `python3 scripts/prepare-web-demo.py <sample>`.
+It produces the release-compressed profile used by deployment; use
+`--development` only when that different profile is intentional. Start review
+with `python3 scripts/serve_web.py --directory <build-directory> --handle
+<handle-path>`. Read the handle for the assigned port, exact build identity,
+readiness, and cleanup action. Stop only through that cleanup action.
 Choose a verified-free port and record the process, worktree, port, and logs.
 Exercise the affected behavior, inspect console and failed requests through
 asset loading, and verify the rendered result. A loader or canvas is insufficient.
