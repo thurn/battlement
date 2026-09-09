@@ -36,6 +36,12 @@ namespace Battlement
 #endif
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr battlement_native_abi_digest();
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr battlement_wire_contract_digest();
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_engine_create(
             out IntPtr engine,
             out BattlementNativeBuffer error

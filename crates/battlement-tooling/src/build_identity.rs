@@ -103,6 +103,35 @@ pub struct BaselineIdentity {
 }
 
 impl BuildIdentity {
+  /// Derives an identity for one independently cached build component.
+  pub fn component(
+    source_fingerprint: &str,
+    kind: &str,
+    inputs: BTreeMap<String, String>,
+  ) -> Result<Self> {
+    ensure!(
+      self::valid_sha256(source_fingerprint),
+      "invalid component source fingerprint"
+    );
+    ensure!(!kind.is_empty(), "component kind is empty");
+    let mut retained = BTreeMap::from([
+      ("component".to_owned(), kind.to_owned()),
+      ("source".to_owned(), source_fingerprint.to_owned()),
+    ]);
+    for (name, value) in inputs {
+      self::insert(&mut retained, name, value)?;
+    }
+    let inputs = retained
+      .into_iter()
+      .map(|(name, value)| BuildInput { name, value })
+      .collect::<Vec<_>>();
+    Ok(Self {
+      fingerprint: self::fingerprint(&inputs),
+      source_fingerprint: source_fingerprint.to_owned(),
+      inputs,
+    })
+  }
+
   /// Derives an immutable identity from only byte-affecting build inputs.
   pub fn derive(request: &BuildIdentityRequest) -> Result<Self> {
     self::validate_request(request)?;

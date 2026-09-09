@@ -293,10 +293,21 @@ fn check_prerequisite_failure(missing_odiff: bool) {
   let cache = temporary.path().join("cache");
   let tools = temporary.path().join("tools");
   fs::create_dir_all(repository.join("Assets/Scenes")).unwrap();
+  fs::create_dir_all(repository.join("contracts")).unwrap();
+  fs::create_dir_all(repository.join("package")).unwrap();
+  fs::create_dir_all(repository.join("Packages")).unwrap();
   fs::create_dir_all(repository.join("ProjectSettings")).unwrap();
   fs::create_dir_all(repository.join("rules/src")).unwrap();
   fs::create_dir_all(&tools).unwrap();
   fs::write(repository.join("Assets/Scenes/Game.unity"), "").unwrap();
+  fs::write(repository.join("contracts/native-abi.json"), "{}\n").unwrap();
+  fs::write(repository.join("contracts/wire-contract.json"), "{}\n").unwrap();
+  fs::write(repository.join("package/package.json"), "{}\n").unwrap();
+  fs::write(
+    repository.join("Packages/manifest.json"),
+    "{\"dependencies\":{}}\n",
+  )
+  .unwrap();
   fs::write(
     repository.join("ProjectSettings/ProjectVersion.txt"),
     "m_EditorVersion: 6000.0.56f1\n",
@@ -318,8 +329,6 @@ fn check_prerequisite_failure(missing_odiff: bool) {
   };
   fs::write(repository.join("ditto.toml"), suite).unwrap();
   executable(&tools.join("unity"), "#!/bin/sh\necho 6000.0.56f1\n");
-  executable(&tools.join("cargo"), "#!/bin/sh\necho cargo 1.94.0\n");
-  executable(&tools.join("rustc"), "#!/bin/sh\necho rustc 1.94.0\n");
   executable(&tools.join("xcrun"), "#!/bin/sh\necho xcrun 26.0\n");
   executable(&tools.join("xcodebuild"), "#!/bin/sh\necho 'Xcode 26.0'\n");
   executable(&tools.join("odiff"), "#!/bin/sh\necho odiff 4.5.0\n");
@@ -389,7 +398,10 @@ fn check_prerequisite_failure(missing_odiff: bool) {
     assert!(!String::from_utf8_lossy(&output.stderr).contains("DITTO_PHASE=scenarios"));
     return;
   }
-  assert_eq!(result["build"]["disposition"], "required-by-no-build");
+  assert_eq!(
+    result["build"]["disposition"], "required-by-no-build",
+    "{result}"
+  );
   assert_eq!(result["scenarios"][0]["status"], "not-run");
   assert!(
     result["errors"][0]["message"]

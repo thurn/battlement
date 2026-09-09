@@ -243,7 +243,8 @@ namespace Battlement
         private DittoStartupReport StartupReport()
         {
             JObject identity = JObject.Parse(
-                Resources.Load<TextAsset>("BattlementDittoBuildIdentity")?.text
+                BattlementShellBootstrap.AssemblyIdentityJson
+                    ?? Resources.Load<TextAsset>("BattlementDittoBuildIdentity")?.text
                     ?? throw new InvalidOperationException(
                         "The immutable Ditto build identity is missing."
                     )

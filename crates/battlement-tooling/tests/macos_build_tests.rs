@@ -20,11 +20,20 @@ fn clean_fixture_builds_launches_and_exactly_reuses_immutable_entry() {
   let fixture = Fixture::new();
   let first = build_macos_player(&fixture.request()).unwrap();
   let MacosBuildResult::Ready { build, outcome } = first else {
-    panic!("clean fixture failed")
+    panic!("clean fixture failed: {first:?}")
   };
   assert_eq!(outcome, MacosBuildOutcome::Created);
   assert!(build.path().join(BUILD_LOG_FILE).is_file());
   assert!(build.path().join(SOURCE_MANIFEST_FILE).is_file());
+  assert_eq!(
+    fs::read_to_string(
+      build
+        .player_path()
+        .join("Contents/Resources/Battlement/reactant-assets.json")
+    )
+    .unwrap(),
+    "{\"addresses\":[]}\n"
+  );
   let startup: MacosStartupIdentity =
     serde_json::from_slice(&fs::read(build.path().join(STARTUP_IDENTITY_FILE)).unwrap()).unwrap();
   assert_eq!(
@@ -52,7 +61,8 @@ fn clean_fixture_builds_launches_and_exactly_reuses_immutable_entry() {
   assert!(player_executable(&build).unwrap().is_file());
   let transcript = fs::read_to_string(&fixture.transcript).unwrap();
   assert_eq!(transcript.matches("cargo\n").count(), 1);
-  assert_eq!(transcript.matches("unity\n").count(), 1);
+  assert_eq!(transcript.matches("unity:shell\n").count(), 1);
+  assert_eq!(transcript.matches("unity:content\n").count(), 1);
   assert_eq!(transcript.matches("launch\n").count(), 1);
   assert!(
     !fixture
@@ -86,6 +96,30 @@ fn clean_fixture_builds_launches_and_exactly_reuses_immutable_entry() {
   ] {
     assert!(!fixture.path(relative).exists());
   }
+}
+
+#[test]
+fn rules_change_reassembles_without_launching_unity() {
+  let fixture = Fixture::new();
+  let first = ready_fingerprint(build_macos_player(&fixture.request()).unwrap());
+  let before = fs::read_to_string(&fixture.transcript).unwrap();
+  fixture.write(
+    "repo/rules/src/lib.rs",
+    "pub fn rules() { let _changed = true; }\n",
+  );
+  fs::remove_file(&fixture.unity).unwrap();
+
+  let second = ready_fingerprint(build_macos_player(&fixture.request()).unwrap());
+
+  assert_ne!(first, second);
+  let after = fs::read_to_string(&fixture.transcript).unwrap();
+  assert_eq!(after.matches("cargo\n").count(), 2);
+  assert_eq!(after.matches("unity:shell\n").count(), 1);
+  assert_eq!(after.matches("unity:content\n").count(), 1);
+  assert_eq!(
+    before.matches("unity:").count(),
+    after.matches("unity:").count()
+  );
 }
 
 #[test]
@@ -128,6 +162,21 @@ fn every_build_input_category_selects_a_distinct_entry() {
 }
 
 #[test]
+fn debug_and_release_rules_are_distinct_components() {
+  let fixture = Fixture::new();
+  let release = fixture.build_fingerprint();
+  let mut request = fixture.request();
+  request.release_rules = false;
+  let debug = ready_fingerprint(build_macos_player(&request).unwrap());
+
+  assert_ne!(release, debug);
+  let transcript = fs::read_to_string(&fixture.transcript).unwrap();
+  assert_eq!(transcript.matches("cargo\n").count(), 2);
+  assert_eq!(transcript.matches("unity:shell\n").count(), 1);
+  assert_eq!(transcript.matches("unity:content\n").count(), 1);
+}
+
+#[test]
 fn compilation_failure_is_terminal_retains_full_log_and_never_launches() {
   let fixture = Fixture::new();
   fixture.write("repo/rules/src/lib.rs", "COMPILATION_FAILURE\n");
@@ -135,14 +184,14 @@ fn compilation_failure_is_terminal_retains_full_log_and_never_launches() {
   let MacosBuildResult::Failed(failure) = result else {
     panic!("broken Rust fixture unexpectedly built")
   };
-  assert_eq!(failure.phase, "rust");
+  assert_eq!(failure.phase, "rules");
   assert_eq!(failure.error_ids, ["E0308"]);
   let log = fs::read_to_string(&failure.log_path).unwrap();
   assert!(log.contains("complete compiler prelude"));
   assert!(log.contains("error[E0308]"));
   let transcript = fs::read_to_string(&fixture.transcript).unwrap();
   assert_eq!(transcript.matches("cargo\n").count(), 1);
-  assert!(!transcript.contains("unity\n"));
+  assert!(!transcript.contains("unity:"));
   assert!(!transcript.contains("launch\n"));
 
   assert!(matches!(
@@ -170,15 +219,16 @@ fn no_build_explains_the_nearest_cached_source() {
 
   assert_ne!(identity.fingerprint, previous);
   assert_eq!(nearest.fingerprint, previous);
-  assert_eq!(nearest.changed_inputs, ["source"]);
-  assert_eq!(nearest.changed_paths, ["rules/src/lib.rs"]);
+  assert_eq!(nearest.changed_inputs, ["rules", "source"]);
+  assert_eq!(nearest.changed_paths.len(), 1);
+  assert!(nearest.changed_paths[0].ends_with("/rules"));
   assert!(nearest.added_paths.is_empty());
   assert!(nearest.removed_paths.is_empty());
 }
 
 fn ready_fingerprint(result: MacosBuildResult) -> String {
   let MacosBuildResult::Ready { build, .. } = result else {
-    panic!("fixture build failed")
+    panic!("fixture build failed: {result:?}")
   };
   build.metadata().identity.fingerprint.clone()
 }
@@ -200,7 +250,13 @@ impl Fixture {
       root,
     };
     fixture.write("repo/Cargo.lock", "version = 4\n");
+    fixture.write("repo/contracts/native-abi.json", "{}\n");
+    fixture.write("repo/contracts/wire-contract.json", "{}\n");
     fixture.write("repo/game/Assets/Scenes/Game.unity", "unity scene\n");
+    fixture.write(
+      "repo/game/Assets/Generated/BattlementReactant/Resources/BattlementReactantAssetCatalog.json",
+      "{\"addresses\":[]}\n",
+    );
     fixture.write(
       "repo/game/Packages/manifest.json",
       r#"{"dependencies":{"com.battlement.client":"file:../../package"}}"#,
@@ -269,6 +325,7 @@ impl Fixture {
       scene: self.path("repo/game/Assets/Scenes/Game.unity"),
       suite: "fixture".to_owned(),
       diagnostics: true,
+      release_rules: true,
       generated_inputs: vec![GeneratedInput {
         generator: "fixture-generator".to_owned(),
         version: "1".to_owned(),
@@ -339,11 +396,13 @@ printf 'cargo\n' >> '{}'
 manifest=''
 target=''
 target_dir=''
+profile='debug'
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --manifest-path) manifest="$2"; shift 2 ;;
     --target) target="$2"; shift 2 ;;
     --target-dir) target_dir="$2"; shift 2 ;;
+    --release) profile='release'; shift ;;
     *) shift ;;
   esac
 done
@@ -352,8 +411,8 @@ if grep -q COMPILATION_FAILURE "$(dirname "$manifest")/src/lib.rs"; then
   printf 'error[E0308]: fixture compilation failed\n' >&2
   exit 1
 fi
-mkdir -p "$target_dir/$target/release"
-printf 'native rust engine\n' > "$target_dir/$target/release/libbattlement_rules.dylib"
+mkdir -p "$target_dir/$target/$profile"
+printf 'native rust engine\n' > "$target_dir/$target/$profile/libbattlement_rules.dylib"
 "#,
       self.transcript.display()
     )
@@ -363,7 +422,6 @@ printf 'native rust engine\n' > "$target_dir/$target/release/libbattlement_rules
     format!(
       r#"#!/bin/sh
 set -eu
-printf 'unity\n' >> '{}'
 project=''
 method=''
 log=''
@@ -375,21 +433,27 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
-[ "$method" = 'Battlement.Editor.BattlementDittoBuild.BuildMacos' ]
-[ -f "$project/Assets/Plugins/macOS/libbattlement_rules.dylib" ]
-[ -f "$project/Assets/Resources/BattlementDittoBuildIdentity.json" ]
+case "$method" in
+  Battlement.Editor.BattlementDittoBuild.BuildMacosShell)
+    printf 'unity:shell\n' >> '{}'
+    mkdir -p "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS"
+    printf '#!/bin/sh\nprintf "launch\\n" >> "{}"\n' > "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS/BattlementDitto"
+    chmod +x "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS/BattlementDitto"
+    ;;
+  Battlement.Editor.BattlementDittoBuild.BuildMacosContent)
+    printf 'unity:content\n' >> '{}'
+    mkdir -p "$BATTLEMENT_DITTO_CONTENT_PATH"
+    printf '{{}}\n' > "$BATTLEMENT_DITTO_CONTENT_PATH/settings.json"
+    ;;
+  *) exit 9 ;;
+esac
 printf 'settings changed by Unity\n' > "$project/ProjectSettings/ProjectSettings.asset"
 mkdir -p "$project/Assets/AddressableAssetsData"
 printf 'generated catalog\n' > "$project/Assets/AddressableAssetsData/catalog.txt"
 printf 'generated addressables metadata\n' > "$project/Assets/AddressableAssetsData.meta"
-printf 'generated plugins metadata\n' > "$project/Assets/Plugins.meta"
-printf 'generated macOS metadata\n' > "$project/Assets/Plugins/macOS.meta"
-printf 'generated resources metadata\n' > "$project/Assets/Resources.meta"
 printf 'complete Unity build log\n' > "$log"
-mkdir -p "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS"
-printf '#!/bin/sh\nprintf "launch\\n" >> "{}"\n' > "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS/BattlementDitto"
-chmod +x "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS/BattlementDitto"
 "#,
+      self.transcript.display(),
       self.transcript.display(),
       self.transcript.display()
     )

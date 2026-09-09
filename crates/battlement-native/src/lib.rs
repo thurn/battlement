@@ -25,6 +25,19 @@ pub const DITTO_DETERMINISM_CONTRACT_V2: u32 = 2;
 /// Required v2 declarations: controlled clock and randomness, isolated external state,
 /// reset persistent state, and semantic input delivery.
 pub const DITTO_DETERMINISM_CAPABILITIES_V2: u64 = 0b1_1111;
+/// SHA-256 of the canonical native ABI manifest.
+pub const NATIVE_ABI_DIGEST: &str =
+  "f27c823eda0c569cd86feda6c9d24b7a1d1d5c0eedc2206ee92ec2e26aa9cc79";
+/// SHA-256 of the canonical JSON wire-contract manifest.
+pub const WIRE_CONTRACT_DIGEST: &str =
+  "3c7f1f5a672808b12f91b111f91973cdac13b37ddaedce812b2044caa1da10cd";
+
+#[doc(hidden)]
+pub static NATIVE_ABI_DIGEST_C: &[u8; 65] =
+  b"f27c823eda0c569cd86feda6c9d24b7a1d1d5c0eedc2206ee92ec2e26aa9cc79\0";
+#[doc(hidden)]
+pub static WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
+  b"3c7f1f5a672808b12f91b111f91973cdac13b37ddaedce812b2044caa1da10cd\0";
 
 /// Exports the fixed Battlement C symbols for one concrete engine factory.
 ///
@@ -42,6 +55,18 @@ pub const DITTO_DETERMINISM_CAPABILITIES_V2: u64 = 0b1_1111;
 #[macro_export]
 macro_rules! export_engine {
   ($factory:path $(,)?) => {
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn battlement_native_abi_digest() -> *const ::core::ffi::c_char {
+      $crate::NATIVE_ABI_DIGEST_C.as_ptr().cast()
+    }
+
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn battlement_wire_contract_digest() -> *const ::core::ffi::c_char {
+      $crate::WIRE_CONTRACT_DIGEST_C.as_ptr().cast()
+    }
+
     #[doc(hidden)]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn battlement_logging_drain(

@@ -41,6 +41,15 @@ pub struct FingerprintRequest {
   pub case_sensitivity: CaseSensitivity,
 }
 
+/// Explicit source roots used by independently cached build components.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FingerprintRootsRequest {
+  pub repository: PathBuf,
+  pub roots: Vec<PathBuf>,
+  pub generated_inputs: Vec<GeneratedInput>,
+  pub case_sensitivity: CaseSensitivity,
+}
+
 /// How one source-manifest entry supplies bytes.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -105,6 +114,81 @@ impl SourceManifest {
       collect_file(&repository, &path, &mut candidates)?;
     }
     for input in &request.generated_inputs {
+      collect_generated(input, &mut candidates)?;
+    }
+    build_manifest(candidates)
+  }
+
+  /// Fingerprints an explicit set of repository-contained files and directories.
+  pub fn build_roots(request: &FingerprintRootsRequest) -> Result<Self> {
+    let repository = request.repository.canonicalize()?;
+    ensure!(repository.is_dir(), "repository is not a directory");
+    let mut candidates = Candidates::new(request.case_sensitivity);
+    for root in &request.roots {
+      let root = if root.is_dir() {
+        checked_directory(&repository, root)?
+      } else {
+        checked_file(&repository, root)?
+      };
+      if root.is_dir() {
+        collect_tree(&repository, &root, &mut candidates)?;
+      } else {
+        collect_file(&repository, &root, &mut candidates)?;
+      }
+    }
+    for input in &request.generated_inputs {
+      collect_generated(input, &mut candidates)?;
+    }
+    build_manifest(candidates)
+  }
+
+  /// Fingerprints a Unity project and every transitive local Unity package.
+  pub fn build_unity(
+    repository: &Path,
+    unity_project: &Path,
+    generated_inputs: &[GeneratedInput],
+    case_sensitivity: CaseSensitivity,
+  ) -> Result<Self> {
+    let repository = repository.canonicalize()?;
+    let unity_project = checked_directory(&repository, unity_project)?;
+    let mut candidates = Candidates::new(case_sensitivity);
+    for root in ["Assets", "Packages", "ProjectSettings"] {
+      let path = unity_project.join(root);
+      if path.exists() {
+        collect_tree(&repository, &path, &mut candidates)?;
+      }
+    }
+    for package in unity_local_packages(&repository, &unity_project)? {
+      collect_tree(&repository, &package, &mut candidates)?;
+    }
+    for input in generated_inputs {
+      collect_generated(input, &mut candidates)?;
+    }
+    build_manifest(candidates)
+  }
+
+  /// Fingerprints one Cargo package and its transitive local dependency closure.
+  pub fn build_rust(
+    repository: &Path,
+    manifest: &Path,
+    generated_inputs: &[GeneratedInput],
+    case_sensitivity: CaseSensitivity,
+  ) -> Result<Self> {
+    let repository = repository.canonicalize()?;
+    let manifest = checked_file(&repository, manifest)?;
+    let mut candidates = Candidates::new(case_sensitivity);
+    let manifests = fingerprint_rust::manifests(&repository, &manifest)?;
+    for manifest in &manifests {
+      collect_tree(
+        &repository,
+        manifest.parent().expect("manifest has a parent"),
+        &mut candidates,
+      )?;
+    }
+    for path in fingerprint_rust::applicable_support_files(&repository, &manifests) {
+      collect_file(&repository, &path, &mut candidates)?;
+    }
+    for input in generated_inputs {
       collect_generated(input, &mut candidates)?;
     }
     build_manifest(candidates)

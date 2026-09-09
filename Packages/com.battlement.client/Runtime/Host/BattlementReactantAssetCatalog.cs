@@ -21,6 +21,10 @@ namespace Battlement
 
         internal static BattlementReactantAssetCatalog Load()
         {
+            if (BattlementShellBootstrap.ReactantAssetCatalogJson is string externalCatalog)
+            {
+                return Parse(externalCatalog);
+            }
             TextAsset? asset = Resources.Load<TextAsset>(ResourceName);
             return asset == null ? new(Array.Empty<string>()) : Parse(asset.text);
         }

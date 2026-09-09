@@ -30,6 +30,7 @@ pub enum Command {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BuildOptions {
   pub profile: Option<String>,
+  pub debug_rules: bool,
   pub json: bool,
   pub output: Option<PathBuf>,
   pub retain_until_fd_closed: Option<i32>,
@@ -151,6 +152,9 @@ struct BuildArgs {
   /// Profile to build instead of the suite default.
   #[arg(long)]
   profile: Option<String>,
+  /// Build unoptimized Rust rules for local sample development.
+  #[arg(long)]
+  debug_rules: bool,
   /// Write only the build result object to standard output.
   #[arg(long)]
   json: bool,
@@ -330,6 +334,7 @@ fn command(command: ParsedCommand) -> Command {
   match command {
     ParsedCommand::Build(args) => Command::Build(BuildOptions {
       profile: args.profile,
+      debug_rules: args.debug_rules,
       json: args.json,
       output: args.output,
       retain_until_fd_closed: args.retain_until_fd_closed,

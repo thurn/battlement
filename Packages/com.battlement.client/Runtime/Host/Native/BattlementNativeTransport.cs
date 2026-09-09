@@ -27,6 +27,9 @@ namespace Battlement
 
         public BattlementNativeTransport()
         {
+#if UNITY_STANDALONE_OSX && !UNITY_EDITOR
+            BattlementNativeContract.Verify();
+#endif
             owningThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 

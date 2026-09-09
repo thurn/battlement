@@ -64,7 +64,10 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Macos)?,
   )?;
-  let selected = macos_build::select_macos_player(&build_request(suite, &discovery)?, true)?;
+  let selected = macos_build::select_macos_player(
+    &build_request(suite, &discovery, !options.debug_rules)?,
+    true,
+  )?;
   let (build, disposition) = match selected {
     MacosBuildResult::Ready { build, outcome } => (
       build,
@@ -76,6 +79,7 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     MacosBuildResult::Required { .. } => unreachable!("builds are allowed"),
     MacosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
   };
+  let assembly = macos_build::macos_assembly_identity(&build)?;
   let value = serde_json::json!({
     "schema": 1,
     "suite": suite.name,
@@ -84,6 +88,12 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     "build_fingerprint": build.metadata().identity.fingerprint,
     "disposition": disposition,
     "player_path": build.path(),
+    "application_path": build.player_path(),
+    "components": {
+      "shell": assembly.shell_fingerprint,
+      "content": assembly.content_fingerprint,
+      "rules": assembly.rules_fingerprint,
+    },
   });
   let encoded = serde_json::to_string_pretty(&value)? + "\n";
   if let Some(path) = options.output {
@@ -219,7 +229,7 @@ fn execute_inner(
       outcome: MacosBuildOutcome::Reused,
     }
   } else {
-    macos_build::select_macos_player(&build_request(suite, &discovery)?, !options.no_build)?
+    macos_build::select_macos_player(&build_request(suite, &discovery, true)?, !options.no_build)?
   };
   let build_duration = build_started.elapsed().as_millis() as u64;
   let (build, disposition) = match selected {
@@ -442,7 +452,11 @@ impl Drop for WatchRuntime {
   }
 }
 
-fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<MacosBuildRequest> {
+fn build_request(
+  suite: &Suite,
+  discovery: &HostDiscovery,
+  release_rules: bool,
+) -> Result<MacosBuildRequest> {
   reactant_assets::generate(suite)?;
   let unity_editor = required_tool(&discovery.unity)?;
   let cargo = SystemHost
@@ -468,6 +482,7 @@ fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<MacosBuildR
     scene: suite.player.scene.clone(),
     suite: suite.name.clone(),
     diagnostics: true,
+    release_rules,
     generated_inputs: Vec::new(),
     native_inputs: Vec::<NativeInput>::new(),
     capture_adapter: CaptureAdapter {

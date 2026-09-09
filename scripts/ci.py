@@ -40,6 +40,7 @@ from unity_transaction import recover_unity_transactions, unity_project_transact
 import perf_log
 import prose_validation
 import unity_test_selection
+import native_validation_selection
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -786,8 +787,11 @@ def run_ditto_validation(
     ditto_builds: DittoBuildLeases | None = None,
     invocation_id: str | None = None,
     evidence_export: tollgate_evidence.Export | None = None,
+    samples: list[str] | None = None,
 ) -> None:
     """Run every canonical Ditto scenario against prebuilt players."""
+    explicit_samples = samples is not None
+    samples = list(DITTO_SAMPLES) if samples is None else samples
     environment = os.environ.copy()
     environment["DITTO_CI_REUSABLE_BUILD_SECONDS"] = str(reusable_build_seconds)
     invocation_id = invocation_id or environment.get(
@@ -804,6 +808,9 @@ def run_ditto_validation(
         ditto_builds.assert_healthy()
         environment["DITTO_CI_CACHE_ROOT"] = str(ditto_builds.cache_root)
     command = [sys.executable, "scripts/ditto_ci.py", "gate"]
+    if explicit_samples:
+        for sample in samples:
+            command.extend(["--sample", sample])
     if platform.system() == "Darwin":
         command = ["/usr/bin/caffeinate", "-u", "-d", "-i", "--", *command]
     failure = None
@@ -940,6 +947,10 @@ def run_ci(
         [sys.executable, "scripts/tests/unity-test-selection.test.py"],
     )
     run_step(
+        "Test native sample selection",
+        [sys.executable, "scripts/tests/native-validation-selection.test.py"],
+    )
+    run_step(
         "Test performance reporting",
         [sys.executable, "scripts/tests/perf-report.test.py"],
     )
@@ -979,6 +990,12 @@ def run_ci(
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
     from web_selection import changed_paths
     _revision, paths = changed_paths(REPOSITORY_ROOT)
+    native_samples = native_validation_selection.select(REPOSITORY_ROOT, paths, samples)
+    print(
+        "Native sample selection: "
+        + (", ".join(native_samples) if native_samples else "none"),
+        flush=True,
+    )
     unity_selection = unity_test_selection.select(REPOSITORY_ROOT, paths)
     unity_seconds = run_selected_unity_tests(unity_selection, ci_cache)
     if full:
@@ -1024,11 +1041,11 @@ def run_ci(
             def build_samples() -> None:
                 if platform.system() == "Windows":
                     ditto_preparation_seconds[0] = build_standalone_samples(
-                        samples, ci_cache
+                        native_samples, ci_cache
                     )
                     return
                 ditto_preparation_seconds[0] = build_standalone_samples(
-                    samples, ci_cache, ditto_builds
+                    native_samples, ci_cache, ditto_builds
                 )
 
             run_step(
@@ -1038,9 +1055,13 @@ def run_ci(
         elif full:
             run_step("Skip desktop full validation", function=skip_desktop_full_validation)
         if full and platform.system() == "Darwin":
-            run_ditto_validation(
-                ditto_preparation_seconds[0], ditto_builds, invocation_id, evidence_export
-            )
+            if native_samples:
+                run_ditto_validation(
+                    ditto_preparation_seconds[0], ditto_builds, invocation_id,
+                    evidence_export, samples=native_samples
+                )
+            else:
+                print("Ditto validation selection: skipped; no native sample input changed")
     finally:
         if ditto_builds is not None:
             ditto_builds.close()

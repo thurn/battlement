@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "encoding": "utf-8-json",
+  "maximum_payload_bytes": 16777216,
+  "operations": {
+    "connect": {"request": "Connect", "response": "Response"},
+    "submit": {"request": "ClientMessage", "response": "Response"},
+    "submit_ui_event": {"request": "UiEventAction", "response": "UiEventResponse"},
+    "poll": {"request": null, "response": "Response"}
+  },
+  "status_codes": {
+    "ok": 0,
+    "no_message": 1,
+    "invalid_argument": 2,
+    "engine_error": 3,
+    "panic": 4
+  },
+  "empty_native_buffer": {
+    "data": "null",
+    "length": 0
+  }
+}

@@ -309,11 +309,11 @@ def execute_sample(
     }
 
 
-def inventory() -> tuple[dict[str, Any], int, int]:
+def inventory(samples: tuple[str, ...] = SAMPLES) -> tuple[dict[str, Any], int, int]:
     suites: dict[str, Any] = {}
     scenarios = 0
     screenshots = 0
-    for sample in SAMPLES:
+    for sample in samples:
         suite = tomllib.loads(
             (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
         )
@@ -333,10 +333,10 @@ def inventory() -> tuple[dict[str, Any], int, int]:
     return suites, scenarios, screenshots
 
 
-def gate() -> None:
+def gate(samples: tuple[str, ...] = SAMPLES) -> None:
     """Run every process-isolated canonical suite concurrently."""
     platform_report()
-    _, scenario_count, screenshot_count = inventory()
+    _, scenario_count, screenshot_count = inventory(samples)
     started = time.monotonic()
     results = []
     failures = []
@@ -345,7 +345,7 @@ def gate() -> None:
             executor.submit(
                 contextvars.copy_context().run, execute_sample, sample, retain=False,
             ): sample
-            for sample in SAMPLES
+            for sample in samples
         }
         for future in as_completed(pending):
             sample = pending[future]
@@ -373,7 +373,7 @@ def gate() -> None:
         "added_duration_seconds": round(added_duration, 3),
         "scenario_count": scenario_count,
         "screenshot_count": screenshot_count,
-        "expected_samples": list(SAMPLES),
+        "expected_samples": list(samples),
         "samples": sorted(results, key=lambda item: item["sample"]),
         "warnings": warnings,
         "failures": sorted(failures),
@@ -527,7 +527,8 @@ def main() -> None:
     adapter_parser.add_argument("name", choices=ADAPTER_TESTS)
     subcommands.add_parser("performance")
     subcommands.add_parser("publish")
-    subcommands.add_parser("gate")
+    gate_parser = subcommands.add_parser("gate")
+    gate_parser.add_argument("--sample", action="append", choices=SAMPLES)
     arguments = parser.parse_args()
     with operation_log.Operation(
         REPOSITORY_ROOT,
@@ -589,7 +590,7 @@ def dispatch(arguments: argparse.Namespace) -> None:
     elif arguments.command == "performance":
         performance()
     elif arguments.command == "gate":
-        gate()
+        gate(tuple(arguments.sample) if arguments.sample else SAMPLES)
     else:
         publish()
 

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "buffer": {
+    "layout": "sequential",
+    "fields": ["pointer", "u64"]
+  },
+  "functions": [
+    {"name": "battlement_native_abi_digest", "return": "cstring", "parameters": []},
+    {"name": "battlement_wire_contract_digest", "return": "cstring", "parameters": []},
+    {"name": "battlement_engine_create", "return": "i32", "parameters": ["engine_out", "buffer_out"]},
+    {"name": "battlement_engine_destroy", "return": "i32", "parameters": ["engine", "buffer_out"]},
+    {"name": "battlement_connect", "return": "i32", "parameters": ["engine", "bytes", "u64", "buffer_out"]},
+    {"name": "battlement_submit", "return": "i32", "parameters": ["engine", "bytes", "u64", "buffer_out"]},
+    {"name": "battlement_submit_ui_event", "return": "i32", "parameters": ["engine", "bytes", "u64", "u32_out", "buffer_out"]},
+    {"name": "battlement_poll", "return": "i32", "parameters": ["engine", "buffer_out"]},
+    {"name": "battlement_buffer_free", "return": "void", "parameters": ["buffer"]},
+    {"name": "battlement_logging_drain", "return": "i32", "parameters": ["buffer_out"]},
+    {"name": "battlement_ditto_determinism_contract", "return": "u32", "parameters": []},
+    {"name": "battlement_ditto_determinism_capabilities", "return": "u64", "parameters": []}
+  ]
+}

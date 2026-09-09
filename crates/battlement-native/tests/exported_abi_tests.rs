@@ -1,8 +1,16 @@
-use std::{env, ffi::c_void, path::PathBuf, process::Command as ProcessCommand, ptr};
+use std::{
+  env,
+  ffi::{CStr, c_char, c_void},
+  fs,
+  path::PathBuf,
+  process::Command as ProcessCommand,
+  ptr,
+};
 
 use battlement::{Connect, json};
 use battlement_native::{BattlementBuffer, ENGINE_ERROR, INVALID_ARGUMENT, OK, PANIC};
 use libloading::{Library, Symbol};
+use sha2::{Digest, Sha256};
 
 const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-111111111111","session_id":"22222222-2222-4222-8222-222222222222","body":{"PointerEnter":{"object_id":"33333333-3333-4333-8333-333333333333","pointer_id":0,"screen_position":{"x":1.0,"y":2.0},"world_hit":{"x":0.0,"y":0.0,"z":0.0}}}}}"#;
 
@@ -18,6 +26,7 @@ type DeterminismContract = unsafe extern "C" fn() -> u32;
 type DeterminismCapabilities = unsafe extern "C" fn() -> u64;
 type VoidAction = unsafe extern "C" fn();
 type LogAction = unsafe extern "C" fn(*mut BattlementBuffer) -> i32;
+type ContractDigest = unsafe extern "C" fn() -> *const c_char;
 
 fn fixture_library_path() -> PathBuf {
   let workspace = PathBuf::from(
@@ -138,9 +147,21 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     let determinism_capabilities: Symbol<'_, DeterminismCapabilities> = library
       .get(b"battlement_ditto_determinism_capabilities")
       .unwrap();
+    let native_abi: Symbol<'_, ContractDigest> =
+      library.get(b"battlement_native_abi_digest").unwrap();
+    let wire_contract: Symbol<'_, ContractDigest> =
+      library.get(b"battlement_wire_contract_digest").unwrap();
 
     assert!(library.get::<VoidAction>(b"battlement_abi_v1").is_err());
     assert_eq!(determinism_contract(), 2);
+    assert_eq!(
+      CStr::from_ptr(native_abi()).to_str().unwrap(),
+      battlement_native::NATIVE_ABI_DIGEST
+    );
+    assert_eq!(
+      CStr::from_ptr(wire_contract()).to_str().unwrap(),
+      battlement_native::WIRE_CONTRACT_DIGEST
+    );
     assert_eq!(
       determinism_capabilities(),
       battlement_native::DITTO_DETERMINISM_CAPABILITIES_V2
@@ -344,5 +365,148 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     assert!(!engine.is_null());
     assert_eq!(call_destroy(&destroy, engine, &free), (OK, Vec::new()));
     assert_eq!(outstanding(), 0);
+  }
+}
+
+#[test]
+fn checked_in_contract_manifests_match_exported_digests() {
+  let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+  for (path, expected) in [
+    (
+      "contracts/native-abi.json",
+      battlement_native::NATIVE_ABI_DIGEST,
+    ),
+    (
+      "contracts/wire-contract.json",
+      battlement_native::WIRE_CONTRACT_DIGEST,
+    ),
+  ] {
+    let actual = format!("{:x}", Sha256::digest(fs::read(root.join(path)).unwrap()));
+    assert_eq!(actual, expected, "{path} digest changed");
+  }
+  let shell = fs::read_to_string(
+    root.join("Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeContract.cs"),
+  )
+  .unwrap();
+  assert!(shell.contains(battlement_native::NATIVE_ABI_DIGEST));
+  assert!(shell.contains(battlement_native::WIRE_CONTRACT_DIGEST));
+
+  let manifest: serde_json::Value =
+    serde_json::from_slice(&fs::read(root.join("contracts/native-abi.json")).unwrap()).unwrap();
+  let rust = fs::read_to_string(root.join("crates/battlement-native/src/lib.rs")).unwrap();
+  let csharp = fs::read_to_string(
+    root.join("Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeMethods.cs"),
+  )
+  .unwrap();
+  assert!(
+    rust.contains("#[repr(C)]")
+      || fs::read_to_string(root.join("crates/battlement-native/src/adapter.rs"))
+        .unwrap()
+        .contains("#[repr(C)]")
+  );
+  assert!(csharp.contains("[StructLayout(LayoutKind.Sequential)]"));
+  for function in manifest["functions"].as_array().unwrap() {
+    let name = function["name"].as_str().unwrap();
+    let return_type = function["return"].as_str().unwrap();
+    let parameters = function["parameters"]
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|value| value.as_str().unwrap())
+      .collect::<Vec<_>>();
+    assert_signature(&csharp, name, return_type, &parameters, Language::Csharp);
+    assert_signature(&rust, name, return_type, &parameters, Language::Rust);
+  }
+}
+
+#[derive(Clone, Copy)]
+enum Language {
+  Csharp,
+  Rust,
+}
+
+fn assert_signature(
+  source: &str,
+  name: &str,
+  return_type: &str,
+  parameters: &[&str],
+  language: Language,
+) {
+  let source = source.split_whitespace().collect::<Vec<_>>().join(" ");
+  let marker = match language {
+    Language::Csharp => format!(" {name}("),
+    Language::Rust => format!(" fn {name}("),
+  };
+  let marker_start = source
+    .find(&marker)
+    .unwrap_or_else(|| panic!("missing {name}"));
+  let parameters_start = marker_start + marker.len();
+  let parameters_end = source[parameters_start..]
+    .find(')')
+    .map(|offset| parameters_start + offset)
+    .unwrap();
+  let actual_parameters = source[parameters_start..parameters_end]
+    .split(',')
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(|value| match language {
+      Language::Csharp => value.rsplit_once(' ').unwrap().0,
+      Language::Rust => value.split_once(':').unwrap().1.trim(),
+    })
+    .collect::<Vec<_>>();
+  let expected_parameters = parameters
+    .iter()
+    .map(|value| parameter_type(value, language))
+    .collect::<Vec<_>>();
+  assert_eq!(actual_parameters, expected_parameters, "{name} parameters");
+
+  let actual_return = match language {
+    Language::Csharp => source[..marker_start].rsplit_once(' ').unwrap().1,
+    Language::Rust => source[parameters_end + 1..]
+      .trim_start()
+      .strip_prefix("-> ")
+      .and_then(|value| value.split_once(' '))
+      .map_or("()", |(value, _)| value),
+  };
+  assert_eq!(
+    actual_return,
+    return_type_name(return_type, language),
+    "{name} return"
+  );
+}
+
+fn parameter_type<'a>(value: &str, language: Language) -> &'a str {
+  match (language, value) {
+    (Language::Csharp, "engine_out") => "out IntPtr",
+    (Language::Csharp, "engine") => "IntPtr",
+    (Language::Csharp, "buffer_out") => "out BattlementNativeBuffer",
+    (Language::Csharp, "bytes") => "[In] byte[]",
+    (Language::Csharp, "u64") => "ulong",
+    (Language::Csharp, "u32_out") => "out uint",
+    (Language::Csharp, "buffer") => "BattlementNativeBuffer",
+    (Language::Rust, "engine_out") => "*mut *mut ::core::ffi::c_void",
+    (Language::Rust, "engine") => "*mut ::core::ffi::c_void",
+    (Language::Rust, "buffer_out") => "*mut $crate::BattlementBuffer",
+    (Language::Rust, "bytes") => "*const u8",
+    (Language::Rust, "u64") => "u64",
+    (Language::Rust, "u32_out") => "*mut u32",
+    (Language::Rust, "buffer") => "$crate::BattlementBuffer",
+    _ => panic!("unknown ABI parameter type {value}"),
+  }
+}
+
+fn return_type_name(value: &str, language: Language) -> &str {
+  match (language, value) {
+    (Language::Csharp, "cstring") => "IntPtr",
+    (Language::Csharp, "i32") => "int",
+    (Language::Csharp, "void") => "void",
+    (Language::Csharp, "u32") => "uint",
+    (Language::Csharp, "u64") => "ulong",
+    (Language::Rust, "cstring") => "*const",
+    (Language::Rust, "i32") => "i32",
+    (Language::Rust, "void") => "()",
+    (Language::Rust, "u32") => "u32",
+    (Language::Rust, "u64") => "u64",
+    _ => panic!("unknown ABI return type {value}"),
   }
 }

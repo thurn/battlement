@@ -7,8 +7,6 @@ use anyhow::{Result, ensure};
 
 const IDENTITY_ASSET: &str = "Assets/Resources/BattlementDittoBuildIdentity.json";
 const IDENTITY_META: &str = "Assets/Resources/BattlementDittoBuildIdentity.json.meta";
-const NATIVE_PLUGIN: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib";
-const NATIVE_PLUGIN_META: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib.meta";
 const WEBGL_PLUGIN: &str = "Assets/Plugins/WebGL/libbattlement_rules.a";
 const WEBGL_PLUGIN_META: &str = "Assets/Plugins/WebGL/libbattlement_rules.a.meta";
 const IOS_PLUGIN: &str = "Assets/Plugins/iOS/libbattlement_rules.a";
@@ -21,10 +19,6 @@ pub(super) struct ProjectStaging {
 }
 
 impl ProjectStaging {
-  pub(super) fn new(project: &Path, plugin: &Path, identity: &[u8]) -> Result<Self> {
-    Self::for_plugin(project, plugin, identity, NATIVE_PLUGIN, NATIVE_PLUGIN_META)
-  }
-
   pub(super) fn webgl(project: &Path, plugin: &Path, identity: &[u8]) -> Result<Self> {
     Self::for_plugin(project, plugin, identity, WEBGL_PLUGIN, WEBGL_PLUGIN_META)
   }
