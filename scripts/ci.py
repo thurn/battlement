@@ -474,16 +474,40 @@ def unity_analyzer_environment() -> dict[str, str]:
     return environment
 
 
-def ensure_unity_project_files() -> None:
-    """Generate Unity project files when an earlier test result came from cache."""
-    if not (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").is_file():
-        run_with_unity_lease(
-            lambda: run_unity_edit_mode_tests(unity_test_selection.FULL_ASSEMBLIES)
+def generate_unity_project_files() -> None:
+    """Generate current Unity project files without running the test suite."""
+    editor = unity_editor()
+    if not os.access(editor, os.X_OK):
+        raise RuntimeError(
+            f"Unity executable was not found at {editor}. Set UNITY_EDITOR to its executable."
         )
+    with tempfile.NamedTemporaryFile(
+        prefix="battlement-unity-project-files.", delete=False
+    ) as log_file:
+        unity_log = Path(log_file.name)
+    try:
+        with unity_project_transaction(REPOSITORY_ROOT, "project-files") as transaction:
+            result = transaction.run(
+                [
+                    str(editor), "-batchmode", "-nographics",
+                    "--burst-disable-compilation", "-projectPath",
+                    str(REPOSITORY_ROOT), "-quit", "-logFile", str(unity_log),
+                ],
+                cwd=REPOSITORY_ROOT,
+            )
+        wait_for_unity_project_unlock()
+        if result.returncode != 0:
+            print_tail(unity_log, 120)
+            raise RuntimeError("Unity project-file generation failed.")
+        if not (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").is_file():
+            print_tail(unity_log, 120)
+            raise RuntimeError("Unity did not generate C# project files.")
+    finally:
+        unity_log.unlink(missing_ok=True)
 
 
 def check_dotnet_diagnostics() -> None:
-    ensure_unity_project_files()
+    run_with_unity_lease(generate_unity_project_files)
     environment = unity_analyzer_environment()
     subprocess.run(
         ["dotnet", "restore", "battlement-ci.slnx"],
@@ -724,10 +748,46 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
+def run_csharp_preflight(
+    samples: list[str],
+    selection: unity_test_selection.Selection,
+    ci_cache: CiCache,
+) -> None:
+    """Run the complete authoritative C# gate before expensive validation."""
+    run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
+    run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
+    run_step(
+        "Check C# line lengths",
+        function=lambda: check_csharp_line_lengths(samples),
+    )
+    run_step(
+        "Check sample runtime preflight",
+        function=lambda: check_sample_runtime_preflight(samples),
+    )
+    run_step(
+        "Check samples have no C#",
+        function=lambda: check_samples_have_no_csharp(samples),
+    )
+    if selection.dotnet_diagnostics:
+        run_step(
+            "Check .NET diagnostics",
+            function=lambda: ci_cache.run(
+                "dotnet-diagnostics",
+                unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS,
+                check_dotnet_diagnostics,
+            ),
+        )
+    else:
+        print(".NET diagnostics selection: skipped; no C# input changed", flush=True)
+
+
 def build_standalone_samples(
     samples: list[str], ci_cache: CiCache,
     ditto_builds: DittoBuildLeases | None = None,
 ) -> float:
+    if not samples:
+        return 0.0
+
     def build(name: str) -> None:
         if platform.system() == "Darwin":
             build_uncached(name)
@@ -850,6 +910,16 @@ def run_reactant_asset_fast_lane() -> None:
     )
 
 
+def select_native_samples(
+    paths: list[str], samples: list[str], require_evidence: bool
+) -> list[str]:
+    """Select affected samples, expanding an empty evidence gate to the full set."""
+    selected = native_validation_selection.select(REPOSITORY_ROOT, paths, samples)
+    if require_evidence and not selected:
+        return samples
+    return selected
+
+
 def run_ci(
     full: bool, use_ci_cache: bool, ditto: bool,
     evidence_export: tollgate_evidence.Export | None = None,
@@ -863,6 +933,18 @@ def run_ci(
         enabled=use_ci_cache,
         event=ci_steps.record_cache_event,
     )
+    from web_selection import changed_paths
+    _revision, paths = changed_paths(REPOSITORY_ROOT)
+    native_samples = select_native_samples(
+        paths, samples, evidence_export is not None
+    )
+    print(
+        "Native sample selection: "
+        + (", ".join(native_samples) if native_samples else "none"),
+        flush=True,
+    )
+    unity_selection = unity_test_selection.select(REPOSITORY_ROOT, paths)
+    run_csharp_preflight(samples, unity_selection, ci_cache)
     run_step(
         "Check rust-analyzer projects",
         [sys.executable, "scripts/update-rust-analyzer-projects.py", "--check"],
@@ -983,20 +1065,6 @@ def run_ci(
             "Test Ditto cutover",
             [sys.executable, "scripts/tests/ditto-cutover.test.py"],
         )
-    run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
-    run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
-    run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
-    run_step("Check sample runtime preflight", function=lambda: check_sample_runtime_preflight(samples))
-    run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
-    from web_selection import changed_paths
-    _revision, paths = changed_paths(REPOSITORY_ROOT)
-    native_samples = native_validation_selection.select(REPOSITORY_ROOT, paths, samples)
-    print(
-        "Native sample selection: "
-        + (", ".join(native_samples) if native_samples else "none"),
-        flush=True,
-    )
-    unity_selection = unity_test_selection.select(REPOSITORY_ROOT, paths)
     unity_seconds = run_selected_unity_tests(unity_selection, ci_cache)
     if full:
         print(
@@ -1007,17 +1075,6 @@ def run_ci(
             f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
             flush=True,
         )
-    if unity_selection.dotnet_diagnostics:
-        run_step(
-            "Check .NET diagnostics",
-            function=lambda: ci_cache.run(
-                "dotnet-diagnostics",
-                unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS,
-                check_dotnet_diagnostics,
-            ),
-        )
-    else:
-        print(".NET diagnostics selection: skipped; no C# input changed", flush=True)
     ditto_preparation_seconds = [0.0]
     invocation_id = os.environ.get("DITTO_CI_INVOCATION_ID", str(uuid.uuid4()))
     ditto_builds = None

@@ -37,7 +37,13 @@ def main() -> None:
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
         _verify_ditto_build_leases_span_gate(root)
-        _verify_unity_project_regeneration(root)
+        assert ci.build_standalone_samples([], object()) == 0
+        assert ci.select_native_samples(["scripts/ci.py"], ["basic"], False) == []
+        assert ci.select_native_samples(["scripts/ci.py"], ["basic"], True) == [
+            "basic"
+        ]
+        _verify_unity_project_generation(root)
+        _verify_csharp_preflight()
         _verify_unity_execution_selection(root)
         _verify_unity_native_diagnostics_selection()
         for name in ("tictactoe", "basic", "chess", "chess-ui"):
@@ -386,20 +392,63 @@ def _verify_active_rust_toolchain_guard() -> None:
             raise AssertionError("mismatched active Rust toolchain was accepted")
 
 
-def _verify_unity_project_regeneration(root: Path) -> None:
+def _verify_unity_project_generation(root: Path) -> None:
     ci.REPOSITORY_ROOT = root
     project = root / "Assembly-CSharp-Editor.csproj"
-    assemblies: list[tuple[str, ...]] = []
+    project.unlink(missing_ok=True)
+
+    class Transaction:
+        def run(
+            self, command: list[str], **_options: object
+        ) -> subprocess.CompletedProcess[str]:
+            assert "-runTests" not in command
+            assert "-quit" in command
+            project.touch()
+            return subprocess.CompletedProcess(command, 0)
+
     with (
-        patch.object(ci, "run_with_unity_lease", side_effect=lambda function: function()) as run,
-        patch.object(ci, "run_unity_edit_mode_tests", side_effect=assemblies.append),
+        patch.object(ci, "unity_editor", return_value=Path(sys.executable)),
+        patch.object(
+            ci,
+            "unity_project_transaction",
+            return_value=nullcontext(Transaction()),
+        ),
+        patch.object(ci, "wait_for_unity_project_unlock"),
     ):
-        ci.ensure_unity_project_files()
-        assert run.call_count == 1
-        project.touch()
-        ci.ensure_unity_project_files()
-        assert run.call_count == 1
-    assert assemblies == [ci.unity_test_selection.FULL_ASSEMBLIES]
+        ci.generate_unity_project_files()
+
+
+def _verify_csharp_preflight() -> None:
+    selection = ci.unity_test_selection.Selection(
+        ci.unity_test_selection.Scope.ALL,
+        ci.unity_test_selection.FULL_ASSEMBLIES,
+        ("C# changed",),
+        ("Packages",),
+        True,
+    )
+
+    class Cache:
+        def run(self, step: str, inputs: tuple[str, ...], function: object) -> bool:
+            assert step == "dotnet-diagnostics"
+            assert inputs == ci.unity_test_selection.DOTNET_DIAGNOSTIC_INPUTS
+            assert function is ci.check_dotnet_diagnostics
+            return True
+
+    steps: list[str] = []
+    with patch.object(
+        ci,
+        "run_step",
+        side_effect=lambda name, *_arguments, **_options: steps.append(name),
+    ):
+        ci.run_csharp_preflight([], selection, Cache())
+    assert steps == [
+        "Restore local .NET tools",
+        "Check C# formatting",
+        "Check C# line lengths",
+        "Check sample runtime preflight",
+        "Check samples have no C#",
+        "Check .NET diagnostics",
+    ]
 
 
 def _verify_unity_execution_selection(root: Path) -> None:
