@@ -199,13 +199,19 @@ def load_result(path: Path) -> dict[str, Any]:
 
 
 def validate_result(
-    result: dict[str, Any], sample: str, expected: list[str], expected_disposition: str,
+    result: dict[str, Any], sample: str, expected: list[str],
+    expected_disposition: str | tuple[str, ...],
     expected_fingerprint: str | None = None,
 ) -> None:
     if result.get("status") != "passed":
         raise RuntimeError(f"{sample} suite status is {result.get('status', 'missing')}")
     disposition = (result.get("build") or {}).get("disposition")
-    if disposition != expected_disposition:
+    accepted_dispositions = (
+        (expected_disposition,)
+        if isinstance(expected_disposition, str)
+        else expected_disposition
+    )
+    if disposition not in accepted_dispositions:
         raise RuntimeError(f"{sample} used {disposition or 'no'} player build")
     fingerprint = (result.get("build") or {}).get("fingerprint")
     if expected_fingerprint is not None and fingerprint != expected_fingerprint:
@@ -230,6 +236,7 @@ def execute_sample(
     sample: str, *, scenarios: list[str] | None = None,
     preparation: str | None = None, retain: bool = True,
     cache_root: Path = CACHE_ROOT, expected_fingerprint: str | None = None,
+    allow_build: bool = False,
 ) -> dict[str, Any]:
     output = artifact_directory(
         f"prepare-{preparation}-{sample}" if preparation else sample
@@ -247,7 +254,7 @@ def execute_sample(
         expected = expected[:1]
     elif scenarios is not None:
         expected = scenarios
-    if preparation != "cold":
+    if preparation != "cold" and not allow_build:
         arguments.append("--no-build")
     if preparation or scenarios is not None:
         arguments.extend(expected)
@@ -283,11 +290,17 @@ def execute_sample(
             ditto_replay.save(recipe, source / "replay.json", result, event_log)
         if timeout_error is not None:
             raise timeout_error
+        if allow_build:
+            expected_disposition: str | tuple[str, ...] = ("created", "reused")
+        elif preparation == "cold":
+            expected_disposition = "created"
+        else:
+            expected_disposition = "reused"
         validate_result(
             result,
             sample,
             expected,
-            expected_disposition="created" if preparation == "cold" else "reused",
+            expected_disposition=expected_disposition,
             expected_fingerprint=expected_fingerprint,
         )
         if completed.returncode != 0:
@@ -341,9 +354,14 @@ def gate(samples: tuple[str, ...] = SAMPLES) -> None:
     results = []
     failures = []
     with ThreadPoolExecutor(max_workers=len(SAMPLES)) as executor:
+        # Each process selects or materializes its exact build before launching.
         pending = {
             executor.submit(
-                contextvars.copy_context().run, execute_sample, sample, retain=False,
+                contextvars.copy_context().run,
+                execute_sample,
+                sample,
+                retain=False,
+                allow_build=True,
             ): sample
             for sample in samples
         }

@@ -55,6 +55,12 @@ time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
 status = os.environ.get("FAKE_STATUS", "passed")
 disposition = "reused" if "--no-build" in arguments else "created"
 config = Path(arguments[arguments.index("--config") + 1])
+sample = config.parent.name
+if (
+    sample in os.environ.get("FAKE_MISSING_EXACT", "").split(",")
+    and "--no-build" in arguments
+):
+    status = "infrastructure-error"
 suite = tomllib.loads(config.read_text())
 names = [scenario["name"] for scenario in suite["scenarios"]]
 selected = [argument for argument in arguments if argument in names]
@@ -154,6 +160,25 @@ def main() -> None:
         assert external.returncode == 0, external.stderr
         assert artifact_root(external) == external_root
         assert ditto_evidence.read(external_root / "evidence.json", external_id)["status"] == "passed"
+
+        missing_environment = {
+            **environment,
+            "FAKE_MISSING_EXACT": "ui,tictactoe",
+        }
+        missing_sample = run(["sample", "ui"], missing_environment)
+        assert missing_sample.returncode == 1
+        rebuilt_gate = run(
+            ["gate", "--sample", "ui", "--sample", "tictactoe"],
+            missing_environment,
+        )
+        assert rebuilt_gate.returncode == 0, rebuilt_gate.stderr
+        rebuilt_report = json.loads(
+            (artifact_root(rebuilt_gate) / "gate.json").read_text()
+        )
+        assert [sample["build"] for sample in rebuilt_report["samples"]] == [
+            "created",
+            "created",
+        ]
 
         gated = run(["gate"], environment)
         assert gated.returncode == 0, gated.stderr
