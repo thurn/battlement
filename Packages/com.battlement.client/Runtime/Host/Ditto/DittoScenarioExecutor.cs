@@ -7,7 +7,7 @@ namespace Battlement
 {
     internal delegate void DittoScreenshotCapture(
         DittoResolvedStep step,
-        ulong committedFrame,
+        DittoRenderCommit renderCommit,
         System.Action<DittoScreenshotStepOutcome> completion
     );
 
@@ -61,7 +61,7 @@ namespace Battlement
         private readonly Action<DittoResolvedStep> onStepStarted;
         private readonly DittoStepBoundary onStepEnded;
         private readonly DittoNativeVideoRecorder? videoRecorder;
-        private readonly Func<ulong, byte[]>? captureVideoFrame;
+        private readonly Func<DittoRenderCommit, byte[]>? captureVideoFrame;
         private readonly DittoCapturePixelLayout? videoLayout;
         private readonly System.Action setup;
         private readonly ulong runTimeoutMs;
@@ -84,12 +84,15 @@ namespace Battlement
         private bool disposed;
         private bool presentationReady;
         private ulong committedFrame;
+        private ulong fallbackRenderGeneration;
+        private DittoRenderCommit? renderCommit;
         private bool stepActive;
         private bool boundaryPending;
         private bool? boundarySucceeded;
         private bool completeAfterBoundary;
         private bool videoMotionOverridden;
         private bool presentationChanged;
+        private bool preserveAdvanceState;
         private int startupQuietFrames;
         private bool awaitingPresentation;
         private string? activationTransactionId;
@@ -110,7 +113,7 @@ namespace Battlement
             Action<DittoResolvedStep>? stepStarted = null,
             DittoStepBoundary? stepEnded = null,
             DittoNativeVideoRecorder? video = null,
-            Func<ulong, byte[]>? videoFrame = null,
+            Func<DittoRenderCommit, byte[]>? videoFrame = null,
             DittoCapturePixelLayout? nativeVideoLayout = null
         )
             : this(
@@ -149,7 +152,7 @@ namespace Battlement
             Action<DittoResolvedStep>? stepStarted = null,
             DittoStepBoundary? stepEnded = null,
             DittoNativeVideoRecorder? video = null,
-            Func<ulong, byte[]>? videoFrame = null,
+            Func<DittoRenderCommit, byte[]>? videoFrame = null,
             DittoCapturePixelLayout? nativeVideoLayout = null
         )
         {
@@ -183,7 +186,13 @@ namespace Battlement
 
         public ulong LastCommittedFrame => committedFrame;
 
+        public DittoRenderCommit? LastRenderCommit => renderCommit;
+
+        public ulong NextPresentedFrame => motion.NextFrameIndex;
+
         public bool AwaitingPresentation => awaitingPresentation;
+
+        public bool RequiresPaintObservation => phase != Phase.ObjectWait;
 
         public bool Advance()
         {
@@ -319,8 +328,8 @@ namespace Battlement
         {
             started = true;
             scenarioStarted = now();
-            setup();
             motion.Begin(scenario.Motion);
+            setup();
             phase = Phase.StartupSettle;
             phaseStarted = now();
             executionStarted = phaseStarted;
@@ -336,6 +345,10 @@ namespace Battlement
         {
             stepStarted = now();
             stepActive = true;
+            if (step.Action is not DittoStepAction.Screenshot)
+            {
+                preserveAdvanceState = false;
+            }
             onStepStarted(step);
             switch (step.Action)
             {
@@ -439,7 +452,10 @@ namespace Battlement
 
         private void PrepareFrame()
         {
-            motion.PrepareFrame(phase == Phase.FrameAdvance);
+            motion.PrepareFrame(
+                phase == Phase.FrameAdvance,
+                preserveAdvanceState && phase == Phase.ScreenshotSettle
+            );
             runner.RunFrame();
             runner.CompleteNativeFrame();
             awaitingPresentation = true;
@@ -447,18 +463,50 @@ namespace Battlement
 
         public void CompletePresentedFrame()
         {
+            CompletePresentedFrame(
+                new DittoRenderCommit(NextPresentedFrame, checked(++fallbackRenderGeneration), 0)
+            );
+        }
+
+        public void CompletePresentedFrame(DittoRenderCommit commit)
+        {
             ThrowIfDisposed();
             if (!awaitingPresentation)
             {
                 throw new InvalidOperationException("No Ditto frame is awaiting presentation.");
             }
             awaitingPresentation = false;
-            DittoCommittedFrame frame = motion.ObserveCommittedFrame();
+            DittoCommittedFrame frame = motion.ObserveCommittedFrame(commit.PixelFingerprint);
+            if (commit.Frame != frame.Index)
+            {
+                throw new InvalidOperationException(
+                    $"Render commit frame {commit.Frame} does not match "
+                        + $"presented frame {frame.Index}."
+                );
+            }
+            if (
+                renderCommit is not null
+                && commit.RenderGeneration <= renderCommit.RenderGeneration
+            )
+            {
+                throw new InvalidOperationException("Render commit generations must increase.");
+            }
             committedFrame = frame.Index;
-            presentationChanged = frame.LayoutChanged;
-            CaptureVideoFrame(frame);
+            renderCommit = commit;
+            presentationChanged = frame.LayoutChanged || frame.PaintChanged;
+            CaptureVideoFrame(frame, commit);
             if (TryFreezeObserved())
             {
+                return;
+            }
+            if (frame.HasUncontrolledVisibleWork)
+            {
+                Freeze(
+                    reportError(
+                        DittoErrorCode.ImageCaptureFailed,
+                        DittoMotionController.UncontrolledWorkDiagnostic
+                    )
+                );
                 return;
             }
             if (phase == Phase.StartupSettle)
@@ -561,6 +609,7 @@ namespace Battlement
                 case Phase.ScreenshotSettle when frame.IsSettled:
                     settleDurationMs += PhaseDuration();
                     presentationReady = true;
+                    preserveAdvanceState = false;
                     phase = Phase.None;
                     Capture(step);
                     break;
@@ -569,7 +618,8 @@ namespace Battlement
                     if (advanceFrames == 0)
                     {
                         motion.PreserveExactAdvanceState();
-                        presentationReady = true;
+                        presentationReady = false;
+                        preserveAdvanceState = true;
                         PassStep(step);
                     }
                     break;
@@ -663,7 +713,7 @@ namespace Battlement
         {
             phase = Phase.ScreenshotCapture;
             phaseStarted = now();
-            capture(step, committedFrame, outcome => screenshotOutcome = outcome);
+            capture(step, renderCommit!, outcome => screenshotOutcome = outcome);
             if (screenshotOutcome is not null)
             {
                 AdvanceScreenshotCapture();
@@ -806,7 +856,7 @@ namespace Battlement
             PassStep(step);
         }
 
-        private void CaptureVideoFrame(DittoCommittedFrame frame)
+        private void CaptureVideoFrame(DittoCommittedFrame frame, DittoRenderCommit commit)
         {
             if (videoRecorder?.IsActive != true)
             {
@@ -818,13 +868,7 @@ namespace Battlement
                     "Native video frame capture is not configured."
                 );
             }
-            if (
-                videoRecorder.AppendFrame(
-                    captureVideoFrame(frame.Index),
-                    videoLayout,
-                    frame.Elapsed
-                )
-            )
+            if (videoRecorder.AppendFrame(captureVideoFrame(commit), videoLayout, frame.Elapsed))
             {
                 RestoreScenarioMotion();
             }

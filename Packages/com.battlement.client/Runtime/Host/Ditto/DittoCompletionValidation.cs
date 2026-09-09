@@ -247,6 +247,10 @@ namespace Battlement
                 }
                 if (artifact.Kind is DittoArtifactKind.Screenshot screenshot)
                 {
+                    Require(
+                        screenshot.RenderCommit is not null,
+                        "screenshot artifact requires render-commit evidence"
+                    );
                     ValidateScreenshotArtifact(complete, scenario, artifact, screenshot);
                 }
                 else

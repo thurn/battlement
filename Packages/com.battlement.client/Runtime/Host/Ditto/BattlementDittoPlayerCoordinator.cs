@@ -366,8 +366,9 @@ namespace Battlement
                 AllocateError
             );
             scenarioContext.Begin();
+            runner!.BeginDittoMotion(scenario.Motion);
             engine = DittoNativeEngineSession.Create(
-                runner!.DittoNativeTransport,
+                runner.DittoNativeTransport,
                 out BattlementTransportResult creation,
                 scenario.Fixture
             );
@@ -407,9 +408,9 @@ namespace Battlement
                     reportedDirectory
                 );
             }
-            Func<ulong, byte[]>? captureVideoFrame = nativeCapture is null
+            Func<DittoRenderCommit, byte[]>? captureVideoFrame = nativeCapture is null
                 ? null
-                : new Func<ulong, byte[]>(nativeCapture.CaptureVideoFrame);
+                : new Func<DittoRenderCommit, byte[]>(nativeCapture.CaptureVideoFrame);
             DittoScenarioContext context = scenarioContext!;
             return new DittoScenarioExecutor(
                 runner!,
@@ -458,7 +459,13 @@ namespace Battlement
             {
                 if (phase == Phase.Executing && executor?.AwaitingPresentation == true)
                 {
-                    executor.CompletePresentedFrame();
+                    ulong frame = executor.NextPresentedFrame;
+                    DittoRenderCommit commit =
+                        nativeCapture is null ? new DittoRenderCommit(frame, frame, 0)
+                        : executor.RequiresPaintObservation
+                            ? nativeCapture.CommitPresentedFrame(frame)
+                        : nativeCapture.ObservePresentedFrame(frame);
+                    executor.CompletePresentedFrame(commit);
                     if (executor.Result is not null)
                     {
                         BeginFailureFrameOrBoundary();
@@ -491,32 +498,38 @@ namespace Battlement
 
         private void CaptureScreenshot(
             DittoResolvedStep step,
-            ulong frame,
+            DittoRenderCommit commit,
             Action<DittoScreenshotStepOutcome> completion
         )
         {
             var screenshot = (DittoStepAction.Screenshot)step.Action;
             string artifactId = Guid.NewGuid().ToString("D");
-            var kind = new DittoArtifactKind.Screenshot(screenshot.Value.Name);
             if (webCapture is not null)
             {
                 webCapture.UploadCommittedFrame(
                     ArtifactUrl(artifactId),
                     artifactId,
-                    frame,
-                    result => CompleteWebScreenshot(step, kind, result, completion)
+                    commit.Frame,
+                    result => CompleteWebScreenshot(step, screenshot.Value.Name, result, completion)
                 );
                 return;
             }
             nativeCapture!.CaptureCommittedFrame(
-                frame,
-                result => CompleteNativeScreenshot(step, artifactId, kind, result, completion)
+                commit,
+                result =>
+                    CompleteNativeScreenshot(
+                        step,
+                        artifactId,
+                        screenshot.Value.Name,
+                        result,
+                        completion
+                    )
             );
         }
 
         private void CompleteWebScreenshot(
             DittoResolvedStep step,
-            DittoArtifactKind kind,
+            string checkpoint,
             DittoWebCaptureResult result,
             Action<DittoScreenshotStepOutcome> completion
         )
@@ -526,7 +539,12 @@ namespace Battlement
                 CompleteCaptureFailure(unavailable.Failure, completion);
                 return;
             }
-            string artifactId = ((DittoWebCaptureResult.Uploaded)result).ArtifactId;
+            var uploaded = (DittoWebCaptureResult.Uploaded)result;
+            string artifactId = uploaded.ArtifactId;
+            var kind = new DittoArtifactKind.Screenshot(
+                checkpoint,
+                new DittoRenderCommit(uploaded.Frame, uploaded.Frame, 0)
+            );
             delivery!.ConfirmUploadedArtifact(
                 job!.Scenarios[scenarioIndex].Id,
                 step.Index,
@@ -539,7 +557,7 @@ namespace Battlement
         private void CompleteNativeScreenshot(
             DittoResolvedStep step,
             string artifactId,
-            DittoArtifactKind kind,
+            string checkpoint,
             DittoNativeCaptureResult result,
             Action<DittoScreenshotStepOutcome> completion
         )
@@ -550,6 +568,7 @@ namespace Battlement
                 return;
             }
             var captured = (DittoNativeCaptureResult.Captured)result;
+            var kind = new DittoArtifactKind.Screenshot(checkpoint, captured.Commit);
             delivery!.UploadArtifact(
                 new DittoPngArtifact(
                     job!.Scenarios[scenarioIndex].Id,
@@ -622,9 +641,22 @@ namespace Battlement
             }
             scenarioContext!.CaptureFailureFrame(
                 executor.LastCommittedFrame,
-                nativeCapture!.CaptureCommittedFrame,
+                (frame, completion) =>
+                    nativeCapture!.CaptureCommittedFrame(RequireNativeCommit(frame), completion),
                 _ => BeginBoundary()
             );
+        }
+
+        private DittoRenderCommit RequireNativeCommit(ulong frame)
+        {
+            DittoRenderCommit? commit = executor?.LastRenderCommit;
+            if (commit is null || commit.Frame != frame)
+            {
+                throw new InvalidOperationException(
+                    $"No retained render commit proves presented frame {frame}."
+                );
+            }
+            return commit;
         }
 
         private void CaptureWebFailureFrame()

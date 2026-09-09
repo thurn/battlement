@@ -11,6 +11,31 @@ namespace Battlement.Tests
     public sealed class DittoScenarioExecutorTests
     {
         [Test]
+        public void ControlledClockOwnsScenarioSetupTime()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Clock.Advance(TimeSpan.FromSeconds(17));
+            TimeSpan beforeSourceAdvance = default;
+            TimeSpan afterSourceAdvance = default;
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                Scenario(10_000, Step(0, new DittoStepAction.Advance(1))),
+                () => TimeSpan.Zero,
+                setup: () =>
+                {
+                    beforeSourceAdvance = harness.Runner.DittoElapsed;
+                    harness.Clock.Advance(TimeSpan.FromSeconds(5));
+                    afterSourceAdvance = harness.Runner.DittoElapsed;
+                }
+            );
+
+            Drain(executor);
+
+            Assert.That(afterSourceAdvance, Is.EqualTo(beforeSourceAdvance));
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
         public void ControlledAdvanceConsumesPresentedFrames()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -23,6 +48,107 @@ namespace Battlement.Tests
             Drain(executor);
             Assert.That(executor.LastCommittedFrame, Is.GreaterThanOrEqualTo(202));
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void ControlledAdvanceScreenshotUsesTheExactCommittedPresentation()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoRenderCommit? requested = null;
+            Action<DittoScreenshotStepOutcome>? finish = null;
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Advance(3)),
+                Step(
+                    1,
+                    new DittoStepAction.Screenshot(
+                        new DittoScreenshot("exact", new DittoComparison("0", false, "0"))
+                    )
+                )
+            );
+            using var executor = new DittoScenarioExecutor(
+                harness.Runner,
+                scenario,
+                DittoPlatform.Macos,
+                100,
+                100,
+                new Dictionary<string, ObjectId>(),
+                10_000,
+                () => TimeSpan.Zero,
+                (_, commit, completion) =>
+                {
+                    requested = commit;
+                    finish = completion;
+                },
+                (_, _) => "P0001"
+            );
+            ulong generation = 0;
+            TimeSpan requestedStateTime = default;
+
+            while (requested is null)
+            {
+                Assert.That(executor.Advance(), Is.False);
+                if (executor.AwaitingPresentation)
+                {
+                    ulong frame = executor.LastCommittedFrame + 1;
+                    executor.CompletePresentedFrame(
+                        new DittoRenderCommit(frame, ++generation, 777)
+                    );
+                }
+                if (executor.CurrentStepIndex == 1 && requestedStateTime == default)
+                {
+                    requestedStateTime = harness.Runner.DittoElapsed;
+                }
+            }
+
+            Assert.That(requested, Is.EqualTo(executor.LastRenderCommit));
+            Assert.That(requestedStateTime, Is.GreaterThan(TimeSpan.Zero));
+            Assert.That(harness.Runner.DittoElapsed, Is.EqualTo(requestedStateTime));
+            ulong capturedFrame = executor.LastCommittedFrame;
+            Assert.That(executor.Advance(), Is.False);
+            Assert.That(executor.LastCommittedFrame, Is.EqualTo(capturedFrame));
+            Assert.That(executor.AwaitingPresentation, Is.False);
+            finish!(new DittoScreenshotStepOutcome(Guid.NewGuid().ToString("D"), null, true));
+            Assert.That(executor.Advance(), Is.True);
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void PresentedFramesRejectWrongFrameAndStaleRenderGeneration()
+        {
+            using (BattlementTestHarness firstHarness = BattlementTestHarness.Create())
+            using (
+                DittoScenarioExecutor wrongFrame = Executor(
+                    firstHarness,
+                    Scenario(10_000, Step(0, new DittoStepAction.Advance(1))),
+                    () => TimeSpan.Zero
+                )
+            )
+            {
+                Assert.That(wrongFrame.Advance(), Is.False);
+                Assert.That(
+                    () => wrongFrame.CompletePresentedFrame(new DittoRenderCommit(2, 1, 10)),
+                    Throws.InvalidOperationException.With.Message.Contains("does not match")
+                );
+            }
+
+            using (BattlementTestHarness secondHarness = BattlementTestHarness.Create())
+            using (
+                DittoScenarioExecutor stale = Executor(
+                    secondHarness,
+                    Scenario(10_000, Step(0, new DittoStepAction.Advance(1))),
+                    () => TimeSpan.Zero
+                )
+            )
+            {
+                Assert.That(stale.Advance(), Is.False);
+                stale.CompletePresentedFrame(new DittoRenderCommit(1, 4, 10));
+                Assert.That(stale.Advance(), Is.False);
+                Assert.That(
+                    () => stale.CompletePresentedFrame(new DittoRenderCommit(2, 4, 10)),
+                    Throws.InvalidOperationException.With.Message.Contains("must increase")
+                );
+            }
         }
 
         [Test]
@@ -142,6 +268,35 @@ namespace Battlement.Tests
 
             Assert.That(executor.LastCommittedFrame, Is.GreaterThanOrEqualTo(2));
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void ObjectPollingDoesNotRequestFramebufferObservation()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(
+                    0,
+                    new DittoStepAction.Wait(
+                        new DittoObjectCondition(
+                            Guid.NewGuid().ToString("D"),
+                            DittoObjectState.Exists
+                        )
+                    )
+                )
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            while (executor.CurrentStepIndex is null)
+            {
+                Assert.That(executor.Advance(), Is.False);
+                CompletePresentation(executor);
+            }
+            Assert.That(executor.Advance(), Is.False);
+
+            Assert.That(executor.AwaitingPresentation, Is.True);
+            Assert.That(executor.RequiresPaintObservation, Is.False);
         }
 
         [Test]

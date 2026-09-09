@@ -279,8 +279,18 @@ pub(super) fn failure_frame(frame: &PlayerFailureFrame) -> Result<()> {
 }
 
 pub(super) fn artifact_kind(kind: &ArtifactKind) -> Result<()> {
-  if let ArtifactKind::Screenshot { checkpoint } = kind {
+  if let ArtifactKind::Screenshot {
+    checkpoint,
+    render_commit,
+  } = kind
+  {
     validation::name("artifact checkpoint", checkpoint)?;
+    if let Some(commit) = render_commit {
+      ensure!(
+        commit.frame > 0 && commit.render_generation > 0,
+        "render-commit identity must be positive"
+      );
+    }
   }
   Ok(())
 }

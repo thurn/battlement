@@ -91,6 +91,105 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PaintChangesResetSettlementWithoutLayoutOrStateChanges()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+
+            DittoCommittedFrame initial = Advance(harness, motion, 10);
+            DittoCommittedFrame textRepaint = Advance(harness, motion, 20);
+            DittoCommittedFrame quiet = Advance(harness, motion, 20);
+            DittoCommittedFrame settled = Advance(harness, motion, 20);
+
+            Assert.That(initial.LayoutChanged, Is.False);
+            Assert.That(textRepaint.LayoutChanged, Is.False);
+            Assert.That(textRepaint.StateChanged, Is.False);
+            Assert.That(textRepaint.PaintChanged, Is.True);
+            Assert.That(textRepaint.IsSettled, Is.False);
+            Assert.That(quiet.IsSettled, Is.False);
+            Assert.That(settled.IsSettled, Is.True);
+        }
+
+        [Test]
+        public void ContinuingUnownedPaintDeterministicallyRefusesSettlement()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+
+            DittoCommittedFrame generatedContentMutation = null!;
+            for (ulong fingerprint = 1; fingerprint <= 31; fingerprint++)
+            {
+                generatedContentMutation = Advance(harness, motion, fingerprint);
+            }
+
+            Assert.That(generatedContentMutation.PaintChanged, Is.True);
+            Assert.That(generatedContentMutation.HasUncontrolledVisibleWork, Is.True);
+        }
+
+        [Test]
+        public void RequestedControlledAdvanceOwnsPaintChanges()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+
+            for (ulong fingerprint = 1; fingerprint <= 60; fingerprint++)
+            {
+                DittoCommittedFrame frame = Advance(
+                    harness,
+                    motion,
+                    fingerprint,
+                    forceAdvance: true
+                );
+                Assert.That(frame.HasUncontrolledVisibleWork, Is.False);
+            }
+        }
+
+        [Test]
+        public void FrozenPaintVerificationSettlesWithoutAdvancingFiniteWork()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            (SessionId session, ObjectId objectId, _) = Connect(harness);
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            Submit(harness, session, Tween(objectId, 30));
+            DittoCommittedFrame advanced = Advance(harness, motion, 10, forceAdvance: true);
+            _ = Advance(harness, motion, 10, preserveTime: true);
+            DittoCommittedFrame quiet = Advance(harness, motion, 10, preserveTime: true);
+            DittoCommittedFrame settled = Advance(harness, motion, 10, preserveTime: true);
+
+            Assert.That(quiet.Elapsed, Is.EqualTo(advanced.Elapsed));
+            Assert.That(settled.Elapsed, Is.EqualTo(advanced.Elapsed));
+            Assert.That(settled.HasPendingWork, Is.True);
+            Assert.That(settled.IsSettled, Is.True);
+        }
+
+        [Test]
+        public void FrozenControlledStateRefusesContinuingPixelChanges()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            (SessionId session, ObjectId objectId, _) = Connect(harness);
+            var motion = new DittoMotionController(harness.Runner);
+            motion.Begin(DittoMotion.Controlled);
+            Submit(harness, session, Tween(objectId, 30));
+            _ = Advance(harness, motion, 1, forceAdvance: true);
+            DittoCommittedFrame changed = null!;
+            for (ulong fingerprint = 2; fingerprint <= 31; fingerprint++)
+            {
+                changed = Advance(harness, motion, fingerprint, preserveTime: true);
+            }
+
+            Assert.That(changed.HasPendingWork, Is.True);
+            Assert.That(changed.HasUncontrolledVisibleWork, Is.True);
+        }
+
+        [Test]
         public void InstantAndRealTimeUseTheirOwnedMotionRules()
         {
             using (
@@ -156,6 +255,20 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
             harness.Runner.CompleteNativeFrame();
             return new MotionFrame(motion.ObserveCommittedFrame(), target.localPosition.x);
+        }
+
+        private static DittoCommittedFrame Advance(
+            BattlementTestHarness harness,
+            DittoMotionController motion,
+            ulong paintFingerprint,
+            bool forceAdvance = false,
+            bool preserveTime = false
+        )
+        {
+            motion.PrepareFrame(forceAdvance, preserveTime);
+            harness.Runner.RunFrame();
+            harness.Runner.CompleteNativeFrame();
+            return motion.ObserveCommittedFrame(paintFingerprint);
         }
 
         private static (SessionId, ObjectId, Transform) Connect(BattlementTestHarness harness)

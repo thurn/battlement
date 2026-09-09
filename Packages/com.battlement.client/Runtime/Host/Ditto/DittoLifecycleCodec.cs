@@ -371,8 +371,11 @@ namespace Battlement
             {
                 throw new JsonSerializationException($"Unknown artifact kind {kind}.");
             }
-            Exact(value, "kind", "checkpoint");
-            return new DittoArtifactKind.Screenshot(RequiredString(value, "checkpoint"));
+            Exact(value, "kind", "checkpoint", "render_commit");
+            return new DittoArtifactKind.Screenshot(
+                RequiredString(value, "checkpoint"),
+                NullableClass<DittoRenderCommit>(value, "render_commit", serializer)
+            );
         }
 
         private static DittoPlayerFailureFrame FailureFrame(
@@ -642,7 +645,8 @@ namespace Battlement
                     "kind",
                     "screenshot",
                     serializer,
-                    ("checkpoint", screenshot.Checkpoint)
+                    ("checkpoint", screenshot.Checkpoint),
+                    ("render_commit", screenshot.RenderCommit)
                 ),
                 DittoArtifactKind.FailureFrame => Tagged("kind", "failure-frame", serializer),
                 DittoPlayerFailureFrame.Captured captured => Tagged(

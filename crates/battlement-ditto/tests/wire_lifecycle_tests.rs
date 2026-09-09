@@ -235,7 +235,7 @@ fn every_lifecycle_and_shared_enum_variant_round_trips() {
   }
 
   let artifacts = [
-    json!({"kind":"screenshot","checkpoint":"snap"}),
+    json!({"kind":"screenshot","checkpoint":"snap","render_commit":null}),
     json!({"kind":"failure-frame"}),
   ];
   for value in artifacts {
@@ -369,9 +369,16 @@ fn scenario_completion_bounds_references_and_conditionals_are_rejected() {
   invalid_completion("artifact mismatch", |complete| {
     complete.steps[1].screenshot_artifact_id = Some(OTHER_ID.to_owned())
   });
+  invalid_completion("missing render commit", |complete| {
+    let ArtifactKind::Screenshot { render_commit, .. } = &mut complete.artifacts[0].kind else {
+      unreachable!()
+    };
+    *render_commit = None;
+  });
   invalid_completion("failure kind mismatch", |complete| {
     complete.artifacts[1].kind = ArtifactKind::Screenshot {
       checkpoint: "snap".to_owned(),
+      render_commit: None,
     }
   });
   invalid_completion("video start mismatch", |complete| {
@@ -604,7 +611,8 @@ fn context_bodies() -> Vec<Value> {
     json!({"context":"step-ended","scenario_id":SCENARIO_ID,"result":
       serde_json::from_str::<Value>(SCENARIO_COMPLETE).unwrap()["steps"][0]}),
     json!({"context":"artifact-accepted","scenario_id":SCENARIO_ID,"step_index":1,
-      "artifact_id":SCREENSHOT_ID,"artifact_kind":{"kind":"screenshot","checkpoint":"snap"}}),
+      "artifact_id":SCREENSHOT_ID,"artifact_kind":{"kind":"screenshot","checkpoint":"snap",
+      "render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11}}}),
     json!({"context":"error-observed","scenario_id":SCENARIO_ID,"step_index":4,
       "error_ref":"P0001","code":"assertion.failed","source":"ditto-player",
       "record_sequence":80,"battlement_error_id":null}),
@@ -677,7 +685,7 @@ const SCENARIO_COMPLETE: &str = r#"{
       "screenshot_artifact_id":null,"video_input_id":null}
   ],
   "artifacts":[
-    {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959181","step_index":1,"kind":{"kind":"screenshot","checkpoint":"snap"}},
+    {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959181","step_index":1,"kind":{"kind":"screenshot","checkpoint":"snap","render_commit":{"frame":4,"render_generation":7,"pixel_fingerprint":11}}},
     {"artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959182","step_index":4,"kind":{"kind":"failure-frame"}}
   ],
   "failure_frame":{"status":"captured","artifact_id":"0197b35f-6ef0-78df-8b96-b31bc9959182"},

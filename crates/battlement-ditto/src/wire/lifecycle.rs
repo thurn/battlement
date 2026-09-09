@@ -173,10 +173,22 @@ pub struct ReachedArtifact {
   pub kind: ArtifactKind,
 }
 
+/// Proof that captured pixels came from one committed presentation.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RenderCommit {
+  pub frame: u64,
+  pub render_generation: u64,
+  pub pixel_fingerprint: u64,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum ArtifactKind {
-  Screenshot { checkpoint: String },
+  Screenshot {
+    checkpoint: String,
+    render_commit: Option<RenderCommit>,
+  },
   FailureFrame,
 }
 
@@ -477,7 +489,13 @@ impl<'de> Deserialize<'de> for ArtifactKind {
     D: Deserializer<'de>,
   {
     Ok(match RawArtifactKind::deserialize(deserializer)? {
-      RawArtifactKind::Screenshot { checkpoint } => Self::Screenshot { checkpoint },
+      RawArtifactKind::Screenshot {
+        checkpoint,
+        render_commit,
+      } => Self::Screenshot {
+        checkpoint,
+        render_commit,
+      },
       RawArtifactKind::FailureFrame {} => Self::FailureFrame,
     })
   }
@@ -486,6 +504,9 @@ impl<'de> Deserialize<'de> for ArtifactKind {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 enum RawArtifactKind {
-  Screenshot { checkpoint: String },
+  Screenshot {
+    checkpoint: String,
+    render_commit: Option<RenderCommit>,
+  },
   FailureFrame {},
 }

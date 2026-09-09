@@ -86,6 +86,83 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DelayedReadbackBindsPixelsFromTheCommittedRenderGeneration()
+        {
+            var layout = new DittoCapturePixelLayout(
+                DittoCaptureRowOrder.TopDown,
+                DittoCaptureChannelOrder.Rgba
+            );
+            Color32[] committed =
+            {
+                new(255, 0, 0, 255),
+                new(0, 255, 0, 255),
+                new(0, 0, 255, 255),
+                new(255, 255, 255, 255),
+            };
+            byte[] snapshot = DittoCapturePixels.Bytes(2, 2, committed, layout);
+            byte[] liveFramebuffer = (byte[])snapshot.Clone();
+            Array.Fill<byte>(liveFramebuffer, 0);
+            var commit = new DittoRenderCommit(7, 11, 1234);
+
+            var captured = (DittoNativeCaptureResult.Captured)
+                DittoNativeCaptureAdapter.BindCapturedPixels(
+                    commit,
+                    commit,
+                    snapshot,
+                    2,
+                    2,
+                    layout
+                );
+
+            var decoded = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            try
+            {
+                Assert.That(ImageConversion.LoadImage(decoded, captured.Png, false), Is.True);
+                Assert.That(decoded.GetPixels32(), Is.EqualTo(committed));
+                Assert.That(captured.Commit, Is.EqualTo(commit));
+                Assert.That(liveFramebuffer, Is.Not.EqualTo(snapshot));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(decoded);
+            }
+        }
+
+        [Test]
+        public void MismatchedAndStaleRenderGenerationsAreRejected()
+        {
+            var layout = new DittoCapturePixelLayout(
+                DittoCaptureRowOrder.TopDown,
+                DittoCaptureChannelOrder.Rgba
+            );
+            byte[] pixels = DittoCapturePixels.Bytes(2, 2, DittoCapturePixels.ProbeColors, layout);
+            var retained = new DittoRenderCommit(8, 12, 1234);
+
+            Assert.That(
+                DittoNativeCaptureAdapter.BindCapturedPixels(
+                    retained,
+                    new DittoRenderCommit(8, 11, 1234),
+                    pixels,
+                    2,
+                    2,
+                    layout
+                ),
+                Is.TypeOf<DittoNativeCaptureResult.Unavailable>()
+            );
+            Assert.That(
+                DittoNativeCaptureAdapter.BindCapturedPixels(
+                    retained,
+                    new DittoRenderCommit(9, 12, 1234),
+                    pixels,
+                    2,
+                    2,
+                    layout
+                ),
+                Is.TypeOf<DittoNativeCaptureResult.Unavailable>()
+            );
+        }
+
+        [Test]
         public void AdapterRejectsUnsupportedTargetsAndCaptureBeforeProbe()
         {
             var owner = new GameObject("Ditto native capture test");
@@ -104,7 +181,10 @@ namespace Battlement.Tests
                 );
                 DittoNativeCaptureResult? result = null;
 
-                adapter.CaptureCommittedFrame(1, value => result = value);
+                adapter.CaptureCommittedFrame(
+                    new DittoRenderCommit(1, 1, 0),
+                    value => result = value
+                );
 
                 Assert.That(result, Is.TypeOf<DittoNativeCaptureResult.Unavailable>());
                 var unavailable = (DittoNativeCaptureResult.Unavailable)result!;
@@ -126,7 +206,7 @@ namespace Battlement.Tests
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             TimeSpan current = TimeSpan.Zero;
             System.Action<DittoScreenshotStepOutcome>? finishCapture = null;
-            ulong capturedFrame = 0;
+            DittoRenderCommit? capturedCommit = null;
             var screenshot = new DittoResolvedStep(
                 0,
                 "async",
@@ -146,7 +226,7 @@ namespace Battlement.Tests
             );
             DittoScreenshotCapture capture = (_, frame, completion) =>
             {
-                capturedFrame = frame;
+                capturedCommit = frame;
                 finishCapture = completion;
             };
             using var executor = new DittoScenarioExecutor(
@@ -170,7 +250,7 @@ namespace Battlement.Tests
             executor.CompletePresentedFrame();
             Assert.That(executor.Advance(), Is.False);
             Assert.That(finishCapture, Is.Not.Null);
-            Assert.That(capturedFrame, Is.GreaterThanOrEqualTo(2));
+            Assert.That(capturedCommit!.Frame, Is.GreaterThanOrEqualTo(2));
             Assert.That(executor.Advance(), Is.False);
             finishCapture!(
                 new DittoScreenshotStepOutcome(Guid.NewGuid().ToString("D"), null, false)

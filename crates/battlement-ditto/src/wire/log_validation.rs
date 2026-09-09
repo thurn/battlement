@@ -252,7 +252,10 @@ fn artifact_step(
   kind: &ArtifactKind,
 ) -> Result<()> {
   match kind {
-    ArtifactKind::Screenshot { checkpoint } => {
+    ArtifactKind::Screenshot {
+      checkpoint,
+      render_commit,
+    } => {
       let Some(index) = step_index else {
         anyhow::bail!("screenshot artifact context requires step_index");
       };
@@ -265,6 +268,13 @@ fn artifact_step(
       ensure!(
         checkpoint == &expected.name,
         "artifact checkpoint does not match the job"
+      );
+      let commit = render_commit
+        .as_ref()
+        .context("screenshot artifact context requires render-commit evidence")?;
+      ensure!(
+        commit.frame > 0 && commit.render_generation > 0,
+        "render-commit identity must be positive"
       );
     }
     ArtifactKind::FailureFrame => {

@@ -227,7 +227,8 @@ namespace Battlement
 
     internal abstract record DittoArtifactKind
     {
-        internal sealed record Screenshot(string Checkpoint) : DittoArtifactKind;
+        internal sealed record Screenshot(string Checkpoint, DittoRenderCommit? RenderCommit = null)
+            : DittoArtifactKind;
 
         internal sealed record FailureFrame : DittoArtifactKind;
     }

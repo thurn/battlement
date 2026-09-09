@@ -63,7 +63,7 @@
       {"index": 4, "name": null, "kind": "assert", "status": "failed", "duration_ms": 1, "expired_deadline": null, "error_refs": ["P0001"], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "enabled", "expected": true, "observed": false, "passed": false}, "screenshot_artifact_id": null, "video_input_id": null}
     ],
     "artifacts": [
-      {"artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "step_index": 1, "kind": {"kind": "screenshot", "checkpoint": "snap"}},
+      {"artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "step_index": 1, "kind": {"kind": "screenshot", "checkpoint": "snap", "render_commit": {"frame": 4, "render_generation": 7, "pixel_fingerprint": 11}}},
       {"artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959182", "step_index": 4, "kind": {"kind": "failure-frame"}}
     ],
     "failure_frame": {"status": "captured", "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959182"},
@@ -89,7 +89,7 @@
     {"context": "scenario-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "execution_status": "failed", "failure_frame": null, "video_inputs": [], "execution_duration_ms": 5, "startup_duration_ms": 1, "settle_duration_ms": 2, "capture_duration_ms": 3, "boundary": {"status": "passed", "duration_ms": 2}, "primary_error_ref": "P0001"},
     {"context": "step-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 0},
     {"context": "step-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "result": {"index": 0, "name": null, "kind": "assert", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible", "expected": true, "observed": true, "passed": true}, "screenshot_artifact_id": null, "video_input_id": null}},
-    {"context": "artifact-accepted", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 1, "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "artifact_kind": {"kind": "screenshot", "checkpoint": "snap"}},
+    {"context": "artifact-accepted", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 1, "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "artifact_kind": {"kind": "screenshot", "checkpoint": "snap", "render_commit": {"frame": 4, "render_generation": 7, "pixel_fingerprint": 11}}},
     {"context": "error-observed", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 4, "error_ref": "P0001", "code": "assertion.failed", "source": "ditto-player", "record_sequence": 80, "battlement_error_id": null}
   ],
   "invalid": [

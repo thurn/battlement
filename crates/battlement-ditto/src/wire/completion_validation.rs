@@ -226,7 +226,14 @@ fn artifacts<'a>(
       );
     }
     match &artifact.kind {
-      ArtifactKind::Screenshot { checkpoint } => {
+      ArtifactKind::Screenshot {
+        checkpoint,
+        render_commit,
+      } => {
+        ensure!(
+          render_commit.is_some(),
+          "screenshot artifact requires render-commit evidence"
+        );
         let Some(index) = artifact.step_index else {
           anyhow::bail!("screenshot artifact requires a step_index");
         };

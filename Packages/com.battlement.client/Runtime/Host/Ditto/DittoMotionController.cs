@@ -12,6 +12,8 @@ namespace Battlement
         bool HasHeldOperations,
         bool StateChanged,
         bool LayoutChanged,
+        bool PaintChanged,
+        bool HasUncontrolledVisibleWork,
         int QuietFrameCount
     )
     {
@@ -33,6 +35,8 @@ namespace Battlement
 
     internal sealed class DittoMotionController
     {
+        private const int MaximumUnownedPaintChanges = 30;
+
         private readonly BattlementRunner runner;
         private DittoWorkObservation? previous;
         private bool started;
@@ -40,6 +44,10 @@ namespace Battlement
         private int quietFrames;
         private bool advanceControlledTime;
         private TimeSpan motionEpoch;
+        private ulong? previousPaintFingerprint;
+        private int paintOnlyChanges;
+        private bool controlledAdvanceRequested;
+        private bool preservingExactState;
 
         public DittoMotionController(BattlementRunner runner)
         {
@@ -55,6 +63,8 @@ namespace Battlement
 
         public DittoMotion Motion { get; private set; }
 
+        public ulong NextFrameIndex => checked(frameIndex + 1);
+
         public void Begin(DittoMotion motion)
         {
             if (!Enum.IsDefined(typeof(DittoMotion), motion))
@@ -68,17 +78,27 @@ namespace Battlement
             previous = runner.ObserveDittoWork();
             frameIndex = 0;
             quietFrames = 0;
+            previousPaintFingerprint = null;
+            paintOnlyChanges = 0;
             advanceControlledTime = true;
             started = true;
         }
 
-        public TimeSpan PrepareFrame(bool forceAdvance = false)
+        public TimeSpan PrepareFrame(bool forceAdvance = false, bool preserveTime = false)
         {
             RequireStarted();
-            return runner.PrepareDittoFrame(forceAdvance || advanceControlledTime);
+            if (forceAdvance && preserveTime)
+            {
+                throw new ArgumentException("A controlled frame cannot advance and freeze time.");
+            }
+            controlledAdvanceRequested = forceAdvance;
+            preservingExactState = preserveTime;
+            return runner.PrepareDittoFrame(
+                !preserveTime && (forceAdvance || advanceControlledTime)
+            );
         }
 
-        public DittoCommittedFrame ObserveCommittedFrame()
+        public DittoCommittedFrame ObserveCommittedFrame(ulong paintFingerprint = 0)
         {
             RequireStarted();
             runner.CompleteDittoPresentedFrame();
@@ -86,7 +106,20 @@ namespace Battlement
             DittoWorkObservation prior = previous!;
             bool stateChanged = current.StateVersion != prior.StateVersion;
             bool layoutChanged = current.LayoutFingerprint != prior.LayoutFingerprint;
-            if (current.HasPendingWork || stateChanged || layoutChanged)
+            bool paintChanged =
+                previousPaintFingerprint.HasValue
+                && previousPaintFingerprint.Value != paintFingerprint;
+            bool paintOnlyChanged =
+                paintChanged
+                && !controlledAdvanceRequested
+                && (!current.HasPendingWork || preservingExactState)
+                && (preservingExactState || (!stateChanged && !layoutChanged));
+            paintOnlyChanges = paintOnlyChanged ? paintOnlyChanges + 1 : 0;
+            bool uncontrolledVisibleWork =
+                paintOnlyChanged && paintOnlyChanges >= MaximumUnownedPaintChanges;
+            bool settlementBlocked = current.HasPendingWork && !preservingExactState;
+            bool logicalChangeBlocked = !preservingExactState && (stateChanged || layoutChanged);
+            if (settlementBlocked || logicalChangeBlocked || paintChanged)
             {
                 quietFrames = 0;
             }
@@ -100,6 +133,8 @@ namespace Battlement
                 || (!current.HasInfiniteOperations && !current.HasHeldOperations);
 
             previous = current;
+            previousPaintFingerprint = paintFingerprint;
+            controlledAdvanceRequested = false;
             return new DittoCommittedFrame(
                 ++frameIndex,
                 runner.DittoElapsed,
@@ -108,6 +143,8 @@ namespace Battlement
                 current.HasHeldOperations,
                 stateChanged,
                 layoutChanged,
+                paintChanged,
+                uncontrolledVisibleWork,
                 quietFrames
             );
         }

@@ -93,7 +93,7 @@ namespace Battlement.Tests
                     ScenarioId(),
                     3,
                     artifactId,
-                    new DittoArtifactKind.Screenshot("board"),
+                    new DittoArtifactKind.Screenshot("board", new DittoRenderCommit(4, 7, 11)),
                     1,
                     1,
                     png

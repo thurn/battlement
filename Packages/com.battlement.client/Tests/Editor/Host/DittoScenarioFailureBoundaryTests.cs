@@ -217,7 +217,14 @@ namespace Battlement.Tests
             context.CaptureFailureFrame(
                 executor.LastCommittedFrame,
                 (frame, completion) =>
-                    completion(new DittoNativeCaptureResult.Captured(Png(), 1, 1, frame)),
+                    completion(
+                        new DittoNativeCaptureResult.Captured(
+                            Png(),
+                            1,
+                            1,
+                            new DittoRenderCommit(frame, frame, 1)
+                        )
+                    ),
                 value => captured = value
             );
             Assert.That(captured, Is.True);
