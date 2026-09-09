@@ -258,8 +258,10 @@ from pathlib import Path
 import os
 import time
 root = Path.cwd()
-(root.parent / '.logs/child-started').write_text('started')
-(root.parent / '.logs/child-session').write_text(str(os.getsid(0)))
+session = root.parent / '.logs/child-session'
+temporary_session = session.with_suffix('.tmp')
+temporary_session.write_text(str(os.getsid(0)))
+temporary_session.replace(session)
 while True:
     (root / 'Assets/tracked.txt').write_text('interrupted\\n')
     (root / 'Assets/interrupted.txt').write_text('new\\n')
@@ -272,12 +274,12 @@ while True:
             ],
             cwd=repository,
         )
-        started = repository / ".logs/child-started"
+        session = repository / ".logs/child-session"
         deadline = time.monotonic() + 5
-        while not started.exists() and time.monotonic() < deadline:
+        while not session.exists() and time.monotonic() < deadline:
             time.sleep(0.02)
-        assert started.exists()
-        assert int((repository / ".logs/child-session").read_text()) == os.getsid(wrapper.pid)
+        assert session.exists()
+        assert int(session.read_text()) == os.getsid(wrapper.pid)
         wrapper.kill()
         assert wrapper.wait() != 0
         subprocess.run(
