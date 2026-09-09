@@ -41,6 +41,8 @@ mod macos_run;
 mod maintenance_commands;
 pub mod native_execution;
 mod native_video;
+mod performance;
+mod profile_commands;
 mod reactant_assets;
 mod review_acceptance_result;
 mod review_commands;

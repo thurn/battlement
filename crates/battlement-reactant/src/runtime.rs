@@ -149,6 +149,7 @@ impl<G: 'static> Reactant<G> {
   /// Creates a registering runtime with an idle executor.
   #[must_use]
   pub fn new(spawner: impl Spawner) -> Self {
+    crate::performance::initialize();
     let runtime_id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
     Self {
       runtime_id,

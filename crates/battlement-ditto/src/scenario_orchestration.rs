@@ -480,11 +480,13 @@ fn unstarted(scenario: &ResolvedScenario, status: ScenarioStatus, reason: &str) 
         assertion: None,
         screenshot: None,
         video: None,
+        performance: None,
       })
       .collect(),
     logs: None,
     failure_frame: None,
     recovery: Recovery::None,
+    performance_attempt: scenario.performance.clone(),
   }
 }
 
@@ -499,6 +501,7 @@ fn step_kind(kind: &StepKind) -> StepName {
     StepKind::Assert(_) => StepName::Assert,
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
+    StepKind::PointerAction { .. } => StepName::PointerAction,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

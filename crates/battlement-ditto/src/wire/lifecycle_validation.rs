@@ -315,6 +315,7 @@ pub(super) fn step_name(kind: &StepKind) -> StepName {
     StepKind::Assert(_) => StepName::Assert,
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
+    StepKind::PointerAction { .. } => StepName::PointerAction,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

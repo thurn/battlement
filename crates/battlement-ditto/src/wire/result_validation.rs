@@ -4,10 +4,13 @@ use anyhow::{Result, ensure};
 
 use crate::wire::{
   common::DeadlineKind,
+  job::PerformancePass,
+  lifecycle::StepPerformance,
   lifecycle_validation,
   result::{
-    BuildDisposition, ErrorOccurrence, JobResult, PlayerSessionResult, Recovery, ResultCommand,
-    RunResult, RunStatus, ScenarioResult, ScenarioStatus,
+    BuildDisposition, ErrorOccurrence, JobResult, MeasuredStepPerformance, PerformanceResult,
+    PlayerSessionResult, Recovery, ResultCommand, RunResult, RunStatus, ScenarioResult,
+    ScenarioStatus,
   },
   result_format, result_nested_validation, validation,
 };
@@ -31,8 +34,230 @@ pub(super) fn validate_run_result(result: &RunResult) -> Result<()> {
   let jobs = jobs(result, &sessions)?;
   scenarios(result, &errors, &artifacts, &jobs, &sessions)?;
   result_nested_validation::baseline_writes(result)?;
+  performance(result)?;
   bounded_strings("warning", &result.warnings, 4096)?;
   Ok(())
+}
+
+fn performance(result: &RunResult) -> Result<()> {
+  let Some(value) = &result.performance else {
+    ensure!(
+      result.command != ResultCommand::Profile
+        || result.status != RunStatus::Passed
+        || !result
+          .scenarios
+          .iter()
+          .all(|scenario| scenario.status == ScenarioStatus::Passed),
+      "completed passed profile requires a performance summary"
+    );
+    return Ok(());
+  };
+  ensure!(
+    result.command == ResultCommand::Profile,
+    "performance summary belongs only to a profile result"
+  );
+  ensure!(
+    result.status == RunStatus::Passed,
+    "performance summary belongs only to a passed profile result"
+  );
+  ensure!(
+    value.target_fps > 0 && value.target_fps <= 240,
+    "performance target_fps must be from 1 through 240"
+  );
+  ensure!(
+    value.headline == format!("Missed {} Hz interaction deadlines", value.target_fps),
+    "performance headline does not match its target"
+  );
+  ensure!(value.goal == 0, "performance goal must be zero");
+  performance_evidence(result, value)?;
+  ensure!(
+    usize::try_from(value.measured_score_attempts)? == value.score_attempt_values.len()
+      && !value.score_attempt_values.is_empty(),
+    "performance score attempt count is inconsistent"
+  );
+  ensure!(
+    value
+      .score_attempt_values
+      .windows(2)
+      .all(|pair| pair[0] <= pair[1]),
+    "performance score attempts must be sorted"
+  );
+  ensure!(
+    value.missed_interaction_deadlines
+      == value.score_attempt_values[value.score_attempt_values.len() / 2],
+    "performance headline value must be the score median"
+  );
+  for step in &value.measured_steps {
+    ensure!(
+      !step.name.is_empty(),
+      "performance step name must not be empty"
+    );
+    ensure!(
+      step.attempts == value.measured_score_attempts,
+      "performance step attempt count is inconsistent"
+    );
+    ensure!(
+      step.no_visual_response_attempts <= step.attempts,
+      "performance no-response count exceeds its attempts"
+    );
+  }
+  ensure!(
+    result
+      .scenarios
+      .iter()
+      .flat_map(|scenario| scenario.steps.iter())
+      .filter_map(|step| step.performance.as_ref())
+      .all(|step| step.target_fps == value.target_fps),
+    "performance summary and raw steps disagree about their target"
+  );
+  for hotspot in &value.detail_hotspots {
+    ensure!(
+      !hotspot.component.is_empty() && hotspot.calls > 0,
+      "performance hotspot identity is invalid"
+    );
+    ensure!(
+      hotspot.maximum_self_duration_us <= hotspot.total_self_duration_us,
+      "performance hotspot maximum exceeds its total"
+    );
+  }
+  Ok(())
+}
+
+fn performance_evidence(result: &RunResult, summary: &PerformanceResult) -> Result<()> {
+  let measured_iterations = crate::profile_commands::MEASURED_ITERATIONS;
+  let expected_topology = [PerformancePass::Score, PerformancePass::Detail]
+    .into_iter()
+    .flat_map(|pass| {
+      (0..=measured_iterations).map(move |iteration| (performance_pass_key(pass), iteration))
+    })
+    .collect::<BTreeSet<_>>();
+  let mut topology = BTreeSet::new();
+  let mut idle_frames = None;
+  let mut expected_step_names: Option<BTreeSet<String>> = None;
+  let mut score_values = Vec::new();
+  let mut score_steps: BTreeMap<String, Vec<&StepPerformance>> = BTreeMap::new();
+  for scenario in &result.scenarios {
+    let attempt = scenario
+      .performance_attempt
+      .as_ref()
+      .expect("profile scenarios have attempts after scenario validation");
+    ensure!(
+      attempt.target_fps == summary.target_fps,
+      "performance attempt and summary targets disagree"
+    );
+    ensure!(
+      attempt.warmup == (attempt.iteration == 0),
+      "performance warmup and iteration disagree"
+    );
+    ensure!(
+      idle_frames.is_none_or(|value| value == attempt.idle_frames),
+      "performance attempts disagree about idle frames"
+    );
+    idle_frames = Some(attempt.idle_frames);
+    ensure!(
+      topology.insert((performance_pass_key(attempt.pass), attempt.iteration)),
+      "performance attempt topology contains a duplicate"
+    );
+    let mut names = BTreeSet::new();
+    let mut attempt_total = 0u64;
+    for step in &scenario.steps {
+      let Some(performance) = &step.performance else {
+        continue;
+      };
+      let name = step
+        .name
+        .clone()
+        .unwrap_or_else(|| format!("step-{}", step.index));
+      ensure!(
+        names.insert(name.clone()),
+        "performance attempt contains duplicate measured step names"
+      );
+      if attempt.pass == PerformancePass::Score && !attempt.warmup {
+        attempt_total = attempt_total
+          .checked_add(performance.missed_interaction_deadlines)
+          .ok_or_else(|| anyhow::anyhow!("performance attempt total overflow"))?;
+        score_steps.entry(name).or_default().push(performance);
+      }
+    }
+    ensure!(
+      !names.is_empty(),
+      "performance attempt contains no measured steps"
+    );
+    if let Some(expected) = &expected_step_names {
+      ensure!(
+        names == *expected,
+        "performance attempts disagree about measured steps"
+      );
+    } else {
+      expected_step_names = Some(names);
+    }
+    if attempt.pass == PerformancePass::Score && !attempt.warmup {
+      score_values.push(attempt_total);
+    }
+  }
+  ensure!(
+    topology == expected_topology,
+    "profile result has incomplete performance attempt topology"
+  );
+  score_values.sort_unstable();
+  ensure!(
+    score_values == summary.score_attempt_values,
+    "performance score attempts disagree with raw evidence"
+  );
+  let expected_steps = score_steps
+    .into_iter()
+    .map(|(name, values)| measured_step(name, &values))
+    .collect::<Result<Vec<_>>>()?;
+  ensure!(
+    expected_steps == summary.measured_steps,
+    "performance measured-step summary disagrees with raw evidence"
+  );
+  Ok(())
+}
+
+fn measured_step(name: String, values: &[&StepPerformance]) -> Result<MeasuredStepPerformance> {
+  let mut response = values
+    .iter()
+    .map(|value| value.response_latency_ns)
+    .collect::<Vec<_>>();
+  response.sort_unstable();
+  let missed_interaction_deadlines = values.iter().try_fold(0u64, |total, value| {
+    total.checked_add(value.missed_interaction_deadlines)
+  });
+  let managed_allocated_bytes = values.iter().try_fold(0i64, |total, value| {
+    value
+      .managed_allocation_deltas
+      .iter()
+      .try_fold(total, |total, allocation| total.checked_add(*allocation))
+  });
+  Ok(MeasuredStepPerformance {
+    name,
+    attempts: u32::try_from(values.len())?,
+    no_visual_response_attempts: u32::try_from(
+      values
+        .iter()
+        .filter(|value| value.no_visual_response)
+        .count(),
+    )?,
+    missed_interaction_deadlines: missed_interaction_deadlines
+      .ok_or_else(|| anyhow::anyhow!("performance measured-step total overflow"))?,
+    median_response_latency_ns: response[response.len() / 2],
+    worst_presentation_interval_ns: values
+      .iter()
+      .flat_map(|value| value.presentation_intervals_ns.iter())
+      .copied()
+      .max()
+      .unwrap_or(0),
+    managed_allocated_bytes: managed_allocated_bytes
+      .ok_or_else(|| anyhow::anyhow!("performance allocation total overflow"))?,
+  })
+}
+
+fn performance_pass_key(pass: PerformancePass) -> u8 {
+  match pass {
+    PerformancePass::Score => 0,
+    PerformancePass::Detail => 1,
+  }
 }
 
 pub(super) fn error_reference<'a>(
@@ -49,7 +274,7 @@ pub(super) fn error_reference<'a>(
 
 fn command_identity(result: &RunResult) -> Result<()> {
   match result.command {
-    ResultCommand::Run => executed_identity(result),
+    ResultCommand::Run | ResultCommand::Profile => executed_identity(result),
     ResultCommand::Capture => {
       executed_identity(result)?;
       ensure!(result.lock_sha256.is_none(), "capture must not load a lock");
@@ -316,6 +541,24 @@ fn scenarios(
       names.insert(scenario.name.as_str()),
       "scenario names must be unique"
     );
+    ensure!(
+      scenario.performance_attempt.is_some() == (result.command == ResultCommand::Profile),
+      "performance attempts belong only to profile results"
+    );
+    if let Some(attempt) = &scenario.performance_attempt {
+      ensure!(
+        attempt.target_fps > 0 && attempt.target_fps <= 240,
+        "performance attempt target_fps must be from 1 through 240"
+      );
+      ensure!(
+        attempt.idle_frames <= 3600,
+        "performance idle_frames is too large"
+      );
+      ensure!(
+        attempt.warmup == (attempt.iteration == 0),
+        "performance warmup and iteration disagree"
+      );
+    }
     scenario_state(scenario)?;
     result_nested_validation::scenario(scenario, result.command, errors, artifacts)?;
     if let Some(logs) = &scenario.logs {

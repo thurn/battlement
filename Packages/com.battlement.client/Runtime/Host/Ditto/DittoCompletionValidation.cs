@@ -50,7 +50,7 @@ namespace Battlement
             for (var index = 0; index < scenario.Steps.Count; index++)
             {
                 DittoPlayerStepResult result = complete.Steps[index];
-                ValidateStepResult(scenario.Steps[index], result);
+                ValidateStepResult(scenario.Steps[index], result, scenario.Performance?.TargetFps);
                 foreach (string errorRef in result.ErrorRefs)
                 {
                     Require(
@@ -68,7 +68,8 @@ namespace Battlement
 
         internal static void ValidateStepResult(
             DittoResolvedStep expected,
-            DittoPlayerStepResult result
+            DittoPlayerStepResult result,
+            uint? performanceTargetFps
         )
         {
             Require(result.Index == expected.Index, "step result index does not match the job");
@@ -111,6 +112,7 @@ namespace Battlement
             ValidateAssertion(expected, result);
             ValidateScreenshot(expected, result);
             ValidateVideo(expected, result);
+            ValidatePerformance(expected, result, performanceTargetFps);
         }
 
         private static bool NotRunHasNoPayload(DittoPlayerStepResult result)
@@ -118,7 +120,80 @@ namespace Battlement
             bool timing = result.DurationMs == 0 && !result.ExpiredDeadline.HasValue;
             bool errors = result.ErrorRefs.Count == 0 && result.Assertion is null;
             bool media = result.ScreenshotArtifactId is null && result.VideoInputId is null;
-            return timing && errors && media;
+            return timing && errors && media && result.Performance is null;
+        }
+
+        private static void ValidatePerformance(
+            DittoResolvedStep expected,
+            DittoPlayerStepResult result,
+            uint? performanceTargetFps
+        )
+        {
+            if (result.Performance is null)
+            {
+                Require(
+                    performanceTargetFps is null
+                        || !expected.Measure
+                        || result.Status != DittoStepStatus.Passed,
+                    "passed measured step requires performance data"
+                );
+                return;
+            }
+            DittoStepPerformance value = result.Performance;
+            Require(
+                performanceTargetFps is not null,
+                "performance data belongs only to profile jobs"
+            );
+            Require(expected.Measure, "performance data belongs only to a measured step");
+            Require(
+                value.TargetFps == performanceTargetFps,
+                "performance target does not match job"
+            );
+            Require(
+                value.ResponseMissedDeadlines + value.PacingMissedDeadlines
+                    == value.MissedInteractionDeadlines,
+                "performance deadline total is inconsistent"
+            );
+            Require(
+                value.PresentationTimestampsNs.Count > 0,
+                "performance requires a presented frame"
+            );
+            Require(
+                value.PresentationTimestampsNs.Count == value.ManagedAllocationDeltas.Count,
+                "performance frame and allocation counts differ"
+            );
+            Require(
+                value.PresentationIntervalsNs.Count
+                    == Math.Max(0, value.PresentationTimestampsNs.Count - 1),
+                "performance frame intervals are not aligned"
+            );
+            for (int index = 1; index < value.PresentationTimestampsNs.Count; index++)
+            {
+                Require(
+                    value.PresentationTimestampsNs[index]
+                        > value.PresentationTimestampsNs[index - 1],
+                    "performance timestamps must increase"
+                );
+                Require(
+                    value.PresentationTimestampsNs[index]
+                        - value.PresentationTimestampsNs[index - 1]
+                        == value.PresentationIntervalsNs[index - 1],
+                    "performance intervals do not match timestamps"
+                );
+            }
+            Require(
+                value.PresentationTimestampsNs.Contains(value.ResponseLatencyNs),
+                "performance response does not identify a presented frame"
+            );
+            Require(
+                !value.NoVisualResponse
+                    || value.ResponseLatencyNs == value.PresentationTimestampsNs[^1],
+                "no-response performance must span through the final frame"
+            );
+            Require(
+                !value.NoVisualResponse || value.ResponseMissedDeadlines > 0,
+                "no-response performance must miss a response deadline"
+            );
         }
 
         private static void ValidateAssertion(

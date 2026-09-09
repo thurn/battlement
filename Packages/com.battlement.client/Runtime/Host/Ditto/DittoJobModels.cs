@@ -8,6 +8,7 @@ namespace Battlement
     {
         Run,
         Capture,
+        Profile,
     }
 
     internal enum DittoPlatform
@@ -40,6 +41,18 @@ namespace Battlement
         Instant,
         Controlled,
         RealTime,
+    }
+
+    internal enum DittoPerformancePass
+    {
+        Score,
+        Detail,
+    }
+
+    internal enum DittoPointerAction
+    {
+        Click,
+        Hover,
     }
 
     internal enum DittoKeyAction
@@ -95,14 +108,24 @@ namespace Battlement
         string? Fixture,
         DittoMotion Motion,
         ulong TimeoutMs,
-        IReadOnlyList<DittoResolvedStep> Steps
+        IReadOnlyList<DittoResolvedStep> Steps,
+        DittoPerformanceAttempt? Performance = null
+    );
+
+    internal sealed record DittoPerformanceAttempt(
+        DittoPerformancePass Pass,
+        bool Warmup,
+        uint Iteration,
+        uint TargetFps,
+        uint IdleFrames
     );
 
     internal sealed record DittoResolvedStep(
         uint Index,
         string? Name,
         ulong TimeoutMs,
-        DittoStepAction Action
+        DittoStepAction Action,
+        bool Measure = false
     );
 
     internal abstract record DittoStepAction
@@ -127,6 +150,11 @@ namespace Battlement
         internal sealed record AccessibilityAction(
             DittoAccessibilityTarget Target,
             global::Battlement.AccessibilityAction Action
+        ) : DittoStepAction;
+
+        internal sealed record PointerAction(
+            DittoAccessibilityTarget Target,
+            DittoPointerAction Action
         ) : DittoStepAction;
 
         internal sealed record Screenshot(DittoScreenshot Value) : DittoStepAction;

@@ -248,6 +248,7 @@ fn empty_result() -> RunResult {
     errors: vec![],
     baseline_writes: vec![],
     artifacts: vec![],
+    performance: None,
   }
 }
 
@@ -279,6 +280,7 @@ fn reviewed_result(images: &[Vec<u8>; 2]) -> RunResult {
         updated: None,
       }),
       video: None,
+      performance: None,
     })
     .collect();
   RunResult {
@@ -298,6 +300,7 @@ fn reviewed_result(images: &[Vec<u8>; 2]) -> RunResult {
       logs: None,
       failure_frame: None,
       recovery: Recovery::None,
+      performance_attempt: None,
     }],
     artifacts: vec!["actuals/0.png".to_owned(), "actuals/1.png".to_owned()],
     ..empty_result()

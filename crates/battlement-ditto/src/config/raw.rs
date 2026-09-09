@@ -17,7 +17,14 @@ pub(super) struct RawSuite {
   pub aliases: BTreeMap<String, String>,
   pub baseline: Option<RawBaseline>,
   pub profiles: BTreeMap<String, RawProfile>,
+  pub performance: Option<RawPerformance>,
   pub scenarios: Vec<RawScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawPerformance {
+  pub target_fps: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -146,6 +153,8 @@ pub(super) enum RawMotion {
 pub(super) struct RawStep {
   pub name: Option<String>,
   pub timeout: Option<String>,
+  #[serde(default)]
+  pub measure: bool,
   pub click: Option<RawClick>,
   pub hover: Option<RawHover>,
   pub drag: Option<RawDrag>,
@@ -156,8 +165,23 @@ pub(super) struct RawStep {
   pub assertion: Option<RawCondition>,
   pub accessibility_assert: Option<RawAccessibilityAssertion>,
   pub accessibility_action: Option<RawAccessibilityActionStep>,
+  pub pointer_action: Option<RawPointerActionStep>,
   pub screenshot: Option<RawScreenshot>,
   pub video: Option<RawVideo>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RawPointerActionStep {
+  pub target: RawAccessibilityTarget,
+  pub action: RawPointerAction,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum RawPointerAction {
+  Click,
+  Hover,
 }
 
 #[derive(Debug, Deserialize)]

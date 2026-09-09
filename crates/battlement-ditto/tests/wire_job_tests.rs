@@ -1,6 +1,7 @@
 use battlement_ditto::wire::job::{
-  Capability, Command, Job, KeyAction, Motion, ObjectState, Orientation, Platform, StepKind,
-  VideoStep,
+  AccessibilityRole, AccessibilityTarget, Capability, Command, Job, KeyAction, Motion, ObjectState,
+  Orientation, PerformanceAttempt, PerformancePass, Platform, PointerAction, ResolvedStep,
+  StepKind, VideoStep,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
@@ -55,7 +56,7 @@ fn complete_job_round_trips_every_deterministic_step_variant() {
 
 #[test]
 fn every_closed_enum_variant_has_its_exact_kebab_case_wire_value() {
-  round_trip(&[Command::Run, Command::Capture]);
+  round_trip(&[Command::Run, Command::Capture, Command::Profile]);
   round_trip(&[Platform::Macos, Platform::Webgl, Platform::IosSimulator]);
   round_trip(&[
     Orientation::Portrait,
@@ -93,6 +94,58 @@ fn every_closed_enum_variant_has_its_exact_kebab_case_wire_value() {
     serde_json::to_value(Platform::IosSimulator).unwrap(),
     json!("ios-simulator")
   );
+}
+
+#[test]
+fn profile_job_round_trips_performance_attempt_and_pointer_action() {
+  let mut value = job();
+  value.command = Command::Profile;
+  value.scenarios[0].performance = Some(PerformanceAttempt {
+    pass: PerformancePass::Score,
+    warmup: false,
+    iteration: 1,
+    target_fps: 60,
+    idle_frames: 120,
+  });
+  value.scenarios[0].steps = vec![ResolvedStep {
+    index: 0,
+    name: Some("Open settings".to_owned()),
+    timeout_ms: 1_000,
+    measure: true,
+    action: StepKind::PointerAction {
+      target: AccessibilityTarget {
+        role: AccessibilityRole::Button,
+        name: "SETTINGS".to_owned(),
+      },
+      action: PointerAction::Click,
+    },
+  }];
+  value.validate().unwrap();
+  let encoded = serde_json::to_string(&value).unwrap();
+  assert_eq!(serde_json::from_str::<Job>(&encoded).unwrap(), value);
+
+  let mut webgl = value.clone();
+  webgl.profile.platform = Platform::Webgl;
+  webgl.profile.native_execution_id = None;
+  assert!(webgl.validate().is_err());
+
+  let mut mismatched_iteration = value.clone();
+  mismatched_iteration.scenarios[0]
+    .performance
+    .as_mut()
+    .unwrap()
+    .warmup = true;
+  assert!(mismatched_iteration.validate().is_err());
+
+  invalid("performance attempt on run job", |job| {
+    job.scenarios[0].performance = Some(PerformanceAttempt {
+      pass: PerformancePass::Score,
+      warmup: false,
+      iteration: 1,
+      target_fps: 60,
+      idle_frames: 120,
+    });
+  });
 }
 
 #[test]

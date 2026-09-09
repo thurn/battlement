@@ -3,14 +3,17 @@ use std::fmt::Debug;
 use battlement_ditto::wire::{
   baseline_state::{BaselineStoreState, BaselineTombstone},
   common::{AssertionResult, DeadlineKind, ErrorCode, ErrorSource, StepName, StepStatus},
-  job::{Capability, Comparison, Display, Motion, ObjectState, Platform},
-  lifecycle::StartupReport,
+  job::{
+    Capability, Comparison, Display, Motion, ObjectState, PerformanceAttempt, PerformancePass,
+    Platform,
+  },
+  lifecycle::{StartupReport, StepPerformance},
   result::{
     BaselineOutcome, BaselineWriteResult, BaselineWriteStatus, BuildDisposition, BuildResult,
-    ComparisonOutcome, ErrorOccurrence, ImageFile, JobResult, JobStatus, LogSpan, MediaCapture,
-    PhaseName, PhaseResult, PhaseStatus, PlayerSessionResult, Recovery, ResultCommand, RunResult,
-    RunStatus, ScenarioResult, ScenarioStatus, ScenarioTimings, ScreenshotResult, StepResult,
-    VideoResult,
+    ComparisonOutcome, ErrorOccurrence, ImageFile, JobResult, JobStatus, LogSpan,
+    MeasuredStepPerformance, MediaCapture, PerformanceHotspot, PerformanceResult, PhaseName,
+    PhaseResult, PhaseStatus, PlayerSessionResult, Recovery, ResultCommand, RunResult, RunStatus,
+    ScenarioResult, ScenarioStatus, ScenarioTimings, ScreenshotResult, StepResult, VideoResult,
   },
   review::{
     ReviewAcceptance, ReviewAcceptanceResult, ReviewEvent, ReviewEventBody, ReviewSelection,
@@ -113,6 +116,7 @@ fn every_result_and_review_variant_round_trips() {
   round_trip(&[
     ResultCommand::Run,
     ResultCommand::Capture,
+    ResultCommand::Profile,
     ResultCommand::ComparisonOnly,
   ]);
   round_trip(&[
@@ -248,6 +252,168 @@ fn every_result_and_review_variant_round_trips() {
   round_trip(&[ReviewEventBody::Snapshot {
     result: complete_result(),
   }]);
+}
+
+#[test]
+fn profile_result_validates_headline_attempts_and_hotspots() {
+  let summary = PerformanceResult {
+    headline: "Missed 60 Hz interaction deadlines".to_owned(),
+    target_fps: 60,
+    missed_interaction_deadlines: 0,
+    goal: 0,
+    measured_score_attempts: 5,
+    score_attempt_values: vec![0, 0, 0, 0, 0],
+    measured_steps: vec![MeasuredStepPerformance {
+      name: "Open settings".to_owned(),
+      attempts: 5,
+      no_visual_response_attempts: 0,
+      missed_interaction_deadlines: 0,
+      median_response_latency_ns: 10,
+      worst_presentation_interval_ns: 10,
+      managed_allocated_bytes: 0,
+    }],
+    detail_hotspots: vec![PerformanceHotspot {
+      component: "settings::Settings".to_owned(),
+      calls: 100,
+      total_self_duration_us: 20_000,
+      maximum_self_duration_us: 1_000,
+      total_inclusive_duration_us: 50_000,
+    }],
+  };
+  let mut result = RunResult {
+    run_id: RUN_ID.to_owned(),
+    source_run_id: None,
+    lock_sha256: None,
+    command: ResultCommand::Profile,
+    source_command: None,
+    cycle: 1,
+    suite: Some("suite".to_owned()),
+    profile: Some("macos-local".to_owned()),
+    started_at: "2026-08-28T20:00:00Z".to_owned(),
+    duration_ms: 450,
+    status: RunStatus::Passed,
+    exit_code: 0,
+    build: None,
+    phases: vec![],
+    player_sessions: vec![],
+    jobs: vec![],
+    scenarios: vec![ScenarioResult {
+      id: SCENARIO_ID.to_owned(),
+      name: "profile attempt".to_owned(),
+      status: ScenarioStatus::Passed,
+      status_reason: None,
+      motion: Motion::Controlled,
+      duration_ms: 20,
+      expired_deadline: None,
+      timings: empty_timings(),
+      steps: vec![StepResult {
+        index: 0,
+        name: Some("Open settings".to_owned()),
+        kind: StepName::PointerAction,
+        status: StepStatus::Passed,
+        status_reason: None,
+        duration_ms: 20,
+        expired_deadline: None,
+        error_ids: vec![],
+        assertion: None,
+        screenshot: None,
+        video: None,
+        performance: Some(StepPerformance {
+          target_fps: 60,
+          response_latency_ns: 10,
+          response_missed_deadlines: 0,
+          pacing_missed_deadlines: 0,
+          missed_interaction_deadlines: 0,
+          no_visual_response: false,
+          presentation_timestamps_ns: vec![10, 20],
+          presentation_intervals_ns: vec![10],
+          managed_allocation_deltas: vec![0, 0],
+        }),
+      }],
+      logs: None,
+      failure_frame: None,
+      recovery: Recovery::None,
+      performance_attempt: Some(PerformanceAttempt {
+        pass: PerformancePass::Score,
+        warmup: false,
+        iteration: 1,
+        target_fps: 60,
+        idle_frames: 120,
+      }),
+    }],
+    warnings: vec![],
+    errors: vec![],
+    baseline_writes: vec![],
+    artifacts: vec![],
+    performance: Some(summary),
+  };
+  let template = result.scenarios[0].clone();
+  result.scenarios = [PerformancePass::Score, PerformancePass::Detail]
+    .into_iter()
+    .flat_map(|pass| {
+      let template = template.clone();
+      (0..=5).map(move |iteration| {
+        let mut scenario = template.clone();
+        let (pass_name, pass_offset) = match pass {
+          PerformancePass::Score => ("score", 0),
+          PerformancePass::Detail => ("detail", 10),
+        };
+        scenario.id = format!("00000000-0000-4000-8000-{:012}", iteration + pass_offset);
+        scenario.name = format!("profile {pass_name} {iteration}");
+        scenario.performance_attempt = Some(PerformanceAttempt {
+          pass,
+          warmup: iteration == 0,
+          iteration,
+          target_fps: 60,
+          idle_frames: 120,
+        });
+        scenario
+      })
+    })
+    .collect();
+  result.validate().unwrap();
+  rejects(&result, |result| {
+    result
+      .performance
+      .as_mut()
+      .unwrap()
+      .missed_interaction_deadlines = 1
+  });
+  rejects(&result, |result| {
+    result.performance.as_mut().unwrap().score_attempt_values[4] = 1
+  });
+  rejects(&result, |result| {
+    result.performance.as_mut().unwrap().measured_steps[0].attempts = 4
+  });
+  rejects(&result, |result| {
+    result.scenarios.pop();
+  });
+  rejects(&result, |result| {
+    let raw = result.scenarios[1].steps[0].performance.as_mut().unwrap();
+    raw.pacing_missed_deadlines = 1;
+    raw.missed_interaction_deadlines = 1;
+  });
+  rejects(&result, |result| result.performance = None);
+  rejects(&result, |result| {
+    result.status = RunStatus::Failed;
+    result.exit_code = 1;
+  });
+  rejects(&result, |result| {
+    result.scenarios[0].steps[0]
+      .performance
+      .as_mut()
+      .unwrap()
+      .presentation_intervals_ns[0] = 9;
+  });
+  result.performance = None;
+  result.scenarios[0].status = ScenarioStatus::NotRun;
+  result.scenarios[0].status_reason = Some("run-infrastructure-error".to_owned());
+  result.scenarios[0].duration_ms = 0;
+  result.scenarios[0].steps[0].status = StepStatus::NotRun;
+  result.scenarios[0].steps[0].status_reason = Some("run-infrastructure-error".to_owned());
+  result.scenarios[0].steps[0].duration_ms = 0;
+  result.scenarios[0].steps[0].performance = None;
+  result.validate().unwrap();
 }
 
 #[test]
@@ -568,6 +734,7 @@ fn complete_result() -> RunResult {
       "logs/scenario.ndjson".to_owned(),
       "video/out.mp4".to_owned(),
     ],
+    performance: None,
   }
 }
 
@@ -608,6 +775,7 @@ fn scenario() -> ScenarioResult {
         assertion: None,
         screenshot: None,
         video: None,
+        performance: None,
       },
     ],
     logs: Some(LogSpan {
@@ -623,6 +791,7 @@ fn scenario() -> ScenarioResult {
       error_id: Some("E0002".to_owned()),
     }),
     recovery: Recovery::Reset,
+    performance_attempt: None,
   }
 }
 
@@ -645,6 +814,7 @@ fn assertion_step() -> StepResult {
     }),
     screenshot: None,
     video: None,
+    performance: None,
   }
 }
 
@@ -675,6 +845,7 @@ fn screenshot_step() -> StepResult {
       updated: None,
     }),
     video: None,
+    performance: None,
   }
 }
 
@@ -699,6 +870,7 @@ fn video_step() -> StepResult {
       duration_ms: 100,
       truncated: false,
     }),
+    performance: None,
   }
 }
 

@@ -63,6 +63,25 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ConfiguredFrameRateSurvivesRepeatedMotionInitialization()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            var first = new DittoMotionController(harness.Runner);
+            first.Begin(DittoMotion.Controlled);
+            harness.Runner.SetDittoFrameRate(60);
+            var second = new DittoMotionController(harness.Runner);
+
+            second.Begin(DittoMotion.Controlled);
+            TimeSpan before = harness.Runner.DittoElapsed;
+            second.PrepareFrame(forceAdvance: true);
+
+            Assert.That(
+                harness.Runner.DittoElapsed - before,
+                Is.EqualTo(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 60))
+            );
+        }
+
+        [Test]
         public void InfiniteMotionFreezesAtTheFirstObservedStateAndDoesNotBlockSettlement()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(

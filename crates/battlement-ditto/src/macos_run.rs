@@ -304,6 +304,7 @@ fn execute_inner(
     match options.command {
       ResultCommand::Run => JobCommand::Run,
       ResultCommand::Capture => JobCommand::Capture,
+      ResultCommand::Profile => JobCommand::Profile,
       ResultCommand::ComparisonOnly => unreachable!(),
     },
     &result.run_id,

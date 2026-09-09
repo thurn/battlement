@@ -247,6 +247,7 @@ fn completion_from_context(
         assertion: None,
         screenshot_artifact_id: None,
         video_input_id: None,
+        performance: None,
       })
     })
     .collect::<Vec<_>>();

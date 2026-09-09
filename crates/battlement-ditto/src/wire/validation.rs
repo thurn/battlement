@@ -68,6 +68,10 @@ fn validate_redactions(redactions: &[String]) -> Result<()> {
 }
 
 fn validate_profile(job: &Job) -> Result<()> {
+  ensure!(
+    job.command != crate::wire::job::Command::Profile || job.profile.platform == Platform::Macos,
+    "profile jobs support macOS only"
+  );
   name("profile.name", &job.profile.name)?;
   sha256("profile.build_fingerprint", &job.profile.build_fingerprint)?;
   sha256(
@@ -184,6 +188,24 @@ pub(super) fn display(platform: Platform, display: &Display) -> Result<()> {
 
 fn validate_scenario(job: &Job, scenario: &ResolvedScenario) -> Result<()> {
   ensure!(
+    scenario.performance.is_some() == (job.command == crate::wire::job::Command::Profile),
+    "performance attempts belong only to profile jobs"
+  );
+  if let Some(performance) = &scenario.performance {
+    ensure!(
+      performance.target_fps > 0 && performance.target_fps <= 240,
+      "performance target_fps must be from 1 through 240"
+    );
+    ensure!(
+      performance.idle_frames <= 3600,
+      "performance idle_frames is too large"
+    );
+    ensure!(
+      performance.warmup == (performance.iteration == 0),
+      "performance warmup and iteration disagree"
+    );
+  }
+  ensure!(
     scenario.motion != Motion::RealTime,
     "real-time motion violates the deterministic execution contract"
   );
@@ -207,6 +229,10 @@ fn validate_scenario(job: &Job, scenario: &ResolvedScenario) -> Result<()> {
   ensure!(
     state.active_video.is_none(),
     "video start must have a matching stop"
+  );
+  ensure!(
+    scenario.performance.is_none() || scenario.steps.iter().any(|step| step.measure),
+    "performance scenario requires a measured step"
   );
   Ok(())
 }
@@ -237,6 +263,14 @@ fn validate_step<'a>(
       "step names must be unique within a scenario"
     );
   }
+  ensure!(
+    !step.measure || matches!(step.action, StepKind::PointerAction { .. }),
+    "measure is supported only on pointer actions"
+  );
+  ensure!(
+    !step.measure || step.name.is_some(),
+    "measured pointer actions require a name"
+  );
   match &step.action {
     StepKind::Click { target, .. } => {
       capability(job, Capability::Click)?;
@@ -266,6 +300,7 @@ fn validate_step<'a>(
       Ok(())
     }
     StepKind::AccessibilityAction { target, .. } => accessibility_target(target),
+    StepKind::PointerAction { target, .. } => accessibility_target(target),
     StepKind::Screenshot(screenshot) => {
       capability(job, Capability::Png)?;
       name("screenshot.name", &screenshot.name)?;

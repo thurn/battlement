@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::wire::{
   common::{AssertionResult, DeadlineKind, ErrorCode, ErrorSource, StepName, StepStatus},
   job::{Comparison, Motion},
-  lifecycle::StartupReport,
+  lifecycle::{StartupReport, StepPerformance},
   result_format, result_validation,
 };
 
@@ -35,6 +35,43 @@ pub struct RunResult {
   pub errors: Vec<ErrorOccurrence>,
   pub baseline_writes: Vec<BaselineWriteResult>,
   pub artifacts: Vec<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub performance: Option<PerformanceResult>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerformanceResult {
+  pub headline: String,
+  pub target_fps: u32,
+  pub missed_interaction_deadlines: u64,
+  pub goal: u64,
+  pub measured_score_attempts: u32,
+  pub score_attempt_values: Vec<u64>,
+  pub measured_steps: Vec<MeasuredStepPerformance>,
+  pub detail_hotspots: Vec<PerformanceHotspot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerformanceHotspot {
+  pub component: String,
+  pub calls: u64,
+  pub total_self_duration_us: u64,
+  pub maximum_self_duration_us: u64,
+  pub total_inclusive_duration_us: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeasuredStepPerformance {
+  pub name: String,
+  pub attempts: u32,
+  pub no_visual_response_attempts: u32,
+  pub missed_interaction_deadlines: u64,
+  pub median_response_latency_ns: u64,
+  pub worst_presentation_interval_ns: u64,
+  pub managed_allocated_bytes: i64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -42,6 +79,7 @@ pub struct RunResult {
 pub enum ResultCommand {
   Run,
   Capture,
+  Profile,
   ComparisonOnly,
 }
 
@@ -152,6 +190,8 @@ pub struct ScenarioResult {
   pub logs: Option<LogSpan>,
   pub failure_frame: Option<MediaCapture>,
   pub recovery: Recovery,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub performance_attempt: Option<crate::wire::job::PerformanceAttempt>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -214,6 +254,8 @@ pub struct StepResult {
   pub assertion: Option<AssertionResult>,
   pub screenshot: Option<ScreenshotResult>,
   pub video: Option<VideoResult>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub performance: Option<StepPerformance>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

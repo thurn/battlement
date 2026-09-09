@@ -16,8 +16,8 @@ use crate::{
   wire::job::{
     AccessibilityAction, AccessibilityAssertion, AccessibilityRole, AccessibilityTarget,
     Capability, Command, Comparison, Display, FrameAdvance, InputTarget, Job, KeyAction, Motion,
-    ObjectCondition, ObjectState, Platform, ResolvedProfile, ResolvedScenario, ResolvedStep,
-    ScreenshotStep, StepKind, VideoStep,
+    ObjectCondition, ObjectState, PerformanceAttempt, PerformancePass, Platform, PointerAction,
+    ResolvedProfile, ResolvedScenario, ResolvedStep, ScreenshotStep, StepKind, VideoStep,
   },
 };
 
@@ -144,6 +144,19 @@ fn resolve_inner(
           fixture: scenario.scenario.fixture.clone(),
           motion: motion(scenario.scenario.motion),
           timeout_ms: scenario.scenario.timeout.as_millis(),
+          performance: scenario
+            .scenario
+            .performance
+            .map(|value| PerformanceAttempt {
+              pass: match value.pass {
+                crate::config::model::PerformancePass::Score => PerformancePass::Score,
+                crate::config::model::PerformancePass::Detail => PerformancePass::Detail,
+              },
+              warmup: value.warmup,
+              iteration: value.iteration,
+              target_fps: value.target_fps,
+              idle_frames: value.idle_frames,
+            }),
           steps: scenario
             .scenario
             .steps
@@ -168,6 +181,7 @@ fn resolved_step(
     index: index as u32,
     name: step.name.clone(),
     timeout_ms: step.timeout.as_millis(),
+    measure: step.measure,
     action: match &step.action {
       AuthoredStepKind::Click { target } => StepKind::Click {
         target: input_target(target, aliases)?,
@@ -203,6 +217,13 @@ fn resolved_step(
       AuthoredStepKind::AccessibilityAction { target, action } => StepKind::AccessibilityAction {
         target: accessibility_target(target),
         action: accessibility_action(*action),
+      },
+      AuthoredStepKind::PointerAction { target, action } => StepKind::PointerAction {
+        target: accessibility_target(target),
+        action: match action {
+          crate::config::model::PointerAction::Click => PointerAction::Click,
+          crate::config::model::PointerAction::Hover => PointerAction::Hover,
+        },
       },
       AuthoredStepKind::Screenshot(screenshot) => StepKind::Screenshot(ScreenshotStep {
         name: screenshot.name.clone(),

@@ -45,6 +45,8 @@ namespace Battlement.UI
         private readonly BattlementUiPartProperties partProperties;
         private readonly BattlementUiRepeatControls repeatControls;
         private readonly BattlementMotionWorld motionWorld;
+        private ObjectId? syntheticPointerTarget;
+        private PanelPoint? syntheticPointerPosition;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -351,6 +353,203 @@ namespace Battlement.UI
             return true;
         }
 
+        internal bool BeginSyntheticPointer(
+            ObjectId target,
+            Vector2 screenPosition,
+            out string? diagnostic
+        ) => DispatchSyntheticPointer(target, screenPosition, true, out diagnostic);
+
+        internal bool DispatchSyntheticHover(
+            ObjectId target,
+            Vector2 screenPosition,
+            out string? diagnostic
+        ) => DispatchSyntheticPointer(target, screenPosition, false, out diagnostic);
+
+        private bool DispatchSyntheticPointer(
+            ObjectId target,
+            Vector2 screenPosition,
+            bool press,
+            out string? diagnostic
+        )
+        {
+            if (
+                !SyntheticPointerTarget(
+                    target,
+                    press,
+                    screenPosition,
+                    out PanelPoint position,
+                    out var route,
+                    out diagnostic
+                )
+            )
+                return false;
+            MoveSyntheticPointer(target, position, route);
+            events.ForwardEvent(
+                target,
+                route,
+                UiEventKind.PointerMove,
+                new UiEventBody.PointerMove(new UiPointerMoveEvent(position, new Vector(0, 0)))
+            );
+            if (press)
+            {
+                events.ForwardEvent(
+                    target,
+                    route,
+                    UiEventKind.PointerDown,
+                    new UiEventBody.PointerDown(
+                        new UiPointerButtonEvent(
+                            position,
+                            new Vector(0, 0),
+                            Button: new UiPointerButton.Left(),
+                            Buttons: 1,
+                            Pressure: 0.5f
+                        )
+                    )
+                );
+            }
+            diagnostic = null;
+            return true;
+        }
+
+        internal bool FinishSyntheticClick(ObjectId target, out string? diagnostic)
+        {
+            if (
+                !SyntheticPointerTarget(
+                    target,
+                    true,
+                    null,
+                    out PanelPoint position,
+                    out var route,
+                    out diagnostic
+                )
+            )
+                return false;
+            events.ForwardEvent(
+                target,
+                route,
+                UiEventKind.PointerUp,
+                new UiEventBody.PointerUp(
+                    new UiPointerButtonEvent(
+                        position,
+                        new Vector(0, 0),
+                        Button: new UiPointerButton.Left()
+                    )
+                )
+            );
+            bool dispatched = events.ForwardEvent(
+                target,
+                route,
+                UiEventKind.Click,
+                new UiEventBody.Click(
+                    new Battlement.ClickEvent.Pointer(
+                        position,
+                        1,
+                        Button: new UiPointerButton.Left()
+                    )
+                )
+            );
+            diagnostic = dispatched ? null : $"UI target {target.Value} rejected pointer click.";
+            return dispatched;
+        }
+
+        private bool SyntheticPointerTarget(
+            ObjectId target,
+            bool requireClick,
+            Vector2? screenPosition,
+            out PanelPoint position,
+            out IReadOnlyList<Guid> route,
+            out string? diagnostic
+        )
+        {
+            route = Route(target.Value);
+            if (!TryGetGeometryTarget(target, out VisualElement element, out _, out _))
+            {
+                position = default!;
+                diagnostic = $"UI target {target.Value} is not attached.";
+                return false;
+            }
+            if (!element.enabledInHierarchy || element.panel is null)
+            {
+                position = default!;
+                diagnostic = $"UI target {target.Value} is not enabled and attached.";
+                return false;
+            }
+            UnityEngine.Rect bounds = element.worldBound;
+            if (screenPosition is Vector2 requested)
+            {
+                float scale = element.panel.scaledPixelsPerPoint;
+                position = new PanelPoint(requested.x / scale, requested.y / scale);
+            }
+            else if (syntheticPointerTarget == target && syntheticPointerPosition is not null)
+            {
+                position = syntheticPointerPosition;
+            }
+            else
+            {
+                position = new PanelPoint(bounds.center.x, bounds.center.y);
+            }
+            bool hasHoverRoute =
+                events.CanForward(target, UiEventKind.PointerEnter)
+                || events.CanForwardRoute(route, UiEventKind.PointerOver)
+                || events.CanForwardRoute(route, UiEventKind.PointerMove);
+            if (requireClick ? !events.CanForwardRoute(route, UiEventKind.Click) : !hasHoverRoute)
+            {
+                diagnostic = requireClick
+                    ? $"UI target {target.Value} has no click route."
+                    : $"UI target {target.Value} has no hover route.";
+                return false;
+            }
+            diagnostic = null;
+            return true;
+        }
+
+        private void MoveSyntheticPointer(
+            ObjectId target,
+            PanelPoint position,
+            IReadOnlyList<Guid> route
+        )
+        {
+            ObjectId? previous = syntheticPointerTarget;
+            if (previous == target)
+                return;
+            if (previous is ObjectId previousTarget && elements.ContainsKey(previousTarget.Value))
+            {
+                IReadOnlyList<Guid> previousRoute = Route(previousTarget.Value);
+                events.ForwardEvent(
+                    previousTarget,
+                    previousRoute,
+                    UiEventKind.PointerOut,
+                    new UiEventBody.PointerOut(
+                        new UiPointerCrossingEvent(position, RelatedTargetId: target)
+                    )
+                );
+                events.ForwardEvent(
+                    previousTarget,
+                    previousRoute,
+                    UiEventKind.PointerLeave,
+                    new UiEventBody.PointerLeave(new UiPointerBoundaryEvent(position)),
+                    targetOnly: true
+                );
+            }
+            events.ForwardEvent(
+                target,
+                route,
+                UiEventKind.PointerOver,
+                new UiEventBody.PointerOver(
+                    new UiPointerCrossingEvent(position, RelatedTargetId: previous)
+                )
+            );
+            events.ForwardEvent(
+                target,
+                route,
+                UiEventKind.PointerEnter,
+                new UiEventBody.PointerEnter(new UiPointerBoundaryEvent(position)),
+                targetOnly: true
+            );
+            syntheticPointerTarget = target;
+            syntheticPointerPosition = position;
+        }
+
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
         public BattlementMotionPerformanceSnapshot MotionPerformance => motionWorld.Performance;
 
@@ -459,6 +658,8 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            syntheticPointerTarget = null;
+            syntheticPointerPosition = null;
             particles.Clear();
             motionWorld.Clear();
             eventObserver.Clear();
@@ -1863,6 +2064,11 @@ namespace Battlement.UI
 
         private void RemoveIdentity(Guid objectId)
         {
+            if (syntheticPointerTarget?.Value == objectId)
+            {
+                syntheticPointerTarget = null;
+                syntheticPointerPosition = null;
+            }
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
             {
                 stickyCoordinator.Remove(value);

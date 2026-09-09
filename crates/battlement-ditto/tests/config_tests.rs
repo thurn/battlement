@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use battlement_ditto::config::{
   self,
-  model::{Baseline, Motion, Profile, StepKind, VideoStep},
+  model::{Baseline, Motion, PointerAction, Profile, StepKind, VideoStep},
 };
 
 #[test]
@@ -105,6 +105,50 @@ fn representative_invalid_suites_have_actionable_diagnostics() {
     );
     assert!(error.contains(".toml:"), "{error}");
     assert!(error.contains('['), "{error}");
+  }
+}
+
+#[test]
+fn performance_contract_parses_measured_pointer_actions_and_rejects_misuse() {
+  let source = MINIMAL_SUITE
+    .replace(
+      "[player]",
+      "[performance]\ntarget_fps = 60\n\n[player]",
+    )
+    .replace(
+      "[[scenarios.steps]]\nclick = { target = \"item\" }",
+      "[[scenarios.steps]]\nname = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\" }",
+    );
+  let suite = Fixture::new(&source).load().unwrap();
+  assert_eq!(suite.performance.unwrap().target_fps, 60);
+  assert!(suite.scenarios[0].steps[0].measure);
+  assert!(matches!(
+    suite.scenarios[0].steps[0].action,
+    StepKind::PointerAction {
+      action: PointerAction::Click,
+      ..
+    }
+  ));
+
+  for (changed, expected) in [
+    (
+      source.replace("target_fps = 60", "target_fps = 0"),
+      "target_fps must be from 1 through 240",
+    ),
+    (
+      source.replace(
+        "name = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\" }",
+        "name = \"Open settings\"\nmeasure = true\nclick = { target = \"item\" }",
+      ),
+      "measure is supported only on pointer_action steps",
+    ),
+    (
+      source.replace("name = \"Open settings\"\nmeasure = true", "measure = true"),
+      "measured pointer actions require a step name",
+    ),
+  ] {
+    let error = Fixture::new(&changed).load().unwrap_err().to_string();
+    assert!(error.contains(expected), "expected {expected:?} in {error:?}");
   }
 }
 

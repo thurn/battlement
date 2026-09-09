@@ -284,11 +284,13 @@ fn reached_result(
         assertion: step.assertion.clone(),
         screenshot: None,
         video: None,
+        performance: step.performance.clone(),
       })
       .collect(),
     logs: None,
     failure_frame: None,
     recovery,
+    performance_attempt: scenario.performance.clone(),
   }
 }
 
@@ -329,6 +331,7 @@ fn completion(
       assertion: None,
       screenshot_artifact_id: None,
       video_input_id: None,
+      performance: None,
     }],
     artifacts: Vec::new(),
     failure_frame: None,
@@ -406,10 +409,12 @@ fn scenario(index: u32) -> ResolvedScenario {
     fixture: None,
     motion: Motion::Controlled,
     timeout_ms: 100,
+    performance: None,
     steps: vec![ResolvedStep {
       index: 0,
       name: Some("click".to_owned()),
       timeout_ms: 10,
+      measure: false,
       action: StepKind::Click {
         target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
       },

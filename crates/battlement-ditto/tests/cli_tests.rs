@@ -79,6 +79,25 @@ fn core_command_matrix_parses_complete_options() {
   assert_eq!(capture.bail_after, Some(1));
   assert!(capture.no_build && capture.json && capture.review);
 
+  let profile = parse_from([
+    "ditto",
+    "profile",
+    "settings*",
+    "--profile",
+    "macos-local",
+    "--no-build",
+    "--json",
+    "--output=performance.json",
+  ])
+  .unwrap();
+  let Command::Profile(profile) = profile.command else {
+    panic!("profile command was not parsed")
+  };
+  assert_eq!(profile.selection.includes, ["settings*"]);
+  assert_eq!(profile.selection.profile.as_deref(), Some("macos-local"));
+  assert!(profile.no_build && profile.json);
+  assert_eq!(profile.output.unwrap().to_str(), Some("performance.json"));
+
   let Command::Run(watch) = parse_from(["ditto", "run", "-w"]).unwrap().command else {
     panic!("watch run was not parsed")
   };

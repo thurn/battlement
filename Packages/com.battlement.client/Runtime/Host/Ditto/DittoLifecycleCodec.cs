@@ -152,8 +152,20 @@ namespace Battlement
                     ?? throw new JsonSerializationException(
                         $"No lifecycle property matches {objectType.Name}.{parameter.Name}."
                     );
-                property.Required = AllowsNull(parameter) ? Required.AllowNull : Required.Always;
-                property.NullValueHandling = NullValueHandling.Include;
+                if (parameter.HasDefaultValue)
+                {
+                    property.Required = Required.Default;
+                    property.DefaultValue = parameter.DefaultValue;
+                    property.DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate;
+                    property.NullValueHandling = NullValueHandling.Ignore;
+                }
+                else
+                {
+                    property.Required = AllowsNull(parameter)
+                        ? Required.AllowNull
+                        : Required.Always;
+                    property.NullValueHandling = NullValueHandling.Include;
+                }
                 contract.CreatorParameters.Add(property);
             }
             contract.OverrideCreator = arguments => constructor.Invoke(arguments);

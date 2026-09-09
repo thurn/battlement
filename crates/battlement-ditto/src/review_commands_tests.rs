@@ -119,6 +119,7 @@ fn empty_result(run_id: &str, command: ResultCommand) -> RunResult {
     errors: vec![],
     baseline_writes: vec![],
     artifacts: vec![],
+    performance: None,
   }
 }
 
@@ -179,10 +180,12 @@ fn image_result(run_id: &str, command: ResultCommand, missing: bool, suite: &str
           updated: None,
         }),
         video: None,
+        performance: None,
       }],
       logs: None,
       failure_frame: None,
       recovery: Recovery::None,
+      performance_attempt: None,
     }],
     ..empty_result(run_id, command)
   }
@@ -225,5 +228,6 @@ fn test_suite(repository: &std::path::Path, name: &str) -> crate::config::model:
     baseline: None,
     profiles: Default::default(),
     scenarios: vec![],
+    performance: None,
   }
 }

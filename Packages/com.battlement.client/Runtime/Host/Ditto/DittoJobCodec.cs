@@ -122,9 +122,9 @@ namespace Battlement
 
         private static DittoResolvedScenario Scenario(JObject value)
         {
-            ExactOptional(
+            ExactOptionals(
                 value,
-                "fixture",
+                new[] { "fixture", "performance" },
                 "id",
                 "run_index",
                 "name",
@@ -133,6 +133,7 @@ namespace Battlement
                 "steps"
             );
             JToken? fixture = value["fixture"];
+            JToken? performance = value["performance"];
             return new DittoResolvedScenario(
                 String(Field(value, "id")),
                 UInt32(Field(value, "run_index")),
@@ -140,19 +141,43 @@ namespace Battlement
                 fixture is null || fixture.Type == JTokenType.Null ? null : String(fixture),
                 Motion(Field(value, "motion")),
                 UInt64(Field(value, "timeout_ms")),
-                Array(value, "steps", token => Step(Object(token, "step")))
+                Array(value, "steps", token => Step(Object(token, "step"))),
+                performance is null || performance.Type == JTokenType.Null
+                    ? null
+                    : Performance(Object(performance, "performance"))
+            );
+        }
+
+        private static DittoPerformanceAttempt Performance(JObject value)
+        {
+            Exact(value, "pass", "warmup", "iteration", "target_fps", "idle_frames");
+            return new DittoPerformanceAttempt(
+                String(Field(value, "pass")) switch
+                {
+                    "score" => DittoPerformancePass.Score,
+                    "detail" => DittoPerformancePass.Detail,
+                    var unknown => throw new JsonSerializationException(
+                        $"Unknown performance pass {unknown}."
+                    ),
+                },
+                Boolean(Field(value, "warmup")),
+                UInt32(Field(value, "iteration")),
+                UInt32(Field(value, "target_fps")),
+                UInt32(Field(value, "idle_frames"))
             );
         }
 
         private static DittoResolvedStep Step(JObject value)
         {
-            Exact(value, "index", "name", "timeout_ms", "action");
+            ExactOptional(value, "measure", "index", "name", "timeout_ms", "action");
             JToken name = Field(value, "name");
+            JToken? measure = value["measure"];
             return new DittoResolvedStep(
                 UInt32(Field(value, "index")),
                 name.Type == JTokenType.Null ? null : String(name),
                 UInt64(Field(value, "timeout_ms")),
-                Action(Object(Field(value, "action"), "action"))
+                Action(Object(Field(value, "action"), "action")),
+                measure is null ? false : Boolean(measure)
             );
         }
 
@@ -177,10 +202,27 @@ namespace Battlement
                     AccessibilityAssertion(body)
                 ),
                 "accessibility-action" => AccessibilityActionStep(body),
+                "pointer-action" => PointerActionStep(body),
                 "screenshot" => new DittoStepAction.Screenshot(Screenshot(body)),
                 "video" => new DittoStepAction.Video(Video(body)),
                 _ => throw new JsonSerializationException($"Unknown action {variant.Name}."),
             };
+        }
+
+        private static DittoStepAction.PointerAction PointerActionStep(JObject value)
+        {
+            Exact(value, "target", "action");
+            return new DittoStepAction.PointerAction(
+                AccessibilityTarget(Object(Field(value, "target"), "target")),
+                String(Field(value, "action")) switch
+                {
+                    "click" => DittoPointerAction.Click,
+                    "hover" => DittoPointerAction.Hover,
+                    var unknown => throw new JsonSerializationException(
+                        $"Unknown pointer action {unknown}."
+                    ),
+                }
+            );
         }
 
         private static DittoAccessibilityAssertion AccessibilityAssertion(JObject value)
@@ -446,7 +488,17 @@ namespace Battlement
 
         private static void ExactOptional(JObject value, string optional, params string[] fields)
         {
-            var expected = new HashSet<string>(fields, StringComparer.Ordinal) { optional };
+            ExactOptionals(value, new[] { optional }, fields);
+        }
+
+        private static void ExactOptionals(
+            JObject value,
+            IReadOnlyCollection<string> optional,
+            params string[] fields
+        )
+        {
+            var expected = new HashSet<string>(fields, StringComparer.Ordinal);
+            expected.UnionWith(optional);
             string? unknown = value
                 .Properties()
                 .Select(property => property.Name)
@@ -467,6 +519,7 @@ namespace Battlement
             {
                 "run" => DittoCommand.Run,
                 "capture" => DittoCommand.Capture,
+                "profile" => DittoCommand.Profile,
                 string other => throw new JsonSerializationException($"Unknown command {other}."),
             };
 

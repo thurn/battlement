@@ -181,6 +181,71 @@ namespace Battlement
             return dispatched;
         }
 
+        public bool BeginPointerClick(
+            DittoAccessibilityTarget target,
+            out ObjectId? objectId,
+            out string? diagnostic
+        )
+        {
+            if (
+                !TryPointerTarget(
+                    target,
+                    out ObjectId resolved,
+                    out UnityVector2 position,
+                    out diagnostic
+                )
+            )
+            {
+                objectId = null;
+                return false;
+            }
+            objectId = resolved;
+            return documents.BeginSyntheticPointer(resolved, position, out diagnostic);
+        }
+
+        public bool FinishPointerClick(ObjectId target, out string? diagnostic) =>
+            documents.FinishSyntheticClick(target, out diagnostic);
+
+        public bool Hover(DittoAccessibilityTarget target, out string? diagnostic)
+        {
+            return TryPointerTarget(
+                    target,
+                    out ObjectId resolved,
+                    out UnityVector2 position,
+                    out diagnostic
+                ) && documents.DispatchSyntheticHover(resolved, position, out diagnostic);
+        }
+
+        private bool TryPointerTarget(
+            DittoAccessibilityTarget target,
+            out ObjectId objectId,
+            out UnityVector2 position,
+            out string? diagnostic
+        )
+        {
+            AccessibilityNodeSnapshot[] matches = AccessibilityMatches(target);
+            if (matches.Length != 1)
+            {
+                objectId = default;
+                position = default;
+                diagnostic = $"Pointer target matched {matches.Length} active nodes.";
+                return false;
+            }
+            objectId = matches[0].ObjectId;
+            DittoInputResolution resolution = Resolve(
+                new DittoInputTarget.Object(objectId.Value.ToString())
+            );
+            if (!resolution.IsReachable)
+            {
+                position = default;
+                diagnostic = $"Pointer target {objectId.Value} is not physically reachable.";
+                return false;
+            }
+            position = resolution.Position;
+            diagnostic = null;
+            return true;
+        }
+
         public bool Activate(
             DittoInputResolution resolution,
             string transactionId,

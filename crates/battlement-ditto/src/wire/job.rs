@@ -12,6 +12,7 @@ pub type DecimalString = String;
 pub enum Command {
   Run,
   Capture,
+  Profile,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -117,7 +118,27 @@ pub struct ResolvedScenario {
   pub fixture: Option<String>,
   pub motion: Motion,
   pub timeout_ms: u64,
+  #[serde(default)]
+  pub performance: Option<PerformanceAttempt>,
   pub steps: Vec<ResolvedStep>,
+}
+
+/// One fixed profiling pass and iteration.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerformanceAttempt {
+  pub pass: PerformancePass,
+  pub warmup: bool,
+  pub iteration: u32,
+  pub target_fps: u32,
+  pub idle_frames: u32,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PerformancePass {
+  Score,
+  Detail,
 }
 
 /// One resolved authored step.
@@ -127,6 +148,8 @@ pub struct ResolvedStep {
   pub index: u32,
   pub name: Option<String>,
   pub timeout_ms: u64,
+  #[serde(default)]
+  pub measure: bool,
   pub action: StepKind,
 }
 
@@ -156,8 +179,19 @@ pub enum StepKind {
     target: AccessibilityTarget,
     action: AccessibilityAction,
   },
+  PointerAction {
+    target: AccessibilityTarget,
+    action: PointerAction,
+  },
   Screenshot(ScreenshotStep),
   Video(VideoStep),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PointerAction {
+  Click,
+  Hover,
 }
 
 /// A semantic node selected by role and accessible name.

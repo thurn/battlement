@@ -483,6 +483,74 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void SyntheticHoverLeavesThePreviousTargetAndSupportsEnterOnlyRoutes()
+        {
+            ObjectId documentId = Id("68a6965d-894e-44b0-a8c7-56e87b58f7da");
+            ObjectId rootId = Id("5e11956a-3240-4f51-b2d8-6f7811554cce");
+            ObjectId firstId = Id("a667781b-7945-46af-98b6-bf495c1c814a");
+            ObjectId secondId = Id("ca0e1666-e364-4d13-812e-bbc8dff4e57b");
+            var observed = new List<UiEvent>();
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(value =>
+            {
+                observed.Add(value);
+                return UiEventDisposition.Continue;
+            });
+            try
+            {
+                UiEventKind[] hoverEvents = { UiEventKind.PointerEnter, UiEventKind.PointerLeave };
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(firstId, new UiButton { Events = hoverEvents }),
+                                new(secondId, new UiButton { Events = hoverEvents }),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(
+                    documents.DispatchSyntheticHover(
+                        firstId,
+                        new Vector2(0, 0),
+                        out string? firstDiagnostic
+                    ),
+                    Is.True,
+                    firstDiagnostic
+                );
+                Assert.That(
+                    documents.DispatchSyntheticHover(
+                        secondId,
+                        new Vector2(0, 0),
+                        out string? secondDiagnostic
+                    ),
+                    Is.True,
+                    secondDiagnostic
+                );
+                Assert.That(observed, Has.Count.EqualTo(3));
+                Assert.That(observed[0].TargetId, Is.EqualTo(firstId));
+                Assert.That(observed[0].Body, Is.TypeOf<UiEventBody.PointerEnter>());
+                Assert.That(observed[1].TargetId, Is.EqualTo(firstId));
+                Assert.That(observed[1].Body, Is.TypeOf<UiEventBody.PointerLeave>());
+                Assert.That(observed[2].TargetId, Is.EqualTo(secondId));
+                Assert.That(observed[2].Body, Is.TypeOf<UiEventBody.PointerEnter>());
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void CommonPropertiesApplyBeforeAttachmentAndUpdateAtomically()
         {
             ObjectId documentId = Id("6deab132-95be-4144-abfb-8400d0cea735");

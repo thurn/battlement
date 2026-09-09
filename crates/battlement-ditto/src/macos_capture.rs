@@ -355,7 +355,10 @@ pub fn capture_macos(
 fn validate_build(request: &MacosCaptureRequest<'_>) -> Result<MacosStartupIdentity> {
   request.job.validate()?;
   ensure!(
-    matches!(request.job.command, JobCommand::Run | JobCommand::Capture),
+    matches!(
+      request.job.command,
+      JobCommand::Run | JobCommand::Capture | JobCommand::Profile
+    ),
     "macOS launcher requires an execution job"
   );
   ensure!(

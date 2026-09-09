@@ -19,6 +19,10 @@ namespace Battlement
                 "remaining_run_timeout_ms must be from 1 through 3600000"
             );
             Redactions(job.LogRedactions);
+            Require(
+                job.Command != DittoCommand.Profile || job.Profile.Platform == DittoPlatform.Macos,
+                "profile jobs support macOS only"
+            );
             Profile(job.Profile);
             Require(job.Scenarios.Count <= 128, "job may contain at most 128 scenarios");
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -153,6 +157,25 @@ namespace Battlement
         private static void Scenario(DittoJob job, DittoResolvedScenario scenario)
         {
             Require(
+                (scenario.Performance is not null) == (job.Command == DittoCommand.Profile),
+                "performance attempts belong only to profile jobs"
+            );
+            if (scenario.Performance is not null)
+            {
+                Require(
+                    scenario.Performance.TargetFps is > 0 and <= 240,
+                    "performance target_fps must be from 1 through 240"
+                );
+                Require(
+                    scenario.Performance.IdleFrames <= 3600,
+                    "performance idle_frames is too large"
+                );
+                Require(
+                    scenario.Performance.Warmup == (scenario.Performance.Iteration == 0),
+                    "performance warmup and iteration disagree"
+                );
+            }
+            Require(
                 scenario.Motion != DittoMotion.RealTime,
                 "real-time motion violates the deterministic execution contract"
             );
@@ -173,6 +196,10 @@ namespace Battlement
                 Step(job, scenario, step, state);
             }
             Require(state.ActiveVideo is null, "video start must have a matching stop");
+            Require(
+                scenario.Performance is null || scenario.Steps.Any(step => step.Measure),
+                "performance scenario requires a measured step"
+            );
         }
 
         private static void Step(
@@ -233,6 +260,9 @@ namespace Battlement
                 case DittoStepAction.AccessibilityAction action:
                     AccessibilityTarget(action.Target);
                     break;
+                case DittoStepAction.PointerAction pointer:
+                    AccessibilityTarget(pointer.Target);
+                    break;
                 case DittoStepAction.Screenshot screenshot:
                     Capability(job, DittoCapability.Png);
                     Screenshot(screenshot.Value, state);
@@ -244,6 +274,14 @@ namespace Battlement
                 default:
                     throw new JsonSerializationException("Unknown Ditto step action.");
             }
+            Require(
+                !step.Measure || step.Action is DittoStepAction.PointerAction,
+                "measure is supported only on pointer actions"
+            );
+            Require(
+                !step.Measure || step.Name is not null,
+                "measured pointer actions require a name"
+            );
         }
 
         private static void AccessibilityTarget(DittoAccessibilityTarget target) =>

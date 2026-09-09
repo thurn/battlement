@@ -82,6 +82,7 @@ fn empty_result() -> RunResult {
     errors: Vec::new(),
     baseline_writes: Vec::new(),
     artifacts: Vec::new(),
+    performance: None,
   }
 }
 

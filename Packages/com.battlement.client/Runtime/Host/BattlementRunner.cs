@@ -119,6 +119,9 @@ namespace Battlement
 
         internal TimeSpan DittoElapsed => dittoMotionClock!.Elapsed;
 
+        internal void SetDittoFrameRate(uint framesPerSecond) =>
+            dittoMotionClock!.SetFramesPerSecond(framesPerSecond);
+
         internal bool IsDittoConfigured => options is not null;
 
         internal string? DittoInputDiagnostic =>

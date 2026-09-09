@@ -127,6 +127,7 @@ pub(crate) fn execute(
     match options.command {
       ResultCommand::Run => JobCommand::Run,
       ResultCommand::Capture => JobCommand::Capture,
+      ResultCommand::Profile => unreachable!("profiling is macOS-only"),
       ResultCommand::ComparisonOnly => unreachable!(),
     },
     &result.run_id,

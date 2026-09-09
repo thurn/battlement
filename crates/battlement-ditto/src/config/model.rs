@@ -17,7 +17,14 @@ pub struct Suite {
   pub aliases: BTreeMap<String, Uuid>,
   pub baseline: Option<Baseline>,
   pub profiles: BTreeMap<String, Profile>,
+  pub performance: Option<Performance>,
   pub scenarios: Vec<Scenario>,
+}
+
+/// Suite-wide performance target used by profiled scenarios.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Performance {
+  pub target_fps: u32,
 }
 
 /// Resolved Unity player inputs.
@@ -120,7 +127,24 @@ pub struct Scenario {
   pub fixture: Option<String>,
   pub motion: Motion,
   pub timeout: DurationValue,
+  pub performance: Option<ScenarioPerformance>,
   pub steps: Vec<Step>,
+}
+
+/// Profiling identity added to cloned scenarios by `ditto profile`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScenarioPerformance {
+  pub pass: PerformancePass,
+  pub warmup: bool,
+  pub iteration: u32,
+  pub target_fps: u32,
+  pub idle_frames: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PerformancePass {
+  Score,
+  Detail,
 }
 
 /// A scenario motion mode.
@@ -136,6 +160,7 @@ pub enum Motion {
 pub struct Step {
   pub name: Option<String>,
   pub timeout: DurationValue,
+  pub measure: bool,
   pub action: StepKind,
 }
 
@@ -166,8 +191,19 @@ pub enum StepKind {
     target: AccessibilityTarget,
     action: AccessibilityAction,
   },
+  PointerAction {
+    target: AccessibilityTarget,
+    action: PointerAction,
+  },
   Screenshot(ScreenshotStep),
   Video(VideoStep),
+}
+
+/// Deterministic synthetic pointer interaction used by performance profiles.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PointerAction {
+  Click,
+  Hover,
 }
 
 /// A semantic node selected by role and accessible name.

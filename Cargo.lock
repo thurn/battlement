@@ -644,6 +644,7 @@ dependencies = [
  "battlement-reactant-asset-macros",
  "inventory",
  "serde_json",
+ "tracing",
  "trox",
  "uuid",
 ]

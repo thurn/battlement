@@ -243,6 +243,7 @@ namespace Battlement
                 DittoStepAction.Assert => DittoStepName.Assert,
                 DittoStepAction.AccessibilityAssert => DittoStepName.AccessibilityAssert,
                 DittoStepAction.AccessibilityAction => DittoStepName.AccessibilityAction,
+                DittoStepAction.PointerAction => DittoStepName.PointerAction,
                 DittoStepAction.Screenshot => DittoStepName.Screenshot,
                 DittoStepAction.Video => DittoStepName.Video,
                 _ => throw new JsonSerializationException("Unknown job step action."),
@@ -525,7 +526,8 @@ namespace Battlement
                     );
                     DittoCompletionValidation.ValidateStepResult(
                         scenario.Steps[(int)body.Result.Index],
-                        body.Result
+                        body.Result,
+                        scenario.Performance?.TargetFps
                     );
                     break;
                 case DittoContext.ArtifactAccepted body:

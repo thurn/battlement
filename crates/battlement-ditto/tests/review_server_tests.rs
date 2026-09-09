@@ -222,14 +222,17 @@ fn capture_result() -> RunResult {
           updated: None,
         }),
         video: None,
+        performance: None,
       }],
       logs: None,
       failure_frame: None,
       recovery: Recovery::None,
+      performance_attempt: None,
     }],
     warnings: vec![],
     errors: vec![],
     baseline_writes: vec![],
     artifacts: vec!["images/actual.png".to_owned()],
+    performance: None,
   }
 }

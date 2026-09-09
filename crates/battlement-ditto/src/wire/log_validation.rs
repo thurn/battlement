@@ -203,7 +203,11 @@ fn context(record: &DittoContextRecord, job: &Job) -> Result<()> {
       let Some(step) = scenario.steps.get(result.index as usize) else {
         anyhow::bail!("step-ended index is outside the scenario");
       };
-      completion_validation::step_result(step, result)?;
+      completion_validation::step_result(
+        step,
+        result,
+        scenario.performance.as_ref().map(|value| value.target_fps),
+      )?;
     }
     DittoContext::ArtifactAccepted {
       scenario_id,

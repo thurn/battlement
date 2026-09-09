@@ -52,12 +52,16 @@ namespace Battlement
         private uint preparedMacosWidth;
         private uint preparedMacosHeight;
         private int preparedMacosFrame;
+        private int originalVSyncCount;
+        private int originalTargetFrameRate;
         private double jobStartedAt;
         private bool warmJob;
         private bool presentationCommitPending;
 
         private void Awake()
         {
+            originalVSyncCount = QualitySettings.vSyncCount;
+            originalTargetFrameRate = Application.targetFrameRate;
             Debug.Log(
                 "[Battlement/Ditto-trace] player-identity "
                     + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} "
@@ -358,6 +362,20 @@ namespace Battlement
                 return;
             }
             DittoResolvedScenario scenario = job.Scenarios[scenarioIndex];
+            Environment.SetEnvironmentVariable(
+                "BATTLEMENT_REACTANT_PROFILE",
+                scenario.Performance?.Pass == DittoPerformancePass.Detail ? "detail" : null
+            );
+            if (scenario.Performance is not null)
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = checked((int)scenario.Performance.TargetFps);
+            }
+            else
+            {
+                QualitySettings.vSyncCount = originalVSyncCount;
+                Application.targetFrameRate = originalTargetFrameRate;
+            }
             scenarioContext = new DittoScenarioContext(
                 job,
                 scenario,
@@ -367,6 +385,7 @@ namespace Battlement
             );
             scenarioContext.Begin();
             runner!.BeginDittoMotion(scenario.Motion);
+            runner.SetDittoFrameRate(scenario.Performance?.TargetFps ?? 30);
             engine = DittoNativeEngineSession.Create(
                 runner.DittoNativeTransport,
                 out BattlementTransportResult creation,

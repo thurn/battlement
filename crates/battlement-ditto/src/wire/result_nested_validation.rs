@@ -115,6 +115,10 @@ fn validate_step(
     ensure!(step.assertion.is_none(), "not-run step has no assertion");
     ensure!(step.screenshot.is_none(), "not-run step has no screenshot");
     ensure!(step.video.is_none(), "not-run step has no video");
+    ensure!(
+      step.performance.is_none(),
+      "not-run step has no performance data"
+    );
     return Ok(());
   }
   ensure!(
@@ -191,6 +195,70 @@ fn validate_step(
   if let Some(video) = &step.video {
     video_result(video, errors, artifacts)?;
   }
+  step_performance(step, command)?;
+  Ok(())
+}
+
+fn step_performance(step: &StepResult, command: ResultCommand) -> Result<()> {
+  let Some(value) = &step.performance else {
+    return Ok(());
+  };
+  ensure!(
+    command == ResultCommand::Profile && step.kind == StepName::PointerAction,
+    "performance data belongs only to pointer actions in profile results"
+  );
+  ensure!(
+    value.target_fps > 0 && value.target_fps <= 240,
+    "invalid performance target"
+  );
+  ensure!(
+    value.response_missed_deadlines + value.pacing_missed_deadlines
+      == value.missed_interaction_deadlines,
+    "performance deadline total is inconsistent"
+  );
+  ensure!(
+    !value.presentation_timestamps_ns.is_empty(),
+    "performance requires a presented frame"
+  );
+  ensure!(
+    value.presentation_timestamps_ns.len() == value.managed_allocation_deltas.len(),
+    "performance frame and allocation counts differ"
+  );
+  ensure!(
+    value.presentation_intervals_ns.len()
+      == value.presentation_timestamps_ns.len().saturating_sub(1),
+    "performance frame intervals are not aligned"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .windows(2)
+      .all(|pair| pair[0] < pair[1]),
+    "performance timestamps must increase"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .windows(2)
+      .map(|pair| pair[1] - pair[0])
+      .eq(value.presentation_intervals_ns.iter().copied()),
+    "performance intervals do not match timestamps"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .contains(&value.response_latency_ns),
+    "performance response does not identify a presented frame"
+  );
+  ensure!(
+    !value.no_visual_response
+      || value.response_latency_ns == *value.presentation_timestamps_ns.last().unwrap(),
+    "no-response performance must span through the final frame"
+  );
+  ensure!(
+    !value.no_visual_response || value.response_missed_deadlines > 0,
+    "no-response performance must miss a response deadline"
+  );
   Ok(())
 }
 

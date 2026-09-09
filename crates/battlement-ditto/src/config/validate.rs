@@ -9,11 +9,12 @@ use uuid::Uuid;
 use crate::config::{
   diagnostic::{ConfigError, invalid},
   model::{
-    Baseline, Comparison, Defaults, Display, Motion, Orientation, Player, Profile, Suite, Timeouts,
+    Baseline, Comparison, Defaults, Display, Motion, Orientation, Performance, Player, Profile,
+    Suite, Timeouts,
   },
   raw::{
     RawBaseline, RawComparison, RawDecimal, RawDefaults, RawFragment, RawMotion, RawOrientation,
-    RawProfile, RawSuite, RawTarget, RawTimeouts,
+    RawPerformance, RawProfile, RawSuite, RawTarget, RawTimeouts,
   },
   scenario,
   value::{DurationValue, ExactDecimal},
@@ -86,6 +87,10 @@ pub(super) fn suite(
   let aliases = aliases(&source_path, &source, raw.aliases)?;
   let baseline = baseline(&source_path, &source, directory, raw.baseline)?;
   let profiles = profiles(&source_path, &source, raw.profiles)?;
+  let performance = raw
+    .performance
+    .map(|value| performance(&source_path, &source, value))
+    .transpose()?;
   if !profiles.contains_key(&raw.default_profile) {
     return Err(invalid(
       &source_path,
@@ -131,6 +136,7 @@ pub(super) fn suite(
     aliases,
     baseline,
     profiles,
+    performance,
     scenarios,
   })
 }
@@ -210,7 +216,22 @@ pub(super) fn fragment(
     aliases: merged_aliases,
     baseline: None,
     profiles: base.profiles.clone(),
+    performance: base.performance,
     scenarios,
+  })
+}
+
+fn performance(path: &Path, source: &str, raw: RawPerformance) -> Result<Performance, ConfigError> {
+  if !(1..=240).contains(&raw.target_fps) {
+    return Err(invalid(
+      path,
+      source,
+      "performance.target_fps",
+      "target_fps must be from 1 through 240",
+    ));
+  }
+  Ok(Performance {
+    target_fps: raw.target_fps,
   })
 }
 

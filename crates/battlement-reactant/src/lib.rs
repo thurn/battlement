@@ -111,6 +111,7 @@ mod motion_variants;
 mod mutation;
 pub mod overlay;
 pub mod paint;
+mod performance;
 pub mod portal;
 pub mod prelude;
 pub mod presence;

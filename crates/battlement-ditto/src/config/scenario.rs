@@ -11,7 +11,8 @@ use crate::config::{
   },
   raw::{
     RawAccessibilityAction, RawAccessibilityRole, RawAccessibilityTarget, RawComparison,
-    RawCondition, RawInputTarget, RawObjectState, RawScenario, RawStep, RawVideo, RawVideoAction,
+    RawCondition, RawInputTarget, RawObjectState, RawPointerAction, RawScenario, RawStep, RawVideo,
+    RawVideoAction,
   },
   validate::{Validation, comparison, duration, motion, name},
   value::DurationValue,
@@ -97,6 +98,7 @@ pub(super) fn validate(
     fixture: raw.fixture,
     motion: scenario_motion,
     timeout,
+    performance: None,
     steps,
   })
 }
@@ -164,6 +166,7 @@ fn step_value(
     raw.assertion.is_some(),
     raw.accessibility_assert.is_some(),
     raw.accessibility_action.is_some(),
+    raw.pointer_action.is_some(),
     raw.screenshot.is_some(),
     raw.video.is_some(),
   ]
@@ -244,6 +247,14 @@ fn step_value(
       target: accessibility_target(validation, &key, action.target)?,
       action: accessibility_action(action.action),
     }
+  } else if let Some(action) = raw.pointer_action.take() {
+    StepKind::PointerAction {
+      target: accessibility_target(validation, &key, action.target)?,
+      action: match action.action {
+        RawPointerAction::Click => crate::config::model::PointerAction::Click,
+        RawPointerAction::Hover => crate::config::model::PointerAction::Hover,
+      },
+    }
   } else if let Some(screenshot) = raw.screenshot.take() {
     name(
       validation.path,
@@ -280,9 +291,26 @@ fn step_value(
       state,
     )?)
   };
+  if raw.measure && !matches!(action, StepKind::PointerAction { .. }) {
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.measure"),
+      "measure is supported only on pointer_action steps",
+    ));
+  }
+  if raw.measure && raw.name.as_deref().is_none_or(str::is_empty) {
+    return Err(invalid(
+      validation.path,
+      validation.source,
+      format!("{key}.name"),
+      "measured pointer actions require a step name",
+    ));
+  }
   Ok(Step {
     name: raw.name,
     timeout,
+    measure: raw.measure,
     action,
   })
 }

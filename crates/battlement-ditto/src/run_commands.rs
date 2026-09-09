@@ -141,7 +141,7 @@ pub(crate) fn capture(
   )
 }
 
-fn execute(
+pub(crate) fn execute(
   suite: Suite,
   mut options: ExecuteOptions,
   stdout: &mut dyn Write,
@@ -236,6 +236,7 @@ fn execute_cycle_inner(
     errors: Vec::new(),
     baseline_writes: Vec::new(),
     artifacts: Vec::new(),
+    performance: None,
   };
   let mut active = store.begin(result.clone(), stderr, now)?;
   writeln!(stderr, "DITTO_SELECTED={}", selection.scenarios.len())?;
@@ -295,6 +296,13 @@ fn execute_cycle_inner(
     }
   }
   result.duration_ms = started.elapsed().as_millis() as u64;
+  if let Err(error) = crate::performance::materialize(&mut result, active.path()) {
+    result.performance = None;
+    infrastructure_error(
+      &mut result,
+      &format!("performance report materialization failed: {error:#}"),
+    );
+  }
   let path = store.finalize(&mut active, result.clone(), now)?;
   result = serde_json::from_slice(&fs::read(&path)?)?;
   emit(&result, &path, options, stdout, stderr)?;
@@ -381,11 +389,24 @@ fn unstarted_result(
         assertion: None,
         screenshot: None,
         video: None,
+        performance: None,
       })
       .collect(),
     logs: None,
     failure_frame: None,
     recovery: Recovery::None,
+    performance_attempt: scenario
+      .performance
+      .map(|value| crate::wire::job::PerformanceAttempt {
+        pass: match value.pass {
+          config::model::PerformancePass::Score => crate::wire::job::PerformancePass::Score,
+          config::model::PerformancePass::Detail => crate::wire::job::PerformancePass::Detail,
+        },
+        warmup: value.warmup,
+        iteration: value.iteration,
+        target_fps: value.target_fps,
+        idle_frames: value.idle_frames,
+      }),
   })
 }
 
@@ -442,6 +463,7 @@ fn step_name(value: &StepKind) -> StepName {
     StepKind::Assert(_) => StepName::Assert,
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
+    StepKind::PointerAction { .. } => StepName::PointerAction,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

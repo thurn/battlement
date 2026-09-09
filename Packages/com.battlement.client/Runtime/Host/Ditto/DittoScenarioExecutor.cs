@@ -42,6 +42,8 @@ namespace Battlement
         {
             None,
             StartupSettle,
+            ProfileIdle,
+            PointerPressPresentation,
             ActionPresentation,
             Settle,
             ScreenshotSettle,
@@ -96,6 +98,9 @@ namespace Battlement
         private int startupQuietFrames;
         private bool awaitingPresentation;
         private string? activationTransactionId;
+        private DittoStepPerformanceRecorder? performanceRecorder;
+        private uint profileIdleFrames;
+        private ObjectId? pointerClickTarget;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -329,6 +334,8 @@ namespace Battlement
             started = true;
             scenarioStarted = now();
             motion.Begin(scenario.Motion);
+            if (scenario.Performance is not null && !UnityEngine.Application.isFocused)
+                throw new InvalidOperationException("Performance run lost application focus.");
             setup();
             phase = Phase.StartupSettle;
             phaseStarted = now();
@@ -428,6 +435,41 @@ namespace Battlement
                         FailStep(step, DittoErrorCode.InputUnreachable, diagnostic!);
                     }
                     break;
+                case DittoStepAction.PointerAction action:
+                    presentationReady = false;
+                    if (step.Measure && scenario.Performance is not null)
+                        performanceRecorder = new DittoStepPerformanceRecorder(
+                            scenario.Performance.TargetFps
+                        );
+                    bool pointerDispatched = action.Action switch
+                    {
+                        DittoPointerAction.Click => targets.BeginPointerClick(
+                            action.Target,
+                            out pointerClickTarget,
+                            out _
+                        ),
+                        DittoPointerAction.Hover => targets.Hover(action.Target, out _),
+                        _ => false,
+                    };
+                    if (pointerDispatched)
+                    {
+                        phase =
+                            action.Action == DittoPointerAction.Click
+                                ? Phase.PointerPressPresentation
+                                : Phase.ActionPresentation;
+                        phaseStarted = now();
+                    }
+                    else
+                    {
+                        performanceRecorder = null;
+                        FailStep(
+                            step,
+                            DittoErrorCode.InputUnreachable,
+                            $"Pointer {action.Action} could not be delivered to "
+                                + $"{action.Target.Name}."
+                        );
+                    }
+                    break;
                 case DittoStepAction.Screenshot:
                     if (presentationReady)
                     {
@@ -477,6 +519,8 @@ namespace Battlement
             }
             awaitingPresentation = false;
             DittoCommittedFrame frame = motion.ObserveCommittedFrame(commit.PixelFingerprint);
+            if (scenario.Performance is not null && !UnityEngine.Application.isFocused)
+                throw new InvalidOperationException("Performance run lost application focus.");
             if (commit.Frame != frame.Index)
             {
                 throw new InvalidOperationException(
@@ -494,6 +538,7 @@ namespace Battlement
             committedFrame = frame.Index;
             renderCommit = commit;
             presentationChanged = frame.LayoutChanged || frame.PaintChanged;
+            performanceRecorder?.Presented(frame.LayoutChanged || frame.PaintChanged);
             CaptureVideoFrame(frame, commit);
             if (TryFreezeObserved())
             {
@@ -526,8 +571,16 @@ namespace Battlement
                     settleDurationMs += PhaseDuration();
                     presentationReady = true;
                     executionStarted = now();
-                    phase = Phase.None;
+                    profileIdleFrames = scenario.Performance?.IdleFrames ?? 0;
+                    phase = profileIdleFrames == 0 ? Phase.None : Phase.ProfileIdle;
                 }
+                return;
+            }
+            if (phase == Phase.ProfileIdle)
+            {
+                profileIdleFrames--;
+                if (profileIdleFrames == 0)
+                    phase = Phase.None;
                 return;
             }
             DittoResolvedStep step = scenario.Steps[nextStep];
@@ -538,6 +591,25 @@ namespace Battlement
 
             switch (phase)
             {
+                case Phase.PointerPressPresentation:
+                    string? pointerDiagnostic = null;
+                    if (
+                        pointerClickTarget is not ObjectId target
+                        || !targets.FinishPointerClick(target, out pointerDiagnostic)
+                    )
+                    {
+                        pointerClickTarget = null;
+                        FailInfrastructureStep(
+                            step,
+                            DittoErrorCode.InputUnreachable,
+                            pointerDiagnostic ?? "Pointer target disappeared before release."
+                        );
+                        return;
+                    }
+                    pointerClickTarget = null;
+                    phase = Phase.ActionPresentation;
+                    phaseStarted = now();
+                    break;
                 case Phase.ActionPresentation:
                     if (activationTransactionId is string transactionId)
                     {
@@ -590,6 +662,13 @@ namespace Battlement
                             return;
                         }
                     }
+                    if (activationTransactionId is null && !NextStepIsAdvance() && !frame.IsSettled)
+                    {
+                        phase = Phase.Settle;
+                        phaseStarted = now();
+                        motion.RestartQuietWindow();
+                        return;
+                    }
                     if (NextStepIsAdvance())
                     {
                         PassStep(step);
@@ -627,6 +706,7 @@ namespace Battlement
                     EvaluateObjectWait(step);
                     break;
                 case Phase.StartupSettle:
+                case Phase.ProfileIdle:
                 case Phase.Settle:
                 case Phase.ScreenshotSettle:
                     break;
@@ -976,8 +1056,11 @@ namespace Battlement
                 errorRef is null ? Array.Empty<string>() : new[] { errorRef },
                 assertion,
                 artifactId,
-                videoInputId
+                videoInputId,
+                performanceRecorder?.Finish()
             );
+            performanceRecorder = null;
+            pointerClickTarget = null;
             results.Add(result);
             phase = Phase.None;
             waitCondition = null;
@@ -1011,6 +1094,7 @@ namespace Battlement
                         new[] { primaryErrorRef! },
                         null,
                         null,
+                        null,
                         null
                     )
                 );
@@ -1033,6 +1117,7 @@ namespace Battlement
                         0,
                         null,
                         Array.Empty<string>(),
+                        null,
                         null,
                         null,
                         null

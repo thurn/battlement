@@ -12,6 +12,9 @@ step_timeout = "5s"
 scenario_timeout = "45s"
 motion = "controlled"
 
+[performance]
+target_fps = 60
+
 [player]
 unity_project = "."
 scene = "Assets/Scenes/ChessUi.unity"
@@ -122,6 +125,34 @@ accessibility_action = { target = { role = "button", name = "RETURN" }, action =
 
 [[scenarios.steps]]
 accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" }
+
+[[scenarios]]
+name = "performance settings navigation"
+
+[[scenarios.steps]]
+name = "Open settings"
+measure = true
+pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "click" }
+
+[[scenarios.steps]]
+name = "Open Sound tab"
+measure = true
+pointer_action = { target = { role = "tab", name = "Sound" }, action = "click" }
+
+[[scenarios.steps]]
+name = "Open Input tab"
+measure = true
+pointer_action = { target = { role = "tab", name = "Input" }, action = "click" }
+
+[[scenarios.steps]]
+name = "Open Graphics tab"
+measure = true
+pointer_action = { target = { role = "tab", name = "Graphics" }, action = "click" }
+
+[[scenarios.steps]]
+name = "Return to main menu"
+measure = true
+pointer_action = { target = { role = "button", name = "RETURN" }, action = "click" }
 
 [[scenarios]]
 name = "settings route transition"

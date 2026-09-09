@@ -69,6 +69,7 @@ pub(crate) fn incomplete(
       error_id: Some(error_id.to_owned()),
     }),
     recovery: Recovery::Relaunch,
+    performance_attempt: latest.scenario.performance.clone(),
   })
 }
 
@@ -111,6 +112,7 @@ fn completed_step(
     assertion: player.assertion,
     screenshot,
     video,
+    performance: player.performance,
   })
 }
 
@@ -135,6 +137,7 @@ fn crashed_step(index: u32, name: Option<String>, action: &StepKind, error_id: &
         diagnostic_paths: Vec::new(),
       }
     }),
+    performance: None,
   }
 }
 
@@ -151,6 +154,7 @@ fn not_run_step(index: u32, name: Option<String>, action: &StepKind) -> StepResu
     assertion: None,
     screenshot: None,
     video: None,
+    performance: None,
   }
 }
 
@@ -182,6 +186,7 @@ pub(crate) fn step_kind(kind: &StepKind) -> StepName {
     StepKind::Assert(_) => StepName::Assert,
     StepKind::AccessibilityAssert(_) => StepName::AccessibilityAssert,
     StepKind::AccessibilityAction { .. } => StepName::AccessibilityAction,
+    StepKind::PointerAction { .. } => StepName::PointerAction,
     StepKind::Screenshot(_) => StepName::Screenshot,
     StepKind::Video(_) => StepName::Video,
   }

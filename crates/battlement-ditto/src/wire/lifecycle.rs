@@ -163,6 +163,22 @@ pub struct PlayerStepResult {
   pub assertion: Option<AssertionResult>,
   pub screenshot_artifact_id: Option<String>,
   pub video_input_id: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub performance: Option<StepPerformance>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StepPerformance {
+  pub target_fps: u32,
+  pub response_latency_ns: u64,
+  pub response_missed_deadlines: u64,
+  pub pacing_missed_deadlines: u64,
+  pub missed_interaction_deadlines: u64,
+  pub no_visual_response: bool,
+  pub presentation_timestamps_ns: Vec<u64>,
+  pub presentation_intervals_ns: Vec<u64>,
+  pub managed_allocation_deltas: Vec<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -318,7 +334,7 @@ pub struct DittoLogRecord {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum DittoEventRecord {
-  Context(DittoContextRecord),
+  Context(Box<DittoContextRecord>),
   Log(DittoLogRecord),
 }
 

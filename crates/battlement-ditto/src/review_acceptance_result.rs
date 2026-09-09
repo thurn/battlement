@@ -225,6 +225,7 @@ fn attempt_result_with_id(source: &RunResult, run_id: &str, now: u64) -> Result<
     errors: Vec::new(),
     baseline_writes: Vec::new(),
     artifacts: Vec::new(),
+    performance: None,
   })
 }
 

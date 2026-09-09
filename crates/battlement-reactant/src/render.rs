@@ -355,7 +355,9 @@ impl<'a> RenderSink<'a> {
     let mut retries = 0;
     loop {
       let mut children = sink_with_scope(committed, self.variant_scope.clone());
+      let performance_started = crate::performance::start();
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
+      crate::performance::component::<C>(performance_started);
       component = rendered;
       let (children, pending) = match children.finish_attempt() {
         Ok(attempt) => attempt,
@@ -500,7 +502,9 @@ impl<'a> RenderSink<'a> {
     let mut retries = 0;
     loop {
       let mut children = sink_with_scope(committed, self.variant_scope.clone());
+      let performance_started = crate::performance::start();
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
+      crate::performance::component::<B>(performance_started);
       component = rendered;
       let (children, pending) = match children.finish_attempt() {
         Ok(attempt) => attempt,

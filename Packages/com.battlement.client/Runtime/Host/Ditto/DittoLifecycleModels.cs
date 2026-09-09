@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -60,6 +61,7 @@ namespace Battlement
         Assert,
         AccessibilityAssert,
         AccessibilityAction,
+        PointerAction,
         Screenshot,
         Video,
     }
@@ -208,7 +210,21 @@ namespace Battlement
         IReadOnlyList<string> ErrorRefs,
         DittoAssertionResult? Assertion,
         string? ScreenshotArtifactId,
-        string? VideoInputId
+        string? VideoInputId,
+        [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            DittoStepPerformance? Performance = null
+    );
+
+    internal sealed record DittoStepPerformance(
+        uint TargetFps,
+        ulong ResponseLatencyNs,
+        ulong ResponseMissedDeadlines,
+        ulong PacingMissedDeadlines,
+        ulong MissedInteractionDeadlines,
+        bool NoVisualResponse,
+        IReadOnlyList<ulong> PresentationTimestampsNs,
+        IReadOnlyList<ulong> PresentationIntervalsNs,
+        IReadOnlyList<long> ManagedAllocationDeltas
     );
 
     internal sealed record DittoAssertionResult(

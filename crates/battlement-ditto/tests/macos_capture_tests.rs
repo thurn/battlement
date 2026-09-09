@@ -417,6 +417,7 @@ impl ScenarioMaterializer for PassMaterializer {
         }),
         failure_frame: None,
         recovery,
+        performance_attempt: expected.performance.clone(),
       },
       primary_failure: None,
     })
@@ -436,6 +437,7 @@ fn step_result(player: &PlayerStepResult) -> StepResult {
     assertion: None,
     screenshot: None,
     video: None,
+    performance: player.performance.clone(),
   }
 }
 
@@ -499,10 +501,12 @@ fn job(build: &BuildHandle, count: u32, native_execution_id: &str) -> Job {
         fixture: None,
         motion: Motion::Instant,
         timeout_ms: 500,
+        performance: None,
         steps: vec![ResolvedStep {
           index: 0,
           name: None,
           timeout_ms: 100,
+          measure: false,
           action: StepKind::Click {
             target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
           },
@@ -535,6 +539,7 @@ fn empty_result() -> RunResult {
     errors: vec![],
     baseline_writes: vec![],
     artifacts: vec![],
+    performance: None,
   }
 }
 

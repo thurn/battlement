@@ -273,6 +273,7 @@ impl ExecutionMaterializer {
         assertion: player.assertion.clone(),
         screenshot,
         video,
+        performance: player.performance.clone(),
       },
       failure,
       timings,
@@ -522,6 +523,7 @@ impl ScenarioMaterializer for ExecutionMaterializer {
           complete.failure_frame.as_ref(),
         )?,
         recovery,
+        performance_attempt: expected.performance.clone(),
       },
       primary_failure,
     })

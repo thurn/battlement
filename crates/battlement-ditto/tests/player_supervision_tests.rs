@@ -261,6 +261,7 @@ impl ScenarioMaterializer for TestMaterializer {
         logs: None,
         failure_frame: None,
         recovery,
+        performance_attempt: scenario.performance.clone(),
       },
       primary_failure: None,
     })
@@ -361,7 +362,7 @@ fn exit_context(
 }
 
 fn context(sequence: u64, body: DittoContext) -> DittoEventRecord {
-  DittoEventRecord::Context(DittoContextRecord {
+  DittoEventRecord::Context(Box::new(DittoContextRecord {
     schema: 1,
     job_id: JOB_ID.to_owned(),
     player_session_id: SESSION_ID.to_owned(),
@@ -372,7 +373,7 @@ fn context(sequence: u64, body: DittoContext) -> DittoEventRecord {
     event_name: "ditto.context".to_owned(),
     message: "context".to_owned(),
     body,
-  })
+  }))
 }
 
 fn sequence(record: &DittoEventRecord) -> u64 {
@@ -395,6 +396,7 @@ fn result_step(step: &PlayerStepResult) -> StepResult {
     assertion: step.assertion.clone(),
     screenshot: None,
     video: None,
+    performance: step.performance.clone(),
   }
 }
 
@@ -410,6 +412,7 @@ fn player_step(status: StepStatus) -> PlayerStepResult {
     assertion: None,
     screenshot_artifact_id: None,
     video_input_id: None,
+    performance: None,
   }
 }
 
@@ -442,10 +445,12 @@ fn scenario(index: u32) -> ResolvedScenario {
     fixture: None,
     motion: Motion::Controlled,
     timeout_ms: 100,
+    performance: None,
     steps: vec![ResolvedStep {
       index: 0,
       name: Some("click".to_owned()),
       timeout_ms: 50,
+      measure: false,
       action: StepKind::Click {
         target: InputTarget::Object("4aac8ca0-af3d-409e-958e-62954e6cb3d1".to_owned()),
       },

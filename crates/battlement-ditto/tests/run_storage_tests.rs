@@ -411,6 +411,7 @@ fn result(run_id: &str, command: ResultCommand) -> RunResult {
     errors: vec![],
     baseline_writes: vec![],
     artifacts: vec![],
+    performance: None,
   }
 }
 

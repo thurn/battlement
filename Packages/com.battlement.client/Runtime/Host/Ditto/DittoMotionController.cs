@@ -188,7 +188,7 @@ namespace Battlement
 
     internal sealed class DittoMotionClock : IBattlementClock
     {
-        private const long FramesPerSecond = 30;
+        private long framesPerSecond = 30;
 
         private readonly IBattlementClock source;
         private DittoMotion? motion;
@@ -203,7 +203,7 @@ namespace Battlement
             motion == DittoMotion.Controlled
                 ? motionEpoch
                     + TimeSpan.FromTicks(
-                        checked((long)controlledFrames * TimeSpan.TicksPerSecond) / FramesPerSecond
+                        checked((long)controlledFrames * TimeSpan.TicksPerSecond) / framesPerSecond
                     )
             : motion is null ? source.Elapsed
             : motionEpoch + (source.Elapsed - sourceEpoch);
@@ -211,6 +211,13 @@ namespace Battlement
         public bool IsInstant => motion == DittoMotion.Instant;
 
         public bool IsControlled => motion == DittoMotion.Controlled;
+
+        public void SetFramesPerSecond(uint value)
+        {
+            if (value is < 1 or > 240)
+                throw new ArgumentOutOfRangeException(nameof(value));
+            framesPerSecond = value;
+        }
 
         public void Begin(DittoMotion value)
         {

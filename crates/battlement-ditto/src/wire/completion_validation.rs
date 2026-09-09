@@ -47,7 +47,11 @@ pub(super) fn scenario_complete(
     lifecycle_validation::player_error_ref(error_ref)?;
   }
   for (expected, result) in scenario.steps.iter().zip(&complete.steps) {
-    step_result(expected, result)?;
+    step_result(
+      expected,
+      result,
+      scenario.performance.as_ref().map(|value| value.target_fps),
+    )?;
     for error_ref in &result.error_refs {
       ensure!(
         observed.contains(error_ref),
@@ -63,7 +67,11 @@ pub(super) fn scenario_complete(
   Ok(())
 }
 
-pub(super) fn step_result(expected: &ResolvedStep, result: &PlayerStepResult) -> Result<()> {
+pub(super) fn step_result(
+  expected: &ResolvedStep,
+  result: &PlayerStepResult,
+  performance_target_fps: Option<u32>,
+) -> Result<()> {
   ensure!(
     result.index == expected.index,
     "step result index does not match the job"
@@ -114,7 +122,82 @@ pub(super) fn step_result(expected: &ResolvedStep, result: &PlayerStepResult) ->
   }
   assertion(expected, result)?;
   screenshot(expected, result)?;
-  video(expected, result)
+  video(expected, result).and_then(|_| performance(expected, result, performance_target_fps))
+}
+
+fn performance(
+  expected: &ResolvedStep,
+  result: &PlayerStepResult,
+  performance_target_fps: Option<u32>,
+) -> Result<()> {
+  let Some(value) = &result.performance else {
+    ensure!(
+      performance_target_fps.is_none() || !expected.measure || result.status != StepStatus::Passed,
+      "passed measured step requires performance data"
+    );
+    return Ok(());
+  };
+  ensure!(
+    performance_target_fps.is_some(),
+    "performance data belongs only to profile jobs"
+  );
+  ensure!(
+    expected.measure,
+    "performance data belongs only to a measured step"
+  );
+  ensure!(
+    Some(value.target_fps) == performance_target_fps,
+    "performance target does not match job"
+  );
+  ensure!(
+    value.response_missed_deadlines + value.pacing_missed_deadlines
+      == value.missed_interaction_deadlines,
+    "performance deadline total is inconsistent"
+  );
+  ensure!(
+    !value.presentation_timestamps_ns.is_empty(),
+    "performance requires a presented frame"
+  );
+  ensure!(
+    value.presentation_timestamps_ns.len() == value.managed_allocation_deltas.len(),
+    "performance frame and allocation counts differ"
+  );
+  ensure!(
+    value.presentation_intervals_ns.len()
+      == value.presentation_timestamps_ns.len().saturating_sub(1),
+    "performance frame intervals are not aligned"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .windows(2)
+      .all(|pair| pair[0] < pair[1]),
+    "performance timestamps must increase"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .windows(2)
+      .map(|pair| pair[1] - pair[0])
+      .eq(value.presentation_intervals_ns.iter().copied()),
+    "performance intervals do not match timestamps"
+  );
+  ensure!(
+    value
+      .presentation_timestamps_ns
+      .contains(&value.response_latency_ns),
+    "performance response does not identify a presented frame"
+  );
+  ensure!(
+    !value.no_visual_response
+      || value.response_latency_ns == *value.presentation_timestamps_ns.last().unwrap(),
+    "no-response performance must span through the final frame"
+  );
+  ensure!(
+    !value.no_visual_response || value.response_missed_deadlines > 0,
+    "no-response performance must miss a response deadline"
+  );
+  Ok(())
 }
 
 fn assertion(expected: &ResolvedStep, result: &PlayerStepResult) -> Result<()> {

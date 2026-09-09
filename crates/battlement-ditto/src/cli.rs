@@ -17,6 +17,7 @@ pub enum Command {
   Build(BuildOptions),
   Run(RunOptions),
   Capture(CaptureOptions),
+  Profile(ProfileOptions),
   Review(ReviewOptions),
   Gallery(GalleryOptions),
   Fetch(FetchOptions),
@@ -69,6 +70,15 @@ pub struct CaptureOptions {
   pub output: Option<PathBuf>,
   pub review: bool,
   pub watch: bool,
+}
+
+/// Options for a deterministic interaction performance profile.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProfileOptions {
+  pub selection: SelectionOptions,
+  pub no_build: bool,
+  pub json: bool,
+  pub output: Option<PathBuf>,
 }
 
 /// Options for opening one retained run in the local review application.
@@ -131,6 +141,8 @@ enum ParsedCommand {
   Run(RunArgs),
   /// Execute scenarios without reading or changing baselines.
   Capture(CaptureArgs),
+  /// Measure one deterministic interaction scenario.
+  Profile(ProfileArgs),
   /// Open a retained run in the local review application.
   Review(ReviewArgs),
   /// Browse the suite source with canonical screenshots at each capture step.
@@ -218,6 +230,21 @@ struct CaptureArgs {
   /// Keep the player and one live review tab warm across changes.
   #[arg(short = 'w', long)]
   watch: bool,
+}
+
+#[derive(Debug, Args)]
+struct ProfileArgs {
+  #[command(flatten)]
+  selection: SelectionArgs,
+  /// Require an exact cached build instead of compiling.
+  #[arg(long)]
+  no_build: bool,
+  /// Write only the terminal result object to standard output.
+  #[arg(long)]
+  json: bool,
+  /// Copy the terminal result to this path.
+  #[arg(long)]
+  output: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -358,6 +385,12 @@ fn command(command: ParsedCommand) -> Command {
       output: args.output,
       review: args.review,
       watch: args.watch,
+    }),
+    ParsedCommand::Profile(args) => Command::Profile(ProfileOptions {
+      selection: selection(args.selection),
+      no_build: args.no_build,
+      json: args.json,
+      output: args.output,
     }),
     ParsedCommand::Review(args) => Command::Review(ReviewOptions { run: args.run }),
     ParsedCommand::Gallery(args) => Command::Gallery(GalleryOptions {
