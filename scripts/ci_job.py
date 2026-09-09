@@ -20,7 +20,7 @@ import uuid
 
 import perf_log
 import operation_log
-from platform_support import lock_file, unlock_file
+from platform_support import lock_file, resolve_executable, unlock_file
 import process_identity
 import workflow_event
 
@@ -232,13 +232,38 @@ def supervise(path: Path) -> int:
         sys.executable, str(repository / "scripts/ci.py"), *job["key"]["arguments"]
     ]
     canceled = False
+    cancellation_deadline: float | None = None
     child: subprocess.Popen | None = None
 
+    def terminate_child_tree(force: bool) -> None:
+        if child is None or child.poll() is not None and os.name == "nt":
+            return
+        try:
+            if os.name == "nt":
+                command = [
+                    resolve_executable("taskkill"),
+                    "/PID",
+                    str(child.pid),
+                    "/T",
+                    "/F",
+                ]
+                subprocess.run(
+                    command,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                os.killpg(child.pid, signal.SIGKILL if force else signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
     def stop(_number, _frame):
-        nonlocal canceled
+        nonlocal canceled, cancellation_deadline
         canceled = True
+        cancellation_deadline = time.monotonic() + 5
         if child is not None and child.poll() is None:
-            child.terminate()
+            terminate_child_tree(force=os.name == "nt")
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
@@ -247,11 +272,34 @@ def supervise(path: Path) -> int:
     with operation, Path(job["log_path"]).open("ab", buffering=0) as output:
         environment = operation_log.child_environment()
         environment["BATTLEMENT_CI_JOB_ID"] = job["job_id"]
-        child = subprocess.Popen(command, cwd=repository, env=environment,
-                                 stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT)
+        containment = (
+            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+            if os.name == "nt"
+            else {"process_group": 0}
+        )
+        child = subprocess.Popen(
+            command,
+            cwd=repository,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            **containment,
+        )
         update(path, state="running", started_at=utc_now(),
                child_process=process_identity.identity(child.pid), operation_id=operation.id)
-        result = child.wait()
+        while True:
+            try:
+                result = child.wait(timeout=0.1)
+                if canceled and os.name != "nt":
+                    terminate_child_tree(force=True)
+                break
+            except subprocess.TimeoutExpired:
+                if cancellation_deadline is None or time.monotonic() < cancellation_deadline:
+                    continue
+                terminate_child_tree(force=True)
+                result = child.wait()
+                break
         retained_state = read_job(path)["state"]
         invalidated = retained_state == "inputs-invalidated"
         if not invalidated:

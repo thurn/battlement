@@ -17,8 +17,8 @@ import tempfile
 import time
 import uuid
 
-from platform_support import lock_file, resolve_executable, unlock_file
-from resource_slots import compiler_capacity_lease
+from platform_support import lock_file, resolve_executable, try_lock_file, unlock_file
+from resource_slots import compiler_capacity_lease, compiler_maintenance_lease
 
 
 CACHE_SCHEMA = 1
@@ -156,33 +156,30 @@ class CiCache:
 
     @contextmanager
     def invocation(self) -> Iterator[None]:
-        """Serialize shared compiler writers and perform periodic maintenance."""
-        lock = self.cache_root / "locks" / "invocation.lock"
-        lock.parent.mkdir(parents=True, exist_ok=True)
-        with lock.open("a+") as lease:
-            started = time.monotonic()
-            lock_file(lease)
-            waited = time.monotonic() - started
-            self._emit("ci.cache_wait", duration_ms=round(waited * 1000))
-            if waited >= 1:
-                print(
-                    f"    Shared compiler cache: waited {waited:.1f}s for another writer",
-                    flush=True,
-                )
-            try:
-                with compiler_capacity_lease():
-                    self.maintain()
-                    yield
-            finally:
-                unlock_file(lease)
+        """Reserve bounded compiler capacity for one cache-miss execution."""
+        with compiler_capacity_lease():
+            yield
 
     def maintain(
         self,
         now_ns: int | None = None,
         interval_seconds: int = MAINTENANCE_INTERVAL_SECONDS,
     ) -> bool:
-        """Run cache maintenance when the last completed pass is stale."""
+        """Run stale cache maintenance exclusively between compiler writers."""
         now_ns = time.time_ns() if now_ns is None else now_ns
+        if not self._maintenance_due(now_ns, interval_seconds):
+            self._emit("ci.cache_maintenance", performed=False, duration_ms=0)
+            return False
+        lock = self.cache_root / "locks" / "maintenance.lock"
+        with self._lock(lock, resource="cache-maintenance"):
+            if not self._maintenance_due(now_ns, interval_seconds):
+                self._emit("ci.cache_maintenance", performed=False, duration_ms=0)
+                return False
+            with compiler_maintenance_lease():
+                return self._perform_maintenance(now_ns)
+
+    def _maintenance_due(self, now_ns: int, interval_seconds: int) -> bool:
+        """Return whether the last completed maintenance pass is stale."""
         marker = self.cache_root / "maintenance.json"
         try:
             state = json.loads(marker.read_text(encoding="utf-8"))
@@ -192,9 +189,11 @@ class CiCache:
         interval_ns = interval_seconds * 1_000_000_000
         current_schema = state.get("schema") == MAINTENANCE_SCHEMA
         recent = isinstance(completed_at, int) and 0 <= now_ns - completed_at < interval_ns
-        if current_schema and recent:
-            self._emit("ci.cache_maintenance", performed=False, duration_ms=0)
-            return False
+        return not (current_schema and recent)
+
+    def _perform_maintenance(self, now_ns: int) -> bool:
+        """Prune caches and atomically publish the completed maintenance time."""
+        marker = self.cache_root / "maintenance.json"
         started = time.monotonic()
         cache = self.prune()
         chrome = prune_chrome_code_sign_clones()
@@ -227,6 +226,51 @@ class CiCache:
             chrome_clones_removed=len(chrome.removed),
         )
         return True
+
+    @contextmanager
+    def _lock(
+        self,
+        path: Path,
+        *,
+        resource: str,
+        step: str | None = None,
+        cache_key: str | None = None,
+    ) -> Iterator[None]:
+        """Acquire one observable cache lock and release it on every exit path."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a+") as lease:
+            started = time.monotonic()
+            announced = False
+            while not try_lock_file(lease):
+                if not announced:
+                    detail = f" for {step} {cache_key[:12]}" if step and cache_key else ""
+                    print(f"    CI Cache: waiting for {resource}{detail}", flush=True)
+                    self._emit(
+                        "ci.cache_waiting",
+                        resource=resource,
+                        step=step,
+                        cache_key=cache_key,
+                    )
+                    announced = True
+                time.sleep(0.05)
+            waited_ms = round((time.monotonic() - started) * 1000)
+            if announced:
+                print(
+                    f"    CI Cache: acquired {resource} after {waited_ms / 1000:.1f}s",
+                    flush=True,
+                )
+            self._emit(
+                "ci.cache_wait",
+                resource=resource,
+                step=step,
+                cache_key=cache_key,
+                duration_ms=waited_ms,
+                contended=announced,
+            )
+            try:
+                yield
+            finally:
+                unlock_file(lease)
 
     def prune(
         self,
@@ -284,12 +328,14 @@ class CiCache:
         if not self.enabled:
             print(f"    {step}: CI Cache disabled", flush=True)
             self._emit("ci.cache_lookup", step=step, result="disabled")
+            self.maintain()
             with self.invocation():
                 function()
             return True
         if self._has_unstaged_inputs(pathspecs):
             print(f"    {step}: CI Cache bypassed for unstaged inputs", flush=True)
             self._emit("ci.cache_lookup", step=step, result="bypassed")
+            self.maintain()
             with self.invocation():
                 function()
             return True
@@ -297,10 +343,9 @@ class CiCache:
         marker = self.cache_root / "entries" / step / f"{key}.json"
         if self._hit(marker, step, key):
             return False
+        self.maintain()
         lock = self.cache_root / "locks" / step / f"{key}.lock"
-        lock.parent.mkdir(parents=True, exist_ok=True)
-        with lock.open("a+") as lease:
-            lock_file(lease)
+        with self._lock(lock, resource="cache-key", step=step, cache_key=key):
             if self._hit(marker, step, key):
                 return False
             with self.invocation():

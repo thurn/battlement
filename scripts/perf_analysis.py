@@ -558,9 +558,12 @@ def _cache_findings(spans: list[Span], thresholds: Thresholds) -> list[dict[str,
         if span.attributes.get("event") == "ci.cache_lookup" and span.attributes.get("result") == "miss":
             misses[str(span.attributes.get("cache_key"))].append(span)
         if span.attributes.get("event") == "ci.cache_wait" and span.duration_ms >= thresholds.long_wait_ms:
+            resource = str(span.attributes.get("resource") or "cache lock")
+            step = span.attributes.get("step")
+            suffix = f" for {step}" if step else ""
             findings.append(_finding(
-                "cache-lock-wait", "Shared compiler cache lock was slow", span.duration_ms,
-                "A CI invocation waited longer than the configured wait threshold for the cache lock.",
+                "cache-lock-wait", f"CI Cache {resource} wait was slow{suffix}", span.duration_ms,
+                "A CI operation waited longer than the configured threshold for a specific cache resource.",
                 [span],
             ))
     for group in misses.values():

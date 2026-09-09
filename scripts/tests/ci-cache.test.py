@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import multiprocessing
 import os
+from queue import Empty
 import subprocess
 import sys
 import tempfile
@@ -19,6 +21,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import ci_cache  # noqa: E402
 from ci_cache import CiCache, charged_size, prune_chrome_code_sign_clones  # noqa: E402
+from resource_slots import SlotLease  # noqa: E402
 
 
 def main() -> None:
@@ -26,6 +29,9 @@ def main() -> None:
         root = Path(temporary)
         repository = root / "repository"
         cache_root = root / "cache"
+        slots = root / "resource-slots"
+        capacity = _isolated_compiler_capacity(slots)
+        capacity.start()
         repository.mkdir()
         subprocess.run(["git", "init", "--quiet"], cwd=repository, check=True)
         included = repository / "included.txt"
@@ -71,8 +77,11 @@ def main() -> None:
             for event, attributes in events
             if event == "ci.cache_lookup"
         ] == ["miss", "hit"]
-        _verify_hit_does_not_wait_for_writer(cache, cache_root, calls)
-        _verify_concurrent_miss_publishes_once(repository, cache_root, root / "calls")
+        _verify_distinct_misses_execute_concurrently(repository, cache_root)
+        _verify_concurrent_miss_publishes_once(repository, cache_root)
+        _verify_maintenance_and_execution_do_not_deadlock(repository, cache_root)
+        _verify_compiler_capacity_is_bounded(repository, cache_root, slots)
+        _verify_failure_releases_capacity(repository, cache_root)
 
         replica = root / "replica"
         subprocess.run(["git", "clone", "--quiet", str(repository), str(replica)], check=True)
@@ -154,6 +163,7 @@ def main() -> None:
         assert any(event == "ci.cache_wait" for event, _attributes in events)
         _verify_targeted_chrome_scan(root)
         _verify_chrome_clone_pruning(root)
+        capacity.stop()
         print("CI Cache tests passed.")
 
 
@@ -184,60 +194,234 @@ def _verify_chrome_clone_pruning(root: Path) -> None:
     assert unrelated.is_dir()
 
 
-def _verify_hit_does_not_wait_for_writer(
-    cache: CiCache, cache_root: Path, calls: list[str]
+def _isolated_compiler_capacity(slots: Path):
+    return patch.multiple(
+        ci_cache,
+        compiler_capacity_lease=lambda: SlotLease(slots, "machine-heavy", 6, 3),
+        compiler_maintenance_lease=lambda: SlotLease(slots, "machine-heavy", 6, 6),
+    )
+
+
+def _thread(function, errors: list[BaseException]) -> threading.Thread:
+    def guarded() -> None:
+        try:
+            function()
+        except BaseException as error:
+            errors.append(error)
+
+    result = threading.Thread(target=guarded)
+    result.start()
+    return result
+
+
+def _join(threads: list[threading.Thread], errors: list[BaseException]) -> None:
+    for thread in threads:
+        thread.join(timeout=2)
+    assert not any(thread.is_alive() for thread in threads), "concurrent cache test timed out"
+    if errors:
+        raise errors[0]
+
+
+def _cache_process(
+    repository: str,
+    cache_root: str,
+    slots: str,
+    step: str,
+    toolchain: str,
+    ready,
+    messages,
+    release,
 ) -> None:
-    lock = cache_root / "locks/invocation.lock"
-    lock.parent.mkdir(parents=True, exist_ok=True)
-    acquired = threading.Event()
-    release = threading.Event()
+    with _isolated_compiler_capacity(Path(slots)):
+        cache = CiCache(
+            Path(repository),
+            Path(cache_root),
+            {"toolchain": toolchain},
+            event=lambda event, attributes: messages.put(
+                ("event", step, event, attributes)
+            ),
+        )
+        ready.put(step)
 
-    def hold_writer() -> None:
-        with lock.open("a+") as lease:
-            ci_cache.lock_file(lease)
-            acquired.set()
-            release.wait(5)
-            ci_cache.unlock_file(lease)
+        def execute() -> None:
+            messages.put(("execute", step))
+            if not release.wait(2):
+                raise TimeoutError("cache process was not released")
 
-    writer = threading.Thread(target=hold_writer)
-    writer.start()
-    assert acquired.wait(1)
-    started = time.monotonic()
-    assert not cache.run("fixture", ("included.txt",), lambda: calls.append("blocked"))
-    assert time.monotonic() - started < 2
+        cache.run(step, ("included.txt",), execute)
+        messages.put(("finished", step))
+
+
+def _cache_processes(
+    repository: Path,
+    cache_root: Path,
+    slots: Path,
+    steps: tuple[str, str],
+    toolchain: str,
+):
+    context = multiprocessing.get_context("spawn")
+    ready = context.Queue()
+    messages = context.Queue()
+    release = context.Event()
+    processes = [
+        context.Process(
+            target=_cache_process,
+            args=(
+                str(repository),
+                str(cache_root),
+                str(slots),
+                step,
+                toolchain,
+                ready,
+                messages,
+                release,
+            ),
+        )
+        for step in steps
+    ]
+    for process in processes:
+        process.start()
+    assert {ready.get(timeout=1), ready.get(timeout=1)} == set(steps)
+    return processes, messages, release
+
+
+def _join_processes(processes, release) -> None:
     release.set()
-    writer.join()
+    for process in processes:
+        process.join(timeout=2)
+    assert all(not process.is_alive() for process in processes), (
+        "concurrent cache process timed out"
+    )
+    assert [process.exitcode for process in processes] == [0, 0]
+
+
+def _verify_distinct_misses_execute_concurrently(
+    repository: Path, cache_root: Path
+) -> None:
+    processes, messages, release = _cache_processes(
+        repository,
+        cache_root,
+        cache_root.parent / "resource-slots",
+        ("distinct-a", "distinct-b"),
+        "distinct",
+    )
+    try:
+        executing = set()
+        while len(executing) < 2:
+            message = messages.get(timeout=1)
+            if message[0] == "execute":
+                executing.add(message[1])
+        assert executing == {"distinct-a", "distinct-b"}
+    finally:
+        _join_processes(processes, release)
 
 
 def _verify_concurrent_miss_publishes_once(
-    repository: Path, cache_root: Path, calls: Path
+    repository: Path, cache_root: Path
 ) -> None:
-    source = """
-from pathlib import Path
-import sys
-import time
-sys.path.insert(0, sys.argv[1])
-from ci_cache import CiCache
-repository, cache_root, calls = map(Path, sys.argv[2:])
-cache = CiCache(repository, cache_root, {'toolchain': 'fixture'})
-def execute():
-    time.sleep(0.25)
-    with calls.open('a') as output:
-        output.write('executed\\n')
-cache.run('parallel', ('included.txt',), execute)
-"""
-    arguments = [
-        sys.executable,
-        "-c",
-        source,
-        str(REPOSITORY_ROOT / "scripts"),
-        str(repository),
-        str(cache_root),
-        str(calls),
+    processes, messages, release = _cache_processes(
+        repository,
+        cache_root,
+        cache_root.parent / "resource-slots",
+        ("same-key", "same-key"),
+        "deduplicate",
+    )
+    observed = []
+    try:
+        while not (
+            any(message[0] == "execute" for message in observed)
+            and any(
+                message[0] == "event"
+                and message[2] == "ci.cache_waiting"
+                and message[3].get("resource") == "cache-key"
+                for message in observed
+            )
+        ):
+            observed.append(messages.get(timeout=1))
+    finally:
+        _join_processes(processes, release)
+    while True:
+        try:
+            observed.append(messages.get_nowait())
+        except Empty:
+            break
+    assert sum(message[0] == "execute" for message in observed) == 1
+
+
+def _verify_maintenance_and_execution_do_not_deadlock(
+    repository: Path, cache_root: Path
+) -> None:
+    cache = CiCache(repository, cache_root, {"toolchain": "maintenance-race"})
+    start = threading.Barrier(3, timeout=1)
+    errors: list[BaseException] = []
+
+    def execute() -> None:
+        start.wait()
+        with cache.invocation():
+            pass
+
+    def maintain() -> None:
+        start.wait()
+        empty = ci_cache.CachePruneResult(0, 0, ())
+        with (
+            patch.object(cache, "prune", return_value=empty),
+            patch.object(ci_cache, "prune_chrome_code_sign_clones", return_value=empty),
+        ):
+            cache.maintain(now_ns=time.time_ns(), interval_seconds=0)
+
+    threads = [_thread(execute, errors), _thread(maintain, errors)]
+    start.wait()
+    _join(threads, errors)
+
+
+def _verify_compiler_capacity_is_bounded(
+    repository: Path, cache_root: Path, slots: Path
+) -> None:
+    cache = CiCache(repository, cache_root, {"toolchain": "bounded"})
+    entered = 0
+    maximum = 0
+    condition = threading.Condition()
+    release = threading.Event()
+    errors: list[BaseException] = []
+
+    def execute() -> None:
+        nonlocal entered, maximum
+        with condition:
+            entered += 1
+            maximum = max(maximum, entered)
+            condition.notify_all()
+        assert release.wait(1)
+        with condition:
+            entered -= 1
+
+    threads = [
+        _thread(lambda step=step: cache.run(step, ("included.txt",), execute), errors)
+        for step in ("bounded-a", "bounded-b", "bounded-c")
     ]
-    children = [subprocess.Popen(arguments) for _ in range(2)]
-    assert all(child.wait(timeout=5) == 0 for child in children)
-    assert calls.read_text().splitlines() == ["executed"]
+    with condition:
+        assert condition.wait_for(lambda: entered == 2, timeout=1)
+    deadline = time.monotonic() + 1
+    while not list(slots.glob(".machine-heavy.queue.*.lock")):
+        assert time.monotonic() < deadline, "third compiler writer did not queue"
+        time.sleep(0.01)
+    assert maximum == 2
+    release.set()
+    _join(threads, errors)
+
+
+def _verify_failure_releases_capacity(repository: Path, cache_root: Path) -> None:
+    cache = CiCache(repository, cache_root, {"toolchain": "failure-release"})
+    try:
+        cache.run(
+            "failure-release",
+            ("included.txt",),
+            lambda: (_ for _ in ()).throw(RuntimeError("expected failure")),
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("failed step unexpectedly passed")
+    assert cache.run("after-failure", ("included.txt",), lambda: None)
 
 
 def _verify_maintenance_cadence(cache: CiCache) -> None:

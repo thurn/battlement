@@ -16,6 +16,8 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import ci_job  # noqa: E402
 import perf_sources  # noqa: E402
+import platform_support  # noqa: E402
+import process_identity  # noqa: E402
 
 
 def await_state(path: Path, state: str, timeout: float = 5) -> dict:
@@ -64,14 +66,87 @@ def main() -> None:
         completed = next(span for span in milestones if span.attributes["job_id"] == first["job_id"])
         assert completed.name == "jobs.finished" and completed.status == "passed"
 
-        long_command = [sys.executable, "-c", "import time; time.sleep(30)"]
-        cancelable = ci_job.start_job(REPOSITORY_ROOT, ["--ditto"], command=long_command)
+        lock_path = Path(temporary) / "cancel.lock"
+        descendant_path = Path(temporary) / "descendant.pid"
+        ready_path = Path(temporary) / "cancel.ready"
+        descendant_source = """
+import pathlib
+import os
+import signal
+import sys
+import threading
+sys.path.insert(0, sys.argv[1])
+from platform_support import lock_file
+lock_path, descendant_path, ready_path = map(pathlib.Path, sys.argv[2:])
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+descendant_path.write_text(str(os.getpid()))
+with lock_path.open('a+') as lease:
+    lock_file(lease)
+    ready_path.write_text('ready')
+    threading.Event().wait()
+"""
+        cancel_source = """
+import subprocess
+import sys
+import threading
+descendant = subprocess.Popen([
+    sys.executable, '-c', sys.argv[1], *sys.argv[2:]
+])
+threading.Event().wait()
+"""
+        cancel_command = [
+            sys.executable,
+            "-c",
+            cancel_source,
+            descendant_source,
+            str(REPOSITORY_ROOT / "scripts"),
+            str(lock_path),
+            str(descendant_path),
+            str(ready_path),
+        ]
+        cancelable = ci_job.start_job(
+            REPOSITORY_ROOT,
+            ["--ditto"],
+            command=cancel_command,
+        )
         cancel_path = Path(cancelable["handle_path"])
         await_state(cancel_path, "running")
+        blocking_command = [
+            sys.executable,
+            "-c",
+            "import threading; threading.Event().wait()",
+        ]
+        unrelated = ci_job.start_job(
+            REPOSITORY_ROOT,
+            [],
+            purpose="unrelated-job",
+            command=blocking_command,
+        )
+        unrelated_path = Path(unrelated["handle_path"])
+        await_state(unrelated_path, "running")
+        deadline = time.monotonic() + 2
+        while not ready_path.is_file() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert ready_path.is_file(), "cancel fixture did not acquire its cache lock"
+        descendant = process_identity.identity(int(descendant_path.read_text()))
         canceled = ci_job.cancel(cancel_path)
         assert canceled["state"] == "canceled"
+        assert ci_job.refresh(unrelated_path)["state"] == "running"
+        with lock_path.open("a+") as lease:
+            assert platform_support.try_lock_file(lease), "canceled job retained its lock"
+            platform_support.unlock_file(lease)
+        deadline = time.monotonic() + 2
+        while process_identity.matches(descendant) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not process_identity.matches(descendant), "canceled job retained a subprocess"
+        assert ci_job.cancel(unrelated_path)["state"] == "canceled"
 
-        invalid = ci_job.start_job(REPOSITORY_ROOT, [], purpose="source-test", command=long_command)
+        invalid = ci_job.start_job(
+            REPOSITORY_ROOT,
+            [],
+            purpose="source-test",
+            command=blocking_command,
+        )
         invalid_path = Path(invalid["handle_path"])
         await_state(invalid_path, "running")
         changed_source = dict(ci_job.read_job(invalid_path)["key"]["source"])

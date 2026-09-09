@@ -111,8 +111,18 @@ class SlotLease:
         started = time.monotonic_ns()
         self._event("resource.queued")
         ticket = AdmissionTicket(self.directory, self.name)
+        announced = False
         try:
             while not ticket.is_first() or not self._try_acquire():
+                waited = time.monotonic_ns() - started
+                if not announced and waited >= 1_000_000_000:
+                    print(
+                        f"    Resource capacity: waiting for {self.name} "
+                        f"({self.units} of {self.count} units)",
+                        flush=True,
+                    )
+                    self._event("resource.waiting", units=self.units)
+                    announced = True
                 time.sleep(0.1)
         finally:
             ticket.close()
@@ -123,6 +133,13 @@ class SlotLease:
             units=self.units,
             queue_duration_ms=round((self.acquired_ns - started) / 1_000_000),
         )
+        if announced:
+            waited_ms = round((self.acquired_ns - started) / 1_000_000)
+            print(
+                f"    Resource capacity: acquired {self.name} after "
+                f"{waited_ms / 1000:.1f}s",
+                flush=True,
+            )
         return self
 
     def _try_acquire(self) -> bool:
@@ -204,6 +221,16 @@ class LeaseGroup:
 def compiler_capacity_lease() -> SlotLease:
     """Reserve the machine capacity used by one three-job Cargo writer."""
     return SlotLease(GLOBAL_RESOURCE_ROOT, "machine-heavy", MACHINE_CAPACITY, 3)
+
+
+def compiler_maintenance_lease() -> SlotLease:
+    """Pause compiler writers while shared target directories are pruned."""
+    return SlotLease(
+        GLOBAL_RESOURCE_ROOT,
+        "machine-heavy",
+        MACHINE_CAPACITY,
+        MACHINE_CAPACITY,
+    )
 
 
 def browser_capacity_lease() -> LeaseGroup:
