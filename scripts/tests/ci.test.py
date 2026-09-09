@@ -25,7 +25,6 @@ SPEC.loader.exec_module(ci)
 
 
 def main() -> None:
-    assert "samples" in ci.ROOT_RUST_INPUTS
     _verify_rust_configuration()
     _verify_active_rust_toolchain_guard()
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
@@ -38,10 +37,7 @@ def main() -> None:
         _verify_ditto_gate_contract()
         _verify_ditto_build_leases_span_gate(root)
         assert ci.build_standalone_samples([], object()) == 0
-        assert ci.select_native_samples(["scripts/ci.py"], ["basic"], False) == []
-        assert ci.select_native_samples(["scripts/ci.py"], ["basic"], True) == [
-            "basic"
-        ]
+        assert ci.select_native_samples(["scripts/ci.py"], ["basic"]) == []
         _verify_unity_project_generation(root)
         _verify_csharp_preflight()
         _verify_unity_execution_selection(root)

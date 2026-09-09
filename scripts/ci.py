@@ -26,6 +26,7 @@ import tollgate_evidence
 
 from ci_cache import CiCache
 import ci_steps
+import ci_selection
 from ci_steps import run_parallel_steps, run_step
 from ditto_build_leases import DittoBuildLeases
 from platform_support import (
@@ -285,22 +286,21 @@ def rust_workspace_inputs(workspace: Path | None) -> tuple[str, ...]:
     return (*SAMPLE_SHARED_INPUTS, str(workspace.parent))
 
 
-def lint_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> None:
-    steps: list[tuple[str, Callable[[], None]]] = [
-        (
+def lint_rust_workspaces(
+    selection: ci_selection.RustSelection, ci_cache: CiCache
+) -> None:
+    steps: list[tuple[str, Callable[[], None]]] = []
+    if selection.root:
+        steps.append((
             "root workspace",
             lambda: ci_cache.run(
-                "rust-lint-root",
-                rust_workspace_inputs(None),
+                "rust-lint-root", rust_workspace_inputs(None),
                 lambda: subprocess.run(
                     ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
-                    cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(None),
-                    check=True,
+                    cwd=REPOSITORY_ROOT, env=cargo_environment(None), check=True,
                 ),
             ),
-        )
-    ]
+        ))
     steps.extend(
         (
             str(workspace.parent),
@@ -318,27 +318,29 @@ def lint_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> No
                 ),
             ),
         )
-        for workspace in sample_workspaces
+        for workspace in selection.samples
     )
+    if not steps:
+        print("    skipped; no affected Rust workspace", flush=True)
+        return
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
 
 
-def test_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> None:
-    steps: list[tuple[str, Callable[[], None]]] = [
-        (
+def test_rust_workspaces(
+    selection: ci_selection.RustSelection, ci_cache: CiCache
+) -> None:
+    steps: list[tuple[str, Callable[[], None]]] = []
+    if selection.root:
+        steps.append((
             "root workspace",
             lambda: ci_cache.run(
-                "rust-test-root",
-                rust_workspace_inputs(None),
+                "rust-test-root", rust_workspace_inputs(None),
                 lambda: subprocess.run(
-                    ["cargo", "test", "--workspace"],
-                    cwd=REPOSITORY_ROOT,
-                    env=cargo_environment(None),
-                    check=True,
+                    ["cargo", "test", "--workspace"], cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(None), check=True,
                 ),
             ),
-        )
-    ]
+        ))
     steps.extend(
         (
             str(workspace.parent),
@@ -353,8 +355,11 @@ def test_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> No
                 ),
             ),
         )
-        for workspace in sample_workspaces
+        for workspace in selection.samples
     )
+    if not steps:
+        print("    skipped; no affected Rust workspace", flush=True)
+        return
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
 
 
@@ -896,6 +901,44 @@ def run_ditto_validation(
                 print(f"Tollgate evidence export failed: {error}", file=sys.stderr)
 
 
+def publish_empty_ditto_validation(
+    evidence_export: tollgate_evidence.Export,
+    invocation_id: str,
+    paths: list[str],
+) -> None:
+    """Publish a canonical empty gate when no native sample can be affected."""
+    root = ditto_evidence.invocation_root(REPOSITORY_ROOT, invocation_id)
+    identity = ditto_evidence.begin(root, invocation_id, REPOSITORY_ROOT, "gate")
+    (root / "gate.json").write_text(
+        json.dumps(
+            {
+                "artifact_root": str(root),
+                "expected_samples": [],
+                "failures": [],
+                "invocation_id": invocation_id,
+                "samples": [],
+                "selected_paths": sorted(paths),
+                "status": "passed",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = ditto_evidence.finish(root, identity, "passed")
+    bundle = evidence_export.publish(manifest, invocation_id)
+    ci_steps.record_event(
+        "ditto.tollgate_evidence",
+        {
+            "buildset_id": evidence_export.buildset_id,
+            "evidence_path": str(bundle),
+            "samples": [],
+            "sha256": ditto_evidence.digest(bundle),
+        },
+    )
+
+
 def run_reactant_asset_fast_lane() -> None:
     """Run the fast tier's single consolidated CLI and browser process lane."""
     run_step(
@@ -910,14 +953,9 @@ def run_reactant_asset_fast_lane() -> None:
     )
 
 
-def select_native_samples(
-    paths: list[str], samples: list[str], require_evidence: bool
-) -> list[str]:
-    """Select affected samples, expanding an empty evidence gate to the full set."""
-    selected = native_validation_selection.select(REPOSITORY_ROOT, paths, samples)
-    if require_evidence and not selected:
-        return samples
-    return selected
+def select_native_samples(paths: list[str], samples: list[str]) -> list[str]:
+    """Select affected samples; Tollgate can seal an exact empty selection."""
+    return native_validation_selection.select(REPOSITORY_ROOT, paths, samples)
 
 
 def run_ci(
@@ -935,9 +973,15 @@ def run_ci(
     )
     from web_selection import changed_paths
     _revision, paths = changed_paths(REPOSITORY_ROOT)
-    native_samples = select_native_samples(
-        paths, samples, evidence_export is not None
+    rust_selection = ci_selection.select_rust(
+        REPOSITORY_ROOT, paths, sample_workspaces
     )
+    print(
+        "Rust workspace selection: "
+        + json.dumps(rust_selection.report(), sort_keys=True),
+        flush=True,
+    )
+    native_samples = select_native_samples(paths, samples)
     print(
         "Native sample selection: "
         + (", ".join(native_samples) if native_samples else "none"),
@@ -968,17 +1012,24 @@ def run_ci(
         )
     run_step(
         "Lint Rust workspaces",
-        function=lambda: lint_rust_workspaces(sample_workspaces, ci_cache),
+        function=lambda: lint_rust_workspaces(rust_selection, ci_cache),
     )
     rust_test_seconds = run_step(
         "Test Rust workspaces",
-        function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
+        function=lambda: test_rust_workspaces(rust_selection, ci_cache),
     )
     reactant_cli_seconds = 0.0
     if full:
-        reactant_cli_started = time.monotonic()
-        run_reactant_asset_fast_lane()
-        reactant_cli_seconds = time.monotonic() - reactant_cli_started
+        reactant_selected, reactant_reasons = ci_selection.select_reactant_assets(paths)
+        print(
+            "Reactant asset selection: "
+            + json.dumps({"selected": reactant_selected, "reasons": reactant_reasons}),
+            flush=True,
+        )
+        if reactant_selected:
+            reactant_cli_started = time.monotonic()
+            run_reactant_asset_fast_lane()
+            reactant_cli_seconds = time.monotonic() - reactant_cli_started
     run_step(
         "Test operation telemetry",
         [sys.executable, "scripts/tests/operation-log.test.py"],
@@ -1021,6 +1072,10 @@ def run_ci(
         [sys.executable, "scripts/tests/ci.test.py"],
     )
     run_step(
+        "Test affected CI selection",
+        [sys.executable, "scripts/tests/ci-selection.test.py"],
+    )
+    run_step(
         "Test CI Cache",
         [sys.executable, "scripts/tests/ci-cache.test.py"],
     )
@@ -1035,6 +1090,10 @@ def run_ci(
     run_step(
         "Test performance reporting",
         [sys.executable, "scripts/tests/perf-report.test.py"],
+    )
+    run_step(
+        "Test candidate performance reporting",
+        [sys.executable, "scripts/tests/perf-candidate.test.py"],
     )
     run_step(
         "Test Tollgate evidence collection",
@@ -1119,6 +1178,13 @@ def run_ci(
                 )
             else:
                 print("Ditto validation selection: skipped; no native sample input changed")
+                if evidence_export is not None:
+                    run_step(
+                        "Publish empty Ditto selection evidence",
+                        function=lambda: publish_empty_ditto_validation(
+                            evidence_export, invocation_id, paths
+                        ),
+                    )
     finally:
         if ditto_builds is not None:
             ditto_builds.close()

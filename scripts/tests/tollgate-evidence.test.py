@@ -138,6 +138,21 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 ci.run_ditto_validation(0, invocation_id='missing', evidence_export=self.export)
 
+    def test_empty_native_selection_publishes_verified_gate(self):
+        invocation = str(uuid.uuid4())
+        with patch.object(ci, 'REPOSITORY_ROOT', self.root), \
+             patch.object(ci.ci_steps, 'record_event') as event:
+            ci.publish_empty_ditto_validation(
+                self.export, invocation, ['scripts/perf_report.py']
+            )
+        bundle = self.export.root / 'evidence.tar.gz'
+        with tarfile.open(bundle) as archive:
+            gate = json.load(archive.extractfile('invocation/gate.json'))
+            self.assertEqual(gate['expected_samples'], [])
+            self.assertEqual(gate['selected_paths'], ['scripts/perf_report.py'])
+            self.assertEqual(gate['status'], 'passed')
+        event.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -23,8 +23,10 @@ from resource_slots import compiler_capacity_lease, compiler_maintenance_lease
 
 CACHE_SCHEMA = 1
 MAINTENANCE_SCHEMA = 1
-DEFAULT_TARGET_BYTES = 20 * 1024**3
-DEFAULT_HIGH_WATER_BYTES = 25 * 1024**3
+# A complete Battlement compiler generation occupies about 20 GiB. Retain three
+# recent generations so a task worktree survives normal candidate turnover.
+DEFAULT_TARGET_BYTES = 64 * 1024**3
+DEFAULT_HIGH_WATER_BYTES = 80 * 1024**3
 CHROME_CLONE_MINIMUM_AGE_SECONDS = 60 * 60
 CHROME_LSOF_TIMEOUT_SECONDS = 5
 MAINTENANCE_INTERVAL_SECONDS = 60 * 60
@@ -222,8 +224,12 @@ class CiCache:
             "ci.cache_maintenance",
             performed=True,
             duration_ms=round((time.monotonic() - started) * 1000),
+            before_bytes=cache.before_bytes,
+            after_bytes=cache.after_bytes,
+            reclaimed_bytes=cache.before_bytes - cache.after_bytes,
             compiler_targets_removed=len(cache.removed),
             chrome_clones_removed=len(chrome.removed),
+            chrome_reclaimed_bytes=chrome.before_bytes - chrome.after_bytes,
         )
         return True
 

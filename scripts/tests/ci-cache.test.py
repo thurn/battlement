@@ -158,6 +158,7 @@ def main() -> None:
         assert shared_new in result.removed
         assert charged_size(cache_root) == result.after_bytes
         _verify_maintenance_cadence(cache)
+        _verify_maintenance_attribution(repository, root / "attribution-cache")
         with cache.invocation():
             pass
         assert any(event == "ci.cache_wait" for event, _attributes in events)
@@ -432,6 +433,35 @@ def _verify_maintenance_cadence(cache: CiCache) -> None:
         assert not cache.maintain(now_ns + 4_000_000_000, interval_seconds=5)
         assert cache.maintain(now_ns + 5_000_000_000, interval_seconds=5)
         assert chrome.call_count == 2
+
+
+def _verify_maintenance_attribution(repository: Path, cache_root: Path) -> None:
+    events: list[tuple[str, dict[str, object]]] = []
+    cache = CiCache(
+        repository,
+        cache_root,
+        {"toolchain": "attribution"},
+        event=lambda event, attributes: events.append((event, attributes)),
+    )
+    target = cache_root / "cargo-targets/shared/old"
+    target.mkdir(parents=True)
+    (target / "payload").write_bytes(b"x" * 8192)
+    with patch.object(
+        ci_cache,
+        "prune_chrome_code_sign_clones",
+        return_value=ci_cache.CachePruneResult(0, 0, ()),
+    ):
+        assert cache.maintain(now_ns=10_000_000_000, interval_seconds=0)
+    attributes = next(
+        attributes
+        for event, attributes in events
+        if event == "ci.cache_maintenance" and attributes["performed"]
+    )
+    assert attributes["before_bytes"] >= attributes["after_bytes"]
+    assert attributes["reclaimed_bytes"] == (
+        attributes["before_bytes"] - attributes["after_bytes"]
+    )
+    assert attributes["chrome_reclaimed_bytes"] == 0
 
 
 def _verify_targeted_chrome_scan(root: Path) -> None:

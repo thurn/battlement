@@ -29,10 +29,10 @@ pub struct SoundSettings {
 
 impl Component for SoundSettings {
   fn render(&self) -> impl Render {
-    let scale = font_scale::use_font_scale();
+    let selected_scale = font_scale::use_font_scale();
     View::new()
       .name("sound-settings")
-      .style(Style::new().height(971.0 * scale.factor()))
+      .style(Style::new().height(971.0 * selected_scale.factor()))
       .child((
         VolumeControl::new()
           .label(tx("Master Volume", "Sound master-volume setting label."))
@@ -53,13 +53,13 @@ impl Component for SoundSettings {
               "Mute in\nBackground",
               "Two-line background-mute setting label.",
             ))
-            .style(Style::new().height(112.24 * scale.factor())),
+            .style(Style::new().height(112.24 * selected_scale.factor())),
           )
           .aria_label(tx(
             "Mute in Background",
             "Sound background-mute checkbox accessibility label.",
           ))
-          .row_height(self::multiline_row_height(scale))
+          .row_height(self::multiline_row_height(selected_scale))
           .checked(self.mute_in_background)
           .on_change(self.on_mute_in_background_change.clone()),
       ))

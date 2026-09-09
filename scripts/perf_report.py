@@ -17,6 +17,7 @@ import sys
 from typing import Any
 
 import perf_analysis
+import perf_candidate
 import perf_log
 from perf_model import Thresholds
 import perf_sources
@@ -75,6 +76,19 @@ def main(arguments: argparse.Namespace) -> Path:
         warnings,
     )
     sessions = _filter_explicit_selection(arguments, sessions)
+    candidate_report = None
+    if arguments.candidate:
+        candidate_report = perf_candidate.build(
+            arguments.candidate,
+            candidates,
+            ci_spans,
+            tollgate_spans,
+            REPOSITORY_ROOT,
+        )
+        sessions = [
+            perf_candidate.retain_exact_spans(session, candidate_report)
+            for session in sessions
+        ]
     thresholds = Thresholds(
         round(arguments.slow_tool_seconds * 1000),
         round(arguments.slow_subagent_seconds * 1000),
@@ -110,6 +124,7 @@ def main(arguments: argparse.Namespace) -> Path:
         "repository_url": repository_url,
         "warnings": warnings,
         "machine_operations": [span.as_dict() for span in machine_operations],
+        "candidate": candidate_report,
         "aggregate": perf_analysis.aggregate_reports(session_reports, arguments.top),
         "sessions": session_reports,
     }
@@ -271,6 +286,20 @@ def _write_private_json(path: Path, report: dict[str, Any]) -> None:
 
 def _print_report(report: dict[str, Any], output: Path) -> None:
     aggregate = report["aggregate"]
+    if report.get("candidate"):
+        candidate = report["candidate"]
+        print(
+            f"Exact candidate {candidate['candidate_id']} · "
+            f"source {candidate['source_oid']} · tree {candidate['source_tree_oid']}"
+        )
+        for run in candidate["ci_runs"]:
+            mode = "full" if run["full"] else "quick"
+            cache = run["cache"]
+            print(
+                f"  {mode} CI {run['run_id']} {_duration(run['duration_ms'])} · "
+                f"{cache['hits']} hits · {cache['misses']} misses · "
+                f"lock wait {_duration(cache['lock_wait_ms'])}"
+            )
     print(f"Performance report: {aggregate['session_count']} sessions")
     print(" · ".join(f"{count} {status}" for status, count in aggregate["status_counts"].items()))
     print(
