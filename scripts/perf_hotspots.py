@@ -53,6 +53,38 @@ def ci_step_hotspots(
     )[:top]
 
 
+def tollgate_phase_hotspots(
+    spans: list[dict[str, Any]],
+    top: int,
+) -> list[dict[str, Any]]:
+    """Aggregate durable Tollgate promotion phases by their stable name."""
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for span in spans:
+        if span.get("source") != "tollgate" or span.get("category") != "tollgate-phase":
+            continue
+        grouped[span["name"]].append(span)
+    hotspots = []
+    for name, group in grouped.items():
+        durations = sorted(int(span["duration_ms"]) for span in group)
+        hotspots.append(
+            {
+                "name": name,
+                "occurrence_count": len(group),
+                "failed_count": sum(span.get("status") != "passed" for span in group),
+                "total_duration_ms": sum(durations),
+                "average_duration_ms": round(sum(durations) / len(durations)),
+                "p50_duration_ms": _nearest_rank(durations, 0.50),
+                "p95_duration_ms": _nearest_rank(durations, 0.95),
+                "max_duration_ms": durations[-1],
+                "span_ids": [span["id"] for span in group],
+            }
+        )
+    return sorted(
+        hotspots,
+        key=lambda item: (-item["total_duration_ms"], -item["max_duration_ms"], item["name"]),
+    )[:top]
+
+
 def _is_top_level_ci_step(span: dict[str, Any]) -> bool:
     return (
         span.get("source") == "ci"

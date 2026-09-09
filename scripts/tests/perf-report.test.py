@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import sqlite3
 import stat
 import subprocess
 import sys
@@ -45,6 +46,7 @@ def main() -> None:
         _verify_workflow_milestones(root)
         _verify_interval_analysis(root_session)
         _verify_ci_step_hotspots()
+        _verify_tollgate_phase_timings()
         _verify_correlation(root, root_session)
         _verify_tollgate_retries(root)
         _verify_private_report(root)
@@ -485,6 +487,60 @@ def _verify_ci_step_hotspots() -> None:
     assert aggregate["ci_step_hotspots"] == [rust]
 
 
+def _verify_tollgate_phase_timings() -> None:
+    candidate_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    connection = sqlite3.connect(":memory:")
+    connection.executescript(
+        """
+        CREATE TABLE operation_intents (
+          intent_id TEXT, kind TEXT, state TEXT, command_id TEXT,
+          expected_json TEXT, created_at TEXT, updated_at TEXT
+        );
+        CREATE TABLE remote_observations (
+          intent_id TEXT, method TEXT, observed_at TEXT
+        );
+        """
+    )
+    def intent(identifier: str, kind: str, expected: dict[str, object], start: int, end: int) -> None:
+        connection.execute(
+            "INSERT INTO operation_intents VALUES (?, ?, 'completed', ?, ?, ?, ?)",
+            (identifier, kind, identifier, json.dumps(expected), str(start), str(end)),
+        )
+    second = 1_000_000_000
+    intent("push", "push", {"item_id": candidate_id}, 2 * second, 10 * second)
+    intent("promotion", "promotion", {"queue_item_id": candidate_id}, 4 * second, 5 * second)
+    intent("backup", "backup", {"allowance": 42}, 5 * second, 7 * second)
+    intent("sync", "user-master-sync", {"item_id": candidate_id}, 9 * second, 9_500_000_000)
+    intent("cleanup", "cleanup", {"item_id": candidate_id}, 10 * second, 11 * second)
+    connection.execute(
+        "INSERT INTO remote_observations VALUES ('push', 'promotion-preflight-fetch', ?)",
+        (str(4 * second),),
+    )
+    history = [
+        {"kind": "candidate.promotion-authorized", "created_at": "1970-01-01T00:00:00Z", "payload": {"item_id": candidate_id}},
+        {"kind": "queue.item-updated", "created_at": "1970-01-01T00:00:01Z", "payload": {"id": candidate_id, "certificate_id": "certificate"}},
+    ]
+    spans = perf_sources._database_promotion_spans(connection, history, {candidate_id})
+    durations = {span.name: span.duration_ms for span in spans}
+    assert durations == {
+        "Tollgate promotion pipeline": 8000,
+        "Tollgate ready dispatch": 1000,
+        "Tollgate remote preflight": 2000,
+        "Tollgate local promotion": 1000,
+        "Tollgate database backup": 2000,
+        "Tollgate remote push": 2000,
+        "Tollgate user-master synchronization": 500,
+        "Tollgate source cleanup": 1000,
+    }
+    backup = next(span for span in spans if span.name == "Tollgate database backup")
+    assert backup.attributes["reserved_allowance_bytes"] == 42
+    hotspots = perf_hotspots.tollgate_phase_hotspots(
+        [span.as_dict() for span in spans], 10
+    )
+    assert hotspots[0]["name"] == "Tollgate promotion pipeline"
+    connection.close()
+
+
 def _normalized_ci_span(
     span_id: str,
     run_id: str,
@@ -612,6 +668,11 @@ def _verify_tollgate_retries(root: Path) -> None:
             "synchronized_at": "2026-01-01T00:00:12.000Z",
             "submission_to_remote_ms": 4000,
             "approval_to_remote_ms": 3000,
+            "submission_to_certification_ms": 2000,
+            "authorization_to_certification_ms": 1000,
+            "certification_to_authorization_ms": None,
+            "ready_to_remote_ms": 2000,
+            "local_promotion_to_remote_ms": 1000,
         }
     ]
     assert lifecycle["durations_ms"]["request_to_final_remote"] == 13_000

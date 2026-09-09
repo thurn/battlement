@@ -236,7 +236,9 @@ def analyze_session(
                 spans, source="tollgate", name="Tollgate authorization wait", bounds=(first, finished)
             ),
             "tollgate_promotion_ms": _span_union_ms(
-                spans, source="tollgate", name="Tollgate promotion", bounds=(first, finished)
+                spans, source="tollgate",
+                name="Tollgate authorization to local promotion",
+                bounds=(first, finished),
             ),
             "unattributed_agent_turn_ms": interval_difference_ms(
                 _bounded_intervals([span for span in spans if span.category == "agent"], first, finished),
@@ -258,6 +260,9 @@ def analyze_session(
         "longest_waits": [_ranked_span(span, exclusive) for span in longest_waits],
         "largest_contributors": [_ranked_span(span, exclusive) for span in contributors],
         "ci_step_hotspots": perf_hotspots.ci_step_hotspots(normalized_spans, top),
+        "tollgate_phase_hotspots": perf_hotspots.tollgate_phase_hotspots(
+            normalized_spans, top
+        ),
         "findings": findings,
         "spans": normalized_spans,
         "transcript": sorted(session.transcript, key=lambda item: item.get("timestamp", "")),
@@ -329,6 +334,17 @@ def workflow_lifecycle(spans: list[Span], request_started: float | None) -> dict
         by_name = {
             str(span.attributes["milestone"]): span.started_at for span in candidate
         }
+        ready = max(
+            (
+                value
+                for value in (
+                    by_name.get("candidate.authorized"),
+                    by_name.get("candidate.certified"),
+                )
+                if value is not None
+            ),
+            default=None,
+        )
         deliveries.append(
             {
                 "candidate_id": candidate_id,
@@ -343,6 +359,26 @@ def workflow_lifecycle(spans: list[Span], request_started: float | None) -> dict
                 ),
                 "approval_to_remote_ms": elapsed(
                     by_name.get("candidate.authorized"),
+                    by_name.get("candidate.synchronized"),
+                ),
+                "submission_to_certification_ms": elapsed(
+                    by_name.get("candidate.submitted"),
+                    by_name.get("candidate.certified"),
+                ),
+                "authorization_to_certification_ms": elapsed(
+                    by_name.get("candidate.authorized"),
+                    by_name.get("candidate.certified"),
+                ),
+                "certification_to_authorization_ms": elapsed(
+                    by_name.get("candidate.certified"),
+                    by_name.get("candidate.authorized"),
+                ),
+                "ready_to_remote_ms": elapsed(
+                    ready,
+                    by_name.get("candidate.synchronized"),
+                ),
+                "local_promotion_to_remote_ms": elapsed(
+                    by_name.get("candidate.promoted"),
                     by_name.get("candidate.synchronized"),
                 ),
             }
@@ -395,11 +431,13 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
     waits = [span for report in reports for span in report["longest_waits"]]
     categories: dict[str, int] = defaultdict(int)
     milestone_counts: dict[str, int] = defaultdict(int)
+    deliveries: list[dict[str, Any]] = []
     for report in reports:
         for category, duration in report["timing"]["category_exclusive_ms"].items():
             categories[category] += duration
         for event in report.get("lifecycle", {}).get("events", []):
             milestone_counts[event["name"]] += 1
+        deliveries.extend(report.get("lifecycle", {}).get("deliveries", []))
     longest = sorted(
         operations, key=lambda span: span["duration_ms"], reverse=True
     )[:top]
@@ -437,14 +475,11 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
         "category_exclusive_ms": dict(sorted(categories.items())),
         "lifecycle": {
             "milestone_counts": dict(sorted(milestone_counts.items())),
-            "delivery_count": sum(
-                len(report.get("lifecycle", {}).get("deliveries", []))
-                for report in reports
-            ),
+            "deliveries": deliveries,
+            "delivery_count": len(deliveries),
             "synchronized_delivery_count": sum(
                 delivery["synchronized_at"] is not None
-                for report in reports
-                for delivery in report.get("lifecycle", {}).get("deliveries", [])
+                for delivery in deliveries
             ),
         },
         "longest_operations": longest,
@@ -453,6 +488,9 @@ def aggregate_reports(reports: list[dict[str, Any]], top: int) -> dict[str, Any]
         )[:top],
         "largest_contributors": contributors,
         "ci_step_hotspots": perf_hotspots.ci_step_hotspots(
+            [span for report in reports for span in report["spans"]], top
+        ),
+        "tollgate_phase_hotspots": perf_hotspots.tollgate_phase_hotspots(
             [span for report in reports for span in report["spans"]], top
         ),
         "longest_tasks": tasks[:top],

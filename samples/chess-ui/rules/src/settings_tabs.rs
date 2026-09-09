@@ -16,6 +16,8 @@ use battlement_reactant::{
   prelude::*,
 };
 
+const SETTINGS_TAB_COUNT: usize = 4;
+
 /// The settings categories in their display order.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum SettingsTab {
@@ -37,7 +39,8 @@ pub struct SettingsTabs {
 
 impl SettingsTab {
   /// Categories in left-to-right order.
-  pub const ALL: [Self; 4] = [Self::Gameplay, Self::Graphics, Self::Sound, Self::Input];
+  pub const ALL: [Self; SETTINGS_TAB_COUNT] =
+    [Self::Gameplay, Self::Graphics, Self::Sound, Self::Input];
 
   pub fn label(self) -> LocalizedString {
     match self {

@@ -288,6 +288,7 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
     )
     _print_ranking("Longest waits", aggregate["longest_waits"], "duration_ms")
     _print_ci_hotspots(aggregate["ci_step_hotspots"])
+    _print_tollgate_hotspots(aggregate["tollgate_phase_hotspots"])
     lifecycle = aggregate["lifecycle"]
     print(
         "\nLifecycle evidence\n"
@@ -296,6 +297,37 @@ def _print_report(report: dict[str, Any], output: Path) -> None:
     )
     for milestone, count in lifecycle["milestone_counts"].items():
         print(f"  {count:>9}  {milestone}")
+    deliveries = lifecycle["deliveries"]
+    selected_candidate = report["selection"].get("candidate")
+    if selected_candidate:
+        deliveries = [
+            delivery for delivery in deliveries
+            if delivery["candidate_id"] == selected_candidate
+        ]
+    for delivery in deliveries:
+        print(f"  candidate {delivery['candidate_id']}")
+        _print_delivery_timing(
+            "submission → certification",
+            delivery["submission_to_certification_ms"],
+        )
+        if delivery["authorization_to_certification_ms"] is not None:
+            _print_delivery_timing(
+                "authorization → certification",
+                delivery["authorization_to_certification_ms"],
+            )
+        else:
+            _print_delivery_timing(
+                "certification → authorization",
+                delivery["certification_to_authorization_ms"],
+            )
+        _print_delivery_timing("ready → remote", delivery["ready_to_remote_ms"])
+        _print_delivery_timing(
+            "local promotion → remote",
+            delivery["local_promotion_to_remote_ms"],
+        )
+        _print_delivery_timing(
+            "submission → remote", delivery["submission_to_remote_ms"]
+        )
     print("\nAggregate categories")
     for category, duration in sorted(
         aggregate["category_exclusive_ms"].items(),
@@ -357,6 +389,27 @@ def _print_ci_hotspots(entries: list[dict[str, Any]]) -> None:
             f"max {_duration(entry['max_duration_ms'])} · "
             f"{entry['run_count']} {run_label}{failure_text}  {entry['name']}"
         )
+
+
+def _print_tollgate_hotspots(entries: list[dict[str, Any]]) -> None:
+    print("\nTollgate promotion phase hotspots")
+    if not entries:
+        print("  None")
+    for entry in entries:
+        failures = entry["failed_count"]
+        failure_text = f" · {failures} failed" if failures else ""
+        print(
+            f"  {_duration(entry['total_duration_ms']):>9} total · "
+            f"{_duration(entry['average_duration_ms'])} avg · "
+            f"p95 {_duration(entry['p95_duration_ms'])} · "
+            f"max {_duration(entry['max_duration_ms'])} · "
+            f"{entry['occurrence_count']} occurrence(s){failure_text}  {entry['name']}"
+        )
+
+
+def _print_delivery_timing(label: str, milliseconds: int | None) -> None:
+    value = "unknown" if milliseconds is None else _duration(milliseconds)
+    print(f"    {value:>9}  {label}")
 
 
 def _duration(milliseconds: int) -> str:

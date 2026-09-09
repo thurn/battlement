@@ -783,12 +783,9 @@ def read_tollgate(repository_root: Path) -> tuple[list[Span], list[str], list[di
         status = _run_json_command(
             ["tg", "status", "--json", "--no-launch"], repository_root
         )
-        history = _run_json_command(
-            ["tg", "history", "--json", "--no-launch"], repository_root
-        )
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         return [], [f"Tollgate data unavailable: {error}"], []
-    if not isinstance(status, dict) or not isinstance(history, list):
+    if not isinstance(status, dict):
         return [], ["Tollgate returned an unsupported JSON shape."], []
     items_by_id = {}
     for section in ("queue", "checks", "history_items"):
@@ -806,7 +803,20 @@ def read_tollgate(repository_root: Path) -> tuple[list[Span], list[str], list[di
                 continue
             if item.get("id"):
                 items_by_id[item["id"]] = entry
-    spans: list[Span] = []
+    history, database_spans, database_warnings = _read_tollgate_database(
+        repository_root, set(items_by_id)
+    )
+    warnings.extend(database_warnings)
+    if history is None:
+        try:
+            history = _run_json_command(
+                ["tg", "history", "--json", "--no-launch"], repository_root
+            )
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+            return [], [*warnings, f"Tollgate history unavailable: {error}"], []
+    if not isinstance(history, list):
+        return [], [*warnings, "Tollgate returned unsupported history data."], []
+    spans: list[Span] = list(database_spans)
     candidates: list[dict[str, Any]] = []
     history_by_candidate: dict[str, list[dict[str, Any]]] = {}
     unsupported_history_payloads = 0
@@ -852,6 +862,233 @@ def read_tollgate(repository_root: Path) -> tuple[list[Span], list[str], list[di
         )
         _append_tollgate_spans(spans, item, attempts, history_events)
     return spans, warnings, candidates
+
+
+def _read_tollgate_database(
+    repository_root: Path,
+    candidate_ids: set[str],
+) -> tuple[list[dict[str, Any]] | None, list[Span], list[str]]:
+    """Read complete lifecycle and operation timings from Tollgate's local database."""
+    database = _tollgate_database_path(repository_root)
+    if database is None or not database.is_file():
+        return None, [], []
+    try:
+        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+        try:
+            history = _database_candidate_history(connection, candidate_ids)
+            spans = _database_promotion_spans(connection, history, candidate_ids)
+        finally:
+            connection.close()
+    except (OSError, sqlite3.Error, json.JSONDecodeError, TypeError, ValueError) as error:
+        return None, [], [f"Tollgate database timing data unavailable: {error}"]
+    return history, spans, []
+
+
+def _tollgate_database_path(repository_root: Path) -> Path | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    common = Path(result.stdout.strip())
+    if not common.is_absolute():
+        common = repository_root / common
+    return common.resolve() / "tollgate/state.sqlite3"
+
+
+def _database_candidate_history(
+    connection: sqlite3.Connection,
+    candidate_ids: set[str],
+) -> list[dict[str, Any]]:
+    if not candidate_ids:
+        return []
+    placeholders = ",".join("?" for _ in candidate_ids)
+    identifiers = sorted(candidate_ids)
+    query = (
+        "SELECT event_json FROM events WHERE kind IN "
+        "('candidate.created','candidate.promotion-authorized','queue.item-updated',"
+        "'promotion.completed') AND ("
+        f"json_extract(event_json, '$.payload.id') IN ({placeholders}) OR "
+        f"json_extract(event_json, '$.payload.item_id') IN ({placeholders})) "
+        "ORDER BY sequence"
+    )
+    return [
+        json.loads(row[0])
+        for row in connection.execute(query, [*identifiers, *identifiers])
+    ]
+
+
+def _database_promotion_spans(
+    connection: sqlite3.Connection,
+    history: list[dict[str, Any]],
+    candidate_ids: set[str],
+) -> list[Span]:
+    boundaries: dict[str, dict[str, float]] = {}
+    for event in history:
+        payload = event.get("payload", {})
+        if not isinstance(payload, dict):
+            continue
+        candidate_id = payload.get("item_id") or payload.get("id")
+        timestamp = parse_timestamp(event.get("created_at"))
+        if candidate_id not in candidate_ids or timestamp is None:
+            continue
+        candidate = boundaries.setdefault(candidate_id, {})
+        if event.get("kind") == "candidate.promotion-authorized":
+            candidate["authorized"] = timestamp
+        elif event.get("kind") == "queue.item-updated" and payload.get("certificate_id"):
+            candidate.setdefault("certified", timestamp)
+
+    intents = []
+    query = (
+        "SELECT intent_id, kind, state, command_id, expected_json, created_at, updated_at "
+        "FROM operation_intents WHERE kind IN "
+        "('promotion','push','backup','user-master-sync','cleanup') "
+        "ORDER BY CAST(created_at AS INTEGER)"
+    )
+    for intent_id, kind, state, command_id, expected_json, created_at, updated_at in connection.execute(query):
+        expected = json.loads(expected_json)
+        started = _nanosecond_timestamp(created_at)
+        finished = _nanosecond_timestamp(updated_at)
+        candidate_id = expected.get("item_id") or expected.get("queue_item_id")
+        intents.append(
+            {
+                "id": intent_id,
+                "kind": kind,
+                "state": state,
+                "command_id": command_id,
+                "candidate_id": candidate_id,
+                "started": started,
+                "finished": finished,
+                "expected": expected,
+            }
+        )
+    observations = {
+        intent_id: _nanosecond_timestamp(observed_at)
+        for intent_id, observed_at in connection.execute(
+            "SELECT intent_id, observed_at FROM remote_observations "
+            "WHERE method='promotion-preflight-fetch'"
+        )
+    }
+    pushes = [
+        intent for intent in intents
+        if intent["kind"] == "push" and intent["candidate_id"] in candidate_ids
+    ]
+    direct = {
+        (intent["candidate_id"], intent["kind"]): intent
+        for intent in intents
+        if intent["candidate_id"] in candidate_ids
+    }
+    backups = [intent for intent in intents if intent["kind"] == "backup"]
+    spans: list[Span] = []
+    for push in pushes:
+        candidate_id = push["candidate_id"]
+        attributes = {
+            "candidate_id": candidate_id,
+            "command_id": push["command_id"],
+            "operation_state": push["state"],
+            "timing_source": "tollgate_operation_intent",
+        }
+        pipeline_id = f"tg-pipeline:{push['id']}"
+        _append_tollgate_phase(
+            spans, pipeline_id, None, "Tollgate promotion pipeline",
+            push["started"], push["finished"], attributes, push["state"], container=True,
+        )
+        ready = max(boundaries.get(candidate_id, {}).values(), default=None)
+        if ready is not None:
+            _append_tollgate_phase(
+                spans, f"tg-ready:{push['id']}", pipeline_id,
+                "Tollgate ready dispatch", ready, push["started"], attributes, "completed",
+            )
+        observed = observations.get(push["id"])
+        _append_tollgate_phase(
+            spans, f"tg-preflight:{push['id']}", pipeline_id,
+            "Tollgate remote preflight", push["started"], observed, attributes, push["state"],
+        )
+        promotion = direct.get((candidate_id, "promotion"))
+        if promotion is not None:
+            _append_tollgate_phase(
+                spans, f"tg-local-promotion:{promotion['id']}", pipeline_id,
+                "Tollgate local promotion", promotion["started"], promotion["finished"],
+                attributes, promotion["state"],
+            )
+        backup = next(
+            (
+                intent for intent in backups
+                if push["started"] <= intent["started"] <= push["finished"]
+            ),
+            None,
+        )
+        if backup is not None:
+            backup_attributes = {
+                **attributes,
+                "reserved_allowance_bytes": backup["expected"].get("allowance"),
+            }
+            _append_tollgate_phase(
+                spans, f"tg-backup:{backup['id']}", pipeline_id,
+                "Tollgate database backup", backup["started"], backup["finished"],
+                backup_attributes, backup["state"],
+            )
+        master_sync = direct.get((candidate_id, "user-master-sync"))
+        push_started = backup["finished"] if backup is not None else (
+            promotion["finished"] if promotion is not None else observed
+        )
+        push_finished = master_sync["started"] if master_sync is not None else push["finished"]
+        _append_tollgate_phase(
+            spans, f"tg-remote-push:{push['id']}", pipeline_id,
+            "Tollgate remote push", push_started, push_finished,
+            {**attributes, "timing_source": "inferred_between_operation_intents"},
+            push["state"],
+        )
+        if master_sync is not None:
+            _append_tollgate_phase(
+                spans, f"tg-master-sync:{master_sync['id']}", pipeline_id,
+                "Tollgate user-master synchronization", master_sync["started"],
+                master_sync["finished"], attributes, master_sync["state"],
+            )
+        cleanup = direct.get((candidate_id, "cleanup"))
+        if cleanup is not None:
+            _append_tollgate_phase(
+                spans, f"tg-cleanup:{cleanup['id']}", None,
+                "Tollgate source cleanup", cleanup["started"], cleanup["finished"],
+                attributes, cleanup["state"],
+            )
+    return spans
+
+
+def _append_tollgate_phase(
+    spans: list[Span],
+    span_id: str,
+    parent_id: str | None,
+    name: str,
+    started: float | None,
+    finished: float | None,
+    attributes: dict[str, Any],
+    state: str,
+    *,
+    container: bool = False,
+) -> None:
+    if started is None or finished is None or finished < started:
+        return
+    spans.append(
+        Span(
+            span_id, parent_id, None, "tollgate", "tollgate-phase", name,
+            started, finished, "passed" if state == "completed" else state,
+            attributes=attributes, container=container,
+        )
+    )
+
+
+def _nanosecond_timestamp(value: Any) -> float | None:
+    try:
+        return int(value) / 1_000_000_000
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def _append_tollgate_spans(
@@ -990,7 +1227,8 @@ def _append_tollgate_spans(
         spans.append(
             Span(
                 f"tg-promotion:{candidate_id}", None, None, "tollgate", "wait",
-                "Tollgate promotion", authorized, completion, "passed",
+                "Tollgate authorization to local promotion", authorized, completion,
+                "passed",
                 attributes=lifecycle_attributes,
             )
         )
