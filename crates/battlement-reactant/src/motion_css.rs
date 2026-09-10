@@ -1,6 +1,9 @@
 //! CSS-style transitions, reusable animations, and decoration layers.
 
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{
+  hash::{DefaultHasher, Hash, Hasher},
+  io,
+};
 
 use battlement::{
   AdditiveRule, AnimationComposition as ProtocolComposition,
@@ -561,11 +564,26 @@ fn animation_restart_key(
   fill: AnimationFill,
   composition: AnimationComposition,
 ) -> u64 {
-  let bytes = serde_json::to_vec(&(slot, tracks, direction, fill, composition))
-    .expect("CSS animation restart settings serialize");
   let mut hasher = DefaultHasher::new();
-  hasher.write(&bytes);
+  serde_json::to_writer(
+    HasherWriter(&mut hasher),
+    &(slot, tracks, direction, fill, composition),
+  )
+  .expect("CSS animation restart settings serialize");
   hasher.finish()
+}
+
+struct HasherWriter<'a>(&'a mut DefaultHasher);
+
+impl io::Write for HasherWriter<'_> {
+  fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+    self.0.write(bytes);
+    Ok(bytes.len())
+  }
+
+  fn flush(&mut self) -> io::Result<()> {
+    Ok(())
+  }
 }
 
 fn validate_transition(value: &Transition) {

@@ -99,7 +99,7 @@ impl PreparedFacade {
       let prior_generation = previous_motion
         .as_ref()
         .map_or(MotionGeneration(1), |value| value.generation);
-      let same_generation = metadata.motion.descriptor(
+      let mut descriptor = metadata.motion.descriptor(
         node.object_id,
         prior_generation,
         &resolved_variants,
@@ -107,27 +107,21 @@ impl PreparedFacade {
       );
       node.element.visual_element_mut().motion = if previous_motion
         .as_ref()
-        .is_some_and(|previous| &same_generation == previous)
+        .is_some_and(|previous| &descriptor == previous)
       {
-        Prop::Set(same_generation)
+        Prop::Set(descriptor)
       } else {
-        let generation = previous_motion
-          .as_ref()
-          .map_or(MotionGeneration(1), |value| {
-            MotionGeneration(
-              value
-                .generation
-                .0
-                .checked_add(1)
-                .expect("motion generation exhausted"),
-            )
-          });
-        Prop::Set(metadata.motion.descriptor(
-          node.object_id,
-          generation,
-          &resolved_variants,
-          previous_motion.as_ref(),
-        ))
+        if let Some(previous) = &previous_motion {
+          let generation = MotionGeneration(
+            previous
+              .generation
+              .0
+              .checked_add(1)
+              .expect("motion generation exhausted"),
+          );
+          set_motion_generation(&mut descriptor, generation);
+        }
+        Prop::Set(descriptor)
       };
     } else if previous_motion.is_some() {
       node.element.visual_element_mut().motion = Prop::Reset;
@@ -170,6 +164,21 @@ impl PreparedFacade {
       exit_blueprint,
       presence: None,
       children,
+    }
+  }
+}
+
+fn set_motion_generation(descriptor: &mut MotionDescriptor, generation: MotionGeneration) {
+  descriptor.generation = generation;
+  for slot in &mut descriptor.slots {
+    slot.generation = generation;
+  }
+  for animation in &mut descriptor.animations {
+    animation.generation = generation.0;
+  }
+  for decoration in &mut descriptor.decorations {
+    for animation in &mut decoration.animations {
+      animation.generation = generation.0;
     }
   }
 }
