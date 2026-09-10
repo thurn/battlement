@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
@@ -11,6 +12,8 @@ namespace Battlement
 {
     internal static class BattlementUnionPayload
     {
+        private static readonly ConcurrentDictionary<Type, bool> UnitTypes = new();
+
         internal static (string Tag, JToken Payload) ReadTag(JToken token, Type objectType)
         {
             if (token.Type == JTokenType.String)
@@ -114,7 +117,11 @@ namespace Battlement
             ?? ToSnakeCase(property.Name);
 
         internal static bool IsUnit(Type type) =>
-            type.GetProperties(BindingFlags.Instance | BindingFlags.Public).Length == 0;
+            UnitTypes.GetOrAdd(
+                type,
+                value =>
+                    value.GetProperties(BindingFlags.Instance | BindingFlags.Public).Length == 0
+            );
 
         internal static bool IsPropertyCommand(Type type) =>
             typeof(IPropertyCommandBody).IsAssignableFrom(type);

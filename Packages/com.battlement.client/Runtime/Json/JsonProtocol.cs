@@ -7,7 +7,6 @@ using System.IO;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
 namespace Battlement
@@ -63,6 +62,7 @@ namespace Battlement
             try
             {
                 string text = StrictUtf8.GetString(bytes.Span);
+                ValidateTokens(text);
                 var serializer = JsonSerializer.Create(Settings);
                 AddConverters(serializer, converters);
                 using var stringReader = new StringReader(text);
@@ -71,13 +71,7 @@ namespace Battlement
                     DateParseHandling = DateParseHandling.None,
                     MaxDepth = 128,
                 };
-                JToken token = JToken.ReadFrom(
-                    reader,
-                    new JsonLoadSettings
-                    {
-                        DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error,
-                    }
-                );
+                T? value = serializer.Deserialize<T>(reader);
                 if (reader.Read())
                 {
                     throw new JsonSerializationException(
@@ -85,7 +79,7 @@ namespace Battlement
                     );
                 }
 
-                return token.ToObject<T>(serializer)
+                return value
                     ?? throw new JsonSerializationException(
                         "A required Battlement value was null."
                     );
@@ -111,6 +105,48 @@ namespace Battlement
             foreach (JsonConverter converter in converters)
             {
                 serializer.Converters.Insert(0, converter);
+            }
+        }
+
+        private static void ValidateTokens(string text)
+        {
+            using var stringReader = new StringReader(text);
+            using var reader = new JsonTextReader(stringReader)
+            {
+                DateParseHandling = DateParseHandling.None,
+                MaxDepth = 128,
+            };
+            var properties = new Stack<HashSet<string>?>();
+
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonToken.StartObject)
+                {
+                    properties.Push(new HashSet<string>(StringComparer.Ordinal));
+                }
+                else if (reader.TokenType == JsonToken.StartArray)
+                {
+                    properties.Push(null);
+                }
+                else if (
+                    reader.TokenType == JsonToken.EndObject
+                    || reader.TokenType == JsonToken.EndArray
+                )
+                {
+                    properties.Pop();
+                }
+                else if (reader.TokenType == JsonToken.PropertyName)
+                {
+                    HashSet<string>? names = properties.Peek();
+                    string name = (string)reader.Value!;
+                    if (names is not null && !names.Add(name))
+                    {
+                        throw new JsonSerializationException(
+                            $"Property with the name '{name}' already exists "
+                                + "in the current JSON object."
+                        );
+                    }
+                }
             }
         }
     }

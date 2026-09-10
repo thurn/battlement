@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -49,6 +50,8 @@ namespace Battlement
 
     internal sealed class PropJsonConverter : JsonConverter
     {
+        private static readonly ConcurrentDictionary<Type, IPropFactory> Factories = new();
+
         public override bool CanConvert(Type objectType) =>
             objectType.IsGenericType && objectType.GetGenericTypeDefinition() == typeof(Prop<>);
 
@@ -59,16 +62,21 @@ namespace Battlement
             JsonSerializer serializer
         )
         {
-            JToken token = JToken.Load(reader);
             Type valueType = objectType.GetGenericArguments()[0];
-            if (token.Type == JTokenType.Null)
-                return Create(nameof(ResetValue), valueType, null);
-            if (valueType == typeof(bool) && token.Type != JTokenType.Boolean)
+            IPropFactory factory = Factories.GetOrAdd(
+                valueType,
+                type =>
+                    (IPropFactory)
+                        Activator.CreateInstance(typeof(PropFactory<>).MakeGenericType(type))!
+            );
+            if (reader.TokenType == JsonToken.Null)
+                return factory.Reset();
+            if (valueType == typeof(bool) && reader.TokenType != JsonToken.Boolean)
                 throw new JsonSerializationException("A Boolean property must be true or false.");
             object value =
-                token.ToObject(valueType, serializer)
+                serializer.Deserialize(reader, valueType)
                 ?? throw new JsonSerializationException("A set property value cannot be null.");
-            return Create(nameof(SetValue), valueType, value);
+            return factory.Set(value);
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
@@ -94,19 +102,25 @@ namespace Battlement
             throw new JsonSerializationException("An unset property must be omitted.");
         }
 
-        private static object Create(string method, Type valueType, object? value) =>
-            typeof(PropJsonConverter)
-                .GetMethod(method, BindingFlags.NonPublic | BindingFlags.Static)!
-                .MakeGenericMethod(valueType)
-                .Invoke(null, value is null ? null : new[] { value })!;
+        private interface IPropFactory
+        {
+            object Reset();
 
-        private static Prop<T> SetValue<T>(object value) => Prop<T>.Set((T)value);
+            object Set(object value);
+        }
 
-        private static Prop<T> ResetValue<T>() => Prop<T>.Reset();
+        private sealed class PropFactory<T> : IPropFactory
+        {
+            public object Reset() => Prop<T>.Reset();
+
+            public object Set(object value) => Prop<T>.Set((T)value);
+        }
     }
 
     internal sealed class UiStyleValueConverter : JsonConverter
     {
+        private static readonly ConcurrentDictionary<Type, IUiStyleFactory> Factories = new();
+
         public override bool CanConvert(Type objectType) =>
             objectType.IsGenericType
             && objectType.GetGenericTypeDefinition() == typeof(UiStyleValue<>);
@@ -120,23 +134,26 @@ namespace Battlement
         {
             JToken token = JToken.Load(reader);
             Type valueType = objectType.GetGenericArguments()[0];
+            IUiStyleFactory factory = Factories.GetOrAdd(
+                valueType,
+                type =>
+                    (IUiStyleFactory)
+                        Activator.CreateInstance(typeof(UiStyleFactory<>).MakeGenericType(type))!
+            );
             if (
                 token is JObject keywordObject
                 && keywordObject.Count == 1
                 && keywordObject.TryGetValue("Keyword", out JToken? keywordToken)
             )
             {
-                object? defaultValue = valueType.IsValueType
-                    ? Activator.CreateInstance(valueType)
-                    : null;
                 UiInlineKeyword keyword = keywordToken.ToObject<UiInlineKeyword>(serializer);
-                return Activator.CreateInstance(objectType, defaultValue, keyword)!;
+                return factory.CreateKeyword(keyword);
             }
 
             object value =
                 token.ToObject(valueType, serializer)
                 ?? throw new JsonSerializationException("A concrete UI style value was null.");
-            return Activator.CreateInstance(objectType, value, null)!;
+            return factory.CreateValue(value);
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
@@ -154,6 +171,21 @@ namespace Battlement
                 return;
             }
             serializer.Serialize(writer, type.GetProperty("Value")!.GetValue(value));
+        }
+
+        private interface IUiStyleFactory
+        {
+            object CreateKeyword(UiInlineKeyword keyword);
+
+            object CreateValue(object value);
+        }
+
+        private sealed class UiStyleFactory<T> : IUiStyleFactory
+        {
+            public object CreateKeyword(UiInlineKeyword keyword) =>
+                new UiStyleValue<T>(default!, keyword);
+
+            public object CreateValue(object value) => new UiStyleValue<T>((T)value);
         }
     }
 

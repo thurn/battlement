@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
@@ -10,6 +11,8 @@ namespace Battlement
 {
     internal sealed class BattlementUnionConverter : JsonConverter
     {
+        private static readonly ConcurrentDictionary<Type, bool> ConvertibleTypes = new();
+
         public override bool CanConvert(Type objectType)
         {
             if (BattlementUnionTypeGuard.IsDisabled(objectType))
@@ -17,6 +20,11 @@ namespace Battlement
                 return false;
             }
 
+            return ConvertibleTypes.GetOrAdd(objectType, ComputeCanConvert);
+        }
+
+        private static bool ComputeCanConvert(Type objectType)
+        {
             if (
                 objectType == typeof(ICommand)
                 || objectType == typeof(CommandBody)
@@ -72,8 +80,7 @@ namespace Battlement
                 );
             }
 
-            JToken token = JToken.Load(reader);
-            if (token.Type == JTokenType.Null)
+            if (reader.TokenType == JsonToken.Null)
             {
                 if (objectType.IsValueType)
                 {
@@ -85,38 +92,84 @@ namespace Battlement
                 return null!;
             }
 
-            (string tag, JToken payload) = BattlementUnionPayload.ReadTag(token, objectType);
-            Type target = ResolveCase(objectType, tag);
-            if (target is null)
+            if (reader.TokenType == JsonToken.String)
             {
-                throw new JsonSerializationException($"Unknown {objectType.Name} variant '{tag}'.");
+                string unitTag =
+                    (string?)reader.Value
+                    ?? throw new JsonSerializationException("A union tag cannot be null.");
+                Type unitTarget = ResolveCase(objectType, unitTag);
+                if (!BattlementUnionPayload.IsUnit(unitTarget))
+                {
+                    throw new JsonSerializationException(
+                        $"Variant '{unitTag}' requires a payload."
+                    );
+                }
+
+                return Activator.CreateInstance(unitTarget)!;
             }
 
+            if (reader.TokenType != JsonToken.StartObject || !reader.Read())
+            {
+                throw new JsonSerializationException(
+                    $"Externally tagged union {objectType.Name} requires one JSON property."
+                );
+            }
+
+            if (reader.TokenType != JsonToken.PropertyName || reader.Value is not string tag)
+            {
+                throw new JsonSerializationException(
+                    $"Externally tagged union {objectType.Name} requires one JSON property."
+                );
+            }
+
+            Type target = ResolveCase(objectType, tag);
+            if (!reader.Read())
+            {
+                throw new JsonSerializationException($"Variant '{tag}' has no payload.");
+            }
+
+            object value;
             if (BattlementUnionPayload.IsUnit(target))
             {
-                if (payload.Type != JTokenType.Null)
+                if (reader.TokenType != JsonToken.Null)
                 {
                     throw new JsonSerializationException($"Unit variant '{tag}' has a payload.");
                 }
 
-                return Activator.CreateInstance(target)!;
+                value = Activator.CreateInstance(target)!;
             }
-
-            if (BattlementUnionPayload.IsPropertyCommand(target))
+            else if (BattlementUnionPayload.IsPropertyCommand(target))
             {
-                payload = BattlementUnionPayload.FlattenPropertyPayload(payload);
+                JToken payload = BattlementUnionPayload.FlattenPropertyPayload(JToken.Load(reader));
+                value = BattlementUnionRecordFactory.CreateValue(
+                    target,
+                    payload,
+                    serializer,
+                    directPayload: false
+                );
+            }
+            else
+            {
+                bool directPayload =
+                    IsWrapperUnion(objectType)
+                    || BattlementUnionPayload.IsScalarUnion(objectType)
+                    || BattlementUnionPayload.IsDirectPayload(target);
+                value = BattlementUnionRecordFactory.CreateValue(
+                    target,
+                    reader,
+                    serializer,
+                    directPayload
+                );
             }
 
-            bool directPayload =
-                IsWrapperUnion(objectType)
-                || BattlementUnionPayload.IsScalarUnion(objectType)
-                || BattlementUnionPayload.IsDirectPayload(target);
-            return BattlementUnionRecordFactory.CreateValue(
-                target,
-                payload,
-                serializer,
-                directPayload
-            );
+            if (!reader.Read() || reader.TokenType != JsonToken.EndObject)
+            {
+                throw new JsonSerializationException(
+                    $"Externally tagged union {objectType.Name} requires one JSON property."
+                );
+            }
+
+            return value;
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
