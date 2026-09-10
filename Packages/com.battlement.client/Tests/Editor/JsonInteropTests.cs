@@ -679,6 +679,42 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void FailedUnionPayloadConversionDoesNotPoisonTheNextConversion()
+        {
+            Assert.Throws<JsonSerializationException>(() =>
+                BattlementJson.Deserialize<ActionBody>(
+                    Encoding.UTF8.GetBytes(
+                        "{\"ControllerButtonDown\":{\"controller_id\":{},"
+                            + "\"button\":\"South\"}}"
+                    )
+                )
+            );
+
+            ActionBody decoded = BattlementJson.Deserialize<ActionBody>(
+                Encoding.UTF8.GetBytes(
+                    "{\"ControllerButtonDown\":{\"controller_id\":7," + "\"button\":\"South\"}}"
+                )
+            );
+            Assert.That(
+                decoded,
+                Is.EqualTo(new ActionBody.ControllerButtonDown(7, ControllerButton.South))
+            );
+
+            JObject encoded = JObject.Parse(
+                Encoding.UTF8.GetString(
+                    BattlementJson.SerializeAction(
+                        new Action(
+                            new ActionId(JSONFixtureData.GuidAt(480)),
+                            new SessionId(JSONFixtureData.SessionGuid),
+                            decoded
+                        )
+                    )
+                )
+            );
+            Assert.That(encoded.SelectToken("Action.body.ControllerButtonDown"), Is.Not.Null);
+        }
+
+        [Test]
         public void MalformedInputIsRejected()
         {
             byte[] connect = BattlementJson.SerializeConnect(JSONFixtureData.Connect());
