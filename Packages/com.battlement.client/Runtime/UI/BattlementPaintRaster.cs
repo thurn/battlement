@@ -21,6 +21,10 @@ namespace Battlement.UI
         private Vector2[] cachedPoints = Array.Empty<Vector2>();
         private UnityRect cachedRect;
         private UnityRect bounds;
+        private UnityColor[] pixels = Array.Empty<UnityColor>();
+        private float[] alpha = Array.Empty<float>();
+        private float[] workA = Array.Empty<float>();
+        private float[] workB = Array.Empty<float>();
 
         public void Draw(
             MeshGenerationContext context,
@@ -36,7 +40,6 @@ namespace Battlement.UI
                 ReferenceEquals(cachedFilters, filters) && cachedPoints.SequenceEqual(points);
             if (!sameFill || !sameGeometry || cachedMask != mask)
             {
-                Dispose();
                 cachedFill = fill;
                 cachedMask = mask;
                 cachedFilters = filters;
@@ -86,6 +89,10 @@ namespace Battlement.UI
             if (texture != null)
                 UnityEngine.Object.DestroyImmediate(texture);
             texture = null;
+            pixels = Array.Empty<UnityColor>();
+            alpha = Array.Empty<float>();
+            workA = Array.Empty<float>();
+            workB = Array.Empty<float>();
         }
 
         private void Rasterize(
@@ -117,7 +124,9 @@ namespace Battlement.UI
                 throw new InvalidOperationException(
                     "Filtered paint exceeds the 8192-pixel surface limit."
                 );
-            var pixels = new UnityColor[width * height];
+            int count = width * height;
+            EnsureCapacity(ref pixels, count);
+            Array.Clear(pixels, 0, count);
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
             {
@@ -131,7 +140,7 @@ namespace Battlement.UI
             {
                 if (filter is UiFilterFunction.Brightness brightness)
                 {
-                    for (int i = 0; i < pixels.Length; i++)
+                    for (int i = 0; i < count; i++)
                     {
                         pixels[i].r = Mathf.Min(1, pixels[i].r * (float)brightness.Value);
                         pixels[i].g = Mathf.Min(1, pixels[i].g * (float)brightness.Value);
@@ -141,19 +150,24 @@ namespace Battlement.UI
                 else if (filter is UiFilterFunction.DropShadow shadow)
                     Shadow(pixels, width, height, shadow.Value);
             }
-            var upload = new Color32[pixels.Length];
+            var upload = new Color32[count];
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
                 upload[(height - 1 - y) * width + x] = pixels[y * width + x];
-            texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            if (texture == null || texture.width != width || texture.height != height)
             {
-                name = "Battlement owned paint",
-                hideFlags = HideFlags.HideAndDontSave,
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            };
+                if (texture != null)
+                    UnityEngine.Object.DestroyImmediate(texture);
+                texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+                {
+                    name = "Battlement owned paint",
+                    hideFlags = HideFlags.HideAndDontSave,
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp,
+                };
+            }
             texture.SetPixels32(upload);
-            texture.Apply(false, true);
+            texture.Apply(false, false);
         }
 
         private void ApplyMask(
@@ -245,43 +259,48 @@ namespace Battlement.UI
             return Color(stops[stops.Count - 1].Color);
         }
 
-        private static void Shadow(UnityColor[] pixels, int width, int height, Shadow shadow)
+        private void Shadow(UnityColor[] pixels, int width, int height, Shadow shadow)
         {
-            var alpha = new float[pixels.Length];
-            for (int i = 0; i < pixels.Length; i++)
+            int count = width * height;
+            EnsureCapacity(ref alpha, count);
+            EnsureCapacity(ref workA, count);
+            EnsureCapacity(ref workB, count);
+            for (int i = 0; i < count; i++)
                 alpha[i] = pixels[i].a;
+            float[] silhouette = alpha;
             if (shadow.Spread != 0)
-                alpha = Spread(
-                    alpha,
+            {
+                Spread(
+                    silhouette,
+                    workA,
                     width,
                     height,
                     (int)Math.Ceiling(Math.Abs(shadow.Spread)),
                     shadow.Spread > 0
                 );
+                silhouette = workA;
+            }
             if (shadow.Blur > 0)
             {
                 float[] kernel = Kernel((float)shadow.Blur);
-                alpha = Blur(
-                    Blur(alpha, width, height, kernel, true),
-                    width,
-                    height,
-                    kernel,
-                    false
-                );
+                Blur(silhouette, workB, width, height, kernel, true);
+                float[] destination = ReferenceEquals(silhouette, alpha) ? workA : alpha;
+                Blur(workB, destination, width, height, kernel, false);
+                silhouette = destination;
             }
             UnityColor tint = Color(shadow.Color);
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
             {
                 int i = y * width + x;
-                float silhouette = SampleAlpha(
-                    alpha,
+                float shadowAlpha = SampleAlpha(
+                    silhouette,
                     width,
                     height,
                     x - (float)shadow.X,
                     y - (float)shadow.Y
                 );
-                float a = silhouette * tint.a * (1 - pixels[i].a);
+                float a = shadowAlpha * tint.a * (1 - pixels[i].a);
                 float total = pixels[i].a + a;
                 UnityColor result =
                     (pixels[i] * pixels[i].a + tint * a) / Math.Max(total, 0.000001f);
@@ -302,15 +321,15 @@ namespace Battlement.UI
             return kernel;
         }
 
-        private static float[] Blur(
+        private static void Blur(
             float[] source,
+            float[] result,
             int width,
             int height,
             float[] kernel,
             bool horizontal
         )
         {
-            var result = new float[source.Length];
             int radius = kernel.Length / 2;
             Parallel.For(
                 0,
@@ -318,21 +337,30 @@ namespace Battlement.UI
                 y =>
                 {
                     for (int x = 0; x < width; x++)
-                    for (int k = -radius; k <= radius; k++)
                     {
-                        int sx = horizontal ? x + k : x;
-                        int sy = horizontal ? y : y + k;
-                        if (InBounds(sx, sy, width, height))
-                            result[y * width + x] += source[sy * width + sx] * kernel[k + radius];
+                        result[y * width + x] = 0;
+                        for (int k = -radius; k <= radius; k++)
+                        {
+                            int sx = horizontal ? x + k : x;
+                            int sy = horizontal ? y : y + k;
+                            if (InBounds(sx, sy, width, height))
+                                result[y * width + x] +=
+                                    source[sy * width + sx] * kernel[k + radius];
+                        }
                     }
                 }
             );
-            return result;
         }
 
-        private static float[] Spread(float[] source, int width, int height, int radius, bool grow)
+        private static void Spread(
+            float[] source,
+            float[] result,
+            int width,
+            int height,
+            int radius,
+            bool grow
+        )
         {
-            var result = new float[source.Length];
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
             {
@@ -349,7 +377,12 @@ namespace Battlement.UI
                 }
                 result[y * width + x] = value;
             }
-            return result;
+        }
+
+        private static void EnsureCapacity<T>(ref T[] buffer, int count)
+        {
+            if (buffer.Length < count)
+                buffer = new T[count];
         }
 
         private static bool Contains(IReadOnlyList<Vector2> points, Vector2 point)
