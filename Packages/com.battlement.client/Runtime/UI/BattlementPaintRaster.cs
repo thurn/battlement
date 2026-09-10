@@ -133,6 +133,23 @@ namespace Battlement.UI
                     "Filtered paint exceeds the 8192-pixel surface limit."
                 );
             int count = width * height;
+            if (
+                filters.Count == 0
+                && mask == null
+                && BattlementRadialGradientRaster.TryFill(
+                    width,
+                    height,
+                    bounds,
+                    rect,
+                    points,
+                    fill,
+                    out Color32[] radialPixels
+                )
+            )
+            {
+                texture = CreateTexture(width, height, radialPixels);
+                return;
+            }
             EnsureCapacity(ref pixels, count);
             Array.Clear(pixels, 0, count);
             FillPolygon(pixels, width, height, rect, points, fill);
@@ -170,15 +187,21 @@ namespace Battlement.UI
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
                 upload[(height - 1 - y) * width + x] = pixels[y * width + x];
-            texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            texture = CreateTexture(width, height, upload);
+        }
+
+        private static Texture2D CreateTexture(int width, int height, Color32[] pixels)
+        {
+            var result = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 name = "Battlement cached paint",
                 hideFlags = HideFlags.HideAndDontSave,
                 filterMode = FilterMode.Bilinear,
                 wrapMode = TextureWrapMode.Clamp,
             };
-            texture.SetPixels32(upload);
-            texture.Apply(false, false);
+            result.SetPixels32(pixels);
+            result.Apply(false, false);
+            return result;
         }
 
         private void ApplyMask(

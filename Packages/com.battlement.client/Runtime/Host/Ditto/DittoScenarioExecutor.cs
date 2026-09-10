@@ -582,6 +582,8 @@ namespace Battlement
             switch (phase)
             {
                 case Phase.PointerPressPresentation:
+                    if (!presentationChanged)
+                        return;
                     string? pointerDiagnostic = null;
                     if (
                         pointerClickTarget is not ObjectId target
