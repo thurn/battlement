@@ -261,7 +261,7 @@ namespace Battlement
                 );
             return new DittoObservationRegion(
                 checked((uint)left),
-                checked(height - (uint)bottom),
+                checked((uint)top),
                 checked((uint)(right - left)),
                 checked((uint)(bottom - top))
             );

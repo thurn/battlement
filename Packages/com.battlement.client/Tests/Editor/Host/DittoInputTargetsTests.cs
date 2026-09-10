@@ -15,7 +15,7 @@ namespace Battlement.Tests
     public sealed class DittoInputTargetsTests
     {
         [Test]
-        public void ObservationRegionPadsClampsAndConvertsToFramebufferCoordinates()
+        public void ObservationRegionPadsAndClampsScreenCaptureCoordinates()
         {
             DittoObservationRegion region = DittoInputTargets.ObservationRegion(
                 new UnityEngine.Rect(2.25f, 10.5f, 20.5f, 30.25f),
@@ -23,7 +23,7 @@ namespace Battlement.Tests
                 80
             );
 
-            Assert.That(region, Is.EqualTo(new DittoObservationRegion(0, 35, 27, 39)));
+            Assert.That(region, Is.EqualTo(new DittoObservationRegion(0, 6, 27, 39)));
         }
 
         [UnityTest]
