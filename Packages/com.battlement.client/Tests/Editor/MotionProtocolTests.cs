@@ -2,6 +2,7 @@
 
 using System;
 using System.Text;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
@@ -123,6 +124,36 @@ namespace Battlement.Tests
             StringAssert.Contains("\"CubicBezier\"", text);
             StringAssert.Contains("\"Discrete\":\"hidden\"", text);
             StringAssert.Contains($"\"Time\":{{\"Controlled\":\"{clockId.Value}\"}}", text);
+        }
+
+        [Test]
+        public void CompactMotionArraysRejectMissingNullAndExtraRequiredValues()
+        {
+            foreach (
+                string malformed in new[]
+                {
+                    "null",
+                    "[\"Immediate\",0,\"None\",0]",
+                    "[null,0,\"None\",0,\"Loop\"]",
+                    "[\"Immediate\",0,\"None\",0,\"Loop\",false]",
+                }
+            )
+            {
+                Assert.Throws<JsonSerializationException>(() =>
+                    BattlementJson.Deserialize<TransitionDefinition>(
+                        Encoding.UTF8.GetBytes(malformed)
+                    )
+                );
+            }
+
+            const string missingTransition =
+                "[[[\"Immediate\",0,\"None\",0,\"Loop\"]],"
+                + "[[\"Opacity\",[{\"Scalar\":1}],null,1]],[]]";
+            Assert.Throws<JsonSerializationException>(() =>
+                BattlementJson.Deserialize<MotionTargetDescriptor>(
+                    Encoding.UTF8.GetBytes(missingTransition)
+                )
+            );
         }
 
         [Test]

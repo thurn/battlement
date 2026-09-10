@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use battlement_types::ObjectId;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::MotionVariantResolution;
 use crate::{
@@ -85,12 +85,68 @@ impl MotionPropertyTrack {
 }
 
 /// One flattened target layer with unique property ownership.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct MotionTargetDescriptor {
   /// Independently sampled property tracks.
   pub tracks: Vec<MotionPropertyTrack>,
   /// Values assigned atomically after successful finite completion.
   pub transition_end: Vec<MotionPropertyValue>,
+}
+
+impl Serialize for MotionTargetDescriptor {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    let mut transitions = Vec::<&TransitionDefinition>::new();
+    let tracks = self
+      .tracks
+      .iter()
+      .map(|track| {
+        let transition = transitions
+          .iter()
+          .position(|value| **value == track.transition)
+          .unwrap_or_else(|| {
+            transitions.push(&track.transition);
+            transitions.len() - 1
+          });
+        (&track.property, &track.values, &track.times, transition)
+      })
+      .collect::<Vec<_>>();
+    (transitions, tracks, &self.transition_end).serialize(serializer)
+  }
+}
+
+impl<'de> Deserialize<'de> for MotionTargetDescriptor {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    type SerializedTrack = (MotionProperty, Vec<MotionValue>, Option<Vec<f64>>, usize);
+    let (transitions, tracks, transition_end): (
+      Vec<TransitionDefinition>,
+      Vec<SerializedTrack>,
+      Vec<MotionPropertyValue>,
+    ) = Deserialize::deserialize(deserializer)?;
+    let tracks = tracks
+      .into_iter()
+      .map(|(property, values, times, transition)| {
+        let transition = transitions.get(transition).cloned().ok_or_else(|| {
+          serde::de::Error::custom("motion track transition index is out of range")
+        })?;
+        Ok(MotionPropertyTrack {
+          property,
+          values,
+          times,
+          transition,
+        })
+      })
+      .collect::<Result<Vec<_>, D::Error>>()?;
+    Ok(Self {
+      tracks,
+      transition_end,
+    })
+  }
 }
 
 impl MotionTargetDescriptor {

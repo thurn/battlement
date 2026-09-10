@@ -102,9 +102,15 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
   assert_eq!(decoded, descriptor);
   assert!(json.contains("\"Mirror\""));
   assert!(json.contains("\"Controlled\""));
-  assert!(json.contains("\"transition_end\""));
   assert!(json.contains("\"custom_snapshot\":91"));
   let object = serde_json::from_str::<serde_json::Value>(&json).unwrap();
+  let target = object["slots"][0]["target"].as_array().unwrap();
+  assert_eq!(target.len(), 3);
+  assert!(target[2].is_array());
+  let track = target[1][0].as_array().unwrap();
+  assert_eq!(track.len(), 4);
+  let transition = track[3].as_u64().unwrap() as usize;
+  assert_eq!(target[0][transition].as_array().unwrap().len(), 5);
   for default_field in [
     "pseudo_styles",
     "style_transition",

@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::MotionProperty;
 
@@ -236,7 +236,7 @@ pub enum TransitionGenerator {
 }
 
 /// A generator plus delay and repetition semantics for one track.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransitionDefinition {
   /// Timing generator.
   pub generator: TransitionGenerator,
@@ -248,6 +248,39 @@ pub struct TransitionDefinition {
   pub repeat_delay_micros: u64,
   /// Endpoint/direction behavior for repeats.
   pub repeat_type: MotionRepeatType,
+}
+
+impl Serialize for TransitionDefinition {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    (
+      &self.generator,
+      self.delay_micros,
+      &self.repeat,
+      self.repeat_delay_micros,
+      self.repeat_type,
+    )
+      .serialize(serializer)
+  }
+}
+
+impl<'de> Deserialize<'de> for TransitionDefinition {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let (generator, delay_micros, repeat, repeat_delay_micros, repeat_type) =
+      Deserialize::deserialize(deserializer)?;
+    Ok(Self {
+      generator,
+      delay_micros,
+      repeat,
+      repeat_delay_micros,
+      repeat_type,
+    })
+  }
 }
 
 impl TransitionDefinition {
