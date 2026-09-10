@@ -6,7 +6,9 @@ using Newtonsoft.Json;
 namespace Battlement
 {
     /// <summary>Encodes and decodes Battlement protocol values as JSON.</summary>
-    public sealed class BattlementJson : IBattlementExtensionProtocolCodec
+    public sealed class BattlementJson
+        : IBattlementExtensionProtocolCodec,
+            IBattlementBackgroundProtocolCodec
     {
         public static BattlementJson Instance { get; } = new();
 

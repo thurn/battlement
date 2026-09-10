@@ -2030,8 +2030,10 @@ namespace Battlement
             uiDispatchDepth++;
             try
             {
-                reservation = responses.Reserve(payload =>
-                    DecodeUiEventResponse(configured, payload, inspection)
+                reservation = responses.Reserve(
+                    payload => DecodeResponse(configured, payload),
+                    decoded: response => ObserveDecodedUiEventResponse(response, inspection),
+                    decodeFailed: _ => FailDeferredUiEventResponse(inspection)
                 );
                 inspection.AdmissionSequence = reservation.Sequence;
                 byte[] message;
@@ -2090,7 +2092,11 @@ namespace Battlement
                     throw new InvalidDataException("UI event returned an empty response payload.");
                 }
 
-                reservation.Commit(result.ResponsePayload);
+                bool backgroundDecode =
+                    configured.ProtocolCodec is IBattlementBackgroundProtocolCodec
+                    && (customCommands is null || customCommands.Types.Count == 0)
+                    && !beginsDittoActivation;
+                reservation.Commit(result.ResponsePayload, backgroundDecode);
                 reservation = null;
                 inspection.Disposition = result.Disposition;
                 inspection.PreventedByReactant =
@@ -2161,39 +2167,29 @@ namespace Battlement
             }
         }
 
-        private Response<ICommand> DecodeUiEventResponse(
-            BattlementRunnerOptions configured,
-            ReadOnlyMemory<byte> payload,
+        private void ObserveDecodedUiEventResponse(
+            Response<ICommand> response,
             BattlementUiEventInspection inspection
         )
         {
-            try
+            var batchIds = new List<BatchId>();
+            foreach (ResponseMessage<ICommand> message in response.Messages)
             {
-                Response<ICommand> response = DecodeResponse(configured, payload);
-                var batchIds = new List<BatchId>();
-                foreach (ResponseMessage<ICommand> message in response.Messages)
-                {
-                    if (message is ResponseMessage<ICommand>.BatchMessage batch)
-                        batchIds.Add(batch.Batch.Id);
-                }
-                inspection.SetBatchIds(batchIds);
-                inspection.AppliedAt = dittoMotionClock!.Elapsed;
-                return response;
+                if (message is ResponseMessage<ICommand>.BatchMessage batch)
+                    batchIds.Add(batch.Batch.Id);
             }
-            catch
-            {
-                FailUiEventInspection(
-                    inspection,
-                    BattlementUiEventInspectionOutcome.DeferredApplyFailed,
-                    BattlementUiEventFailureReason.DeferredApply,
-                    "reactant.event.deferred_apply_failed",
-                    TimeSpan.FromTicks(
-                        checked((long)inspection.SynchronousDurationMicroseconds * 10)
-                    )
-                );
-                throw;
-            }
+            inspection.SetBatchIds(batchIds);
+            inspection.AppliedAt = dittoMotionClock!.Elapsed;
         }
+
+        private void FailDeferredUiEventResponse(BattlementUiEventInspection inspection) =>
+            FailUiEventInspection(
+                inspection,
+                BattlementUiEventInspectionOutcome.DeferredApplyFailed,
+                BattlementUiEventFailureReason.DeferredApply,
+                "reactant.event.deferred_apply_failed",
+                TimeSpan.FromTicks(checked((long)inspection.SynchronousDurationMicroseconds * 10))
+            );
 
         private void RecordUiEventPrevention()
         {

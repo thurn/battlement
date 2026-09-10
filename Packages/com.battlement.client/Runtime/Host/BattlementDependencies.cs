@@ -170,6 +170,11 @@ namespace Battlement
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
     }
 
+    /// <summary>
+    /// Marks a protocol codec whose independent calls are safe on worker threads.
+    /// </summary>
+    public interface IBattlementBackgroundProtocolCodec : IBattlementProtocolCodec { }
+
     /// <summary>JSON extension operations needed by registered game code.</summary>
     public interface IBattlementExtensionProtocolCodec : IBattlementProtocolCodec
     {

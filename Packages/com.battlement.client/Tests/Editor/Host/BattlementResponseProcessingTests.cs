@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using NUnit.Framework;
 
 namespace Battlement.Tests
@@ -10,6 +11,59 @@ namespace Battlement.Tests
     public sealed class BattlementResponseProcessingTests
     {
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
+
+        [Test]
+        public void BackgroundDecodeDoesNotBlockAndPreservesAdmissionOrder()
+        {
+            var stream = new BattlementResponseStream();
+            using var firstStarted = new ManualResetEventSlim();
+            using var releaseFirst = new ManualResetEventSlim();
+            using var secondStarted = new ManualResetEventSlim();
+            var decoded = new List<int>();
+            int callingThread = Environment.CurrentManagedThreadId;
+            int workerThread = callingThread;
+            SessionId session = new(Guid.NewGuid());
+            Response<ICommand> response = new(session, Array.Empty<ResponseMessage<ICommand>>());
+
+            BattlementResponseStream.Reservation first = stream.Reserve(
+                _ =>
+                {
+                    workerThread = Environment.CurrentManagedThreadId;
+                    firstStarted.Set();
+                    releaseFirst.Wait();
+                    return response;
+                },
+                decoded: _ => decoded.Add(1)
+            );
+            BattlementResponseStream.Reservation second = stream.Reserve(
+                _ =>
+                {
+                    secondStarted.Set();
+                    return response;
+                },
+                decoded: _ => decoded.Add(2)
+            );
+            first.Commit(new byte[32 * 1024], decodeInBackground: true);
+            second.Commit(new byte[32 * 1024], decodeInBackground: true);
+
+            Assert.That(firstStarted.Wait(TimeSpan.FromSeconds(2)), Is.True);
+            Drain(stream);
+            Assert.That(decoded, Is.Empty);
+            Assert.That(secondStarted.IsSet, Is.False);
+            Assert.That(workerThread, Is.Not.EqualTo(callingThread));
+
+            releaseFirst.Set();
+            bool completed = SpinWait.SpinUntil(
+                () =>
+                {
+                    Drain(stream);
+                    return decoded.Count == 2;
+                },
+                TimeSpan.FromSeconds(2)
+            );
+            Assert.That(completed, Is.True);
+            Assert.That(decoded, Is.EqualTo(new[] { 1, 2 }));
+        }
 
         [Test]
         public void ConnectAndSubmitParseSynchronouslyOnTheCallingThread()
@@ -209,6 +263,15 @@ namespace Battlement.Tests
                 }
             );
         }
+
+        private static void Drain(BattlementResponseStream stream) =>
+            stream.Drain(
+                (_, _, _) => true,
+                (_, _) => { },
+                () => false,
+                () => false,
+                observeTiming: false
+            );
 
         private sealed class RecordingCodec : IBattlementProtocolCodec
         {
