@@ -175,6 +175,8 @@ pub(super) struct RawStep {
 pub(super) struct RawPointerActionStep {
   pub target: RawAccessibilityTarget,
   pub action: RawPointerAction,
+  pub visual_witness: Option<RawAccessibilityTarget>,
+  pub completion: Option<RawAccessibilityAssertion>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]

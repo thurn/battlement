@@ -216,6 +216,57 @@ namespace Battlement
                 ) && documents.DispatchSyntheticHover(resolved, position, out diagnostic);
         }
 
+        public bool TryObservationRegion(
+            DittoAccessibilityTarget target,
+            out DittoObservationRegion? region,
+            out string? diagnostic
+        )
+        {
+            AccessibilityNodeSnapshot[] matches = AccessibilityMatches(target);
+            if (matches.Length != 1)
+            {
+                region = null;
+                diagnostic = $"Visual witness matched {matches.Length} active nodes.";
+                return false;
+            }
+            DittoInputResolution resolution = Resolve(
+                new DittoInputTarget.Object(matches[0].ObjectId.Value.ToString())
+            );
+            if (!resolution.IsReachable || resolution.Bounds is not UnityRect bounds)
+            {
+                region = null;
+                diagnostic = "Visual witness is not physically reachable.";
+                return false;
+            }
+            region = ObservationRegion(bounds, width, height);
+            diagnostic = null;
+            return true;
+        }
+
+        internal static DittoObservationRegion ObservationRegion(
+            UnityRect bounds,
+            uint width,
+            uint height
+        )
+        {
+            const int padding = 4;
+            int left = Math.Max(0, (int)Math.Floor(bounds.xMin) - padding);
+            int right = Math.Min(checked((int)width), (int)Math.Ceiling(bounds.xMax) + padding);
+            int top = Math.Max(0, (int)Math.Floor(bounds.yMin) - padding);
+            int bottom = Math.Min(checked((int)height), (int)Math.Ceiling(bounds.yMax) + padding);
+            if (right <= left || bottom <= top)
+                throw new ArgumentOutOfRangeException(
+                    nameof(bounds),
+                    "Visual witness has an empty framebuffer region."
+                );
+            return new DittoObservationRegion(
+                checked((uint)left),
+                checked(height - (uint)bottom),
+                checked((uint)(right - left)),
+                checked((uint)(bottom - top))
+            );
+        }
+
         private bool TryPointerTarget(
             DittoAccessibilityTarget target,
             out ObjectId objectId,

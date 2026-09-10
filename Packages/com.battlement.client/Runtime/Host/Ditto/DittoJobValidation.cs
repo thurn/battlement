@@ -262,6 +262,20 @@ namespace Battlement
                     break;
                 case DittoStepAction.PointerAction pointer:
                     AccessibilityTarget(pointer.Target);
+                    if (pointer.VisualWitness is not null)
+                        AccessibilityTarget(pointer.VisualWitness);
+                    if (pointer.Completion is not null)
+                    {
+                        Require(
+                            pointer.Action == DittoPointerAction.Click,
+                            "pointer completion witnesses require a click"
+                        );
+                        AccessibilityTarget(pointer.Completion.Target);
+                        Require(
+                            !string.IsNullOrWhiteSpace(pointer.Completion.Name),
+                            "pointer completion accessible name must not be empty"
+                        );
+                    }
                     break;
                 case DittoStepAction.Screenshot screenshot:
                     Capability(job, DittoCapability.Png);

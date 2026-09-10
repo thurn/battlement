@@ -118,6 +118,8 @@ fn profile_job_round_trips_performance_attempt_and_pointer_action() {
         name: "SETTINGS".to_owned(),
       },
       action: PointerAction::Click,
+      visual_witness: None,
+      completion: None,
     },
   }];
   value.validate().unwrap();

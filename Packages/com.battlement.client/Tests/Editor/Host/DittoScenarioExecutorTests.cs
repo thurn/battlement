@@ -171,6 +171,40 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void UnreachableMeasuredPointerOmitsIncompletePerformanceEvidence()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedStep step = new(
+                0,
+                "missing",
+                1_000,
+                new DittoStepAction.PointerAction(
+                    new DittoAccessibilityTarget(SemanticRole.Button, "missing"),
+                    DittoPointerAction.Click,
+                    null,
+                    null
+                ),
+                true
+            );
+            DittoResolvedScenario scenario = new(
+                Guid.NewGuid().ToString("D"),
+                0,
+                "executor",
+                null,
+                DittoMotion.Controlled,
+                10_000,
+                new[] { step },
+                new DittoPerformanceAttempt(DittoPerformancePass.Score, false, 1, 60, 0)
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            Drain(executor);
+
+            Assert.That(executor.Result!.Steps[0].Status, Is.EqualTo(DittoStepStatus.Failed));
+            Assert.That(executor.Result.Steps[0].Performance, Is.Null);
+        }
+
+        [Test]
         public void SemanticClickWithoutDeliveryReceiptFailsAtThatStep()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -297,6 +331,23 @@ namespace Battlement.Tests
 
             Assert.That(executor.AwaitingPresentation, Is.True);
             Assert.That(executor.RequiresPaintObservation, Is.False);
+        }
+
+        [Test]
+        public void FailedStepBoundaryStillProducesATerminalScenarioResult()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using DittoScenarioExecutor executor = Executor(
+                harness,
+                Scenario(10_000, Step(0, new DittoStepAction.Advance(1))),
+                () => TimeSpan.Zero,
+                boundary: (_, completion) => completion(false)
+            );
+
+            Drain(executor);
+
+            Assert.That(executor.Result, Is.Not.Null);
+            Assert.That(executor.Result!.Steps.Count, Is.EqualTo(1));
         }
 
         [Test]
@@ -447,7 +498,8 @@ namespace Battlement.Tests
             ulong runTimeout = 10_000,
             DittoPlatform platform = DittoPlatform.Macos,
             IReadOnlyDictionary<string, ObjectId>? aliases = null,
-            System.Action<string>? error = null
+            System.Action<string>? error = null,
+            DittoStepBoundary? boundary = null
         )
         {
             var errors = 0;
@@ -466,7 +518,9 @@ namespace Battlement.Tests
                     error?.Invoke(message);
                     return $"P{++errors:0000}";
                 },
-                setup
+                setup,
+                stepEnded: boundary,
+                observeFocus: () => true
             );
         }
 

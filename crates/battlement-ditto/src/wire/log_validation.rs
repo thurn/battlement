@@ -37,8 +37,19 @@ pub(super) fn decode_ndjson(
       line.len() < MAX_REQUEST_BYTES,
       "one NDJSON record exceeds 1 MiB"
     );
-    let record: DittoEventRecord = serde_json::from_str(line)
-      .with_context(|| format!("invalid NDJSON record at line {}", offset + 1))?;
+    let value: serde_json::Value = serde_json::from_str(line)
+      .with_context(|| format!("invalid NDJSON JSON at line {}", offset + 1))?;
+    let record = if value.get("body").is_some() {
+      DittoEventRecord::Context(Box::new(
+        serde_json::from_value(value)
+          .with_context(|| format!("invalid NDJSON context record at line {}", offset + 1))?,
+      ))
+    } else {
+      DittoEventRecord::Log(
+        serde_json::from_value(value)
+          .with_context(|| format!("invalid NDJSON log record at line {}", offset + 1))?,
+      )
+    };
     let sequence = first_sequence
       .checked_add(offset as u64)
       .ok_or_else(|| anyhow::anyhow!("log sequence overflow"))?;

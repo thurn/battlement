@@ -175,7 +175,8 @@ namespace Battlement
         DittoDisplay Display,
         IReadOnlyList<DittoCapability> Capabilities,
         string DeterminismContract,
-        string? NativeExecutionId
+        string? NativeExecutionId,
+        DittoObserverBaseline? ObserverBaseline = null
     );
 
     internal sealed record DittoLogBatchAck(string PlayerSessionId, ulong NextSequence);
@@ -217,14 +218,29 @@ namespace Battlement
 
     internal sealed record DittoStepPerformance(
         uint TargetFps,
+        string TimingProxy,
+        DittoPacingConfiguration PacingConfiguration,
         ulong ResponseLatencyNs,
         ulong ResponseMissedDeadlines,
         ulong PacingMissedDeadlines,
         ulong MissedInteractionDeadlines,
         bool NoVisualResponse,
+        bool HasActivation,
+        ulong? SemanticCompletionLatencyNs,
+        ulong? SettledCompletionLatencyNs,
         IReadOnlyList<ulong> PresentationTimestampsNs,
         IReadOnlyList<ulong> PresentationIntervalsNs,
-        IReadOnlyList<long> ManagedAllocationDeltas
+        IReadOnlyList<long>? ManagedAllocationDeltas,
+        IReadOnlyList<DittoObserverFrameTiming> ObserverTimings
+    );
+
+    internal sealed record DittoPacingConfiguration(
+        int VSyncCount,
+        int TargetFrameRate,
+        double? DisplayRefreshHz,
+        uint Width,
+        uint Height,
+        bool DebugBuild
     );
 
     internal sealed record DittoAssertionResult(

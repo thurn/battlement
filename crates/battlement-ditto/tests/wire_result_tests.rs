@@ -7,13 +7,15 @@ use battlement_ditto::wire::{
     Capability, Comparison, Display, Motion, ObjectState, PerformanceAttempt, PerformancePass,
     Platform,
   },
-  lifecycle::{StartupReport, StepPerformance},
+  lifecycle::{ObserverFrameTiming, PacingConfiguration, StartupReport, StepPerformance},
   result::{
     BaselineOutcome, BaselineWriteResult, BaselineWriteStatus, BuildDisposition, BuildResult,
-    ComparisonOutcome, ErrorOccurrence, ImageFile, JobResult, JobStatus, LogSpan,
-    MeasuredStepPerformance, MediaCapture, PerformanceHotspot, PerformanceResult, PhaseName,
-    PhaseResult, PhaseStatus, PlayerSessionResult, Recovery, ResultCommand, RunResult, RunStatus,
-    ScenarioResult, ScenarioStatus, ScenarioTimings, ScreenshotResult, StepResult, VideoResult,
+    ComparisonOutcome, Distribution, ErrorOccurrence, ImageFile, JobResult, JobStatus, LogSpan,
+    MeasuredStepAttempt, MeasuredStepPerformance, MediaCapture, ObserverPassSummary,
+    ObserverStageSummary, PerformanceAttemptSummary, PerformanceHotspot, PerformanceResult,
+    PhaseName, PhaseResult, PhaseStatus, PlayerSessionResult, Recovery, ResultCommand, RunResult,
+    RunStatus, ScenarioResult, ScenarioStatus, ScenarioTimings, ScreenshotResult, StepResult,
+    VideoResult,
   },
   review::{
     ReviewAcceptance, ReviewAcceptanceResult, ReviewEvent, ReviewEventBody, ReviewSelection,
@@ -258,20 +260,57 @@ fn every_result_and_review_variant_round_trips() {
 fn profile_result_validates_headline_attempts_and_hotspots() {
   let summary = PerformanceResult {
     headline: "Missed 60 Hz interaction deadlines".to_owned(),
+    timing_proxy: "unity-wait-for-end-of-frame".to_owned(),
+    timing_limitation: "not input-to-photon".to_owned(),
     target_fps: 60,
     missed_interaction_deadlines: 0,
     goal: 0,
     measured_score_attempts: 5,
     score_attempt_values: vec![0, 0, 0, 0, 0],
+    pacing_configurations: vec![pacing_configuration()],
+    warmup_attempts: vec![
+      performance_attempt_summary(PerformancePass::Score, 0, true),
+      performance_attempt_summary(PerformancePass::Detail, 0, true),
+    ],
+    score_attempts: (1..=5)
+      .map(|iteration| performance_attempt_summary(PerformancePass::Score, iteration, false))
+      .collect(),
     measured_steps: vec![MeasuredStepPerformance {
       name: "Open settings".to_owned(),
       attempts: 5,
       no_visual_response_attempts: 0,
       missed_interaction_deadlines: 0,
+      response_missed_deadlines: 0,
+      pacing_missed_deadlines: 0,
       median_response_latency_ns: 10,
+      p95_response_latency_ns: 10,
+      maximum_response_latency_ns: 10,
+      median_semantic_completion_latency_ns: None,
+      median_settled_completion_latency_ns: None,
       worst_presentation_interval_ns: 10,
-      managed_allocated_bytes: 0,
+      presentation_interval_distribution: test_distribution(5, 10),
+      over_budget_presentation_intervals: 0,
+      longest_over_budget_sequence: 0,
+      managed_allocated_bytes: Some(0),
+      attempt_values: (1..=5)
+        .map(|iteration| MeasuredStepAttempt {
+          iteration,
+          response_latency_ns: 10,
+          semantic_completion_latency_ns: None,
+          settled_completion_latency_ns: None,
+          response_missed_deadlines: 0,
+          pacing_missed_deadlines: 0,
+          missed_interaction_deadlines: 0,
+          no_visual_response: false,
+          presented_frames: 2,
+          presentation_interval_distribution: test_distribution(1, 10),
+        })
+        .collect(),
     }],
+    observer_passes: vec![
+      observer_pass_summary(PerformancePass::Score),
+      observer_pass_summary(PerformancePass::Detail),
+    ],
     detail_hotspots: vec![PerformanceHotspot {
       component: "settings::Settings".to_owned(),
       calls: 100,
@@ -320,14 +359,20 @@ fn profile_result_validates_headline_attempts_and_hotspots() {
         video: None,
         performance: Some(StepPerformance {
           target_fps: 60,
+          timing_proxy: "unity-wait-for-end-of-frame".to_owned(),
+          pacing_configuration: pacing_configuration(),
           response_latency_ns: 10,
           response_missed_deadlines: 0,
           pacing_missed_deadlines: 0,
           missed_interaction_deadlines: 0,
           no_visual_response: false,
+          has_activation: false,
+          semantic_completion_latency_ns: None,
+          settled_completion_latency_ns: None,
           presentation_timestamps_ns: vec![10, 20],
           presentation_intervals_ns: vec![10],
-          managed_allocation_deltas: vec![0, 0],
+          managed_allocation_deltas: Some(vec![0, 0]),
+          observer_timings: vec![observer_frame_timing(), observer_frame_timing()],
         }),
       }],
       logs: None,
@@ -414,6 +459,95 @@ fn profile_result_validates_headline_attempts_and_hotspots() {
   result.scenarios[0].steps[0].duration_ms = 0;
   result.scenarios[0].steps[0].performance = None;
   result.validate().unwrap();
+}
+
+fn pacing_configuration() -> PacingConfiguration {
+  PacingConfiguration {
+    v_sync_count: 0,
+    target_frame_rate: 60,
+    display_refresh_hz: Some(60.0),
+    width: 100,
+    height: 100,
+    debug_build: false,
+  }
+}
+
+fn performance_attempt_summary(
+  pass: PerformancePass,
+  iteration: u32,
+  warmup: bool,
+) -> PerformanceAttemptSummary {
+  PerformanceAttemptSummary {
+    pass,
+    iteration,
+    warmup,
+    missed_interaction_deadlines: 0,
+    response_missed_deadlines: 0,
+    pacing_missed_deadlines: 0,
+    no_visual_response_attempts: 0,
+  }
+}
+
+fn test_distribution(count: u64, value: u64) -> Distribution {
+  Distribution {
+    count,
+    minimum_ns: value,
+    p50_ns: value,
+    p95_ns: value,
+    p99_ns: value,
+    maximum_ns: value,
+  }
+}
+
+fn observer_frame_timing() -> ObserverFrameTiming {
+  ObserverFrameTiming {
+    motion_prepare_ns: 0,
+    runner_frame_ns: 0,
+    native_frame_complete_ns: 0,
+    input_release_and_sync_transport_ns: 0,
+    response_decode_ns: 0,
+    response_apply_ns: 0,
+    end_of_frame_wait_ns: 0,
+    texture_setup_ns: 0,
+    capture_request_cpu_ns: 0,
+    synchronous_readback_ns: 0,
+    cpu_hash_ns: 0,
+    observed_pixels: 1,
+    layout_observation_ns: 0,
+    recorder_bookkeeping_ns: 0,
+  }
+}
+
+fn observer_pass_summary(pass: PerformancePass) -> ObserverPassSummary {
+  ObserverPassSummary {
+    pass,
+    attempts: 5,
+    observed_frames: 10,
+    observed_pixels: 10,
+    stages: [
+      "motion-prepare",
+      "runner-frame",
+      "native-frame-complete",
+      "input-release-and-sync-transport",
+      "response-decode",
+      "response-apply",
+      "end-of-frame-wait",
+      "texture-setup",
+      "capture-request-cpu",
+      "synchronous-readback",
+      "cpu-hash",
+      "layout-observation",
+      "recorder-bookkeeping",
+    ]
+    .into_iter()
+    .map(|stage| ObserverStageSummary {
+      stage: stage.to_owned(),
+      total_ns: 0,
+      p95_ns: 0,
+      maximum_ns: 0,
+    })
+    .collect(),
+  }
 }
 
 #[test]
@@ -892,6 +1026,7 @@ fn startup_report() -> StartupReport {
     capabilities: vec![Capability::Click, Capability::Png, Capability::Video],
     determinism_contract: "ditto-v3".to_owned(),
     native_execution_id: None,
+    observer_baseline: None,
   }
 }
 

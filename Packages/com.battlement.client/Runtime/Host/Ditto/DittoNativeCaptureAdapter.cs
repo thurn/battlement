@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -28,11 +29,64 @@ namespace Battlement
 
     internal sealed record DittoCaptureFailure(DittoErrorCode Code, string Reason);
 
+    internal sealed record DittoObservationRegion(uint X, uint Y, uint Width, uint Height);
+
+    internal enum DittoFingerprintScope
+    {
+        None,
+        FullFrame,
+        TargetRegion,
+    }
+
+    internal sealed record DittoObserverFrameTiming(
+        ulong MotionPrepareNs,
+        ulong RunnerFrameNs,
+        ulong NativeFrameCompleteNs,
+        ulong InputReleaseAndSyncTransportNs,
+        ulong ResponseDecodeNs,
+        ulong ResponseApplyNs,
+        ulong EndOfFrameWaitNs,
+        ulong TextureSetupNs,
+        ulong CaptureRequestCpuNs,
+        ulong SynchronousReadbackNs,
+        ulong CpuHashNs,
+        uint ObservedPixels,
+        ulong LayoutObservationNs,
+        ulong RecorderBookkeepingNs
+    );
+
+    internal sealed record DittoVisualObservation(
+        ulong Fingerprint,
+        ulong? FullFrameFingerprint,
+        DittoFingerprintScope Scope,
+        DittoObserverFrameTiming Timing
+    );
+
+    internal sealed record DittoObserverBaseline(
+        uint ObservedPixels,
+        ulong TextureSetupNs,
+        ulong RequestCpuNs,
+        ulong RequestToCallbackNs,
+        ulong CallbackToMainThreadNs
+    );
+
     internal sealed record DittoRenderCommit(
         ulong Frame,
         ulong RenderGeneration,
-        ulong PixelFingerprint
-    );
+        ulong PixelFingerprint,
+        [property: JsonIgnore] DittoFingerprintScope FingerprintScope = DittoFingerprintScope.None,
+        [property: JsonIgnore] DittoObserverFrameTiming? ObserverTiming = null,
+        [property: JsonIgnore] ulong? FullFrameFingerprint = null,
+        [property: JsonIgnore] long EndOfFrameTick = 0
+    )
+    {
+        public bool IdentifiesSamePresentation(DittoRenderCommit other) =>
+            Frame == other.Frame
+            && RenderGeneration == other.RenderGeneration
+            && PixelFingerprint == other.PixelFingerprint
+            && FingerprintScope == other.FingerprintScope
+            && FullFrameFingerprint == other.FullFrameFingerprint;
+    }
 
     internal abstract record DittoCaptureProbeResult
     {
@@ -41,7 +95,8 @@ namespace Battlement
             uint Width,
             uint Height,
             DittoOrientation? Orientation,
-            DittoCapturePixelLayout Layout
+            DittoCapturePixelLayout Layout,
+            DittoObserverBaseline? ObserverBaseline = null
         ) : DittoCaptureProbeResult;
 
         internal sealed record Failed(DittoCaptureFailure Failure) : DittoCaptureProbeResult;
@@ -61,7 +116,12 @@ namespace Battlement
 
     internal interface IDittoNativeCommittedFrameSource
     {
-        ulong CommitPresentedFrame(uint width, uint height);
+        DittoVisualObservation CommitPresentedFrame(
+            uint width,
+            uint height,
+            DittoObservationRegion? region,
+            bool fullFrameDiagnostic
+        );
 
         void ReadCommittedFrame(Action<byte[], bool> completion);
 
@@ -86,6 +146,9 @@ namespace Battlement
         private CaptureOperation? captureOperation;
         private double deadline;
         private int generation;
+        private long probeRequestedAt;
+        private ulong probeRequestCpuNs;
+        private ulong probeTextureSetupNs;
         private ulong renderGeneration;
         private DittoRenderCommit? latestCommit;
         private bool configured;
@@ -189,29 +252,35 @@ namespace Battlement
 
             try
             {
+                long setupStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 GraphicsFormat format = SystemInfo.GetCompatibleFormat(
                     GraphicsFormat.R8G8B8A8_UNorm,
                     GraphicsFormatUsage.Render
                 );
                 probeTexture = Texture(2, 2, format);
                 using var source = new TemporaryTexture(DittoCapturePixels.ProbeColors);
+                probeTextureSetupNs = ElapsedNanoseconds(setupStarted);
+                long requestStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 Graphics.Blit(source.Value, probeTexture);
                 BeginOperation();
                 int requestedGeneration = generation;
+                probeRequestedAt = System.Diagnostics.Stopwatch.GetTimestamp();
                 AsyncGPUReadback.Request(
                     probeTexture,
                     0,
                     request =>
                     {
+                        long callbackAt = System.Diagnostics.Stopwatch.GetTimestamp();
                         bool failed = request.hasError;
                         byte[] pixels = failed
                             ? Array.Empty<byte>()
                             : request.GetData<byte>().ToArray();
                         completions.Enqueue(() =>
-                            CompleteProbe(requestedGeneration, pixels, failed)
+                            CompleteProbe(requestedGeneration, pixels, failed, callbackAt)
                         );
                     }
                 );
+                probeRequestCpuNs = ElapsedNanoseconds(requestStarted);
             }
             catch (Exception exception)
             {
@@ -219,7 +288,11 @@ namespace Battlement
             }
         }
 
-        public DittoRenderCommit CommitPresentedFrame(ulong committedFrame)
+        public DittoRenderCommit CommitPresentedFrame(
+            ulong committedFrame,
+            DittoObservationRegion? region = null,
+            bool fullFrameDiagnostic = false
+        )
         {
             RequireConfigured();
             RequireReady();
@@ -234,11 +307,19 @@ namespace Battlement
                     $"Framebuffer dimensions changed to {Screen.width}x{Screen.height}."
                 );
             }
-            ulong fingerprint = committedFrameSource!.CommitPresentedFrame(width, height);
+            DittoVisualObservation observation = committedFrameSource!.CommitPresentedFrame(
+                width,
+                height,
+                region,
+                fullFrameDiagnostic
+            );
             latestCommit = new DittoRenderCommit(
                 committedFrame,
                 checked(++renderGeneration),
-                fingerprint
+                observation.Fingerprint,
+                observation.Scope,
+                observation.Timing,
+                observation.FullFrameFingerprint
             );
             return latestCommit;
         }
@@ -282,7 +363,7 @@ namespace Battlement
             {
                 throw new ArgumentOutOfRangeException(nameof(commit));
             }
-            if (latestCommit != commit)
+            if (latestCommit?.IdentifiesSamePresentation(commit) != true)
             {
                 completion(
                     new DittoNativeCaptureResult.Unavailable(
@@ -323,7 +404,7 @@ namespace Battlement
                     "The native capture adapter has not passed its startup probe."
                 );
             }
-            if (commit.Frame == 0 || latestCommit != commit)
+            if (commit.Frame == 0 || latestCommit?.IdentifiesSamePresentation(commit) != true)
             {
                 throw new InvalidOperationException(
                     "The requested video frame is not the retained render commit."
@@ -343,7 +424,12 @@ namespace Battlement
                 Failure("The player exited before a responsive failure frame was captured.")
             );
 
-        private void CompleteProbe(int requestedGeneration, byte[] pixels, bool readbackFailed)
+        private void CompleteProbe(
+            int requestedGeneration,
+            byte[] pixels,
+            bool readbackFailed,
+            long callbackAt
+        )
         {
             if (requestedGeneration != generation || probeCompletion is null)
             {
@@ -372,7 +458,14 @@ namespace Battlement
                     width,
                     height,
                     CurrentOrientation(),
-                    detected!
+                    detected!,
+                    new DittoObserverBaseline(
+                        4,
+                        probeTextureSetupNs,
+                        probeRequestCpuNs,
+                        Nanoseconds(callbackAt - probeRequestedAt),
+                        ElapsedNanoseconds(callbackAt)
+                    )
                 )
             );
         }
@@ -384,7 +477,7 @@ namespace Battlement
                 return;
             }
             DittoRenderCommit commit = operation.Commit;
-            if (latestCommit != commit)
+            if (latestCommit?.IdentifiesSamePresentation(commit) != true)
             {
                 FailCapture(
                     operation,
@@ -430,7 +523,7 @@ namespace Battlement
             DittoCapturePixelLayout layout
         )
         {
-            if (retained != requested)
+            if (retained?.IdentifiesSamePresentation(requested) != true)
             {
                 return new DittoNativeCaptureResult.Unavailable(
                     Failure(
@@ -555,6 +648,16 @@ namespace Battlement
                     _ => expectedOrientation,
                 };
 
+        private static ulong ElapsedNanoseconds(long started) =>
+            Nanoseconds(System.Diagnostics.Stopwatch.GetTimestamp() - started);
+
+        private static ulong Nanoseconds(long ticks) =>
+            checked(
+                (ulong)Math.Max(0, ticks)
+                * 1_000_000_000UL
+                / (ulong)System.Diagnostics.Stopwatch.Frequency
+            );
+
         private byte[] OrientedPixels(byte[] pixels) =>
             DittoCapturePixels.FlipRows(pixels, width, height);
 
@@ -623,29 +726,78 @@ namespace Battlement
             private RenderTexture? framebuffer;
             private Texture2D? fingerprint;
 
-            public ulong CommitPresentedFrame(uint width, uint height)
+            public DittoVisualObservation CommitPresentedFrame(
+                uint width,
+                uint height,
+                DittoObservationRegion? region,
+                bool fullFrameDiagnostic
+            )
             {
-                EnsureTextures(width, height);
+                long setupStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                DittoObservationRegion observed = region ?? new(0, 0, width, height);
+                ValidateRegion(width, height, observed);
+                DittoObservationRegion readback = fullFrameDiagnostic
+                    ? new DittoObservationRegion(0, 0, width, height)
+                    : observed;
+                EnsureTextures(width, height, readback.Width, readback.Height);
+                ulong setupNs = ElapsedNanoseconds(setupStarted);
+                long captureStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 ScreenCapture.CaptureScreenshotIntoRenderTexture(framebuffer);
+                ulong captureNs = ElapsedNanoseconds(captureStarted);
                 RenderTexture? previous = RenderTexture.active;
                 try
                 {
                     RenderTexture.active = framebuffer;
+                    long readbackStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                     fingerprint!.ReadPixels(
-                        new UnityEngine.Rect(0, 0, checked((int)width), checked((int)height)),
+                        new UnityEngine.Rect(
+                            readback.X,
+                            readback.Y,
+                            readback.Width,
+                            readback.Height
+                        ),
                         0,
                         0,
                         false
                     );
-                    fingerprint.Apply(false, false);
+                    ulong readbackNs = ElapsedNanoseconds(readbackStarted);
+                    long hashStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                     const ulong offset = 14_695_981_039_346_656_037;
                     const ulong prime = 1_099_511_628_211;
-                    ulong hash = offset;
-                    foreach (byte value in fingerprint.GetRawTextureData<byte>())
+                    Unity.Collections.NativeArray<byte> pixels =
+                        fingerprint.GetRawTextureData<byte>();
+                    ulong fullHash = offset;
+                    foreach (byte value in pixels)
                     {
-                        hash = (hash ^ value) * prime;
+                        fullHash = (fullHash ^ value) * prime;
                     }
-                    return hash;
+                    ulong hash =
+                        fullFrameDiagnostic && region is not null
+                            ? HashRegion(pixels, width, observed, offset, prime)
+                            : fullHash;
+                    return new DittoVisualObservation(
+                        hash,
+                        fullFrameDiagnostic ? fullHash : null,
+                        region is null
+                            ? DittoFingerprintScope.FullFrame
+                            : DittoFingerprintScope.TargetRegion,
+                        new DittoObserverFrameTiming(
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            setupNs,
+                            captureNs,
+                            readbackNs,
+                            ElapsedNanoseconds(hashStarted),
+                            checked(readback.Width * readback.Height),
+                            0,
+                            0
+                        )
+                    );
                 }
                 finally
                 {
@@ -668,6 +820,12 @@ namespace Battlement
 
             public byte[] ReadCommittedFrame()
             {
+                EnsureTextures(
+                    checked((uint)framebuffer!.width),
+                    checked((uint)framebuffer.height),
+                    checked((uint)framebuffer.width),
+                    checked((uint)framebuffer.height)
+                );
                 RenderTexture? previous = RenderTexture.active;
                 try
                 {
@@ -678,7 +836,6 @@ namespace Battlement
                         0,
                         false
                     );
-                    fingerprint.Apply(false, false);
                     return fingerprint.GetRawTextureData<byte>().ToArray();
                 }
                 finally
@@ -696,28 +853,77 @@ namespace Battlement
                 }
             }
 
-            private void EnsureTextures(uint width, uint height)
+            private void EnsureTextures(
+                uint width,
+                uint height,
+                uint fingerprintWidth,
+                uint fingerprintHeight
+            )
             {
-                if (framebuffer != null)
+                if (framebuffer == null)
                 {
-                    return;
+                    framebuffer = Texture(
+                        checked((int)width),
+                        checked((int)height),
+                        SystemInfo.GetCompatibleFormat(
+                            GraphicsFormat.R8G8B8A8_UNorm,
+                            GraphicsFormatUsage.Render
+                        )
+                    );
                 }
-                framebuffer = Texture(
-                    checked((int)width),
-                    checked((int)height),
-                    SystemInfo.GetCompatibleFormat(
-                        GraphicsFormat.R8G8B8A8_UNorm,
-                        GraphicsFormatUsage.Render
-                    )
-                );
+                if (
+                    fingerprint != null
+                    && fingerprint.width == checked((int)fingerprintWidth)
+                    && fingerprint.height == checked((int)fingerprintHeight)
+                )
+                    return;
+                if (fingerprint != null)
+                    Destroy(fingerprint);
                 fingerprint = new Texture2D(
-                    checked((int)width),
-                    checked((int)height),
+                    checked((int)fingerprintWidth),
+                    checked((int)fingerprintHeight),
                     TextureFormat.RGBA32,
                     false,
                     true
                 );
             }
+
+            private static void ValidateRegion(
+                uint width,
+                uint height,
+                DittoObservationRegion region
+            )
+            {
+                if (
+                    region.Width == 0
+                    || region.Height == 0
+                    || checked(region.X + region.Width) > width
+                    || checked(region.Y + region.Height) > height
+                )
+                    throw new ArgumentOutOfRangeException(nameof(region));
+            }
+
+            private static ulong HashRegion(
+                Unity.Collections.NativeArray<byte> pixels,
+                uint stridePixels,
+                DittoObservationRegion region,
+                ulong offset,
+                ulong prime
+            )
+            {
+                ulong hash = offset;
+                for (uint y = region.Y; y < checked(region.Y + region.Height); y++)
+                {
+                    int start = checked((int)((y * stridePixels + region.X) * 4));
+                    int end = checked(start + (int)(region.Width * 4));
+                    for (int index = start; index < end; index++)
+                        hash = (hash ^ pixels[index]) * prime;
+                }
+                return hash;
+            }
+
+            private static ulong ElapsedNanoseconds(long started) =>
+                Nanoseconds(System.Diagnostics.Stopwatch.GetTimestamp() - started);
         }
     }
 

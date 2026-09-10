@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace Battlement
@@ -21,6 +22,10 @@ namespace Battlement
         private ulong nextSequence;
 
         public bool HasPending => isProcessing || active is not null || pending.Count > 0;
+
+        public long LastDecodeTicks { get; private set; }
+
+        public long LastApplyTicks { get; private set; }
 
         public void Enqueue(
             Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
@@ -63,9 +68,12 @@ namespace Battlement
             Func<Response<ICommand>, bool, SessionId?, bool> validate,
             Action<SessionId, ResponseMessage<ICommand>> apply,
             Func<bool> isPaused,
-            Func<bool> isStopped
+            Func<bool> isStopped,
+            bool observeTiming
         )
         {
+            LastDecodeTicks = 0;
+            LastApplyTicks = 0;
             if (isProcessing || isPaused() || isStopped())
             {
                 return;
@@ -86,9 +94,16 @@ namespace Battlement
 
                         if (!active.IsDecoded)
                         {
+                            long decodeStarted = observeTiming ? Stopwatch.GetTimestamp() : 0;
                             using (BattlementProfiler.ResponseParsing.Auto())
                             {
                                 active.Response = active.Decode(active.Payload);
+                            }
+                            if (observeTiming)
+                            {
+                                LastDecodeTicks = checked(
+                                    LastDecodeTicks + Stopwatch.GetTimestamp() - decodeStarted
+                                );
                             }
                             active.IsDecoded = true;
                         }
@@ -122,7 +137,14 @@ namespace Battlement
                             ResponseMessage<ICommand> message = active.Response.Messages[
                                 active.NextMessageIndex++
                             ];
+                            long applyStarted = observeTiming ? Stopwatch.GetTimestamp() : 0;
                             apply(active.Response.SessionId, message);
+                            if (observeTiming)
+                            {
+                                LastApplyTicks = checked(
+                                    LastApplyTicks + Stopwatch.GetTimestamp() - applyStarted
+                                );
+                            }
                         }
 
                         if (

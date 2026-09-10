@@ -218,12 +218,28 @@ fn resolved_step(
         target: accessibility_target(target),
         action: accessibility_action(*action),
       },
-      AuthoredStepKind::PointerAction { target, action } => StepKind::PointerAction {
+      AuthoredStepKind::PointerAction {
+        target,
+        action,
+        visual_witness,
+        completion,
+      } => StepKind::PointerAction {
         target: accessibility_target(target),
         action: match action {
           crate::config::model::PointerAction::Click => PointerAction::Click,
           crate::config::model::PointerAction::Hover => PointerAction::Hover,
         },
+        visual_witness: visual_witness.as_ref().map(accessibility_target),
+        completion: completion.as_ref().map(|assertion| AccessibilityAssertion {
+          target: accessibility_target(&assertion.target),
+          role: accessibility_role(assertion.role),
+          name: assertion.name.clone(),
+          selected: assertion.selected,
+          checked: assertion.checked,
+          disabled: assertion.disabled,
+          current_page: assertion.current_page,
+          parent: assertion.parent.as_ref().map(accessibility_target),
+        }),
       },
       AuthoredStepKind::Screenshot(screenshot) => StepKind::Screenshot(ScreenshotStep {
         name: screenshot.name.clone(),

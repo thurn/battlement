@@ -78,7 +78,7 @@ pub struct Started {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum StartupIdentity {
-  Report(StartupReportIdentity),
+  Report(Box<StartupReportIdentity>),
   Accepted(AcceptedPlayerSessionIdentity),
 }
 
@@ -108,6 +108,19 @@ pub struct StartupReport {
   pub capabilities: Vec<Capability>,
   pub determinism_contract: String,
   pub native_execution_id: Option<String>,
+  #[serde(default)]
+  pub observer_baseline: Option<ObserverBaseline>,
+}
+
+/// Timing for the native adapter's deterministic two-by-two readback probe.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObserverBaseline {
+  pub observed_pixels: u32,
+  pub texture_setup_ns: u64,
+  pub request_cpu_ns: u64,
+  pub request_to_callback_ns: u64,
+  pub callback_to_main_thread_ns: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -150,7 +163,7 @@ pub struct ScenarioComplete {
   pub primary_error_ref: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerStepResult {
   pub index: u32,
@@ -167,18 +180,56 @@ pub struct PlayerStepResult {
   pub performance: Option<StepPerformance>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StepPerformance {
   pub target_fps: u32,
+  pub timing_proxy: String,
+  pub pacing_configuration: PacingConfiguration,
   pub response_latency_ns: u64,
   pub response_missed_deadlines: u64,
   pub pacing_missed_deadlines: u64,
   pub missed_interaction_deadlines: u64,
   pub no_visual_response: bool,
+  pub has_activation: bool,
+  pub semantic_completion_latency_ns: Option<u64>,
+  pub settled_completion_latency_ns: Option<u64>,
   pub presentation_timestamps_ns: Vec<u64>,
   pub presentation_intervals_ns: Vec<u64>,
-  pub managed_allocation_deltas: Vec<i64>,
+  pub managed_allocation_deltas: Option<Vec<i64>>,
+  pub observer_timings: Vec<ObserverFrameTiming>,
+}
+
+/// Frame-limiting and display facts observed by the player.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PacingConfiguration {
+  pub v_sync_count: i32,
+  pub target_frame_rate: i32,
+  pub display_refresh_hz: Option<f64>,
+  pub width: u32,
+  pub height: u32,
+  pub debug_build: bool,
+}
+
+/// Observer work aligned to one originating Unity end-of-frame callback.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObserverFrameTiming {
+  pub motion_prepare_ns: u64,
+  pub runner_frame_ns: u64,
+  pub native_frame_complete_ns: u64,
+  pub input_release_and_sync_transport_ns: u64,
+  pub response_decode_ns: u64,
+  pub response_apply_ns: u64,
+  pub end_of_frame_wait_ns: u64,
+  pub texture_setup_ns: u64,
+  pub capture_request_cpu_ns: u64,
+  pub synchronous_readback_ns: u64,
+  pub cpu_hash_ns: u64,
+  pub observed_pixels: u32,
+  pub layout_observation_ns: u64,
+  pub recorder_bookkeeping_ns: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -376,7 +427,7 @@ pub enum DittoContext {
   },
   StepEnded {
     scenario_id: String,
-    result: PlayerStepResult,
+    result: Box<PlayerStepResult>,
   },
   ArtifactAccepted {
     scenario_id: String,

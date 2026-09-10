@@ -5,8 +5,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::wire::{
   common::{AssertionResult, DeadlineKind, ErrorCode, ErrorSource, StepName, StepStatus},
-  job::{Comparison, Motion},
-  lifecycle::{StartupReport, StepPerformance},
+  job::{Comparison, Motion, PerformancePass},
+  lifecycle::{PacingConfiguration, StartupReport, StepPerformance},
   result_format, result_validation,
 };
 
@@ -39,17 +39,54 @@ pub struct RunResult {
   pub performance: Option<PerformanceResult>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PerformanceResult {
   pub headline: String,
+  pub timing_proxy: String,
+  pub timing_limitation: String,
   pub target_fps: u32,
   pub missed_interaction_deadlines: u64,
   pub goal: u64,
   pub measured_score_attempts: u32,
   pub score_attempt_values: Vec<u64>,
+  pub pacing_configurations: Vec<PacingConfiguration>,
+  pub warmup_attempts: Vec<PerformanceAttemptSummary>,
+  pub score_attempts: Vec<PerformanceAttemptSummary>,
   pub measured_steps: Vec<MeasuredStepPerformance>,
+  pub observer_passes: Vec<ObserverPassSummary>,
   pub detail_hotspots: Vec<PerformanceHotspot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerformanceAttemptSummary {
+  pub pass: PerformancePass,
+  pub iteration: u32,
+  pub warmup: bool,
+  pub missed_interaction_deadlines: u64,
+  pub response_missed_deadlines: u64,
+  pub pacing_missed_deadlines: u64,
+  pub no_visual_response_attempts: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObserverPassSummary {
+  pub pass: PerformancePass,
+  pub attempts: u32,
+  pub observed_frames: u64,
+  pub observed_pixels: u64,
+  pub stages: Vec<ObserverStageSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObserverStageSummary {
+  pub stage: String,
+  pub total_ns: u64,
+  pub p95_ns: u64,
+  pub maximum_ns: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -62,16 +99,52 @@ pub struct PerformanceHotspot {
   pub total_inclusive_duration_us: u64,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MeasuredStepPerformance {
   pub name: String,
   pub attempts: u32,
   pub no_visual_response_attempts: u32,
   pub missed_interaction_deadlines: u64,
+  pub response_missed_deadlines: u64,
+  pub pacing_missed_deadlines: u64,
   pub median_response_latency_ns: u64,
+  pub p95_response_latency_ns: u64,
+  pub maximum_response_latency_ns: u64,
+  pub median_semantic_completion_latency_ns: Option<u64>,
+  pub median_settled_completion_latency_ns: Option<u64>,
   pub worst_presentation_interval_ns: u64,
-  pub managed_allocated_bytes: i64,
+  pub presentation_interval_distribution: Distribution,
+  pub over_budget_presentation_intervals: u64,
+  pub longest_over_budget_sequence: u32,
+  pub managed_allocated_bytes: Option<i64>,
+  pub attempt_values: Vec<MeasuredStepAttempt>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MeasuredStepAttempt {
+  pub iteration: u32,
+  pub response_latency_ns: u64,
+  pub semantic_completion_latency_ns: Option<u64>,
+  pub settled_completion_latency_ns: Option<u64>,
+  pub response_missed_deadlines: u64,
+  pub pacing_missed_deadlines: u64,
+  pub missed_interaction_deadlines: u64,
+  pub no_visual_response: bool,
+  pub presented_frames: u32,
+  pub presentation_interval_distribution: Distribution,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Distribution {
+  pub count: u64,
+  pub minimum_ns: u64,
+  pub p50_ns: u64,
+  pub p95_ns: u64,
+  pub p99_ns: u64,
+  pub maximum_ns: u64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

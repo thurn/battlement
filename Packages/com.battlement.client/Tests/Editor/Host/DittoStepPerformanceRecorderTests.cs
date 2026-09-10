@@ -10,7 +10,7 @@ namespace Battlement.Tests
         [Test]
         public void RecordsAlignedIntervalsAndExcludesRecorderBookkeepingAllocations()
         {
-            var ticks = new Queue<long>(new long[] { 0, 1, 3, 6 });
+            var ticks = new Queue<long>(new long[] { 0, 0, 0, 0, 0, 0, 0 });
             var allocations = new Queue<long>(
                 new long[] { 100, 120, 1_000, 1_030, 2_000, 2_050, 3_000 }
             );
@@ -21,9 +21,10 @@ namespace Battlement.Tests
                 allocations.Dequeue
             );
 
-            recorder.Presented(false);
-            recorder.Presented(false);
-            recorder.Presented(false);
+            recorder.BeginInputDispatch();
+            recorder.Presented(1, false, false, EmptyTiming());
+            recorder.Presented(3, false, false, EmptyTiming());
+            recorder.Presented(6, false, false, EmptyTiming());
             DittoStepPerformance result = recorder.Finish();
 
             Assert.That(
@@ -46,17 +47,38 @@ namespace Battlement.Tests
         [Test]
         public void EarlyPresentationBurstsDoNotFillFuturePacingSlots()
         {
-            var ticks = new Queue<long>(new long[] { 0, 1, 2, 3, 4, 5, 8 });
+            var ticks = new Queue<long>(new long[13]);
             var recorder = new DittoStepPerformanceRecorder(60, ticks.Dequeue, 60, () => 0);
 
-            recorder.Presented(true);
-            for (var index = 0; index < 5; index++)
-                recorder.Presented(false);
+            recorder.BeginInputDispatch();
+            recorder.Presented(1, true, false, EmptyTiming());
+            for (var tick = 2; tick <= 5; tick++)
+                recorder.Presented(tick, false, false, EmptyTiming());
+            recorder.Presented(8, false, false, EmptyTiming());
             DittoStepPerformance result = recorder.Finish();
 
             Assert.That(result.NoVisualResponse, Is.False);
             Assert.That(result.ResponseMissedDeadlines, Is.Zero);
             Assert.That(result.PacingMissedDeadlines, Is.EqualTo(2));
         }
+
+        [Test]
+        public void ActivationUsesTheLastObservedFrameAsItsSettledFallback()
+        {
+            var ticks = new Queue<long>(new long[] { 0, 1, 2, 3, 4, 5 });
+            var recorder = new DittoStepPerformanceRecorder(60, ticks.Dequeue, 60, () => 0);
+
+            recorder.BeginInputDispatch();
+            recorder.Presented(1, true, false, EmptyTiming());
+            recorder.BeginActivationDispatch();
+            recorder.Presented(4, true, false, EmptyTiming());
+            DittoStepPerformance result = recorder.Finish();
+
+            Assert.That(result.HasActivation, Is.True);
+            Assert.That(result.SettledCompletionLatencyNs, Is.Not.Null);
+        }
+
+        private static DittoObserverFrameTiming EmptyTiming() =>
+            new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
     }
 }

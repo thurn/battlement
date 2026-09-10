@@ -194,7 +194,7 @@ impl MutationState {
       });
     }
     let records = decode_ndjson(body, &self.job, &self.player_session_id, first)
-      .map_err(|error| bad_request(error.to_string()))?;
+      .map_err(|error| bad_request(format!("{error:#}")))?;
     let next = first
       .checked_add(records.len() as u64)
       .ok_or_else(|| bad_request("log sequence overflow".to_owned()))?;

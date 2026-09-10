@@ -154,7 +154,9 @@ namespace Battlement
 
         internal sealed record PointerAction(
             DittoAccessibilityTarget Target,
-            DittoPointerAction Action
+            DittoPointerAction Action,
+            DittoAccessibilityTarget? VisualWitness,
+            DittoAccessibilityAssertion? Completion
         ) : DittoStepAction;
 
         internal sealed record Screenshot(DittoScreenshot Value) : DittoStepAction;

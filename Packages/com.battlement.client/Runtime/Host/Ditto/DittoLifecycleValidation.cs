@@ -355,6 +355,11 @@ namespace Battlement
             Name("determinism_contract", report.DeterminismContract);
             if (report.NativeExecutionId is not null)
                 Identifier("native_execution_id", report.NativeExecutionId);
+            if (report.ObserverBaseline is not null)
+                Require(
+                    report.ObserverBaseline.ObservedPixels == 4,
+                    "native observer baseline must describe the two-by-two startup probe"
+                );
             ValidateDisplay(report.Platform, report.Display);
             var unique = new HashSet<DittoCapability>(report.Capabilities);
             Require(

@@ -9,6 +9,84 @@ namespace Battlement.Tests
 {
     public sealed class DittoNativeCaptureAdapterTests
     {
+        [Test]
+        public void TimingEnrichmentPreservesRenderCommitIdentity()
+        {
+            var original = new DittoRenderCommit(
+                7,
+                9,
+                11,
+                DittoFingerprintScope.TargetRegion,
+                FullFrameFingerprint: 13
+            );
+            DittoRenderCommit enriched = original with
+            {
+                ObserverTiming = new DittoObserverFrameTiming(
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14
+                ),
+                EndOfFrameTick = 15,
+            };
+
+            Assert.That(original.IdentifiesSamePresentation(enriched), Is.True);
+            Assert.That(
+                original.IdentifiesSamePresentation(enriched with { RenderGeneration = 10 }),
+                Is.False
+            );
+        }
+
+        [Test]
+        public void TimingEnrichedCommitCapturesTheRetainedFrame()
+        {
+            var layout = new DittoCapturePixelLayout(
+                DittoCaptureRowOrder.TopDown,
+                DittoCaptureChannelOrder.Rgba
+            );
+            var source = new DelayedFrameSource(
+                DittoCapturePixels.Bytes(1, 1, new[] { new Color32(1, 2, 3, 255) }, layout)
+            );
+            var owner = new GameObject("Ditto timing enriched capture test");
+            try
+            {
+                DittoNativeCaptureAdapter adapter = DittoNativeCaptureAdapter.AttachForTesting(
+                    owner,
+                    1,
+                    1,
+                    layout,
+                    source
+                );
+                DittoRenderCommit retained = adapter.CommitPresentedFrame(7);
+                DittoRenderCommit requested = retained with { EndOfFrameTick = 15 };
+                DittoNativeCaptureResult? result = null;
+
+                adapter.CaptureCommittedFrame(requested, value => result = value);
+                source.Complete(0);
+                adapter.CompletePendingCallbacksForTesting();
+
+                Assert.That(result, Is.TypeOf<DittoNativeCaptureResult.Captured>());
+                Assert.That(
+                    ((DittoNativeCaptureResult.Captured)result!).Commit,
+                    Is.EqualTo(requested)
+                );
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
         [TestCase((int)DittoCaptureRowOrder.BottomUp, (int)DittoCaptureChannelOrder.Rgba)]
         [TestCase((int)DittoCaptureRowOrder.BottomUp, (int)DittoCaptureChannelOrder.Bgra)]
         [TestCase((int)DittoCaptureRowOrder.TopDown, (int)DittoCaptureChannelOrder.Rgba)]
@@ -312,10 +390,35 @@ namespace Battlement.Tests
 
             public DelayedFrameSource(byte[] live) => this.live = live;
 
-            public ulong CommitPresentedFrame(uint width, uint height)
+            public DittoVisualObservation CommitPresentedFrame(
+                uint width,
+                uint height,
+                DittoObservationRegion? region,
+                bool fullFrameDiagnostic
+            )
             {
                 committed = (byte[])live.Clone();
-                return 1234;
+                return new DittoVisualObservation(
+                    1234,
+                    null,
+                    DittoFingerprintScope.FullFrame,
+                    new DittoObserverFrameTiming(
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        checked(width * height),
+                        0,
+                        0
+                    )
+                );
             }
 
             public void ReadCommittedFrame(Action<byte[], bool> completion) =>

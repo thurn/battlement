@@ -117,15 +117,17 @@ fn performance_contract_parses_measured_pointer_actions_and_rejects_misuse() {
     )
     .replace(
       "[[scenarios.steps]]\nclick = { target = \"item\" }",
-      "[[scenarios.steps]]\nname = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\" }",
+      "[[scenarios.steps]]\nname = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\", visual_witness = { role = \"heading\", name = \"Menu\" }, completion = { target = { role = \"heading\", name = \"Settings\" }, role = \"heading\", name = \"Settings\" } }",
     );
   let suite = Fixture::new(&source).load().unwrap();
   assert_eq!(suite.performance.unwrap().target_fps, 60);
   assert!(suite.scenarios[0].steps[0].measure);
   assert!(matches!(
-    suite.scenarios[0].steps[0].action,
+    &suite.scenarios[0].steps[0].action,
     StepKind::PointerAction {
       action: PointerAction::Click,
+      visual_witness: Some(_),
+      completion: Some(_),
       ..
     }
   ));
@@ -137,7 +139,7 @@ fn performance_contract_parses_measured_pointer_actions_and_rejects_misuse() {
     ),
     (
       source.replace(
-        "name = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\" }",
+        "name = \"Open settings\"\nmeasure = true\npointer_action = { target = { role = \"button\", name = \"SETTINGS\" }, action = \"click\", visual_witness = { role = \"heading\", name = \"Menu\" }, completion = { target = { role = \"heading\", name = \"Settings\" }, role = \"heading\", name = \"Settings\" } }",
         "name = \"Open settings\"\nmeasure = true\nclick = { target = \"item\" }",
       ),
       "measure is supported only on pointer_action steps",
@@ -145,6 +147,10 @@ fn performance_contract_parses_measured_pointer_actions_and_rejects_misuse() {
     (
       source.replace("name = \"Open settings\"\nmeasure = true", "measure = true"),
       "measured pointer actions require a step name",
+    ),
+    (
+      source.replace("action = \"click\"", "action = \"hover\""),
+      "pointer completion witnesses require a click",
     ),
   ] {
     let error = Fixture::new(&changed).load().unwrap_err().to_string();

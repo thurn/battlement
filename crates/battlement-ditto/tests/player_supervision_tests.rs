@@ -315,7 +315,7 @@ fn ended_records() -> Vec<DittoEventRecord> {
       3,
       DittoContext::StepEnded {
         scenario_id: scenario_id(0),
-        result: player_step(StepStatus::Passed),
+        result: Box::new(player_step(StepStatus::Passed)),
       },
     ),
     context(
@@ -470,6 +470,7 @@ fn startup_report() -> StartupReport {
     capabilities: vec![Capability::Click],
     determinism_contract: "ditto-v3".to_owned(),
     native_execution_id: Some("e2575e27-3f14-4475-b914-3e70649b7951".to_owned()),
+    observer_baseline: None,
   }
 }
 

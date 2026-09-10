@@ -168,7 +168,7 @@ pub(crate) fn step_ended(
       DittoContext::StepEnded {
         scenario_id: owner,
         result,
-      } if owner == scenario_id && result.index == index => Some(result.clone()),
+      } if owner == scenario_id && result.index == index => Some((**result).clone()),
       _ => None,
     },
     DittoEventRecord::Log(_) => None,

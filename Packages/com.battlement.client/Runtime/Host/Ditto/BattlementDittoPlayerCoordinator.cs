@@ -291,7 +291,8 @@ namespace Battlement
                 runner!.DittoNativeTransport.SupportsDittoDeterminism && Application.runInBackground
                     ? "ditto-v3"
                     : "unavailable",
-                BattlementDittoPlayerBootstrap.NativeExecutionId
+                BattlementDittoPlayerBootstrap.NativeExecutionId,
+                nativeProbe?.ObserverBaseline
             );
         }
 
@@ -473,17 +474,32 @@ namespace Battlement
         private IEnumerator CompletePresentedFrame()
         {
             presentationCommitPending = true;
+            long waitStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             yield return new WaitForEndOfFrame();
             try
             {
                 if (phase == Phase.Executing && executor?.AwaitingPresentation == true)
                 {
+                    long endOfFrameTick = System.Diagnostics.Stopwatch.GetTimestamp();
+                    ulong endOfFrameWaitNs = ElapsedNanoseconds(waitStarted, endOfFrameTick);
                     ulong frame = executor.NextPresentedFrame;
                     DittoRenderCommit commit =
                         webCapture is not null ? webCapture.CommitPresentedFrame(frame)
                         : executor.RequiresPaintObservation
-                            ? nativeCapture!.CommitPresentedFrame(frame)
+                            ? nativeCapture!.CommitPresentedFrame(
+                                frame,
+                                executor.VisualObservationRegion,
+                                executor.RequiresFullFrameDiagnostic
+                            )
                         : nativeCapture!.ObservePresentedFrame(frame);
+                    DittoObserverFrameTiming timing =
+                        commit.ObserverTiming
+                        ?? new DittoObserverFrameTiming(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    commit = commit with
+                    {
+                        EndOfFrameTick = endOfFrameTick,
+                        ObserverTiming = timing with { EndOfFrameWaitNs = endOfFrameWaitNs },
+                    };
                     executor.CompletePresentedFrame(commit);
                     if (executor.Result is not null)
                     {
@@ -501,8 +517,16 @@ namespace Battlement
             }
         }
 
+        private static ulong ElapsedNanoseconds(long started, long ended) =>
+            checked(
+                (ulong)Math.Max(0, ended - started)
+                * 1_000_000_000UL
+                / (ulong)System.Diagnostics.Stopwatch.Frequency
+            );
+
         private void FreezeExecutor(Exception exception)
         {
+            Debug.LogError($"[Battlement/Ditto] scenario executor failed: {exception}");
             executor!.Freeze(
                 scenarioContext!.ReportFunctionalError(
                     DittoErrorCode.RuntimeFatal,
@@ -641,6 +665,11 @@ namespace Battlement
 
         private void BeginFailureFrameOrBoundary()
         {
+            if (delivery?.Failure is DittoPlayerInfrastructureFailure deliveryFailure)
+                Debug.LogError(
+                    "[Battlement/Ditto] log delivery failed: "
+                        + $"{deliveryFailure.Code}: {deliveryFailure.Message}"
+                );
             execution =
                 executor!.Result
                 ?? throw new InvalidOperationException("The scenario result is missing.");

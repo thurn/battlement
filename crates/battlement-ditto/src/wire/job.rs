@@ -182,6 +182,8 @@ pub enum StepKind {
   PointerAction {
     target: AccessibilityTarget,
     action: PointerAction,
+    visual_witness: Option<AccessibilityTarget>,
+    completion: Option<AccessibilityAssertion>,
   },
   Screenshot(ScreenshotStep),
   Video(VideoStep),

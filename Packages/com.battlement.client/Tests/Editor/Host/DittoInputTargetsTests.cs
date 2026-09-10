@@ -14,6 +14,18 @@ namespace Battlement.Tests
 {
     public sealed class DittoInputTargetsTests
     {
+        [Test]
+        public void ObservationRegionPadsClampsAndConvertsToFramebufferCoordinates()
+        {
+            DittoObservationRegion region = DittoInputTargets.ObservationRegion(
+                new UnityEngine.Rect(2.25f, 10.5f, 20.5f, 30.25f),
+                100,
+                80
+            );
+
+            Assert.That(region, Is.EqualTo(new DittoObservationRegion(0, 35, 27, 39)));
+        }
+
         [UnityTest]
         public IEnumerator UiConditionsClipNestedTargetsAndReportTheBlockingUuid()
         {

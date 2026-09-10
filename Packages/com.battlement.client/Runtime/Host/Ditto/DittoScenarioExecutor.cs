@@ -43,6 +43,7 @@ namespace Battlement
             None,
             StartupSettle,
             ProfileIdle,
+            PointerBaseline,
             PointerPressPresentation,
             ActionPresentation,
             Settle,
@@ -66,6 +67,7 @@ namespace Battlement
         private readonly Func<DittoRenderCommit, byte[]>? captureVideoFrame;
         private readonly DittoCapturePixelLayout? videoLayout;
         private readonly System.Action setup;
+        private readonly Func<bool> isFocused;
         private readonly ulong runTimeoutMs;
         private readonly List<DittoPlayerStepResult> results = new();
         private TimeSpan scenarioStarted;
@@ -101,6 +103,17 @@ namespace Battlement
         private DittoStepPerformanceRecorder? performanceRecorder;
         private uint profileIdleFrames;
         private ObjectId? pointerClickTarget;
+        private DittoStepAction.PointerAction? pendingPointerAction;
+        private DittoObservationRegion? visualObservationRegion;
+        private ulong? previousVisualFingerprint;
+        private bool completionWitnessMatched;
+        private long lastEndOfFrameTick;
+        private ulong motionPrepareNs;
+        private ulong runnerFrameNs;
+        private ulong nativeFrameCompleteNs;
+        private ulong inputReleaseAndSyncTransportNs;
+        private ulong responseDecodeNs;
+        private ulong responseApplyNs;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -119,7 +132,8 @@ namespace Battlement
             DittoStepBoundary? stepEnded = null,
             DittoNativeVideoRecorder? video = null,
             Func<DittoRenderCommit, byte[]>? videoFrame = null,
-            DittoCapturePixelLayout? nativeVideoLayout = null
+            DittoCapturePixelLayout? nativeVideoLayout = null,
+            Func<bool>? observeFocus = null
         )
             : this(
                 runner,
@@ -138,7 +152,8 @@ namespace Battlement
                 stepEnded,
                 video,
                 videoFrame,
-                nativeVideoLayout
+                nativeVideoLayout,
+                observeFocus
             ) { }
 
         public DittoScenarioExecutor(
@@ -158,7 +173,8 @@ namespace Battlement
             DittoStepBoundary? stepEnded = null,
             DittoNativeVideoRecorder? video = null,
             Func<DittoRenderCommit, byte[]>? videoFrame = null,
-            DittoCapturePixelLayout? nativeVideoLayout = null
+            DittoCapturePixelLayout? nativeVideoLayout = null,
+            Func<bool>? observeFocus = null
         )
         {
             if (runner == null)
@@ -172,6 +188,7 @@ namespace Battlement
                 captureScreenshot ?? throw new ArgumentNullException(nameof(captureScreenshot));
             reportError = errorReporter ?? throw new ArgumentNullException(nameof(errorReporter));
             setup = setupScenario ?? (() => { });
+            isFocused = observeFocus ?? (() => UnityEngine.Application.isFocused);
             pollFailure = observeFailure ?? (() => null);
             onStepStarted = stepStarted ?? (_ => { });
             onStepEnded = stepEnded ?? ((_, completion) => completion(true));
@@ -198,6 +215,12 @@ namespace Battlement
         public bool AwaitingPresentation => awaitingPresentation;
 
         public bool RequiresPaintObservation => phase != Phase.ObjectWait;
+
+        public DittoObservationRegion? VisualObservationRegion => visualObservationRegion;
+
+        public bool RequiresFullFrameDiagnostic =>
+            scenario.Performance?.Pass == DittoPerformancePass.Detail
+            && visualObservationRegion is not null;
 
         public bool Advance()
         {
@@ -334,7 +357,7 @@ namespace Battlement
             started = true;
             scenarioStarted = now();
             motion.Begin(scenario.Motion);
-            if (scenario.Performance is not null && !UnityEngine.Application.isFocused)
+            if (scenario.Performance is not null && !isFocused())
                 throw new InvalidOperationException("Performance run lost application focus.");
             setup();
             phase = Phase.StartupSettle;
@@ -437,26 +460,42 @@ namespace Battlement
                     break;
                 case DittoStepAction.PointerAction action:
                     presentationReady = false;
+                    pendingPointerAction = action;
                     if (step.Measure && scenario.Performance is not null)
                         performanceRecorder = new DittoStepPerformanceRecorder(
                             scenario.Performance.TargetFps
                         );
-                    bool pointerDispatched = action.Action switch
+                    if (performanceRecorder is null)
                     {
-                        DittoPointerAction.Click => targets.BeginPointerClick(
-                            action.Target,
-                            out pointerClickTarget,
-                            out _
-                        ),
-                        DittoPointerAction.Hover => targets.Hover(action.Target, out _),
-                        _ => false,
-                    };
-                    if (pointerDispatched)
-                    {
+                        if (!DispatchPointer(action, out string? pointerDiagnostic))
+                        {
+                            FailStep(
+                                step,
+                                DittoErrorCode.InputUnreachable,
+                                $"Pointer {action.Action} could not be delivered to "
+                                    + $"{action.Target.Name}: {pointerDiagnostic}"
+                            );
+                            break;
+                        }
                         phase =
                             action.Action == DittoPointerAction.Click
                                 ? Phase.PointerPressPresentation
                                 : Phase.ActionPresentation;
+                        phaseStarted = now();
+                        break;
+                    }
+                    DittoAccessibilityTarget witness = action.VisualWitness ?? action.Target;
+                    if (
+                        targets.TryObservationRegion(
+                            witness,
+                            out visualObservationRegion,
+                            out string? witnessDiagnostic
+                        )
+                    )
+                    {
+                        previousVisualFingerprint = null;
+                        completionWitnessMatched = false;
+                        phase = Phase.PointerBaseline;
                         phaseStarted = now();
                     }
                     else
@@ -465,8 +504,8 @@ namespace Battlement
                         FailStep(
                             step,
                             DittoErrorCode.InputUnreachable,
-                            $"Pointer {action.Action} could not be delivered to "
-                                + $"{action.Target.Name}."
+                            $"Visual witness for pointer {action.Action} could not be resolved: "
+                                + witnessDiagnostic
                         );
                     }
                     break;
@@ -494,12 +533,20 @@ namespace Battlement
 
         private void PrepareFrame()
         {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             motion.PrepareFrame(
                 phase == Phase.FrameAdvance,
                 preserveAdvanceState && phase == Phase.ScreenshotSettle
             );
+            motionPrepareNs = ElapsedNanoseconds(started);
+            runner.BeginDittoFrameObservation();
+            started = System.Diagnostics.Stopwatch.GetTimestamp();
             runner.RunFrame();
+            runnerFrameNs = ElapsedNanoseconds(started);
+            started = System.Diagnostics.Stopwatch.GetTimestamp();
             runner.CompleteNativeFrame();
+            nativeFrameCompleteNs = ElapsedNanoseconds(started);
+            (responseDecodeNs, responseApplyNs) = runner.DittoResponseObservation();
             awaitingPresentation = true;
         }
 
@@ -518,8 +565,22 @@ namespace Battlement
                 throw new InvalidOperationException("No Ditto frame is awaiting presentation.");
             }
             awaitingPresentation = false;
-            DittoCommittedFrame frame = motion.ObserveCommittedFrame(commit.PixelFingerprint);
-            if (scenario.Performance is not null && !UnityEngine.Application.isFocused)
+            long endOfFrameTick =
+                commit.EndOfFrameTick == 0
+                    ? System.Diagnostics.Stopwatch.GetTimestamp()
+                    : commit.EndOfFrameTick;
+            lastEndOfFrameTick = endOfFrameTick;
+            long layoutStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            ulong motionFingerprint =
+                commit.FullFrameFingerprint
+                ?? (
+                    commit.FingerprintScope == DittoFingerprintScope.FullFrame
+                        ? commit.PixelFingerprint
+                        : 0
+                );
+            DittoCommittedFrame frame = motion.ObserveCommittedFrame(motionFingerprint);
+            ulong layoutObservationNs = ElapsedNanoseconds(layoutStarted);
+            if (scenario.Performance is not null && !isFocused())
                 throw new InvalidOperationException("Performance run lost application focus.");
             if (commit.Frame != frame.Index)
             {
@@ -537,8 +598,42 @@ namespace Battlement
             }
             committedFrame = frame.Index;
             renderCommit = commit;
-            presentationChanged = frame.LayoutChanged || frame.PaintChanged;
-            performanceRecorder?.Presented(frame.LayoutChanged || frame.PaintChanged);
+            bool visualChanged =
+                previousVisualFingerprint.HasValue
+                && previousVisualFingerprint.Value != commit.PixelFingerprint;
+            presentationChanged = performanceRecorder is null
+                ? frame.LayoutChanged || frame.PaintChanged
+                : visualChanged;
+            bool semanticCompleted =
+                pendingPointerAction?.Completion is DittoAccessibilityAssertion completion
+                && phase is not Phase.PointerBaseline and not Phase.PointerPressPresentation
+                && targets.Evaluate(completion).Matches;
+            completionWitnessMatched |= semanticCompleted;
+            DittoObserverFrameTiming timing =
+                commit.ObserverTiming
+                ?? new DittoObserverFrameTiming(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            timing = timing with
+            {
+                MotionPrepareNs = motionPrepareNs,
+                RunnerFrameNs = runnerFrameNs,
+                NativeFrameCompleteNs = nativeFrameCompleteNs,
+                InputReleaseAndSyncTransportNs = inputReleaseAndSyncTransportNs,
+                ResponseDecodeNs = responseDecodeNs,
+                ResponseApplyNs = responseApplyNs,
+                LayoutObservationNs = layoutObservationNs,
+            };
+            inputReleaseAndSyncTransportNs = 0;
+            if (phase != Phase.PointerBaseline && performanceRecorder is not null)
+            {
+                performanceRecorder.Presented(
+                    endOfFrameTick,
+                    visualChanged,
+                    semanticCompleted,
+                    timing
+                );
+            }
+            if (visualObservationRegion is not null)
+                previousVisualFingerprint = commit.PixelFingerprint;
             CaptureVideoFrame(frame, commit);
             if (TryFreezeObserved())
             {
@@ -581,13 +676,34 @@ namespace Battlement
 
             switch (phase)
             {
-                case Phase.PointerPressPresentation:
-                    if (!presentationChanged)
+                case Phase.PointerBaseline:
+                    if (previousVisualFingerprint is null)
+                        throw new InvalidOperationException(
+                            "Pointer baseline did not produce a visual fingerprint."
+                        );
+                    performanceRecorder!.BeginInputDispatch();
+                    if (!DispatchPointer(pendingPointerAction!, out string? dispatchDiagnostic))
+                    {
+                        FailStep(
+                            step,
+                            DittoErrorCode.InputUnreachable,
+                            $"Pointer {pendingPointerAction!.Action} could not be delivered to "
+                                + $"{pendingPointerAction.Target.Name}: {dispatchDiagnostic}"
+                        );
                         return;
+                    }
+                    phase =
+                        pendingPointerAction!.Action == DittoPointerAction.Click
+                            ? Phase.PointerPressPresentation
+                            : Phase.ActionPresentation;
+                    phaseStarted = now();
+                    break;
+                case Phase.PointerPressPresentation:
                     string? pointerDiagnostic = null;
+                    performanceRecorder?.BeginActivationDispatch();
                     if (
                         pointerClickTarget is not ObjectId target
-                        || !targets.FinishPointerClick(target, out pointerDiagnostic)
+                        || !FinishPointerClick(target, out pointerDiagnostic)
                     )
                     {
                         pointerClickTarget = null;
@@ -654,6 +770,10 @@ namespace Battlement
                             return;
                         }
                     }
+                    if (pendingPointerAction?.Completion is not null && !completionWitnessMatched)
+                    {
+                        return;
+                    }
                     if (activationTransactionId is null && !NextStepIsAdvance() && !frame.IsSettled)
                     {
                         phase = Phase.Settle;
@@ -663,18 +783,23 @@ namespace Battlement
                     }
                     if (NextStepIsAdvance())
                     {
+                        CompletePerformanceStep();
                         PassStep(step);
                     }
                     else
                     {
                         settleDurationMs += PhaseDuration();
                         presentationReady = true;
+                        CompletePerformanceStep();
                         PassStep(step);
                     }
                     break;
                 case Phase.Settle when frame.IsSettled:
+                    if (pendingPointerAction?.Completion is not null && !completionWitnessMatched)
+                        break;
                     settleDurationMs += PhaseDuration();
                     presentationReady = true;
+                    CompletePerformanceStep();
                     PassStep(step);
                     break;
                 case Phase.ScreenshotSettle when frame.IsSettled:
@@ -709,6 +834,19 @@ namespace Battlement
             }
         }
 
+        private bool FinishPointerClick(ObjectId target, out string? diagnostic)
+        {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                return targets.FinishPointerClick(target, out diagnostic);
+            }
+            finally
+            {
+                inputReleaseAndSyncTransportNs = ElapsedNanoseconds(started);
+            }
+        }
+
         private void EvaluateObjectWait(DittoResolvedStep step)
         {
             DittoConditionResult condition = targets.Evaluate(waitCondition!);
@@ -726,6 +864,27 @@ namespace Battlement
                 phase = Phase.Settle;
                 phaseStarted = now();
             }
+        }
+
+        private bool DispatchPointer(
+            DittoStepAction.PointerAction action,
+            out string? diagnostic
+        ) =>
+            action.Action switch
+            {
+                DittoPointerAction.Click => targets.BeginPointerClick(
+                    action.Target,
+                    out pointerClickTarget,
+                    out diagnostic
+                ),
+                DittoPointerAction.Hover => targets.Hover(action.Target, out diagnostic),
+                _ => throw new InvalidOperationException("Unknown pointer action."),
+            };
+
+        private void CompletePerformanceStep()
+        {
+            if (pendingPointerAction?.Action == DittoPointerAction.Click)
+                performanceRecorder?.CompleteSettled(lastEndOfFrameTick);
         }
 
         private bool NextStepIsAdvance() =>
@@ -1049,10 +1208,14 @@ namespace Battlement
                 assertion,
                 artifactId,
                 videoInputId,
-                performanceRecorder?.Finish()
+                status == DittoStepStatus.Passed ? performanceRecorder?.Finish() : null
             );
             performanceRecorder = null;
             pointerClickTarget = null;
+            pendingPointerAction = null;
+            visualObservationRegion = null;
+            previousVisualFingerprint = null;
+            completionWitnessMatched = false;
             results.Add(result);
             phase = Phase.None;
             waitCondition = null;
@@ -1151,7 +1314,7 @@ namespace Battlement
             if (!succeeded)
             {
                 AddNotRunSteps();
-                complete = true;
+                Complete();
                 return true;
             }
             if (completeAfterBoundary)
@@ -1179,6 +1342,13 @@ namespace Battlement
             double milliseconds = Math.Max(0, (end - start).TotalMilliseconds);
             return Math.Min(capMs, checked((ulong)Math.Floor(milliseconds)));
         }
+
+        private static ulong ElapsedNanoseconds(long started) =>
+            checked(
+                (ulong)Math.Max(0, System.Diagnostics.Stopwatch.GetTimestamp() - started)
+                * 1_000_000_000UL
+                / (ulong)System.Diagnostics.Stopwatch.Frequency
+            );
 
         private ulong OverallDuration(TimeSpan end) =>
             Duration(scenarioStarted, end, Math.Min(scenario.TimeoutMs, runTimeoutMs));

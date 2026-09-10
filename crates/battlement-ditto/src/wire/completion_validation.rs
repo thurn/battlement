@@ -150,6 +150,25 @@ fn performance(
     "performance target does not match job"
   );
   ensure!(
+    value.timing_proxy == "unity-wait-for-end-of-frame",
+    "performance timing proxy is unsupported"
+  );
+  ensure!(
+    value.pacing_configuration.target_frame_rate == i32::try_from(value.target_fps)?,
+    "software frame cap does not match the performance target"
+  );
+  ensure!(
+    value.pacing_configuration.width > 0 && value.pacing_configuration.height > 0,
+    "performance pacing configuration has an empty display"
+  );
+  ensure!(
+    value
+      .pacing_configuration
+      .display_refresh_hz
+      .is_none_or(|refresh| refresh.is_finite() && refresh > 0.0),
+    "performance display refresh must be finite and positive"
+  );
+  ensure!(
     value.response_missed_deadlines + value.pacing_missed_deadlines
       == value.missed_interaction_deadlines,
     "performance deadline total is inconsistent"
@@ -159,8 +178,22 @@ fn performance(
     "performance requires a presented frame"
   );
   ensure!(
-    value.presentation_timestamps_ns.len() == value.managed_allocation_deltas.len(),
+    value
+      .managed_allocation_deltas
+      .as_ref()
+      .is_none_or(|allocations| { value.presentation_timestamps_ns.len() == allocations.len() }),
     "performance frame and allocation counts differ"
+  );
+  ensure!(
+    value.presentation_timestamps_ns.len() == value.observer_timings.len(),
+    "performance frame and observer timing counts differ"
+  );
+  ensure!(
+    value
+      .observer_timings
+      .iter()
+      .all(|timing| timing.observed_pixels > 0),
+    "performance observer timing requires observed pixels"
   );
   ensure!(
     value.presentation_intervals_ns.len()
@@ -196,6 +229,20 @@ fn performance(
   ensure!(
     !value.no_visual_response || value.response_missed_deadlines > 0,
     "no-response performance must miss a response deadline"
+  );
+  ensure!(
+    value.has_activation
+      == (value.settled_completion_latency_ns.is_some()
+        || value.semantic_completion_latency_ns.is_some()),
+    "activation milestone fields are inconsistent"
+  );
+  ensure!(
+    value.semantic_completion_latency_ns.is_none_or(|semantic| {
+      value
+        .settled_completion_latency_ns
+        .is_some_and(|settled| semantic <= settled)
+    }),
+    "semantic completion must not follow settled completion"
   );
   Ok(())
 }

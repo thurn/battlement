@@ -150,6 +150,24 @@ namespace Battlement
                 "performance target does not match job"
             );
             Require(
+                value.TimingProxy == DittoStepPerformanceRecorder.TimingProxy,
+                "performance timing proxy is unsupported"
+            );
+            Require(
+                value.PacingConfiguration.TargetFrameRate == checked((int)value.TargetFps),
+                "software frame cap does not match the performance target"
+            );
+            Require(
+                value.PacingConfiguration.Width > 0 && value.PacingConfiguration.Height > 0,
+                "performance pacing configuration has an empty display"
+            );
+            Require(
+                !value.PacingConfiguration.DisplayRefreshHz.HasValue
+                    || double.IsFinite(value.PacingConfiguration.DisplayRefreshHz.Value)
+                        && value.PacingConfiguration.DisplayRefreshHz.Value > 0,
+                "performance display refresh must be finite and positive"
+            );
+            Require(
                 value.ResponseMissedDeadlines + value.PacingMissedDeadlines
                     == value.MissedInteractionDeadlines,
                 "performance deadline total is inconsistent"
@@ -158,9 +176,18 @@ namespace Battlement
                 value.PresentationTimestampsNs.Count > 0,
                 "performance requires a presented frame"
             );
+            if (value.ManagedAllocationDeltas is not null)
+                Require(
+                    value.PresentationTimestampsNs.Count == value.ManagedAllocationDeltas.Count,
+                    "performance frame and allocation counts differ"
+                );
             Require(
-                value.PresentationTimestampsNs.Count == value.ManagedAllocationDeltas.Count,
-                "performance frame and allocation counts differ"
+                value.PresentationTimestampsNs.Count == value.ObserverTimings.Count,
+                "performance frame and observer timing counts differ"
+            );
+            Require(
+                value.ObserverTimings.All(timing => timing.ObservedPixels > 0),
+                "performance observer timing requires observed pixels"
             );
             Require(
                 value.PresentationIntervalsNs.Count
@@ -193,6 +220,19 @@ namespace Battlement
             Require(
                 !value.NoVisualResponse || value.ResponseMissedDeadlines > 0,
                 "no-response performance must miss a response deadline"
+            );
+            Require(
+                value.HasActivation
+                    == (
+                        value.SettledCompletionLatencyNs.HasValue
+                        || value.SemanticCompletionLatencyNs.HasValue
+                    ),
+                "activation milestone fields are inconsistent"
+            );
+            Require(
+                !value.SemanticCompletionLatencyNs.HasValue
+                    || value.SettledCompletionLatencyNs >= value.SemanticCompletionLatencyNs,
+                "semantic completion must not follow settled completion"
             );
         }
 

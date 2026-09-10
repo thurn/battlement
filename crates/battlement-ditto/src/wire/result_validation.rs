@@ -8,7 +8,7 @@ use crate::wire::{
   lifecycle::StepPerformance,
   lifecycle_validation,
   result::{
-    BuildDisposition, ErrorOccurrence, JobResult, MeasuredStepPerformance, PerformanceResult,
+    BuildDisposition, ErrorOccurrence, JobResult, PerformanceAttemptSummary, PerformanceResult,
     PlayerSessionResult, Recovery, ResultCommand, RunResult, RunStatus, ScenarioResult,
     ScenarioStatus,
   },
@@ -68,6 +68,18 @@ fn performance(result: &RunResult) -> Result<()> {
     value.headline == format!("Missed {} Hz interaction deadlines", value.target_fps),
     "performance headline does not match its target"
   );
+  ensure!(
+    value.timing_proxy == "unity-wait-for-end-of-frame",
+    "performance summary timing proxy is unsupported"
+  );
+  ensure!(
+    !value.timing_limitation.is_empty(),
+    "performance summary timing limitation is missing"
+  );
+  ensure!(
+    !value.pacing_configurations.is_empty(),
+    "performance summary requires pacing configuration"
+  );
   ensure!(value.goal == 0, "performance goal must be zero");
   performance_evidence(result, value)?;
   ensure!(
@@ -100,6 +112,15 @@ fn performance(result: &RunResult) -> Result<()> {
       step.no_visual_response_attempts <= step.attempts,
       "performance no-response count exceeds its attempts"
     );
+    ensure!(
+      step.response_missed_deadlines + step.pacing_missed_deadlines
+        == step.missed_interaction_deadlines,
+      "performance measured-step deadline total is inconsistent"
+    );
+    ensure!(
+      usize::try_from(step.attempts)? == step.attempt_values.len(),
+      "performance measured-step attempt values are incomplete"
+    );
   }
   ensure!(
     result
@@ -120,6 +141,10 @@ fn performance(result: &RunResult) -> Result<()> {
       "performance hotspot maximum exceeds its total"
     );
   }
+  ensure!(
+    value.observer_passes.len() == 2,
+    "performance summary requires score and detail observer evidence"
+  );
   Ok(())
 }
 
@@ -135,7 +160,10 @@ fn performance_evidence(result: &RunResult, summary: &PerformanceResult) -> Resu
   let mut idle_frames = None;
   let mut expected_step_names: Option<BTreeSet<String>> = None;
   let mut score_values = Vec::new();
-  let mut score_steps: BTreeMap<String, Vec<&StepPerformance>> = BTreeMap::new();
+  let mut score_attempts = Vec::new();
+  let mut warmup_attempts = Vec::new();
+  let mut pacing_configurations = Vec::new();
+  let mut score_steps: BTreeMap<String, Vec<(u32, &StepPerformance)>> = BTreeMap::new();
   for scenario in &result.scenarios {
     let attempt = scenario
       .performance_attempt
@@ -160,6 +188,9 @@ fn performance_evidence(result: &RunResult, summary: &PerformanceResult) -> Resu
     );
     let mut names = BTreeSet::new();
     let mut attempt_total = 0u64;
+    let mut response_total = 0u64;
+    let mut pacing_total = 0u64;
+    let mut no_visual_response_attempts = 0u32;
     for step in &scenario.steps {
       let Some(performance) = &step.performance else {
         continue;
@@ -172,11 +203,26 @@ fn performance_evidence(result: &RunResult, summary: &PerformanceResult) -> Resu
         names.insert(name.clone()),
         "performance attempt contains duplicate measured step names"
       );
+      response_total = response_total
+        .checked_add(performance.response_missed_deadlines)
+        .ok_or_else(|| anyhow::anyhow!("performance response total overflow"))?;
+      pacing_total = pacing_total
+        .checked_add(performance.pacing_missed_deadlines)
+        .ok_or_else(|| anyhow::anyhow!("performance pacing total overflow"))?;
+      no_visual_response_attempts = no_visual_response_attempts
+        .checked_add(u32::from(performance.no_visual_response))
+        .ok_or_else(|| anyhow::anyhow!("performance no-response total overflow"))?;
+      if !pacing_configurations.contains(&performance.pacing_configuration) {
+        pacing_configurations.push(performance.pacing_configuration.clone());
+      }
+      attempt_total = attempt_total
+        .checked_add(performance.missed_interaction_deadlines)
+        .ok_or_else(|| anyhow::anyhow!("performance attempt total overflow"))?;
       if attempt.pass == PerformancePass::Score && !attempt.warmup {
-        attempt_total = attempt_total
-          .checked_add(performance.missed_interaction_deadlines)
-          .ok_or_else(|| anyhow::anyhow!("performance attempt total overflow"))?;
-        score_steps.entry(name).or_default().push(performance);
+        score_steps
+          .entry(name)
+          .or_default()
+          .push((attempt.iteration, performance));
       }
     }
     ensure!(
@@ -194,63 +240,71 @@ fn performance_evidence(result: &RunResult, summary: &PerformanceResult) -> Resu
     if attempt.pass == PerformancePass::Score && !attempt.warmup {
       score_values.push(attempt_total);
     }
+    let attempt_summary = PerformanceAttemptSummary {
+      pass: attempt.pass,
+      iteration: attempt.iteration,
+      warmup: attempt.warmup,
+      missed_interaction_deadlines: attempt_total,
+      response_missed_deadlines: response_total,
+      pacing_missed_deadlines: pacing_total,
+      no_visual_response_attempts,
+    };
+    if attempt.warmup {
+      warmup_attempts.push(attempt_summary);
+    } else if attempt.pass == PerformancePass::Score {
+      score_attempts.push(attempt_summary);
+    }
   }
   ensure!(
     topology == expected_topology,
     "profile result has incomplete performance attempt topology"
   );
   score_values.sort_unstable();
+  warmup_attempts.sort_by_key(|attempt| (performance_pass_key(attempt.pass), attempt.iteration));
+  score_attempts.sort_by_key(|attempt| attempt.iteration);
   ensure!(
     score_values == summary.score_attempt_values,
     "performance score attempts disagree with raw evidence"
   );
+  ensure!(
+    warmup_attempts == summary.warmup_attempts,
+    "performance warmup attempts disagree with raw evidence"
+  );
+  ensure!(
+    score_attempts == summary.score_attempts,
+    "performance score summaries disagree with raw evidence"
+  );
+  ensure!(
+    pacing_configurations == summary.pacing_configurations,
+    "performance pacing configurations disagree with raw evidence"
+  );
   let expected_steps = score_steps
     .into_iter()
-    .map(|(name, values)| measured_step(name, &values))
+    .map(|(name, values)| crate::performance::measured_step(name, &values, summary.target_fps))
     .collect::<Result<Vec<_>>>()?;
   ensure!(
     expected_steps == summary.measured_steps,
     "performance measured-step summary disagrees with raw evidence"
   );
-  Ok(())
-}
-
-fn measured_step(name: String, values: &[&StepPerformance]) -> Result<MeasuredStepPerformance> {
-  let mut response = values
+  let raw_attempts = result
+    .scenarios
     .iter()
-    .map(|value| value.response_latency_ns)
+    .filter_map(|scenario| {
+      scenario
+        .performance_attempt
+        .as_ref()
+        .map(|attempt| (scenario, attempt))
+    })
     .collect::<Vec<_>>();
-  response.sort_unstable();
-  let missed_interaction_deadlines = values.iter().try_fold(0u64, |total, value| {
-    total.checked_add(value.missed_interaction_deadlines)
-  });
-  let managed_allocated_bytes = values.iter().try_fold(0i64, |total, value| {
-    value
-      .managed_allocation_deltas
-      .iter()
-      .try_fold(total, |total, allocation| total.checked_add(*allocation))
-  });
-  Ok(MeasuredStepPerformance {
-    name,
-    attempts: u32::try_from(values.len())?,
-    no_visual_response_attempts: u32::try_from(
-      values
-        .iter()
-        .filter(|value| value.no_visual_response)
-        .count(),
-    )?,
-    missed_interaction_deadlines: missed_interaction_deadlines
-      .ok_or_else(|| anyhow::anyhow!("performance measured-step total overflow"))?,
-    median_response_latency_ns: response[response.len() / 2],
-    worst_presentation_interval_ns: values
-      .iter()
-      .flat_map(|value| value.presentation_intervals_ns.iter())
-      .copied()
-      .max()
-      .unwrap_or(0),
-    managed_allocated_bytes: managed_allocated_bytes
-      .ok_or_else(|| anyhow::anyhow!("performance allocation total overflow"))?,
-  })
+  let expected_observer_passes = [PerformancePass::Score, PerformancePass::Detail]
+    .into_iter()
+    .map(|pass| crate::performance::observer_pass(&raw_attempts, pass))
+    .collect::<Result<Vec<_>>>()?;
+  ensure!(
+    expected_observer_passes == summary.observer_passes,
+    "performance observer summary disagrees with raw evidence"
+  );
+  Ok(())
 }
 
 fn performance_pass_key(pass: PerformancePass) -> u8 {

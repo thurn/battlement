@@ -74,6 +74,8 @@ namespace Battlement
         private int mainThreadId;
         private int uiDispatchDepth;
         private ulong dittoStateVersion;
+        private ulong dittoResponseDecodeNs;
+        private ulong dittoResponseApplyNs;
         private PendingUiFailure? pendingUiFailure;
         private BattlementUiEventInspection? awaitingNativePrevention;
 
@@ -1094,6 +1096,15 @@ namespace Battlement
             }
         }
 
+        internal void BeginDittoFrameObservation()
+        {
+            dittoResponseDecodeNs = 0;
+            dittoResponseApplyNs = 0;
+        }
+
+        internal (ulong DecodeNs, ulong ApplyNs) DittoResponseObservation() =>
+            (dittoResponseDecodeNs, dittoResponseApplyNs);
+
         private void OnApplicationPause(bool pauseStatus)
         {
             isApplicationPaused = pauseStatus;
@@ -1345,7 +1356,14 @@ namespace Battlement
                         ValidateResponse(configured, response, isInitial, previousSession),
                     (session, message) => ApplyMessage(configured, session, message),
                     () => session.Phase == BattlementSessionPhase.ApplyingSnapshot,
-                    () => session.Phase == BattlementSessionPhase.Stopped
+                    () => session.Phase == BattlementSessionPhase.Stopped,
+                    dittoInputActive
+                );
+                dittoResponseDecodeNs = checked(
+                    dittoResponseDecodeNs + StopwatchNanoseconds(responses.LastDecodeTicks)
+                );
+                dittoResponseApplyNs = checked(
+                    dittoResponseApplyNs + StopwatchNanoseconds(responses.LastApplyTicks)
                 );
             }
             catch (Exception exception)
@@ -1360,6 +1378,13 @@ namespace Battlement
                 }
             }
         }
+
+        private static ulong StopwatchNanoseconds(long ticks) =>
+            checked(
+                (ulong)Math.Max(0, ticks)
+                * 1_000_000_000UL
+                / (ulong)System.Diagnostics.Stopwatch.Frequency
+            );
 
         private bool ValidateResponse(
             BattlementRunnerOptions configured,

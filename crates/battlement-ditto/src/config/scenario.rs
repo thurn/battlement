@@ -225,35 +225,45 @@ fn step_value(
   } else if let Some(assertion) = raw.assertion.take() {
     StepKind::Assert(condition(validation, &format!("{key}.assert"), assertion)?)
   } else if let Some(assertion) = raw.accessibility_assert.take() {
-    StepKind::AccessibilityAssert(AccessibilityAssertion {
-      target: accessibility_target(validation, &key, assertion.target)?,
-      role: accessibility_role(assertion.role),
-      name: required_accessible_name(
-        validation,
-        &format!("{key}.accessibility_assert.name"),
-        assertion.name,
-      )?,
-      selected: assertion.selected,
-      checked: assertion.checked,
-      disabled: assertion.disabled,
-      current_page: assertion.current_page,
-      parent: assertion
-        .parent
-        .map(|target| accessibility_target(validation, &key, target))
-        .transpose()?,
-    })
+    StepKind::AccessibilityAssert(accessibility_assertion(
+      validation,
+      &format!("{key}.accessibility_assert"),
+      assertion,
+    )?)
   } else if let Some(action) = raw.accessibility_action.take() {
     StepKind::AccessibilityAction {
       target: accessibility_target(validation, &key, action.target)?,
       action: accessibility_action(action.action),
     }
   } else if let Some(action) = raw.pointer_action.take() {
+    if action.completion.is_some() && !matches!(action.action, RawPointerAction::Click) {
+      return Err(invalid(
+        validation.path,
+        validation.source,
+        format!("{key}.pointer_action.completion"),
+        "pointer completion witnesses require a click",
+      ));
+    }
     StepKind::PointerAction {
       target: accessibility_target(validation, &key, action.target)?,
       action: match action.action {
         RawPointerAction::Click => crate::config::model::PointerAction::Click,
         RawPointerAction::Hover => crate::config::model::PointerAction::Hover,
       },
+      visual_witness: action
+        .visual_witness
+        .map(|target| accessibility_target(validation, &key, target))
+        .transpose()?,
+      completion: action
+        .completion
+        .map(|assertion| {
+          accessibility_assertion(
+            validation,
+            &format!("{key}.pointer_action.completion"),
+            assertion,
+          )
+        })
+        .transpose()?,
     }
   } else if let Some(screenshot) = raw.screenshot.take() {
     name(
@@ -312,6 +322,26 @@ fn step_value(
     timeout,
     measure: raw.measure,
     action,
+  })
+}
+
+fn accessibility_assertion(
+  validation: &Validation<'_>,
+  key: &str,
+  assertion: crate::config::raw::RawAccessibilityAssertion,
+) -> Result<AccessibilityAssertion, ConfigError> {
+  Ok(AccessibilityAssertion {
+    target: accessibility_target(validation, key, assertion.target)?,
+    role: accessibility_role(assertion.role),
+    name: required_accessible_name(validation, &format!("{key}.name"), assertion.name)?,
+    selected: assertion.selected,
+    checked: assertion.checked,
+    disabled: assertion.disabled,
+    current_page: assertion.current_page,
+    parent: assertion
+      .parent
+      .map(|target| accessibility_target(validation, key, target))
+      .transpose()?,
   })
 }
 

@@ -231,6 +231,12 @@ fn startup_report_fields(report: &StartupReport) -> Result<()> {
   if let Some(id) = &report.native_execution_id {
     validation::identifier("native_execution_id", id)?;
   }
+  if let Some(baseline) = &report.observer_baseline {
+    ensure!(
+      baseline.observed_pixels == 4,
+      "native observer baseline must describe the two-by-two startup probe"
+    );
+  }
   validation::display(report.platform, &report.display)?;
   Ok(())
 }

@@ -178,7 +178,7 @@ namespace Battlement
             {
                 throw new ArgumentOutOfRangeException(nameof(commit));
             }
-            if (latestCommit != commit)
+            if (latestCommit?.IdentifiesSamePresentation(commit) != true)
             {
                 completion(
                     new DittoWebCaptureResult.Unavailable(

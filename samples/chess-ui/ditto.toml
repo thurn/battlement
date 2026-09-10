@@ -137,27 +137,27 @@ pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "ho
 [[scenarios.steps]]
 name = "Leave settings hover"
 measure = true
-pointer_action = { target = { role = "button", name = "PLAY" }, action = "hover" }
+pointer_action = { target = { role = "button", name = "PLAY" }, action = "hover", visual_witness = { role = "button", name = "SETTINGS" } }
 
 [[scenarios.steps]]
 name = "Open settings with pressed feedback"
 measure = true
-pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "click" }
+pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "click", completion = { target = { role = "heading", name = "Settings" }, role = "heading", name = "Settings" } }
 
 [[scenarios.steps]]
 name = "Open Sound tab"
 measure = true
-pointer_action = { target = { role = "tab", name = "Sound" }, action = "click" }
+pointer_action = { target = { role = "tab", name = "Sound" }, action = "click", completion = { target = { role = "tab", name = "Sound" }, role = "tab", name = "Sound", selected = true } }
 
 [[scenarios.steps]]
 name = "Change background mute setting"
 measure = true
-pointer_action = { target = { role = "checkbox", name = "Mute in Background" }, action = "click" }
+pointer_action = { target = { role = "checkbox", name = "Mute in Background" }, action = "click", completion = { target = { role = "checkbox", name = "Mute in Background" }, role = "checkbox", name = "Mute in Background", checked = true } }
 
 [[scenarios.steps]]
 name = "Return to main menu"
 measure = true
-pointer_action = { target = { role = "button", name = "RETURN" }, action = "click" }
+pointer_action = { target = { role = "button", name = "RETURN" }, action = "click", completion = { target = { role = "heading", name = "Chess Chess Revolution" }, role = "heading", name = "Chess Chess Revolution" } }
 
 [[scenarios]]
 name = "settings route transition"

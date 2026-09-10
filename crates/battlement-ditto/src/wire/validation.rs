@@ -291,16 +291,27 @@ fn validate_step<'a>(
     }
     StepKind::Wait(condition) => object_condition(condition),
     StepKind::Assert(condition) => object_condition(condition),
-    StepKind::AccessibilityAssert(assertion) => {
-      accessibility_target(&assertion.target)?;
-      ensure!(
-        !assertion.name.trim().is_empty(),
-        "accessible name must not be empty"
-      );
+    StepKind::AccessibilityAssert(assertion) => accessibility_assertion(assertion),
+    StepKind::AccessibilityAction { target, .. } => accessibility_target(target),
+    StepKind::PointerAction {
+      target,
+      action,
+      visual_witness,
+      completion,
+    } => {
+      accessibility_target(target)?;
+      if let Some(witness) = visual_witness {
+        accessibility_target(witness)?;
+      }
+      if let Some(completion) = completion {
+        ensure!(
+          matches!(action, crate::wire::job::PointerAction::Click),
+          "pointer completion witnesses require a click"
+        );
+        accessibility_assertion(completion)?;
+      }
       Ok(())
     }
-    StepKind::AccessibilityAction { target, .. } => accessibility_target(target),
-    StepKind::PointerAction { target, .. } => accessibility_target(target),
     StepKind::Screenshot(screenshot) => {
       capability(job, Capability::Png)?;
       name("screenshot.name", &screenshot.name)?;
@@ -322,6 +333,18 @@ fn accessibility_target(target: &AccessibilityTarget) -> Result<()> {
     !target.name.trim().is_empty(),
     "accessible target name must not be empty"
   );
+  Ok(())
+}
+
+fn accessibility_assertion(assertion: &crate::wire::job::AccessibilityAssertion) -> Result<()> {
+  accessibility_target(&assertion.target)?;
+  ensure!(
+    !assertion.name.trim().is_empty(),
+    "accessible name must not be empty"
+  );
+  if let Some(parent) = &assertion.parent {
+    accessibility_target(parent)?;
+  }
   Ok(())
 }
 

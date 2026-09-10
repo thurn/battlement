@@ -211,7 +211,7 @@ namespace Battlement
 
         private static DittoStepAction.PointerAction PointerActionStep(JObject value)
         {
-            Exact(value, "target", "action");
+            Exact(value, "target", "action", "visual_witness", "completion");
             return new DittoStepAction.PointerAction(
                 AccessibilityTarget(Object(Field(value, "target"), "target")),
                 String(Field(value, "action")) switch
@@ -221,7 +221,13 @@ namespace Battlement
                     var unknown => throw new JsonSerializationException(
                         $"Unknown pointer action {unknown}."
                     ),
-                }
+                },
+                Field(value, "visual_witness") is { Type: not JTokenType.Null } visualWitness
+                    ? AccessibilityTarget(Object(visualWitness, "visual_witness"))
+                    : null,
+                Field(value, "completion") is { Type: not JTokenType.Null } completion
+                    ? AccessibilityAssertion(Object(completion, "completion"))
+                    : null
             );
         }
 
