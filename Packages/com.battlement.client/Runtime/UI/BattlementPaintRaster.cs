@@ -135,13 +135,7 @@ namespace Battlement.UI
             int count = width * height;
             EnsureCapacity(ref pixels, count);
             Array.Clear(pixels, 0, count);
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                Vector2 point = new(bounds.x + x + 0.5f, bounds.y + y + 0.5f);
-                if (Contains(points, point))
-                    pixels[y * width + x] = Sample(fill, rect, point);
-            }
+            FillPolygon(pixels, width, height, rect, points, fill);
             if (mask != null)
                 ApplyMask(pixels, width, height, rect, mask);
             foreach (UiFilterFunction filter in filters)
@@ -217,29 +211,94 @@ namespace Battlement.UI
             }
         }
 
-        private static UnityColor Sample(PaintFill fill, UnityRect rect, Vector2 point)
+        private void FillPolygon(
+            UnityColor[] destination,
+            int width,
+            int height,
+            UnityRect rect,
+            IReadOnlyList<Vector2> points,
+            PaintFill fill
+        )
         {
+            UnityColor solid = default;
+            IReadOnlyList<GradientStop>? stops = null;
+            Vector2 linearStart = default;
+            Vector2 linearDelta = default;
+            float linearSquared = 0;
+            Gradient.Radial? radial = null;
             if (fill is PaintFill.Color color)
-                return Color(color.Value);
-            Gradient gradient = ((PaintFill.Gradient)fill).Value;
-            float position;
-            IReadOnlyList<GradientStop> stops;
-            if (gradient is Gradient.Radial radial)
+                solid = Color(color.Value);
+            else if (((PaintFill.Gradient)fill).Value is Gradient.Radial radialFill)
             {
-                float x = (point.x - rect.x) / rect.width - (float)radial.Center[0];
-                float y = (point.y - rect.y) / rect.height - (float)radial.Center[1];
-                x /= Math.Max(0.000001f, (float)radial.Radius[0]);
-                y /= Math.Max(0.000001f, (float)radial.Radius[1]);
-                position = Mathf.Sqrt(x * x + y * y);
-                stops = radial.Stops;
+                radial = radialFill;
+                stops = radialFill.Stops;
             }
             else
             {
-                var linear = (Gradient.Linear)gradient;
+                var linear = (Gradient.Linear)((PaintFill.Gradient)fill).Value;
                 (Vector2 start, Vector2 end) = BattlementGradientSegments.Line(rect, linear.Angle);
-                position = Vector2.Dot(point - start, end - start) / (end - start).sqrMagnitude;
+                linearStart = start;
+                linearDelta = end - linearStart;
+                linearSquared = linearDelta.sqrMagnitude;
                 stops = linear.Stops;
             }
+            var crossings = new float[points.Count];
+            for (int y = 0; y < height; y++)
+            {
+                float sampleY = bounds.y + y + 0.5f;
+                int crossingCount = 0;
+                Vector2 previous = points[points.Count - 1];
+                foreach (Vector2 next in points)
+                {
+                    if ((next.y > sampleY) != (previous.y > sampleY))
+                        crossings[crossingCount++] =
+                            (previous.x - next.x) * (sampleY - next.y) / (previous.y - next.y)
+                            + next.x;
+                    previous = next;
+                }
+                Array.Sort(crossings, 0, crossingCount);
+                for (int crossing = 0; crossing + 1 < crossingCount; crossing += 2)
+                {
+                    int start = Mathf.Clamp(
+                        Mathf.CeilToInt(crossings[crossing] - bounds.x - 0.5f),
+                        0,
+                        width
+                    );
+                    int end = Mathf.Clamp(
+                        Mathf.CeilToInt(crossings[crossing + 1] - bounds.x - 0.5f),
+                        0,
+                        width
+                    );
+                    for (int x = start; x < end; x++)
+                    {
+                        if (stops is null)
+                        {
+                            destination[y * width + x] = solid;
+                            continue;
+                        }
+                        Vector2 point = new(bounds.x + x + 0.5f, sampleY);
+                        float position;
+                        if (radial is not null)
+                        {
+                            float rx = (point.x - rect.x) / rect.width - (float)radial.Center[0];
+                            float ry = (point.y - rect.y) / rect.height - (float)radial.Center[1];
+                            rx /= Math.Max(0.000001f, (float)radial.Radius[0]);
+                            ry /= Math.Max(0.000001f, (float)radial.Radius[1]);
+                            position = Mathf.Sqrt(rx * rx + ry * ry);
+                        }
+                        else
+                        {
+                            position =
+                                Vector2.Dot(point - linearStart, linearDelta) / linearSquared;
+                        }
+                        destination[y * width + x] = Sample(stops, position);
+                    }
+                }
+            }
+        }
+
+        private static UnityColor Sample(IReadOnlyList<GradientStop> stops, float position)
+        {
             if (position <= stops[0].Position)
                 return Color(stops[0].Color);
             for (int i = 1; i < stops.Count; i++)
@@ -417,24 +476,6 @@ namespace Battlement.UI
         {
             if (buffer.Length < count)
                 buffer = new T[count];
-        }
-
-        private static bool Contains(IReadOnlyList<Vector2> points, Vector2 point)
-        {
-            bool inside = false;
-            Vector2 previous = points[points.Count - 1];
-            foreach (Vector2 next in points)
-            {
-                if ((next.y > point.y) != (previous.y > point.y))
-                    if (
-                        point.x
-                        < (previous.x - next.x) * (point.y - next.y) / (previous.y - next.y)
-                            + next.x
-                    )
-                        inside = !inside;
-                previous = next;
-            }
-            return inside;
         }
 
         private static bool InBounds(int x, int y, int width, int height) =>
