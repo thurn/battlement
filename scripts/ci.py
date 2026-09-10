@@ -36,6 +36,7 @@ from platform_support import (
     user_cache_path,
 )
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
+import resource_slots
 from resource_slots import unity_editor_lease
 from unity_transaction import recover_unity_transactions, unity_project_transaction
 import perf_log
@@ -270,7 +271,7 @@ def cargo_environment(
     writer_identity = workspace_identity if concurrent_scope is None else concurrent_scope
     target_identity = f"{REPOSITORY_ROOT.resolve()}\0{writer_identity}"
     target = hashlib.sha256(target_identity.encode()).hexdigest()[:16]
-    environment = os.environ.copy()
+    environment = resource_slots.capacity_environment()
     environment.setdefault("CARGO_BUILD_JOBS", str(DEFAULT_CARGO_JOBS))
     target_directory = CI_CACHE_ROOT / "cargo-targets" / "shared" / target
     target_directory.mkdir(parents=True, exist_ok=True)

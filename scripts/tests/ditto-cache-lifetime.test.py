@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 
@@ -38,6 +39,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 import tomllib
 import uuid
 
@@ -54,6 +56,10 @@ if "build" in arguments:
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     lock = lock_path.open("a+")
     fcntl.flock(lock, fcntl.LOCK_SH)
+    if blocked := os.environ.get("FAKE_BLOCK_BEFORE_OUTPUT"):
+        Path(blocked).write_text(str(os.getpid()))
+        while True:
+            time.sleep(1)
     if sample in {"failing", "cancelled"} and sample == "failing":
         raise SystemExit(7)
     existed = entry.is_dir()
@@ -157,6 +163,7 @@ def main() -> None:
         binary, environment = fixture(root)
         verify_cold_preparation_is_owned(root, binary, environment)
         verify_prepared_build_lease_lifetime(root, binary)
+        verify_superseded_preparation_is_canceled(root, binary)
     print("Ditto cache lifetime tests passed.")
 
 
@@ -356,11 +363,56 @@ def verify_prepared_build_lease_lifetime(root: Path, binary: Path) -> None:
     assert cooperative_cleanup(cancelled_lock, cancelled_entry)
 
 
+def verify_superseded_preparation_is_canceled(root: Path, binary: Path) -> None:
+    ready = root / "superseded.ready"
+    evidence = root / "superseded-evidence"
+    manager = DittoBuildLeases(REPOSITORY_ROOT, binary, root / "superseded-cache", evidence)
+    failures: list[BaseException] = []
+    previous = os.environ.get("FAKE_BLOCK_BEFORE_OUTPUT")
+    os.environ["FAKE_BLOCK_BEFORE_OUTPUT"] = str(ready)
+
+    def prepare() -> None:
+        try:
+            manager.prepare("ui")
+        except BaseException as error:
+            failures.append(error)
+
+    worker = threading.Thread(target=prepare)
+    try:
+        worker.start()
+        wait_for(ready)
+        started = time.monotonic()
+        LEASE_MODULE.ci_steps.request_cancellation()
+        worker.join(timeout=5)
+        assert not worker.is_alive(), "superseded build preparation retained its worker"
+        assert time.monotonic() - started < 5
+        assert len(failures) == 1 and isinstance(failures[0], KeyboardInterrupt)
+        pid = int(ready.read_text())
+        deadline = time.monotonic() + 2
+        while process_exists(pid) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert not process_exists(pid), "superseded build preparation retained its subprocess"
+    finally:
+        if previous is None:
+            os.environ.pop("FAKE_BLOCK_BEFORE_OUTPUT", None)
+        else:
+            os.environ["FAKE_BLOCK_BEFORE_OUTPUT"] = previous
+        LEASE_MODULE.ci_steps.configure(REPOSITORY_ROOT)
+
+
 def run(arguments: list[str], environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(RUNNER), *arguments], cwd=REPOSITORY_ROOT,
         env=environment, capture_output=True, text=True,
     )
+
+
+def process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
 
 
 def artifact_root(completed: subprocess.CompletedProcess[str]) -> Path:

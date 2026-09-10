@@ -13,6 +13,8 @@ import subprocess
 from threading import Lock
 import time
 
+import ci_steps
+
 
 @dataclass
 class RetainedBuild:
@@ -110,6 +112,9 @@ class DittoBuildLeases:
 
     def _wait_until_ready(self, build: RetainedBuild) -> dict[str, object]:
         while True:
+            if ci_steps.cancellation_requested():
+                self._signal(build.process, signal.SIGTERM)
+                raise KeyboardInterrupt
             if build.output.is_file():
                 try:
                     return json.loads(build.output.read_text(encoding="utf-8"))

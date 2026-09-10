@@ -31,7 +31,8 @@ def current() -> Operation | None:
 
 def child_environment(environment: dict[str, str] | None = None) -> dict[str, str]:
     """Preserve the caller environment, including Unity's private Git index."""
-    result = dict(os.environ if environment is None else environment)
+    import resource_slots
+    result = resource_slots.capacity_environment(environment)
     operation = current()
     if operation is not None:
         result['BATTLEMENT_PARENT_OPERATION_ID'] = operation.id

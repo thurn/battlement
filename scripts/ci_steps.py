@@ -8,6 +8,7 @@ from collections.abc import Callable
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
+import threading
 import time
 
 import perf_log
@@ -16,6 +17,7 @@ import operation_log
 
 _repository_root = Path(__file__).resolve().parent.parent
 _trace: perf_log.CiTrace | None = None
+_canceled = threading.Event()
 
 
 def configure(repository_root: Path, trace: perf_log.CiTrace | None = None) -> None:
@@ -23,11 +25,23 @@ def configure(repository_root: Path, trace: perf_log.CiTrace | None = None) -> N
     global _repository_root, _trace
     _repository_root = repository_root
     _trace = trace
+    _canceled.clear()
 
 
 def interrupted(_signal_number: int, _frame: object) -> None:
     """Translate termination signals into the CI interruption path."""
+    request_cancellation()
     raise KeyboardInterrupt
+
+
+def request_cancellation() -> None:
+    """Ask cooperative worker boundaries to stop their owned subprocesses."""
+    _canceled.set()
+
+
+def cancellation_requested() -> bool:
+    """Return whether the CI supervisor asked this process tree to stop."""
+    return _canceled.is_set()
 
 
 def trace_smoke_test(outcome: str) -> None:
