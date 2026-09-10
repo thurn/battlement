@@ -453,49 +453,49 @@ pub struct MotionDescriptor {
   /// Inherited reduced-motion policy.
   pub reduced_motion: ReducedMotionPolicy,
   /// Locally resolved pseudo-state style overlays.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pseudo_styles: Vec<MotionPseudoStyle>,
   /// CSS transitions over resolved static style changes.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub style_transition: StyleTransitionDescriptor,
   /// Ordered reusable CSS animation slots.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub animations: Vec<CssAnimationDescriptor>,
   /// Non-interactive keyed paint layers.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub decorations: Vec<MotionDecorationDescriptor>,
   /// Inspectable logical-variant resolution facts.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub variants: Option<MotionVariantResolution>,
   /// Deduplicated value nodes required by this host's bindings and subscriptions.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub values: Vec<MotionValueDescriptor>,
   /// Host properties driven by graph values.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub value_bindings: Vec<MotionValueBinding>,
   /// Explicit Rust-side value observations.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub value_subscriptions: Vec<MotionValueSubscription>,
   /// Optional animation-controls binding.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub control_id: Option<ObjectId>,
   /// Optional animation-scope root identity.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub scope_id: Option<ObjectId>,
   /// Whether this host is the scope root.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub scope_root: bool,
   /// Optional closed selector name.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub motion_name: Option<String>,
   /// Named targets resolved for imperative starts.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub named_targets: Vec<MotionNamedTarget>,
   /// Unity-local gesture recognizers and drag behavior.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub gestures: Option<MotionGestureDescriptor>,
   /// Optional layout projection and shared-layout configuration.
-  #[serde(default)]
+  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub layout: Option<MotionLayoutDescriptor>,
 }
 

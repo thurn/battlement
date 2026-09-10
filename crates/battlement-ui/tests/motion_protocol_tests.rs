@@ -104,6 +104,28 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
   assert!(json.contains("\"Controlled\""));
   assert!(json.contains("\"transition_end\""));
   assert!(json.contains("\"custom_snapshot\":91"));
+  let object = serde_json::from_str::<serde_json::Value>(&json).unwrap();
+  for default_field in [
+    "pseudo_styles",
+    "style_transition",
+    "animations",
+    "decorations",
+    "values",
+    "value_bindings",
+    "value_subscriptions",
+    "control_id",
+    "scope_id",
+    "scope_root",
+    "motion_name",
+    "named_targets",
+    "gestures",
+    "layout",
+  ] {
+    assert!(
+      object.get(default_field).is_none(),
+      "serialized default field {default_field}"
+    );
+  }
 }
 
 #[test]
