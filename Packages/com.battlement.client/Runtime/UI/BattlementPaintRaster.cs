@@ -138,6 +138,7 @@ namespace Battlement.UI
             FillPolygon(pixels, width, height, rect, points, fill);
             if (mask != null)
                 ApplyMask(pixels, width, height, rect, mask);
+            bool pristineAlpha = true;
             foreach (UiFilterFunction filter in filters)
             {
                 if (filter is UiFilterFunction.Brightness brightness)
@@ -150,7 +151,20 @@ namespace Battlement.UI
                     }
                 }
                 else if (filter is UiFilterFunction.DropShadow shadow)
-                    Shadow(pixels, width, height, shadow.Value);
+                {
+                    BattlementPaintShadowCacheKey? shadowKey = pristineAlpha
+                        ? new BattlementPaintShadowCacheKey(
+                            bounds,
+                            rect,
+                            points,
+                            fill,
+                            mask,
+                            shadow.Value
+                        )
+                        : null;
+                    Shadow(pixels, width, height, shadow.Value, shadowKey);
+                    pristineAlpha = false;
+                }
             }
             var upload = new Color32[count];
             for (int y = 0; y < height; y++)
@@ -321,7 +335,13 @@ namespace Battlement.UI
             return Color(stops[stops.Count - 1].Color);
         }
 
-        private void Shadow(UnityColor[] pixels, int width, int height, Shadow shadow)
+        private void Shadow(
+            UnityColor[] pixels,
+            int width,
+            int height,
+            Shadow shadow,
+            BattlementPaintShadowCacheKey? cacheKey
+        )
         {
             int count = width * height;
             EnsureCapacity(ref alpha, count);
@@ -330,24 +350,50 @@ namespace Battlement.UI
             EnsureCapacity(ref workC, count);
             for (int i = 0; i < count; i++)
                 alpha[i] = pixels[i].a;
-            float[] silhouette = alpha;
-            if (shadow.Spread != 0)
+            float[] silhouette;
+            if (
+                cacheKey is not null
+                && BattlementPaintShadowCache.TryGet(cacheKey, out float[] cached)
+            )
             {
-                Spread(
-                    silhouette,
-                    workA,
-                    width,
-                    height,
-                    (int)Math.Ceiling(Math.Abs(shadow.Spread)),
-                    shadow.Spread > 0
-                );
-                silhouette = workA;
+                silhouette = cached;
             }
-            if (shadow.Blur > 0)
+            else
             {
-                float[] destination = ReferenceEquals(silhouette, alpha) ? workA : alpha;
-                Gaussian(silhouette, destination, workB, workC, width, height, (float)shadow.Blur);
-                silhouette = destination;
+                silhouette = alpha;
+                if (shadow.Spread != 0)
+                {
+                    Spread(
+                        silhouette,
+                        workA,
+                        width,
+                        height,
+                        (int)Math.Ceiling(Math.Abs(shadow.Spread)),
+                        shadow.Spread > 0
+                    );
+                    silhouette = workA;
+                }
+                if (shadow.Blur > 0)
+                {
+                    float[] destination = ReferenceEquals(silhouette, alpha) ? workA : alpha;
+                    Gaussian(
+                        silhouette,
+                        destination,
+                        workB,
+                        workC,
+                        width,
+                        height,
+                        (float)shadow.Blur
+                    );
+                    silhouette = destination;
+                }
+                if (cacheKey is not null)
+                {
+                    var retained = new float[count];
+                    Array.Copy(silhouette, retained, count);
+                    BattlementPaintShadowCache.TryStore(cacheKey, retained);
+                    silhouette = retained;
+                }
             }
             UnityColor tint = Color(shadow.Color);
             for (int y = 0; y < height; y++)
