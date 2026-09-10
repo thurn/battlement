@@ -18,6 +18,8 @@ from unittest.mock import patch
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
+import web_selection
+
 SPEC = importlib.util.spec_from_file_location("ci", REPOSITORY_ROOT / "scripts/ci.py")
 assert SPEC and SPEC.loader
 ci = importlib.util.module_from_spec(SPEC)
@@ -35,6 +37,7 @@ def main() -> None:
         _verify_sample_worker_defaults()
         _verify_windows_paths(root)
         _verify_ditto_gate_contract()
+        _verify_selected_native_execution()
         _verify_ditto_build_leases_span_gate(root)
         assert ci.build_standalone_samples([], object()) == 0
         assert ci.select_native_samples(["scripts/ci.py"], ["basic"]) == []
@@ -321,6 +324,91 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
     assert leases.checked
     assert steps[0][1]["DITTO_CI_CACHE_ROOT"] == str(leases.cache_root)
     assert steps[0][1]["DITTO_CI_INVOCATION_ID"] == "retained-invocation"
+
+
+def _verify_selected_native_execution() -> None:
+    class RustSelection:
+        root = False
+        samples: tuple[Path, ...] = ()
+
+        def report(self) -> dict[str, object]:
+            return {"root": False, "samples": []}
+
+    class Cache:
+        def __init__(self, *_arguments: object, **_options: object) -> None:
+            pass
+
+        def run(self, _step: str, _inputs: tuple[str, ...], function: object) -> bool:
+            assert callable(function)
+            function()
+            return True
+
+    class DittoLeases:
+        cache_root = Path("/tmp/battlement-ci-test-ditto")
+
+        def __init__(self, *_arguments: object) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    native_runs: list[tuple[str, ...]] = []
+
+    def record_step(
+        _name: str,
+        _command: list[str] | None = None,
+        *,
+        function: object | None = None,
+        **_options: object,
+    ) -> float:
+        if function is not None:
+            assert callable(function)
+            function()
+        return 0.0
+
+    def record_ditto(*_arguments: object, **options: object) -> None:
+        samples = options.get("samples")
+        assert isinstance(samples, list)
+        native_runs.append(tuple(samples))
+
+    with (
+        patch.object(ci, "CiCache", Cache),
+        patch.object(ci, "sample_names", return_value=["ui"]),
+        patch.object(ci, "sample_rust_workspaces", return_value=[]),
+        patch.object(ci.ci_selection, "select_rust", return_value=RustSelection()),
+        patch.object(ci.ci_selection, "select_reactant_assets", return_value=([], [])),
+        patch.object(
+            ci.unity_test_selection,
+            "select",
+            return_value=ci.unity_test_selection.Selection(
+                ci.unity_test_selection.Scope.NONE,
+                (),
+                ("no Unity input changed",),
+                (),
+                False,
+            ),
+        ),
+        patch.object(
+            web_selection,
+            "changed_paths",
+            return_value=("HEAD", ["samples/ui/rules/src/lib.rs"]),
+        ),
+        patch.object(web_selection, "validate_affected"),
+        patch.object(ci, "run_csharp_preflight"),
+        patch.object(ci, "lint_rust_workspaces"),
+        patch.object(ci, "test_rust_workspaces", return_value=0.0),
+        patch.object(ci, "run_selected_unity_tests", return_value=0.0),
+        patch.object(ci, "build_standalone_samples", return_value=0.0),
+        patch.object(ci, "run_ditto_validation", side_effect=record_ditto),
+        patch.object(ci, "DittoBuildLeases", DittoLeases),
+        patch.object(ci.ditto_evidence, "invocation_root", return_value=Path("/tmp")),
+        patch.object(ci, "refresh_tracked_file_metadata"),
+        patch.object(ci, "run_step", side_effect=record_step),
+        patch.object(ci.platform, "system", return_value="Darwin"),
+    ):
+        ci.run_ci(full=True, use_ci_cache=False, ditto=True)
+
+    assert native_runs == [("ui",)]
 
 
 def _verify_rust_configuration() -> None:

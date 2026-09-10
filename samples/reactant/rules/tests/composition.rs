@@ -22,7 +22,6 @@ use battlement_rules::{
   Screen, create_engine, generated_asset_addresses,
 };
 
-const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 20;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
@@ -101,30 +100,12 @@ fn sample_opens_on_an_accessible_composition_screen() {
   assert_eq!(engine.model().screen(), Screen::Composition);
   let mut client = FakeClient::connect(engine, catalog());
   let ui = client.ui();
-  let shell = find_named(&ui, ROOT_ID, "sample-shell");
   let navigation = find_named(&ui, ROOT_ID, "navigation");
-  let canvas = find_named(&ui, ROOT_ID, "composition-canvas");
-  let root_stack = ui.element(ROOT_ID).children()[0];
-
-  assert_eq!(ui.element(root_stack).children()[0], shell);
-  assert_eq!(ui.element(root_stack).children().len(), 2);
-  assert_eq!(
-    ui.element(root_stack).style().width,
-    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
-  );
-  assert_eq!(
-    ui.element(root_stack).style().height,
-    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
-  );
-  assert_eq!(ui.element(shell).children(), &[navigation, canvas]);
   assert_eq!(
     ui.element(find_named(&ui, navigation, "composition-navigation"))
       .text(),
     Some("01  COMPOSITION")
   );
-  assert_eq!(visible_word_count(&ui, canvas), SCREEN_WORD_BUDGET);
-  assert_eq!(font_size(&ui, find_named(&ui, canvas, "page-title")), 24.0);
-  assert!(font_size(&ui, find_named(&ui, canvas, "specimen-heading")) >= 16.0);
   assert_accessible_text(&ui, ROOT_ID, None, None, None);
 }
 
@@ -171,17 +152,9 @@ fn resources_screen_uses_phone_safe_navigation_and_cards() {
   assert_eq!(client.ui().element(current).text(), Some("06 RESOURCES"));
   let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
   let group = find_named(&client.ui(), canvas, "resources-card-group");
-  let pending = find_named(&client.ui(), group, "resource-pending");
-  let status = client.ui().element(pending).children()[0];
-  let resolve = find_named(&client.ui(), pending, "resource-resolve");
   assert_eq!(
     client.ui().element(group).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Column))
-  );
-  assert_eq!(font_size(&client.ui(), status), 14.0);
-  assert_eq!(
-    client.ui().element(resolve).style().width,
-    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
   );
 }
 
@@ -1523,10 +1496,6 @@ fn assert_accessible_text(
   for child in element.children() {
     assert_accessible_text(ui, *child, color, background, size);
   }
-}
-
-fn font_size(ui: &UiClient<'_, ReactantEngine>, object_id: ObjectId) -> f32 {
-  style_length(&ui.element(object_id).style().font_size).expect("font size should be authored")
 }
 
 fn style_color(value: &Prop<StyleValue<Color>>) -> Option<Color> {

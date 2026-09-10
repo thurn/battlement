@@ -28,7 +28,42 @@ namespace Battlement.Tests
                 commands.Select(command => command.Body.GetType()).Distinct().Count(),
                 Is.EqualTo(JSONFixtureData.ConcreteCommandTypes().Length)
             );
-            Assert.That(JToken.Parse(Encoding.UTF8.GetString(bytes)), Is.Not.Null);
+
+            JToken expected = JToken.Parse(Encoding.UTF8.GetString(bytes));
+            JToken actual = JToken.Parse(
+                Encoding.UTF8.GetString(BattlementJson.SerializeResponse(decoded))
+            );
+            Assert.That(
+                JToken.DeepEquals(actual, expected),
+                Is.True,
+                "round-tripping the corpus must preserve every payload field"
+            );
+
+            Snapshot snapshot = (
+                (ResponseMessage<Command>.SnapshotMessage)decoded.Messages[0]
+            ).Snapshot;
+            Assert.That(snapshot.SessionId, Is.EqualTo(new SessionId(JSONFixtureData.SessionGuid)));
+            Assert.That(snapshot.Scenes.Single().Address.Value, Is.EqualTo("game/scene"));
+            Assert.That(snapshot.IsInputDisabled, Is.True);
+            Assert.That(
+                snapshot.GlobalKeys,
+                Is.EqualTo(new[] { PhysicalKey.KeyA, PhysicalKey.Escape })
+            );
+
+            CommandBody.Particle.Spawn spawn = commands
+                .Select(command => command.Body)
+                .OfType<CommandBody.Particle.Spawn>()
+                .Single(value => value.Lifetime.TotalMilliseconds == 250);
+            Assert.That(spawn.Address.Value, Is.EqualTo("game/effect"));
+            Assert.That(
+                spawn.Location,
+                Is.EqualTo(
+                    new ParticleSpawnLocation.AtGameObject(
+                        new ObjectId(JSONFixtureData.GuidAt(299))
+                    )
+                )
+            );
+            Assert.That(spawn.Lifetime.TotalMilliseconds, Is.EqualTo(250));
         }
 
         [Test]
