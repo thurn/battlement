@@ -890,7 +890,7 @@ fn startup_report() -> StartupReport {
       safe_area: [0, 0, 2, 2],
     },
     capabilities: vec![Capability::Click, Capability::Png, Capability::Video],
-    determinism_contract: "ditto-v2".to_owned(),
+    determinism_contract: "ditto-v3".to_owned(),
     native_execution_id: None,
   }
 }

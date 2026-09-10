@@ -289,7 +289,7 @@ namespace Battlement
                 display,
                 ActualCapabilities(profile.Platform),
                 runner!.DittoNativeTransport.SupportsDittoDeterminism && Application.runInBackground
-                    ? "ditto-v2"
+                    ? "ditto-v3"
                     : "unavailable",
                 BattlementDittoPlayerBootstrap.NativeExecutionId
             );
@@ -480,10 +480,10 @@ namespace Battlement
                 {
                     ulong frame = executor.NextPresentedFrame;
                     DittoRenderCommit commit =
-                        nativeCapture is null ? new DittoRenderCommit(frame, frame, 0)
+                        webCapture is not null ? webCapture.CommitPresentedFrame(frame)
                         : executor.RequiresPaintObservation
-                            ? nativeCapture.CommitPresentedFrame(frame)
-                        : nativeCapture.ObservePresentedFrame(frame);
+                            ? nativeCapture!.CommitPresentedFrame(frame)
+                        : nativeCapture!.ObservePresentedFrame(frame);
                     executor.CompletePresentedFrame(commit);
                     if (executor.Result is not null)
                     {
@@ -528,7 +528,7 @@ namespace Battlement
                 webCapture.UploadCommittedFrame(
                     ArtifactUrl(artifactId),
                     artifactId,
-                    commit.Frame,
+                    commit,
                     result => CompleteWebScreenshot(step, screenshot.Value.Name, result, completion)
                 );
                 return;
@@ -560,10 +560,7 @@ namespace Battlement
             }
             var uploaded = (DittoWebCaptureResult.Uploaded)result;
             string artifactId = uploaded.ArtifactId;
-            var kind = new DittoArtifactKind.Screenshot(
-                checkpoint,
-                new DittoRenderCommit(uploaded.Frame, uploaded.Frame, 0)
-            );
+            var kind = new DittoArtifactKind.Screenshot(checkpoint, uploaded.Commit);
             delivery!.ConfirmUploadedArtifact(
                 job!.Scenarios[scenarioIndex].Id,
                 step.Index,
@@ -678,6 +675,18 @@ namespace Battlement
             return commit;
         }
 
+        private DittoRenderCommit RequireWebCommit(ulong frame)
+        {
+            DittoRenderCommit? commit = executor?.LastRenderCommit;
+            if (commit is null || commit.Frame != frame)
+            {
+                throw new InvalidOperationException(
+                    $"No retained WebGL render commit proves presented frame {frame}."
+                );
+            }
+            return commit;
+        }
+
         private void CaptureWebFailureFrame()
         {
             if (executor!.LastCommittedFrame == 0)
@@ -693,7 +702,7 @@ namespace Battlement
             webCapture!.UploadCommittedFrame(
                 ArtifactUrl(artifactId),
                 artifactId,
-                executor.LastCommittedFrame,
+                RequireWebCommit(executor.LastCommittedFrame),
                 result =>
                 {
                     if (result is DittoWebCaptureResult.Uploaded uploaded)

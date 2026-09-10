@@ -506,4 +506,5 @@ battlement_native::export_deterministic_engine!(
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
+  visible_output = protocol_owned,
 );

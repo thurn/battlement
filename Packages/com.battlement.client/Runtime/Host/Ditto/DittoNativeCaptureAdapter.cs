@@ -59,6 +59,17 @@ namespace Battlement
         internal sealed record Unavailable(DittoCaptureFailure Failure) : DittoNativeCaptureResult;
     }
 
+    internal interface IDittoNativeCommittedFrameSource
+    {
+        ulong CommitPresentedFrame(uint width, uint height);
+
+        void ReadCommittedFrame(Action<byte[], bool> completion);
+
+        byte[] ReadCommittedFrame();
+
+        void Dispose();
+    }
+
     internal sealed class DittoNativeCaptureAdapter : MonoBehaviour
     {
         private const double OperationTimeoutSeconds = 10;
@@ -69,17 +80,17 @@ namespace Battlement
         private uint width;
         private uint height;
         private RenderTexture? probeTexture;
-        private RenderTexture? committedFramebuffer;
-        private Texture2D? fingerprintTexture;
+        private IDittoNativeCommittedFrameSource? committedFrameSource;
         private DittoCapturePixelLayout? layout;
         private System.Action<DittoCaptureProbeResult>? probeCompletion;
-        private System.Action<DittoNativeCaptureResult>? captureCompletion;
+        private CaptureOperation? captureOperation;
         private double deadline;
         private int generation;
         private ulong renderGeneration;
         private DittoRenderCommit? latestCommit;
         private bool configured;
         private bool ready;
+        private bool validateDisplay;
 
         public const string AdapterName = "native-screen-capture";
 
@@ -123,7 +134,28 @@ namespace Battlement
             adapter.width = width;
             adapter.height = height;
             adapter.expectedOrientation = orientation;
+            adapter.committedFrameSource = new UnityCommittedFrameSource();
             adapter.configured = true;
+            adapter.validateDisplay = true;
+            return adapter;
+        }
+
+        internal static DittoNativeCaptureAdapter AttachForTesting(
+            GameObject owner,
+            uint width,
+            uint height,
+            DittoCapturePixelLayout layout,
+            IDittoNativeCommittedFrameSource source
+        )
+        {
+            var adapter = owner.AddComponent<DittoNativeCaptureAdapter>();
+            adapter.platform = DittoPlatform.Macos;
+            adapter.width = width;
+            adapter.height = height;
+            adapter.layout = layout;
+            adapter.committedFrameSource = source;
+            adapter.configured = true;
+            adapter.ready = true;
             return adapter;
         }
 
@@ -137,7 +169,7 @@ namespace Battlement
                 FailProbe("Asynchronous GPU readback is unsupported.");
                 return;
             }
-            if (Screen.width != width || Screen.height != height)
+            if (validateDisplay && (Screen.width != width || Screen.height != height))
             {
                 FailProbe(
                     $"Framebuffer dimensions {Screen.width}x{Screen.height} do not match "
@@ -196,15 +228,13 @@ namespace Battlement
             {
                 throw new ArgumentOutOfRangeException(nameof(committedFrame));
             }
-            if (Screen.width != width || Screen.height != height)
+            if (validateDisplay && (Screen.width != width || Screen.height != height))
             {
                 throw new InvalidOperationException(
                     $"Framebuffer dimensions changed to {Screen.width}x{Screen.height}."
                 );
             }
-            EnsureCommittedFramebuffer();
-            ScreenCapture.CaptureScreenshotIntoRenderTexture(committedFramebuffer);
-            ulong fingerprint = ReadCommittedFingerprint();
+            ulong fingerprint = committedFrameSource!.CommitPresentedFrame(width, height);
             latestCommit = new DittoRenderCommit(
                 committedFrame,
                 checked(++renderGeneration),
@@ -252,7 +282,7 @@ namespace Battlement
             {
                 throw new ArgumentOutOfRangeException(nameof(commit));
             }
-            if (latestCommit != commit || committedFramebuffer == null)
+            if (latestCommit != commit)
             {
                 completion(
                     new DittoNativeCaptureResult.Unavailable(
@@ -264,29 +294,23 @@ namespace Battlement
                 );
                 return;
             }
-            captureCompletion = completion ?? throw new ArgumentNullException(nameof(completion));
+            var operation = new CaptureOperation(
+                commit,
+                completion ?? throw new ArgumentNullException(nameof(completion)),
+                Time.realtimeSinceStartupAsDouble + OperationTimeoutSeconds
+            );
+            captureOperation = operation;
             BeginOperation();
-            int requestedGeneration = generation;
             try
             {
-                AsyncGPUReadback.Request(
-                    committedFramebuffer,
-                    0,
-                    request =>
-                    {
-                        bool failed = request.hasError;
-                        byte[] pixels = failed
-                            ? Array.Empty<byte>()
-                            : request.GetData<byte>().ToArray();
-                        completions.Enqueue(() =>
-                            CompleteCapture(requestedGeneration, commit, pixels, failed)
-                        );
-                    }
+                committedFrameSource!.ReadCommittedFrame(
+                    (pixels, failed) =>
+                        completions.Enqueue(() => CompleteCapture(operation, pixels, failed))
                 );
             }
             catch (Exception exception)
             {
-                FailCapture(exception.Message);
+                FailCapture(operation, exception.Message);
             }
         }
 
@@ -311,35 +335,7 @@ namespace Battlement
                     $"Framebuffer dimensions changed to {Screen.width}x{Screen.height}."
                 );
             }
-            RenderTexture? previous = RenderTexture.active;
-            Texture2D? texture = null;
-            try
-            {
-                RenderTexture.active = committedFramebuffer;
-                texture = new Texture2D(
-                    checked((int)width),
-                    checked((int)height),
-                    TextureFormat.RGBA32,
-                    false,
-                    true
-                );
-                texture.ReadPixels(
-                    new UnityEngine.Rect(0, 0, checked((int)width), checked((int)height)),
-                    0,
-                    0,
-                    false
-                );
-                texture.Apply(false, false);
-                return OrientedPixels(texture.GetRawTextureData<byte>().ToArray());
-            }
-            finally
-            {
-                RenderTexture.active = previous;
-                if (texture != null)
-                {
-                    Destroy(texture);
-                }
-            }
+            return OrientedPixels(committedFrameSource!.ReadCommittedFrame());
         }
 
         public static DittoNativeCaptureResult ProcessLost() =>
@@ -381,25 +377,24 @@ namespace Battlement
             );
         }
 
-        private void CompleteCapture(
-            int requestedGeneration,
-            DittoRenderCommit commit,
-            byte[] pixels,
-            bool readbackFailed
-        )
+        private void CompleteCapture(CaptureOperation operation, byte[] pixels, bool readbackFailed)
         {
-            if (
-                requestedGeneration != generation
-                || captureCompletion is null
-                || latestCommit != commit
-            )
+            if (!ReferenceEquals(captureOperation, operation))
             {
-                FailCapture("The retained framebuffer changed before GPU readback completed.");
+                return;
+            }
+            DittoRenderCommit commit = operation.Commit;
+            if (latestCommit != commit)
+            {
+                FailCapture(
+                    operation,
+                    "The retained framebuffer changed before GPU readback completed."
+                );
                 return;
             }
             if (readbackFailed)
             {
-                FailCapture("The framebuffer GPU readback failed.");
+                FailCapture(operation, "The framebuffer GPU readback failed.");
                 return;
             }
             DittoNativeCaptureResult result = BindCapturedPixels(
@@ -412,11 +407,10 @@ namespace Battlement
             );
             if (result is DittoNativeCaptureResult.Unavailable unavailable)
             {
-                FailCapture(unavailable.Failure.Reason);
+                FailCapture(operation, unavailable.Failure.Reason);
                 return;
             }
-            System.Action<DittoNativeCaptureResult> completion = captureCompletion;
-            captureCompletion = null;
+            captureOperation = null;
             var captured = (DittoNativeCaptureResult.Captured)result;
             Debug.Log(
                 $"[Battlement/Ditto-trace] capture-ack frame={commit.Frame} "
@@ -424,7 +418,7 @@ namespace Battlement
                     + $"pid={System.Diagnostics.Process.GetCurrentProcess().Id} "
                     + $"bytes={captured.Png.Length}"
             );
-            completion(captured);
+            operation.Completion(captured);
         }
 
         internal static DittoNativeCaptureResult BindCapturedPixels(
@@ -452,57 +446,6 @@ namespace Battlement
                 );
             }
             return new DittoNativeCaptureResult.Captured(png, width, height, requested);
-        }
-
-        private void EnsureCommittedFramebuffer()
-        {
-            if (committedFramebuffer != null)
-            {
-                return;
-            }
-            committedFramebuffer = Texture(
-                checked((int)width),
-                checked((int)height),
-                SystemInfo.GetCompatibleFormat(
-                    GraphicsFormat.R8G8B8A8_UNorm,
-                    GraphicsFormatUsage.Render
-                )
-            );
-            fingerprintTexture = new Texture2D(
-                checked((int)width),
-                checked((int)height),
-                TextureFormat.RGBA32,
-                false,
-                true
-            );
-        }
-
-        private ulong ReadCommittedFingerprint()
-        {
-            RenderTexture? previous = RenderTexture.active;
-            try
-            {
-                RenderTexture.active = committedFramebuffer;
-                fingerprintTexture!.ReadPixels(
-                    new UnityEngine.Rect(0, 0, checked((int)width), checked((int)height)),
-                    0,
-                    0,
-                    false
-                );
-                fingerprintTexture.Apply(false, false);
-                const ulong offset = 14_695_981_039_346_656_037;
-                const ulong prime = 1_099_511_628_211;
-                ulong hash = offset;
-                foreach (byte value in fingerprintTexture.GetRawTextureData<byte>())
-                {
-                    hash = (hash ^ value) * prime;
-                }
-                return hash;
-            }
-            finally
-            {
-                RenderTexture.active = previous;
-            }
         }
 
         private void RequireReady()
@@ -535,9 +478,12 @@ namespace Battlement
             {
                 FailProbe("The startup capture probe timed out.");
             }
-            else if (captureCompletion is not null)
+            else if (
+                captureOperation is CaptureOperation operation
+                && Time.realtimeSinceStartupAsDouble >= operation.Deadline
+            )
             {
-                FailCapture("Framebuffer capture timed out.");
+                FailCapture(operation, "Framebuffer capture timed out.");
             }
         }
 
@@ -550,12 +496,31 @@ namespace Battlement
             completion?.Invoke(new DittoCaptureProbeResult.Failed(Failure(reason)));
         }
 
-        private void FailCapture(string reason)
+        internal void ExpirePendingCaptureForTesting()
         {
-            System.Action<DittoNativeCaptureResult>? completion = captureCompletion;
-            captureCompletion = null;
+            if (captureOperation is CaptureOperation operation)
+            {
+                FailCapture(operation, "Framebuffer capture timed out.");
+            }
+        }
+
+        internal void CompletePendingCallbacksForTesting()
+        {
+            while (completions.TryDequeue(out System.Action completion))
+            {
+                completion();
+            }
+        }
+
+        private void FailCapture(CaptureOperation operation, string reason)
+        {
+            if (!ReferenceEquals(captureOperation, operation))
+            {
+                return;
+            }
+            captureOperation = null;
             generation++;
-            completion?.Invoke(new DittoNativeCaptureResult.Unavailable(Failure(reason)));
+            operation.Completion(new DittoNativeCaptureResult.Unavailable(Failure(reason)));
         }
 
         private void RequireConfigured()
@@ -570,7 +535,7 @@ namespace Battlement
 
         private void RequireIdle()
         {
-            if (probeCompletion is not null || captureCompletion is not null)
+            if (probeCompletion is not null || captureOperation is not null)
             {
                 throw new InvalidOperationException(
                     "A native capture operation is already pending."
@@ -612,13 +577,15 @@ namespace Battlement
         private void OnDestroy()
         {
             FailProbe("The capture adapter was destroyed during its startup probe.");
-            FailCapture("The capture adapter was destroyed before capture completed.");
-            Release(probeTexture);
-            Release(committedFramebuffer);
-            if (fingerprintTexture != null)
+            if (captureOperation is CaptureOperation operation)
             {
-                Destroy(fingerprintTexture);
+                FailCapture(
+                    operation,
+                    "The capture adapter was destroyed before capture completed."
+                );
             }
+            Release(probeTexture);
+            committedFrameSource?.Dispose();
         }
 
         private static void Release(RenderTexture? texture)
@@ -643,6 +610,114 @@ namespace Battlement
             public Texture2D Value { get; }
 
             public void Dispose() => Destroy(Value);
+        }
+
+        private sealed record CaptureOperation(
+            DittoRenderCommit Commit,
+            System.Action<DittoNativeCaptureResult> Completion,
+            double Deadline
+        );
+
+        private sealed class UnityCommittedFrameSource : IDittoNativeCommittedFrameSource
+        {
+            private RenderTexture? framebuffer;
+            private Texture2D? fingerprint;
+
+            public ulong CommitPresentedFrame(uint width, uint height)
+            {
+                EnsureTextures(width, height);
+                ScreenCapture.CaptureScreenshotIntoRenderTexture(framebuffer);
+                RenderTexture? previous = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = framebuffer;
+                    fingerprint!.ReadPixels(
+                        new UnityEngine.Rect(0, 0, checked((int)width), checked((int)height)),
+                        0,
+                        0,
+                        false
+                    );
+                    fingerprint.Apply(false, false);
+                    const ulong offset = 14_695_981_039_346_656_037;
+                    const ulong prime = 1_099_511_628_211;
+                    ulong hash = offset;
+                    foreach (byte value in fingerprint.GetRawTextureData<byte>())
+                    {
+                        hash = (hash ^ value) * prime;
+                    }
+                    return hash;
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                }
+            }
+
+            public void ReadCommittedFrame(Action<byte[], bool> completion) =>
+                AsyncGPUReadback.Request(
+                    framebuffer,
+                    0,
+                    request =>
+                        completion(
+                            request.hasError
+                                ? Array.Empty<byte>()
+                                : request.GetData<byte>().ToArray(),
+                            request.hasError
+                        )
+                );
+
+            public byte[] ReadCommittedFrame()
+            {
+                RenderTexture? previous = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = framebuffer;
+                    fingerprint!.ReadPixels(
+                        new UnityEngine.Rect(0, 0, framebuffer!.width, framebuffer.height),
+                        0,
+                        0,
+                        false
+                    );
+                    fingerprint.Apply(false, false);
+                    return fingerprint.GetRawTextureData<byte>().ToArray();
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                }
+            }
+
+            public void Dispose()
+            {
+                Release(framebuffer);
+                if (fingerprint != null)
+                {
+                    Destroy(fingerprint);
+                }
+            }
+
+            private void EnsureTextures(uint width, uint height)
+            {
+                if (framebuffer != null)
+                {
+                    return;
+                }
+                framebuffer = Texture(
+                    checked((int)width),
+                    checked((int)height),
+                    SystemInfo.GetCompatibleFormat(
+                        GraphicsFormat.R8G8B8A8_UNorm,
+                        GraphicsFormatUsage.Render
+                    )
+                );
+                fingerprint = new Texture2D(
+                    checked((int)width),
+                    checked((int)height),
+                    TextureFormat.RGBA32,
+                    false,
+                    true
+                );
+            }
         }
     }
 

@@ -331,11 +331,11 @@ fn startup_identity_conflicts_and_report_bounds_are_rejected() {
     };
     identity.startup_report.capabilities.push(Capability::Png);
   });
-  invalid_started("legacy determinism contract", |started| {
+  invalid_started("unowned visible output contract", |started| {
     let StartupIdentity::Report(identity) = &mut started.identity else {
       unreachable!();
     };
-    identity.startup_report.determinism_contract = "ditto-v1".to_owned();
+    identity.startup_report.determinism_contract = "ditto-v2".to_owned();
   });
   let cold: Started = serde_json::from_str(STARTED).unwrap();
   cold
@@ -638,7 +638,7 @@ const JOB: &str = r#"{
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-    "determinism_contract":"ditto-v2",
+    "determinism_contract":"ditto-v3",
     "native_execution_id":"0197b35f-6ef0-78df-8b96-b31bc9959999",
     "capabilities":["png","video"]},
   "scenarios":[{"id":"0197b35f-6e24-75d8-9482-aa6c22a15133","run_index":0,
@@ -659,7 +659,7 @@ const STARTED: &str = r#"{
   "identity":{"startup_report":{"platform":"macos","capture_adapter":"unity-async-readback-png",
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
-    "determinism_contract":"ditto-v2",
+    "determinism_contract":"ditto-v3",
     "native_execution_id":"0197b35f-6ef0-78df-8b96-b31bc9959999",
     "unity_version":"6000.0.56f1","diagnostics":true,
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},

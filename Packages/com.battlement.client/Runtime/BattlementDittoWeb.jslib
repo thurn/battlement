@@ -87,6 +87,41 @@ mergeInto(LibraryManager.library, {
     }
   },
 
+  BattlementDittoWebCommit: function (
+    ownerPointer,
+    width,
+    height,
+    frameLow,
+    frameHigh,
+    generationLow,
+    generationHigh
+  ) {
+    try {
+      var canvas = Module.canvas;
+      if (!canvas || canvas.width !== width || canvas.height !== height) return 0;
+      var snapshot = document.createElement("canvas");
+      snapshot.width = width;
+      snapshot.height = height;
+      var context = snapshot.getContext("2d", { alpha: true });
+      if (!context) return 0;
+      context.drawImage(canvas, 0, 0);
+      var decode = function (low, high) {
+        return typeof low === "bigint"
+          ? Number(low)
+          : (low >>> 0) + (high >>> 0) * 4294967296;
+      };
+      globalThis.battlementDittoCommittedFrame = {
+        owner: UTF8ToString(ownerPointer),
+        frame: decode(frameLow, frameHigh),
+        renderGeneration: decode(generationLow, generationHigh),
+        snapshot: snapshot,
+      };
+      return 1;
+    } catch (error) {
+      return 0;
+    }
+  },
+
   BattlementDittoWebCapture: function (
     ownerPointer,
     urlPointer,
@@ -94,7 +129,9 @@ mergeInto(LibraryManager.library, {
     width,
     height,
     frameLow,
-    frameHigh
+    frameHigh,
+    generationLow,
+    generationHigh
   ) {
     var owner = UTF8ToString(ownerPointer);
     var url = UTF8ToString(urlPointer);
@@ -102,6 +139,9 @@ mergeInto(LibraryManager.library, {
     var frame = typeof frameLow === "bigint"
       ? Number(frameLow)
       : (frameLow >>> 0) + (frameHigh >>> 0) * 4294967296;
+    var renderGeneration = typeof generationLow === "bigint"
+      ? Number(generationLow)
+      : (generationLow >>> 0) + (generationHigh >>> 0) * 4294967296;
     var fail = function (reason) {
       SendMessage(owner, "CompleteWebCapture", JSON.stringify({
         ok: false,
@@ -110,11 +150,17 @@ mergeInto(LibraryManager.library, {
         width: width,
         height: height,
         frame: frame,
+        renderGeneration: renderGeneration,
         reason: String(reason).slice(0, 4096),
       }));
     };
-    requestAnimationFrame(function () {
-      Module.canvas.toBlob(async function (blob) {
+    var committed = globalThis.battlementDittoCommittedFrame;
+    if (!committed || committed.owner !== owner || committed.frame !== frame ||
+        committed.renderGeneration !== renderGeneration) {
+      fail("The requested WebGL render commit is not retained.");
+      return;
+    }
+    committed.snapshot.toBlob(async function (blob) {
         if (!blob) {
           fail("The browser returned a null PNG blob.");
           return;
@@ -151,12 +197,12 @@ mergeInto(LibraryManager.library, {
             width: width,
             height: height,
             frame: frame,
+            renderGeneration: renderGeneration,
             reason: "",
           }));
         } catch (error) {
           fail(error && error.message || error);
         }
-      }, "image/png");
-    });
+    }, "image/png");
   },
 });

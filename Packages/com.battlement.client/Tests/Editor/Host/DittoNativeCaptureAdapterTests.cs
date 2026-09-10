@@ -99,20 +99,24 @@ namespace Battlement.Tests
                 new(0, 0, 255, 255),
                 new(255, 255, 255, 255),
             };
-            byte[] snapshot = DittoCapturePixels.Bytes(2, 2, committed, layout);
-            byte[] liveFramebuffer = (byte[])snapshot.Clone();
-            Array.Fill<byte>(liveFramebuffer, 0);
-            var commit = new DittoRenderCommit(7, 11, 1234);
-
-            var captured = (DittoNativeCaptureResult.Captured)
-                DittoNativeCaptureAdapter.BindCapturedPixels(
-                    commit,
-                    commit,
-                    snapshot,
-                    2,
-                    2,
-                    layout
-                );
+            var source = new DelayedFrameSource(
+                DittoCapturePixels.FlipRows(DittoCapturePixels.Bytes(2, 2, committed, layout), 2, 2)
+            );
+            var owner = new GameObject("Ditto delayed capture test");
+            DittoNativeCaptureResult? result = null;
+            DittoNativeCaptureAdapter adapter = DittoNativeCaptureAdapter.AttachForTesting(
+                owner,
+                2,
+                2,
+                layout,
+                source
+            );
+            DittoRenderCommit commit = adapter.CommitPresentedFrame(7);
+            adapter.CaptureCommittedFrame(commit, value => result = value);
+            source.ReplaceLive(new byte[16]);
+            source.Complete(0);
+            adapter.CompletePendingCallbacksForTesting();
+            var captured = (DittoNativeCaptureResult.Captured)result!;
 
             var decoded = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
             try
@@ -120,11 +124,50 @@ namespace Battlement.Tests
                 Assert.That(ImageConversion.LoadImage(decoded, captured.Png, false), Is.True);
                 Assert.That(decoded.GetPixels32(), Is.EqualTo(committed));
                 Assert.That(captured.Commit, Is.EqualTo(commit));
-                Assert.That(liveFramebuffer, Is.Not.EqualTo(snapshot));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(decoded);
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        public void TimedOutReadbackCannotFailANewerCapture()
+        {
+            var owner = new GameObject("Ditto stale readback test");
+            var source = new DelayedFrameSource(new byte[] { 1, 2, 3, 4 });
+            try
+            {
+                DittoNativeCaptureAdapter adapter = DittoNativeCaptureAdapter.AttachForTesting(
+                    owner,
+                    1,
+                    1,
+                    new DittoCapturePixelLayout(
+                        DittoCaptureRowOrder.TopDown,
+                        DittoCaptureChannelOrder.Rgba
+                    ),
+                    source
+                );
+                DittoRenderCommit commit = adapter.CommitPresentedFrame(1);
+                DittoNativeCaptureResult? first = null;
+                DittoNativeCaptureResult? second = null;
+                adapter.CaptureCommittedFrame(commit, value => first = value);
+                adapter.ExpirePendingCaptureForTesting();
+                adapter.CaptureCommittedFrame(commit, value => second = value);
+
+                source.Complete(0);
+                adapter.CompletePendingCallbacksForTesting();
+                Assert.That(first, Is.TypeOf<DittoNativeCaptureResult.Unavailable>());
+                Assert.That(second, Is.Null);
+
+                source.Complete(1);
+                adapter.CompletePendingCallbacksForTesting();
+                Assert.That(second, Is.TypeOf<DittoNativeCaptureResult.Captured>());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
             }
         }
 
@@ -259,6 +302,32 @@ namespace Battlement.Tests
             Assert.That(executor.Advance(), Is.True);
             Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
             Assert.That(executor.Result.Steps[0].DurationMs, Is.Zero);
+        }
+
+        private sealed class DelayedFrameSource : IDittoNativeCommittedFrameSource
+        {
+            private readonly List<Action<byte[], bool>> completions = new();
+            private byte[] live;
+            private byte[] committed = Array.Empty<byte>();
+
+            public DelayedFrameSource(byte[] live) => this.live = live;
+
+            public ulong CommitPresentedFrame(uint width, uint height)
+            {
+                committed = (byte[])live.Clone();
+                return 1234;
+            }
+
+            public void ReadCommittedFrame(Action<byte[], bool> completion) =>
+                completions.Add(completion);
+
+            public byte[] ReadCommittedFrame() => (byte[])committed.Clone();
+
+            public void ReplaceLive(byte[] pixels) => live = pixels;
+
+            public void Complete(int index) => completions[index]((byte[])committed.Clone(), false);
+
+            public void Dispose() { }
         }
     }
 }

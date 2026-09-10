@@ -153,7 +153,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
       library.get(b"battlement_wire_contract_digest").unwrap();
 
     assert!(library.get::<VoidAction>(b"battlement_abi_v1").is_err());
-    assert_eq!(determinism_contract(), 2);
+    assert_eq!(determinism_contract(), 3);
     assert_eq!(
       CStr::from_ptr(native_abi()).to_str().unwrap(),
       battlement_native::NATIVE_ABI_DIGEST
@@ -164,7 +164,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     );
     assert_eq!(
       determinism_capabilities(),
-      battlement_native::DITTO_DETERMINISM_CAPABILITIES_V2
+      battlement_native::DITTO_DETERMINISM_CAPABILITIES_V3
     );
     assert!(
       library

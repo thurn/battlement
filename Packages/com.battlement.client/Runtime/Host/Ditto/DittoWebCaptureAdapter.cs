@@ -36,13 +36,16 @@ namespace Battlement
 
         void Probe(string owner, uint width, uint height);
 
+        bool Commit(string owner, uint width, uint height, ulong frame, ulong renderGeneration);
+
         void Capture(
             string owner,
             string url,
             string artifactId,
             uint width,
             uint height,
-            ulong frame
+            ulong frame,
+            ulong renderGeneration
         );
     }
 
@@ -61,7 +64,7 @@ namespace Battlement
             string Sha256,
             uint Width,
             uint Height,
-            ulong Frame
+            DittoRenderCommit Commit
         ) : DittoWebCaptureResult;
 
         internal sealed record Unavailable(DittoCaptureFailure Failure) : DittoWebCaptureResult;
@@ -80,10 +83,33 @@ namespace Battlement
         private double deadline;
         private bool configured;
         private bool ready;
+        private ulong renderGeneration;
+        private DittoRenderCommit? latestCommit;
 
         public const string AdapterName = "webgl-canvas-png";
 
         public bool IsReady => ready;
+
+        public DittoRenderCommit CommitPresentedFrame(ulong frame)
+        {
+            RequireConfigured();
+            RequireIdle();
+            if (!ready)
+            {
+                throw new InvalidOperationException(
+                    "The WebGL capture adapter has not passed its startup probe."
+                );
+            }
+            ulong generation = checked(++renderGeneration);
+            if (!bridge.Commit(gameObject.name, width, height, frame, generation))
+            {
+                throw new InvalidOperationException(
+                    "WebGL could not freeze pixels during the presentation commit."
+                );
+            }
+            latestCommit = new DittoRenderCommit(frame, generation, 0);
+            return latestCommit;
+        }
 
         public static DittoWebCaptureAdapter Attach(
             GameObject owner,
@@ -121,7 +147,7 @@ namespace Battlement
         public void UploadCommittedFrame(
             string artifactUrl,
             string artifactId,
-            ulong committedFrame,
+            DittoRenderCommit commit,
             Action<DittoWebCaptureResult> completion
         )
         {
@@ -148,14 +174,31 @@ namespace Battlement
                 );
             }
             DittoLifecycleValidation.Identifier("artifact_id", artifactId);
-            if (committedFrame == 0)
+            if (commit.Frame == 0 || commit.RenderGeneration == 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(committedFrame));
+                throw new ArgumentOutOfRangeException(nameof(commit));
+            }
+            if (latestCommit != commit)
+            {
+                completion(
+                    new DittoWebCaptureResult.Unavailable(
+                        Failure("The requested WebGL render commit is not retained.")
+                    )
+                );
+                return;
             }
             expectedArtifactId = artifactId;
             captureCompletion = completion ?? throw new ArgumentNullException(nameof(completion));
             deadline = Time.realtimeSinceStartupAsDouble + OperationTimeoutSeconds;
-            bridge.Capture(gameObject.name, artifactUrl, artifactId, width, height, committedFrame);
+            bridge.Capture(
+                gameObject.name,
+                artifactUrl,
+                artifactId,
+                width,
+                height,
+                commit.Frame,
+                commit.RenderGeneration
+            );
         }
 
         public void CompleteWebProbe(string json)
@@ -190,13 +233,16 @@ namespace Battlement
             BridgeResult result = Decode(json);
             Action<DittoWebCaptureResult> completion = captureCompletion;
             captureCompletion = null;
+            DittoRenderCommit? commit = latestCommit;
             bool valid =
                 result.Ok
                 && result.ArtifactId == expectedArtifactId
                 && result.Width == width
                 && result.Height == height
                 && ValidSha256(result.Sha256)
-                && result.Frame > 0;
+                && commit is not null
+                && result.Frame == commit.Frame
+                && result.RenderGeneration == commit.RenderGeneration;
             expectedArtifactId = string.Empty;
             completion(
                 valid
@@ -205,7 +251,7 @@ namespace Battlement
                         result.Sha256!,
                         result.Width,
                         result.Height,
-                        result.Frame
+                        commit!
                     )
                     : new DittoWebCaptureResult.Unavailable(
                         Failure(
@@ -295,6 +341,7 @@ namespace Battlement
             [property: JsonProperty("width")] uint Width,
             [property: JsonProperty("height")] uint Height,
             [property: JsonProperty("frame")] ulong Frame,
+            [property: JsonProperty("renderGeneration")] ulong RenderGeneration,
             [property: JsonProperty("reason")] string? Reason
         );
     }
@@ -319,17 +366,41 @@ namespace Battlement
 #endif
         }
 
+        public bool Commit(
+            string owner,
+            uint width,
+            uint height,
+            ulong frame,
+            ulong renderGeneration
+        )
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return BattlementDittoWebCommit(owner, width, height, frame, renderGeneration) != 0;
+#else
+            throw new PlatformNotSupportedException("The browser bridge requires WebGL.");
+#endif
+        }
+
         public void Capture(
             string owner,
             string url,
             string artifactId,
             uint width,
             uint height,
-            ulong frame
+            ulong frame,
+            ulong renderGeneration
         )
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            BattlementDittoWebCapture(owner, url, artifactId, width, height, frame);
+            BattlementDittoWebCapture(
+                owner,
+                url,
+                artifactId,
+                width,
+                height,
+                frame,
+                renderGeneration
+            );
 #else
             throw new PlatformNotSupportedException("The browser bridge requires WebGL.");
 #endif
@@ -343,13 +414,23 @@ namespace Battlement
         private static extern void BattlementDittoWebProbe(string owner, uint width, uint height);
 
         [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern int BattlementDittoWebCommit(
+            string owner,
+            uint width,
+            uint height,
+            ulong frame,
+            ulong renderGeneration
+        );
+
+        [System.Runtime.InteropServices.DllImport("__Internal")]
         private static extern void BattlementDittoWebCapture(
             string owner,
             string url,
             string artifactId,
             uint width,
             uint height,
-            ulong frame
+            ulong frame,
+            ulong renderGeneration
         );
 #endif
     }

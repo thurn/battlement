@@ -131,42 +131,6 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void ContinuingUnownedPaintDeterministicallyRefusesSettlement()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            var motion = new DittoMotionController(harness.Runner);
-            motion.Begin(DittoMotion.Controlled);
-
-            DittoCommittedFrame generatedContentMutation = null!;
-            for (ulong fingerprint = 1; fingerprint <= 31; fingerprint++)
-            {
-                generatedContentMutation = Advance(harness, motion, fingerprint);
-            }
-
-            Assert.That(generatedContentMutation.PaintChanged, Is.True);
-            Assert.That(generatedContentMutation.HasUncontrolledVisibleWork, Is.True);
-        }
-
-        [Test]
-        public void RequestedControlledAdvanceOwnsPaintChanges()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
-            var motion = new DittoMotionController(harness.Runner);
-            motion.Begin(DittoMotion.Controlled);
-
-            for (ulong fingerprint = 1; fingerprint <= 60; fingerprint++)
-            {
-                DittoCommittedFrame frame = Advance(
-                    harness,
-                    motion,
-                    fingerprint,
-                    forceAdvance: true
-                );
-                Assert.That(frame.HasUncontrolledVisibleWork, Is.False);
-            }
-        }
-
-        [Test]
         public void FrozenPaintVerificationSettlesWithoutAdvancingFiniteWork()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(
@@ -185,27 +149,6 @@ namespace Battlement.Tests
             Assert.That(settled.Elapsed, Is.EqualTo(advanced.Elapsed));
             Assert.That(settled.HasPendingWork, Is.True);
             Assert.That(settled.IsSettled, Is.True);
-        }
-
-        [Test]
-        public void FrozenControlledStateRefusesContinuingPixelChanges()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                useInstantAnimations: false
-            );
-            (SessionId session, ObjectId objectId, _) = Connect(harness);
-            var motion = new DittoMotionController(harness.Runner);
-            motion.Begin(DittoMotion.Controlled);
-            Submit(harness, session, Tween(objectId, 30));
-            _ = Advance(harness, motion, 1, forceAdvance: true);
-            DittoCommittedFrame changed = null!;
-            for (ulong fingerprint = 2; fingerprint <= 31; fingerprint++)
-            {
-                changed = Advance(harness, motion, fingerprint, preserveTime: true);
-            }
-
-            Assert.That(changed.HasPendingWork, Is.True);
-            Assert.That(changed.HasUncontrolledVisibleWork, Is.True);
         }
 
         [Test]
@@ -241,10 +184,6 @@ namespace Battlement.Tests
             Advance(realTime, realMotion, realTarget);
 
             Assert.That(realTarget.localPosition.x, Is.EqualTo(15f).Within(0.001f));
-            Assert.That(
-                DittoMotionController.UncontrolledWorkDiagnostic,
-                Does.Contain("uncontrolled clock")
-            );
         }
 
         private static float[] ControlledSamples()

@@ -18,7 +18,7 @@
       "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
       "capabilities": ["click", "png", "video"],
-      "determinism_contract": "ditto-v2",
+      "determinism_contract": "ditto-v3",
       "native_execution_id": "e2575e27-3f14-4475-b914-3e70649b7951"
     },
     "scenarios": [{
@@ -49,6 +49,7 @@
     {"name": "uppercase UUID", "pointer": "/run_id", "value": "0197B35F-6C59-7B98-B1F0-A39F5EE54DB8"},
     {"name": "uppercase hash", "pointer": "/profile/build_fingerprint", "value": "A123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
     {"name": "duplicate capability", "pointer": "/profile/capabilities/1", "value": "click"},
+    {"name": "unowned visible output", "pointer": "/profile/determinism_contract", "value": "ditto-v2"},
     {"name": "unsupported platform capability", "pointer": "/profile/platform", "value": "webgl"},
     {"name": "bad safe area", "pointer": "/profile/display/safe_area", "value": [1200, 0, 100, 720]},
     {"name": "bad step index", "pointer": "/scenarios/0/steps/1/index", "value": 2},

@@ -544,16 +544,6 @@ namespace Battlement
             {
                 return;
             }
-            if (frame.HasUncontrolledVisibleWork)
-            {
-                Freeze(
-                    reportError(
-                        DittoErrorCode.ImageCaptureFailed,
-                        DittoMotionController.UncontrolledWorkDiagnostic
-                    )
-                );
-                return;
-            }
             if (phase == Phase.StartupSettle)
             {
                 if (Expired(null).HasValue)

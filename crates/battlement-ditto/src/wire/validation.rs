@@ -81,8 +81,8 @@ fn validate_profile(job: &Job) -> Result<()> {
   display(job.profile.platform, &job.profile.display)?;
   profile_capabilities(job.profile.platform, &job.profile.capabilities)?;
   ensure!(
-    job.profile.determinism_contract == "ditto-v2",
-    "profile requires the ditto-v2 determinism contract"
+    job.profile.determinism_contract == "ditto-v3",
+    "profile requires the ditto-v3 determinism contract"
   );
   match job.profile.platform {
     Platform::Webgl => {

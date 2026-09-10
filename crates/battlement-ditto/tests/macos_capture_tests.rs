@@ -490,7 +490,7 @@ fn job(build: &BuildHandle, count: u32, native_execution_id: &str) -> Job {
       build_fingerprint: build.metadata().identity.fingerprint.clone(),
       source_fingerprint: HASH.to_owned(),
       capabilities: vec![Capability::Click],
-      determinism_contract: "ditto-v2".to_owned(),
+      determinism_contract: "ditto-v3".to_owned(),
       native_execution_id: Some(native_execution_id.to_owned()),
     },
     scenarios: (0..count)

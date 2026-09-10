@@ -129,7 +129,7 @@ fn resolve_inner(
       build_fingerprint: build_fingerprint.to_owned(),
       source_fingerprint: source_fingerprint.to_owned(),
       capabilities,
-      determinism_contract: "ditto-v2".to_owned(),
+      determinism_contract: "ditto-v3".to_owned(),
       native_execution_id: native_execution_id.map(str::to_owned),
     },
     scenarios: selection

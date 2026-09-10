@@ -487,7 +487,7 @@ const VALID_JOB: &str = r#"{
     "name":"macos-local",
     "platform":"macos",
     "display":{"width":1280,"height":720,"scale":1.0,"orientation":null,"safe_area":[0,0,1280,720]},
-    "determinism_contract":"ditto-v2",
+    "determinism_contract":"ditto-v3",
     "native_execution_id":"e257ed09-a084-46fa-b711-5a8757418e31",
     "build_fingerprint":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "source_fingerprint":"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",

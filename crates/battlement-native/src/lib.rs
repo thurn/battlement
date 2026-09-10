@@ -21,10 +21,10 @@ pub use engine::*;
 pub use logging::*;
 
 /// Wire version implemented by engines that opt into Ditto's deterministic runtime contract.
-pub const DITTO_DETERMINISM_CONTRACT_V2: u32 = 2;
-/// Required v2 declarations: controlled clock and randomness, isolated external state,
-/// reset persistent state, and semantic input delivery.
-pub const DITTO_DETERMINISM_CAPABILITIES_V2: u64 = 0b1_1111;
+pub const DITTO_DETERMINISM_CONTRACT_V3: u32 = 3;
+/// Required v3 declarations: controlled clock and randomness, isolated external state,
+/// reset persistent state, semantic input delivery, and protocol-owned visible output.
+pub const DITTO_DETERMINISM_CAPABILITIES_V3: u64 = 0b11_1111;
 /// SHA-256 of the canonical native ABI manifest.
 pub const NATIVE_ABI_DIGEST: &str =
   "f27c823eda0c569cd86feda6c9d24b7a1d1d5c0eedc2206ee92ec2e26aa9cc79";
@@ -163,20 +163,21 @@ macro_rules! export_deterministic_engine {
     randomness = seeded,
     external_state = isolated,
     persistent_state = reset,
-    input = semantic $(,)?
+    input = semantic,
+    visible_output = protocol_owned $(,)?
   ) => {
     $crate::export_engine!($factory);
 
     #[doc(hidden)]
     #[unsafe(no_mangle)]
     pub extern "C" fn battlement_ditto_determinism_contract() -> u32 {
-      $crate::DITTO_DETERMINISM_CONTRACT_V2
+      $crate::DITTO_DETERMINISM_CONTRACT_V3
     }
 
     #[doc(hidden)]
     #[unsafe(no_mangle)]
     pub extern "C" fn battlement_ditto_determinism_capabilities() -> u64 {
-      $crate::DITTO_DETERMINISM_CAPABILITIES_V2
+      $crate::DITTO_DETERMINISM_CAPABILITIES_V3
     }
   };
 }

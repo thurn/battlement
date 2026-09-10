@@ -207,8 +207,8 @@ pub(super) fn failure_value(failure: &PlayerInfrastructureFailure) -> Result<()>
 pub(super) fn startup_report(report: &StartupReport) -> Result<()> {
   startup_report_fields(report)?;
   ensure!(
-    report.determinism_contract == "ditto-v2",
-    "startup report requires the ditto-v2 determinism contract"
+    report.determinism_contract == "ditto-v3",
+    "startup report requires the ditto-v3 determinism contract"
   );
   validation::profile_capabilities(report.platform, &report.capabilities)
 }
@@ -217,7 +217,7 @@ pub(super) fn retained_startup_report(report: &StartupReport) -> Result<()> {
   startup_report_fields(report)?;
   match report.determinism_contract.as_str() {
     "ditto-v1" => validation::legacy_profile_capabilities(report.platform, &report.capabilities),
-    "ditto-v2" => validation::profile_capabilities(report.platform, &report.capabilities),
+    "ditto-v3" => validation::profile_capabilities(report.platform, &report.capabilities),
     _ => anyhow::bail!("unsupported retained determinism contract"),
   }
 }

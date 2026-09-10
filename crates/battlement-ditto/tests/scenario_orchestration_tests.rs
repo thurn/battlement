@@ -394,7 +394,7 @@ fn job(count: u32) -> Job {
       build_fingerprint: "a".repeat(64),
       source_fingerprint: "b".repeat(64),
       capabilities: vec![Capability::Click],
-      determinism_contract: "ditto-v2".to_owned(),
+      determinism_contract: "ditto-v3".to_owned(),
       native_execution_id: Some("e2575e27-3f14-4475-b914-3e70649b7951".to_owned()),
     },
     scenarios: (0..count).map(scenario).collect(),

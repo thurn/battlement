@@ -93,8 +93,8 @@ namespace Battlement
                 "profile contains a capability without a deterministic delivery contract"
             );
             Require(
-                profile.DeterminismContract == "ditto-v2",
-                "profile requires the ditto-v2 determinism contract"
+                profile.DeterminismContract == "ditto-v3",
+                "profile requires the ditto-v3 determinism contract"
             );
             if (profile.Platform == DittoPlatform.Webgl)
             {

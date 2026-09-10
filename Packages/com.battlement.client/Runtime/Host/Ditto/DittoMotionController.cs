@@ -13,7 +13,6 @@ namespace Battlement
         bool StateChanged,
         bool LayoutChanged,
         bool PaintChanged,
-        bool HasUncontrolledVisibleWork,
         int QuietFrameCount
     )
     {
@@ -35,8 +34,6 @@ namespace Battlement
 
     internal sealed class DittoMotionController
     {
-        private const int MaximumUnownedPaintChanges = 30;
-
         private readonly BattlementRunner runner;
         private DittoWorkObservation? previous;
         private bool started;
@@ -45,7 +42,6 @@ namespace Battlement
         private bool advanceControlledTime;
         private TimeSpan motionEpoch;
         private ulong? previousPaintFingerprint;
-        private int paintOnlyChanges;
         private bool controlledAdvanceRequested;
         private bool preservingExactState;
 
@@ -57,9 +53,6 @@ namespace Battlement
             }
             this.runner = runner;
         }
-
-        public const string UncontrolledWorkDiagnostic =
-            "Game-owned scripts and shaders remain on Unity's uncontrolled clock.";
 
         public DittoMotion Motion { get; private set; }
 
@@ -79,7 +72,6 @@ namespace Battlement
             frameIndex = 0;
             quietFrames = 0;
             previousPaintFingerprint = null;
-            paintOnlyChanges = 0;
             advanceControlledTime = true;
             started = true;
         }
@@ -109,14 +101,6 @@ namespace Battlement
             bool paintChanged =
                 previousPaintFingerprint.HasValue
                 && previousPaintFingerprint.Value != paintFingerprint;
-            bool paintOnlyChanged =
-                paintChanged
-                && !controlledAdvanceRequested
-                && (!current.HasPendingWork || preservingExactState)
-                && (preservingExactState || (!stateChanged && !layoutChanged));
-            paintOnlyChanges = paintOnlyChanged ? paintOnlyChanges + 1 : 0;
-            bool uncontrolledVisibleWork =
-                paintOnlyChanged && paintOnlyChanges >= MaximumUnownedPaintChanges;
             bool settlementBlocked = current.HasPendingWork && !preservingExactState;
             bool logicalChangeBlocked = !preservingExactState && (stateChanged || layoutChanged);
             if (settlementBlocked || logicalChangeBlocked || paintChanged)
@@ -144,7 +128,6 @@ namespace Battlement
                 stateChanged,
                 layoutChanged,
                 paintChanged,
-                uncontrolledVisibleWork,
                 quietFrames
             );
         }

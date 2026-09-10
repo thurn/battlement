@@ -224,8 +224,8 @@ namespace Battlement
             {
                 try
                 {
-                    const ulong requiredCapabilities = 0b1_1111;
-                    return BattlementNativeMethods.battlement_ditto_determinism_contract() == 2
+                    const ulong requiredCapabilities = 0b11_1111;
+                    return BattlementNativeMethods.battlement_ditto_determinism_contract() == 3
                         && BattlementNativeMethods.battlement_ditto_determinism_capabilities()
                             == requiredCapabilities;
                 }
