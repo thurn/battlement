@@ -88,7 +88,7 @@ struct PortalSourceOrdinal {
 
 pub(crate) fn layout(
   runtime_id: u64,
-  trees: &[RenderTree],
+  trees: &[&RenderTree],
   externals: &[(PortalTarget, ObjectId)],
 ) -> PortalLayout {
   let mut catalog = PortalCatalog::default();
@@ -170,6 +170,39 @@ pub(crate) fn layout(
   }
 }
 
+pub(crate) fn attachment_hosts(
+  runtime_id: u64,
+  trees: &[&RenderTree],
+) -> HashMap<PortalTarget, ObjectId> {
+  let mut attachments = HashMap::new();
+  for tree in trees {
+    self::collect_attachment_hosts(runtime_id, tree, &mut attachments);
+  }
+  attachments
+}
+
+fn collect_attachment_hosts(
+  runtime_id: u64,
+  tree: &RenderTree,
+  attachments: &mut HashMap<PortalTarget, ObjectId>,
+) {
+  for position in &tree.positions {
+    if let Some(target) = &position.portal_target {
+      self::validate_target(runtime_id, target);
+      assert!(
+        attachments
+          .insert(target.clone(), position.host_id())
+          .is_none(),
+        "a Reactant portal target is attached to more than one host"
+      );
+    }
+    if let Some(suspense) = &position.suspense {
+      self::collect_attachment_hosts(runtime_id, &suspense.primary, attachments);
+    }
+    self::collect_attachment_hosts(runtime_id, &position.children, attachments);
+  }
+}
+
 fn validate_overlay_hosts(roots: &[Vec<UiNode>], attachments: &HashMap<PortalTarget, ObjectId>) {
   let target_ids = attachments.values().copied().collect::<HashSet<_>>();
   for root in roots {
@@ -246,14 +279,13 @@ fn find_host(roots: &[UiNode], id: ObjectId) -> Option<&UiNode> {
 
 pub(crate) fn changed_attachments(
   previous: &PortalLayout,
-  desired: &PortalLayout,
+  desired: &HashMap<PortalTarget, ObjectId>,
 ) -> HashSet<PortalTarget> {
   previous
     .attachments
     .iter()
     .filter_map(|(target, previous_host)| {
       desired
-        .attachments
         .get(target)
         .is_some_and(|desired_host| desired_host != previous_host)
         .then_some(target.clone())
@@ -408,7 +440,7 @@ fn hide_roots(hosts: &mut [UiNode]) {
   }
 }
 
-fn coverage_subscriptions(hosts: &[UiNode], trees: &[RenderTree]) -> Vec<UiEventSubscription> {
+fn coverage_subscriptions(hosts: &[UiNode], trees: &[&RenderTree]) -> Vec<UiEventSubscription> {
   let mut object_ids = Vec::new();
   self::collect_host_ids(hosts, &mut object_ids);
   let mut kinds = Vec::new();
@@ -440,7 +472,7 @@ fn coverage_subscriptions(hosts: &[UiNode], trees: &[RenderTree]) -> Vec<UiEvent
     .collect()
 }
 
-fn external_root(mut hosts: Vec<UiNode>, trees: &[RenderTree]) -> PortalRoot {
+fn external_root(mut hosts: Vec<UiNode>, trees: &[&RenderTree]) -> PortalRoot {
   for host in &mut hosts {
     let subscriptions = self::coverage_subscriptions(std::slice::from_ref(host), trees);
     let visual = host.element.visual_element_mut();

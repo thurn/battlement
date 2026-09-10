@@ -210,16 +210,14 @@ pub(crate) fn plan_shutdown<G>(
   geometry_runtime: &GeometryRuntime,
 ) -> (Vec<Vec<CommandBody>>, GeometryPlan) {
   let bindings = external_portals.active_bindings();
-  let previous_trees = roots
-    .iter()
-    .map(|root| root.committed.clone())
-    .collect::<Vec<_>>();
+  let previous_trees = roots.iter().map(|root| &root.committed).collect::<Vec<_>>();
   let empty_trees = roots
     .iter()
     .map(|_| RenderTree::default())
     .collect::<Vec<_>>();
   let previous = portal::layout(runtime_id, &previous_trees, &bindings);
-  let desired = portal::layout(runtime_id, &empty_trees, &bindings);
+  let empty_tree_refs = empty_trees.iter().collect::<Vec<_>>();
+  let desired = portal::layout(runtime_id, &empty_tree_refs, &bindings);
   let documents = roots
     .iter()
     .zip(&desired.roots)

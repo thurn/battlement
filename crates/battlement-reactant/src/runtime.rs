@@ -331,10 +331,11 @@ impl<G: 'static> Reactant<G> {
         let committed = self
           .roots
           .iter()
-          .map(|root| root.committed.clone())
+          .map(|root| &root.committed)
           .collect::<Vec<_>>();
         let previous = portal::layout(self.runtime_id, &committed, &bindings);
-        let tentative = portal::layout(self.runtime_id, &rendered, &bindings);
+        let tentative = rendered.iter().collect::<Vec<_>>();
+        let tentative = portal::attachment_hosts(self.runtime_id, &tentative);
         let changed = portal::changed_attachments(&previous, &tentative);
         if !changed.is_empty() {
           for tree in &mut rendered {
@@ -354,7 +355,8 @@ impl<G: 'static> Reactant<G> {
           tree.resolve_overlay_refs(self.runtime_id, &attachments);
         }
         overlay::resolve_order(&mut rendered);
-        let desired = portal::layout(self.runtime_id, &rendered, &bindings);
+        let desired_trees = rendered.iter().collect::<Vec<_>>();
+        let desired = portal::layout(self.runtime_id, &desired_trees, &bindings);
         let documents = self
           .roots
           .iter()
@@ -587,10 +589,11 @@ impl<G: 'static> Reactant<G> {
       let committed = self
         .roots
         .iter()
-        .map(|root| root.committed.clone())
+        .map(|root| &root.committed)
         .collect::<Vec<_>>();
       let previous = portal::layout(self.runtime_id, &committed, &bindings);
-      let tentative = portal::layout(self.runtime_id, &rendered, &bindings);
+      let tentative = rendered.iter().collect::<Vec<_>>();
+      let tentative = portal::attachment_hosts(self.runtime_id, &tentative);
       let changed = portal::changed_attachments(&previous, &tentative);
       if !changed.is_empty() {
         for tree in &mut rendered {
@@ -610,7 +613,8 @@ impl<G: 'static> Reactant<G> {
         tree.resolve_overlay_refs(self.runtime_id, &attachments);
       }
       overlay::resolve_order(&mut rendered);
-      let desired = portal::layout(self.runtime_id, &rendered, &bindings);
+      let desired_trees = rendered.iter().collect::<Vec<_>>();
+      let desired = portal::layout(self.runtime_id, &desired_trees, &bindings);
       let documents = self
         .roots
         .iter()
@@ -922,7 +926,7 @@ impl<G: 'static> Reactant<G> {
       let committed = self
         .roots
         .iter()
-        .map(|root| root.committed.clone())
+        .map(|root| &root.committed)
         .collect::<Vec<_>>();
       let layout = portal::layout(
         self.runtime_id,
@@ -935,7 +939,7 @@ impl<G: 'static> Reactant<G> {
           .roots
           .iter()
           .zip(&committed)
-          .map(|(root, tree)| (root.document.document_id, tree)),
+          .map(|(root, tree)| (root.document.document_id, *tree)),
       );
       let mut groups =
         attachments.action_groups(&self.element_refs.borrow(), frozen_actions, &layout);
