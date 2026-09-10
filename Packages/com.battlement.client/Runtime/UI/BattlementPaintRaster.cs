@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,11 +14,8 @@ namespace Battlement.UI
     internal sealed class BattlementPaintRaster : IDisposable
     {
         private Texture2D? texture;
-        private PaintFill? cachedFill;
-        private Texture2D? cachedMask;
-        private IReadOnlyList<UiFilterFunction>? cachedFilters;
-        private Vector2[] cachedPoints = Array.Empty<Vector2>();
-        private UnityRect cachedRect;
+        private BattlementPaintRasterCacheKey? cachedKey;
+        private bool ownsTexture;
         private UnityRect bounds;
         private UnityColor[] pixels = Array.Empty<UnityColor>();
         private float[] alpha = Array.Empty<float>();
@@ -35,17 +31,21 @@ namespace Battlement.UI
             Texture2D? mask = null
         )
         {
-            bool sameFill = texture != null && Equals(cachedFill, fill) && cachedRect == rect;
-            bool sameGeometry =
-                ReferenceEquals(cachedFilters, filters) && cachedPoints.SequenceEqual(points);
-            if (!sameFill || !sameGeometry || cachedMask != mask)
+            var key = new BattlementPaintRasterCacheKey(rect, points, fill, filters, mask);
+            if (!key.Equals(cachedKey))
             {
-                cachedFill = fill;
-                cachedMask = mask;
-                cachedFilters = filters;
-                cachedRect = rect;
-                cachedPoints = points.ToArray();
-                Rasterize(rect, points, fill, filters, mask);
+                ReleaseOwnedTexture();
+                if (BattlementPaintRasterCache.TryGet(key, out CachedPaint paint))
+                {
+                    texture = paint.Texture;
+                    bounds = paint.Bounds;
+                }
+                else
+                {
+                    Rasterize(rect, points, fill, filters, mask);
+                    ownsTexture = !BattlementPaintRasterCache.TryStore(key, texture!, bounds);
+                }
+                cachedKey = key;
             }
             MeshWriteData mesh = context.Allocate(4, 6, texture);
             mesh.SetNextVertex(
@@ -86,13 +86,19 @@ namespace Battlement.UI
 
         public void Dispose()
         {
-            if (texture != null)
-                UnityEngine.Object.DestroyImmediate(texture);
+            ReleaseOwnedTexture();
             texture = null;
             pixels = Array.Empty<UnityColor>();
             alpha = Array.Empty<float>();
             workA = Array.Empty<float>();
             workB = Array.Empty<float>();
+        }
+
+        private void ReleaseOwnedTexture()
+        {
+            if (ownsTexture && texture != null)
+                UnityEngine.Object.DestroyImmediate(texture);
+            ownsTexture = false;
         }
 
         private void Rasterize(
@@ -154,18 +160,13 @@ namespace Battlement.UI
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
                 upload[(height - 1 - y) * width + x] = pixels[y * width + x];
-            if (texture == null || texture.width != width || texture.height != height)
+            texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
-                if (texture != null)
-                    UnityEngine.Object.DestroyImmediate(texture);
-                texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
-                {
-                    name = "Battlement owned paint",
-                    hideFlags = HideFlags.HideAndDontSave,
-                    filterMode = FilterMode.Bilinear,
-                    wrapMode = TextureWrapMode.Clamp,
-                };
-            }
+                name = "Battlement cached paint",
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
             texture.SetPixels32(upload);
             texture.Apply(false, false);
         }
