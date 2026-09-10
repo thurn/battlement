@@ -368,10 +368,29 @@ impl Fixture {
 }
 
 fn exit_update(commit: ReactantCommit) -> (ObjectId, MotionGeneration, bool) {
-  commit
+  let bodies = commit
     .into_groups()
     .into_iter()
     .flatten()
+    .collect::<Vec<_>>();
+  assert_eq!(
+    bodies
+      .iter()
+      .filter(|body| {
+        let CommandBody::VisualElementUpdate(update) = body else {
+          return false;
+        };
+        let battlement::VisualElementUpdate::Properties { element, .. } = update.as_ref() else {
+          return false;
+        };
+        element.visual_element().inert == Prop::Set(true)
+      })
+      .count(),
+    1,
+    "presence should mark only each exiting physical root inert"
+  );
+  bodies
+    .into_iter()
     .find_map(|body| {
       let CommandBody::VisualElementUpdate(update) = body else {
         return None;

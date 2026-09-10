@@ -187,10 +187,23 @@ fn mark_pop_layout(position: &mut RenderPosition) {
 }
 
 fn mark_inert(position: &mut RenderPosition) {
+  self::mark_inert_descendants(position, false);
+}
+
+fn mark_inert_descendants(position: &mut RenderPosition, inherited: bool) {
+  let inherited = if position.portal.is_some() {
+    false
+  } else {
+    inherited
+  };
+  let mut child_inherited = inherited;
   if let Some(host) = &mut position.host {
     let visual = host.element.visual_element_mut();
-    visual.auto_focus = Prop::Set(false);
-    visual.inert = Prop::Set(true);
+    if !inherited {
+      visual.auto_focus = Prop::Set(false);
+      visual.inert = Prop::Set(true);
+    }
+    child_inherited = true;
     if matches!(
       visual.overlay_placement,
       Prop::Set(OverlayPlacement::Modal { .. })
@@ -200,7 +213,7 @@ fn mark_inert(position: &mut RenderPosition) {
     }
   }
   for child in &mut position.children.positions {
-    mark_inert(child);
+    self::mark_inert_descendants(child, child_inherited);
   }
 }
 
