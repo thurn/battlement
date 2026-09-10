@@ -130,7 +130,17 @@ accessibility_assert = { target = { role = "heading", name = "Chess Chess Revolu
 name = "performance settings navigation"
 
 [[scenarios.steps]]
-name = "Open settings"
+name = "Enter settings hover"
+measure = true
+pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "hover" }
+
+[[scenarios.steps]]
+name = "Leave settings hover"
+measure = true
+pointer_action = { target = { role = "button", name = "PLAY" }, action = "hover" }
+
+[[scenarios.steps]]
+name = "Open settings with pressed feedback"
 measure = true
 pointer_action = { target = { role = "button", name = "SETTINGS" }, action = "click" }
 
@@ -140,14 +150,9 @@ measure = true
 pointer_action = { target = { role = "tab", name = "Sound" }, action = "click" }
 
 [[scenarios.steps]]
-name = "Open Input tab"
+name = "Change background mute setting"
 measure = true
-pointer_action = { target = { role = "tab", name = "Input" }, action = "click" }
-
-[[scenarios.steps]]
-name = "Open Graphics tab"
-measure = true
-pointer_action = { target = { role = "tab", name = "Graphics" }, action = "click" }
+pointer_action = { target = { role = "checkbox", name = "Mute in Background" }, action = "click" }
 
 [[scenarios.steps]]
 name = "Return to main menu"

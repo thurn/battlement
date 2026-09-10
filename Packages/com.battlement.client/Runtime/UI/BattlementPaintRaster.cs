@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityColor = UnityEngine.Color;
@@ -311,15 +312,21 @@ namespace Battlement.UI
         {
             var result = new float[source.Length];
             int radius = kernel.Length / 2;
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            for (int k = -radius; k <= radius; k++)
-            {
-                int sx = horizontal ? x + k : x;
-                int sy = horizontal ? y : y + k;
-                if (InBounds(sx, sy, width, height))
-                    result[y * width + x] += source[sy * width + sx] * kernel[k + radius];
-            }
+            Parallel.For(
+                0,
+                height,
+                y =>
+                {
+                    for (int x = 0; x < width; x++)
+                    for (int k = -radius; k <= radius; k++)
+                    {
+                        int sx = horizontal ? x + k : x;
+                        int sy = horizontal ? y : y + k;
+                        if (InBounds(sx, sy, width, height))
+                            result[y * width + x] += source[sy * width + sx] * kernel[k + radius];
+                    }
+                }
+            );
             return result;
         }
 
