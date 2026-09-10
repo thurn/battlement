@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json.Linq;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
@@ -332,7 +331,10 @@ namespace Battlement.UI
                     trackAnchors.Remove(property);
                     continue;
                 }
-                if (resolved.TryGetValue(property, out MotionValue old) && Equal(old, value))
+                if (
+                    resolved.TryGetValue(property, out MotionValue old)
+                    && MotionGraphDefinitionEquality.Same(old, value)
+                )
                     continue;
                 tracks.RemoveAll(track => track.Definition.Property == property);
                 trackAnchors.Remove(property);
@@ -369,7 +371,7 @@ namespace Battlement.UI
                 MotionValue current = BattlementMotionPropertyWriter.Read(target, property);
                 bool changedDuringCommit =
                     preparedPresentation.TryGetValue(property, out MotionValue prepared)
-                    && !Equal(current, prepared);
+                    && !MotionGraphDefinitionEquality.Same(current, prepared);
                 if (
                     previous is null
                     || changedDuringCommit
@@ -463,9 +465,6 @@ namespace Battlement.UI
                 ),
             };
         }
-
-        private static bool Equal(MotionValue left, MotionValue right) =>
-            JToken.DeepEquals(JToken.FromObject(left), JToken.FromObject(right));
     }
 
     internal sealed class BattlementDecorationState : IDisposable

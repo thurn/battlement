@@ -676,6 +676,48 @@ namespace Battlement.Tests
             Assert.That(paint.HasStaticPaint, Is.True);
         }
 
+        [Test]
+        public void RepeatedMotionPaintWritesReportOnlyChanges()
+        {
+            var target = new VisualElement();
+            using var paint = new BattlementAdvancedPaint(target);
+            paint.ReplaceStatic(
+                new PaintStyle(Background: new PaintFill.Color(new Color(0, 0, 0, 1)))
+            );
+            var first = new MotionValue.FilterList(
+                new UiFilterFunction[] { new UiFilterFunction.Brightness(0.8f) }
+            );
+            var equivalent = new MotionValue.FilterList(
+                new UiFilterFunction[] { new UiFilterFunction.Brightness(0.8f) }
+            );
+
+            Assert.That(paint.Write(MotionProperty.PaintFilter, first), Is.True);
+            Assert.That(paint.Write(MotionProperty.PaintFilter, equivalent), Is.False);
+            Assert.That(
+                paint.Write(
+                    MotionProperty.PaintFilter,
+                    new MotionValue.FilterList(
+                        new UiFilterFunction[] { new UiFilterFunction.Brightness(0.9f) }
+                    )
+                ),
+                Is.True
+            );
+            Assert.That(
+                paint.Write(
+                    MotionProperty.PaintFilter,
+                    new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
+                ),
+                Is.True
+            );
+            Assert.That(
+                paint.Write(
+                    MotionProperty.PaintFilter,
+                    new MotionValue.FilterList(Array.Empty<UiFilterFunction>())
+                ),
+                Is.False
+            );
+        }
+
         private static void AssertColor(VisualElement target, double red, double green, double blue)
         {
             var color = (MotionValue.Color)

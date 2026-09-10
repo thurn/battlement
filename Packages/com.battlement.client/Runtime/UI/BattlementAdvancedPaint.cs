@@ -127,7 +127,7 @@ namespace Battlement.UI
             target.style.backgroundColor = UnityColor.clear;
         }
 
-        public void Write(MotionProperty property, MotionValue value)
+        public bool Write(MotionProperty property, MotionValue value)
         {
             if (property == MotionProperty.UnityMaterial)
                 BattlementPaintAdmission.ValidateMaterial(StaticBlendMode);
@@ -135,9 +135,19 @@ namespace Battlement.UI
                 if (!HasStaticFill)
                     throw Failure("Motion paint filters require an owned PaintStyle background.");
             if (EmptyPaint(value))
-                motionValues.Remove(property);
+            {
+                if (!motionValues.Remove(property))
+                    return false;
+            }
             else
+            {
+                if (
+                    motionValues.TryGetValue(property, out MotionValue current)
+                    && MotionGraphDefinitionEquality.Same(current, value)
+                )
+                    return false;
                 motionValues[property] = value;
+            }
             if (property == MotionProperty.BackgroundImage)
                 WriteTexture(value, false);
             if (property == MotionProperty.Mask)
@@ -147,6 +157,7 @@ namespace Battlement.UI
             if (property == MotionProperty.ClipInset)
                 target.style.overflow = Overflow.Hidden;
             target.MarkDirtyRepaint();
+            return true;
         }
 
         public void Dispose()

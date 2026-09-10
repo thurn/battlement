@@ -205,7 +205,7 @@ namespace Battlement
     internal static class MotionGraphDefinitionEquality
     {
         public static bool Same(MotionValueDescriptor a, MotionValueDescriptor b) =>
-            a.ValueId == b.ValueId && Value(a.Initial, b.Initial) && Source(a.Source, b.Source);
+            a.ValueId == b.ValueId && Same(a.Initial, b.Initial) && Source(a.Source, b.Source);
 
         private static bool Source(MotionValueSource a, MotionValueSource b) =>
             (a, b) switch
@@ -220,9 +220,9 @@ namespace Battlement
             };
 
         private static bool Ranges(MotionValueSource.Range a, MotionValueSource.Range b) =>
-            Sequence(a.Input, b.Input, Value) && Sequence(a.Output, b.Output, Value);
+            Sequence(a.Input, b.Input, Same) && Sequence(a.Output, b.Output, Same);
 
-        private static bool Value(MotionValue a, MotionValue b) =>
+        public static bool Same(MotionValue a, MotionValue b) =>
             (a, b) switch
             {
                 (MotionValue.Vector2 x, MotionValue.Vector2 y) => x.Value.SequenceEqual(y.Value),
