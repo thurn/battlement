@@ -21,6 +21,7 @@ namespace Battlement.UI
         private float[] alpha = Array.Empty<float>();
         private float[] workA = Array.Empty<float>();
         private float[] workB = Array.Empty<float>();
+        private float[] workC = Array.Empty<float>();
 
         public void Draw(
             MeshGenerationContext context,
@@ -92,6 +93,7 @@ namespace Battlement.UI
             alpha = Array.Empty<float>();
             workA = Array.Empty<float>();
             workB = Array.Empty<float>();
+            workC = Array.Empty<float>();
         }
 
         private void ReleaseOwnedTexture()
@@ -266,6 +268,7 @@ namespace Battlement.UI
             EnsureCapacity(ref alpha, count);
             EnsureCapacity(ref workA, count);
             EnsureCapacity(ref workB, count);
+            EnsureCapacity(ref workC, count);
             for (int i = 0; i < count; i++)
                 alpha[i] = pixels[i].a;
             float[] silhouette = alpha;
@@ -283,10 +286,8 @@ namespace Battlement.UI
             }
             if (shadow.Blur > 0)
             {
-                float[] kernel = Kernel((float)shadow.Blur);
-                Blur(silhouette, workB, width, height, kernel, true);
                 float[] destination = ReferenceEquals(silhouette, alpha) ? workA : alpha;
-                Blur(workB, destination, width, height, kernel, false);
+                Gaussian(silhouette, destination, workB, workC, width, height, (float)shadow.Blur);
                 silhouette = destination;
             }
             UnityColor tint = Color(shadow.Color);
@@ -310,44 +311,76 @@ namespace Battlement.UI
             }
         }
 
-        private static float[] Kernel(float sigma)
+        private static void Gaussian(
+            float[] source,
+            float[] result,
+            float[] first,
+            float[] second,
+            int width,
+            int height,
+            float sigma
+        )
         {
-            int radius = Mathf.CeilToInt(3 * sigma);
-            var kernel = new float[radius * 2 + 1];
-            float sum = 0;
-            for (int i = -radius; i <= radius; i++)
-                sum += kernel[i + radius] = Mathf.Exp(-i * i / (2 * sigma * sigma));
-            for (int i = 0; i < kernel.Length; i++)
-                kernel[i] /= sum;
-            return kernel;
+            int[] widths = BoxWidths(sigma);
+            BoxBlur(source, first, width, height, widths[0] / 2, true);
+            BoxBlur(first, second, width, height, widths[0] / 2, false);
+            BoxBlur(second, first, width, height, widths[1] / 2, true);
+            BoxBlur(first, second, width, height, widths[1] / 2, false);
+            BoxBlur(second, first, width, height, widths[2] / 2, true);
+            BoxBlur(first, result, width, height, widths[2] / 2, false);
         }
 
-        private static void Blur(
+        private static int[] BoxWidths(float sigma)
+        {
+            const int count = 3;
+            float ideal = Mathf.Sqrt(12 * sigma * sigma / count + 1);
+            int lower = Mathf.FloorToInt(ideal);
+            if (lower % 2 == 0)
+                lower--;
+            int upper = lower + 2;
+            int lowerCount = Mathf.RoundToInt(
+                (12 * sigma * sigma - count * lower * lower - 4 * count * lower - 3 * count)
+                    / (-4f * lower - 4)
+            );
+            return new[]
+            {
+                lowerCount > 0 ? lower : upper,
+                lowerCount > 1 ? lower : upper,
+                lowerCount > 2 ? lower : upper,
+            };
+        }
+
+        private static void BoxBlur(
             float[] source,
             float[] result,
             int width,
             int height,
-            float[] kernel,
+            int radius,
             bool horizontal
         )
         {
-            int radius = kernel.Length / 2;
+            int lines = horizontal ? height : width;
+            int length = horizontal ? width : height;
+            float scale = 1f / (radius * 2 + 1);
             Parallel.For(
                 0,
-                height,
-                y =>
+                lines,
+                line =>
                 {
-                    for (int x = 0; x < width; x++)
+                    int Index(int position) =>
+                        horizontal ? line * width + position : position * width + line;
+                    float sum = 0;
+                    for (int position = 0; position <= radius && position < length; position++)
+                        sum += source[Index(position)];
+                    for (int position = 0; position < length; position++)
                     {
-                        result[y * width + x] = 0;
-                        for (int k = -radius; k <= radius; k++)
-                        {
-                            int sx = horizontal ? x + k : x;
-                            int sy = horizontal ? y : y + k;
-                            if (InBounds(sx, sy, width, height))
-                                result[y * width + x] +=
-                                    source[sy * width + sx] * kernel[k + radius];
-                        }
+                        result[Index(position)] = sum * scale;
+                        int leaving = position - radius;
+                        if (leaving >= 0)
+                            sum -= source[Index(leaving)];
+                        int entering = position + radius + 1;
+                        if (entering < length)
+                            sum += source[Index(entering)];
                     }
                 }
             );
