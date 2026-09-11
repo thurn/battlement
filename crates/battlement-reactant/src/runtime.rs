@@ -1027,7 +1027,7 @@ impl<G: 'static> Reactant<G> {
       rendered.take_error_reports(&mut reports);
     }
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
-      root.committed.clone_from(rendered);
+      root.committed = mem::take(rendered);
     }
     attachments.commit(&mut self.element_refs.borrow_mut(), reconnect);
     self.pending_effects.extend(effects);
