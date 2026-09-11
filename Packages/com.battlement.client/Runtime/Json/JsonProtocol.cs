@@ -36,6 +36,7 @@ namespace Battlement
             Settings.Converters.Add(new ProtocolByteConverter());
             Settings.Converters.Add(new ProtocolColorConverter());
             Settings.Converters.Add(new PropJsonConverter());
+            Settings.Converters.Add(new UiStyleJsonConverter());
             Settings.Converters.Add(new UiStyleValueConverter());
             Settings.Converters.Add(new MotionTargetDescriptorJsonConverter());
             Settings.Converters.Add(new TransitionDefinitionJsonConverter());

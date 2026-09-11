@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -154,12 +155,14 @@ namespace Battlement
                     IsWrapperUnion(objectType)
                     || BattlementUnionPayload.IsScalarUnion(objectType)
                     || BattlementUnionPayload.IsDirectPayload(target);
-                value = BattlementUnionRecordFactory.CreateValue(
-                    target,
-                    reader,
-                    serializer,
-                    directPayload
-                );
+                value = TryReadNumericValue(target, reader, out object? numericValue)
+                    ? numericValue
+                    : BattlementUnionRecordFactory.CreateValue(
+                        target,
+                        reader,
+                        serializer,
+                        directPayload
+                    );
             }
 
             if (!reader.Read() || reader.TokenType != JsonToken.EndObject)
@@ -170,6 +173,57 @@ namespace Battlement
             }
 
             return value;
+        }
+
+        private static bool TryReadNumericValue(Type target, JsonReader reader, out object value)
+        {
+            if (reader.TokenType != JsonToken.Integer && reader.TokenType != JsonToken.Float)
+            {
+                value = null!;
+                return false;
+            }
+
+            object raw = reader.Value!;
+            if (target == typeof(UiLength.Px))
+            {
+                value = new UiLength.Px(Convert.ToSingle(raw, CultureInfo.InvariantCulture));
+                return true;
+            }
+
+            if (target == typeof(UiLength.Percent))
+            {
+                value = new UiLength.Percent(Convert.ToSingle(raw, CultureInfo.InvariantCulture));
+                return true;
+            }
+
+            if (target == typeof(UiLengthOrAuto.Px))
+            {
+                value = new UiLengthOrAuto.Px(Convert.ToSingle(raw, CultureInfo.InvariantCulture));
+                return true;
+            }
+
+            if (target == typeof(UiLengthOrAuto.Percent))
+            {
+                value = new UiLengthOrAuto.Percent(
+                    Convert.ToSingle(raw, CultureInfo.InvariantCulture)
+                );
+                return true;
+            }
+
+            if (target == typeof(MotionValue.Scalar))
+            {
+                value = new MotionValue.Scalar(Convert.ToDouble(raw, CultureInfo.InvariantCulture));
+                return true;
+            }
+
+            if (target == typeof(MotionValue.Angle))
+            {
+                value = new MotionValue.Angle(Convert.ToDouble(raw, CultureInfo.InvariantCulture));
+                return true;
+            }
+
+            value = null!;
+            return false;
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
