@@ -152,6 +152,8 @@ namespace Battlement.Tests
 
         public bool IsDisposed { get; private set; }
 
+        public int DisposeCount { get; private set; }
+
         public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
         {
             Calls.Add("connect");
@@ -210,7 +212,11 @@ namespace Battlement.Tests
 
         public void Stop() => Calls.Add("stop");
 
-        public void Dispose() => IsDisposed = true;
+        public void Dispose()
+        {
+            DisposeCount++;
+            IsDisposed = true;
+        }
 
         public static BattlementTransportResult SnapshotResponse(
             SessionId? responseSession = null,
@@ -357,6 +363,8 @@ namespace Battlement.Tests
 
         public bool IsDisposed { get; private set; }
 
+        public int DisposeCount { get; private set; }
+
         public IBattlementAssetHandle Prepare(PreparedAsset asset)
         {
             var handle = new FakeAssetHandle(asset, Remove);
@@ -419,6 +427,7 @@ namespace Battlement.Tests
 
         public void Dispose()
         {
+            DisposeCount++;
             foreach (FakeAssetHandle handle in handles.ToArray())
             {
                 handle.Dispose();

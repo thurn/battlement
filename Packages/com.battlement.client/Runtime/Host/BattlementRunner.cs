@@ -34,34 +34,12 @@ namespace Battlement
         [SerializeField]
         private List<BattlementModule> selectedModules = new();
 
-        private BattlementRunnerOptions? options;
-        private BattlementWorld? world;
-        private BattlementPreparedAssets? preparedAssets;
-        private BattlementScenes? scenes;
-        private BattlementSnapshotReplacement? snapshotReplacement;
-        private BattlementBatchScheduler? batchScheduler;
-        private BattlementParticleEffects? particleEffects;
-        private BattlementAudioSources? audioSources;
-        private BattlementPointerInput? pointerInput;
-        private BattlementPanelInputCoordinator? panelInput;
-        private BattlementKeyboardInput? keyboardInput;
-        private BattlementControllerInput? controllerInput;
-        private BattlementCustomCommands? customCommands;
-        private BattlementTweenAdapter? tweens;
-        private DittoMotionClock? dittoMotionClock;
-        private BattlementUiDocuments? uiDocuments;
-        private BattlementGeometrySampler? geometrySampler;
+        private BattlementConfiguredRuntime? configuredRuntime;
         private readonly BattlementGeometryFrames geometryFrames = new();
-        private BattlementModules? modules;
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
         private readonly ConcurrentQueue<BattlementCapturedUnityError> unityErrors = new();
-        private BattlementDevelopmentDiagnostics? developmentDiagnostics;
-        private BattlementFailureSurface? failureSurface;
-        private BattlementErrorReporter? errors;
-        private BattlementUiEventDispatcher? uiEventDispatcher;
-        private IDisposable? unityErrorSubscription;
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
@@ -78,6 +56,8 @@ namespace Battlement
         private ulong dittoResponseApplyNs;
         private PendingUiFailure? pendingUiFailure;
 
+        internal Action<string>? ConfigureConstructionProbe { get; set; }
+
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
 
@@ -93,38 +73,40 @@ namespace Battlement
         public bool IsInputAvailable => pendingUiFailure is null && session.IsInputAvailable;
 
         /// <summary>Current nontechnical failure presentation, if the session failed.</summary>
-        public BattlementPlayerFailure? CurrentFailure => failureSurface?.Current;
+        public BattlementPlayerFailure? CurrentFailure => configuredRuntime?.FailureSurface.Current;
 
         /// <summary>Whether an unknown runtime failure requires an application restart.</summary>
         public bool IsRestartRequired => isRuntimePoisoned;
 
         /// <summary>Returns diagnostics for the most recently presented Motion frame.</summary>
         public BattlementMotionPerformanceSnapshot MotionPerformance =>
-            uiDocuments?.MotionPerformance ?? default;
+            configuredRuntime?.UiDocuments.MotionPerformance ?? default;
 
         /// <summary>Recent causal records for synchronous Reactant UI events.</summary>
         public IReadOnlyList<BattlementUiEventInspection> UiEventInspections =>
-            uiEventDispatcher?.Inspections ?? Array.Empty<BattlementUiEventInspection>();
+            configuredRuntime?.UiEventDispatcher.Inspections
+            ?? Array.Empty<BattlementUiEventInspection>();
 
         internal System.Action? SnapshotApplicationProbe
         {
-            set => snapshotReplacement!.ApplicationProbe = value;
+            set => configuredRuntime!.SnapshotReplacement.ApplicationProbe = value;
         }
 
-        internal BattlementUiDocuments UiDocumentsForTests => uiDocuments!;
+        internal BattlementUiDocuments UiDocumentsForTests => configuredRuntime!.UiDocuments;
 
-        internal BattlementPanelInputCoordinator PanelInputForTests => panelInput!;
+        internal BattlementPanelInputCoordinator PanelInputForTests =>
+            configuredRuntime!.PanelInput;
 
-        internal Camera? DittoInputCamera => world?.InputCamera;
+        internal Camera? DittoInputCamera => configuredRuntime?.World.InputCamera;
 
-        internal BattlementUiDocuments DittoUiDocuments => uiDocuments!;
+        internal BattlementUiDocuments DittoUiDocuments => configuredRuntime!.UiDocuments;
 
-        internal TimeSpan DittoElapsed => dittoMotionClock!.Elapsed;
+        internal TimeSpan DittoElapsed => configuredRuntime!.DittoMotionClock.Elapsed;
 
         internal void SetDittoFrameRate(uint framesPerSecond) =>
-            dittoMotionClock!.SetFramesPerSecond(framesPerSecond);
+            configuredRuntime!.DittoMotionClock.SetFramesPerSecond(framesPerSecond);
 
-        internal bool IsDittoConfigured => options is not null;
+        internal bool IsDittoConfigured => configuredRuntime is not null;
 
         internal string? DittoInputDiagnostic =>
             CanEmitInput
@@ -139,9 +121,9 @@ namespace Battlement
                 throw new InvalidOperationException(
                     "A Ditto executor already owns this runner's input."
                 );
-            pointerInput?.BeginDittoControl();
-            keyboardInput?.Reset();
-            controllerInput?.Reset();
+            configuredRuntime?.PointerInput.BeginDittoControl();
+            configuredRuntime?.KeyboardInput.Reset();
+            configuredRuntime?.ControllerInput.Reset();
             dittoInputActive = true;
         }
 
@@ -150,7 +132,7 @@ namespace Battlement
             dittoActivationTransaction = null;
             try
             {
-                pointerInput?.EndDittoControl();
+                configuredRuntime?.PointerInput.EndDittoControl();
             }
             finally
             {
@@ -277,19 +259,19 @@ namespace Battlement
         internal void BeginDittoMotion(DittoMotion motion)
         {
             EnsureMainThread();
-            dittoMotionClock!.Begin(motion);
+            configuredRuntime!.DittoMotionClock.Begin(motion);
         }
 
         internal TimeSpan PrepareDittoFrame(bool advance = true)
         {
             EnsureMainThread();
-            return dittoMotionClock!.PrepareFrame(advance);
+            return configuredRuntime!.DittoMotionClock.PrepareFrame(advance);
         }
 
         internal void CompleteDittoPresentedFrame()
         {
             EnsureMainThread();
-            int completed = uiDocuments?.CompleteDittoPresentedFrame() ?? 0;
+            int completed = configuredRuntime?.UiDocuments.CompleteDittoPresentedFrame() ?? 0;
             dittoStateVersion += checked((ulong)completed);
         }
 
@@ -297,29 +279,30 @@ namespace Battlement
         {
             EnsureMainThread();
             int finiteMotion =
-                (uiDocuments?.DittoActiveFiniteTimelineCount ?? 0)
-                + (batchScheduler?.FiniteOperationCount ?? 0);
+                (configuredRuntime?.UiDocuments.DittoActiveFiniteTimelineCount ?? 0)
+                + (configuredRuntime?.BatchScheduler.FiniteOperationCount ?? 0);
             int infiniteMotion =
-                (uiDocuments?.DittoActiveInfiniteTimelineCount ?? 0)
-                + (batchScheduler?.InfiniteOperationCount ?? 0);
-            int heldMotion = uiDocuments?.DittoActiveHeldTimelineCount ?? 0;
-            bool deferredUi = uiDocuments?.DittoHasPendingDeferredWork == true;
+                (configuredRuntime?.UiDocuments.DittoActiveInfiniteTimelineCount ?? 0)
+                + (configuredRuntime?.BatchScheduler.InfiniteOperationCount ?? 0);
+            int heldMotion = configuredRuntime?.UiDocuments.DittoActiveHeldTimelineCount ?? 0;
+            bool deferredUi = configuredRuntime?.UiDocuments.DittoHasPendingDeferredWork == true;
             return new DittoWorkObservation(
-                dittoStateVersion + (batchScheduler?.ActivityVersion ?? 0),
-                uiDocuments?.DittoLayoutFingerprint() ?? 0,
+                dittoStateVersion + (configuredRuntime?.BatchScheduler.ActivityVersion ?? 0),
+                configuredRuntime?.UiDocuments.DittoLayoutFingerprint() ?? 0,
                 responses.HasPending
-                    || snapshotReplacement?.IsPending == true
-                    || batchScheduler?.HasPendingWork == true
+                    || configuredRuntime?.SnapshotReplacement.IsPending == true
+                    || configuredRuntime?.BatchScheduler.HasPendingWork == true
                     || geometryFrames.HasPending
                     || finiteMotion != 0
                     || deferredUi,
-                batchScheduler?.HasInfiniteOperations == true || infiniteMotion != 0,
+                configuredRuntime?.BatchScheduler.HasInfiniteOperations == true
+                    || infiniteMotion != 0,
                 heldMotion != 0,
                 finiteMotion,
                 infiniteMotion,
                 heldMotion,
                 deferredUi,
-                uiDocuments?.DittoActiveTimelineDiagnostic ?? ""
+                configuredRuntime?.UiDocuments.DittoActiveTimelineDiagnostic ?? ""
             );
         }
 
@@ -328,33 +311,39 @@ namespace Battlement
             BattlementRunnerOptions configured = RequireOptions();
             EnsureMainThread();
             Exception? failure = null;
-            Reset(() => uiDocuments?.SetInputEnabled(false), ref failure);
-            Reset(() => pointerInput?.Reset(), ref failure);
-            Reset(() => keyboardInput?.Reset(), ref failure);
-            Reset(() => controllerInput?.Reset(), ref failure);
-            Reset(() => controllerInput?.StopHaptics(), ref failure);
-            Reset(() => batchScheduler?.BeginSession(), ref failure);
-            Reset(() => geometrySampler?.Reset(), ref failure);
+            Reset(() => configuredRuntime?.UiDocuments.SetInputEnabled(false), ref failure);
+            Reset(() => configuredRuntime?.PointerInput.Reset(), ref failure);
+            Reset(() => configuredRuntime?.KeyboardInput.Reset(), ref failure);
+            Reset(() => configuredRuntime?.ControllerInput.Reset(), ref failure);
+            Reset(() => configuredRuntime?.ControllerInput.StopHaptics(), ref failure);
+            Reset(() => configuredRuntime?.BatchScheduler.BeginSession(), ref failure);
+            Reset(() => configuredRuntime?.GeometrySampler.Reset(), ref failure);
             Reset(geometryFrames.Reset, ref failure);
-            Reset(() => snapshotReplacement?.Cancel(), ref failure);
-            Reset(() => scenes?.BeginSession(), ref failure);
-            Reset(() => world?.BeginSession(), ref failure);
-            Reset(() => particleEffects?.ClearInactive(), ref failure);
-            Reset(() => audioSources?.ClearInactive(clearSuppressed: true), ref failure);
-            Reset(() => panelInput?.Clear(), ref failure);
-            Reset(() => preparedAssets?.BeginSession(), ref failure);
-            Reset(() => modules?.Dispose(), ref failure);
-            Reset(() => developmentDiagnostics?.Hide(), ref failure);
-            Reset(() => failureSurface?.Clear(errors!), ref failure);
+            Reset(() => configuredRuntime?.SnapshotReplacement.Cancel(), ref failure);
+            Reset(() => configuredRuntime?.Scenes.BeginSession(), ref failure);
+            Reset(() => configuredRuntime?.World.BeginSession(), ref failure);
+            Reset(() => configuredRuntime?.ParticleEffects.ClearInactive(), ref failure);
+            Reset(
+                () => configuredRuntime?.AudioSources.ClearInactive(clearSuppressed: true),
+                ref failure
+            );
+            Reset(() => configuredRuntime?.PanelInput.Clear(), ref failure);
+            Reset(() => configuredRuntime?.PreparedAssets.BeginSession(), ref failure);
+            Reset(() => configuredRuntime?.Modules.Dispose(), ref failure);
+            Reset(() => configuredRuntime?.DevelopmentDiagnostics?.Hide(), ref failure);
+            Reset(
+                () => configuredRuntime?.FailureSurface.Clear(configuredRuntime.Errors),
+                ref failure
+            );
             session.Stop();
             batchAdmission.BeginSession();
             responses.Clear();
-            uiEventDispatcher?.Clear();
+            configuredRuntime?.UiEventDispatcher.Clear();
             while (unityErrors.TryDequeue(out _)) { }
             completedInitialSnapshot = false;
             isNativePanicRecovery = false;
             isRuntimePoisoned = false;
-            dittoMotionClock?.Reset();
+            configuredRuntime?.DittoMotionClock.Reset();
             dittoStateVersion++;
             if (failure is not null)
             {
@@ -370,7 +359,10 @@ namespace Battlement
             EnsureMainThread();
             error = null;
             BattlementAssetException? sceneError = null;
-            if (scenes is not null && !scenes.TryCompleteSessionReset(out sceneError))
+            if (
+                configuredRuntime is not null
+                && !configuredRuntime.Scenes.TryCompleteSessionReset(out sceneError)
+            )
             {
                 return false;
             }
@@ -379,7 +371,7 @@ namespace Battlement
                 error = sceneError;
                 return true;
             }
-            if (preparedAssets?.IsSessionEmpty == false)
+            if (configuredRuntime?.PreparedAssets.IsSessionEmpty == false)
             {
                 error = new InvalidOperationException(
                     "Battlement-owned asset leases remained after scene reset."
@@ -388,23 +380,24 @@ namespace Battlement
             return true;
         }
 
-        Camera? IBattlementGeometryWorldSource.InputCamera => world?.InputCamera;
+        Camera? IBattlementGeometryWorldSource.InputCamera => configuredRuntime?.World.InputCamera;
 
         BattlementGeometryObjectKind IBattlementGeometryWorldSource.LookupObject(
             ObjectId id,
             out GameObject? gameObject
         )
         {
-            if (world?.TryGetObject(id, out gameObject) == true)
+            if (configuredRuntime?.World.TryGetObject(id, out gameObject) == true)
                 return BattlementGeometryObjectKind.World;
             gameObject = null;
-            return uiDocuments?.TryGet(id, out _) == true
+            return configuredRuntime?.UiDocuments.TryGet(id, out _) == true
                 ? BattlementGeometryObjectKind.Ui
                 : BattlementGeometryObjectKind.Missing;
         }
 
         /// <summary>Returns whether a global physical key is selected for input dispatch.</summary>
-        public bool IsGlobalKeyEnabled(PhysicalKey key) => world?.IsGlobalKeyEnabled(key) == true;
+        public bool IsGlobalKeyEnabled(PhysicalKey key) =>
+            configuredRuntime?.World.IsGlobalKeyEnabled(key) == true;
 
         /// <summary>Injects the dependencies owned by this runner.</summary>
         public void Configure(BattlementRunnerOptions runnerOptions)
@@ -414,7 +407,7 @@ namespace Battlement
                 nameof(runnerOptions)
             );
 
-            if (options is not null)
+            if (configuredRuntime is not null)
             {
                 throw new InvalidOperationException("The runner is already configured.");
             }
@@ -424,126 +417,193 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(BattlementRunner));
             }
 
-            options = checkedOptions;
-            if (!checkedOptions.SuppressDevelopmentErrorDialogs)
+            BattlementConfiguredRuntime runtime = new BattlementConfiguredRuntime(checkedOptions);
+            configuredRuntime = runtime;
+            try
             {
-                developmentDiagnostics = new BattlementDevelopmentDiagnostics(
-                    transform,
-                    ContinueAfterFailure
+                BattlementDevelopmentDiagnostics? developmentDiagnostics = null;
+                if (!checkedOptions.SuppressDevelopmentErrorDialogs)
+                {
+                    developmentDiagnostics = new BattlementDevelopmentDiagnostics(
+                        transform,
+                        ContinueAfterFailure
+                    );
+                }
+                runtime.SetDevelopmentDiagnostics(developmentDiagnostics);
+                System.Action<BattlementError>? showDevelopmentError = developmentDiagnostics
+                    is null
+                    ? null
+                    : developmentDiagnostics.Show;
+                BattlementErrorReporter errors = new BattlementErrorReporter(
+                    checkedOptions.Logger,
+                    checkedOptions.ErrorSink,
+                    showDevelopmentError,
+                    checkedOptions.CaughtFailureReporter
                 );
+                runtime.SetErrors(errors);
+                BattlementFailureSurface failureSurface = new BattlementFailureSurface(
+                    transform,
+                    showLoadingSurface,
+                    checkedOptions.FailurePresenter,
+                    ContinueAfterFailure,
+                    () => developmentDiagnostics?.IsVisible == true
+                );
+                runtime.SetFailureSurface(failureSurface);
+                IDisposable unityErrorSubscription = BattlementUnityErrors.Subscribe(
+                    unityErrors.Enqueue
+                );
+                runtime.SetUnityErrorSubscription(unityErrorSubscription);
+                mainThreadId = Environment.CurrentManagedThreadId;
+                BattlementPreparedAssets preparedAssets = new BattlementPreparedAssets(
+                    checkedOptions.AssetStorage
+                );
+                runtime.SetPreparedAssets(preparedAssets);
+                DittoMotionClock dittoMotionClock = new DittoMotionClock(checkedOptions.Clock);
+                runtime.SetDittoMotionClock(dittoMotionClock);
+                BattlementWorld world = new BattlementWorld(gameObject.scene, preparedAssets);
+                runtime.SetWorld(world);
+                BattlementPointerInput pointerInput = new BattlementPointerInput(
+                    transform,
+                    EmitAction
+                );
+                runtime.SetPointerInput(pointerInput);
+                BattlementPanelInputCoordinator panelInput = new BattlementPanelInputCoordinator();
+                runtime.SetPanelInput(panelInput);
+                BattlementKeyboardInput keyboardInput = new BattlementKeyboardInput(
+                    IsGlobalKeyEnabled,
+                    EmitAction
+                );
+                runtime.SetKeyboardInput(keyboardInput);
+                BattlementControllerInput controllerInput = new BattlementControllerInput(
+                    () => world.ControllerInput,
+                    () => pointerInput.NavigationTiming,
+                    EmitAction
+                );
+                runtime.SetControllerInput(controllerInput);
+                world.InputCameraChanged += pointerInput.SetCamera;
+                BattlementParticleEffects particleEffects = new BattlementParticleEffects(
+                    world,
+                    preparedAssets,
+                    dittoMotionClock
+                );
+                runtime.SetParticleEffects(particleEffects);
+                BattlementAudioSources audioSources = new BattlementAudioSources(
+                    world,
+                    preparedAssets,
+                    transform,
+                    dittoMotionClock
+                );
+                runtime.SetAudioSources(audioSources);
+                BattlementScenes scenes = new BattlementScenes(
+                    checkedOptions.AssetStorage,
+                    preparedAssets,
+                    world
+                );
+                runtime.SetScenes(scenes);
+                BattlementCustomCommands customCommands = new BattlementCustomCommands(now =>
+                    CreateCommandContext(now)
+                );
+                runtime.SetCustomCommands(customCommands);
+                BattlementUiEventDispatcher uiEventDispatcher = new BattlementUiEventDispatcher(
+                    checkedOptions.Transport,
+                    checkedOptions.ProtocolCodec,
+                    responses,
+                    dittoMotionClock,
+                    payload => DecodeResponse(checkedOptions, payload),
+                    () => customCommands.Types.Count == 0,
+                    RecordUiFailure,
+                    (severity, eventName, message) => Log(severity, eventName, message),
+                    this
+                );
+                runtime.SetUiEventDispatcher(uiEventDispatcher);
+                BattlementUiDocuments uiDocuments = new BattlementUiDocuments(
+                    EmitUiEvent,
+                    world.ContainsLiveObject,
+                    world.ReserveUiIdentities,
+                    world.ReleaseUiIdentities,
+                    this,
+                    () => dittoMotionClock.Elapsed,
+                    audioSources.MotionTime,
+                    uiEventDispatcher.RecordNativePrevention,
+                    () =>
+                        dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
+                            ? dittoMotionClock.Elapsed
+                            : TimeSpan.FromSeconds(Time.timeAsDouble),
+                    () => dittoMotionClock.IsInstant
+                );
+                runtime.SetUiDocuments(uiDocuments);
+                BattlementGeometrySampler geometrySampler = new BattlementGeometrySampler(
+                    uiDocuments,
+                    world: this
+                );
+                runtime.SetGeometrySampler(geometrySampler);
+                BattlementSnapshotReplacement snapshotReplacement =
+                    new BattlementSnapshotReplacement(
+                        preparedAssets,
+                        scenes,
+                        world,
+                        uiDocuments,
+                        panelInput,
+                        BattlementReactantAssetCatalog.Load()
+                    );
+                runtime.SetSnapshotReplacement(snapshotReplacement);
+                ConfigureConstructionProbe?.Invoke("after-snapshot-replacement");
+                var operations = new BattlementOperationRegistry(
+                    (failure, exception) => ReportOperationFailure(failure, exception),
+                    ReportCustomOperationFailure
+                );
+                BattlementTweenAdapter tweens = new BattlementTweenAdapter(
+                    checkedOptions.UseInstantAnimations,
+                    checkedOptions.Clock is not UnityBattlementClock,
+                    dittoMotionClock
+                );
+                runtime.SetTweens(tweens);
+                BattlementModules modules = new BattlementModules(selectedModules);
+                runtime.SetModules(modules);
+                var commandExecutor = new BattlementCommandExecutor(
+                    world,
+                    preparedAssets,
+                    scenes,
+                    operations,
+                    tweens,
+                    particleEffects,
+                    audioSources,
+                    controllerInput,
+                    customCommands,
+                    dittoMotionClock,
+                    SetInputEnabled,
+                    uiDocuments,
+                    ApplyGeometryObservations,
+                    modules,
+                    checkedOptions.OpenExternalUrl
+                );
+                BattlementBatchScheduler batchScheduler = new BattlementBatchScheduler(
+                    dittoMotionClock,
+                    commandExecutor,
+                    operations,
+                    (failure, exception) => ReportBatchFailure(failure, exception),
+                    ReportCustomBatchFailure
+                );
+                runtime.SetBatchScheduler(batchScheduler);
             }
-            System.Action<BattlementError>? showDevelopmentError = developmentDiagnostics is null
-                ? null
-                : developmentDiagnostics.Show;
-            errors = new BattlementErrorReporter(
-                checkedOptions.Logger,
-                checkedOptions.ErrorSink,
-                showDevelopmentError,
-                checkedOptions.CaughtFailureReporter
-            );
-            failureSurface = new BattlementFailureSurface(
-                transform,
-                showLoadingSurface,
-                checkedOptions.FailurePresenter,
-                ContinueAfterFailure,
-                () => developmentDiagnostics?.IsVisible == true
-            );
-            unityErrorSubscription = BattlementUnityErrors.Subscribe(unityErrors.Enqueue);
-            mainThreadId = Environment.CurrentManagedThreadId;
-            preparedAssets = new BattlementPreparedAssets(checkedOptions.AssetStorage);
-            dittoMotionClock = new DittoMotionClock(checkedOptions.Clock);
-            world = new BattlementWorld(gameObject.scene, preparedAssets);
-            pointerInput = new BattlementPointerInput(transform, EmitAction);
-            panelInput = new BattlementPanelInputCoordinator();
-            keyboardInput = new BattlementKeyboardInput(IsGlobalKeyEnabled, EmitAction);
-            controllerInput = new BattlementControllerInput(
-                () => world.ControllerInput,
-                () => pointerInput.NavigationTiming,
-                EmitAction
-            );
-            world.InputCameraChanged += pointerInput.SetCamera;
-            particleEffects = new BattlementParticleEffects(
-                world,
-                preparedAssets,
-                dittoMotionClock
-            );
-            audioSources = new BattlementAudioSources(
-                world,
-                preparedAssets,
-                transform,
-                dittoMotionClock
-            );
-            scenes = new BattlementScenes(checkedOptions.AssetStorage, preparedAssets, world);
-            customCommands = new BattlementCustomCommands(now => CreateCommandContext(now));
-            uiEventDispatcher = new BattlementUiEventDispatcher(
-                checkedOptions.Transport,
-                checkedOptions.ProtocolCodec,
-                responses,
-                dittoMotionClock,
-                payload => DecodeResponse(checkedOptions, payload),
-                () => customCommands is null || customCommands.Types.Count == 0,
-                RecordUiFailure,
-                (severity, eventName, message) => Log(severity, eventName, message),
-                this
-            );
-            uiDocuments = new BattlementUiDocuments(
-                EmitUiEvent,
-                world.ContainsLiveObject,
-                world.ReserveUiIdentities,
-                world.ReleaseUiIdentities,
-                this,
-                () => dittoMotionClock.Elapsed,
-                audioSources.MotionTime,
-                uiEventDispatcher.RecordNativePrevention,
-                () =>
-                    dittoMotionClock.IsControlled || dittoMotionClock.IsInstant
-                        ? dittoMotionClock.Elapsed
-                        : TimeSpan.FromSeconds(Time.timeAsDouble),
-                () => dittoMotionClock.IsInstant
-            );
-            geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
-            snapshotReplacement = new BattlementSnapshotReplacement(
-                preparedAssets,
-                scenes,
-                world,
-                uiDocuments,
-                panelInput,
-                BattlementReactantAssetCatalog.Load()
-            );
-            var operations = new BattlementOperationRegistry(
-                (failure, exception) => ReportOperationFailure(failure, exception),
-                ReportCustomOperationFailure
-            );
-            tweens = new BattlementTweenAdapter(
-                checkedOptions.UseInstantAnimations,
-                checkedOptions.Clock is not UnityBattlementClock,
-                dittoMotionClock
-            );
-            modules = new BattlementModules(selectedModules);
-            var commandExecutor = new BattlementCommandExecutor(
-                world,
-                preparedAssets,
-                scenes,
-                operations,
-                tweens,
-                particleEffects,
-                audioSources,
-                controllerInput,
-                customCommands,
-                dittoMotionClock,
-                SetInputEnabled,
-                uiDocuments,
-                ApplyGeometryObservations,
-                modules,
-                checkedOptions.OpenExternalUrl
-            );
-            batchScheduler = new BattlementBatchScheduler(
-                dittoMotionClock,
-                commandExecutor,
-                operations,
-                (failure, exception) => ReportBatchFailure(failure, exception),
-                ReportCustomBatchFailure
-            );
+            catch
+            {
+                try
+                {
+                    runtime.Dispose();
+                }
+                catch
+                {
+                    isDisposed = true;
+                    throw;
+                }
+                finally
+                {
+                    configuredRuntime = null;
+                }
+
+                throw;
+            }
         }
 
         /// <summary>Registers one game-owned command type before connecting.</summary>
@@ -555,7 +615,12 @@ namespace Battlement
         )
         {
             RequireConfiguredAndStopped();
-            customCommands!.Register(type, handler, payloadConverter, errorConverter);
+            configuredRuntime!.CustomCommands.Register(
+                type,
+                handler,
+                payloadConverter,
+                errorConverter
+            );
         }
 
         /// <summary>Emits a typed game-owned action through the active transport.</summary>
@@ -606,7 +671,8 @@ namespace Battlement
             BattlementRunnerOptions configured = RequireOptions();
             RequireHealthyRuntime();
             bool recoveringPanic =
-                failureSurface?.Current?.Kind == BattlementPlayerFailureKind.ContinueAllowed;
+                configuredRuntime!.FailureSurface.Current?.Kind
+                == BattlementPlayerFailureKind.ContinueAllowed;
             SessionId? previousSession = session.LastSession;
             isNativePanicRecovery = recoveringPanic;
             try
@@ -627,7 +693,10 @@ namespace Battlement
         public void ContinueAfterFailure()
         {
             EnsureMainThread();
-            if (failureSurface?.Current?.Kind != BattlementPlayerFailureKind.ContinueAllowed)
+            if (
+                configuredRuntime?.FailureSurface.Current?.Kind
+                != BattlementPlayerFailureKind.ContinueAllowed
+            )
             {
                 throw new InvalidOperationException(
                     "There is no player-visible failure that can be continued."
@@ -640,12 +709,12 @@ namespace Battlement
         /// <summary>Stops the active session. Repeated calls are no-ops.</summary>
         public void Stop()
         {
-            if (session.Phase == BattlementSessionPhase.Stopped || options is null)
+            if (session.Phase == BattlementSessionPhase.Stopped || configuredRuntime is null)
             {
                 return;
             }
 
-            StopSession(options, true);
+            StopSession(configuredRuntime.Options, true);
         }
 
         /// <summary>
@@ -689,7 +758,7 @@ namespace Battlement
                 return;
             }
 
-            TimeSpan started = dittoMotionClock!.Elapsed;
+            TimeSpan started = configuredRuntime!.DittoMotionClock.Elapsed;
             try
             {
                 BattlementTransportResult result;
@@ -702,7 +771,7 @@ namespace Battlement
                     configured,
                     result,
                     "Submit failed.",
-                    duration: dittoMotionClock!.Elapsed - started
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started
                 );
             }
             catch (Exception exception)
@@ -710,7 +779,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Submit response failed: {exception.Message}",
-                    duration: dittoMotionClock!.Elapsed - started,
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                     payloadBytes: json.Length,
                     exception: exception
                 );
@@ -830,7 +899,7 @@ namespace Battlement
 
         /// <summary>Looks up an asset without starting an implicit load.</summary>
         public bool TryGetPreparedAsset(PreparedAsset asset, out object? value) =>
-            preparedAssets?.TryGet(asset, out value) ?? ReturnMissing(out value);
+            configuredRuntime?.PreparedAssets.TryGet(asset, out value) ?? ReturnMissing(out value);
 
         bool IBattlementPreparedAssetLookup.TryGet(PreparedAsset asset, out object? value) =>
             TryGetPreparedAsset(asset, out value);
@@ -842,12 +911,13 @@ namespace Battlement
         /// Acquires a usage lease that must be disposed when the asset is no longer referenced.
         /// </summary>
         public IBattlementAssetLease AcquirePreparedAsset(PreparedAsset asset) =>
-            preparedAssets?.Acquire(asset)
+            configuredRuntime?.PreparedAssets.Acquire(asset)
             ?? throw new InvalidOperationException("The runner is not configured.");
 
         /// <summary>Looks up a live Battlement-controlled Unity object.</summary>
         public bool TryGetObject(ObjectId id, out GameObject? gameObject) =>
-            world?.TryGetObject(id, out gameObject) ?? ReturnMissingObject(out gameObject);
+            configuredRuntime?.World.TryGetObject(id, out gameObject)
+            ?? ReturnMissingObject(out gameObject);
 
         /// <summary>Stops the session and releases the runner's injected dependencies.</summary>
         public void Dispose()
@@ -860,108 +930,24 @@ namespace Battlement
             Stop();
             try
             {
-                scenes?.Dispose();
+                configuredRuntime?.Dispose();
             }
             finally
             {
-                try
-                {
-                    preparedAssets?.Dispose();
-                }
-                finally
-                {
-                    try
-                    {
-                        options?.AssetStorage.Dispose();
-                    }
-                    finally
-                    {
-                        try
-                        {
-                            options?.Transport.Dispose();
-                        }
-                        finally
-                        {
-                            try
-                            {
-                                particleEffects?.Dispose();
-                            }
-                            finally
-                            {
-                                try
-                                {
-                                    audioSources?.Dispose();
-                                }
-                                finally
-                                {
-                                    try
-                                    {
-                                        pointerInput?.Dispose();
-                                    }
-                                    finally
-                                    {
-                                        try
-                                        {
-                                            controllerInput?.Dispose();
-                                        }
-                                        finally
-                                        {
-                                            try
-                                            {
-                                                uiDocuments?.Dispose();
-                                            }
-                                            finally
-                                            {
-                                                try
-                                                {
-                                                    world?.Dispose();
-                                                }
-                                                finally
-                                                {
-                                                    try
-                                                    {
-                                                        unityErrorSubscription?.Dispose();
-                                                    }
-                                                    finally
-                                                    {
-                                                        try
-                                                        {
-                                                            failureSurface?.Dispose();
-                                                        }
-                                                        finally
-                                                        {
-                                                            try
-                                                            {
-                                                                modules?.Dispose();
-                                                            }
-                                                            finally
-                                                            {
-                                                                developmentDiagnostics?.Dispose();
-                                                                isDisposed = true;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                configuredRuntime = null;
+                isDisposed = true;
             }
         }
 
         /// <summary>Advances Battlement work for the current Unity frame.</summary>
         public void RunFrame()
         {
-            if (options is null)
+            if (configuredRuntime is null)
             {
                 return;
             }
 
-            BattlementRunnerOptions configured = options;
+            BattlementRunnerOptions configured = configuredRuntime.Options;
             DrainUnityErrors();
             ApplyPendingUiFailure(configured);
             if (session.Phase == BattlementSessionPhase.Stopped)
@@ -974,27 +960,30 @@ namespace Battlement
                 return;
             }
 
-            if (uiEventDispatcher?.IsDispatching != true)
+            if (configuredRuntime!.UiEventDispatcher.IsDispatching != true)
                 DrainResponses(configured);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
             }
 
-            batchScheduler?.Advance();
-            uiDocuments?.Advance();
+            configuredRuntime.BatchScheduler.Advance();
+            configuredRuntime.UiDocuments.Advance();
             PublishApplicationState();
             PublishReducedMotionPreference();
             bool physicalInputAvailable = CanEmitInput && !dittoInputActive;
-            pointerInput?.Update(physicalInputAvailable);
-            keyboardInput?.Update(physicalInputAvailable);
-            controllerInput?.Update(physicalInputAvailable, dittoMotionClock!.Elapsed);
+            configuredRuntime.PointerInput.Update(physicalInputAvailable);
+            configuredRuntime.KeyboardInput.Update(physicalInputAvailable);
+            configuredRuntime.ControllerInput.Update(
+                physicalInputAvailable,
+                configuredRuntime.DittoMotionClock.Elapsed
+            );
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
             }
 
-            TimeSpan started = dittoMotionClock!.Elapsed;
+            TimeSpan started = configuredRuntime.DittoMotionClock.Elapsed;
             TimeSpan previous = session.PreviousStepTime ?? started;
             if (started < previous)
             {
@@ -1003,9 +992,9 @@ namespace Battlement
 
             if (dittoActivationTransaction?.HasDispatched == true)
             {
-                session.PreviousStepTime = dittoMotionClock.Elapsed;
+                session.PreviousStepTime = configuredRuntime.DittoMotionClock.Elapsed;
                 if (!Application.isPlaying)
-                    world?.UpdateBillboards();
+                    configuredRuntime.World.UpdateBillboards();
                 return;
             }
 
@@ -1014,12 +1003,12 @@ namespace Battlement
             {
                 try
                 {
-                    MotionEventBatch? motion = uiDocuments?.TakeMotionEvents();
+                    MotionEventBatch? motion = configuredRuntime.UiDocuments.TakeMotionEvents();
                     GeometryObservationBatch? geometry = motion is null
                         ? geometryFrames.Take()
                         : null;
                     BattlementTransportResult result;
-                    TimeSpan exchangeStarted = dittoMotionClock!.Elapsed;
+                    TimeSpan exchangeStarted = configuredRuntime.DittoMotionClock.Elapsed;
                     if (motion is null && geometry is null)
                     {
                         using (BattlementProfiler.Poll.Auto())
@@ -1037,7 +1026,7 @@ namespace Battlement
                                     : new ActionBody.GeometryObservations(geometry!)
                             );
                         if (motion is not null)
-                            uiDocuments!.RecordMotionTraffic(message.Length);
+                            configuredRuntime.UiDocuments.RecordMotionTraffic(message.Length);
                         if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
                         {
                             FailSession(
@@ -1061,7 +1050,7 @@ namespace Battlement
                             configured,
                             result,
                             geometry is null ? "Poll failed." : "Geometry submit failed.",
-                            duration: dittoMotionClock!.Elapsed - exchangeStarted
+                            duration: configuredRuntime.DittoMotionClock.Elapsed - exchangeStarted
                         );
                     }
                 }
@@ -1070,24 +1059,27 @@ namespace Battlement
                     FailSession(
                         configured,
                         $"Frame exchange failed: {exception.Message}",
-                        duration: dittoMotionClock!.Elapsed - started,
+                        duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                         payloadBytes: payloadBytes,
                         exception: exception
                     );
                 }
             }
 
-            TimeSpan finished = dittoMotionClock!.Elapsed;
+            TimeSpan finished = configuredRuntime.DittoMotionClock.Elapsed;
             session.PreviousStepTime = finished;
             TimeSpan frameDuration = finished - previous;
-            if (!dittoMotionClock.IsControlled && frameDuration > SlowFrameThreshold)
+            if (
+                !configuredRuntime.DittoMotionClock.IsControlled
+                && frameDuration > SlowFrameThreshold
+            )
             {
                 LogSlowFrame(configured, frameDuration, finished - started, payloadBytes);
             }
 
             if (!Application.isPlaying)
             {
-                world?.UpdateBillboards();
+                configuredRuntime.World.UpdateBillboards();
             }
         }
 
@@ -1099,23 +1091,24 @@ namespace Battlement
 
         private void LateUpdate()
         {
-            world?.UpdateBillboards();
+            configuredRuntime?.World.UpdateBillboards();
             if (!dittoInputActive)
                 CompleteNativeFrame();
-            failureSurface?.Refresh(completedInitialSnapshot);
+            configuredRuntime?.FailureSurface.Refresh(completedInitialSnapshot);
         }
 
         internal void CompleteNativeFrame()
         {
-            if (options is BattlementRunnerOptions configured)
+            if (configuredRuntime is not null)
             {
+                BattlementRunnerOptions configured = configuredRuntime.Options;
                 DrainResponses(configured);
-                batchScheduler?.Advance();
+                configuredRuntime.BatchScheduler.Advance();
                 if (session.Phase != BattlementSessionPhase.Running)
                     return;
                 try
                 {
-                    GeometryObservationBatch? sample = geometrySampler?.Sample();
+                    GeometryObservationBatch? sample = configuredRuntime.GeometrySampler.Sample();
                     if (sample is not null)
                         geometryFrames.Merge(sample);
                 }
@@ -1151,9 +1144,9 @@ namespace Battlement
                 RejectDittoActivationTransaction(
                     "Application suspension interrupted semantic activation."
                 );
-                pointerInput?.CancelPresses();
-                keyboardInput?.Reset();
-                controllerInput?.Reset();
+                configuredRuntime?.PointerInput.CancelPresses();
+                configuredRuntime?.KeyboardInput.Reset();
+                configuredRuntime?.ControllerInput.Reset();
             }
             if (dittoInputActive)
             {
@@ -1175,9 +1168,9 @@ namespace Battlement
             }
             if (!hasFocus && session.Phase != BattlementSessionPhase.Stopped)
             {
-                pointerInput?.CancelPresses();
-                keyboardInput?.Reset();
-                controllerInput?.Reset();
+                configuredRuntime?.PointerInput.CancelPresses();
+                configuredRuntime?.KeyboardInput.Reset();
+                configuredRuntime?.ControllerInput.Reset();
                 Log(
                     BattlementLogSeverity.Information,
                     "battlement.input.pointer_presses_cancelled",
@@ -1231,21 +1224,21 @@ namespace Battlement
             SessionId? previousSession = null
         )
         {
-            developmentDiagnostics?.Hide();
-            failureSurface!.Clear(errors!);
+            configuredRuntime!.DevelopmentDiagnostics?.Hide();
+            configuredRuntime.FailureSurface.Clear(configuredRuntime.Errors);
             batchAdmission.BeginSession();
-            batchScheduler?.BeginSession();
-            geometrySampler?.Reset();
+            configuredRuntime.BatchScheduler.BeginSession();
+            configuredRuntime.GeometrySampler.Reset();
             geometryFrames.Reset();
-            scenes?.BeginSession();
-            world?.BeginSession();
-            panelInput?.Clear();
-            session.BeginConnection(dittoMotionClock!.Elapsed, reconnecting);
+            configuredRuntime.Scenes.BeginSession();
+            configuredRuntime.World.BeginSession();
+            configuredRuntime.PanelInput.Clear();
+            session.BeginConnection(configuredRuntime.DittoMotionClock.Elapsed, reconnecting);
 
-            TimeSpan started = dittoMotionClock!.Elapsed;
+            TimeSpan started = configuredRuntime.DittoMotionClock.Elapsed;
             try
             {
-                modules!.Prepare();
+                configuredRuntime.Modules.Prepare();
                 Connect connect = BuildConnect(configured);
                 byte[] bytes;
                 using (BattlementProfiler.Serialization.Auto())
@@ -1258,7 +1251,7 @@ namespace Battlement
                         configured,
                         $"A connect request cannot exceed "
                             + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                        duration: dittoMotionClock!.Elapsed - started,
+                        duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                         payloadBytes: bytes.Length
                     );
                     return;
@@ -1276,7 +1269,7 @@ namespace Battlement
                         configured,
                         "Connect failed.",
                         result,
-                        dittoMotionClock!.Elapsed - started
+                        configuredRuntime.DittoMotionClock.Elapsed - started
                     );
                     return;
                 }
@@ -1287,7 +1280,7 @@ namespace Battlement
                     "Connect failed.",
                     true,
                     previousSession,
-                    dittoMotionClock!.Elapsed - started
+                    configuredRuntime.DittoMotionClock.Elapsed - started
                 );
                 if (session.Phase == BattlementSessionPhase.Running)
                 {
@@ -1299,7 +1292,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Connect response failed: {exception.Message}",
-                    duration: dittoMotionClock!.Elapsed - started,
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                     exception: exception
                 );
             }
@@ -1326,7 +1319,8 @@ namespace Battlement
                 isInitial,
                 previousSession
             );
-            if (uiEventDispatcher?.IsDispatching != true)
+            BattlementConfiguredRuntime runtime = configuredRuntime!;
+            if (runtime.UiEventDispatcher.IsDispatching != true)
                 DrainResponses(configured);
         }
 
@@ -1335,9 +1329,11 @@ namespace Battlement
             ReadOnlyMemory<byte> payload
         )
         {
-            if (customCommands is not null && customCommands.Types.Count > 0)
+            BattlementConfiguredRuntime runtime = configuredRuntime!;
+            if (runtime.CustomCommands.Types.Count > 0)
             {
-                return RequireExtensionCodec().DeserializeResponse(payload, customCommands.Read);
+                return RequireExtensionCodec()
+                    .DeserializeResponse(payload, runtime.CustomCommands.Read);
             }
 
             Response core = configured.ProtocolCodec.DeserializeResponse(payload);
@@ -1545,7 +1541,7 @@ namespace Battlement
                     "Admitted a command batch for scheduling.",
                     fields
                 );
-                batchScheduler!.Schedule(responseSession, batch, result);
+                configuredRuntime!.BatchScheduler.Schedule(responseSession, batch, result);
             }
             catch (BattlementBatchAdmissionException exception)
             {
@@ -1571,10 +1567,7 @@ namespace Battlement
                 configured.CustomCommandTypes,
                 StringComparer.Ordinal
             );
-            if (customCommands is not null)
-            {
-                commandTypes.UnionWith(customCommands.Types);
-            }
+            commandTypes.UnionWith(configuredRuntime!.CustomCommands.Types);
 
             var state = new ApplicationState(
                 dittoInputActive || hasApplicationFocus,
@@ -1589,7 +1582,7 @@ namespace Battlement
                 new List<string>(commandTypes),
                 Path.GetFullPath(Application.persistentDataPath),
                 Path.GetFullPath(Application.streamingAssetsPath),
-                modules!.ModuleIds
+                configuredRuntime.Modules.ModuleIds
             )
             {
                 ApplicationState = state,
@@ -1605,15 +1598,19 @@ namespace Battlement
         {
             try
             {
-                pointerInput?.Suspend();
-                keyboardInput?.Reset();
-                controllerInput?.Reset();
-                batchScheduler?.CancelForSnapshot();
-                geometrySampler?.Reset();
+                configuredRuntime!.PointerInput.Suspend();
+                configuredRuntime.KeyboardInput.Reset();
+                configuredRuntime.ControllerInput.Reset();
+                configuredRuntime.BatchScheduler.CancelForSnapshot();
+                configuredRuntime.GeometrySampler.Reset();
                 geometryFrames.Reset();
-                particleEffects?.ClearInactive();
+                configuredRuntime.ParticleEffects.ClearInactive();
                 session.BeginSnapshot(responseSession);
-                snapshotReplacement!.Begin(responseSession, snapshot, session.IsReconnecting);
+                configuredRuntime.SnapshotReplacement.Begin(
+                    responseSession,
+                    snapshot,
+                    session.IsReconnecting
+                );
                 AdvanceSnapshotPreparation(configured);
             }
             catch (BattlementSnapshotReplacementException exception)
@@ -1631,13 +1628,13 @@ namespace Battlement
 
             try
             {
-                if (!snapshotReplacement!.TryComplete(out bool inputDisabled))
+                if (!configuredRuntime!.SnapshotReplacement.TryComplete(out bool inputDisabled))
                 {
                     return;
                 }
 
                 session.CompleteSnapshot(inputDisabled);
-                uiDocuments?.SetInputEnabled(!inputDisabled);
+                configuredRuntime.UiDocuments.SetInputEnabled(!inputDisabled);
                 completedInitialSnapshot = true;
                 LogPendingConnection();
             }
@@ -1687,7 +1684,7 @@ namespace Battlement
                 ? BattlementAnsiText.Format(result?.Diagnostic)
                 : null;
             bool restartRequired = nativePanic && isNativePanicRecovery;
-            BattlementError error = errors!.Report(
+            BattlementError error = configuredRuntime!.Errors.Report(
                 restartRequired
                     ? BattlementErrorType.RestartRequired
                     : BattlementErrorType.SessionFailed,
@@ -1705,14 +1702,14 @@ namespace Battlement
             isRuntimePoisoned |= restartRequired;
             if (nativePanic)
             {
-                failureSurface!.Show(
+                configuredRuntime.FailureSurface.Show(
                     new BattlementPlayerFailure(
                         restartRequired
                             ? BattlementPlayerFailureKind.RestartRequired
                             : BattlementPlayerFailureKind.ContinueAllowed,
                         error.Id
                     ),
-                    errors
+                    configuredRuntime.Errors
                 );
             }
             StopSession(configured, false);
@@ -1736,7 +1733,7 @@ namespace Battlement
                     ["log_type"] = error.Type.ToString(),
                 };
                 AddSessionField(fields);
-                errors!.Report(
+                configuredRuntime!.Errors.Report(
                     BattlementErrorType.Logged,
                     BattlementErrorSource.Unity,
                     "battlement.unhandled_unity_exception",
@@ -1808,7 +1805,7 @@ namespace Battlement
             }
             else
             {
-                errors!.Report(
+                configuredRuntime!.Errors.Report(
                     BattlementErrorType.CommandFailed,
                     BattlementErrorSource.Unity,
                     eventName,
@@ -1819,7 +1816,7 @@ namespace Battlement
                 );
             }
 
-            TimeSpan started = dittoMotionClock!.Elapsed;
+            TimeSpan started = configuredRuntime!.DittoMotionClock.Elapsed;
             int payloadBytes = 0;
             try
             {
@@ -1836,7 +1833,7 @@ namespace Battlement
                         configured,
                         $"A failure message cannot exceed "
                             + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                        duration: dittoMotionClock!.Elapsed - started,
+                        duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                         payloadBytes: payloadBytes
                     );
                     return;
@@ -1851,7 +1848,7 @@ namespace Battlement
                     configured,
                     result,
                     "Failure submission failed.",
-                    duration: dittoMotionClock!.Elapsed - started
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started
                 );
             }
             catch (Exception submissionException)
@@ -1859,7 +1856,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Failure submission response failed: {submissionException.Message}",
-                    duration: dittoMotionClock!.Elapsed - started,
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started,
                     payloadBytes: payloadBytes,
                     exception: submissionException
                 );
@@ -1915,7 +1912,7 @@ namespace Battlement
                 ["payload_bytes"] = payloadBytes.ToString(CultureInfo.InvariantCulture),
             };
             AddSessionField(fields);
-            errors!.Log(
+            configuredRuntime!.Errors.Log(
                 new BattlementLogRecord(
                     BattlementLogSeverity.Warning,
                     "battlement.frame.slow",
@@ -1952,21 +1949,21 @@ namespace Battlement
         {
             try
             {
-                uiDocuments?.SetInputEnabled(false);
-                pointerInput?.Reset();
-                keyboardInput?.Reset();
-                controllerInput?.Reset();
-                controllerInput?.StopHaptics();
-                batchScheduler?.BeginSession();
-                geometrySampler?.Reset();
+                configuredRuntime!.UiDocuments.SetInputEnabled(false);
+                configuredRuntime.PointerInput.Reset();
+                configuredRuntime.KeyboardInput.Reset();
+                configuredRuntime.ControllerInput.Reset();
+                configuredRuntime.ControllerInput.StopHaptics();
+                configuredRuntime.BatchScheduler.BeginSession();
+                configuredRuntime.GeometrySampler.Reset();
                 geometryFrames.Reset();
-                particleEffects?.ClearInactive();
-                snapshotReplacement?.Cancel();
-                scenes?.BeginSession();
-                world?.BeginSession();
-                panelInput?.Clear();
-                preparedAssets?.BeginSession();
-                modules?.Dispose();
+                configuredRuntime.ParticleEffects.ClearInactive();
+                configuredRuntime.SnapshotReplacement.Cancel();
+                configuredRuntime.Scenes.BeginSession();
+                configuredRuntime.World.BeginSession();
+                configuredRuntime.PanelInput.Clear();
+                configuredRuntime.PreparedAssets.BeginSession();
+                configuredRuntime.Modules.Dispose();
                 configured.Transport.Stop();
             }
             finally
@@ -1985,12 +1982,12 @@ namespace Battlement
         private void SetInputEnabled(bool isEnabled)
         {
             session.SetInputEnabled(isEnabled);
-            uiDocuments?.SetInputEnabled(isEnabled);
+            configuredRuntime?.UiDocuments.SetInputEnabled(isEnabled);
             if (!isEnabled)
             {
-                pointerInput?.CancelPresses();
-                keyboardInput?.Reset();
-                controllerInput?.Reset();
+                configuredRuntime?.PointerInput.CancelPresses();
+                configuredRuntime?.KeyboardInput.Reset();
+                configuredRuntime?.ControllerInput.Reset();
             }
         }
 
@@ -2031,7 +2028,7 @@ namespace Battlement
 
         private void ApplyGeometryObservations(GeometryObservationUpdate update)
         {
-            geometrySampler!.Apply(update);
+            configuredRuntime!.GeometrySampler.Apply(update);
             geometryFrames.Retire(update);
         }
 
@@ -2045,7 +2042,7 @@ namespace Battlement
             {
                 return null;
             }
-            return uiEventDispatcher!.Dispatch(value, currentSession);
+            return configuredRuntime!.UiEventDispatcher.Dispatch(value, currentSession);
         }
 
         private bool CanEmitInput =>
@@ -2122,7 +2119,7 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(BattlementRunner));
             }
 
-            return options
+            return configuredRuntime?.Options
                 ?? throw new InvalidOperationException(
                     "Configure the runner with public host dependencies before use."
                 );
@@ -2195,10 +2192,7 @@ namespace Battlement
                 configured.Logger,
                 this,
                 this,
-                new BattlementTweenHelpers(
-                    tweens ?? throw new InvalidOperationException("Tween helpers are unavailable."),
-                    now
-                )
+                new BattlementTweenHelpers(configuredRuntime!.Tweens, now)
             );
         }
 
@@ -2207,7 +2201,10 @@ namespace Battlement
             string eventName,
             string message,
             IReadOnlyDictionary<string, string>? fields = null
-        ) => errors!.Log(new BattlementLogRecord(severity, eventName, message, fields));
+        ) =>
+            configuredRuntime!.Errors.Log(
+                new BattlementLogRecord(severity, eventName, message, fields)
+            );
 
         private static bool ReturnMissing(out object? value)
         {

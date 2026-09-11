@@ -4,8 +4,11 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace Battlement.Tests
 {
@@ -59,6 +62,76 @@ namespace Battlement.Tests
             Assert.That(assetStorage.IsDisposed, Is.True);
             Assert.That(handle.IsDisposed, Is.True);
             Assert.That(assetStorage.LiveHandleCount, Is.Zero);
+        }
+
+        [Test]
+        public void FailedConfigurationDisposesPartialRuntimeBeforeACleanRetry()
+        {
+            Scene scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single
+            );
+            var hostObject = new GameObject("Battlement host");
+            SceneManager.MoveGameObjectToScene(hostObject, scene);
+            BattlementRunner runner = hostObject.AddComponent<BattlementRunner>();
+            var firstTransport = new FakeBattlementTransport();
+            var firstAssetStorage = new FakeBattlementAssetStorage();
+            runner.ConfigureConstructionProbe = stage =>
+            {
+                if (stage == "after-snapshot-replacement")
+                    throw new InvalidOperationException("Injected configuration failure.");
+            };
+
+            try
+            {
+                Assert.Throws<InvalidOperationException>(() =>
+                    runner.Configure(
+                        new BattlementRunnerOptions(
+                            firstTransport,
+                            firstAssetStorage,
+                            BattlementJson.Instance,
+                            new FakeBattlementClock(),
+                            new FakeBattlementLogger(),
+                            useInstantAnimations: true,
+                            errorSink: new FakeBattlementErrorSink(),
+                            suppressDevelopmentErrorDialogs: true,
+                            caughtFailureReporter: new FakeCaughtFailureReporter()
+                        )
+                    )
+                );
+                Assert.That(firstTransport.DisposeCount, Is.EqualTo(1));
+                Assert.That(firstAssetStorage.DisposeCount, Is.EqualTo(1));
+                Assert.That(runner.IsDittoConfigured, Is.False);
+
+                runner.ConfigureConstructionProbe = null;
+                var secondTransport = new FakeBattlementTransport();
+                var secondAssetStorage = new FakeBattlementAssetStorage();
+                runner.Configure(
+                    new BattlementRunnerOptions(
+                        secondTransport,
+                        secondAssetStorage,
+                        BattlementJson.Instance,
+                        new FakeBattlementClock(),
+                        new FakeBattlementLogger(),
+                        useInstantAnimations: true,
+                        errorSink: new FakeBattlementErrorSink(),
+                        suppressDevelopmentErrorDialogs: true,
+                        caughtFailureReporter: new FakeCaughtFailureReporter()
+                    )
+                );
+
+                Assert.That(runner.IsDittoConfigured, Is.True);
+                runner.Dispose();
+                Assert.That(secondTransport.DisposeCount, Is.EqualTo(1));
+                Assert.That(secondAssetStorage.DisposeCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                runner.ConfigureConstructionProbe = null;
+                runner.Dispose();
+                Object.DestroyImmediate(hostObject);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
         }
 
         [Test]
