@@ -38,6 +38,7 @@ def main() -> None:
         _verify_repository_normalization()
         _verify_content_sanitization()
         _verify_candidate_evidence(root)
+        _verify_parser_ingress(root)
         _verify_ci_trace(root)
         _verify_ci_entrypoint(root)
         _verify_unloggable_trace(root)
@@ -90,24 +91,231 @@ def _verify_content_sanitization() -> None:
 
 
 def _verify_candidate_evidence(root: Path) -> None:
-    session = SessionTrace("candidate", "Candidate", root, "repository")
     candidate_id = "11111111-2222-3333-4444-555555555555"
-    perf_codex._collect_candidate_ids(
-        session,
-        {"input": {"cmd": "tg status --json; tg candidate --help"}},
-        {"output": json.dumps({"item": {"id": candidate_id, "source_oid": "oid"}})},
+    def parse(output: str, command: str) -> SessionTrace:
+        path = root / f"candidate-{len(list(root.glob('candidate-*.jsonl')))}.jsonl"
+        _write_jsonl(path, [
+            _response("2026-01-01T00:00:00Z", "custom_tool_call", {
+                "call_id": "candidate-call", "name": "exec", "input": {"cmd": command},
+            }),
+            _response("2026-01-01T00:00:01Z", "custom_tool_call_output", {
+                "call_id": "candidate-call", "output": output,
+            }),
+        ])
+        record = perf_codex.ThreadRecord("candidate", path, "Candidate", "repository", 0)
+        entries, warnings = perf_codex.read_codex_rollout(path)
+        return perf_codex.parse_codex_rollout(record, entries, source_warnings=warnings)
+
+    assert not parse(
+        json.dumps({"item": {"id": candidate_id, "source_oid": "oid"}}),
+        "tg status --json; tg candidate --help",
+    ).candidate_ids
+    assert parse(
+        "completed\n" + json.dumps(
+            {"item_id": candidate_id, "source_oid": {"bytes": "oid"}}
+        ),
+        "tg --no-launch --json candidate HEAD",
+    ).candidate_ids == {candidate_id}
+
+
+def _verify_parser_ingress(root: Path) -> None:
+    candidate_id = "22222222-3333-4444-5555-666666666666"
+    codex_path = root / "ingress-codex.jsonl"
+    _write_jsonl(codex_path, [
+        _event("2026-01-01T00:00:00Z", "task_started", {"turn_id": "interrupted"}),
+        _response("2026-01-01T00:00:01Z", "custom_tool_call", {
+            "call_id": "open-tool", "name": "exec", "input": {"cmd": "tg wait"},
+            "internal_chat_message_metadata_passthrough": {"turn_id": "interrupted"},
+        }),
+        _event("2026-01-01T00:00:02Z", "turn_aborted", {"turn_id": "interrupted"}),
+        _entry("2026-01-01T00:00:03Z", "turn_context", {"opaque": "ignored"}),
+        _entry("2026-01-01T00:00:04Z", "world_state", {"opaque": "ignored"}),
+        _entry("2026-01-01T00:00:05Z", "compacted", {"opaque": "ignored"}),
+        None,
+    ])
+    record = perf_codex.ThreadRecord("ingress", codex_path, "Ingress", "repository", 0)
+    entries, source_warnings = perf_codex.read_codex_rollout(codex_path)
+    session = perf_codex.parse_codex_rollout(
+        record, entries, source_warnings=source_warnings
     )
-    assert not session.candidate_ids
-    perf_codex._collect_candidate_ids(
-        session,
-        {"input": {"cmd": "tg --no-launch --json candidate HEAD"}},
-        {
-            "output": "completed\n" + json.dumps(
-                {"item_id": candidate_id, "source_oid": {"bytes": "oid"}}
-            )
-        },
+    assert session.status == "interrupted"
+    assert any(span.category == "wait" and span.status == "incomplete" for span in session.spans)
+    assert any(span.status == "interrupted" for span in session.spans)
+    assert any("non-object" in warning for warning in session.warnings)
+    supported_entries = [
+        entry for entry in entries if entry.get("type") in perf_codex._KNOWN_ENTRY_TYPES
+    ]
+    baseline = perf_codex.parse_codex_rollout(
+        record, supported_entries, source_warnings=source_warnings
     )
-    assert session.candidate_ids == {candidate_id}
+    assert session.status == baseline.status
+    assert [span.as_dict() for span in session.spans] == [
+        span.as_dict() for span in baseline.spans
+    ]
+    assert session.transcript == baseline.transcript
+    assert session.candidate_ids == baseline.candidate_ids
+    assert session.warnings == baseline.warnings
+    assert not any("unsupported" in warning for warning in session.warnings)
+
+    mixed_record = perf_codex.ThreadRecord(
+        "mixed-call-ids", codex_path, "Mixed call ids", "repository", 0
+    )
+    mixed_entries = [
+        _response("2026-01-01T00:00:10Z", "custom_tool_call", {
+            "call_id": 1, "name": "exec", "input": {"cmd": "numeric"},
+        }),
+        _response("2026-01-01T00:00:11Z", "custom_tool_call_output", {
+            "call_id": "1", "output": {"exit_code": 0},
+        }),
+    ]
+    mixed = perf_codex.parse_codex_rollout(mixed_record, mixed_entries)
+    numeric_tool = next(span for span in mixed.spans if span.id == "tool:int:1")
+    assert numeric_tool.status == "incomplete"
+    assert numeric_tool.duration_ms == 1000
+    assert any("no recorded output" in warning for warning in mixed.warnings)
+
+    mixed_turn_record = perf_codex.ThreadRecord(
+        "mixed-turn-ids", codex_path, "Mixed turn ids", "repository", 0
+    )
+    mixed_turn_entries = [
+        _event("2026-01-01T00:00:12Z", "task_started", {"turn_id": 1}),
+        _event("2026-01-01T00:00:13Z", "task_complete", {"turn_id": "1"}),
+    ]
+    mixed_turn = perf_codex.parse_codex_rollout(mixed_turn_record, mixed_turn_entries)
+    unmatched_turn = next(span for span in mixed_turn.spans if span.id == "turn:int:1")
+    assert unmatched_turn.status == "unknown"
+    assert any("Open turns have no live-state evidence" in warning for warning in mixed_turn.warnings)
+
+    paired_record = perf_codex.ThreadRecord(
+        "paired-identities", codex_path, "Paired identities", "repository", 0
+    )
+    paired_entries = [
+        _event("2026-01-01T00:00:20Z", "task_started", {"turn_id": 1}),
+        _event("2026-01-01T00:00:21Z", "task_started", {"turn_id": "1"}),
+        _event("2026-01-01T00:00:22Z", "task_complete", {"turn_id": 1}),
+        _event("2026-01-01T00:00:23Z", "task_complete", {"turn_id": "1"}),
+        _response("2026-01-01T00:00:24Z", "custom_tool_call", {
+            "call_id": 1, "name": "exec", "input": {"cmd": "numeric"},
+            "internal_chat_message_metadata_passthrough": {"turn_id": 1},
+        }),
+        _response("2026-01-01T00:00:25Z", "custom_tool_call", {
+            "call_id": "1", "name": "exec", "input": {"cmd": "string"},
+            "internal_chat_message_metadata_passthrough": {"turn_id": "1"},
+        }),
+        _response("2026-01-01T00:00:26Z", "custom_tool_call_output", {
+            "call_id": "1", "output": {"exit_code": 0, "value": "string"},
+        }),
+        _response("2026-01-01T00:00:27Z", "custom_tool_call_output", {
+            "call_id": 1, "output": {"exit_code": 0, "value": "numeric"},
+        }),
+    ]
+    paired = perf_codex.parse_codex_rollout(paired_record, paired_entries)
+    assert {
+        span.id for span in paired.spans if span.category == "agent"
+    } == {"turn:int:1", "turn:1"}
+    paired_tools = {span.id: span for span in paired.spans if span.category == "tool"}
+    assert set(paired_tools) == {"tool:int:1", "tool:1"}
+    assert paired_tools["tool:int:1"].parent_id == "turn:int:1"
+    assert paired_tools["tool:1"].parent_id == "turn:1"
+    assert paired_tools["tool:int:1"].content["output"]["value"] == "numeric"
+    assert paired_tools["tool:1"].content["output"]["value"] == "string"
+    assert all(span.status == "passed" for span in paired_tools.values())
+
+    ci_path = root / "ingress-ci/ci/run.jsonl"
+    ci_records = [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "ci.run_started", "run_id": "ingress"},
+        {"timestamp": "2026-01-01T00:00:01Z", "event": "ci.step_started", "run_id": "ingress", "span_id": "step", "parent_span_id": "ingress", "name": "tests"},
+        {"timestamp": "2026-01-01T00:00:03Z", "event": "ci.step_finished", "run_id": "ingress", "span_id": "step", "parent_span_id": "ingress", "name": "tests", "outcome": "passed"},
+        {"timestamp": "2026-01-01T00:00:04Z", "event": "ci.run_finished", "run_id": "ingress", "outcome": "passed"},
+    ]
+    _write_jsonl(ci_path, ci_records)
+    read_spans, read_warnings = perf_ci.read_ci_traces(root / "ingress-ci")
+    decoded, decode_warnings = perf_ci._read_jsonl(ci_path)
+    parsed_spans, parse_warnings = perf_ci.parse_ci_records(decoded, ci_path)
+    assert [span.as_dict() for span in read_spans] == [span.as_dict() for span in parsed_spans]
+    assert read_warnings == [*decode_warnings, *parse_warnings]
+
+    timing_records = [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "ci.run_started", "run_id": "timing"},
+        {"timestamp": "2026-01-01T00:00:01Z", "event": "ci.cache_lookup", "run_id": "timing", "parent_span_id": "timing", "duration_ms": 0},
+        {"timestamp": "2026-01-01T00:00:02Z", "event": "ci.cache_wait", "run_id": "timing", "parent_span_id": "timing"},
+        {"timestamp": "2026-01-01T00:00:03Z", "event": "ci.cache_maintenance", "run_id": "timing", "parent_span_id": "timing", "duration_ms": "bad"},
+        {"timestamp": "2026-01-01T00:00:04Z", "event": "ci.run_finished", "run_id": "timing", "outcome": "passed"},
+    ]
+    timing_spans, timing_warnings = perf_ci.parse_ci_records(
+        timing_records, root / "timing-ci.jsonl"
+    )
+    cache_spans = [
+        span for span in timing_spans
+        if span.name in {"cache lookup", "cache wait", "cache maintenance"}
+    ]
+    assert [span.name for span in cache_spans] == ["cache lookup"]
+    assert cache_spans[0].duration_ms == 0
+    assert any("without duration evidence" in warning for warning in timing_warnings)
+    assert any("invalid CI duration" in warning for warning in timing_warnings)
+
+    operation_records = [
+        {"timestamp": "2026-01-01T00:00:00Z", "event": "operation.started", "operation_id": "interleaved", "name": "Interleaved", "context": {}, "metadata": {}},
+        {"timestamp": "not-a-timestamp", "event": "operation.ignored", "operation_id": "interleaved"},
+        {"timestamp": "2026-01-01T00:00:01Z", "event": "resource.queued", "operation_id": "interleaved", "resource": "A"},
+        {"timestamp": "2026-01-01T00:00:01.100Z", "event": "resource.queued", "operation_id": "interleaved", "resource": "B"},
+        {"timestamp": "2026-01-01T00:00:01.200Z", "event": "resource.acquired", "operation_id": "interleaved", "resource": "B"},
+        {"timestamp": "2026-01-01T00:00:01.400Z", "event": "resource.released", "operation_id": "interleaved", "resource": "B"},
+        {"timestamp": "2026-01-01T00:00:01.500Z", "event": "resource.acquired", "operation_id": "interleaved", "resource": "A"},
+        {"timestamp": "2026-01-01T00:00:01.600Z", "event": "process.started", "operation_id": "interleaved", "process": {"pid": 7}},
+        {"timestamp": "2026-01-01T00:00:01.800Z", "event": "process.finished", "operation_id": "interleaved", "process": {"pid": 7}, "executable": "fixture"},
+        {"timestamp": "2026-01-01T00:00:01.900Z", "event": "resource.released", "operation_id": "interleaved", "resource": "A"},
+        {"timestamp": "2026-01-01T00:00:02Z", "event": "operation.finished", "operation_id": "interleaved", "outcome": "passed"},
+    ]
+    operation_spans, operation_warnings = perf_ci.parse_operation_records(
+        operation_records, root / "interleaved.jsonl"
+    )
+    assert not operation_warnings
+    assert {span.duration_ms for span in operation_spans if span.category == "wait"} == {100, 500}
+    assert next(span for span in operation_spans if span.category == "process").duration_ms == 200
+    assert {
+        span.id for span in operation_spans
+        if span.category in {"wait", "resource", "process"}
+    } == {
+        "resource-queue:interleaved:4",
+        "resource-held:interleaved:5",
+        "resource-queue:interleaved:6",
+        "process:interleaved:8",
+        "resource-held:interleaved:9",
+    }
+
+    status = {
+        "queue": [],
+        "checks": [{
+            "item": {"id": candidate_id, "state": "future-candidate", "source_oid": {"bytes": "source"}},
+            "buildset": {},
+            "attempts": [
+                {"id": "attempt-1", "attempt": 1, "state": "failed", "started_at": "2026-01-01T00:00:01Z", "finished_at": "2026-01-01T00:00:02Z", "step_results": [{"name": "zero", "elapsed_ms": 0}, {"name": "missing"}, {"name": "malformed", "elapsed_ms": "bad"}]},
+                "malformed-attempt",
+                {"id": "attempt-2", "attempt": 2, "state": "future-attempt", "started_at": "2026-01-01T00:00:03Z", "finished_at": "2026-01-01T00:00:05Z", "step_results": [{"name": "fixture", "elapsed_ms": "bad"}]},
+            ],
+        }],
+        "history_items": [],
+    }
+    history = [
+        {"kind": "candidate.created", "created_at": "2026-01-01T00:00:06Z", "payload": {"id": candidate_id}},
+        "malformed-history",
+        {"payload": "malformed-payload"},
+    ]
+    tollgate_spans, tollgate_warnings, candidates = perf_tollgate.parse_tollgate_records(
+        status, history
+    )
+    assert len(candidates[0]["attempts"]) == 2
+    assert [span.duration_ms for span in tollgate_spans if span.id.startswith("tg-buildset:")] == [1000, 2000]
+    step_spans = [span for span in tollgate_spans if span.id.startswith("tg-step:")]
+    assert [span.name for span in step_spans] == ["Tollgate: zero"]
+    assert step_spans[0].duration_ms == 0
+    assert candidates[0]["attempts"][0]["step_results"][1] == {"name": "missing"}
+    assert any("missing step duration" in warning for warning in tollgate_warnings)
+    assert any("invalid step duration" in warning for warning in tollgate_warnings)
+    assert any("non-object attempt" in warning for warning in tollgate_warnings)
+    assert any("unknown Tollgate" in warning for warning in tollgate_warnings)
+    assert any("non-object Tollgate history" in warning for warning in tollgate_warnings)
 
 
 def _verify_ci_trace(root: Path) -> None:

@@ -5,12 +5,90 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 import sqlite3
 import subprocess
 from typing import Any
 
 from perf_model import parse_timestamp, Span
+
+
+_KNOWN_TOLLGATE_STATES = frozenset({
+    "queued", "running", "passed", "failed", "canceled", "cancelled",
+    "incomplete", "completed", "promoting", "promoted", "pending", "ready",
+    "check-passed", "promoted-local-push-pending", "synchronized",
+})
+
+
+@dataclass(frozen=True)
+class _StepResult:
+    raw: dict[str, Any]
+    name: Any
+    elapsed_ms: int | None
+    result_class: Any
+
+
+@dataclass(frozen=True)
+class _BuildsetAttempt:
+    raw: dict[str, Any]
+    buildset_id: Any
+    attempt: Any
+    state: Any
+    tested_oid: str | None
+    created_at: float | None
+    started_at: float | None
+    finished_at: float | None
+    step_results: tuple[_StepResult, ...]
+
+
+@dataclass(frozen=True)
+class _CandidateEntry:
+    item: _CandidateItem
+    buildset: _BuildsetAttempt | None
+    attempts: tuple[_BuildsetAttempt, ...]
+
+
+@dataclass(frozen=True)
+class _HistoryEvent:
+    raw: dict[str, Any]
+    kind: Any
+    payload: dict[str, Any]
+    created_at: float | None
+
+
+@dataclass(frozen=True)
+class _CandidateEvidence:
+    item: _CandidateItem
+    attempts: tuple[_BuildsetAttempt, ...]
+    history: tuple[_HistoryEvent, ...]
+
+
+@dataclass
+class _PromotionBoundary:
+    authorized: float | None = None
+    certified: float | None = None
+
+
+@dataclass(frozen=True)
+class _OperationIntent:
+    intent_id: Any
+    kind: Any
+    state: Any
+    command_id: Any
+    candidate_id: Any
+    started: float | None
+    finished: float | None
+    expected: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _CandidateItem:
+    raw: dict[str, Any]
+    candidate_id: Any
+    source_oid: str | None
+    state: Any
+    promotion_authorized_at: float | None
 
 
 def read_tollgate(repository_root: Path) -> tuple[list[Span], list[str], list[dict[str, Any]]]:
@@ -45,7 +123,7 @@ def parse_tollgate_records(
     history: list[Any],
     database_spans: list[Span] | tuple[Span, ...] = (),
     source_warnings: list[str] | tuple[str, ...] = (),
-    items_by_id: dict[str, dict[str, Any]] | None = None,
+    items_by_id: dict[str, _CandidateEntry] | None = None,
 ) -> tuple[list[Span], list[str], list[dict[str, Any]]]:
     """Normalize decoded Tollgate status and history records."""
     if items_by_id is None:
@@ -55,7 +133,7 @@ def parse_tollgate_records(
         warnings = list(source_warnings)
     spans: list[Span] = list(database_spans)
     candidates: list[dict[str, Any]] = []
-    history_by_candidate: dict[str, list[dict[str, Any]]] = {}
+    history_by_candidate: dict[str, list[_HistoryEvent]] = {}
     unsupported_history_payloads = 0
     for event in history:
         if not isinstance(event, dict):
@@ -67,42 +145,37 @@ def parse_tollgate_records(
             continue
         candidate_id = payload.get("item_id") or payload.get("id")
         if candidate_id:
-            history_by_candidate.setdefault(candidate_id, []).append(event)
+            history_by_candidate.setdefault(candidate_id, []).append(
+                _history_event(event)
+            )
     if unsupported_history_payloads:
         warnings.append(
             f"Ignored {unsupported_history_payloads} Tollgate history records with "
             "non-object payloads."
         )
     for candidate_id, entry in items_by_id.items():
-        item = entry.get("item", {})
-        buildset = entry.get("buildset") or {}
-        if not isinstance(buildset, dict):
-            warnings.append(f"Ignored a non-object buildset for candidate {candidate_id}.")
-            buildset = {}
-        raw_attempts = entry.get("attempts") or []
-        if not isinstance(raw_attempts, list):
-            warnings.append(f"Ignored non-list attempts for candidate {candidate_id}.")
-            raw_attempts = []
-        attempts = [attempt for attempt in raw_attempts if isinstance(attempt, dict)]
-        if buildset and not any(attempt.get("id") == buildset.get("id") for attempt in attempts):
-            attempts.append(buildset)
-        history_events = history_by_candidate.get(candidate_id, [])
+        item = entry.item
+        attempts = entry.attempts
+        history_events = tuple(history_by_candidate.get(candidate_id, []))
         candidates.append(
             {
-                "item": item,
-                "buildset": buildset,
-                "attempts": attempts,
-                "history": history_events,
+                "item": item.raw,
+                "buildset": entry.buildset.raw if entry.buildset is not None else {},
+                "attempts": [attempt.raw for attempt in attempts],
+                "history": [event.raw for event in history_events],
             }
         )
-        _append_tollgate_spans(spans, item, attempts, history_events)
+        _append_tollgate_spans(
+            spans,
+            _CandidateEvidence(item, attempts, history_events),
+        )
     return spans, warnings, candidates
 
 
 def _candidate_entries(
     status: dict[str, Any],
-) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    items_by_id: dict[str, dict[str, Any]] = {}
+) -> tuple[dict[str, _CandidateEntry], list[str]]:
+    items_by_id: dict[str, _CandidateEntry] = {}
     warnings: list[str] = []
     for section in ("queue", "checks", "history_items"):
         entries = status.get(section, [])
@@ -117,9 +190,125 @@ def _candidate_entries(
             if not isinstance(item, dict):
                 warnings.append(f"Ignored a Tollgate {section} record without an item object.")
                 continue
-            if item.get("id"):
-                items_by_id[item["id"]] = entry
+            candidate_id = item.get("id")
+            if not candidate_id:
+                continue
+            if not isinstance(candidate_id, str):
+                warnings.append(f"Ignored a Tollgate candidate with a non-string id: {candidate_id!r}.")
+                continue
+            normalized_item = _normalize_candidate_item(item, warnings)
+            buildset = _normalize_attempt(
+                entry.get("buildset"), candidate_id, "buildset", warnings
+            )
+            raw_attempts = entry.get("attempts") or []
+            if not isinstance(raw_attempts, list):
+                warnings.append(f"Ignored non-list attempts for candidate {candidate_id}.")
+                raw_attempts = []
+            attempts = tuple(
+                attempt
+                for index, raw_attempt in enumerate(raw_attempts)
+                if (attempt := _normalize_attempt(
+                    raw_attempt, candidate_id, f"attempt {index + 1}", warnings
+                )) is not None
+            )
+            if buildset is not None and not any(
+                attempt.buildset_id == buildset.buildset_id for attempt in attempts
+            ):
+                attempts += (buildset,)
+            items_by_id[candidate_id] = _CandidateEntry(normalized_item, buildset, attempts)
     return items_by_id, warnings
+
+
+def _normalize_candidate_item(
+    value: dict[str, Any], warnings: list[str],
+) -> _CandidateItem:
+    state = value.get("state")
+    if isinstance(state, str) and state not in _KNOWN_TOLLGATE_STATES:
+        warnings.append(
+            f"Accepted unknown Tollgate candidate state {state!r} for candidate {value.get('id')}."
+        )
+    return _CandidateItem(
+        value,
+        value.get("id"),
+        _oid(value.get("source_oid")),
+        state,
+        parse_timestamp(value.get("promotion_authorized_at")),
+    )
+
+
+def _normalize_attempt(
+    value: Any,
+    candidate_id: Any,
+    label: str,
+    warnings: list[str],
+) -> _BuildsetAttempt | None:
+    if value is None or (label == "buildset" and value == {}):
+        return None
+    if not isinstance(value, dict):
+        warnings.append(f"Ignored a non-object {label} for candidate {candidate_id}.")
+        return None
+    raw_steps = value.get("step_results") or []
+    if not isinstance(raw_steps, list):
+        warnings.append(f"Ignored non-list step results for candidate {candidate_id}.")
+        raw_steps = []
+    steps: list[_StepResult] = []
+    for index, raw_step in enumerate(raw_steps):
+        if not isinstance(raw_step, dict):
+            warnings.append(
+                f"Ignored a non-object step result {index + 1} for candidate {candidate_id}."
+            )
+            continue
+        elapsed = raw_step.get("elapsed_ms")
+        if elapsed is None:
+            elapsed_ms = None
+            warnings.append(
+                f"Ignored a missing step duration for candidate {candidate_id}."
+            )
+        else:
+            try:
+                if isinstance(elapsed, bool):
+                    raise ValueError
+                elapsed_ms = int(elapsed)
+            except (TypeError, ValueError, OverflowError):
+                warnings.append(
+                    f"Ignored an invalid step duration for candidate {candidate_id}."
+                )
+                elapsed_ms = None
+        steps.append(
+            _StepResult(
+                raw_step,
+                raw_step.get("name"),
+                elapsed_ms,
+                raw_step.get("result_class", "unknown"),
+            )
+        )
+    state = value.get("state")
+    if isinstance(state, str) and state not in _KNOWN_TOLLGATE_STATES:
+        warnings.append(
+            f"Accepted unknown Tollgate {label} state {state!r} for candidate {candidate_id}."
+        )
+    return _BuildsetAttempt(
+        value,
+        value.get("id"),
+        value.get("attempt"),
+        state,
+        _oid(value.get("tested_oid")),
+        parse_timestamp(value.get("created_at")),
+        parse_timestamp(value.get("started_at")),
+        parse_timestamp(value.get("finished_at")),
+        tuple(steps),
+    )
+
+
+def _history_event(value: dict[str, Any]) -> _HistoryEvent:
+    payload = value.get("payload")
+    assert isinstance(payload, dict)
+    return _HistoryEvent(
+        value,
+        value.get("kind"),
+        payload,
+        parse_timestamp(value.get("created_at")),
+    )
 
 
 def _read_tollgate_database(
@@ -187,22 +376,23 @@ def _database_promotion_spans(
     history: list[dict[str, Any]],
     candidate_ids: set[str],
 ) -> list[Span]:
-    boundaries: dict[str, dict[str, float]] = {}
-    for event in history:
-        payload = event.get("payload", {})
-        if not isinstance(payload, dict):
+    boundaries: dict[str, _PromotionBoundary] = {}
+    for raw_event in history:
+        if not isinstance(raw_event, dict) or not isinstance(raw_event.get("payload"), dict):
             continue
-        candidate_id = payload.get("item_id") or payload.get("id")
-        timestamp = parse_timestamp(event.get("created_at"))
+        event = _history_event(raw_event)
+        candidate_id = event.payload.get("item_id") or event.payload.get("id")
+        timestamp = event.created_at
         if candidate_id not in candidate_ids or timestamp is None:
             continue
-        candidate = boundaries.setdefault(candidate_id, {})
-        if event.get("kind") == "candidate.promotion-authorized":
-            candidate["authorized"] = timestamp
-        elif event.get("kind") == "queue.item-updated" and payload.get("certificate_id"):
-            candidate.setdefault("certified", timestamp)
+        candidate = boundaries.setdefault(candidate_id, _PromotionBoundary())
+        if event.kind == "candidate.promotion-authorized":
+            candidate.authorized = timestamp
+        elif event.kind == "queue.item-updated" and event.payload.get("certificate_id"):
+            if candidate.certified is None:
+                candidate.certified = timestamp
 
-    intents = []
+    intents: list[_OperationIntent] = []
     query = (
         "SELECT intent_id, kind, state, command_id, expected_json, created_at, updated_at "
         "FROM operation_intents WHERE kind IN "
@@ -211,20 +401,16 @@ def _database_promotion_spans(
     )
     for intent_id, kind, state, command_id, expected_json, created_at, updated_at in connection.execute(query):
         expected = json.loads(expected_json)
+        if not isinstance(expected, dict):
+            expected = {}
         started = _nanosecond_timestamp(created_at)
         finished = _nanosecond_timestamp(updated_at)
         candidate_id = expected.get("item_id") or expected.get("queue_item_id")
         intents.append(
-            {
-                "id": intent_id,
-                "kind": kind,
-                "state": state,
-                "command_id": command_id,
-                "candidate_id": candidate_id,
-                "started": started,
-                "finished": finished,
-                "expected": expected,
-            }
+            _OperationIntent(
+                intent_id, kind, state, command_id, candidate_id,
+                started, finished, expected,
+            )
         )
     observations = {
         intent_id: _nanosecond_timestamp(observed_at)
@@ -235,86 +421,93 @@ def _database_promotion_spans(
     }
     pushes = [
         intent for intent in intents
-        if intent["kind"] == "push" and intent["candidate_id"] in candidate_ids
+        if intent.kind == "push" and intent.candidate_id in candidate_ids
     ]
     direct = {
-        (intent["candidate_id"], intent["kind"]): intent
+        (intent.candidate_id, intent.kind): intent
         for intent in intents
-        if intent["candidate_id"] in candidate_ids
+        if intent.candidate_id in candidate_ids
     }
-    backups = [intent for intent in intents if intent["kind"] == "backup"]
+    backups = [intent for intent in intents if intent.kind == "backup"]
     spans: list[Span] = []
     for push in pushes:
-        candidate_id = push["candidate_id"]
+        candidate_id = push.candidate_id
         attributes = {
             "candidate_id": candidate_id,
-            "command_id": push["command_id"],
-            "operation_state": push["state"],
+            "command_id": push.command_id,
+            "operation_state": push.state,
             "timing_source": "tollgate_operation_intent",
         }
-        pipeline_id = f"tg-pipeline:{push['id']}"
+        pipeline_id = f"tg-pipeline:{push.intent_id}"
         _append_tollgate_phase(
             spans, pipeline_id, None, "Tollgate promotion pipeline",
-            push["started"], push["finished"], attributes, push["state"], container=True,
+            push.started, push.finished, attributes, push.state, container=True,
         )
-        ready = max(boundaries.get(candidate_id, {}).values(), default=None)
+        boundary = boundaries.get(candidate_id, _PromotionBoundary())
+        ready = max(
+            (value for value in (boundary.authorized, boundary.certified) if value is not None),
+            default=None,
+        )
         if ready is not None:
             _append_tollgate_phase(
-                spans, f"tg-ready:{push['id']}", pipeline_id,
-                "Tollgate ready dispatch", ready, push["started"], attributes, "completed",
+                spans, f"tg-ready:{push.intent_id}", pipeline_id,
+                "Tollgate ready dispatch", ready, push.started, attributes, "completed",
             )
-        observed = observations.get(push["id"])
+        observed = observations.get(push.intent_id)
         _append_tollgate_phase(
-            spans, f"tg-preflight:{push['id']}", pipeline_id,
-            "Tollgate remote preflight", push["started"], observed, attributes, push["state"],
+            spans, f"tg-preflight:{push.intent_id}", pipeline_id,
+            "Tollgate remote preflight", push.started, observed, attributes, push.state,
         )
         promotion = direct.get((candidate_id, "promotion"))
         if promotion is not None:
             _append_tollgate_phase(
-                spans, f"tg-local-promotion:{promotion['id']}", pipeline_id,
-                "Tollgate local promotion", promotion["started"], promotion["finished"],
-                attributes, promotion["state"],
+                spans, f"tg-local-promotion:{promotion.intent_id}", pipeline_id,
+                "Tollgate local promotion", promotion.started, promotion.finished,
+                attributes, promotion.state,
             )
         backup = next(
             (
                 intent for intent in backups
-                if push["started"] <= intent["started"] <= push["finished"]
+                if push.started is not None
+                and push.finished is not None
+                and intent.started is not None
+                and push.started <= intent.started <= push.finished
             ),
             None,
         )
         if backup is not None:
             backup_attributes = {
                 **attributes,
-                "reserved_allowance_bytes": backup["expected"].get("allowance"),
+                "reserved_allowance_bytes": backup.expected.get("allowance"),
             }
             _append_tollgate_phase(
-                spans, f"tg-backup:{backup['id']}", pipeline_id,
-                "Tollgate database backup", backup["started"], backup["finished"],
-                backup_attributes, backup["state"],
+                spans, f"tg-backup:{backup.intent_id}", pipeline_id,
+                "Tollgate database backup", backup.started, backup.finished,
+                backup_attributes, backup.state,
             )
         master_sync = direct.get((candidate_id, "user-master-sync"))
-        push_started = backup["finished"] if backup is not None else (
-            promotion["finished"] if promotion is not None else observed
+        push_started = backup.finished if backup is not None else (
+            promotion.finished if promotion is not None else observed
         )
-        push_finished = master_sync["started"] if master_sync is not None else push["finished"]
+        push_finished = master_sync.started if master_sync is not None else push.finished
         _append_tollgate_phase(
-            spans, f"tg-remote-push:{push['id']}", pipeline_id, "Tollgate remote push",
+            spans, f"tg-remote-push:{push.intent_id}", pipeline_id, "Tollgate remote push",
             push_started, push_finished,
             {**attributes, "timing_source": "inferred_between_operation_intents"},
-            push["state"],
+            push.state,
         )
         if master_sync is not None:
             _append_tollgate_phase(
-                spans, f"tg-master-sync:{master_sync['id']}", pipeline_id,
-                "Tollgate user-master synchronization", master_sync["started"],
-                master_sync["finished"], attributes, master_sync["state"],
+                spans, f"tg-master-sync:{master_sync.intent_id}", pipeline_id,
+                "Tollgate user-master synchronization", master_sync.started,
+                master_sync.finished, attributes, master_sync.state,
             )
         cleanup = direct.get((candidate_id, "cleanup"))
         if cleanup is not None:
             _append_tollgate_phase(
-                spans, f"tg-cleanup:{cleanup['id']}", None,
-                "Tollgate source cleanup", cleanup["started"], cleanup["finished"],
-                attributes, cleanup["state"],
+                spans, f"tg-cleanup:{cleanup.intent_id}", None,
+                "Tollgate source cleanup", cleanup.started, cleanup.finished,
+                attributes, cleanup.state,
             )
     return spans
 
@@ -351,25 +544,24 @@ def _nanosecond_timestamp(value: Any) -> float | None:
 
 def _append_tollgate_spans(
     spans: list[Span],
-    item: dict[str, Any],
-    attempts: list[dict[str, Any]],
-    history: list[dict[str, Any]],
+    candidate: _CandidateEvidence,
 ) -> None:
-    candidate_id = item.get("id")
-    finishes = []
-    for buildset in attempts:
-        buildset_id = buildset.get("id")
-        created = parse_timestamp(buildset.get("created_at"))
-        started = parse_timestamp(buildset.get("started_at"))
-        finished = parse_timestamp(buildset.get("finished_at"))
+    item = candidate.item
+    candidate_id = item.candidate_id
+    finishes: list[float] = []
+    for buildset in candidate.attempts:
+        buildset_id = buildset.buildset_id
+        created = buildset.created_at
+        started = buildset.started_at
+        finished = buildset.finished_at
         attributes = {
             "candidate_id": candidate_id,
             "buildset_id": buildset_id,
-            "source_oid": _oid(item.get("source_oid")),
-            "tested_oid": _oid(buildset.get("tested_oid")),
-            "attempt": buildset.get("attempt"),
-            "candidate_state": item.get("state"),
-            "attempt_state": buildset.get("state"),
+            "source_oid": item.source_oid,
+            "tested_oid": buildset.tested_oid,
+            "attempt": buildset.attempt,
+            "candidate_state": item.state,
+            "attempt_state": buildset.state,
         }
         if created is not None and started is not None:
             spans.append(
@@ -383,38 +575,41 @@ def _append_tollgate_spans(
             spans.append(
                 Span(
                     f"tg-buildset:{buildset_id}", None, None, "tollgate", "ci",
-                    f"Tollgate buildset attempt {buildset.get('attempt', 1)}",
-                    started, finished, buildset.get("state", "unknown"),
+                    f"Tollgate buildset attempt "
+                    f"{buildset.attempt if buildset.attempt is not None else 1}",
+                    started, finished,
+                    buildset.state if buildset.state is not None else "unknown",
                     attributes=attributes, container=True,
                 )
             )
-            for result in buildset.get("step_results", []):
-                if not isinstance(result, dict):
+            for result in buildset.step_results:
+                duration_ms = result.elapsed_ms
+                if duration_ms is None:
                     continue
-                duration_ms = int(result.get("elapsed_ms") or 0)
                 spans.append(
                     Span(
-                        f"tg-step:{buildset_id}:{result.get('name')}",
+                        f"tg-step:{buildset_id}:{result.name}",
                         f"tg-buildset:{buildset_id}", None, "tollgate", "ci",
-                        f"Tollgate: {result.get('name', 'step')}",
+                        f"Tollgate: {result.name if result.name is not None else 'step'}",
                         finished - duration_ms / 1000, finished,
-                        result.get("result_class", "unknown"), attributes=attributes,
+                        result.result_class, attributes=attributes,
                     )
                 )
-    authorized = parse_timestamp(item.get("promotion_authorized_at"))
+    authorized = item.promotion_authorized_at
     finished = max(finishes, default=None)
-    lifecycle_attributes = {"candidate_id": candidate_id, "candidate_state": item.get("state")}
+    lifecycle_attributes = {"candidate_id": candidate_id, "candidate_state": item.state}
+    history = candidate.history
     lifecycle_events = (
         (
             "candidate.submitted",
-            next((event for event in history if event.get("kind") == "candidate.created"), None),
+            next((event for event in history if event.kind == "candidate.created"), None),
         ),
         (
             "candidate.authorized",
             next(
                 (
                     event for event in history
-                    if event.get("kind") == "candidate.promotion-authorized"
+                    if event.kind == "candidate.promotion-authorized"
                 ),
                 None,
             ),
@@ -424,32 +619,30 @@ def _append_tollgate_spans(
             next(
                 (
                     event for event in history
-                    if event.get("kind") == "queue.item-updated"
-                    and isinstance(event.get("payload"), dict)
-                    and event["payload"].get("certificate_id")
+                    if event.kind == "queue.item-updated"
+                    and event.payload.get("certificate_id")
                 ),
                 None,
             ),
         ),
         (
             "candidate.promoted",
-            next((event for event in history if event.get("kind") == "promotion.completed"), None),
+            next((event for event in history if event.kind == "promotion.completed"), None),
         ),
         (
             "candidate.synchronized",
             next(
                 (
                     event for event in history
-                    if event.get("kind") == "queue.item-updated"
-                    and isinstance(event.get("payload"), dict)
-                    and event["payload"].get("remote_state") == "synchronized"
+                    if event.kind == "queue.item-updated"
+                    and event.payload.get("remote_state") == "synchronized"
                 ),
                 None,
             ),
         ),
     )
     for milestone, event in lifecycle_events:
-        timestamp = parse_timestamp(event.get("created_at")) if event else None
+        timestamp = event.created_at if event else None
         if timestamp is None:
             continue
         spans.append(
@@ -476,8 +669,8 @@ def _append_tollgate_spans(
         )
     completion = next(
         (
-            parse_timestamp(event.get("created_at"))
-            for event in history if event.get("kind") == "promotion.completed"
+            event.created_at
+            for event in history if event.kind == "promotion.completed"
         ),
         None,
     )

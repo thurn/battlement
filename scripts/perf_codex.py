@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,10 @@ UUID_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_KNOWN_ENTRY_TYPES = frozenset({
+    "session_meta", "token_usage_record", "event_msg", "response_item",
+})
+
 
 @dataclass(frozen=True)
 class ThreadRecord:
@@ -35,6 +40,53 @@ class ThreadRecord:
     parent_thread_id: str | None = None
     live_turn_id: str | None = None
     live_observed_at: float | None = None
+
+
+class _LifecycleKind(Enum):
+    STARTED = "started"
+    COMPLETE = "complete"
+    INTERRUPTED = "interrupted"
+
+
+@dataclass(frozen=True)
+class _LifecycleEvent:
+    kind: _LifecycleKind
+    turn_id: str | int
+    successful: bool
+
+
+@dataclass(frozen=True)
+class _PendingTurn:
+    turn_id: str | int
+    started_at: float
+
+
+@dataclass(frozen=True)
+class _ToolCall:
+    call_id: str | int
+    name: str
+    raw_input: Any
+    turn_id: str | int | None
+
+
+@dataclass(frozen=True)
+class _PendingTool:
+    call: _ToolCall
+    started_at: float
+
+
+@dataclass(frozen=True)
+class _ToolOutput:
+    value: Any
+    raw: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _CodexEntry:
+    timestamp: Any
+    timestamp_value: float | None
+    entry_type: Any
+    payload: dict[str, Any]
 
 
 def codex_root() -> Path:
@@ -160,6 +212,24 @@ def read_codex_rollout(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     return records, warnings
 
 
+def _normalize_codex_entry(
+    entry: dict[str, Any], warnings: list[str],
+) -> _CodexEntry | None:
+    payload = entry.get("payload", {})
+    if not isinstance(payload, dict):
+        warnings.append("Ignored a Codex record with a non-object payload.")
+        return None
+    entry_type = entry.get("type")
+    if entry_type not in _KNOWN_ENTRY_TYPES:
+        return None
+    return _CodexEntry(
+        entry.get("timestamp"),
+        parse_timestamp(entry.get("timestamp")),
+        entry_type,
+        payload,
+    )
+
+
 def load_session_tree(
     root: ThreadRecord,
     records: dict[str, ThreadRecord],
@@ -194,11 +264,14 @@ def parse_codex_rollout(
     )
     session.observation_cutoff = observation_cutoff
     session.warnings.extend(source_warnings)
-    pending_turns: dict[str, float] = {}
-    pending_tools: dict[str, tuple[float, dict[str, Any]]] = {}
-    lifecycle: list[tuple[str, str, bool]] = []
+    pending_turns: dict[str | int, _PendingTurn] = {}
+    pending_tools: dict[str | int, _PendingTool] = {}
+    lifecycle: list[_LifecycleEvent] = []
     for entry in entries:
-        timestamp = parse_timestamp(entry.get("timestamp"))
+        normalized = _normalize_codex_entry(entry, session.warnings)
+        if normalized is None:
+            continue
+        timestamp = normalized.timestamp_value
         if timestamp is not None and observation_cutoff is not None:
             if timestamp > observation_cutoff:
                 continue
@@ -206,34 +279,54 @@ def parse_codex_rollout(
             session.latest_event_at = max(session.latest_event_at or timestamp, timestamp)
         _parse_codex_entry(
             session,
-            entry,
+            normalized,
             timestamp,
             pending_turns,
             pending_tools,
             lifecycle,
         )
-    for call_id, (started, payload) in pending_tools.items():
-        session.warnings.append(f"Tool call {call_id} has no recorded output.")
+    for pending in pending_tools.values():
+        session.warnings.append(f"Tool call {pending.call.call_id} has no recorded output.")
         if session.latest_event_at is not None:
-            session.spans.append(_tool_span(session, payload, started, session.latest_event_at, {}))
-    for turn_id, started in pending_turns.items():
-        finished = session.latest_event_at if session.latest_event_at is not None else started
-        known_live = record.live_turn_id == turn_id and record.live_observed_at == observation_cutoff
+            session.spans.append(
+                _tool_span(
+                    session,
+                    pending.call,
+                    pending.started_at,
+                    session.latest_event_at,
+                    _ToolOutput(None, {}),
+                )
+            )
+    for pending in pending_turns.values():
+        finished = (
+            session.latest_event_at
+            if session.latest_event_at is not None
+            else pending.started_at
+        )
+        known_live = (
+            record.live_turn_id == pending.turn_id
+            and record.live_observed_at == observation_cutoff
+        )
         if known_live and observation_cutoff is not None:
             finished = observation_cutoff
             session.latest_event_at = max(session.latest_event_at or finished, finished)
             session.status = "running"
         session.spans.append(Span(
-            f"turn:{turn_id}", None, session.thread_id, "codex", "agent",
-            "Agent turn", started, finished, "running" if known_live else "unknown", container=True,
+            _turn_span_id(pending.turn_id), None, session.thread_id, "codex", "agent",
+            "Agent turn", pending.started_at, finished,
+            "running" if known_live else "unknown", container=True,
             attributes={"missing_terminal": True, "live_state_evidence": known_live},
         ))
     if lifecycle:
-        kind, _turn_id, successful = lifecycle[-1]
-        session.completed = kind == "complete" and successful and not pending_turns
+        last = lifecycle[-1]
+        session.completed = (
+            last.kind is _LifecycleKind.COMPLETE
+            and last.successful
+            and not pending_turns
+        )
         if session.completed:
             session.status = "completed"
-        elif kind == "interrupted":
+        elif last.kind is _LifecycleKind.INTERRUPTED:
             session.status = "interrupted"
     if pending_turns and session.status != "running":
         session.status = "unknown"
@@ -243,17 +336,14 @@ def parse_codex_rollout(
 
 def _parse_codex_entry(
     session: SessionTrace,
-    entry: dict[str, Any],
+    entry: _CodexEntry,
     timestamp: float | None,
-    pending_turns: dict[str, float],
-    pending_tools: dict[str, tuple[float, dict[str, Any]]],
-    lifecycle: list[tuple[str, str, bool]],
+    pending_turns: dict[str | int, _PendingTurn],
+    pending_tools: dict[str | int, _PendingTool],
+    lifecycle: list[_LifecycleEvent],
 ) -> None:
-    payload = entry.get("payload", {})
-    if not isinstance(payload, dict):
-        session.warnings.append("Ignored a Codex record with a non-object payload.")
-        return
-    entry_type = entry.get("type")
+    payload = entry.payload
+    entry_type = entry.entry_type
     if entry_type == "session_meta":
         session.agent_name = payload.get("agent_nickname")
         session.agent_path = payload.get("agent_path")
@@ -268,17 +358,31 @@ def _parse_codex_entry(
         return
     payload_type = payload.get("type")
     if payload_type in {"custom_tool_call", "function_call"}:
-        call_id = payload.get("call_id") or payload.get("id")
-        if call_id:
-            pending_tools[call_id] = (timestamp, payload)
+        raw_call_id = payload.get("call_id")
+        if raw_call_id is None:
+            raw_call_id = payload.get("id")
+        call_id = _tool_identifier(raw_call_id)
+        if raw_call_id is not None and call_id is None:
+            session.warnings.append("Ignored a Codex tool call with an invalid id.")
+            return
+        if call_id is not None:
+            pending_tools[call_id] = _PendingTool(_tool_call(payload), timestamp)
         return
     if payload_type in {"custom_tool_call_output", "function_call_output"}:
-        call_id = payload.get("call_id")
+        raw_call_id = payload.get("call_id")
+        if raw_call_id is None:
+            return
+        call_id = _tool_identifier(raw_call_id)
+        if call_id is None:
+            session.warnings.append("Ignored a Codex tool output with an invalid id.")
+            return
         pending = pending_tools.pop(call_id, None)
         if pending is not None:
-            started, call = pending
-            session.spans.append(_tool_span(session, call, started, timestamp, payload))
-            _collect_candidate_ids(session, call, payload)
+            output = _ToolOutput(payload.get("output"), payload)
+            session.spans.append(
+                _tool_span(session, pending.call, pending.started_at, timestamp, output)
+            )
+            _collect_candidate_ids(session, pending.call, output)
         return
     if payload_type == "message":
         role = payload.get("role", "unknown")
@@ -286,7 +390,7 @@ def _parse_codex_entry(
             return
         session.transcript.append(
             {
-                "timestamp": entry.get("timestamp"),
+                "timestamp": entry.timestamp,
                 "kind": "message",
                 "role": role,
                 "content": sanitize(payload.get("content")),
@@ -298,7 +402,7 @@ def _parse_codex_entry(
     if payload_type == "reasoning":
         session.transcript.append(
             {
-                "timestamp": entry.get("timestamp"),
+                "timestamp": entry.timestamp,
                 "kind": "reasoning_summary",
                 "content": sanitize(payload.get("summary")),
             }
@@ -309,37 +413,47 @@ def _parse_lifecycle(
     session: SessionTrace,
     payload: dict[str, Any],
     timestamp: float | None,
-    pending_turns: dict[str, float],
-    lifecycle: list[tuple[str, str, bool]],
+    pending_turns: dict[str | int, _PendingTurn],
+    lifecycle: list[_LifecycleEvent],
 ) -> None:
     event = payload.get("type")
-    turn_id = payload.get("turn_id")
-    if event == "task_started" and turn_id:
+    raw_turn_id = payload.get("turn_id")
+    turn_id = _turn_identifier(raw_turn_id)
+    if raw_turn_id is not None and turn_id is None:
+        session.warnings.append("Ignored a Codex lifecycle event with an invalid turn id.")
+        return
+    if event == "task_started" and turn_id is not None:
         started = parse_timestamp(payload.get("started_at")) or timestamp
         if started is not None:
-            pending_turns[turn_id] = started
-            lifecycle.append(("started", turn_id, False))
+            pending_turns[turn_id] = _PendingTurn(turn_id, started)
+            lifecycle.append(_LifecycleEvent(_LifecycleKind.STARTED, turn_id, False))
         return
     if event not in {"task_complete", "turn_aborted", "task_aborted"}:
         return
-    if not turn_id and len(pending_turns) == 1:
+    if turn_id is None and len(pending_turns) == 1:
         turn_id = next(iter(pending_turns))
-    if not turn_id:
+    if turn_id is None:
         return
     finished = parse_timestamp(payload.get("completed_at")) or timestamp
     pending = pending_turns.pop(turn_id, None)
     started = parse_timestamp(payload.get("started_at"))
     if started is None:
-        started = pending
+        started = pending.started_at if pending is not None else None
     if started is None or finished is None:
         return
     successful = event == "task_complete" and not payload.get("error")
     session.spans.append(Span(
-        f"turn:{turn_id}", None, session.thread_id, "codex", "agent",
+        _turn_span_id(turn_id), None, session.thread_id, "codex", "agent",
         "Agent turn", started, finished, "passed" if successful else "interrupted",
         container=True,
     ))
-    lifecycle.append(("complete" if successful else "interrupted", turn_id, successful))
+    lifecycle.append(
+        _LifecycleEvent(
+            _LifecycleKind.COMPLETE if successful else _LifecycleKind.INTERRUPTED,
+            turn_id,
+            successful,
+        )
+    )
     if successful:
         session.completed_at = max(session.completed_at or finished, finished)
     first_token = payload.get("time_to_first_token_ms")
@@ -349,31 +463,71 @@ def _parse_lifecycle(
 
 def _tool_span(
     session: SessionTrace,
-    call: dict[str, Any],
+    call: _ToolCall,
     started: float,
     finished: float,
-    output: dict[str, Any],
+    output: _ToolOutput,
 ) -> Span:
-    name = call.get("name") or "tool"
-    metadata = call.get("internal_chat_message_metadata_passthrough", {})
-    turn_id = metadata.get("turn_id")
-    category = "wait" if _is_wait_tool(name, call.get("input", call.get("arguments"))) else "tool"
+    name = call.name
+    category = "wait" if _is_wait_tool(name, call.raw_input) else "tool"
     return Span(
-        f"tool:{call.get('call_id') or call.get('id')}",
-        f"turn:{turn_id}" if turn_id else None,
+        _tool_span_id(call.call_id),
+        _turn_span_id(call.turn_id) if call.turn_id is not None else None,
         session.thread_id,
         "codex",
         category,
         name,
         started,
         finished,
-        _tool_outcome(output),
+        _tool_outcome(output.raw),
         attributes={"tool_name": name},
         content={
-            "input": sanitize(call.get("input", call.get("arguments"))),
-            "output": sanitize(output.get("output")),
+            "input": sanitize(call.raw_input),
+            "output": sanitize(output.value),
         },
     )
+
+
+def _tool_call(payload: dict[str, Any]) -> _ToolCall:
+    raw_call_id = payload.get("call_id")
+    if raw_call_id is None:
+        raw_call_id = payload.get("id")
+    call_id = _tool_identifier(raw_call_id)
+    assert call_id is not None
+    metadata = payload.get("internal_chat_message_metadata_passthrough", {})
+    raw_turn_id = metadata.get("turn_id") if isinstance(metadata, dict) else None
+    turn_id = _turn_identifier(raw_turn_id)
+    name = payload.get("name") or "tool"
+    return _ToolCall(
+        call_id,
+        name if isinstance(name, str) else "tool",
+        payload.get("input", payload.get("arguments")),
+        turn_id,
+    )
+
+
+def _tool_identifier(value: Any) -> str | int | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    return value
+
+
+def _turn_identifier(value: Any) -> str | int | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    return value
+
+
+def _identifier_text(value: str | int) -> str:
+    return value if isinstance(value, str) else f"int:{value}"
+
+
+def _turn_span_id(turn_id: str | int) -> str:
+    return f"turn:{_identifier_text(turn_id)}"
+
+
+def _tool_span_id(call_id: str | int) -> str:
+    return f"tool:{_identifier_text(call_id)}"
 
 
 def _tool_outcome(output: dict[str, Any]) -> str:
@@ -399,13 +553,13 @@ def _is_wait_tool(name: str, raw_input: Any) -> bool:
 
 def _collect_candidate_ids(
     session: SessionTrace,
-    call: dict[str, Any],
-    output: dict[str, Any],
+    call: _ToolCall,
+    output: _ToolOutput,
 ) -> None:
-    input_text = flatten_text(call.get("input", call.get("arguments"))).casefold()
+    input_text = flatten_text(call.raw_input).casefold()
     if re.search(r"\btg\b[^\n]*\bcandidate\b", input_text) is None:
         return
-    session.candidate_ids.update(_candidate_result_ids(output.get("output")))
+    session.candidate_ids.update(_candidate_result_ids(output.value))
 
 
 def _candidate_result_ids(value: Any) -> set[str]:

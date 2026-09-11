@@ -100,9 +100,21 @@ def verify(root: Path) -> None:
 
     call = {"name": "functions.exec", "call_id": "wrapped", "arguments": "await tools.exec_command(...)"}
     output = {"output": json.dumps({"content": [{"text": json.dumps({"exit_code": 1, "output": "nonempty"})}]})}
-    span = perf_codex._tool_span(session, call, 0, 1, output)
+    span = perf_codex._tool_span(
+        session,
+        perf_codex._tool_call(call),
+        0,
+        1,
+        perf_codex._ToolOutput(output["output"], output),
+    )
     assert span.status == "failed" and span.content["input"] == call["arguments"]
-    assert perf_codex._tool_span(session, call, 0, 1, {"output": "done"}).status == "unknown"
+    assert perf_codex._tool_span(
+        session,
+        perf_codex._tool_call(call),
+        0,
+        1,
+        perf_codex._ToolOutput("done", {"output": "done"}),
+    ).status == "unknown"
 
     parent = root / "caller-owned"
     parent.mkdir(mode=0o755)
