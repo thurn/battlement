@@ -8,7 +8,7 @@ use std::{
 
 use battlement::{
   MotionDragConstraint, MotionEventKind, MotionGestureEvent, MotionLifecycleEvent,
-  MotionPresentationSample, ObjectId, OverlayPlacement, Prop, UiNode, UiVisualElementProperties,
+  MotionPresentationSample, ObjectId, OverlayPlacement, Prop, UiVisualElementProperties,
 };
 
 use crate::{
@@ -121,12 +121,6 @@ impl RenderTree {
       }
     }
     Ok(result)
-  }
-
-  pub(crate) fn hosts(&self) -> Vec<UiNode> {
-    let mut hosts = Vec::new();
-    self.append_hosts(&mut hosts);
-    hosts
   }
 
   pub(crate) fn resolve_drag_constraints(&mut self, runtime_id: u64, attachments: &AttachmentSet) {
@@ -338,16 +332,6 @@ impl RenderTree {
         suspense.primary.stabilize_element_hosts(object_ids);
       }
       position.children.stabilize_element_hosts(object_ids);
-    }
-  }
-
-  pub(crate) fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
-    for position in &self.positions {
-      if let Some(host) = &position.host {
-        hosts.push(host.clone());
-      } else {
-        position.children.append_hosts(hosts);
-      }
     }
   }
 

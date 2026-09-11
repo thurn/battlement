@@ -126,7 +126,6 @@ impl PreparedFacade {
     } else if previous_motion.is_some() {
       node.element.visual_element_mut().motion = Prop::Reset;
     }
-    node.children = children.hosts();
     let mut kinds = metadata
       .handlers
       .iter()
