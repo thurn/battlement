@@ -52,6 +52,41 @@ namespace Battlement.UI
         public void ApplyUpdate(VisualElement target, UiElement value) =>
             Apply(target, value, mounted: false);
 
+        internal (bool Focusable, int TabIndex, bool Inert) ResolveUpdate(
+            VisualElement target,
+            Prop<bool> focusable,
+            Prop<int> tabIndex,
+            Prop<bool> inert,
+            bool defaultFocusable,
+            int defaultTabIndex,
+            bool defaultInert
+        )
+        {
+            bool currentFocusable = target.focusable;
+            int currentTabIndex = target.tabIndex;
+            bool currentInert = false;
+            if (states.TryGetValue(target, out AuthoredState? state))
+                (currentFocusable, currentTabIndex, currentInert) = (
+                    state.Focusable,
+                    state.TabIndex,
+                    state.Inert
+                );
+            return (
+                focusable.IsSet ? focusable.Value
+                : focusable.IsReset ? defaultFocusable
+                : currentFocusable,
+                tabIndex.IsSet ? tabIndex.Value
+                : tabIndex.IsReset ? defaultTabIndex
+                : currentTabIndex,
+                inert.IsSet ? inert.Value
+                : inert.IsReset ? defaultInert
+                : currentInert
+            );
+        }
+
+        internal void ValidateUpdate(VisualElement target, UiElement value) =>
+            ValidateAutoFocus(target, value.AutoFocus, mounted: false);
+
         public void ApplyRoot(VisualElement target, UiDocument value) =>
             Apply(
                 target,
@@ -185,6 +220,7 @@ namespace Battlement.UI
             bool mounted
         )
         {
+            ValidateAutoFocus(target, autoFocus, mounted);
             if (!states.TryGetValue(target, out AuthoredState state))
             {
                 state = new AuthoredState(target.focusable, target.tabIndex, target.pickingMode);
@@ -204,14 +240,27 @@ namespace Battlement.UI
                 state.AutoFocus = autoFocus.Value;
             else if (autoFocus.IsReset)
                 state.AutoFocus = false;
-            if (states.Values.Count(value => value.AutoFocus) > 1)
-                throw Failure("A UI runtime may declare only one auto-focus candidate.");
             if (mounted && autoFocus.IsSet && autoFocus.Value)
             {
                 if (pendingAutoFocus is not null && pendingAutoFocus != target)
                     throw Failure("A UI runtime may declare only one auto-focus candidate.");
                 pendingAutoFocus = target;
             }
+        }
+
+        private void ValidateAutoFocus(VisualElement target, Prop<bool> autoFocus, bool mounted)
+        {
+            bool next =
+                autoFocus.IsSet ? autoFocus.Value
+                : autoFocus.IsReset ? false
+                : states.TryGetValue(target, out AuthoredState state) && state.AutoFocus;
+            if (!next)
+                return;
+            if (states.Any(value => !ReferenceEquals(value.Key, target) && value.Value.AutoFocus))
+                throw Failure("A UI runtime may declare only one auto-focus candidate.");
+            if (mounted && autoFocus.IsSet && autoFocus.Value)
+                if (pendingAutoFocus is not null && pendingAutoFocus != target)
+                    throw Failure("A UI runtime may declare only one auto-focus candidate.");
         }
 
         private void SettleFocus()

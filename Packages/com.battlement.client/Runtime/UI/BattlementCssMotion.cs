@@ -470,6 +470,7 @@ namespace Battlement.UI
     internal sealed class BattlementDecorationState : IDisposable
     {
         private readonly Dictionary<ulong, DecorationEntry> entries = new();
+        private readonly BattlementDecorationState? previous;
 
         public BattlementDecorationState(
             VisualElement target,
@@ -478,6 +479,7 @@ namespace Battlement.UI
             BattlementDecorationState? previous
         )
         {
+            this.previous = previous;
             for (int index = 0; index < descriptors.Count; index++)
             {
                 MotionDecorationDescriptor descriptor = descriptors[index];
@@ -520,6 +522,23 @@ namespace Battlement.UI
             entries.Clear();
         }
 
+        public void Abort()
+        {
+            foreach (DecorationEntry entry in entries.Values)
+            {
+                if (entry.Previous is null)
+                {
+                    entry.Element.RemoveFromHierarchy();
+                    continue;
+                }
+                entry.RestorePrevious();
+                previous!.Restore(entry.Previous);
+            }
+            entries.Clear();
+        }
+
+        private void Restore(DecorationEntry entry) => entries.Add(entry.Key, entry);
+
         private DecorationEntry? Take(ulong key)
         {
             if (!entries.Remove(key, out DecorationEntry entry))
@@ -533,6 +552,8 @@ namespace Battlement.UI
             private readonly SlotState[] slots;
             private readonly HashSet<ulong> noBackwardsFill = new();
             private readonly HashSet<ulong> noForwardsFill = new();
+            private readonly Dictionary<MotionProperty, MotionValue> priorProperties = new();
+            private readonly StyleEnum<Overflow> priorOverflow;
 
             public DecorationEntry(
                 MotionDecorationDescriptor descriptor,
@@ -541,6 +562,23 @@ namespace Battlement.UI
             )
             {
                 Element = previous?.Element ?? CreateElement(descriptor.Key);
+                Key = descriptor.Key;
+                Previous = previous;
+                priorOverflow = Element.style.overflow;
+                foreach (CssAnimationDescriptor animation in descriptor.Animations)
+                foreach (CssPropertyTrack track in animation.Tracks)
+                    CapturePrior(track.Property);
+                if (descriptor.Style is not null)
+                    foreach (MotionProperty property in Enum.GetValues(typeof(MotionProperty)))
+                        if (
+                            BattlementAuthoredStyle.Changed(
+                                descriptor.Style,
+                                property,
+                                Element,
+                                out _
+                            )
+                        )
+                            CapturePrior(property);
                 Element.style.overflow =
                     descriptor.Overflow == DecorationOverflow.Visible
                         ? Overflow.Visible
@@ -604,6 +642,17 @@ namespace Battlement.UI
             }
 
             public VisualElement Element { get; }
+
+            public ulong Key { get; }
+
+            public DecorationEntry? Previous { get; }
+
+            public void RestorePrevious()
+            {
+                foreach ((MotionProperty property, MotionValue value) in priorProperties)
+                    BattlementMotionPropertyWriter.Write(Element, property, value);
+                Element.style.overflow = priorOverflow;
+            }
 
             internal int ActiveFiniteTimelineCount => slots.Count(slot => slot.IsFiniteActive);
 
@@ -680,6 +729,15 @@ namespace Battlement.UI
                         bottom = 0,
                     },
                 };
+
+            private void CapturePrior(MotionProperty property)
+            {
+                if (BattlementMotionPropertyWriter.Supports(property))
+                    priorProperties.TryAdd(
+                        property,
+                        BattlementMotionPropertyWriter.Read(Element, property)
+                    );
+            }
 
             private static MotionPlaybackDirection Direction(AnimationDirection value) =>
                 value switch

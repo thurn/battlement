@@ -97,6 +97,30 @@ namespace Battlement.UI
             }
         }
 
+        public void ValidateReplacement(MotionDescriptor descriptor)
+        {
+            IReadOnlyList<MotionValueDescriptor> incoming =
+                descriptor.Values ?? Array.Empty<MotionValueDescriptor>();
+            foreach (Registration registration in registrations.Values)
+            {
+                if (registration.Descriptor.DescriptorId == descriptor.DescriptorId)
+                    continue;
+                foreach (MotionValueDescriptor candidate in incoming)
+                foreach (
+                    MotionValueDescriptor existing in registration.Descriptor.Values
+                        ?? Array.Empty<MotionValueDescriptor>()
+                )
+                {
+                    if (candidate.ValueId != existing.ValueId)
+                        continue;
+                    if (!MotionGraphDefinitionEquality.Same(candidate, existing))
+                        throw Invalid(
+                            "A shared motion-value identity has incompatible definitions."
+                        );
+                }
+            }
+        }
+
         public void Replace(MotionDescriptor descriptor, VisualElement target)
         {
             if (registrations.TryGetValue(descriptor.DescriptorId.Value, out Registration previous))

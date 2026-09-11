@@ -22,6 +22,12 @@ namespace Battlement.UI
         private Vector2 lastPresentedScale;
         private bool captured;
         private bool completed;
+        private bool popped;
+        private StyleEnum<Position> priorPosition;
+        private StyleLength priorLeft;
+        private StyleLength priorTop;
+        private StyleLength priorWidth;
+        private StyleLength priorHeight;
 
         public BattlementLayoutProjection(
             VisualElement target,
@@ -100,6 +106,19 @@ namespace Battlement.UI
             completed = true;
         }
 
+        public void Abort()
+        {
+            Release();
+            if (!popped)
+                return;
+            target.style.position = priorPosition;
+            target.style.left = priorLeft;
+            target.style.top = priorTop;
+            target.style.width = priorWidth;
+            target.style.height = priorHeight;
+            popped = false;
+        }
+
         private void Apply(Vector2 translation, Vector2 scale)
         {
             Translate currentTranslation = target.resolvedStyle.translate;
@@ -153,11 +172,17 @@ namespace Battlement.UI
             UnityEngine.Rect local = target.layout;
             if (!Valid(local))
                 return;
+            priorPosition = target.style.position;
+            priorLeft = target.style.left;
+            priorTop = target.style.top;
+            priorWidth = target.style.width;
+            priorHeight = target.style.height;
             target.style.position = Position.Absolute;
             target.style.left = local.x;
             target.style.top = local.y;
             target.style.width = local.width;
             target.style.height = local.height;
+            popped = true;
         }
 
         internal static (Vector2 Translation, Vector2 Scale) Resolve(

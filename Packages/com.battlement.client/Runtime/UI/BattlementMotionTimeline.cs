@@ -415,6 +415,13 @@ namespace Battlement.UI
             decorations?.Dispose();
         }
 
+        public void Abort()
+        {
+            layoutProjection?.Abort();
+            pseudoStyles?.Dispose();
+            decorations?.Abort();
+        }
+
         private IReadOnlyDictionary<MotionProperty, MotionValue> CapturePresentation(
             DescriptorState previous
         )

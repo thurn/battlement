@@ -163,6 +163,20 @@ namespace Battlement.UI
             UiElement value
         )
         {
+            using BattlementPreparedUiPropertyUpdate prepared = PrepareUpdate(
+                target,
+                objectId,
+                value
+            );
+            prepared.Commit();
+        }
+
+        public BattlementPreparedUiPropertyUpdate PrepareUpdate(
+            UnityEngine.UIElements.VisualElement target,
+            ObjectId objectId,
+            UiElement value
+        )
+        {
             Validate(value, allowUsageHints: false);
             IBattlementUiAssetLease? staged = value is UiElement.Image image
                 ? images.StageUpdate(objectId, image)
@@ -177,112 +191,28 @@ namespace Battlement.UI
             BattlementUiStyleFontProperties.FontLeases? stagedFonts = null;
             try
             {
-                BattlementUiElementDefaults initial = defaults[objectId.Value];
+                defaults.TryGetValue(objectId.Value, out BattlementUiElementDefaults? initial);
+                if (initial is null)
+                    throw new InvalidOperationException("UI element defaults are not registered.");
                 stagedBackground = styleBackgrounds.Stage(value.Style);
                 stagedCursor = styleCursors.Stage(value.Style);
                 stagedMaterial = styleMaterials.Stage(value.Style);
                 stagedFonts = styleFonts.Stage(value.Style);
-                initial.Apply(
+                return new BattlementPreparedUiPropertyUpdate(
+                    this,
                     target,
-                    value.Name,
-                    value.Enabled,
-                    value.PickingMode,
-                    value.LanguageDirection,
-                    value.Focusable,
-                    value.TabIndex,
-                    value.DelegatesFocus
+                    objectId,
+                    value,
+                    initial,
+                    staged,
+                    stagedIcon,
+                    stagedBackground,
+                    stagedCursor,
+                    stagedMaterial,
+                    stagedFonts
                 );
-                authoredClasses[objectId.Value] = BattlementUiElementDefaults.ApplyClasses(
-                    target,
-                    authoredClasses[objectId.Value],
-                    value.Classes
-                );
-                ApplyStyle(
-                    target,
-                    value.Style,
-                    stagedBackground is null
-                        ? null
-                        : BattlementUiStyleBackgroundProperties.ToUnity(
-                            value.Style!.BackgroundImage.Value!.Value,
-                            stagedBackground.Value
-                        ),
-                    stagedMaterial?.Value as Material,
-                    stagedFonts,
-                    ToUnityCursor(value.Style, stagedCursor)
-                );
-                styleBackgrounds.Commit(objectId.Value, value.Style, stagedBackground);
-                stagedBackground = null;
-                styleMaterials.Commit(objectId.Value, value.Style, stagedMaterial);
-                stagedMaterial = null;
-                styleCursors.Commit(objectId.Value, value.Style, stagedCursor);
-                stagedCursor = null;
-                styleFonts.Commit(objectId.Value, value.Style, stagedFonts);
-                stagedFonts = null;
-                if (!value.Events.IsUnset || !value.EventSubscriptions.IsUnset)
-                {
-                    events.SetSubscriptions(
-                        objectId.Value,
-                        BattlementUiElementDefaults.Values(value.Events),
-                        BattlementUiElementDefaults.Values(value.EventSubscriptions),
-                        sparse: true
-                    );
-                }
-                switch (value)
-                {
-                    case UiElement.Label label:
-                        BattlementUiTypographyProperties.Apply(
-                            (UnityEngine.UIElements.TextElement)target,
-                            label
-                        );
-                        break;
-                    case UiElement.TextElement text:
-                        BattlementUiTypographyProperties.Apply(
-                            (UnityEngine.UIElements.TextElement)target,
-                            text
-                        );
-                        break;
-                    case UiElement.Button button:
-                        buttons.Apply(
-                            (UnityEngine.UIElements.Button)target,
-                            objectId,
-                            button,
-                            stagedIcon
-                        );
-                        stagedIcon = null;
-                        break;
-                    case UiElement.RepeatButton repeat:
-                        BattlementUiTypographyProperties.Apply(
-                            (UnityEngine.UIElements.TextElement)target,
-                            repeat
-                        );
-                        break;
-                    case UiElement.Tab tab:
-                        buttons.Apply(
-                            (UnityEngine.UIElements.Tab)target,
-                            objectId,
-                            tab,
-                            stagedIcon
-                        );
-                        stagedIcon = null;
-                        break;
-                    case UiElement.GroupBox:
-                    case UiElement.PopupWindow:
-                        BattlementUiContainerProperties.ApplyUpdate(target, value);
-                        break;
-                    case UiElement.Image imageValue:
-                        images.ApplyUpdate(
-                            (UnityEngine.UIElements.Image)target,
-                            objectId,
-                            imageValue,
-                            staged
-                        );
-                        staged = null;
-                        break;
-                    default:
-                        break;
-                }
             }
-            finally
+            catch
             {
                 staged?.Dispose();
                 stagedIcon?.Dispose();
@@ -290,10 +220,131 @@ namespace Battlement.UI
                 stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
                 stagedFonts?.Dispose();
+                throw;
+            }
+        }
+
+        internal void ApplyPreparedUpdate(BattlementPreparedUiPropertyUpdate prepared)
+        {
+            UnityEngine.UIElements.VisualElement target = prepared.Target;
+            ObjectId objectId = prepared.ObjectId;
+            UiElement value = prepared.Value;
+            prepared.Initial.Apply(
+                target,
+                value.Name,
+                value.Enabled,
+                value.PickingMode,
+                value.LanguageDirection,
+                value.Focusable,
+                value.TabIndex,
+                value.DelegatesFocus
+            );
+            authoredClasses[objectId.Value] = BattlementUiElementDefaults.ApplyClasses(
+                target,
+                authoredClasses[objectId.Value],
+                value.Classes
+            );
+            ApplyStyle(
+                target,
+                value.Style,
+                prepared.Background is null
+                    ? null
+                    : BattlementUiStyleBackgroundProperties.ToUnity(
+                        value.Style!.BackgroundImage.Value!.Value,
+                        prepared.Background.Value
+                    ),
+                prepared.Material?.Value as Material,
+                prepared.Fonts,
+                ToUnityCursor(value.Style, prepared.Cursor)
+            );
+            IBattlementUiAssetLease? background = prepared.Background;
+            styleBackgrounds.Commit(objectId.Value, value.Style, background);
+            prepared.TakeBackground();
+            IBattlementUiAssetLease? material = prepared.Material;
+            styleMaterials.Commit(objectId.Value, value.Style, material);
+            prepared.TakeMaterial();
+            IBattlementUiAssetLease? cursor = prepared.Cursor;
+            styleCursors.Commit(objectId.Value, value.Style, cursor);
+            prepared.TakeCursor();
+            BattlementUiStyleFontProperties.FontLeases? fonts = prepared.Fonts;
+            styleFonts.Commit(objectId.Value, value.Style, fonts!);
+            prepared.TakeFonts();
+            if (!value.Events.IsUnset || !value.EventSubscriptions.IsUnset)
+            {
+                events.SetSubscriptions(
+                    objectId.Value,
+                    BattlementUiElementDefaults.Values(value.Events),
+                    BattlementUiElementDefaults.Values(value.EventSubscriptions),
+                    sparse: true
+                );
+            }
+            switch (value)
+            {
+                case UiElement.Label label:
+                    BattlementUiTypographyProperties.Apply(
+                        (UnityEngine.UIElements.TextElement)target,
+                        label
+                    );
+                    break;
+                case UiElement.TextElement text:
+                    BattlementUiTypographyProperties.Apply(
+                        (UnityEngine.UIElements.TextElement)target,
+                        text
+                    );
+                    break;
+                case UiElement.Button button:
+                    buttons.Apply(
+                        (UnityEngine.UIElements.Button)target,
+                        objectId,
+                        button,
+                        prepared.Icon
+                    );
+                    prepared.TakeIcon();
+                    break;
+                case UiElement.RepeatButton repeat:
+                    BattlementUiTypographyProperties.Apply(
+                        (UnityEngine.UIElements.TextElement)target,
+                        repeat
+                    );
+                    break;
+                case UiElement.Tab tab:
+                    buttons.Apply((Tab)target, objectId, tab, prepared.Icon);
+                    prepared.TakeIcon();
+                    break;
+                case UiElement.GroupBox:
+                case UiElement.PopupWindow:
+                    BattlementUiContainerProperties.ApplyUpdate(target, value);
+                    break;
+                case UiElement.Image imageValue:
+                    images.ApplyUpdate(
+                        (UnityEngine.UIElements.Image)target,
+                        objectId,
+                        imageValue,
+                        prepared.Image
+                    );
+                    prepared.TakeImage();
+                    break;
+                default:
+                    break;
             }
         }
 
         public BattlementUiEventForwarder EventForwarder => events;
+
+        internal BattlementUiElementDefaults Initial(ObjectId objectId) =>
+            defaults.TryGetValue(objectId.Value, out BattlementUiElementDefaults? value)
+                ? value
+                : throw new InvalidOperationException("UI element defaults are not registered.");
+
+        internal Position ResolvePosition(VisualElement target, ObjectId objectId, UiStyle? style)
+        {
+            Prop<UiStyleValue<UiPosition>> position = style?.Position ?? default;
+            if (position.IsUnset)
+                return target.style.position.value;
+            if (position.IsReset || position.Value.Keyword is UiInlineKeyword.Initial)
+                return Initial(objectId).Position;
+            return ToUnity(position.Value.Value);
+        }
 
         public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
             events.IsSubscribed(objectId, kind);
@@ -344,9 +395,13 @@ namespace Battlement.UI
             Prop<IReadOnlyList<UiEventSubscription>> eventSubscriptions
         )
         {
-            var initial = new BattlementUiElementDefaults(target);
-            defaults[objectId.Value] = initial;
-            authoredClasses[objectId.Value] = new HashSet<string>();
+            BattlementUiElementDefaults initial;
+            if (!defaults.TryGetValue(objectId.Value, out initial!))
+            {
+                initial = new BattlementUiElementDefaults(target);
+                defaults[objectId.Value] = initial;
+                authoredClasses[objectId.Value] = new HashSet<string>();
+            }
             IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
             IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
@@ -408,6 +463,14 @@ namespace Battlement.UI
                 stagedMaterial?.Dispose();
                 stagedFonts?.Dispose();
             }
+        }
+
+        internal void CaptureDefaults(VisualElement target, ObjectId objectId)
+        {
+            if (defaults.ContainsKey(objectId.Value))
+                return;
+            defaults[objectId.Value] = new BattlementUiElementDefaults(target);
+            authoredClasses[objectId.Value] = new HashSet<string>();
         }
 
         internal static void ApplyStyle(

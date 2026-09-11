@@ -15,7 +15,8 @@ namespace Battlement.UI
         LanguageDirection LanguageDirection,
         bool Focusable,
         int TabIndex,
-        bool DelegatesFocus
+        bool DelegatesFocus,
+        Position Position
     )
     {
         public BattlementUiElementDefaults(VisualElement target)
@@ -26,7 +27,8 @@ namespace Battlement.UI
                 target.languageDirection,
                 target.focusable,
                 target.tabIndex,
-                target.delegatesFocus
+                target.delegatesFocus,
+                target.style.position.value
             ) { }
 
         public void Apply(

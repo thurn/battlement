@@ -395,6 +395,7 @@ namespace Battlement.UI
             private readonly List<StagedPart> staged;
             private readonly IReadOnlyList<PartKey> removedParts;
             private bool committed;
+            private bool disposed;
 
             internal PreparedUpdate(
                 BattlementUiPartProperties owner,
@@ -409,6 +410,8 @@ namespace Battlement.UI
 
             public void Commit(Guid objectId)
             {
+                if (committed || disposed)
+                    throw new InvalidOperationException("Part update was already completed.");
                 foreach (StagedPart part in staged)
                     part.Commit(objectId);
                 foreach (PartKey removed in removedParts)
@@ -418,8 +421,9 @@ namespace Battlement.UI
 
             public void Dispose()
             {
-                if (committed)
+                if (committed || disposed)
                     return;
+                disposed = true;
                 foreach (StagedPart part in staged)
                     part.Dispose();
             }
@@ -554,7 +558,12 @@ namespace Battlement.UI
             private static bool IsDeferredFill(UiPart part) =>
                 part is UiPart.SliderFill or UiPart.SliderIntFill;
 
-            public void Dispose() => staged?.Dispose();
+            public void Dispose()
+            {
+                StagedAssets? value = staged;
+                staged = null;
+                value?.Dispose();
+            }
         }
 
         internal sealed class StagedAssets : IDisposable
@@ -579,10 +588,18 @@ namespace Battlement.UI
 
             public void Dispose()
             {
-                Background?.Dispose();
-                Cursor?.Dispose();
-                Material?.Dispose();
-                Fonts?.Dispose();
+                IBattlementUiAssetLease? background = Background;
+                Background = null;
+                background?.Dispose();
+                IBattlementUiAssetLease? cursor = Cursor;
+                Cursor = null;
+                cursor?.Dispose();
+                IBattlementUiAssetLease? material = Material;
+                Material = null;
+                material?.Dispose();
+                BattlementUiStyleFontProperties.FontLeases? fonts = Fonts;
+                Fonts = null;
+                fonts?.Dispose();
             }
         }
     }

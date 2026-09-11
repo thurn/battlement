@@ -331,6 +331,328 @@ namespace Battlement.Tests
             }
         }
 
+        [Test]
+        public void ModalAdmissionResolvesEffectiveFocusBeforeChangingDocumentState()
+        {
+            ObjectId documentId = Id("b8a0c51e-5c9f-4ad2-8bb8-5e0ebcda4a51");
+            ObjectId rootId = Id("74482db8-a56c-42f6-a97d-a4a9d8fa48e0");
+            ObjectId stackId = Id("b69d865e-04cc-465e-96cf-430974fe60bd");
+            ObjectId hostId = Id("87fe9b1b-4bd6-4b18-99e0-82b25d2ba3db");
+            ObjectId targetId = Id("e19594e9-2ea9-4ff1-99e0-5e6cfec4db31");
+            ObjectId disabledId = Id("80d11708-0e29-4f93-a178-e1dcac6ea26a");
+            ObjectId inertId = Id("3be5a6e4-7fc7-4935-9f90-4b8b7278042d");
+            ObjectId resetId = Id("63fd15fa-e7be-4c1c-953b-0ac1eb18fe4c");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    stackId,
+                                    new UiElement.Stack(),
+                                    new UiNode[]
+                                    {
+                                        new(
+                                            hostId,
+                                            new UiElement.Stack
+                                            {
+                                                PickingMode = UiPickingMode.Ignore,
+                                                StackItem = new StackItem(
+                                                    int.MaxValue,
+                                                    UiAlign.Stretch,
+                                                    UiAlign.Stretch,
+                                                    null,
+                                                    null,
+                                                    null,
+                                                    null,
+                                                    false
+                                                ),
+                                                Style = new UiStyle
+                                                {
+                                                    Overflow = UiStyle.Set(UiOverflow.Visible),
+                                                },
+                                            },
+                                            new UiNode[]
+                                            {
+                                                new(targetId, new UiElement.Box { Name = "prior" }),
+                                                new(
+                                                    disabledId,
+                                                    new UiElement.Box
+                                                    {
+                                                        Name = "disabled",
+                                                        Enabled = false,
+                                                        Focusable = true,
+                                                        TabIndex = -1,
+                                                    }
+                                                ),
+                                                new(
+                                                    inertId,
+                                                    new UiElement.Box
+                                                    {
+                                                        Name = "inert",
+                                                        Focusable = true,
+                                                        TabIndex = -1,
+                                                        Inert = true,
+                                                    }
+                                                ),
+                                                new(
+                                                    resetId,
+                                                    new UiElement.Box
+                                                    {
+                                                        Name = "reset",
+                                                        Enabled = false,
+                                                        Focusable = true,
+                                                        TabIndex = -1,
+                                                        Inert = true,
+                                                    }
+                                                ),
+                                            }
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(targetId, out VisualElement? target), Is.True);
+                Assert.That(target!.focusable, Is.False);
+                Assert.That(target.tabIndex, Is.EqualTo(0));
+                Assert.That(BattlementOverlayItems.HasAuthored(target), Is.False);
+                Assert.That(documents.TryGet(disabledId, out VisualElement? disabled), Is.True);
+                Assert.That(documents.TryGet(inertId, out VisualElement? inert), Is.True);
+                Assert.That(documents.TryGet(resetId, out VisualElement? reset), Is.True);
+
+                BattlementUiException unsetFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                targetId,
+                                new UiElement.Box
+                                {
+                                    Name = "not-applied",
+                                    OverlayPlacement = new OverlayPlacement.Modal(null, null),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(unsetFailure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.name, Is.EqualTo("prior"));
+                Assert.That(target.focusable, Is.False);
+                Assert.That(target.tabIndex, Is.EqualTo(0));
+                Assert.That(BattlementOverlayItems.HasAuthored(target), Is.False);
+
+                BattlementUiException disabledFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                disabledId,
+                                new UiElement.Box
+                                {
+                                    Name = "disabled-not-applied",
+                                    OverlayPlacement = new OverlayPlacement.Modal(null, null),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(disabledFailure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(disabled!.name, Is.EqualTo("disabled"));
+                Assert.That(disabled.enabledSelf, Is.False);
+                Assert.That(disabled.focusable, Is.True);
+                Assert.That(disabled.tabIndex, Is.EqualTo(-1));
+                Assert.That(BattlementOverlayItems.HasAuthored(disabled), Is.False);
+
+                BattlementUiException inertFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                inertId,
+                                new UiElement.Box
+                                {
+                                    Name = "inert-not-applied",
+                                    OverlayPlacement = new OverlayPlacement.Modal(null, null),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(inertFailure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(inert!.name, Is.EqualTo("inert"));
+                Assert.That(inert.enabledSelf, Is.True);
+                Assert.That(inert.focusable, Is.False);
+                Assert.That(inert.tabIndex, Is.EqualTo(-1));
+                Assert.That(BattlementOverlayItems.HasAuthored(inert), Is.False);
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            targetId,
+                            new UiElement.Box
+                            {
+                                Name = "modal",
+                                Focusable = true,
+                                TabIndex = -1,
+                                OverlayPlacement = new OverlayPlacement.Modal(null, null),
+                            }
+                        )
+                    )
+                );
+                Assert.That(target.name, Is.EqualTo("modal"));
+                Assert.That(target.focusable, Is.True);
+                Assert.That(target.tabIndex, Is.EqualTo(-1));
+                Assert.That(
+                    BattlementOverlayItems.Get(target),
+                    Is.EqualTo(new OverlayPlacement.Modal(null, null))
+                );
+
+                BattlementUiException resetFailure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                targetId,
+                                new UiElement.Box
+                                {
+                                    Focusable = Prop<bool>.Reset(),
+                                    TabIndex = Prop<int>.Reset(),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(resetFailure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.focusable, Is.True);
+                Assert.That(target.tabIndex, Is.EqualTo(-1));
+                Assert.That(
+                    BattlementOverlayItems.Get(target),
+                    Is.EqualTo(new OverlayPlacement.Modal(null, null))
+                );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            resetId,
+                            new UiElement.Box
+                            {
+                                Name = "reset-modal",
+                                Enabled = Prop<bool>.Reset(),
+                                Inert = Prop<bool>.Reset(),
+                                OverlayPlacement = new OverlayPlacement.Modal(null, null),
+                            }
+                        )
+                    )
+                );
+                Assert.That(reset!.name, Is.EqualTo("reset-modal"));
+                Assert.That(reset.enabledSelf, Is.True);
+                Assert.That(reset.focusable, Is.True);
+                Assert.That(reset.tabIndex, Is.EqualTo(-1));
+                Assert.That(
+                    BattlementOverlayItems.Get(reset),
+                    Is.EqualTo(new OverlayPlacement.Modal(null, null))
+                );
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
+        public void StickyAdmissionResolvesPositionResetToTheConstructorStyle()
+        {
+            ObjectId documentId = Id("b00f3e79-5f10-46b6-a3e2-5b453c33b2ae");
+            ObjectId rootId = Id("94eb8b42-9a48-4efb-8b38-d49daac0cc1d");
+            ObjectId stackId = Id("2200357a-2bb9-4cb8-94df-3c8cde5ee13e");
+            ObjectId scrollId = Id("5b1e54cd-6cb7-45b8-aefb-8faef8a532e6");
+            ObjectId childId = Id("d4b77044-1aad-4861-9ec0-fdbed5f37973");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    stackId,
+                                    new UiElement.Stack(),
+                                    new UiNode[]
+                                    {
+                                        new(
+                                            scrollId,
+                                            new UiElement.ScrollView(),
+                                            new UiNode[]
+                                            {
+                                                new(
+                                                    childId,
+                                                    new UiElement.Box
+                                                    {
+                                                        Style = new UiStyle
+                                                        {
+                                                            Position = UiStyle.Set(
+                                                                UiPosition.Absolute
+                                                            ),
+                                                        },
+                                                    }
+                                                ),
+                                            }
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(childId, out VisualElement? child), Is.True);
+                Assert.That(
+                    child!.style.position.value,
+                    Is.EqualTo(UnityEngine.UIElements.Position.Absolute)
+                );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            childId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle { Position = UiStyle.Reset<UiPosition>() },
+                                Sticky = new Sticky(0, null, null, null, 0),
+                            }
+                        )
+                    )
+                );
+
+                Assert.That(
+                    child.style.position.value,
+                    Is.EqualTo(UnityEngine.UIElements.Position.Relative)
+                );
+                Assert.That(BattlementStickyItems.HasAuthored(child), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
         private static ObjectId Id(string value) => new(Guid.Parse(value));
     }
 }

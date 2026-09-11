@@ -123,6 +123,7 @@ namespace Battlement.UI
             BattlementMotionValidator.Validate(descriptor, hostId);
             BattlementMotionDescriptorValidator.ValidateCapabilities(descriptor);
             BattlementMotionGraph.ValidateDescriptor(descriptor);
+            graph.ValidateReplacement(descriptor);
             DescriptorState? previous = descriptors.TryGetValue(
                 descriptor.DescriptorId.Value,
                 out DescriptorState value

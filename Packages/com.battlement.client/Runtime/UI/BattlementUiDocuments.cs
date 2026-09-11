@@ -15,7 +15,9 @@ namespace Battlement.UI
     public sealed class BattlementUiDocuments : IDisposable
     {
         private readonly BattlementUiHierarchy hierarchy;
+        private readonly BattlementUiPlacementValidator placementValidator;
         private readonly BattlementUiElementProperties properties;
+        private readonly BattlementUiPropertyUpdates propertyUpdates;
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiEventObserver eventObserver;
         private readonly BattlementUiLifecycleEvents lifecycleEvents;
@@ -58,6 +60,7 @@ namespace Battlement.UI
         )
         {
             hierarchy = new BattlementUiHierarchy();
+            placementValidator = new BattlementUiPlacementValidator(hierarchy);
             Func<TimeSpan> uiTime =
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             properties = new BattlementUiElementProperties(
@@ -144,6 +147,26 @@ namespace Battlement.UI
                         motionWorld.SetFocusVisible(new ObjectId(id), visible);
                 }
             );
+            propertyUpdates = new BattlementUiPropertyUpdates(
+                hierarchy,
+                Require,
+                placementValidator,
+                properties,
+                focusCoordinator,
+                overlayCoordinator,
+                stickyCoordinator,
+                motionWorld,
+                partProperties,
+                scrollControls,
+                tabControls,
+                textFieldControls,
+                booleanControls,
+                choiceControls,
+                dropdownControls,
+                sliderControls,
+                rangeControls,
+                repeatControls
+            );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -203,6 +226,7 @@ namespace Battlement.UI
                 {
                     UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
                     root.Clear();
+                    properties.CaptureDefaults(root, description.RootId);
                     properties.ApplyRoot(root, description.RootId, description);
                     hierarchy.AddRoot(description.RootId, root, document, RegisterHierarchyEntry);
                     focusCoordinator.ApplyRoot(root, description);
@@ -687,7 +711,10 @@ namespace Battlement.UI
                 command.Node,
                 parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack }
             );
-            ValidateStickySubtree(command.Node, HasScrollAncestor(parent));
+            ValidateStickySubtree(
+                command.Node,
+                BattlementUiPlacementValidator.HasScrollAncestor(parent)
+            );
             if (
                 parent is UnityEngine.UIElements.ToggleButtonGroup
                 && hierarchy.Children(command.ParentId.Value).Count >= 64
@@ -753,94 +780,8 @@ namespace Battlement.UI
             switch (command.Value)
             {
                 case VisualElementUpdate.Properties properties:
-                {
-                    UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
-                    bool genericRootUpdate =
-                        hierarchy.IsRoot(properties.ObjectId.Value)
-                        && properties.Element is UiElement.VisualElement;
-                    if (!genericRootUpdate)
-                        RequireElementKind(target, properties.Element, properties.ObjectId);
-                    ValidateLayoutUpdate(target, properties.Element);
-                    ValidateStickyUpdate(target, properties.ObjectId, properties.Element);
-                    ValidateOverlayUpdate(target, properties.ObjectId, properties.Element);
-                    BattlementUiElementProperties.Validate(
-                        properties.Element,
-                        allowUsageHints: false
-                    );
-                    BattlementUiChoiceControls.ValidateUpdate(
-                        properties.Element,
-                        target,
-                        hierarchy.Children(properties.ObjectId.Value).Count
-                    );
-                    BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
-                    BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
-                    BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
-                    BattlementUiScrollControls.ValidateUpdate(target, properties.Element);
-                    BattlementUiTabControls.ValidateUpdate(target, properties.Element);
-                    textFieldControls.ValidateUpdate(properties.ObjectId, properties.Element);
-                    using BattlementUiPartProperties.PreparedUpdate preparedParts =
-                        partProperties.Prepare(target, properties.ObjectId, properties.Element);
-                    BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
-                        target,
-                        properties.ObjectId,
-                        properties.Element.Motion,
-                        properties.Element.Paint
-                    );
-                    System.Action? commitStyle = motionWorld.PrepareStyle(
-                        properties.ObjectId,
-                        properties.Element.Style
-                    );
-                    this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    commitStyle?.Invoke();
-                    BattlementPaintProperties.Apply(target, properties.Element.Paint);
-                    if (!properties.Element.Paint.IsUnset)
-                        motionWorld.CommitPaint(properties.ObjectId);
-                    focusCoordinator.ApplyUpdate(target, properties.Element);
-                    BattlementGridItems.Apply(target, properties.Element.GridItem);
-                    BattlementStackItems.Apply(target, properties.Element.StackItem);
-                    BattlementStickyItems.Apply(target, properties.Element.Sticky);
-                    if (
-                        target is BattlementLayoutContainer layout
-                        && properties.Element is UiElement.Flex flex
-                    )
-                        layout.ApplyFlex(flex);
-                    if (
-                        target is BattlementLayoutContainer gridLayout
-                        && properties.Element is UiElement.Grid grid
-                    )
-                        gridLayout.ApplyGrid(grid);
-                    if (
-                        target is BattlementLayoutContainer stackLayout
-                        && properties.Element is UiElement.Stack stack
-                    )
-                        stackLayout.ApplyStack(stack);
-                    RefreshParentLayout(properties.ObjectId.Value);
-                    stickyCoordinator.Apply(
-                        target,
-                        properties.Element.Sticky,
-                        hierarchy.SourceOrdinal(target)
-                    );
-                    overlayCoordinator.Apply(target, properties.Element.OverlayPlacement);
-                    scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    textFieldControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    booleanControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    choiceControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    dropdownControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    sliderControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    rangeControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
-                    preparedParts.Commit(properties.ObjectId.Value);
-                    preparedMotion?.Commit();
-                    if (properties.Element is UiElement.RepeatButton repeat)
-                        repeatControls.ApplyUpdate(
-                            (UnityEngine.UIElements.RepeatButton)target,
-                            properties.ObjectId,
-                            repeat
-                        );
-                    overlayCoordinator.RefreshAll();
-                    focusCoordinator.Refresh();
+                    propertyUpdates.Apply(properties);
                     break;
-                }
                 case VisualElementUpdate.Parent parent:
                     ApplyParent(
                         Require(parent.ObjectId),
@@ -955,6 +896,7 @@ namespace Battlement.UI
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
 
+            properties.CaptureDefaults(value, node.ObjectId);
             Populate(value, node, documentRoot, parentId);
             value.RegisterCallback<UnityTransitionStartEvent>(eventValue =>
                 events.ForwardTransition(
@@ -1010,7 +952,7 @@ namespace Battlement.UI
             Guid parentId
         )
         {
-            BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
+            using BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                 value,
                 node.ObjectId,
                 node.Element.Motion,
@@ -1191,62 +1133,6 @@ namespace Battlement.UI
             }
         }
 
-        private static void RequireElementKind(
-            UnityEngine.UIElements.VisualElement target,
-            UiElement element,
-            ObjectId objectId
-        )
-        {
-            bool matches = element switch
-            {
-                UiElement.VisualElement => target is BattlementPaintHost
-                    || target.GetType() == typeof(UnityEngine.UIElements.VisualElement),
-                UiElement.Flex => target is BattlementLayoutContainer layout
-                    && layout.Kind == BattlementLayoutContainerKind.Flex,
-                UiElement.Grid => target is BattlementLayoutContainer grid
-                    && grid.Kind == BattlementLayoutContainerKind.Grid,
-                UiElement.Stack => target is BattlementLayoutContainer stack
-                    && stack.Kind == BattlementLayoutContainerKind.Stack,
-                UiElement.Box => target.GetType() == typeof(UnityEngine.UIElements.Box),
-                UiElement.Label => target.GetType() == typeof(UnityEngine.UIElements.Label),
-                UiElement.TextElement => target.GetType()
-                    == typeof(UnityEngine.UIElements.TextElement),
-                UiElement.TextField => target.GetType() == typeof(UnityEngine.UIElements.TextField),
-                UiElement.Toggle => target.GetType() == typeof(UnityEngine.UIElements.Toggle),
-                UiElement.RadioButton => target.GetType()
-                    == typeof(UnityEngine.UIElements.RadioButton),
-                UiElement.RadioButtonGroup => target.GetType()
-                    == typeof(UnityEngine.UIElements.RadioButtonGroup),
-                UiElement.ToggleButtonGroup => target.GetType()
-                    == typeof(UnityEngine.UIElements.ToggleButtonGroup),
-                UiElement.DropdownField => target.GetType()
-                    == typeof(UnityEngine.UIElements.DropdownField),
-                UiElement.Slider => target.GetType() == typeof(UnityEngine.UIElements.Slider),
-                UiElement.SliderInt => target.GetType() == typeof(UnityEngine.UIElements.SliderInt),
-                UiElement.MinMaxSlider => target.GetType()
-                    == typeof(UnityEngine.UIElements.MinMaxSlider),
-                UiElement.ProgressBar => target.GetType()
-                    == typeof(UnityEngine.UIElements.ProgressBar),
-                UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
-                UiElement.RepeatButton => target.GetType()
-                    == typeof(UnityEngine.UIElements.RepeatButton),
-                UiElement.GroupBox => target.GetType() == typeof(UnityEngine.UIElements.GroupBox),
-                UiElement.PopupWindow => target.GetType()
-                    == typeof(UnityEngine.UIElements.PopupWindow),
-                UiElement.ScrollView => target.GetType()
-                    == typeof(UnityEngine.UIElements.ScrollView),
-                UiElement.Scroller => target.GetType() == typeof(UnityEngine.UIElements.Scroller),
-                UiElement.Tab => target.GetType() == typeof(UnityEngine.UIElements.Tab),
-                UiElement.TabView => target.GetType() == typeof(UnityEngine.UIElements.TabView),
-                UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
-                _ => false,
-            };
-            if (!matches)
-                throw new InvalidOperationException(
-                    $"UI element {objectId} update has the wrong concrete class."
-                );
-        }
-
         private void ApplyParent(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
@@ -1264,7 +1150,10 @@ namespace Battlement.UI
                     parent,
                     hierarchy.IsDescendant
                 );
-            if (BattlementStickyItems.HasAuthored(target) && !HasScrollAncestor(parent))
+            if (
+                BattlementStickyItems.HasAuthored(target)
+                && !BattlementUiPlacementValidator.HasScrollAncestor(parent)
+            )
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "Sticky requires a physical ScrollView ancestor."
@@ -1370,20 +1259,6 @@ namespace Battlement.UI
             tabControls.Remove(child);
         }
 
-        private void RefreshParentLayout(Guid objectId)
-        {
-            if (
-                hierarchy.ParentId(objectId) is Guid value
-                && hierarchy.TryGet(new ObjectId(value), out VisualElement? parent)
-                && parent is BattlementLayoutContainer layout
-            )
-            {
-                layout.FlexLayout?.Refresh();
-                layout.GridLayout?.Invalidate();
-                layout.StackLayout?.Invalidate();
-            }
-        }
-
         private void ApplyStickyAfterAttachment(UnityEngine.UIElements.VisualElement target)
         {
             if (!BattlementStickyItems.HasAuthored(target))
@@ -1461,7 +1336,7 @@ namespace Battlement.UI
         {
             if (!element.OverlayPlacement.IsSet)
                 return;
-            ValidateOverlayHost(parent);
+            placementValidator.ValidateOverlayHost(parent);
             overlayCoordinator.Validate(
                 objectId,
                 element.OverlayPlacement.Value,
@@ -1505,59 +1380,6 @@ namespace Battlement.UI
             return false;
         }
 
-        private void ValidateOverlayUpdate(
-            UnityEngine.UIElements.VisualElement target,
-            ObjectId objectId,
-            UiElement element
-        )
-        {
-            OverlayPlacement? current = BattlementOverlayItems.HasAuthored(target)
-                ? BattlementOverlayItems.Get(target)
-                : null;
-            bool modal = element.OverlayPlacement.IsSet
-                ? element.OverlayPlacement.Value is OverlayPlacement.Modal
-                : element.OverlayPlacement.IsUnset && current is OverlayPlacement.Modal;
-            if (modal)
-                ValidateModalFocusProperties(element);
-            if (!element.OverlayPlacement.IsSet)
-            {
-                if (element.OverlayPlacement.IsUnset && BattlementOverlayItems.HasAuthored(target))
-                    BattlementUiElementValidator.ValidateOverlayStyle(
-                        element.Style,
-                        BattlementOverlayItems.Get(target)
-                    );
-                return;
-            }
-            UnityEngine.UIElements.VisualElement parent =
-                target.hierarchy.parent
-                ?? throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "Overlay wrapper is not attached."
-                );
-            ValidateOverlayHost(parent);
-            overlayCoordinator.Validate(
-                objectId,
-                element.OverlayPlacement.Value,
-                parent,
-                hierarchy.IsDescendant
-            );
-        }
-
-        private static void ValidateModalFocusProperties(UiElement element)
-        {
-            if (element.Enabled.IsSet && !element.Enabled.Value)
-                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be enabled.");
-            if (element.Focusable.IsSet && !element.Focusable.Value)
-                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper must be focusable.");
-            if (element.TabIndex.IsSet && element.TabIndex.Value != -1)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "A modal wrapper must use tab index -1."
-                );
-            if (element.Inert.IsSet && element.Inert.Value)
-                throw Failure(CoreErrorCode.InvalidProperty, "A modal wrapper cannot be inert.");
-        }
-
         private static void ValidateOverlayContexts(UiNode node, bool parentIsStack)
         {
             if (node.Element.OverlayPlacement.IsSet && !parentIsStack)
@@ -1568,54 +1390,6 @@ namespace Battlement.UI
             bool nodeIsStack = node.Element is UiElement.Stack;
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
                 ValidateOverlayContexts(child, nodeIsStack);
-        }
-
-        private void ValidateOverlayHost(UnityEngine.UIElements.VisualElement physicalParent)
-        {
-            BattlementLayoutContainer host = physicalParent switch
-            {
-                BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack } direct =>
-                    direct,
-                BattlementLayoutSlot
-                {
-                    ContainingBlock: BattlementLayoutContainer
-                    {
-                        Kind: BattlementLayoutContainerKind.Stack
-                    } slotted
-                } => slotted,
-                _ => throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "Overlay placement requires a direct OverlayHost Stack target."
-                ),
-            };
-            if (!hierarchy.TryGetId(host, out Guid hostId))
-                throw Failure(CoreErrorCode.InvalidHierarchy, "OverlayHost is not registered.");
-            Guid rootStackId =
-                hierarchy.ParentId(hostId)
-                ?? throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "OverlayHost requires a document-root Stack."
-                );
-            IReadOnlyList<Guid> rootChildren = hierarchy.Children(rootStackId);
-            bool finalChild = rootChildren.Count != 0 && rootChildren[^1] == hostId;
-            bool rootStack =
-                hierarchy.TryGet(new ObjectId(rootStackId), out VisualElement? rootStackElement)
-                && rootStackElement
-                    is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack }
-                && hierarchy.ParentId(rootStackId) is Guid documentRoot
-                && hierarchy.IsRoot(documentRoot);
-            StackItem item = BattlementStackItems.Get(host);
-            bool configured =
-                BattlementStackItems.HasAuthored(host)
-                && item.Order == int.MaxValue
-                && !item.ContributesToSize
-                && host.pickingMode == PickingMode.Ignore
-                && host.style.overflow.value == Overflow.Visible;
-            if (!rootStack || !finalChild || !configured)
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "OverlayHost must be the configured final child of a document-root Stack."
-                );
         }
 
         private bool IsOverlayScopeMember(
@@ -1672,41 +1446,6 @@ namespace Battlement.UI
             }
         }
 
-        private void ValidateStickyUpdate(
-            UnityEngine.UIElements.VisualElement target,
-            ObjectId objectId,
-            UiElement value
-        )
-        {
-            bool remainsSticky =
-                value.Sticky.IsSet
-                || (value.Sticky.IsUnset && BattlementStickyItems.HasAuthored(target));
-            if (!remainsSticky)
-                return;
-            Guid parentId =
-                hierarchy.ParentId(objectId.Value)
-                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            if (
-                !hierarchy.TryGet(new ObjectId(parentId), out VisualElement? parent)
-                || parent is null
-                || !HasScrollAncestor(parent)
-            )
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "Sticky requires a physical ScrollView ancestor."
-                );
-            bool absolute =
-                value.Style?.Position.IsSet == true
-                    ? value.Style.Position.Value.Keyword is null
-                        && value.Style.Position.Value.Value == UiPosition.Absolute
-                    : target.style.position.value == Position.Absolute;
-            if (absolute)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "Sticky requires relative positioning."
-                );
-        }
-
         private static void ValidateStickySubtree(UiNode node, bool hasScrollAncestor)
         {
             if (node.Element.Sticky.IsSet && !hasScrollAncestor)
@@ -1717,20 +1456,6 @@ namespace Battlement.UI
             bool descendantsHaveScroll = hasScrollAncestor || node.Element is UiElement.ScrollView;
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
                 ValidateStickySubtree(child, descendantsHaveScroll);
-        }
-
-        private static bool HasScrollAncestor(UnityEngine.UIElements.VisualElement value)
-        {
-            for (
-                UnityEngine.UIElements.VisualElement? current = value;
-                current is not null;
-                current = current.parent
-            )
-            {
-                if (current is UnityEngine.UIElements.ScrollView)
-                    return true;
-            }
-            return false;
         }
 
         private static int SubtreeDepth(UiNode node)
@@ -1793,7 +1518,7 @@ namespace Battlement.UI
                     "GridItem requires a direct Grid placement context."
                 );
             if (parentIsGrid)
-                ValidateNativeLayoutStyle(child, "Grid");
+                BattlementUiPlacementValidator.ValidateNativeLayoutStyle(child, "Grid");
             bool parentIsStack =
                 parent is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack };
             if (BattlementStackItems.HasAuthored(child) && !parentIsStack)
@@ -1802,41 +1527,15 @@ namespace Battlement.UI
                     "StackItem requires a direct Stack placement context."
                 );
             if (parentIsStack)
-                ValidateNativeLayoutStyle(child, "Stack");
-            if (BattlementStickyItems.HasAuthored(child) && !HasScrollAncestor(parent))
+                BattlementUiPlacementValidator.ValidateNativeLayoutStyle(child, "Stack");
+            if (
+                BattlementStickyItems.HasAuthored(child)
+                && !BattlementUiPlacementValidator.HasScrollAncestor(parent)
+            )
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "Sticky requires a physical ScrollView ancestor."
                 );
-        }
-
-        private static void ValidateLayoutUpdate(
-            UnityEngine.UIElements.VisualElement target,
-            UiElement value
-        )
-        {
-            bool parentIsGrid =
-                target.parent is BattlementLayoutSlot slot
-                && slot.parent
-                    is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Grid };
-            if (value.GridItem.IsSet && !parentIsGrid)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "GridItem requires a direct Grid placement context."
-                );
-            if (parentIsGrid)
-                ValidateLayoutStyle(value.Style, "Grid");
-            bool parentIsStack =
-                target.parent is BattlementLayoutSlot stackSlot
-                && stackSlot.parent
-                    is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack };
-            if (value.StackItem.IsSet && !parentIsStack)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "StackItem requires a direct Stack placement context."
-                );
-            if (parentIsStack)
-                ValidateLayoutStyle(value.Style, "Stack");
         }
 
         private static void ValidateGridPlacement(UiElement child, bool parentIsGrid)
@@ -1847,7 +1546,7 @@ namespace Battlement.UI
                     "GridItem requires a direct Grid placement context."
                 );
             if (parentIsGrid)
-                ValidateLayoutStyle(child.Style, "Grid");
+                BattlementUiPlacementValidator.ValidateLayoutStyle(child.Style, "Grid");
         }
 
         private static void ValidateStackPlacement(UiElement child, bool parentIsStack)
@@ -1858,55 +1557,7 @@ namespace Battlement.UI
                     "StackItem requires a direct Stack placement context."
                 );
             if (parentIsStack)
-                ValidateLayoutStyle(child.Style, "Stack");
-        }
-
-        private static void ValidateLayoutStyle(UiStyle? style, string container)
-        {
-            if (style is null)
-                return;
-            bool absolute =
-                style.Position.IsSet
-                && style.Position.Value.Keyword is null
-                && style.Position.Value.Value == UiPosition.Absolute;
-            bool offsetsAreAutomatic = new[]
-            {
-                style.Top,
-                style.Right,
-                style.Bottom,
-                style.Left,
-            }.All(LayoutOffsetIsAutomatic);
-            if (absolute || !offsetsAreAutomatic)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    $"{container} placement children require relative position "
-                        + "and automatic offsets."
-                );
-        }
-
-        private static bool LayoutOffsetIsAutomatic(Prop<UiStyleValue<UiLengthOrAuto>> value) =>
-            !value.IsSet
-            || value.Value.Keyword is not null
-            || value.Value.Value is UiLengthOrAuto.Auto;
-
-        private static void ValidateNativeLayoutStyle(
-            UnityEngine.UIElements.VisualElement child,
-            string container
-        )
-        {
-            bool offsetsAreAutomatic = new[]
-            {
-                child.style.top,
-                child.style.right,
-                child.style.bottom,
-                child.style.left,
-            }.All(value => value.keyword == StyleKeyword.Auto);
-            if (child.style.position.value == Position.Absolute || !offsetsAreAutomatic)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    $"{container} placement children require relative position "
-                        + "and automatic offsets."
-                );
+                BattlementUiPlacementValidator.ValidateLayoutStyle(child.Style, "Stack");
         }
 
         private static void ValidatePlacement(
