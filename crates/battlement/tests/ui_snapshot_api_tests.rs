@@ -43,7 +43,7 @@ fn snapshot_inserts_a_matched_ui_document_and_host() {
   };
   assert_eq!(
     state.panel_settings.scale_mode,
-    PanelScaleMode::ConstantPixelSize
+    PanelScaleMode::constant_pixel_size(1.0)
   );
   assert_eq!(snapshot.validate(), Ok(()));
 }

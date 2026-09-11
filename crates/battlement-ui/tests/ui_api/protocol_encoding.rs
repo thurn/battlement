@@ -506,6 +506,136 @@ fn panel_defaults_are_omitted() {
 }
 
 #[test]
+fn panel_scale_modes_preserve_the_flattened_wire_contract() {
+  let fixtures = [
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.25)),
+      serde_json::json!({"scale_mode": "ConstantPixelSize", "scale": 1.25}),
+    ),
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::constant_logical_pixel_size()),
+      serde_json::json!({"scale_mode": "ConstantLogicalPixelSize"}),
+    ),
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::constant_physical_size(110.0, 144.0)),
+      serde_json::json!({
+        "reference_dpi": 110.0,
+        "fallback_dpi": 144.0
+      }),
+    ),
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::scale_with_screen_size(
+        ScreenSize::new(1600, 900),
+        PanelScreenMatchMode::match_width_or_height(0.65),
+      )),
+      serde_json::json!({
+        "scale_mode": "ScaleWithScreenSize",
+        "reference_resolution": {"width": 1600, "height": 900},
+        "match_factor": 0.65_f32
+      }),
+    ),
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::scale_with_screen_size(
+        ScreenSize::new(1600, 900),
+        PanelScreenMatchMode::shrink(),
+      )),
+      serde_json::json!({
+        "scale_mode": "ScaleWithScreenSize",
+        "reference_resolution": {"width": 1600, "height": 900},
+        "screen_match_mode": "Shrink"
+      }),
+    ),
+    (
+      PanelSettings::new().scale_mode(PanelScaleMode::scale_with_screen_size(
+        ScreenSize::new(1600, 900),
+        PanelScreenMatchMode::expand(),
+      )),
+      serde_json::json!({
+        "scale_mode": "ScaleWithScreenSize",
+        "reference_resolution": {"width": 1600, "height": 900},
+        "screen_match_mode": "Expand"
+      }),
+    ),
+  ];
+
+  for (settings, wire) in fixtures {
+    assert_eq!(serde_json::to_value(&settings).unwrap(), wire);
+    assert_eq!(
+      serde_json::from_value::<PanelSettings>(wire).unwrap(),
+      settings
+    );
+  }
+}
+
+#[test]
+fn panel_scale_wire_accepts_unknown_fields_but_rejects_invalid_combinations() {
+  let mut wire = serde_json::json!({
+    "scale_mode": "ConstantPixelSize",
+    "scale": 1.25,
+    "future_field": true
+  });
+  let decoded = serde_json::from_value::<PanelSettings>(wire.clone()).unwrap();
+  assert_eq!(
+    serde_json::to_value(decoded).unwrap(),
+    serde_json::json!({"scale_mode": "ConstantPixelSize", "scale": 1.25})
+  );
+
+  for invalid in [
+    serde_json::json!({"scale_mode": "ConstantPixelSize", "scale": 0.0}),
+    serde_json::json!({"scale_mode": "ConstantPixelSize", "reference_dpi": 144.0}),
+    serde_json::json!({"scale_mode": "ConstantPhysicalSize", "scale": 2.0}),
+    serde_json::json!({"scale_mode": "ConstantPhysicalSize", "reference_dpi": 0.0}),
+    serde_json::json!({
+      "scale_mode": "ScaleWithScreenSize",
+      "reference_resolution": {"width": 0, "height": 900}
+    }),
+    serde_json::json!({
+      "scale_mode": "ScaleWithScreenSize",
+      "screen_match_mode": "Shrink",
+      "match_factor": 0.5
+    }),
+    serde_json::json!({
+      "scale_mode": "ScaleWithScreenSize",
+      "screen_match_mode": "MatchWidthOrHeight",
+      "match_factor": 1.5
+    }),
+  ] {
+    assert!(serde_json::from_value::<PanelSettings>(invalid).is_err());
+  }
+
+  wire["scale"] = serde_json::json!(1.0);
+  assert_eq!(
+    serde_json::from_value::<PanelSettings>(wire).unwrap(),
+    PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.0))
+  );
+}
+
+#[test]
+#[should_panic(expected = "panel pixel scale")]
+fn panel_scale_authors_reject_invalid_pixel_scale() {
+  let _ = PanelScaleMode::constant_pixel_size(0.0);
+}
+
+#[test]
+#[should_panic(expected = "panel reference DPI")]
+fn panel_scale_authors_reject_invalid_physical_density() {
+  let _ = PanelScaleMode::constant_physical_size(f32::INFINITY, 96.0);
+}
+
+#[test]
+#[should_panic(expected = "panel reference resolution")]
+fn panel_scale_authors_reject_invalid_reference_resolution() {
+  let _ =
+    PanelScaleMode::scale_with_screen_size(ScreenSize::new(0, 900), PanelScreenMatchMode::shrink());
+}
+
+#[test]
+#[should_panic(expected = "panel match factor")]
+fn panel_scale_authors_reject_invalid_match_factor() {
+  let _ = PanelScreenMatchMode::match_width_or_height(1.1);
+}
+
+#[test]
 fn document_and_supported_elements_have_the_declared_shape() {
   let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(
     UiNode::new(

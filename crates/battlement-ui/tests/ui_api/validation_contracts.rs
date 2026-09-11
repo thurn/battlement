@@ -121,14 +121,34 @@ fn validation_reserves_all_identities_and_rejects_duplicates() {
 }
 
 #[test]
-fn panel_validation_rejects_cross_mode_and_atlas_mismatches() {
+fn panel_validation_rejects_invalid_scaling_wire_and_atlas_mismatches() {
+  assert!(
+    serde_json::from_value::<PanelSettings>(serde_json::json!({
+      "scale_mode": "ConstantPixelSize",
+      "reference_dpi": 144.0
+    }))
+    .is_err()
+  );
+  assert!(
+    serde_json::from_value::<PanelSettings>(serde_json::json!({
+      "scale_mode": "ScaleWithScreenSize",
+      "reference_resolution": {"width": 0, "height": 800}
+    }))
+    .is_err()
+  );
+  assert!(
+    serde_json::from_value::<PanelSettings>(serde_json::json!({
+      "scale_mode": "ScaleWithScreenSize",
+      "screen_match_mode": "Shrink",
+      "match_factor": 0.5
+    }))
+    .is_err()
+  );
   assert_eq!(
     validate_panel_settings(
-      &PanelSettings::new()
-        .scale_mode(PanelScaleMode::ConstantPixelSize)
-        .reference_dpi(144.0)
+      &PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.0))
     ),
-    Err(UiValidationError::InvalidProperty)
+    Ok(())
   );
   let atlas = DynamicAtlasSettings {
     max_sub_texture_size: 0,
@@ -149,7 +169,7 @@ fn panel_validation_rejects_cross_mode_and_atlas_mismatches() {
   assert!(
     validate_panel_settings(
       &PanelSettings::new()
-        .scale_mode(PanelScaleMode::ConstantPixelSize)
+        .scale_mode(PanelScaleMode::constant_pixel_size(1.0))
         .target_texture("ui/panel-target")
     )
     .is_ok()

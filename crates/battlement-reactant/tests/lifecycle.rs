@@ -440,10 +440,9 @@ fn snapshot(document: &UiDocument, external: Option<UiDocument>) -> Snapshot {
 fn document_object(document: &UiDocument) -> GameObject {
   GameObject::new(
     document.document_id,
-    GameObjectKind::UiDocument(
-      UiDocumentState::new(document.root_id)
-        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize)),
-    ),
+    GameObjectKind::UiDocument(UiDocumentState::new(document.root_id).panel_settings(
+      PanelSettings::new().scale_mode(PanelScaleMode::constant_logical_pixel_size()),
+    )),
   )
   .parent_scene(ParentScene::Persistent)
 }

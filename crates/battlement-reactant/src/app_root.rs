@@ -28,8 +28,9 @@ impl<G: 'static> AppRoot<G> {
       .picking_mode(PickingMode::Ignore)
       .style(Style::new().width(100.pct()).height(100.pct()));
     Self {
-      state: UiDocumentState::new(document.root_id)
-        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize)),
+      state: UiDocumentState::new(document.root_id).panel_settings(
+        PanelSettings::new().scale_mode(PanelScaleMode::constant_logical_pixel_size()),
+      ),
       document,
       view: Rc::new(move |model| Node::new(view(model))),
     }

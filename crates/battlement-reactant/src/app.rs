@@ -200,8 +200,9 @@ impl<G: 'static> App<G> {
   ) -> Self {
     self.require_configuring();
     let mut root = AppRoot::new(view);
-    root.state = UiDocumentState::new(document.root_id)
-      .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize));
+    root.state = UiDocumentState::new(document.root_id).panel_settings(
+      PanelSettings::new().scale_mode(PanelScaleMode::constant_logical_pixel_size()),
+    );
     root.document = document;
     self.roots.push(root);
     self

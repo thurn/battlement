@@ -1063,7 +1063,7 @@ fn snapshot_for(document: &UiDocument, session_id: SessionId) -> Snapshot {
       GameObject::new(
         document.document_id,
         GameObjectKind::UiDocument(UiDocumentState::new(document.root_id).panel_settings(
-          PanelSettings::new().scale_mode(PanelScaleMode::ConstantLogicalPixelSize),
+          PanelSettings::new().scale_mode(PanelScaleMode::constant_logical_pixel_size()),
         )),
       )
       .parent_scene(ParentScene::Persistent),

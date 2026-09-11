@@ -770,12 +770,12 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     CAMERA_ID,
   )
   .ui_document_with(ui, ParentScene::Persistent, |state| {
-    state.panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize))
+    state.panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.0)))
   })
   .ui_document_with(target_ui, ParentScene::Persistent, |state| {
     state.panel_settings(
       PanelSettings::new()
-        .scale_mode(PanelScaleMode::ConstantPixelSize)
+        .scale_mode(PanelScaleMode::constant_pixel_size(1.0))
         .target_texture(assets::RENDER_TEXTURE.clone())
         .clear_color(true)
         .color_clear_value(battlement::Color::rgb(0.015, 0.055, 0.07)),
@@ -786,7 +786,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
       .panel_settings(
         PanelSettings::new()
           .render_mode(PanelRenderMode::WorldSpace)
-          .scale_mode(PanelScaleMode::ConstantPixelSize),
+          .scale_mode(PanelScaleMode::constant_pixel_size(1.0)),
       )
       .position(DocumentPosition::Absolute)
       .world_space_size_mode(WorldSpaceSizeMode::Fixed)

@@ -118,7 +118,7 @@ impl Snapshot {
   {
     let state = configure(
       UiDocumentState::new(document.root_id)
-        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
+        .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.0))),
     );
     self.objects.push(
       GameObject::new(document.document_id, GameObjectKind::UiDocument(state))

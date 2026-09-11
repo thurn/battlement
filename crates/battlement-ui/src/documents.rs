@@ -1,6 +1,11 @@
 use battlement_types::{Color, ObjectId, RenderTextureAddress, ScreenSize};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
+use crate::panel_scaling::{
+  PanelScaleMode, PanelScaleModeWire, PanelScaleWire, PanelScreenMatchModeWire, default_dpi,
+  default_one, default_reference_resolution, is_default_reference_resolution, is_dpi, is_one,
+  is_zero,
+};
 use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, UiVisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
@@ -355,9 +360,8 @@ impl UiDocumentState {
 /// Configures how a Unity UI Toolkit panel is rendered, scaled, and cleared.
 ///
 /// Each [`UiDocumentState`] receives a private runtime copy of these settings,
-/// so applying a snapshot cannot mutate a shared project asset. Scaling fields
-/// are interpreted according to [`PanelScaleMode`], and screen matching fields
-/// apply only when scaling with screen size.
+/// so applying a snapshot cannot mutate a shared project asset. The
+/// [`PanelScaleMode`] value owns the scale fields that apply to its mode.
 ///
 /// See Unity's [`PanelSettings` reference](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.PanelSettings.html)
 /// for the corresponding runtime panel settings.
@@ -368,74 +372,39 @@ impl UiDocumentState {
 /// use battlement_types::ScreenSize;
 /// use battlement_ui::{PanelScaleMode, PanelScreenMatchMode, PanelSettings};
 ///
-/// let settings = PanelSettings::new()
-///     .scale_mode(PanelScaleMode::ScaleWithScreenSize)
-///     .reference_resolution(ScreenSize::new(1920, 1080))
-///     .screen_match_mode(PanelScreenMatchMode::MatchWidthOrHeight)
-///     .match_factor(0.5);
+/// let settings = PanelSettings::new().scale_mode(PanelScaleMode::scale_with_screen_size(
+///     ScreenSize::new(1920, 1080),
+///     PanelScreenMatchMode::match_width_or_height(0.5),
+/// ));
 ///
 /// assert!(battlement_ui::validate_panel_settings(&settings).is_ok());
 /// ```
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PanelSettings {
   /// Determines whether the panel is composited over a display or rendered in
   /// world space from the document transform.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub render_mode: PanelRenderMode,
   /// Determines how authored UI lengths are converted to display pixels.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub scale_mode: PanelScaleMode,
   /// Sprite pixels corresponding to one UI unit.
   ///
   /// A sprite with the same Pixels Per Unit value renders at one source pixel
   /// per UI pixel before panel scaling.
-  #[serde(default = "default_hundred", skip_serializing_if = "is_hundred")]
   pub reference_sprite_pixels_per_unit: f32,
-  /// Uniform panel multiplier used only by [`PanelScaleMode::ConstantPixelSize`].
-  #[serde(default = "default_one", skip_serializing_if = "is_one")]
-  pub scale: f32,
-  /// Design density, in dots per inch, used to convert physical units when
-  /// [`PanelScaleMode::ConstantPhysicalSize`] is active.
-  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
-  pub reference_dpi: f32,
-  /// Density, in dots per inch, used when the target display does not
-  /// report a usable DPI.
-  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
-  pub fallback_dpi: f32,
-  /// Design resolution, in pixels, compared with the target display when
-  /// [`PanelScaleMode::ScaleWithScreenSize`] is active.
-  #[serde(
-    default = "default_reference_resolution",
-    skip_serializing_if = "is_default_reference_resolution"
-  )]
-  pub reference_resolution: ScreenSize,
-  /// Chooses how target width and height contribute to screen-size scaling.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  pub screen_match_mode: PanelScreenMatchMode,
-  /// Interpolation between width-based scaling (`0`) and height-based scaling
-  /// (`1`) for [`PanelScreenMatchMode::MatchWidthOrHeight`].
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  pub match_factor: f32,
   /// Zero-based Unity display index for a screen-space overlay panel.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub target_display: u32,
   /// Optional prepared render texture that receives this panel instead of a display.
   ///
   /// Hosts must map pointer coordinates explicitly when a target texture is set.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub target_texture: Option<RenderTextureAddress>,
   /// Whether Unity clears the panel's depth and stencil buffers before rendering.
-  #[serde(default = "default_true", skip_serializing_if = "is_true")]
   pub clear_depth_stencil: bool,
   /// Whether Unity clears the panel color buffer before rendering UI content.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub clear_color: bool,
   /// Color written by the clear operation when [`Self::clear_color`] is enabled.
-  #[serde(default = "transparent", skip_serializing_if = "is_transparent")]
   pub color_clear_value: Color,
   /// Allocation limits and eligibility filters for textures cached in the
   /// panel's dynamic atlas.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub dynamic_atlas: DynamicAtlasSettings,
 }
 
@@ -472,54 +441,6 @@ impl PanelSettings {
   #[must_use]
   pub fn reference_sprite_pixels_per_unit(mut self, value: f32) -> Self {
     self.reference_sprite_pixels_per_unit = value;
-    self
-  }
-
-  /// Sets the positive uniform multiplier for constant-pixel-size scaling.
-  #[must_use]
-  pub fn scale(mut self, value: f32) -> Self {
-    self.scale = value;
-    self
-  }
-
-  /// Sets the positive design density, in DPI, for physical-size scaling.
-  #[must_use]
-  pub fn reference_dpi(mut self, value: f32) -> Self {
-    self.reference_dpi = value;
-    self
-  }
-
-  /// Sets the positive fallback DPI used when a display reports no usable density.
-  #[must_use]
-  pub fn fallback_dpi(mut self, value: f32) -> Self {
-    self.fallback_dpi = value;
-    self
-  }
-
-  /// Sets the nonzero design resolution for scale-with-screen-size mode.
-  #[must_use]
-  pub fn reference_resolution(mut self, value: ScreenSize) -> Self {
-    self.reference_resolution = value;
-    self
-  }
-
-  /// Selects how target width and height determine screen-size scaling.
-  ///
-  /// This setting is valid only with [`PanelScaleMode::ScaleWithScreenSize`].
-  #[must_use]
-  pub fn screen_match_mode(mut self, value: PanelScreenMatchMode) -> Self {
-    self.screen_match_mode = value;
-    self
-  }
-
-  /// Sets the width-to-height interpolation factor used by
-  /// [`PanelScreenMatchMode::MatchWidthOrHeight`].
-  ///
-  /// `0` follows the width ratio, `1` follows the height ratio, and values
-  /// between them blend the two. The value must be finite and in `0..=1`.
-  #[must_use]
-  pub fn match_factor(mut self, value: f32) -> Self {
-    self.match_factor = value;
     self
   }
 
@@ -576,12 +497,6 @@ impl Default for PanelSettings {
       render_mode: PanelRenderMode::default(),
       scale_mode: PanelScaleMode::default(),
       reference_sprite_pixels_per_unit: default_hundred(),
-      scale: default_one(),
-      reference_dpi: default_dpi(),
-      fallback_dpi: default_dpi(),
-      reference_resolution: default_reference_resolution(),
-      screen_match_mode: PanelScreenMatchMode::default(),
-      match_factor: 0.0,
       target_display: 0,
       target_texture: None,
       clear_depth_stencil: true,
@@ -590,6 +505,105 @@ impl Default for PanelSettings {
       dynamic_atlas: DynamicAtlasSettings::default(),
     }
   }
+}
+
+impl Serialize for PanelSettings {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    self.wire().serialize(serializer)
+  }
+}
+
+impl<'de> Deserialize<'de> for PanelSettings {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let wire = PanelSettingsWire::deserialize(deserializer)?;
+    let scale = PanelScaleMode::from_wire(PanelScaleWire {
+      scale_mode: wire.scale_mode,
+      scale: wire.scale,
+      reference_dpi: wire.reference_dpi,
+      fallback_dpi: wire.fallback_dpi,
+      reference_resolution: wire.reference_resolution,
+      screen_match_mode: wire.screen_match_mode,
+      match_factor: wire.match_factor,
+    })
+    .map_err(de::Error::custom)?;
+    Ok(Self {
+      render_mode: wire.render_mode,
+      scale_mode: scale,
+      reference_sprite_pixels_per_unit: wire.reference_sprite_pixels_per_unit,
+      target_display: wire.target_display,
+      target_texture: wire.target_texture,
+      clear_depth_stencil: wire.clear_depth_stencil,
+      clear_color: wire.clear_color,
+      color_clear_value: wire.color_clear_value,
+      dynamic_atlas: wire.dynamic_atlas,
+    })
+  }
+}
+
+impl PanelSettings {
+  fn wire(&self) -> PanelSettingsWire {
+    let scale = self.scale_mode.wire();
+    PanelSettingsWire {
+      render_mode: self.render_mode,
+      scale_mode: scale.scale_mode,
+      reference_sprite_pixels_per_unit: self.reference_sprite_pixels_per_unit,
+      scale: scale.scale,
+      reference_dpi: scale.reference_dpi,
+      fallback_dpi: scale.fallback_dpi,
+      reference_resolution: scale.reference_resolution,
+      screen_match_mode: scale.screen_match_mode,
+      match_factor: scale.match_factor,
+      target_display: self.target_display,
+      target_texture: self.target_texture.clone(),
+      clear_depth_stencil: self.clear_depth_stencil,
+      clear_color: self.clear_color,
+      color_clear_value: self.color_clear_value,
+      dynamic_atlas: self.dynamic_atlas.clone(),
+    }
+  }
+}
+
+#[derive(Deserialize, Serialize)]
+struct PanelSettingsWire {
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  render_mode: PanelRenderMode,
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  scale_mode: PanelScaleModeWire,
+  #[serde(default = "default_hundred", skip_serializing_if = "is_hundred")]
+  reference_sprite_pixels_per_unit: f32,
+  #[serde(default = "default_one", skip_serializing_if = "is_one")]
+  scale: f32,
+  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
+  reference_dpi: f32,
+  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
+  fallback_dpi: f32,
+  #[serde(
+    default = "default_reference_resolution",
+    skip_serializing_if = "is_default_reference_resolution"
+  )]
+  reference_resolution: ScreenSize,
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  screen_match_mode: PanelScreenMatchModeWire,
+  #[serde(default, skip_serializing_if = "is_zero")]
+  match_factor: f32,
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  target_display: u32,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  target_texture: Option<RenderTextureAddress>,
+  #[serde(default = "default_true", skip_serializing_if = "is_true")]
+  clear_depth_stencil: bool,
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  clear_color: bool,
+  #[serde(default = "transparent", skip_serializing_if = "is_transparent")]
+  color_clear_value: Color,
+  #[serde(default, skip_serializing_if = "crate::is_default")]
+  dynamic_atlas: DynamicAtlasSettings,
 }
 
 /// Controls allocation and texture eligibility for a panel's dynamic atlas.
@@ -637,30 +651,6 @@ pub enum PanelRenderMode {
   ScreenSpaceOverlay,
   /// Renders UI in the scene using the document GameObject's transform.
   WorldSpace,
-}
-/// Strategy for converting authored UI dimensions to display pixels.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub enum PanelScaleMode {
-  /// Multiplies authored pixel sizes uniformly by [`PanelSettings::scale`].
-  ConstantPixelSize,
-  /// Maps authored pixel sizes to CSS pixels or native logical screen pixels.
-  ConstantLogicalPixelSize,
-  /// Preserves physical size using the display DPI or fallback DPI.
-  #[default]
-  ConstantPhysicalSize,
-  /// Scales relative to [`PanelSettings::reference_resolution`].
-  ScaleWithScreenSize,
-}
-/// Strategy for reconciling target and reference aspect ratios.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub enum PanelScreenMatchMode {
-  /// Blends width- and height-based ratios using [`PanelSettings::match_factor`].
-  #[default]
-  MatchWidthOrHeight,
-  /// Uses the smaller ratio so the reference resolution fits within the target.
-  Shrink,
-  /// Uses the larger ratio so the reference resolution covers the target.
-  Expand,
 }
 /// A condition that prevents a texture from entering the dynamic atlas.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -826,29 +816,11 @@ fn is_default_interaction_layers(value: &InteractionLayerMask) -> bool {
 fn is_default_world_size(value: &ScreenSize) -> bool {
   *value == default_world_size()
 }
-fn default_reference_resolution() -> ScreenSize {
-  ScreenSize::new(1200, 800)
-}
-fn is_default_reference_resolution(value: &ScreenSize) -> bool {
-  *value == default_reference_resolution()
-}
 fn default_hundred() -> f32 {
   100.0
 }
 fn is_hundred(value: &f32) -> bool {
   *value == default_hundred()
-}
-fn default_one() -> f32 {
-  1.0
-}
-fn is_one(value: &f32) -> bool {
-  *value == 1.0
-}
-fn default_dpi() -> f32 {
-  96.0
-}
-fn is_dpi(value: &f32) -> bool {
-  *value == default_dpi()
 }
 fn default_true() -> bool {
   true
