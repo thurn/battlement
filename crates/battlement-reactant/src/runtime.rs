@@ -36,8 +36,9 @@ use crate::{
   portal::{self, PortalTarget},
   reconcile,
   render::{Render, RenderTree},
+  render_tree::LocalRenderTransaction,
   resource_cache::{FrozenCompletions, PanicPayload},
-  resource_runtime::ResourceRuntime,
+  resource_runtime::{self, ResourceRuntime},
   root_view::RootRegistration,
   runtime_document, runtime_motion, semantic_projection,
 };
@@ -68,6 +69,11 @@ pub struct Root {
 pub struct ReactantCommit {
   pub(crate) groups: Option<Vec<Vec<CommandBody>>>,
   pub(crate) receipt: Option<DeliveryReceipt>,
+}
+
+struct FrozenCommandCounts {
+  actions: usize,
+  motion: usize,
 }
 
 /// The immediate decision and deferred commit produced by one UI event.
@@ -432,7 +438,16 @@ impl<G: 'static> Reactant<G> {
       let dispatch_dirty = dispatch.invoked || reported || geometry_effected;
       let runtime_dirty = runtime.geometry.borrow().dirty() || runtime.pending_hooks_changed();
       let commit = if dispatch_dirty || runtime_dirty {
-        runtime.render(game, None)?
+        if dispatch.local_invalidation
+          && !reported
+          && !geometry_effected
+          && !runtime.geometry.borrow().dirty()
+          && runtime.pending_hooks_changed()
+        {
+          runtime.render_local_state(game)?
+        } else {
+          runtime.render(game, None)?
+        }
       } else {
         runtime.commit_pending_actions()
       };
@@ -556,7 +571,66 @@ impl<G: 'static> Reactant<G> {
     let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
     runtime_motion::invoke_ready_presence(&mut self.roots, game);
     let rendered_generation = self.geometry.borrow().generation;
-    self.render_geometry(game, rendered_generation, 0, resources)
+    self.render_geometry(game, rendered_generation, 0, resources, None, None)
+  }
+
+  fn render_local_state(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
+    let _motion_runtime = motion_value_runtime::enter_runtime(self.runtime_id, &self.motion_values);
+    if runtime_motion::invoke_ready_presence(&mut self.roots, game) {
+      let rendered_generation = self.geometry.borrow().generation;
+      return self.render_geometry(game, rendered_generation, 0, None, None, None);
+    }
+    if self.committed_portals.is_none() {
+      let committed = self
+        .roots
+        .iter()
+        .map(|root| &root.committed)
+        .collect::<Vec<_>>();
+      self.committed_portals = Some(portal::layout(
+        self.runtime_id,
+        &committed,
+        &self.external_portals.active_bindings(),
+      ));
+    }
+    let mut transactions: Vec<LocalRenderTransaction> = Vec::with_capacity(self.roots.len());
+    for root in &mut self.roots {
+      let local = resource_runtime::with_runtime(Rc::clone(&self.resources), None, || {
+        context::with_runtime(Rc::clone(&self.context_defaults), || {
+          root.committed.rerender_local_state()
+        })
+      });
+      let local = match local {
+        Ok(local) => local,
+        Err(error) => {
+          for (root, transaction) in self.roots.iter_mut().zip(transactions) {
+            transaction.rollback(&mut root.committed);
+          }
+          return Err(error);
+        }
+      };
+      if !local.supported() {
+        for (root, transaction) in self.roots.iter_mut().zip(transactions) {
+          transaction.rollback(&mut root.committed);
+        }
+        let rendered_generation = self.geometry.borrow().generation;
+        return self.render_geometry(game, rendered_generation, 0, None, None, None);
+      }
+      transactions.push(local);
+    }
+    let rendered = self
+      .roots
+      .iter_mut()
+      .map(|root| mem::take(&mut root.committed))
+      .collect();
+    let rendered_generation = self.geometry.borrow().generation;
+    self.render_geometry(
+      game,
+      rendered_generation,
+      0,
+      None,
+      Some(rendered),
+      Some(transactions),
+    )
   }
 
   fn render_geometry(
@@ -565,6 +639,8 @@ impl<G: 'static> Reactant<G> {
     rendered_generation: Option<GeometryGeneration>,
     retry: usize,
     mut resources: Option<FrozenResources>,
+    initial_rendered: Option<Vec<RenderTree>>,
+    mut local_transactions: Option<Vec<LocalRenderTransaction>>,
   ) -> Result<ReactantCommit, RenderError> {
     assert!(retry < 25, "Reactant geometry render did not stabilize");
     let geometry_revision = self.geometry.borrow().revision();
@@ -580,19 +656,22 @@ impl<G: 'static> Reactant<G> {
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let frozen_motion_commands = self.motion_values.borrow().queued_commands();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
-      let mut rendered = self
-        .roots
-        .iter()
-        .map(|root| {
-          root.view.render(
-            game,
-            &root.committed,
-            Rc::clone(&self.context_defaults),
-            Rc::clone(&self.resources),
-            resources.as_ref().map(FrozenResources::overlay),
-          )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+      let mut rendered = match initial_rendered {
+        Some(rendered) => rendered,
+        None => self
+          .roots
+          .iter()
+          .map(|root| {
+            root.view.render(
+              game,
+              &root.committed,
+              Rc::clone(&self.context_defaults),
+              Rc::clone(&self.resources),
+              resources.as_ref().map(FrozenResources::overlay),
+            )
+          })
+          .collect::<Result<Vec<_>, _>>()?,
+      };
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
@@ -709,7 +788,22 @@ impl<G: 'static> Reactant<G> {
       let preview = self.geometry.borrow().preview(&geometry);
       let _geometry_runtime = geometry::enter_preview(&preview, &self.geometry);
       self.committed_portals = Some(previous);
-      return self.render_geometry(game, geometry.generation(), retry + 1, resources);
+      if let Some(transactions) = local_transactions.take() {
+        for ((root, tree), transaction) in
+          self.roots.iter_mut().zip(&mut rendered).zip(transactions)
+        {
+          transaction.rollback(tree);
+          root.committed = mem::take(tree);
+        }
+      }
+      return self.render_geometry(
+        game,
+        geometry.generation(),
+        retry + 1,
+        resources,
+        None,
+        None,
+      );
     }
     let announcements = announcement::take();
     let sent_accessibility = accessibility_changed || !announcements.is_empty();
@@ -731,8 +825,11 @@ impl<G: 'static> Reactant<G> {
       attachments,
       geometry,
       geometry_revision,
-      frozen_actions,
-      frozen_motion_commands,
+      FrozenCommandCounts {
+        actions: frozen_actions,
+        motion: frozen_motion_commands,
+      },
+      local_transactions.as_deref_mut(),
     );
     self.committed_portals = Some(desired);
     if accessibility_changed {
@@ -992,11 +1089,11 @@ impl<G: 'static> Reactant<G> {
     attachments: AttachmentSet,
     geometry: GeometryPlan,
     geometry_revision: u64,
-    frozen_actions: usize,
-    frozen_motion_commands: usize,
+    frozen_commands: FrozenCommandCounts,
+    local_transactions: Option<&mut [LocalRenderTransaction]>,
   ) {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      self.install_rendered(committed, attachments, false);
+      self.install_rendered(committed, attachments, false, local_transactions);
       let mut runtime = self.geometry.borrow_mut();
       runtime.commit(geometry);
       runtime.acknowledge_render(geometry_revision);
@@ -1004,11 +1101,11 @@ impl<G: 'static> Reactant<G> {
       self
         .element_refs
         .borrow_mut()
-        .consume_actions(frozen_actions);
+        .consume_actions(frozen_commands.actions);
       self
         .motion_values
         .borrow_mut()
-        .consume_commands(frozen_motion_commands);
+        .consume_commands(frozen_commands.motion);
       self.state = RuntimeState::Active;
     }));
     if let Err(payload) = completed {
@@ -1022,6 +1119,7 @@ impl<G: 'static> Reactant<G> {
     committed: &mut [RenderTree],
     attachments: AttachmentSet,
     reconnect: bool,
+    local_transactions: Option<&mut [LocalRenderTransaction]>,
   ) {
     let mut next = Vec::new();
     for rendered in committed.iter() {
@@ -1029,11 +1127,17 @@ impl<G: 'static> Reactant<G> {
     }
     let mut effects = Vec::new();
     let mut geometry_effects = Vec::new();
-    for root in &mut self.roots {
-      root.committed.unmount_effects(&next, &mut effects);
-      root
-        .committed
-        .unmount_geometry_effects(&next, &mut geometry_effects);
+    if let Some(transactions) = local_transactions {
+      for transaction in transactions {
+        transaction.unmount_effects(&next, &mut effects, &mut geometry_effects);
+      }
+    } else {
+      for root in &mut self.roots {
+        root.committed.unmount_effects(&next, &mut effects);
+        root
+          .committed
+          .unmount_geometry_effects(&next, &mut geometry_effects);
+      }
     }
     for rendered in committed.iter_mut() {
       rendered.take_effect_operations(&mut effects);
@@ -1192,7 +1296,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         &attachments,
         self.semantic_commit_sequence + 1,
       );
-      self.install_rendered(committed, attachments, true);
+      self.install_rendered(committed, attachments, true, None);
       self.committed_portals = None;
       self
         .element_refs

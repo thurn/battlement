@@ -150,6 +150,8 @@ impl PreparedFacade {
       motion_callbacks,
       motion_callback_history,
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: None,

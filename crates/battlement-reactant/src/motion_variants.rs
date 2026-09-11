@@ -53,6 +53,9 @@ struct VariantProgress {
   has_infinite_completion: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct VariantProgressCheckpoint(VariantProgress);
+
 pub(crate) struct ResolvedVariants {
   pub(crate) initial_target: Option<MotionTarget>,
   pub(crate) target: Option<MotionTarget>,
@@ -133,6 +136,27 @@ impl Default for VariantSchedule {
       when: VariantWhen::Together,
       child_count: None,
     }
+  }
+}
+
+impl VariantScope {
+  pub(crate) fn progress_checkpoint(&self) -> VariantProgressCheckpoint {
+    VariantProgressCheckpoint(*self.progress.borrow())
+  }
+
+  pub(crate) fn checkpoint_at(&self, progress: VariantProgressCheckpoint) -> Self {
+    Self {
+      initial_selection: self.initial_selection.clone(),
+      animate_selection: self.animate_selection.clone(),
+      exit_selection: self.exit_selection.clone(),
+      custom: self.custom.clone(),
+      schedule: self.schedule,
+      progress: Rc::new(RefCell::new(progress.0)),
+    }
+  }
+
+  pub(crate) fn checkpoint(&self) -> Self {
+    self.checkpoint_at(self.progress_checkpoint())
   }
 }
 

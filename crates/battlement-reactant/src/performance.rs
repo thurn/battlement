@@ -21,18 +21,17 @@ pub(crate) fn start() -> Option<Instant> {
 }
 
 pub(crate) fn component<C: 'static>(started: Option<Instant>) {
+  component_named(std::any::type_name::<C>(), started);
+}
+
+pub(crate) fn component_named(component: &'static str, started: Option<Instant>) {
   let Some(started) = started else {
     return;
   };
   let duration = started.elapsed();
   let duration_us = u64::try_from(duration.as_micros()).unwrap_or(u64::MAX);
   let (self_duration_us, depth) = pop_span(duration_us);
-  record_component(
-    std::any::type_name::<C>(),
-    duration,
-    self_duration_us,
-    depth,
-  );
+  record_component(component, duration, self_duration_us, depth);
   let full_duration_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
   complete_instrumentation(full_duration_us);
 }

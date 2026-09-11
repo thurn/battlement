@@ -153,6 +153,8 @@ pub(crate) fn push<R: 'static>(
     motion_callbacks: MotionCallbacks::default(),
     motion_callback_history: Vec::new(),
     component: None,
+    component_source: None,
+    component_scope: None,
     memo_value: None,
     provider: None,
     portal: None,

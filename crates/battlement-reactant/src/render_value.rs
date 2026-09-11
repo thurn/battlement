@@ -34,6 +34,11 @@ pub(crate) trait ErasedRender {
   fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>);
 }
 
+pub(crate) trait ErasedComponent {
+  fn render_into(&self, sink: &mut RenderSink<'_>);
+  fn type_name(&self) -> &'static str;
+}
+
 pub(crate) fn lower<R: Render>(
   value: R,
   committed: &RenderTree,
@@ -50,6 +55,16 @@ impl<R: Render> ErasedRender for R {
 
   fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>) {
     Sealed::render_shared(self, sink);
+  }
+}
+
+impl<C: Component> ErasedComponent for C {
+  fn render_into(&self, sink: &mut RenderSink<'_>) {
+    self.render().render_owned(sink);
+  }
+
+  fn type_name(&self) -> &'static str {
+    std::any::type_name::<C>()
   }
 }
 
@@ -236,6 +251,14 @@ impl<C: Component> Sealed for C {
       debug_assert!(context::hooks_allowed());
       self.render().render_owned(children);
     });
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink.push_owned_component::<C>(self);
+  }
+
+  fn render_shared(self: Rc<Self>, sink: &mut RenderSink<'_>) {
+    sink.push_retained_component::<C>(self);
   }
 }
 

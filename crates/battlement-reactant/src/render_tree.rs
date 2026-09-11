@@ -23,9 +23,106 @@ use crate::{
   overlay::OverlayReference,
   portal::PortalTarget,
   render::{RenderPosition, RenderTree},
+  runtime::RenderError,
 };
 
 impl RenderTree {
+  pub(crate) fn rerender_local_state(&mut self) -> Result<LocalRenderTransaction, RenderError> {
+    let mut transaction = LocalRenderTransaction::default();
+    let mut path = Vec::new();
+    match self.rerender_changed_components(true, &mut path, &mut transaction) {
+      Ok(LocalRender::Changed | LocalRender::Unchanged) => {
+        transaction.supported = true;
+        Ok(transaction)
+      }
+      Ok(LocalRender::Unsupported) => {
+        transaction.rollback(self);
+        Ok(LocalRenderTransaction::default())
+      }
+      Err(error) => {
+        transaction.rollback(self);
+        Err(error)
+      }
+    }
+  }
+
+  fn rerender_changed_components(
+    &mut self,
+    incremental_allowed: bool,
+    path: &mut Vec<usize>,
+    transaction: &mut LocalRenderTransaction,
+  ) -> Result<LocalRender, RenderError> {
+    let mut result = LocalRender::Unchanged;
+    for (index, position) in self.positions.iter_mut().enumerate() {
+      path.push(index);
+      let has_boundary = position.error_boundary.is_some() || position.suspense.is_some();
+      if has_boundary && position.has_dirty_work() {
+        path.pop();
+        return Ok(LocalRender::Unsupported);
+      }
+      let component_changed = position
+        .component
+        .as_ref()
+        .is_some_and(HookComponent::has_pending_change);
+      if component_changed {
+        if !incremental_allowed {
+          path.pop();
+          return Ok(LocalRender::Unsupported);
+        }
+        let Some(source) = position.component_source.as_ref() else {
+          path.pop();
+          return Ok(LocalRender::Unsupported);
+        };
+        let Some(scope) = position.component_scope.as_ref() else {
+          path.pop();
+          return Ok(LocalRender::Unsupported);
+        };
+        transaction.backups.push(LocalRenderBackup {
+          path: path.clone(),
+          position: position.clone(),
+        });
+        let component = position
+          .component
+          .clone()
+          .expect("changed component exists");
+        let rerendered = crate::render::RenderSink::rerender_retained_component(
+          source.as_ref(),
+          &position.children,
+          component,
+          scope.checkpoint(),
+        )?;
+        let Some((component, children)) = rerendered else {
+          path.pop();
+          return Ok(LocalRender::Unsupported);
+        };
+        position.component = Some(component);
+        position.children = children;
+        result = LocalRender::Changed;
+        path.pop();
+        continue;
+      }
+      let provider = position.provider.clone();
+      let nested = if let Some(provider) = provider {
+        provider.enter(|| {
+          position
+            .children
+            .rerender_changed_components(incremental_allowed, path, transaction)
+        })
+      } else {
+        position
+          .children
+          .rerender_changed_components(incremental_allowed, path, transaction)
+      }?;
+      path.pop();
+      match nested {
+        LocalRender::Unsupported => return Ok(LocalRender::Unsupported),
+        LocalRender::Changed => result = LocalRender::Changed,
+        LocalRender::Unchanged => {}
+      }
+    }
+    Ok(result)
+  }
+
   pub(crate) fn hosts(&self) -> Vec<UiNode> {
     let mut hosts = Vec::new();
     self.append_hosts(&mut hosts);
@@ -620,6 +717,61 @@ impl RenderTree {
       }
       position.children.take_error_reports(reports);
     }
+  }
+}
+
+#[derive(Clone, Copy)]
+enum LocalRender {
+  Changed,
+  Unchanged,
+  Unsupported,
+}
+
+#[derive(Default)]
+pub(crate) struct LocalRenderTransaction {
+  backups: Vec<LocalRenderBackup>,
+  supported: bool,
+}
+
+struct LocalRenderBackup {
+  path: Vec<usize>,
+  position: RenderPosition,
+}
+
+impl LocalRenderTransaction {
+  pub(crate) fn supported(&self) -> bool {
+    self.supported
+  }
+
+  pub(crate) fn rollback(mut self, tree: &mut RenderTree) {
+    for backup in self.backups.drain(..).rev() {
+      *position_mut(tree, &backup.path) = backup.position;
+    }
+  }
+
+  pub(crate) fn unmount_effects(
+    &mut self,
+    mounted: &[Rc<HookOwner>],
+    effects: &mut Vec<EffectOperation>,
+    geometry_effects: &mut Vec<GeometryEffectOperation>,
+  ) {
+    for backup in &mut self.backups {
+      backup.position.children.unmount_effects(mounted, effects);
+      backup
+        .position
+        .children
+        .unmount_geometry_effects(mounted, geometry_effects);
+    }
+  }
+}
+
+fn position_mut<'a>(tree: &'a mut RenderTree, path: &[usize]) -> &'a mut RenderPosition {
+  let (index, rest) = path.split_first().expect("local render path is nonempty");
+  let position = &mut tree.positions[*index];
+  if rest.is_empty() {
+    position
+  } else {
+    position_mut(&mut position.children, rest)
   }
 }
 

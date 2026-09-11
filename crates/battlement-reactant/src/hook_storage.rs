@@ -17,6 +17,7 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct HookOwner {
   pub(crate) mounted: Cell<bool>,
+  local_state_callbacks: Cell<bool>,
 }
 
 pub(crate) struct HookComponent {
@@ -170,6 +171,7 @@ impl HookComponent {
     Self {
       owner: Rc::new(HookOwner {
         mounted: Cell::new(false),
+        local_state_callbacks: Cell::new(false),
       }),
       slots: Vec::new(),
       expected_count: None,
@@ -186,6 +188,16 @@ impl HookComponent {
 
   pub(crate) fn has_pending_change(&self) -> bool {
     self.slots.iter().any(|slot| slot.has_pending_change())
+  }
+
+  pub(crate) fn has_local_state_callbacks(&self) -> bool {
+    self.owner.local_state_callbacks.get()
+  }
+
+  pub(crate) fn mark_local_state_callback(owner: &Weak<HookOwner>) {
+    if let Some(owner) = owner.upgrade() {
+      owner.local_state_callbacks.set(true);
+    }
   }
 
   pub(crate) fn context_changed(&self) -> bool {

@@ -18,7 +18,23 @@ pub(crate) struct EventNode {
 pub(crate) struct DispatchResult {
   pub(crate) disposition: UiEventDisposition,
   pub(crate) invoked: bool,
+  pub(crate) local_invalidation: bool,
   pub(crate) prevented_by_reactant: bool,
+}
+
+#[derive(Default)]
+struct HandlerInvocations {
+  invoked: bool,
+  local_only: bool,
+}
+
+impl HandlerInvocations {
+  fn merge(&mut self, other: Self) {
+    if other.invoked {
+      self.local_only = (!self.invoked || self.local_only) && other.local_only;
+      self.invoked = true;
+    }
+  }
 }
 
 pub(crate) fn dispatch<G: 'static>(
@@ -47,6 +63,7 @@ fn invoke_raw<G: 'static>(
     return DispatchResult {
       disposition: disposition(incoming_prevented),
       invoked: false,
+      local_invalidation: false,
       prevented_by_reactant: false,
     };
   };
@@ -72,13 +89,14 @@ fn invoke_raw<G: 'static>(
     );
     return DispatchResult {
       disposition: disposition(shared.default_prevented()),
-      invoked,
+      invoked: invoked.invoked,
+      local_invalidation: invoked.invoked && invoked.local_only,
       prevented_by_reactant: shared.prevented_by_reactant(),
     };
   }
-  let mut invoked = false;
+  let mut invoked = HandlerInvocations::default();
   for node in &path[..path.len() - 1] {
-    invoked |= self::invoke_raw_handlers(
+    invoked.merge(self::invoke_raw_handlers(
       game,
       node,
       EventPhase::Capture,
@@ -86,9 +104,9 @@ fn invoke_raw<G: 'static>(
       kind,
       Rc::clone(&shared),
       Rc::clone(&body),
-    );
+    ));
   }
-  invoked |= self::invoke_raw_handlers(
+  invoked.merge(self::invoke_raw_handlers(
     game,
     target_node,
     EventPhase::Target,
@@ -96,8 +114,8 @@ fn invoke_raw<G: 'static>(
     kind,
     Rc::clone(&shared),
     Rc::clone(&body),
-  );
-  invoked |= self::invoke_raw_handlers(
+  ));
+  invoked.merge(self::invoke_raw_handlers(
     game,
     target_node,
     EventPhase::Target,
@@ -105,9 +123,9 @@ fn invoke_raw<G: 'static>(
     kind,
     Rc::clone(&shared),
     Rc::clone(&body),
-  );
+  ));
   for node in path[..path.len() - 1].iter().rev() {
-    invoked |= self::invoke_raw_handlers(
+    invoked.merge(self::invoke_raw_handlers(
       game,
       node,
       EventPhase::Bubble,
@@ -115,11 +133,12 @@ fn invoke_raw<G: 'static>(
       kind,
       Rc::clone(&shared),
       Rc::clone(&body),
-    );
+    ));
   }
   DispatchResult {
     disposition: disposition(shared.default_prevented()),
-    invoked,
+    invoked: invoked.invoked,
+    local_invalidation: invoked.invoked && invoked.local_only,
     prevented_by_reactant: shared.prevented_by_reactant(),
   }
 }
@@ -133,8 +152,8 @@ fn invoke_raw_handlers<G: 'static>(
   kind: UiEventKind,
   event: Rc<EventInner>,
   body: Rc<UiEventBody>,
-) -> bool {
-  let mut invoked = false;
+) -> HandlerInvocations {
+  let mut invoked = HandlerInvocations::default();
   for handler in &node.handlers {
     if event.propagation_stopped() {
       break;
@@ -152,7 +171,9 @@ fn invoke_raw_handlers<G: 'static>(
       Rc::clone(&event),
       Rc::clone(&body),
     );
-    invoked = true;
+    invoked.local_only =
+      (!invoked.invoked || invoked.local_only) && handler.has_local_invalidation();
+    invoked.invoked = true;
   }
   invoked
 }

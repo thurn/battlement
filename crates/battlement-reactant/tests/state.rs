@@ -16,7 +16,7 @@ use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
-  hooks::{StateSetter, use_state, use_state_with},
+  hooks::{StateSetter, use_context, use_state, use_state_with},
   key::KeyRenderExt,
   render::Render,
   runtime::{Reactant, ReactantCommit},
@@ -104,6 +104,7 @@ impl Component for Overflow {
 
 impl Component for CallbackCounter {
   fn render(&self) -> impl Render {
+    let _: u32 = use_context();
     let (count, setter) = use_state(0_u32);
     (
       battlement_reactant::host::ButtonHost::new(ls("Increment"))
@@ -177,10 +178,15 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
     renders: Rc::clone(&renders),
     setter: Rc::clone(&setter),
   };
+  let root_renders = Rc::new(Cell::new(0));
+  let observed_root_renders = Rc::clone(&root_renders);
   let document = self::document();
   let mut game = Game::default();
   let mut reactant = runtime_support::reactant(IdleSpawner);
-  reactant.register_root(document.clone(), move |_| counter.clone());
+  reactant.register_root(document.clone(), move |_| {
+    observed_root_renders.set(observed_root_renders.get() + 1);
+    counter.clone()
+  });
   let initial = self::begin(&mut reactant, &mut game, &document);
   let button = initial.ui[0].children[0].object_id;
   let label = initial.ui[0].children[1].object_id;
@@ -201,6 +207,11 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
 
   assert_eq!(world.element(label).unwrap().text(), Some("Count 11"));
   assert_eq!(renders.get(), 2, "one event produces one refresh");
+  assert_eq!(
+    root_renders.get(),
+    2,
+    "an arbitrary callback preserves full-root invalidation"
+  );
   assert_eq!(initializations.get(), 1);
   assert!(first_setter == setter.borrow().clone().expect("setter remains rendered"));
 
@@ -215,7 +226,12 @@ fn state_callback_factories_remain_live_across_renders() {
   let document = self::document();
   let mut game = Game::default();
   let mut reactant = runtime_support::reactant(IdleSpawner);
-  reactant.register_root(document.clone(), |_| CallbackCounter);
+  let root_renders = Rc::new(Cell::new(0));
+  let observed_root_renders = Rc::clone(&root_renders);
+  reactant.register_root(document.clone(), move |_| {
+    observed_root_renders.set(observed_root_renders.get() + 1);
+    CallbackCounter
+  });
   let initial = self::begin(&mut reactant, &mut game, &document);
   let increment = initial.ui[0].children[0].object_id;
   let replace = initial.ui[0].children[1].object_id;
@@ -247,6 +263,11 @@ fn state_callback_factories_remain_live_across_renders() {
       .into_commit(),
   );
   assert_eq!(world.element(label).unwrap().text(), Some("12"));
+  assert_eq!(
+    root_renders.get(),
+    1,
+    "local state callbacks rerender their component without evaluating the root"
+  );
   let _ = reactant.shutdown(&mut game).into_groups();
 }
 

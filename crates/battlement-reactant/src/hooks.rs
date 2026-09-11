@@ -92,9 +92,12 @@ impl<T: Clone + 'static> StateSetter<T> {
 
   /// Creates a reusable payload-free callback that queues a state update.
   pub fn update_callback(&self, update: impl Fn(T) -> T + 'static) -> EventCallback<()> {
+    if let Some(queue) = self.queue.upgrade() {
+      HookComponent::mark_local_state_callback(&queue.owner);
+    }
     let setter = self.clone();
     let update = Rc::new(update);
-    EventCallback::new(move |()| {
+    EventCallback::local_state(move |()| {
       let update = Rc::clone(&update);
       setter.update(move |value| update(value));
     })
@@ -102,14 +105,20 @@ impl<T: Clone + 'static> StateSetter<T> {
 
   /// Creates a reusable callback that replaces state with its payload.
   pub fn callback(&self) -> EventCallback<T> {
+    if let Some(queue) = self.queue.upgrade() {
+      HookComponent::mark_local_state_callback(&queue.owner);
+    }
     let setter = self.clone();
-    EventCallback::new(move |value| setter.set(value))
+    EventCallback::local_state(move |value| setter.set(value))
   }
 }
 
 impl<T: Clone + 'static> IntoCallback<T, StateSetterCallback> for StateSetter<T> {
   fn into_callback(self) -> EventCallback<T> {
-    EventCallback::new(move |value| self.set(value))
+    if let Some(queue) = self.queue.upgrade() {
+      HookComponent::mark_local_state_callback(&queue.owner);
+    }
+    EventCallback::local_state(move |value| self.set(value))
   }
 }
 

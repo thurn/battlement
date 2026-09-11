@@ -8,6 +8,7 @@ use std::{
 use battlement::{ObjectId, Prop, UiElement, UiNode, UiVisualElementProperties};
 
 use crate::{
+  component::Component,
   context::ProviderValue,
   element_ref::ElementRef,
   error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler},
@@ -25,6 +26,7 @@ use crate::{
   portal::PortalTarget,
   presence::{PresenceBoundaryState, PresenceConfig},
   presence_render, render_facade,
+  render_value::ErasedComponent,
   render_value::{ErasedRender, Sealed},
   resource_runtime::ResourceToken,
   runtime::RenderError,
@@ -206,6 +208,8 @@ pub(crate) struct RenderPosition {
   pub(crate) motion_callbacks: MotionCallbacks,
   pub(crate) motion_callback_history: Vec<MotionCallbackRegistration>,
   pub(crate) component: Option<HookComponent>,
+  pub(crate) component_source: Option<Rc<dyn ErasedComponent>>,
+  pub(crate) component_scope: Option<VariantScope>,
   pub(crate) memo_value: Option<Rc<dyn Any>>,
   pub(crate) provider: Option<ProviderValue>,
   pub(crate) portal: Option<PortalTarget>,
@@ -324,6 +328,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: None,
@@ -341,7 +347,98 @@ impl<'a> RenderSink<'a> {
     });
   }
 
-  pub(crate) fn push_component<C: 'static>(&mut self, mut render: impl FnMut(&mut RenderSink<'_>)) {
+  pub(crate) fn push_component<C: 'static>(&mut self, render: impl FnMut(&mut RenderSink<'_>)) {
+    self.push_component_with_source::<C>(None, render);
+  }
+
+  pub(crate) fn push_retained_component<C: Component>(&mut self, source: Rc<C>) {
+    let progress = self.variant_scope.progress_checkpoint();
+    let position_count = self.positions.len();
+    self.push_component::<C>(|children| {
+      source.render().render_owned(children);
+    });
+    self.retain_local_shared_component::<C>(position_count, source, progress);
+  }
+
+  pub(crate) fn push_owned_component<C: Component>(&mut self, source: C) {
+    let progress = self.variant_scope.progress_checkpoint();
+    let position_count = self.positions.len();
+    self.push_component::<C>(|children| {
+      source.render().render_owned(children);
+    });
+    if self.rendered_local_component(position_count) {
+      let scope = self.variant_scope.checkpoint_at(progress);
+      let position = self.positions.last_mut().expect("component was rendered");
+      position.component_source = Some(Rc::new(source) as Rc<dyn ErasedComponent>);
+      position.component_scope = Some(scope);
+    }
+  }
+
+  fn retain_local_shared_component<C: Component>(
+    &mut self,
+    position_count: usize,
+    source: Rc<C>,
+    progress: crate::motion_variants::VariantProgressCheckpoint,
+  ) {
+    if !self.rendered_local_component(position_count) {
+      return;
+    }
+    let scope = self.variant_scope.checkpoint_at(progress);
+    let position = self.positions.last_mut().expect("component was rendered");
+    position.component_source = Some(source as Rc<dyn ErasedComponent>);
+    position.component_scope = Some(scope);
+  }
+
+  fn rendered_local_component(&self, position_count: usize) -> bool {
+    self.positions.len() != position_count
+      && self
+        .positions
+        .last()
+        .and_then(|position| position.component.as_ref())
+        .is_some_and(HookComponent::has_local_state_callbacks)
+  }
+
+  pub(crate) fn rerender_retained_component(
+    source: &dyn ErasedComponent,
+    committed: &RenderTree,
+    mut component: HookComponent,
+    variant_scope: VariantScope,
+  ) -> Result<Option<(HookComponent, RenderTree)>, RenderError> {
+    let mut retries = 0;
+    loop {
+      let mut children = sink_with_scope(committed, variant_scope.checkpoint());
+      let performance_started = crate::performance::start();
+      let (rendered, render_retry) =
+        hooks::render_component(component, || source.render_into(&mut children));
+      crate::performance::component_named(source.type_name(), performance_started);
+      component = rendered;
+      let (children, pending) = children.finish_attempt()?;
+      if !pending.is_empty() {
+        return Ok(None);
+      }
+      let store_retry = !render_retry && component.stabilize_stores();
+      if render_retry || store_retry {
+        retries += 1;
+        assert!(
+          retries <= hooks::retry_limit(),
+          "{}",
+          if store_retry {
+            "Reactant external store did not stabilize"
+          } else {
+            "Reactant render-phase update retry limit exceeded"
+          }
+        );
+        continue;
+      }
+      return Ok(Some((component, children)));
+    }
+  }
+
+  fn push_component_with_source<C: 'static>(
+    &mut self,
+    source: Option<Rc<dyn ErasedComponent>>,
+    mut render: impl FnMut(&mut RenderSink<'_>),
+  ) {
     if self.error.is_some() {
       return;
     }
@@ -389,6 +486,8 @@ impl<'a> RenderSink<'a> {
         motion_callbacks: MotionCallbacks::default(),
         motion_callback_history: Vec::new(),
         component: Some(component),
+        component_source: source,
+        component_scope: None,
         memo_value: None,
         provider: None,
         portal: None,
@@ -474,6 +573,8 @@ impl<'a> RenderSink<'a> {
         motion_callbacks: MotionCallbacks::default(),
         motion_callback_history: Vec::new(),
         component: matching.component,
+        component_source: None,
+        component_scope: None,
         memo_value: Some(component_value),
         provider: None,
         portal: None,
@@ -536,6 +637,8 @@ impl<'a> RenderSink<'a> {
         motion_callbacks: MotionCallbacks::default(),
         motion_callback_history: Vec::new(),
         component: Some(component),
+        component_source: None,
+        component_scope: None,
         memo_value: Some(component_value),
         provider: None,
         portal: None,
@@ -645,6 +748,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: Some(target),
@@ -705,6 +810,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: Some(provider),
       portal: None,
@@ -820,6 +927,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: None,
@@ -919,6 +1028,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: None,
@@ -965,6 +1076,8 @@ impl<'a> RenderSink<'a> {
       motion_callbacks: MotionCallbacks::default(),
       motion_callback_history: Vec::new(),
       component: None,
+      component_source: None,
+      component_scope: None,
       memo_value: None,
       provider: None,
       portal: None,

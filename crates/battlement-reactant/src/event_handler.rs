@@ -6,7 +6,7 @@ use std::{
 use battlement::{UiEventBody, UiEventKind};
 
 use crate::{
-  callback::Callback,
+  callback::{Callback, Invalidation},
   event::{ElementTarget, EventInner, EventPhase, ReactantEvent},
   semantics,
 };
@@ -14,6 +14,7 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct Handler {
   model: Option<TypeId>,
+  invalidation: Invalidation,
   slot: &'static str,
   native_kind: UiEventKind,
   phase: HandlerPhase,
@@ -30,6 +31,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind,
       phase,
@@ -49,6 +51,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind,
       phase,
@@ -70,6 +73,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind,
       phase,
@@ -89,6 +93,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind,
       phase,
@@ -107,6 +112,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind,
       phase,
@@ -125,6 +131,7 @@ impl Handler {
   ) -> Self {
     Self {
       model: callback.model,
+      invalidation: callback.invalidation,
       slot,
       native_kind: UiEventKind::AccessibilityAction,
       phase: HandlerPhase::Default,
@@ -159,6 +166,10 @@ impl Handler {
 
   pub(crate) fn model(&self) -> Option<TypeId> {
     self.model
+  }
+
+  pub(crate) fn has_local_invalidation(&self) -> bool {
+    self.invalidation == Invalidation::LocalState
   }
 
   pub(crate) fn native_kind(&self) -> UiEventKind {

@@ -15,7 +15,14 @@ pub trait IntoCallback<A, Signature>: 'static {
 /// A shared event callback retaining its optional application-model requirement.
 pub struct Callback<A> {
   pub(crate) model: Option<TypeId>,
+  pub(crate) invalidation: Invalidation,
   invoke: Rc<Invocation<A>>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum Invalidation {
+  Full,
+  LocalState,
 }
 
 /// Distinguishes forwarding a stored callback from converting a closure.
@@ -32,6 +39,7 @@ impl<A> Clone for Callback<A> {
   fn clone(&self) -> Self {
     Self {
       model: self.model,
+      invalidation: self.invalidation,
       invoke: Rc::clone(&self.invoke),
     }
   }
@@ -47,6 +55,18 @@ impl<A: 'static> Callback<A> {
   pub fn new(callback: impl Fn(A) + 'static) -> Self {
     Self {
       model: None,
+      invalidation: Invalidation::Full,
+      invoke: Rc::new(move |_, value| {
+        callback(value);
+        true
+      }),
+    }
+  }
+
+  pub(crate) fn local_state(callback: impl Fn(A) + 'static) -> Self {
+    Self {
+      model: None,
+      invalidation: Invalidation::LocalState,
       invoke: Rc::new(move |_, value| {
         callback(value);
         true
@@ -90,6 +110,13 @@ impl<A: 'static> Callback<A> {
     };
     Self {
       model,
+      invalidation: if self.invalidation == Invalidation::LocalState
+        && next.invalidation == Invalidation::LocalState
+      {
+        Invalidation::LocalState
+      } else {
+        Invalidation::Full
+      },
       invoke: Rc::new(move |game, value| {
         let handled = self.call(game, value.clone());
         next.call(game, value) || handled
@@ -104,6 +131,7 @@ impl<A: 'static> Callback<A> {
   pub(crate) fn map<B: 'static>(self, map: impl Fn(B) -> Option<A> + 'static) -> Callback<B> {
     Callback {
       model: self.model,
+      invalidation: self.invalidation,
       invoke: Rc::new(move |game, value| {
         if let Some(value) = map(value) {
           self.call(game, value)
@@ -119,6 +147,7 @@ impl<F: Fn() + 'static> IntoCallback<(), fn()> for F {
   fn into_callback(self) -> Callback<()> {
     Callback {
       model: None,
+      invalidation: Invalidation::Full,
       invoke: Rc::new(move |_, ()| {
         self();
         true
@@ -131,6 +160,7 @@ impl<G: 'static, F: Fn(&mut G) + 'static> IntoCallback<(), fn(&mut G)> for F {
   fn into_callback(self) -> Callback<()> {
     Callback {
       model: Some(TypeId::of::<G>()),
+      invalidation: Invalidation::Full,
       invoke: Rc::new(move |game, ()| {
         self(game.downcast_mut().expect("callback model mismatch"));
         true
@@ -143,6 +173,7 @@ impl<A: 'static, F: Fn(A) + 'static> IntoCallback<A, (fn(A),)> for F {
   fn into_callback(self) -> Callback<A> {
     Callback {
       model: None,
+      invalidation: Invalidation::Full,
       invoke: Rc::new(move |_, value| {
         self(value);
         true
@@ -155,6 +186,7 @@ impl<G: 'static, A: 'static, F: Fn(&mut G, A) + 'static> IntoCallback<A, (fn(&mu
   fn into_callback(self) -> Callback<A> {
     Callback {
       model: Some(TypeId::of::<G>()),
+      invalidation: Invalidation::Full,
       invoke: Rc::new(move |game, value| {
         self(game.downcast_mut().expect("callback model mismatch"), value);
         true
