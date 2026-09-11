@@ -18,9 +18,11 @@ from typing import Any
 
 import perf_analysis
 import perf_candidate
+import perf_ci
+import perf_codex
 import perf_log
+import perf_tollgate
 from perf_model import Thresholds
-import perf_sources
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -30,8 +32,8 @@ def main(arguments: argparse.Namespace) -> Path:
     """Build, print, and save one deterministic performance report."""
     _observation_window(arguments)
     repository_url = _repository_url()
-    records, children, warnings = perf_sources.discover_codex_threads(
-        perf_sources.codex_root(), repository_url
+    records, children, warnings = perf_codex.discover_codex_threads(
+        perf_codex.codex_root(), repository_url
     )
     if arguments.live_state:
         snapshot = json.loads(arguments.live_state.read_text())
@@ -43,7 +45,7 @@ def main(arguments: argparse.Namespace) -> Path:
                 records[thread_id] = replace(records[thread_id], live_turn_id=turn_id,
                                              live_observed_at=arguments.cutoff)
     sessions = _load_sessions(arguments, records, children)
-    ci_spans, ci_warnings = perf_sources.read_ci_traces(perf_log.configured_log_root())
+    ci_spans, ci_warnings = perf_ci.read_ci_traces(perf_log.configured_log_root())
     warnings.extend(ci_warnings)
     known_operations = {}
     for span in ci_spans:
@@ -51,18 +53,18 @@ def main(arguments: argparse.Namespace) -> Path:
             known_operations[span.id.removeprefix("ci-run:")] = span.id
         elif span.id.startswith("ci-step:"):
             known_operations[span.id.removeprefix("ci-step:")] = span.id
-    operation_spans, operation_warnings = perf_sources.read_operation_traces(
+    operation_spans, operation_warnings = perf_ci.read_operation_traces(
         perf_log.configured_log_root(), known_operations,
     )
     warnings.extend(operation_warnings)
-    workflow_spans, workflow_warnings = perf_sources.read_workflow_milestones(
+    workflow_spans, workflow_warnings = perf_ci.read_workflow_milestones(
         perf_log.configured_log_root()
     )
     warnings.extend(workflow_warnings)
     tollgate_spans = []
     candidates = []
     if not arguments.no_tollgate:
-        tollgate_spans, tollgate_warnings, candidates = perf_sources.read_tollgate(
+        tollgate_spans, tollgate_warnings, candidates = perf_tollgate.read_tollgate(
             REPOSITORY_ROOT
         )
         warnings.extend(tollgate_warnings)
@@ -183,7 +185,7 @@ def _observation_window(arguments: argparse.Namespace) -> None:
 
 def _load_sessions(
     arguments: argparse.Namespace,
-    records: dict[str, perf_sources.ThreadRecord],
+    records: dict[str, perf_codex.ThreadRecord],
     children: dict[str, list[str]],
 ) -> list[Any]:
     roots = sorted(
@@ -197,7 +199,7 @@ def _load_sessions(
     scan_limit = 200 if arguments.commit or arguments.candidate else len(roots)
     sessions = []
     for record in roots[:scan_limit]:
-        session = perf_sources.load_session_tree(record, records, children, arguments.cutoff)
+        session = perf_codex.load_session_tree(record, records, children, arguments.cutoff)
         session.window_start = arguments.window_start
         session.window_end = arguments.window_end
         if arguments.date:

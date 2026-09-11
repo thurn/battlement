@@ -15,7 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import ci_job  # noqa: E402
-import perf_sources  # noqa: E402
+import perf_ci  # noqa: E402
 import platform_support  # noqa: E402
 import process_identity  # noqa: E402
 
@@ -59,7 +59,7 @@ def main() -> None:
         passed = ci_job.wait_for(path, running["revision"], 5)
         assert passed["state"] == "passed"
         assert passed["timed_out"] is False
-        milestones, warnings = perf_sources.read_workflow_milestones(
+        milestones, warnings = perf_ci.read_workflow_milestones(
             Path(os.environ["BATTLEMENT_LOG_ROOT"])
         )
         assert not warnings

@@ -20,11 +20,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import perf_analysis  # noqa: E402
+import perf_ci  # noqa: E402
+import perf_codex  # noqa: E402
+import perf_content  # noqa: E402
 import perf_hotspots  # noqa: E402
 import perf_log  # noqa: E402
 from perf_model import exclusive_durations, interval_difference_ms, interval_union_ms, parse_timestamp, SessionTrace, Span, Thresholds  # noqa: E402
 import perf_report  # noqa: E402
-import perf_sources  # noqa: E402
+import perf_tollgate  # noqa: E402
 import perf_timeline_cases  # noqa: E402
 import workflow_event  # noqa: E402
 
@@ -65,7 +68,7 @@ def _verify_repository_normalization() -> None:
 
 
 def _verify_content_sanitization() -> None:
-    sanitized = perf_sources.sanitize(
+    sanitized = perf_content.sanitize(
         {
             "text": "preserved",
             "encrypted_content": "omitted",
@@ -76,7 +79,7 @@ def _verify_content_sanitization() -> None:
     assert "encrypted_content" not in sanitized
     assert sanitized["image"]["data_metadata"]["size"] == 6
     assert "data" not in sanitized["image"]
-    data_url = perf_sources.sanitize(
+    data_url = perf_content.sanitize(
         {"image_url": "data:image/png;base64,aGVsbG8="}
     )
     metadata = data_url["image_url"]["data_url_metadata"]
@@ -89,13 +92,13 @@ def _verify_content_sanitization() -> None:
 def _verify_candidate_evidence(root: Path) -> None:
     session = SessionTrace("candidate", "Candidate", root, "repository")
     candidate_id = "11111111-2222-3333-4444-555555555555"
-    perf_sources._collect_candidate_ids(
+    perf_codex._collect_candidate_ids(
         session,
         {"input": {"cmd": "tg status --json; tg candidate --help"}},
         {"output": json.dumps({"item": {"id": candidate_id, "source_oid": "oid"}})},
     )
     assert not session.candidate_ids
-    perf_sources._collect_candidate_ids(
+    perf_codex._collect_candidate_ids(
         session,
         {"input": {"cmd": "tg --no-launch --json candidate HEAD"}},
         {
@@ -176,7 +179,7 @@ def _verify_ci_entrypoint(root: Path) -> None:
         ]
         assert len(children) == 2
         assert all(record["parent_span_id"] == parallel["span_id"] for record in children)
-    spans, warnings = perf_sources.read_ci_traces(log_root)
+    spans, warnings = perf_ci.read_ci_traces(log_root)
     assert not warnings
     assert len([span for span in spans if span.id.startswith("ci-run:")]) == 4
 
@@ -247,10 +250,11 @@ def _verify_codex_parsing(root: Path) -> tuple[SessionTrace, SessionTrace]:
             {"timestamp": "2026-01-01T00:00:06Z", "type": "unknown", "payload": {}},
         ],
     )
-    record = perf_sources.ThreadRecord(
+    record = perf_codex.ThreadRecord(
         "root", rollout, "Fixture task", "github.com/thurn/battlement", 1
     )
-    session = perf_sources.parse_codex_rollout(record)
+    root_entries, root_warnings = perf_codex.read_codex_rollout(record.rollout_path)
+    session = perf_codex.parse_codex_rollout(record, root_entries, source_warnings=root_warnings)
     assert session.completed
     assert session.first_user_at is not None
     tool = next(span for span in session.spans if span.category == "tool")
@@ -271,20 +275,20 @@ def _verify_codex_parsing(root: Path) -> tuple[SessionTrace, SessionTrace]:
             _event("2026-01-01T00:00:04Z", "task_complete", {"turn_id": "child-turn"}),
         ],
     )
-    child = perf_sources.parse_codex_rollout(
-        perf_sources.ThreadRecord(
+    child_record = perf_codex.ThreadRecord(
             "child", child_rollout, "Review", "github.com/thurn/battlement", 2, "root"
-        )
     )
+    child_entries, child_warnings = perf_codex.read_codex_rollout(child_record.rollout_path)
+    child = perf_codex.parse_codex_rollout(child_record, child_entries, source_warnings=child_warnings)
     return session, child
 
 
 def _verify_child_folding(root: SessionTrace, child: SessionTrace) -> None:
     records = {
-        "root": perf_sources.ThreadRecord("root", root.rollout_path, root.title, root.repository_url, 1),
-        "child": perf_sources.ThreadRecord("child", child.rollout_path, child.title, child.repository_url, 2, "root"),
+        "root": perf_codex.ThreadRecord("root", root.rollout_path, root.title, root.repository_url, 1),
+        "child": perf_codex.ThreadRecord("child", child.rollout_path, child.title, child.repository_url, 2, "root"),
     }
-    loaded = perf_sources.load_session_tree(records["root"], records, {"root": ["child"]})
+    loaded = perf_codex.load_session_tree(records["root"], records, {"root": ["child"]})
     assert any(span.category == "subagent" for span in loaded.spans)
     assert any(item.get("session_id") == "child" for item in loaded.transcript) is False
 
@@ -303,7 +307,7 @@ def _verify_ci_parsing(root: Path) -> None:
             {"timestamp": "2026-01-01T00:00:04Z", "event": "ci.run_finished", "run_id": "run", "outcome": "passed", "exit_code": 0},
         ],
     )
-    spans, warnings = perf_sources.read_ci_traces(root / "ci-logs")
+    spans, warnings = perf_ci.read_ci_traces(root / "ci-logs")
     assert any("non-object" in warning for warning in warnings)
     assert len(spans) == 3
     run = next(span for span in spans if span.id == "ci-run:run")
@@ -348,7 +352,7 @@ def _verify_operation_parsing(root: Path) -> None:
          "operation_id": "ci-step", "name": "CI duplicate", "context": {},
          "metadata": {}},
     ])
-    spans, warnings = perf_sources.read_operation_traces(
+    spans, warnings = perf_ci.read_operation_traces(
         log_root, {"ci-step": "ci-step:ci-step"},
     )
     assert len(spans) == 6
@@ -383,7 +387,7 @@ def _verify_workflow_milestones(root: Path) -> None:
         )
     assert first == second
     assert stat.S_IMODE(first.stat().st_mode) == 0o600
-    spans, warnings = perf_sources.read_workflow_milestones(log_root)
+    spans, warnings = perf_ci.read_workflow_milestones(log_root)
     assert not warnings
     assert [span.name for span in spans] == ["focused.passed", "review.ready"]
     assert all(span.attributes["task_id"] == workflow_id for span in spans)
@@ -398,7 +402,7 @@ def _verify_workflow_milestones(root: Path) -> None:
     assert perf_log._completed_trace(first)
     malformed = log_root / "workflows/2026-01-01/malformed.jsonl"
     _write_jsonl(malformed, [{"event": "workflow.milestone", "milestone": "review.ready"}])
-    _, warnings = perf_sources.read_workflow_milestones(log_root)
+    _, warnings = perf_ci.read_workflow_milestones(log_root)
     assert any("malformed workflow milestone" in warning for warning in warnings)
 
 
@@ -520,7 +524,7 @@ def _verify_tollgate_phase_timings() -> None:
         {"kind": "candidate.promotion-authorized", "created_at": "1970-01-01T00:00:00Z", "payload": {"item_id": candidate_id}},
         {"kind": "queue.item-updated", "created_at": "1970-01-01T00:00:01Z", "payload": {"id": candidate_id, "certificate_id": "certificate"}},
     ]
-    spans = perf_sources._database_promotion_spans(connection, history, {candidate_id})
+    spans = perf_tollgate._database_promotion_spans(connection, history, {candidate_id})
     durations = {span.name: span.duration_ms for span in spans}
     assert durations == {
         "Tollgate promotion pipeline": 8000,
@@ -647,8 +651,8 @@ def _verify_tollgate_retries(root: Path) -> None:
         {"kind": "queue.item-updated", "created_at": "2026-01-01T00:00:12Z", "payload": {"id": candidate_id, "remote_state": "synchronized"}},
         "unknown",
     ]
-    with patch.object(perf_sources, "_run_json_command", side_effect=[status, history]):
-        spans, warnings, candidates = perf_sources.read_tollgate(root)
+    with patch.object(perf_tollgate, "_run_json_command", side_effect=[status, history]):
+        spans, warnings, candidates = perf_tollgate.read_tollgate(root)
     assert len([span for span in spans if span.id.startswith("tg-buildset:")]) == 2
     assert candidates[0]["attempts"][1]["attempt"] == 2
     assert any("non-object" in warning for warning in warnings)
@@ -686,8 +690,8 @@ def _verify_private_report(root: Path) -> None:
 
 
 def _verify_tollgate_failure(root: Path) -> None:
-    with patch.object(perf_sources, "_run_json_command", side_effect=FileNotFoundError("tg")):
-        spans, warnings, candidates = perf_sources.read_tollgate(root)
+    with patch.object(perf_tollgate, "_run_json_command", side_effect=FileNotFoundError("tg")):
+        spans, warnings, candidates = perf_tollgate.read_tollgate(root)
     assert not spans and not candidates
     assert warnings and "unavailable" in warnings[0]
 
