@@ -2,8 +2,9 @@ use battlement_types::ObjectId;
 use battlement_ui::{
   Align, FlexDirection, FlexWrap, GridAutoFlow, GridItem, GridTrack, Justify, OverlayLayer,
   OverlayPlacement, PlacementAlign, PlacementSide, PopoverPlacement, Position, Prop, StackItem,
-  Sticky, Style, UiDocument, UiElement, UiFlex, UiGrid, UiNode, UiStack, UiValidationError,
-  UiVisualElement, validate_element_state,
+  Sticky, Style, UiDocument, UiElement, UiFlex, UiGrid, UiNode, UiSlider, UiStack,
+  UiValidationError, UiVisualElement, validate_create_subtree, validate_element_state,
+  validate_element_update,
 };
 
 #[test]
@@ -220,6 +221,72 @@ fn grid_items_require_a_grid_parent_and_default_positioning() {
       Err(UiValidationError::InvalidProperty)
     );
   }
+}
+
+#[test]
+fn detached_subtree_roots_defer_only_live_parent_context_checks() {
+  let detached_grid_item = UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      grid_item: Prop::Set(GridItem::new()),
+      ..UiVisualElement::new()
+    },
+  );
+  let detached_sticky = UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      sticky: Prop::Set(Sticky {
+        top: Some(0.0),
+        ..Sticky::default()
+      }),
+      ..UiVisualElement::new()
+    },
+  );
+  let detached_tab = UiNode::new(ObjectId::new_v4(), battlement_ui::UiTab::new("Deferred"));
+
+  assert!(validate_create_subtree(&detached_grid_item).is_ok());
+  assert!(validate_create_subtree(&detached_sticky).is_ok());
+  assert!(validate_create_subtree(&detached_tab).is_ok());
+
+  let invalid_grid_item = UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      grid_item: Prop::Set(GridItem {
+        row: Some(0),
+        ..GridItem::default()
+      }),
+      ..UiVisualElement::new()
+    },
+  );
+  let invalid_sticky = UiNode::new(
+    ObjectId::new_v4(),
+    UiVisualElement {
+      sticky: Prop::Set(Sticky {
+        top: Some(0.0),
+        bottom: Some(0.0),
+        ..Sticky::default()
+      }),
+      ..UiVisualElement::new()
+    },
+  );
+  assert_eq!(
+    validate_create_subtree(&invalid_grid_item),
+    Err(UiValidationError::InvalidProperty)
+  );
+  assert_eq!(
+    validate_create_subtree(&invalid_sticky),
+    Err(UiValidationError::InvalidProperty)
+  );
+}
+
+#[test]
+fn sparse_range_validation_defers_cross_field_bounds_until_merge() {
+  let sparse = UiElement::from(UiSlider::new().value(20.0));
+  assert_eq!(validate_element_update(&sparse), Ok(()));
+  assert_eq!(
+    validate_element_state(&sparse),
+    Err(UiValidationError::InvalidProperty)
+  );
 }
 
 #[test]
