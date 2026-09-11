@@ -1,5 +1,11 @@
+use std::{fmt, marker::PhantomData};
+
 use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress};
-use serde::{Deserialize, Serialize};
+use serde::{
+  Deserialize, Deserializer, Serialize, Serializer,
+  de::{self, SeqAccess, Visitor},
+  ser::SerializeTuple,
+};
 
 use crate::elements::background::BackgroundSource;
 use crate::{Prop, Shadow};
@@ -17,20 +23,83 @@ pub enum InlineKeyword {
 
 /// One concrete inline value or an explicit USS keyword.
 ///
-/// Concrete values serialize directly. [`InlineKeyword::Initial`] serializes as
-/// `{ "Keyword": "Initial" }`. [`Prop::Reset`] serializes as `null`, while an
-/// omitted [`Style`] field leaves the current value unchanged.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(untagged)]
+/// Values serialize as `[0, value]`; keywords serialize as `[1, keyword]`.
+/// [`Prop::Reset`] serializes as `null`, while an omitted [`Style`] field leaves
+/// the current value unchanged.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum StyleValue<T> {
   /// Assigns a concrete property value.
   Value(T),
   /// Assigns an explicit USS keyword.
   Keyword {
     /// Keyword sent to Unity's inline style.
-    #[serde(rename = "Keyword")]
     value: InlineKeyword,
   },
+}
+
+impl<T: Serialize> Serialize for StyleValue<T> {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    let mut tuple = serializer.serialize_tuple(2)?;
+    match self {
+      Self::Value(value) => {
+        tuple.serialize_element(&0_u8)?;
+        tuple.serialize_element(value)?;
+      }
+      Self::Keyword { value } => {
+        tuple.serialize_element(&1_u8)?;
+        tuple.serialize_element(value)?;
+      }
+    }
+    tuple.end()
+  }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for StyleValue<T> {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    struct StyleValueVisitor<T>(PhantomData<T>);
+
+    impl<'de, T: Deserialize<'de>> Visitor<'de> for StyleValueVisitor<T> {
+      type Value = StyleValue<T>;
+
+      fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a two-item UI style value array")
+      }
+
+      fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+      where
+        A: SeqAccess<'de>,
+      {
+        let kind = sequence
+          .next_element::<u8>()?
+          .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+        let value = match kind {
+          0 => StyleValue::Value(
+            sequence
+              .next_element()?
+              .ok_or_else(|| de::Error::invalid_length(1, &self))?,
+          ),
+          1 => StyleValue::Keyword {
+            value: sequence
+              .next_element()?
+              .ok_or_else(|| de::Error::invalid_length(1, &self))?,
+          },
+          _ => return Err(de::Error::custom("unknown UI style value kind")),
+        };
+        if sequence.next_element::<de::IgnoredAny>()?.is_some() {
+          return Err(de::Error::invalid_length(3, &self));
+        }
+        Ok(value)
+      }
+    }
+
+    deserializer.deserialize_tuple(2, StyleValueVisitor(PhantomData))
+  }
 }
 
 impl<T> From<InlineKeyword> for StyleValue<T> {

@@ -90,7 +90,8 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
   let wire = serde_json::to_value(element).expect("patch serializes");
   assert_eq!(wire["Label"]["text"], "Playing");
   assert!(wire["Label"].get("name").is_none());
-  assert_eq!(wire["Label"]["style"]["width"]["Px"], 180.0);
+  assert_eq!(wire["Label"]["style"]["width"][0], 0);
+  assert_eq!(wire["Label"]["style"]["width"][1]["Px"], 180.0);
   self::apply(&mut world, &update);
   assert_eq!(world.element(label_id).unwrap().text(), Some("Playing"));
 

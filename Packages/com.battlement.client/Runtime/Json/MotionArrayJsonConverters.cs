@@ -170,6 +170,12 @@ namespace Battlement
             return serializer.Deserialize<T>(reader);
         }
 
+        internal static object? ReadObject(JsonReader reader, Type type, JsonSerializer serializer)
+        {
+            Advance(reader, type.Name);
+            return serializer.Deserialize(reader, type);
+        }
+
         internal static void RequireEnd(JsonReader reader, string type)
         {
             if (!reader.Read() || reader.TokenType != JsonToken.EndArray)

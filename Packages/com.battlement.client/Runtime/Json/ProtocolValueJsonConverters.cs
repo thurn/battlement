@@ -132,7 +132,6 @@ namespace Battlement
             JsonSerializer serializer
         )
         {
-            JToken token = JToken.Load(reader);
             Type valueType = objectType.GetGenericArguments()[0];
             IUiStyleFactory factory = Factories.GetOrAdd(
                 valueType,
@@ -140,20 +139,27 @@ namespace Battlement
                     (IUiStyleFactory)
                         Activator.CreateInstance(typeof(UiStyleFactory<>).MakeGenericType(type))!
             );
-            if (
-                token is JObject keywordObject
-                && keywordObject.Count == 1
-                && keywordObject.TryGetValue("Keyword", out JToken? keywordToken)
-            )
+            MotionArrayJson.RequireStart(reader, "UI style value");
+            int kind = MotionArrayJson.Read<int>(reader, serializer);
+            object result;
+            if (kind == 0)
             {
-                UiInlineKeyword keyword = keywordToken.ToObject<UiInlineKeyword>(serializer);
-                return factory.CreateKeyword(keyword);
+                object concrete =
+                    MotionArrayJson.ReadObject(reader, valueType, serializer)
+                    ?? throw new JsonSerializationException("A concrete UI style value was null.");
+                result = factory.CreateValue(concrete);
             }
-
-            object value =
-                token.ToObject(valueType, serializer)
-                ?? throw new JsonSerializationException("A concrete UI style value was null.");
-            return factory.CreateValue(value);
+            else if (kind == 1)
+            {
+                UiInlineKeyword keyword = MotionArrayJson.Read<UiInlineKeyword>(reader, serializer);
+                result = factory.CreateKeyword(keyword);
+            }
+            else
+            {
+                throw new JsonSerializationException("Unknown UI style value kind.");
+            }
+            MotionArrayJson.RequireEnd(reader, "UI style value");
+            return result;
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
@@ -162,15 +168,17 @@ namespace Battlement
                 throw new JsonSerializationException("A UI style value cannot be null.");
             Type type = value.GetType();
             object? keyword = type.GetProperty("Keyword")!.GetValue(value);
+            writer.WriteStartArray();
             if (keyword is not null)
             {
-                writer.WriteStartObject();
-                writer.WritePropertyName("Keyword");
+                writer.WriteValue(1);
                 serializer.Serialize(writer, keyword);
-                writer.WriteEndObject();
+                writer.WriteEndArray();
                 return;
             }
+            writer.WriteValue(0);
             serializer.Serialize(writer, type.GetProperty("Value")!.GetValue(value));
+            writer.WriteEndArray();
         }
 
         private interface IUiStyleFactory

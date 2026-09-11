@@ -368,7 +368,7 @@ namespace Battlement.Tests
             const string commandPath = "messages[0].Batch.groups[0].commands[0].body.";
             const string stylePath = "VisualElementUpdate.Properties.element.Box.style.width";
             JToken? width = root.SelectToken(commandPath + stylePath);
-            Assert.That(width, Is.EqualTo(JObject.Parse("{\"Keyword\":\"Initial\"}")));
+            Assert.That(width, Is.EqualTo(JArray.Parse("[1,\"Initial\"]")));
 
             Response decoded = BattlementJson.DeserializeResponse(
                 Encoding.UTF8.GetBytes(root.ToString(Formatting.None))
@@ -379,6 +379,30 @@ namespace Battlement.Tests
             var element = (UiElement.Box)properties.Element;
             Assert.That(element.Style!.Width.IsSet, Is.True);
             Assert.That(element.Style.Width.Value!.Keyword, Is.EqualTo(UiInlineKeyword.Initial));
+        }
+
+        [Test]
+        public void StyleValueArraysRejectInvalidKindsAndItemCounts()
+        {
+            foreach (
+                string malformed in new[]
+                {
+                    "null",
+                    "[]",
+                    "[0]",
+                    "[0,null]",
+                    "[2,1]",
+                    "[0,1,2]",
+                    "[1,\"Unknown\"]",
+                }
+            )
+            {
+                Assert.Throws<JsonSerializationException>(() =>
+                    BattlementJson.Deserialize<UiStyleValue<float>>(
+                        Encoding.UTF8.GetBytes(malformed)
+                    )
+                );
+            }
         }
 
         [Test]

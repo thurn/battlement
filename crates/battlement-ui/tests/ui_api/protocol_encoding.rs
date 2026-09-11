@@ -127,8 +127,8 @@ fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_part
     serde_json::json!({"Toggle": {
         "text": "Ready",
         "parts": [
-            {"part": "ToggleInput", "style": {"background_color": {"r": 0.1, "g": 0.2, "b": 0.3}}},
-            {"part": "ToggleCheckmark", "style": {"width": {"Px": 18.0}}}
+            {"part": "ToggleInput", "style": {"background_color": [0, {"r": 0.1, "g": 0.2, "b": 0.3}]}},
+            {"part": "ToggleCheckmark", "style": {"width": [0, {"Px": 18.0}]}}
         ]
     }})
   );
@@ -161,8 +161,8 @@ fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts()
         "choices": ["Alpha", "Beta"],
         "parts": [
             {"part": "RadioButtonGroupOptionText", "index": 1,
-                "style": {"color": {"r": 0.9, "g": 0.8, "b": 0.2}}},
-            {"part": "RadioButtonGroupAllOptions", "style": {"height": {"Px": 32.0}}}
+                "style": {"color": [0, {"r": 0.9, "g": 0.8, "b": 0.2}]}},
+            {"part": "RadioButtonGroupAllOptions", "style": {"height": [0, {"Px": 32.0}]}}
         ]
     }})
   );
@@ -681,39 +681,43 @@ fn appearance_style_catalog_serializes_values_shorthands_and_keywords() {
     .visibility(Visibility::Hidden);
 
   let value = serde_json::to_value(style).unwrap();
-  assert_eq!(
-    value["background_color"],
-    serde_json::json!({"Keyword": "Initial"})
-  );
-  assert_eq!(value["border_top_width"], 1.0);
-  assert_eq!(value["border_right_width"], 2.0);
-  assert_eq!(value["border_bottom_width"], 1.0);
-  assert_eq!(value["border_left_width"], 2.0);
+  assert_eq!(value["background_color"], serde_json::json!([1, "Initial"]));
+  assert_eq!(value["border_top_width"], serde_json::json!([0, 1.0]));
+  assert_eq!(value["border_right_width"], serde_json::json!([0, 2.0]));
+  assert_eq!(value["border_bottom_width"], serde_json::json!([0, 1.0]));
+  assert_eq!(value["border_left_width"], serde_json::json!([0, 2.0]));
   assert_eq!(
     value["border_top_left_radius"],
-    serde_json::json!({"Px": 4.0})
+    serde_json::json!([0, {"Px": 4.0}])
   );
   assert_eq!(
     value["border_top_right_radius"],
-    serde_json::json!({"Px": 8.0})
+    serde_json::json!([0, {"Px": 8.0}])
   );
   assert_eq!(
     value["border_bottom_right_radius"],
-    serde_json::json!({"Px": 12.0})
+    serde_json::json!([0, {"Px": 12.0}])
   );
   assert_eq!(
     value["border_bottom_left_radius"],
-    serde_json::json!({"Px": 8.0})
+    serde_json::json!([0, {"Px": 8.0}])
   );
-  assert_eq!(value["display"], "Flex");
+  assert_eq!(value["display"], serde_json::json!([0, "Flex"]));
   assert_eq!(
     value["background_image"],
-    serde_json::json!({"Sprite": "ui/sliced-panel"})
+    serde_json::json!([0, {"Sprite": "ui/sliced-panel"}])
   );
-  assert_eq!(value["overflow"], "Hidden");
-  assert_eq!(value["unity_material"], "ui/material");
-  assert_eq!(value["unity_slice_type"], "Tiled");
-  assert_eq!(value["visibility"], "Hidden");
+  assert_eq!(value["overflow"], serde_json::json!([0, "Hidden"]));
+  assert_eq!(
+    value["unity_material"],
+    serde_json::json!([0, "ui/material"])
+  );
+  assert_eq!(value["unity_slice_type"], serde_json::json!([0, "Tiled"]));
+  assert_eq!(value["visibility"], serde_json::json!([0, "Hidden"]));
+
+  for malformed in ["null", "[]", "[0]", "[2,1]", "[0,1,2]", "[1,\"Unknown\"]"] {
+    assert!(serde_json::from_str::<StyleValue<f32>>(malformed).is_err());
+  }
 }
 
 #[test]
@@ -742,31 +746,31 @@ fn layout_style_catalog_serializes_typed_values_and_expanded_shorthands() {
   assert_eq!(
     serde_json::to_value(style).unwrap(),
     serde_json::json!({
-        "align_content": "Center",
-        "align_items": "Stretch",
-        "align_self": "FlexEnd",
-        "aspect_ratio": {"Ratio": {"width": 16.0, "height": 9.0}},
-        "flex_basis": "Auto",
-        "flex_direction": "RowReverse",
-        "flex_grow": 2.0,
-        "flex_shrink": 1.0,
-        "flex_wrap": "WrapReverse",
-        "height": "Auto",
-        "justify_content": "SpaceEvenly",
-        "margin_top": {"Px": 8.0},
-        "margin_right": {"Px": 16.0},
-        "margin_bottom": {"Px": 24.0},
-        "margin_left": {"Px": 32.0},
-        "max_width": {"Percent": 90.0},
-        "min_height": {"Px": 48.0},
-        "padding_top": {"Px": 4.0},
-        "padding_right": {"Px": 8.0},
-        "padding_bottom": {"Px": 12.0},
-        "padding_left": {"Px": 8.0},
-        "position": "Absolute",
-        "right": {"Percent": 5.0},
-        "top": {"Px": 12.0},
-        "width": {"Keyword": "Initial"}
+        "align_content": [0, "Center"],
+        "align_items": [0, "Stretch"],
+        "align_self": [0, "FlexEnd"],
+        "aspect_ratio": [0, {"Ratio": {"width": 16.0, "height": 9.0}}],
+        "flex_basis": [0, "Auto"],
+        "flex_direction": [0, "RowReverse"],
+        "flex_grow": [0, 2.0],
+        "flex_shrink": [0, 1.0],
+        "flex_wrap": [0, "WrapReverse"],
+        "height": [0, "Auto"],
+        "justify_content": [0, "SpaceEvenly"],
+        "margin_top": [0, {"Px": 8.0}],
+        "margin_right": [0, {"Px": 16.0}],
+        "margin_bottom": [0, {"Px": 24.0}],
+        "margin_left": [0, {"Px": 32.0}],
+        "max_width": [0, {"Percent": 90.0}],
+        "min_height": [0, {"Px": 48.0}],
+        "padding_top": [0, {"Px": 4.0}],
+        "padding_right": [0, {"Px": 8.0}],
+        "padding_bottom": [0, {"Px": 12.0}],
+        "padding_left": [0, {"Px": 8.0}],
+        "position": [0, "Absolute"],
+        "right": [0, {"Percent": 5.0}],
+        "top": [0, {"Px": 12.0}],
+        "width": [1, "Initial"]
     })
   );
 }
@@ -779,7 +783,7 @@ fn layout_style_setters_map_options_to_sparse_operations() {
   assert_eq!(style.height, Prop::Unset);
   assert_eq!(
     serde_json::to_value(style).unwrap(),
-    serde_json::json!({"width": {"Px": 42.0}})
+    serde_json::json!({"width": [0, {"Px": 42.0}]})
   );
 }
 
@@ -807,24 +811,24 @@ fn background_and_cursor_styles_serialize_the_native_value_shapes() {
   assert_eq!(
     serde_json::to_value(style).unwrap(),
     serde_json::json!({
-        "background_position_x": {
+        "background_position_x": [0, {
             "keyword": "Right",
             "offset": {"Percent": 12.0}
-        },
-        "background_position_y": {
+        }],
+        "background_position_y": [0, {
             "keyword": "Bottom",
             "offset": {"Px": 8.0}
-        },
-        "background_repeat": {"x": "Round", "y": "Space"},
-        "background_size": {
+        }],
+        "background_repeat": [0, {"x": "Round", "y": "Space"}],
+        "background_size": [0, {
             "Axes": {"x": {"Percent": 50.0}, "y": "Auto"}
-        },
-        "cursor": {
+        }],
+        "cursor": [0, {
             "Texture": {
                 "address": "ui/cursor",
                 "hotspot": {"x": 3.0, "y": 5.0}
             }
-        }
+        }]
     })
   );
 }
