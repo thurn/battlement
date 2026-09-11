@@ -160,12 +160,20 @@ namespace Battlement.UI
             {
                 if (filter is UiFilterFunction.Brightness brightness)
                 {
-                    for (int i = 0; i < count; i++)
-                    {
-                        pixels[i].r = Mathf.Min(1, pixels[i].r * (float)brightness.Value);
-                        pixels[i].g = Mathf.Min(1, pixels[i].g * (float)brightness.Value);
-                        pixels[i].b = Mathf.Min(1, pixels[i].b * (float)brightness.Value);
-                    }
+                    Parallel.For(
+                        0,
+                        height,
+                        y =>
+                        {
+                            int end = (y + 1) * width;
+                            for (int i = y * width; i < end; i++)
+                            {
+                                pixels[i].r = Mathf.Min(1, pixels[i].r * (float)brightness.Value);
+                                pixels[i].g = Mathf.Min(1, pixels[i].g * (float)brightness.Value);
+                                pixels[i].b = Mathf.Min(1, pixels[i].b * (float)brightness.Value);
+                            }
+                        }
+                    );
                 }
                 else if (filter is UiFilterFunction.DropShadow shadow)
                 {
@@ -184,9 +192,17 @@ namespace Battlement.UI
                 }
             }
             var upload = new Color32[count];
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-                upload[(height - 1 - y) * width + x] = pixels[y * width + x];
+            Parallel.For(
+                0,
+                height,
+                y =>
+                {
+                    int source = y * width;
+                    int destination = (height - 1 - y) * width;
+                    for (int x = 0; x < width; x++)
+                        upload[destination + x] = pixels[source + x];
+                }
+            );
             texture = CreateTexture(width, height, upload);
         }
 
@@ -279,59 +295,67 @@ namespace Battlement.UI
                 linearSquared = linearDelta.sqrMagnitude;
                 stops = linear.Stops;
             }
-            var crossings = new float[points.Count];
-            for (int y = 0; y < height; y++)
-            {
-                float sampleY = bounds.y + y + 0.5f;
-                int crossingCount = 0;
-                Vector2 previous = points[points.Count - 1];
-                foreach (Vector2 next in points)
+            Parallel.For(
+                0,
+                height,
+                () => new float[points.Count],
+                (y, _, crossings) =>
                 {
-                    if ((next.y > sampleY) != (previous.y > sampleY))
-                        crossings[crossingCount++] =
-                            (previous.x - next.x) * (sampleY - next.y) / (previous.y - next.y)
-                            + next.x;
-                    previous = next;
-                }
-                Array.Sort(crossings, 0, crossingCount);
-                for (int crossing = 0; crossing + 1 < crossingCount; crossing += 2)
-                {
-                    int start = Mathf.Clamp(
-                        Mathf.CeilToInt(crossings[crossing] - bounds.x - 0.5f),
-                        0,
-                        width
-                    );
-                    int end = Mathf.Clamp(
-                        Mathf.CeilToInt(crossings[crossing + 1] - bounds.x - 0.5f),
-                        0,
-                        width
-                    );
-                    for (int x = start; x < end; x++)
+                    float sampleY = bounds.y + y + 0.5f;
+                    int crossingCount = 0;
+                    Vector2 previous = points[points.Count - 1];
+                    foreach (Vector2 next in points)
                     {
-                        if (stops is null)
-                        {
-                            destination[y * width + x] = solid;
-                            continue;
-                        }
-                        Vector2 point = new(bounds.x + x + 0.5f, sampleY);
-                        float position;
-                        if (radial is not null)
-                        {
-                            float rx = (point.x - rect.x) / rect.width - (float)radial.Center[0];
-                            float ry = (point.y - rect.y) / rect.height - (float)radial.Center[1];
-                            rx /= Math.Max(0.000001f, (float)radial.Radius[0]);
-                            ry /= Math.Max(0.000001f, (float)radial.Radius[1]);
-                            position = Mathf.Sqrt(rx * rx + ry * ry);
-                        }
-                        else
-                        {
-                            position =
-                                Vector2.Dot(point - linearStart, linearDelta) / linearSquared;
-                        }
-                        destination[y * width + x] = Sample(stops, position);
+                        if ((next.y > sampleY) != (previous.y > sampleY))
+                            crossings[crossingCount++] =
+                                (previous.x - next.x) * (sampleY - next.y) / (previous.y - next.y)
+                                + next.x;
+                        previous = next;
                     }
-                }
-            }
+                    Array.Sort(crossings, 0, crossingCount);
+                    for (int crossing = 0; crossing + 1 < crossingCount; crossing += 2)
+                    {
+                        int start = Mathf.Clamp(
+                            Mathf.CeilToInt(crossings[crossing] - bounds.x - 0.5f),
+                            0,
+                            width
+                        );
+                        int end = Mathf.Clamp(
+                            Mathf.CeilToInt(crossings[crossing + 1] - bounds.x - 0.5f),
+                            0,
+                            width
+                        );
+                        for (int x = start; x < end; x++)
+                        {
+                            if (stops is null)
+                            {
+                                destination[y * width + x] = solid;
+                                continue;
+                            }
+                            Vector2 point = new(bounds.x + x + 0.5f, sampleY);
+                            float position;
+                            if (radial is not null)
+                            {
+                                float rx =
+                                    (point.x - rect.x) / rect.width - (float)radial.Center[0];
+                                float ry =
+                                    (point.y - rect.y) / rect.height - (float)radial.Center[1];
+                                rx /= Math.Max(0.000001f, (float)radial.Radius[0]);
+                                ry /= Math.Max(0.000001f, (float)radial.Radius[1]);
+                                position = Mathf.Sqrt(rx * rx + ry * ry);
+                            }
+                            else
+                            {
+                                position =
+                                    Vector2.Dot(point - linearStart, linearDelta) / linearSquared;
+                            }
+                            destination[y * width + x] = Sample(stops, position);
+                        }
+                    }
+                    return crossings;
+                },
+                _ => { }
+            );
         }
 
         private static UnityColor Sample(IReadOnlyList<GradientStop> stops, float position)
@@ -419,24 +443,30 @@ namespace Battlement.UI
                 }
             }
             UnityColor tint = Color(shadow.Color);
-            for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                int i = y * width + x;
-                float shadowAlpha = SampleAlpha(
-                    silhouette,
-                    width,
-                    height,
-                    x - (float)shadow.X,
-                    y - (float)shadow.Y
-                );
-                float a = shadowAlpha * tint.a * (1 - pixels[i].a);
-                float total = pixels[i].a + a;
-                UnityColor result =
-                    (pixels[i] * pixels[i].a + tint * a) / Math.Max(total, 0.000001f);
-                result.a = total;
-                pixels[i] = result;
-            }
+            Parallel.For(
+                0,
+                height,
+                y =>
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int i = y * width + x;
+                        float shadowAlpha = SampleAlpha(
+                            silhouette,
+                            width,
+                            height,
+                            x - (float)shadow.X,
+                            y - (float)shadow.Y
+                        );
+                        float a = shadowAlpha * tint.a * (1 - pixels[i].a);
+                        float total = pixels[i].a + a;
+                        UnityColor result =
+                            (pixels[i] * pixels[i].a + tint * a) / Math.Max(total, 0.000001f);
+                        result.a = total;
+                        pixels[i] = result;
+                    }
+                }
+            );
         }
 
         private static void Gaussian(
