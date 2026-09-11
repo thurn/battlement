@@ -138,6 +138,7 @@ pub struct Reactant<G: 'static> {
   geometry: Rc<RefCell<GeometryRuntime>>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
+  committed_portals: Option<portal::PortalLayout>,
   last_motion_sequence: Option<MotionSequence>,
   semantic_commit_sequence: u64,
   last_accessibility: Option<AccessibilitySnapshot>,
@@ -165,6 +166,7 @@ impl<G: 'static> Reactant<G> {
       geometry: GeometryRuntime::new(runtime_id),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
+      committed_portals: None,
       last_motion_sequence: None,
       semantic_commit_sequence: 0,
       last_accessibility: None,
@@ -567,6 +569,14 @@ impl<G: 'static> Reactant<G> {
     assert!(retry < 25, "Reactant geometry render did not stabilize");
     let geometry_revision = self.geometry.borrow().revision();
     let bindings = self.external_portals.active_bindings();
+    let previous = self.committed_portals.take().unwrap_or_else(|| {
+      let committed = self
+        .roots
+        .iter()
+        .map(|root| &root.committed)
+        .collect::<Vec<_>>();
+      portal::layout(self.runtime_id, &committed, &bindings)
+    });
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let frozen_motion_commands = self.motion_values.borrow().queued_commands();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -586,12 +596,6 @@ impl<G: 'static> Reactant<G> {
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
-      let committed = self
-        .roots
-        .iter()
-        .map(|root| &root.committed)
-        .collect::<Vec<_>>();
-      let previous = portal::layout(self.runtime_id, &committed, &bindings);
       let tentative = rendered.iter().collect::<Vec<_>>();
       let tentative = portal::attachment_hosts(self.runtime_id, &tentative);
       let changed = portal::changed_attachments(&previous, &tentative);
@@ -679,20 +683,32 @@ impl<G: 'static> Reactant<G> {
         geometry,
         semantic_snapshot,
         accessibility_changed,
+        desired,
       ))
     }));
-    let (mut rendered, mut groups, attachments, geometry, semantic_snapshot, accessibility_changed) =
-      match planned {
-        Ok(Ok(value)) => value,
-        Ok(Err(error)) => return Err(error),
-        Err(payload) => {
-          self.state = RuntimeState::Poisoned;
-          panic::resume_unwind(payload);
-        }
-      };
+    let (
+      mut rendered,
+      mut groups,
+      attachments,
+      geometry,
+      semantic_snapshot,
+      accessibility_changed,
+      desired,
+    ) = match planned {
+      Ok(Ok(value)) => value,
+      Ok(Err(error)) => {
+        self.committed_portals = Some(previous);
+        return Err(error);
+      }
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    };
     if geometry.generation() != rendered_generation {
       let preview = self.geometry.borrow().preview(&geometry);
       let _geometry_runtime = geometry::enter_preview(&preview, &self.geometry);
+      self.committed_portals = Some(previous);
       return self.render_geometry(game, geometry.generation(), retry + 1, resources);
     }
     let announcements = announcement::take();
@@ -718,6 +734,7 @@ impl<G: 'static> Reactant<G> {
       frozen_actions,
       frozen_motion_commands,
     );
+    self.committed_portals = Some(desired);
     if accessibility_changed {
       self.semantic_commit_sequence += 1;
       self.last_accessibility = next_accessibility;
@@ -1176,6 +1193,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         self.semantic_commit_sequence + 1,
       );
       self.install_rendered(committed, attachments, true);
+      self.committed_portals = None;
       self
         .element_refs
         .borrow_mut()
