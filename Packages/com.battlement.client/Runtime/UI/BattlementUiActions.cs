@@ -66,15 +66,16 @@ namespace Battlement.UI
                 target.Blur();
         }
 
-        public void CancelAll(IReadOnlyDictionary<Guid, VisualElement> elements)
+        public void CancelAll(IEnumerable<BattlementUiHierarchy.Entry> elements)
         {
-            foreach ((Guid id, VisualElement target) in elements)
-                ReleaseTracked(id, target);
+            foreach (BattlementUiHierarchy.Entry entry in elements)
+                ReleaseTracked(entry.Id, entry.Element);
             captures.Clear();
 
             var panels = new HashSet<IPanel>();
-            foreach (VisualElement target in elements.Values)
+            foreach (BattlementUiHierarchy.Entry entry in elements)
             {
+                VisualElement target = entry.Element;
                 if (target.panel is IPanel panel)
                     panels.Add(panel);
             }

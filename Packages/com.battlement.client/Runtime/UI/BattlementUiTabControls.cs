@@ -86,7 +86,7 @@ namespace Battlement.UI
             if (parent is not TabView view)
             {
                 if (index is int childIndex)
-                    parent.contentContainer.Insert(childIndex, child);
+                    parent.contentContainer.Insert(ContentIndex(parent, childIndex), child);
                 else
                     parent.contentContainer.Add(child);
                 return;
@@ -106,6 +106,12 @@ namespace Battlement.UI
             );
             Synchronize(state);
         }
+
+        private static int ContentIndex(VisualElement parent, int logicalIndex) =>
+            parent is GroupBox group
+            && group.Q<Label>(className: GroupBox.labelUssClassName) is not null
+                ? checked(logicalIndex + 1)
+                : logicalIndex;
 
         public void Remove(VisualElement target)
         {

@@ -159,6 +159,117 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void TitledGroupBoxPreservesLogicalChildIndices()
+        {
+            ObjectId documentId = Id("7483c8da-82db-44bd-9ad4-48c50e9801e2");
+            ObjectId rootId = Id("4b7f54d7-c7fd-4a02-9b6f-5c0a5fa8c1f9");
+            ObjectId groupId = Id("d2fdbbb1-2a9b-4d4a-8f49-4e5bc9d8dc76");
+            ObjectId firstId = Id("bb71cd2a-5c97-4823-9a98-e4c9b5b3f0b2");
+            ObjectId secondId = Id("550a8c17-9e4c-42dd-bc7b-6a1bfbb58b3e");
+            ObjectId outsideId = Id("f45be75b-5b17-4c2b-8d4c-f8eaf9e0ed8f");
+            ObjectId addedId = Id("8ec40a93-cb15-42f1-a41e-1e7da8d0b3ef");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    groupId,
+                                    new UiGroupBox { Text = "Settings" },
+                                    new UiNode[]
+                                    {
+                                        new(firstId, new UiLabel { Text = "First" }),
+                                        new(secondId, new UiLabel { Text = "Second" }),
+                                    }
+                                ),
+                                new(outsideId, new UiLabel { Text = "Outside" }),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(groupId, out VisualElement? groupValue), Is.True);
+                var group = (GroupBox)groupValue!;
+                documents.Update(
+                    new CommandBody.VisualElement.Update(new VisualElementUpdate.Index(secondId, 0))
+                );
+                Assert.That(
+                    group.contentContainer[1],
+                    Is.SameAs(documents.TryGet(secondId, out VisualElement? second) ? second : null)
+                );
+                Assert.That(
+                    group.contentContainer[2],
+                    Is.SameAs(documents.TryGet(firstId, out VisualElement? first) ? first : null)
+                );
+                Assert.That(group.contentContainer[0], Is.SameAs(GroupTitle(group)));
+                Assert.That(GroupTitle(group)!.text, Is.EqualTo("Settings"));
+
+                documents.Create(
+                    new CommandBody.VisualElement.Create(
+                        groupId,
+                        new UiNode(addedId, new UiLabel { Text = "Added" }),
+                        0
+                    )
+                );
+                Assert.That(
+                    group.contentContainer[1],
+                    Is.SameAs(documents.TryGet(addedId, out VisualElement? added) ? added : null)
+                );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Parent(outsideId, groupId, 0)
+                    )
+                );
+                documents.Update(
+                    new CommandBody.VisualElement.Update(new VisualElementUpdate.Index(firstId, 1))
+                );
+                Assert.That(
+                    group.contentContainer[1],
+                    Is.SameAs(
+                        documents.TryGet(outsideId, out VisualElement? outside) ? outside : null
+                    )
+                );
+                Assert.That(
+                    group.contentContainer[2],
+                    Is.SameAs(
+                        documents.TryGet(firstId, out VisualElement? reordered) ? reordered : null
+                    )
+                );
+                Assert.That(
+                    group.contentContainer[3],
+                    Is.SameAs(
+                        documents.TryGet(addedId, out VisualElement? stillAdded) ? stillAdded : null
+                    )
+                );
+                Assert.That(
+                    group.contentContainer[4],
+                    Is.SameAs(
+                        documents.TryGet(secondId, out VisualElement? stillSecond)
+                            ? stillSecond
+                            : null
+                    )
+                );
+                Assert.That(group.contentContainer[0], Is.SameAs(GroupTitle(group)));
+                Assert.That(GroupTitle(group)!.text, Is.EqualTo("Settings"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void RejectedHierarchyAndIdentityOperationsMutateNothing()
         {
             ObjectId firstDocumentId = Id("71d2bb7e-91ae-43a6-8543-b43ea3a82d70");

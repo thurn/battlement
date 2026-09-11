@@ -14,15 +14,7 @@ namespace Battlement.UI
     /// <summary>Constructs and populates Battlement-owned UI Toolkit documents.</summary>
     public sealed class BattlementUiDocuments : IDisposable
     {
-        private const int MaximumHierarchyDepth = 256;
-
-        private readonly Dictionary<Guid, UnityEngine.UIElements.VisualElement> elements = new();
-        private readonly Dictionary<UnityEngine.UIElements.VisualElement, Guid> elementIds = new();
-        private readonly Dictionary<Guid, Guid> documentRoots = new();
-        private readonly Dictionary<Guid, UIDocument> rootDocuments = new();
-        private readonly Dictionary<Guid, Guid?> parentIds = new();
-        private readonly Dictionary<Guid, List<Guid>> logicalChildren = new();
-        private readonly HashSet<Guid> rootIds = new();
+        private readonly BattlementUiHierarchy hierarchy;
         private readonly BattlementUiElementProperties properties;
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiEventObserver eventObserver;
@@ -65,6 +57,7 @@ namespace Battlement.UI
             Func<bool>? instantMotion = null
         )
         {
+            hierarchy = new BattlementUiHierarchy();
             Func<TimeSpan> uiTime =
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble));
             properties = new BattlementUiElementProperties(
@@ -75,16 +68,22 @@ namespace Battlement.UI
             events = properties.EventForwarder;
             eventObserver = new BattlementUiEventObserver(
                 events,
-                NearestId,
-                Route,
+                hierarchy.NearestId,
+                hierarchy.Route,
                 id =>
-                    elements[id] is UnityEngine.UIElements.Button
-                    && elements[id] is not UnityEngine.UIElements.RepeatButton
+                    hierarchy.TryGet(new ObjectId(id), out VisualElement? element)
+                    && element is UnityEngine.UIElements.Button
+                    && element is not UnityEngine.UIElements.RepeatButton
             );
-            lifecycleEvents = new BattlementUiLifecycleEvents(events, Route);
+            lifecycleEvents = new BattlementUiLifecycleEvents(events, hierarchy.Route);
             scrollControls = new BattlementUiScrollControls(properties.EventForwarder, uiTime);
             particles = new BattlementUiParticleStreaks(uiTime, instantMotion ?? (() => false));
-            actions = new BattlementUiActions(Require, IsDescendant, scrollControls, particles);
+            actions = new BattlementUiActions(
+                Require,
+                hierarchy.IsDescendant,
+                scrollControls,
+                particles
+            );
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
             booleanControls = new BattlementUiBooleanControls(properties.EventForwarder);
@@ -93,16 +92,16 @@ namespace Battlement.UI
             sliderControls = new BattlementUiSliderControls(properties.EventForwarder);
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             partProperties = new BattlementUiPartProperties(assetLookup);
-            repeatControls = new BattlementUiRepeatControls(events, Route);
+            repeatControls = new BattlementUiRepeatControls(events, hierarchy.Route);
             focusCoordinator = new BattlementFocusCoordinator(
-                () => elements.Values,
+                () => hierarchy.Elements,
                 IsOverlayScopeMember,
                 OverlayScopeTraversal,
-                id => elements.TryGetValue(id, out VisualElement value) ? value : null
+                id => hierarchy.TryGet(new ObjectId(id), out VisualElement? value) ? value : null
             );
             overlayCoordinator = new BattlementOverlayCoordinator(
-                id => elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
-                SourceOrdinal,
+                id => hierarchy.TryGet(id, out VisualElement? value) ? value : null,
+                hierarchy.SourceOrdinal,
                 IsOverlayScopeMember,
                 PhysicalOverlayScopeTraversal,
                 focusCoordinator.RefreshModalBoundary
@@ -111,8 +110,8 @@ namespace Battlement.UI
             events.SetInertPredicate(focusCoordinator.IsEffectivelyInert);
             accessibility = new BattlementAccessibilityManager(
                 emitUiEvent,
-                id => elements.TryGetValue(id, out VisualElement value) ? value : null,
-                element => elementIds.TryGetValue(element, out Guid id) ? id : null,
+                id => hierarchy.TryGet(new ObjectId(id), out VisualElement? value) ? value : null,
+                element => hierarchy.TryGetId(element, out Guid id) ? id : null,
                 focusCoordinator.IsEffectivelyInert,
                 focusCoordinator.ActiveModal
             );
@@ -134,15 +133,14 @@ namespace Battlement.UI
                             discontinuity
                         );
                     },
-                resolveElement: id =>
-                    elements.TryGetValue(id.Value, out VisualElement value) ? value : null,
+                resolveElement: id => hierarchy.TryGet(id, out VisualElement? value) ? value : null,
                 gestureTime: uiTime,
                 presentationChanged: presentationLayout.Refresh
             );
             focusCoordinator.SetFocusVisibleWriter(
                 (target, visible) =>
                 {
-                    if (elementIds.TryGetValue(target, out Guid id))
+                    if (hierarchy.TryGetId(target, out Guid id))
                         motionWorld.SetFocusVisible(new ObjectId(id), visible);
                 }
             );
@@ -169,7 +167,9 @@ namespace Battlement.UI
                     descriptions ?? Array.Empty<UiDocument>(),
                     resolveGameObject
                 );
-            VisualElement[] previousRoots = rootIds.Select(value => elements[value]).ToArray();
+            VisualElement[] previousRoots = hierarchy
+                .Roots.Select(value => value.Element)
+                .ToArray();
             if (preserveMotion)
                 motionWorld.BeginReconnect();
             else
@@ -185,10 +185,9 @@ namespace Battlement.UI
                 accessibility.Clear(reconnect: preserveMotion);
                 foreach (VisualElement root in previousRoots)
                     root.Clear();
-                foreach (VisualElement element in elements.Values)
+                foreach (VisualElement element in hierarchy.Elements)
                     BattlementPaintProperties.Release(element);
-                elements.Clear();
-                elementIds.Clear();
+                hierarchy.Clear();
                 properties.Clear();
                 scrollControls.Clear();
                 tabControls.Clear();
@@ -199,21 +198,14 @@ namespace Battlement.UI
                 sliderControls.Clear();
                 rangeControls.Clear();
                 partProperties.Clear();
-                documentRoots.Clear();
-                rootDocuments.Clear();
-                parentIds.Clear();
-                logicalChildren.Clear();
-                rootIds.Clear();
                 repeatControls.Clear();
                 foreach ((UiDocument description, UIDocument document) in resolved)
                 {
                     UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
                     root.Clear();
                     properties.ApplyRoot(root, description.RootId, description);
-                    Reserve(description.RootId, root, description.RootId.Value);
+                    hierarchy.AddRoot(description.RootId, root, document, RegisterHierarchyEntry);
                     focusCoordinator.ApplyRoot(root, description);
-                    rootDocuments.Add(description.RootId.Value, document);
-                    rootIds.Add(description.RootId.Value);
                     eventObserver.RegisterRoot(root);
                     foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
                     {
@@ -223,7 +215,11 @@ namespace Battlement.UI
                             description.RootId.Value
                         );
                         tabControls.Insert(root, created);
-                        logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
+                        hierarchy.AddChild(
+                            description.RootId,
+                            child.ObjectId,
+                            hierarchy.Children(description.RootId.Value).Count
+                        );
                         ApplyStickySubtree(created);
                         ApplyOverlaySubtree(created);
                     }
@@ -247,7 +243,7 @@ namespace Battlement.UI
 
         /// <summary>Finds a tracked document root or authored element.</summary>
         public bool TryGet(ObjectId objectId, out UnityEngine.UIElements.VisualElement? value) =>
-            elements.TryGetValue(objectId.Value, out value);
+            hierarchy.TryGet(objectId, out value);
 
         internal bool TryGetGeometryTarget(
             ObjectId objectId,
@@ -256,23 +252,10 @@ namespace Battlement.UI
             out UIDocument document
         )
         {
-            if (
-                !elements.TryGetValue(objectId.Value, out element)
-                || !documentRoots.TryGetValue(objectId.Value, out Guid rootId)
-                || !rootDocuments.TryGetValue(rootId, out document)
-            )
-            {
-                panelId = default;
-                element = null!;
-                document = null!;
-                return false;
-            }
-
-            panelId = new ObjectId(rootId);
-            return true;
+            return hierarchy.TryGetGeometryTarget(objectId, out element, out panelId, out document);
         }
 
-        internal IEnumerable<UIDocument> InputDocuments => rootDocuments.Values;
+        internal IEnumerable<UIDocument> InputDocuments => hierarchy.InputDocuments;
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
 
@@ -321,7 +304,7 @@ namespace Battlement.UI
                 diagnostic = $"UI target {target.Value} is not enabled and attached.";
                 return false;
             }
-            IReadOnlyList<Guid> route = Route(target.Value);
+            IReadOnlyList<Guid> route = hierarchy.Route(target.Value);
             bool supported = element switch
             {
                 Button => events.CanForwardRoute(route, UiEventKind.Click),
@@ -461,7 +444,7 @@ namespace Battlement.UI
             out string? diagnostic
         )
         {
-            route = Route(target.Value);
+            route = hierarchy.Route(target.Value);
             if (!TryGetGeometryTarget(target, out VisualElement element, out _, out _))
             {
                 position = default!;
@@ -512,9 +495,9 @@ namespace Battlement.UI
             ObjectId? previous = syntheticPointerTarget;
             if (previous == target)
                 return;
-            if (previous is ObjectId previousTarget && elements.ContainsKey(previousTarget.Value))
+            if (previous is ObjectId previousTarget && hierarchy.Contains(previousTarget.Value))
             {
-                IReadOnlyList<Guid> previousRoute = Route(previousTarget.Value);
+                IReadOnlyList<Guid> previousRoute = hierarchy.Route(previousTarget.Value);
                 events.ForwardEvent(
                     previousTarget,
                     previousRoute,
@@ -578,13 +561,13 @@ namespace Battlement.UI
             out ObjectId objectId
         )
         {
-            Guid? nearest = NearestId(element);
+            Guid? nearest = hierarchy.NearestId(element);
             objectId = nearest is Guid id ? new ObjectId(id) : default;
             return nearest is not null;
         }
 
         /// <summary>Gets the identities currently owned by UI Toolkit elements.</summary>
-        public IEnumerable<Guid> IdentityIds => elements.Keys;
+        public IEnumerable<Guid> IdentityIds => hierarchy.IdentityIds;
 
         internal int LinkIdentityCount => lifecycleEvents.LinkIdentityCount;
 
@@ -594,15 +577,15 @@ namespace Battlement.UI
             const ulong prime = 1_099_511_628_211;
             ulong hash = offset;
             foreach (
-                KeyValuePair<Guid, VisualElement> entry in elements.OrderBy(value => value.Key)
+                BattlementUiHierarchy.Entry entry in hierarchy.Entries.OrderBy(value => value.Id)
             )
             {
-                foreach (byte value in entry.Key.ToByteArray())
+                foreach (byte value in entry.Id.ToByteArray())
                 {
                     hash = (hash ^ value) * prime;
                 }
 
-                UnityEngine.Rect layout = entry.Value.layout;
+                UnityEngine.Rect layout = entry.Element.layout;
                 hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.x)) * prime;
                 hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.y)) * prime;
                 hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.width)) * prime;
@@ -615,8 +598,8 @@ namespace Battlement.UI
         public void Advance()
         {
             particles.Advance();
-            foreach (Guid root in rootIds)
-                BattlementTextSpacing.Refresh(elements[root]);
+            foreach (BattlementUiHierarchy.Entry root in hierarchy.Roots)
+                BattlementTextSpacing.Refresh(root.Element);
             lifecycleEvents.Advance();
             scrollControls.Advance();
             textFieldControls.Advance();
@@ -638,7 +621,7 @@ namespace Battlement.UI
             sliderControls.CancelAll();
             rangeControls.CancelAll();
             repeatControls.CancelAll();
-            actions.CancelAll(elements);
+            actions.CancelAll(hierarchy.Entries);
         }
 
         internal void BeginCommit()
@@ -668,11 +651,11 @@ namespace Battlement.UI
             overlayCoordinator.Clear();
             focusCoordinator.Clear();
             accessibility.Clear();
-            releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
-            foreach (VisualElement element in elements.Values)
-                BattlementPaintProperties.Release(element);
-            elements.Clear();
-            elementIds.Clear();
+            BattlementUiHierarchy.Entry[] tracked = hierarchy.Entries.ToArray();
+            releaseIdentities?.Invoke(tracked.Select(value => value.Id).ToArray());
+            foreach (BattlementUiHierarchy.Entry entry in tracked)
+                BattlementPaintProperties.Release(entry.Element);
+            hierarchy.Clear();
             properties.Clear();
             scrollControls.Clear();
             tabControls.Clear();
@@ -683,11 +666,6 @@ namespace Battlement.UI
             sliderControls.Clear();
             rangeControls.Clear();
             partProperties.Clear();
-            documentRoots.Clear();
-            rootDocuments.Clear();
-            parentIds.Clear();
-            logicalChildren.Clear();
-            rootIds.Clear();
             repeatControls.Clear();
         }
 
@@ -712,13 +690,13 @@ namespace Battlement.UI
             ValidateStickySubtree(command.Node, HasScrollAncestor(parent));
             if (
                 parent is UnityEngine.UIElements.ToggleButtonGroup
-                && logicalChildren[command.ParentId.Value].Count >= 64
+                && hierarchy.Children(command.ParentId.Value).Count >= 64
             )
                 throw Failure(CoreErrorCode.LimitExceeded, "ToggleButtonGroup accepts 64 buttons.");
             int index = command.ChildIndex is uint requested
                 ? checked((int)requested)
-                : logicalChildren[command.ParentId.Value].Count;
-            if (index > logicalChildren[command.ParentId.Value].Count)
+                : hierarchy.Children(command.ParentId.Value).Count;
+            if (index > hierarchy.Children(command.ParentId.Value).Count)
             {
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             }
@@ -731,14 +709,14 @@ namespace Battlement.UI
                 parent,
                 command.Node
             );
-            int parentDepth = DepthOf(command.ParentId.Value);
-            if (parentDepth + SubtreeDepth(command.Node) + 1 > MaximumHierarchyDepth)
+            int parentDepth = hierarchy.DepthOf(command.ParentId.Value);
+            if (parentDepth + SubtreeDepth(command.Node) + 1 > BattlementUiHierarchy.MaximumDepth)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
             var reserved = new List<Guid>(ids);
             reserveIdentities?.Invoke(reserved);
             try
             {
-                Guid rootId = documentRoots[command.ParentId.Value];
+                Guid rootId = hierarchy.DocumentRoot(command.ParentId.Value);
                 UnityEngine.UIElements.VisualElement created = CreateElement(
                     command.Node,
                     rootId,
@@ -746,7 +724,7 @@ namespace Battlement.UI
                 );
                 choiceControls.BeginHierarchyMutation(command.ParentId);
                 InsertNativeChild(parent, created, command.ChildIndex is null ? null : index);
-                logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
+                hierarchy.AddChild(command.ParentId, command.Node.ObjectId, index);
                 ApplyStickySubtree(created);
                 ApplyOverlaySubtree(created);
                 RefreshStickyOrdinals();
@@ -755,7 +733,7 @@ namespace Battlement.UI
                 choiceControls.Insert(
                     command.ParentId,
                     index,
-                    logicalChildren[command.ParentId.Value].Count
+                    hierarchy.Children(command.ParentId.Value).Count
                 );
             }
             catch
@@ -778,7 +756,7 @@ namespace Battlement.UI
                 {
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     bool genericRootUpdate =
-                        rootIds.Contains(properties.ObjectId.Value)
+                        hierarchy.IsRoot(properties.ObjectId.Value)
                         && properties.Element is UiElement.VisualElement;
                     if (!genericRootUpdate)
                         RequireElementKind(target, properties.Element, properties.ObjectId);
@@ -792,7 +770,7 @@ namespace Battlement.UI
                     BattlementUiChoiceControls.ValidateUpdate(
                         properties.Element,
                         target,
-                        logicalChildren[properties.ObjectId.Value].Count
+                        hierarchy.Children(properties.ObjectId.Value).Count
                     );
                     BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
@@ -840,7 +818,7 @@ namespace Battlement.UI
                     stickyCoordinator.Apply(
                         target,
                         properties.Element.Sticky,
-                        SourceOrdinal(target)
+                        hierarchy.SourceOrdinal(target)
                     );
                     overlayCoordinator.Apply(target, properties.Element.OverlayPlacement);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -883,33 +861,34 @@ namespace Battlement.UI
         public void Destroy(CommandBody.VisualElement.Destroy command)
         {
             UnityEngine.UIElements.VisualElement target = Require(command.ObjectId);
-            if (rootIds.Contains(command.ObjectId.Value))
+            if (hierarchy.IsRoot(command.ObjectId.Value))
             {
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
                     "A document root cannot be destroyed by a UI command."
                 );
             }
-            List<Guid> removed = SubtreeIds(command.ObjectId.Value);
             Guid parentId =
-                parentIds[command.ObjectId.Value]
+                hierarchy.ParentId(command.ObjectId.Value)
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            int removedIndex = logicalChildren[parentId].IndexOf(command.ObjectId.Value);
+            int removedIndex = hierarchy.IndexOfChild(parentId, command.ObjectId.Value);
             choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
             stickyCoordinator.PrepareHierarchyChange(target);
-            RemoveNativeChild(elements[parentId], target);
-            logicalChildren[parentId].Remove(command.ObjectId.Value);
+            RemoveNativeChild(Require(new ObjectId(parentId)), target);
+            IReadOnlyList<BattlementUiHierarchy.Entry> removed = hierarchy.RemoveSubtree(
+                command.ObjectId
+            );
             choiceControls.Remove(
                 new ObjectId(parentId),
                 removedIndex,
-                logicalChildren[parentId].Count
+                hierarchy.Children(parentId).Count
             );
-            foreach (Guid id in removed)
-                RemoveIdentity(id);
+            foreach (BattlementUiHierarchy.Entry entry in removed)
+                RemoveIdentity(entry);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
             focusCoordinator.Refresh();
-            releaseIdentities?.Invoke(removed);
+            releaseIdentities?.Invoke(removed.Select(value => value.Id).ToArray());
             eventObserver.Clear();
         }
 
@@ -1024,34 +1003,6 @@ namespace Battlement.UI
             );
         }
 
-        private Guid? NearestId(UnityEngine.UIElements.VisualElement? target)
-        {
-            for (
-                UnityEngine.UIElements.VisualElement? value = target;
-                value is not null;
-                value = value.parent
-            )
-            {
-                if (elementIds.TryGetValue(value, out Guid objectId))
-                    return objectId;
-            }
-            return null;
-        }
-
-        private IReadOnlyList<Guid> Route(Guid objectId)
-        {
-            if (!parentIds.ContainsKey(objectId))
-                return Array.Empty<Guid>();
-            var result = new List<Guid>();
-            Guid? current = objectId;
-            while (current is Guid value)
-            {
-                result.Add(value);
-                current = parentIds.TryGetValue(value, out Guid? parent) ? parent : null;
-            }
-            return result;
-        }
-
         private void Populate(
             UnityEngine.UIElements.VisualElement value,
             UiNode node,
@@ -1106,7 +1057,11 @@ namespace Battlement.UI
                         CreateElement(child, documentRoot, node.ObjectId.Value),
                         null
                     );
-                    logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
+                    hierarchy.AddChild(
+                        new ObjectId(node.ObjectId.Value),
+                        child.ObjectId,
+                        hierarchy.Children(node.ObjectId.Value).Count
+                    );
                 }
             }
             finally
@@ -1122,7 +1077,7 @@ namespace Battlement.UI
             if (node.Element is UiElement.ToggleButtonGroup)
                 choiceControls.InitializeToggle(
                     node.ObjectId,
-                    logicalChildren[node.ObjectId.Value].Count
+                    hierarchy.Children(node.ObjectId.Value).Count
                 );
         }
 
@@ -1133,26 +1088,18 @@ namespace Battlement.UI
             Guid? parentId = null
         )
         {
-            if (!elements.TryAdd(objectId.Value, value))
-            {
-                throw new InvalidOperationException($"UI identity {objectId} is duplicated.");
-            }
-            elementIds.Add(value, objectId.Value);
-            documentRoots.Add(objectId.Value, documentRoot);
-            parentIds.Add(objectId.Value, parentId);
-            logicalChildren.Add(objectId.Value, new List<Guid>());
-            eventObserver.RegisterElement(objectId, value);
-            lifecycleEvents.Register(objectId, value);
+            hierarchy.Add(objectId, value, documentRoot, parentId, RegisterHierarchyEntry);
+        }
+
+        private void RegisterHierarchyEntry(ObjectId objectId, VisualElement element)
+        {
+            eventObserver.RegisterElement(objectId, element);
+            lifecycleEvents.Register(objectId, element);
         }
 
         private UnityEngine.UIElements.VisualElement Require(ObjectId objectId)
         {
-            if (
-                !elements.TryGetValue(
-                    objectId.Value,
-                    out UnityEngine.UIElements.VisualElement value
-                )
-            )
+            if (!hierarchy.TryGet(objectId, out UnityEngine.UIElements.VisualElement? value))
             {
                 if (isWorldObject?.Invoke(objectId.Value) == true)
                     throw Failure(
@@ -1164,7 +1111,7 @@ namespace Battlement.UI
                     $"UI element {objectId} does not exist."
                 );
             }
-            return value;
+            return value!;
         }
 
         private static void RequireContainer(
@@ -1194,14 +1141,14 @@ namespace Battlement.UI
         {
             if (node.ObjectId.Value == Guid.Empty)
                 throw Failure(CoreErrorCode.InvalidProperty, "UI identities must be nonzero.");
-            if (!ids.Add(node.ObjectId.Value) || elements.ContainsKey(node.ObjectId.Value))
+            if (!ids.Add(node.ObjectId.Value) || hierarchy.Contains(node.ObjectId.Value))
                 throw Failure(
                     CoreErrorCode.DuplicateId,
                     $"UI identity {node.ObjectId} is duplicated."
                 );
-            if (elements.Count + ids.Count > 100_000)
+            if (hierarchy.Count + ids.Count > 100_000)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI identity limit was exceeded.");
-            if (depth > MaximumHierarchyDepth)
+            if (depth > BattlementUiHierarchy.MaximumDepth)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
             BattlementUiElementProperties.Validate(node.Element, allowUsageHints: true);
             IReadOnlyList<UiNode> children = node.Children ?? Array.Empty<UiNode>();
@@ -1307,11 +1254,6 @@ namespace Battlement.UI
             uint? childIndex
         )
         {
-            if (rootIds.Contains(objectId.Value))
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "A document root cannot be reparented."
-                );
             UnityEngine.UIElements.VisualElement parent = Require(parentId);
             RequireContainer(parent, parentId);
             ValidatePlacement(target, parent);
@@ -1320,66 +1262,52 @@ namespace Battlement.UI
                     objectId,
                     BattlementOverlayItems.Get(target),
                     parent,
-                    IsDescendant
+                    hierarchy.IsDescendant
                 );
             if (BattlementStickyItems.HasAuthored(target) && !HasScrollAncestor(parent))
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "Sticky requires a physical ScrollView ancestor."
                 );
-            Guid oldParent =
-                parentIds[objectId.Value]
-                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            BattlementUiHierarchy.MovePlan plan = hierarchy.PrepareMove(
+                objectId,
+                parentId,
+                childIndex
+            );
             if (
-                oldParent != parentId.Value
+                plan.OldParentId != parentId.Value
                 && parent is UnityEngine.UIElements.ToggleButtonGroup
-                && logicalChildren[parentId.Value].Count >= 64
+                && hierarchy.Children(parentId.Value).Count >= 64
             )
                 throw Failure(CoreErrorCode.LimitExceeded, "ToggleButtonGroup accepts 64 buttons.");
-            if (documentRoots[objectId.Value] != documentRoots[parentId.Value])
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "UI elements cannot move between documents."
-                );
-            if (target == parent || IsDescendant(parentId.Value, objectId.Value))
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "A UI placement cannot create a cycle."
-                );
-            if (DepthOf(parentId.Value) + SubtreeDepth(objectId.Value) + 1 > MaximumHierarchyDepth)
-                throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
-            int oldIndex = logicalChildren[oldParent].IndexOf(objectId.Value);
-            int destinationLength =
-                logicalChildren[parentId.Value].Count - (oldParent == parentId.Value ? 1 : 0);
-            int newIndex = childIndex is null ? destinationLength : checked((int)childIndex.Value);
-            if (newIndex > destinationLength)
-                throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
-            choiceControls.BeginHierarchyMutation(new ObjectId(oldParent));
+            choiceControls.BeginHierarchyMutation(new ObjectId(plan.OldParentId));
             choiceControls.BeginHierarchyMutation(parentId);
             stickyCoordinator.PrepareHierarchyChange(target);
             overlayCoordinator.PrepareHierarchyChange(target);
             focusCoordinator.PrepareHierarchyChange(target);
-            RemoveNativeChild(elements[oldParent], target);
-            InsertNativeChild(parent, target, newIndex);
-            logicalChildren[oldParent].Remove(objectId.Value);
-            logicalChildren[parentId.Value].Insert(newIndex, objectId.Value);
-            parentIds[objectId.Value] = parentId.Value;
+            RemoveNativeChild(Require(new ObjectId(plan.OldParentId)), target);
+            InsertNativeChild(parent, target, plan.NewIndex);
+            hierarchy.ApplyMove(plan);
             ApplyStickyAfterAttachment(target);
             ApplyOverlayAfterAttachment(target);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
             focusCoordinator.Refresh();
             focusCoordinator.CompleteHierarchyChange();
-            if (oldParent == parentId.Value)
-                choiceControls.Reorder(parentId, oldIndex, newIndex);
+            if (plan.OldParentId == parentId.Value)
+                choiceControls.Reorder(parentId, plan.OldIndex, plan.NewIndex);
             else
             {
                 choiceControls.Remove(
-                    new ObjectId(oldParent),
-                    oldIndex,
-                    logicalChildren[oldParent].Count
+                    new ObjectId(plan.OldParentId),
+                    plan.OldIndex,
+                    hierarchy.Children(plan.OldParentId).Count
                 );
-                choiceControls.Insert(parentId, newIndex, logicalChildren[parentId.Value].Count);
+                choiceControls.Insert(
+                    parentId,
+                    plan.NewIndex,
+                    hierarchy.Children(parentId.Value).Count
+                );
             }
         }
 
@@ -1389,40 +1317,28 @@ namespace Battlement.UI
             uint childIndex
         )
         {
-            if (rootIds.Contains(objectId.Value))
-                throw Failure(
-                    CoreErrorCode.InvalidHierarchy,
-                    "A document root cannot be reordered."
-                );
-            Guid parentId =
-                parentIds[objectId.Value]
-                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            UnityEngine.UIElements.VisualElement parent = elements[parentId];
-            int index = checked((int)childIndex);
-            if (index >= logicalChildren[parentId].Count)
-                throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
-            int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
+            BattlementUiHierarchy.ReorderPlan plan = hierarchy.PrepareReorder(objectId, childIndex);
+            UnityEngine.UIElements.VisualElement parent = Require(new ObjectId(plan.ParentId));
             particles.Remove(parent);
-            choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
+            choiceControls.BeginHierarchyMutation(new ObjectId(plan.ParentId));
             stickyCoordinator.PrepareHierarchyChange(target);
             overlayCoordinator.PrepareHierarchyChange(target);
             if (parent is BattlementLayoutContainer layout)
-                layout.Adapter.Reindex(target, index);
+                layout.Adapter.Reindex(target, plan.NewIndex);
             else if (parent is UnityEngine.UIElements.TabView tabView)
-                tabControls.Reorder(tabView, previousIndex, index);
+                tabControls.Reorder(tabView, plan.OldIndex, plan.NewIndex);
             else
             {
                 tabControls.Remove(target);
-                tabControls.Insert(parent, target, index);
+                tabControls.Insert(parent, target, plan.NewIndex);
             }
-            logicalChildren[parentId].Remove(objectId.Value);
-            logicalChildren[parentId].Insert(index, objectId.Value);
+            hierarchy.ApplyReorder(plan);
             ApplyStickyAfterAttachment(target);
             ApplyOverlayAfterAttachment(target);
             RefreshStickyOrdinals();
             RefreshOverlayOrdinals();
             focusCoordinator.Refresh();
-            choiceControls.Reorder(new ObjectId(parentId), previousIndex, index);
+            choiceControls.Reorder(new ObjectId(plan.ParentId), plan.OldIndex, plan.NewIndex);
         }
 
         private void InsertNativeChild(
@@ -1457,9 +1373,9 @@ namespace Battlement.UI
         private void RefreshParentLayout(Guid objectId)
         {
             if (
-                parentIds.TryGetValue(objectId, out Guid? parentId)
-                && parentId is Guid value
-                && elements[value] is BattlementLayoutContainer layout
+                hierarchy.ParentId(objectId) is Guid value
+                && hierarchy.TryGet(new ObjectId(value), out VisualElement? parent)
+                && parent is BattlementLayoutContainer layout
             )
             {
                 layout.FlexLayout?.Refresh();
@@ -1475,26 +1391,34 @@ namespace Battlement.UI
             stickyCoordinator.Apply(
                 target,
                 Prop<Sticky>.Set(BattlementStickyItems.Get(target)),
-                SourceOrdinal(target)
+                hierarchy.SourceOrdinal(target)
             );
         }
 
         private void ApplyStickySubtree(UnityEngine.UIElements.VisualElement target)
         {
             ApplyStickyAfterAttachment(target);
-            if (!elementIds.TryGetValue(target, out Guid id))
+            if (!hierarchy.TryGetId(target, out Guid id))
                 return;
-            foreach (Guid child in logicalChildren[id])
-                ApplyStickySubtree(elements[child]);
+            foreach (Guid child in hierarchy.Children(id))
+            {
+                if (
+                    hierarchy.TryGet(new ObjectId(child), out VisualElement? value)
+                    && value is not null
+                )
+                    ApplyStickySubtree(value);
+            }
         }
 
-        private void RefreshStickyOrdinals() => stickyCoordinator.RefreshOrdinals(SourceOrdinal);
+        private void RefreshStickyOrdinals() =>
+            stickyCoordinator.RefreshOrdinals(hierarchy.SourceOrdinal);
 
         private void ApplyOverlayAfterAttachment(UnityEngine.UIElements.VisualElement target)
         {
             if (!BattlementOverlayItems.HasAuthored(target))
                 return;
-            Guid id = elementIds[target];
+            if (!hierarchy.TryGetId(target, out Guid id))
+                throw Failure(CoreErrorCode.InvalidHierarchy, "Overlay wrapper is not registered.");
             overlayCoordinator.Validate(
                 new ObjectId(id),
                 BattlementOverlayItems.Get(target),
@@ -1503,7 +1427,7 @@ namespace Battlement.UI
                         CoreErrorCode.InvalidHierarchy,
                         "Overlay wrapper is not attached."
                     ),
-                IsDescendant
+                hierarchy.IsDescendant
             );
             overlayCoordinator.Apply(
                 target,
@@ -1514,10 +1438,16 @@ namespace Battlement.UI
         private void ApplyOverlaySubtree(UnityEngine.UIElements.VisualElement target)
         {
             ApplyOverlayAfterAttachment(target);
-            if (!elementIds.TryGetValue(target, out Guid id))
+            if (!hierarchy.TryGetId(target, out Guid id))
                 return;
-            foreach (Guid child in logicalChildren[id])
-                ApplyOverlaySubtree(elements[child]);
+            foreach (Guid child in hierarchy.Children(id))
+            {
+                if (
+                    hierarchy.TryGet(new ObjectId(child), out VisualElement? value)
+                    && value is not null
+                )
+                    ApplyOverlaySubtree(value);
+            }
         }
 
         private void RefreshOverlayOrdinals() => overlayCoordinator.RefreshOrdinals();
@@ -1539,7 +1469,7 @@ namespace Battlement.UI
                 (candidate, ancestor) =>
                     pendingTree is not null && ContainsDetached(pendingTree, ancestor)
                         ? IsDetachedDescendant(pendingTree, candidate, ancestor)
-                        : IsDescendant(candidate, ancestor),
+                        : hierarchy.IsDescendant(candidate, ancestor),
                 id => pendingTree is not null && ContainsDetached(pendingTree, id.Value)
             );
         }
@@ -1609,7 +1539,7 @@ namespace Battlement.UI
                 objectId,
                 element.OverlayPlacement.Value,
                 parent,
-                IsDescendant
+                hierarchy.IsDescendant
             );
         }
 
@@ -1658,20 +1588,22 @@ namespace Battlement.UI
                     "Overlay placement requires a direct OverlayHost Stack target."
                 ),
             };
-            if (!elementIds.TryGetValue(host, out Guid hostId))
+            if (!hierarchy.TryGetId(host, out Guid hostId))
                 throw Failure(CoreErrorCode.InvalidHierarchy, "OverlayHost is not registered.");
             Guid rootStackId =
-                parentIds[hostId]
+                hierarchy.ParentId(hostId)
                 ?? throw Failure(
                     CoreErrorCode.InvalidHierarchy,
                     "OverlayHost requires a document-root Stack."
                 );
-            bool finalChild = logicalChildren[rootStackId].LastOrDefault() == hostId;
+            IReadOnlyList<Guid> rootChildren = hierarchy.Children(rootStackId);
+            bool finalChild = rootChildren.Count != 0 && rootChildren[^1] == hostId;
             bool rootStack =
-                elements[rootStackId]
+                hierarchy.TryGet(new ObjectId(rootStackId), out VisualElement? rootStackElement)
+                && rootStackElement
                     is BattlementLayoutContainer { Kind: BattlementLayoutContainerKind.Stack }
-                && parentIds[rootStackId] is Guid documentRoot
-                && rootIds.Contains(documentRoot);
+                && hierarchy.ParentId(rootStackId) is Guid documentRoot
+                && hierarchy.IsRoot(documentRoot);
             StackItem item = BattlementStackItems.Get(host);
             bool configured =
                 BattlementStackItems.HasAuthored(host)
@@ -1686,39 +1618,33 @@ namespace Battlement.UI
                 );
         }
 
-        private int SourceOrdinal(UnityEngine.UIElements.VisualElement target)
-        {
-            if (!elementIds.TryGetValue(target, out Guid targetId))
-                return int.MaxValue;
-            Guid root = documentRoots[targetId];
-            int ordinal = 0;
-            return FindOrdinal(root, targetId, ref ordinal) ? ordinal : int.MaxValue;
-        }
-
         private bool IsOverlayScopeMember(
             UnityEngine.UIElements.VisualElement candidate,
             UnityEngine.UIElements.VisualElement scope
         ) =>
             candidate.panel == scope.panel
-            && elementIds.TryGetValue(candidate, out Guid candidateId)
-            && elementIds.TryGetValue(scope, out Guid scopeId)
-            && IsDescendant(candidateId, scopeId);
+            && hierarchy.TryGetId(candidate, out Guid candidateId)
+            && hierarchy.TryGetId(scope, out Guid scopeId)
+            && hierarchy.IsDescendant(candidateId, scopeId);
 
         private IEnumerable<UnityEngine.UIElements.VisualElement> OverlayScopeTraversal(
             UnityEngine.UIElements.VisualElement scope
         )
         {
-            if (!elementIds.TryGetValue(scope, out Guid scopeId))
+            if (!hierarchy.TryGetId(scope, out Guid scopeId))
                 yield break;
-            foreach (Guid id in LogicalPreorder(scopeId))
-                yield return elements[id];
+            foreach (Guid id in hierarchy.LogicalPreorder(scopeId))
+            {
+                if (hierarchy.TryGet(new ObjectId(id), out VisualElement? value))
+                    yield return value!;
+            }
         }
 
         private IEnumerable<UnityEngine.UIElements.VisualElement> PhysicalOverlayScopeTraversal(
             UnityEngine.UIElements.VisualElement scope
         )
         {
-            if (!elementIds.TryGetValue(scope, out Guid scopeId) || scope.panel is null)
+            if (!hierarchy.TryGetId(scope, out Guid scopeId) || scope.panel is null)
                 yield break;
             foreach (
                 UnityEngine.UIElements.VisualElement candidate in PhysicalPreorder(
@@ -1727,8 +1653,8 @@ namespace Battlement.UI
             )
             {
                 if (
-                    elementIds.TryGetValue(candidate, out Guid candidateId)
-                    && IsDescendant(candidateId, scopeId)
+                    hierarchy.TryGetId(candidate, out Guid candidateId)
+                    && hierarchy.IsDescendant(candidateId, scopeId)
                 )
                     yield return candidate;
             }
@@ -1746,29 +1672,6 @@ namespace Battlement.UI
             }
         }
 
-        private IEnumerable<Guid> LogicalPreorder(Guid objectId)
-        {
-            yield return objectId;
-            foreach (Guid child in logicalChildren[objectId])
-            {
-                foreach (Guid descendant in LogicalPreorder(child))
-                    yield return descendant;
-            }
-        }
-
-        private bool FindOrdinal(Guid current, Guid target, ref int ordinal)
-        {
-            foreach (Guid child in logicalChildren[current])
-            {
-                if (child == target)
-                    return true;
-                ordinal++;
-                if (FindOrdinal(child, target, ref ordinal))
-                    return true;
-            }
-            return false;
-        }
-
         private void ValidateStickyUpdate(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
@@ -1781,9 +1684,13 @@ namespace Battlement.UI
             if (!remainsSticky)
                 return;
             Guid parentId =
-                parentIds[objectId.Value]
+                hierarchy.ParentId(objectId.Value)
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            if (!HasScrollAncestor(elements[parentId]))
+            if (
+                !hierarchy.TryGet(new ObjectId(parentId), out VisualElement? parent)
+                || parent is null
+                || !HasScrollAncestor(parent)
+            )
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "Sticky requires a physical ScrollView ancestor."
@@ -1826,53 +1733,12 @@ namespace Battlement.UI
             return false;
         }
 
-        private int DepthOf(Guid objectId)
-        {
-            int depth = 0;
-            Guid? cursor = objectId;
-            while (cursor is Guid value && parentIds[value] is Guid parent)
-            {
-                depth++;
-                cursor = parent;
-            }
-            return depth;
-        }
-
-        private int SubtreeDepth(Guid objectId)
-        {
-            int depth = 0;
-            foreach (Guid child in logicalChildren[objectId])
-                depth = Math.Max(depth, SubtreeDepth(child) + 1);
-            return depth;
-        }
-
         private static int SubtreeDepth(UiNode node)
         {
             int depth = 0;
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
                 depth = Math.Max(depth, SubtreeDepth(child) + 1);
             return depth;
-        }
-
-        private bool IsDescendant(Guid candidate, Guid ancestor)
-        {
-            Guid? cursor = candidate;
-            while (cursor is Guid value)
-            {
-                if (value == ancestor)
-                    return true;
-                cursor = parentIds[value];
-            }
-            return false;
-        }
-
-        private List<Guid> SubtreeIds(Guid objectId)
-        {
-            var result = new List<Guid> { objectId };
-            foreach (Guid child in logicalChildren[objectId])
-                result.AddRange(SubtreeIds(child));
-            result.Reverse();
-            return result;
         }
 
         private static void ValidatePlacement(
@@ -2064,38 +1930,43 @@ namespace Battlement.UI
 
         private void RemoveIdentity(Guid objectId)
         {
+            if (
+                hierarchy.TryGetEntry(objectId, out BattlementUiHierarchy.Entry? entry)
+                && entry is not null
+            )
+                RemoveIdentity(entry);
+        }
+
+        private void RemoveIdentity(BattlementUiHierarchy.Entry entry)
+        {
+            Guid objectId = entry.Id;
+            UnityEngine.UIElements.VisualElement value = entry.Element;
             if (syntheticPointerTarget?.Value == objectId)
             {
                 syntheticPointerTarget = null;
                 syntheticPointerPosition = null;
             }
-            if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
-            {
-                stickyCoordinator.Remove(value);
-                overlayCoordinator.Remove(value);
-                focusCoordinator.Remove(value);
-                if (value is BattlementLayoutContainer layout)
-                    layout.Adapter.Clear();
-                actions.Remove(new ObjectId(objectId), value);
-                elementIds.Remove(value);
-                lifecycleEvents.Remove(objectId);
-                tabControls.RemoveIdentity(objectId, value);
-                textFieldControls.Remove(objectId);
-                booleanControls.Remove(objectId);
-                choiceControls.Remove(objectId);
-                dropdownControls.Remove(objectId);
-                sliderControls.Remove(objectId);
-                rangeControls.Remove(objectId);
-                partProperties.Remove(objectId);
-                motionWorld.RemoveHost(new ObjectId(objectId));
-                BattlementPaintProperties.Release(value);
-            }
+            stickyCoordinator.Remove(value);
+            overlayCoordinator.Remove(value);
+            focusCoordinator.Remove(value);
+            if (value is BattlementLayoutContainer layout)
+                layout.Adapter.Clear();
+            actions.Remove(new ObjectId(objectId), value);
+            lifecycleEvents.Remove(objectId);
+            tabControls.RemoveIdentity(objectId, value);
+            textFieldControls.Remove(objectId);
+            booleanControls.Remove(objectId);
+            choiceControls.Remove(objectId);
+            dropdownControls.Remove(objectId);
+            sliderControls.Remove(objectId);
+            rangeControls.Remove(objectId);
+            partProperties.Remove(objectId);
+            motionWorld.RemoveHost(new ObjectId(objectId));
+            BattlementPaintProperties.Release(value);
             properties.Remove(objectId);
             scrollControls.Remove(objectId);
             repeatControls.Remove(objectId);
-            documentRoots.Remove(objectId);
-            parentIds.Remove(objectId);
-            logicalChildren.Remove(objectId);
+            hierarchy.Remove(objectId);
         }
 
         private static BattlementUiException Failure(CoreErrorCode code, string message) =>
