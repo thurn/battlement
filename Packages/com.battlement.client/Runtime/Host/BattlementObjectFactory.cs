@@ -313,6 +313,7 @@ namespace Battlement
                 }
 
                 instance = Object.Instantiate(prefab);
+                instance.SetActive(true);
                 BattlementGeometryAnchorCatalog anchors = (
                     (IBattlementGeometryAnchorLease)lease
                 ).GeometryAnchors;
@@ -357,8 +358,6 @@ namespace Battlement
                 ).GeometryAnchors;
                 BattlementGeometryAnchorMap.Attach(instance, anchors);
                 ApplyMaterials(instance, description.Materials);
-                if (description.Animator is BattlementDirectAnimatorState animator)
-                    ApplyAnimator(instance, animator);
                 return (instance, lease);
             }
             catch
@@ -548,6 +547,15 @@ namespace Battlement
             animator.Update(0);
         }
 
+        internal static void ApplyPrefabAnimator(
+            GameObject gameObject,
+            BattlementDirectPrefabObjectCreate description
+        )
+        {
+            if (description.Animator is BattlementDirectAnimatorState animator)
+                ApplyAnimator(gameObject, animator);
+        }
+
         private static void ApplyAnimator(
             GameObject gameObject,
             BattlementDirectAnimatorState state
@@ -562,6 +570,8 @@ namespace Battlement
                     $"Animator state requires exactly one root Animator; found {animators.Length}."
                 );
             Animator animator = animators[0];
+            animator.Rebind();
+            animator.Update(0);
             if (state.Layer >= animator.layerCount)
                 throw InvalidAnimator($"Animator layer {state.Layer} does not exist.");
             int layer = checked((int)state.Layer);
@@ -602,6 +612,8 @@ namespace Battlement
                     RequireAnimatorFinite(parameter.Value, $"Animator '{parameter.Name}'")
                 );
             animator.speed = RequireAnimatorNonnegative(state.Speed, "Animator speed");
+            animator.Play(stateHash, layer, normalizedStartTime);
+            animator.Update(0);
             animator.Play(stateHash, layer, normalizedStartTime);
             animator.Update(0);
         }

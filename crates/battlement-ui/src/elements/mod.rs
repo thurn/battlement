@@ -1,7 +1,6 @@
 use battlement_types::ObjectId;
 use enum_dispatch::enum_dispatch;
 use enum_kinds::EnumKind;
-use serde::{Deserialize, Serialize};
 
 pub use background::BackgroundSource;
 pub use box_element::UiBox;
@@ -266,14 +265,14 @@ pub trait UiVisualElementProperties {
 
 /// The supported native UI Toolkit element classes.
 ///
-/// Each variant serializes its concrete class name and properties. The Unity
+/// Each variant identifies its concrete class and properties. The Unity
 /// host uses the variant to create the corresponding native element, and
 /// [`Self::kind`] provides the same discriminator without borrowing the inner
 /// value. Convert an element builder into `UiElement` implicitly by passing it
 /// to [`UiNode::new`].
 #[enum_dispatch(UiVisualElementProperties)]
-#[derive(Clone, Debug, Deserialize, EnumKind, PartialEq, Serialize)]
-#[enum_kind(UiElementKind, derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, EnumKind, PartialEq)]
+#[enum_kind(UiElementKind)]
 pub enum UiElement {
   /// A neutral container for grouping and styling child elements.
   VisualElement(UiVisualElement),
@@ -433,7 +432,7 @@ impl UiElement {
 ///
 /// assert_eq!(card.children.len(), 3);
 /// ```
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiNode {
   /// Stable identity used to address this element in commands and events.
   ///
@@ -443,7 +442,6 @@ pub struct UiNode {
   /// Concrete native element class and its authored properties.
   pub element: UiElement,
   /// Logical children in native insertion and layout order.
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub children: Vec<UiNode>,
 }
 

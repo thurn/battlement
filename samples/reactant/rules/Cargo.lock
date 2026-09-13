@@ -57,8 +57,6 @@ dependencies = [
  "battlement-cloud",
  "battlement-types",
  "battlement-ui",
- "serde",
- "serde_json",
  "uuid",
 ]
 
@@ -104,6 +102,7 @@ dependencies = [
  "battlement-flatbuffers",
  "battlement-native",
  "battlement-ui-fake",
+ "flatbuffers",
  "uuid",
 ]
 
@@ -173,6 +172,7 @@ version = "0.1.0"
 dependencies = [
  "battlement",
  "battlement-fake",
+ "battlement-flatbuffers",
  "battlement-native",
  "battlement-reactant",
  "futures-channel",
@@ -185,7 +185,6 @@ dependencies = [
 name = "battlement-types"
 version = "0.1.0"
 dependencies = [
- "serde",
  "uuid",
 ]
 
@@ -196,8 +195,6 @@ dependencies = [
  "battlement-types",
  "enum-kinds",
  "enum_dispatch",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -22,8 +21,7 @@ namespace Battlement
         {
             /// <summary>Wait for a positive duration. This command must be blocking.</summary>
             /// <param name="Duration">Positive wait duration.</param>
-            public sealed record Wait([property: JsonProperty("duration_ms")] TimeSpan Duration)
-                : CommandBody;
+            public sealed record Wait(TimeSpan Duration) : CommandBody;
         }
 
         public static class Operation
@@ -37,8 +35,7 @@ namespace Battlement
         {
             /// <summary>Gate all pointer and key input.</summary>
             /// <param name="IsEnabled">Whether Battlement accepts input actions.</param>
-            public sealed record SetEnabled([property: JsonProperty("enabled")] bool IsEnabled)
-                : CommandBody;
+            public sealed record SetEnabled(bool IsEnabled) : CommandBody;
 
             /// <summary>Select the enabled camera used for input raycasting.</summary>
             /// <param name="ObjectId">Target camera object.</param>
@@ -66,7 +63,7 @@ namespace Battlement
             public sealed record Vibrate(
                 double LowFrequency,
                 double HighFrequency,
-                [property: JsonProperty("duration_ms")] TimeSpan Duration
+                TimeSpan Duration
             ) : CommandBody;
         }
     }
@@ -76,7 +73,7 @@ namespace Battlement
         IReadOnlyList<ControllerButton> Buttons,
         bool NavigationEnabled = true,
         double? StickDeadZone = null,
-        [property: JsonProperty("repeat_delay_ms")] TimeSpan? RepeatDelay = null,
-        [property: JsonProperty("repeat_interval_ms")] TimeSpan? RepeatInterval = null
+        TimeSpan? RepeatDelay = null,
+        TimeSpan? RepeatInterval = null
     );
 }

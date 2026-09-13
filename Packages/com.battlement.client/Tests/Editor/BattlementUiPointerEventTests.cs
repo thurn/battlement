@@ -3,9 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Battlement.UI;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -247,35 +245,6 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void PointerActionJsonKeepsTheEventTagAndOmitsDefaults()
-        {
-            byte[] bytes = BattlementJson.SerializeUiEventAction(
-                new UiEventAction(
-                    new ActionId(Guid.Parse("22000000-0000-4000-8000-000000000051")),
-                    new SessionId(Guid.Parse("22000000-0000-4000-8000-000000000052")),
-                    new UiEvent(
-                        Id("22000000-0000-4000-8000-000000000053"),
-                        new UiEventBody.PointerDown(
-                            new UiPointerButtonEvent(
-                                new PanelPoint(12, 34),
-                                new Battlement.Vector(0, 0)
-                            )
-                        )
-                    )
-                )
-            );
-            JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
-            JToken payload = root.SelectToken("event.body.PointerDown")!;
-
-            Assert.That(root.SelectToken("event.cancelable")!.Value<bool>(), Is.False);
-            Assert.That(root.SelectToken("event.default_prevented")!.Value<bool>(), Is.False);
-            Assert.That(payload.SelectToken("position.x")!.Value<double>(), Is.EqualTo(12));
-            Assert.That(payload["pointer_id"], Is.Null);
-            Assert.That(payload["button"], Is.Null);
-            Assert.That(payload["click_count"], Is.Null);
-        }
-
-        [Test]
         public void PickedCrossingsReportSiblingAncestorAndDocumentRelations()
         {
             using var fixture = new CrossingFixture();
@@ -298,22 +267,7 @@ namespace Battlement.Tests
             fixture.Events.Clear();
             fixture.Cross(UiEventKind.PointerOut, fixture.Parent, new Vector2(500, 500));
             AssertCrossing(fixture.Events.Single(), fixture.ParentId, null);
-            TestContext.Out.WriteLine(
-                string.Join(
-                    Environment.NewLine,
-                    fixture.Journal.Select(value =>
-                        Encoding.UTF8.GetString(
-                            BattlementJson.SerializeUiEventAction(
-                                new UiEventAction(
-                                    new ActionId(Guid.NewGuid()),
-                                    new SessionId(Guid.NewGuid()),
-                                    value
-                                )
-                            )
-                        )
-                    )
-                )
-            );
+            TestContext.Out.WriteLine(string.Join(Environment.NewLine, fixture.Journal));
         }
 
         [Test]

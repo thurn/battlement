@@ -17,7 +17,7 @@ use battlement_reactant::{
 struct IdleSpawner;
 
 #[test]
-fn effect_group_preserves_compound_clip_and_blend_through_serialization() {
+fn effect_group_preserves_compound_clip_and_blend() {
   let document = UiDocument::with_root_id(ObjectId::new_v4(), ObjectId::new_v4());
   let mut runtime = runtime_support::reactant(IdleSpawner);
   let path = PaintClipPath::new(PaintFillRule::EvenOdd)
@@ -39,10 +39,8 @@ fn effect_group_preserves_compound_clip_and_blend_through_serialization() {
   let Prop::Set(paint) = &group.element.visual_element().paint else {
     panic!("missing group paint")
   };
-  let encoded = serde_json::to_string(paint).unwrap();
-  let decoded: PaintStyle = serde_json::from_str(&encoded).unwrap();
-  assert_eq!(decoded.subtree_clip_path(), Some(&path));
-  assert_eq!(decoded.paint_blend_mode(), Some(PaintBlendMode::Screen));
+  assert_eq!(paint.subtree_clip_path(), Some(&path));
+  assert_eq!(paint.paint_blend_mode(), Some(PaintBlendMode::Screen));
   assert_eq!(group.children.len(), 1);
   let _ = runtime.shutdown(&mut ()).into_groups();
 }

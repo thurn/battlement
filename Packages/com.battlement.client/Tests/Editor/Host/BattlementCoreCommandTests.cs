@@ -275,7 +275,10 @@ namespace Battlement.Tests
             Submit(harness, session, true, Group(Command(new CommandBody.Scene.Unload(secondId))));
             Assert.That(
                 Failures(harness).Last().ErrorCode,
-                Is.EqualTo(CoreErrorCode.InvalidProperty)
+                Is.EqualTo(CoreErrorCode.InvalidProperty),
+                Failures(harness).Last().Message
+                    + "\n"
+                    + string.Join("\n", harness.Logger.Records.Select(record => record.Message))
             );
             Submit(
                 harness,

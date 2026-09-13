@@ -1,5 +1,4 @@
 use battlement_types::{Color, ObjectId};
-use serde::{Deserialize, Serialize};
 
 use crate::{UiElement, UiNode};
 
@@ -14,7 +13,7 @@ use crate::{UiElement, UiNode};
 /// rules as a snapshot document. Every ID in it must be new to the live UI.
 ///
 /// [`UiDocument`]: crate::UiDocument
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VisualElementCreate {
   /// Existing document root or container whose content receives the new node.
   pub parent_id: ObjectId,
@@ -22,7 +21,6 @@ pub struct VisualElementCreate {
   ///
   /// The index may equal the current child count. Omitting it appends after
   /// all current children.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub child_index: Option<u32>,
   /// Complete identified subtree constructed before native attachment.
   pub node: UiNode,
@@ -52,7 +50,7 @@ impl VisualElementCreate {
 /// These operations are deliberately independent. [`Self::Properties`] keeps
 /// the current hierarchy, [`Self::Parent`] moves beneath a logical container,
 /// and [`Self::Index`] reorders within the current parent.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VisualElementUpdate {
   /// Applies sparse visual properties without changing the element class or hierarchy.
   Properties {
@@ -71,7 +69,6 @@ pub enum VisualElementUpdate {
     /// Destination container or document root in the same document.
     parent_id: ObjectId,
     /// Zero-based destination index after removing the element from its old parent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     child_index: Option<u32>,
   },
   /// Changes an element's index within its current logical parent.
@@ -100,7 +97,7 @@ impl VisualElementUpdate {
 /// Destruction also releases native event callbacks, pointer capture, and other
 /// transient state owned by the removed subtree. Document roots are owned by
 /// their host object and cannot be destroyed with this operation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VisualElementDestroy {
   /// Identity of the subtree root to remove; document roots are invalid targets.
   pub object_id: ObjectId,
@@ -110,7 +107,7 @@ pub struct VisualElementDestroy {
 ///
 /// Actions operate on the live element state and are not retained in later
 /// snapshots. The target must support the selected [`VisualElementAction`].
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct VisualElementPerformAction {
   /// Live element receiving the action.
   pub object_id: ObjectId,
@@ -119,7 +116,7 @@ pub struct VisualElementPerformAction {
 }
 
 /// One-shot native UI operations.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VisualElementAction {
   /// Restarts native particle streaks in the target's local coordinate space.
   /// Changing the target's child hierarchy clears an active burst.
@@ -156,7 +153,7 @@ pub enum VisualElementAction {
 }
 
 /// One unlit rectangular particle that travels outward, shrinks, and fades.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiParticleStreak {
   /// Top-left origin as fractions in `[0, 1]` of the target's layout rectangle.
   pub origin: [f32; 2],

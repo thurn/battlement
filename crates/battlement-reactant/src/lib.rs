@@ -22,12 +22,12 @@
 //!     }
 //! }
 //!
-//! fn create_engine() -> App {
-//!     App::new("my-game/content")
-//!         .ui(Greeting::new())
+//! fn create_engine() -> Result<App, battlement_native::EngineError> {
+//!     Ok(App::new("my-game/content")
+//!         .ui(Greeting::new()))
 //! }
 //!
-//! battlement_native::export_native_engine!(create_engine);
+//! battlement_native::export_engine!(create_engine);
 //! ```
 //!
 //! Reactant uses React-compatible names only where Battlement can preserve the

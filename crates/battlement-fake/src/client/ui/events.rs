@@ -1,11 +1,10 @@
-use battlement::Command;
 use battlement_native::Engine;
 
 use super::UiClient;
 
 impl<E> UiClient<'_, E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   /// Emits a target-only finite geometry change when subscribed.
   pub fn geometry_changed(

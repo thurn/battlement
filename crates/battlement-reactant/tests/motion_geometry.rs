@@ -81,11 +81,21 @@ fn a_native_motion_callback_can_rerender_a_geometry_consumer() {
     )
     .unwrap();
   assert!(hovered);
-  assert!(
-    serde_json::to_string(&commit.into_groups())
-      .unwrap()
-      .contains("Hover observed")
-  );
+  assert!(commit.into_groups().iter().flatten().any(|body| {
+    matches!(
+      body,
+      battlement::CommandBody::VisualElementUpdate(update)
+        if matches!(
+          update.as_ref(),
+          battlement::VisualElementUpdate::Properties { element, .. }
+            if matches!(
+              element.as_ref(),
+              battlement::UiElement::Label(label)
+                if label.text == Prop::Set("Hover observed".to_owned())
+            )
+        )
+    )
+  }));
   let _ = runtime.shutdown(&mut hovered).into_groups();
 }
 

@@ -1,6 +1,6 @@
 use battlement::{
-  Command, FocusDirection, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind,
-  UiEventPhase, UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
+  FocusDirection, ObjectId, UiBox, UiButton, UiElement, UiEventKind, UiEventPhase,
+  UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
 };
 use battlement_native::UiEventActionView;
 use std::fmt;
@@ -36,75 +36,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
             .child(grid_card())
             .child(inspector_card()),
     )
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  let index = TARGETS.iter().position(|id| *id == event.target_id)?;
-  let name = target_name(index);
-  let focus_status = match &event.body {
-    UiEventBody::FocusIn(value) | UiEventBody::Focus(value) => Some(format!(
-      "● {name} ← {} · {}",
-      related_name(value.related_target_id),
-      focus_direction_name(value.direction)
-    )),
-    _ => None,
-  };
-  let message = match &event.body {
-    UiEventBody::FocusIn(value) | UiEventBody::Focus(value) => format!(
-      "FOCUS RELATION\n{name} gained focus\nfrom {}\ndirection {:?}",
-      related_name(value.related_target_id),
-      value.direction
-    ),
-    UiEventBody::FocusOut(value) | UiEventBody::Blur(value) => format!(
-      "FOCUS RELATION\n{name} released focus\nto {}\ndirection {:?}",
-      related_name(value.related_target_id),
-      value.direction
-    ),
-    UiEventBody::KeyDown(value) => format!(
-      "PHYSICAL KEY DOWN\ncode {:?}\ntext {:?}\nmodifiers {:?}",
-      value.physical_key, value.text, value.modifiers
-    ),
-    UiEventBody::KeyUp(value) => format!(
-      "PHYSICAL KEY UP\ncode {:?}\ntext {:?}\nmodifiers {:?}",
-      value.physical_key, value.text, value.modifiers
-    ),
-    UiEventBody::NavigationMove(value) => format!(
-      "NAVIGATION MOVE\ndirection {:?}\nvector {:.1}, {:.1}",
-      value.direction, value.move_vector.x, value.move_vector.y
-    ),
-    UiEventBody::NavigationCancel(_) => {
-      "NAVIGATION CANCEL\nEscape stayed in UI focus routing.".to_owned()
-    }
-    UiEventBody::Click(battlement::ClickEvent::NavigationSubmit) => format!(
-      "ACTIVATED · {name}\nNavigation submit became exactly one Click.\nNo duplicate NavigationSubmit action crossed the transport."
-    ),
-    UiEventBody::Click(battlement::ClickEvent::Pointer { .. }) => {
-      format!("ACTIVATED · {name}\nPointer Click used the same Rust handler.")
-    }
-    _ => return None,
-  };
-  let mut commands = vec![Command::update_visual_element(
-    INSPECTOR_ID,
-    UiLabel::new(message),
-  )];
-  if let Some(focus_status) = focus_status {
-    commands.extend(
-      TARGETS
-        .into_iter()
-        .enumerate()
-        .map(|(target_index, target_id)| {
-          Command::update_visual_element(
-            target_id,
-            UiButton::default().style(keyboard_navigation_styles::target(target_index == index)),
-          )
-        }),
-    );
-    commands.push(Command::update_visual_element(
-      FOCUS_ID,
-      UiLabel::new(focus_status),
-    ));
-  }
-  Some(commands)
 }
 
 pub(crate) fn write_event_response(
@@ -237,16 +168,16 @@ impl fmt::Debug for ModifiersDebug {
   }
 }
 
+fn rgba(value: battlement::Color) -> [f64; 4] {
+  [value.r, value.g, value.b, value.a]
+}
+
 fn related_name_bytes(value: Option<[u8; 16]>) -> &'static str {
   value
     .and_then(|id| ObjectId::from_bytes(id).ok())
     .and_then(|id| TARGETS.iter().position(|value| *value == id))
     .map(target_name)
     .unwrap_or("outside Battlement UI")
-}
-
-fn rgba(value: battlement::Color) -> [f64; 4] {
-  [value.r, value.g, value.b, value.a]
 }
 
 fn grid_card() -> UiNode {
@@ -321,13 +252,6 @@ fn ancestor_subscriptions() -> Vec<UiEventSubscription> {
     ]
   })
   .collect()
-}
-
-fn related_name(value: Option<ObjectId>) -> &'static str {
-  value
-    .and_then(|id| TARGETS.iter().position(|value| *value == id))
-    .map(target_name)
-    .unwrap_or("outside Battlement UI")
 }
 
 fn target_name(index: usize) -> &'static str {

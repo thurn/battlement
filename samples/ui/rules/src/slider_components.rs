@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, SliderDirection, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
-  UiNode, UiSlider, UiSliderInt, UiValue, UiVisualElement, object_id,
+  ObjectId, SliderDirection, UiBox, UiElement, UiEventKind, UiLabel, UiNode, UiSlider, UiSliderInt,
+  UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -31,62 +31,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                 .child(stepped_card()),
         )
         .child(inspector())
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  match (&event.target_id, &event.body) {
-    (&CONTINUOUS_ID, UiEventBody::ValueChanging(value)) => {
-      let UiValue::F32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![Command::update_visual_element(
-        LIVE_STATUS_ID,
-        UiLabel::new(format!("LIVE  thrust trim  {proposed:.1}%")),
-      )])
-    }
-    (&STEPPED_ID, UiEventBody::ValueChanging(value)) => {
-      let UiValue::I32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![Command::update_visual_element(
-        LIVE_STATUS_ID,
-        UiLabel::new(format!("LIVE  shield step  {proposed}")),
-      )])
-    }
-    (&CONTINUOUS_ID, UiEventBody::ValueCommitted(value)) => {
-      let UiValue::F32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![
-        Command::update_visual_element(CONTINUOUS_ID, UiSlider::new().value(proposed)),
-        Command::update_visual_element(
-          CONTINUOUS_VALUE_ID,
-          UiLabel::new(format!("FINAL · {proposed:.1}%")),
-        ),
-        Command::update_visual_element(
-          COMMIT_STATUS_ID,
-          UiLabel::new(format!("COMMITTED  horizontal value {proposed:.1}")),
-        ),
-      ])
-    }
-    (&STEPPED_ID, UiEventBody::ValueCommitted(value)) => {
-      let UiValue::I32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![
-        Command::update_visual_element(STEPPED_ID, UiSliderInt::new().value(proposed)),
-        Command::update_visual_element(
-          STEPPED_VALUE_ID,
-          UiLabel::new(format!("FINAL · STEP {proposed}")),
-        ),
-        Command::update_visual_element(
-          COMMIT_STATUS_ID,
-          UiLabel::new(format!("COMMITTED  vertical integer {proposed}")),
-        ),
-      ])
-    }
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(

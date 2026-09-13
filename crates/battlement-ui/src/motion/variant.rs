@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// Parent/child sequencing selected by a resolved variant target.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VariantWhen {
   /// Parent and children begin from the same orchestration origin.
   Together,
@@ -13,7 +12,7 @@ pub enum VariantWhen {
 }
 
 /// Direction used to assign stagger positions.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StaggerDirection {
   /// Earlier logical children begin first.
   Forward,
@@ -22,7 +21,7 @@ pub enum StaggerDirection {
 }
 
 /// Inspectable facts retained after Rust resolves logical variants.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionVariantResolution {
   /// Ordered names merged into the final target.
   pub names: Vec<String>,

@@ -1,7 +1,5 @@
 use std::num::NonZeroU32;
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -44,31 +42,23 @@ use crate::{
 /// [`ClickEvent::NavigationSubmit`]: crate::ClickEvent::NavigationSubmit
 /// [`ClickEvent::Repeat`]: crate::ClickEvent::Repeat
 /// [`UiEventKind::Click`]: crate::UiEventKind::Click
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiRepeatButton {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text rendered inside the button.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Delay before held activation starts repeating, in milliseconds.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub delay_ms: Prop<u32>,
   /// Time between held activations, in milliseconds.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub interval_ms: Prop<NonZeroU32>,
   /// Whether supported rich-text tags are parsed.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub enable_rich_text: Prop<bool>,
   /// Whether emoji prefer the global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub emoji_fallback_support: Prop<bool>,
   /// Whether backslash escape sequences become control characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display_tooltip_when_elided: Prop<bool>,
 }
 

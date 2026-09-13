@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode,
-  UiRadioButton, UiToggle, UiValue, UiVisualElement, object_id,
+  ObjectId, UiBox, UiElement, UiEventKind, UiLabel, UiNode, UiRadioButton, UiToggle,
+  UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -33,58 +33,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                 .child(radios_card()),
         )
         .child(inspector())
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  let UiEventBody::ValueCommitted(value) = &event.body else {
-    return None;
-  };
-  let (previous, proposed) = values(&value.previous, &value.proposed)?;
-  let history = Command::update_visual_element(
-    HISTORY_ID,
-    UiLabel::new(format!(
-      "PROPOSAL  {} → {}  |  committed before callback: {}",
-      state(previous),
-      state(proposed),
-      state(previous),
-    )),
-  );
-  match event.target_id {
-    ACCEPTED_TOGGLE_ID => Some(vec![
-      Command::update_visual_element(ACCEPTED_TOGGLE_ID, UiToggle::new().value(proposed)),
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new(format!(
-          "ACCEPTED · threat alerts committed {}",
-          state(proposed)
-        )),
-      ),
-      history,
-    ]),
-    REJECTED_TOGGLE_ID => Some(vec![
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new("REJECTED · safety interlock remains ON"),
-      ),
-      history,
-    ]),
-    ACCEPTED_RADIO_ID => Some(vec![
-      Command::update_visual_element(ACCEPTED_RADIO_ID, UiRadioButton::new().value(proposed)),
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new("ACCEPTED · command channel committed"),
-      ),
-      history,
-    ]),
-    REJECTED_RADIO_ID => Some(vec![
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new("REJECTED · restricted channel stays OFF"),
-      ),
-      history,
-    ]),
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -229,13 +177,6 @@ fn inspector() -> UiNode {
         .name("boolean-history")
         .style(boolean_styles::history()),
     ))
-}
-
-fn values(previous: &UiValue, proposed: &UiValue) -> Option<(bool, bool)> {
-  match (previous, proposed) {
-    (UiValue::Bool(previous), UiValue::Bool(proposed)) => Some((*previous, *proposed)),
-    _ => None,
-  }
 }
 
 fn state(value: bool) -> &'static str {

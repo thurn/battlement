@@ -9,7 +9,6 @@ namespace Battlement.Tests
         [TestCase("Battlement.Runtime")]
         [TestCase("Battlement.Protocol")]
         [TestCase("Battlement.UI")]
-        [TestCase("Battlement.Json")]
         [TestCase("Battlement.Editor")]
         public void PackageAssemblyIsLoaded(string assemblyName)
         {

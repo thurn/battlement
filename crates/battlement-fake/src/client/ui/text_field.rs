@@ -4,7 +4,7 @@ use crate::client::ui::{TextFieldInteraction, UiClient};
 
 impl<E> UiClient<'_, E>
 where
-  E: Engine<Command = battlement::Command>,
+  E: Engine,
 {
   /// Applies one native text edit and optionally forwards the complete local draft.
   pub fn text_input(&mut self, object_id: battlement::ObjectId, draft: impl Into<String>) {

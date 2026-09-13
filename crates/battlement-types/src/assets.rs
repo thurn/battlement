@@ -2,8 +2,6 @@
 
 use std::{borrow::Cow, fmt, marker::PhantomData};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 /// An Addressables key tagged with the Unity asset type it must resolve to.
 ///
 /// Public APIs use role-specific aliases such as [`SceneAddress`] and
@@ -68,24 +66,6 @@ impl<K> From<String> for AssetAddress<K> {
 impl<K> AsRef<str> for AssetAddress<K> {
   fn as_ref(&self) -> &str {
     self.as_str()
-  }
-}
-
-impl<K> Serialize for AssetAddress<K> {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    serializer.serialize_str(self.as_str())
-  }
-}
-
-impl<'de, K> Deserialize<'de> for AssetAddress<K> {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    String::deserialize(deserializer).map(Self::new)
   }
 }
 

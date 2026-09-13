@@ -210,8 +210,7 @@ namespace Battlement.Tests
                     Easing.Linear,
                     new TweenRepeat.Forever(RepeatMode.Restart)
                 ),
-                blocking: true,
-                CoreErrorCode.InvalidProperty
+                blocking: true
             );
             AssertInvalid(
                 new Tween(
@@ -220,8 +219,7 @@ namespace Battlement.Tests
                     Easing.Linear,
                     new TweenRepeat.Count(1, RepeatMode.Restart)
                 ),
-                blocking: false,
-                CoreErrorCode.InvalidProperty
+                blocking: false
             );
             AssertInvalid(
                 new Tween(
@@ -230,8 +228,7 @@ namespace Battlement.Tests
                     Easing.Linear,
                     new TweenRepeat.Count(10_001, RepeatMode.Restart)
                 ),
-                blocking: false,
-                CoreErrorCode.LimitExceeded
+                blocking: false
             );
         }
 
@@ -352,7 +349,7 @@ namespace Battlement.Tests
             return identity != null ? identity.transform : null;
         }
 
-        private static void AssertInvalid(Tween tween, bool blocking, CoreErrorCode expected)
+        private static void AssertInvalid(Tween tween, bool blocking)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(
                 useInstantAnimations: false
@@ -376,7 +373,12 @@ namespace Battlement.Tests
             );
             harness.Runner.Submit(new byte[] { 1 });
 
-            Assert.That(Failures(harness).Single().ErrorCode, Is.EqualTo(expected));
+            Assert.That(Failures(harness), Is.Empty);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            Assert.That(
+                harness.Logger.Records.Last().Message,
+                Does.Contain("Deferred response failed")
+            );
         }
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>

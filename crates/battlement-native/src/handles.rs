@@ -9,10 +9,8 @@ use std::{
 };
 
 use crate::{
-  BattlementBuffer, EngineFactory, INVALID_ARGUMENT, NativeEngineFactory, PANIC, buffer_free,
-  ffi_connect, ffi_create, ffi_destroy, ffi_native_connect, ffi_native_create, ffi_native_destroy,
-  ffi_native_poll, ffi_native_submit, ffi_native_submit_ui_event, ffi_poll, ffi_submit,
-  ffi_submit_ui_event,
+  BattlementBuffer, Engine, EngineError, INVALID_ARGUMENT, PANIC, buffer_free, ffi_connect,
+  ffi_create, ffi_destroy, ffi_poll, ffi_submit, ffi_submit_ui_event,
 };
 
 /// Opaque identity for one live native engine.
@@ -74,224 +72,20 @@ impl Drop for CallGuard {
   }
 }
 
-/// Creates one engine and publishes its non-pointer identity.
+/// Creates one  engine and publishes its non-pointer identity.
 ///
 /// # Safety
 ///
 /// Non-null outputs must be writable and correctly aligned.
 #[doc(hidden)]
-pub unsafe fn ffi_create_handle<F>(
+pub unsafe fn ffi_create_handle<F, E>(
   factory: F,
   out_engine: *mut EngineHandle,
   out_error: *mut BufferHandle,
 ) -> i32
 where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  if !out_engine.is_null() {
-    // SAFETY: The caller promises a writable non-null output.
-    unsafe { out_engine.write(EMPTY_HANDLE) };
-  }
-  if !out_error.is_null() {
-    // SAFETY: The caller promises a writable non-null output.
-    unsafe { out_error.write(EMPTY_HANDLE) };
-  }
-  if out_engine.is_null() || out_error.is_null() {
-    return INVALID_ARGUMENT;
-  }
-
-  let mut pointer = ptr::null_mut();
-  let mut error = BattlementBuffer::EMPTY;
-  // SAFETY: Local outputs are valid for the delegated call.
-  let status = unsafe { ffi_create(factory, &mut pointer, &mut error) };
-  // SAFETY: The caller's output was validated above.
-  unsafe { out_error.write(register_buffer(error)) };
-  if pointer.is_null() {
-    return status;
-  }
-
-  let handle = next_handle(&NEXT_ENGINE_HANDLE);
-  ENGINES.with_borrow_mut(|engines| {
-    engines.insert(
-      handle,
-      EngineEntry {
-        pointer,
-        type_id: TypeId::of::<F::Engine>(),
-        in_call: false,
-      },
-    );
-  });
-  // SAFETY: The caller's output was validated above.
-  unsafe { out_engine.write(handle) };
-  status
-}
-
-/// Destroys one engine identity without accepting allocation pointers from the caller.
-///
-/// # Safety
-///
-/// `out_error` must be writable and correctly aligned.
-#[doc(hidden)]
-pub unsafe fn ffi_destroy_handle<F>(
-  factory: F,
-  engine: EngineHandle,
-  out_error: *mut BufferHandle,
-) -> i32
-where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  if out_error.is_null() {
-    return INVALID_ARGUMENT;
-  }
-  // SAFETY: The caller promises a writable non-null output.
-  unsafe { out_error.write(EMPTY_HANDLE) };
-  let entry = ENGINES.with_borrow_mut(|engines| {
-    let valid = engines
-      .get(&engine)
-      .is_some_and(|entry| entry.type_id == TypeId::of::<F::Engine>() && !entry.in_call);
-    valid.then(|| {
-      engines
-        .remove(&engine)
-        .expect("validated engine entry exists")
-    })
-  });
-  let Some(entry) = entry else {
-    // SAFETY: The output was validated and initialized above.
-    unsafe {
-      out_error.write(diagnostic_handle(
-        "engine handle is invalid, stale, or busy",
-      ))
-    };
-    return INVALID_ARGUMENT;
-  };
-
-  let mut error = BattlementBuffer::EMPTY;
-  // SAFETY: The registry returns the exact typed pointer created for this factory.
-  let status = unsafe { ffi_destroy(factory, entry.pointer, &mut error) };
-  // SAFETY: The output was validated above.
-  unsafe { out_error.write(register_buffer(error)) };
-  status
-}
-
-/// Invokes connect through a validated engine identity.
-///
-/// # Safety
-///
-/// Input and output pointers must satisfy the delegated adapter contract.
-#[doc(hidden)]
-pub unsafe fn ffi_connect_handle<F>(
-  factory: F,
-  engine: EngineHandle,
-  data: *const u8,
-  length: u64,
-  out_buffer: *mut BufferHandle,
-) -> i32
-where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  // SAFETY: This function forwards the caller's pointer contract after resolving the handle.
-  unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_connect(factory, pointer, data, length, output)
-    })
-  }
-}
-
-/// Invokes submit through a validated engine identity.
-///
-/// # Safety
-///
-/// Input and output pointers must satisfy the delegated adapter contract.
-#[doc(hidden)]
-pub unsafe fn ffi_submit_handle<F>(
-  factory: F,
-  engine: EngineHandle,
-  data: *const u8,
-  length: u64,
-  out_buffer: *mut BufferHandle,
-) -> i32
-where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  // SAFETY: This function forwards the caller's pointer contract after resolving the handle.
-  unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_submit(factory, pointer, data, length, output)
-    })
-  }
-}
-
-/// Invokes synchronous UI submission through a validated engine identity.
-///
-/// # Safety
-///
-/// Input and output pointers must satisfy the delegated adapter contract.
-#[doc(hidden)]
-pub unsafe fn ffi_submit_ui_event_handle<F>(
-  factory: F,
-  engine: EngineHandle,
-  data: *const u8,
-  length: u64,
-  out_disposition: *mut u32,
-  out_buffer: *mut BufferHandle,
-) -> i32
-where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  if !out_disposition.is_null() {
-    // SAFETY: The caller promises a writable non-null output.
-    unsafe { out_disposition.write(0) };
-  }
-  // SAFETY: This function forwards the caller's pointer contract after resolving the handle.
-  unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_submit_ui_event(factory, pointer, data, length, out_disposition, output)
-    })
-  }
-}
-
-/// Polls through a validated engine identity.
-///
-/// # Safety
-///
-/// `out_buffer` must be writable and correctly aligned.
-#[doc(hidden)]
-pub unsafe fn ffi_poll_handle<F>(
-  factory: F,
-  engine: EngineHandle,
-  out_buffer: *mut BufferHandle,
-) -> i32
-where
-  F: EngineFactory,
-  F::Engine: 'static,
-{
-  // SAFETY: This function forwards the caller's pointer contract after resolving the handle.
-  unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_poll(factory, pointer, output)
-    })
-  }
-}
-
-/// Creates one direct native engine and publishes its non-pointer identity.
-///
-/// # Safety
-///
-/// Non-null outputs must be writable and correctly aligned.
-#[doc(hidden)]
-pub unsafe fn ffi_native_create_handle<F>(
-  factory: F,
-  out_engine: *mut EngineHandle,
-  out_error: *mut BufferHandle,
-) -> i32
-where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   if out_engine.is_null() || out_error.is_null() {
     return INVALID_ARGUMENT;
@@ -302,7 +96,7 @@ where
   }
   let mut pointer = ptr::null_mut();
   let mut error = BattlementBuffer::EMPTY;
-  let status = unsafe { ffi_native_create(factory, &mut pointer, &mut error) };
+  let status = unsafe { ffi_create(factory, &mut pointer, &mut error) };
   unsafe { out_error.write(register_buffer(error)) };
   if pointer.is_null() {
     return status;
@@ -313,7 +107,7 @@ where
       handle,
       EngineEntry {
         pointer,
-        type_id: TypeId::of::<F::Engine>(),
+        type_id: TypeId::of::<E>(),
         in_call: false,
       },
     );
@@ -322,20 +116,20 @@ where
   status
 }
 
-/// Destroys one direct native engine identity.
+/// Destroys one  engine identity.
 ///
 /// # Safety
 ///
 /// `out_error` must be writable and correctly aligned.
 #[doc(hidden)]
-pub unsafe fn ffi_native_destroy_handle<F>(
+pub unsafe fn ffi_destroy_handle<F, E>(
   factory: F,
   engine: EngineHandle,
   out_error: *mut BufferHandle,
 ) -> i32
 where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   if out_error.is_null() {
     return INVALID_ARGUMENT;
@@ -344,7 +138,7 @@ where
   let entry = ENGINES.with_borrow_mut(|engines| {
     let valid = engines
       .get(&engine)
-      .is_some_and(|entry| entry.type_id == TypeId::of::<F::Engine>() && !entry.in_call);
+      .is_some_and(|entry| entry.type_id == TypeId::of::<E>() && !entry.in_call);
     valid.then(|| {
       engines
         .remove(&engine)
@@ -360,18 +154,18 @@ where
     return INVALID_ARGUMENT;
   };
   let mut error = BattlementBuffer::EMPTY;
-  let status = unsafe { ffi_native_destroy(factory, entry.pointer, &mut error) };
+  let status = unsafe { ffi_destroy(factory, entry.pointer, &mut error) };
   unsafe { out_error.write(register_buffer(error)) };
   status
 }
 
-/// Invokes direct native connect through a validated engine identity.
+/// Invokes  connect through a validated engine identity.
 ///
 /// # Safety
 ///
 /// Pointers must satisfy the delegated adapter contract.
 #[doc(hidden)]
-pub unsafe fn ffi_native_connect_handle<F>(
+pub unsafe fn ffi_connect_handle<F, E>(
   factory: F,
   engine: EngineHandle,
   data: *const u8,
@@ -379,23 +173,23 @@ pub unsafe fn ffi_native_connect_handle<F>(
   out_buffer: *mut BufferHandle,
 ) -> i32
 where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_native_connect(factory, pointer, data, length, output)
+    output_call::<E, _>(engine, out_buffer, |pointer, output| {
+      ffi_connect(factory, pointer, data, length, output)
     })
   }
 }
 
-/// Invokes direct native submit through a validated engine identity.
+/// Invokes  submit through a validated engine identity.
 ///
 /// # Safety
 ///
 /// Pointers must satisfy the delegated adapter contract.
 #[doc(hidden)]
-pub unsafe fn ffi_native_submit_handle<F>(
+pub unsafe fn ffi_submit_handle<F, E>(
   factory: F,
   engine: EngineHandle,
   data: *const u8,
@@ -403,23 +197,23 @@ pub unsafe fn ffi_native_submit_handle<F>(
   out_buffer: *mut BufferHandle,
 ) -> i32
 where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_native_submit(factory, pointer, data, length, output)
+    output_call::<E, _>(engine, out_buffer, |pointer, output| {
+      ffi_submit(factory, pointer, data, length, output)
     })
   }
 }
 
-/// Invokes direct native UI submission through a validated engine identity.
+/// Invokes  UI submission through a validated engine identity.
 ///
 /// # Safety
 ///
 /// Pointers must satisfy the delegated adapter contract.
 #[doc(hidden)]
-pub unsafe fn ffi_native_submit_ui_event_handle<F>(
+pub unsafe fn ffi_submit_ui_event_handle<F, E>(
   factory: F,
   engine: EngineHandle,
   data: *const u8,
@@ -428,37 +222,37 @@ pub unsafe fn ffi_native_submit_ui_event_handle<F>(
   out_buffer: *mut BufferHandle,
 ) -> i32
 where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   if !out_disposition.is_null() {
     unsafe { out_disposition.write(0) };
   }
   unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_native_submit_ui_event(factory, pointer, data, length, out_disposition, output)
+    output_call::<E, _>(engine, out_buffer, |pointer, output| {
+      ffi_submit_ui_event(factory, pointer, data, length, out_disposition, output)
     })
   }
 }
 
-/// Polls a direct native engine through a validated identity.
+/// Polls a  engine through a validated identity.
 ///
 /// # Safety
 ///
 /// `out_buffer` must be writable and correctly aligned.
 #[doc(hidden)]
-pub unsafe fn ffi_native_poll_handle<F>(
+pub unsafe fn ffi_poll_handle<F, E>(
   factory: F,
   engine: EngineHandle,
   out_buffer: *mut BufferHandle,
 ) -> i32
 where
-  F: NativeEngineFactory,
-  F::Engine: 'static,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine + 'static,
 {
   unsafe {
-    output_call::<F::Engine, _>(engine, out_buffer, |pointer, output| {
-      ffi_native_poll(factory, pointer, output)
+    output_call::<E, _>(engine, out_buffer, |pointer, output| {
+      ffi_poll(factory, pointer, output)
     })
   }
 }

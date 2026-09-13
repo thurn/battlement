@@ -36,14 +36,14 @@
     "Table.cs": "ee88858a4a7a12f1a440b978643fe98d0b4686e9ab2deef73c76af50932fac92"
   },
   "csharp_runtime_artifact_sha256": {
-    "ByteBuffer.cs": "3d9e64d247da27d6bb86ccb06342ec7358c9ce2db7b2b4ddf656d5a1f81f0980",
-    "ByteBufferUtil.cs": "b1f712041443cbcf9acda6a1bf8f745c6ee1872ffb7bfb9b91be92ab37e060bd",
-    "FlatBufferBuilder.cs": "01e2c4460f39b0353fc772a99dc8833e23631803e470ac653dd81e1f842507b1",
-    "FlatBufferConstants.cs": "692a81a83d540adb80ee49655630ce63469657735ba1f071d246def38f0da469",
+    "ByteBuffer.cs": "245ffa0a05551fd25ea98bb53fef94289be46bcd5278ee43422bccec82c2d309",
+    "ByteBufferUtil.cs": "95823a03618f22b6d157081bd9edb91daf42b798b2cf6a816c5c8da1891b25b9",
+    "FlatBufferBuilder.cs": "84f2d88c9eaf99520a7d6027f7975c6d62abe2750713761bfae608ae08badbee",
+    "FlatBufferConstants.cs": "8280b224c78049a5f20e8f7a8511b3233b8470b7054caf44556a7b9b166c2354",
     "FlatBufferVerify.cs": "6b7d1e8d3ea7de6b2cf97aa3c178764988df204d12610e354a8b019185795f94",
     "IFlatbufferObject.cs": "3741b1769a4b80bacfe977c957173c0b005c50cfb70e42381b280b65f4a2174d",
-    "Offset.cs": "3ca223869957cd70fdcdb9fd04b4766c14c189e499e0fd874c9bfc8e238c457a",
-    "Struct.cs": "08ea4836f780dcce794f86ab8548be3bffbd55754a4c9b75adabdf1f7a3b0bc7",
-    "Table.cs": "0f9ca5b7755f0e28df255c2703cb6e02675eed9c49f4767926983b416130a306"
+    "Offset.cs": "f41b00ae4e136d30de19519e5fa2512d43d77469dd8ce9e23f77fd121e000e5a",
+    "Struct.cs": "4fa4a019ac5086019c4f11506d5ef121f6b410a0bea78700ddbd8e8b27093886",
+    "Table.cs": "fbcb13607ce2d55ddf3e82e4e1791e3e8169de7bf431964607144c6b063e5379"
   }
 }

@@ -56,6 +56,40 @@ pub struct ConnectInput<'a> {
   pub streaming_assets_path: Option<&'a str>,
 }
 
+/// Constructs a connect request from the public protocol value.
+pub fn write_connect_request(
+  value: &battlement::Connect,
+) -> Result<FinishedMessage, ProtocolError> {
+  let custom_command_types = value
+    .custom_command_types
+    .iter()
+    .map(String::as_str)
+    .collect::<Vec<_>>();
+  let modules = value.modules.iter().map(String::as_str).collect::<Vec<_>>();
+  let reduced_motion_preference = match value.reduced_motion_preference {
+    battlement::application::ReducedMotionPreference::Unavailable => {
+      ReducedMotionPreference::Unavailable
+    }
+    battlement::application::ReducedMotionPreference::Reduce => ReducedMotionPreference::Reduce,
+    battlement::application::ReducedMotionPreference::NoPreference => {
+      ReducedMotionPreference::NoPreference
+    }
+  };
+  write_connect(&ConnectInput {
+    platform: &value.platform,
+    unity_version: &value.unity_version,
+    screen_width: value.screen.width,
+    screen_height: value.screen.height,
+    focused: value.application_state.focused,
+    paused: value.application_state.paused,
+    reduced_motion_preference,
+    custom_command_types: &custom_command_types,
+    modules: &modules,
+    persistent_data_path: value.persistent_data_path.as_deref(),
+    streaming_assets_path: value.streaming_assets_path.as_deref(),
+  })
+}
+
 /// One finished immutable FlatBuffer and its initialized range.
 pub struct FinishedMessage {
   storage: Vec<u8>,

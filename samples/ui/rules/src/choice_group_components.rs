@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
-  UiNode, UiRadioButtonGroup, UiToggleButtonGroup, UiValue, UiVisualElement, object_id,
+  ObjectId, UiBox, UiButton, UiElement, UiEventKind, UiLabel, UiNode, UiRadioButtonGroup,
+  UiToggleButtonGroup, UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -40,73 +40,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
         .child(filter_card()),
     )
     .child(inspector())
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  let UiEventBody::ValueCommitted(value) = &event.body else {
-    return None;
-  };
-  match event.target_id {
-    FORMATION_ID => {
-      let (previous, proposed) = indices(&value.previous, &value.proposed)?;
-      let selected = proposed?;
-      Some(vec![
-        Command::update_visual_element(
-          FORMATION_ID,
-          UiRadioButtonGroup::new().selected_index(selected),
-        ),
-        Command::update_visual_element(
-          STATUS_ID,
-          UiLabel::new(format!(
-            "FORMATION · {} committed",
-            label(&FORMATIONS, selected)
-          )),
-        ),
-        Command::update_visual_element(
-          FORMATION_SUMMARY_ID,
-          UiLabel::new(format!("SELECTED INDEX · {selected}")),
-        ),
-        Command::update_visual_element(
-          HISTORY_ID,
-          UiLabel::new(format!(
-            "EXCLUSIVE  {} → {}  |  index {} → {}",
-            optional_label(&FORMATIONS, previous),
-            label(&FORMATIONS, selected),
-            optional_index(previous),
-            selected,
-          )),
-        ),
-      ])
-    }
-    FILTER_ID => {
-      let (previous, proposed) = index_sets(&value.previous, &value.proposed)?;
-      let mut commands = vec![
-        Command::update_visual_element(
-          FILTER_ID,
-          UiToggleButtonGroup::new().selected_indices(proposed.iter().copied()),
-        ),
-        Command::update_visual_element(
-          FILTER_SUMMARY_ID,
-          UiLabel::new(format!("SELECTED INDICES · {}", format_indices(proposed))),
-        ),
-        Command::update_visual_element(
-          STATUS_ID,
-          UiLabel::new(format!("FILTERS · {}", selected_labels(proposed))),
-        ),
-        Command::update_visual_element(
-          HISTORY_ID,
-          UiLabel::new(format!(
-            "MULTI  {} → {}  |  sorted index set",
-            format_indices(previous),
-            format_indices(proposed),
-          )),
-        ),
-      ];
-      commands.extend(filter_button_commands(proposed));
-      Some(commands)
-    }
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -282,25 +215,6 @@ fn filter_button(object_id: ObjectId, name: &str, text: &str, selected: bool) ->
   )
 }
 
-fn filter_button_commands(selected: &[u32]) -> Vec<Command> {
-  [
-    (FILTER_AIR_ID, "AIR"),
-    (FILTER_LAND_ID, "LAND"),
-    (FILTER_SEA_ID, "SEA"),
-  ]
-  .into_iter()
-  .enumerate()
-  .map(|(index, (object_id, text))| {
-    let active = selected.binary_search(&(index as u32)).is_ok();
-    Command::update_visual_element(
-      object_id,
-      UiButton::new(filter_button_text(text, active))
-        .style(choice_group_styles::toggle_button(active)),
-    )
-  })
-  .collect()
-}
-
 fn filter_button_text(text: &str, selected: bool) -> String {
   format!("{text}  {}", if selected { "ON" } else { "OFF" })
 }
@@ -319,20 +233,6 @@ fn inspector() -> UiNode {
         .name("choice-history")
         .style(choice_group_styles::history()),
     ))
-}
-
-fn indices(previous: &UiValue, proposed: &UiValue) -> Option<(Option<u32>, Option<u32>)> {
-  match (previous, proposed) {
-    (UiValue::Index(previous), UiValue::Index(proposed)) => Some((*previous, *proposed)),
-    _ => None,
-  }
-}
-
-fn index_sets<'a>(previous: &'a UiValue, proposed: &'a UiValue) -> Option<(&'a [u32], &'a [u32])> {
-  match (previous, proposed) {
-    (UiValue::Indices(previous), UiValue::Indices(proposed)) => Some((previous, proposed)),
-    _ => None,
-  }
 }
 
 fn optional_label<'a>(values: &'a [&'a str], index: Option<u32>) -> &'a str {

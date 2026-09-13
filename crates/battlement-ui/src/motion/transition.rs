@@ -1,9 +1,7 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 use crate::MotionProperty;
 
 /// Boundary placement for a stepped easing function.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StepPosition {
   /// Jumps at the beginning of each step.
   Start,
@@ -12,7 +10,7 @@ pub enum StepPosition {
 }
 
 /// Typed easing accepted by tween and CSS-style timelines.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionEasing {
   /// Constant normalized velocity.
   Linear,
@@ -50,7 +48,7 @@ impl MotionEasing {
 }
 
 /// Number of additional Motion iterations after the first.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionRepeat {
   /// Runs only the first iteration.
   None,
@@ -61,7 +59,7 @@ pub enum MotionRepeat {
 }
 
 /// How later Motion iterations derive their direction and endpoints.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionRepeatType {
   /// Starts each iteration at the authored origin.
   Loop,
@@ -71,8 +69,8 @@ pub enum MotionRepeatType {
   Mirror,
 }
 
-/// Serializable inertia target modifier.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+/// Inertia target modifier.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InertiaTarget {
   /// Leaves the unconstrained target unchanged.
   Identity,
@@ -119,7 +117,7 @@ impl InertiaTarget {
 }
 
 /// Physical-parameter or duration-derived spring configuration.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SpringConfiguration {
   /// Direct physical coefficients and completion thresholds.
   Physical {
@@ -197,7 +195,7 @@ impl SpringConfiguration {
 }
 
 /// Fully normalized timing generator for one property track.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TransitionGenerator {
   /// Applies the target in the first eligible sample.
   Immediate,
@@ -248,39 +246,6 @@ pub struct TransitionDefinition {
   pub repeat_delay_micros: u64,
   /// Endpoint/direction behavior for repeats.
   pub repeat_type: MotionRepeatType,
-}
-
-impl Serialize for TransitionDefinition {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    (
-      &self.generator,
-      self.delay_micros,
-      &self.repeat,
-      self.repeat_delay_micros,
-      self.repeat_type,
-    )
-      .serialize(serializer)
-  }
-}
-
-impl<'de> Deserialize<'de> for TransitionDefinition {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    let (generator, delay_micros, repeat, repeat_delay_micros, repeat_type) =
-      Deserialize::deserialize(deserializer)?;
-    Ok(Self {
-      generator,
-      delay_micros,
-      repeat,
-      repeat_delay_micros,
-      repeat_type,
-    })
-  }
 }
 
 impl TransitionDefinition {
@@ -341,7 +306,8 @@ impl TransitionDefinition {
     }
   }
 
-  pub(crate) fn validate(&self) -> Result<(), &'static str> {
+  /// Validates timing, easing, repetition, and generator numeric bounds.
+  pub fn validate(&self) -> Result<(), &'static str> {
     match &self.generator {
       TransitionGenerator::Immediate => {}
       TransitionGenerator::Tween {
@@ -395,7 +361,7 @@ impl TransitionDefinition {
 }
 
 /// One property-specific override on a transition.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PropertyTransition {
   /// Property receiving the override.
   pub property: MotionProperty,
@@ -404,7 +370,7 @@ pub struct PropertyTransition {
 }
 
 /// Default transition plus property-specific replacements.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionTransition {
   /// Default for every changed property without an override.
   pub default: TransitionDefinition,

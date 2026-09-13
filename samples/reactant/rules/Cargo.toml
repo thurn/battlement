@@ -19,5 +19,6 @@ trox = "0.2.1"
 
 [dev-dependencies]
 battlement-fake = { path = "../../../crates/battlement-fake" }
+battlement-flatbuffers = { path = "../../../crates/battlement-flatbuffers" }
 
 [workspace]

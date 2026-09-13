@@ -766,6 +766,47 @@ impl Default for MessageWriter {
 }
 
 impl MessageWriter {
+  /// Writes one validated reconciliation command directly into this response.
+  pub fn command(
+    &mut self,
+    command: &battlement::Command,
+  ) -> Result<CoreCommandOffset, ProtocolError> {
+    use battlement::Validate;
+
+    command
+      .validate()
+      .map_err(|failure| ProtocolError::new(format!("invalid response command: {failure}")))?;
+    let value = crate::response::write_command(&mut self.builder, command)?;
+    Ok(CoreCommandOffset {
+      builder_id: self.builder_id,
+      value,
+    })
+  }
+
+  /// Writes one validated application snapshot directly into this response.
+  pub fn snapshot_message(
+    &mut self,
+    snapshot: &battlement::Snapshot,
+  ) -> Result<ResponseMessageOffset, ProtocolError> {
+    use battlement::Validate;
+
+    snapshot
+      .validate()
+      .map_err(|failure| ProtocolError::new(format!("invalid response snapshot: {failure}")))?;
+    let snapshot = crate::response::write_snapshot(&mut self.builder, snapshot)?;
+    let value = wire::ResponseMessageEntry::create(
+      &mut self.builder,
+      &wire::ResponseMessageEntryArgs {
+        message_type: wire::ResponseMessage::Snapshot,
+        message: Some(snapshot.as_union_value()),
+      },
+    );
+    Ok(ResponseMessageOffset {
+      builder_id: self.builder_id,
+      value,
+    })
+  }
+
   /// Sets one diagnostics metadata entry.
   pub fn set_diagnostics_metadata(
     &mut self,

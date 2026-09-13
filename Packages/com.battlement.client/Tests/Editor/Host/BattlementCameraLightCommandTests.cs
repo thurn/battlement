@@ -38,7 +38,12 @@ namespace Battlement.Tests
             foreach ((CameraClearMode mode, CameraClearFlags flags) in modes)
             {
                 Submit(harness, session, Body(new CommandBody.Camera.SetClear(cameraId, mode)));
-                Assert.That(camera.clearFlags, Is.EqualTo(flags));
+                Assert.That(
+                    camera == null,
+                    Is.False,
+                    string.Join("\n", harness.Logger.Records.Select(record => record.Message))
+                );
+                Assert.That(camera!.clearFlags, Is.EqualTo(flags));
             }
 
             var clearColor = new Color(0.1, 0.25, 0.75, 0.5);
@@ -293,6 +298,27 @@ namespace Battlement.Tests
             Command command = Body(InvalidCommand(invalidCase, cameraId, lightId));
 
             Submit(harness, session, command, reportsFailure: true);
+
+            bool rejectedAtBoundary =
+                invalidCase
+                is "camera-clipping"
+                    or "camera-clear-missing"
+                    or "camera-clear-extra"
+                    or "light-color"
+                    or "light-intensity"
+                    or "light-range-zero"
+                    or "light-spot-inner-negative"
+                    or "light-spot-inner-high";
+            if (rejectedAtBoundary)
+            {
+                Assert.That(Failures(harness), Is.Empty);
+                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+                Assert.That(
+                    harness.Logger.Records.Last().Message,
+                    Does.Contain("Deferred response failed")
+                );
+                return;
+            }
 
             BatchFailed<CoreErrorCode> failure = Failures(harness).Single();
             Assert.That(failure.CommandId, Is.EqualTo(command.Id));

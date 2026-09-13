@@ -1,8 +1,7 @@
 use battlement_types::Color;
-use serde::{Deserialize, Serialize};
 
 /// Font face style and weight selected from the active UI font.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FontStyle {
   /// Uses the font's regular face.
   Normal,
@@ -15,7 +14,7 @@ pub enum FontStyle {
 }
 
 /// Alignment of text within the element's content rectangle.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextAnchor {
   /// Aligns to the top-left corner.
   UpperLeft,
@@ -38,7 +37,7 @@ pub enum TextAnchor {
 }
 
 /// Whether UI Toolkit automatically chooses a font size that fits the box.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TextAutoSize {
   /// Uses the separately authored font size.
   None,
@@ -69,7 +68,7 @@ impl TextAutoSize {
 }
 
 /// Text layout behavior when content exceeds the available width.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextOverflow {
   /// Cuts glyphs at the element's overflow boundary.
   Clip,
@@ -78,7 +77,7 @@ pub enum TextOverflow {
 }
 
 /// Which portion of an elided string UI Toolkit preserves.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextOverflowPosition {
   /// Preserves the end of the string and elides its start.
   Start,
@@ -89,7 +88,7 @@ pub enum TextOverflowPosition {
 }
 
 /// Whitespace preservation and wrapping behavior for rendered text.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WhiteSpace {
   /// Collapses spaces and wraps lines to fit.
   Normal,
@@ -102,7 +101,7 @@ pub enum WhiteSpace {
 }
 
 /// Text rendering backend selected for the element.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextGenerator {
   /// Uses Unity's standard text generator.
   Standard,
@@ -111,7 +110,7 @@ pub enum TextGenerator {
 }
 
 /// Glyph rasterization mode used by Unity's editor text renderer.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EditorTextRenderingMode {
   /// Uses signed-distance-field glyph rendering.
   Sdf,
@@ -120,7 +119,7 @@ pub enum EditorTextRenderingMode {
 }
 
 /// Shadow painted behind every rendered text glyph.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextShadow {
   /// Horizontal offset in panel pixels.
   pub x: f32,

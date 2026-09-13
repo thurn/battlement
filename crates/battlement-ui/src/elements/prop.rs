@@ -1,10 +1,8 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 /// A sparse property value that may be omitted, assigned, or reset.
 ///
-/// Omitted properties leave live state unchanged. [`Self::Set`] serializes its
-/// value, while [`Self::Reset`] serializes `null` and restores the documented
-/// native default. Builders accept ordinary values through [`From<T>`].
+/// Omitted properties leave live state unchanged. [`Self::Set`] writes its
+/// value, while [`Self::Reset`] restores the documented native default.
+/// Builders accept ordinary values through [`From<T>`].
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Prop<T> {
   /// Omits the property from the wire representation.
@@ -74,32 +72,5 @@ impl From<&str> for Prop<String> {
 impl From<&String> for Prop<String> {
   fn from(value: &String) -> Self {
     Self::Set(value.clone())
-  }
-}
-
-impl<T> Serialize for Prop<T>
-where
-  T: Serialize,
-{
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    match self {
-      Self::Set(value) => value.serialize(serializer),
-      Self::Unset | Self::Reset => serializer.serialize_none(),
-    }
-  }
-}
-
-impl<'de, T> Deserialize<'de> for Prop<T>
-where
-  T: Deserialize<'de>,
-{
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    Ok(Option::<T>::deserialize(deserializer)?.map_or(Self::Reset, Self::Set))
   }
 }

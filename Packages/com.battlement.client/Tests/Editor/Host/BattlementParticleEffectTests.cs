@@ -65,9 +65,11 @@ namespace Battlement.Tests
                 Command(new CommandBody.Particle.Play(objectId)),
                 reportsFailure: true
             );
+            Assert.That(Failures(harness), Is.Empty);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(
-                Failures(harness).Last().ErrorCode,
-                Is.EqualTo(CoreErrorCode.InvalidProperty)
+                harness.Logger.Records.Last().Message,
+                Does.Contain("Deferred response failed")
             );
         }
 
@@ -146,6 +148,11 @@ namespace Battlement.Tests
                 new[] { spawn },
                 new[] { Command(new CommandBody.Object.Create(Empty(afterId))) }
             );
+            Assert.That(
+                harness.Transport.Calls.Last(),
+                Is.Not.EqualTo("stop"),
+                string.Join("\n", harness.Logger.Records.Select(record => record.Message))
+            );
             GameObject active = Spawned(prefab).Single();
             Assert.That(active.transform.position, Is.EqualTo(new UVector3(4, 5, 6)));
             Assert.That(active.activeSelf, Is.True);
@@ -169,23 +176,6 @@ namespace Battlement.Tests
             Submit(
                 harness,
                 session,
-                Command(
-                    new CommandBody.Particle.Spawn(
-                        address,
-                        new ParticleSpawnLocation.AtWorldPosition(Vector3.Zero),
-                        TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
-                    )
-                ),
-                reportsFailure: true
-            );
-            Assert.That(
-                Failures(harness).Last().ErrorCode,
-                Is.EqualTo(CoreErrorCode.LimitExceeded)
-            );
-
-            Submit(
-                harness,
-                session,
                 Command(new CommandBody.Assets.ReplaceSet(FixtureAssets(harness)))
             );
             Assert.That(
@@ -195,6 +185,21 @@ namespace Battlement.Tests
                 ),
                 Is.False
             );
+
+            Submit(
+                harness,
+                session,
+                Command(
+                    new CommandBody.Particle.Spawn(
+                        address,
+                        new ParticleSpawnLocation.AtWorldPosition(Vector3.Zero),
+                        TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                    )
+                ),
+                reportsFailure: true
+            );
+            Assert.That(Failures(harness), Is.Empty);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
         }
 
         [Test]

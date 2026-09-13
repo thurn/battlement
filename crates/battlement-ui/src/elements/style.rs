@@ -1,11 +1,4 @@
-use std::{fmt, marker::PhantomData};
-
 use battlement_types::{Color, MaterialAddress, UiFontAddress};
-use serde::{
-  Deserialize, Deserializer, Serialize, Serializer,
-  de::{self, SeqAccess, Visitor},
-  ser::SerializeTuple,
-};
 
 use crate::Prop;
 use crate::elements::background::BackgroundSource;
@@ -29,7 +22,7 @@ pub use transition::*;
 /// Use this when an update must explicitly author Unity's initial keyword.
 /// Use [`Prop::Reset`] to remove the inline declaration; leaving a [`Style`]
 /// field absent preserves the current inline value.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InlineKeyword {
   /// Authors the property's Unity initial keyword.
   Initial,
@@ -37,9 +30,6 @@ pub enum InlineKeyword {
 
 /// One concrete inline value or an explicit USS keyword.
 ///
-/// Values serialize as `[0, value]`; keywords serialize as `[1, keyword]`.
-/// [`Prop::Reset`] serializes as `null`, while an omitted [`Style`] field leaves
-/// the current value unchanged.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum StyleValue<T> {
   /// Assigns a concrete property value.
@@ -49,71 +39,6 @@ pub enum StyleValue<T> {
     /// Keyword sent to Unity's inline style.
     value: InlineKeyword,
   },
-}
-
-impl<T: Serialize> Serialize for StyleValue<T> {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let mut tuple = serializer.serialize_tuple(2)?;
-    match self {
-      Self::Value(value) => {
-        tuple.serialize_element(&0_u8)?;
-        tuple.serialize_element(value)?;
-      }
-      Self::Keyword { value } => {
-        tuple.serialize_element(&1_u8)?;
-        tuple.serialize_element(value)?;
-      }
-    }
-    tuple.end()
-  }
-}
-
-impl<'de, T: Deserialize<'de>> Deserialize<'de> for StyleValue<T> {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    struct StyleValueVisitor<T>(PhantomData<T>);
-
-    impl<'de, T: Deserialize<'de>> Visitor<'de> for StyleValueVisitor<T> {
-      type Value = StyleValue<T>;
-
-      fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a two-item UI style value array")
-      }
-
-      fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
-      where
-        A: SeqAccess<'de>,
-      {
-        let kind = sequence
-          .next_element::<u8>()?
-          .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let value = match kind {
-          0 => StyleValue::Value(
-            sequence
-              .next_element()?
-              .ok_or_else(|| de::Error::invalid_length(1, &self))?,
-          ),
-          1 => StyleValue::Keyword {
-            value: sequence
-              .next_element()?
-              .ok_or_else(|| de::Error::invalid_length(1, &self))?,
-          },
-          _ => return Err(de::Error::custom("unknown UI style value kind")),
-        };
-        if sequence.next_element::<de::IgnoredAny>()?.is_some() {
-          return Err(de::Error::invalid_length(3, &self));
-        }
-        Ok(value)
-      }
-    }
-
-    deserializer.deserialize_tuple(2, StyleValueVisitor(PhantomData))
-  }
 }
 
 impl<T> From<InlineKeyword> for StyleValue<T> {
@@ -291,8 +216,8 @@ style_corners_for!(Length, InlineKeyword);
 /// UI Toolkit uses a border-box model: authored width and height include
 /// padding and borders.
 ///
-/// Resettable fields accept [`Prop::Reset`], serialize it as `null`, and
-/// remove the live inline declaration so USS or Unity's initial style applies.
+/// Resettable fields accept [`Prop::Reset`] and remove the live inline
+/// declaration so USS or Unity's initial style applies.
 /// [`Prop::Unset`] omits the field and preserves the live inline declaration.
 ///
 /// See Unity's [USS properties reference](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-USS-Properties-Reference.html)
@@ -311,265 +236,179 @@ style_corners_for!(Length, InlineKeyword);
 ///
 /// assert!(!toolbar.is_empty());
 /// ```
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Style {
   /// Cross-axis alignment of wrapped lines inside this flex container.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_content: Prop<StyleValue<Align>>,
   /// Default cross-axis alignment applied to this flex container's children.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_items: Prop<StyleValue<Align>>,
   /// Cross-axis alignment of this item, overriding its container's alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_self: Prop<StyleValue<Align>>,
   /// Preferred width-to-height ratio used when at least one dimension is automatic.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub aspect_ratio: Prop<StyleValue<AspectRatio>>,
   /// Color painted behind the element's content and padding, inside its border.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_color: Prop<StyleValue<Color>>,
   /// Prepared image painted behind content and affected by background tint and slicing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_image: Prop<StyleValue<BackgroundSource>>,
   /// Horizontal background anchor and offset after image sizing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_position_x: Prop<StyleValue<BackgroundPosition>>,
   /// Vertical background anchor and offset after image sizing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_position_y: Prop<StyleValue<BackgroundPosition>>,
   /// Independent horizontal and vertical background tiling behavior.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_repeat: Prop<StyleValue<BackgroundRepeat>>,
   /// Intrinsic, fitted, covering, or explicit background-image dimensions.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub background_size: Prop<StyleValue<BackgroundSize>>,
   /// Color of the bottom border; it is visible only when the bottom width is positive.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_bottom_color: Prop<StyleValue<Color>>,
   /// Radius of the bottom-left corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_bottom_left_radius: Prop<StyleValue<Length>>,
   /// Radius of the bottom-right corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_bottom_right_radius: Prop<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the bottom border edge.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_bottom_width: Prop<StyleValue<FloatValue>>,
   /// Color of the left border; it is visible only when the left width is positive.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_left_color: Prop<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the left border edge.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_left_width: Prop<StyleValue<FloatValue>>,
   /// Color of the right border; it is visible only when the right width is positive.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_right_color: Prop<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the right border edge.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_right_width: Prop<StyleValue<FloatValue>>,
   /// Color of the top border; it is visible only when the top width is positive.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_top_color: Prop<StyleValue<Color>>,
   /// Radius of the top-left corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_top_left_radius: Prop<StyleValue<Length>>,
   /// Radius of the top-right corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_top_right_radius: Prop<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the top border edge.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_top_width: Prop<StyleValue<FloatValue>>,
   /// Bottom offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub bottom: Prop<StyleValue<LengthOrAuto>>,
   /// Foreground color inherited by text unless a descendant overrides it.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub color: Prop<StyleValue<Color>>,
   /// Runtime mouse cursor used while a pointer hovers this element.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub cursor: Prop<StyleValue<Cursor>>,
   /// Whether this element and its descendants participate in layout and rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display: Prop<StyleValue<Display>>,
   /// Initial main-axis size before flex grow and shrink distribute free space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_basis: Prop<StyleValue<LengthOrAuto>>,
   /// Direction and ordering of this flex container's main axis.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_direction: Prop<StyleValue<FlexDirection>>,
   /// Nonnegative share of remaining main-axis space assigned to this item.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_grow: Prop<StyleValue<FloatValue>>,
   /// Nonnegative shrink factor used when siblings exceed the main-axis space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_shrink: Prop<StyleValue<FloatValue>>,
   /// Whether children remain on one line or wrap across the cross axis.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_wrap: Prop<StyleValue<FlexWrap>>,
   /// Font size, in pixels, inherited by descendant text unless overridden.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub font_size: Prop<StyleValue<Length>>,
   /// Border-box height in pixels, percentage, automatic size, or initial value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub height: Prop<StyleValue<LengthOrAuto>>,
   /// Main-axis packing and free-space distribution for this container's children.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_content: Prop<StyleValue<Justify>>,
   /// Inherited additional logical-pixel advance between glyphs; percentages use font size.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub letter_spacing: Prop<StyleValue<Length>>,
   /// Left offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub left: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the bottom border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub margin_bottom: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the left border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub margin_left: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the right border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub margin_right: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the top border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub margin_top: Prop<StyleValue<LengthOrAuto>>,
   /// Maximum border-box height applied after preferred size and flex calculations.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub max_height: Prop<StyleValue<LengthOrAuto>>,
   /// Maximum border-box width applied after preferred size and flex calculations.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub max_width: Prop<StyleValue<LengthOrAuto>>,
   /// Minimum border-box height that constrains shrinking and automatic sizing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub min_height: Prop<StyleValue<LengthOrAuto>>,
   /// Minimum border-box width that constrains shrinking and automatic sizing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub min_width: Prop<StyleValue<LengthOrAuto>>,
   /// Element opacity multiplied through its rendered subtree, from transparent zero to opaque one.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub opacity: Prop<StyleValue<FloatValue>>,
   /// Whether descendant painting is clipped at this element's selected clip box.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub overflow: Prop<StyleValue<Overflow>>,
   /// Space between the bottom border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub padding_bottom: Prop<StyleValue<Length>>,
   /// Space between the left border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub padding_left: Prop<StyleValue<Length>>,
   /// Space between the right border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub padding_right: Prop<StyleValue<Length>>,
   /// Space between the top border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub padding_top: Prop<StyleValue<Length>>,
   /// Selects normal flex flow or independent placement against the parent box.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub position: Prop<StyleValue<Position>>,
   /// Right offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub right: Prop<StyleValue<LengthOrAuto>>,
   /// Paint-time rotation around the authored transform origin.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub rotate: Prop<StyleValue<Rotate>>,
   /// Paint-time horizontal and vertical size multipliers.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub scale: Prop<StyleValue<Scale>>,
   /// Whether overflowing text is clipped or replaced with an ellipsis.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text_overflow: Prop<StyleValue<TextOverflow>>,
   /// Shadow rendered behind each glyph without affecting layout.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text_shadow: Prop<StyleValue<TextShadow>>,
   /// Top offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub top: Prop<StyleValue<LengthOrAuto>>,
   /// Pivot against which scale and rotation are resolved.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub transform_origin: Prop<StyleValue<TransformOrigin>>,
   /// Per-property delays in milliseconds; negative values begin partway through a transition.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub transition_delay: Prop<StyleValue<TransitionList<TimeValue>>>,
   /// Nonnegative per-property transition durations in milliseconds.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub transition_duration: Prop<StyleValue<TransitionList<TimeValue>>>,
   /// Properties whose value changes should be interpolated.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub transition_property: Prop<StyleValue<TransitionList<TransitionProperty>>>,
   /// Per-property interpolation curves repeated across the transition-property list.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub transition_timing_function: Prop<StyleValue<TransitionList<EasingFunction>>>,
   /// Paint-time offset applied after scale and rotation without affecting layout.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub translate: Prop<StyleValue<Translate>>,
   /// Color multiplied with pixels from a background image before compositing.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_background_image_tint_color: Prop<StyleValue<Color>>,
   /// Selects signed-distance-field or bitmap editor text rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_editor_text_rendering_mode: Prop<StyleValue<EditorTextRenderingMode>>,
   /// Prepared TextCore font asset inherited by descendant text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_font_definition: Prop<StyleValue<UiFontAddress>>,
   /// Bold and italic selection inherited by descendant text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_font_style_and_weight: Prop<StyleValue<FontStyle>>,
   /// Prepared custom material used to render this element and inherited by descendants.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_material: Prop<StyleValue<MaterialAddress>>,
   /// Selects the padding or content box as the boundary for hidden overflow.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_overflow_clip_box: Prop<StyleValue<OverflowClipBox>>,
   /// Extra vertical advance inserted after each paragraph.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_paragraph_spacing: Prop<StyleValue<Length>>,
   /// Bottom inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_bottom: Prop<StyleValue<i32>>,
   /// Left inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_left: Prop<StyleValue<i32>>,
   /// Right inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_right: Prop<StyleValue<i32>>,
   /// Positive multiplier applied to nine-slice inset sizes.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_scale: Prop<StyleValue<FloatValue>>,
   /// Top inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_top: Prop<StyleValue<i32>>,
   /// Selects stretched or repeated center and edge regions for nine-slice backgrounds.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_type: Prop<StyleValue<SliceType>>,
   /// Alignment of text within the content rectangle.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_align: Prop<StyleValue<TextAnchor>>,
   /// Optional best-fit font sizing within positive pixel bounds.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_auto_size: Prop<StyleValue<TextAutoSize>>,
   /// Text generation backend used for glyph layout and rendering.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_generator: Prop<StyleValue<TextGenerator>>,
   /// Color of the stroke painted around every text glyph.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_outline_color: Prop<StyleValue<Color>>,
   /// Nonnegative text outline width in panel pixels.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_outline_width: Prop<StyleValue<FloatValue>>,
   /// Portion of an overflowing string preserved around its ellipsis.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_text_overflow_position: Prop<StyleValue<TextOverflowPosition>>,
   /// Whether the element is drawn while retaining its layout space.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub visibility: Prop<StyleValue<Visibility>>,
   /// Controls newline preservation, space collapsing, and automatic wrapping.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub white_space: Prop<StyleValue<WhiteSpace>>,
   /// Border-box width in pixels, percentage, automatic size, or initial value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub width: Prop<StyleValue<LengthOrAuto>>,
   /// Additional advance inserted at word boundaries; negative values tighten text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub word_spacing: Prop<StyleValue<Length>>,
 }
 

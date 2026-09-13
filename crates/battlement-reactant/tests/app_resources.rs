@@ -1,6 +1,8 @@
 use trox::ls;
 mod app_support;
 
+use app_support::EngineTestExt;
+
 use std::{
   future::Future,
   pin::Pin,
@@ -133,7 +135,7 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
       completed: false,
     });
     let mut app = App::new("app/content").ui(memo(Screen { resource }));
-    let initial = app.connect_owned(&app_support::connect()).unwrap();
+    let initial = app.connect_test(&app_support::connect()).unwrap();
     let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
       panic!("snapshot")
     };
@@ -142,7 +144,7 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
     app.poll().unwrap();
     let action = ActionId::new_v4();
     app
-      .submit_ui_event(UiEventAction::new(
+      .submit_ui_event_test(UiEventAction::new(
         action,
         initial.session_id,
         app_support::click(refetch),
@@ -155,7 +157,7 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
     }
     let response = if another_event {
       app
-        .submit_ui_event(UiEventAction::new(
+        .submit_ui_event_test(UiEventAction::new(
           ActionId::new_v4(),
           initial.session_id,
           app_support::click(other),
@@ -163,7 +165,10 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
         .unwrap()
         .response
     } else {
-      app.poll().unwrap().expect("completed resource response")
+      app
+        .poll_test()
+        .unwrap()
+        .expect("completed resource response")
     };
     let batches: Vec<_> = response
       .messages

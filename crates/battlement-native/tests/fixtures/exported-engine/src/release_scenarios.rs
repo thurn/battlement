@@ -7,7 +7,6 @@ use battlement::{
   Snapshot, TextState, Tween, TweenPositionPayload, Vector3, WaitPayload,
 };
 use battlement_native::{ConnectView, CoreActionBodyView, CoreClientMessageView, EngineError};
-use serde::{Deserialize, Serialize};
 
 const DEFAULT_SCENE: &str = "battlement/tests/default-scene";
 const RELEASE_PREFIX: &str = "fixture.release.";
@@ -20,7 +19,7 @@ pub(crate) const INTEGRATION_TEXTURE: &str = "battlement/integration/texture";
 pub(crate) const INTEGRATION_AUDIO: &str = "battlement/integration/audio";
 pub(crate) const INTEGRATION_FONT: &str = "battlement/integration/font";
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
 /// Tuple payload matching the Unity custom-command fixture converter.
 pub struct FlashPayload(ObjectId, f32);
 

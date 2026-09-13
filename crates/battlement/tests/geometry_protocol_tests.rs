@@ -113,48 +113,6 @@ fn element_bounds_reject_a_projective_horizon_crossing() {
 }
 
 #[test]
-fn geometry_json_round_trips_every_target_value_and_unavailable_case() {
-  let update = GeometryObservationUpdate {
-    added: targets(),
-    removed: Vec::new(),
-  };
-  let command = CommandBody::GeometryObservationUpdate(update.clone());
-  assert_eq!(
-    json::from_slice::<CommandBody>(&json::to_vec(&command).unwrap()).unwrap(),
-    command
-  );
-
-  let mut changed = values();
-  for (index, reason) in [
-    GeometryUnavailable::Detached,
-    GeometryUnavailable::Hidden,
-    GeometryUnavailable::ObjectMissing,
-    GeometryUnavailable::CameraDisabled,
-    GeometryUnavailable::DisplayUnavailable,
-    GeometryUnavailable::NoRenderers,
-    GeometryUnavailable::BehindCamera,
-    GeometryUnavailable::NoViewportMapping,
-    GeometryUnavailable::ProjectionUnavailable,
-  ]
-  .into_iter()
-  .enumerate()
-  {
-    changed.push(GeometryObservationValue {
-      observation_id: observation(index % OBSERVATIONS.len()),
-      result: GeometryObservationResult::Unavailable(reason),
-    });
-  }
-  let body = ActionBody::GeometryObservations(GeometryObservationBatch {
-    generation: generation(1),
-    changed,
-  });
-  assert_eq!(
-    json::from_slice::<ActionBody>(&json::to_vec(&body).unwrap()).unwrap(),
-    body
-  );
-}
-
-#[test]
 fn registry_rejects_complete_invalid_inputs_without_partial_acceptance() {
   let mut registry = GeometryRegistry::default();
   registry
@@ -229,7 +187,6 @@ fn registry_rejects_complete_invalid_inputs_without_partial_acceptance() {
 
 #[test]
 fn malformed_generations_and_registry_updates_are_rejected() {
-  assert!(json::from_slice::<GeometryGeneration>(b"0").is_err());
   let mut registry = GeometryRegistry::default();
   let duplicate = targets()[0].clone();
   assert_eq!(

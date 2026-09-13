@@ -15,13 +15,16 @@ use std::{
 use trox::ls;
 
 use battlement::{
-  CameraState, ClickEvent, ClientMessage, Command, GameObject, GameObjectKind, GeometryGeneration,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, GeometryGeneration,
   GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
   Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
-  UiElementKind, UiEvent, UiEventAction, UiEventResponse, UiLabel, UiNode,
+  UiElementKind, UiEvent, UiLabel, UiNode,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 use battlement_reactant::{
   component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -123,35 +126,32 @@ struct StructuralEngine {
 }
 
 impl Engine for ReactantEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)
       .expect("fixture render is infallible")
       .into_response(self.snapshot.take().expect("fixture connected twice"));
     self.recorded.replace(Some(response.clone()));
-    Ok(response)
+    runtime_support::encoded(response)
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Err(EngineError::new("fixture does not accept actions"))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    Err(FlatBufferSubmitError::engine(EngineError::new(
+      "fixture does not accept actions",
+    )))
   }
 
   fn submit_ui_event(
     &mut self,
-    message: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &message.event,
-      Response::empty(message.session_id),
-    ))
+    message: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    runtime_support::empty_ui_result(message)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }
@@ -163,11 +163,9 @@ impl Drop for ReactantEngine {
 }
 
 impl Engine for StructuralEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)
@@ -186,24 +184,23 @@ impl Engine for StructuralEngine {
         .map(|node| node.object_id)
         .collect(),
     );
-    Ok(response)
+    runtime_support::encoded(response)
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Err(EngineError::new("fixture does not accept actions"))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    Err(FlatBufferSubmitError::engine(EngineError::new(
+      "fixture does not accept actions",
+    )))
   }
 
   fn submit_ui_event(
     &mut self,
-    message: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &message.event,
-      Response::empty(message.session_id),
-    ))
+    message: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    runtime_support::empty_ui_result(message)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }
@@ -466,22 +463,55 @@ fn nested_host_composition_renders_and_refreshes_on_a_normal_stack() {
         .unwrap()
         .into_parts(snapshot(SessionId::new_v4(), &[document]));
       let _ = commit.into_groups();
-      assert!(
-        serde_json::to_string(&mounted)
-          .unwrap()
-          .contains("Nested value: 0")
-      );
+      assert!(documents_contain_text(&mounted.ui, "Nested value: 0"));
       value = 1;
-      assert!(
-        serde_json::to_string(&reactant.refresh(&mut value).unwrap().into_groups())
-          .unwrap()
-          .contains("Nested value: 1")
-      );
+      assert!(groups_contain_text(
+        &reactant.refresh(&mut value).unwrap().into_groups(),
+        "Nested value: 1"
+      ));
       let _ = reactant.shutdown(&mut value).into_groups();
     })
     .unwrap()
     .join()
     .unwrap();
+}
+
+fn documents_contain_text(documents: &[UiDocument], expected: &str) -> bool {
+  fn node_contains_text(node: &UiNode, expected: &str) -> bool {
+    matches!(&node.element, battlement::UiElement::Label(label) if label.text == battlement::Prop::Set(expected.to_owned()))
+      || node
+        .children
+        .iter()
+        .any(|child| node_contains_text(child, expected))
+  }
+
+  documents
+    .iter()
+    .flat_map(|document| &document.children)
+    .any(|node| node_contains_text(node, expected))
+}
+
+fn groups_contain_text(groups: &[Vec<CommandBody>], expected: &str) -> bool {
+  groups.iter().flatten().any(|body| match body {
+    CommandBody::VisualElementUpdate(update) => match update.as_ref() {
+      battlement::VisualElementUpdate::Properties { element, .. } => {
+        matches!(element.as_ref(), battlement::UiElement::Label(label) if label.text == battlement::Prop::Set(expected.to_owned()))
+      }
+      _ => false,
+    },
+    CommandBody::VisualElementCreate(create) => {
+      documents_contain_text(
+        &[UiDocument {
+          document_id: ObjectId::new_v4(),
+          root_id: create.parent_id,
+          element: Default::default(),
+          children: vec![create.node.clone()],
+        }],
+        expected,
+      )
+    }
+    _ => false,
+  })
 }
 
 fn snapshot(session_id: SessionId, documents: &[UiDocument]) -> Snapshot {

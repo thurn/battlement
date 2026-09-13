@@ -1,10 +1,7 @@
 #nullable enable
 
 using System;
-using System.Linq;
-using System.Text;
 using Battlement.UI;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,111 +11,6 @@ namespace Battlement.Tests
 {
     public sealed class LayoutProtocolTests
     {
-        [Test]
-        public void EveryLayoutVariantRoundTripsThroughCanonicalJson()
-        {
-            ObjectId anchor = Id("17608312-6e18-421e-be92-b677cec12c42");
-            ObjectId initialFocus = Id("68641395-a531-479f-9606-aef0acf6acbb");
-            ObjectId restoreFocus = Id("2075f62f-45f0-44c8-b65a-aa9c1e716e28");
-            UiElement[] elements =
-            {
-                new UiElement.Flex
-                {
-                    Direction = UiFlexDirection.RowReverse,
-                    Wrap = UiFlexWrap.WrapReverse,
-                    AlignItems = UiAlign.Center,
-                    JustifyContent = UiJustify.SpaceEvenly,
-                    RowGap = 2,
-                    ColumnGap = 3,
-                },
-                new UiElement.Grid
-                {
-                    Columns = new GridTrack[]
-                    {
-                        new GridTrack.Px(12),
-                        new GridTrack.Fraction(2),
-                        new GridTrack.Auto(),
-                    },
-                    Rows = Array.Empty<GridTrack>(),
-                    AutoColumns = new GridTrack.Fraction(1),
-                    AutoRows = new GridTrack.Auto(),
-                    AutoFlow = GridAutoFlow.Column,
-                    RowGap = 4,
-                    ColumnGap = 5,
-                    AlignItems = UiAlign.FlexStart,
-                    JustifyItems = UiAlign.FlexEnd,
-                },
-                new UiElement.Stack { AlignItems = UiAlign.Stretch, JustifyItems = UiAlign.Center },
-                new UiElement.VisualElement
-                {
-                    GridItem = new GridItem(1, 2, 3, 4, UiAlign.Auto, UiAlign.Center),
-                    StackItem = new StackItem(
-                        -7,
-                        UiAlign.FlexEnd,
-                        UiAlign.Stretch,
-                        1,
-                        2,
-                        3,
-                        4,
-                        false
-                    ),
-                    Sticky = new Sticky(-3, 4, null, null, 8),
-                    OverlayPlacement = new OverlayPlacement.Popover(
-                        anchor,
-                        new PopoverPlacement(
-                            PlacementSide.Left,
-                            PlacementAlign.End,
-                            -2,
-                            3,
-                            9,
-                            false,
-                            false
-                        )
-                    ),
-                },
-                new UiElement.VisualElement
-                {
-                    OverlayPlacement = new OverlayPlacement.Layer(OverlayLayer.Popover),
-                },
-                new UiElement.VisualElement
-                {
-                    OverlayPlacement = new OverlayPlacement.Modal(initialFocus, restoreFocus),
-                },
-            };
-
-            SessionId sessionId = new(Guid.NewGuid());
-            ObjectId rootId = new(Guid.NewGuid());
-            Command[] commands = elements
-                .Select(element => new Command(
-                    new CommandId(Guid.NewGuid()),
-                    new CommandBody.VisualElement.Create(
-                        rootId,
-                        new UiNode(new ObjectId(Guid.NewGuid()), element)
-                    )
-                ))
-                .ToArray();
-            var response = new Response(
-                sessionId,
-                new ResponseMessage<Command>[]
-                {
-                    new ResponseMessage<Command>.BatchMessage(
-                        new Batch(
-                            new BatchId(Guid.NewGuid()),
-                            sessionId,
-                            new[] { new ParallelCommandGroup<Command>(commands) }
-                        )
-                    ),
-                }
-            );
-            byte[] encoded = BattlementJson.SerializeResponse(response);
-            Response decoded = BattlementJson.DeserializeResponse(encoded);
-
-            Assert.That(
-                JToken.Parse(Encoding.UTF8.GetString(BattlementJson.SerializeResponse(decoded))),
-                Is.EqualTo(JToken.Parse(Encoding.UTF8.GetString(encoded)))
-            );
-        }
-
         [Test]
         public void InvalidLayoutNumbersAreRejectedBeforeTheAvailabilityGate()
         {

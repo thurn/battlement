@@ -1,12 +1,11 @@
 use battlement_types::Color;
-use serde::{Deserialize, Serialize};
 
 use crate::{
   FilterFunction, FilterList, Gradient, GradientStop, Length, Shadow, TransformOperation,
 };
 
-/// A closed discrete Motion value; arbitrary JSON is not part of the protocol.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// A closed discrete Motion value.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MotionDiscreteValue {
   /// The absence of a discrete value.
   Null,
@@ -38,7 +37,7 @@ impl From<&str> for MotionDiscreteValue {
 }
 
 /// Every normalized value shape accepted by [`MotionProperty`](crate::MotionProperty).
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionValue {
   /// One finite scalar.
   Scalar(f32),
@@ -69,7 +68,8 @@ pub enum MotionValue {
 }
 
 impl MotionValue {
-  pub(crate) fn validate(&self) -> Result<(), &'static str> {
+  /// Validates that every numeric channel is finite.
+  pub fn validate(&self) -> Result<(), &'static str> {
     match self {
       Self::Scalar(value) | Self::Angle(value) if !value.is_finite() => {
         Err("motion scalar must be finite")

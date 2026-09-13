@@ -1,4 +1,6 @@
-use battlement::{Command, CommandBody, Response, ResponseMessage, Validate};
+use battlement::{Command, CommandBody};
+#[cfg(any(test, feature = "test-support"))]
+use battlement::{Response, ResponseMessage, Validate};
 use flatbuffers::{FlatBufferBuilder, UnionWIPOffset, VerifierOptions, WIPOffset};
 
 use crate::{
@@ -84,21 +86,39 @@ pub fn write_empty_response(session_id: [u8; 16]) -> Result<FinishedMessage, Pro
 
 /// Constructs a core response directly into one size-prefixed FlatBuffer.
 ///
-/// The writer currently admits the response envelope and the first closed set
-/// of scalar command payloads. Unsupported command families fail explicitly;
-/// they are never serialized through a fallback representation.
-pub fn write_core_response(value: &Response<Command>) -> Result<FinishedMessage, ProtocolError> {
-  for message in &value.messages {
-    match message {
-      ResponseMessage::Snapshot(snapshot) => snapshot
-        .validate()
-        .map_err(|failure| ProtocolError::new(format!("invalid response snapshot: {failure}")))?,
-      ResponseMessage::Batch(batch) => {
-        for group in &batch.groups {
-          for command in &group.commands {
-            command.validate().map_err(|failure| {
-              ProtocolError::new(format!("invalid response command: {failure}"))
-            })?;
+/// This owned-model fixture writer is available only to transport tests.
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) fn write_core_response(
+  value: &Response<Command>,
+) -> Result<FinishedMessage, ProtocolError> {
+  write_core_response_impl(value, true)
+}
+
+#[cfg(feature = "test-support")]
+pub(crate) fn write_unchecked_core_response(
+  value: &Response<Command>,
+) -> Result<FinishedMessage, ProtocolError> {
+  write_core_response_impl(value, false)
+}
+
+#[cfg(any(test, feature = "test-support"))]
+fn write_core_response_impl(
+  value: &Response<Command>,
+  validate_domain: bool,
+) -> Result<FinishedMessage, ProtocolError> {
+  if validate_domain {
+    for message in &value.messages {
+      match message {
+        ResponseMessage::Snapshot(snapshot) => snapshot
+          .validate()
+          .map_err(|failure| ProtocolError::new(format!("invalid response snapshot: {failure}")))?,
+        ResponseMessage::Batch(batch) => {
+          for group in &batch.groups {
+            for command in &group.commands {
+              command.validate().map_err(|failure| {
+                ProtocolError::new(format!("invalid response command: {failure}"))
+              })?;
+            }
           }
         }
       }
@@ -207,7 +227,7 @@ pub fn write_composed_snapshot<'a>(
   Ok(write_snapshot(builder, snapshot)?.as_union_value())
 }
 
-fn write_command<'a>(
+pub(crate) fn write_command<'a>(
   builder: &mut FlatBufferBuilder<'a>,
   command: &Command,
 ) -> Result<WIPOffset<wire::CoreCommand<'a>>, ProtocolError> {
@@ -2261,7 +2281,7 @@ fn write_game_object<'a>(
   ))
 }
 
-fn write_snapshot<'a>(
+pub(crate) fn write_snapshot<'a>(
   builder: &mut FlatBufferBuilder<'a>,
   value: &battlement::Snapshot,
 ) -> Result<WIPOffset<wire::Snapshot<'a>>, ProtocolError> {
@@ -2896,6 +2916,7 @@ fn semantic_role(value: battlement::SemanticRole) -> accessibility_wire::Semanti
   }
 }
 
+#[cfg(any(test, feature = "test-support"))]
 fn finish(builder: FlatBufferBuilder<'_>) -> Result<FinishedMessage, ProtocolError> {
   let (storage, start) = builder.collapse();
   let message = FinishedMessage::from_storage(storage, start);
@@ -3194,7 +3215,7 @@ mod tests {
   }
 
   #[test]
-  fn core_response_writes_typed_command_without_json() {
+  fn core_response_writes_typed_command() {
     let session_id = battlement::SessionId::new_v4();
     let response = Response::commands(
       session_id,

@@ -185,9 +185,7 @@ namespace Battlement.Tests
             new BattlementUiEventTransportResult(
                 BattlementTransportStatus.Success,
                 disposition,
-                ReadOnlyMemory<byte>.Empty
-            ).OwnResponseView(
-                new BattlementOwnedResponseView(SnapshotResponse(session, inputDisabled))
+                BattlementFlatBufferResponseFixtures.Write(SnapshotResponse(session, inputDisabled))
             );
 
         private static Response SnapshotResponse(SessionId session, bool inputDisabled) =>

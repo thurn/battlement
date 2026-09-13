@@ -3,7 +3,7 @@ use std::mem;
 use battlement::asset_dependencies::AssetDependencies;
 use battlement::{
   ActionId, Batch, BatchId, BatchStart, CommandBody, ParallelCommandGroup, ReplaceAssetSetPayload,
-  Response, ResponseMessage, SessionId,
+  SessionId,
 };
 
 use crate::{app_context::QueuedCommand, asset_generator, runtime::ReactantCommit};
@@ -14,8 +14,34 @@ pub(crate) struct Delivery {
   session: Option<SessionId>,
 }
 
+pub(crate) struct DeliveryResponse {
+  pub(crate) session_id: SessionId,
+  pub(crate) messages: Vec<DeliveryMessage>,
+}
+
+impl DeliveryResponse {
+  pub(crate) fn empty(session_id: SessionId) -> Self {
+    Self {
+      session_id,
+      messages: Vec::new(),
+    }
+  }
+
+  pub(crate) fn snapshot(snapshot: battlement::Snapshot) -> Self {
+    Self {
+      session_id: snapshot.session_id,
+      messages: vec![DeliveryMessage::Snapshot(snapshot)],
+    }
+  }
+}
+
+pub(crate) enum DeliveryMessage {
+  Snapshot(battlement::Snapshot),
+  Batch(Batch),
+}
+
 impl Delivery {
-  pub(crate) fn prepare(&mut self, mut response: Response) -> Response {
+  pub(crate) fn prepare(&mut self, mut response: DeliveryResponse) -> DeliveryResponse {
     if self.session != Some(response.session_id) {
       self.assets = AssetDependencies::default();
       self.session = Some(response.session_id);
@@ -23,11 +49,11 @@ impl Delivery {
     let mut messages = Vec::new();
     for mut message in response.messages {
       match &mut message {
-        ResponseMessage::Snapshot(snapshot) => {
+        DeliveryMessage::Snapshot(snapshot) => {
           self.assets.snapshot(snapshot);
           snapshot.prepared_assets = self.assets.assets();
         }
-        ResponseMessage::Batch(batch) => {
+        DeliveryMessage::Batch(batch) => {
           let before = self.assets.assets().len();
           for group in &batch.groups {
             for command in &group.commands {
@@ -47,7 +73,7 @@ impl Delivery {
             );
             preparation.caused_by_action_id = batch.caused_by_action_id;
             preparation.start = BatchStart::AfterEarlierAssetPreparation;
-            messages.push(ResponseMessage::Batch(preparation));
+            messages.push(DeliveryMessage::Batch(preparation));
           }
           if !batch
             .groups
@@ -69,17 +95,21 @@ impl Delivery {
   }
 }
 
-pub(crate) fn append(response: &mut Response, action: Option<ActionId>, commit: ReactantCommit) {
+pub(crate) fn append(
+  response: &mut DeliveryResponse,
+  action: Option<ActionId>,
+  commit: ReactantCommit,
+) {
   if let Some(mut batch) = commit.into_batch(response.session_id) {
     batch.caused_by_action_id = action;
-    response.messages.push(ResponseMessage::Batch(batch));
+    response.messages.push(DeliveryMessage::Batch(batch));
   }
 }
 
-pub(crate) fn take_imperative(response: &mut Response) -> Vec<ResponseMessage> {
+pub(crate) fn take_imperative(response: &mut DeliveryResponse) -> Vec<DeliveryMessage> {
   let mut messages = Vec::new();
   for message in mem::take(&mut response.messages) {
-    let ResponseMessage::Batch(mut batch) = message else {
+    let DeliveryMessage::Batch(mut batch) = message else {
       continue;
     };
     for group in &mut batch.groups {
@@ -96,13 +126,13 @@ pub(crate) fn take_imperative(response: &mut Response) -> Vec<ResponseMessage> {
     }
     batch.groups.retain(|group| !group.commands.is_empty());
     if !batch.groups.is_empty() {
-      messages.push(ResponseMessage::Batch(batch));
+      messages.push(DeliveryMessage::Batch(batch));
     }
   }
   messages
 }
 
-pub(crate) fn commands(response: &mut Response, commands: Vec<QueuedCommand>) {
+pub(crate) fn commands(response: &mut DeliveryResponse, commands: Vec<QueuedCommand>) {
   let mut pending = commands.into_iter().peekable();
   while let Some(first) = pending.next() {
     let action = first.action;
@@ -120,6 +150,6 @@ pub(crate) fn commands(response: &mut Response, commands: Vec<QueuedCommand>) {
       vec![ParallelCommandGroup::new(group)],
     );
     batch.caused_by_action_id = action;
-    response.messages.push(ResponseMessage::Batch(batch));
+    response.messages.push(DeliveryMessage::Batch(batch));
   }
 }

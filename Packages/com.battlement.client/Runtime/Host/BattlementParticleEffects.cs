@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
 using Object = UnityEngine.Object;
-using ProtocolVector3 = Battlement.Vector3;
 
 namespace Battlement
 {
@@ -28,9 +27,6 @@ namespace Battlement
             this.motionClock = motionClock;
             Application.lowMemory += HandleLowMemory;
         }
-
-        public IBattlementCommandOperation? Play(CommandBody.Particle.Play command) =>
-            Play(command.ObjectId, command.Restart);
 
         public IBattlementCommandOperation? Play(BattlementDirectParticlePlay command) =>
             Play(command.ObjectId, command.Restart);
@@ -60,9 +56,6 @@ namespace Battlement
             return null;
         }
 
-        public IBattlementCommandOperation? Stop(CommandBody.Particle.Stop command) =>
-            Stop(command.ObjectId, command.Clear);
-
         public IBattlementCommandOperation? Stop(BattlementDirectParticleStop command) =>
             Stop(command.ObjectId, command.Clear);
 
@@ -77,74 +70,6 @@ namespace Battlement
             }
 
             return null;
-        }
-
-        public IBattlementCommandOperation? Spawn(
-            CommandId commandId,
-            CommandBody.Particle.Spawn command,
-            TimeSpan now
-        )
-        {
-            BattlementProtocolLimits.RequireDuration(
-                command.Lifetime,
-                "A particle effect lifetime",
-                allowZero: false
-            );
-            if (motionClock.IsInstant || motionClock.IsControlled)
-            {
-                return null;
-            }
-
-            UnityEngine.Vector3 position = command.Location switch
-            {
-                ParticleSpawnLocation.AtGameObject value => world
-                    .RequireObject(value.ObjectId)
-                    .transform.position,
-                ParticleSpawnLocation.AtWorldPosition value => ToUnity(value.Position),
-                _ => throw new BattlementCommandException(
-                    CoreErrorCode.InvalidProperty,
-                    "The particle spawn location is unknown."
-                ),
-            };
-            var asset = new PreparedAsset.ParticleEffect(command.Address);
-            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
-            EffectInstance? instance = null;
-            try
-            {
-                if (lease.Value is not GameObject prefab)
-                {
-                    throw new BattlementCommandException(
-                        CoreErrorCode.AssetTypeMismatch,
-                        $"Prepared particle effect '{command.Address.Value}' is not a GameObject."
-                    );
-                }
-
-                if (!prefab.TryGetComponent(out BattlementEffectPool marker))
-                {
-                    instance = EffectInstance.Create(prefab, lease, null);
-                    lease = null!;
-                }
-                else
-                {
-                    RequirePoolLimit(marker.MaxInactiveCount);
-                    EffectPool pool = GetPool(
-                        command.Address.Value,
-                        prefab,
-                        marker.MaxInactiveCount
-                    );
-                    instance = pool.Get(lease);
-                    lease = null!;
-                }
-
-                instance.Acquire(commandId.Value, position);
-                return new EffectOperation(instance, now + command.Lifetime);
-            }
-            catch
-            {
-                instance?.Destroy();
-                lease?.Dispose();
-                throw;
-            }
         }
 
         public IBattlementCommandOperation? Spawn(
@@ -271,13 +196,6 @@ namespace Battlement
                 );
             }
         }
-
-        private static UnityEngine.Vector3 ToUnity(ProtocolVector3 value) =>
-            new(
-                RequireFinite(value.X, "World position X"),
-                RequireFinite(value.Y, "World position Y"),
-                RequireFinite(value.Z, "World position Z")
-            );
 
         private static float RequireFinite(double value, string name)
         {

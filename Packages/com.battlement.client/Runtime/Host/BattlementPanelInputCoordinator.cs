@@ -16,63 +16,12 @@ namespace Battlement
 
         public UnityPanelInputConfiguration? OwnedConfiguration => ownedConfiguration;
 
-        public void ValidateBeforeReplacement(Snapshot snapshot)
-        {
-            using var view = new BattlementOwnedSnapshotView(snapshot);
-            ValidateBeforeReplacement(view);
-        }
-
-        public void ValidateBeforeReplacement(IBattlementOwnedSnapshotView snapshot)
-        {
-            PanelInputConfigurationValue value =
-                snapshot.PanelInputConfiguration ?? new PanelInputConfigurationValue();
-            ValidateValue(value);
-            if (!RequiresWorldInput(snapshot))
-                return;
-            RequireEventSystem();
-            RejectAuthoredConfiguration();
-        }
-
         public void ValidateBeforeReplacement(bool requiresWorldInput)
         {
             if (!requiresWorldInput)
                 return;
             RequireEventSystem();
             RejectAuthoredConfiguration();
-        }
-
-        public void Apply(IBattlementOwnedSnapshotView snapshot, Camera? inputCamera)
-        {
-            if (!RequiresWorldInput(snapshot))
-            {
-                Clear();
-                return;
-            }
-            if (inputCamera == null)
-            {
-                throw Invalid(
-                    "World-space UI input requires an enabled active main or explicit camera."
-                );
-            }
-            EventSystem eventSystem = RequireEventSystem();
-            RejectAuthoredConfiguration();
-            if (ownedConfiguration == null)
-            {
-                ownedConfiguration =
-                    eventSystem.gameObject.AddComponent<UnityPanelInputConfiguration>();
-            }
-            if (ownedWorldRaycaster == null)
-            {
-                ownedWorldRaycaster =
-                    eventSystem.gameObject.AddComponent<BattlementWorldDocumentRaycaster>();
-            }
-            ownedWorldRaycaster.camera = snapshot.InputCameraId is null ? null : inputCamera;
-            ApplyValue(
-                ownedConfiguration,
-                snapshot.PanelInputConfiguration ?? new PanelInputConfigurationValue(),
-                snapshot.InputCameraId is null,
-                inputCamera
-            );
         }
 
         public void Apply(
@@ -101,12 +50,6 @@ namespace Battlement
                     eventSystem.gameObject.AddComponent<BattlementWorldDocumentRaycaster>();
             ownedWorldRaycaster.camera = usesMainCamera ? null : inputCamera;
             ApplyValue(ownedConfiguration, value, usesMainCamera, inputCamera);
-        }
-
-        public void Apply(Snapshot snapshot, Camera? inputCamera)
-        {
-            using var view = new BattlementOwnedSnapshotView(snapshot);
-            Apply(view, inputCamera);
         }
 
         public void Clear()
@@ -147,12 +90,6 @@ namespace Battlement
                     );
             }
         }
-
-        private static bool RequiresWorldInput(IBattlementOwnedSnapshotView snapshot) =>
-            snapshot.Objects.Any(value =>
-                value.Kind is GameObjectKind.UiDocumentState state
-                && state.PanelSettings?.RenderMode == PanelRenderMode.WorldSpace
-            );
 
         private static EventSystem RequireEventSystem()
         {

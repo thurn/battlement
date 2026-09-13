@@ -206,14 +206,6 @@ namespace Battlement
             }
         }
 
-        public static void SetVisible(CommandBody.DebugUi command)
-        {
-            if (host != null)
-            {
-                host.SetVisible(command.Surface, command.Visible);
-            }
-        }
-
         public static void SetVisible(BattlementDirectDebugUi command)
         {
             if (host != null)

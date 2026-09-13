@@ -1,5 +1,4 @@
 use battlement_types::ObjectId;
-use serde::{Deserialize, Serialize};
 
 use crate::{
   Align, FlexDirection, FlexWrap, Justify, LanguageDirection, PickingMode, Prop, Style,
@@ -7,7 +6,7 @@ use crate::{
 };
 
 /// One explicit or implicit Grid track size.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GridTrack {
   /// A fixed nonnegative pixel track.
   Px(f32),
@@ -38,7 +37,7 @@ impl GridTrack {
 }
 
 /// Major-axis scan direction used by Grid auto-placement.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum GridAutoFlow {
   /// Fills columns before creating another row.
   #[default]
@@ -48,7 +47,7 @@ pub enum GridAutoFlow {
 }
 
 /// Placement and alignment of one Grid child.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GridItem {
   /// Optional one-based row start.
   pub row: Option<u32>,
@@ -128,7 +127,7 @@ impl GridItem {
 }
 
 /// Placement and presentation order of one Stack child.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StackItem {
   /// Presentation order within the isolated Stack context.
   pub order: i32,
@@ -237,7 +236,7 @@ impl StackItem {
 }
 
 /// Sticky positioning metadata for one normal-flow child.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Sticky {
   /// Optional signed top viewport inset.
   pub top: Option<f32>,
@@ -329,7 +328,7 @@ impl Sticky {
 }
 
 /// Overlay presentation tier.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OverlayLayer {
   /// An application or anchored layer below modal layers.
   Popover,
@@ -338,7 +337,7 @@ pub enum OverlayLayer {
 }
 
 /// Physical side of an anchor used for popover placement.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlacementSide {
   /// Places the popover above the anchor.
   Top,
@@ -351,7 +350,7 @@ pub enum PlacementSide {
 }
 
 /// Cross-axis alignment used for popover placement.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlacementAlign {
   /// Aligns leading edges.
   Start,
@@ -362,7 +361,7 @@ pub enum PlacementAlign {
 }
 
 /// Complete anchored-popover placement policy.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PopoverPlacement {
   /// Requested physical side.
   pub side: PlacementSide,
@@ -478,7 +477,7 @@ impl PopoverPlacement {
 }
 
 /// Placement metadata for one top-level overlay portal attachment.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OverlayPlacement {
   /// An unanchored host-filling layer.
   Layer(OverlayLayer),
@@ -499,28 +498,21 @@ pub enum OverlayPlacement {
 }
 
 /// A native flex container with independent row and column gaps.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiFlex {
   /// Shared visual properties and child placement descriptors.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Main-axis direction.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub direction: Prop<FlexDirection>,
   /// Line wrapping policy.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub wrap: Prop<FlexWrap>,
   /// Default cross-axis child alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_items: Prop<Align>,
   /// Main-axis distribution.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_content: Prop<Justify>,
   /// Gap between wrapped rows.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub row_gap: Prop<f32>,
   /// Gap between columns.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub column_gap: Prop<f32>,
 }
 
@@ -545,37 +537,27 @@ impl UiFlex {
 }
 
 /// A native deterministic Grid container.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiGrid {
   /// Shared visual properties and child placement descriptors.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Explicit column tracks.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub columns: Prop<Vec<GridTrack>>,
   /// Explicit row tracks.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub rows: Prop<Vec<GridTrack>>,
   /// Track size used for implicit columns.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub auto_columns: Prop<GridTrack>,
   /// Track size used for implicit rows.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub auto_rows: Prop<GridTrack>,
   /// Auto-placement scan direction.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub auto_flow: Prop<GridAutoFlow>,
   /// Gap between rows.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub row_gap: Prop<f32>,
   /// Gap between columns.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub column_gap: Prop<f32>,
   /// Default vertical item alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_items: Prop<Align>,
   /// Default horizontal item alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_items: Prop<Align>,
 }
 
@@ -603,16 +585,13 @@ impl UiGrid {
 }
 
 /// A native isolated stacking container.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiStack {
   /// Shared visual properties and child placement descriptors.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Default vertical item alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub align_items: Prop<Align>,
   /// Default horizontal item alignment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_items: Prop<Align>,
 }
 

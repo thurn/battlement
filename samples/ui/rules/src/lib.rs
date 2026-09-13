@@ -3,17 +3,16 @@
 use std::collections::HashSet;
 
 use battlement::{
-  ActionId, BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, CoreErrorCode,
-  DocumentPosition, GameObject, InteractionDistance, InteractionLayerMask, ObjectId,
-  PanelInputConfiguration, PanelInputRedirection, PanelRenderMode, PanelScaleMode, PanelSettings,
-  ParallelCommandGroup, ParentScene, PickingMode, PivotReferenceSize, Quaternion, Response, Scene,
-  SceneId, ScreenSize, SessionId, Snapshot, TransitionProperty, UiBox, UiButton, UiDocument,
-  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiGroupBox,
-  UiLabel, Vector3, WorldSpaceSizeMode, object_id, scene_id,
+  ActionId, BackgroundSource, CameraState, Command, DocumentPosition, GameObject,
+  InteractionDistance, InteractionLayerMask, ObjectId, PanelInputConfiguration,
+  PanelInputRedirection, PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup,
+  ParentScene, PickingMode, PivotReferenceSize, Quaternion, Scene, SceneId, ScreenSize, SessionId,
+  Snapshot, TransitionProperty, UiBox, UiButton, UiDocument, UiEventDisposition, UiEventKind,
+  UiGroupBox, UiLabel, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{
-  ConnectView, CoreClientMessageView, Engine, EngineError, FlatBufferResponseCommand,
-  FlatBufferSubmitError, NativeEngine, NativeResponse, NativeUiEventResponse, UiEventActionView,
+  ConnectView, CoreClientMessageView, Engine, EngineError, EngineResponse, FlatBufferSubmitError,
+  MessageWriter, UiEventActionView, UiEventResult,
 };
 
 #[path = "assets.rs"]
@@ -201,7 +200,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
 }
 
 impl UiLabEngine {
-  fn connect_engine(&mut self) -> Result<Response<Command>, EngineError> {
+  fn connect_engine(&mut self) -> Result<Snapshot, EngineError> {
     self.session_id = SessionId::new_v4();
     self.page = Page::Components;
     self.greeting_visible = false;
@@ -221,206 +220,7 @@ impl UiLabEngine {
     self.accepted_action_value = false;
     self.action_cleanup = action_components::CleanupEvidence::default();
     self.world_action_count = 0;
-    Ok(Response::snapshot(snapshot(self.session_id)))
-  }
-
-  fn handle_ui_event(&mut self, action: UiEventAction) -> Result<Response<Command>, EngineError> {
-    let event = action.event;
-    if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
-      let commands = match &event.body {
-        UiEventBody::TransitionStart(_) => vec![Command::update_visual_element(
-          TRANSFORM_STATUS_ID,
-          UiLabel::new("Running"),
-        )],
-        UiEventBody::TransitionEnd(value) => {
-          self
-            .transform_completed
-            .extend(value.properties.iter().copied());
-          let complete = [
-            TransitionProperty::Rotate,
-            TransitionProperty::Scale,
-            TransitionProperty::Translate,
-          ]
-          .iter()
-          .all(|property| self.transform_completed.contains(property));
-          let mut commands = vec![Command::update_visual_element(
-            TRANSFORM_STATUS_ID,
-            UiLabel::new(if complete {
-              if self.transform_settled {
-                "Transform complete"
-              } else {
-                "Ready"
-              }
-            } else {
-              "Running"
-            }),
-          )];
-          if complete {
-            commands.push(Command::update_visual_element(
-              TRANSFORM_ACTION_ID,
-              UiButton::new(if self.transform_settled {
-                "Reset"
-              } else {
-                "Launch"
-              })
-              .enabled(true),
-            ));
-          }
-          commands
-        }
-        UiEventBody::TransitionCancel(_) => vec![Command::update_visual_element(
-          TRANSFORM_STATUS_ID,
-          UiLabel::new("Cancelled"),
-        )],
-        _ => Vec::new(),
-      };
-      if !commands.is_empty() {
-        return Ok(Response::batch(
-          Batch::new(
-            BatchId::new_v4(),
-            self.session_id,
-            vec![ParallelCommandGroup::new(commands)],
-          )
-          .caused_by_action_id(action.action_id),
-        ));
-      }
-    }
-    if self.page == Page::Scroll
-      && let Some(commands) = scroll_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::Tabs
-      && let Some(commands) = tab_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::TextFields
-      && let Some(commands) = text_field_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::BooleanControls
-      && let Some(commands) = boolean_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::ChoiceGroups
-      && let Some(commands) = choice_group_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::Dropdowns
-      && let Some(commands) = dropdown_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::Sliders
-      && let Some(commands) = slider_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::Ranges
-      && let Some(commands) = range_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::PointerRouting
-      && let Some(commands) = pointer_routing_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if self.page == Page::KeyboardNavigation
-      && let Some(commands) = keyboard_navigation_components::event_commands(&event)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    if let Some(commands) =
-      remaining_event_components::event_commands(&mut self.remaining_event_timeline, &event)
-    {
-      if self.page == Page::RemainingEvents {
-        return Ok(routing::single_ui_command_response(
-          self.session_id,
-          action.action_id,
-          commands,
-        ));
-      }
-      return Ok(Response::empty(self.session_id));
-    }
-    if self.page == Page::Actions
-      && let Some(commands) = action_components::event_commands(
-        &event,
-        &mut self.accepted_action_value,
-        &mut self.action_cleanup,
-      )
-    {
-      return Ok(Response::batch(
-        Batch::new(BatchId::new_v4(), self.session_id, commands)
-          .caused_by_action_id(action.action_id),
-      ));
-    }
-    if self.page == Page::RenderModes
-      && let Some(commands) =
-        render_mode_components::event_commands(&event, &mut self.render_mode_details_expanded)
-    {
-      return Ok(routing::single_ui_command_response(
-        self.session_id,
-        action.action_id,
-        commands,
-      ));
-    }
-    let UiEventBody::Click(click) = event.body else {
-      return Ok(Response::empty(self.session_id));
-    };
-    self.handle_click(
-      event.target_id,
-      match click {
-        battlement::ClickEvent::Pointer { .. } => 0,
-        battlement::ClickEvent::NavigationSubmit => 1,
-        battlement::ClickEvent::Repeat => 2,
-      },
-      action.action_id,
-    )
+    Ok(snapshot(self.session_id))
   }
 
   fn handle_click(
@@ -428,7 +228,7 @@ impl UiLabEngine {
     target_id: ObjectId,
     click_kind: u8,
     action_id: ActionId,
-  ) -> Result<Response<Command>, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let commands = match target_id {
       COMPONENTS_BUTTON_ID if self.page != Page::Components => {
         self.page = Page::Components;
@@ -717,11 +517,11 @@ impl UiLabEngine {
       _ => Vec::new(),
     };
     if commands.is_empty() {
-      return Ok(Response::empty(self.session_id));
+      return EngineResponse::empty(*self.session_id.as_uuid().as_bytes());
     }
-    Ok(Response::batch(
-      Batch::new(BatchId::new_v4(), self.session_id, commands).caused_by_action_id(action_id),
-    ))
+    let mut response = native_ui::NativeUiResponseBuilder::new();
+    response.command_groups(&commands)?;
+    response.finish(self.session_id, action_id)
   }
 
   fn write_transform_event_response(
@@ -951,62 +751,23 @@ impl UiLabEngine {
 }
 
 impl Engine for UiLabEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
-    self.connect_engine()
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    native_snapshot(self.connect_engine()?)
   }
 
-  fn submit(
-    &mut self,
-    _message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    Ok(Response::empty(self.session_id))
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    CoreClientMessageView::read(bytes)
+      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
+    EngineResponse::empty(*self.session_id.as_uuid().as_bytes())
+      .map_err(FlatBufferSubmitError::engine)
   }
 
   fn submit_ui_event(
     &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("UI event session mismatch"));
-    }
-    let disposition = if action.event.default_prevented {
-      UiEventDisposition::PreventDefault
-    } else {
-      UiEventDisposition::Continue
-    };
-    Ok(UiEventResponse::new(
-      disposition,
-      self.handle_ui_event(action)?,
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    Ok(None)
-  }
-}
-
-impl NativeEngine for UiLabEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
-
-  fn connect_native(&mut self, _message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
-    native_response(self.connect_engine()?)
-  }
-
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
-    CoreClientMessageView::read(bytes)
-      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
-    NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
-      .map_err(FlatBufferSubmitError::engine)
-  }
-
-  fn submit_ui_event_native(
-    &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
+  ) -> Result<UiEventResult, EngineError> {
     let session_id =
       SessionId::from_bytes(action.session_id()).expect("UI event view validates session UUIDs");
     if session_id != self.session_id {
@@ -1059,7 +820,7 @@ impl NativeEngine for UiLabEngine {
       _ => false,
     };
     if wrote_direct {
-      return Ok(NativeUiEventResponse {
+      return Ok(UiEventResult {
         disposition: if action.default_prevented() {
           UiEventDisposition::PreventDefault
         } else {
@@ -1069,13 +830,13 @@ impl NativeEngine for UiLabEngine {
       });
     }
     if action.event_kind() != UiEventKind::Click {
-      return Ok(NativeUiEventResponse {
+      return Ok(UiEventResult {
         disposition: if action.default_prevented() {
           UiEventDisposition::PreventDefault
         } else {
           UiEventDisposition::Continue
         },
-        response: NativeResponse::empty(*self.session_id.as_uuid().as_bytes())?,
+        response: EngineResponse::empty(*self.session_id.as_uuid().as_bytes())?,
       });
     }
     let target_id =
@@ -1084,25 +845,29 @@ impl NativeEngine for UiLabEngine {
       .click_kind()
       .ok_or_else(|| EngineError::new("click event payload is absent"))?;
     let response = self.handle_click(target_id, click_kind, action_id)?;
-    Ok(NativeUiEventResponse {
+    Ok(UiEventResult {
       disposition: if action.default_prevented() {
         UiEventDisposition::PreventDefault
       } else {
         UiEventDisposition::Continue
       },
-      response: native_response(response)?,
+      response,
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }
 
-fn native_response(response: Response) -> Result<NativeResponse, EngineError> {
-  let session_id = *response.session_id.as_uuid().as_bytes();
-  let message = <Command as FlatBufferResponseCommand>::write_response(&response)?;
-  NativeResponse::from_core(session_id, message)
+fn native_snapshot(snapshot: Snapshot) -> Result<EngineResponse, EngineError> {
+  let session_id = *snapshot.session_id.as_uuid().as_bytes();
+  let mut writer = MessageWriter::default();
+  let snapshot = writer.snapshot_message(&snapshot).map_err(writer_error)?;
+  let message = writer
+    .finish(session_id, &[snapshot])
+    .map_err(writer_error)?;
+  EngineResponse::from_core(session_id, message)
 }
 
 fn rgba(value: battlement::Color) -> [f64; 4] {
@@ -1435,12 +1200,12 @@ mod native_tests {
   }
 }
 
-battlement_native::export_deterministic_native_engine!(
+battlement_native::export_deterministic_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

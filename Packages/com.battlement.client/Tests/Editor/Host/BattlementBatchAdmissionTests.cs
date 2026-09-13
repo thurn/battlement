@@ -115,91 +115,65 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void BatchValidationFailuresAreSubmittedWithAvailableIdentity()
+        public void MalformedBatchesStopAtTheVerifiedBoundary()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
             Command duplicate = ValidCommand();
-            var cases = new (Batch Batch, CoreErrorCode Code, CommandId? CommandId)[]
+            var cases = new Batch[]
             {
-                (
-                    ValidBatch(new SessionId(Guid.NewGuid()), BatchStart.Now),
-                    CoreErrorCode.WrongSession,
-                    null
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    Array.Empty<ParallelCommandGroup<Command>>()
                 ),
-                (
-                    new Batch(
-                        new BatchId(Guid.NewGuid()),
-                        session,
-                        Array.Empty<ParallelCommandGroup<Command>>()
-                    ),
-                    CoreErrorCode.InvalidProperty,
-                    null
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    Enumerable.Range(0, 257).Select(_ => Group()).ToArray()
                 ),
-                (
-                    new Batch(
-                        new BatchId(Guid.NewGuid()),
-                        session,
-                        Enumerable.Range(0, 257).Select(_ => Group()).ToArray()
-                    ),
-                    CoreErrorCode.LimitExceeded,
-                    null
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    new[] { new ParallelCommandGroup<Command>(Array.Empty<Command>()) }
                 ),
-                (
-                    new Batch(
-                        new BatchId(Guid.NewGuid()),
-                        session,
-                        new[] { new ParallelCommandGroup<Command>(Array.Empty<Command>()) }
-                    ),
-                    CoreErrorCode.InvalidProperty,
-                    null
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    new[]
+                    {
+                        new ParallelCommandGroup<Command>(
+                            Enumerable.Range(0, 4_097).Select(_ => ValidCommand()).ToArray()
+                        ),
+                    }
                 ),
-                (
-                    new Batch(
-                        new BatchId(Guid.NewGuid()),
-                        session,
-                        new[]
-                        {
-                            new ParallelCommandGroup<Command>(
-                                Enumerable.Range(0, 4_097).Select(_ => ValidCommand()).ToArray()
-                            ),
-                        }
-                    ),
-                    CoreErrorCode.LimitExceeded,
-                    null
-                ),
-                (
-                    new Batch(
-                        new BatchId(Guid.NewGuid()),
-                        session,
-                        new[] { new ParallelCommandGroup<Command>(new[] { duplicate, duplicate }) }
-                    ),
-                    CoreErrorCode.DuplicateId,
-                    duplicate.Id
+                new Batch(
+                    new BatchId(Guid.NewGuid()),
+                    session,
+                    new[] { new ParallelCommandGroup<Command>(new[] { duplicate, duplicate }) }
                 ),
             };
-            Connect(harness, session);
 
-            foreach ((Batch batch, CoreErrorCode code, CommandId? commandId) in cases)
+            using (BattlementTestHarness wrongSessionHarness = BattlementTestHarness.Create())
             {
+                Connect(wrongSessionHarness, session);
+                Batch wrongSession = ValidBatch(new SessionId(Guid.NewGuid()), BatchStart.Now);
+                SubmitResponse(wrongSessionHarness, BatchResponse(session, wrongSession));
+                Assert.That(wrongSessionHarness.Transport.BatchFailures, Is.Empty);
+                Assert.That(wrongSessionHarness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            }
+
+            foreach (Batch batch in cases)
+            {
+                using BattlementTestHarness harness = BattlementTestHarness.Create();
+                Connect(harness, session);
                 harness.Transport.EnqueueSubmit(
                     FakeBattlementTransport.ResponseResult(BatchResponse(session, batch))
                 );
-                harness.Transport.EnqueueSubmit(
-                    FakeBattlementTransport.ResponseResult(
-                        new Response(session, Array.Empty<ResponseMessage<Command>>())
-                    )
-                );
                 harness.Runner.Submit(new byte[] { 1 });
 
-                BatchFailed<CoreErrorCode> failure = harness.Transport.BatchFailures[^1];
-                Assert.That(failure.BatchId, Is.EqualTo(batch.Id));
-                Assert.That(failure.SessionId, Is.EqualTo(session));
-                Assert.That(failure.ErrorCode, Is.EqualTo(code));
-                Assert.That(failure.CommandId, Is.EqualTo(commandId));
+                Assert.That(harness.Transport.BatchFailures, Is.Empty);
+                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             }
-
-            Assert.That(harness.Transport.Calls, Does.Not.Contain("stop"));
         }
 
         [Test]

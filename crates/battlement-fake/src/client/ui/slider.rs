@@ -6,7 +6,7 @@ use crate::client::ui::{ScrollerInteraction, SliderIntInteraction, UiClient};
 
 impl<E> UiClient<'_, E>
 where
-  E: Engine<Command = battlement::Command>,
+  E: Engine,
 {
   /// Begins a controlled floating-point UiSlider drag.
   pub fn slider_begin(&mut self, object_id: battlement::ObjectId) {

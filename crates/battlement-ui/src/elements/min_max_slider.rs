@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -7,7 +5,7 @@ use crate::{
 };
 
 /// Inclusive lower bound or the native unbounded minimum.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum LowerLimit {
   /// Uses Unity's native minimum without serializing the extreme value.
   #[default]
@@ -17,7 +15,7 @@ pub enum LowerLimit {
 }
 
 /// Inclusive upper bound or the native unbounded maximum.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum UpperLimit {
   /// Uses Unity's native maximum without serializing the extreme value.
   #[default]
@@ -64,27 +62,20 @@ pub enum UpperLimit {
 /// [`F32Range`]: crate::F32Range
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiMinMaxSlider {
   /// Properties shared by every visual element.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Rust-authored selected lower value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub min_value: Prop<f32>,
   /// Rust-authored selected upper value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub max_value: Prop<f32>,
   /// Inclusive lower limit or an explicit unbounded limit.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_limit: Prop<LowerLimit>,
   /// Inclusive upper limit or an explicit unbounded limit.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub high_limit: Prop<UpperLimit>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

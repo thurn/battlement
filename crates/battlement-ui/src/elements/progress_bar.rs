@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -37,24 +35,18 @@ use crate::{
 /// ```
 ///
 /// [`UiSlider`]: crate::UiSlider
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiProgressBar {
   /// Properties shared by every visual element.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Lower endpoint of the displayed range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<f32>,
   /// Upper endpoint of the displayed range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub high_value: Prop<f32>,
   /// Rust-authored displayed value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<f32>,
   /// Text drawn over the progress track.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub title: Prop<String>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

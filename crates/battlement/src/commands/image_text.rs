@@ -1,12 +1,10 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   HorizontalAlignment, ImageFit, ObjectId, RgbColor, TextMeshProFontAddress, TextureAddress, Tween,
   VerticalAlignment,
 };
 
 /// Replaces the prepared texture on an image object.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SetTexturePayload {
   /// Target image game object.
   pub object_id: ObjectId,
@@ -15,7 +13,7 @@ pub struct SetTexturePayload {
 }
 
 /// Replaces the prepared TextMesh Pro font on a text object.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SetFontPayload {
   /// Target text game object.
   pub object_id: ObjectId,
@@ -24,7 +22,7 @@ pub struct SetFontPayload {
 }
 
 /// Resizes a Battlement image quad.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ImageSizePayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -35,7 +33,7 @@ pub struct ImageSizePayload {
 }
 
 /// Changes an image quad's texture fitting behavior.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ImageFitPayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -44,7 +42,7 @@ pub struct ImageFitPayload {
 }
 
 /// Sets an image quad's linear RGB tint.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TintPayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -53,7 +51,7 @@ pub struct TintPayload {
 }
 
 /// Tweens an image quad's linear RGB tint.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenTintPayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -64,7 +62,7 @@ pub struct TweenTintPayload {
 }
 
 /// Sets an image quad's opacity.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OpacityPayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -73,7 +71,7 @@ pub struct OpacityPayload {
 }
 
 /// Tweens an image quad's opacity.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenOpacityPayload {
   /// Target image object.
   pub object_id: ObjectId,
@@ -84,7 +82,7 @@ pub struct TweenOpacityPayload {
 }
 
 /// Replaces displayed world-text content.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TextContentPayload {
   /// Target world-text object.
   pub object_id: ObjectId,
@@ -93,7 +91,7 @@ pub struct TextContentPayload {
 }
 
 /// Sets a world-text object's positive size.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextSizePayload {
   /// Target world-text object.
   pub object_id: ObjectId,
@@ -102,7 +100,7 @@ pub struct TextSizePayload {
 }
 
 /// Tweens a world-text object's positive size.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenTextSizePayload {
   /// Target world-text object.
   pub object_id: ObjectId,
@@ -113,7 +111,7 @@ pub struct TweenTextSizePayload {
 }
 
 /// Sets horizontal and vertical world-text alignment.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextAlignmentPayload {
   /// Target world-text object.
   pub object_id: ObjectId,
@@ -124,7 +122,7 @@ pub struct TextAlignmentPayload {
 }
 
 /// Sets world-text wrapping width, or disables wrapping with [`None`].
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextWrappingPayload {
   /// Target world-text object.
   pub object_id: ObjectId,

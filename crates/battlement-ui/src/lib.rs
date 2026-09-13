@@ -72,10 +72,3 @@ pub fn authored_private_part_styles(value: &UiElement) -> Vec<&Style> {
     .map(|value| &value.style)
     .collect()
 }
-
-fn is_default<T>(value: &T) -> bool
-where
-  T: Default + PartialEq,
-{
-  value == &T::default()
-}

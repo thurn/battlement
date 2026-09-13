@@ -1,7 +1,6 @@
 use battlement::{
-  Command, CommandBody, ObjectId, ParallelCommandGroup, ScrollerVisibility, UiBox, UiButton,
-  UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiScrollView, UiSlider,
-  UiTextElement, UiTextField, UiToggle, UiValue, UiVisualElement, VisualElementAction, object_id,
+  ObjectId, ScrollerVisibility, UiBox, UiButton, UiElement, UiEventKind, UiLabel, UiNode,
+  UiScrollView, UiSlider, UiTextElement, UiTextField, UiToggle, UiVisualElement, object_id,
 };
 use battlement_native::{UiEventActionView, UiValueView};
 
@@ -41,61 +40,6 @@ pub(crate) fn page(page_id: ObjectId, actions_ran: bool, accepted: bool, cleaned
                 .child(action_console(actions_ran))
                 .child(controlled_console(accepted, cleaned)),
         )
-}
-
-pub(crate) fn event_commands(
-  event: &UiEvent,
-  accepted: &mut bool,
-  cleanup: &mut CleanupEvidence,
-) -> Option<Vec<ParallelCommandGroup<Command>>> {
-  match &event.body {
-    UiEventBody::Click(_) if event.target_id == RUN_ID => Some(action_commands()),
-    UiEventBody::Click(_) if event.target_id == CLEANUP_ID => {
-      *cleanup = CleanupEvidence::default();
-      Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
-      ])])
-    }
-    UiEventBody::Input(_) if event.target_id == DRAFT_ID => {
-      cleanup.draft = true;
-      Some(cleanup_commands(cleanup))
-    }
-    UiEventBody::ValueChanging(_) if event.target_id == DRAG_ID => {
-      cleanup.drag = true;
-      Some(cleanup_commands(cleanup))
-    }
-    UiEventBody::ValueCommitted(_) if event.target_id == DRAFT_ID || event.target_id == DRAG_ID => {
-      cleanup.draft_leaked = event.target_id == DRAFT_ID;
-      cleanup.drag_leaked = event.target_id == DRAG_ID;
-      Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
-      ])])
-    }
-    UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
-      let proposed = boolean(&value.proposed)?;
-      *accepted = proposed;
-      Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(ACCEPTED_ID, UiToggle::new().value(proposed)),
-        Command::update_visual_element(
-          CONTROL_STATUS_ID,
-          UiLabel::new(format!(
-            "ACCEPTED | response committed {} before repaint",
-            state(proposed)
-          )),
-        ),
-      ])])
-    }
-    UiEventBody::ValueCommitted(value) if event.target_id == REJECTED_ID => Some(vec![
-      ParallelCommandGroup::new(vec![Command::update_visual_element(
-        CONTROL_STATUS_ID,
-        UiLabel::new(format!(
-          "REJECTED | proposal {} rolled back to ON",
-          state(boolean(&value.proposed)?)
-        )),
-      )]),
-    ]),
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -313,54 +257,6 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
         ))
 }
 
-fn action_commands() -> Vec<ParallelCommandGroup<Command>> {
-  vec![ParallelCommandGroup::new(vec![
-    Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Focus),
-    Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Blur),
-    Command::perform_visual_element_action(
-      SCROLL_ID,
-      VisualElementAction::ScrollTo {
-        descendant_id: SCROLL_TARGET_ID,
-      },
-    ),
-    Command::perform_visual_element_action(SELECTABLE_ID, VisualElementAction::Focus),
-    Command::perform_visual_element_action(
-      SELECTABLE_ID,
-      VisualElementAction::SelectText {
-        cursor_index: 11,
-        selection_index: 3,
-      },
-    ),
-    Command::perform_visual_element_action(
-      SELECTABLE_ID,
-      VisualElementAction::CapturePointer { pointer_id: 17 },
-    ),
-    Command::perform_visual_element_action(
-      SELECTABLE_ID,
-      VisualElementAction::ReleasePointer { pointer_id: 17 },
-    ),
-    Command::update_visual_element(
-      ACTION_STATUS_ID,
-      UiLabel::new("PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"),
-    ),
-    Command::update_visual_element(
-      SELECTION_STATUS_ID,
-      UiLabel::new("SELECTION | UTF-16 3-11 applied"),
-    ),
-    Command::update_visual_element(RUN_ID, UiButton::new("Run actions again")),
-  ])]
-}
-
-fn cleanup_commands(cleanup: &CleanupEvidence) -> Vec<ParallelCommandGroup<Command>> {
-  vec![
-    ParallelCommandGroup::new(vec![Command::new_v4(CommandBody::set_input_enabled(false))]),
-    ParallelCommandGroup::new(vec![
-      Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
-      Command::new_v4(CommandBody::set_input_enabled(true)),
-    ]),
-  ]
-}
-
 fn cleanup_status(cleanup: &CleanupEvidence) -> &'static str {
   if cleanup.draft_leaked {
     "FAILED  draft cleanup emitted an unexpected commit"
@@ -374,13 +270,6 @@ fn cleanup_status(cleanup: &CleanupEvidence) -> &'static str {
     "DRAG CLEANED  restored silently | now type in LOCAL DRAFT"
   } else {
     "READY  Type in LOCAL DRAFT, then move LOCAL DRAG"
-  }
-}
-
-fn boolean(value: &UiValue) -> Option<bool> {
-  match value {
-    UiValue::Bool(value) => Some(*value),
-    _ => None,
   }
 }
 

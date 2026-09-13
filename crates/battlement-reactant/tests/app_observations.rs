@@ -1,5 +1,7 @@
 mod app_support;
 
+use app_support::EngineTestExt;
+
 use std::{cell::RefCell, num::NonZeroU64, rc::Rc};
 use trox::ls;
 
@@ -45,7 +47,7 @@ impl Component for Observed {
 fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions() {
   let values = Rc::new(RefCell::new(Vec::new()));
   let mut app = App::new("app/content").ui(memo(Observed(Rc::clone(&values))));
-  let initial = app.connect_owned(&app_support::connect()).unwrap();
+  let initial = app.connect_test(&app_support::connect()).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().0, ScreenSize::new(800, 600));
   let observation = initial
@@ -82,7 +84,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     }],
   };
   app
-    .submit(ClientMessage::Action(Action::new(
+    .submit_test(ClientMessage::Action(Action::new(
       ActionId::new_v4(),
       initial.session_id,
       ActionBody::GeometryObservations(geometry),
@@ -95,7 +97,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
     paused: true,
   };
   app
-    .submit(ClientMessage::Action(Action::new(
+    .submit_test(ClientMessage::Action(Action::new(
       ActionId::new_v4(),
       initial.session_id,
       ActionBody::ApplicationStateChanged(inactive),
@@ -104,7 +106,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().1, inactive);
   app
-    .submit(ClientMessage::Action(Action::new(
+    .submit_test(ClientMessage::Action(Action::new(
       ActionId::new_v4(),
       initial.session_id,
       ActionBody::ReducedMotionPreferenceChanged(ReducedMotionPreference::Reduce),
@@ -119,7 +121,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
   let mut connect = app_support::connect();
   connect.screen = ScreenSize::new(400, 300);
   connect.reduced_motion_preference = ReducedMotionPreference::NoPreference;
-  app.connect_owned(&connect).unwrap();
+  app.connect_test(&connect).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(
     *values.borrow().last().unwrap(),

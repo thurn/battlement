@@ -1,7 +1,4 @@
-use battlement::{
-  Color, Command, CommandBody, ObjectId, PickingMode, Position, Style, UiDocument, UiLabel, UiNode,
-  object_id,
-};
+use battlement::{ObjectId, object_id};
 use battlement_native::{CoreCommandOffset, MessageWriter, UiDocumentOffset};
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
@@ -175,20 +172,6 @@ pub(crate) fn after_move(
   }
 }
 
-pub(crate) fn document(state: VisualState) -> UiDocument {
-  UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
-    .name("chess-state")
-    .picking_mode(PickingMode::Ignore)
-    .style(
-      Style::new()
-        .position(Position::Absolute)
-        .top(0)
-        .left(0)
-        .right(0),
-    )
-    .child(self::node(state))
-}
-
 pub(crate) fn write_document(
   message: &mut MessageWriter,
   state: VisualState,
@@ -213,13 +196,6 @@ pub(crate) fn write_document(
   )
 }
 
-pub(crate) fn transition(from: VisualState, to: VisualState) -> [CommandBody; 2] {
-  [
-    Command::destroy_visual_element(from.object_id()).body,
-    Command::create_visual_element(ROOT_ID, self::node(to)).body,
-  ]
-}
-
 pub(crate) fn write_transition(
   message: &mut MessageWriter,
   from: VisualState,
@@ -241,26 +217,6 @@ pub(crate) fn write_transition(
     &[node],
   )?;
   Ok([destroy, create])
-}
-
-fn node(state: VisualState) -> UiNode {
-  UiNode::new(
-    state.object_id(),
-    UiLabel::new(state.label())
-      .name(state.registry_key())
-      .picking_mode(PickingMode::Ignore)
-      .style(
-        Style::new()
-          .position(Position::Absolute)
-          .top(18)
-          .left(24)
-          .padding((9, 15))
-          .font_size(18)
-          .color(Color::rgb(0.96, 0.97, 0.91))
-          .background_color(Color::rgba(0.03, 0.04, 0.035, 0.88))
-          .border_radius(6),
-      ),
-  )
 }
 
 fn write_label(

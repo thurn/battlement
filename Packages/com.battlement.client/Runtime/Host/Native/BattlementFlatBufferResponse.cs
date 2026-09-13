@@ -28,6 +28,16 @@ namespace Battlement
         private bool rootDisposed;
         private bool storageDisposed;
 
+        internal static bool HasIdentifier(ReadOnlyMemory<byte> payload)
+        {
+            ReadOnlySpan<byte> span = payload.Span;
+            return span.Length >= 12
+                && span[8] == (byte)'B'
+                && span[9] == (byte)'T'
+                && span[10] == (byte)'R'
+                && span[11] == (byte)'S';
+        }
+
         internal BattlementFlatBufferResponse(
             ReadOnlyMemory<byte> payload,
             IDisposable? storageOwner

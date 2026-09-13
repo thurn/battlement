@@ -8,8 +8,58 @@ use crate::{
   ui_event_generated::{PanelPoint, PhysicalKey as WirePhysicalKey, PointerButtonKind},
 };
 use battlement::{
-  BatchFailed, ControllerButton, ControllerDirection, CoreErrorCode, PhysicalKey, PointerButton,
+  Action, ActionBody, BatchFailed, ControllerButton, ControllerDirection, CoreErrorCode,
+  OperationFailed, PhysicalKey, PointerButton,
 };
+
+/// Constructs one built-in action directly in a size-prefixed FlatBuffer.
+pub fn write_core_action(value: &Action) -> Result<FinishedMessage, ProtocolError> {
+  let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(512);
+  let (kind, body_type, body) = write_action_body(&mut builder, &value.body)?;
+  let action_id = crate::common_generated::Uuid(*value.action_id.as_uuid().as_bytes());
+  let session_id = crate::common_generated::Uuid(*value.session_id.as_uuid().as_bytes());
+  let action = wire::CoreAction::create(
+    &mut builder,
+    &wire::CoreActionArgs {
+      action_id: Some(&action_id),
+      session_id: Some(&session_id),
+      kind,
+      body_type,
+      body: Some(body),
+    },
+  );
+  finish_client_message(
+    builder,
+    wire::CoreClientMessageBody::CoreAction,
+    action.as_union_value(),
+  )
+}
+
+/// Constructs one late core-operation failure directly in a size-prefixed FlatBuffer.
+pub fn write_core_operation_failure(
+  value: &OperationFailed<CoreErrorCode>,
+) -> Result<FinishedMessage, ProtocolError> {
+  let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(256);
+  let message = builder.create_string(&value.message);
+  let session_id = crate::common_generated::Uuid(*value.session_id.as_uuid().as_bytes());
+  let batch_id = crate::common_generated::Uuid(*value.batch_id.as_uuid().as_bytes());
+  let command_id = crate::common_generated::Uuid(*value.command_id.as_uuid().as_bytes());
+  let failure = wire::OperationFailed::create(
+    &mut builder,
+    &wire::OperationFailedArgs {
+      session_id: Some(&session_id),
+      batch_id: Some(&batch_id),
+      command_id: Some(&command_id),
+      error_code: wire::CoreErrorCode(value.error_code as u8),
+      message: Some(message),
+    },
+  );
+  finish_client_message(
+    builder,
+    wire::CoreClientMessageBody::OperationFailed,
+    failure.as_union_value(),
+  )
+}
 
 /// Constructs one core batch-failure submission directly in a size-prefixed FlatBuffer.
 pub fn write_core_batch_failure(
@@ -44,6 +94,245 @@ pub fn write_core_batch_failure(
   let message = FinishedMessage::from_storage(storage, start);
   CoreClientMessageView::read(message.as_bytes())?;
   Ok(message)
+}
+
+fn finish_client_message(
+  mut builder: flatbuffers::FlatBufferBuilder<'static>,
+  body_type: wire::CoreClientMessageBody,
+  body: flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>,
+) -> Result<FinishedMessage, ProtocolError> {
+  let root = wire::CoreClientMessage::create(
+    &mut builder,
+    &wire::CoreClientMessageArgs {
+      body_type,
+      body: Some(body),
+    },
+  );
+  wire::finish_size_prefixed_core_client_message_buffer(&mut builder, root);
+  let (storage, start) = builder.collapse();
+  let message = FinishedMessage::from_storage(storage, start);
+  CoreClientMessageView::read(message.as_bytes())?;
+  Ok(message)
+}
+
+fn write_action_body<'a>(
+  builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+  body: &ActionBody,
+) -> Result<
+  (
+    wire::CoreActionKind,
+    wire::CoreActionBody,
+    flatbuffers::WIPOffset<flatbuffers::UnionWIPOffset>,
+  ),
+  ProtocolError,
+> {
+  use wire::{CoreActionBody as Body, CoreActionKind as Kind};
+  let encoded = match body {
+    ActionBody::Activate(value) => {
+      let object_id = crate::common_generated::Uuid(*value.object_id.as_uuid().as_bytes());
+      let value = wire::ActivationAction::create(
+        builder,
+        &wire::ActivationActionArgs {
+          object_id: Some(&object_id),
+        },
+      );
+      (
+        Kind::Activate,
+        Body::ActivationAction,
+        value.as_union_value(),
+      )
+    }
+    ActionBody::PointerEnter(value) | ActionBody::PointerExit(value) => {
+      if value.pointer_id < 0 {
+        return Err(error("pointer identity must be nonnegative"));
+      }
+      let kind = if matches!(body, ActionBody::PointerEnter(_)) {
+        Kind::PointerEnter
+      } else {
+        Kind::PointerExit
+      };
+      let object_id = crate::common_generated::Uuid(*value.object_id.as_uuid().as_bytes());
+      let screen = PanelPoint::new(value.screen_position.x, value.screen_position.y);
+      let world = Vector3d::new(value.world_hit.x, value.world_hit.y, value.world_hit.z);
+      let value = wire::PointerAction::create(
+        builder,
+        &wire::PointerActionArgs {
+          object_id: Some(&object_id),
+          pointer_id: value.pointer_id,
+          screen_position: Some(&screen),
+          world_hit: Some(&world),
+        },
+      );
+      (kind, Body::PointerAction, value.as_union_value())
+    }
+    ActionBody::PointerDown(value)
+    | ActionBody::PointerUp(value)
+    | ActionBody::PointerClick(value) => {
+      if value.pointer_id < 0 {
+        return Err(error("pointer identity must be nonnegative"));
+      }
+      let kind = match body {
+        ActionBody::PointerDown(_) => Kind::PointerDown,
+        ActionBody::PointerUp(_) => Kind::PointerUp,
+        _ => Kind::PointerClick,
+      };
+      let object_id = crate::common_generated::Uuid(*value.object_id.as_uuid().as_bytes());
+      let screen = PanelPoint::new(value.screen_position.x, value.screen_position.y);
+      let world = Vector3d::new(value.world_hit.x, value.world_hit.y, value.world_hit.z);
+      let (button_kind, other) = match value.button {
+        PointerButton::Left => (PointerButtonKind::Left, 0),
+        PointerButton::Middle => (PointerButtonKind::Middle, 0),
+        PointerButton::Right => (PointerButtonKind::Right, 0),
+        PointerButton::Other(_) => {
+          return Err(error("core actions require a built-in pointer button"));
+        }
+      };
+      let button = crate::ui_event_generated::PointerButton::create(
+        builder,
+        &crate::ui_event_generated::PointerButtonArgs {
+          kind: button_kind,
+          other,
+        },
+      );
+      let value = wire::PointerButtonAction::create(
+        builder,
+        &wire::PointerButtonActionArgs {
+          object_id: Some(&object_id),
+          pointer_id: value.pointer_id,
+          screen_position: Some(&screen),
+          world_hit: Some(&world),
+          button: Some(button),
+        },
+      );
+      (kind, Body::PointerButtonAction, value.as_union_value())
+    }
+    ActionBody::DragStart(value) | ActionBody::DragEnd(value) => {
+      if value.pointer_id < 0 {
+        return Err(error("pointer identity must be nonnegative"));
+      }
+      let kind = if matches!(body, ActionBody::DragStart(_)) {
+        Kind::DragStart
+      } else {
+        Kind::DragEnd
+      };
+      let object_id = crate::common_generated::Uuid(*value.object_id.as_uuid().as_bytes());
+      let screen = PanelPoint::new(value.screen_position.x, value.screen_position.y);
+      let world = Vector3d::new(
+        value.world_position.x,
+        value.world_position.y,
+        value.world_position.z,
+      );
+      let value = wire::DragAction::create(
+        builder,
+        &wire::DragActionArgs {
+          object_id: Some(&object_id),
+          pointer_id: value.pointer_id,
+          screen_position: Some(&screen),
+          world_position: Some(&world),
+        },
+      );
+      (kind, Body::DragAction, value.as_union_value())
+    }
+    ActionBody::KeyDown(value) | ActionBody::KeyUp(value) => {
+      let kind = if matches!(body, ActionBody::KeyDown(_)) {
+        Kind::KeyDown
+      } else {
+        Kind::KeyUp
+      };
+      let value = wire::KeyAction::create(
+        builder,
+        &wire::KeyActionArgs {
+          key: WirePhysicalKey(value.key as u16),
+        },
+      );
+      (kind, Body::KeyAction, value.as_union_value())
+    }
+    ActionBody::ControllerButtonDown(value) | ActionBody::ControllerButtonUp(value) => {
+      if value.controller_id < 0 {
+        return Err(error("controller identity must be nonnegative"));
+      }
+      let kind = if matches!(body, ActionBody::ControllerButtonDown(_)) {
+        Kind::ControllerButtonDown
+      } else {
+        Kind::ControllerButtonUp
+      };
+      let value = wire::ControllerButtonAction::create(
+        builder,
+        &wire::ControllerButtonActionArgs {
+          controller_id: value.controller_id,
+          button: wire::ControllerButton(value.button as u8),
+        },
+      );
+      (kind, Body::ControllerButtonAction, value.as_union_value())
+    }
+    ActionBody::ControllerNavigate(value) => {
+      if value.controller_id < 0 {
+        return Err(error("controller identity must be nonnegative"));
+      }
+      let value = wire::ControllerNavigateAction::create(
+        builder,
+        &wire::ControllerNavigateActionArgs {
+          controller_id: value.controller_id,
+          direction: wire::ControllerDirection(value.direction as u8),
+          source: wire::ControllerNavigationSource(value.source as u8),
+          repeat: value.repeat,
+        },
+      );
+      (
+        Kind::ControllerNavigate,
+        Body::ControllerNavigateAction,
+        value.as_union_value(),
+      )
+    }
+    ActionBody::ApplicationStateChanged(value) => {
+      let state = crate::common_generated::ApplicationState::create(
+        builder,
+        &crate::common_generated::ApplicationStateArgs {
+          focused: value.focused,
+          paused: value.paused,
+        },
+      );
+      let value = wire::ApplicationStateAction::create(
+        builder,
+        &wire::ApplicationStateActionArgs { value: Some(state) },
+      );
+      (
+        Kind::ApplicationStateChanged,
+        Body::ApplicationStateAction,
+        value.as_union_value(),
+      )
+    }
+    ActionBody::ReducedMotionPreferenceChanged(value) => {
+      let value = wire::ReducedMotionPreferenceAction::create(
+        builder,
+        &wire::ReducedMotionPreferenceActionArgs {
+          value: WireReducedMotionPreference(*value as u8),
+        },
+      );
+      (
+        Kind::ReducedMotionPreferenceChanged,
+        Body::ReducedMotionPreferenceAction,
+        value.as_union_value(),
+      )
+    }
+    ActionBody::GeometryObservations(value) => {
+      let value = crate::core_action_geometry::write(builder, value)?;
+      (
+        Kind::GeometryObservations,
+        Body::GeometryAction,
+        value.as_union_value(),
+      )
+    }
+    ActionBody::MotionEvents(value) => {
+      let value = crate::core_action_motion::write(builder, value)?;
+      (
+        Kind::MotionEvents,
+        Body::MotionAction,
+        value.as_union_value(),
+      )
+    }
+  };
+  Ok(encoded)
 }
 
 /// One structurally verified and semantically checked core client submission.
@@ -302,7 +591,7 @@ impl KeyActionView<'_> {
   /// Returns the validated physical key.
   #[must_use]
   pub fn physical_key(self) -> PhysicalKey {
-    crate::ui_event_owned::physical_key(self.value.key())
+    crate::ui_event_body::physical_key(self.value.key())
       .expect("core action validation closes physical-key ordinals")
   }
 }

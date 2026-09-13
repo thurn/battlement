@@ -1,6 +1,6 @@
 use battlement::{
-  Command, F32Range, LowerLimit, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind,
-  UiLabel, UiMinMaxSlider, UiNode, UiProgressBar, UiValue, UiVisualElement, UpperLimit, object_id,
+  LowerLimit, ObjectId, UiBox, UiElement, UiEventKind, UiLabel, UiMinMaxSlider, UiNode,
+  UiProgressBar, UiVisualElement, UpperLimit, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -30,34 +30,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                 .child(range_card())
                 .child(progress_card()),
         )
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  match (&event.target_id, &event.body) {
-    (&RESOURCE_RANGE_ID, UiEventBody::ValueChanging(value)) => {
-      let UiValue::F32Range(range) = value.proposed else {
-        return None;
-      };
-      Some(range_commands("LIVE", range))
-    }
-    (&RESOURCE_RANGE_ID, UiEventBody::ValueCommitted(value)) => {
-      let UiValue::F32Range(range) = value.proposed else {
-        return None;
-      };
-      let mut commands = range_commands("COMMITTED", range);
-      commands.insert(
-        0,
-        Command::update_visual_element(
-          RESOURCE_RANGE_ID,
-          UiMinMaxSlider::new()
-            .min_value(range.min)
-            .max_value(range.max),
-        ),
-      );
-      Some(commands)
-    }
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -161,26 +133,6 @@ fn progress(title: &str, value: f32) -> UiNode {
       .title(title)
       .style(range_styles::progress()),
   )
-}
-
-fn range_commands(prefix: &str, range: F32Range) -> Vec<Command> {
-  vec![
-    Command::update_visual_element(
-      RANGE_MIN_LABEL_ID,
-      UiLabel::new(format!("MIN · {:.0}%", range.min)),
-    ),
-    Command::update_visual_element(
-      RANGE_MAX_LABEL_ID,
-      UiLabel::new(format!("MAX · {:.0}%", range.max)),
-    ),
-    Command::update_visual_element(
-      RANGE_STATUS_ID,
-      UiLabel::new(format!(
-        "{prefix}  reserve {:.0}-{:.0}%",
-        range.min, range.max
-      )),
-    ),
-  ]
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {

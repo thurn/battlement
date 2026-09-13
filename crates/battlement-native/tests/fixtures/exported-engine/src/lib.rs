@@ -10,16 +10,14 @@ mod release_scenarios;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use battlement::{
-  AnyCommand, Batch, BatchId, ClientMessage, Command, CommandBody, CommandId, CoreErrorCode,
-  ParallelCommandGroup, Response, ResponseMessage, SessionId, TextContentPayload, UiEventAction,
-  UiEventResponse,
+  AnyCommand, Batch, BatchId, Command, CommandBody, CommandId, ParallelCommandGroup, Response,
+  ResponseMessage, SessionId, TextContentPayload,
 };
 use battlement_native::{
-  ConnectView, CoreActionBodyView, CoreClientMessageView, CustomFlatBufferResponseSchema, Engine,
-  EngineError, FlatBufferSubmitError, MessageWriter, NativeBatchStart, NativeDragMode,
-  NativeEngine, NativeImageFit, NativeObjectPlacement, NativeParentScene, NativePointerEvent,
-  NativePreparedAssetKind, NativeResponse, NativeTransform, NativeUiEventResponse,
-  UiEventActionView,
+  ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
+  FlatBufferSubmitError, MessageWriter, NativeBatchStart, NativeDragMode, NativeImageFit,
+  NativeObjectPlacement, NativeParentScene, NativePointerEvent, NativePreparedAssetKind,
+  NativeTransform, UiEventActionView, UiEventResult,
 };
 
 pub use release_scenarios::FlashPayload;
@@ -54,133 +52,9 @@ impl Drop for FixtureEngine {
 }
 
 impl Engine for FixtureEngine {
-  type ActionPayload = FlashPayload;
-  type ErrorCode = CoreErrorCode;
-  type Command = AnyCommand<FlashPayload>;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = fixture_response::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
-    CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
-    tracing::event!(
-      name: "fixture.engine.connected",
-      tracing::Level::INFO,
-      engine_id = self.engine_id,
-      platform = %message.platform(),
-      "Connected fixture engine"
-    );
-    self.mode = message.platform().to_owned();
-    self.connect_count += 1;
-    self.poll_count = 0;
-    self.release_scenario = ReleaseScenario::from_connect(message);
-    if let Some(scenario) = self.release_scenario {
-      self.session_id = SessionId::new_v4();
-      return Ok(scenario.connect_response(self.session_id));
-    }
-    if self.mode == "panic-connect" {
-      tracing::info!(phase = "prepare", "Preparing fixture connect panic");
-      tracing::info!(phase = "trigger", "Triggering fixture connect panic");
-      panic!("fixture connect panic");
-    }
-    if self.mode == "engine-error" {
-      return Err(EngineError::new("fixture engine error"));
-    }
-    if self.mode == "maximum-response" {
-      return Ok(sized_response(self.session_id, 16 * 1024 * 1024));
-    }
-    if self.mode == "oversized-response" {
-      return Ok(sized_response(self.session_id, 16 * 1024 * 1024 + 1));
-    }
-    Ok(Response::new(self.session_id, Vec::new()))
-  }
-
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
-    let _ = message;
-    if self.mode == "panic-submit" {
-      panic!("fixture submit panic");
-    }
-    Ok(Response::new(self.session_id, Vec::new()))
-  }
-
-  fn submit_core_view(
-    &mut self,
-    message: CoreClientMessageView<'_>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
-    if let Some(scenario) = self.release_scenario {
-      return Ok(scenario.submit_core_response(self.session_id, message));
-    }
-    if self.mode == "panic-submit" {
-      panic!("fixture submit panic");
-    }
-    Ok(Response::new(self.session_id, Vec::new()))
-  }
-
-  fn submit_flatbuffer(
-    &mut self,
-    bytes: &[u8],
-  ) -> Result<Response<Self::Command>, FlatBufferSubmitError> {
-    if let Ok(message) = CoreClientMessageView::read(bytes) {
-      return self
-        .submit_core_view(message)
-        .map_err(FlatBufferSubmitError::engine);
-    }
-    let session = fixture_response::validate_fixture_client(bytes)
-      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
-    if session != *self.session_id.as_uuid().as_bytes() {
-      return Err(FlatBufferSubmitError::engine(EngineError::new(
-        "fixture client message session mismatch",
-      )));
-    }
-    SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
-    if self.mode == "panic-submit" {
-      panic!("fixture submit panic");
-    }
-    Ok(Response::new(self.session_id, Vec::new()))
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("fixture UI event session mismatch"));
-    }
-    if self.mode == "panic-ui-event" {
-      panic!("fixture UI event panic");
-    }
-    if self.mode == "ui-event-error" {
-      return Err(EngineError::new("fixture UI event error"));
-    }
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(self.session_id),
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    if let Some(scenario) = self.release_scenario {
-      let result = scenario.poll_response(self.session_id, self.connect_count, self.poll_count);
-      self.poll_count += 1;
-      return result;
-    }
-    if self.mode == "panic-poll" {
-      panic!("fixture poll panic");
-    }
-    if self.mode == "poll-response" {
-      return Ok(Some(Response::new(self.session_id, Vec::new())));
-    }
-    Ok(None)
-  }
-}
-
-impl NativeEngine for FixtureEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] =
-    <FlashPayload as CustomFlatBufferResponseSchema>::WIRE_CONTRACT_DIGEST_C;
-
-  fn connect_native(&mut self, message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     if ReleaseScenario::from_connect(message).is_some_and(ReleaseScenario::is_integration) {
       CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
       tracing::event!(
@@ -197,10 +71,48 @@ impl NativeEngine for FixtureEngine {
       self.session_id = SessionId::new_v4();
       return direct_integration_snapshot(*self.session_id.as_uuid().as_bytes());
     }
-    native_response(<Self as Engine>::connect(self, message)?)
+    CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
+    self.mode = message.platform().to_owned();
+    tracing::event!(
+      name: "fixture.engine.connected",
+      tracing::Level::INFO,
+      engine_id = self.engine_id,
+      platform = %message.platform(),
+      "Connected fixture engine"
+    );
+    self.connect_count += 1;
+    self.poll_count = 0;
+    self.release_scenario = ReleaseScenario::from_connect(message);
+    if let Some(scenario) = self.release_scenario {
+      self.session_id = SessionId::new_v4();
+      return native_response(scenario.connect_response(self.session_id));
+    }
+    if self.mode == "panic-connect" {
+      tracing::event!(
+        name: "fixture.connect.panic.preparing",
+        tracing::Level::INFO,
+        "Preparing fixture connect panic"
+      );
+      tracing::event!(
+        name: "fixture.connect.panic.triggering",
+        tracing::Level::INFO,
+        "Triggering fixture connect panic"
+      );
+      panic!("fixture connect panic");
+    }
+    if self.mode == "engine-error" {
+      return Err(EngineError::new("fixture engine error"));
+    }
+    if self.mode == "maximum-response" {
+      return native_response(sized_response(self.session_id, 16 * 1024 * 1024));
+    }
+    if self.mode == "oversized-response" {
+      return native_response(sized_response(self.session_id, 16 * 1024 * 1024 + 1));
+    }
+    direct_empty_response(*self.session_id.as_uuid().as_bytes())
   }
 
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
     if matches!(
       self.mode.as_str(),
       "direct-native-label"
@@ -260,14 +172,35 @@ impl NativeEngine for FixtureEngine {
       return direct_integration_response(*self.session_id.as_uuid().as_bytes())
         .map_err(FlatBufferSubmitError::engine);
     }
-    native_response(<Self as Engine>::submit_flatbuffer(self, bytes)?)
-      .map_err(FlatBufferSubmitError::engine)
+    if let Ok(message) = CoreClientMessageView::read(bytes) {
+      SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
+      if self.mode == "panic-submit" {
+        panic!("fixture submit panic");
+      }
+      let response = self.release_scenario.map_or_else(
+        || Response::new(self.session_id, Vec::new()),
+        |scenario| scenario.submit_core_response(self.session_id, message),
+      );
+      return native_response(response).map_err(FlatBufferSubmitError::engine);
+    }
+    let session = fixture_response::validate_fixture_client(bytes)
+      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
+    if session != *self.session_id.as_uuid().as_bytes() {
+      return Err(FlatBufferSubmitError::engine(EngineError::new(
+        "fixture client message session mismatch",
+      )));
+    }
+    SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
+    if self.mode == "panic-submit" {
+      panic!("fixture submit panic");
+    }
+    direct_empty_response(session).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event_native(
+  fn submit_ui_event(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
+  ) -> Result<UiEventResult, EngineError> {
     if action.session_id() != *self.session_id.as_uuid().as_bytes() {
       return Err(EngineError::new("fixture UI event session mismatch"));
     }
@@ -277,24 +210,33 @@ impl NativeEngine for FixtureEngine {
     if self.mode == "ui-event-error" {
       return Err(EngineError::new("fixture UI event error"));
     }
-    Ok(NativeUiEventResponse {
+    Ok(UiEventResult {
       disposition: if action.default_prevented() {
         battlement::UiEventDisposition::PreventDefault
       } else {
         battlement::UiEventDisposition::Continue
       },
-      response: native_response(Response::empty(self.session_id))?,
+      response: direct_empty_response(*self.session_id.as_uuid().as_bytes())?,
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
-    <Self as Engine>::poll(self)?
-      .map(native_response)
-      .transpose()
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    if let Some(scenario) = self.release_scenario {
+      let result = scenario.poll_response(self.session_id, self.connect_count, self.poll_count)?;
+      self.poll_count += 1;
+      return result.map(native_response).transpose();
+    }
+    if self.mode == "panic-poll" {
+      panic!("fixture poll panic");
+    }
+    if self.mode == "poll-response" {
+      return direct_empty_response(*self.session_id.as_uuid().as_bytes()).map(Some);
+    }
+    Ok(None)
   }
 }
 
-fn direct_label_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_label_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let mut writer = MessageWriter::default();
   let label = writer.label("direct native label");
   let command = writer
@@ -315,14 +257,14 @@ fn direct_label_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineE
   let message = writer
     .finish(session_id, &[batch])
     .map_err(|error| EngineError::new(error.to_string()))?;
-  NativeResponse::from_composed(
+  EngineResponse::from_composed(
     session_id,
     message,
     fixture_response::verify_fixture_response,
   )
 }
 
-fn direct_ui_scalar_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_ui_scalar_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let mut writer = MessageWriter::default();
   let elements = [
     writer
@@ -375,7 +317,7 @@ fn direct_ui_scalar_response(session_id: [u8; 16]) -> Result<NativeResponse, Eng
   finish_direct_commands(writer, session_id, &commands)
 }
 
-fn direct_image_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_image_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let mut writer = MessageWriter::default();
   let image = writer
     .image_object(
@@ -403,7 +345,7 @@ fn direct_image_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineE
   finish_direct_response(writer, session_id, command)
 }
 
-fn direct_transform_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_transform_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let mut writer = MessageWriter::default();
   let object_id = [0x72; 16];
   let commands = [
@@ -629,7 +571,7 @@ fn direct_transform_response(session_id: [u8; 16]) -> Result<NativeResponse, Eng
   finish_direct_commands(writer, session_id, &commands)
 }
 
-fn direct_integration_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_integration_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let mut writer = MessageWriter::default();
   let command = writer
     .set_local_position(
@@ -642,7 +584,7 @@ fn direct_integration_response(session_id: [u8; 16]) -> Result<NativeResponse, E
   finish_direct_response(writer, session_id, command)
 }
 
-fn direct_integration_snapshot(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_integration_snapshot(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   use release_scenarios::{
     INTEGRATION_AUDIO, INTEGRATION_EFFECT, INTEGRATION_FONT, INTEGRATION_MATERIAL,
     INTEGRATION_PREFAB, INTEGRATION_SCENE, INTEGRATION_TEXTURE,
@@ -806,7 +748,7 @@ fn direct_integration_snapshot(session_id: [u8; 16]) -> Result<NativeResponse, E
   let message = writer
     .finish(session_id, &[snapshot])
     .map_err(writer_error)?;
-  NativeResponse::from_composed(
+  EngineResponse::from_composed(
     session_id,
     message,
     fixture_response::verify_fixture_response,
@@ -817,10 +759,10 @@ fn writer_error(error: impl std::fmt::Display) -> EngineError {
   EngineError::new(error.to_string())
 }
 
-fn direct_empty_response(session_id: [u8; 16]) -> Result<NativeResponse, EngineError> {
+fn direct_empty_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
   let message = battlement_flatbuffers::write_empty_response(session_id)
     .map_err(|error| EngineError::new(error.to_string()))?;
-  NativeResponse::from_composed(
+  EngineResponse::from_composed(
     session_id,
     message,
     fixture_response::verify_fixture_response,
@@ -831,7 +773,7 @@ fn finish_direct_response(
   writer: MessageWriter,
   session_id: [u8; 16],
   command: battlement_flatbuffers::CoreCommandOffset,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   finish_direct_commands(writer, session_id, &[command])
 }
 
@@ -839,7 +781,7 @@ fn finish_direct_commands(
   mut writer: MessageWriter,
   session_id: [u8; 16],
   commands: &[battlement_flatbuffers::CoreCommandOffset],
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let group = writer
     .parallel_group(commands)
     .map_err(|error| EngineError::new(error.to_string()))?;
@@ -855,7 +797,7 @@ fn finish_direct_commands(
   let message = writer
     .finish(session_id, &[batch])
     .map_err(|error| EngineError::new(error.to_string()))?;
-  NativeResponse::from_composed(
+  EngineResponse::from_composed(
     session_id,
     message,
     fixture_response::verify_fixture_response,
@@ -864,11 +806,11 @@ fn finish_direct_commands(
 
 fn native_response(
   response: Response<AnyCommand<FlashPayload>>,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let session_id = *response.session_id.as_uuid().as_bytes();
-  NativeResponse::from_composed(
+  EngineResponse::from_composed(
     session_id,
-    FlashPayload::write_response(&response)?,
+    fixture_response::write_response(&response)?,
     fixture_response::verify_fixture_response,
   )
 }
@@ -880,7 +822,7 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<F
   let mut payload = "x".repeat(target.saturating_sub(4 * 1024));
   loop {
     let response = text_response(session_id, payload);
-    let length = FlashPayload::write_response(&response)
+    let length = fixture_response::write_response(&response)
       .unwrap()
       .as_bytes()
       .len();
@@ -949,14 +891,14 @@ pub fn create_engine() -> Result<FixtureEngine, EngineError> {
   }
 }
 
-battlement_native::export_deterministic_native_engine!(
+battlement_native::export_deterministic_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );
 
 #[unsafe(no_mangle)]

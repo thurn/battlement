@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{MotionProperty, MotionPropertyValue, MotionValue, Style, TransitionDefinition};
 
 /// A locally resolved UI pseudo-state.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionPseudoState {
   /// Pointer hover.
   Hover,
@@ -16,7 +14,7 @@ pub enum MotionPseudoState {
 }
 
 /// Typed properties contributed by one pseudo-state.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionPseudoStyle {
   /// Pseudo-state whose properties are active.
   pub state: MotionPseudoState,
@@ -25,7 +23,7 @@ pub struct MotionPseudoStyle {
 }
 
 /// One property-specific CSS transition.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StylePropertyTransition {
   /// Property whose resolved static changes are sampled.
   pub property: MotionProperty,
@@ -34,7 +32,7 @@ pub struct StylePropertyTransition {
 }
 
 /// CSS transition behavior for resolved static and pseudo styles.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct StyleTransitionDescriptor {
   /// Property-specific transition definitions.
   pub properties: Vec<StylePropertyTransition>,
@@ -45,7 +43,7 @@ pub struct StyleTransitionDescriptor {
 }
 
 /// CSS animation playback direction.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnimationDirection {
   /// Every iteration runs from zero to one.
   Normal,
@@ -58,7 +56,7 @@ pub enum AnimationDirection {
 }
 
 /// CSS animation fill behavior outside its active interval.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnimationFill {
   /// Reveals the lower property owner before and after playback.
   None,
@@ -71,7 +69,7 @@ pub enum AnimationFill {
 }
 
 /// CSS animation play state.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnimationPlayState {
   /// Logical time advances.
   Running,
@@ -80,7 +78,7 @@ pub enum AnimationPlayState {
 }
 
 /// CSS animation property composition.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnimationComposition {
   /// The animation replaces the lower resolved value.
   Replace,
@@ -91,7 +89,7 @@ pub enum AnimationComposition {
 }
 
 /// Exact CSS iteration count.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnimationIterations {
   /// One play.
   Once,
@@ -102,7 +100,7 @@ pub enum AnimationIterations {
 }
 
 /// One property-local CSS keyframe sequence.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CssPropertyTrack {
   /// Animated property.
   pub property: MotionProperty,
@@ -115,7 +113,7 @@ pub struct CssPropertyTrack {
 }
 
 /// One reusable CSS-style animation slot.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CssAnimationDescriptor {
   /// Stable list or authored key identity.
   pub slot: u64,
@@ -138,7 +136,7 @@ pub struct CssAnimationDescriptor {
 }
 
 /// Paint order for one decoration layer.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecorationPlacement {
   /// Paints behind host content and above its background.
   Before,
@@ -147,7 +145,7 @@ pub enum DecorationPlacement {
 }
 
 /// Geometry policy for one decoration layer.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecorationPosition {
   /// Covers the host padding box.
   Fill,
@@ -156,7 +154,7 @@ pub enum DecorationPosition {
 }
 
 /// Clip policy for one decoration layer.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecorationOverflow {
   /// Clips to the host.
   Hidden,
@@ -165,7 +163,7 @@ pub enum DecorationOverflow {
 }
 
 /// One non-interactive paint layer associated with a host.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionDecorationDescriptor {
   /// Stable list or authored key identity.
   pub key: u64,

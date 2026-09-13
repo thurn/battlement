@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   Choice, LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -42,24 +40,18 @@ use crate::{
 ///
 /// [`UiRadioButtonGroup`]: crate::UiRadioButtonGroup
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiDropdownField {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Caption associated with the field.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Whether the native field displays its mixed-value state.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub show_mixed_value: Prop<bool>,
   /// Ordered display-ready option labels.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub choices: Prop<Vec<String>>,
   /// Sparse authored selection. An empty choice explicitly clears the field.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub selection: Prop<Choice>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

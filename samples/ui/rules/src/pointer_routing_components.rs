@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
-  UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
+  ObjectId, UiBox, UiButton, UiElement, UiEventKind, UiEventPhase, UiEventSubscription, UiLabel,
+  UiNode, UiVisualElement, object_id,
 };
 use battlement_native::UiEventActionView;
 use std::fmt;
@@ -27,111 +27,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
         .child(node(UiLabel::new("Press and drag on the target. Rust reconstructs the five-step logical route while Unity reports one complete pointer payload and capture lifecycle.").style(pointer_routing_styles::intro())))
         .child(node(UiVisualElement::new().style(pointer_routing_styles::columns()))
             .child(route_card()).child(inspector()))
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  if event.target_id != TARGET_ROUTE_ID {
-    return None;
-  }
-  let (payload, captured) = match &event.body {
-    UiEventBody::PointerDown(value) => (
-      Some(format!(
-        "POINTER DOWN\nposition  {:.0}, {:.0}\ndelta     {:.0}, {:.0}\npointer   {} · {:?}\nbutton    {:?}\nbuttons   {}\npressure  {:.2}\nclicks    {}\nmodifiers {:?}",
-        value.position.x,
-        value.position.y,
-        value.delta.x,
-        value.delta.y,
-        value.pointer_id,
-        value.pointer_type,
-        value.button,
-        value.buttons,
-        value.pressure,
-        value.click_count,
-        value.modifiers,
-      )),
-      None,
-    ),
-    UiEventBody::PointerMove(value) => (
-      Some(format!(
-        "POINTER MOVE\nposition  {:.0}, {:.0}\ndelta     {:.0}, {:.0}\npointer   {} · {:?}\nchanged   {:?}\nbuttons   {}\npressure  {:.2}\nclicks    {}\nmodifiers {:?}",
-        value.position.x,
-        value.position.y,
-        value.delta.x,
-        value.delta.y,
-        value.pointer_id,
-        value.pointer_type,
-        value.changed_button,
-        value.buttons,
-        value.pressure,
-        value.click_count,
-        value.modifiers,
-      )),
-      None,
-    ),
-    UiEventBody::PointerUp(_) => (None, Some(false)),
-    UiEventBody::PointerCapture(_) => (None, Some(true)),
-    UiEventBody::PointerCaptureOut(_) => (None, Some(false)),
-    UiEventBody::Wheel(value) => (
-      Some(format!(
-        "WHEEL\nposition  {:.0}, {:.0}\ndelta     {:.1}, {:.1}, {:.1}\nmodifiers {:?}",
-        value.position.x,
-        value.position.y,
-        value.delta.x,
-        value.delta.y,
-        value.delta.z,
-        value.modifiers
-      )),
-      None,
-    ),
-    _ => return None,
-  };
-  let mut commands = Vec::new();
-  if let Some(payload) = payload {
-    commands.push(Command::update_visual_element(
-      PAYLOAD_ID,
-      UiLabel::new(payload),
-    ));
-  }
-  let subscriptions = [
-    (
-      TARGET_ROUTE_ID,
-      kinds()
-        .map(UiEventSubscription::target)
-        .into_iter()
-        .collect(),
-    ),
-    (PANEL_ROUTE_ID, routed().into_iter().collect()),
-    (ROOT_ROUTE_ID, routed().into_iter().collect()),
-  ];
-  let deliveries = battlement::routing::route_subscriptions(&subscriptions, event);
-  let route_keys = [
-    (ROOT_ROUTE_ID, UiEventPhase::Trickle),
-    (PANEL_ROUTE_ID, UiEventPhase::Trickle),
-    (TARGET_ROUTE_ID, UiEventPhase::Target),
-    (PANEL_ROUTE_ID, UiEventPhase::Bubble),
-    (ROOT_ROUTE_ID, UiEventPhase::Bubble),
-  ];
-  commands.extend(ROUTE_STEPS.into_iter().zip(route_keys).map(|(id, key)| {
-    let active = deliveries
-      .iter()
-      .any(|delivery| (delivery.object_id, delivery.phase) == key);
-    Command::update_visual_element(
-      id,
-      UiLabel::default().style(pointer_routing_styles::route_step(active)),
-    )
-  }));
-  if let Some(active) = captured {
-    commands.push(Command::update_visual_element(
-      CAPTURE_ID,
-      UiLabel::new(if active {
-        "● CAPTURED · POINTER OWNED BY TARGET"
-      } else {
-        "✓ ACTIVE CAPTURE OBSERVED\n✓ RELEASE OBSERVED · ROUTING COMPLETE"
-      })
-      .style(pointer_routing_styles::capture(active)),
-    ));
-  }
-  Some(commands)
 }
 
 pub(crate) fn write_event_response(
@@ -259,14 +154,20 @@ pub(crate) fn write_event_response(
     response.update(id, element)?;
   }
   if let Some(active) = captured {
-    response.label(
-      CAPTURE_ID,
-      if active {
-        "● CAPTURED · POINTER OWNED BY TARGET"
-      } else {
-        "○ RELEASED · POINTER ROUTING RESTORED"
-      },
-    )?;
+    let text = if active {
+      "● CAPTURED · POINTER OWNED BY TARGET"
+    } else {
+      "✓ ACTIVE CAPTURE OBSERVED\n✓ RELEASE OBSERVED · ROUTING COMPLETE"
+    };
+    let (background, foreground) = pointer_routing_styles::capture_colors(active);
+    let element = response
+      .writer()
+      .label_update_builder()
+      .text(text)
+      .background_color(rgba(background))
+      .color(rgba(foreground))
+      .finish();
+    response.update(CAPTURE_ID, element)?;
   }
   Ok(true)
 }

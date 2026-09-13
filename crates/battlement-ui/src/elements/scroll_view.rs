@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint, Vector,
@@ -7,7 +5,7 @@ use crate::{
 };
 
 /// Axes along which a [`UiScrollView`] lays out and scrolls its content.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScrollViewMode {
   /// Lays content out vertically and scrolls on the vertical axis.
   Vertical,
@@ -18,7 +16,7 @@ pub enum ScrollViewMode {
 }
 
 /// How a nested [`UiScrollView`] handles input after reaching a scroll boundary.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NestedInteraction {
   /// Uses Unity's normal nested scrolling behavior for the input device.
   Default,
@@ -29,7 +27,7 @@ pub enum NestedInteraction {
 }
 
 /// Visibility policy for one of a [`UiScrollView`]'s native scrollers.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScrollerVisibility {
   /// Shows the scroller only when content exceeds the viewport on its axis.
   Auto,
@@ -40,7 +38,7 @@ pub enum ScrollerVisibility {
 }
 
 /// Boundary behavior for touch-driven scrolling.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TouchScrollBehavior {
   /// Allows the offset to move beyond the content boundaries without springing back.
   Unrestricted,
@@ -87,48 +85,34 @@ pub enum TouchScrollBehavior {
 ///
 /// assert_eq!(log.children.len(), 2);
 /// ```
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiScrollView {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Content layout and enabled scrolling axes.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub mode: Prop<ScrollViewMode>,
   /// Gesture propagation behavior when this view reaches a boundary inside another view.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub nested_interaction: Prop<NestedInteraction>,
   /// Visibility policy for the horizontal scrollbar.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub horizontal_scroller_visibility: Prop<ScrollerVisibility>,
   /// Visibility policy for the vertical scrollbar.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub vertical_scroller_visibility: Prop<ScrollerVisibility>,
   /// Current horizontal and vertical content displacement in panel pixels.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub scroll_offset: Prop<Vector>,
   /// Horizontal button and keyboard step as a proportion of viewport width.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub horizontal_page_size: Prop<f32>,
   /// Vertical button and keyboard step as a proportion of viewport height.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub vertical_page_size: Prop<f32>,
   /// Mouse-wheel displacement in panel pixels per input line.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub mouse_wheel_scroll_size: Prop<f32>,
   /// Boundary behavior used for touch scrolling.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub touch_scroll_behavior: Prop<TouchScrollBehavior>,
   /// Fraction of touch-scroll velocity retained each second after release.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub scroll_deceleration_rate: Prop<f32>,
   /// Spring strength used by elastic touch scrolling.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub elasticity: Prop<f32>,
   /// Minimum interval in milliseconds between elastic spring updates.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub elastic_animation_interval: Prop<u32>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

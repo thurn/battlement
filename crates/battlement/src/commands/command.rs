@@ -1,5 +1,4 @@
 use battlement_cloud::diagnostics::DiagnosticsCommand;
-use serde::{Deserialize, Serialize};
 
 use crate::{
   CommandId, ConflictPolicy, ObjectId, UiElement, UiNode, VisualElementAction, VisualElementCreate,
@@ -13,15 +12,11 @@ use super::CommandBody;
 /// `command_id` also identifies any asynchronous operation started by the
 /// command. Commands are blocking by default; a nonblocking command lets its
 /// batch advance while the operation continues.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Command {
   /// Identifier for the command and any operation it starts.
   pub command_id: CommandId,
   /// Whether later groups wait for this command to finish.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub blocking: bool,
   /// Exact core command type, conflict behavior, and payload.
   pub body: CommandBody,
@@ -132,10 +127,9 @@ impl Command {
 }
 
 /// A property-writing core-command body.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PropertyCommand<P> {
   /// How to handle an operation already controlling the same canonical property.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub on_conflict: ConflictPolicy,
   /// Command-specific payload.
   pub payload: P,
@@ -165,17 +159,13 @@ impl<P> PropertyCommand<P> {
 ///
 /// The namespaced type and payload contract belong to the game's Rust types
 /// rather than the Battlement core crate.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CustomCommand<P> {
   /// Session-unique command and operation identity.
   pub command_id: CommandId,
   /// Game-owned namespaced command type.
   pub command_type: String,
   /// Whether later groups wait for the custom handler's operation.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub blocking: bool,
   /// Game-specific payload.
   pub payload: P,
@@ -206,7 +196,7 @@ impl<P> CustomCommand<P> {
 /// Use this as the command parameter of [`crate::Response`] when a rules engine
 /// needs to mix core commands with registered custom commands. The custom
 /// payload is a game-owned Rust type.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AnyCommand<P> {
   /// A command implemented by Battlement itself.
   Core(Command),

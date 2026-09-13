@@ -1,12 +1,17 @@
+mod ui_support;
+
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, GameObject, ObjectId, ParentScene, PreparedAsset, Response,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField, UiEventAction, UiEventBody,
-  UiEventDisposition, UiEventKind, UiEventResponse, UiNode, UiValue,
+  CameraState, Command, GameObject, ObjectId, ParentScene, PreparedAsset, Response, Scene, SceneId,
+  SessionId, Snapshot, UiDocument, UiDropdownField, UiEventBody, UiEventDisposition, UiEventKind,
+  UiEventResponse, UiNode, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 
 struct DropdownEngine {
   session_id: SessionId,
@@ -16,21 +21,23 @@ struct DropdownEngine {
 }
 
 impl Engine for DropdownEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    Ok(Response::snapshot(
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    ui_support::encoded(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Ok(Response::empty(self.session_id))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    ui_support::encoded(Response::empty(self.session_id)).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+  fn submit_ui_event(
+    &mut self,
+    action_view: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let action = ui_support::action(action_view);
     let disposition = if action.event.default_prevented {
       UiEventDisposition::PreventDefault
     } else {
@@ -46,31 +53,34 @@ impl Engine for DropdownEngine {
       value.proposed.clone(),
     ));
     if event.target_id != self.accepted_id {
-      return Ok(UiEventResponse::new(
-        disposition,
-        Response::empty(self.session_id),
-      ));
+      return ui_support::from_owned(
+        action_view,
+        UiEventResponse::new(disposition, Response::empty(self.session_id)),
+      );
     }
     let UiValue::Choice(selection) = value.proposed else {
       return Err(EngineError::new("unexpected dropdown proposal"));
     };
-    Ok(UiEventResponse::new(
-      disposition,
-      Response::commands_for_action(
-        self.session_id,
-        action.action_id,
-        vec![
-          Command::update_visual_element(
-            event.target_id,
-            UiDropdownField::new().selection_value(selection),
-          )
-          .body,
-        ],
+    ui_support::from_owned(
+      action_view,
+      UiEventResponse::new(
+        disposition,
+        Response::commands_for_action(
+          self.session_id,
+          action.action_id,
+          vec![
+            Command::update_visual_element(
+              event.target_id,
+              UiDropdownField::new().selection_value(selection),
+            )
+            .body,
+          ],
+        ),
       ),
-    ))
+    )
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }

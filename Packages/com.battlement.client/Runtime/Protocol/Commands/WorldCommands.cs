@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -11,9 +10,8 @@ namespace Battlement
         {
             /// <summary>Atomically replace the complete prepared asset set.</summary>
             /// <param name="PreparedAssets">Complete replacement set with unique addresses.</param>
-            public sealed record ReplaceSet(
-                [property: JsonProperty("assets")] IReadOnlyList<PreparedAsset> PreparedAssets
-            ) : CommandBody;
+            public sealed record ReplaceSet(IReadOnlyList<PreparedAsset> PreparedAssets)
+                : CommandBody;
         }
 
         public static class Scene
@@ -41,9 +39,7 @@ namespace Battlement
         {
             /// <summary>Create one complete game object.</summary>
             /// <param name="GameObject">Complete object to create.</param>
-            public sealed record Create(
-                [property: JsonProperty("object")] BattlementGameObject GameObject
-            ) : CommandBody;
+            public sealed record Create(BattlementGameObject GameObject) : CommandBody;
 
             /// <summary>Destroy a game object and its game-object descendants.</summary>
             /// <param name="ObjectId">Target game object.</param>
@@ -52,10 +48,7 @@ namespace Battlement
             /// <summary>Set a game object's activation value.</summary>
             /// <param name="ObjectId">Target game object.</param>
             /// <param name="IsActive">New activation value.</param>
-            public sealed record SetActive(
-                ObjectId ObjectId,
-                [property: JsonProperty("active")] bool IsActive
-            ) : CommandBody;
+            public sealed record SetActive(ObjectId ObjectId, bool IsActive) : CommandBody;
 
             /// <summary>Reparent a game object within its current placement.</summary>
             /// <param name="ObjectId">Game object to reparent.</param>

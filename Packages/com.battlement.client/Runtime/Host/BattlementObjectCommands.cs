@@ -8,15 +8,6 @@ namespace Battlement
     internal static class BattlementObjectCommands
     {
         public static IBattlementCommandOperation? Create(
-            CommandBody.Object.Create command,
-            BattlementWorld world
-        )
-        {
-            world.CreateObject(command.GameObject);
-            return null;
-        }
-
-        public static IBattlementCommandOperation? Create(
             BattlementDirectImageObjectCreate command,
             BattlementWorld world
         )
@@ -80,18 +71,6 @@ namespace Battlement
         }
 
         public static IBattlementCommandOperation? Destroy(
-            CommandBody.Object.Destroy command,
-            BattlementWorld world,
-            BattlementOperationRegistry operations
-        )
-        {
-            IReadOnlyList<System.Guid> hierarchy = world.GetHierarchyObjectIds(command.ObjectId);
-            operations.CancelObjects(hierarchy);
-            world.DestroyObject(command.ObjectId);
-            return null;
-        }
-
-        public static IBattlementCommandOperation? Destroy(
             BattlementDirectDestroyObject command,
             BattlementWorld world,
             BattlementOperationRegistry operations
@@ -100,15 +79,6 @@ namespace Battlement
             IReadOnlyList<System.Guid> hierarchy = world.GetHierarchyObjectIds(command.ObjectId);
             operations.CancelObjects(hierarchy);
             world.DestroyObject(command.ObjectId);
-            return null;
-        }
-
-        public static IBattlementCommandOperation? SetActive(
-            CommandBody.Object.SetActive command,
-            BattlementWorld world
-        )
-        {
-            world.SetActive(command.ObjectId, command.IsActive);
             return null;
         }
 
@@ -122,18 +92,6 @@ namespace Battlement
         }
 
         public static IBattlementCommandOperation? Reparent(
-            CommandBody.Object.Reparent command,
-            BattlementWorld world,
-            BattlementOperationRegistry operations
-        )
-        {
-            world.ValidateReparent(command.ObjectId, command.ParentId);
-            operations.CancelTransform(command.ObjectId);
-            world.Reparent(command.ObjectId, command.ParentId, command.WorldPositionStays);
-            return null;
-        }
-
-        public static IBattlementCommandOperation? Reparent(
             BattlementDirectObjectReparent command,
             BattlementWorld world,
             BattlementOperationRegistry operations
@@ -143,21 +101,6 @@ namespace Battlement
             operations.CancelTransform(command.ObjectId);
             world.Reparent(command.ObjectId, command.ParentId, command.WorldPositionStays);
             return null;
-        }
-
-        public static IBattlementCommandOperation? SetMaterial(
-            CommandBody.Renderer.SetMaterial command,
-            BattlementWorld world,
-            BattlementPreparedAssets preparedAssets
-        )
-        {
-            return SetMaterial(
-                command.ObjectId,
-                command.Address,
-                command.Slot,
-                world,
-                preparedAssets
-            );
         }
 
         public static IBattlementCommandOperation? SetMaterial(

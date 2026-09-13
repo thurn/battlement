@@ -300,7 +300,9 @@ namespace Battlement
             CreateDirectObject(
                 description.Placement,
                 () => objectFactory.Construct(description),
-                usesAutomaticPointerCollider: false
+                usesAutomaticPointerCollider: false,
+                afterStableState: gameObject =>
+                    BattlementObjectFactory.ApplyPrefabAnimator(gameObject, description)
             );
 
         public void CreateObject(BattlementDirectEmptyObjectCreate description) =>
@@ -335,7 +337,8 @@ namespace Battlement
             BattlementDirectObjectPlacement placement,
             System.Func<(GameObject GameObject, IBattlementAssetLease? Lease)> construct,
             bool usesAutomaticPointerCollider,
-            bool allowReplacement = false
+            bool allowReplacement = false,
+            System.Action<GameObject>? afterStableState = null
         )
         {
             Transform container = ResolveContainer(placement);
@@ -369,6 +372,7 @@ namespace Battlement
                 if (parent != null)
                     gameObject.transform.SetParent(parent.transform, false);
                 BattlementObjectFactory.ApplyStableState(gameObject, placement);
+                afterStableState?.Invoke(gameObject);
             }
             catch
             {
@@ -412,7 +416,8 @@ namespace Battlement
                         value.Placement,
                         () => objectFactory.Construct(value),
                         false,
-                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                        allowedIds.Contains(value.Placement.ObjectId.Value),
+                        gameObject => BattlementObjectFactory.ApplyPrefabAnimator(gameObject, value)
                     );
                     break;
                 case BattlementDirectEmptyObjectCreate value:

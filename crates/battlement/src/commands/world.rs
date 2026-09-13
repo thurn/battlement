@@ -1,52 +1,49 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   GameObject, MaterialAddress, ObjectId, PreparedAsset, Quaternion, SceneAddress, SceneId, Tween,
   Vector3,
 };
 
 /// Atomically replaces the complete prepared asset set.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReplaceAssetSetPayload {
   /// Complete replacement set; addresses must be unique.
   pub assets: Vec<PreparedAsset>,
 }
 
 /// Loads one prepared scene additively.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SceneLoadPayload {
   /// New session-unique scene instance identity.
   pub scene_id: SceneId,
   /// Prepared Addressables scene address.
   pub address: SceneAddress,
   /// Whether to make the loaded scene primary after it is ready.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub make_primary: bool,
 }
 
 /// A payload that names one loaded content scene.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SceneIdPayload {
   /// Target scene identity.
   pub scene_id: SceneId,
 }
 
 /// Creates one complete game-object record.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ObjectCreatePayload {
   /// Complete object to create.
   pub object: GameObject,
 }
 
 /// A payload that names one game object.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectIdPayload {
   /// Target game object.
   pub object_id: ObjectId,
 }
 
 /// Sets a game object's Unity activation state.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectSetActivePayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -55,24 +52,22 @@ pub struct ObjectSetActivePayload {
   /// A true value does not guarantee `activeInHierarchy` when a parent is
   /// inactive. This does not change component `enabled` flags or Unity's
   /// active Scene.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub active: bool,
 }
 
 /// Reparents a game object within its current placement.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectReparentPayload {
   /// Game object to reparent.
   pub object_id: ObjectId,
   /// New game-object parent, or `null` for the placement container.
   pub parent_id: Option<ObjectId>,
   /// Whether Unity preserves the object's current world transform.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub world_position_stays: bool,
 }
 
 /// Sets a game object's position immediately.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PositionPayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -81,7 +76,7 @@ pub struct PositionPayload {
 }
 
 /// Tweens a game object's position.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenPositionPayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -92,7 +87,7 @@ pub struct TweenPositionPayload {
 }
 
 /// Sets a game object's rotation immediately.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RotationPayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -101,7 +96,7 @@ pub struct RotationPayload {
 }
 
 /// Tweens a game object's rotation along the normalized shortest arc.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenRotationPayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -112,7 +107,7 @@ pub struct TweenRotationPayload {
 }
 
 /// Sets a game object's local scale immediately.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScalePayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -121,7 +116,7 @@ pub struct ScalePayload {
 }
 
 /// Tweens a game object's local scale.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenScalePayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -132,23 +127,21 @@ pub struct TweenScalePayload {
 }
 
 /// Assigns one prepared material to a supported renderer.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SetMaterialPayload {
   /// Target primitive or prefab game object.
   pub object_id: ObjectId,
   /// Prepared material address.
   pub address: MaterialAddress,
   /// Zero-based renderer slot, or every renderer slot when [`None`].
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub slot: Option<u32>,
 }
 
 /// Enables or disables a supported component or billboard behavior.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectEnabledPayload {
   /// Target game object.
   pub object_id: ObjectId,
   /// New enabled state.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub enabled: bool,
 }

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -42,40 +40,29 @@ use crate::{
 ///
 /// [`UiTextField`]: crate::UiTextField
 /// [`UiEventKind`]: crate::UiEventKind
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiTextElement {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text rendered by Unity's text system.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Whether supported rich-text tags are parsed.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub enable_rich_text: Prop<bool>,
   /// Whether emoji prefer the global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub emoji_fallback_support: Prop<bool>,
   /// Whether backslash escape sequences become control characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display_tooltip_when_elided: Prop<bool>,
   /// Whether rendered text may be selected.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub selectable: Prop<bool>,
   /// Whether a double click selects a word.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub double_click_selects_word: Prop<bool>,
   /// Whether a triple click selects a rendered line.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub triple_click_selects_line: Prop<bool>,
   /// Whether focus selects the complete text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_focus: Prop<bool>,
   /// Whether pointer release selects the complete text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_mouse_up: Prop<bool>,
 }
 

@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -28,7 +27,6 @@ namespace Battlement
         public ApplicationState ApplicationState { get; init; } = new();
 
         /// <summary>Initial host-reported reduced-motion preference.</summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public ReducedMotionPreference ReducedMotionPreference { get; init; }
 
         public Connect(string platform, string unityVersion, ScreenSize screen)
@@ -83,7 +81,7 @@ namespace Battlement
         IReadOnlyList<BattlementGameObject> Objects,
         ObjectId? InputCameraId,
         SceneId? PrimarySceneId,
-        [property: JsonProperty("input_disabled")] bool IsInputDisabled,
+        bool IsInputDisabled,
         IReadOnlyList<PhysicalKey> GlobalKeys,
         ControllerInputSettings? ControllerInput = null,
         IReadOnlyList<UiDocument>? Ui = null,
@@ -135,7 +133,7 @@ namespace Battlement
     /// <param name="CausedByActionId">Action whose processing caused this batch, if any.</param>
     /// <param name="Start">How this batch relates to earlier blocking batches.</param>
     public record Batch<TCommand>(
-        [property: JsonProperty("batch_id")] BatchId Id,
+        BatchId Id,
         SessionId SessionId,
         IReadOnlyList<ParallelCommandGroup<TCommand>> Groups,
         ActionId? CausedByActionId = null,
@@ -164,11 +162,7 @@ namespace Battlement
     /// <param name="Id">Session-unique identity used for deduplication.</param>
     /// <param name="SessionId">Session in which the input occurred.</param>
     /// <param name="Body">Exact built-in input action and its data.</param>
-    public sealed record Action(
-        [property: JsonProperty("action_id")] ActionId Id,
-        SessionId SessionId,
-        ActionBody Body
-    );
+    public sealed record Action(ActionId Id, SessionId SessionId, ActionBody Body);
 
     /// <summary>The exact union of built-in pointer, key, and controller actions.</summary>
     public abstract record ActionBody
@@ -313,9 +307,9 @@ namespace Battlement
     /// <param name="Type">Game-owned namespaced action discriminator.</param>
     /// <param name="Payload">Game-specific payload.</param>
     public sealed record CustomAction<TPayload>(
-        [property: JsonProperty("action_id")] ActionId Id,
+        ActionId Id,
         SessionId SessionId,
-        [property: JsonProperty("action_type")] string Type,
+        string Type,
         TPayload Payload
     );
 

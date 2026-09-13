@@ -40,65 +40,6 @@ namespace Battlement
 
         public IBattlementCommandOperation? Play(
             CommandId commandId,
-            CommandBody.Audio.Play command,
-            TimeSpan now
-        )
-        {
-            float volume = RequireVolume(command.Volume);
-            float pitch = RequirePitch(command.Pitch);
-            TimeSpan fadeIn = RequireDuration(command.FadeIn, "Audio fade-in");
-            if (motionClock.IsInstant)
-            {
-                suppressed.Add(commandId.Value);
-                return null;
-            }
-            var asset = new PreparedAsset.AudioClip(command.Address);
-            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
-            AudioInstance? instance = null;
-            try
-            {
-                if (lease.Value is not AudioClip clip)
-                {
-                    throw new BattlementCommandException(
-                        CoreErrorCode.AssetTypeMismatch,
-                        $"Prepared audio clip '{command.Address.Value}' is not an AudioClip."
-                    );
-                }
-
-                instance = inactive.Count == 0 ? AudioInstance.Create(poolRoot) : inactive.Pop();
-                instance.Acquire(
-                    commandId.Value,
-                    lease,
-                    clip,
-                    inputCamera,
-                    volume,
-                    pitch,
-                    command.Loop,
-                    fadeIn,
-                    now
-                );
-                lease = null!;
-                live.Add(commandId.Value, instance);
-                return new PlaybackOperation(this, instance);
-            }
-            catch
-            {
-                if (instance?.IsActive == true)
-                {
-                    Release(instance);
-                }
-                else if (instance is not null)
-                {
-                    inactive.Push(instance);
-                }
-
-                lease?.Dispose();
-                throw;
-            }
-        }
-
-        public IBattlementCommandOperation? Play(
-            CommandId commandId,
             BattlementDirectAudioPlay command,
             TimeSpan now
         )
@@ -151,9 +92,6 @@ namespace Battlement
             }
         }
 
-        public IBattlementCommandOperation? Stop(CommandBody.Audio.Stop command, TimeSpan now) =>
-            Stop(command.AudioCommandId, command.FadeOut, now);
-
         public IBattlementCommandOperation? Stop(BattlementDirectAudioStop command, TimeSpan now) =>
             Stop(
                 command.AudioCommandId,
@@ -183,26 +121,17 @@ namespace Battlement
             return new FadeOutOperation(this, instance, now, fadeOut);
         }
 
-        public IBattlementCommandOperation? Pause(CommandBody.Audio.Pause command) =>
-            Pause(command.AudioCommandId);
-
         public IBattlementCommandOperation? Pause(CommandId audioCommandId)
         {
             Require(audioCommandId).Pause();
             return null;
         }
 
-        public IBattlementCommandOperation? Resume(CommandBody.Audio.Resume command) =>
-            Resume(command.AudioCommandId);
-
         public IBattlementCommandOperation? Resume(CommandId audioCommandId)
         {
             Require(audioCommandId).Resume();
             return null;
         }
-
-        public IBattlementCommandOperation? Seek(CommandBody.Audio.Seek command, TimeSpan now) =>
-            Seek(command.AudioCommandId, command.Position, now);
 
         public IBattlementCommandOperation? Seek(
             CommandId audioCommandId,
@@ -214,19 +143,11 @@ namespace Battlement
             return null;
         }
 
-        public IBattlementCommandOperation? SetBuffering(CommandBody.Audio.SetBuffering command) =>
-            SetBuffering(command.AudioCommandId, command.Buffering);
-
         public IBattlementCommandOperation? SetBuffering(CommandId audioCommandId, bool buffering)
         {
             Require(audioCommandId).SetBuffering(buffering);
             return null;
         }
-
-        public IBattlementCommandOperation? Replace(
-            CommandBody.Audio.Replace command,
-            TimeSpan now
-        ) => Replace(command.AudioCommandId, command.Address.Value, now);
 
         public IBattlementCommandOperation? Replace(
             CommandId audioCommandId,
@@ -256,9 +177,6 @@ namespace Battlement
             }
         }
 
-        public IBattlementCommandOperation? SetVolume(CommandBody.Audio.SetVolume command) =>
-            SetVolume(command.AudioCommandId, command.Volume);
-
         public IBattlementCommandOperation? SetVolume(BattlementDirectAudioVolume command) =>
             SetVolume(command.AudioCommandId, command.Volume);
 
@@ -271,31 +189,6 @@ namespace Battlement
             }
             Require(audioCommandId).SetVolume(volume);
             return null;
-        }
-
-        public IBattlementCommandOperation? TweenVolume(
-            CommandBody.Audio.TweenVolume command,
-            BattlementTweenAdapter tweens,
-            TimeSpan now
-        )
-        {
-            float target = RequireVolume(command.Volume);
-            if (suppressed.Contains(command.AudioCommandId.Value))
-            {
-                tweens.ValidateOnly(command.Tween);
-                return null;
-            }
-            AudioInstance instance = Require(command.AudioCommandId);
-            instance.CancelFadeIn();
-            IBattlementCommandOperation? operation = tweens.Float(
-                instance.Transform,
-                instance.Volume,
-                target,
-                command.Tween,
-                now,
-                instance.TrySetVolume
-            );
-            return operation is null ? null : new ActiveAudioOperation(instance, operation);
         }
 
         public IBattlementCommandOperation? TweenVolume(

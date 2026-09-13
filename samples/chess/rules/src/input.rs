@@ -1,11 +1,9 @@
 use std::collections::HashSet;
 
 use battlement::{
-  ActionBody, ActionId, ClientMessage, Command, CommandBody, ControllerButton, ControllerDirection,
-  CoreErrorCode, DebugUiPayload, DebugUiSurface, ObjectId, PhysicalKey, PointerButton, Response,
-  Vector3,
+  ActionId, ControllerButton, ControllerDirection, ObjectId, PhysicalKey, PointerButton, Vector3,
 };
-use battlement_native::{CoreActionBodyView, EngineError, NativeResponse};
+use battlement_native::{CoreActionBodyView, EngineError, EngineResponse};
 use tracing::info;
 
 use crate::{
@@ -74,19 +72,6 @@ enum ChessInput {
 }
 
 impl ChessInput {
-  fn from_owned(body: ActionBody) -> Self {
-    match body {
-      ActionBody::KeyDown(value) => Self::KeyDown(value.key),
-      ActionBody::KeyUp(value) => Self::KeyUp(value.key),
-      ActionBody::PointerClick(value) => Self::PointerClick(value.object_id, value.button),
-      ActionBody::DragStart(value) => Self::DragStart(value.object_id),
-      ActionBody::DragEnd(value) => Self::DragEnd(value.object_id, value.world_position),
-      ActionBody::ControllerButtonDown(value) => Self::ControllerButtonDown(value.button),
-      ActionBody::ControllerNavigate(value) => Self::ControllerNavigate(value.direction),
-      _ => Self::Other,
-    }
-  }
-
   fn from_view(body: CoreActionBodyView<'_>) -> Self {
     match body {
       CoreActionBodyView::KeyDown(value) => Self::KeyDown(value.physical_key()),
@@ -117,30 +102,11 @@ impl ChessInput {
 }
 
 impl ChessEngine {
-  pub(crate) fn submit_message(
-    &mut self,
-    message: ClientMessage<(), CoreErrorCode>,
-  ) -> Result<Response<Command>, EngineError> {
-    let empty = Response::empty(self.session_id);
-    let Some(action) = message.into_action() else {
-      return Ok(empty);
-    };
-    self.submit_input(action.action_id, ChessInput::from_owned(action.body))
-  }
-
   pub(crate) fn submit_action_view(
     &mut self,
     action_id: ActionId,
     body: CoreActionBodyView<'_>,
-  ) -> Result<Response<Command>, EngineError> {
-    self.submit_input(action_id, ChessInput::from_view(body))
-  }
-
-  pub(crate) fn submit_action_view_native(
-    &mut self,
-    action_id: ActionId,
-    body: CoreActionBodyView<'_>,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let input = ChessInput::from_view(body);
     if self.restart_shortcut.observe(&input) {
       self.restart_shortcut.reset();
@@ -185,7 +151,7 @@ impl ChessEngine {
         if self.pause_open && self.confirm_new_game =>
       {
         self.confirm_new_game = false;
-        NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
+        EngineResponse::empty(*self.session_id.as_uuid().as_bytes())
       }
       ChessInput::ControllerButtonDown(ControllerButton::East) if self.pause_open => {
         self.toggle_pause_native(action_id)
@@ -256,155 +222,9 @@ impl ChessEngine {
         self.activate_cursor_native(action_id)
       }
       ChessInput::KeyUp(_) | ChessInput::Other => {
-        NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
+        EngineResponse::empty(*self.session_id.as_uuid().as_bytes())
       }
-      _ => NativeResponse::empty(*self.session_id.as_uuid().as_bytes()),
-    }
-  }
-
-  fn submit_input(
-    &mut self,
-    action_id: ActionId,
-    input: ChessInput,
-  ) -> Result<Response<Command>, EngineError> {
-    if self.restart_shortcut.observe(&input) {
-      self.restart_shortcut.reset();
-      return self.restart_game(action_id, true);
-    }
-    self.submit_observed_input(action_id, input)
-  }
-
-  fn submit_observed_input(
-    &mut self,
-    action_id: ActionId,
-    input: ChessInput,
-  ) -> Result<Response<Command>, EngineError> {
-    let empty = Response::empty(self.session_id);
-    match input {
-      ChessInput::KeyDown(PhysicalKey::KeyL) => {
-        info!("Chess log viewer opened");
-        Ok(audio::response_for_action(
-          self.session_id,
-          action_id,
-          [CommandBody::DebugUi(DebugUiPayload {
-            surface: DebugUiSurface::LogViewer,
-            visible: true,
-          })],
-        ))
-      }
-      ChessInput::PointerClick(object_id, button)
-        if object_id == PLAY_BUTTON_ID && button == PointerButton::Left =>
-      {
-        self.start_game(action_id, false)
-      }
-      ChessInput::PointerClick(object_id, button)
-        if object_id == REFRESH_BUTTON_ID && button == PointerButton::Left && self.pause_open =>
-      {
-        self.confirm_or_start_new_game(action_id, false)
-      }
-      ChessInput::PointerClick(object_id, PointerButton::Left) => {
-        self.submit_click(action_id, object_id)
-      }
-      ChessInput::DragEnd(object_id, world_position) => {
-        self.submit_drag(action_id, object_id, world_position)
-      }
-      ChessInput::DragStart(object_id) => {
-        let Some(square) = crate::find_square(&self.objects, object_id) else {
-          return Ok(empty);
-        };
-        self.cursor = square;
-        self.selected = None;
-        let state_commands = self.set_visual_state(VisualState::Selected);
-        let commands = self
-          .hide_highlight_commands()
-          .into_iter()
-          .chain(self.cursor_commands(square, false))
-          .chain(self.highlight_commands(object_id))
-          .chain(state_commands)
-          .collect::<Vec<_>>();
-        Ok(audio::response_for_action(
-          self.session_id,
-          action_id,
-          commands,
-        ))
-      }
-      ChessInput::KeyDown(key)
-        if !self.started
-          && matches!(
-            key,
-            PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
-          ) =>
-      {
-        self.start_game(action_id, true)
-      }
-      ChessInput::KeyDown(key)
-        if self.started
-          && matches!(
-            key,
-            PhysicalKey::ArrowLeft
-              | PhysicalKey::ArrowRight
-              | PhysicalKey::ArrowUp
-              | PhysicalKey::ArrowDown
-          ) =>
-      {
-        self.move_cursor(action_id, key)
-      }
-      ChessInput::KeyDown(key)
-        if self.started
-          && matches!(
-            key,
-            PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
-          ) =>
-      {
-        self.activate_cursor(action_id)
-      }
-      ChessInput::KeyDown(key)
-        if self.started && key == PhysicalKey::Escape && self.selected.is_some() =>
-      {
-        self.cancel_selection(action_id)
-      }
-      ChessInput::KeyDown(key) if self.started && key == PhysicalKey::Escape => {
-        self.toggle_pause(action_id)
-      }
-      ChessInput::KeyDown(PhysicalKey::Equal) => self.adjust_music(action_id, MUSIC_VOLUME_STEP),
-      ChessInput::KeyDown(PhysicalKey::Minus) => self.adjust_music(action_id, -MUSIC_VOLUME_STEP),
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::South && !self.started =>
-      {
-        self.start_game(action_id, true)
-      }
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::Start && self.started =>
-      {
-        self.toggle_pause(action_id)
-      }
-      ChessInput::ControllerButtonDown(button) if self.pause_open => {
-        self.handle_pause_button(action_id, button)
-      }
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::South && self.started =>
-      {
-        self.activate_cursor(action_id)
-      }
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::East && self.started =>
-      {
-        self.cancel_selection(action_id)
-      }
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::LeftShoulder && self.started =>
-      {
-        self.cycle_cursor(action_id, false)
-      }
-      ChessInput::ControllerButtonDown(button)
-        if button == ControllerButton::RightShoulder && self.started =>
-      {
-        self.cycle_cursor(action_id, true)
-      }
-      ChessInput::ControllerNavigate(direction) if self.started && !self.pause_open => {
-        self.move_cursor_direction(action_id, direction)
-      }
-      _ => Ok(empty),
+      _ => EngineResponse::empty(*self.session_id.as_uuid().as_bytes()),
     }
   }
 
@@ -412,7 +232,7 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     square: cozy_chess::Square,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.cursor_visible = true;
     self.cursor = square;
     crate::native::action_response(self.session_id, action_id, |message| {
@@ -424,10 +244,10 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     forward: bool,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let candidates = self.controller_cycle_squares();
     if candidates.is_empty() {
-      return NativeResponse::empty(*self.session_id.as_uuid().as_bytes());
+      return EngineResponse::empty(*self.session_id.as_uuid().as_bytes());
     }
     let current = candidates.iter().position(|&square| square == self.cursor);
     let index = match (current, forward) {
@@ -442,7 +262,7 @@ impl ChessEngine {
   fn cancel_selection_native(
     &mut self,
     action_id: ActionId,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.cursor_visible = true;
     if let Some(selected) = self.selected.take() {
       self.cursor = selected;
@@ -462,7 +282,7 @@ impl ChessEngine {
     })
   }
 
-  fn toggle_pause_native(&mut self, action_id: ActionId) -> Result<NativeResponse, EngineError> {
+  fn toggle_pause_native(&mut self, action_id: ActionId) -> Result<EngineResponse, EngineError> {
     self.pause_open = !self.pause_open;
     self.confirm_new_game = false;
     let next = if self.pause_open {
@@ -491,7 +311,7 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     delta: f64,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let previous_volume = self.music.volume();
     let target = self.music.set_volume_target(previous_volume + delta);
     let volume = self.music.volume();
@@ -520,7 +340,7 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     cursor_visible: bool,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     if self.confirm_new_game {
       return crate::native::new_game(self, action_id, cursor_visible);
     }
@@ -538,9 +358,9 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     object_id: ObjectId,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let Some(square) = crate::find_square(&self.objects, object_id) else {
-      return NativeResponse::empty(*self.session_id.as_uuid().as_bytes());
+      return EngineResponse::empty(*self.session_id.as_uuid().as_bytes());
     };
     self.cursor = square;
     self.selected = None;
@@ -552,7 +372,7 @@ impl ChessEngine {
     action_id: ActionId,
     object_id: ObjectId,
     world_position: Vector3,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let Some(from) = crate::find_square(&self.objects, object_id) else {
       let highlight_ids = self.highlight_ids;
       return crate::native::action_response(self.session_id, action_id, move |message| {
@@ -677,13 +497,13 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     object_id: ObjectId,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     if let Some(target) = crate::find_highlight(&self.highlight_ids, object_id) {
       self.cursor = target;
       return self.submit_selected_move_native(action_id, target);
     }
     let Some(square) = crate::find_square(&self.objects, object_id) else {
-      return NativeResponse::empty(*self.session_id.as_uuid().as_bytes());
+      return EngineResponse::empty(*self.session_id.as_uuid().as_bytes());
     };
     self.cursor = square;
     if self.board.side_to_move() != cozy_chess::Color::White
@@ -706,7 +526,7 @@ impl ChessEngine {
     self.submit_selected_move_native(action_id, square)
   }
 
-  fn activate_cursor_native(&mut self, action_id: ActionId) -> Result<NativeResponse, EngineError> {
+  fn activate_cursor_native(&mut self, action_id: ActionId) -> Result<EngineResponse, EngineError> {
     self.cursor_visible = true;
     if self.board.side_to_move() != cozy_chess::Color::White
       || self.board.status() != cozy_chess::GameStatus::Ongoing
@@ -732,7 +552,7 @@ impl ChessEngine {
     action_id: ActionId,
     square: cozy_chess::Square,
     _object_id: ObjectId,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.selected = Some(square);
     let mut targets = [false; 64];
     self.board.generate_moves_for(square.bitboard(), |moves| {
@@ -780,7 +600,7 @@ impl ChessEngine {
     &mut self,
     action_id: ActionId,
     target: cozy_chess::Square,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     let Some(from) = self.selected else {
       let visible = self.cursor_visible;
       return crate::native::action_response(self.session_id, action_id, move |message| {

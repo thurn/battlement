@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use battlement_types::ObjectId;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::MotionVariantResolution;
 use crate::{
@@ -14,22 +13,19 @@ use crate::{
 use crate::{MotionProperty, MotionValue, MotionValueKind, TransitionDefinition};
 
 /// Stable animation slot identity scoped to one descriptor.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MotionSlotId(pub u64);
 
 /// Generation checked by Unity when updating or dispatching one animation slot.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MotionGeneration(pub u32);
 
 /// Monotonic reliable-event sequence scoped to one transport session.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MotionSequence(pub u64);
 
 /// Property and its target or typed keyframe sequence.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionPropertyTrack {
   /// Catalog property identity.
   pub property: MotionProperty,
@@ -93,62 +89,6 @@ pub struct MotionTargetDescriptor {
   pub transition_end: Vec<MotionPropertyValue>,
 }
 
-impl Serialize for MotionTargetDescriptor {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let mut transitions = Vec::<&TransitionDefinition>::new();
-    let tracks = self
-      .tracks
-      .iter()
-      .map(|track| {
-        let transition = transitions
-          .iter()
-          .position(|value| **value == track.transition)
-          .unwrap_or_else(|| {
-            transitions.push(&track.transition);
-            transitions.len() - 1
-          });
-        (&track.property, &track.values, &track.times, transition)
-      })
-      .collect::<Vec<_>>();
-    (transitions, tracks, &self.transition_end).serialize(serializer)
-  }
-}
-
-impl<'de> Deserialize<'de> for MotionTargetDescriptor {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    type SerializedTrack = (MotionProperty, Vec<MotionValue>, Option<Vec<f64>>, usize);
-    let (transitions, tracks, transition_end): (
-      Vec<TransitionDefinition>,
-      Vec<SerializedTrack>,
-      Vec<MotionPropertyValue>,
-    ) = Deserialize::deserialize(deserializer)?;
-    let tracks = tracks
-      .into_iter()
-      .map(|(property, values, times, transition)| {
-        let transition = transitions.get(transition).cloned().ok_or_else(|| {
-          serde::de::Error::custom("motion track transition index is out of range")
-        })?;
-        Ok(MotionPropertyTrack {
-          property,
-          values,
-          times,
-          transition,
-        })
-      })
-      .collect::<Result<Vec<_>, D::Error>>()?;
-    Ok(Self {
-      tracks,
-      transition_end,
-    })
-  }
-}
-
 impl MotionTargetDescriptor {
   /// Validates that each property has one owner in this layer.
   pub fn validate(&self) -> Result<(), String> {
@@ -177,7 +117,7 @@ impl MotionTargetDescriptor {
 }
 
 /// One property assignment outside a sampled timeline.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionPropertyValue {
   /// Catalog property identity.
   pub property: MotionProperty,
@@ -203,7 +143,7 @@ impl MotionPropertyValue {
 }
 
 /// Descriptor layer priority after variant resolution.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum MotionLayer {
   /// Declarative animate or imperative controls.
   Animate,
@@ -224,7 +164,7 @@ pub enum MotionLayer {
 }
 
 /// Axis ownership for pan and drag recognition.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionGestureAxis {
   /// Horizontal movement only.
   X,
@@ -235,7 +175,7 @@ pub enum MotionGestureAxis {
 }
 
 /// Pointer or navigation device which owns a gesture.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionPointerDevice {
   /// Mouse pointer.
   Mouse,
@@ -250,7 +190,7 @@ pub enum MotionPointerDevice {
 }
 
 /// Panel-space point or vector carried by a gesture event.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MotionGestureVector {
   /// Horizontal panel pixels.
   pub x: f32,
@@ -259,7 +199,7 @@ pub struct MotionGestureVector {
 }
 
 /// Fixed panel-space drag bounds.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionDragBounds {
   /// Minimum horizontal offset.
   pub min_x: f32,
@@ -272,7 +212,7 @@ pub struct MotionDragBounds {
 }
 
 /// Source used to resolve drag bounds locally.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionDragConstraint {
   /// Authored panel-space bounds.
   Bounds(MotionDragBounds),
@@ -281,7 +221,7 @@ pub enum MotionDragConstraint {
 }
 
 /// Per-edge elasticity applied beyond drag bounds.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionDragElastic {
   /// Overshoot multiplier at the left edge.
   pub left: f32,
@@ -294,7 +234,7 @@ pub struct MotionDragElastic {
 }
 
 /// Native release-inertia and boundary-spring settings.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionDragTransition {
   /// Exponential velocity retention per second, between zero and one.
   pub velocity_retention: f32,
@@ -307,7 +247,7 @@ pub struct MotionDragTransition {
 }
 
 /// Native drag behavior attached to one host.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionDragDescriptor {
   /// Axes owned by drag.
   pub axis: MotionGestureAxis,
@@ -336,7 +276,7 @@ pub struct MotionDragDescriptor {
 }
 
 /// Explicit callback subscriptions for gesture boundaries and samples.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MotionGestureSubscriptions {
   /// Hover entered or left.
   pub hover: bool,
@@ -365,7 +305,7 @@ pub struct MotionGestureSubscriptions {
 }
 
 /// Unity-local gesture recognition and presentation configuration.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionGestureDescriptor {
   /// Panel pixels required to start pan or drag.
   pub pan_threshold: f32,
@@ -394,7 +334,7 @@ pub struct MotionGestureDescriptor {
 }
 
 /// One independently identified layer slot.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionSlotDescriptor {
   /// Stable identity in the host descriptor.
   pub slot: MotionSlotId,
@@ -409,7 +349,7 @@ pub struct MotionSlotDescriptor {
 }
 
 /// Explicit lifecycle subscription set for one slot.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MotionCallbackSubscriptions {
   /// Emits when the first track leaves delay.
   pub start: bool,
@@ -426,7 +366,7 @@ pub struct MotionCallbackSubscriptions {
 }
 
 /// Clock selected for one descriptor.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionClockSource {
   /// Unity unscaled runtime time.
   Unscaled,
@@ -439,7 +379,7 @@ pub enum MotionClockSource {
 }
 
 /// Resolved reduced-motion policy sent to Unity.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum ReducedMotionPolicy {
   /// Observe the supported platform bridge.
   #[default]
@@ -451,7 +391,7 @@ pub enum ReducedMotionPolicy {
 }
 
 /// Projection axes applied after one native layout pass.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionLayoutMode {
   /// Project panel-space position only.
   Position,
@@ -462,7 +402,7 @@ pub enum MotionLayoutMode {
 }
 
 /// Stable typed identity used by layout groups and shared layout handoffs.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct MotionLayoutIdentity {
   /// Rust type which owns the identity value.
   pub value_type: String,
@@ -471,7 +411,7 @@ pub struct MotionLayoutIdentity {
 }
 
 /// Native layout-projection configuration for one host.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionLayoutDescriptor {
   /// Projection axes.
   pub mode: MotionLayoutMode,
@@ -490,7 +430,7 @@ pub struct MotionLayoutDescriptor {
 }
 
 /// Complete validated animation state installed beside one UI host.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionDescriptor {
   /// Stable descriptor identity across updates.
   pub descriptor_id: ObjectId,
@@ -509,49 +449,34 @@ pub struct MotionDescriptor {
   /// Inherited reduced-motion policy.
   pub reduced_motion: ReducedMotionPolicy,
   /// Locally resolved pseudo-state style overlays.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pseudo_styles: Vec<MotionPseudoStyle>,
   /// CSS transitions over resolved static style changes.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub style_transition: StyleTransitionDescriptor,
   /// Ordered reusable CSS animation slots.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub animations: Vec<CssAnimationDescriptor>,
   /// Non-interactive keyed paint layers.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub decorations: Vec<MotionDecorationDescriptor>,
   /// Inspectable logical-variant resolution facts.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub variants: Option<MotionVariantResolution>,
   /// Deduplicated value nodes required by this host's bindings and subscriptions.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub values: Vec<MotionValueDescriptor>,
   /// Host properties driven by graph values.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub value_bindings: Vec<MotionValueBinding>,
   /// Explicit Rust-side value observations.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub value_subscriptions: Vec<MotionValueSubscription>,
   /// Optional animation-controls binding.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub control_id: Option<ObjectId>,
   /// Optional animation-scope root identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub scope_id: Option<ObjectId>,
   /// Whether this host is the scope root.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub scope_root: bool,
   /// Optional closed selector name.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub motion_name: Option<String>,
   /// Named targets resolved for imperative starts.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub named_targets: Vec<MotionNamedTarget>,
   /// Unity-local gesture recognizers and drag behavior.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub gestures: Option<MotionGestureDescriptor>,
   /// Optional layout projection and shared-layout configuration.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub layout: Option<MotionLayoutDescriptor>,
 }
 
@@ -842,7 +767,7 @@ fn validate_css_track(track: &crate::CssPropertyTrack) -> Result<(), String> {
 }
 
 /// Renderer declaration for one supported property and value shape.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MotionRendererCapability {
   /// Property supported by the writer.
   pub property: MotionProperty,
@@ -851,7 +776,7 @@ pub struct MotionRendererCapability {
 }
 
 /// Reliable lifecycle event kind.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionEventKind {
   /// Descriptor activation acknowledgement.
   Activated,
@@ -873,7 +798,7 @@ pub enum MotionEventKind {
 }
 
 /// One reliable slot lifecycle boundary.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionLifecycleEvent {
   /// Transport sequence.
   pub sequence: MotionSequence,
@@ -890,7 +815,7 @@ pub struct MotionLifecycleEvent {
 }
 
 /// Replaceable presentation sample excluded from reliable sequence positions.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionPresentationSample {
   /// Descriptor identity.
   pub descriptor_id: ObjectId,
@@ -905,7 +830,7 @@ pub struct MotionPresentationSample {
 }
 
 /// Reliable or replaceable native gesture event kind.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionGestureEventKind {
   /// A non-touch pointer entered the host.
   HoverStart,
@@ -958,7 +883,7 @@ pub enum MotionGestureEventKind {
 }
 
 /// One gesture boundary or coalesced movement sample.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionGestureEvent {
   /// Descriptor identity.
   pub descriptor_id: ObjectId,
@@ -983,12 +908,11 @@ pub struct MotionGestureEvent {
   /// Stable release-momentum generation.
   pub momentum_generation: u32,
   /// Whether the current offset is constrained on either axis.
-  #[serde(default)]
   pub constrained: bool,
 }
 
 /// One external drag-controls start sampled from an initiating pointer event.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionDragControlOperation {
   /// Stable binding shared with one draggable host.
   pub control_id: ObjectId,
@@ -1003,7 +927,7 @@ pub struct MotionDragControlOperation {
 }
 
 /// Terminal result for one stable imperative playback identity.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionPlaybackOutcome {
   /// The terminal target was applied.
   Completed,
@@ -1014,7 +938,7 @@ pub enum MotionPlaybackOutcome {
 }
 
 /// One generation-checked terminal event for an imperative playback.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MotionPlaybackEvent {
   /// Stable playback identity.
   pub playback_id: ObjectId,
@@ -1025,7 +949,7 @@ pub struct MotionPlaybackEvent {
 }
 
 /// Ordered lifecycle boundaries and partitioned replaceable samples.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionEventBatch {
   /// First reliable sequence included.
   pub first_sequence: MotionSequence,
@@ -1036,18 +960,15 @@ pub struct MotionEventBatch {
   /// Latest coalesced presentation samples.
   pub samples: Vec<MotionPresentationSample>,
   /// Latest coalesced samples for explicit value subscriptions.
-  #[serde(default)]
   pub value_samples: Vec<crate::MotionValueSample>,
   /// Terminal events for stable imperative playback handles.
-  #[serde(default)]
   pub playback_events: Vec<MotionPlaybackEvent>,
   /// Reliable gesture boundaries followed by latest coalesced movement samples.
-  #[serde(default)]
   pub gesture_events: Vec<MotionGestureEvent>,
 }
 
 /// Compact timeline checkpoint retained for reconnect reconstruction.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionTimelineCheckpoint {
   /// Descriptor identity.
   pub descriptor_id: ObjectId,
@@ -1066,7 +987,7 @@ pub struct MotionTimelineCheckpoint {
 }
 
 /// Direction selected for one playback generation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionPlaybackDirection {
   /// Runs from origin to target.
   Forward,
@@ -1079,7 +1000,7 @@ pub enum MotionPlaybackDirection {
 }
 
 /// Generation-checked playback operation.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionPlaybackCommand {
   /// Resume logical time.
   Play,
@@ -1111,7 +1032,7 @@ pub enum MotionPlaybackCommand {
 }
 
 /// Addressed playback operation for one current slot generation.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionPlaybackOperation {
   /// Descriptor identity.
   pub descriptor_id: ObjectId,
@@ -1124,7 +1045,7 @@ pub struct MotionPlaybackOperation {
 }
 
 /// Deterministic controlled-clock mutation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionControlledClockCommand {
   /// Replace the elapsed logical time.
   Set {
@@ -1139,7 +1060,7 @@ pub enum MotionControlledClockCommand {
 }
 
 /// Addressed mutation for a controlled motion clock.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MotionControlledClockOperation {
   /// Controlled clock identity.
   pub clock_id: ObjectId,

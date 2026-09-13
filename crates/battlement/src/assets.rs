@@ -1,7 +1,5 @@
 //! Prepared Addressables declarations owned by the core protocol.
 
-use serde::{Deserialize, Serialize};
-
 pub use battlement_types::{
   AssetAddress, AudioClipAddress, MaterialAddress, PrefabAddress, RenderTextureAddress,
   SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress, UiFontAddress,
@@ -9,7 +7,7 @@ pub use battlement_types::{
 };
 
 /// One Addressables entry loaded and type-checked before commands may use it.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PreparedAsset {
   /// An Addressable content scene.
   Scene(SceneAddress),

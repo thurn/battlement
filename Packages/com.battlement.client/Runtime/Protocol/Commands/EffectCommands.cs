@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -34,7 +33,7 @@ namespace Battlement
             public sealed record Spawn(
                 ParticleEffectAddress Address,
                 ParticleSpawnLocation Location,
-                [property: JsonProperty("lifetime_ms")] TimeSpan Lifetime
+                TimeSpan Lifetime
             ) : CommandBody;
         }
 
@@ -51,16 +50,14 @@ namespace Battlement
                 double Volume = 1,
                 double Pitch = 1,
                 bool Loop = false,
-                [property: JsonProperty("fade_in_ms")] TimeSpan FadeIn = default
+                TimeSpan FadeIn = default
             ) : CommandBody;
 
             /// <summary>Stop audio started by a previous audio-play command.</summary>
             /// <param name="AudioCommandId">Identity of the audio playback command.</param>
             /// <param name="FadeOut">Fade-out duration.</param>
-            public sealed record Stop(
-                CommandId AudioCommandId,
-                [property: JsonProperty("fade_out_ms")] TimeSpan FadeOut = default
-            ) : CommandBody;
+            public sealed record Stop(CommandId AudioCommandId, TimeSpan FadeOut = default)
+                : CommandBody;
 
             /// <summary>Pause a live audio operation.</summary>
             public sealed record Pause(CommandId AudioCommandId) : CommandBody;
@@ -69,10 +66,7 @@ namespace Battlement
             public sealed record Resume(CommandId AudioCommandId) : CommandBody;
 
             /// <summary>Seek a live audio operation.</summary>
-            public sealed record Seek(
-                CommandId AudioCommandId,
-                [property: JsonProperty("position_ms")] TimeSpan Position
-            ) : CommandBody;
+            public sealed record Seek(CommandId AudioCommandId, TimeSpan Position) : CommandBody;
 
             /// <summary>Freeze or resume a playhead for buffering.</summary>
             public sealed record SetBuffering(CommandId AudioCommandId, bool Buffering)

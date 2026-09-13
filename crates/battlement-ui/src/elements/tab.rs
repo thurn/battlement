@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   IconSource, LanguageDirection, PickingMode, Prop, Style, UiVisualElement,
   UiVisualElementProperties, UsageHint,
@@ -37,21 +35,16 @@ use crate::{
 ///
 /// [`UiTabView`]: crate::UiTabView
 /// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiTab {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text shown in the native tab header.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Prepared graphical asset shown in the native tab header.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub icon: Prop<IconSource>,
   /// Whether the native tab header displays a close control.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub closeable: Prop<bool>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -36,15 +34,12 @@ use crate::{
 /// ```
 ///
 /// [`UiBox`]: crate::UiBox
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiGroupBox {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text rendered by the native group title label.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

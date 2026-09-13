@@ -13,5 +13,4 @@ battlement = { path = "../../../../battlement" }
 battlement-flatbuffers = { path = "../../../../battlement-flatbuffers" }
 battlement-native = { path = "../../.." }
 flatbuffers = "=25.12.19"
-serde.workspace = true
 tracing.workspace = true

@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -67,11 +66,9 @@ namespace Battlement
             double Stiffness,
             double Damping,
             double Mass,
-            [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-                double? InitialVelocity,
-            [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-                double? RestSpeed,
-            [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)] double? RestDelta
+            double? InitialVelocity,
+            double? RestSpeed,
+            double? RestDelta
         ) : SpringConfiguration;
 
         public sealed record Duration(ulong DurationMicros, double Bounce, double Mass)
@@ -98,8 +95,8 @@ namespace Battlement
             double InitialVelocity,
             double Power,
             ulong TimeConstantMicros,
-            [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)] double? Minimum,
-            [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)] double? Maximum,
+            double? Minimum,
+            double? Maximum,
             double RestDelta,
             double BounceStiffness,
             double BounceDamping,

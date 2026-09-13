@@ -69,16 +69,6 @@ namespace Battlement
             );
     }
 
-    /// <summary>Runs a trusted, explicitly registered game command.</summary>
-    public interface IBattlementCommandHandler<TPayload>
-    {
-        /// <summary>Runs the command and optionally returns work Battlement should track.</summary>
-        IBattlementCommandOperation? Execute(
-            CustomCommand<TPayload> command,
-            BattlementCommandContext context
-        );
-    }
-
     /// <summary>
     /// Runs a generated custom-command payload view while its response lease is live.
     /// </summary>
@@ -152,29 +142,6 @@ namespace Battlement
 
         public IReadOnlyCollection<string> Types => registrations.Keys;
 
-        public void Register<TPayload, TError>(
-            string type,
-            IBattlementCommandHandler<TPayload> handler
-        )
-        {
-            RequireNamespaced(type);
-            if (registrations.ContainsKey(type))
-            {
-                throw new InvalidOperationException(
-                    $"A custom command handler is already registered for {type}."
-                );
-            }
-
-            registrations.Add(
-                type,
-                new BattlementCommandRegistration<TPayload, TError>(
-                    type,
-                    Preconditions.CheckNotNull(handler, nameof(handler)),
-                    createContext
-                )
-            );
-        }
-
         public void RegisterFlatBuffer<TPayloadView, TError>(
             string type,
             IBattlementFlatBufferCommandHandler<TPayloadView> handler
@@ -196,43 +163,6 @@ namespace Battlement
                     createContext
                 )
             );
-        }
-
-        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
-        {
-            switch (command)
-            {
-                case BattlementUnknownCustomCommand unknown:
-                    throw new BattlementCommandException(
-                        CoreErrorCode.HandlerNotRegistered,
-                        $"No custom command handler is registered for {unknown.Type}."
-                    );
-                case BattlementInvalidCustomCommand invalid:
-                    throw new BattlementCommandException(
-                        CoreErrorCode.InvalidEncoding,
-                        $"Custom command {invalid.Type} payload could not be decoded: "
-                            + invalid.Error.Message,
-                        invalid.Error
-                    );
-                default:
-                    break;
-            }
-
-            string type =
-                (command as ICustomCommand)?.Type
-                ?? throw new BattlementCommandException(
-                    CoreErrorCode.HandlerNotRegistered,
-                    "The custom command did not expose a command type."
-                );
-            if (!registrations.TryGetValue(type, out IBattlementCommandRegistration registration))
-            {
-                throw new BattlementCommandException(
-                    CoreErrorCode.HandlerNotRegistered,
-                    $"No custom command handler is registered for {type}."
-                );
-            }
-
-            return registration.Launch(command, now);
         }
 
         public IBattlementCommandOperation? Launch<TPayloadView>(
@@ -283,8 +213,6 @@ namespace Battlement
 
     internal interface IBattlementCommandRegistration
     {
-        IBattlementCommandOperation? Launch(ICommand command, TimeSpan now);
-
         ReadOnlyMemory<byte> SerializeFlatBufferBatchFailure(
             IBattlementFlatBufferClientSchema schema,
             SessionId sessionId,
@@ -316,104 +244,6 @@ namespace Battlement
         );
     }
 
-    internal sealed class BattlementCommandRegistration<TPayload, TError>
-        : IBattlementCommandRegistration
-    {
-        private readonly string type;
-        private readonly IBattlementCommandHandler<TPayload> handler;
-        private readonly Func<TimeSpan, BattlementCommandContext> createContext;
-
-        public BattlementCommandRegistration(
-            string type,
-            IBattlementCommandHandler<TPayload> handler,
-            Func<TimeSpan, BattlementCommandContext> createContext
-        ) => (this.type, this.handler, this.createContext) = (type, handler, createContext);
-
-        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
-        {
-            var typed =
-                command as CustomCommand<TPayload>
-                ?? throw new BattlementCommandException(
-                    CoreErrorCode.InvalidEncoding,
-                    $"Custom command {type} used the wrong payload type."
-                );
-            var cancellation = new CancellationTokenSource();
-            try
-            {
-                IBattlementCommandOperation? operation = handler.Execute(
-                    typed,
-                    createContext(now) with
-                    {
-                        Cancellation = cancellation.Token,
-                    }
-                );
-                if (operation is null)
-                {
-                    cancellation.Dispose();
-                    return null;
-                }
-
-                var custom = new BattlementCustomOperation<TError>(operation, cancellation, this);
-                return operation is IBattlementScopedCommandOperation scoped
-                    ? new BattlementScopedCommandOperation(
-                        scoped.TargetObjectId,
-                        custom,
-                        scoped.ControlsTransform
-                    )
-                    : custom;
-            }
-            catch (BattlementCommandFailureException<TError> exception)
-            {
-                cancellation.Dispose();
-                throw new BattlementRegisteredCommandException(
-                    this,
-                    exception.ErrorCode!,
-                    exception.Message,
-                    exception
-                );
-            }
-            catch (Exception exception)
-            {
-                cancellation.Dispose();
-                throw new BattlementCommandException(
-                    CoreErrorCode.HandlerFailed,
-                    exception.Message,
-                    exception
-                );
-            }
-        }
-
-        public ReadOnlyMemory<byte> SerializeFlatBufferBatchFailure(
-            IBattlementFlatBufferClientSchema schema,
-            SessionId sessionId,
-            BatchId batchId,
-            CommandId? commandId,
-            object errorCode,
-            string message
-        ) =>
-            schema.SerializeBatchFailure(
-                new BatchFailed<TError>(sessionId, batchId, (TError)errorCode, message, commandId)
-            );
-
-        public ReadOnlyMemory<byte> SerializeFlatBufferOperationFailure(
-            IBattlementFlatBufferClientSchema schema,
-            SessionId sessionId,
-            BatchId batchId,
-            CommandId commandId,
-            object errorCode,
-            string message
-        ) =>
-            schema.SerializeOperationFailure(
-                new OperationFailed<TError>(
-                    sessionId,
-                    batchId,
-                    commandId,
-                    (TError)errorCode,
-                    message
-                )
-            );
-    }
-
     internal sealed class BattlementFlatBufferCommandRegistration<TPayloadView, TError>
         : IBattlementFlatBufferCommandRegistration<TPayloadView>
     {
@@ -426,12 +256,6 @@ namespace Battlement
             IBattlementFlatBufferCommandHandler<TPayloadView> handler,
             Func<TimeSpan, BattlementCommandContext> createContext
         ) => (this.type, this.handler, this.createContext) = (type, handler, createContext);
-
-        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now) =>
-            throw new BattlementCommandException(
-                CoreErrorCode.InvalidEncoding,
-                $"Custom command {type} requires its generated FlatBuffer payload view."
-            );
 
         public IBattlementCommandOperation? LaunchFlatBuffer(
             CommandId id,

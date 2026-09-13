@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Battlement.UI;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -44,17 +43,6 @@ namespace Battlement.Tests
             var keyUp = (UiEventBody.KeyUp)fixture.Events[1].Body;
             Assert.That(keyUp.Value.PhysicalKey, Is.Null);
             Assert.That(keyUp.Value.Text, Is.Empty);
-            byte[] serialized = BattlementJson.SerializeUiEventAction(
-                new UiEventAction(
-                    new ActionId(Guid.Parse("23000000-0000-4000-8000-000000000011")),
-                    new SessionId(Guid.Parse("23000000-0000-4000-8000-000000000012")),
-                    fixture.Events[1]
-                )
-            );
-            JToken payload = JObject
-                .Parse(System.Text.Encoding.UTF8.GetString(serialized))
-                .SelectToken("event.body.KeyUp")!;
-            Assert.That(JToken.DeepEquals(payload, JObject.Parse("{\"text\":\"\"}")), Is.True);
         }
 
         [Test]

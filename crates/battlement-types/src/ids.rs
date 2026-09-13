@@ -2,7 +2,6 @@
 
 use std::{error::Error, fmt, marker::PhantomData, str::FromStr};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use uuid::Uuid;
 
 /// The reason a string could not be used as a Battlement identifier.
@@ -113,24 +112,6 @@ impl<K> TryFrom<String> for ProtocolId<K> {
 impl<K> From<ProtocolId<K>> for Uuid {
   fn from(value: ProtocolId<K>) -> Self {
     value.uuid
-  }
-}
-
-impl<K> Serialize for ProtocolId<K> {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    self.uuid.serialize(serializer)
-  }
-}
-
-impl<'de, K> Deserialize<'de> for ProtocolId<K> {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    Self::from_uuid(Uuid::deserialize(deserializer)?).map_err(de::Error::custom)
   }
 }
 

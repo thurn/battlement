@@ -121,29 +121,7 @@ fn validation_reserves_all_identities_and_rejects_duplicates() {
 }
 
 #[test]
-fn panel_validation_rejects_invalid_scaling_wire_and_atlas_mismatches() {
-  assert!(
-    serde_json::from_value::<PanelSettings>(serde_json::json!({
-      "scale_mode": "ConstantPixelSize",
-      "reference_dpi": 144.0
-    }))
-    .is_err()
-  );
-  assert!(
-    serde_json::from_value::<PanelSettings>(serde_json::json!({
-      "scale_mode": "ScaleWithScreenSize",
-      "reference_resolution": {"width": 0, "height": 800}
-    }))
-    .is_err()
-  );
-  assert!(
-    serde_json::from_value::<PanelSettings>(serde_json::json!({
-      "scale_mode": "ScaleWithScreenSize",
-      "screen_match_mode": "Shrink",
-      "match_factor": 0.5
-    }))
-    .is_err()
-  );
+fn panel_validation_rejects_atlas_and_target_mismatches() {
   assert_eq!(
     validate_panel_settings(
       &PanelSettings::new().scale_mode(PanelScaleMode::constant_pixel_size(1.0))
@@ -178,24 +156,16 @@ fn panel_validation_rejects_invalid_scaling_wire_and_atlas_mismatches() {
 
 #[test]
 fn document_validation_rejects_empty_and_duplicate_classes() {
-  let with_classes = |classes: serde_json::Value| {
-    serde_json::from_value::<UiDocument>(serde_json::json!({
-        "document_id": DOCUMENT_ID,
-        "root_id": ROOT_ID,
-        "children": [{
-            "object_id": BOX_ID,
-            "element": {"Box": {"classes": classes}}
-        }]
-    }))
-    .unwrap()
+  let with_box = |element| {
+    UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(UiNode::new(id(BOX_ID), element))
   };
-  let empty = with_classes(serde_json::json!([""]));
+  let empty = with_box(UiBox::new().class(""));
   assert_eq!(
     validate_documents(&[empty]),
     Err(UiValidationError::InvalidProperty)
   );
 
-  let duplicate = with_classes(serde_json::json!(["card", "card"]));
+  let duplicate = with_box(UiBox::new().class("card").class("card"));
   assert_eq!(
     validate_documents(&[duplicate]),
     Err(UiValidationError::InvalidProperty)
@@ -203,7 +173,7 @@ fn document_validation_rejects_empty_and_duplicate_classes() {
 }
 
 #[test]
-fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
+fn common_state_rejects_attached_usage_hint_updates() {
   let element = UiBox::new()
     .picking_mode(PickingMode::Ignore)
     .language_direction(LanguageDirection::Rtl)
@@ -211,41 +181,9 @@ fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
     .tab_index(-1)
     .delegates_focus(true)
     .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor]);
-  let value = serde_json::to_value(UiElement::from(element.clone())).unwrap();
-
-  assert_eq!(value["Box"]["picking_mode"], "Ignore");
-  assert_eq!(value["Box"]["language_direction"], "Rtl");
-  assert_eq!(value["Box"]["tab_index"], -1);
-  assert_eq!(
-    value["Box"]["usage_hints"],
-    serde_json::json!(["DynamicTransform", "DynamicColor"])
-  );
   assert_eq!(
     validate_element_update(&element.into()),
     Err(UiValidationError::InvalidProperty)
-  );
-}
-
-#[test]
-fn image_serialization_selects_one_prepared_native_source() {
-  let image = UiImage::new()
-    .source(TextureAddress::new("ui/gallery/texture"))
-    .source_rect(Rect::new(4.0, 8.0, 64.0, 32.0))
-    .tint_color(Color::rgba(0.25, 0.5, 0.75, 0.8))
-    .scale_mode(ImageScaleMode::ScaleAndCrop)
-    .uv(Rect::new(0.1, 0.2, 0.3, 0.4));
-
-  assert_eq!(
-    serde_json::to_value(UiElement::from(image)).unwrap(),
-    serde_json::json!({
-        "Image": {
-            "source": {"Texture": "ui/gallery/texture"},
-            "source_rect": {"x": 4.0, "y": 8.0, "width": 64.0, "height": 32.0},
-            "tint_color": {"r": 0.25, "g": 0.5, "b": 0.75, "a": 0.8},
-            "scale_mode": "ScaleAndCrop",
-            "uv": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4}
-        }
-    })
   );
 }
 
@@ -300,52 +238,6 @@ fn text_element_is_a_validated_logical_leaf() {
 }
 
 #[test]
-fn scroll_controls_encode_sparse_native_properties() {
-  let scroll = UiScrollView::new()
-    .mode(ScrollViewMode::VerticalAndHorizontal)
-    .horizontal_scroller_visibility(ScrollerVisibility::AlwaysVisible)
-    .scroll_offset(Vector::new(24.0, 80.0))
-    .horizontal_page_size(0.75)
-    .vertical_page_size(1.25)
-    .mouse_wheel_scroll_size(36.0)
-    .touch_scroll_behavior(TouchScrollBehavior::Elastic)
-    .scroll_deceleration_rate(0.125)
-    .elasticity(0.25)
-    .elastic_animation_interval(16);
-  assert_eq!(
-    serde_json::to_value(UiElement::from(scroll)).unwrap(),
-    serde_json::json!({"ScrollView": {
-        "mode": "VerticalAndHorizontal",
-        "horizontal_scroller_visibility": "AlwaysVisible",
-        "scroll_offset": {"x": 24.0, "y": 80.0},
-        "horizontal_page_size": 0.75,
-        "vertical_page_size": 1.25,
-        "mouse_wheel_scroll_size": 36.0,
-        "touch_scroll_behavior": "Elastic",
-        "scroll_deceleration_rate": 0.125,
-        "elasticity": 0.25,
-        "elastic_animation_interval": 16
-    }})
-  );
-  assert_eq!(
-    serde_json::to_value(UiElement::from(
-      UiScroller::new()
-        .low_value(-10.0)
-        .high_value(10.0)
-        .direction(SliderDirection::Horizontal)
-        .value(2.5)
-    ))
-    .unwrap(),
-    serde_json::json!({"Scroller": {
-        "low_value": -10.0,
-        "high_value": 10.0,
-        "direction": "Horizontal",
-        "value": 2.5
-    }})
-  );
-}
-
-#[test]
 fn scroll_control_validation_rejects_nonfinite_and_reversed_ranges() {
   assert_eq!(
     validate_element_update(
@@ -362,18 +254,10 @@ fn scroll_control_validation_rejects_nonfinite_and_reversed_ranges() {
 }
 
 #[test]
-fn tab_view_serialization_and_hierarchy_are_constrained() {
+fn tab_view_hierarchy_is_constrained() {
   let tab = UiTab::new("Inspector")
     .icon(SpriteAddress::new("ui/tab-icon"))
     .closeable(true);
-  assert_eq!(
-    serde_json::to_value(UiElement::from(tab.clone())).unwrap(),
-    serde_json::json!({"Tab": {
-        "text": "Inspector",
-        "icon": {"Sprite": "ui/tab-icon"},
-        "closeable": true
-    }})
-  );
   let tab_view = UiTabView::new()
     .selected_tab_index(0)
     .reorderable(true)
@@ -411,7 +295,7 @@ fn tab_view_serialization_and_hierarchy_are_constrained() {
 }
 
 #[test]
-fn text_field_serialization_and_selection_validation_are_complete() {
+fn text_field_selection_validation_is_complete() {
   let field = UiTextField::new()
     .label("Call sign")
     .value("Rook")
@@ -429,23 +313,6 @@ fn text_field_serialization_and_selection_validation_are_complete() {
       UiEventKind::ValueCommitted,
       UiEventKind::SelectionChanged,
     ]);
-  assert_eq!(
-    serde_json::to_value(UiElement::from(field.clone())).unwrap(),
-    serde_json::json!({"TextField": {
-        "label": "Call sign",
-        "value": "Rook",
-        "multiline": false,
-        "password": false,
-        "read_only": false,
-        "placeholder": "Enter a name",
-        "hide_placeholder_on_focus": true,
-        "cursor_index": 4,
-        "select_index": 1,
-        "select_all_on_focus": false,
-        "select_all_on_mouse_up": false,
-        "events": ["Input", "ValueCommitted", "SelectionChanged"]
-    }})
-  );
   assert!(validate_element_update(&field.into()).is_ok());
   assert_eq!(
     validate_element_update(&UiTextField::new().value("abc").cursor_index(4).into()),

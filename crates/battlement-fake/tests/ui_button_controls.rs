@@ -1,13 +1,17 @@
+mod ui_support;
+
 use std::{cell::RefCell, num::NonZeroU32, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, GameObject, ObjectId, PreparedAsset, Response, Scene,
-  SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventAction, UiEventBody,
-  UiEventKind, UiEventPhase, UiEventResponse, UiEventSubscription, UiNode, UiRepeatButton,
-  UiVisualElement,
+  CameraState, GameObject, ObjectId, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot,
+  UiDocument, UiElementKind, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventResponse,
+  UiEventSubscription, UiNode, UiRepeatButton, UiVisualElement,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 
 struct RecordingEngine {
   session_id: SessionId,
@@ -16,27 +20,29 @@ struct RecordingEngine {
 }
 
 impl Engine for RecordingEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    Ok(Response::snapshot(
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    ui_support::encoded(Response::snapshot(
       self.snapshot.take().expect("engine connected twice"),
     ))
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Ok(Response::empty(self.session_id))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    ui_support::encoded(Response::empty(self.session_id)).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+  fn submit_ui_event(
+    &mut self,
+    action_view: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let action = ui_support::action(action_view);
     let response = UiEventResponse::from_event(&action.event, Response::empty(self.session_id));
     self.actions.borrow_mut().push(action.event);
-    Ok(response)
+    ui_support::from_owned(action_view, response)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }

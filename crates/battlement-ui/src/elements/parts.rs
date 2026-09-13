@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{Prop, Style, UiElement};
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum Part {
   ButtonIcon,
   GroupBoxTitle,
@@ -113,10 +111,9 @@ impl Part {
   }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PartStyle {
   pub part: Part,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub index: Option<u32>,
   pub style: Style,
 }

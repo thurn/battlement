@@ -3,7 +3,7 @@ use battlement_flatbuffers::{
   FinishedMessage, MAXIMUM_APPARENT_BYTES, MAXIMUM_MESSAGE_BYTES, MAXIMUM_TABLE_DEPTH,
   MAXIMUM_TABLE_VISITS, write_composed_core_command, write_composed_snapshot,
 };
-use battlement_native::{CustomFlatBufferResponseSchema, EngineError};
+use battlement_native::EngineError;
 use flatbuffers::{FlatBufferBuilder, VerifierOptions};
 
 use crate::{
@@ -87,77 +87,78 @@ fn require_fixture_error(value: wire::FixtureError) -> Result<(), EngineError> {
   Ok(())
 }
 
-impl CustomFlatBufferResponseSchema for FlashPayload {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] =
-    b"001087f1f9fb991cb34082fbd2d9a6d67e851be65fd4dbe6c8dc95d294f97373\0";
+pub(crate) const WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
+  b"001087f1f9fb991cb34082fbd2d9a6d67e851be65fd4dbe6c8dc95d294f97373\0";
 
-  fn write_response(response: &Response<AnyCommand<Self>>) -> Result<FinishedMessage, EngineError> {
-    validate_owned_response(response)?;
-    let mut builder = FlatBufferBuilder::with_capacity(4 * 1024);
-    let mut messages = Vec::with_capacity(response.messages.len());
-    for message in &response.messages {
-      let (message_type, message) = match message {
-        ResponseMessage::Snapshot(snapshot) => (
-          wire::ResponseMessage::Battlement_FlatBuffers_Generated_Snapshot,
-          write_composed_snapshot(&mut builder, snapshot).map_err(protocol_error)?,
-        ),
-        ResponseMessage::Batch(batch) => {
-          let mut groups = Vec::with_capacity(batch.groups.len());
-          for group in &batch.groups {
-            let mut commands = Vec::with_capacity(group.commands.len());
-            for command in &group.commands {
-              let (command_type, command) = match command {
-                AnyCommand::Core(command) => (
-                  wire::FixtureCommand::Battlement_FlatBuffers_Generated_CoreCommand,
-                  write_composed_core_command(&mut builder, command).map_err(protocol_error)?,
-                ),
-                AnyCommand::Custom(command) => {
-                  let command_type = builder.create_string(&command.command_type);
-                  let object_id = uuid(command.payload.object_id().as_uuid().as_bytes());
-                  let payload = wire::FlashPayload::create(
-                    &mut builder,
-                    &wire::FlashPayloadArgs {
-                      object_id: Some(&object_id),
-                      scale: command.payload.scale(),
-                    },
-                  );
-                  let command_id = uuid(command.command_id.as_uuid().as_bytes());
-                  let command = wire::FlashCommand::create(
-                    &mut builder,
-                    &wire::FlashCommandArgs {
-                      command_id: Some(&command_id),
-                      blocking: command.blocking,
-                      command_type: Some(command_type),
-                      payload: Some(payload),
-                    },
-                  );
-                  (wire::FixtureCommand::FlashCommand, command.as_union_value())
-                }
-              };
-              commands.push(wire::CommandEntry::create(
-                &mut builder,
-                &wire::CommandEntryArgs {
-                  command_type,
-                  command: Some(command),
-                },
-              ));
-            }
-            let commands = builder.create_vector(&commands);
-            groups.push(wire::ParallelCommandGroup::create(
+pub(crate) fn write_response(
+  response: &Response<AnyCommand<FlashPayload>>,
+) -> Result<FinishedMessage, EngineError> {
+  validate_owned_response(response)?;
+  let mut builder = FlatBufferBuilder::with_capacity(4 * 1024);
+  let mut messages = Vec::with_capacity(response.messages.len());
+  for message in &response.messages {
+    let (message_type, message) = match message {
+      ResponseMessage::Snapshot(snapshot) => (
+        wire::ResponseMessage::Battlement_FlatBuffers_Generated_Snapshot,
+        write_composed_snapshot(&mut builder, snapshot).map_err(protocol_error)?,
+      ),
+      ResponseMessage::Batch(batch) => {
+        let mut groups = Vec::with_capacity(batch.groups.len());
+        for group in &batch.groups {
+          let mut commands = Vec::with_capacity(group.commands.len());
+          for command in &group.commands {
+            let (command_type, command) = match command {
+              AnyCommand::Core(command) => (
+                wire::FixtureCommand::Battlement_FlatBuffers_Generated_CoreCommand,
+                write_composed_core_command(&mut builder, command).map_err(protocol_error)?,
+              ),
+              AnyCommand::Custom(command) => {
+                let command_type = builder.create_string(&command.command_type);
+                let object_id = uuid(command.payload.object_id().as_uuid().as_bytes());
+                let payload = wire::FlashPayload::create(
+                  &mut builder,
+                  &wire::FlashPayloadArgs {
+                    object_id: Some(&object_id),
+                    scale: command.payload.scale(),
+                  },
+                );
+                let command_id = uuid(command.command_id.as_uuid().as_bytes());
+                let command = wire::FlashCommand::create(
+                  &mut builder,
+                  &wire::FlashCommandArgs {
+                    command_id: Some(&command_id),
+                    blocking: command.blocking,
+                    command_type: Some(command_type),
+                    payload: Some(payload),
+                  },
+                );
+                (wire::FixtureCommand::FlashCommand, command.as_union_value())
+              }
+            };
+            commands.push(wire::CommandEntry::create(
               &mut builder,
-              &wire::ParallelCommandGroupArgs {
-                commands: Some(commands),
+              &wire::CommandEntryArgs {
+                command_type,
+                command: Some(command),
               },
             ));
           }
-          let groups = builder.create_vector(&groups);
-          let batch_id = uuid(batch.batch_id.as_uuid().as_bytes());
-          let session_id = uuid(batch.session_id.as_uuid().as_bytes());
-          let caused_by_action_id = batch
-            .caused_by_action_id
-            .as_ref()
-            .map(|value| uuid(value.as_uuid().as_bytes()));
-          let batch = wire::Batch::create(
+          let commands = builder.create_vector(&commands);
+          groups.push(wire::ParallelCommandGroup::create(
+            &mut builder,
+            &wire::ParallelCommandGroupArgs {
+              commands: Some(commands),
+            },
+          ));
+        }
+        let groups = builder.create_vector(&groups);
+        let batch_id = uuid(batch.batch_id.as_uuid().as_bytes());
+        let session_id = uuid(batch.session_id.as_uuid().as_bytes());
+        let caused_by_action_id = batch
+          .caused_by_action_id
+          .as_ref()
+          .map(|value| uuid(value.as_uuid().as_bytes()));
+        let batch = wire::Batch::create(
             &mut builder,
             &wire::BatchArgs {
               batch_id: Some(&batch_id),
@@ -171,32 +172,31 @@ impl CustomFlatBufferResponseSchema for FlashPayload {
               groups: Some(groups),
             },
           );
-          (wire::ResponseMessage::Batch, batch.as_union_value())
-        }
-      };
-      messages.push(wire::ResponseMessageEntry::create(
-        &mut builder,
-        &wire::ResponseMessageEntryArgs {
-          message_type,
-          message: Some(message),
-        },
-      ));
-    }
-    let messages = builder.create_vector(&messages);
-    let session_id = uuid(response.session_id.as_uuid().as_bytes());
-    let response = wire::Response::create(
+        (wire::ResponseMessage::Batch, batch.as_union_value())
+      }
+    };
+    messages.push(wire::ResponseMessageEntry::create(
       &mut builder,
-      &wire::ResponseArgs {
-        session_id: Some(&session_id),
-        messages: Some(messages),
+      &wire::ResponseMessageEntryArgs {
+        message_type,
+        message: Some(message),
       },
-    );
-    wire::finish_size_prefixed_response_buffer(&mut builder, response);
-    let (storage, start) = builder.collapse();
-    let message = FinishedMessage::from_storage(storage, start);
-    verify_fixture_response(message.as_bytes())?;
-    Ok(message)
+    ));
   }
+  let messages = builder.create_vector(&messages);
+  let session_id = uuid(response.session_id.as_uuid().as_bytes());
+  let response = wire::Response::create(
+    &mut builder,
+    &wire::ResponseArgs {
+      session_id: Some(&session_id),
+      messages: Some(messages),
+    },
+  );
+  wire::finish_size_prefixed_response_buffer(&mut builder, response);
+  let (storage, start) = builder.collapse();
+  let message = FinishedMessage::from_storage(storage, start);
+  verify_fixture_response(message.as_bytes())?;
+  Ok(message)
 }
 
 fn validate_owned_response(

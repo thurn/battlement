@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -40,21 +38,16 @@ use crate::{
 /// [`UiRadioButtonGroup`]: crate::UiRadioButtonGroup
 /// [`UiGroupBox`]: crate::UiGroupBox
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiRadioButton {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Caption associated with the complete field.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Text displayed beside the native radio mark.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Latest Boolean value authored by Rust.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<bool>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

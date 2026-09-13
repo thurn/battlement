@@ -1,12 +1,13 @@
 use trox::ls;
 mod app_support;
 
+use app_support::EngineTestExt;
+
 use battlement::{
   ActionId, BackgroundSource, BatchStart, CommandBody, IconSource, PreparedAsset, Response,
   ResponseMessage, TextureAddress, UiEventAction, UiFontAddress,
 };
 use battlement_fake::client::FakeClient;
-use battlement_native::Engine;
 use battlement_reactant::{app::App, prelude::*};
 
 struct Browser;
@@ -120,7 +121,7 @@ fn references_prepare_initial_and_later_assets_without_author_lists() {
 #[test]
 fn consecutive_responses_wait_for_preparation_and_keep_prior_dependencies() {
   let mut app = App::new("app/content").ui(Browser);
-  let initial = app.connect_owned(&app_support::connect()).unwrap();
+  let initial = app.connect_test(&app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
   };
@@ -129,14 +130,14 @@ fn consecutive_responses_wait_for_preparation_and_keep_prior_dependencies() {
   let second = ActionId::new_v4();
   // Submit both actions before the client acknowledges either preparation.
   let first_response = app
-    .submit_ui_event(UiEventAction::new(
+    .submit_ui_event_test(UiEventAction::new(
       first,
       initial.session_id,
       app_support::click(next),
     ))
     .unwrap();
   let second_response = app
-    .submit_ui_event(UiEventAction::new(
+    .submit_ui_event_test(UiEventAction::new(
       second,
       initial.session_id,
       app_support::click(next),
@@ -189,5 +190,5 @@ fn automatic_preparation_cannot_claim_unregistered_generated_addresses() {
       "battlement-reactant/generated/unregistered.png",
     )),
   ));
-  let _ = app.connect_owned(&app_support::connect());
+  let _ = app.connect_test(&app_support::connect());
 }

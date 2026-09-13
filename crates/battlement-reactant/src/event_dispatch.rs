@@ -73,9 +73,8 @@ pub(crate) fn dispatch_view<G: 'static>(
   let owned_body = requires_owned_body.then(|| {
     Rc::new(
       action
-        .to_owned_event()
-        .expect("verified UI event view must produce a legacy callback body")
-        .body,
+        .copy_body()
+        .expect("verified UI event view must produce its callback payload"),
     )
   });
   let stopped = Rc::new(Cell::new(false));
@@ -319,7 +318,7 @@ fn invoke_view_handlers<G: 'static>(
         owned_body
           .as_ref()
           .map(Rc::clone)
-          .expect("legacy native handler requires an owned callback body"),
+          .expect("handler requires an owned callback payload"),
       );
     }
     invoked.local_only =

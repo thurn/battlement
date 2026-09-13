@@ -1,11 +1,9 @@
 //! Application lifecycle observations and external requests.
 
-use serde::{Deserialize, Serialize};
-
 use crate::{Command, CommandBody, Connect};
 
 /// The latest focus and pause observations supplied by Unity.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ApplicationState {
   /// Whether the player owns application focus.
   pub focused: bool,
@@ -14,7 +12,7 @@ pub struct ApplicationState {
 }
 
 /// Host-reported preference for reducing nonessential motion.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ReducedMotionPreference {
   /// The current Unity target cannot report a preference.
   #[default]
@@ -26,7 +24,7 @@ pub enum ReducedMotionPreference {
 }
 
 /// Requests the platform's external handler for an absolute URL.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExternalUrlRequest {
   /// Absolute URL supplied by the application.
   pub url: String,

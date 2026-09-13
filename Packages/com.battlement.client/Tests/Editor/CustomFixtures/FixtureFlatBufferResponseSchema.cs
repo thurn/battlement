@@ -19,19 +19,23 @@ namespace Battlement.CustomFixtures
         private readonly FlatBufferBuilder clientBuilder = new(1024);
         private readonly Func<object, byte> errorEncoder;
         private readonly Func<object, (ObjectId ObjectId, float Scale)> payloadEncoder;
-
-        public int OwnedCoreCommandMaterializations { get; private set; }
+        private System.Action? beforeFirstRead;
 
         public FixtureFlatBufferResponseSchema(
             Func<object, byte> errorEncoder,
-            Func<object, (ObjectId ObjectId, float Scale)> payloadEncoder
+            Func<object, (ObjectId ObjectId, float Scale)> payloadEncoder,
+            System.Action? beforeFirstRead = null
         ) =>
-            (this.errorEncoder, this.payloadEncoder) = (
+            (this.errorEncoder, this.payloadEncoder, this.beforeFirstRead) = (
                 errorEncoder ?? throw new ArgumentNullException(nameof(errorEncoder)),
-                payloadEncoder ?? throw new ArgumentNullException(nameof(payloadEncoder))
+                payloadEncoder ?? throw new ArgumentNullException(nameof(payloadEncoder)),
+                beforeFirstRead
             );
 
         public string WireContractDigest => ContractDigest;
+
+        public void InvokeBeforeNextRead(System.Action callback) =>
+            beforeFirstRead = callback ?? throw new ArgumentNullException(nameof(callback));
 
         public void ValidateResponse(ByteBuffer bytes)
         {
@@ -111,8 +115,13 @@ namespace Battlement.CustomFixtures
             bytes.Position = 0;
         }
 
-        public SessionId ReadSessionId(ByteBuffer bytes) =>
-            new(BattlementFlatBufferCore.ReadUuid(Root(bytes).SessionId, "session"));
+        public SessionId ReadSessionId(ByteBuffer bytes)
+        {
+            System.Action? callback = beforeFirstRead;
+            beforeFirstRead = null;
+            callback?.Invoke();
+            return new(BattlementFlatBufferCore.ReadUuid(Root(bytes).SessionId, "session"));
+        }
 
         public int ReadMessageCount(ByteBuffer bytes) => Root(bytes).MessagesLength;
 
@@ -322,8 +331,13 @@ namespace Battlement.CustomFixtures
         private static void ValidateFlash(Wire.FlashCommand value)
         {
             _ = BattlementFlatBufferCore.ReadUuid(value.CommandId, "command");
-            if (value.CommandType != "fixture.character.flash")
-                throw new InvalidDataException("Unknown fixture custom command type.");
+            string type = value.CommandType ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(type))
+                throw new InvalidDataException("The fixture command type is invalid.");
+            if (type.StartsWith("battlement.", StringComparison.Ordinal))
+                throw new InvalidDataException("The fixture command type is invalid.");
+            if (type.IndexOf('.') <= 0 || type.EndsWith(".", StringComparison.Ordinal))
+                throw new InvalidDataException("The fixture command type is invalid.");
             Wire.FlashPayload payload = value.Payload!.Value;
             _ = BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "flash object");
             if (!float.IsFinite(payload.Scale) || payload.Scale < 0)

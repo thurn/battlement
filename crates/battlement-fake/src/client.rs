@@ -6,12 +6,12 @@ use std::{
 };
 
 use battlement::{
-  Action, ActionBody, ActionId, Batch, BatchFailed, BatchId, ClientMessage, Command, CommandId,
-  Connect, ControllerButton, ControllerButtonPayload, ControllerDirection,
-  ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
-  GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
-  PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
-  ScreenSize, UiEvent, UiEventAction, UiEventDisposition, Validate, Vector3,
+  Action, ActionBody, ActionId, Batch, BatchFailed, BatchId, Command, CommandId, Connect,
+  ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
+  ControllerNavigationSource, CoreErrorCode, DragPayload, GeometryObservationBatch,
+  GeometryRegistry, ImageState, PhysicalKey, PointerButton, PointerButtonPayload, PointerEvent,
+  PointerPayload, Response, ResponseMessage, ScreenPosition, ScreenSize, UiEvent, UiEventAction,
+  UiEventDisposition, Validate, Vector3,
 };
 use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
@@ -67,7 +67,7 @@ struct ActiveDrag {
 /// An in-memory Battlement client driven by a typed rules engine.
 pub struct FakeClient<E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   pub(crate) engine: E,
   pub(crate) assets: Arc<FakeAssetCatalog>,
@@ -98,7 +98,7 @@ where
 
 impl<E> FakeClient<E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
@@ -185,14 +185,18 @@ where
     {
       connect.modules.push("battlement.diagnostics".to_owned());
     }
-    let response =
-      battlement_native::with_connect_view(&connect, |message| engine.connect(message))
-        .unwrap_or_else(|error| panic!("connect failed: {error}"));
+    let request = connect_message(&connect);
+    let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
+      .unwrap_or_else(|error| panic!("connect verification failed: {error}"));
+    let response = engine
+      .connect(message)
+      .unwrap_or_else(|error| panic!("connect failed: {error}"));
     assert!(
-      !response.session_id.as_uuid().is_nil(),
+      response.session_id() != [0; 16],
       "connect returned a zero session"
     );
-    let session_id = response.session_id;
+    let session_id = battlement::SessionId::from_uuid(Uuid::from_bytes(response.session_id()))
+      .expect("engine response verifies a nonzero session");
     let mut client = Self {
       engine,
       assets,
@@ -220,27 +224,31 @@ where
       ui_link_identities: HashMap::new(),
       journal: Vec::new(),
     };
-    client.apply_response(response, ResponseMode::Initial);
+    client.apply_response_bytes(response, ResponseMode::Initial);
     client
   }
 
-  /// Reconnects the owned engine using the original connection metadata.
+  /// Reconnects the engine using the original connection metadata.
   pub fn reconnect(&mut self) {
-    let response =
-      battlement_native::with_connect_view(&self.connect, |message| self.engine.connect(message))
-        .unwrap_or_else(|error| {
-          panic!("reconnect failed for session {}: {error}", self.session_id)
-        });
+    let request = connect_message(&self.connect);
+    let message = battlement_flatbuffers::ConnectView::read(request.as_bytes())
+      .unwrap_or_else(|error| panic!("reconnect verification failed: {error}"));
+    let response = self
+      .engine
+      .connect(message)
+      .unwrap_or_else(|error| panic!("reconnect failed for session {}: {error}", self.session_id));
     assert!(
-      !response.session_id.as_uuid().is_nil(),
+      response.session_id() != [0; 16],
       "reconnect returned a zero session"
     );
+    let next_session = battlement::SessionId::from_uuid(Uuid::from_bytes(response.session_id()))
+      .expect("engine response verifies a nonzero session");
     assert!(
-      response.session_id != self.session_id,
+      next_session != self.session_id,
       "reconnect reused session {}",
       self.session_id
     );
-    self.session_id = response.session_id;
+    self.session_id = next_session;
     self.world = FakeWorld::default();
     self.ui_world = UiWorld::default();
     self.geometry_registry = GeometryRegistry::default();
@@ -255,7 +263,7 @@ where
     self.min_max_slider_interactions.clear();
     self.text_field_interactions.clear();
     self.ui_link_identities.clear();
-    self.apply_response(response, ResponseMode::Initial);
+    self.apply_response_bytes(response, ResponseMode::Initial);
   }
 
   /// Returns the configured deterministic Diagnostics fake.
@@ -277,7 +285,7 @@ where
       .poll()
       .unwrap_or_else(|error| panic!("poll failed for session {}: {error}", self.session_id));
     if let Some(response) = response {
-      self.apply_response(response, ResponseMode::Existing);
+      self.apply_response_bytes(response, ResponseMode::Existing);
     }
   }
 
@@ -812,6 +820,16 @@ where
     }
   }
 
+  fn apply_response_bytes(
+    &mut self,
+    response: battlement_native::EngineResponse,
+    mode: ResponseMode,
+  ) {
+    let decoded = crate::response_reader::read(response.as_bytes())
+      .unwrap_or_else(|error| panic!("verified response decoding failed: {error}"));
+    self.apply_response(decoded, mode);
+  }
+
   fn apply_batch(&mut self, batch: Batch) {
     if self.admitted_batches.contains(&batch.batch_id) {
       return;
@@ -842,36 +860,38 @@ where
     let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
       .expect("deterministic action ID must be nonzero");
     self.next_action_number += 1;
+    let action = Action::new(action_id, self.session_id, body);
+    let message = battlement_flatbuffers::write_core_action(&action)
+      .unwrap_or_else(|error| panic!("action encoding failed: {error}"));
     let response = self
       .engine
-      .submit(ClientMessage::Action(Action::new(
-        action_id,
-        self.session_id,
-        body,
-      )))
-      .unwrap_or_else(|error| panic!("submit failed for session {}: {error}", self.session_id));
-    self.apply_response(response, ResponseMode::Existing);
+      .submit(message.as_bytes())
+      .unwrap_or_else(|error| panic!("submit failed for session {}: {error:?}", self.session_id));
+    self.apply_response_bytes(response, ResponseMode::Existing);
   }
 
   pub(crate) fn submit_ui_event(&mut self, event: UiEvent) -> UiEventDisposition {
     let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
       .expect("deterministic action ID must be nonzero");
     self.next_action_number += 1;
-    let result = self
-      .engine
-      .submit_ui_event(UiEventAction::new(action_id, self.session_id, event))
-      .unwrap_or_else(|error| {
-        panic!(
-          "UI event submission failed for session {}: {error}",
-          self.session_id
-        )
-      });
+    let action = UiEventAction::new(action_id, self.session_id, event);
+    let message = battlement_flatbuffers::write_ui_event_action(&action)
+      .unwrap_or_else(|error| panic!("UI event encoding failed: {error}"));
+    let view = battlement_flatbuffers::UiEventActionView::read(message.as_bytes())
+      .unwrap_or_else(|error| panic!("UI event verification failed: {error}"));
+    let result = self.engine.submit_ui_event(view).unwrap_or_else(|error| {
+      panic!(
+        "UI event submission failed for session {}: {error}",
+        self.session_id
+      )
+    });
     assert_eq!(
-      result.response.session_id, self.session_id,
+      result.response.session_id(),
+      *self.session_id.as_uuid().as_bytes(),
       "UI event response belongs to another session"
     );
     let disposition = result.disposition;
-    self.apply_response(result.response, ResponseMode::Existing);
+    self.apply_response_bytes(result.response, ResponseMode::Existing);
     disposition
   }
 
@@ -892,7 +912,7 @@ where
       .expect("fake core batch failure must satisfy the FlatBuffers contract");
     let response = self
       .engine
-      .submit_flatbuffer(message.as_bytes())
+      .submit(message.as_bytes())
       .unwrap_or_else(|error| {
         let error = match error {
           battlement_native::FlatBufferSubmitError::InvalidArgument(error)
@@ -900,7 +920,7 @@ where
         };
         panic!("batch-failure submit failed: {error}")
       });
-    self.apply_response(response, ResponseMode::Existing);
+    self.apply_response_bytes(response, ResponseMode::Existing);
   }
 
   fn send_pointer_event(
@@ -1073,6 +1093,11 @@ where
       "controller button is not enabled: {button:?}"
     );
   }
+}
+
+fn connect_message(connect: &Connect) -> battlement_flatbuffers::FinishedMessage {
+  battlement_flatbuffers::write_connect_request(connect)
+    .unwrap_or_else(|error| panic!("connect encoding failed: {error}"))
 }
 
 enum ResponseMode {

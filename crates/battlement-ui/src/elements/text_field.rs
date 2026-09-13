@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, ScrollerVisibility, Style, UiVisualElement,
   UiVisualElementProperties, UsageHint,
@@ -41,48 +39,34 @@ use crate::{
 ///
 /// assert_eq!(callsign.value, Prop::Set("Rook".into()));
 /// ```
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiTextField {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// UiLabel displayed beside or above the editable value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Latest text committed by Rust.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<String>,
   /// Whether the field accepts newline characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub multiline: Prop<bool>,
   /// Visibility policy for the multiline editor's vertical scroller.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub vertical_scroller_visibility: Prop<ScrollerVisibility>,
   /// Whether the native editor masks its visible characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub password: Prop<bool>,
   /// Whether user editing is disabled while selection remains available.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub read_only: Prop<bool>,
   /// Hint shown while the committed value and local draft are empty.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub placeholder: Prop<String>,
   /// Whether the placeholder disappears while the field has focus.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub hide_placeholder_on_focus: Prop<bool>,
   /// Rust-authored caret endpoint measured in UTF-16 code units.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub cursor_index: Prop<u32>,
   /// Rust-authored selection anchor measured in UTF-16 code units.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_index: Prop<u32>,
   /// Whether focus selects the complete value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_focus: Prop<bool>,
   /// Whether pointer release selects the complete value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_mouse_up: Prop<bool>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

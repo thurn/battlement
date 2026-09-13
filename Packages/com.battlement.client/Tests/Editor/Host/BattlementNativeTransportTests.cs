@@ -93,7 +93,7 @@ namespace Battlement.Tests
             );
             builder.Finish(encoded.Value);
 
-            UiElement decoded = BattlementFlatBufferMaterializer.UiElement(
+            UiElement decoded = BattlementFlatBufferRetainedCopy.UiElement(
                 Wire.UiElement.GetRootAsUiElement(new ByteBuffer(builder.SizedByteArray()))
             );
 
@@ -355,7 +355,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void SubmitAndPollExposeOwnedResponsesAndNoMessageDistinctly()
+        public void SubmitAndPollExposeLifetimeManagedResponsesAndNoMessageDistinctly()
         {
             using (BattlementNativeTransport transport = Transport("normal"))
             {
@@ -819,9 +819,6 @@ namespace Battlement.Tests
             using IBattlementBatchView batch = returned.ReadBatch(0);
 
             BattlementCommandExecution command = batch.ReadCommand(0, 0);
-
-            Assert.That(command.CoreBody, Is.Null);
-            Assert.That(schema.OwnedCoreCommandMaterializations, Is.Zero);
             Assert.That(command.DirectLabelUpdate.HasValue, Is.True);
             Assert.That(
                 command.DirectLabelUpdate!.Value.ReadText(),
@@ -869,8 +866,6 @@ namespace Battlement.Tests
                 .Range(0, 14)
                 .Select(index => batch.ReadCommand(0, index).DirectUiScalar!.Value)
                 .ToArray();
-
-            Assert.That(schema.OwnedCoreCommandMaterializations, Is.Zero);
             Assert.That(updates[0].ReadText(), Is.EqualTo("borrowed text"));
             Assert.That(updates[1].Boolean, Is.True);
             Assert.That(updates[2].Unsigned, Is.EqualTo(3));
@@ -928,9 +923,6 @@ namespace Battlement.Tests
             using IBattlementBatchView batch = returned.ReadBatch(0);
 
             BattlementCommandExecution command = batch.ReadCommand(0, 0);
-
-            Assert.That(command.CoreBody, Is.Null);
-            Assert.That(schema.OwnedCoreCommandMaterializations, Is.Zero);
             Assert.That(command.DirectImageObjectCreate.HasValue, Is.True);
             BattlementDirectImageObjectCreate image = command.DirectImageObjectCreate!.Value;
             Assert.That(image.Texture, Is.EqualTo("fixture-texture"));
@@ -1010,38 +1002,27 @@ namespace Battlement.Tests
             BattlementCommandExecution scenePrimary = batch.ReadCommand(0, 32);
             BattlementCommandExecution particleStop = batch.ReadCommand(0, 33);
             BattlementCommandExecution cancel = batch.ReadCommand(0, 34);
-
-            Assert.That(schema.OwnedCoreCommandMaterializations, Is.Zero);
-            Assert.That(localRotation.CoreBody, Is.Null);
             Assert.That(localRotation.DirectRotation!.Value.World, Is.False);
             Assert.That(localRotation.DirectRotation.Value.Z, Is.EqualTo(0.5));
             Assert.That(localRotation.DirectConflictPolicy, Is.EqualTo(ConflictPolicy.Cancel));
-            Assert.That(worldRotation.CoreBody, Is.Null);
             Assert.That(worldRotation.DirectRotation!.Value.World, Is.True);
             Assert.That(worldRotation.DirectRotation.Value.Y, Is.EqualTo(0.25));
-            Assert.That(scale.CoreBody, Is.Null);
             Assert.That(scale.DirectScale!.Value.Z, Is.EqualTo(4));
-            Assert.That(active.CoreBody, Is.Null);
             Assert.That(active.DirectObjectActive!.Value.Active, Is.False);
-            Assert.That(positionTween.CoreBody, Is.Null);
             Assert.That(positionTween.DirectTweenLocalPosition!.Value.World, Is.True);
             Assert.That(positionTween.DirectTweenLocalPosition.Value.Z, Is.EqualTo(7));
             Assert.That(
                 positionTween.DirectTweenLocalPosition.Value.Tween.DurationMilliseconds,
                 Is.EqualTo(250)
             );
-            Assert.That(localRotationTween.CoreBody, Is.Null);
             Assert.That(localRotationTween.DirectTweenRotation!.Value.World, Is.False);
             Assert.That(localRotationTween.DirectTweenRotation.Value.W, Is.EqualTo(0.75));
-            Assert.That(worldRotationTween.CoreBody, Is.Null);
             Assert.That(worldRotationTween.DirectTweenRotation!.Value.World, Is.True);
             Assert.That(
                 worldRotationTween.DirectTweenRotation.Value.Tween.DurationMilliseconds,
                 Is.EqualTo(350)
             );
-            Assert.That(scaleTween.CoreBody, Is.Null);
             Assert.That(scaleTween.DirectTweenScale!.Value.Y, Is.EqualTo(7));
-            Assert.That(primitive.CoreBody, Is.Null);
             Assert.That(
                 primitive.DirectPrimitiveObjectCreate!.Value.Kind,
                 Is.EqualTo(Wire.GameObjectKind.Plane)
@@ -1050,7 +1031,6 @@ namespace Battlement.Tests
                 primitive.DirectPrimitiveObjectCreate.Value.Materials[0].Address,
                 Is.EqualTo("fixture-material")
             );
-            Assert.That(prefab.CoreBody, Is.Null);
             Assert.That(
                 prefab.DirectPrefabObjectCreate!.Value.Address,
                 Is.EqualTo("fixture-prefab")
@@ -1060,39 +1040,26 @@ namespace Battlement.Tests
                 prefab.DirectPrefabObjectCreate.Value.Animator!.Value.State,
                 Is.EqualTo("Idle")
             );
-            Assert.That(empty.CoreBody, Is.Null);
             Assert.That(empty.DirectEmptyObjectCreate.HasValue, Is.True);
-            Assert.That(text.CoreBody, Is.Null);
             Assert.That(text.DirectTextObjectCreate!.Value.Text, Is.EqualTo("fixture text"));
             Assert.That(text.DirectTextObjectCreate.Value.WrapWidth, Is.EqualTo(9));
             Assert.That(text.DirectTextObjectCreate.Value.Horizontal, Is.EqualTo(1));
             Assert.That(text.DirectTextObjectCreate.Value.Vertical, Is.EqualTo(1));
-            Assert.That(camera.CoreBody, Is.Null);
             Assert.That(camera.DirectCameraObjectCreate!.Value.FieldOfView, Is.EqualTo(70));
-            Assert.That(light.CoreBody, Is.Null);
             Assert.That(light.DirectLightObjectCreate!.Value.Range, Is.EqualTo(12));
-            Assert.That(reparent.CoreBody, Is.Null);
             Assert.That(reparent.DirectObjectReparent!.Value.WorldPositionStays, Is.True);
-            Assert.That(particle.CoreBody, Is.Null);
             Assert.That(particle.DirectParticleSpawn!.Value.Address, Is.EqualTo("fixture-effect"));
             Assert.That(particle.DirectParticleSpawn.Value.Z, Is.EqualTo(11));
             Assert.That(particle.DirectParticleSpawn.Value.LifetimeMilliseconds, Is.EqualTo(750));
-            Assert.That(audio.CoreBody, Is.Null);
             Assert.That(audio.DirectAudioPlay!.Value.Address, Is.EqualTo("fixture-audio"));
             Assert.That(audio.DirectAudioPlay.Value.Volume, Is.EqualTo(0.75));
             Assert.That(audio.DirectAudioPlay.Value.Loop, Is.True);
-            Assert.That(particlePlay.CoreBody, Is.Null);
             Assert.That(particlePlay.DirectParticlePlay!.Value.Restart, Is.True);
-            Assert.That(audioStop.CoreBody, Is.Null);
             Assert.That(audioStop.DirectAudioStop!.Value.FadeOutMilliseconds, Is.EqualTo(200));
-            Assert.That(audioVolume.CoreBody, Is.Null);
             Assert.That(audioVolume.DirectAudioVolume!.Value.Volume, Is.EqualTo(0.5));
             Assert.That(audioVolume.DirectConflictPolicy, Is.EqualTo(ConflictPolicy.Cancel));
-            Assert.That(wait.CoreBody, Is.Null);
             Assert.That(wait.DirectWait!.Value.DurationMilliseconds, Is.EqualTo(300));
-            Assert.That(vibration.CoreBody, Is.Null);
             Assert.That(vibration.DirectVibration!.Value.HighFrequency, Is.EqualTo(0.75));
-            Assert.That(debugUi.CoreBody, Is.Null);
             Assert.That(debugUi.DirectDebugUi!.Value.Surface, Is.EqualTo(1));
             Assert.That(
                 audioPause.DirectAudioControl!.Value.Kind,
@@ -1108,7 +1075,6 @@ namespace Battlement.Tests
                 audioReplace.DirectAudioControl!.Value.Address,
                 Is.EqualTo("replacement-audio")
             );
-            Assert.That(audioTween.CoreBody, Is.Null);
             Assert.That(audioTween.DirectTweenAudioVolume!.Value.Volume, Is.EqualTo(0.25));
             Assert.That(
                 audioTween.DirectTweenAudioVolume.Value.Tween.DurationMilliseconds,

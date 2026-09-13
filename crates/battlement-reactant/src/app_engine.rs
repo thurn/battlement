@@ -1,24 +1,29 @@
 use std::{mem, rc::Rc, thread};
 
 use battlement::application::{ApplicationState, ReducedMotionPreference};
-use battlement::{
-  ActionBody, ActionId, ClientMessage, Command, CoreErrorCode, Response, ScreenSize, SessionId,
-  Snapshot, UiEventAction, UiEventResponse,
-};
+use battlement::{ActionId, ScreenSize, SessionId, Snapshot, UiEventDisposition};
+use battlement_flatbuffers::{MessageWriter, NativeBatchStart};
 use battlement_native::{
-  ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError,
-  FlatBufferResponseCommand, FlatBufferSubmitError, NativeEngine, NativeResponse,
-  NativeUiEventResponse, UiEventActionView,
+  ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
+  FlatBufferSubmitError, UiEventActionView, UiEventResult,
 };
 
-use crate::{action_context, app::App, app_delivery};
+use crate::{
+  action_context,
+  app::App,
+  app_delivery::{self, DeliveryMessage, DeliveryResponse},
+};
 
-impl<G: 'static> Engine for App<G> {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+struct DeliveryUiEvent {
+  disposition: UiEventDisposition,
+  response: DeliveryResponse,
+}
 
-  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response, EngineError> {
+impl<G: 'static> App<G> {
+  fn connect_response(
+    &mut self,
+    message: ConnectView<'_>,
+  ) -> Result<DeliveryResponse, EngineError> {
     self.healthy = false;
     if self.session.is_none() {
       for root in &self.roots {
@@ -59,51 +64,15 @@ impl<G: 'static> Engine for App<G> {
     Ok(self.delivery.prepare(response))
   }
 
-  fn submit(&mut self, message: ClientMessage<()>) -> Result<Response, EngineError> {
-    let session = self
-      .session
-      .expect("connect before submitting application messages");
-    let Some(action) = message.into_action() else {
-      return Ok(Response::empty(session));
-    };
-    self.check_session(action.session_id)?;
-    self.healthy = false;
-    let _action = action_context::enter(Some(action.action_id));
-    let commit = match action.body {
-      ActionBody::ReducedMotionPreferenceChanged(preference) => {
-        self.observations.borrow_mut().reduced_motion = preference;
-        self.runtime.refresh(&mut self.model)
-      }
-      ActionBody::ApplicationStateChanged(state) => {
-        self.observations.borrow_mut().application = state;
-        self.runtime.refresh(&mut self.model)
-      }
-      ActionBody::GeometryObservations(batch) => {
-        self.runtime.observe_geometry(&mut self.model, batch)
-      }
-      ActionBody::MotionEvents(batch) => self.runtime.motion_events(&mut self.model, batch),
-      _ => {
-        self.healthy = true;
-        return Ok(Response::empty(session));
-      }
-    }
-    .expect("application observation failed to render");
-    let mut response = Response::empty(session);
-    app_delivery::append(&mut response, Some(action.action_id), commit);
-    self.settle(&mut response, Some(action.action_id), false);
-    self.healthy = true;
-    Ok(self.delivery.prepare(response))
-  }
-
-  fn submit_core_view(
+  fn submit_view_response(
     &mut self,
     message: CoreClientMessageView<'_>,
-  ) -> Result<Response<Self::Command>, EngineError> {
+  ) -> Result<DeliveryResponse, EngineError> {
     let session = self
       .session
       .expect("connect before submitting application messages");
     let CoreClientMessageView::Action(action) = message else {
-      return Ok(Response::empty(session));
+      return Ok(DeliveryResponse::empty(session));
     };
     let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
       .expect("core view validates nonzero session UUIDs");
@@ -137,40 +106,21 @@ impl<G: 'static> Engine for App<G> {
       }
       _ => {
         self.healthy = true;
-        return Ok(Response::empty(session));
+        return Ok(DeliveryResponse::empty(session));
       }
     }
     .expect("application observation failed to render");
-    let mut response = Response::empty(session);
+    let mut response = DeliveryResponse::empty(session);
     app_delivery::append(&mut response, Some(action_id), commit);
     self.settle(&mut response, Some(action_id), false);
     self.healthy = true;
     Ok(self.delivery.prepare(response))
   }
 
-  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
-    self.check_session(action.session_id)?;
-    self.healthy = false;
-    let _action = action_context::enter(Some(action.action_id));
-    let event = self
-      .runtime
-      .dispatch(&mut self.model, action.event)
-      .expect("application event failed to render");
-    let disposition = event.disposition();
-    let mut response = Response::empty(action.session_id);
-    app_delivery::append(&mut response, Some(action.action_id), event.into_commit());
-    self.settle(&mut response, Some(action.action_id), false);
-    self.healthy = true;
-    Ok(UiEventResponse::new(
-      disposition,
-      self.delivery.prepare(response),
-    ))
-  }
-
-  fn submit_ui_event_view(
+  fn submit_ui_event_response(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<UiEventResponse, EngineError> {
+  ) -> Result<DeliveryUiEvent, EngineError> {
     let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
       .expect("UI event view validates nonzero session UUIDs");
     self.check_session(session_id)?;
@@ -183,22 +133,22 @@ impl<G: 'static> Engine for App<G> {
       .dispatch_view(&mut self.model, action)
       .expect("application event failed to render");
     let disposition = event.disposition();
-    let mut response = Response::empty(session_id);
+    let mut response = DeliveryResponse::empty(session_id);
     app_delivery::append(&mut response, Some(action_id), event.into_commit());
     self.settle(&mut response, Some(action_id), false);
     self.healthy = true;
-    Ok(UiEventResponse::new(
+    Ok(DeliveryUiEvent {
       disposition,
-      self.delivery.prepare(response),
-    ))
+      response: self.delivery.prepare(response),
+    })
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll_response(&mut self) -> Result<Option<DeliveryResponse>, EngineError> {
     let Some(session) = self.session else {
       return Ok(None);
     };
     self.healthy = false;
-    let mut response = Response::empty(session);
+    let mut response = DeliveryResponse::empty(session);
     self.settle(&mut response, None, true);
     self.healthy = true;
     if response.messages.is_empty() {
@@ -208,46 +158,88 @@ impl<G: 'static> Engine for App<G> {
   }
 }
 
-impl<G: 'static> NativeEngine for App<G> {
+impl<G: 'static> Engine for App<G> {
   const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect_native(&mut self, message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
-    let response = <Self as Engine>::connect(self, message)?;
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    let response = self.connect_response(message)?;
     native_response(response)
   }
 
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
     let message = CoreClientMessageView::read(bytes).map_err(|error| {
       FlatBufferSubmitError::invalid_argument(format!("invalid client message: {error}"))
     })?;
     let response = self
-      .submit_core_view(message)
+      .submit_view_response(message)
       .map_err(FlatBufferSubmitError::engine)?;
     native_response(response).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event_native(
+  fn submit_ui_event(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
-    let result = self.submit_ui_event_view(action)?;
-    Ok(NativeUiEventResponse {
+  ) -> Result<UiEventResult, EngineError> {
+    let result = self.submit_ui_event_response(action)?;
+    Ok(UiEventResult {
       disposition: result.disposition,
       response: native_response(result.response)?,
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
-    <Self as Engine>::poll(self)?
-      .map(native_response)
-      .transpose()
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    self.poll_response()?.map(native_response).transpose()
   }
 }
 
-fn native_response(response: Response) -> Result<NativeResponse, EngineError> {
+fn native_response(response: DeliveryResponse) -> Result<EngineResponse, EngineError> {
   let session_id = *response.session_id.as_uuid().as_bytes();
-  let message = <Command as FlatBufferResponseCommand>::write_response(&response)?;
-  NativeResponse::from_core(session_id, message)
+  let mut writer = MessageWriter::default();
+  let mut messages = Vec::with_capacity(response.messages.len());
+  for message in &response.messages {
+    let offset = match message {
+      DeliveryMessage::Snapshot(snapshot) => writer.snapshot_message(snapshot),
+      DeliveryMessage::Batch(batch) => {
+        let mut groups = Vec::with_capacity(batch.groups.len());
+        for group in &batch.groups {
+          let commands = group
+            .commands
+            .iter()
+            .map(|command| writer.command(command))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| EngineError::new(error.to_string()))?;
+          groups.push(
+            writer
+              .parallel_group(&commands)
+              .map_err(|error| EngineError::new(error.to_string()))?,
+          );
+        }
+        writer.batch(
+          *batch.batch_id.as_uuid().as_bytes(),
+          *batch.session_id.as_uuid().as_bytes(),
+          batch
+            .caused_by_action_id
+            .map(|value| *value.as_uuid().as_bytes()),
+          match batch.start {
+            battlement::BatchStart::Now => NativeBatchStart::Now,
+            battlement::BatchStart::AfterEarlierBlockingWork => {
+              NativeBatchStart::AfterEarlierBlockingWork
+            }
+            battlement::BatchStart::AfterEarlierAssetPreparation => {
+              NativeBatchStart::AfterEarlierAssetPreparation
+            }
+          },
+          &groups,
+        )
+      }
+    }
+    .map_err(|error| EngineError::new(error.to_string()))?;
+    messages.push(offset);
+  }
+  let message = writer
+    .finish(session_id, &messages)
+    .map_err(|error| EngineError::new(error.to_string()))?;
+  EngineResponse::from_core(session_id, message)
 }
 
 impl<G: 'static> App<G> {
@@ -259,7 +251,7 @@ impl<G: 'static> App<G> {
     Ok(())
   }
 
-  fn snapshot(&mut self) -> Response {
+  fn snapshot(&mut self) -> DeliveryResponse {
     let mut objects = vec![self.camera.clone()];
     objects.extend(self.objects.clone());
     objects.extend(self.roots.iter().map(|root| root.object()));
@@ -270,14 +262,17 @@ impl<G: 'static> App<G> {
       objects,
       self.camera.object_id,
     );
-    self
+    let (snapshot, commit) = self
       .runtime
       .begin_session(&mut self.model)
       .expect("application failed to render")
-      .into_app_response(snapshot)
+      .into_app_parts(snapshot);
+    let mut response = DeliveryResponse::snapshot(snapshot);
+    app_delivery::append(&mut response, None, commit);
+    response
   }
 
-  fn settle(&mut self, response: &mut Response, action: Option<ActionId>, poll: bool) {
+  fn settle(&mut self, response: &mut DeliveryResponse, action: Option<ActionId>, poll: bool) {
     for pass in 0..2 {
       let requested =
         self.executor.has_ready() || !self.runtime.resources.operations.borrow().is_empty();
@@ -315,7 +310,7 @@ impl<G: 'static> App<G> {
       let imperative = app_delivery::take_imperative(response);
       *response = self.snapshot();
       for message in &mut response.messages {
-        if let battlement::ResponseMessage::Batch(batch) = message {
+        if let DeliveryMessage::Batch(batch) = message {
           batch.caused_by_action_id = snapshot_action;
         }
       }

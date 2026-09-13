@@ -1,11 +1,10 @@
 use battlement_types::{ObjectId, PhysicalKey, PointerButton, Rect};
-use serde::{Deserialize, Serialize};
 
 /// A two-dimensional panel-space position measured from the upper-left corner.
 ///
 /// `x` increases to the right and `y` increases downward. Values are expressed
 /// in panel pixels after Unity applies the panel's screen-to-panel transform.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PanelPoint {
   /// Horizontal panel coordinate, increasing to the right.
   pub x: f64,
@@ -14,7 +13,7 @@ pub struct PanelPoint {
 }
 
 /// A two-dimensional displacement in upper-left-origin panel pixels.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vector {
   /// Horizontal displacement, positive to the right.
   pub x: f32,
@@ -23,7 +22,7 @@ pub struct Vector {
 }
 
 /// An optional dropdown selection represented by a coherent index and value pair.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Choice {
   /// Zero-based choice index, or `None` when the selection is empty.
   pub index: Option<u32>,
@@ -32,7 +31,7 @@ pub struct Choice {
 }
 
 /// An ordered finite floating-point range.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct F32Range {
   /// Selected lower endpoint.
   pub min: f32,
@@ -77,7 +76,7 @@ impl Vector {
 }
 
 /// A value proposed or committed by a controlled UI component.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UiValue {
   /// A controlled Boolean value.
   Bool(bool),
@@ -106,7 +105,7 @@ impl PanelPoint {
 }
 
 /// A physical modifier key held while a native UI event occurred.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum KeyModifier {
   /// Alt on Windows and Linux, or Option on macOS.
   Alt,
@@ -128,10 +127,8 @@ pub enum KeyModifier {
 ///
 /// Values are ordered as [`KeyModifier::Alt`], [`KeyModifier::Control`],
 /// [`KeyModifier::Command`], then [`KeyModifier::Shift`]. Canonical ordering
-/// makes serialized event payloads deterministic regardless of native key-query
-/// order.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(transparent)]
+/// makes event payloads deterministic regardless of native key-query order.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct KeyModifiers(Vec<KeyModifier>);
 
 impl KeyModifiers {
@@ -165,7 +162,7 @@ impl KeyModifiers {
 ///
 /// Adding a kind through an element's `events` builder creates a subscription;
 /// unsubscribed events remain entirely inside Unity.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UiEventKind {
   /// A direct action from the active accessibility backend.
   #[doc(hidden)]
@@ -287,7 +284,7 @@ impl UiEventKind {
 }
 
 /// One phase at which an event subscription participates in logical routing.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum UiEventPhase {
   /// Deliver on strict ancestors from the document root toward the target.
   Trickle,
@@ -299,12 +296,11 @@ pub enum UiEventPhase {
 }
 
 /// One event kind and logical route phase requested by an element.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct UiEventSubscription {
   /// Native event family to observe.
   pub kind: UiEventKind,
   /// Logical route phase at which to deliver it.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub phase: UiEventPhase,
 }
 
@@ -327,7 +323,7 @@ impl UiEventSubscription {
 /// `target_id` identifies the logical element on which Unity reports the event,
 /// while [`Self::body`] retains the event-family-specific payload. Use
 /// [`Self::kind`] to match the subscription family without inspecting the body.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiEvent {
   /// Logical element on which the native event originated.
   pub target_id: ObjectId,
@@ -420,7 +416,7 @@ impl UiEvent {
 }
 
 /// Payloads for the native UI event families supported by Battlement.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UiEventBody {
   /// Direct action from the active accessibility backend.
   AccessibilityAction(UiAccessibilityActionEvent),
@@ -505,7 +501,7 @@ pub enum UiEventBody {
 }
 
 /// One normalized direct accessibility action.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UiAccessibilityAction {
   /// Invoke the target.
   Activate,
@@ -522,7 +518,7 @@ pub enum UiAccessibilityAction {
 }
 
 /// Backend generation and normalized action for one semantic callback.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UiAccessibilityActionEvent {
   /// Live backend generation.
   pub backend_generation: u64,
@@ -531,7 +527,7 @@ pub struct UiAccessibilityActionEvent {
 }
 
 /// Proposed active-tab change reported by a controlled tab view.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TabSelectionEvent {
   /// Index currently authored by Rust.
   pub previous_index: u32,
@@ -542,7 +538,7 @@ pub struct TabSelectionEvent {
 }
 
 /// Proposed close reported after restoring the native tab to its authored position.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TabCloseEvent {
   /// Identity of the tab whose close control was activated.
   pub tab_id: ObjectId,
@@ -551,7 +547,7 @@ pub struct TabCloseEvent {
 }
 
 /// Proposed tab-header reorder reported after restoring the authored order.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TabReorderEvent {
   /// Identity of the tab the user dragged.
   pub tab_id: ObjectId,
@@ -562,14 +558,14 @@ pub struct TabReorderEvent {
 }
 
 /// Live value proposed by a controlled component while interaction continues.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ValueChangingEvent {
   /// Native value currently proposed by the user.
   pub proposed: UiValue,
 }
 
 /// Completed proposal from a controlled component.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ValueCommitEvent {
   /// Latest value authored by Rust before the interaction.
   pub previous: UiValue,
@@ -578,14 +574,14 @@ pub struct ValueCommitEvent {
 }
 
 /// Native local draft reported by a text field.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TextInputEvent {
   /// Complete draft after the native edit.
   pub value: String,
 }
 
 /// One logical native text-selection mutation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SelectionEvent {
   /// Caret endpoint measured in UTF-16 code units, matching Unity's index model.
   pub cursor_index: u32,
@@ -594,7 +590,7 @@ pub struct SelectionEvent {
 }
 
 /// Old and new finite panel geometry for one logical target.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GeometryEvent {
   /// Geometry before the native layout change.
   pub previous: Rect,
@@ -603,28 +599,26 @@ pub struct GeometryEvent {
 }
 
 /// Empty payload for target-only panel lifecycle notifications.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct LifecycleEvent {}
 
 /// Semantic rich-text link interaction metadata.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LinkEvent {
   /// Author-provided rich-text link identifier.
   pub link_id: String,
   /// Visible linked text.
   pub link_text: String,
   /// Native pointer identity; zero is omitted on the wire.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Pointer position in panel pixels.
   pub position: PanelPoint,
   /// Changed button for down and up; absent for enter and leave.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub button: Option<PointerButton>,
 }
 
 /// Scroll position reported by a live or settled scroll event.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScrollEvent {
   /// Current horizontal and vertical content displacement in panel pixels.
   pub offset: Vector,
@@ -635,7 +629,7 @@ pub struct ScrollEvent {
 /// Unity reports elapsed time without the delay phase. Battlement converts it
 /// from seconds to milliseconds and rejects native property names outside the
 /// closed [`TransitionProperty`](crate::TransitionProperty) catalog.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransitionEvent {
   /// Nonempty supported properties whose transition lifecycle changed.
   pub properties: Vec<crate::TransitionProperty>,
@@ -663,7 +657,7 @@ impl TransitionEvent {
 }
 
 /// Native pointer device category.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PointerType {
   /// Mouse or mouse-compatible pointer.
   #[default]
@@ -677,164 +671,134 @@ pub enum PointerType {
 }
 
 /// Complete metadata for a pointer-button press or release.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PointerButtonEvent {
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Change since the preceding pointer event.
   pub delta: Vector,
   /// UiButton changed by this event.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub button: PointerButton,
   /// Native pressed-button bit mask.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub buttons: u32,
   /// Normalized contact pressure.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pressure: f32,
   /// Native consecutive-click count.
-  #[serde(default = "one", skip_serializing_if = "is_one")]
   pub click_count: u32,
   /// Physical modifiers active at dispatch.
-  #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
   pub modifiers: KeyModifiers,
   /// Native pointer device category.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_type: PointerType,
 }
 
 /// Complete metadata for pointer motion.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PointerMoveEvent {
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Change since the preceding pointer event.
   pub delta: Vector,
   /// UiButton associated with the motion when Unity supplies one.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub changed_button: Option<PointerButton>,
   /// Native pressed-button bit mask.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub buttons: u32,
   /// Normalized contact pressure.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pressure: f32,
   /// Native consecutive-click count, or zero when absent.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub click_count: u32,
   /// Physical modifiers active at dispatch.
-  #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
   pub modifiers: KeyModifiers,
   /// Native pointer device category.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_type: PointerType,
 }
 
 /// Complete metadata for a cancelled pointer interaction.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PointerCancelEvent {
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Change since the preceding pointer event.
   pub delta: Vector,
   /// Native pressed-button bit mask.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub buttons: u32,
   /// Normalized contact pressure.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pressure: f32,
   /// Physical modifiers active at dispatch.
-  #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
   pub modifiers: KeyModifiers,
   /// Native pointer device category.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_type: PointerType,
 }
 
 /// Target boundary metadata for pointer enter and leave.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerBoundaryEvent {
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Native pointer device category.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_type: PointerType,
 }
 
 /// Propagating pointer crossing metadata.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerCrossingEvent {
   /// Logical element the pointer crossed from or to, when it belongs to Battlement UI.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub related_target_id: Option<ObjectId>,
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Native pointer device category.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_type: PointerType,
 }
 
 /// Three-dimensional wheel or trackpad delta at a panel position.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WheelEvent {
   /// Position in panel pixels.
   pub position: PanelPoint,
   /// Native horizontal, vertical, and depth delta.
   pub delta: UiVector3,
   /// Physical modifiers active at dispatch.
-  #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
   pub modifiers: KeyModifiers,
 }
 
 /// Identity of a pointer whose capture ownership changed.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PointerCaptureEvent {
   /// Stable native pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
 }
 
 /// Focus-change metadata mapped to the nearest Rust-owned related target.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct FocusEvent {
   /// Logical element focus moved from or to, when it belongs to Battlement UI.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub related_target_id: Option<ObjectId>,
   /// Public native focus-change direction.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub direction: FocusDirection,
 }
 
 /// Exact physical-key metadata exposed by UI Toolkit.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct KeyEvent {
   /// W3C physical key when Unity's public key code has a stable mapping.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub physical_key: Option<PhysicalKey>,
   /// Text produced by the key event, or an empty string for non-text keys.
   pub text: String,
   /// Physical modifiers active at dispatch.
-  #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
   pub modifiers: KeyModifiers,
 }
 
 /// Public UI navigation direction.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum NavigationDirection {
   /// No directional intent.
   #[default]
@@ -854,21 +818,20 @@ pub enum NavigationDirection {
 }
 
 /// Direction and finite move vector from UI navigation.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct NavigationMoveEvent {
   /// Semantic navigation direction.
   pub direction: NavigationDirection,
   /// Raw native move vector.
-  #[serde(rename = "move")]
   pub move_vector: Vector,
 }
 
 /// Empty payload for navigation submit and cancel.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct NavigationEvent {}
 
 /// Public UI focus-change direction.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum FocusDirection {
   /// No direction was supplied.
   #[default]
@@ -884,7 +847,7 @@ pub enum FocusDirection {
 }
 
 /// A three-dimensional displacement.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct UiVector3 {
   /// Horizontal component.
   pub x: f32,
@@ -892,14 +855,6 @@ pub struct UiVector3 {
   pub y: f32,
   /// Depth component.
   pub z: f32,
-}
-
-const fn one() -> u32 {
-  1
-}
-
-fn is_one(value: &u32) -> bool {
-  *value == 1
 }
 
 /// The native mechanism that activated a clickable element.
@@ -910,22 +865,19 @@ fn is_one(value: &u32) -> bool {
 ///
 /// See Unity's [`ClickEvent` reference](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.ClickEvent.html)
 /// for native pointer-click behavior and propagation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ClickEvent {
   /// Pointer down followed by pointer up on the same logical target.
   Pointer {
     /// Unity pointer identity shared by the down and up events.
-    #[serde(default, skip_serializing_if = "crate::is_default")]
     pointer_id: i32,
     /// Pointer position in upper-left-origin panel coordinates.
     position: PanelPoint,
     /// Mouse-style button whose down-up sequence produced the activation.
-    #[serde(default, skip_serializing_if = "crate::is_default")]
     button: PointerButton,
     /// Number of consecutive short-interval activations with this pointer and button.
     click_count: u32,
     /// Physical modifiers held when Unity produced the click.
-    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
     modifiers: KeyModifiers,
   },
   /// Keyboard or gamepad submit converted into the focused UiButton's logical click.

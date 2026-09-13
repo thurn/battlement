@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, SliderDirection, Style, UiVisualElement,
   UiVisualElementProperties, UsageHint,
@@ -50,39 +48,28 @@ use crate::{
 ///
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiSlider {
   /// Properties shared by every visual element.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Lower endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<f32>,
   /// Upper endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub high_value: Prop<f32>,
   /// Controlled selected value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<f32>,
   /// Whether the track is filled through the selected value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub fill: Prop<bool>,
   /// Track-click step as a percentage of the range; zero jumps to the pointer.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub page_size: Prop<f32>,
   /// Whether the native numeric input is shown.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub show_input_field: Prop<bool>,
   /// Axis along which the slider moves.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub direction: Prop<SliderDirection>,
   /// Whether the visual range direction is reversed.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub inverted: Prop<bool>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
@@ -295,39 +282,28 @@ impl UiVisualElementProperties for UiSlider {
 ///
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiSliderInt {
   /// Properties shared by every visual element.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Lower endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<i32>,
   /// Upper endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub high_value: Prop<i32>,
   /// Controlled selected value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<i32>,
   /// Whether the track is filled through the selected value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub fill: Prop<bool>,
   /// Track-click step as a percentage of the range; zero jumps to the pointer.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub page_size: Prop<f32>,
   /// Whether the native numeric input is shown.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub show_input_field: Prop<bool>,
   /// Axis along which the slider moves.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub direction: Prop<SliderDirection>,
   /// Whether the visual range direction is reversed.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub inverted: Prop<bool>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

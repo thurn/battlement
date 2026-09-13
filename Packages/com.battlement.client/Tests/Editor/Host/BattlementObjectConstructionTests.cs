@@ -161,7 +161,10 @@ namespace Battlement.Tests
 
             Assert.That(Identities(), Is.Empty);
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("prepared set"));
+            Assert.That(
+                harness.Logger.Records.Last().Message,
+                Does.Contain("not prepared with the required type")
+            );
         }
 
         [Test]

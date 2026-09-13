@@ -338,10 +338,10 @@ namespace Battlement.Tests
                     coreMessageObserver: Observer
                 )
             );
-            Runner.RegisterCommand<FlashPayload, FixtureError>(
-                $"fixture.release.{scenario}",
-                new FixtureHandler()
-            );
+            Runner.RegisterFlatBufferCommand<
+                Battlement.FlatBuffers.FixtureGenerated.FlashPayload,
+                FixtureError
+            >($"fixture.release.{scenario}", new FixtureHandler());
         }
 
         public BattlementRunner Runner { get; }

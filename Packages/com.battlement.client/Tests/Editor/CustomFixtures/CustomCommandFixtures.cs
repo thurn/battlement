@@ -32,9 +32,7 @@ namespace Battlement.CustomFixtures
         EmitNestedActionAndReject,
     }
 
-    public sealed class FixtureHandler
-        : IBattlementCommandHandler<FlashPayload>,
-            IBattlementFlatBufferCommandHandler<Wire.FlashPayload>
+    public sealed class FixtureHandler : IBattlementFlatBufferCommandHandler<Wire.FlashPayload>
     {
         private readonly BattlementRunner? runner;
 
@@ -54,11 +52,6 @@ namespace Battlement.CustomFixtures
         public FixtureOperation? Operation { get; private set; }
 
         public Wire.FlashPayload? LastFlatBufferPayload { get; private set; }
-
-        public IBattlementCommandOperation? Execute(
-            CustomCommand<FlashPayload> command,
-            BattlementCommandContext context
-        ) => Execute(command.Payload.ObjectId, command.Payload.Scale, context);
 
         public IBattlementCommandOperation? Execute(
             BattlementFlatBufferCommand<Wire.FlashPayload> command,

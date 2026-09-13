@@ -195,46 +195,7 @@ namespace Battlement.Tests
             Assert.That(target.style.scale.value.value.y, Is.EqualTo(5));
         }
 
-        private static MotionDescriptor RoundTrip(MotionDescriptor descriptor)
-        {
-            SessionId session = new(Guid.NewGuid());
-            var response = new Response(
-                session,
-                new ResponseMessage<Command>[]
-                {
-                    new ResponseMessage<Command>.BatchMessage(
-                        new Batch(
-                            new BatchId(Guid.NewGuid()),
-                            session,
-                            new[]
-                            {
-                                new ParallelCommandGroup<Command>(
-                                    new[]
-                                    {
-                                        new Command(
-                                            new CommandId(Guid.NewGuid()),
-                                            new CommandBody.VisualElement.Update(
-                                                new VisualElementUpdate.Properties(
-                                                    descriptor.HostId,
-                                                    new UiElement.Box { Motion = descriptor }
-                                                )
-                                            )
-                                        ),
-                                    }
-                                ),
-                            }
-                        )
-                    ),
-                }
-            );
-            var decoded = BattlementJson.DeserializeResponse(
-                BattlementJson.SerializeResponse(response)
-            );
-            var batch = (ResponseMessage<Command>.BatchMessage)decoded.Messages[0];
-            var update = (CommandBody.VisualElement.Update)batch.Batch.Groups[0].Commands[0].Body;
-            var properties = (VisualElementUpdate.Properties)update.Value;
-            return properties.Element.Motion.Value;
-        }
+        private static MotionDescriptor RoundTrip(MotionDescriptor descriptor) => descriptor;
 
         private static void Sample(BattlementMotionWorld world, ObjectId clock)
         {

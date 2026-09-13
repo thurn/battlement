@@ -140,32 +140,6 @@ namespace Battlement
                 factor => apply(UnityEngine.Color.LerpUnclamped(start, end, factor))
             );
 
-        public static Tween? For(CommandBody body) =>
-            body switch
-            {
-                CommandBody.Transform.TweenLocalPosition value => value.Tween,
-                CommandBody.Transform.TweenWorldPosition value => value.Tween,
-                CommandBody.Transform.TweenLocalRotation value => value.Tween,
-                CommandBody.Transform.TweenWorldRotation value => value.Tween,
-                CommandBody.Transform.TweenLocalScale value => value.Tween,
-                CommandBody.Camera.TweenFieldOfView value => value.Tween,
-                CommandBody.Camera.TweenOrthographicSize value => value.Tween,
-                CommandBody.Light.TweenColor value => value.Tween,
-                CommandBody.Light.TweenIntensity value => value.Tween,
-                CommandBody.Image.TweenTint value => value.Tween,
-                CommandBody.Image.TweenOpacity value => value.Tween,
-                CommandBody.Text.TweenSize value => value.Tween,
-                CommandBody.Text.TweenColor value => value.Tween,
-                CommandBody.Audio.TweenVolume value => value.Tween,
-                _ => null,
-            };
-
-        public static bool IsForever(Tween? settings) => settings?.Repeat is TweenRepeat.Forever;
-
-        internal static void ValidateSettings(Tween settings) => Validate(settings);
-
-        public void ValidateOnly(Tween settings) => Validate(settings);
-
         public void ValidateOnly(BattlementDirectTweenSettings settings) => Validate(settings);
 
         private IBattlementCommandOperation? Start(

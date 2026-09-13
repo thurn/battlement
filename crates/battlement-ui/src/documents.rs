@@ -1,11 +1,6 @@
 use battlement_types::{Color, ObjectId, RenderTextureAddress, ScreenSize};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
-use crate::panel_scaling::{
-  PanelScaleMode, PanelScaleModeWire, PanelScaleWire, PanelScreenMatchModeWire, default_dpi,
-  default_one, default_reference_resolution, is_default_reference_resolution, is_dpi, is_one,
-  is_zero,
-};
+use crate::panel_scaling::PanelScaleMode;
 use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, UiVisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
@@ -37,17 +32,15 @@ use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, UiVisualElement
 /// assert_eq!(document.document_id, document_id);
 /// assert_eq!(document.children.len(), 1);
 /// ```
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiDocument {
   /// Unity GameObject that hosts the matching `UIDocument` component.
   pub document_id: ObjectId,
   /// Stable identity assigned to `UIDocument.rootVisualElement`.
   pub root_id: ObjectId,
   /// Name, enabled state, classes, style, and subscriptions for the native root.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Logical root children in native insertion and layout order.
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub children: Vec<UiNode>,
 }
 
@@ -245,36 +238,26 @@ impl UiDocument {
 /// which contains the logical visual hierarchy rendered inside that host.
 /// Changing this create-time state requires recreating the host GameObject;
 /// visual-element update commands do not mutate document host settings.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiDocumentState {
   /// Identity linking this host to its matching [`UiDocument`] root.
   pub(crate) root_id: ObjectId,
   /// Rendering and scaling configuration copied to the document's private
   /// runtime panel, preventing unrelated documents from sharing mutable state.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub panel_settings: PanelSettings,
   /// Selects layout-relative or independently positioned document placement.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub position: DocumentPosition,
   /// Selects fixed or content-derived dimensions for a world-space document.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub world_space_size_mode: WorldSpaceSizeMode,
   /// Width and height used when [`WorldSpaceSizeMode::Fixed`] controls a
   /// world-space document.
-  #[serde(
-    default = "default_world_size",
-    skip_serializing_if = "is_default_world_size"
-  )]
   pub world_space_size: ScreenSize,
   /// Geometry Unity uses as the frame for locating a world-space pivot.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pivot_reference_size: PivotReferenceSize,
   /// Anchor point placed at the host transform for a world-space document.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pivot: DocumentPivot,
   /// Draw-order priority among panels in the same rendering context; larger
   /// values render above smaller values.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub sorting_order: i32,
 }
 
@@ -507,105 +490,6 @@ impl Default for PanelSettings {
   }
 }
 
-impl Serialize for PanelSettings {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    self.wire().serialize(serializer)
-  }
-}
-
-impl<'de> Deserialize<'de> for PanelSettings {
-  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    let wire = PanelSettingsWire::deserialize(deserializer)?;
-    let scale = PanelScaleMode::from_wire(PanelScaleWire {
-      scale_mode: wire.scale_mode,
-      scale: wire.scale,
-      reference_dpi: wire.reference_dpi,
-      fallback_dpi: wire.fallback_dpi,
-      reference_resolution: wire.reference_resolution,
-      screen_match_mode: wire.screen_match_mode,
-      match_factor: wire.match_factor,
-    })
-    .map_err(de::Error::custom)?;
-    Ok(Self {
-      render_mode: wire.render_mode,
-      scale_mode: scale,
-      reference_sprite_pixels_per_unit: wire.reference_sprite_pixels_per_unit,
-      target_display: wire.target_display,
-      target_texture: wire.target_texture,
-      clear_depth_stencil: wire.clear_depth_stencil,
-      clear_color: wire.clear_color,
-      color_clear_value: wire.color_clear_value,
-      dynamic_atlas: wire.dynamic_atlas,
-    })
-  }
-}
-
-impl PanelSettings {
-  fn wire(&self) -> PanelSettingsWire {
-    let scale = self.scale_mode.wire();
-    PanelSettingsWire {
-      render_mode: self.render_mode,
-      scale_mode: scale.scale_mode,
-      reference_sprite_pixels_per_unit: self.reference_sprite_pixels_per_unit,
-      scale: scale.scale,
-      reference_dpi: scale.reference_dpi,
-      fallback_dpi: scale.fallback_dpi,
-      reference_resolution: scale.reference_resolution,
-      screen_match_mode: scale.screen_match_mode,
-      match_factor: scale.match_factor,
-      target_display: self.target_display,
-      target_texture: self.target_texture.clone(),
-      clear_depth_stencil: self.clear_depth_stencil,
-      clear_color: self.clear_color,
-      color_clear_value: self.color_clear_value,
-      dynamic_atlas: self.dynamic_atlas.clone(),
-    }
-  }
-}
-
-#[derive(Deserialize, Serialize)]
-struct PanelSettingsWire {
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  render_mode: PanelRenderMode,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  scale_mode: PanelScaleModeWire,
-  #[serde(default = "default_hundred", skip_serializing_if = "is_hundred")]
-  reference_sprite_pixels_per_unit: f32,
-  #[serde(default = "default_one", skip_serializing_if = "is_one")]
-  scale: f32,
-  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
-  reference_dpi: f32,
-  #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
-  fallback_dpi: f32,
-  #[serde(
-    default = "default_reference_resolution",
-    skip_serializing_if = "is_default_reference_resolution"
-  )]
-  reference_resolution: ScreenSize,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  screen_match_mode: PanelScreenMatchModeWire,
-  #[serde(default, skip_serializing_if = "is_zero")]
-  match_factor: f32,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  target_display: u32,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  target_texture: Option<RenderTextureAddress>,
-  #[serde(default = "default_true", skip_serializing_if = "is_true")]
-  clear_depth_stencil: bool,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  clear_color: bool,
-  #[serde(default = "transparent", skip_serializing_if = "is_transparent")]
-  color_clear_value: Color,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
-  dynamic_atlas: DynamicAtlasSettings,
-}
-
 /// Controls allocation and texture eligibility for a panel's dynamic atlas.
 ///
 /// UI Toolkit can batch eligible textures into an atlas to reduce state changes
@@ -614,7 +498,7 @@ struct PanelSettingsWire {
 /// All three sizes must be nonzero powers of two. The minimum cannot exceed the
 /// maximum, the maximum sub-texture size cannot exceed the maximum atlas size,
 /// and each [`DynamicAtlasFilter`] may appear at most once.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DynamicAtlasSettings {
   /// Minimum width and height, in pixels, allocated for a new dynamic atlas.
   pub min_atlas_size: u32,
@@ -644,7 +528,7 @@ impl Default for DynamicAtlasSettings {
 }
 
 /// Where Unity renders a panel and how it interprets document geometry.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PanelRenderMode {
   /// Composites UI over the selected display in screen space.
   #[default]
@@ -653,7 +537,7 @@ pub enum PanelRenderMode {
   WorldSpace,
 }
 /// A condition that prevents a texture from entering the dynamic atlas.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum DynamicAtlasFilter {
   /// Excludes textures whose CPU-readable flag is enabled.
   Readability,
@@ -667,7 +551,7 @@ pub enum DynamicAtlasFilter {
   FilterMode,
 }
 /// How a document root participates in UI Toolkit positioning.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum DocumentPosition {
   /// Participates in the ordinary layout flow relative to surrounding content.
   #[default]
@@ -676,7 +560,7 @@ pub enum DocumentPosition {
   Absolute,
 }
 /// How Unity determines the dimensions of a world-space document.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum WorldSpaceSizeMode {
   /// Uses [`UiDocumentState::world_space_size`] as the document dimensions.
   #[default]
@@ -685,7 +569,7 @@ pub enum WorldSpaceSizeMode {
   Dynamic,
 }
 /// Geometry used as the reference rectangle for a world-space pivot.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PivotReferenceSize {
   /// Uses the document's rendered bounding box.
   #[default]
@@ -694,7 +578,7 @@ pub enum PivotReferenceSize {
   Layout,
 }
 /// Point on a world-space document aligned with its host transform.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum DocumentPivot {
   /// Aligns the transform with the top-left corner.
   TopLeft,
@@ -718,19 +602,13 @@ pub enum DocumentPivot {
 }
 
 /// Process-wide input settings used by Battlement world-space documents.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PanelInputConfiguration {
   /// Physics layers eligible for UI Toolkit world-ray interaction.
-  #[serde(
-    default = "default_interaction_layers",
-    skip_serializing_if = "is_default_interaction_layers"
-  )]
   pub interaction_layers: InteractionLayerMask,
   /// Furthest inclusive distance at which a world-space panel can be picked.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub maximum_interaction_distance: InteractionDistance,
   /// Controls whether world-space panel input redirects ordinary panel input.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub input_redirection: PanelInputRedirection,
 }
 
@@ -764,8 +642,7 @@ impl PanelInputConfiguration {
 }
 
 /// Transparent Unity physics-layer mask for world-space UI interaction.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InteractionLayerMask(pub u32);
 
 impl InteractionLayerMask {
@@ -783,7 +660,7 @@ impl Default for InteractionLayerMask {
 }
 
 /// Maximum world-space UI picking distance.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum InteractionDistance {
   /// Uses Unity's positive-infinity distance without serializing a non-finite float.
   #[default]
@@ -793,7 +670,7 @@ pub enum InteractionDistance {
 }
 
 /// World-space input redirection policy.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PanelInputRedirection {
   /// Lets Unity select redirection based on current input state.
   #[default]
@@ -810,27 +687,9 @@ fn default_world_size() -> ScreenSize {
 fn default_interaction_layers() -> InteractionLayerMask {
   InteractionLayerMask(0xffff_fffb)
 }
-fn is_default_interaction_layers(value: &InteractionLayerMask) -> bool {
-  *value == default_interaction_layers()
-}
-fn is_default_world_size(value: &ScreenSize) -> bool {
-  *value == default_world_size()
-}
 fn default_hundred() -> f32 {
   100.0
 }
-fn is_hundred(value: &f32) -> bool {
-  *value == default_hundred()
-}
-fn default_true() -> bool {
-  true
-}
-fn is_true(value: &bool) -> bool {
-  *value
-}
 fn transparent() -> Color {
   Color::rgba(0.0, 0.0, 0.0, 0.0)
-}
-fn is_transparent(value: &Color) -> bool {
-  *value == transparent()
 }

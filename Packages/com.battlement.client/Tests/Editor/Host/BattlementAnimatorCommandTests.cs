@@ -229,6 +229,21 @@ namespace Battlement.Tests
 
             SubmitExpectingFailure(harness, Response(session, Batch(session, Group(command))));
 
+            if (
+                invalidCase == "invalid-start"
+                || invalidCase == "invalid-cross-fade"
+                || invalidCase == "invalid-speed"
+            )
+            {
+                Assert.That(Failures(harness), Is.Empty);
+                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+                Assert.That(
+                    harness.Logger.Records.Last().Message,
+                    Does.Contain("Deferred response failed")
+                );
+                return;
+            }
+
             BatchFailed<CoreErrorCode> failure = Failures(harness).Single();
             Assert.That(failure.CommandId, Is.EqualTo(command.Id));
             Assert.That(failure.ErrorCode, Is.EqualTo(expected));

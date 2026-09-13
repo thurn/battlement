@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use super::Length;
 
 /// A rotation in degrees around a finite three-dimensional axis.
@@ -7,7 +5,7 @@ use super::Length;
 /// UI Toolkit applies this after scale and before translation without changing
 /// layout. Positive angles rotate clockwise in panel space. The axis may point
 /// in any direction but must not be the zero vector.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rotate {
   /// Horizontal axis component.
   pub x: f32,
@@ -37,7 +35,7 @@ impl Rotate {
 ///
 /// Scale affects painting rather than flex layout. Negative values mirror the
 /// element on that axis, and descendants are transformed with their parent.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Scale {
   /// Horizontal size multiplier.
   pub x: f32,
@@ -64,7 +62,7 @@ impl Scale {
 /// Percentage x and y values resolve against the element itself, not its
 /// parent. The z component is measured in panel pixels. Translation does not
 /// reserve layout space and is applied after scale and rotation.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Translate {
   /// Horizontal pixel or self-relative percentage offset.
   pub x: Length,
@@ -93,7 +91,7 @@ impl Translate {
 /// Percentage x and y values resolve against the element bounds. Values may
 /// lie outside those bounds, allowing an element to orbit an external pivot.
 /// The z component is measured in panel pixels.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TransformOrigin {
   /// Horizontal pixel or self-relative percentage pivot.
   pub x: Length,

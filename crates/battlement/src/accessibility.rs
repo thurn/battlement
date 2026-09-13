@@ -1,11 +1,9 @@
 //! Resolved accessibility snapshots and direct actions.
 
-use serde::{Deserialize, Serialize};
-
 use crate::ObjectId;
 
 /// Roles retained by the host-backed accessibility surface.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SemanticRole {
   /// An activatable button.
   Button,
@@ -64,21 +62,21 @@ pub enum SemanticRole {
 }
 
 /// The current location represented by a button or link.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CurrentPage {
   /// The currently displayed page.
   Page,
 }
 
 /// Kind of popup controlled by a semantic button.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PopupKind {
   /// A selection list.
   ListBox,
 }
 
 /// Canonical checked state.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CheckedState {
   /// Not checked.
   False,
@@ -89,7 +87,7 @@ pub enum CheckedState {
 }
 
 /// Direction of one logical accessibility scroll action.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum AccessibilityScrollDirection {
   /// Increase the logical offset.
   Forward,
@@ -98,7 +96,7 @@ pub enum AccessibilityScrollDirection {
 }
 
 /// Axis owned by an accessible scroll area.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum AccessibilityScrollAxis {
   /// Horizontal scrolling.
   Horizontal,
@@ -107,7 +105,7 @@ pub enum AccessibilityScrollAxis {
 }
 
 /// Current canonical semantic state.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SemanticState {
   /// Whether actions are currently unavailable.
   pub disabled: bool,
@@ -126,7 +124,7 @@ pub struct SemanticState {
 }
 
 /// Resolved finite range value.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AccessibilityRangeValue {
   /// Current value.
   pub current: f64,
@@ -139,7 +137,7 @@ pub struct AccessibilityRangeValue {
 }
 
 /// Direct callbacks currently declared by a semantic node.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct AccessibilityActionSet {
   /// Supports activation.
   pub activate: bool,
@@ -154,7 +152,7 @@ pub struct AccessibilityActionSet {
 }
 
 /// One resolved host-backed semantic node.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AccessibilityNodeSnapshot {
   /// Stable host identity.
   pub object_id: ObjectId,
@@ -181,7 +179,7 @@ pub struct AccessibilityNodeSnapshot {
 }
 
 /// One complete canonical semantic tree.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct AccessibilitySnapshot {
   /// Monotonic semantic commit sequence.
   pub commit_sequence: u64,
@@ -192,7 +190,7 @@ pub struct AccessibilitySnapshot {
 }
 
 /// Atomic accessibility work attached to an ordinary response commit.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct AccessibilityUpdate {
   /// Complete replacement when canonical semantics changed.
   pub snapshot: Option<AccessibilitySnapshot>,
@@ -201,7 +199,7 @@ pub struct AccessibilityUpdate {
 }
 
 /// One normalized accessibility callback.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum AccessibilityAction {
   /// Invoke the target.
   Activate,
@@ -216,7 +214,7 @@ pub enum AccessibilityAction {
 }
 
 /// Payload emitted by the current Unity accessibility backend.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AccessibilityEvent {
   /// Live backend generation.
   pub backend_generation: u64,

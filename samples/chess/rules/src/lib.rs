@@ -6,11 +6,8 @@ pub mod audio;
 mod cursor;
 mod diagnostics;
 mod input;
-mod movement;
 mod native;
 mod persistence;
-mod presentation;
-mod spawn;
 pub mod visual_state;
 
 use std::{
@@ -21,24 +18,21 @@ use std::{
 };
 
 use battlement::{
-  ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command, CommandBody,
-  CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState, MaterialAssignment,
-  ObjectId, ObjectSetActivePayload, ParticleSpawnLocation, ParticleSpawnPayload, PointerEvent,
-  PrefabAddress, PreparedAsset, Quaternion, Response, SceneId, SessionId, UiEventAction,
-  UiEventResponse, Vector3, object_id, scene_id,
+  ActionId, AudioClipAddress, GridLayout, ObjectId, PrefabAddress, Quaternion, SceneId, SessionId,
+  Vector3, object_id, scene_id,
 };
 use battlement_native::{
-  ConnectView, CoreClientMessageView, Engine, EngineError, FlatBufferSubmitError, NativeEngine,
-  NativeResponse, NativeUiEventResponse, UiEventActionView, threading::AdaptiveThreadPool,
+  ConnectView, CoreClientMessageView, Engine, EngineError, EngineResponse, FlatBufferSubmitError,
+  UiEventActionView, UiEventResult, threading::AdaptiveThreadPool,
 };
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use fastrand::Rng;
 use tracing::info;
 
-use crate::assets::{black, effects, music, white};
+use crate::assets::{black, music, white};
 use crate::audio::{
   CAPTURE_SOUNDS, CASTLE_SOUND, CHECK_SOUND, DRAW_SOUND, DROP_SOUNDS, INVALID_DROP_SOUND,
-  MusicPlaylist, PICKUP_SOUNDS, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND,
+  MusicPlaylist, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND,
   VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
 };
 use crate::input::RestartShortcut;
@@ -249,83 +243,19 @@ fn engine_for_board_with_fixture(
 }
 
 impl Engine for ChessEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
-
-  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
-    self.connect_state(message);
-    let mut response = Response::snapshot(self.snapshot());
-    diagnostics::record_session_started(
-      &mut response,
-      self.diagnostics_enabled,
-      self.session_id,
-      self.started,
-      &self.board,
-    );
-    Ok(response)
-  }
-
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    self.submit_message(message)
-  }
-
-  fn submit_core_view(
-    &mut self,
-    message: CoreClientMessageView<'_>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    let CoreClientMessageView::Action(action) = message else {
-      return Ok(Response::empty(self.session_id));
-    };
-    if action.session_id() != *self.session_id.as_uuid().as_bytes() {
-      return Err(EngineError::new("Chess action session mismatch"));
-    }
-    let action_id = ActionId::from_bytes(action.action_id()).expect("validated action UUID");
-    self.submit_action_view(action_id, action.body())
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("UI event session mismatch"));
-    }
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(self.session_id),
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    if !self.started {
-      return Ok(None);
-    }
-    Ok(
-      self
-        .poll_ai()?
-        .or_else(|| self.music.poll(self.session_id, (self.now)())),
-    )
-  }
-}
-
-impl NativeEngine for ChessEngine {
   const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect_native(&mut self, message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     self.connect_state(message);
     native::snapshot(self)
   }
 
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
     let message = CoreClientMessageView::read(bytes).map_err(|error| {
       FlatBufferSubmitError::invalid_argument(format!("invalid client message: {error}"))
     })?;
     let CoreClientMessageView::Action(action) = message else {
-      return NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
+      return EngineResponse::empty(*self.session_id.as_uuid().as_bytes())
         .map_err(FlatBufferSubmitError::engine);
     };
     if action.session_id() != *self.session_id.as_uuid().as_bytes() {
@@ -335,28 +265,28 @@ impl NativeEngine for ChessEngine {
     }
     let action_id = ActionId::from_bytes(action.action_id()).expect("validated action UUID");
     self
-      .submit_action_view_native(action_id, action.body())
+      .submit_action_view(action_id, action.body())
       .map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event_native(
+  fn submit_ui_event(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
+  ) -> Result<UiEventResult, EngineError> {
     if action.session_id() != *self.session_id.as_uuid().as_bytes() {
       return Err(EngineError::new("UI event session mismatch"));
     }
-    Ok(NativeUiEventResponse {
+    Ok(UiEventResult {
       disposition: if action.default_prevented() {
         battlement::UiEventDisposition::PreventDefault
       } else {
         battlement::UiEventDisposition::Continue
       },
-      response: NativeResponse::empty(*self.session_id.as_uuid().as_bytes())?,
+      response: EngineResponse::empty(*self.session_id.as_uuid().as_bytes())?,
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     if !self.started {
       return Ok(None);
     }
@@ -405,7 +335,7 @@ impl NativeEngine for ChessEngine {
       )?;
       return Ok(Some(response));
     }
-    self.music.poll_native(self.session_id, (self.now)())
+    self.music.poll(self.session_id, (self.now)())
   }
 }
 
@@ -473,150 +403,11 @@ impl ChessEngine {
     self.visual_state
   }
 
-  pub(crate) fn set_visual_state(&mut self, next: VisualState) -> [CommandBody; 2] {
-    let previous = self.change_visual_state(next);
-    visual_state::transition(previous, next)
-  }
-
   pub(crate) fn change_visual_state(&mut self, next: VisualState) -> VisualState {
     let previous = self.visual_state;
     self.visual_state = next;
     info!(from = ?previous, to = ?next, "Chess visual state changed");
     previous
-  }
-
-  fn submit_drag(
-    &mut self,
-    action_id: ActionId,
-    object_id: ObjectId,
-    world_position: Vector3,
-  ) -> Result<Response<Command>, EngineError> {
-    let Some(from) = self::find_square(&self.objects, object_id) else {
-      return Ok(audio::response_for_action(
-        self.session_id,
-        action_id,
-        self
-          .hide_highlight_commands()
-          .into_iter()
-          .chain([audio::play_sound(INVALID_DROP_SOUND)]),
-      ));
-    };
-    let target = self::square_at(world_position);
-    if self.board.side_to_move() != Color::White || self.board.status() != GameStatus::Ongoing {
-      self.cursor = from;
-      self.selected = None;
-      return Ok(audio::response_for_action(
-        self.session_id,
-        action_id,
-        [movement::command(object_id, from, false)]
-          .into_iter()
-          .chain(self.hide_highlight_commands())
-          .chain(self.cursor_commands(from, false)),
-      ));
-    }
-    if target == from {
-      self.cursor = from;
-      self.selected = Some(from);
-      let state_commands = self.set_visual_state(VisualState::Selected);
-      return Ok(audio::response_for_action(
-        self.session_id,
-        action_id,
-        [movement::command(object_id, from, false)]
-          .into_iter()
-          .chain(self.cursor_commands(from, true))
-          .chain(state_commands),
-      ));
-    }
-
-    self.selected = None;
-    let hide_highlights = self.hide_highlight_commands();
-    let Some(mv) = self::player_move(&self.board, from, target) else {
-      self.cursor = from;
-      return Ok(audio::response_for_action(
-        self.session_id,
-        action_id,
-        hide_highlights
-          .into_iter()
-          .chain([
-            movement::command(object_id, from, false),
-            audio::play_sound(INVALID_DROP_SOUND),
-          ])
-          .chain(self.cursor_commands(from, false)),
-      ));
-    };
-
-    self.cursor = target;
-    let mut commands = hide_highlights;
-    commands.extend(self.apply_move(mv, false)?.into_iter().flatten());
-    commands.extend(self.cursor_commands(target, false));
-    if self.board.status() == GameStatus::Ongoing {
-      commands.extend([
-        cursor::dim_command(true),
-        CommandBody::set_input_enabled(false),
-      ]);
-      self.start_ai();
-    }
-    let mut response = audio::response_for_action(self.session_id, action_id, commands);
-    diagnostics::record_game_status(
-      &mut response,
-      self.diagnostics_enabled,
-      self.session_id,
-      self.board.status(),
-    );
-    Ok(response)
-  }
-
-  fn highlight_commands(&mut self, object_id: ObjectId) -> Vec<CommandBody> {
-    let Some(from) = self::find_square(&self.objects, object_id) else {
-      return Vec::new();
-    };
-    if self.board.side_to_move() != Color::White || self.board.color_on(from) != Some(Color::White)
-    {
-      return Vec::new();
-    }
-
-    let mut targets = [false; 64];
-    self.board.generate_moves_for(from.bitboard(), |moves| {
-      for mv in moves {
-        targets[self::visible_destination(&self.board, mv) as usize] = true;
-      }
-      false
-    });
-    let mut commands = self
-      .highlight_ids
-      .iter()
-      .zip(targets)
-      .filter_map(|(&object_id, active)| {
-        active.then_some(CommandBody::ObjectSetActive(ObjectSetActivePayload {
-          object_id,
-          active: true,
-        }))
-      })
-      .collect::<Vec<_>>();
-    commands.push(audio::play_sound(audio::random_sound(
-      &mut self.rng,
-      &PICKUP_SOUNDS,
-    )));
-    commands
-  }
-
-  fn hide_highlight_commands(&self) -> Vec<CommandBody> {
-    self
-      .highlight_ids
-      .map(|object_id| {
-        CommandBody::ObjectSetActive(ObjectSetActivePayload {
-          object_id,
-          active: false,
-        })
-      })
-      .into()
-  }
-
-  fn poll_ai(&mut self) -> Result<Option<Response<Command>>, EngineError> {
-    let Some(mv) = self.poll_ai_move() else {
-      return Ok(None);
-    };
-    Ok(Some(self.ai_move_response(mv)?))
   }
 
   fn poll_ai_move(&mut self) -> Option<Move> {
@@ -645,29 +436,6 @@ impl ChessEngine {
         None
       }
     }
-  }
-
-  fn ai_move_response(&mut self, mv: Move) -> Result<Response<Command>, EngineError> {
-    let mut groups = self.apply_move(mv, true)?;
-    groups.last_mut().unwrap().extend([
-      cursor::dim_command(false),
-      CommandBody::set_input_enabled(true),
-    ]);
-    let mut response = Response::batch(
-      Batch::new(
-        BatchId::new_v4(),
-        self.session_id,
-        groups.into_iter().map(audio::parallel_group).collect(),
-      )
-      .start(BatchStart::AfterEarlierBlockingWork),
-    );
-    diagnostics::record_game_status(
-      &mut response,
-      self.diagnostics_enabled,
-      self.session_id,
-      self.board.status(),
-    );
-    Ok(response)
   }
 
   fn start_ai(&mut self) {
@@ -700,242 +468,6 @@ impl ChessEngine {
     self.thread_pool.execute(search);
     self.ai_move = Some(receiver);
   }
-
-  fn apply_move(&mut self, mv: Move, animate: bool) -> Result<Vec<Vec<CommandBody>>, EngineError> {
-    let board_before = self.board.clone();
-    let color = self
-      .board
-      .color_on(mv.from)
-      .expect("legal moves have a moving piece");
-    let piece = self
-      .board
-      .piece_on(mv.from)
-      .expect("legal moves have a moving piece");
-    let is_castle = piece == Piece::King && self.board.color_on(mv.to) == Some(color);
-    let mut groups = if is_castle {
-      vec![self.apply_castle(mv, color, animate)]
-    } else {
-      self.apply_standard_move(mv, color, piece, animate)
-    };
-    self.board.play_unchecked(mv);
-    let next_state = visual_state::after_move(&board_before, &self.board, mv, color);
-    groups
-      .last_mut()
-      .unwrap()
-      .extend(self.set_visual_state(next_state));
-    self.persist_board()?;
-    info!(
-        side = ?color,
-        piece = ?piece,
-        from = %mv.from,
-        to = %mv.to,
-        promotion = ?mv.promotion,
-        animated = animate,
-        status = ?self.board.status(),
-        "Chess move applied"
-    );
-    match self.board.status() {
-      GameStatus::Won if self.board.side_to_move() == Color::Black => {
-        groups
-          .last_mut()
-          .unwrap()
-          .push(audio::play_sound(PLAYER_WIN_SOUND));
-      }
-      GameStatus::Won => groups
-        .last_mut()
-        .unwrap()
-        .push(audio::play_sound(PLAYER_LOSS_SOUND)),
-      GameStatus::Drawn => groups
-        .last_mut()
-        .unwrap()
-        .push(audio::play_sound(DRAW_SOUND)),
-      GameStatus::Ongoing if !self.board.checkers().is_empty() => {
-        groups
-          .last_mut()
-          .unwrap()
-          .push(audio::play_sound(CHECK_SOUND));
-      }
-      GameStatus::Ongoing => {}
-    }
-    groups.shrink_to_fit();
-    Ok(groups)
-  }
-
-  fn apply_castle(&mut self, mv: Move, color: Color, animate: bool) -> Vec<CommandBody> {
-    let rank = if color == Color::White {
-      Rank::First
-    } else {
-      Rank::Eighth
-    };
-    let short = mv.to.file() > mv.from.file();
-    let king_to = Square::new(if short { File::G } else { File::C }, rank);
-    let rook_to = Square::new(if short { File::F } else { File::D }, rank);
-    let king = self.objects[mv.from as usize]
-      .take()
-      .expect("castling king has an object");
-    let rook = self.objects[mv.to as usize]
-      .take()
-      .expect("castling rook has an object");
-    self.objects[king_to as usize] = Some(king);
-    self.objects[rook_to as usize] = Some(rook);
-    vec![
-      movement::command(king, king_to, animate),
-      movement::command(rook, rook_to, animate),
-      audio::play_sound(CASTLE_SOUND),
-    ]
-  }
-
-  fn apply_standard_move(
-    &mut self,
-    mv: Move,
-    color: Color,
-    piece: Piece,
-    animate: bool,
-  ) -> Vec<Vec<CommandBody>> {
-    let capture = if piece == Piece::Pawn
-      && mv.from.file() != mv.to.file()
-      && self.board.piece_on(mv.to).is_none()
-    {
-      Square::new(mv.to.file(), mv.from.rank())
-    } else {
-      mv.to
-    };
-    let captured = self.objects[capture as usize].take();
-    let is_capture = captured.is_some();
-    let mut first = Vec::new();
-    if !animate && let Some(captured) = captured {
-      first.push(CommandBody::object_destroy(captured));
-      first.push(self::capture_effect(capture));
-    }
-    let moving = self.objects[mv.from as usize]
-      .take()
-      .expect("legal moving pieces have an object");
-    if let Some(promotion) = mv.promotion {
-      first.push(movement::command(moving, mv.to, animate));
-      let promoted = self::promotion_id(mv.to);
-      self.objects[mv.to as usize] = Some(promoted);
-      let mut promotion_commands = captured
-        .filter(|_| animate)
-        .map(CommandBody::object_destroy)
-        .into_iter()
-        .collect::<Vec<_>>();
-      if animate && is_capture {
-        promotion_commands.push(self::capture_effect(capture));
-      }
-      promotion_commands.extend([
-        CommandBody::object_destroy(moving),
-        CommandBody::object_create(self::piece_object(promoted, mv.to, color, promotion)),
-        audio::play_sound(PROMOTION_SOUND),
-      ]);
-      return vec![first, promotion_commands];
-    }
-
-    self.objects[mv.to as usize] = Some(moving);
-    if animate && piece == Piece::Knight {
-      first.push(movement::knight_first_leg(moving, mv.from, mv.to));
-    } else {
-      first.push(movement::command(moving, mv.to, animate));
-    }
-    let sound = audio::play_sound(if is_capture {
-      audio::random_sound(&mut self.rng, &CAPTURE_SOUNDS)
-    } else {
-      audio::random_sound(&mut self.rng, &DROP_SOUNDS)
-    });
-    let mut groups = if animate && piece == Piece::Knight {
-      vec![first, vec![movement::knight_second_leg(moving, mv.to)]]
-    } else {
-      vec![first]
-    };
-    if animate && let Some(captured) = captured {
-      groups.push(vec![
-        CommandBody::object_destroy(captured),
-        self::capture_effect(capture),
-        sound,
-      ]);
-    } else {
-      groups.first_mut().unwrap().push(sound);
-    }
-    groups
-  }
-
-  fn new_game(
-    &mut self,
-    action_id: ActionId,
-    cursor_visible: bool,
-  ) -> Result<Response<Command>, EngineError> {
-    let was_started = self.started;
-    let previous_objects = self.objects.iter().flatten().copied().collect::<Vec<_>>();
-    self.ai_move = None;
-    self.ai_poll_deferrals = 0;
-    self.cursor = cursor::START;
-    self.cursor_visible = cursor_visible;
-    self.selected = None;
-    self.pause_open = false;
-    self.confirm_new_game = false;
-    self.board = self.starting_board.clone();
-    self.piece_generation += 1;
-    self.objects = self::objects_for_board(&self.board, self.piece_generation);
-    self.started = true;
-    let state_commands = self.set_visual_state(VisualState::Refreshed);
-    self.persist_board()?;
-    info!(
-        side_to_move = ?self.board.side_to_move(),
-        "New chess game started"
-    );
-    if !was_started {
-      self.music.reset((self.now)());
-    }
-
-    let mut commands = previous_objects
-      .into_iter()
-      .map(CommandBody::object_destroy)
-      .collect::<Vec<_>>();
-    if was_started {
-      commands.extend(self.hide_highlight_commands());
-      commands.push(CommandBody::ObjectSetActive(ObjectSetActivePayload {
-        object_id: REFRESH_BUTTON_ID,
-        active: false,
-      }));
-    } else {
-      commands.push(CommandBody::object_create(cursor::object(
-        self.cursor,
-        false,
-      )));
-    }
-    if !was_started {
-      commands.push(CommandBody::object_destroy(PLAY_BUTTON_ID));
-    }
-    for square in Square::ALL {
-      if let Some(object_id) = self.objects[square as usize] {
-        commands.push(CommandBody::object_create(self::piece_object(
-          object_id,
-          square,
-          self
-            .board
-            .color_on(square)
-            .expect("mapped pieces have a color"),
-          self
-            .board
-            .piece_on(square)
-            .expect("mapped pieces have a type"),
-        )));
-      }
-    }
-    commands.extend(cursor::state_commands(
-      self.cursor,
-      true,
-      self.cursor_visible,
-    ));
-    commands.push(CommandBody::set_input_enabled(true));
-    commands.push(audio::play_sound(RESET_SOUND));
-    commands.extend(state_commands);
-    if self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing {
-      self.start_ai();
-    }
-    let mut response = audio::response_for_action(self.session_id, action_id, commands);
-    diagnostics::record_game_started(&mut response, self.diagnostics_enabled, self.session_id);
-    Ok(response)
-  }
 }
 
 fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
@@ -944,7 +476,7 @@ fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
     destinations.extend(
       moves
         .into_iter()
-        .map(|mv| self::visible_destination(board, mv)),
+        .map(|movement| self::visible_destination(board, movement)),
     );
     false
   });
@@ -954,60 +486,6 @@ fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
 }
 
 type PendingAi = Receiver<Move>;
-
-fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
-  let position = self::square_position(square);
-  GameObject::new(
-    object_id,
-    GameObjectKind::Plane {
-      materials: vec![MaterialAssignment::new(0, assets::LEGAL_SQUARE)],
-    },
-  )
-  .active(false)
-  .position(Vector3::new(position.x, HIGHLIGHT_HEIGHT, position.z))
-  .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
-  .pointer_events([PointerEvent::Click])
-}
-
-fn piece_object(object_id: ObjectId, square: Square, color: Color, piece: Piece) -> GameObject {
-  let object = GameObject::new(
-    object_id,
-    GameObjectKind::prefab(self::address(color, piece)),
-  )
-  .position(self::square_position(square))
-  .pointer_events([PointerEvent::Click]);
-  let object = if color == Color::White {
-    object.draggable(DragMode::SnapToPointer)
-  } else {
-    object
-  };
-  if color == Color::Black {
-    object.rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
-  } else {
-    object
-  }
-}
-
-fn refresh_button(screen_aspect: f64) -> GameObject {
-  let half_height = CAMERA_BUTTON_DEPTH * (CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
-  let right = half_height * screen_aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
-  let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
-  GameObject::new(
-    REFRESH_BUTTON_ID,
-    ImageState::new(
-      assets::REFRESH_BUTTON,
-      REFRESH_BUTTON_SIZE,
-      REFRESH_BUTTON_SIZE,
-    ),
-  )
-  .position(Vector3::new(
-    right,
-    8.0 - 0.946201 * CAMERA_BUTTON_DEPTH + 0.323579 * up,
-    -3.75 + 0.323579 * CAMERA_BUTTON_DEPTH + 0.946201 * up,
-  ))
-  .rotation(CAMERA_ROTATION)
-  .pointer_events([PointerEvent::Click])
-}
 
 fn player_move(board: &Board, from: Square, target: Square) -> Option<Move> {
   if board.side_to_move() != Color::White || board.color_on(from) != Some(Color::White) {
@@ -1074,14 +552,6 @@ fn square_position(square: Square) -> Vector3 {
   self::board_grid().position(square.file() as u32, square.rank() as u32)
 }
 
-fn capture_effect(square: Square) -> CommandBody {
-  CommandBody::ParticleSpawn(ParticleSpawnPayload {
-    address: effects::CAPTURE,
-    location: ParticleSpawnLocation::WorldPosition(self::square_position(square)),
-    lifetime_ms: CAPTURE_EFFECT_LIFETIME_MS,
-  })
-}
-
 fn board_grid() -> GridLayout {
   GridLayout::centered(
     Vector3::ZERO,
@@ -1118,26 +588,6 @@ fn promotion_id(square: Square) -> ObjectId {
     .expect("generated Chess promotion ID is valid")
 }
 
-fn prepared_assets() -> Vec<PreparedAsset> {
-  let mut assets = vec![
-    PreparedAsset::scene(assets::CONTENT),
-    PreparedAsset::texture(assets::PLAY_BUTTON),
-    PreparedAsset::material(assets::LEGAL_SQUARE),
-    PreparedAsset::texture(assets::REFRESH_BUTTON),
-    PreparedAsset::prefab(effects::PIECE_SELECTED),
-    PreparedAsset::particle_effect(effects::PIECE_SPAWN),
-    PreparedAsset::particle_effect(effects::CAPTURE),
-  ];
-  assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
-  assets.extend(audio::SOUND_EFFECTS.map(PreparedAsset::audio_clip));
-  for color in Color::ALL {
-    for piece in Piece::ALL {
-      assets.push(PreparedAsset::prefab(self::address(color, piece)));
-    }
-  }
-  assets
-}
-
 fn address(color: Color, piece: Piece) -> PrefabAddress {
   match (color, piece) {
     (Color::White, Piece::Pawn) => white::PAWN,
@@ -1155,12 +605,12 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
   }
 }
 
-battlement_native::export_deterministic_native_engine!(
+battlement_native::export_deterministic_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{CommandId, ControllerButton, ObjectId, PhysicalKey, PointerEvent};
 
 /// A Battlement-owned developer interface surface.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DebugUiSurface {
   /// The structured in-game log viewer.
   LogViewer,
@@ -12,7 +10,7 @@ pub enum DebugUiSurface {
 }
 
 /// Sets whether one Battlement developer interface surface is visible.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DebugUiPayload {
   /// The developer interface surface to control.
   pub surface: DebugUiSurface,
@@ -21,30 +19,28 @@ pub struct DebugUiPayload {
 }
 
 /// Waits for a fixed positive duration.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WaitPayload {
   /// Positive wait duration in milliseconds.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub duration_ms: u64,
 }
 
 /// Cancels an operation by the command identity that started it.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CancelOperationPayload {
   /// Command and operation identity to cancel.
   pub command_id: CommandId,
 }
 
 /// Gates every pointer and key action.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SetInputEnabledPayload {
   /// Whether Battlement accepts input actions.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub enabled: bool,
 }
 
 /// Replaces the enabled pointer-event set for one game object.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PointerEventsPayload {
   /// Target game object.
   pub object_id: ObjectId,
@@ -53,31 +49,24 @@ pub struct PointerEventsPayload {
 }
 
 /// Replaces the global physical-key set enabled for the session.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GlobalKeysPayload {
   /// Unique enabled W3C physical key codes.
   pub keys: Vec<PhysicalKey>,
 }
 
 /// Controller input selected for a session.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ControllerInputSettings {
   /// Unique enabled controller buttons.
   pub buttons: Vec<ControllerButton>,
   /// Whether the D-pad and left stick emit cardinal navigation actions.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub navigation_enabled: bool,
   /// Optional analog dead-zone override; the client default applies when omitted.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub stick_dead_zone: Option<f64>,
   /// Optional delay override before a held direction starts repeating.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub repeat_delay_ms: Option<u64>,
   /// Optional interval override between held-direction repeats.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub repeat_interval_ms: Option<u64>,
 }
 
@@ -124,7 +113,7 @@ impl Default for ControllerInputSettings {
 }
 
 /// Runs both controller vibration motors for a bounded duration.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ControllerVibrationPayload {
   /// Low-frequency motor intensity in the inclusive range `[0, 1]`.
   pub low_frequency: f64,

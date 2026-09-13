@@ -6,8 +6,6 @@ use std::{
   fmt,
 };
 
-use serde::{Serialize, ser};
-
 use crate::*;
 
 /// A protocol invariant that was violated.
@@ -74,7 +72,7 @@ pub trait Validate {
 
 impl Validate for Snapshot {
   fn validate(&self) -> Result<(), ValidationError> {
-    reject_non_finite(self)?;
+    validate_snapshot_numbers(self)?;
 
     let prepared = prepared_assets(&self.prepared_assets)?;
     let primary_scene = validate_scenes(&self.scenes, self.primary_scene_id, &prepared)?;
@@ -171,7 +169,7 @@ impl Validate for Snapshot {
 
 impl Validate for Command {
   fn validate(&self) -> Result<(), ValidationError> {
-    reject_non_finite(self)?;
+    validate_command_numbers(&self.body)?;
 
     match &self.body {
       CommandBody::AssetsReplaceSet(value) => {
@@ -614,255 +612,244 @@ fn command_tween(body: &CommandBody) -> Option<&Tween> {
   }
 }
 
-fn reject_non_finite<T: Serialize>(value: &T) -> Result<(), ValidationError> {
-  value.serialize(FiniteValueValidator)
+fn validate_snapshot_numbers(snapshot: &Snapshot) -> Result<(), ValidationError> {
+  for object in &snapshot.objects {
+    validate_object_numbers(object)?;
+  }
+  Ok(())
 }
 
-/// Walks a Serde value solely to reject non-finite floating-point numbers.
-///
-/// This never produces bytes or chooses an encoding. Implementing
-/// [`ser::Serializer`] gives validation complete coverage of nested protocol
-/// values, including fields added later, without converting them into a
-/// format-specific value tree or allocating an intermediate representation.
-/// Serde requires serializers to describe every possible data-model shape;
-/// most methods below therefore recurse into children or deliberately do
-/// nothing, while `serialize_f32` and `serialize_f64` perform the only checks.
-/// Explicitly listing every float field would be shorter here but would silently
-/// miss new fields unless every future author remembered to update that list.
-struct FiniteValueValidator;
-
-macro_rules! ignore_scalar {
-    ($($method:ident($type:ty)),+ $(,)?) => {
-        $(
-            fn $method(self, _value: $type) -> Result<Self::Ok, Self::Error> {
-                Ok(())
-            }
-        )+
-    };
-}
-
-impl ser::Error for ValidationError {
-  fn custom<T>(_message: T) -> Self
-  where
-    T: fmt::Display,
-  {
-    Self::NonFiniteNumber
-  }
-}
-
-impl ser::Serializer for FiniteValueValidator {
-  type Error = ValidationError;
-  type Ok = ();
-  type SerializeMap = Self;
-  type SerializeSeq = Self;
-  type SerializeStruct = Self;
-  type SerializeStructVariant = Self;
-  type SerializeTuple = Self;
-  type SerializeTupleStruct = Self;
-  type SerializeTupleVariant = Self;
-
-  ignore_scalar! {
-      serialize_bool(bool),
-      serialize_i8(i8),
-      serialize_i16(i16),
-      serialize_i32(i32),
-      serialize_i64(i64),
-      serialize_i128(i128),
-      serialize_u8(u8),
-      serialize_u16(u16),
-      serialize_u32(u32),
-      serialize_u64(u64),
-      serialize_u128(u128),
-      serialize_char(char),
-  }
-
-  fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Error> {
-    finite(value.is_finite())
-  }
-
-  fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Error> {
-    finite(value.is_finite())
-  }
-
-  fn serialize_str(self, _value: &str) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
-  where
-    T: ?Sized + Serialize,
-  {
-    value.serialize(self)
-  }
-
-  fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_unit_variant(
-    self,
-    _name: &'static str,
-    _variant_index: u32,
-    _variant: &'static str,
-  ) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-
-  fn serialize_newtype_struct<T>(
-    self,
-    _name: &'static str,
-    value: &T,
-  ) -> Result<Self::Ok, Self::Error>
-  where
-    T: ?Sized + Serialize,
-  {
-    value.serialize(self)
-  }
-
-  fn serialize_newtype_variant<T>(
-    self,
-    _name: &'static str,
-    _variant_index: u32,
-    _variant: &'static str,
-    value: &T,
-  ) -> Result<Self::Ok, Self::Error>
-  where
-    T: ?Sized + Serialize,
-  {
-    value.serialize(self)
-  }
-
-  fn serialize_seq(self, _length: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_tuple(self, _length: usize) -> Result<Self::SerializeTuple, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_tuple_struct(
-    self,
-    _name: &'static str,
-    _length: usize,
-  ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_tuple_variant(
-    self,
-    _name: &'static str,
-    _variant_index: u32,
-    _variant: &'static str,
-    _length: usize,
-  ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_map(self, _length: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_struct(
-    self,
-    _name: &'static str,
-    _length: usize,
-  ) -> Result<Self::SerializeStruct, Self::Error> {
-    Ok(self)
-  }
-
-  fn serialize_struct_variant(
-    self,
-    _name: &'static str,
-    _variant_index: u32,
-    _variant: &'static str,
-    _length: usize,
-  ) -> Result<Self::SerializeStructVariant, Self::Error> {
-    Ok(self)
-  }
-}
-
-macro_rules! validate_collection {
-  ($trait:ident, $method:ident) => {
-    impl ser::$trait for FiniteValueValidator {
-      type Error = ValidationError;
-      type Ok = ();
-
-      fn $method<T>(&mut self, value: &T) -> Result<(), Self::Error>
-      where
-        T: ?Sized + Serialize,
-      {
-        value.serialize(FiniteValueValidator)
-      }
-
-      fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-      }
+fn validate_object_numbers(object: &GameObject) -> Result<(), ValidationError> {
+  validate_transform(object.local_transform)?;
+  match &object.kind {
+    GameObjectKind::Image { image } => finite_all(&[
+      image.width,
+      image.height,
+      image.tint.r,
+      image.tint.g,
+      image.tint.b,
+      image.opacity,
+    ]),
+    GameObjectKind::Text { text } => {
+      finite_all(&[
+        text.size,
+        text.color.r,
+        text.color.g,
+        text.color.b,
+        text.color.a,
+      ])?;
+      finite(text.wrap_width.is_none_or(f64::is_finite))
     }
-  };
-}
-
-validate_collection!(SerializeSeq, serialize_element);
-validate_collection!(SerializeTuple, serialize_element);
-validate_collection!(SerializeTupleStruct, serialize_field);
-validate_collection!(SerializeTupleVariant, serialize_field);
-
-impl ser::SerializeMap for FiniteValueValidator {
-  type Error = ValidationError;
-  type Ok = ();
-
-  fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
-  where
-    T: ?Sized + Serialize,
-  {
-    key.serialize(FiniteValueValidator)
-  }
-
-  fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
-  where
-    T: ?Sized + Serialize,
-  {
-    value.serialize(FiniteValueValidator)
-  }
-
-  fn end(self) -> Result<Self::Ok, Self::Error> {
-    Ok(())
-  }
-}
-
-macro_rules! validate_struct {
-  ($trait:ident) => {
-    impl ser::$trait for FiniteValueValidator {
-      type Error = ValidationError;
-      type Ok = ();
-
-      fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<(), Self::Error>
-      where
-        T: ?Sized + Serialize,
-      {
-        value.serialize(FiniteValueValidator)
-      }
-
-      fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-      }
+    GameObjectKind::Camera { camera } => finite_all(&[
+      camera.field_of_view,
+      camera.orthographic_size,
+      camera.near,
+      camera.far,
+      camera.clear_color.r,
+      camera.clear_color.g,
+      camera.clear_color.b,
+      camera.clear_color.a,
+    ]),
+    GameObjectKind::Light { light } => finite_all(&[
+      light.color.r,
+      light.color.g,
+      light.color.b,
+      light.color.a,
+      light.intensity,
+      light.range,
+      light.outer_spot_angle,
+      light.inner_spot_angle,
+    ]),
+    GameObjectKind::Prefab {
+      animator: Some(animator),
+      ..
+    } => {
+      finite_all(&[animator.normalized_start_time, animator.speed])?;
+      finite(
+        animator
+          .float_parameters
+          .values()
+          .all(|value| value.is_finite()),
+      )
     }
-  };
+    _ => Ok(()),
+  }
 }
 
-validate_struct!(SerializeStruct);
-validate_struct!(SerializeStructVariant);
+#[allow(clippy::too_many_lines)]
+fn validate_command_numbers(body: &CommandBody) -> Result<(), ValidationError> {
+  match body {
+    CommandBody::ObjectCreate(value) => validate_object_numbers(&value.object),
+    CommandBody::TransformSetLocalPosition(value)
+    | CommandBody::TransformSetWorldPosition(value) => validate_vector(value.payload.position),
+    CommandBody::TransformTweenLocalPosition(value)
+    | CommandBody::TransformTweenWorldPosition(value) => validate_vector(value.payload.position),
+    CommandBody::TransformSetLocalRotation(value)
+    | CommandBody::TransformSetWorldRotation(value) => {
+      validate_quaternion_numbers(value.payload.rotation)
+    }
+    CommandBody::TransformTweenLocalRotation(value)
+    | CommandBody::TransformTweenWorldRotation(value) => {
+      validate_quaternion_numbers(value.payload.rotation)
+    }
+    CommandBody::TransformSetLocalScale(value) => validate_vector(value.payload.scale),
+    CommandBody::TransformTweenLocalScale(value) => validate_vector(value.payload.scale),
+    CommandBody::CameraSetPerspective(value) => finite(value.payload.field_of_view.is_finite()),
+    CommandBody::CameraTweenFieldOfView(value) => finite(value.payload.field_of_view.is_finite()),
+    CommandBody::CameraSetOrthographic(value) => finite(value.payload.size.is_finite()),
+    CommandBody::CameraTweenOrthographicSize(value) => finite(value.payload.size.is_finite()),
+    CommandBody::CameraSetClipping(value) => finite_all(&[value.near, value.far]),
+    CommandBody::CameraSetClear(value) => value.clear_color.map_or(Ok(()), validate_color),
+    CommandBody::LightSetColor(value) | CommandBody::TextSetColor(value) => {
+      validate_color(value.payload.color)
+    }
+    CommandBody::LightTweenColor(value) | CommandBody::TextTweenColor(value) => {
+      validate_color(value.payload.color)
+    }
+    CommandBody::LightSetIntensity(value) => finite(value.payload.intensity.is_finite()),
+    CommandBody::LightTweenIntensity(value) => finite(value.payload.intensity.is_finite()),
+    CommandBody::LightSetRange(value) => finite(value.range.is_finite()),
+    CommandBody::LightSetSpotAngle(value) => {
+      finite_all(&[value.inner_spot_angle, value.outer_spot_angle])
+    }
+    CommandBody::ImageSetSize(value) => finite_all(&[value.width, value.height]),
+    CommandBody::ImageSetTint(value) => validate_rgb(value.payload.tint),
+    CommandBody::ImageTweenTint(value) => validate_rgb(value.payload.tint),
+    CommandBody::ImageSetOpacity(value) => finite(value.payload.opacity.is_finite()),
+    CommandBody::ImageTweenOpacity(value) => finite(value.payload.opacity.is_finite()),
+    CommandBody::TextSetSize(value) => finite(value.payload.size.is_finite()),
+    CommandBody::TextTweenSize(value) => finite(value.payload.size.is_finite()),
+    CommandBody::TextSetWrapping(value) => finite(value.wrap_width.is_none_or(f64::is_finite)),
+    CommandBody::AnimatorPlay(value) => finite(value.normalized_start_time.is_finite()),
+    CommandBody::AnimatorCrossFade(value) => finite(value.normalized_start_time.is_finite()),
+    CommandBody::AnimatorSetFloat(value) => finite(value.value.is_finite()),
+    CommandBody::AnimatorSetSpeed(value) => finite(value.speed.is_finite()),
+    CommandBody::ParticleSpawn(value) => match value.location {
+      ParticleSpawnLocation::WorldPosition(position) => validate_vector(position),
+      ParticleSpawnLocation::GameObject(_) => Ok(()),
+    },
+    CommandBody::AudioPlay(value) => finite_all(&[value.volume, value.pitch]),
+    CommandBody::AudioSetVolume(value) => finite(value.payload.volume.is_finite()),
+    CommandBody::AudioTweenVolume(value) => finite(value.payload.volume.is_finite()),
+    CommandBody::InputSetController(value) => {
+      finite(value.stick_dead_zone.is_none_or(f64::is_finite))
+    }
+    CommandBody::ControllerVibrate(value) => {
+      finite_all(&[value.low_frequency, value.high_frequency])
+    }
+    CommandBody::VisualElementPerformAction(value) => match &value.action {
+      VisualElementAction::ParticleStreaks { streaks } => finite(streaks.iter().all(|streak| {
+        streak.rotation.is_finite()
+          && streak.origin.iter().all(|value| value.is_finite())
+          && streak.travel.iter().all(|value| value.is_finite())
+          && streak.size.iter().all(|value| value.is_finite())
+          && [
+            streak.color.r,
+            streak.color.g,
+            streak.color.b,
+            streak.color.a,
+          ]
+          .into_iter()
+          .all(f64::is_finite)
+      })),
+      _ => Ok(()),
+    },
+    CommandBody::MotionValue(value) => validate_motion_value_command(&value.command),
+    CommandBody::MotionValuePlayback(value) => validate_motion_playback_command(value.command),
+    CommandBody::MotionPlayback(value) => validate_motion_playback_command(value.command),
+    CommandBody::MotionControl(value) => validate_motion_control_command(&value.command),
+    CommandBody::MotionScope(value) => validate_motion_scope_command(&value.command),
+    CommandBody::MotionDragControl(value) => {
+      finite(value.point.x.is_finite() && value.point.y.is_finite())
+    }
+    CommandBody::AccessibilityUpdate(value) => validate_accessibility_numbers(value),
+    _ => Ok(()),
+  }
+}
+
+fn validate_motion_value_command(value: &MotionValueCommand) -> Result<(), ValidationError> {
+  match value {
+    MotionValueCommand::Set(value) | MotionValueCommand::Jump(value) => {
+      finite(value.validate().is_ok())
+    }
+    MotionValueCommand::Animate {
+      target, transition, ..
+    } => finite(target.validate().is_ok() && transition.validate().is_ok()),
+    MotionValueCommand::Stop => Ok(()),
+  }
+}
+
+fn validate_motion_playback_command(value: MotionPlaybackCommand) -> Result<(), ValidationError> {
+  match value {
+    MotionPlaybackCommand::SetSpeed { value } => finite(value.is_finite()),
+    _ => Ok(()),
+  }
+}
+
+fn validate_motion_control_command(value: &MotionControlCommand) -> Result<(), ValidationError> {
+  match value {
+    MotionControlCommand::Start { target, .. } | MotionControlCommand::Set(target) => {
+      validate_motion_control_target(target)
+    }
+    MotionControlCommand::Stop | MotionControlCommand::Clear => Ok(()),
+  }
+}
+
+fn validate_motion_control_target(value: &MotionControlTarget) -> Result<(), ValidationError> {
+  match value {
+    MotionControlTarget::Target(value) => finite(value.validate().is_ok()),
+    MotionControlTarget::Variant(_) => Ok(()),
+  }
+}
+
+fn validate_motion_scope_command(value: &MotionScopeCommand) -> Result<(), ValidationError> {
+  match value {
+    MotionScopeCommand::Start { steps, .. } => {
+      finite(steps.iter().all(|step| step.target.validate().is_ok()))
+    }
+    MotionScopeCommand::Set { target, .. } => finite(target.validate().is_ok()),
+    MotionScopeCommand::Stop(_) => Ok(()),
+  }
+}
+
+fn validate_accessibility_numbers(value: &AccessibilityUpdate) -> Result<(), ValidationError> {
+  let Some(snapshot) = &value.snapshot else {
+    return Ok(());
+  };
+  finite(snapshot.nodes.iter().all(|node| {
+    node.value.as_ref().is_none_or(|value| {
+      [value.current, value.minimum, value.maximum]
+        .into_iter()
+        .all(f64::is_finite)
+    })
+  }))
+}
+
+fn validate_transform(value: LocalTransform) -> Result<(), ValidationError> {
+  validate_vector(value.position)?;
+  validate_quaternion_numbers(value.rotation)?;
+  validate_vector(value.scale)
+}
+
+fn validate_vector(value: Vector3) -> Result<(), ValidationError> {
+  finite_all(&[value.x, value.y, value.z])
+}
+
+fn validate_quaternion_numbers(value: Quaternion) -> Result<(), ValidationError> {
+  finite_all(&[value.x, value.y, value.z, value.w])
+}
+
+fn validate_rgb(value: RgbColor) -> Result<(), ValidationError> {
+  finite_all(&[value.r, value.g, value.b])
+}
+
+fn validate_color(value: Color) -> Result<(), ValidationError> {
+  finite_all(&[value.r, value.g, value.b, value.a])
+}
+
+fn finite_all(values: &[f64]) -> Result<(), ValidationError> {
+  finite(values.iter().all(|value| value.is_finite()))
+}
 
 fn finite(is_finite: bool) -> Result<(), ValidationError> {
   if is_finite {

@@ -12,17 +12,19 @@ use std::{
 use trox::ls;
 
 use battlement::{
-  AnchorName, CameraState, CameraTarget, ClientMessage, Command, CommandBody, DisplayId,
-  DisplayOrientation, ElementGeometry, GameObject, GameObjectKind, GeometryGeneration,
-  GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
-  GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryRegistry,
-  GeometryUnavailable, GeometryValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Projective2, Prop, Rect, Response, ResponseMessage, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiElement, UiEventAction, UiEventResponse, UiNode,
-  UiVisualElementProperties, ViewportGeometry, ViewportRect,
+  AnchorName, CameraState, CameraTarget, CommandBody, DisplayId, DisplayOrientation,
+  ElementGeometry, GameObject, GameObjectKind, GeometryGeneration, GeometryObservationBatch,
+  GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
+  GeometryObservationUpdate, GeometryObservationValue, GeometryRegistry, GeometryUnavailable,
+  GeometryValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Projective2,
+  Prop, Rect, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiElement, UiNode, UiVisualElementProperties, ViewportGeometry, ViewportRect,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 use battlement_reactant::{
   component::{self, Component},
   element_ref::{self, ElementRef},
@@ -64,33 +66,36 @@ impl Spawner for IdleSpawner {
 }
 
 impl Engine for ScriptedEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    self
-      .connect
-      .take()
-      .ok_or_else(|| EngineError::new("unexpected reconnect"))
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    runtime_support::encoded(
+      self
+        .connect
+        .take()
+        .ok_or_else(|| EngineError::new("unexpected reconnect"))?,
+    )
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Err(EngineError::new("unexpected submission"))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    Err(FlatBufferSubmitError::engine(EngineError::new(
+      "unexpected submission",
+    )))
   }
 
   fn submit_ui_event(
     &mut self,
-    message: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &message.event,
-      Response::empty(message.session_id),
-    ))
+    message: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    runtime_support::empty_ui_result(message)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
-    Ok(self.polls.pop_front())
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    self
+      .polls
+      .pop_front()
+      .map(runtime_support::encoded)
+      .transpose()
   }
 }
 

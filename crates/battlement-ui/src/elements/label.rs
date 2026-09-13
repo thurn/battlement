@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -34,40 +32,29 @@ use crate::{
 ///
 /// [`UiButton`]: crate::UiButton
 /// [`UiNode`]: crate::UiNode
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiLabel {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text rendered by the label's native Unity `TextElement`.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Whether Unity parses supported rich-text tags in the displayed string.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub enable_rich_text: Prop<bool>,
   /// Whether Unicode emoji prefer Unity's global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub emoji_fallback_support: Prop<bool>,
   /// Whether escape sequences such as `\\n` become control characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display_tooltip_when_elided: Prop<bool>,
   /// Whether pointer and keyboard input may select rendered text.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub selectable: Prop<bool>,
   /// Whether a double click selects the word beneath the pointer.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub double_click_selects_word: Prop<bool>,
   /// Whether a triple click selects the complete rendered line.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub triple_click_selects_line: Prop<bool>,
   /// Whether focus selects the complete text value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_focus: Prop<bool>,
   /// Whether releasing the pointer selects the complete text value.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub select_all_on_mouse_up: Prop<bool>,
 }
 

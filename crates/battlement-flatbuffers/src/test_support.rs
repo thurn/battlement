@@ -7,6 +7,23 @@ use crate::{
   ui_event_generated::battlement::flat_buffers::generated as wire,
 };
 
+/// Encodes an owned response fixture through the production FlatBuffer schema.
+///
+/// This helper is deliberately feature-gated and exists only for scripted test
+/// engines; production engines construct offsets with [`crate::MessageWriter`].
+pub fn core_response(
+  response: &battlement::Response,
+) -> Result<crate::FinishedMessage, crate::ProtocolError> {
+  crate::write_core_response(response)
+}
+
+/// Encodes a structurally verified response fixture while preserving invalid execution semantics.
+pub fn unchecked_core_response(
+  response: &battlement::Response,
+) -> Result<crate::FinishedMessage, crate::ProtocolError> {
+  crate::response::write_unchecked_core_response(response)
+}
+
 /// Writes a verified pointer-enter core action without an owned protocol graph.
 #[must_use]
 pub fn pointer_enter_core_action(

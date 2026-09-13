@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use battlement::{
-  Command, ObjectId, TransitionProperty, UiBox, UiButton, UiElement, UiEvent, UiEventBody,
-  UiEventKind, UiLabel, UiNode, UiTextElement, UiVisualElement, object_id,
+  Command, ObjectId, TransitionProperty, UiBox, UiButton, UiElement, UiEventKind, UiLabel, UiNode,
+  UiTextElement, UiVisualElement, object_id,
 };
 use battlement_native::UiEventActionView;
 
@@ -56,122 +56,6 @@ pub(crate) fn page(page_id: ObjectId, settled: bool) -> UiNode {
                 .child(link_card())
                 .child(lifecycle_card(settled)),
         )
-}
-
-pub(crate) fn event_commands(
-  timeline: &mut LifecycleTimeline,
-  event: &UiEvent,
-) -> Option<Vec<Command>> {
-  let (inspector, message, transition_completed) = match &event.body {
-    UiEventBody::LinkEnter(value) => {
-      timeline.link_entered = true;
-      timeline.link_identity = Some(format!("{} · {}", value.link_id, value.link_text));
-      (LINK_INSPECTOR_ID, link_message(timeline), false)
-    }
-    UiEventBody::LinkDown(_) => {
-      timeline.link_down = true;
-      (LINK_INSPECTOR_ID, link_message(timeline), false)
-    }
-    UiEventBody::LinkUp(_) => {
-      timeline.link_up = true;
-      (LINK_INSPECTOR_ID, link_message(timeline), false)
-    }
-    UiEventBody::LinkLeave(value) => {
-      timeline.link_left = true;
-      timeline.link_identity = Some(format!("{} · {}", value.link_id, value.link_text));
-      (LINK_INSPECTOR_ID, link_message(timeline), false)
-    }
-    UiEventBody::SelectionChanged(value) if event.target_id == LINK_ID => {
-      timeline.selection = Some((value.cursor_index, value.selection_index));
-      (LINK_INSPECTOR_ID, link_message(timeline), false)
-    }
-    UiEventBody::GeometryChanged(_) if event.target_id == TARGET_ID => {
-      timeline.geometry = true;
-      timeline.geometry_detail = Some("finite old → new rect".to_owned());
-      (
-        LIFECYCLE_INSPECTOR_ID,
-        lifecycle_message(timeline, String::new()),
-        false,
-      )
-    }
-    UiEventBody::AttachToPanel(_) if event.target_id == TARGET_ID => {
-      timeline.attached = true;
-      (
-        LIFECYCLE_INSPECTOR_ID,
-        lifecycle_message(timeline, "target joined panel".to_owned()),
-        false,
-      )
-    }
-    UiEventBody::DetachFromPanel(_) if event.target_id == TARGET_ID => (
-      LIFECYCLE_INSPECTOR_ID,
-      {
-        timeline.detached = true;
-        lifecycle_message(timeline, "target left panel".to_owned())
-      },
-      false,
-    ),
-    UiEventBody::TransitionStart(value) if event.target_id == TARGET_ID => {
-      timeline.transition_started = true;
-      (
-        LIFECYCLE_INSPECTOR_ID,
-        lifecycle_message(
-          timeline,
-          format!("{} supported properties · start", value.properties.len()),
-        ),
-        false,
-      )
-    }
-    UiEventBody::TransitionEnd(value) if event.target_id == TARGET_ID => {
-      timeline
-        .transition_completed
-        .extend(value.properties.iter().copied());
-      let transition_completed = [
-        TransitionProperty::Width,
-        TransitionProperty::Height,
-        TransitionProperty::Rotate,
-        TransitionProperty::Scale,
-        TransitionProperty::BackgroundColor,
-      ]
-      .iter()
-      .all(|property| timeline.transition_completed.contains(property));
-      timeline.transition_ended = transition_completed;
-      (
-        LIFECYCLE_INSPECTOR_ID,
-        lifecycle_message(
-          timeline,
-          if transition_completed {
-            "5 properties · complete".to_owned()
-          } else {
-            "transition running".to_owned()
-          },
-        ),
-        transition_completed,
-      )
-    }
-    UiEventBody::TransitionCancel(value) if event.target_id == TARGET_ID => (
-      LIFECYCLE_INSPECTOR_ID,
-      {
-        timeline.transition_cancelled = true;
-        lifecycle_message(
-          timeline,
-          format!("{} properties · interrupted", value.properties.len()),
-        )
-      },
-      false,
-    ),
-    _ => return None,
-  };
-  let mut commands = vec![Command::update_visual_element(
-    inspector,
-    UiLabel::new(message),
-  )];
-  if transition_completed {
-    commands.push(Command::update_visual_element(
-      ACTION_ID,
-      UiButton::default().enabled(true),
-    ));
-  }
-  Some(commands)
 }
 
 pub(crate) fn write_event_response(

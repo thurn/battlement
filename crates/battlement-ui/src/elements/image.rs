@@ -1,7 +1,6 @@
 use battlement_types::{
   Color, Rect, RenderTextureAddress, SpriteAddress, TextureAddress, VectorImageAddress,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
@@ -13,7 +12,7 @@ use crate::{
 /// The variants are exclusive native source properties. Applying one source
 /// clears Unity's texture, sprite, vector-image, and render-texture alternatives
 /// before assigning the selected prepared asset.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum ImageSource {
   /// A raster `Texture2D`, sampled directly by the image element.
   Texture(TextureAddress),
@@ -90,7 +89,7 @@ impl From<RenderTextureAddress> for Prop<ImageSource> {
 ///
 /// This maps to Unity's `ScaleMode`. Aspect-preserving modes either leave
 /// unused space or crop overflow; stretching fills both axes independently.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ImageScaleMode {
   /// Preserves aspect ratio and fits the complete source inside the element.
   ScaleToFit,
@@ -130,38 +129,32 @@ pub enum ImageScaleMode {
 ///
 /// assert!(portrait.children.is_empty());
 /// ```
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiImage {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Exclusive prepared graphical source displayed by the native image.
   ///
   /// Replacing this field stages a new usage lease before native mutation.
   /// Sprite sources cannot be combined with [`Self::source_rect`].
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub source: Prop<ImageSource>,
   /// Pixel rectangle sampled from a non-sprite source, relative to its upper-left corner.
   ///
   /// Width and height must be nonnegative. Omit this for the full source, and
   /// do not use it with a sprite because the sprite already defines its source rectangle.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub source_rect: Prop<Rect>,
   /// Linear RGBA color multiplied with sampled source pixels.
   ///
   /// White preserves source colors; alpha attenuates the rendered source.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub tint_color: Prop<Color>,
   /// Fit and crop behavior inside the element's content rectangle.
   ///
   /// Unity defaults to [`ImageScaleMode::ScaleToFit`].
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub scale_mode: Prop<ImageScaleMode>,
   /// Normalized texture-coordinate rectangle measured from the lower-left corner.
   ///
   /// `(0, 0, 1, 1)` samples the full base texture. Coordinates and extents
   /// must be finite; values outside `0..=1` are rejected.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub uv: Prop<Rect>,
 }
 

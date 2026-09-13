@@ -12,9 +12,6 @@
 //! Required values are constructor arguments. Records with useful defaults
 //! provide consuming field-named methods for fluent configuration.
 //!
-//! These types derive [`serde::Serialize`] and [`serde::Deserialize`] without
-//! prescribing a particular serialization format.
-
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -25,7 +22,6 @@ pub mod assets;
 mod command_builders;
 pub mod commands;
 pub mod geometry;
-pub mod json;
 mod message_builders;
 pub mod messages;
 mod motion_asset_dependencies;
@@ -42,26 +38,3 @@ pub use geometry::*;
 pub use messages::*;
 pub use objects::*;
 pub use validation::*;
-
-pub(crate) fn default_one() -> f64 {
-  1.0
-}
-
-pub(crate) fn default_true() -> bool {
-  true
-}
-
-pub(crate) fn is_default<T>(value: &T) -> bool
-where
-  T: Default + PartialEq,
-{
-  value == &T::default()
-}
-
-pub(crate) fn is_one(value: &f64) -> bool {
-  *value == 1.0
-}
-
-pub(crate) fn is_true(value: &bool) -> bool {
-  *value
-}

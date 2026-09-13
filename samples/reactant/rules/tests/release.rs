@@ -1,6 +1,6 @@
 use std::{fs, path::Path, sync::Arc};
 
-use battlement::{ClickEvent, Command, KeyModifiers, ObjectId, PanelPoint, PointerButton, UiEvent};
+use battlement::{ClickEvent, KeyModifiers, ObjectId, PanelPoint, PointerButton, UiEvent};
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::{FakeClient, ui::UiClient},
@@ -64,7 +64,7 @@ fn release_sample_source_contains_no_c_sharp() {
 
 fn click_label<E>(client: &mut FakeClient<E>, target_id: ObjectId)
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   client.ui().send_event(UiEvent::click(
     target_id,
@@ -90,7 +90,7 @@ fn catalog() -> Arc<FakeAssetCatalog> {
 
 fn find_named<E>(ui: &UiClient<'_, E>, root: ObjectId, expected: &str) -> ObjectId
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let mut pending = vec![root];
   while let Some(object_id) = pending.pop() {

@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::Shadow;
 
 /// One filter evaluated only on Battlement-owned decorative paint.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum FilterFunction {
   /// Adjusts brightness by a unitless factor.
   Brightness(f32),
@@ -12,8 +10,7 @@ pub enum FilterFunction {
 }
 
 /// Ordered filters applied only to Battlement-owned decorative paint.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FilterList(Vec<FilterFunction>);
 
 impl FilterList {

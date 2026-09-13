@@ -614,16 +614,6 @@ namespace Battlement
             }
         }
 
-        /// <summary>Registers one game-owned command type before connecting.</summary>
-        public void RegisterCommand<TPayload, TError>(
-            string type,
-            IBattlementCommandHandler<TPayload> handler
-        )
-        {
-            RequireConfiguredAndStopped();
-            configuredRuntime!.CustomCommands.Register<TPayload, TError>(type, handler);
-        }
-
         /// <summary>Registers a generated, synchronously borrowed custom-command payload.</summary>
         public void RegisterFlatBufferCommand<TPayloadView, TError>(
             string type,
@@ -1408,26 +1398,13 @@ namespace Battlement
                     return;
                 }
 
-                IBattlementResponseView? direct = result.DetachResponseView();
-                if (direct is null)
-                {
-                    responses.Enqueue(
-                        (payload, owner) => DecodeResponse(configured, payload, owner),
-                        result.BorrowedPayload,
-                        isInitial,
-                        previousSession,
-                        result.DetachPayloadOwner()
-                    );
-                }
-                else
-                {
-                    BattlementResponseStream.Reservation reservation = responses.Reserve(
-                        (payload, owner) => DecodeResponse(configured, payload, owner),
-                        isInitial,
-                        previousSession
-                    );
-                    reservation.Commit(direct);
-                }
+                responses.Enqueue(
+                    (payload, owner) => DecodeResponse(configured, payload, owner),
+                    result.BorrowedPayload,
+                    isInitial,
+                    previousSession,
+                    result.DetachPayloadOwner()
+                );
                 BattlementConfiguredRuntime runtime = configuredRuntime!;
                 if (runtime.UiEventDispatcher.IsDispatching != true)
                     DrainResponses(configured);
@@ -1442,7 +1419,7 @@ namespace Battlement
         {
             try
             {
-                if (BattlementFlatBufferMaterializer.IsResponse(payload))
+                if (BattlementFlatBufferResponse.HasIdentifier(payload))
                 {
                     if (configured.FlatBufferResponseSchema is null)
                     {

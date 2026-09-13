@@ -7,30 +7,25 @@ use std::{
   num::NonZeroU64,
 };
 
-use serde::{Deserialize, Serialize};
-
 use crate::{ObjectId, Rect};
 
 /// Identifies one observation epoch.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct GeometryObservationId(pub ObjectId);
 
 /// Identifies one complete native sampling pass within a session.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct GeometryGeneration(pub NonZeroU64);
 
 /// Identifies one physical display.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct DisplayId(pub u32);
 
 /// Identifies the UI document panel that owns an observed element.
 pub type PanelId = ObjectId;
 
 /// Selects the camera used to project a world target.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CameraTarget {
   /// Use the session's selected input camera.
   Input,
@@ -39,8 +34,7 @@ pub enum CameraTarget {
 }
 
 /// Names one authored world-space geometry anchor.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct AnchorName(pub String);
 
 impl From<String> for AnchorName {
@@ -56,7 +50,7 @@ impl From<&str> for AnchorName {
 }
 
 /// A row-major three-by-three projective transform.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Projective2 {
   pub m11: f64,
   pub m12: f64,
@@ -85,7 +79,7 @@ impl Point {
 }
 
 /// A point in upper-left-origin physical display coordinates.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ViewportPoint {
   pub x: f64,
   pub y: f64,
@@ -93,7 +87,7 @@ pub struct ViewportPoint {
 }
 
 /// A rectangle in upper-left-origin physical display coordinates.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ViewportRect {
   pub x: f64,
   pub y: f64,
@@ -103,7 +97,7 @@ pub struct ViewportRect {
 }
 
 /// Geometry measured for one UI element.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ElementGeometry {
   pub layout: Rect,
   pub viewport_bound: ViewportRect,
@@ -171,7 +165,7 @@ impl ElementGeometry {
 }
 
 /// Physical display orientation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DisplayOrientation {
   Landscape,
   LandscapeFlipped,
@@ -180,7 +174,7 @@ pub enum DisplayOrientation {
 }
 
 /// Geometry measured for one display viewport.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ViewportGeometry {
   pub viewport: ViewportRect,
   pub safe_area: ViewportRect,
@@ -190,26 +184,24 @@ pub struct ViewportGeometry {
 }
 
 /// Geometry measured for a projected world point.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldPointGeometry {
   pub point: ViewportPoint,
   pub depth: f64,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub is_inside_viewport: bool,
 }
 
 /// Geometry measured for projected rendered bounds.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldBoundsGeometry {
   pub bound: ViewportRect,
   pub nearest_depth: f64,
   pub farthest_depth: f64,
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub is_inside_viewport: bool,
 }
 
 /// One target installed in the native observation registry.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum GeometryObservationTarget {
   UiElement {
     object_id: ObjectId,
@@ -233,21 +225,21 @@ pub enum GeometryObservationTarget {
 }
 
 /// Associates one observation epoch with its target.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeometryObservation {
   pub observation_id: GeometryObservationId,
   pub target: GeometryObservationTarget,
 }
 
 /// One atomic registry update.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeometryObservationUpdate {
   pub added: Vec<GeometryObservation>,
   pub removed: Vec<GeometryObservationId>,
 }
 
 /// A successfully sampled geometry value.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GeometryValue {
   Element(ElementGeometry),
   Viewport(ViewportGeometry),
@@ -256,7 +248,7 @@ pub enum GeometryValue {
 }
 
 /// A temporary reason an observation could not be sampled.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GeometryUnavailable {
   Detached,
   Hidden,
@@ -271,21 +263,21 @@ pub enum GeometryUnavailable {
 
 /// The result of sampling one observation.
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GeometryObservationResult {
   Current(GeometryValue),
   Unavailable(GeometryUnavailable),
 }
 
 /// One changed observation in a sampling pass.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GeometryObservationValue {
   pub observation_id: GeometryObservationId,
   pub result: GeometryObservationResult,
 }
 
 /// Changed values from one complete native sampling pass.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GeometryObservationBatch {
   pub generation: GeometryGeneration,
   pub changed: Vec<GeometryObservationValue>,

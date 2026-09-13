@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, PickingMode, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiImage,
-  UiLabel, UiNode, UiVisualElement, object_id,
+  ObjectId, PickingMode, UiButton, UiElement, UiEventKind, UiImage, UiLabel, UiNode,
+  UiVisualElement, object_id,
 };
 use battlement_native::UiEventActionView;
 
@@ -45,33 +45,6 @@ pub(crate) fn target_document(root_id: ObjectId) -> UiNode {
       .picking_mode(PickingMode::Ignore)
       .style(render_mode_styles::target_status()),
   ))
-}
-
-pub(crate) fn event_commands(event: &UiEvent, details_expanded: &mut bool) -> Option<Vec<Command>> {
-  if event.target_id != DETAILS_BUTTON_ID {
-    return None;
-  }
-  match event.body {
-    UiEventBody::Click(_) => {
-      *details_expanded = !*details_expanded;
-      Some(vec![
-        Command::update_visual_element(DETAILS_BUTTON_ID, details_button(*details_expanded, true)),
-        Command::update_visual_element(
-          DETAILS_ID,
-          UiVisualElement::new().style(render_mode_styles::details(*details_expanded)),
-        ),
-      ])
-    }
-    UiEventBody::FocusIn(_) => Some(vec![Command::update_visual_element(
-      DETAILS_BUTTON_ID,
-      details_button(*details_expanded, true),
-    )]),
-    UiEventBody::FocusOut(_) => Some(vec![Command::update_visual_element(
-      DETAILS_BUTTON_ID,
-      details_button(*details_expanded, false),
-    )]),
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(

@@ -19,8 +19,12 @@ namespace Battlement
                 _ = ReadUuid(value.CausedByActionId, "causing action");
             if (!Known(value.Start, Wire.BatchStart.AfterEarlierAssetPreparation))
                 throw new InvalidDataException("The batch start value is unknown.");
-            if (value.GroupsLength == 0)
-                throw new InvalidDataException("A batch must contain a parallel group.");
+            if (value.GroupsLength is < 1 or > 256)
+                throw new InvalidDataException(
+                    "A batch must contain between one and 256 parallel groups."
+                );
+            var commandIds = new HashSet<Guid>();
+            int commandCount = 0;
             for (int groupIndex = 0; groupIndex < value.GroupsLength; groupIndex++)
             {
                 Wire.ParallelCommandGroup group =
@@ -28,6 +32,9 @@ namespace Battlement
                     ?? throw new InvalidDataException("A parallel command group is absent.");
                 if (group.CommandsLength == 0)
                     throw new InvalidDataException("A parallel group must contain a command.");
+                commandCount = checked(commandCount + group.CommandsLength);
+                if (commandCount > 4_096)
+                    throw new InvalidDataException("A batch cannot exceed 4096 commands.");
                 for (int commandIndex = 0; commandIndex < group.CommandsLength; commandIndex++)
                 {
                     Wire.CommandEntry entry =
@@ -35,15 +42,21 @@ namespace Battlement
                         ?? throw new InvalidDataException("A command entry is absent.");
                     if (entry.CommandType != Wire.CommandEntryPayload.CoreCommand)
                         throw new InvalidDataException("A core command entry has an unknown tag.");
-                    ValidateCommand(entry.CommandAsCoreCommand());
+                    Wire.CoreCommand command = entry.CommandAsCoreCommand();
+                    if (!commandIds.Add(ReadUuid(command.CommandId, "command")))
+                        throw new InvalidDataException("A batch repeats a command UUID.");
+                    ValidateCommand(command);
                 }
             }
         }
 
         internal static void ValidateSnapshot(Wire.Snapshot value, Guid expectedSession)
         {
+            const int MaximumObjects = 100_000;
             if (ReadUuid(value.SessionId, "snapshot session") != expectedSession)
                 throw new InvalidDataException("The snapshot session does not match its response.");
+            if (value.ObjectsLength > MaximumObjects)
+                throw new InvalidDataException("The snapshot object limit of 100000 was exceeded.");
             var scenes = new HashSet<Guid>();
             for (int index = 0; index < value.ScenesLength; index++)
                 if (!scenes.Add(ReadUuid(value.Scenes(index)!.Value.SceneId, "snapshot scene")))
@@ -206,7 +219,7 @@ namespace Battlement
                             "A UI document object has the wrong payload."
                         );
                     GameObjectKind.UiDocumentState state =
-                        BattlementFlatBufferMaterializer.UiDocumentState(
+                        BattlementFlatBufferRetainedCopy.UiDocumentState(
                             value.ContentAsUiDocumentObject()
                         );
                     BattlementUiDocumentValidator.Validate(
@@ -268,20 +281,16 @@ namespace Battlement
                 }
 
                 case Wire.GameObjectKind.Cube:
-                    break;
                 case Wire.GameObjectKind.Sphere:
-                    break;
                 case Wire.GameObjectKind.Capsule:
-                    break;
                 case Wire.GameObjectKind.Cylinder:
-                    break;
                 case Wire.GameObjectKind.Plane:
-                    break;
                 case Wire.GameObjectKind.Quad:
-                    break;
-                default:
-                    if (!IsDirectPrimitive(value.Kind))
-                        throw new InvalidDataException("A direct snapshot object kind is unknown.");
+                {
+                    if (value.ContentType != Wire.GameObjectContent.PrimitiveObject)
+                        throw new InvalidDataException(
+                            "A primitive object has the wrong content payload."
+                        );
                     Wire.PrimitiveObject primitive = value.ContentAsPrimitiveObject();
                     ValidateDirectMaterials(primitive);
                     ValidatePreparedMaterials(
@@ -290,6 +299,9 @@ namespace Battlement
                         assets
                     );
                     break;
+                }
+                default:
+                    throw new InvalidDataException("A direct snapshot object kind is unknown.");
             }
         }
 
@@ -1002,8 +1014,6 @@ namespace Battlement
                 case Wire.CoreCommandKind.TimeWait:
                 {
                     ulong duration = value.PayloadAsWaitPayload().DurationMs;
-                    if (!value.Blocking)
-                        throw new InvalidDataException("A wait command must be blocking.");
                     if (duration == 0 || duration > 86_400_000)
                         throw new InvalidDataException(
                             "A wait duration must be positive and at most one day."
@@ -2280,6 +2290,9 @@ namespace Battlement
             }
         }
 
+        private static void ValidateDirectMaterials(Wire.PrimitiveObject value) =>
+            ValidateDirectMaterials(value.MaterialsLength, index => value.Materials(index)!.Value);
+
         private static bool IsDirectPrimitive(Wire.GameObjectKind kind) =>
             kind
                 is Wire.GameObjectKind.Cube
@@ -2288,9 +2301,6 @@ namespace Battlement
                     or Wire.GameObjectKind.Cylinder
                     or Wire.GameObjectKind.Plane
                     or Wire.GameObjectKind.Quad;
-
-        private static void ValidateDirectMaterials(Wire.PrimitiveObject value) =>
-            ValidateDirectMaterials(value.MaterialsLength, index => value.Materials(index)!.Value);
 
         private static void ValidateDirectMaterials(Wire.PrefabObject value) =>
             ValidateDirectMaterials(value.MaterialsLength, index => value.Materials(index)!.Value);
@@ -2380,259 +2390,6 @@ namespace Battlement
                 throw new InvalidDataException(
                     $"{name} must be strictly between {minimum} and {maximum}."
                 );
-        }
-
-        private static void ValidateOwnedCommand(CommandBody body, bool blocking)
-        {
-            Tween? tween = BattlementTweenAdapter.For(body);
-            if (tween is not null)
-            {
-                BattlementTweenAdapter.ValidateSettings(tween);
-                if (blocking && tween.Repeat is TweenRepeat.Forever)
-                    throw new InvalidDataException("A blocking command cannot tween forever.");
-            }
-
-            switch (body)
-            {
-                case CommandBody.Assets.ReplaceSet assets:
-                    _ = BattlementSnapshotCatalogValidator.ValidatePrepared(assets.PreparedAssets);
-                    break;
-                case CommandBody.Object.Create create:
-                    ValidateObjectShape(create.GameObject);
-                    break;
-                case CommandBody.Transform.SetLocalPosition value:
-                    RequireFinite(value.Position);
-                    break;
-                case CommandBody.Transform.SetWorldPosition value:
-                    RequireFinite(value.Position);
-                    break;
-                case CommandBody.Transform.TweenLocalPosition value:
-                    RequireFinite(value.Position);
-                    break;
-                case CommandBody.Transform.TweenWorldPosition value:
-                    RequireFinite(value.Position);
-                    break;
-                case CommandBody.Transform.SetLocalRotation value:
-                    RequireQuaternion(value.Rotation);
-                    break;
-                case CommandBody.Transform.SetWorldRotation value:
-                    RequireQuaternion(value.Rotation);
-                    break;
-                case CommandBody.Transform.TweenLocalRotation value:
-                    RequireQuaternion(value.Rotation);
-                    break;
-                case CommandBody.Transform.TweenWorldRotation value:
-                    RequireQuaternion(value.Rotation);
-                    break;
-                case CommandBody.Transform.SetLocalScale value:
-                    RequireFinite(value.Scale);
-                    break;
-                case CommandBody.Transform.TweenLocalScale value:
-                    RequireFinite(value.Scale);
-                    break;
-                case CommandBody.Camera.SetPerspective value:
-                    RequireFinite(value.FieldOfView);
-                    break;
-                case CommandBody.Camera.TweenFieldOfView value:
-                    RequireFinite(value.FieldOfView);
-                    break;
-                case CommandBody.Camera.SetOrthographic value:
-                    RequireFinite(value.Size);
-                    break;
-                case CommandBody.Camera.TweenOrthographicSize value:
-                    RequireFinite(value.Size);
-                    break;
-                case CommandBody.Camera.SetClipping value:
-                    RequireFinite(value.Near);
-                    RequireFinite(value.Far);
-                    if (value.Far <= value.Near)
-                        throw new InvalidDataException(
-                            "Camera far clipping must be greater than near clipping."
-                        );
-                    break;
-                case CommandBody.Camera.SetClear value:
-                    if (
-                        (value.ClearMode == CameraClearMode.SolidColor)
-                        != (value.ClearColor is not null)
-                    )
-                        throw new InvalidDataException(
-                            "Camera clear color presence does not match its clear mode."
-                        );
-                    if (value.ClearColor is Color clearColor)
-                        RequireFinite(clearColor);
-                    break;
-                case CommandBody.Light.SetColor value:
-                    RequireFinite(value.Color);
-                    break;
-                case CommandBody.Light.TweenColor value:
-                    RequireFinite(value.Color);
-                    break;
-                case CommandBody.Light.SetIntensity value:
-                    RequireFinite(value.Intensity);
-                    break;
-                case CommandBody.Light.TweenIntensity value:
-                    RequireFinite(value.Intensity);
-                    break;
-                case CommandBody.Light.SetRange value:
-                    RequireFinite(value.Range);
-                    break;
-                case CommandBody.Light.SetSpotAngle value:
-                    RequireFinite(value.InnerSpotAngle);
-                    RequireFinite(value.OuterSpotAngle);
-                    if (value.InnerSpotAngle > value.OuterSpotAngle)
-                        throw new InvalidDataException(
-                            "A spot light's inner angle cannot exceed its outer angle."
-                        );
-                    break;
-                case CommandBody.Image.SetSize value:
-                    RequireFinite(value.Width);
-                    RequireFinite(value.Height);
-                    break;
-                case CommandBody.Image.SetTint value:
-                    RequireFinite(value.Tint);
-                    break;
-                case CommandBody.Image.TweenTint value:
-                    RequireFinite(value.Tint);
-                    break;
-                case CommandBody.Image.SetOpacity value:
-                    RequireFinite(value.Opacity);
-                    break;
-                case CommandBody.Image.TweenOpacity value:
-                    RequireFinite(value.Opacity);
-                    break;
-                case CommandBody.Text.SetSize value:
-                    RequireFinite(value.Size);
-                    break;
-                case CommandBody.Text.TweenSize value:
-                    RequireFinite(value.Size);
-                    break;
-                case CommandBody.Text.SetColor value:
-                    RequireFinite(value.Color);
-                    break;
-                case CommandBody.Text.TweenColor value:
-                    RequireFinite(value.Color);
-                    break;
-                case CommandBody.Text.SetWrapping { WrapWidth: double width }:
-                    RequireFinite(width);
-                    break;
-                case CommandBody.Animator.Play value:
-                    RequireFinite(value.NormalizedStartTime);
-                    break;
-                case CommandBody.Animator.CrossFade value:
-                    RequireFinite(value.NormalizedStartTime);
-                    break;
-                case CommandBody.Animator.SetFloat value:
-                    RequireFinite(value.Value);
-                    break;
-                case CommandBody.Animator.SetSpeed value:
-                    RequireFinite(value.Speed);
-                    break;
-                case CommandBody.Particle.Play when blocking:
-                    throw new InvalidDataException("Particle play must be nonblocking.");
-                case CommandBody.Particle.Spawn
-                {
-                    Location: ParticleSpawnLocation.AtWorldPosition value
-                }:
-                    RequireFinite(value.Position);
-                    break;
-                case CommandBody.Audio.Play value:
-                    RequireFinite(value.Volume);
-                    RequireFinite(value.Pitch);
-                    if (blocking && value.Loop)
-                        throw new InvalidDataException("Looping audio must be nonblocking.");
-                    break;
-                case CommandBody.Audio.SetVolume value:
-                    RequireFinite(value.Volume);
-                    break;
-                case CommandBody.Audio.TweenVolume value:
-                    RequireFinite(value.Volume);
-                    break;
-                case CommandBody.Time.Wait when !blocking:
-                    throw new InvalidDataException("A wait command must be blocking.");
-                case CommandBody.Controller.Vibrate value:
-                    RequireFinite(value.LowFrequency);
-                    RequireFinite(value.HighFrequency);
-                    if (value.LowFrequency is < 0 or > 1 || value.HighFrequency is < 0 or > 1)
-                        throw new InvalidDataException(
-                            "Controller vibration intensities must be between zero and one."
-                        );
-                    break;
-                case CommandBody.Input.SetController value:
-                    ValidateController(value.Settings);
-                    break;
-                case CommandBody.VisualElement.Create value:
-                    ValidateUiNode(value.Node);
-                    break;
-                case CommandBody.VisualElement.Update
-                {
-                    Value: VisualElementUpdate.Properties value
-                }:
-                    Battlement.UI.BattlementUiElementValidator.Validate(
-                        value.Element,
-                        allowUsageHints: false
-                    );
-                    break;
-                case CommandBody.Diagnostics when !blocking:
-                    throw new InvalidDataException("Diagnostics commands must be blocking.");
-                default:
-                    break;
-            }
-        }
-
-        private static void ValidateObjectShape(BattlementGameObject value)
-        {
-            RequireFinite(value.LocalTransform.Position);
-            RequireQuaternion(value.LocalTransform.Rotation);
-            RequireFinite(value.LocalTransform.Scale);
-            switch (value.Kind)
-            {
-                case GameObjectKind.Camera camera:
-                    RequireFinite(camera.State.FieldOfView);
-                    RequireFinite(camera.State.OrthographicSize);
-                    RequireFinite(camera.State.NearClip);
-                    RequireFinite(camera.State.FarClip);
-                    if (camera.State.FarClip <= camera.State.NearClip)
-                        throw new InvalidDataException("Camera clipping is invalid.");
-                    RequireFinite(camera.State.ClearColor);
-                    break;
-                case GameObjectKind.Light light:
-                    RequireFinite(light.State.Color);
-                    RequireFinite(light.State.Intensity);
-                    RequireFinite(light.State.Range);
-                    RequireFinite(light.State.InnerSpotAngle);
-                    RequireFinite(light.State.OuterSpotAngle);
-                    if (light.State.InnerSpotAngle > light.State.OuterSpotAngle)
-                        throw new InvalidDataException("Spot-light angles are invalid.");
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        private static void ValidateController(ControllerInputSettings value)
-        {
-            if (value.StickDeadZone is double deadZone)
-            {
-                RequireFinite(deadZone);
-                if (deadZone < 0 || deadZone >= 1)
-                    throw new InvalidDataException("Controller stick dead zone is invalid.");
-            }
-            if (value.RepeatDelay == TimeSpan.Zero || value.RepeatInterval == TimeSpan.Zero)
-                throw new InvalidDataException("Controller repeat timing is invalid.");
-            var buttons = new HashSet<ControllerButton>();
-            foreach (ControllerButton button in value.Buttons)
-                if (!Enum.IsDefined(typeof(ControllerButton), button) || !buttons.Add(button))
-                    throw new InvalidDataException("Controller buttons are invalid or repeated.");
-        }
-
-        private static void ValidateUiNode(UiNode value)
-        {
-            Battlement.UI.BattlementUiElementValidator.Validate(
-                value.Element,
-                allowUsageHints: true
-            );
-            foreach (UiNode child in value.Children ?? Array.Empty<UiNode>())
-                ValidateUiNode(child);
         }
 
         private static void RequireQuaternion(Quaternion value)
@@ -2839,12 +2596,28 @@ namespace Battlement
             if ((value.UsageHints & ~0x0fU) != 0)
                 throw new InvalidDataException("A UI usage-hint mask contains unknown bits.");
             var keys = new HashSet<Wire.UiPropertyKey>();
+            var shorthandEvents = new HashSet<uint>();
             for (int index = 0; index < value.PropertiesLength; index++)
-                ValidateProperty(
+            {
+                Wire.UiProperty property =
                     value.Properties(index)
-                        ?? throw new InvalidDataException("A UI property is absent."),
-                    keys
-                );
+                    ?? throw new InvalidDataException("A UI property is absent.");
+                ValidateProperty(property, keys);
+                if (
+                    property.Key == Wire.UiPropertyKey.Classes
+                    && property.State == Wire.PropState.Set
+                )
+                    ValidateUniqueTextList(property.ValueAsTextListPropertyValue());
+                if (
+                    property.Key == Wire.UiPropertyKey.Events
+                    && property.State == Wire.PropState.Set
+                )
+                    ValidateShorthandEvents(
+                        property.ValueAsUIntListPropertyValue(),
+                        shorthandEvents
+                    );
+            }
+            var subscriptions = new HashSet<(Wire.UiSubscriptionKind, byte)>();
             for (int index = 0; index < value.EventSubscriptionsLength; index++)
             {
                 Wire.UiEventSubscriptionValue subscription =
@@ -2856,6 +2629,15 @@ namespace Battlement
                     || (subscription.Phases & ~0x07) != 0
                 )
                     throw new InvalidDataException("A UI event subscription is noncanonical.");
+                if (!subscriptions.Add((subscription.Kind, subscription.Phases)))
+                    throw new InvalidDataException("UI event subscriptions must be unique.");
+                if (
+                    (subscription.Phases & 0x02) != 0
+                    && shorthandEvents.Contains((uint)subscription.Kind)
+                )
+                    throw new InvalidDataException(
+                        "UI event subscriptions must be unique across shorthand and routed values."
+                    );
             }
             var parts = new HashSet<(Wire.UiPart, uint?)>();
             for (int index = 0; index < value.PartStylesLength; index++)
@@ -2875,6 +2657,33 @@ namespace Battlement
                             ?? throw new InvalidDataException("A UI part property is absent."),
                         partKeys
                     );
+            }
+        }
+
+        private static void ValidateUniqueTextList(Wire.TextListPropertyValue value)
+        {
+            var items = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < value.ValuesLength; index++)
+            {
+                string item = value.Values(index);
+                RequireSnapshotString(item, "UI class", allowEmpty: false);
+                if (!items.Add(item))
+                    throw new InvalidDataException("UI classes must be unique.");
+            }
+        }
+
+        private static void ValidateShorthandEvents(
+            Wire.UIntListPropertyValue value,
+            ISet<uint> events
+        )
+        {
+            for (int index = 0; index < value.ValuesLength; index++)
+            {
+                uint item = value.Values(index);
+                if (!Enum.IsDefined(typeof(Wire.UiSubscriptionKind), (byte)item))
+                    throw new InvalidDataException("A UI event subscription is unknown.");
+                if (!events.Add(item))
+                    throw new InvalidDataException("UI event subscriptions must be unique.");
             }
         }
 

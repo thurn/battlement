@@ -21,4 +21,3 @@ uuid.workspace = true
 [dev-dependencies]
 battlement-fake = { path = "../battlement-fake" }
 battlement-flatbuffers = { path = "../battlement-flatbuffers", features = ["test-support"] }
-serde_json.workspace = true

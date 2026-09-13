@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Style, UiVisualElement, UiVisualElementProperties, UsageHint,
 };
@@ -34,10 +32,9 @@ use crate::{
 /// ```
 ///
 /// [`UiNode::child`]: crate::UiNode::child
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiBox {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
 }
 

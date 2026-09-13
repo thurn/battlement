@@ -10,8 +10,8 @@ use battlement::{
   GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
   GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform, ObjectId,
   ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-  ScreenSize, Snapshot, Style, UiDocument, UiEventAction, UiEventResponse, UiFontAddress, UiNode,
-  Vector3, ViewportGeometry, ViewportRect,
+  ScreenSize, SessionId, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3,
+  ViewportGeometry, ViewportRect,
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
 use battlement_cloud_fake::diagnostics::{DiagnosticsFake, FakeDiagnosticsCommandOutcome};
@@ -20,7 +20,10 @@ use battlement_fake::{
   client::{FakeClient, PointerInput},
   world::WorldTransform,
 };
-use battlement_native::{ConnectView, CoreClientMessageView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, CoreClientMessageView, Engine, EngineError, EngineResponse, FlatBufferSubmitError,
+  UiEventActionView, UiEventResult,
+};
 use support::ScriptedEngine;
 use uuid::Uuid;
 
@@ -41,34 +44,23 @@ impl CoreScriptedEngine {
 }
 
 impl Engine for CoreScriptedEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    self
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    let response = self
       .connect_response
       .take()
-      .ok_or_else(|| EngineError::new("unexpected connect"))
+      .ok_or_else(|| EngineError::new("unexpected connect"))?;
+    support::encoded_unchecked(response)
   }
 
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response, EngineError> {
-    self.probe.borrow_mut().push(message);
-    self
-      .submit_response
-      .take()
-      .ok_or_else(|| EngineError::new("unexpected submit"))
-  }
-
-  fn submit_core_view(
-    &mut self,
-    message: CoreClientMessageView<'_>,
-  ) -> Result<Response, EngineError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    let message = CoreClientMessageView::read(bytes)
+      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
     let CoreClientMessageView::BatchFailed(failure) = message else {
-      return Err(EngineError::new("unexpected core submission"));
+      return Err(FlatBufferSubmitError::engine(EngineError::new(
+        "unexpected core submission",
+      )));
     };
     let error_codes = [
       CoreErrorCode::InvalidEncoding,
@@ -98,7 +90,9 @@ impl Engine for CoreScriptedEngine {
     ];
     let error_code = *error_codes
       .get(usize::from(failure.error_code()))
-      .ok_or_else(|| EngineError::new("unexpected core error code"))?;
+      .ok_or_else(|| {
+        FlatBufferSubmitError::engine(EngineError::new("unexpected core error code"))
+      })?;
     let session_id = battlement::SessionId::from_uuid(Uuid::from_bytes(failure.session_id()))
       .expect("verified session ID is nonzero");
     let batch_id = battlement::BatchId::from_uuid(Uuid::from_bytes(failure.batch_id()))
@@ -107,26 +101,40 @@ impl Engine for CoreScriptedEngine {
       battlement::CommandId::from_uuid(Uuid::from_bytes(value))
         .expect("verified command ID is nonzero")
     });
-    self.submit(ClientMessage::BatchFailed(BatchFailed::new(
-      session_id,
-      batch_id,
-      command_id,
-      error_code,
-      failure.message(),
-    )))
+    self
+      .probe
+      .borrow_mut()
+      .push(ClientMessage::BatchFailed(BatchFailed::new(
+        session_id,
+        batch_id,
+        command_id,
+        error_code,
+        failure.message(),
+      )));
+    let response = self
+      .submit_response
+      .take()
+      .ok_or_else(|| FlatBufferSubmitError::engine(EngineError::new("unexpected submit")))?;
+    support::encoded(response).map_err(FlatBufferSubmitError::engine)
   }
 
   fn submit_ui_event(
     &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(action.session_id),
-    ))
+    action: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let session =
+      SessionId::from_uuid(Uuid::from_bytes(action.session_id())).expect("verified session ID");
+    Ok(UiEventResult {
+      disposition: if action.default_prevented() {
+        battlement::UiEventDisposition::PreventDefault
+      } else {
+        battlement::UiEventDisposition::Continue
+      },
+      response: support::encoded(Response::empty(session))?,
+    })
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }

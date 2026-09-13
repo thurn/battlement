@@ -20,26 +20,27 @@ namespace Battlement.Tests
             int callingThread = Environment.CurrentManagedThreadId;
             var decodeThreads = new List<int>();
             SessionId session = new(Guid.NewGuid());
-            Response<ICommand> response = new(session, Array.Empty<ResponseMessage<ICommand>>());
+            Response response = new(session, Array.Empty<ResponseMessage<Command>>());
+            ReadOnlyMemory<byte> payload = BattlementFlatBufferResponseFixtures.Write(response);
 
             BattlementResponseStream.Reservation first = stream.Reserve(
-                _ =>
+                (_, owner) =>
                 {
                     decodeThreads.Add(Environment.CurrentManagedThreadId);
-                    return response;
+                    return new BattlementFlatBufferResponse(payload, owner);
                 },
                 decoded: _ => decoded.Add(1)
             );
             BattlementResponseStream.Reservation second = stream.Reserve(
-                _ =>
+                (_, owner) =>
                 {
                     decodeThreads.Add(Environment.CurrentManagedThreadId);
-                    return response;
+                    return new BattlementFlatBufferResponse(payload, owner);
                 },
                 decoded: _ => decoded.Add(2)
             );
-            first.Commit(new byte[32 * 1024]);
-            second.Commit(new byte[32 * 1024]);
+            first.Commit(payload);
+            second.Commit(payload);
             Drain(stream);
             Assert.That(decoded, Is.EqualTo(new[] { 1, 2 }));
             Assert.That(decodeThreads, Is.All.EqualTo(callingThread));
@@ -49,30 +50,41 @@ namespace Battlement.Tests
         public void ResponsePayloadOwnerIsReleasedOnRetirementClearAndRejectedCommit()
         {
             SessionId session = new(Guid.NewGuid());
-            Response<ICommand> response = new(session, Array.Empty<ResponseMessage<ICommand>>());
+            Response response = new(session, Array.Empty<ResponseMessage<Command>>());
+            ReadOnlyMemory<byte> payload = BattlementFlatBufferResponseFixtures.Write(response);
             var stream = new BattlementResponseStream();
             var retired = new TrackingDisposable();
-            BattlementResponseStream.Reservation first = stream.Reserve(_ => response);
-            first.Commit(new byte[] { 1 }, retired);
+            BattlementResponseStream.Reservation first = stream.Reserve(
+                (bytes, owner) => new BattlementFlatBufferResponse(bytes, owner)
+            );
+            first.Commit(payload, retired);
             Drain(stream);
             Assert.That(retired.IsDisposed, Is.True);
 
             var cleared = new TrackingDisposable();
-            BattlementResponseStream.Reservation second = stream.Reserve(_ => response);
-            second.Commit(new byte[] { 2 }, cleared);
+            BattlementResponseStream.Reservation second = stream.Reserve(
+                (bytes, owner) => new BattlementFlatBufferResponse(bytes, owner)
+            );
+            second.Commit(payload, cleared);
             stream.Clear();
             Assert.That(cleared.IsDisposed, Is.True);
 
             var decodeFailed = new TrackingDisposable();
-            BattlementResponseStream.Reservation failed = stream.Reserve(_ =>
-                throw new InvalidOperationException("decode failed")
+            BattlementResponseStream.Reservation failed = stream.Reserve(
+                (_, owner) =>
+                {
+                    owner?.Dispose();
+                    throw new InvalidOperationException("decode failed");
+                }
             );
             failed.Commit(new byte[] { 3 }, decodeFailed);
             Assert.Throws<InvalidOperationException>(() => Drain(stream));
             Assert.That(decodeFailed.IsDisposed, Is.True);
 
             var rejected = new TrackingDisposable();
-            BattlementResponseStream.Reservation third = stream.Reserve(_ => response);
+            BattlementResponseStream.Reservation third = stream.Reserve(
+                (bytes, owner) => new BattlementFlatBufferResponse(bytes, owner)
+            );
             Assert.Throws<System.IO.InvalidDataException>(() =>
                 third.Commit(new byte[MaximumResponseBytes + 1], rejected)
             );
@@ -114,25 +126,25 @@ namespace Battlement.Tests
             var stream = new BattlementResponseStream();
             SessionId session = new(Guid.NewGuid());
             var applied = new List<bool>();
+            ReadOnlyMemory<byte> outerPayload = BattlementFlatBufferResponseFixtures.Write(
+                Response(session, inputDisabled: true)
+            );
+            ReadOnlyMemory<byte> nestedPayload = BattlementFlatBufferResponseFixtures.Write(
+                Response(session, inputDisabled: false)
+            );
             BattlementResponseStream.Reservation outer = stream.Reserve(
                 (_, owner) =>
                 {
                     BattlementResponseStream.Reservation nested = stream.Reserve(
-                        (_, owner) =>
-                            new BattlementOwnedResponseView(
-                                Response(session, inputDisabled: false),
-                                owner
-                            )
+                        (payload, nestedOwner) =>
+                            new BattlementFlatBufferResponse(payload, nestedOwner)
                     );
-                    nested.Commit(new byte[] { 2 });
+                    nested.Commit(nestedPayload);
                     Assert.That(applied, Is.Empty);
-                    return new BattlementOwnedResponseView(
-                        Response(session, inputDisabled: true),
-                        owner
-                    );
+                    return new BattlementFlatBufferResponse(outerPayload, owner);
                 }
             );
-            outer.Commit(new byte[] { 1 });
+            outer.Commit(outerPayload);
             stream.Drain(
                 (_, _, _) => true,
                 (_, response, index) => applied.Add(response.ReadSnapshot(index).IsInputDisabled),
@@ -150,10 +162,10 @@ namespace Battlement.Tests
             var stream = new BattlementResponseStream();
             var reservations = new List<BattlementResponseStream.Reservation>();
             for (int index = 0; index < 256; index++)
-                reservations.Add(stream.Reserve(_ => throw new InvalidOperationException()));
+                reservations.Add(stream.Reserve((_, _) => throw new InvalidOperationException()));
 
             InvalidDataException error = Assert.Throws<InvalidDataException>(() =>
-                stream.Reserve(_ => throw new InvalidOperationException())
+                stream.Reserve((_, _) => throw new InvalidOperationException())
             );
             Assert.That(error.Message, Does.Contain("cannot queue more than 256 responses"));
             foreach (BattlementResponseStream.Reservation reservation in reservations)

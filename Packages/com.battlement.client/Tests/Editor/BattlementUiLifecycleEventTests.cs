@@ -3,9 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 using Battlement.UI;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -94,29 +92,6 @@ namespace Battlement.Tests
             Assert.That(body.Value.SelectionIndex, Is.EqualTo(selectionIndex));
             fixture.Documents.Advance();
             Assert.That(fixture.Events, Has.Count.EqualTo(1));
-        }
-
-        [Test]
-        public void LinkJsonOmitsDefaultPointerAndButton()
-        {
-            byte[] bytes = BattlementJson.SerializeUiEventAction(
-                new UiEventAction(
-                    new ActionId(Guid.NewGuid()),
-                    new SessionId(Guid.NewGuid()),
-                    new UiEvent(
-                        new ObjectId(Guid.NewGuid()),
-                        new UiEventBody.LinkEnter(
-                            new LinkEvent("field-guide", "FIELD GUIDE", new PanelPoint(12, 34))
-                        )
-                    )
-                )
-            );
-            JToken payload = JObject
-                .Parse(Encoding.UTF8.GetString(bytes))
-                .SelectToken("event.body.LinkEnter")!;
-
-            Assert.That(payload["pointer_id"], Is.Null);
-            Assert.That(payload["button"], Is.Null);
         }
 
         [Test]

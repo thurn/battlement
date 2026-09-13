@@ -145,8 +145,7 @@ fn source_bundle_lowers_every_product_copy_property_category() {
     .begin_session(&mut ())
     .unwrap()
     .into_parts(self::snapshot(&document));
-  let serialized = serde_json::to_string(&snapshot.ui).unwrap();
-
+  let copies = document_text(&snapshot.ui);
   for copy in [
     "Source text",
     "Source label",
@@ -154,9 +153,12 @@ fn source_bundle_lowers_every_product_copy_property_category() {
     "Source choice",
     "Source progress",
   ] {
-    assert!(serialized.contains(copy), "missing localized copy: {copy}");
+    assert!(
+      copies.iter().any(|value| value == copy),
+      "missing localized copy: {copy}"
+    );
   }
-  assert!(serialized.contains("User value"));
+  assert!(copies.iter().any(|value| value == "User value"));
   let groups = commit.into_groups();
   assert_eq!(self::semantic_labels(&groups), ["Source text"]);
   let _ = reactant.shutdown(&mut ()).into_groups();
@@ -252,9 +254,9 @@ fn localized_presentation_uses_source_development_by_default() {
     .into_parts(self::snapshot(&document));
 
   assert!(
-    serde_json::to_string(&snapshot.ui)
-      .unwrap()
-      .contains("Source text")
+    document_text(&snapshot.ui)
+      .iter()
+      .any(|value| value == "Source text")
   );
   let _ = commit.into_groups();
   let _ = reactant.shutdown(&mut ()).into_groups();
@@ -274,9 +276,9 @@ fn localized_sparse_properties_preserve_unset_set_and_reset() {
     .unwrap()
     .into_parts(self::snapshot(&document));
   assert!(
-    !serde_json::to_string(&snapshot.ui)
-      .unwrap()
-      .contains("Source text")
+    !document_text(&snapshot.ui)
+      .iter()
+      .any(|value| value == "Source text")
   );
   let _ = commit.into_groups();
 
@@ -313,9 +315,9 @@ fn reactant_preserves_trox_diagnostics_and_source_fallback() {
     .into_parts(self::snapshot(&document));
 
   assert!(
-    serde_json::to_string(&snapshot.ui)
-      .unwrap()
-      .contains("Source text")
+    document_text(&snapshot.ui)
+      .iter()
+      .any(|value| value == "Source text")
   );
   let diagnostics = diagnostics.lock().unwrap();
   assert!(diagnostics.contains(&DiagnosticCode::CatalogMismatch));
@@ -472,6 +474,65 @@ fn label_ids(document: &UiDocument) -> Vec<ObjectId> {
     collect(child, &mut ids);
   }
   ids
+}
+
+fn document_text(documents: &[UiDocument]) -> Vec<String> {
+  fn collect(node: &battlement::UiNode, values: &mut Vec<String>) {
+    match &node.element {
+      UiElement::Label(label) => push(&label.text, values),
+      UiElement::TextElement(text) => push(&text.text, values),
+      UiElement::TextField(field) => {
+        push(&field.label, values);
+        push(&field.value, values);
+        push(&field.placeholder, values);
+      }
+      UiElement::DropdownField(field) => {
+        push(&field.label, values);
+        if let Prop::Set(choices) = &field.choices {
+          values.extend(choices.iter().cloned());
+        }
+      }
+      UiElement::ProgressBar(bar) => push(&bar.title, values),
+      UiElement::Button(button) => push(&button.text, values),
+      UiElement::RepeatButton(button) => push(&button.text, values),
+      UiElement::GroupBox(group) => push(&group.text, values),
+      UiElement::PopupWindow(window) => push(&window.text, values),
+      UiElement::Toggle(toggle) => {
+        push(&toggle.label, values);
+        push(&toggle.text, values);
+      }
+      UiElement::RadioButton(button) => {
+        push(&button.label, values);
+        push(&button.text, values);
+      }
+      UiElement::RadioButtonGroup(group) => {
+        push(&group.label, values);
+        if let Prop::Set(choices) = &group.choices {
+          values.extend(choices.iter().cloned());
+        }
+      }
+      UiElement::ToggleButtonGroup(group) => push(&group.label, values),
+      UiElement::Slider(slider) => push(&slider.label, values),
+      UiElement::SliderInt(slider) => push(&slider.label, values),
+      UiElement::MinMaxSlider(slider) => push(&slider.label, values),
+      UiElement::Tab(tab) => push(&tab.text, values),
+      _ => {}
+    }
+    for child in &node.children {
+      collect(child, values);
+    }
+  }
+  fn push(value: &Prop<String>, values: &mut Vec<String>) {
+    if let Prop::Set(value) = value {
+      values.push(value.clone());
+    }
+  }
+
+  let mut values = Vec::new();
+  for node in documents.iter().flat_map(|document| &document.children) {
+    collect(node, &mut values);
+  }
+  values
 }
 
 fn translated_label_ids(groups: &[Vec<CommandBody>]) -> Vec<ObjectId> {

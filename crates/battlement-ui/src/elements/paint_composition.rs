@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::Length;
 
 /// How a composited element subtree combines with its backdrop.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PaintBlendMode {
   #[default]
   /// Premultiplied source-over compositing.
@@ -15,7 +13,7 @@ pub enum PaintBlendMode {
 }
 
 /// Interior rule for a path containing closed polygon contours.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PaintFillRule {
   #[default]
   /// Includes points whose signed contour crossing count is nonzero.
@@ -25,7 +23,7 @@ pub enum PaintFillRule {
 }
 
 /// A compound polygon mask in border-box coordinates, with at most 64 vertices total.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PaintClipPath {
   /// Closed contours; the last vertex connects to the first.
   pub contours: Vec<Vec<[Length; 2]>>,

@@ -4,10 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Battlement.Errors;
+using Google.FlatBuffers;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using Wire = Battlement.FlatBuffers.Generated;
 
 namespace Battlement.Tests
 {
@@ -216,13 +218,13 @@ namespace Battlement.Tests
             ConnectMessages.Add(json.ToArray());
             BattlementTransportResult result =
                 connectResults.Count > 0 ? connectResults.Dequeue() : SnapshotResponse();
-            session = result.ResponseView?.SessionId ?? session;
+            session = ReadSession(result.Payload) ?? session;
             return result;
         }
 
         public void EnqueueConnect(BattlementTransportResult result)
         {
-            session = result.ResponseView?.SessionId;
+            session = ReadSession(result.Payload);
             connectResults.Enqueue(result);
         }
 
@@ -248,16 +250,13 @@ namespace Battlement.Tests
                 return uiEventResults.Dequeue();
             }
             UiEventAction action = UiEventActions[^1];
+            var response = new Response(action.SessionId, Array.Empty<ResponseMessage<Command>>());
             return new BattlementUiEventTransportResult(
                 BattlementTransportStatus.Success,
                 action.Event.DefaultPrevented
                     ? UiEventDisposition.PreventDefault
                     : UiEventDisposition.Continue,
-                ReadOnlyMemory<byte>.Empty
-            ).OwnResponseView(
-                new BattlementOwnedResponseView(
-                    new Response(action.SessionId, Array.Empty<ResponseMessage<Command>>())
-                )
+                BattlementFlatBufferResponseFixtures.Write(response)
             );
         }
 
@@ -409,9 +408,29 @@ namespace Battlement.Tests
             identity.Id == DefaultInputCameraId.Value;
 
         public static BattlementTransportResult ResponseResult(Response response) =>
-            new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
-                new BattlementOwnedResponseView(response)
+            new(
+                BattlementTransportStatus.Success,
+                BattlementFlatBufferResponseFixtures.Write(response)
             );
+
+        private static SessionId? ReadSession(ReadOnlyMemory<byte> payload)
+        {
+            if (payload.IsEmpty)
+                return null;
+            try
+            {
+                var bytes = new ByteBuffer(payload.ToArray());
+                bytes.Position = FlatBufferConstants.SizePrefixLength;
+                Wire.Response response = Wire.Response.GetRootAsResponse(bytes);
+                return new SessionId(
+                    BattlementFlatBufferCore.ReadUuid(response.SessionId, "response session")
+                );
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
         private BattlementTransportResult EmptyResponse()
         {

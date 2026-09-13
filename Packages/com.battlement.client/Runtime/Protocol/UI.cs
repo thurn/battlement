@@ -27,10 +27,7 @@ namespace Battlement
         ObjectId DocumentId,
         ObjectId RootId,
         Prop<string> Name = default,
-        [property: Newtonsoft.Json.JsonProperty(
-            NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
-        )]
-            Prop<bool> Enabled = default,
+        Prop<bool> Enabled = default,
         Prop<UiPickingMode> PickingMode = default,
         Prop<UiLanguageDirection> LanguageDirection = default,
         Prop<bool> Focusable = default,
@@ -143,7 +140,7 @@ namespace Battlement
     {
         private InteractionDistance() { }
 
-        /// <summary>Maps to Unity positive infinity without non-finite JSON.</summary>
+        /// <summary>Maps to Unity positive infinity.</summary>
         public sealed record Unbounded : InteractionDistance;
 
         /// <summary>Uses a finite nonnegative inclusive distance.</summary>
@@ -264,10 +261,7 @@ namespace Battlement
         public sealed record Percent(float Value) : UiLength;
 
         /// <summary>A typed pixel-plus-percentage length.</summary>
-        public sealed record Calc(
-            [property: Newtonsoft.Json.JsonProperty("px")] float PixelComponent,
-            [property: Newtonsoft.Json.JsonProperty("percent")] float PercentageComponent
-        ) : UiLength;
+        public sealed record Calc(float PixelComponent, float PercentageComponent) : UiLength;
 
         /// <summary>Gets the absolute pixel component.</summary>
         public float Pixels =>

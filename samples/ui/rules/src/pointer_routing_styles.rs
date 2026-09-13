@@ -99,21 +99,22 @@ pub(crate) fn route_step(active: bool) -> Style {
 }
 
 pub(crate) fn capture(active: bool) -> Style {
+  let (background, foreground) = capture_colors(active);
   Style::new()
     .padding((8, 10))
     .margin((0, 0, 10, 0))
-    .background_color(if active {
-      Color::rgb(0.04, 0.32, 0.18)
-    } else {
-      PANEL
-    })
-    .color(if active {
-      Color::rgb(0.72, 1.0, 0.82)
-    } else {
-      MUTED
-    })
+    .background_color(background)
+    .color(foreground)
     .border_radius(7)
     .font_size(13)
+}
+
+pub(crate) fn capture_colors(active: bool) -> (Color, Color) {
+  if active {
+    (Color::rgb(0.04, 0.32, 0.18), Color::rgb(0.72, 1.0, 0.82))
+  } else {
+    (PANEL, MUTED)
+  }
 }
 
 pub(crate) fn payload() -> Style {

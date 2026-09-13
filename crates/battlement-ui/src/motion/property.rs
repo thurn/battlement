@@ -1,7 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 /// Runtime value shape accepted by an animation property.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum MotionValueKind {
   /// One finite floating-point channel.
   Scalar,
@@ -32,7 +30,7 @@ pub enum MotionValueKind {
 }
 
 /// Canonical interpolation behavior for one property.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum InterpolationCategory {
   /// Interpolates each finite numeric channel linearly after easing.
   Numeric,
@@ -47,7 +45,7 @@ pub enum InterpolationCategory {
 }
 
 /// Additive composition available to a property.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum AdditiveRule {
   /// Additive animation is invalid.
   None,
@@ -60,7 +58,7 @@ pub enum AdditiveRule {
 }
 
 /// Reference box used to resolve percentage channels.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PercentageReference {
   /// The value has no percentage representation.
   None,
@@ -75,7 +73,7 @@ pub enum PercentageReference {
 }
 
 /// Complete generated metadata for one animation property.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct MotionPropertyMetadata {
   /// Stable lower-snake-case wire identity.
   pub wire_name: &'static str,
@@ -98,7 +96,7 @@ pub struct MotionPropertyMetadata {
 macro_rules! properties {
   ($($variant:ident => ($wire:literal, $kind:ident, $unit:literal, $initial:literal, $mix:ident, $reference:ident, $add:ident)),+ $(,)?) => {
     /// Exhaustive animation-property catalog used by Rust validation and Unity writers.
-    #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub enum MotionProperty {
       $(
         #[doc = concat!("The `", $wire, "` animation property.")]

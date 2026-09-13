@@ -1,6 +1,5 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode,
-  UiTextField, UiValue, UiVisualElement, object_id,
+  ObjectId, UiBox, UiElement, UiEventKind, UiLabel, UiNode, UiTextField, UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -28,60 +27,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
         .child(inspector()),
     )
     .child(specimen_row())
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  match &event.body {
-    UiEventBody::Input(value) if event.target_id == ACCEPTED_ID => Some(vec![
-      Command::update_visual_element(
-        DRAFT_ID,
-        UiLabel::new(format!("LOCAL DRAFT  {}", value.value)),
-      ),
-      Command::update_visual_element(STATUS_ID, UiLabel::new("EDITING · no commit traffic")),
-    ]),
-    UiEventBody::SelectionChanged(value) if event.target_id == ACCEPTED_ID => {
-      Some(vec![Command::update_visual_element(
-        SELECTION_ID,
-        UiLabel::new(format!(
-          "SELECTION  {} → {}",
-          value.selection_index, value.cursor_index
-        )),
-      )])
-    }
-    UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
-      let proposed = text(value.proposed.clone())?;
-      Some(vec![
-        Command::update_visual_element(ACCEPTED_ID, UiTextField::new().value(&proposed)),
-        Command::update_visual_element(DRAFT_ID, UiLabel::new(format!("LOCAL DRAFT  {proposed}"))),
-        Command::update_visual_element(
-          COMMITTED_ID,
-          UiLabel::new(format!("RUST COMMITTED  {proposed}")),
-        ),
-        Command::update_visual_element(STATUS_ID, UiLabel::new("ACCEPTED · exact value authored")),
-      ])
-    }
-    UiEventBody::ValueCommitted(value) if event.target_id == NORMALIZED_ID => {
-      let normalized = text(value.proposed.clone())?.trim().to_uppercase();
-      Some(vec![
-        Command::update_visual_element(NORMALIZED_ID, UiTextField::new().value(&normalized)),
-        Command::update_visual_element(
-          STATUS_ID,
-          UiLabel::new(format!("NORMALIZED · {normalized}")),
-        ),
-        Command::update_visual_element(
-          COMMITTED_ID,
-          UiLabel::new(format!("RUST COMMITTED  {normalized}")),
-        ),
-      ])
-    }
-    UiEventBody::ValueCommitted(_) if event.target_id == REJECTED_ID => {
-      Some(vec![Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new("REJECTED · kept prior value"),
-      )])
-    }
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -280,19 +225,6 @@ fn specimen_row() -> UiNode {
             .style(text_field_styles::specimen_note()),
         )),
     )
-}
-
-fn text(value: UiValue) -> Option<String> {
-  match value {
-    UiValue::String(value) => Some(value),
-    UiValue::Bool(_)
-    | UiValue::Choice(_)
-    | UiValue::F32(_)
-    | UiValue::I32(_)
-    | UiValue::Index(_)
-    | UiValue::Indices(_) => None,
-    UiValue::F32Range(_) => None,
-  }
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {

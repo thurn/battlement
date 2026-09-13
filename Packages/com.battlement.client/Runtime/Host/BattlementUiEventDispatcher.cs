@@ -147,24 +147,21 @@ namespace Battlement
                         $"UI event returned unknown disposition {(uint)result.Disposition}."
                     );
                 }
-                if (result.BorrowedResponsePayload.IsEmpty && result.ResponseView is null)
+                if (result.BorrowedResponsePayload.IsEmpty)
                 {
                     throw new InvalidDataException("UI event returned an empty response payload.");
                 }
 
-                IBattlementResponseView? direct = result.DetachResponseView();
-                if (direct is null)
+                IBattlementResponseView direct;
+                IDisposable? owner = result.DetachPayloadOwner();
+                try
                 {
-                    IDisposable? owner = result.DetachPayloadOwner();
-                    try
-                    {
-                        direct = decodeResponse(result.BorrowedResponsePayload, owner);
-                        owner = null;
-                    }
-                    finally
-                    {
-                        owner?.Dispose();
-                    }
+                    direct = decodeResponse(result.BorrowedResponsePayload, owner);
+                    owner = null;
+                }
+                finally
+                {
+                    owner?.Dispose();
                 }
                 reservation.Commit(direct);
                 reservation = null;

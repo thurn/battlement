@@ -1,17 +1,11 @@
 //! Native rules engine for the standalone basic sample.
 
-use battlement::{
-  ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
-  CommandBody, CoreErrorCode, DragMode, Easing, GameObject, GameObjectKind, MaterialAssignment,
-  ObjectId, ParentScene, PointerEvent, PositionPayload, PreparedAsset, PropertyCommand, Quaternion,
-  Response, Scene, SceneId, SessionId, SetMaterialPayload, Snapshot, TextState, Tween,
-  TweenPositionPayload, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
-};
+use battlement::{ObjectId, SceneId, SessionId, object_id, scene_id};
 use battlement_native::{
-  CoreActionBodyView, CoreClientMessageView, Engine, EngineError, FlatBufferSubmitError,
-  MessageWriter, NativeBatchStart, NativeDragMode, NativeEasing, NativeEngine,
+  CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
+  FlatBufferSubmitError, MessageWriter, NativeBatchStart, NativeDragMode, NativeEasing,
   NativeObjectPlacement, NativeParentScene, NativePointerEvent, NativePreparedAssetKind,
-  NativeResponse, NativeTransform, NativeUiEventResponse, UiEventActionView,
+  NativeTransform, UiEventActionView, UiEventResult,
 };
 
 const SCENE_ID: SceneId = scene_id!("cfd68d2d-e6d4-4b6c-a259-c729cd7e190c");
@@ -107,172 +101,12 @@ impl BasicEngine {
 }
 
 impl Engine for BasicEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
   fn connect(
     &mut self,
     _message: battlement_native::ConnectView<'_>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    self.session_id = SessionId::new_v4();
-    self.positions = [false; 3];
-    self.poll_target = None;
-    self.polled_change_delivered = false;
-    self.last_action = "none";
-    self.visual_state = VisualState::Connected;
-    Ok(Response::snapshot(self::snapshot(self.session_id)))
-  }
-
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    let empty = Response::empty(self.session_id);
-    let Some(action) = message.into_action() else {
-      return Ok(empty);
-    };
-    let (object_id, action_name, command_name, body) = match action.body {
-      ActionBody::PointerEnter(payload) => (
-        {
-          self.visual_state = VisualState::Hovered;
-          payload.object_id
-        },
-        "pointer enter",
-        "target → yellow",
-        Some(CommandBody::RendererSetMaterial(
-          PropertyCommand::canceling(SetMaterialPayload {
-            object_id: payload.object_id,
-            address: YELLOW_MATERIAL.into(),
-            slot: None,
-          }),
-        )),
-      ),
-      ActionBody::PointerExit(payload) => (
-        {
-          self.visual_state = VisualState::HoverRestored;
-          payload.object_id
-        },
-        "pointer exit",
-        "target → white",
-        Some(CommandBody::RendererSetMaterial(
-          PropertyCommand::canceling(SetMaterialPayload {
-            object_id: payload.object_id,
-            address: WHITE_MATERIAL.into(),
-            slot: None,
-          }),
-        )),
-      ),
-      ActionBody::Activate(battlement::ActivationPayload { object_id })
-      | ActionBody::PointerClick(battlement::PointerButtonPayload { object_id, .. }) => {
-        let Some(index) = self::cube_index(object_id) else {
-          return Ok(empty);
-        };
-        self.positions[index] = !self.positions[index];
-        self.visual_state = if self.positions[index] {
-          VisualState::ClickPlaced
-        } else {
-          VisualState::ClickRestored
-        };
-        let x = -2.0 + index as f64 * 2.0;
-        let z = if self.positions[index] { 2.0 } else { 0.0 };
-        (
-          object_id,
-          "pointer click",
-          "500 ms move tween",
-          Some(CommandBody::TransformTweenLocalPosition(
-            PropertyCommand::canceling(TweenPositionPayload {
-              object_id,
-              position: Vector3::new(x, 0.0, z),
-              tween: Tween::new().duration_ms(500).easing(Easing::InOutSine),
-            }),
-          )),
-        )
-      }
-      ActionBody::DragStart(payload) => (
-        {
-          self.visual_state = VisualState::DragInFlight;
-          payload.object_id
-        },
-        "drag start",
-        "local pointer capture",
-        None,
-      ),
-      ActionBody::DragEnd(payload) => (
-        {
-          self.visual_state = VisualState::DragPlaced;
-          payload.object_id
-        },
-        "drag end",
-        "commit world position",
-        Some(CommandBody::TransformSetWorldPosition(
-          PropertyCommand::canceling(PositionPayload {
-            object_id: payload.object_id,
-            position: payload.world_position,
-          }),
-        )),
-      ),
-      _ => return Ok(empty),
-    };
-    if !self.polled_change_delivered && self.poll_target.is_none() {
-      self.poll_target =
-        self::cube_index(object_id).map(|index| self::cube_id((index + 2) % self.positions.len()));
-    }
-    self.last_action = action_name;
-    let commands = body.into_iter().chain([self::status_command(
-      self.visual_state,
-      action_name,
-      command_name,
-      "immediate",
-    )]);
-    Ok(Response::commands_for_action(
-      self.session_id,
-      action.action_id,
-      commands,
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    let Some(object_id) = self.poll_target.take() else {
-      return Ok(None);
-    };
-    self.polled_change_delivered = true;
-    let label = (b'A' + self::cube_index(object_id).expect("poll target is a cube") as u8) as char;
-    let command = format!("cube {label} → blue");
-    Ok(Some(Response::commands(
-      self.session_id,
-      vec![
-        CommandBody::RendererSetMaterial(PropertyCommand::canceling(SetMaterialPayload {
-          object_id,
-          address: BLUE_MATERIAL.into(),
-          slot: None,
-        })),
-        self::status_command(self.visual_state, self.last_action, &command, "polled"),
-      ],
-    )))
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("UI event session mismatch"));
-    }
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(self.session_id),
-    ))
-  }
-}
-
-impl NativeEngine for BasicEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
-
-  fn connect_native(
-    &mut self,
-    _message: battlement_native::ConnectView<'_>,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.session_id = SessionId::new_v4();
     self.positions = [false; 3];
     self.poll_target = None;
@@ -282,7 +116,7 @@ impl NativeEngine for BasicEngine {
     self::native_snapshot(self.session_id)
   }
 
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
     let message = CoreClientMessageView::read(bytes)
       .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
     let CoreClientMessageView::Action(action) = message else {
@@ -390,14 +224,14 @@ impl NativeEngine for BasicEngine {
     .map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event_native(
+  fn submit_ui_event(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
+  ) -> Result<UiEventResult, EngineError> {
     if action.session_id() != self::session_bytes(self.session_id) {
       return Err(EngineError::new("UI event session mismatch"));
     }
-    Ok(NativeUiEventResponse {
+    Ok(UiEventResult {
       disposition: if action.default_prevented() {
         battlement::UiEventDisposition::PreventDefault
       } else {
@@ -407,7 +241,7 @@ impl NativeEngine for BasicEngine {
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     let Some(object_id) = self.poll_target.take() else {
       return Ok(None);
     };
@@ -446,7 +280,7 @@ fn native_commands(
   action: &str,
   command: &str,
   response: &str,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let mut writer = MessageWriter::default();
   let mut commands = Vec::with_capacity(2);
@@ -501,18 +335,18 @@ fn native_commands(
   let message = writer
     .finish(session, &[batch])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
-fn native_empty(session_id: SessionId) -> Result<NativeResponse, EngineError> {
+fn native_empty(session_id: SessionId) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let message = MessageWriter::default()
     .finish(session, &[])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
-fn native_snapshot(session_id: SessionId) -> Result<NativeResponse, EngineError> {
+fn native_snapshot(session_id: SessionId) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let mut writer = MessageWriter::with_capacity(16 * 1024);
   let assets = [
@@ -622,7 +456,7 @@ fn native_snapshot(session_id: SessionId) -> Result<NativeResponse, EngineError>
   let message = writer
     .finish(session, &[snapshot])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
 fn writer_error(error: impl std::fmt::Display) -> EngineError {
@@ -645,77 +479,6 @@ fn cube_index_bytes(id: [u8; 16]) -> Option<usize> {
   (0..3).find(|index| self::object_bytes(self::cube_id(*index)) == id)
 }
 
-fn snapshot(session_id: SessionId) -> Snapshot {
-  let camera = GameObject::new(
-    CAMERA_ID,
-    CameraState::new()
-      .projection(CameraProjection::Perspective)
-      .field_of_view(52.0)
-      .clear_mode(CameraClearMode::SolidColor)
-      .clear_color(Color::rgb(0.025, 0.035, 0.065)),
-  )
-  .parent_scene(ParentScene::Persistent)
-  .position(Vector3::new(0.0, 2.8, -11.0))
-  .rotation(Quaternion::new(0.12, 0.0, 0.0, 0.993));
-
-  let status = GameObject::new(
-    STATUS_ID,
-    TextState::new(
-      self::status(
-        VisualState::Connected,
-        "none",
-        "initial snapshot",
-        "connect",
-      ),
-      FONT,
-    )
-    .size(1.8)
-    .wrap_width(18.0),
-  )
-  .parent_scene(ParentScene::Persistent)
-  .position(Vector3::new(0.0, 3.25, 1.0));
-
-  let mut objects = vec![camera, status];
-  for index in 0..3 {
-    let cube = GameObject::new(
-      self::cube_id(index),
-      GameObjectKind::Cube {
-        materials: vec![MaterialAssignment::new(0, WHITE_MATERIAL)],
-      },
-    )
-    .position(Vector3::new(-2.0 + index as f64 * 2.0, 0.0, 0.0))
-    .scale(Vector3::new(1.4, 1.4, 1.4))
-    .pointer_events([PointerEvent::Enter, PointerEvent::Exit, PointerEvent::Click]);
-    let cube = match index {
-      0 => cube.draggable(DragMode::SnapToPointer),
-      1 => cube.draggable(DragMode::PreserveOffset),
-      _ => cube,
-    };
-    objects.push(cube);
-
-    let label = GameObject::new(
-      self::label_id(index),
-      TextState::new(((b'A' + index as u8) as char).to_string(), FONT).size(2.5),
-    )
-    .position(Vector3::new(-2.0 + index as f64 * 2.0, 1.3, 0.0));
-    objects.push(label);
-  }
-
-  Snapshot::new(
-    session_id,
-    vec![
-      PreparedAsset::scene(CONTENT_SCENE),
-      PreparedAsset::material(WHITE_MATERIAL),
-      PreparedAsset::material(YELLOW_MATERIAL),
-      PreparedAsset::material(BLUE_MATERIAL),
-      PreparedAsset::text_mesh_pro_font(FONT),
-    ],
-    vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-    objects,
-    CAMERA_ID,
-  )
-}
-
 fn status(state: VisualState, action: &str, command: &str, response: &str) -> String {
   format!(
     "Battlement — Basic Native Sample\nA: snap drag  •  B: offset drag  •  C: click tween\n\
@@ -724,10 +487,6 @@ fn status(state: VisualState, action: &str, command: &str, response: &str) -> St
          last action: {action}  •  last command: {command}  •  response: {response}",
     state.registry_key()
   )
-}
-
-fn status_command(state: VisualState, action: &str, command: &str, response: &str) -> CommandBody {
-  CommandBody::set_text(STATUS_ID, self::status(state, action, command, response))
 }
 
 fn cube_index(id: ObjectId) -> Option<usize> {
@@ -746,12 +505,12 @@ fn label_id(index: usize) -> ObjectId {
   ][index]
 }
 
-battlement_native::export_deterministic_native_engine!(
+battlement_native::export_deterministic_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

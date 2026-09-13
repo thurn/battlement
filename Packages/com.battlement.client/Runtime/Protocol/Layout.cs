@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -109,63 +108,32 @@ namespace Battlement
         /// <summary>A flex container with independent gaps.</summary>
         public sealed record Flex : UiElement
         {
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiFlexDirection> Direction { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiFlexWrap> Wrap { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiAlign> AlignItems { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiJustify> JustifyContent { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<float> RowGap { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<float> ColumnGap { get; init; }
         }
 
         /// <summary>A deterministic track-based Grid container.</summary>
         public sealed record Grid : UiElement
         {
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<IReadOnlyList<GridTrack>> Columns { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<IReadOnlyList<GridTrack>> Rows { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<GridTrack> AutoColumns { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<GridTrack> AutoRows { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<GridAutoFlow> AutoFlow { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<float> RowGap { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<float> ColumnGap { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiAlign> AlignItems { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiAlign> JustifyItems { get; init; }
         }
 
         /// <summary>An isolated overlapping Stack container.</summary>
         public sealed record Stack : UiElement
         {
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiAlign> AlignItems { get; init; }
-
-            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<UiAlign> JustifyItems { get; init; }
         }
     }

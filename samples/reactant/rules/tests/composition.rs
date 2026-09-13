@@ -1,14 +1,13 @@
 use std::{cell::RefCell, collections::BTreeSet, num::NonZeroU64, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, DisplayId,
-  DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryGeneration,
-  GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
-  GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
-  KeyModifiers, Length, LengthOrAuto, ObjectId, OverlayPlacement, PanelPoint, PointerBoundaryEvent,
-  PointerButton, PointerButtonEvent, PointerType, PreparedAsset, Projective2, Prop, Rect, Response,
-  ResponseMessage, ScreenSize, StaggerDirection, StyleValue, UiElement, UiElementKind, UiEvent,
-  UiEventAction, UiEventBody, UiEventResponse, UiVisualElementProperties, VariantWhen, Vector,
+  ActionId, Color, Connect, Display, DisplayId, DisplayOrientation, ElementGeometry, FlexDirection,
+  FocusEvent, GeometryGeneration, GeometryObservation, GeometryObservationBatch,
+  GeometryObservationResult, GeometryObservationTarget, GeometryObservationValue,
+  GeometryUnavailable, GeometryValue, KeyModifiers, Length, LengthOrAuto, ObjectId,
+  OverlayPlacement, PanelPoint, PointerBoundaryEvent, PointerButton, PointerButtonEvent,
+  PointerType, PreparedAsset, Projective2, Prop, Rect, ScreenSize, StaggerDirection, StyleValue,
+  UiElement, UiElementKind, UiEvent, UiEventBody, UiVisualElementProperties, VariantWhen, Vector,
   ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
@@ -16,7 +15,10 @@ use battlement_fake::{
   client::{FakeClient, ui::UiClient},
   journal::ExecutedCommand,
 };
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 use battlement_rules::{
   CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, ReactantEngine,
   Screen, create_engine, generated_asset_addresses,
@@ -37,60 +39,56 @@ struct CorrelationEngine {
 }
 
 impl Engine for CorrelationEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     self.inner.connect(message)
   }
 
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response, EngineError> {
-    let ClientMessage::Action(action) = &message else {
-      panic!("the fake UI submits actions");
+  fn submit(&mut self, message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    let action_id = match battlement_flatbuffers::CoreClientMessageView::read(message) {
+      Ok(battlement_flatbuffers::CoreClientMessageView::Action(action)) => {
+        ActionId::from_bytes(action.action_id()).expect("verified action UUID")
+      }
+      _ => panic!("the fake UI submits actions"),
     };
-    let action_id = action.action_id;
     let response = self.inner.submit(message)?;
-    let causes = response
-      .messages
-      .iter()
-      .filter_map(|message| match message {
-        ResponseMessage::Batch(batch) => Some(batch.caused_by_action_id),
-        _ => None,
-      })
-      .collect::<Vec<_>>();
-    if !causes.is_empty() {
-      self.correlations.borrow_mut().push((action_id, causes));
-    }
+    record_causes(&self.correlations, action_id, response.as_bytes());
     Ok(response)
   }
 
   fn submit_ui_event(
     &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    let action_id = action.action_id;
+    action: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let action_id = ActionId::from_bytes(action.action_id()).expect("verified action UUID");
     let response = self.inner.submit_ui_event(action)?;
-    let causes = response
-      .response
-      .messages
-      .iter()
-      .filter_map(|message| match message {
-        ResponseMessage::Batch(batch) => Some(batch.caused_by_action_id),
-        _ => None,
-      })
-      .collect::<Vec<_>>();
-    if !causes.is_empty() {
-      self.correlations.borrow_mut().push((action_id, causes));
-    }
+    record_causes(&self.correlations, action_id, response.response.as_bytes());
     Ok(response)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     self.inner.poll()
+  }
+}
+
+fn record_causes(correlations: &Correlations, action_id: ActionId, bytes: &[u8]) {
+  use battlement_flatbuffers::schema_generated::response_generated::battlement::flat_buffers::generated as wire;
+  battlement_flatbuffers::ResponseView::read(bytes).expect("engine response is verified");
+  let response = wire::size_prefixed_root_as_response(bytes).expect("verified response root");
+  let causes = response
+    .messages()
+    .iter()
+    .filter_map(|message| message.message_as_batch())
+    .map(|batch| {
+      batch.caused_by_action_id().map(|value| {
+        let bytes = std::array::from_fn(|index| value.bytes().get(index));
+        ActionId::from_bytes(bytes).expect("verified causing action UUID")
+      })
+    })
+    .collect::<Vec<_>>();
+  if !causes.is_empty() {
+    correlations.borrow_mut().push((action_id, causes));
   }
 }
 
@@ -127,7 +125,7 @@ fn catalog() -> Arc<FakeAssetCatalog> {
 
 fn find_named<E>(ui: &UiClient<'_, E>, root: ObjectId, expected: &str) -> ObjectId
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let mut pending = vec![root];
   while let Some(object_id) = pending.pop() {

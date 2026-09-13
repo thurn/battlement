@@ -3,8 +3,7 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
 use battlement_native::{
-  ConnectInput, ConnectView, NativeEngine, NativeReducedMotionPreference, ResponseView,
-  write_connect,
+  ConnectInput, ConnectView, Engine, NativeReducedMotionPreference, ResponseView, write_connect,
 };
 use battlement_rules::{
   BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, VisualState,
@@ -30,8 +29,7 @@ fn exported_connect_constructs_a_verified_snapshot_directly() {
   let mut engine = battlement_rules::create_engine().unwrap();
 
   let response =
-    NativeEngine::connect_native(&mut engine, ConnectView::read(request.as_bytes()).unwrap())
-      .unwrap();
+    Engine::connect(&mut engine, ConnectView::read(request.as_bytes()).unwrap()).unwrap();
   let view = ResponseView::read(response.as_bytes()).unwrap();
 
   assert_eq!(view.session_id(), response.session_id());

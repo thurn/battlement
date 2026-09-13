@@ -57,8 +57,6 @@ dependencies = [
  "battlement-cloud",
  "battlement-types",
  "battlement-ui",
- "serde",
- "serde_json",
  "uuid",
 ]
 
@@ -87,7 +85,6 @@ dependencies = [
  "battlement-native",
  "battlement-reactant",
  "serde",
- "serde_json",
  "syn 2.0.119",
  "trox",
 ]
@@ -118,6 +115,7 @@ dependencies = [
  "battlement-flatbuffers",
  "battlement-native",
  "battlement-ui-fake",
+ "flatbuffers",
  "uuid",
 ]
 
@@ -185,7 +183,6 @@ dependencies = [
 name = "battlement-types"
 version = "0.1.0"
 dependencies = [
- "serde",
  "uuid",
 ]
 
@@ -196,8 +193,6 @@ dependencies = [
  "battlement-types",
  "enum-kinds",
  "enum_dispatch",
- "serde",
- "serde_json",
 ]
 
 [[package]]

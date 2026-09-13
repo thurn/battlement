@@ -2,8 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
   CameraClearMode, CameraProjection, Color, DragMode, HorizontalAlignment, ImageFit, LightType,
   LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor, SceneAddress,
@@ -11,7 +9,7 @@ use crate::{
 };
 
 /// One additively loaded Addressable content-scene instance.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Scene {
   /// Identity of this scene instance within the session.
   pub scene_id: SceneId,
@@ -31,7 +29,7 @@ impl Scene {
 }
 
 /// A complete game object from a snapshot or `object.create` command.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct GameObject {
   /// Session-unique identity of the game object.
   pub object_id: ObjectId,
@@ -44,17 +42,12 @@ pub struct GameObject {
   /// This is the value passed to `GameObject.SetActive`; `activeInHierarchy`
   /// can still be false because of an inactive parent. It is separate from
   /// component `enabled` flags and from Unity's active Scene.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub active: bool,
   /// Local transform relative to the parent or placement container.
   pub local_transform: LocalTransform,
   /// Unique pointer events enabled for this object.
   pub pointer_events: Vec<PointerEvent>,
   /// Local pointer-following behavior, or `None` when the object is not draggable.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub drag_mode: Option<DragMode>,
   /// Kind-specific object content and component state.
   pub kind: GameObjectKind,
@@ -78,7 +71,7 @@ impl GameObject {
 }
 
 /// The scene container that owns a game object.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ParentScene {
   /// The primary content scene at the time the object is created.
   #[default]
@@ -90,7 +83,7 @@ pub enum ParentScene {
 }
 
 /// The concrete content created for a game object.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum GameObjectKind {
   /// A Battlement-owned Unity UI Toolkit document.
   UiDocument(UiDocumentState),
@@ -153,7 +146,6 @@ pub enum GameObjectKind {
     /// Ordered prepared-material assignments with unique renderer slots.
     materials: Vec<MaterialAssignment>,
     /// Stable Animator state, when the prefab has an Animator.
-    #[serde(default, skip_serializing_if = "crate::is_default")]
     animator: Option<AnimatorState>,
   },
 }
@@ -243,7 +235,7 @@ impl From<LightState> for GameObjectKind {
 }
 
 /// One prepared material assigned to a prefab renderer slot.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MaterialAssignment {
   /// Zero-based index in the renderer's shared-material array.
   pub slot: u32,
@@ -263,7 +255,7 @@ impl MaterialAssignment {
 }
 
 /// Complete state for a Battlement-owned image quad.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImageState {
   /// Prepared texture address.
   pub texture: TextureAddress,
@@ -278,7 +270,6 @@ pub struct ImageState {
   /// Opacity in the inclusive range `[0, 1]`.
   pub opacity: f64,
   /// Whether the image rotates to face the input camera.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub face_camera: bool,
 }
 
@@ -299,7 +290,7 @@ impl ImageState {
 }
 
 /// Complete state for a world-space TextMesh Pro object.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TextState {
   /// Displayed text content.
   pub text: String,
@@ -316,10 +307,8 @@ pub struct TextState {
   /// Positive wrapping width; [`None`] disables wrapping.
   pub wrap_width: Option<f64>,
   /// Whether TextMesh Pro rich-text tags are interpreted.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub rich_text: bool,
   /// Whether the text rotates to face the input camera.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub face_camera: bool,
 }
 
@@ -342,13 +331,9 @@ impl TextState {
 }
 
 /// Complete state for a standard Unity camera.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraState {
   /// Whether the Camera component is enabled.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub enabled: bool,
   /// Perspective or orthographic projection.
   pub projection: CameraProjection,
@@ -390,13 +375,9 @@ impl CameraState {
 }
 
 /// Complete state for a standard Unity light.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LightState {
   /// Whether the Light component is enabled.
-  #[serde(
-    default = "crate::default_true",
-    skip_serializing_if = "crate::is_true"
-  )]
   pub enabled: bool,
   /// Directional, point, or spot behavior.
   pub light_type: LightType,
@@ -438,7 +419,7 @@ impl LightState {
 }
 
 /// Stable Animator state reconstructed by a snapshot.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AnimatorState {
   /// Animator state name to play.
   pub state: String,

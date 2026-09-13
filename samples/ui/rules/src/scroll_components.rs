@@ -1,7 +1,6 @@
 use battlement::{
-  Command, ObjectId, ScrollViewMode, ScrollerVisibility, SliderDirection, UiBox, UiElement,
-  UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiScrollView, UiScroller, UiVisualElement,
-  object_id,
+  ObjectId, ScrollViewMode, ScrollerVisibility, SliderDirection, UiBox, UiElement, UiEventKind,
+  UiLabel, UiNode, UiScrollView, UiScroller, UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -25,48 +24,6 @@ pub(crate) fn ids() -> ScrollIds {
     scroller: SCROLLER_ID,
     scroll_status: SCROLL_STATUS_ID,
     scroller_status: SCROLLER_STATUS_ID,
-  }
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  match &event.body {
-    UiEventBody::ScrollChanged(_) if event.target_id == PRIMARY_ID => {
-      Some(vec![Command::update_visual_element(
-        SCROLL_STATUS_ID,
-        UiLabel::new("Moving"),
-      )])
-    }
-    UiEventBody::ScrollSettled(value) if event.target_id == PRIMARY_ID => {
-      Some(vec![Command::update_visual_element(
-        SCROLL_STATUS_ID,
-        UiLabel::new(format!(
-          "Settled {:.0} × {:.0}",
-          value.offset.x, value.offset.y
-        )),
-      )])
-    }
-    UiEventBody::ValueChanging(value) if event.target_id == SCROLLER_ID => {
-      let battlement::UiValue::F32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![Command::update_visual_element(
-        SCROLLER_STATUS_ID,
-        UiLabel::new(format!("Preview {proposed:.0}")),
-      )])
-    }
-    UiEventBody::ValueCommitted(value) if event.target_id == SCROLLER_ID => {
-      let battlement::UiValue::F32(proposed) = value.proposed else {
-        return None;
-      };
-      Some(vec![
-        Command::update_visual_element(SCROLLER_ID, UiScroller::default().value(proposed)),
-        Command::update_visual_element(
-          SCROLLER_STATUS_ID,
-          UiLabel::new(format!("Committed {proposed:.0}")),
-        ),
-      ])
-    }
-    _ => None,
   }
 }
 

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -7,7 +5,7 @@ use crate::{
 };
 
 /// Orientation of a [`UiScroller`]'s track and value progression.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SliderDirection {
   /// Places the low button on the left and the high button on the right.
   Horizontal,
@@ -47,24 +45,18 @@ pub enum SliderDirection {
 /// ```
 ///
 /// [`UiScrollView`]: crate::UiScrollView
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiScroller {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Inclusive minimum of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<f32>,
   /// Inclusive maximum of the selectable range.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub high_value: Prop<f32>,
   /// Track orientation and placement of the decrement and increment buttons.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub direction: Prop<SliderDirection>,
   /// Latest value committed by Rust; user proposals are temporary until updated.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub value: Prop<f32>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

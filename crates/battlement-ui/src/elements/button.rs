@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   IconSource, LanguageDirection, PickingMode, Prop, Style, UiVisualElement,
   UiVisualElementProperties, UsageHint,
@@ -37,30 +35,22 @@ use crate::{
 ///
 /// [`UiEventKind::Click`]: crate::UiEventKind::Click
 /// [`UiNode`]: crate::UiNode
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiButton {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Text rendered inside the button's native Unity text element.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Whether supported rich-text tags are parsed.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub enable_rich_text: Prop<bool>,
   /// Whether emoji prefer the global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub emoji_fallback_support: Prop<bool>,
   /// Whether backslash escape sequences become control characters.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display_tooltip_when_elided: Prop<bool>,
   /// Prepared asset displayed in Unity's native icon slot.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub icon: Prop<IconSource>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

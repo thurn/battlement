@@ -17,17 +17,10 @@ namespace Battlement
 
     internal readonly struct BattlementCommandExecution
     {
-        internal BattlementCommandExecution(
-            CommandId id,
-            bool isBlocking,
-            CommandBody? coreBody,
-            ICommand? customCommand
-        )
+        private BattlementCommandExecution(CommandId id, bool isBlocking)
         {
             Id = id;
             IsBlocking = isBlocking;
-            CoreBody = coreBody;
-            CustomCommand = customCommand;
             DirectLocalPosition = null;
             DirectWorldPosition = null;
             DirectLabelUpdate = null;
@@ -88,377 +81,370 @@ namespace Battlement
             bool isBlocking,
             BattlementDirectLocalPosition directLocalPosition
         )
-            : this(id, isBlocking, null, null) => DirectLocalPosition = directLocalPosition;
+            : this(id, isBlocking) => DirectLocalPosition = directLocalPosition;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectWorldPosition directWorldPosition
         )
-            : this(id, isBlocking, null, null) => DirectWorldPosition = directWorldPosition;
+            : this(id, isBlocking) => DirectWorldPosition = directWorldPosition;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectLabelUpdate directLabelUpdate
         )
-            : this(id, isBlocking, null, null) => DirectLabelUpdate = directLabelUpdate;
+            : this(id, isBlocking) => DirectLabelUpdate = directLabelUpdate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTextContent directTextContent
         )
-            : this(id, isBlocking, null, null) => DirectTextContent = directTextContent;
+            : this(id, isBlocking) => DirectTextContent = directTextContent;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectSetMaterial directSetMaterial
         )
-            : this(id, isBlocking, null, null) => DirectSetMaterial = directSetMaterial;
+            : this(id, isBlocking) => DirectSetMaterial = directSetMaterial;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectDestroyObject directDestroyObject
         )
-            : this(id, isBlocking, null, null) => DirectDestroyObject = directDestroyObject;
+            : this(id, isBlocking) => DirectDestroyObject = directDestroyObject;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectInputEnabled directInputEnabled
         )
-            : this(id, isBlocking, null, null) => DirectInputEnabled = directInputEnabled;
+            : this(id, isBlocking) => DirectInputEnabled = directInputEnabled;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTweenLocalPosition directTweenLocalPosition
         )
-            : this(id, isBlocking, null, null) =>
-            DirectTweenLocalPosition = directTweenLocalPosition;
+            : this(id, isBlocking) => DirectTweenLocalPosition = directTweenLocalPosition;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectImageObjectCreate directImageObjectCreate
         )
-            : this(id, isBlocking, null, null) => DirectImageObjectCreate = directImageObjectCreate;
+            : this(id, isBlocking) => DirectImageObjectCreate = directImageObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectObjectActive directObjectActive
         )
-            : this(id, isBlocking, null, null) => DirectObjectActive = directObjectActive;
+            : this(id, isBlocking) => DirectObjectActive = directObjectActive;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectRotation directRotation
         )
-            : this(id, isBlocking, null, null) => DirectRotation = directRotation;
+            : this(id, isBlocking) => DirectRotation = directRotation;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectScale directScale
         )
-            : this(id, isBlocking, null, null) => DirectScale = directScale;
+            : this(id, isBlocking) => DirectScale = directScale;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTweenRotation directTweenRotation
         )
-            : this(id, isBlocking, null, null) => DirectTweenRotation = directTweenRotation;
+            : this(id, isBlocking) => DirectTweenRotation = directTweenRotation;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTweenScale directTweenScale
         )
-            : this(id, isBlocking, null, null) => DirectTweenScale = directTweenScale;
+            : this(id, isBlocking) => DirectTweenScale = directTweenScale;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectPrimitiveObjectCreate directPrimitiveObjectCreate
         )
-            : this(id, isBlocking, null, null) =>
-            DirectPrimitiveObjectCreate = directPrimitiveObjectCreate;
+            : this(id, isBlocking) => DirectPrimitiveObjectCreate = directPrimitiveObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectPrefabObjectCreate directPrefabObjectCreate
         )
-            : this(id, isBlocking, null, null) =>
-            DirectPrefabObjectCreate = directPrefabObjectCreate;
+            : this(id, isBlocking) => DirectPrefabObjectCreate = directPrefabObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectEmptyObjectCreate directEmptyObjectCreate
         )
-            : this(id, isBlocking, null, null) => DirectEmptyObjectCreate = directEmptyObjectCreate;
+            : this(id, isBlocking) => DirectEmptyObjectCreate = directEmptyObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTextObjectCreate directTextObjectCreate
         )
-            : this(id, isBlocking, null, null) => DirectTextObjectCreate = directTextObjectCreate;
+            : this(id, isBlocking) => DirectTextObjectCreate = directTextObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectCameraObjectCreate directCameraObjectCreate
         )
-            : this(id, isBlocking, null, null) =>
-            DirectCameraObjectCreate = directCameraObjectCreate;
+            : this(id, isBlocking) => DirectCameraObjectCreate = directCameraObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectLightObjectCreate directLightObjectCreate
         )
-            : this(id, isBlocking, null, null) => DirectLightObjectCreate = directLightObjectCreate;
+            : this(id, isBlocking) => DirectLightObjectCreate = directLightObjectCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectObjectReparent directObjectReparent
         )
-            : this(id, isBlocking, null, null) => DirectObjectReparent = directObjectReparent;
+            : this(id, isBlocking) => DirectObjectReparent = directObjectReparent;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectParticleSpawn directParticleSpawn
         )
-            : this(id, isBlocking, null, null) => DirectParticleSpawn = directParticleSpawn;
+            : this(id, isBlocking) => DirectParticleSpawn = directParticleSpawn;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAudioPlay directAudioPlay
         )
-            : this(id, isBlocking, null, null) => DirectAudioPlay = directAudioPlay;
+            : this(id, isBlocking) => DirectAudioPlay = directAudioPlay;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectParticlePlay directParticlePlay
         )
-            : this(id, isBlocking, null, null) => DirectParticlePlay = directParticlePlay;
+            : this(id, isBlocking) => DirectParticlePlay = directParticlePlay;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAudioStop directAudioStop
         )
-            : this(id, isBlocking, null, null) => DirectAudioStop = directAudioStop;
+            : this(id, isBlocking) => DirectAudioStop = directAudioStop;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAudioVolume directAudioVolume
         )
-            : this(id, isBlocking, null, null) => DirectAudioVolume = directAudioVolume;
+            : this(id, isBlocking) => DirectAudioVolume = directAudioVolume;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectWait directWait
         )
-            : this(id, isBlocking, null, null) => DirectWait = directWait;
+            : this(id, isBlocking) => DirectWait = directWait;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectVibration directVibration
         )
-            : this(id, isBlocking, null, null) => DirectVibration = directVibration;
+            : this(id, isBlocking) => DirectVibration = directVibration;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectDebugUi directDebugUi
         )
-            : this(id, isBlocking, null, null) => DirectDebugUi = directDebugUi;
+            : this(id, isBlocking) => DirectDebugUi = directDebugUi;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAudioControl directAudioControl
         )
-            : this(id, isBlocking, null, null) => DirectAudioControl = directAudioControl;
+            : this(id, isBlocking) => DirectAudioControl = directAudioControl;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectTweenAudioVolume directTweenAudioVolume
         )
-            : this(id, isBlocking, null, null) => DirectTweenAudioVolume = directTweenAudioVolume;
+            : this(id, isBlocking) => DirectTweenAudioVolume = directTweenAudioVolume;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectSceneCommand directSceneCommand
         )
-            : this(id, isBlocking, null, null) => DirectSceneCommand = directSceneCommand;
+            : this(id, isBlocking) => DirectSceneCommand = directSceneCommand;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectCancel directCancel
         )
-            : this(id, isBlocking, null, null) => DirectCancel = directCancel;
+            : this(id, isBlocking) => DirectCancel = directCancel;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectInputConfiguration directInputConfiguration
         )
-            : this(id, isBlocking, null, null) =>
-            DirectInputConfiguration = directInputConfiguration;
+            : this(id, isBlocking) => DirectInputConfiguration = directInputConfiguration;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectParticleStop directParticleStop
         )
-            : this(id, isBlocking, null, null) => DirectParticleStop = directParticleStop;
+            : this(id, isBlocking) => DirectParticleStop = directParticleStop;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectOpenUrl directOpenUrl
         )
-            : this(id, isBlocking, null, null) => DirectOpenUrl = directOpenUrl;
+            : this(id, isBlocking) => DirectOpenUrl = directOpenUrl;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectComponentCommand directComponent
         )
-            : this(id, isBlocking, null, null) => DirectComponent = directComponent;
+            : this(id, isBlocking) => DirectComponent = directComponent;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAnimatorCommand directAnimator
         )
-            : this(id, isBlocking, null, null) => DirectAnimator = directAnimator;
+            : this(id, isBlocking) => DirectAnimator = directAnimator;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectGeometryCommand directGeometry
         )
-            : this(id, isBlocking, null, null) => DirectGeometry = directGeometry;
+            : this(id, isBlocking) => DirectGeometry = directGeometry;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAccessibilityCommand directAccessibility
         )
-            : this(id, isBlocking, null, null) => DirectAccessibility = directAccessibility;
+            : this(id, isBlocking) => DirectAccessibility = directAccessibility;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectDiagnostics directDiagnostics
         )
-            : this(id, isBlocking, null, null) => DirectDiagnostics = directDiagnostics;
+            : this(id, isBlocking) => DirectDiagnostics = directDiagnostics;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectAssetSet directAssets
         )
-            : this(id, isBlocking, null, null) => DirectAssets = directAssets;
+            : this(id, isBlocking) => DirectAssets = directAssets;
 
         internal BattlementCommandExecution(CommandId id, bool isBlocking, ObjectId directUiDestroy)
-            : this(id, isBlocking, null, null) => DirectUiDestroy = directUiDestroy;
+            : this(id, isBlocking) => DirectUiDestroy = directUiDestroy;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectVisualElementAction directUiAction
         )
-            : this(id, isBlocking, null, null) => DirectUiAction = directUiAction;
+            : this(id, isBlocking) => DirectUiAction = directUiAction;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectVisualElementPlacement directUiPlacement
         )
-            : this(id, isBlocking, null, null) => DirectUiPlacement = directUiPlacement;
+            : this(id, isBlocking) => DirectUiPlacement = directUiPlacement;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectMotionCommand directMotion
         )
-            : this(id, isBlocking, null, null) => DirectMotion = directMotion;
+            : this(id, isBlocking) => DirectMotion = directMotion;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectMotionValueCommand directMotionValue
         )
-            : this(id, isBlocking, null, null) => DirectMotionValue = directMotionValue;
+            : this(id, isBlocking) => DirectMotionValue = directMotionValue;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectMotionControlCommand directMotionControl
         )
-            : this(id, isBlocking, null, null) => DirectMotionControl = directMotionControl;
+            : this(id, isBlocking) => DirectMotionControl = directMotionControl;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectMotionScopeCommand directMotionScope
         )
-            : this(id, isBlocking, null, null) => DirectMotionScope = directMotionScope;
+            : this(id, isBlocking) => DirectMotionScope = directMotionScope;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectUiProperties directUiProperties
         )
-            : this(id, isBlocking, null, null) => DirectUiProperties = directUiProperties;
+            : this(id, isBlocking) => DirectUiProperties = directUiProperties;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectUiScalar directUiScalar
         )
-            : this(id, isBlocking, null, null) => DirectUiScalar = directUiScalar;
+            : this(id, isBlocking) => DirectUiScalar = directUiScalar;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             BattlementDirectUiCreate directUiCreate
         )
-            : this(id, isBlocking, null, null) => DirectUiCreate = directUiCreate;
+            : this(id, isBlocking) => DirectUiCreate = directUiCreate;
 
         internal BattlementCommandExecution(
             CommandId id,
             bool isBlocking,
             IBattlementDirectCustomCommand directCustomCommand
         )
-            : this(id, isBlocking, null, null) => DirectCustomCommand = directCustomCommand;
+            : this(id, isBlocking) => DirectCustomCommand = directCustomCommand;
 
         internal CommandId Id { get; }
         internal bool IsBlocking { get; }
-        internal CommandBody? CoreBody { get; }
-        internal ICommand? CustomCommand { get; }
         internal BattlementDirectLocalPosition? DirectLocalPosition { get; }
         internal BattlementDirectWorldPosition? DirectWorldPosition { get; }
         internal BattlementDirectLabelUpdate? DirectLabelUpdate { get; }
@@ -582,7 +568,7 @@ namespace Battlement
         }
 
         public UiElement ReadNodeElement(int index) =>
-            BattlementFlatBufferMaterializer.UiElement(
+            BattlementFlatBufferRetainedCopy.UiElement(
                 Node(index).Element
                     ?? throw new InvalidDataException("A visual create element is absent.")
             );
@@ -631,7 +617,7 @@ namespace Battlement
         internal UiElement ReadElement()
         {
             Check();
-            return BattlementFlatBufferMaterializer.UiElement(
+            return BattlementFlatBufferRetainedCopy.UiElement(
                 value.Element
                     ?? throw new InvalidDataException("A visual property update is absent.")
             );
@@ -783,7 +769,7 @@ namespace Battlement
             {
                 Wire.MotionControlTargetKind.Target when target.Target.HasValue =>
                     new MotionControlTarget.Target(
-                        BattlementFlatBufferMaterializer.MotionTarget(target.Target.Value)
+                        BattlementFlatBufferRetainedCopy.MotionTarget(target.Target.Value)
                     ),
                 Wire.MotionControlTargetKind.Variant => new MotionControlTarget.Variant(
                     target.Variant ?? throw new InvalidDataException("A motion variant is absent.")
@@ -852,7 +838,7 @@ namespace Battlement
         public MotionSelector ReadStepSelector(int index)
         {
             Wire.MotionSequenceStep step = Step(index);
-            return BattlementFlatBufferMaterializer.MotionSelector(
+            return BattlementFlatBufferRetainedCopy.MotionSelector(
                 step.Selector ?? throw new InvalidDataException("A motion step selector is absent.")
             );
         }
@@ -860,7 +846,7 @@ namespace Battlement
         public MotionTargetDescriptor ReadStepTarget(int index)
         {
             Wire.MotionSequenceStep step = Step(index);
-            return BattlementFlatBufferMaterializer.MotionTarget(
+            return BattlementFlatBufferRetainedCopy.MotionTarget(
                 step.Target ?? throw new InvalidDataException("A motion step target is absent.")
             );
         }
@@ -870,7 +856,7 @@ namespace Battlement
         public MotionSelector ReadSelector()
         {
             Check();
-            return BattlementFlatBufferMaterializer.MotionSelector(
+            return BattlementFlatBufferRetainedCopy.MotionSelector(
                 value.Selector
                     ?? throw new InvalidDataException("A motion scope selector is absent.")
             );
@@ -879,7 +865,7 @@ namespace Battlement
         public MotionTargetDescriptor ReadTarget()
         {
             Check();
-            return BattlementFlatBufferMaterializer.MotionTarget(
+            return BattlementFlatBufferRetainedCopy.MotionTarget(
                 value.Target ?? throw new InvalidDataException("A motion scope target is absent.")
             );
         }
@@ -950,13 +936,13 @@ namespace Battlement
         internal MotionValue ReadValue()
         {
             Check();
-            return BattlementFlatBufferMaterializer.MotionValue(value);
+            return BattlementFlatBufferRetainedCopy.MotionValue(value);
         }
 
         internal TransitionDefinition ReadTransition()
         {
             Check();
-            return BattlementFlatBufferMaterializer.Transition(
+            return BattlementFlatBufferRetainedCopy.Transition(
                 value.Transition
                     ?? throw new InvalidDataException("A motion-value transition is absent.")
             );
@@ -2476,7 +2462,7 @@ namespace Battlement
                 Wire.GameObjectKind.Light => ReadLight(value, placement),
                 Wire.GameObjectKind.UiDocument => new BattlementDirectUiDocumentObjectCreate(
                     placement,
-                    BattlementFlatBufferMaterializer.UiDocumentState(
+                    BattlementFlatBufferRetainedCopy.UiDocumentState(
                         value.ContentAsUiDocumentObject()
                     )
                 ),
@@ -3052,16 +3038,16 @@ namespace Battlement
                             BattlementFlatBufferCore.ReadUuid(payload.ObjectId, "particle target")
                         )
                         : null;
-                Wire.Vector3d position = payload.WorldPosition ?? default;
+                Wire.Vector3d? position = payload.WorldPosition;
                 execution = new BattlementCommandExecution(
                     commandId,
                     command.Blocking,
                     new BattlementDirectParticleSpawn(
                         payload.Address,
                         target,
-                        position.X,
-                        position.Y,
-                        position.Z,
+                        position?.X ?? 0,
+                        position?.Y ?? 0,
+                        position?.Z ?? 0,
                         payload.LifetimeMs
                     )
                 );
@@ -4496,14 +4482,14 @@ namespace Battlement
         private static BattlementDirectComponentCommand CameraClear(Wire.CoreCommand command)
         {
             Wire.CameraClearPayload value = command.PayloadAsCameraClearPayload();
-            Wire.RgbaColor color = value.ClearColor ?? default;
+            Wire.RgbaColor? color = value.ClearColor;
             return new(
                 BattlementDirectComponentCommandKind.CameraSetClear,
                 ComponentObject(value.ObjectId, "camera object"),
-                color.R,
-                color.G,
-                color.B,
-                color.A,
+                color?.R ?? 0,
+                color?.G ?? 0,
+                color?.B ?? 0,
+                color?.A ?? 0,
                 (byte)value.ClearMode,
                 hasValue: value.ClearColor.HasValue
             );
@@ -5004,16 +4990,6 @@ namespace Battlement
         PanelInputConfigurationValue PanelInputConfiguration { get; }
     }
 
-    internal interface IBattlementOwnedSnapshotView : IBattlementSnapshotView
-    {
-        IReadOnlyList<PreparedAsset> PreparedAssets { get; }
-        IReadOnlyList<BattlementScene> Scenes { get; }
-        IReadOnlyList<BattlementGameObject> Objects { get; }
-        IReadOnlyList<PhysicalKey> GlobalKeys { get; }
-        ControllerInputSettings? ControllerInput { get; }
-        IReadOnlyList<UiDocument> Ui { get; }
-    }
-
     internal interface IBattlementFlatBufferViewOwner
     {
         IDisposable RetainView();
@@ -5031,99 +5007,6 @@ namespace Battlement
         CommandId CommandId(int groupIndex, int commandIndex);
         BattlementCommandExecution ReadCommand(int groupIndex, int commandIndex);
         bool IsAssetPreparation(int groupIndex, int commandIndex);
-    }
-
-    internal sealed class BattlementOwnedResponseView : IBattlementResponseView
-    {
-        private readonly Response<ICommand> value;
-        private IDisposable? owner;
-
-        internal BattlementOwnedResponseView(Response<ICommand> value, IDisposable? owner = null) =>
-            (this.value, this.owner) = (value, owner);
-
-        internal BattlementOwnedResponseView(Response<Command> value, IDisposable? owner = null)
-            : this(ToAnyResponse(value), owner) { }
-
-        public SessionId SessionId => value.SessionId;
-        public int MessageCount => value.Messages.Count;
-
-        public bool IsSnapshot(int index) =>
-            value.Messages[index] is ResponseMessage<ICommand>.SnapshotMessage;
-
-        public IBattlementSnapshotView ReadSnapshot(int index) =>
-            value.Messages[index] is ResponseMessage<ICommand>.SnapshotMessage snapshot
-                ? new BattlementOwnedSnapshotView(snapshot.Snapshot)
-                : throw new InvalidDataException("The response message is not a snapshot.");
-
-        public IBattlementBatchView ReadBatch(int index) =>
-            value.Messages[index] is ResponseMessage<ICommand>.BatchMessage batch
-                ? new BattlementOwnedBatchView(batch.Batch)
-                : throw new InvalidDataException("The response message is not a batch.");
-
-        public void Dispose()
-        {
-            owner?.Dispose();
-            owner = null;
-        }
-
-        private static Response<ICommand> ToAnyResponse(Response<Command> response)
-        {
-            var messages = new ResponseMessage<ICommand>[response.Messages.Count];
-            for (int index = 0; index < messages.Length; index++)
-            {
-                messages[index] = response.Messages[index] switch
-                {
-                    ResponseMessage<Command>.SnapshotMessage snapshot =>
-                        new ResponseMessage<ICommand>.SnapshotMessage(snapshot.Snapshot),
-                    ResponseMessage<Command>.BatchMessage batch =>
-                        new ResponseMessage<ICommand>.BatchMessage(ToAnyBatch(batch.Batch)),
-                    _ => throw new InvalidDataException("Unknown core response message."),
-                };
-            }
-            return new Response<ICommand>(response.SessionId, messages);
-        }
-
-        private static Batch<ICommand> ToAnyBatch(Batch<Command> batch)
-        {
-            var groups = new ParallelCommandGroup<ICommand>[batch.Groups.Count];
-            for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
-            {
-                IReadOnlyList<Command> commands = batch.Groups[groupIndex].Commands;
-                var values = new ICommand[commands.Count];
-                for (int commandIndex = 0; commandIndex < commands.Count; commandIndex++)
-                    values[commandIndex] = commands[commandIndex];
-                groups[groupIndex] = new ParallelCommandGroup<ICommand>(values);
-            }
-            return new Batch<ICommand>(
-                batch.Id,
-                batch.SessionId,
-                groups,
-                batch.CausedByActionId,
-                batch.Start
-            );
-        }
-    }
-
-    internal sealed class BattlementOwnedSnapshotView : IBattlementOwnedSnapshotView
-    {
-        private readonly Snapshot value;
-
-        internal BattlementOwnedSnapshotView(Snapshot value) => this.value = value;
-
-        public SessionId SessionId => value.SessionId;
-        public IReadOnlyList<PreparedAsset> PreparedAssets => value.PreparedAssets;
-        public IReadOnlyList<BattlementScene> Scenes => value.Scenes;
-        public IReadOnlyList<BattlementGameObject> Objects => value.Objects;
-        public ObjectId? InputCameraId => value.InputCameraId;
-        public SceneId? PrimarySceneId => value.PrimarySceneId;
-        public bool IsInputDisabled => value.IsInputDisabled;
-        public IReadOnlyList<PhysicalKey> GlobalKeys => value.GlobalKeys;
-        public ControllerInputSettings? ControllerInput => value.ControllerInput;
-        public IReadOnlyList<UiDocument> Ui => value.Ui ?? Array.Empty<UiDocument>();
-        public PanelInputConfigurationValue PanelInputConfiguration =>
-            value.PanelInputConfiguration ?? new PanelInputConfigurationValue();
-
-        public void Dispose() { }
     }
 
     internal sealed class BattlementFlatBufferSnapshotView
@@ -5314,7 +5197,7 @@ namespace Battlement
         public ObjectId RootId =>
             new(BattlementFlatBufferResponse.ReadUuid(Checked().RootId, "UI document root"));
 
-        public UiDocument ReadRoot() => BattlementFlatBufferMaterializer.UiDocumentRoot(Checked());
+        public UiDocument ReadRoot() => BattlementFlatBufferRetainedCopy.UiDocumentRoot(Checked());
 
         public int RootChildCount => Checked().RootChildIdsLength;
 
@@ -5332,7 +5215,7 @@ namespace Battlement
             new(BattlementFlatBufferResponse.ReadUuid(Node(index).ObjectId, "UI document node"));
 
         public UiElement ReadNodeElement(int index) =>
-            BattlementFlatBufferMaterializer.UiElement(
+            BattlementFlatBufferRetainedCopy.UiElement(
                 Node(index).Element
                     ?? throw new InvalidDataException("A UI node element is absent.")
             );
@@ -5360,37 +5243,6 @@ namespace Battlement
             snapshot.RequireLiveDocumentView();
             return value;
         }
-    }
-
-    internal sealed class BattlementOwnedBatchView : IBattlementBatchView
-    {
-        private readonly Batch<ICommand> value;
-
-        internal BattlementOwnedBatchView(Batch<ICommand> value) => this.value = value;
-
-        public BatchId Id => value.Id;
-        public SessionId SessionId => value.SessionId;
-        public ActionId? CausedByActionId => value.CausedByActionId;
-        public BatchStart Start => value.Start;
-        public int GroupCount => value.Groups.Count;
-
-        public int CommandCount(int groupIndex) => value.Groups[groupIndex].Commands.Count;
-
-        public CommandId CommandId(int groupIndex, int commandIndex) =>
-            value.Groups[groupIndex].Commands[commandIndex].Id;
-
-        public BattlementCommandExecution ReadCommand(int groupIndex, int commandIndex)
-        {
-            ICommand command = value.Groups[groupIndex].Commands[commandIndex];
-            return command is Command core
-                ? new BattlementCommandExecution(core.Id, core.IsBlocking, core.Body, null)
-                : new BattlementCommandExecution(command.Id, command.IsBlocking, null, command);
-        }
-
-        public bool IsAssetPreparation(int groupIndex, int commandIndex) =>
-            ReadCommand(groupIndex, commandIndex).CoreBody is CommandBody.Assets.ReplaceSet;
-
-        public void Dispose() { }
     }
 
     internal sealed class BattlementFlatBufferBatchView : IBattlementBatchView

@@ -99,9 +99,8 @@ impl SessionUi<'_> {
     self.complete(snapshot, false)
   }
 
-  pub(crate) fn into_app_response(self, snapshot: Snapshot) -> Response {
-    let (snapshot, commit) = self.complete(snapshot, true);
-    Response::snapshot(snapshot).append_reactant(commit)
+  pub(crate) fn into_app_parts(self, snapshot: Snapshot) -> (Snapshot, ReactantCommit) {
+    self.complete(snapshot, true)
   }
 
   fn complete(

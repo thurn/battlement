@@ -8,7 +8,6 @@
     "Battlement.Runtime",
     "Google.FlatBuffers",
     "Battlement.Cloud.Diagnostics",
-    "Battlement.Json",
     "Battlement.CustomFixtures",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",

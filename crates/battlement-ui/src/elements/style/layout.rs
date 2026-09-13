@@ -1,11 +1,9 @@
-use serde::{Deserialize, Serialize};
-
 /// A finite UI Toolkit length preserving pixel and percentage components.
 ///
 /// Percentages are not clamped to `0..=100`; oversize dimensions and offsets
 /// are useful layout inputs. Property-specific validation can still reject
 /// negative values where Unity expects a nonnegative size or spacing value.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Length {
   /// A device-independent UI Toolkit pixel length.
   Px(f32),
@@ -86,7 +84,7 @@ impl From<f32> for Length {
 }
 
 /// A finite UI Toolkit length that can also request automatic layout sizing.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LengthOrAuto {
   /// A device-independent UI Toolkit pixel length.
   Px(f32),
@@ -163,8 +161,7 @@ impl LengthUnits for f32 {
 }
 
 /// A finite scalar used by numeric UI Toolkit style properties.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FloatValue(pub f32);
 
 impl From<i32> for FloatValue {
@@ -186,7 +183,7 @@ impl From<f32> for FloatValue {
 }
 
 /// Preferred width-to-height relationship used while resolving automatic size.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AspectRatio {
   /// Leaves the preferred ratio automatic.
   Auto,
@@ -217,7 +214,7 @@ impl AspectRatio {
 }
 
 /// Cross-axis alignment for a flex container or item.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Align {
   /// Defers item alignment to its container's alignment behavior.
   Auto,
@@ -232,7 +229,7 @@ pub enum Align {
 }
 
 /// Main-axis direction used by a flex container to lay out its children.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FlexDirection {
   /// Lays out children from top to bottom.
   Column,
@@ -245,7 +242,7 @@ pub enum FlexDirection {
 }
 
 /// Multi-line placement behavior for a flex container.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FlexWrap {
   /// Keeps children on one line even when they exceed available space.
   NoWrap,
@@ -256,7 +253,7 @@ pub enum FlexWrap {
 }
 
 /// Main-axis distribution of children inside a flex container.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Justify {
   /// Packs children at the main-axis start.
   FlexStart,
@@ -273,7 +270,7 @@ pub enum Justify {
 }
 
 /// Whether an element participates in flex flow or is positioned independently.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Position {
   /// Keeps the element in normal flex layout and applies offsets relative to it.
   Relative,
@@ -282,7 +279,7 @@ pub enum Position {
 }
 
 /// Whether an element participates in layout and rendering.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Display {
   /// Keeps the element in UI Toolkit's flex layout and renders it.
   Flex,
@@ -291,7 +288,7 @@ pub enum Display {
 }
 
 /// Whether an element is drawn while retaining its layout space.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Visibility {
   /// Draws the element normally.
   Visible,
@@ -300,7 +297,7 @@ pub enum Visibility {
 }
 
 /// Whether descendants may paint outside an element's clipping boundary.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Overflow {
   /// Allows descendant content to render beyond the element's bounds.
   Visible,
@@ -309,7 +306,7 @@ pub enum Overflow {
 }
 
 /// Box edge used when [`Overflow::Hidden`] clips descendant content.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OverflowClipBox {
   /// Clips at the outer edge of the padding box.
   PaddingBox,

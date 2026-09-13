@@ -57,9 +57,12 @@ namespace Battlement.Tests
 
             SubmitExpectingFailure(harness, Response(session, batch));
 
-            BatchFailed<CoreErrorCode> failure = Failures(harness).Single();
-            Assert.That(failure.CommandId, Is.EqualTo(wait.Id));
-            Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.LimitExceeded));
+            Assert.That(Failures(harness), Is.Empty);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            Assert.That(
+                harness.Logger.Records.Last().Message,
+                Does.Contain("Deferred response failed")
+            );
         }
 
         [Test]

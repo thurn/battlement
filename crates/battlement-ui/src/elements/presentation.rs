@@ -1,10 +1,9 @@
 use battlement_types::Color;
-use serde::{Deserialize, Serialize};
 
 use crate::{FilterFunction, FilterList, Length, PaintBlendMode, PaintClipPath};
 
 /// A solid or gradient background painted inside an element's clip geometry.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PaintFill {
   /// A uniform color.
   Color(Color),
@@ -25,23 +24,20 @@ impl From<Gradient> for PaintFill {
 }
 
 /// Static decorative paint in element border-box coordinates.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PaintStyle {
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   subtree_clip: Option<PaintClipPath>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   blend_mode: Option<PaintBlendMode>,
   background: Option<PaintFill>,
   paint_filter: Option<FilterList>,
   clip_polygon: Option<Vec<[Length; 2]>>,
   box_shadow: Option<Vec<Shadow>>,
   clip_inset: Option<[Length; 4]>,
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   layers: Vec<PaintLayer>,
 }
 
 /// One additional static paint layer drawn over a host's primary paint.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PaintLayer {
   background: PaintFill,
   paint_filter: Option<FilterList>,
@@ -390,7 +386,7 @@ paint_insets!(f32);
 paint_insets!(Length);
 
 /// One typed operation in an authored transform list.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TransformOperation {
   /// Three-axis translation.
   Translate([Length; 3]),
@@ -407,7 +403,7 @@ pub enum TransformOperation {
 pub struct TransformList(Vec<TransformOperation>);
 
 /// One outer or inset painted shadow.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Shadow {
   /// Horizontal offset in pixels.
   pub x: f32,
@@ -424,7 +420,7 @@ pub struct Shadow {
 }
 
 /// One gradient color stop.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradientStop {
   /// Stop color.
   pub color: Color,
@@ -433,7 +429,7 @@ pub struct GradientStop {
 }
 
 /// A linear or radial painted gradient.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Gradient {
   /// Linear gradient with an angle in degrees.
   Linear {

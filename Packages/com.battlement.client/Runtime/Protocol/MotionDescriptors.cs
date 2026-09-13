@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -81,7 +80,7 @@ namespace Battlement
     /// <summary>Native drag behavior attached to one host.</summary>
     public sealed record MotionDragDescriptor(
         MotionGestureAxis Axis,
-        [property: JsonProperty(Required = Required.AllowNull)] MotionDragConstraint? Constraints,
+        MotionDragConstraint? Constraints,
         MotionDragElastic Elastic,
         bool Momentum,
         bool DirectionLock,
@@ -117,8 +116,7 @@ namespace Battlement
         float PointerTapSlop,
         float TouchTapSlop,
         bool Pan,
-        [property: Newtonsoft.Json.JsonProperty(Required = Newtonsoft.Json.Required.AllowNull)]
-            MotionDragDescriptor? Drag,
+        MotionDragDescriptor? Drag,
         bool InView,
         bool Scroll,
         ObjectId? ScrollXValue,
@@ -181,8 +179,7 @@ namespace Battlement
     public sealed record MotionLayoutDescriptor(
         MotionLayoutMode Mode,
         MotionLayoutIdentity Group,
-        [property: Newtonsoft.Json.JsonProperty(Required = Newtonsoft.Json.Required.AllowNull)]
-            MotionLayoutIdentity? LayoutId,
+        MotionLayoutIdentity? LayoutId,
         bool Scroll,
         bool Root,
         bool PopLayout,

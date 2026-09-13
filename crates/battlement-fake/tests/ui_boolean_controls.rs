@@ -1,13 +1,17 @@
+mod ui_support;
+
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, CommandBody, GameObject, ObjectId, ParentScene,
-  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
-  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode,
-  UiRadioButton, UiToggle,
+  CameraState, Command, CommandBody, GameObject, ObjectId, ParentScene, PreparedAsset, Response,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement, UiEventBody, UiEventDisposition,
+  UiEventKind, UiEventResponse, UiNode, UiRadioButton, UiToggle,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 
 struct BooleanEngine {
   session_id: SessionId,
@@ -18,21 +22,23 @@ struct BooleanEngine {
 }
 
 impl Engine for BooleanEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    Ok(Response::snapshot(
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    ui_support::encoded(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Ok(Response::empty(self.session_id))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    ui_support::encoded(Response::empty(self.session_id)).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+  fn submit_ui_event(
+    &mut self,
+    action_view: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let action = ui_support::action(action_view);
     let disposition = if action.event.default_prevented {
       UiEventDisposition::PreventDefault
     } else {
@@ -52,10 +58,10 @@ impl Engine for BooleanEngine {
       .borrow_mut()
       .push((event.target_id, previous, proposed));
     if !self.accepted.contains(&event.target_id) {
-      return Ok(UiEventResponse::new(
-        disposition,
-        Response::empty(self.session_id),
-      ));
+      return ui_support::from_owned(
+        action_view,
+        UiEventResponse::new(disposition, Response::empty(self.session_id)),
+      );
     }
     let update: UiElement = if event.target_id == self.gating_id {
       UiToggle::new().value(proposed).into()
@@ -68,13 +74,16 @@ impl Engine for BooleanEngine {
     if event.target_id == self.gating_id {
       commands.push(CommandBody::set_input_enabled(false));
     }
-    Ok(UiEventResponse::new(
-      disposition,
-      Response::commands_for_action(self.session_id, action.action_id, commands),
-    ))
+    ui_support::from_owned(
+      action_view,
+      UiEventResponse::new(
+        disposition,
+        Response::commands_for_action(self.session_id, action.action_id, commands),
+      ),
+    )
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }

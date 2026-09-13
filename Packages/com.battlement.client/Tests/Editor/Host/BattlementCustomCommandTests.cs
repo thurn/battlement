@@ -25,7 +25,7 @@ namespace Battlement.Tests
             Register(harness, handler);
             Assert.Throws<InvalidOperationException>(() => Register(harness, handler));
             Assert.Throws<ArgumentException>(() =>
-                harness.Runner.RegisterCommand<FlashPayload, FixtureError>(
+                harness.Runner.RegisterFlatBufferCommand<FixtureWire.FlashPayload, FixtureError>(
                     "battlement.private",
                     handler
                 )
@@ -42,7 +42,11 @@ namespace Battlement.Tests
 
             Connect connect = harness.Transport.ConnectValues.Single();
             Assert.That(connect.CustomCommandTypes, Does.Contain(CommandType));
-            Assert.That(handler.InvocationCount, Is.EqualTo(1));
+            Assert.That(
+                handler.InvocationCount,
+                Is.EqualTo(1),
+                string.Join("\n", harness.Logger.Records.Select(record => record.Message))
+            );
             Assert.That(handler.InvocationThreadId, Is.EqualTo(Environment.CurrentManagedThreadId));
             Assert.That(handler.LastContext!.Logger, Is.SameAs(harness.Logger));
             Assert.That(handler.LastContext.PreparedAssets, Is.Not.Null);
@@ -257,7 +261,10 @@ namespace Battlement.Tests
         }
 
         private static void Register(BattlementTestHarness harness, FixtureHandler handler) =>
-            harness.Runner.RegisterCommand<FlashPayload, FixtureError>(CommandType, handler);
+            harness.Runner.RegisterFlatBufferCommand<FixtureWire.FlashPayload, FixtureError>(
+                CommandType,
+                handler
+            );
 
         private static void Connect(
             BattlementTestHarness harness,
@@ -304,8 +311,9 @@ namespace Battlement.Tests
             );
 
         private static BattlementTransportResult Result(Response<ICommand> response) =>
-            new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
-                new BattlementOwnedResponseView(response)
+            new BattlementTransportResult(
+                BattlementTransportStatus.Success,
+                BattlementFlatBufferResponseFixtures.Write(response)
             );
 
         private static BattlementTransportResult EmptyResult(SessionId session) =>

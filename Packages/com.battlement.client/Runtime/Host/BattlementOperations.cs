@@ -72,11 +72,6 @@ namespace Battlement
                 );
             }
 
-            if (command.CoreBody is CommandBody.Operation.Cancel cancel)
-            {
-                Cancel(cancel.CommandId);
-                return null;
-            }
             if (command.DirectCancel is BattlementDirectCancel directCancel)
             {
                 Cancel(directCancel.CommandId);
@@ -84,8 +79,7 @@ namespace Battlement
             }
 
             BattlementConflictKey[] keys =
-                command.CoreBody is CommandBody core ? BattlementConflictKeys.For(core)
-                : command.DirectLocalPosition is BattlementDirectLocalPosition position
+                command.DirectLocalPosition is BattlementDirectLocalPosition position
                     ? new[]
                     {
                         new BattlementConflictKey(
@@ -167,10 +161,7 @@ namespace Battlement
             TrackedOperation[] conflicts = operations
                 .Where(operation => operation.ConflictsWith(keys))
                 .ToArray();
-            if (
-                command.CoreBody is IPropertyCommandBody { OnConflict: ConflictPolicy.Wait }
-                || command.DirectConflictPolicy == ConflictPolicy.Wait
-            )
+            if (command.DirectConflictPolicy == ConflictPolicy.Wait)
             {
                 if (conflicts.Any(operation => operation.IsInfinite))
                 {
@@ -195,8 +186,7 @@ namespace Battlement
                 sessionId,
                 batchId,
                 command.IsBlocking,
-                command.CoreBody is CommandBody target ? BattlementOperationTargets.For(target)
-                    : command.DirectLocalPosition is BattlementDirectLocalPosition targetPosition
+                command.DirectLocalPosition is BattlementDirectLocalPosition targetPosition
                         ? targetPosition.ObjectId.Value
                     : command.DirectWorldPosition
                         is BattlementDirectWorldPosition targetWorldPosition
@@ -535,50 +525,6 @@ namespace Battlement
         public const string Rotation = "rotation";
         public const string LocalScale = "localScale";
 
-        public static BattlementConflictKey[] For(CommandBody body) =>
-            body switch
-            {
-                CommandBody.Transform.SetLocalPosition value => Object(value.ObjectId, Position),
-                CommandBody.Transform.SetWorldPosition value => Object(value.ObjectId, Position),
-                CommandBody.Transform.TweenLocalPosition value => Object(value.ObjectId, Position),
-                CommandBody.Transform.TweenWorldPosition value => Object(value.ObjectId, Position),
-                CommandBody.Transform.SetLocalRotation value => Object(value.ObjectId, Rotation),
-                CommandBody.Transform.SetWorldRotation value => Object(value.ObjectId, Rotation),
-                CommandBody.Transform.TweenLocalRotation value => Object(value.ObjectId, Rotation),
-                CommandBody.Transform.TweenWorldRotation value => Object(value.ObjectId, Rotation),
-                CommandBody.Transform.SetLocalScale value => Object(value.ObjectId, LocalScale),
-                CommandBody.Transform.TweenLocalScale value => Object(value.ObjectId, LocalScale),
-                CommandBody.Renderer.SetMaterial value => new[]
-                {
-                    new BattlementConflictKey(value.ObjectId.Value, "material", value.Slot),
-                },
-                CommandBody.Camera.SetPerspective value => CameraProjection(value.ObjectId),
-                CommandBody.Camera.SetOrthographic value => CameraProjection(value.ObjectId),
-                CommandBody.Camera.TweenFieldOfView value => Object(
-                    value.ObjectId,
-                    "camera.fieldOfView"
-                ),
-                CommandBody.Camera.TweenOrthographicSize value => Object(
-                    value.ObjectId,
-                    "camera.orthographicSize"
-                ),
-                CommandBody.Light.SetColor value => Object(value.ObjectId, "light.color"),
-                CommandBody.Light.TweenColor value => Object(value.ObjectId, "light.color"),
-                CommandBody.Light.SetIntensity value => Object(value.ObjectId, "light.intensity"),
-                CommandBody.Light.TweenIntensity value => Object(value.ObjectId, "light.intensity"),
-                CommandBody.Image.SetTint value => Object(value.ObjectId, "image.tint"),
-                CommandBody.Image.TweenTint value => Object(value.ObjectId, "image.tint"),
-                CommandBody.Image.SetOpacity value => Object(value.ObjectId, "image.opacity"),
-                CommandBody.Image.TweenOpacity value => Object(value.ObjectId, "image.opacity"),
-                CommandBody.Text.SetColor value => Object(value.ObjectId, "text.color"),
-                CommandBody.Text.TweenColor value => Object(value.ObjectId, "text.color"),
-                CommandBody.Text.SetSize value => Object(value.ObjectId, "text.size"),
-                CommandBody.Text.TweenSize value => Object(value.ObjectId, "text.size"),
-                CommandBody.Audio.SetVolume value => Audio(value.AudioCommandId),
-                CommandBody.Audio.TweenVolume value => Audio(value.AudioCommandId),
-                _ => Array.Empty<BattlementConflictKey>(),
-            };
-
         public static BattlementConflictKey[] Transform(ObjectId id) =>
             new[]
             {
@@ -662,48 +608,7 @@ namespace Battlement
                 new BattlementConflictKey(id.Value, "camera.orthographicSize"),
             };
 
-        private static BattlementConflictKey[] Audio(CommandId id) =>
-            new[] { new BattlementConflictKey(id.Value, "volume") };
-
         private static BattlementConflictKey[] Object(ObjectId id, string property) =>
             new[] { new BattlementConflictKey(id.Value, property) };
-    }
-
-    internal static class BattlementOperationTargets
-    {
-        public static Guid? For(CommandBody body) =>
-            body switch
-            {
-                CommandBody.Transform.SetLocalPosition value => value.ObjectId.Value,
-                CommandBody.Transform.SetWorldPosition value => value.ObjectId.Value,
-                CommandBody.Transform.TweenLocalPosition value => value.ObjectId.Value,
-                CommandBody.Transform.TweenWorldPosition value => value.ObjectId.Value,
-                CommandBody.Transform.SetLocalRotation value => value.ObjectId.Value,
-                CommandBody.Transform.SetWorldRotation value => value.ObjectId.Value,
-                CommandBody.Transform.TweenLocalRotation value => value.ObjectId.Value,
-                CommandBody.Transform.TweenWorldRotation value => value.ObjectId.Value,
-                CommandBody.Transform.SetLocalScale value => value.ObjectId.Value,
-                CommandBody.Transform.TweenLocalScale value => value.ObjectId.Value,
-                CommandBody.Camera.SetPerspective value => value.ObjectId.Value,
-                CommandBody.Camera.TweenFieldOfView value => value.ObjectId.Value,
-                CommandBody.Camera.SetOrthographic value => value.ObjectId.Value,
-                CommandBody.Camera.TweenOrthographicSize value => value.ObjectId.Value,
-                CommandBody.Light.SetColor value => value.ObjectId.Value,
-                CommandBody.Light.TweenColor value => value.ObjectId.Value,
-                CommandBody.Light.SetIntensity value => value.ObjectId.Value,
-                CommandBody.Light.TweenIntensity value => value.ObjectId.Value,
-                CommandBody.Image.SetTint value => value.ObjectId.Value,
-                CommandBody.Image.TweenTint value => value.ObjectId.Value,
-                CommandBody.Image.SetOpacity value => value.ObjectId.Value,
-                CommandBody.Image.TweenOpacity value => value.ObjectId.Value,
-                CommandBody.Text.SetColor value => value.ObjectId.Value,
-                CommandBody.Text.TweenColor value => value.ObjectId.Value,
-                CommandBody.Text.SetSize value => value.ObjectId.Value,
-                CommandBody.Text.TweenSize value => value.ObjectId.Value,
-                CommandBody.Animator.Play value => value.ObjectId.Value,
-                CommandBody.Animator.CrossFade value => value.ObjectId.Value,
-                CommandBody.Particle.Play value => value.ObjectId.Value,
-                _ => null,
-            };
     }
 }

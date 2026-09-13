@@ -1,7 +1,5 @@
 #nullable enable
 
-using Newtonsoft.Json;
-
 namespace Battlement
 {
     /// <summary>Shared identity and scheduling behavior for every command.</summary>
@@ -25,11 +23,7 @@ namespace Battlement
     /// <param name="Id">Identifier for the command and any operation it starts.</param>
     /// <param name="Body">Exact core command type, conflict behavior, and data.</param>
     /// <param name="IsBlocking">Whether later groups wait for this command to finish.</param>
-    public sealed record Command(
-        [property: JsonProperty("command_id")] CommandId Id,
-        CommandBody Body,
-        [property: JsonProperty("blocking")] bool IsBlocking = true
-    ) : ICommand
+    public sealed record Command(CommandId Id, CommandBody Body, bool IsBlocking = true) : ICommand
     {
         /// <summary>Returns a copy marked as nonblocking.</summary>
         public Command Nonblocking() => this with { IsBlocking = false };
@@ -42,10 +36,10 @@ namespace Battlement
     /// <param name="Payload">Game-specific payload.</param>
     /// <param name="IsBlocking">Whether later groups wait for the operation.</param>
     public sealed record CustomCommand<TPayload>(
-        [property: JsonProperty("command_id")] CommandId Id,
-        [property: JsonProperty("command_type")] string Type,
+        CommandId Id,
+        string Type,
         TPayload Payload,
-        [property: JsonProperty("blocking")] bool IsBlocking = true
+        bool IsBlocking = true
     ) : ICustomCommand
     {
         /// <summary>Returns a copy marked as nonblocking.</summary>

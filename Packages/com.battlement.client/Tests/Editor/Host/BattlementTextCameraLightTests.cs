@@ -220,7 +220,10 @@ namespace Battlement.Tests
 
             Assert.That(Identities(), Is.Empty);
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("Snapshot validation"));
+            Assert.That(
+                harness.Logger.Records.Last().Message,
+                Does.Contain("Deferred response failed")
+            );
         }
 
         [Test]
@@ -249,7 +252,7 @@ namespace Battlement.Tests
             Assert.That(missingFontHarness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(
                 missingFontHarness.Logger.Records.Last().Message,
-                Does.Contain("not in the prepared set")
+                Does.Contain("not prepared with the required type")
             );
 
             using BattlementTestHarness disabledCameraHarness = BattlementTestHarness.Create();
@@ -272,7 +275,7 @@ namespace Battlement.Tests
             Assert.That(disabledCameraHarness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(
                 disabledCameraHarness.Logger.Records.Last().Message,
-                Does.Contain("must be enabled and active")
+                Does.Contain("invalid or disabled")
             );
         }
 

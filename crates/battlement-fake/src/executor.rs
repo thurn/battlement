@@ -12,7 +12,7 @@ use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
 
 impl<E> FakeClient<E>
 where
-  E: battlement_native::Engine<Command = Command>,
+  E: battlement_native::Engine,
 {
   pub(crate) fn execute_command(
     &mut self,

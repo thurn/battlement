@@ -1,7 +1,20 @@
 use crate::{
-  MAXIMUM_MESSAGE_BYTES, common_generated::Uuid,
+  FinishedMessage, MAXIMUM_MESSAGE_BYTES, common_generated::Uuid,
   ui_event_generated::battlement::flat_buffers::generated as wire, verifier_options,
 };
+
+/// Constructs one UI event action directly in a size-prefixed FlatBuffer.
+pub fn write_ui_event_action(
+  value: &battlement::UiEventAction,
+) -> Result<FinishedMessage, crate::ProtocolError> {
+  crate::ui_event_write::write(value)
+}
+
+/// Decodes one stable wire ordinal from the physical-key catalog.
+#[must_use]
+pub fn physical_key_from_ordinal(value: u16) -> Option<battlement::PhysicalKey> {
+  crate::ui_event_body::physical_key(wire::PhysicalKey(value)).ok()
+}
 
 /// A structurally and semantically verified borrowed UI event action.
 #[derive(Clone, Copy)]
@@ -132,7 +145,7 @@ impl UiTransitionView<'_> {
   /// Iterates typed transition properties without allocating.
   pub fn properties(self) -> impl ExactSizeIterator<Item = battlement::TransitionProperty> {
     self.value.properties().iter().map(|value| {
-      crate::ui_event_owned::transition_property(value)
+      crate::ui_event_body::transition_property(value)
         .expect("transition property was semantically validated")
     })
   }
@@ -187,7 +200,7 @@ impl UiFocusView<'_> {
   /// Returns the typed focus direction.
   #[must_use]
   pub fn direction(self) -> battlement::FocusDirection {
-    crate::ui_event_owned::focus_direction(self.value.direction(), self.value.other_direction())
+    crate::ui_event_body::focus_direction(self.value.direction(), self.value.other_direction())
       .expect("focus direction was semantically validated")
   }
 }
@@ -203,7 +216,7 @@ impl<'a> UiKeyView<'a> {
   #[must_use]
   pub fn physical_key(self) -> Option<battlement::PhysicalKey> {
     self.value.has_physical_key().then(|| {
-      crate::ui_event_owned::physical_key(self.value.physical_key())
+      crate::ui_event_body::physical_key(self.value.physical_key())
         .expect("physical key was semantically validated")
     })
   }
@@ -231,7 +244,7 @@ impl UiNavigationView<'_> {
   /// Returns the typed navigation direction.
   #[must_use]
   pub fn direction(self) -> battlement::NavigationDirection {
-    crate::ui_event_owned::navigation_direction(self.value.direction())
+    crate::ui_event_body::navigation_direction(self.value.direction())
       .expect("navigation direction was semantically validated")
   }
 
@@ -357,7 +370,7 @@ impl<'a> UiEventActionView<'a> {
       wire::size_prefixed_root_as_ui_event_action_with_opts(&verifier_options(), bytes)
         .map_err(|failure| error(format!("invalid UI event action FlatBuffer: {failure}")))?;
     validate(value)?;
-    crate::ui_event_owned::validate_body(value.event())?;
+    crate::ui_event_body::validate_body(value.event())?;
     Ok(Self { value })
   }
 
@@ -612,14 +625,14 @@ impl<'a> UiEventActionView<'a> {
           pointer_id: value.pointer_id(),
           position: (position.x(), position.y()),
           delta: (delta.x(), delta.y()),
-          button: crate::ui_event_owned::button(value.button())
+          button: crate::ui_event_body::button(value.button())
             .expect("pointer button was semantically validated")
             .unwrap_or_default(),
           buttons: value.buttons(),
           pressure: value.pressure(),
           click_count: value.click_count(),
           modifiers: value.modifiers(),
-          pointer_type: crate::ui_event_owned::pointer_type(value.pointer_type())
+          pointer_type: crate::ui_event_body::pointer_type(value.pointer_type())
             .expect("pointer type was semantically validated"),
         }
       })
@@ -639,13 +652,13 @@ impl<'a> UiEventActionView<'a> {
           pointer_id: value.pointer_id(),
           position: (position.x(), position.y()),
           delta: (delta.x(), delta.y()),
-          changed_button: crate::ui_event_owned::button(value.changed_button())
+          changed_button: crate::ui_event_body::button(value.changed_button())
             .expect("changed pointer button was semantically validated"),
           buttons: value.buttons(),
           pressure: value.pressure(),
           click_count: value.click_count(),
           modifiers: value.modifiers(),
-          pointer_type: crate::ui_event_owned::pointer_type(value.pointer_type())
+          pointer_type: crate::ui_event_body::pointer_type(value.pointer_type())
             .expect("pointer type was semantically validated"),
         }
       })
@@ -693,16 +706,9 @@ impl<'a> UiEventActionView<'a> {
     })
   }
 
-  /// Materializes the legacy public model for in-process engines during migration.
-  pub fn to_owned(self) -> Result<battlement::UiEventAction, crate::ProtocolError> {
-    crate::ui_event_owned::decode(self.value)
-  }
-
-  /// Copies only the callback payload required by the legacy synchronous dispatcher.
-  ///
-  /// Action and session identities remain borrowed scalars and are not reconstructed.
-  pub fn to_owned_event(self) -> Result<battlement::UiEvent, crate::ProtocolError> {
-    crate::ui_event_owned::decode_event(self.value.event())
+  /// Copies the callback payload when a handler requires an owned value.
+  pub fn copy_body(self) -> Result<battlement::UiEventBody, crate::ProtocolError> {
+    crate::ui_event_body::copy_body(self.value.event())
   }
 }
 
@@ -884,7 +890,7 @@ mod tests {
   const TARGET_ID: Uuid = Uuid([3; 16]);
 
   #[test]
-  fn reads_navigation_submit_and_materializes_validated_legacy_value() {
+  fn reads_navigation_submit_and_copies_validated_callback_payload() {
     let bytes = event_bytes(5, wire::UiEventBody::ClickEvent, |builder| {
       wire::ClickEvent::create(
         builder,
@@ -901,13 +907,13 @@ mod tests {
     assert_eq!(view.target_id(), [3; 16]);
     assert_eq!(view.kind(), 5);
     assert!(matches!(
-      view.to_owned().unwrap().event.body,
+      view.copy_body().unwrap(),
       UiEventBody::Click(ClickEvent::NavigationSubmit)
     ));
   }
 
   #[test]
-  fn borrows_text_commit_values_without_reconstructing_the_legacy_event() {
+  fn borrows_text_commit_values_from_the_verified_event() {
     let bytes = event_bytes(28, wire::UiEventBody::ValueCommitEvent, |builder| {
       let previous_text = builder.create_string("before");
       let previous = wire::StringValue::create(

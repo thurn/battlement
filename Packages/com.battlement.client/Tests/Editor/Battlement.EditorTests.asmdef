@@ -6,7 +6,6 @@
     "Battlement.UI",
     "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.Json",
     "Battlement.Editor",
     "Unity.Addressables.Editor"
   ],

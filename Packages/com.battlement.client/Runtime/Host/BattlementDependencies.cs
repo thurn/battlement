@@ -73,13 +73,13 @@ namespace Battlement
     /// <summary>Generated writer for one build-composed client-message schema.</summary>
     public interface IBattlementFlatBufferClientSchema
     {
-        /// <summary>Encodes one game-owned action without a JSON intermediate.</summary>
+        /// <summary>Encodes one game-owned action.</summary>
         ReadOnlyMemory<byte> SerializeCustomAction<TPayload>(CustomAction<TPayload> value);
 
-        /// <summary>Encodes one game-owned batch failure without a JSON intermediate.</summary>
+        /// <summary>Encodes one game-owned batch failure.</summary>
         ReadOnlyMemory<byte> SerializeBatchFailure<TError>(BatchFailed<TError> value);
 
-        /// <summary>Encodes one game-owned operation failure without a JSON intermediate.</summary>
+        /// <summary>Encodes one game-owned operation failure.</summary>
         ReadOnlyMemory<byte> SerializeOperationFailure<TError>(OperationFailed<TError> value);
     }
 
@@ -133,7 +133,7 @@ namespace Battlement
         TransportError,
     }
 
-    /// <summary>An owned response payload or diagnostic returned by a transport call.</summary>
+    /// <summary>A response payload or diagnostic returned by a transport call.</summary>
     public sealed record BattlementTransportResult : IDisposable
     {
         private readonly ReadOnlyMemory<byte> payload;
@@ -169,8 +169,6 @@ namespace Battlement
 
         internal IDisposable? PayloadOwner { get; private set; }
 
-        internal IBattlementResponseView? ResponseView { get; private set; }
-
         internal BattlementTransportResult OwnPayload(IDisposable owner)
         {
             PayloadOwner = owner;
@@ -185,25 +183,10 @@ namespace Battlement
             return owner;
         }
 
-        internal BattlementTransportResult OwnResponseView(IBattlementResponseView response)
-        {
-            ResponseView = response ?? throw new ArgumentNullException(nameof(response));
-            return this;
-        }
-
-        internal IBattlementResponseView? DetachResponseView()
-        {
-            IBattlementResponseView? response = ResponseView;
-            ResponseView = null;
-            return response;
-        }
-
         public void Dispose()
         {
             PayloadOwner?.Dispose();
             PayloadOwner = null;
-            ResponseView?.Dispose();
-            ResponseView = null;
         }
     }
 
@@ -248,8 +231,6 @@ namespace Battlement
 
         internal IDisposable? PayloadOwner { get; private set; }
 
-        internal IBattlementResponseView? ResponseView { get; private set; }
-
         internal BattlementUiEventTransportResult OwnPayload(IDisposable? owner)
         {
             PayloadOwner = owner;
@@ -264,25 +245,10 @@ namespace Battlement
             return owner;
         }
 
-        internal BattlementUiEventTransportResult OwnResponseView(IBattlementResponseView response)
-        {
-            ResponseView = response ?? throw new ArgumentNullException(nameof(response));
-            return this;
-        }
-
-        internal IBattlementResponseView? DetachResponseView()
-        {
-            IBattlementResponseView? response = ResponseView;
-            ResponseView = null;
-            return response;
-        }
-
         public void Dispose()
         {
             PayloadOwner?.Dispose();
             PayloadOwner = null;
-            ResponseView?.Dispose();
-            ResponseView = null;
         }
     }
 

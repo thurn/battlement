@@ -1,6 +1,8 @@
-use battlement::{ActionId, BatchId, CommandId, ObjectId, SessionId};
+use battlement::{
+  ActionId, BatchId, Command, CommandId, ObjectId, ParallelCommandGroup, SessionId,
+};
 use battlement_native::{
-  CoreCommandOffset, EngineError, MessageWriter, NativeBatchStart, NativeResponse, UiElementOffset,
+  CoreCommandOffset, EngineError, EngineResponse, MessageWriter, NativeBatchStart, UiElementOffset,
   UiNodeOffset,
 };
 
@@ -201,14 +203,30 @@ impl NativeUiResponseBuilder {
     }
   }
 
+  pub(crate) fn command_groups(
+    &mut self,
+    groups: &[ParallelCommandGroup<Command>],
+  ) -> Result<(), EngineError> {
+    self.groups.clear();
+    for group in groups {
+      let commands = group
+        .commands
+        .iter()
+        .map(|command| self.writer.command(command).map_err(protocol))
+        .collect::<Result<Vec<_>, _>>()?;
+      self.groups.push(commands);
+    }
+    Ok(())
+  }
+
   pub(crate) fn finish(
     mut self,
     session_id: SessionId,
     action_id: ActionId,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.groups.retain(|commands| !commands.is_empty());
     if self.groups.is_empty() {
-      return NativeResponse::empty(*session_id.as_uuid().as_bytes());
+      return EngineResponse::empty(*session_id.as_uuid().as_bytes());
     }
     let mut groups = Vec::with_capacity(self.groups.len());
     for commands in &self.groups {
@@ -226,7 +244,7 @@ impl NativeUiResponseBuilder {
       )
       .map_err(protocol)?;
     let message = self.writer.finish(session, &[batch]).map_err(protocol)?;
-    NativeResponse::from_core(session, message)
+    EngineResponse::from_core(session, message)
   }
 
   fn push(&mut self, command: CoreCommandOffset) {

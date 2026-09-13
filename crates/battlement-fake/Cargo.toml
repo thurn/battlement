@@ -14,7 +14,9 @@ battlement-cloud-fake.workspace = true
 battlement-flatbuffers = { path = "../battlement-flatbuffers" }
 battlement-native = { path = "../battlement-native" }
 battlement-ui-fake.workspace = true
+flatbuffers = "=25.12.19"
 uuid.workspace = true
 
 [dev-dependencies]
+battlement-flatbuffers = { path = "../battlement-flatbuffers", features = ["test-support"] }
 uuid.workspace = true

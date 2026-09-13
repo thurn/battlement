@@ -2,11 +2,11 @@ use trox::ls;
 mod runtime_support;
 
 use battlement::{
-  AccessibilityAction, AccessibilityUpdate, CameraState, ClickEvent, CommandBody, CurrentPage,
-  GameObject, ObjectId, PreparedAsset, Prop, Scene, SceneId, SemanticRole, SessionId, Snapshot,
-  TabSelectionEvent, UiAccessibilityAction, UiAccessibilityActionEvent, UiDocument,
-  UiDocumentState, UiElement, UiEvent, UiEventBody, UiEventDisposition, UiNode, UiValue,
-  UiVisualElementProperties, ValueChangingEvent, ValueCommitEvent,
+  AccessibilityUpdate, CameraState, ClickEvent, CommandBody, CurrentPage, GameObject, ObjectId,
+  PreparedAsset, Prop, Scene, SceneId, SemanticRole, SessionId, Snapshot, TabSelectionEvent,
+  UiAccessibilityAction, UiAccessibilityActionEvent, UiDocument, UiDocumentState, UiElement,
+  UiEvent, UiEventBody, UiEventDisposition, UiNode, UiValue, UiVisualElementProperties,
+  ValueChangingEvent, ValueCommitEvent,
 };
 use battlement_reactant::{
   component::Component,
@@ -665,29 +665,6 @@ fn tabs_share_one_controlled_selection_path() {
 }
 
 #[test]
-fn protocol_round_trips_direct_actions_and_complete_snapshot() {
-  let update = AccessibilityUpdate {
-    snapshot: Some(battlement::AccessibilitySnapshot {
-      commit_sequence: 7,
-      roots: vec![],
-      nodes: vec![],
-    }),
-    announcements: vec!["Saved".to_owned()],
-  };
-  let bytes = battlement::json::to_vec(&CommandBody::AccessibilityUpdate(update.clone())).unwrap();
-  assert_eq!(
-    battlement::json::from_slice::<CommandBody>(&bytes).unwrap(),
-    CommandBody::AccessibilityUpdate(update)
-  );
-  let action = AccessibilityAction::Scroll(battlement::AccessibilityScrollDirection::Forward);
-  let bytes = battlement::json::to_vec(&action).unwrap();
-  assert_eq!(
-    battlement::json::from_slice::<AccessibilityAction>(&bytes).unwrap(),
-    action
-  );
-}
-
-#[test]
 fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
   let document = document();
   let mut runtime = runtime_support::reactant(IdleSpawner);
@@ -773,11 +750,6 @@ fn collections_preserve_roles_ancestry_current_page_and_controlled_selection() {
     .unwrap()
     .into_groups();
   assert_eq!(game.presses, 1);
-  let bytes = battlement::json::to_vec(initial).unwrap();
-  assert_eq!(
-    battlement::json::from_slice::<battlement::AccessibilitySnapshot>(&bytes).unwrap(),
-    *initial
-  );
   let _ = runtime.shutdown(&mut game).into_groups();
 }
 

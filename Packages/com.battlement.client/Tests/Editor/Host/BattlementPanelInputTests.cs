@@ -72,8 +72,8 @@ namespace Battlement.Tests
                     new ObjectId(Guid.NewGuid())
                 );
 
-                coordinator.ValidateBeforeReplacement(snapshot);
-                coordinator.Apply(snapshot, camera);
+                Validate(coordinator, snapshot);
+                Apply(coordinator, snapshot, camera);
 
                 UnityPanelInputConfiguration value = coordinator.OwnedConfiguration!;
                 Assert.That(value.processWorldSpaceInput, Is.True);
@@ -109,13 +109,13 @@ namespace Battlement.Tests
             try
             {
                 Snapshot world = WorldSnapshot(new PanelInputConfigurationValue(), null);
-                coordinator.Apply(world, camera);
+                Apply(coordinator, world, camera);
                 UnityPanelInputConfiguration value = coordinator.OwnedConfiguration!;
                 Assert.That(value.maxInteractionDistance, Is.EqualTo(float.PositiveInfinity));
                 Assert.That(value.defaultEventCameraIsMainCamera, Is.True);
                 Assert.That(value.eventCameras, Is.Empty);
 
-                coordinator.Apply(ScreenSnapshot(), camera);
+                Apply(coordinator, ScreenSnapshot(), camera);
 
                 Assert.That(coordinator.OwnedConfiguration, Is.Null);
                 Assert.That(eventObject.GetComponent<UnityPanelInputConfiguration>(), Is.Null);
@@ -140,9 +140,7 @@ namespace Battlement.Tests
             try
             {
                 BattlementWorldException error = Assert.Throws<BattlementWorldException>(() =>
-                    coordinator.ValidateBeforeReplacement(
-                        WorldSnapshot(new PanelInputConfigurationValue(), null)
-                    )
+                    Validate(coordinator, WorldSnapshot(new PanelInputConfigurationValue(), null))
                 )!;
 
                 Assert.That(error.Message, Does.Contain("project-authored"));
@@ -169,7 +167,8 @@ namespace Battlement.Tests
             var coordinator = new BattlementPanelInputCoordinator();
             try
             {
-                coordinator.Apply(
+                Apply(
+                    coordinator,
                     WorldSnapshot(new PanelInputConfigurationValue(), new ObjectId(Guid.NewGuid())),
                     camera
                 );
@@ -181,7 +180,7 @@ namespace Battlement.Tests
                 Assert.That(priority, Is.Not.Null);
                 Assert.That(priority.camera, Is.SameAs(camera));
 
-                coordinator.Apply(ScreenSnapshot(), camera);
+                Apply(coordinator, ScreenSnapshot(), camera);
 
                 Assert.That(authored.enabled, Is.True);
                 Assert.That(authored.eventMask.value, Is.EqualTo(0x1234));
@@ -203,9 +202,7 @@ namespace Battlement.Tests
             {
                 Assert.That(
                     Assert
-                        .Throws<BattlementWorldException>(() =>
-                            coordinator.ValidateBeforeReplacement(snapshot)
-                        )!
+                        .Throws<BattlementWorldException>(() => Validate(coordinator, snapshot))!
                         .Message,
                     Does.Contain("active EventSystem")
                 );
@@ -217,7 +214,7 @@ namespace Battlement.Tests
                     Assert.That(
                         Assert
                             .Throws<BattlementWorldException>(() =>
-                                coordinator.Apply(snapshot, null)
+                                Apply(coordinator, snapshot, null)
                             )!
                             .Message,
                         Does.Contain("camera")
@@ -267,6 +264,23 @@ namespace Battlement.Tests
                 Array.Empty<PreparedAsset>(),
                 Array.Empty<BattlementScene>(),
                 Array.Empty<BattlementGameObject>()
+            );
+
+        private static void Validate(
+            BattlementPanelInputCoordinator coordinator,
+            Snapshot snapshot
+        ) => coordinator.ValidateBeforeReplacement(snapshot.Objects.Count > 0);
+
+        private static void Apply(
+            BattlementPanelInputCoordinator coordinator,
+            Snapshot snapshot,
+            Camera? camera
+        ) =>
+            coordinator.Apply(
+                snapshot.PanelInputConfiguration ?? new PanelInputConfigurationValue(),
+                snapshot.Objects.Count > 0,
+                snapshot.InputCameraId is null,
+                camera
             );
     }
 }

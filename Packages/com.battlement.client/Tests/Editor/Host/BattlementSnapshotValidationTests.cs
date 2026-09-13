@@ -44,7 +44,7 @@ namespace Battlement.Tests
             Assert.That(harness.AssetStorage.PrepareCalls.Count, Is.EqualTo(preparedBefore));
             Assert.That(harness.AssetStorage.SceneLoadCalls.Count, Is.EqualTo(scenesBefore));
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("Snapshot validation"));
+            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("failed"));
         }
 
         [Test]

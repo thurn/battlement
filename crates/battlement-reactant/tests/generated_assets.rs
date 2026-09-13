@@ -4,13 +4,15 @@ use std::{collections::VecDeque, slice, sync::Arc};
 
 use battlement::{
   BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, CameraState,
-  ClientMessage, Command, GameObject, GameObjectKind, ImageSource, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId,
-  SessionId, Snapshot, StyleValue, UiDocument, UiDocumentState, UiElement, UiElementKind,
-  UiEventAction, UiEventResponse, UiVisualElementProperties,
+  GameObject, GameObjectKind, ImageSource, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
+  PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, StyleValue,
+  UiDocument, UiDocumentState, UiElement, UiElementKind, UiVisualElementProperties,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 use battlement_reactant::{
   asset_generator::{self, LogicalInsets, LogicalRect, LogicalSize},
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -80,30 +82,31 @@ impl Spawner for IdleSpawner {
 }
 
 impl Engine for SnapshotEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    Ok(self.responses.pop_front().expect("fixture has a snapshot"))
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    runtime_support::encoded(self.responses.pop_front().expect("fixture has a snapshot"))
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Err(EngineError::new("fixture does not accept actions"))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    Err(FlatBufferSubmitError::engine(EngineError::new(
+      "fixture does not accept actions",
+    )))
   }
 
   fn submit_ui_event(
     &mut self,
-    message: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &message.event,
-      Response::empty(message.session_id),
-    ))
+    message: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    runtime_support::empty_ui_result(message)
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
-    Ok(self.responses.pop_front())
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
+    self
+      .responses
+      .pop_front()
+      .map(runtime_support::encoded)
+      .transpose()
   }
 }
 

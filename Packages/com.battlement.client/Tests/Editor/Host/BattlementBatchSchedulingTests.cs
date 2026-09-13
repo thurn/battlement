@@ -35,7 +35,12 @@ namespace Battlement.Tests
 
             SubmitResponse(harness, Response(session, timeline, dependent));
 
-            Assert.That(HasIdentity(firstId), Is.True, "Group 1 must execute at 0 ms.");
+            Assert.That(
+                HasIdentity(firstId),
+                Is.True,
+                "Group 1 must execute at 0 ms.\n"
+                    + string.Join("\n", harness.Logger.Records.Select(record => record.Message))
+            );
             Assert.That(HasIdentity(thirdGroupId), Is.False);
             Assert.That(HasIdentity(dependentId), Is.False);
 

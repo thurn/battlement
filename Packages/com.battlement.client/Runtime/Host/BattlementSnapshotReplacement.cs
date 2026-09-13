@@ -52,57 +52,27 @@ namespace Battlement
 
             try
             {
-                BattlementFlatBufferSnapshotView? flat =
-                    snapshot is BattlementFlatBufferSnapshotView candidate
-                    && candidate.CanApplyDirectly
-                        ? candidate
-                        : null;
-                IReadOnlyList<BattlementDirectSnapshotObject>? directObjects = flat is null
-                    ? null
-                    : DirectOrder(flat);
-                IReadOnlyList<BattlementScene>? directScenes = flat is null
-                    ? null
-                    : DirectScenes(flat);
-                IReadOnlyList<PhysicalKey>? directGlobalKeys = flat?.ReadDirectGlobalKeys();
-                ControllerInputSettings? directControllerInput = flat?.ReadDirectControllerInput();
-                bool directWorldInput =
-                    directObjects?.Any(value =>
-                        value.Description is BattlementDirectUiDocumentObjectCreate document
-                        && document.State.PanelSettings?.RenderMode == PanelRenderMode.WorldSpace
-                    ) == true;
-                IReadOnlyList<BattlementGameObject> objectOrder;
-                if (directObjects is null)
-                {
-                    var owned = (IBattlementOwnedSnapshotView)snapshot;
-                    reactantAssets.Validate(owned.PreparedAssets);
-                    objectOrder = BattlementSnapshotValidator.Validate(owned);
-                    panelInput.ValidateBeforeReplacement(owned);
-                }
-                else
-                {
-                    reactantAssets.Validate(flat!);
-                    ValidateDirectUiDocuments(flat!, directObjects);
-                    objectOrder = Array.Empty<BattlementGameObject>();
-                    BattlementPanelInputCoordinator.ValidateValue(snapshot.PanelInputConfiguration);
-                    panelInput.ValidateBeforeReplacement(directWorldInput);
-                }
-                if (directObjects is null)
-                    world.PrepareReplacement(
-                        objectOrder,
-                        ((IBattlementOwnedSnapshotView)snapshot).Scenes
+                if (snapshot is not BattlementFlatBufferSnapshotView flat || !flat.CanApplyDirectly)
+                    throw new InvalidOperationException(
+                        "Snapshot replacement requires a verified FlatBuffer view."
                     );
-                else
-                    world.PrepareReplacement(directObjects, directScenes!);
-                if (flat is null)
-                    preparedAssets.BeginReplacement(
-                        ((IBattlementOwnedSnapshotView)snapshot).PreparedAssets,
-                        isAuthoritative: true
-                    );
-                else
-                    preparedAssets.BeginReplacement(flat, isAuthoritative: true);
+                IReadOnlyList<BattlementDirectSnapshotObject> directObjects = DirectOrder(flat);
+                IReadOnlyList<BattlementScene> directScenes = DirectScenes(flat);
+                IReadOnlyList<PhysicalKey> directGlobalKeys = flat.ReadDirectGlobalKeys();
+                ControllerInputSettings? directControllerInput = flat.ReadDirectControllerInput();
+                bool directWorldInput = directObjects.Any(value =>
+                    value.Description is BattlementDirectUiDocumentObjectCreate document
+                    && document.State.PanelSettings?.RenderMode == PanelRenderMode.WorldSpace
+                );
+                reactantAssets.Validate(flat);
+                ValidateDirectUiDocuments(flat, directObjects);
+                BattlementPanelInputCoordinator.ValidateValue(snapshot.PanelInputConfiguration);
+                panelInput.ValidateBeforeReplacement(directWorldInput);
+                world.PrepareReplacement(directObjects, directScenes);
+                preparedAssets.BeginReplacement(flat, isAuthoritative: true);
                 pending = new PendingSnapshot(
                     snapshot,
-                    objectOrder,
+                    Array.Empty<BattlementGameObject>(),
                     directObjects,
                     directScenes,
                     directGlobalKeys,
@@ -120,9 +90,6 @@ namespace Battlement
                 throw Failure($"Snapshot validation failed: {exception.Message}", exception);
             }
         }
-
-        public void Begin(SessionId responseSession, Snapshot snapshot, bool preserveMotion) =>
-            Begin(responseSession, new BattlementOwnedSnapshotView(snapshot), preserveMotion);
 
         public bool TryComplete(out bool inputDisabled)
         {
@@ -162,59 +129,24 @@ namespace Battlement
             pending = null;
             try
             {
-                if (completed.DirectObjects is null)
-                    world.ReplaceObjects(completed.ObjectOrder);
-                else
-                    world.ReplaceObjects(completed.DirectObjects);
-                if (completed.Snapshot is IBattlementUiDocumentCollectionView directUi)
-                {
-                    uiDocuments.Replace(
-                        directUi,
-                        id =>
-                            world.TryGetObject(id, out UnityEngine.GameObject? value)
-                                ? value
-                                : null,
-                        completed.PreserveMotion
-                    );
-                }
-                else if (completed.DirectObjects is null)
-                {
-                    var ownedUi = (IBattlementOwnedSnapshotView)completed.Snapshot;
-                    uiDocuments.Replace(
-                        ownedUi.Ui,
-                        id =>
-                            world.TryGetObject(id, out UnityEngine.GameObject? value)
-                                ? value
-                                : null,
-                        completed.PreserveMotion
-                    );
-                }
-                else
-                {
-                    uiDocuments.Clear();
-                }
+                world.ReplaceObjects(completed.DirectObjects!);
+                var directUi = (IBattlementUiDocumentCollectionView)completed.Snapshot;
+                uiDocuments.Replace(
+                    directUi,
+                    id => world.TryGetObject(id, out UnityEngine.GameObject? value) ? value : null,
+                    completed.PreserveMotion
+                );
                 ApplicationProbe?.Invoke();
                 world.ReplaceUiIdentities(uiDocuments.IdentityIds);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
-                if (completed.DirectObjects is null)
-                    panelInput.Apply(
-                        (IBattlementOwnedSnapshotView)completed.Snapshot,
-                        world.InputCamera
-                    );
-                else
-                    panelInput.Apply(
-                        completed.Snapshot.PanelInputConfiguration,
-                        completed.DirectWorldInput,
-                        completed.Snapshot.InputCameraId is null,
-                        world.InputCamera
-                    );
-                world.SetGlobalKeys(
-                    completed.DirectGlobalKeys
-                        ?? ((IBattlementOwnedSnapshotView)completed.Snapshot).GlobalKeys
+                panelInput.Apply(
+                    completed.Snapshot.PanelInputConfiguration,
+                    completed.DirectWorldInput,
+                    completed.Snapshot.InputCameraId is null,
+                    world.InputCamera
                 );
-                ControllerInputSettings? controllerInput = completed.DirectObjects is null
-                    ? ((IBattlementOwnedSnapshotView)completed.Snapshot).ControllerInput
-                    : completed.DirectControllerInput;
+                world.SetGlobalKeys(completed.DirectGlobalKeys!);
+                ControllerInputSettings? controllerInput = completed.DirectControllerInput;
                 if (controllerInput is not null)
                 {
                     world.SetControllerInput(controllerInput);
@@ -244,18 +176,11 @@ namespace Battlement
         {
             try
             {
-                if (replacement.DirectObjects is null)
-                    BattlementPreparedObjectValidator.Validate(
-                        replacement.ObjectOrder,
-                        preparedAssets,
-                        replacement.Snapshot.InputCameraId
-                    );
-                else
-                    BattlementPreparedObjectValidator.Validate(
-                        replacement.DirectObjects,
-                        preparedAssets,
-                        replacement.Snapshot.InputCameraId
-                    );
+                BattlementPreparedObjectValidator.Validate(
+                    replacement.DirectObjects!,
+                    preparedAssets,
+                    replacement.Snapshot.InputCameraId
+                );
             }
             catch (Exception exception)
             {
@@ -268,8 +193,7 @@ namespace Battlement
             try
             {
                 scenes.BeginReplacement(
-                    replacement.DirectScenes
-                        ?? ((IBattlementOwnedSnapshotView)replacement.Snapshot).Scenes,
+                    replacement.DirectScenes!,
                     replacement.Snapshot.PrimarySceneId
                 );
                 replacement.SceneReplacementStarted = true;

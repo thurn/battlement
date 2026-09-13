@@ -4,14 +4,17 @@ mod runtime_support;
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
-  Align, CameraState, ClientMessage, Command, FlexDirection, FlexWrap, GameObject, GameObjectKind,
-  GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayPlacement, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId,
-  SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState, UiElement,
-  UiElementKind, UiEventAction, UiEventResponse, UiNode, UiVisualElementProperties, UpperLimit,
+  Align, CameraState, FlexDirection, FlexWrap, GameObject, GameObjectKind, GridItem, GridTrack,
+  Justify, LowerLimit, ObjectId, OverlayPlacement, PanelScaleMode, PanelSettings, ParentScene,
+  PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, StackItem,
+  Sticky, Style, UiDocument, UiDocumentState, UiElement, UiElementKind, UiNode,
+  UiVisualElementProperties, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 use battlement_reactant::{
   component::Component,
   element_ref::use_element_ref,
@@ -142,11 +145,9 @@ impl Spawner for IdleSpawner {
 }
 
 impl<G: 'static> Engine for SessionEngine<G> {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)
@@ -156,24 +157,32 @@ impl<G: 'static> Engine for SessionEngine<G> {
         slice::from_ref(&self.document),
       ));
     self.recorded.replace(Some(response.clone()));
-    Ok(response)
+    runtime_support::encoded(response)
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Err(EngineError::new("fixture does not accept actions"))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    Err(FlatBufferSubmitError::engine(EngineError::new(
+      "fixture does not accept actions",
+    )))
   }
 
   fn submit_ui_event(
     &mut self,
-    message: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    Ok(UiEventResponse::from_event(
-      &message.event,
-      Response::empty(message.session_id),
-    ))
+    message: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let session_id =
+      SessionId::from_uuid(uuid::Uuid::from_bytes(message.session_id())).expect("verified session");
+    Ok(UiEventResult {
+      disposition: if message.default_prevented() {
+        battlement::UiEventDisposition::PreventDefault
+      } else {
+        battlement::UiEventDisposition::Continue
+      },
+      response: runtime_support::encoded(Response::empty(session_id))?,
+    })
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }

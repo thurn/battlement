@@ -2,17 +2,12 @@
 
 use std::time::{Duration, Instant};
 
-use battlement::{
-  ActionBody, ActionId, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color,
-  Command, CommandBody, CoreErrorCode, GameObject, ImageFit, ImageState, ObjectId, ParentScene,
-  PointerButton, PointerEvent, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot,
-  TextState, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
-};
+use battlement::{ObjectId, SceneId, SessionId, Vector3, object_id, scene_id};
 use battlement_native::{
-  CoreActionBodyView, CoreClientMessageView, Engine, EngineError, FlatBufferSubmitError,
-  GameObjectOffset, MessageWriter, NativeBatchStart, NativeEngine, NativeImageFit,
+  CoreActionBodyView, CoreClientMessageView, Engine, EngineError, EngineResponse,
+  FlatBufferSubmitError, GameObjectOffset, MessageWriter, NativeBatchStart, NativeImageFit,
   NativeObjectPlacement, NativeParentScene, NativePointerEvent, NativePreparedAssetKind,
-  NativeResponse, NativeTransform, NativeUiEventResponse, UiEventActionView,
+  NativeTransform, UiEventActionView, UiEventResult,
 };
 use fastrand::Rng;
 
@@ -160,61 +155,12 @@ pub fn create_seeded_engine(seed: u64, now: impl Fn() -> Instant + 'static) -> T
 }
 
 impl Engine for TicTacToeEngine {
-  type ActionPayload = ();
-  type ErrorCode = CoreErrorCode;
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
   fn connect(
     &mut self,
     _message: battlement_native::ConnectView<'_>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    self.session_id = SessionId::new_v4();
-    self.round = 1;
-    self.reset_state(self.semantic_fixture.unwrap_or(VisualState::EmptyBoard));
-    if self.semantic_fixture == Some(VisualState::HumanMove) {
-      self.board[2] = Some(Mark::X);
-      self.marker_ids[2] = Some(X_MARK_IDS[2]);
-    }
-    Ok(Response::snapshot(self::snapshot(
-      self.session_id,
-      self.round,
-      &self.board,
-      self.visual_state,
-    )))
-  }
-
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    Ok(self.submit_at(message, (self.now)()))
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("UI event session mismatch"));
-    }
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(self.session_id),
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    Ok(self.poll_at((self.now)()))
-  }
-}
-
-impl NativeEngine for TicTacToeEngine {
-  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
-
-  fn connect_native(
-    &mut self,
-    _message: battlement_native::ConnectView<'_>,
-  ) -> Result<NativeResponse, EngineError> {
+  ) -> Result<EngineResponse, EngineError> {
     self.session_id = SessionId::new_v4();
     self.round = 1;
     self.reset_state(self.semantic_fixture.unwrap_or(VisualState::EmptyBoard));
@@ -225,7 +171,7 @@ impl NativeEngine for TicTacToeEngine {
     self::native_snapshot(self.session_id, self.round, &self.board, self.visual_state)
   }
 
-  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+  fn submit(&mut self, bytes: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
     let message = CoreClientMessageView::read(bytes)
       .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
     let CoreClientMessageView::Action(action) = message else {
@@ -240,24 +186,24 @@ impl NativeEngine for TicTacToeEngine {
       return self::native_empty(self.session_id).map_err(FlatBufferSubmitError::engine);
     };
     self
-      .submit_native_at(
+      .submit_at(
         action.action_id(),
         payload.object_id(),
-        payload.button(),
+        payload.pointer_button(),
         payload.world_hit(),
         (self.now)(),
       )
       .map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event_native(
+  fn submit_ui_event(
     &mut self,
     action: UiEventActionView<'_>,
-  ) -> Result<NativeUiEventResponse, EngineError> {
+  ) -> Result<UiEventResult, EngineError> {
     if action.session_id() != self::session_bytes(self.session_id) {
       return Err(EngineError::new("UI event session mismatch"));
     }
-    Ok(NativeUiEventResponse {
+    Ok(UiEventResult {
       disposition: if action.default_prevented() {
         battlement::UiEventDisposition::PreventDefault
       } else {
@@ -267,7 +213,7 @@ impl NativeEngine for TicTacToeEngine {
     })
   }
 
-  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     let now = (self.now)();
     let Some(due) = self.ai_due else {
       return Ok(None);
@@ -300,15 +246,15 @@ impl TicTacToeEngine {
     self.visual_state
   }
 
-  fn submit_native_at(
+  fn submit_at(
     &mut self,
     action_id: [u8; 16],
     object_id: [u8; 16],
-    button: u8,
+    button: battlement::PointerButton,
     world_hit: [f64; 3],
     now: Instant,
-  ) -> Result<NativeResponse, EngineError> {
-    if object_id != self::object_bytes(BOARD_ID) || button != 0 {
+  ) -> Result<EngineResponse, EngineError> {
+    if object_id != self::object_bytes(BOARD_ID) || button != battlement::PointerButton::Left {
       return self::native_empty(self.session_id);
     }
     if self.outcome != Outcome::InProgress {
@@ -365,95 +311,6 @@ impl TicTacToeEngine {
     }
   }
 
-  fn submit_at(
-    &mut self,
-    message: ClientMessage<(), CoreErrorCode>,
-    now: Instant,
-  ) -> Response<Command> {
-    let empty = Response::empty(self.session_id);
-    let Some(action) = message.into_action() else {
-      return empty;
-    };
-    let ActionBody::PointerClick(payload) = action.body else {
-      return empty;
-    };
-    if payload.object_id != BOARD_ID || payload.button != PointerButton::Left {
-      return empty;
-    }
-    if self.outcome != Outcome::InProgress {
-      return self.reset_round(action.action_id);
-    }
-    if self.ai_due.is_some() {
-      return empty;
-    }
-    let Some(index) = self::cell_index(payload.world_hit) else {
-      return empty;
-    };
-    if self.board[index].is_some() {
-      // An occupied square does not change the game, so there are no commands to send.
-      return empty;
-    }
-
-    let marker = self.place_mark(index, Mark::X);
-    self.outcome = self::outcome(&self.board);
-    self.visual_state = self.visual_state_after_player_move(self.outcome);
-    let mut commands = vec![CommandBody::object_create(marker)];
-    if self.outcome == Outcome::InProgress {
-      self.ai_due = Some(now + AI_DELAY);
-      commands.push(self::status_command(self.visual_state));
-      commands.push(CommandBody::set_input_enabled(false));
-    } else {
-      commands.push(self::status_command(self.visual_state));
-    }
-    Response::commands_for_action(self.session_id, action.action_id, commands)
-  }
-
-  fn poll_at(&mut self, now: Instant) -> Option<Response<Command>> {
-    let due = self.ai_due?;
-    if now < due {
-      return None;
-    }
-    self.ai_due = None;
-    // An AI turn is scheduled only while the game is in progress, so a cell is available.
-    let empty = self::empty_cells(&self.board);
-    let index = empty[self.rng.usize(..empty.len())];
-    let marker = self.place_mark(index, Mark::O);
-    self.outcome = self::outcome(&self.board);
-    self.visual_state = self.visual_state_after_ai_move(self.outcome);
-    Some(Response::commands(
-      self.session_id,
-      vec![
-        CommandBody::object_create(marker),
-        self::status_command(self.visual_state),
-        CommandBody::set_input_enabled(true),
-      ],
-    ))
-  }
-
-  fn place_mark(&mut self, index: usize, mark: Mark) -> GameObject {
-    let object_id = self::marker_id(index, mark);
-    self.board[index] = Some(mark);
-    self.marker_ids[index] = Some(object_id);
-    self::marker(object_id, index, mark)
-  }
-
-  fn reset_round(&mut self, action_id: ActionId) -> Response<Command> {
-    let mut commands = self
-      .marker_ids
-      .iter()
-      .flatten()
-      .map(|object_id| CommandBody::object_destroy(*object_id))
-      .collect::<Vec<_>>();
-    self.round += 1;
-    self.reset_state(VisualState::RestoredBoard);
-    commands.push(CommandBody::set_text(
-      TITLE_ID,
-      format!("TIC TAC TOE — ROUND {}", self.round),
-    ));
-    commands.push(self::status_command(self.visual_state));
-    Response::commands_for_action(self.session_id, action_id, commands)
-  }
-
   fn reset_state(&mut self, visual_state: VisualState) {
     self.board = [None; 9];
     self.marker_ids = [None; 9];
@@ -487,7 +344,7 @@ fn native_turn_response(
   marker: Option<(ObjectId, usize, Mark)>,
   visual_state: VisualState,
   input_enabled: Option<bool>,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let mut writer = MessageWriter::default();
   let mut commands = Vec::with_capacity(3);
@@ -524,7 +381,7 @@ fn native_reset_response(
   action_id: [u8; 16],
   marker_ids: &[ObjectId],
   round: u32,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let mut writer = MessageWriter::default();
   let mut commands = Vec::with_capacity(marker_ids.len() + 2);
@@ -563,7 +420,7 @@ fn finish_native_commands(
   session: [u8; 16],
   action_id: Option<[u8; 16]>,
   commands: &[battlement_native::CoreCommandOffset],
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let group = writer
     .parallel_group(commands)
     .map_err(self::writer_error)?;
@@ -579,15 +436,15 @@ fn finish_native_commands(
   let message = writer
     .finish(session, &[batch])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
-fn native_empty(session_id: SessionId) -> Result<NativeResponse, EngineError> {
+fn native_empty(session_id: SessionId) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let message = MessageWriter::default()
     .finish(session, &[])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
 fn native_snapshot(
@@ -595,7 +452,7 @@ fn native_snapshot(
   round: u32,
   marks: &[Option<Mark>; 9],
   visual_state: VisualState,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let session = self::session_bytes(session_id);
   let mut writer = MessageWriter::with_capacity(16 * 1024);
   let assets = [
@@ -700,7 +557,7 @@ fn native_snapshot(
   let message = writer
     .finish(session, &[snapshot])
     .map_err(self::writer_error)?;
-  NativeResponse::from_core(session, message)
+  EngineResponse::from_core(session, message)
 }
 
 fn native_marker(
@@ -752,86 +609,11 @@ fn scene_bytes(id: SceneId) -> [u8; 16] {
   *id.as_uuid().as_bytes()
 }
 
-fn snapshot(
-  session_id: SessionId,
-  round: u32,
-  marks: &[Option<Mark>; 9],
-  visual_state: VisualState,
-) -> Snapshot {
-  let camera = GameObject::new(
-    CAMERA_ID,
-    CameraState::new()
-      .projection(CameraProjection::Orthographic)
-      .orthographic_size(5.6)
-      .clear_mode(CameraClearMode::SolidColor)
-      .clear_color(Color::rgb(0.96, 0.93, 0.84)),
-  )
-  .parent_scene(ParentScene::Persistent)
-  .position(Vector3::new(0.0, 0.0, -10.0));
-
-  let board = GameObject::new(
-    BOARD_ID,
-    ImageState::new(BOARD_TEXTURE, BOARD_SIZE, BOARD_SIZE),
-  )
-  .position(Vector3::new(0.0, BOARD_CENTER_Y, 0.0))
-  .pointer_events([PointerEvent::Click]);
-
-  let title = GameObject::new(
-    TITLE_ID,
-    TextState::new(format!("TIC TAC TOE — ROUND {round}"), FONT)
-      .size(4.0)
-      .color(Color::rgb(0.03, 0.04, 0.08)),
-  )
-  .parent_scene(ParentScene::Persistent)
-  .position(Vector3::new(0.0, 4.7, -0.1));
-
-  let status = GameObject::new(
-    STATUS_ID,
-    TextState::new(self::status_text(visual_state), FONT)
-      .size(3.2)
-      .color(Color::rgb(0.06, 0.08, 0.15))
-      .wrap_width(14.0),
-  )
-  .parent_scene(ParentScene::Persistent)
-  .position(Vector3::new(0.0, 3.75, -0.1));
-
-  let mut objects = vec![camera, board, title, status];
-  objects.extend(marks.iter().enumerate().filter_map(|(index, mark)| {
-    mark.map(|mark| self::marker(self::marker_id(index, mark), index, mark))
-  }));
-  Snapshot::new(
-    session_id,
-    vec![
-      PreparedAsset::scene(CONTENT_SCENE),
-      PreparedAsset::texture(BOARD_TEXTURE),
-      PreparedAsset::texture(X_TEXTURE),
-      PreparedAsset::texture(O_TEXTURE),
-      PreparedAsset::text_mesh_pro_font(FONT),
-    ],
-    vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-    objects,
-    CAMERA_ID,
-  )
-}
-
 fn semantic_fixture(name: &str) -> Option<VisualState> {
   match name {
     "human move" => Some(VisualState::HumanMove),
     _ => None,
   }
-}
-
-fn marker(object_id: ObjectId, index: usize, mark: Mark) -> GameObject {
-  let texture = if mark == Mark::X {
-    X_TEXTURE
-  } else {
-    O_TEXTURE
-  };
-  GameObject::new(
-    object_id,
-    ImageState::new(texture, MARK_SIZE, MARK_SIZE).fit(ImageFit::Contain),
-  )
-  .position(self::cell_position(index))
 }
 
 fn marker_id(index: usize, mark: Mark) -> ObjectId {
@@ -910,16 +692,12 @@ fn status_text(state: VisualState) -> &'static str {
   }
 }
 
-fn status_command(state: VisualState) -> CommandBody {
-  CommandBody::set_text(STATUS_ID, self::status_text(state))
-}
-
-battlement_native::export_deterministic_native_engine!(
+battlement_native::export_deterministic_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

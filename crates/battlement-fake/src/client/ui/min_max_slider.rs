@@ -9,7 +9,7 @@ use crate::client::ui::{MinMaxSliderInteraction, UiClient};
 
 impl<E> UiClient<'_, E>
 where
-  E: Engine<Command = battlement::Command>,
+  E: Engine,
 {
   /// Begins a controlled UiMinMaxSlider drag.
   pub fn min_max_slider_begin(&mut self, object_id: battlement::ObjectId) {

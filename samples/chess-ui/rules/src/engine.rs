@@ -34,6 +34,10 @@ pub fn create_engine() -> App {
     .reset_on_reconnect()
 }
 
+fn create_native_engine() -> Result<App, battlement_native::EngineError> {
+  Ok(create_engine())
+}
+
 fn document(document: UiDocument) -> UiDocument {
   document.style(
     Style::new()
@@ -43,12 +47,12 @@ fn document(document: UiDocument) -> UiDocument {
   )
 }
 
-battlement_native::export_deterministic_native_engine!(
-  self::create_engine,
+battlement_native::export_deterministic_engine!(
+  self::create_native_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

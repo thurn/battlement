@@ -1,12 +1,11 @@
 use battlement_types::{RenderTextureAddress, SpriteAddress, TextureAddress, VectorImageAddress};
-use serde::{Deserialize, Serialize};
 
 /// One prepared graphical asset painted behind an element's content.
 ///
 /// Unlike [`ImageSource`](crate::ImageSource), this source participates in
 /// background styling, including tinting and nine-slice rendering. The asset
 /// must be present in the snapshot's prepared set with the matching type.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum BackgroundSource {
   /// A prepared raster texture.
   Texture(TextureAddress),

@@ -1,12 +1,9 @@
-use serde::{Deserialize, Serialize};
-
 /// One time value carried on the wire in milliseconds.
 ///
 /// Unity receives the equivalent duration in seconds. Transition durations
 /// must be nonnegative; transition delays may be negative to begin partway
 /// through an animation.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TimeValue(pub f32);
 
 impl TimeValue {
@@ -36,7 +33,7 @@ impl From<f32> for TimeValue {
 }
 
 /// UI Toolkit easing curve used to interpolate a transition.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EasingFunction {
   /// CSS-like ease curve.
   Ease,
@@ -87,7 +84,7 @@ pub enum EasingFunction {
 }
 
 /// Closed set of Battlement inline properties that a transition can target.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum TransitionProperty {
   /// Every animatable property.
   All,
@@ -270,8 +267,7 @@ pub enum TransitionProperty {
 /// UI Toolkit repeats each nonempty parallel list cyclically until every
 /// transition property has a duration, delay, and easing function. An empty
 /// list leaves Unity with no authored entries for that inline property.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TransitionList<T>(Vec<T>);
 
 impl<T> TransitionList<T> {

@@ -33,7 +33,7 @@ fn fake_routes_the_same_trickle_target_and_bubble_order() {
 }
 
 #[test]
-fn fake_serialization_preserves_crossing_relations_and_distinct_intervening_events() {
+fn fake_routes_crossing_relations_with_distinct_intervening_events() {
   let mut world = UiWorld::default();
   world.replace(crossing_documents()).unwrap();
   let events = [
@@ -72,22 +72,8 @@ fn fake_serialization_preserves_crossing_relations_and_distinct_intervening_even
       }),
     ),
   ];
-  let restored = events
-    .iter()
-    .map(|event| serde_json::from_str(&serde_json::to_string(event).unwrap()).unwrap())
-    .collect::<Vec<UiEvent>>();
-  assert_eq!(restored, events);
   assert_eq!(
-    serde_json::to_value(&restored[0]).unwrap()["body"]["PointerOut"]["related_target_id"],
-    serde_json::json!(PANEL_ID)
-  );
-  assert!(
-    serde_json::to_value(&restored[2]).unwrap()["body"]["PointerOver"]
-      .get("related_target_id")
-      .is_none()
-  );
-  assert_eq!(
-    restored
+    events
       .iter()
       .flat_map(|event| world.route_event(event))
       .map(|delivery| delivery.object_id)

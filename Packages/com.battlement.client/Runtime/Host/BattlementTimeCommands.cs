@@ -7,21 +7,6 @@ namespace Battlement
     internal static class BattlementTimeCommands
     {
         public static IBattlementCommandOperation? Wait(
-            CommandBody.Time.Wait command,
-            TimeSpan now,
-            bool completeImmediately = false
-        )
-        {
-            BattlementProtocolLimits.RequireDuration(
-                command.Duration,
-                "A wait duration",
-                allowZero: false
-            );
-
-            return completeImmediately ? null : new WaitOperation(now + command.Duration);
-        }
-
-        public static IBattlementCommandOperation? Wait(
             BattlementDirectWait command,
             TimeSpan now,
             bool completeImmediately = false

@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -20,7 +19,7 @@ namespace Battlement
                 string State,
                 uint Layer = 0,
                 double NormalizedStartTime = 0,
-                [property: JsonProperty("wait_ms")] TimeSpan Wait = default
+                TimeSpan Wait = default
             ) : CommandBody;
 
             /// <summary>Cross-fade to an Animator state.</summary>
@@ -33,10 +32,10 @@ namespace Battlement
             public sealed record CrossFade(
                 ObjectId ObjectId,
                 string State,
-                [property: JsonProperty("cross_fade_ms")] TimeSpan CrossFadeDuration,
+                TimeSpan CrossFadeDuration,
                 uint Layer = 0,
                 double NormalizedStartTime = 0,
-                [property: JsonProperty("wait_ms")] TimeSpan Wait = default
+                TimeSpan Wait = default
             ) : CommandBody;
 
             /// <summary>Set a persistent boolean Animator parameter.</summary>

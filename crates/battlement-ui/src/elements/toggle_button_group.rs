@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
   UsageHint,
@@ -46,24 +44,18 @@ use crate::{
 ///
 /// [`UiButton`]: crate::UiButton
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiToggleButtonGroup {
   /// Shared visual properties, inline style, and event subscriptions.
-  #[serde(flatten)]
   pub element: UiVisualElement,
   /// Caption associated with the complete field.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Whether more than one button may be selected.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub multiple_selection: Prop<bool>,
   /// Whether a nonempty group may have no selected button.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub allow_empty_selection: Prop<bool>,
   /// Unique sorted zero-based indices authored as selected by Rust.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub selected_indices: Prop<Vec<u32>>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 

@@ -6,7 +6,7 @@ use trox::ls;
 use battlement::{
   CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
   ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, Style, UiDocument,
-  UiDocumentState, UsageHint,
+  UiDocumentState, UiElement, UsageHint,
 };
 use battlement_fake::battlement_ui_fake::{UiJournalEntry, UiWorld};
 use battlement_reactant::{
@@ -87,11 +87,12 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
   let battlement::VisualElementUpdate::Properties { element, .. } = update_body.as_ref() else {
     panic!("property change used a hierarchy update");
   };
-  let wire = serde_json::to_value(element).expect("patch serializes");
-  assert_eq!(wire["Label"]["text"], "Playing");
-  assert!(wire["Label"].get("name").is_none());
-  assert_eq!(wire["Label"]["style"]["width"][0], 0);
-  assert_eq!(wire["Label"]["style"]["width"][1]["Px"], 180.0);
+  let UiElement::Label(label) = element.as_ref() else {
+    panic!("property change did not retain the label kind");
+  };
+  assert_eq!(label.text, Prop::Set("Playing".to_owned()));
+  assert_eq!(label.element.name, Prop::Unset);
+  assert_eq!(label.element.style.width, Prop::Set(180.0.into()));
   self::apply(&mut world, &update);
   assert_eq!(world.element(label_id).unwrap().text(), Some("Playing"));
 

@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Collections.Generic;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -105,10 +104,10 @@ namespace Battlement
         ObjectId? ParentId,
         IReadOnlyList<ObjectId> Children,
         SemanticRole Role,
-        [property: JsonProperty(Required = Required.AllowNull)] string? Label,
-        [property: JsonProperty(Required = Required.AllowNull)] string? Hint,
+        string? Label,
+        string? Hint,
         SemanticState State,
-        [property: JsonProperty(Required = Required.AllowNull)] AccessibilityRangeValue? Value,
+        AccessibilityRangeValue? Value,
         AccessibilityActionSet Actions,
         byte? HeadingLevel = null,
         AccessibilityScrollAxis? ScrollAxis = null
@@ -123,7 +122,7 @@ namespace Battlement
 
     /// <summary>Atomic semantic replacement and one-shot announcement queue.</summary>
     public sealed record AccessibilityUpdatePayload(
-        [property: JsonProperty(Required = Required.AllowNull)] AccessibilitySnapshot? Snapshot,
+        AccessibilitySnapshot? Snapshot,
         IReadOnlyList<string> Announcements
     );
 

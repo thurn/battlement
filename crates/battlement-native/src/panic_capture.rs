@@ -131,7 +131,7 @@ fn is_internal_frame(frame: &Frame) -> bool {
     return true;
   }
 
-  name.contains("battlement_native::engine::EngineFactory")
+  false
 }
 
 fn panic_message(payload: &(dyn Any + Send)) -> String {

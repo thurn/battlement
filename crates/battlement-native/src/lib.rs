@@ -1,7 +1,7 @@
 //! Native adapter primitives for typed Battlement rules engines.
 //!
 //! This crate owns the verified FlatBuffers boundary. A game
-//! supplies a [`NativeEngine`] and invokes [`export_native_engine!`] with its
+//! supplies an [`Engine`] and invokes [`export_engine!`] with its
 //! constructor to emit the fixed panic-safe C ABI.
 
 #![deny(unsafe_op_in_unsafe_fn)]
@@ -11,7 +11,6 @@ mod adapter;
 mod engine;
 mod handles;
 mod logging;
-mod native_engine;
 mod panic_capture;
 #[cfg(feature = "threading")]
 pub mod threading;
@@ -33,7 +32,6 @@ pub use battlement_flatbuffers::{
 pub use engine::*;
 pub use handles::*;
 pub use logging::*;
-pub use native_engine::*;
 
 /// Wire version implemented by engines that opt into Ditto's deterministic runtime contract.
 pub const DITTO_DETERMINISM_CONTRACT_V3: u32 = 3;
@@ -55,24 +53,21 @@ pub static WIRE_CONTRACT_DIGEST_C: &[u8; 65] =
   b"94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb\0";
 
 #[doc(hidden)]
-pub fn wire_contract_digest_for_native_factory<F, I>(_: F) -> *const core::ffi::c_char
+pub fn wire_contract_digest_for_factory<F, E>(_: F) -> *const core::ffi::c_char
 where
-  F: FnOnce() -> I,
-  I: IntoNativeEngine,
+  F: FnOnce() -> Result<E, EngineError>,
+  E: Engine,
 {
-  <I::Engine as NativeEngine>::WIRE_CONTRACT_DIGEST_C
-    .as_ptr()
-    .cast()
+  E::WIRE_CONTRACT_DIGEST_C.as_ptr().cast()
 }
 
 /// Exports the fixed Battlement C symbols for a direct FlatBuffers engine.
 ///
-/// The factory result must implement [`NativeEngine`]. The generated native
+/// The factory must return `Result<E, EngineError>` for an [`Engine`] implementation. The generated native
 /// entrypoints accept borrowed verified inputs and can return only finished
-/// FlatBuffer allocations; the owned [`Engine`] response bridge is not part of
-/// this export path.
+/// FlatBuffer allocations.
 #[macro_export]
-macro_rules! export_native_engine {
+macro_rules! export_engine {
   ($factory:path $(,)?) => {
     #[doc(hidden)]
     #[unsafe(no_mangle)]
@@ -83,7 +78,7 @@ macro_rules! export_native_engine {
     #[doc(hidden)]
     #[unsafe(no_mangle)]
     pub extern "C" fn battlement_wire_contract_digest() -> *const ::core::ffi::c_char {
-      $crate::wire_contract_digest_for_native_factory($factory)
+      $crate::wire_contract_digest_for_factory($factory)
     }
 
     #[doc(hidden)]
@@ -109,7 +104,7 @@ macro_rules! export_native_engine {
       out_error: *mut $crate::BufferHandle,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_native_create_handle($factory, out_engine, out_error) }
+      unsafe { $crate::ffi_create_handle($factory, out_engine, out_error) }
     }
 
     #[doc(hidden)]
@@ -119,7 +114,7 @@ macro_rules! export_native_engine {
       out_error: *mut $crate::BufferHandle,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_native_destroy_handle($factory, engine, out_error) }
+      unsafe { $crate::ffi_destroy_handle($factory, engine, out_error) }
     }
 
     #[doc(hidden)]
@@ -131,7 +126,7 @@ macro_rules! export_native_engine {
       out_buffer: *mut $crate::BufferHandle,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_native_connect_handle($factory, engine, input, length, out_buffer) }
+      unsafe { $crate::ffi_connect_handle($factory, engine, input, length, out_buffer) }
     }
 
     #[doc(hidden)]
@@ -143,7 +138,7 @@ macro_rules! export_native_engine {
       out_buffer: *mut $crate::BufferHandle,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_native_submit_handle($factory, engine, input, length, out_buffer) }
+      unsafe { $crate::ffi_submit_handle($factory, engine, input, length, out_buffer) }
     }
 
     #[doc(hidden)]
@@ -157,7 +152,7 @@ macro_rules! export_native_engine {
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
       unsafe {
-        $crate::ffi_native_submit_ui_event_handle(
+        $crate::ffi_submit_ui_event_handle(
           $factory,
           engine,
           input,
@@ -175,7 +170,7 @@ macro_rules! export_native_engine {
       out_buffer: *mut $crate::BufferHandle,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_native_poll_handle($factory, engine, out_buffer) }
+      unsafe { $crate::ffi_poll_handle($factory, engine, out_buffer) }
     }
 
     #[doc(hidden)]
@@ -222,7 +217,7 @@ macro_rules! export_native_engine {
 
 /// Exports a direct FlatBuffers engine with the deterministic Ditto handshake.
 #[macro_export]
-macro_rules! export_deterministic_native_engine {
+macro_rules! export_deterministic_engine {
   (
     $factory:path,
     clock = virtualized,
@@ -230,9 +225,9 @@ macro_rules! export_deterministic_native_engine {
     external_state = isolated,
     persistent_state = reset,
     input = semantic,
-    visible_output = protocol_owned $(,)?
+    visible_output = flatbuffers $(,)?
   ) => {
-    $crate::export_native_engine!($factory);
+    $crate::export_engine!($factory);
 
     #[doc(hidden)]
     #[unsafe(no_mangle)]

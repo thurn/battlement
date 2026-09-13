@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Text;
+using Battlement.CustomFixtures;
 using Google.FlatBuffers;
 using NUnit.Framework;
 using Wire = Battlement.FlatBuffers.Generated;
@@ -106,32 +107,36 @@ namespace Battlement.Tests
         [Test]
         public void ReturnedCorrectionAppliesAfterTheCurrentResponseWithoutRecursion()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
             BatchId batch = new(Guid.NewGuid());
+            var responseSchema = new FixtureFlatBufferResponseSchema(_ => 0, _ => default);
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                flatBufferResponseSchema: responseSchema
+            );
             harness.Transport.EnqueueConnect(SnapshotResponse(session, inputDisabled: false));
             harness.Runner.Connect();
+            responseSchema.InvokeBeforeNextRead(() =>
+            {
+                harness.Runner.ReportBatchFailure(
+                    new BatchFailed<CoreErrorCode>(
+                        session,
+                        batch,
+                        CoreErrorCode.UnknownObject,
+                        "target missing"
+                    )
+                );
+                Assert.That(
+                    harness.Runner.IsInputAvailable,
+                    Is.True,
+                    "The correction must not apply inside the current response."
+                );
+            });
 
             harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
-                    new CallbackResponseView(
-                        new BattlementOwnedResponseView(Response(session, inputDisabled: true)),
-                        () =>
-                        {
-                            harness.Runner.ReportBatchFailure(
-                                new BatchFailed<CoreErrorCode>(
-                                    session,
-                                    batch,
-                                    CoreErrorCode.UnknownObject,
-                                    "target missing"
-                                )
-                            );
-                            Assert.That(
-                                harness.Runner.IsInputAvailable,
-                                Is.True,
-                                "The correction must not apply inside the current response."
-                            );
-                        }
+                new BattlementTransportResult(
+                    BattlementTransportStatus.Success,
+                    BattlementFlatBufferResponseFixtures.Write(
+                        Response(session, inputDisabled: true)
                     )
                 )
             );

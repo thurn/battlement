@@ -1,7 +1,5 @@
 #nullable enable
 
-using Newtonsoft.Json;
-
 namespace Battlement
 {
     /// <summary>Host-reported preference for reducing nonessential motion.</summary>
@@ -13,10 +11,7 @@ namespace Battlement
     }
 
     /// <summary>The latest application focus and pause observations.</summary>
-    public sealed record ApplicationState(
-        [property: JsonProperty(Required = Required.Always)] bool Focused = true,
-        [property: JsonProperty(Required = Required.Always)] bool Paused = false
-    );
+    public sealed record ApplicationState(bool Focused = true, bool Paused = false);
 
     public abstract partial record CommandBody
     {

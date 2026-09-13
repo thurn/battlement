@@ -4,9 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Battlement.UI;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 using NUnit.Framework;
 using UnityEngine.Accessibility;
 
@@ -106,12 +103,7 @@ namespace Battlement.Tests
             Assert.That(target.state, Is.EqualTo(AccessibilityState.None));
             foreach (bool expanded in new[] { false, true, false, false })
             {
-                SemanticState state = JsonConvert.DeserializeObject<SemanticState>(
-                    "{\"popup\":\"ListBox\",\"expanded\":"
-                        + expanded.ToString().ToLowerInvariant()
-                        + "}",
-                    new StringEnumConverter { AllowIntegerValues = false }
-                )!;
+                var state = new SemanticState(Expanded: expanded, Popup: PopupKind.ListBox);
                 source = source with { State = state };
                 UnityAccessibilityMapping.Apply(target, source, snapshots);
                 Assert.That(source.Label, Is.EqualTo("Resolution 1920 × 1080"));
@@ -209,38 +201,24 @@ namespace Battlement.Tests
                 Is.EqualTo("Gallery, current page")
             );
             Assert.That(snapshot.State.Selected, Is.Null);
-            SemanticState decoded = JsonConvert.DeserializeObject<SemanticState>(
-                "{\"Current\":\"Page\"}",
-                new StringEnumConverter { AllowIntegerValues = false }
-            )!;
-            Assert.That(decoded.Current, Is.EqualTo(CurrentPage.Page));
+            Assert.That(snapshot.State.Current, Is.EqualTo(CurrentPage.Page));
         }
 
         [Test]
         public void ProtocolAcceptsNullAccessibilityTextAndAnnouncementOnlyUpdates()
         {
-            var settings = new JsonSerializerSettings
-            {
-                ContractResolver = new CanonicalConstructorContractResolver
-                {
-                    NamingStrategy = new SnakeCaseNamingStrategy(),
-                },
-                NullValueHandling = NullValueHandling.Ignore,
-            };
-            settings.Converters.Add(new StringEnumConverter { AllowIntegerValues = false });
-            AccessibilityNodeSnapshot node =
-                JsonConvert.DeserializeObject<AccessibilityNodeSnapshot>(
-                    "{\"object_id\":{\"value\":\"00000000-0000-0000-0000-000000000001\"},"
-                        + "\"parent_id\":null,\"children\":[],\"role\":\"Group\","
-                        + "\"label\":null,\"hint\":null,\"state\":{},\"value\":null,"
-                        + "\"actions\":{}}",
-                    settings
-                )!;
-            AccessibilityUpdatePayload announcementOnly =
-                JsonConvert.DeserializeObject<AccessibilityUpdatePayload>(
-                    "{\"snapshot\":null,\"announcements\":[\"Saved\"]}",
-                    settings
-                )!;
+            var node = new AccessibilityNodeSnapshot(
+                new ObjectId(new Guid("00000000-0000-0000-0000-000000000001")),
+                null,
+                Array.Empty<ObjectId>(),
+                SemanticRole.Group,
+                null,
+                null,
+                new SemanticState(),
+                null,
+                new AccessibilityActionSet()
+            );
+            var announcementOnly = new AccessibilityUpdatePayload(null, new[] { "Saved" });
 
             Assert.That(node.Label, Is.Null);
             Assert.That(node.Hint, Is.Null);

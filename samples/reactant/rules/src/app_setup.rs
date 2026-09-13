@@ -54,17 +54,21 @@ pub fn create_engine() -> ReactantEngine {
     )
 }
 
+fn create_native_engine() -> Result<ReactantEngine, battlement_native::EngineError> {
+  Ok(create_engine())
+}
+
 /// Returns linked generated textures used by the gallery.
 pub fn generated_asset_addresses() -> Vec<TextureAddress> {
   assets::addresses()
 }
 
-battlement_native::export_deterministic_native_engine!(
-  self::create_engine,
+battlement_native::export_deterministic_engine!(
+  self::create_native_engine,
   clock = virtualized,
   randomness = seeded,
   external_state = isolated,
   persistent_state = reset,
   input = semantic,
-  visible_output = protocol_owned,
+  visible_output = flatbuffers,
 );

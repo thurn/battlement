@@ -805,7 +805,7 @@ fn sample_geometry(observation: &GeometryObservation) -> GeometryObservationValu
 
 fn visible_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let mut pending = vec![root];
   let mut text = Vec::new();
@@ -889,7 +889,7 @@ fn linear_channel(value: f64) -> f64 {
 
 fn child_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   ui.element(root)
     .children()
@@ -907,7 +907,7 @@ where
 
 fn motion_descriptor<E>(ui: &UiClient<'_, E>, object_id: ObjectId) -> battlement::MotionDescriptor
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   match &ui.element(object_id).element().visual_element().motion {
     Prop::Set(value) => value.clone(),
@@ -935,7 +935,7 @@ fn motion_scalar(
 
 fn count_sticky<E>(ui: &UiClient<'_, E>, root: ObjectId) -> usize
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let mut count = 0;
   let mut pending = vec![root];

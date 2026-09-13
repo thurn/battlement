@@ -1,7 +1,5 @@
 //! Connection, response, snapshot, batch, action, and result messages.
 
-use serde::{Deserialize, Serialize};
-
 use crate::application::{ApplicationState, ReducedMotionPreference};
 
 use crate::{
@@ -13,7 +11,7 @@ use crate::{
 };
 
 /// Unity's initial connection message to the rules engine.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Connect {
   /// Unity platform name, such as `macOS`.
   pub platform: String,
@@ -24,19 +22,15 @@ pub struct Connect {
   /// Initial application focus and suspension observations.
   pub application_state: ApplicationState,
   /// Initial host-reported reduced-motion preference.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub reduced_motion_preference: ReducedMotionPreference,
   /// Sorted list of custom command types compiled into the build.
   pub custom_command_types: Vec<String>,
-  /// Selected module identifiers in serialized Inspector order.
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  /// Selected module identifiers in Inspector order.
   pub modules: Vec<String>,
   /// Absolute UTF-8 persistent-data path supplied by Application.persistentDataPath.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub persistent_data_path: Option<String>,
   /// Absolute UTF-8 StreamingAssets path supplied by
   /// Application.streamingAssetsPath.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub streaming_assets_path: Option<String>,
 }
 
@@ -67,7 +61,7 @@ impl Connect {
 /// The generic command type defaults to the core [`Command`] union. Games may
 /// substitute their own enum containing core and custom commands while reusing
 /// the rest of the response, batch, and snapshot model.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Response<C = Command> {
   /// Session to which every contained response message belongs.
   pub session_id: SessionId,
@@ -126,7 +120,7 @@ impl Response<Command> {
 }
 
 /// A response message carried in a [`Response`].
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ResponseMessage<C = Command> {
   /// A complete replacement description of Battlement-controlled Unity content.
   Snapshot(Snapshot),
@@ -135,7 +129,7 @@ pub enum ResponseMessage<C = Command> {
 }
 
 /// A complete replacement description of Battlement-controlled Unity content.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Snapshot {
   /// Session this snapshot establishes or replaces.
   pub session_id: SessionId,
@@ -148,10 +142,8 @@ pub struct Snapshot {
   /// List of game objects to create.
   pub objects: Vec<GameObject>,
   /// Battlement-owned UI documents and their root hierarchies.
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub ui: Vec<UiDocument>,
   /// Process-wide settings used when world-space UI documents are present.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub panel_input_configuration: PanelInputConfiguration,
   /// Battlement camera used for input raycasting and billboards.
   ///
@@ -161,12 +153,10 @@ pub struct Snapshot {
   /// Camera component.
   pub input_camera_id: Option<ObjectId>,
   /// Whether pointer and keyboard input remains disabled after application.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub input_disabled: bool,
   /// Unique physical key codes enabled globally for this session.
   pub global_keys: Vec<PhysicalKey>,
   /// Optional controller buttons and navigation behavior enabled for this session.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub controller_input: Option<ControllerInputSettings>,
 }
 
@@ -224,17 +214,15 @@ impl Snapshot {
 }
 
 /// One ordered batch of parallel command groups.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Batch<C = Command> {
   /// Batch identity used for duplicate suppression.
   pub batch_id: BatchId,
   /// Session in which this batch may execute.
   pub session_id: SessionId,
   /// Optional action whose processing caused this batch.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub caused_by_action_id: Option<ActionId>,
   /// Whether to start independently or after earlier blocking batches.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub start: BatchStart,
   /// Nonempty ordered list of parallel command groups.
   pub groups: Vec<ParallelCommandGroup<C>>,
@@ -271,7 +259,7 @@ impl Batch<Command> {
 }
 
 /// Commands launched together before the batch considers the next group.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParallelCommandGroup<C = Command> {
   /// Nonempty ordered command list. Commands launch without waiting for peers in this group.
   pub commands: Vec<C>,
@@ -294,7 +282,7 @@ impl ParallelCommandGroup<Command> {
 }
 
 /// A typed built-in action emitted by pointer, keyboard, or controller input.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Action {
   /// Session-unique action identity used by rules engines for deduplication.
   pub action_id: ActionId,
@@ -305,7 +293,7 @@ pub struct Action {
 }
 
 /// One synchronous UI event submission with ordinary action identity.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiEventAction {
   /// Session-unique identity used to correlate resulting command batches.
   pub action_id: ActionId,
@@ -335,7 +323,7 @@ impl UiEventAction {
 
 /// The immediate native-default decision returned by a UI event submission.
 #[repr(u32)]
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum UiEventDisposition {
   /// Let Unity continue its remaining default actions.
   #[default]
@@ -345,7 +333,7 @@ pub enum UiEventDisposition {
 }
 
 /// One immediate UI disposition paired with its deferred ordinary response.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UiEventResponse<C = Command> {
   /// Decision consumed before the originating Unity callback returns.
   pub disposition: UiEventDisposition,
@@ -390,7 +378,7 @@ impl Action {
 }
 
 /// The exact union of built-in pointer, key, and controller actions.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ActionBody {
   /// Application focus or suspension changed, independently of input availability.
   ApplicationStateChanged(ApplicationState),
@@ -429,19 +417,18 @@ pub enum ActionBody {
 }
 
 /// Stable object identity for a coordinate-free activation request.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ActivationPayload {
   /// Attached, visible, enabled object selected from a committed presentation.
   pub object_id: ObjectId,
 }
 
 /// Pointer location data shared by enter and exit actions.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerPayload {
   /// Game object resolved from the collider hit.
   pub object_id: ObjectId,
   /// Mouse pointer `0` or a stable positive touch pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Screen position in pixels from the bottom-left.
   pub screen_position: ScreenPosition,
@@ -450,29 +437,26 @@ pub struct PointerPayload {
 }
 
 /// Pointer location and button data shared by down, up, and click actions.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PointerButtonPayload {
   /// Game object resolved from the collider hit.
   pub object_id: ObjectId,
   /// Mouse pointer `0` or a stable positive touch pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Screen position in pixels from the bottom-left.
   pub screen_position: ScreenPosition,
   /// World hit position.
   pub world_hit: Vector3,
   /// Mouse-style button; touch uses [`PointerButton::Left`].
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub button: PointerButton,
 }
 
 /// Object location data emitted at the start and end of a drag.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DragPayload {
   /// Draggable game object captured by the pointer.
   pub object_id: ObjectId,
   /// Mouse pointer `0` or a stable positive touch pointer identity.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,
   /// Pointer position in pixels from the bottom-left.
   pub screen_position: ScreenPosition,
@@ -481,14 +465,14 @@ pub struct DragPayload {
 }
 
 /// Payload for a discrete physical-key transition.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct KeyPayload {
   /// W3C physical key code.
   pub key: PhysicalKey,
 }
 
 /// Payload for a discrete controller-button transition.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ControllerButtonPayload {
   /// Unity Input System device identity for the controller.
   pub controller_id: i32,
@@ -497,7 +481,7 @@ pub struct ControllerButtonPayload {
 }
 
 /// Payload for one controller-navigation step.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ControllerNavigationPayload {
   /// Unity Input System device identity for the controller.
   pub controller_id: i32,
@@ -506,7 +490,6 @@ pub struct ControllerNavigationPayload {
   /// Physical control that produced the step.
   pub source: ControllerNavigationSource,
   /// Whether this step came from held-input repeat instead of the initial tilt or press.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub repeat: bool,
 }
 
@@ -575,7 +558,7 @@ impl KeyPayload {
 }
 
 /// A game-specific action using Battlement's shared action format.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CustomAction<P> {
   /// Session-unique action identity used for deduplication.
   pub action_id: ActionId,
@@ -609,7 +592,7 @@ impl<P> CustomAction<P> {
 ///
 /// Games supply their own payload and error-code types when extending the core
 /// protocol.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ClientMessage<A, E = CoreErrorCode> {
   /// Built-in pointer or keyboard action.
   Action(Action),
@@ -633,14 +616,13 @@ impl<A, E> ClientMessage<A, E> {
 }
 
 /// A validation or execution failure that stopped a batch.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BatchFailed<E = CoreErrorCode> {
   /// Session in which the failure occurred.
   pub session_id: SessionId,
   /// Batch that failed.
   pub batch_id: BatchId,
   /// Command that failed, when the failure can be attributed to one.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub command_id: Option<CommandId>,
   /// Stable core or game-specific error code.
   pub error_code: E,
@@ -669,7 +651,7 @@ impl<E> BatchFailed<E> {
 }
 
 /// A late failure from a nonblocking custom operation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct OperationFailed<E = CoreErrorCode> {
   /// Session in which the operation failed.
   pub session_id: SessionId,
@@ -704,7 +686,7 @@ impl<E> OperationFailed<E> {
 }
 
 /// Stable error codes produced by Battlement's core validation and execution paths.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CoreErrorCode {
   /// Encoded input could not be decoded into a reliable protocol record.
   InvalidEncoding,

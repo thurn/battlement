@@ -2,7 +2,6 @@
 
 using System.Collections.Generic;
 using System.ComponentModel;
-using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -129,11 +128,7 @@ namespace Battlement
     }
 
     /// <summary>One synchronous UI event submission.</summary>
-    public sealed record UiEventAction(
-        [property: JsonProperty("action_id")] ActionId Id,
-        SessionId SessionId,
-        UiEvent Event
-    );
+    public sealed record UiEventAction(ActionId Id, SessionId SessionId, UiEvent Event);
 
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
     public sealed record UiEvent(

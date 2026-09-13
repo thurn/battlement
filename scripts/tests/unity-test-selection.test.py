@@ -65,7 +65,6 @@ def main() -> None:
 
     for path in (
         "Assets/BattlementIntegration/IntegrationFixturePayload.cs",
-        "Packages/com.battlement.client/Runtime/Json/BattlementJson.cs",
         "ProjectSettings/ProjectVersion.txt",
         "scripts/ci.py",
         "scripts/unity_test_selection.py",

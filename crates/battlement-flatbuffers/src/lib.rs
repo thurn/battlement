@@ -4,6 +4,8 @@
 #![warn(missing_docs)]
 
 mod connect;
+mod core_action_geometry;
+mod core_action_motion;
 mod core_client;
 mod geometry;
 mod limits;
@@ -18,7 +20,8 @@ mod retained_ui;
 #[cfg(feature = "test-support")]
 pub mod test_support;
 mod ui_event;
-mod ui_event_owned;
+mod ui_event_body;
+mod ui_event_write;
 #[allow(clippy::all, missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
 mod common_generated {
   include!("generated/common_generated.rs");

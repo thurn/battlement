@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use battlement_types::ObjectId;
-use serde::{Deserialize, Serialize};
 
 use crate::{
   MotionClockSource, MotionProperty, MotionTargetDescriptor, MotionValue, SpringConfiguration,
@@ -9,7 +8,7 @@ use crate::{
 };
 
 /// One closed operation evaluated by Unity's motion-value graph.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionExpressionOperation {
   /// Adds the two inputs.
   Add,
@@ -55,7 +54,7 @@ pub enum MotionExpressionOperation {
 }
 
 /// Native source or derived operation for one stable motion value.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionValueSource {
   /// A mutable value changed only by addressed commands.
   Mutable,
@@ -94,7 +93,7 @@ pub enum MotionValueSource {
 }
 
 /// One stable node in the Unity-local motion-value graph.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionValueDescriptor {
   /// Runtime-unique value identity.
   pub value_id: ObjectId,
@@ -105,7 +104,7 @@ pub struct MotionValueDescriptor {
 }
 
 /// How a graph value participates in a host property.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum MotionBindingComposition {
   /// Replaces the property with the graph sample.
   #[default]
@@ -115,19 +114,18 @@ pub enum MotionBindingComposition {
 }
 
 /// One host property driven directly by a graph value.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MotionValueBinding {
   /// Property receiving the sampled value.
   pub property: MotionProperty,
   /// Value whose shape must match the property catalog.
   pub value_id: ObjectId,
   /// Relationship to the host's local style and animation.
-  #[serde(default)]
   pub composition: MotionBindingComposition,
 }
 
 /// Explicit replaceable event requested for one value.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MotionValueEventKind {
   /// Latest presentation value.
   Change,
@@ -138,7 +136,7 @@ pub enum MotionValueEventKind {
 }
 
 /// One explicit Rust-side graph observation.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MotionValueSubscription {
   /// Stable subscription identity used for coalescing.
   pub subscription_id: ObjectId,
@@ -149,7 +147,7 @@ pub struct MotionValueSubscription {
 }
 
 /// Mutable-value operation issued outside render.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionValueCommand {
   /// Changes the source while preserving a passive effect.
   Set(MotionValue),
@@ -171,7 +169,7 @@ pub enum MotionValueCommand {
 }
 
 /// Addressed mutable-value operation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionValueOperation {
   /// Target mutable value.
   pub value_id: ObjectId,
@@ -180,7 +178,7 @@ pub struct MotionValueOperation {
 }
 
 /// Generation-checked operation for a motion-value playback.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionValuePlaybackOperation {
   /// Stable start identity.
   pub playback_id: ObjectId,
@@ -191,7 +189,7 @@ pub struct MotionValuePlaybackOperation {
 }
 
 /// One coalesced value sample returned only for an explicit subscription.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionValueSample {
   /// Stable subscription identity.
   pub subscription_id: ObjectId,
@@ -204,12 +202,11 @@ pub struct MotionValueSample {
   /// Per-second velocity using the same value shape.
   pub velocity: MotionValue,
   /// Whether this sample follows a seek, loop, replacement, or reconnect jump.
-  #[serde(default)]
   pub discontinuity: bool,
 }
 
 /// Concrete or named target broadcast through animation controls.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionControlTarget {
   /// Fully lowered imperative target.
   Target(MotionTargetDescriptor),
@@ -218,7 +215,7 @@ pub enum MotionControlTarget {
 }
 
 /// One named target retained for imperative variant starts.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionNamedTarget {
   /// Stable variant label.
   pub name: String,
@@ -227,7 +224,7 @@ pub struct MotionNamedTarget {
 }
 
 /// Broadcast operation for one typed animation-controls identity.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionControlCommand {
   /// Starts one imperative generation on the current binding snapshot.
   Start {
@@ -247,7 +244,7 @@ pub enum MotionControlCommand {
 }
 
 /// Addressed animation-controls operation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionControlOperation {
   /// Stable controls identity.
   pub control_id: ObjectId,
@@ -256,7 +253,7 @@ pub struct MotionControlOperation {
 }
 
 /// Closed selector resolved inside one animation scope.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MotionSelector {
   /// One exact Reactant host identity.
   Element(ObjectId),
@@ -271,7 +268,7 @@ pub enum MotionSelector {
 }
 
 /// One scheduled scoped animation step.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionSequenceStep {
   /// Selector snapshotted when the step becomes eligible.
   pub selector: MotionSelector,
@@ -282,7 +279,7 @@ pub struct MotionSequenceStep {
 }
 
 /// Scoped animation operation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MotionScopeCommand {
   /// Starts one scheduled sequence.
   Start {
@@ -305,7 +302,7 @@ pub enum MotionScopeCommand {
 }
 
 /// Addressed animation-scope operation.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionScopeOperation {
   /// Stable scope identity.
   pub scope_id: ObjectId,

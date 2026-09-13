@@ -1,12 +1,17 @@
+mod ui_support;
+
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, GameObject, ObjectId, ParentScene, PreparedAsset, Response,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventAction, UiEventBody, UiEventKind,
-  UiEventResponse, UiNode, UiSlider, UiSliderInt, UiValue,
+  CameraState, Command, GameObject, ObjectId, ParentScene, PreparedAsset, Response, Scene, SceneId,
+  SessionId, Snapshot, UiDocument, UiEventBody, UiEventKind, UiEventResponse, UiNode, UiSlider,
+  UiSliderInt, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{ConnectView, Engine, EngineError};
+use battlement_native::{
+  ConnectView, Engine, EngineError, EngineResponse, FlatBufferSubmitError, UiEventActionView,
+  UiEventResult,
+};
 
 struct SliderEngine {
   session_id: SessionId,
@@ -16,21 +21,23 @@ struct SliderEngine {
 }
 
 impl Engine for SliderEngine {
-  type ActionPayload = ();
-  type ErrorCode = ();
-  type Command = Command;
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
 
-  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
-    Ok(Response::snapshot(
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<EngineResponse, EngineError> {
+    ui_support::encoded(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))
   }
 
-  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
-    Ok(Response::empty(self.session_id))
+  fn submit(&mut self, _message: &[u8]) -> Result<EngineResponse, FlatBufferSubmitError> {
+    ui_support::encoded(Response::empty(self.session_id)).map_err(FlatBufferSubmitError::engine)
   }
 
-  fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
+  fn submit_ui_event(
+    &mut self,
+    action_view: UiEventActionView<'_>,
+  ) -> Result<UiEventResult, EngineError> {
+    let action = ui_support::action(action_view);
     let event = action.event;
     let disposition = if event.default_prevented {
       battlement::UiEventDisposition::PreventDefault
@@ -39,31 +46,36 @@ impl Engine for SliderEngine {
     };
     self.events.borrow_mut().push(event.body.clone());
     let UiEventBody::ValueCommitted(commit) = event.body else {
-      return Ok(UiEventResponse::new(
-        disposition,
-        Response::empty(self.session_id),
-      ));
+      return ui_support::from_owned(
+        action_view,
+        UiEventResponse::new(disposition, Response::empty(self.session_id)),
+      );
     };
     if event.target_id != self.accepted_id {
-      return Ok(UiEventResponse::new(
-        disposition,
-        Response::empty(self.session_id),
-      ));
+      return ui_support::from_owned(
+        action_view,
+        UiEventResponse::new(disposition, Response::empty(self.session_id)),
+      );
     }
     let UiValue::F32(proposed) = commit.proposed else {
       return Err(EngineError::new("unexpected slider proposal"));
     };
-    Ok(UiEventResponse::new(
-      disposition,
-      Response::commands_for_action(
-        self.session_id,
-        action.action_id,
-        vec![Command::update_visual_element(event.target_id, UiSlider::new().value(proposed)).body],
+    ui_support::from_owned(
+      action_view,
+      UiEventResponse::new(
+        disposition,
+        Response::commands_for_action(
+          self.session_id,
+          action.action_id,
+          vec![
+            Command::update_visual_element(event.target_id, UiSlider::new().value(proposed)).body,
+          ],
+        ),
       ),
-    ))
+    )
   }
 
-  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+  fn poll(&mut self) -> Result<Option<EngineResponse>, EngineError> {
     Ok(None)
   }
 }
@@ -139,7 +151,7 @@ fn fake_sliders_keep_drag_values_local_and_commit_clamped_typed_proposals() {
 
 fn float_value<E>(client: &mut FakeClient<E>, object_id: ObjectId) -> f32
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let ui = client.ui();
   let battlement::UiElement::Slider(value) = ui.element(object_id).element() else {
@@ -153,7 +165,7 @@ where
 
 fn int_value<E>(client: &mut FakeClient<E>, object_id: ObjectId) -> i32
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let ui = client.ui();
   let battlement::UiElement::SliderInt(value) = ui.element(object_id).element() else {

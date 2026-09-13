@@ -1,9 +1,9 @@
 use battlement::{ActionId, BatchId, CommandId, ObjectId, Quaternion, SessionId, Vector3};
 use battlement_native::{
-  CoreCommandOffset, EngineError, GameObjectOffset, MessageWriter, NativeControllerButton,
-  NativeControllerInput, NativeDragMode, NativeImageFit, NativeObjectPlacement, NativeParentScene,
-  NativePhysicalKey, NativePointerEvent, NativePreparedAssetKind, NativeResponse,
-  NativeSnapshotInput, NativeTransform,
+  CoreCommandOffset, EngineError, EngineResponse, GameObjectOffset, MessageWriter,
+  NativeControllerButton, NativeControllerInput, NativeDragMode, NativeImageFit,
+  NativeObjectPlacement, NativeParentScene, NativePhysicalKey, NativePointerEvent,
+  NativePreparedAssetKind, NativeSnapshotInput, NativeTransform,
 };
 use cozy_chess::{Color, File, GameStatus, Move, Piece, Rank, Square};
 
@@ -41,7 +41,7 @@ const CONTROLLER_BUTTONS: &[NativeControllerButton] = &[
   NativeControllerButton::START,
 ];
 
-pub(crate) fn snapshot(engine: &ChessEngine) -> Result<NativeResponse, EngineError> {
+pub(crate) fn snapshot(engine: &ChessEngine) -> Result<EngineResponse, EngineError> {
   let mut message = MessageWriter::with_capacity(64 * 1024);
   let mut prepared = vec![
     message.prepared_asset(NativePreparedAssetKind::Scene, assets::CONTENT.as_str()),
@@ -197,13 +197,13 @@ pub(crate) fn snapshot(engine: &ChessEngine) -> Result<NativeResponse, EngineErr
     );
   }
   let finished = message.finish(session_id, &messages).map_err(protocol)?;
-  NativeResponse::from_core(session_id, finished)
+  EngineResponse::from_core(session_id, finished)
 }
 
 pub(crate) fn show_log_viewer(
   session_id: SessionId,
   action_id: ActionId,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let mut message = MessageWriter::default();
   let command = message
     .set_debug_ui(id(CommandId::new_v4()), true, false, true)
@@ -220,7 +220,7 @@ pub(crate) fn show_log_viewer(
     )
     .map_err(protocol)?;
   let finished = message.finish(session, &[batch]).map_err(protocol)?;
-  NativeResponse::from_core(session, finished)
+  EngineResponse::from_core(session, finished)
 }
 
 pub(crate) fn action_response(
@@ -229,7 +229,7 @@ pub(crate) fn action_response(
   build: impl FnOnce(
     &mut MessageWriter,
   ) -> Result<Vec<CoreCommandOffset>, battlement_native::ProtocolError>,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   batch_response(
     session_id,
     Some(action_id),
@@ -247,7 +247,7 @@ pub(crate) fn batch_response(
   action_id: Option<ActionId>,
   start: battlement_native::NativeBatchStart,
   build: impl FnOnce(&mut MessageWriter) -> Result<Vec<Vec<CoreCommandOffset>>, EngineError>,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   batch_response_with_metadata(session_id, action_id, start, &[], build)
 }
 
@@ -257,11 +257,11 @@ pub(crate) fn batch_response_with_metadata(
   start: battlement_native::NativeBatchStart,
   metadata: &[(&str, &str)],
   build: impl FnOnce(&mut MessageWriter) -> Result<Vec<Vec<CoreCommandOffset>>, EngineError>,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let mut message = MessageWriter::default();
   let command_groups = build(&mut message)?;
   if command_groups.iter().all(Vec::is_empty) {
-    return NativeResponse::empty(id(session_id));
+    return EngineResponse::empty(id(session_id));
   }
   if command_groups.iter().any(Vec::is_empty) {
     return Err(EngineError::new(
@@ -305,7 +305,7 @@ pub(crate) fn batch_response_with_metadata(
     );
   }
   let finished = message.finish(session, &messages).map_err(protocol)?;
-  NativeResponse::from_core(session, finished)
+  EngineResponse::from_core(session, finished)
 }
 
 pub(crate) fn write_cursor(
@@ -450,9 +450,9 @@ pub(crate) fn start_game(
   engine: &mut ChessEngine,
   action_id: ActionId,
   cursor_visible: bool,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   if engine.started {
-    return NativeResponse::empty(id(engine.session_id));
+    return EngineResponse::empty(id(engine.session_id));
   }
   animated_opening(
     engine,
@@ -468,7 +468,7 @@ pub(crate) fn restart_game(
   engine: &mut ChessEngine,
   action_id: ActionId,
   cursor_visible: bool,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   engine.clear_persisted_board()?;
   engine.piece_generation += 1;
   let was_started = engine.started;
@@ -491,7 +491,7 @@ pub(crate) fn new_game(
   engine: &mut ChessEngine,
   action_id: ActionId,
   cursor_visible: bool,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   let was_started = engine.started;
   let previous_objects = engine.objects.iter().flatten().copied().collect::<Vec<_>>();
   engine.ai_move = None;
@@ -619,7 +619,7 @@ fn animated_opening(
   opening: Opening,
   persist: bool,
   state: crate::VisualState,
-) -> Result<NativeResponse, EngineError> {
+) -> Result<EngineResponse, EngineError> {
   engine.started = true;
   engine.cursor = cursor::START;
   engine.cursor_visible = cursor_visible;

@@ -7,30 +7,12 @@ namespace Battlement
     internal static class BattlementCoreCommandOperations
     {
         public static IBattlementCommandOperation ReplaceAssets(
-            CommandBody.Assets.ReplaceSet command,
-            BattlementPreparedAssets preparedAssets
-        )
-        {
-            preparedAssets.BeginReplacement(command.PreparedAssets, isAuthoritative: false);
-            return new PreparedAssetReplacementOperation(preparedAssets);
-        }
-
-        public static IBattlementCommandOperation ReplaceAssets(
             BattlementDirectAssetSet command,
             BattlementPreparedAssets preparedAssets
         )
         {
             preparedAssets.BeginReplacement(command);
             return new PreparedAssetReplacementOperation(preparedAssets);
-        }
-
-        public static IBattlementCommandOperation LoadScene(
-            CommandBody.Scene.Load command,
-            BattlementScenes scenes
-        )
-        {
-            scenes.BeginLoad(command.SceneId, command.Address, command.MakePrimary);
-            return new SceneCommandOperation(scenes);
         }
 
         public static IBattlementCommandOperation LoadScene(
@@ -49,19 +31,6 @@ namespace Battlement
                 ),
                 command.MakePrimary
             );
-            return new SceneCommandOperation(scenes);
-        }
-
-        public static IBattlementCommandOperation UnloadScene(
-            CommandBody.Scene.Unload command,
-            BattlementScenes scenes,
-            BattlementWorld world,
-            BattlementOperationRegistry operations
-        )
-        {
-            scenes.ValidateUnload(command.SceneId);
-            operations.CancelObjects(world.GetSceneObjectIds(command.SceneId));
-            scenes.BeginUnload(command.SceneId);
             return new SceneCommandOperation(scenes);
         }
 

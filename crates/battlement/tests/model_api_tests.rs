@@ -47,14 +47,6 @@ fn static_addresses_match_owned_addresses() {
 
   assert_eq!(STATIC, owned);
   assert_eq!(hash(&STATIC), hash(&owned));
-  assert_eq!(
-    serde_json::to_vec(&STATIC).unwrap(),
-    serde_json::to_vec(&owned).unwrap()
-  );
-  assert_eq!(
-    serde_json::from_slice::<PrefabAddress>(&serde_json::to_vec(&STATIC).unwrap()).unwrap(),
-    owned
-  );
   assert_eq!(STATIC.to_string(), "mygame/pieces/king");
   assert_eq!(STATIC.clone().into_string(), "mygame/pieces/king");
   assert_eq!(

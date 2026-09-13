@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiTab,
-  UiTabView, UiVisualElement, object_id,
+  ObjectId, UiBox, UiElement, UiEventKind, UiLabel, UiNode, UiTab, UiTabView, UiVisualElement,
+  object_id,
 };
 use battlement_native::{EngineError, UiEventActionView};
 
@@ -85,45 +85,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                         )),
                 ),
         )
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  match &event.body {
-    UiEventBody::TabSelectionRequested(value) if event.target_id == VIEW_ID => Some(vec![
-      Command::update_visual_element(
-        VIEW_ID,
-        UiTabView::new().selected_tab_index(value.proposed_index),
-      ),
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new(format!("Selected tab {}", value.proposed_index + 1)),
-      ),
-    ]),
-    UiEventBody::TabReorderRequested(value) if event.target_id == VIEW_ID => Some(vec![
-      Command::update_visual_element_index(value.tab_id, value.proposed_index),
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new(format!(
-          "Reordered {} → {}",
-          value.previous_index + 1,
-          value.proposed_index + 1
-        )),
-      ),
-    ]),
-    UiEventBody::TabCloseRequested(value)
-      if event.target_id == VIEW_ID && value.tab_id == BOARD_ID =>
-    {
-      Some(vec![Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new("Rejected close | BOARD is pinned"),
-      )])
-    }
-    UiEventBody::TabCloseRequested(value) if event.target_id == VIEW_ID => Some(vec![
-      Command::destroy_visual_element(value.tab_id),
-      Command::update_visual_element(STATUS_ID, UiLabel::new("Closed | 4 tabs remain")),
-    ]),
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(

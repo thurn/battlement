@@ -568,8 +568,7 @@ fn animation_restart_key(
   slot.hash(&mut hasher);
   tracks.len().hash(&mut hasher);
   for track in tracks {
-    // These are closed typed protocol values. Hash their complete structural
-    // representation directly instead of routing runtime identity through JSON.
+    // Hash the complete structural representation of each closed typed value.
     write!(HasherFormatter(&mut hasher), "{track:?}").expect("hash writes cannot fail");
   }
   std::mem::discriminant(&direction).hash(&mut hasher);

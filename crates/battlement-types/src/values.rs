@@ -1,9 +1,7 @@
 //! Reusable scalar, mathematical, animation, and input values shared by protocol domains.
 
-use serde::{Deserialize, Serialize};
-
 /// A three-dimensional value in Unity world units.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vector3 {
   /// The X component.
   pub x: f64,
@@ -39,7 +37,7 @@ impl Vector3 {
 ///
 /// The origin is the center of cell `(0, 0)`. Column and row steps can point
 /// along any axes, so the grid may lie on a floor, wall, or tilted surface.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GridLayout {
   /// Center of cell `(0, 0)`.
   pub origin: Vector3,
@@ -100,7 +98,7 @@ impl GridLayout {
 }
 
 /// A two-dimensional screen position measured in pixels from the bottom-left.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ScreenPosition {
   /// The horizontal coordinate.
   pub x: f64,
@@ -117,7 +115,7 @@ impl ScreenPosition {
 }
 
 /// A screen size in physical pixels.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ScreenSize {
   /// Screen width in pixels.
   pub width: u32,
@@ -136,7 +134,7 @@ impl ScreenSize {
 /// A Unity quaternion in `{x, y, z, w}` order.
 ///
 /// The value must have nonzero length. Battlement normalizes it before use.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quaternion {
   /// The X component.
   pub x: f64,
@@ -171,7 +169,7 @@ impl Default for Quaternion {
 }
 
 /// A linear RGB color without alpha.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgbColor {
   /// Red intensity in the inclusive range `[0, 1]`.
   pub r: f64,
@@ -210,7 +208,7 @@ impl Default for RgbColor {
 }
 
 /// A linear RGBA color.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
   /// Red intensity in the inclusive range `[0, 1]`.
   pub r: f64,
@@ -219,7 +217,6 @@ pub struct Color {
   /// Blue intensity in the inclusive range `[0, 1]`.
   pub b: f64,
   /// Alpha in the inclusive range `[0, 1]`.
-  #[serde(default = "crate::default_one", skip_serializing_if = "crate::is_one")]
   pub a: f64,
 }
 
@@ -321,7 +318,7 @@ impl Default for Color {
 /// The coordinate origin depends on the consuming Unity API. UI image source
 /// rectangles use upper-left-origin pixels, while image UV rectangles use
 /// lower-left-origin normalized texture coordinates.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Rect {
   /// Horizontal coordinate of the rectangle origin.
   pub x: f64,
@@ -347,7 +344,7 @@ impl Rect {
 }
 
 /// An object's local transform relative to its parent or scene container.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LocalTransform {
   /// Local position. Omission means [`Vector3::ZERO`].
   pub position: Vector3,
@@ -376,7 +373,7 @@ impl Default for LocalTransform {
 }
 
 /// The event kinds an object may emit after pointer raycasting.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PointerEvent {
   /// The pointer began hovering the object.
   Enter,
@@ -391,7 +388,7 @@ pub enum PointerEvent {
 }
 
 /// How a draggable object's position relates to the pointer at pickup.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DragMode {
   /// Move the object's center to the pointer immediately.
   SnapToPointer,
@@ -400,7 +397,7 @@ pub enum DragMode {
 }
 
 /// A mouse-style button reported with pointer button actions.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum PointerButton {
   /// The primary mouse button, also used for touch.
   #[default]
@@ -414,7 +411,7 @@ pub enum PointerButton {
 }
 
 /// How a newly received batch relates to earlier blocking batches.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum BatchStart {
   /// Start as soon as scheduling permits.
   #[default]
@@ -426,7 +423,7 @@ pub enum BatchStart {
 }
 
 /// What a property-writing command does when another operation controls the property.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ConflictPolicy {
   /// Cancel the older operation and start from the displayed value.
   #[default]
@@ -436,7 +433,7 @@ pub enum ConflictPolicy {
 }
 
 /// How an image texture is fitted into its requested world-space dimensions.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ImageFit {
   /// Fill both dimensions without preserving aspect ratio.
   #[default]
@@ -448,7 +445,7 @@ pub enum ImageFit {
 }
 
 /// A camera's projection mode.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum CameraProjection {
   /// Perspective projection.
   #[default]
@@ -458,7 +455,7 @@ pub enum CameraProjection {
 }
 
 /// Which buffers a camera clears before rendering.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum CameraClearMode {
   /// Draw the configured skybox.
   #[default]
@@ -472,7 +469,7 @@ pub enum CameraClearMode {
 }
 
 /// A standard Unity light type.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum LightType {
   /// A light with a direction but no position or range.
   Directional,
@@ -484,7 +481,7 @@ pub enum LightType {
 }
 
 /// A light's shadow rendering mode.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ShadowMode {
   /// Do not render shadows.
   #[default]
@@ -496,7 +493,7 @@ pub enum ShadowMode {
 }
 
 /// Horizontal alignment for world-space text.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum HorizontalAlignment {
   /// Align to the left edge.
   Left,
@@ -510,7 +507,7 @@ pub enum HorizontalAlignment {
 }
 
 /// Vertical alignment for world-space text.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum VerticalAlignment {
   /// Align to the top edge.
   Top,
@@ -522,7 +519,7 @@ pub enum VerticalAlignment {
 }
 
 /// How a repeated tween begins its next traversal.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum RepeatMode {
   /// Jump to the captured start value and move forward again.
   #[default]
@@ -532,7 +529,7 @@ pub enum RepeatMode {
 }
 
 /// A built-in easing curve supported by Battlement.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Easing {
   /// Linear interpolation.
   Linear,
@@ -603,7 +600,7 @@ pub enum Easing {
 ///
 /// A zero-duration tween cannot repeat, and a forever tween must be
 /// nonblocking.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Tween {
   /// Initial delay in milliseconds. Applied only before the first traversal.
   pub delay_ms: u64,
@@ -624,7 +621,7 @@ impl Tween {
 }
 
 /// Repetition behavior after a tween's first traversal.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum TweenRepeat {
   /// Stop after the first traversal.
   #[default]
@@ -641,7 +638,7 @@ pub enum TweenRepeat {
 }
 
 /// A physical W3C `KeyboardEvent.code` supported by Battlement.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PhysicalKey {
   /// Escape.
   Escape,
@@ -854,7 +851,7 @@ pub enum PhysicalKey {
 }
 
 /// A named controller button independent of platform-specific glyphs.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ControllerButton {
   /// Bottom face button: A on Xbox-style controllers, Cross on PlayStation controllers.
   South,
@@ -879,7 +876,7 @@ pub enum ControllerButton {
 }
 
 /// A cardinal controller-navigation direction.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ControllerDirection {
   /// Move left.
   Left,
@@ -892,7 +889,7 @@ pub enum ControllerDirection {
 }
 
 /// The physical control that produced a controller-navigation action.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ControllerNavigationSource {
   /// The controller directional pad.
   Dpad,

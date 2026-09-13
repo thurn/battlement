@@ -42,14 +42,15 @@ FIXTURE_SCHEMA = (
     / "fixture_response.fbs"
 )
 FIXTURE_RUST_OUTPUT = FIXTURE_SCHEMA.parent.parent / "src" / "fixture_response_generated.rs"
-FIXTURE_CSHARP_OUTPUT = (
+FIXTURE_CSHARP_OUTPUTS = (
     ROOT
     / "Packages"
     / "com.battlement.client"
     / "Tests"
     / "Editor"
     / "CustomFixtures"
-    / "fixture_response_generated.cs"
+    / "fixture_response_generated.cs",
+    ROOT / "Assets" / "BattlementIntegration" / "FlatBuffers" / "fixture_response_generated.cs",
 )
 
 
@@ -106,13 +107,17 @@ def main() -> int:
                     same_tree(rust, RUST_OUTPUT)
                     and same_tree(csharp, CSHARP_OUTPUT)
                     and same_file(fixture_rust_source, FIXTURE_RUST_OUTPUT)
-                    and same_file(fixture_csharp_source, FIXTURE_CSHARP_OUTPUT)
+                    and all(
+                        same_file(fixture_csharp_source, output)
+                        for output in FIXTURE_CSHARP_OUTPUTS
+                    )
                 )
             )
         replace_tree(rust, RUST_OUTPUT)
         replace_tree(csharp, CSHARP_OUTPUT)
         replace_file(fixture_rust_source, FIXTURE_RUST_OUTPUT)
-        replace_file(fixture_csharp_source, FIXTURE_CSHARP_OUTPUT)
+        for output in FIXTURE_CSHARP_OUTPUTS:
+            replace_file(fixture_csharp_source, output)
     return 0
 
 

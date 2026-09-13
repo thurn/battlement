@@ -1,9 +1,7 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{CameraClearMode, Color, LightType, ObjectId, ShadowMode, Tween};
 
 /// Switches a camera to perspective projection.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PerspectivePayload {
   /// Target camera object.
   pub object_id: ObjectId,
@@ -12,7 +10,7 @@ pub struct PerspectivePayload {
 }
 
 /// Tweens a perspective camera's vertical field of view.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenFieldOfViewPayload {
   /// Target perspective camera object.
   pub object_id: ObjectId,
@@ -23,7 +21,7 @@ pub struct TweenFieldOfViewPayload {
 }
 
 /// Switches a camera to orthographic projection.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OrthographicPayload {
   /// Target camera object.
   pub object_id: ObjectId,
@@ -32,7 +30,7 @@ pub struct OrthographicPayload {
 }
 
 /// Tweens an orthographic camera's size.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenOrthographicSizePayload {
   /// Target orthographic camera object.
   pub object_id: ObjectId,
@@ -43,7 +41,7 @@ pub struct TweenOrthographicSizePayload {
 }
 
 /// Sets a camera's clipping distances.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraClippingPayload {
   /// Target camera object.
   pub object_id: ObjectId,
@@ -54,19 +52,18 @@ pub struct CameraClippingPayload {
 }
 
 /// Sets a camera's clear behavior.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraClearPayload {
   /// Target camera object.
   pub object_id: ObjectId,
   /// Requested clear mode.
   pub clear_mode: CameraClearMode,
   /// Present for [`CameraClearMode::SolidColor`] and absent otherwise.
-  #[serde(default, skip_serializing_if = "crate::is_default")]
   pub clear_color: Option<Color>,
 }
 
 /// Changes a standard light's type.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LightTypePayload {
   /// Target light object.
   pub object_id: ObjectId,
@@ -75,7 +72,7 @@ pub struct LightTypePayload {
 }
 
 /// Sets a light or text object's linear RGBA color.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ColorPayload {
   /// Target light or world-text object.
   pub object_id: ObjectId,
@@ -84,7 +81,7 @@ pub struct ColorPayload {
 }
 
 /// Tweens a light or text object's linear RGBA color.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenColorPayload {
   /// Target light or world-text object.
   pub object_id: ObjectId,
@@ -95,7 +92,7 @@ pub struct TweenColorPayload {
 }
 
 /// Sets a light's nonnegative intensity.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct IntensityPayload {
   /// Target light object.
   pub object_id: ObjectId,
@@ -104,7 +101,7 @@ pub struct IntensityPayload {
 }
 
 /// Tweens a light's nonnegative intensity.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TweenIntensityPayload {
   /// Target light object.
   pub object_id: ObjectId,
@@ -115,7 +112,7 @@ pub struct TweenIntensityPayload {
 }
 
 /// Sets the positive range of a point or spot light.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LightRangePayload {
   /// Target point or spot light object.
   pub object_id: ObjectId,
@@ -124,7 +121,7 @@ pub struct LightRangePayload {
 }
 
 /// Sets a spot light's cone angles.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SpotAnglePayload {
   /// Target spot light object.
   pub object_id: ObjectId,
@@ -135,7 +132,7 @@ pub struct SpotAnglePayload {
 }
 
 /// Sets a standard light's shadow mode.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LightShadowsPayload {
   /// Target light object.
   pub object_id: ObjectId,

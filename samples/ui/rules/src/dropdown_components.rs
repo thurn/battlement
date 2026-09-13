@@ -1,6 +1,6 @@
 use battlement::{
-  Command, ObjectId, UiBox, UiButton, UiDropdownField, UiElement, UiEvent, UiEventBody,
-  UiEventKind, UiLabel, UiNode, UiValue, UiVisualElement, object_id,
+  ObjectId, UiBox, UiButton, UiDropdownField, UiElement, UiEventKind, UiLabel, UiNode,
+  UiVisualElement, object_id,
 };
 use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
@@ -35,74 +35,6 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                 .child(loadout_card()),
         )
         .child(inspector())
-}
-
-pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-  if event.target_id == CLEAR_ID && matches!(event.body, UiEventBody::Click(_)) {
-    return Some(vec![
-      Command::update_visual_element(LOADOUT_ID, UiDropdownField::new().clear_selection()),
-      Command::update_visual_element(
-        LOADOUT_SUMMARY_ID,
-        UiLabel::new("CLEARED · no selected index or value"),
-      ),
-      Command::update_visual_element(STATUS_ID, UiLabel::new("LOADOUT · cleared by Rust")),
-      Command::update_visual_element(
-        HISTORY_ID,
-        UiLabel::new("CLEARED  SCOUT → NONE  |  (none, none)"),
-      ),
-      Command::update_visual_element(CLEAR_ID, UiButton::new("Loadout cleared").enabled(false)),
-    ]);
-  }
-  let UiEventBody::ValueCommitted(commit) = &event.body else {
-    return None;
-  };
-  let (previous, proposed) = choices(&commit.previous, &commit.proposed)?;
-  match event.target_id {
-    THEME_ID => {
-      let index = proposed.index?;
-      let value = proposed.value.as_deref()?;
-      Some(vec![
-        Command::update_visual_element(THEME_ID, UiDropdownField::new().selection(index, value)),
-        Command::update_visual_element(
-          THEME_SUMMARY_ID,
-          UiLabel::new(format!("COMMITTED · {value} (index {index})")),
-        ),
-        Command::update_visual_element(
-          STATUS_ID,
-          UiLabel::new(format!("THEME · {value} committed")),
-        ),
-        Command::update_visual_element(
-          HISTORY_ID,
-          UiLabel::new(format!(
-            "ACCEPTED  {} → {value}  |  matching index + value",
-            value_or_none(previous.value.as_deref())
-          )),
-        ),
-      ])
-    }
-    LOADOUT_ID => Some(vec![
-      Command::update_visual_element(
-        STATUS_ID,
-        UiLabel::new(format!(
-          "REJECTED · {} remains uncommitted",
-          value_or_none(proposed.value.as_deref())
-        )),
-      ),
-      Command::update_visual_element(
-        LOADOUT_SUMMARY_ID,
-        UiLabel::new("COMMITTED · SCOUT (index 0)"),
-      ),
-      Command::update_visual_element(
-        HISTORY_ID,
-        UiLabel::new(format!(
-          "REJECTED  {} → {}  |  native proposal rolled back",
-          value_or_none(previous.value.as_deref()),
-          value_or_none(proposed.value.as_deref())
-        )),
-      ),
-    ]),
-    _ => None,
-  }
 }
 
 pub(crate) fn write_event_response(
@@ -262,16 +194,6 @@ fn inspector() -> UiNode {
         .name("dropdown-history")
         .style(dropdown_styles::history()),
     ))
-}
-
-fn choices<'a>(
-  previous: &'a UiValue,
-  proposed: &'a UiValue,
-) -> Option<(&'a battlement::Choice, &'a battlement::Choice)> {
-  match (previous, proposed) {
-    (UiValue::Choice(previous), UiValue::Choice(proposed)) => Some((previous, proposed)),
-    _ => None,
-  }
 }
 
 fn value_or_none(value: Option<&str>) -> &str {

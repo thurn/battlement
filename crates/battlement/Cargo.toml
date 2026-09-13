@@ -11,6 +11,4 @@ rust-version.workspace = true
 battlement-cloud.workspace = true
 battlement-types.workspace = true
 battlement-ui.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 uuid.workspace = true

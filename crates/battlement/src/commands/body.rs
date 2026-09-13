@@ -1,5 +1,4 @@
 use battlement_cloud::diagnostics::DiagnosticsCommand;
-use serde::{Deserialize, Serialize};
 
 use crate::{
   AccessibilityUpdate, GameObject, GeometryObservationUpdate, MotionControlOperation,
@@ -13,7 +12,7 @@ use crate::application::ExternalUrlRequest;
 use super::*;
 
 /// The exact union of built-in Battlement command bodies.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CommandBody {
   /// Request the platform's external handler for an absolute URL.
   ApplicationOpenUrl(ExternalUrlRequest),

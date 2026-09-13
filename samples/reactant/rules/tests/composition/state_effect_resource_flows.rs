@@ -528,7 +528,7 @@ fn visible_word_count(ui: &UiClient<'_, ReactantEngine>, root: ObjectId) -> usiz
 
 fn identity_labels<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   ui.element(root)
     .children()
@@ -544,7 +544,7 @@ where
 
 fn identity_states<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   ui.element(root)
     .children()
@@ -560,7 +560,7 @@ where
 
 fn visible_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   let mut pending = vec![root];
   let mut text = Vec::new();

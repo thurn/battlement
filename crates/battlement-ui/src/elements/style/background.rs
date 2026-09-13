@@ -1,10 +1,9 @@
 use battlement_types::TextureAddress;
-use serde::{Deserialize, Serialize};
 
 use super::{Length, LengthOrAuto};
 
 /// How the center and edges of a nine-sliced background are painted.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SliceType {
   /// Stretches the center and edge regions between fixed corners.
   Sliced,
@@ -19,7 +18,7 @@ pub enum SliceType {
 /// only for [`Style::background_position_y`]. The paired offset moves inward
 /// from the selected edge; percentages resolve against the remaining space
 /// after the background image has been sized.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BackgroundPositionKeyword {
   /// Centers the image on the selected axis before applying its offset.
   Center,
@@ -39,7 +38,7 @@ pub enum BackgroundPositionKeyword {
 /// greater-than-100% offsets are supported for deliberately placing a
 /// background beyond the element box. The property receiving this value
 /// determines whether horizontal or vertical keywords are valid.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BackgroundPosition {
   /// Edge or center used as the offset's origin.
   pub keyword: BackgroundPositionKeyword,
@@ -59,7 +58,7 @@ impl BackgroundPosition {
 }
 
 /// Repetition mode for one axis of a background image.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BackgroundRepeatMode {
   /// Draws one image and leaves remaining space unpainted.
   NoRepeat,
@@ -72,7 +71,7 @@ pub enum BackgroundRepeatMode {
 }
 
 /// Independent horizontal and vertical repetition for a background image.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BackgroundRepeat {
   /// Horizontal tiling behavior.
   pub x: BackgroundRepeatMode,
@@ -89,7 +88,7 @@ impl BackgroundRepeat {
 }
 
 /// How UI Toolkit resolves a background image's painted dimensions.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BackgroundSize {
   /// Uses the source's intrinsic dimensions on both axes.
   Auto,
@@ -130,7 +129,7 @@ impl BackgroundSize {
 ///
 /// Coordinates start at the texture's top-left corner, increase right and
 /// downward, and must fall inside the acquired texture's dimensions.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CursorHotspot {
   /// Horizontal pixel offset from the texture's left edge.
   pub x: f32,
@@ -151,7 +150,7 @@ impl CursorHotspot {
 /// Custom cursors use one prepared texture imported with Unity's Cursor
 /// defaults. UI Toolkit does not support runtime named cursors or fallback
 /// chains through its public style API.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Cursor {
   /// Restores the platform's default cursor.
   Default,

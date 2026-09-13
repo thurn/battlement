@@ -1,9 +1,6 @@
 #nullable enable
 
 using System;
-using System.Linq;
-using System.Text;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace Battlement.Tests
@@ -12,73 +9,6 @@ namespace Battlement.Tests
     {
         private static readonly ObjectId ObjectId = new(GuidAt(1));
         private static readonly ObjectId PanelId = new(GuidAt(2));
-
-        [Test]
-        public void PublicMirrorsRoundTripEveryTargetValueAndUnavailableReason()
-        {
-            GeometryObservation[] observations = Targets();
-            var body = new CommandBody.GeometryObservation(
-                new GeometryObservationUpdate(observations, Array.Empty<GeometryObservationId>())
-            );
-            var command = new Command(new CommandId(GuidAt(20)), body);
-            var response = new Response(
-                new SessionId(GuidAt(21)),
-                new ResponseMessage<Command>[]
-                {
-                    new ResponseMessage<Command>.BatchMessage(
-                        new Batch(
-                            new BatchId(GuidAt(22)),
-                            new SessionId(GuidAt(21)),
-                            new[] { new ParallelCommandGroup<Command>(new[] { command }) }
-                        )
-                    ),
-                }
-            );
-            Response decoded = BattlementJson.DeserializeResponse(
-                BattlementJson.SerializeResponse(response)
-            );
-            var decodedBody = (CommandBody.GeometryObservation)
-                ((ResponseMessage<Command>.BatchMessage)decoded.Messages.Single())
-                    .Batch.Groups.Single()
-                    .Commands.Single()
-                    .Body;
-            Assert.That(decodedBody.Value.Added, Is.EqualTo(observations));
-            Assert.That(decodedBody.Value.Removed, Is.Empty);
-
-            GeometryObservationValue[] values = Values()
-                .Concat(
-                    Enum.GetValues(typeof(GeometryUnavailable))
-                        .Cast<GeometryUnavailable>()
-                        .Select(
-                            (reason, index) =>
-                                new GeometryObservationValue(
-                                    observations[index % observations.Length].ObservationId,
-                                    new GeometryObservationResult.Unavailable(reason)
-                                )
-                        )
-                )
-                .ToArray();
-            var action = new Action(
-                new ActionId(GuidAt(23)),
-                new SessionId(GuidAt(21)),
-                new ActionBody.GeometryObservations(
-                    new GeometryObservationBatch(new GeometryGeneration(1), values)
-                )
-            );
-            var message = new ClientMessage<CoreErrorCode, object>.ActionMessage(action);
-            byte[] encoded = BattlementJson.SerializeClientMessage(message);
-            Assert.That(Encoding.UTF8.GetString(encoded), Does.Not.Contain("\"value\""));
-            var roundTrip = BattlementJson.DeserializeClientMessage<CoreErrorCode, object>(encoded);
-            Assert.That(
-                JToken.DeepEquals(
-                    JToken.Parse(Encoding.UTF8.GetString(encoded)),
-                    JToken.Parse(
-                        Encoding.UTF8.GetString(BattlementJson.SerializeClientMessage(roundTrip))
-                    )
-                ),
-                Is.True
-            );
-        }
 
         [Test]
         public void InvalidBatchesDoNotAdvanceTheAcceptedGeneration()
@@ -173,9 +103,6 @@ namespace Battlement.Tests
         [Test]
         public void MalformedGenerationAndDuplicateRegistryUpdateRejectAtomically()
         {
-            Assert.Throws<Newtonsoft.Json.JsonSerializationException>(() =>
-                BattlementJson.Deserialize<GeometryGeneration>(new byte[] { (byte)'0' })
-            );
             var registry = new GeometryRegistry();
             GeometryObservation duplicate = Targets()[0];
             Assert.Throws<ArgumentException>(() =>

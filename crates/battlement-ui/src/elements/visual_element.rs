@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
   GridItem, MotionDescriptor, OverlayPlacement, PaintStyle, Prop, StackItem, Sticky, Style,
   UiVisualElementProperties,
@@ -9,7 +7,7 @@ use crate::{
 ///
 /// This maps to Unity's `PickingMode`. Picking affects the element itself, not
 /// its descendants: an ignored container may still contain pickable children.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PickingMode {
   /// Tests the element's layout rectangle and permits it to receive pointer events.
   Position,
@@ -22,7 +20,7 @@ pub enum PickingMode {
 /// The value maps to Unity's `LanguageDirection` and cascades to descendants.
 /// Use [`Self::Inherit`] to follow the nearest ancestor with an explicit
 /// direction, or select a concrete direction for a localized subtree.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum LanguageDirection {
   /// Uses the nearest ancestor's directionality.
   Inherit,
@@ -37,7 +35,7 @@ pub enum LanguageDirection {
 /// Hints map to Unity's `UsageHints` flags. They do not change layout,
 /// rendering, or input results; Unity may ignore a hint when the current
 /// renderer or hardware cannot use the corresponding optimization.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum UsageHint {
   /// Optimizes an element whose position or transform changes frequently.
   DynamicTransform,
@@ -61,7 +59,7 @@ pub enum UsageHint {
 /// width. Unlike [`UiLabel`] and [`UiButton`], it may contain logical children in a
 /// [`UiNode`] tree.
 ///
-/// Battlement serializes only the shared properties it supports. The Unity host
+/// Battlement writes only the shared properties it supports. The Unity host
 /// creates a native `UnityEngine.UIElements.VisualElement` and adds authored
 /// [`UiNode`] children directly to its content container.
 ///
@@ -87,42 +85,37 @@ pub enum UsageHint {
 /// [`UiButton`]: crate::UiButton
 /// [`UiLabel`]: crate::UiLabel
 /// [`UiNode`]: crate::UiNode
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiVisualElement {
   /// Name used by Unity queries and the `#name` USS selector.
   ///
   /// Names are not the Battlement object identity. Use the enclosing
   /// [`UiNode::object_id`](crate::UiNode::object_id) for commands and events.
   /// Reset restores the empty name captured after native construction.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub name: Prop<String>,
   /// Local enabled state of this element, or a request to restore `true`.
   ///
   /// A locally enabled element is still disabled in the hierarchy when an
   /// ancestor is disabled. Disabled elements do not receive ordinary input
   /// events and Unity applies its disabled USS class.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub enabled: Prop<bool>,
   /// Controls whether pointer hit testing may select this element.
   ///
   /// [`PickingMode::Ignore`] also prevents Unity from applying the hover
   /// pseudo-state to this element, but does not make its descendants ignore
   /// picking. Reset restores [`PickingMode::Position`].
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub picking_mode: Prop<PickingMode>,
   /// Text direction for this element and descendants that inherit it.
   ///
   /// [`LanguageDirection::Inherit`] follows the nearest ancestor with an
   /// explicit direction. The value affects text directionality rather than
   /// flex layout order. Reset restores [`LanguageDirection::Inherit`].
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub language_direction: Prop<LanguageDirection>,
   /// Whether this element is eligible to receive focus.
   ///
   /// Eligibility does not guarantee focus: the element must also be attached,
   /// enabled in its hierarchy, and accepted by Unity's focus controller. Reset
   /// restores the concrete native element constructor's focusability.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub focusable: Prop<bool>,
   /// Position in Unity's keyboard focus ring.
   ///
@@ -130,20 +123,16 @@ pub struct UiVisualElement {
   /// the element from the tab sequence while leaving programmatic focus
   /// eligibility controlled by [`Self::focusable`]. Reset restores the
   /// concrete native element constructor's tab index.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub tab_index: Prop<i32>,
   /// Whether focus requested on this element transfers to a descendant.
   ///
   /// Unity chooses the first eligible descendant in focus-ring order; callers
   /// cannot name a particular delegated target. Reset restores the concrete
   /// native element constructor's delegation behavior.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub delegates_focus: Prop<bool>,
   /// Whether this host requests focus once when it is mounted.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub auto_focus: Prop<bool>,
   /// Whether this logical subtree is excluded from focus, picking, and input.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub inert: Prop<bool>,
   /// USS classes applied to this element in list order.
   ///
@@ -151,53 +140,42 @@ pub struct UiVisualElement {
   /// entries are rejected by [`validate_documents`](crate::validate_documents).
   /// Reset removes every Battlement-authored class while retaining native
   /// constructor classes.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub classes: Prop<Vec<String>>,
   /// Create-time rendering optimization hints combined on the native element.
   ///
   /// Hints do not affect observable behavior and may be ignored by Unity.
   /// They can be authored only before the element joins a panel, so
   /// Battlement rejects them in sparse property updates.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub usage_hints: Option<Vec<UsageHint>>,
   /// Inline style declarations applied after matching USS rules.
   ///
   /// During a property update, populated style fields replace their live
   /// counterparts and unpopulated fields preserve the current value.
-  #[serde(default, skip_serializing_if = "Style::is_empty")]
   pub style: Style,
   /// Static decorative paint rendered in this element's border box.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub paint: Prop<PaintStyle>,
   /// Native event kinds that Unity forwards to the Rust rules engine.
   ///
   /// Subscriptions are opt-in. Repeating an event kind is invalid; ordering is
   /// retained in the protocol but does not change event dispatch semantics.
   /// Reset removes every shorthand subscription.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub events: Prop<Vec<crate::UiEventKind>>,
   /// Event subscriptions with explicit logical route phases. Reset removes
   /// every routed subscription.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub event_subscriptions: Prop<Vec<crate::UiEventSubscription>>,
   /// Validated animation state installed beside this native host.
   ///
   /// Reset removes every descriptor slot and restores the static presentation.
   /// Reactant authors this field through host façade motion builders; protocol
   /// adapters may author it directly for controlled conformance fixtures.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub motion: Prop<MotionDescriptor>,
   /// Grid placement metadata for a direct or top-level portaled Grid child.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub grid_item: Prop<GridItem>,
   /// Stack placement metadata for a direct or top-level portaled Stack child.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub stack_item: Prop<StackItem>,
   /// Sticky positioning metadata resolved by the nearest physical scroll view.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub sticky: Prop<Sticky>,
   /// Overlay placement metadata for a top-level overlay portal attachment.
-  #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub overlay_placement: Prop<OverlayPlacement>,
 }
 

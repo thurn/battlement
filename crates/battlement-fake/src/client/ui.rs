@@ -7,7 +7,7 @@ mod text_field;
 
 use std::time::Instant;
 
-use battlement::{Command, PointerButton};
+use battlement::PointerButton;
 use battlement_native::Engine;
 use battlement_ui_fake::{UiElementState, UiJournalEntry, UiWorld};
 
@@ -54,14 +54,14 @@ impl TextFieldInteraction {
 /// Typed access to fake UI state and synthetic UI gestures.
 pub struct UiClient<'a, E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   pub(super) client: &'a mut FakeClient<E>,
 }
 
 impl<E> UiClient<'_, E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   /// Returns whether an identity belongs to a live logical UI element.
   #[must_use]
@@ -796,7 +796,7 @@ where
 
 impl<E> FakeClient<E>
 where
-  E: Engine<Command = Command>,
+  E: Engine,
 {
   pub(crate) fn reconcile_ui_interactions(&mut self, body: &battlement::CommandBody) {
     if matches!(body, battlement::CommandBody::InputSetEnabled(value) if !value.enabled) {

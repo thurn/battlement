@@ -73,34 +73,6 @@ namespace Battlement
             return new Reservation(this, node, nextSequence++);
         }
 
-        public Reservation Reserve(
-            Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
-            bool isInitial = false,
-            SessionId? previousSession = null,
-            Action<Response<ICommand>>? decoded = null,
-            Action<Exception>? decodeFailed = null
-        ) =>
-            Reserve(
-                (payload, owner) =>
-                {
-                    try
-                    {
-                        Response<ICommand> response = decode(payload);
-                        decoded?.Invoke(response);
-                        return new BattlementOwnedResponseView(response, owner);
-                    }
-                    catch
-                    {
-                        owner?.Dispose();
-                        throw;
-                    }
-                },
-                isInitial,
-                previousSession,
-                decoded: null,
-                decodeFailed
-            );
-
         public void Drain(
             Func<IBattlementResponseView, bool, SessionId?, bool> validate,
             Action<SessionId, IBattlementResponseView, int> apply,
