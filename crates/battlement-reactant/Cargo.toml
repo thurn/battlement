@@ -10,13 +10,15 @@ rust-version.workspace = true
 [dependencies]
 battlement = { path = "../battlement" }
 battlement-builder = { path = "../battlement-builder" }
+battlement-flatbuffers = { path = "../battlement-flatbuffers" }
 battlement-native = { path = "../battlement-native" }
 battlement-reactant-asset-macros = { path = "../battlement-reactant-asset-macros" }
 inventory.workspace = true
-serde_json.workspace = true
 trox.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 battlement-fake = { path = "../battlement-fake" }
-uuid.workspace = true
+battlement-flatbuffers = { path = "../battlement-flatbuffers", features = ["test-support"] }
+serde_json.workspace = true

@@ -3,8 +3,9 @@ use battlement::{
   UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiScrollView, UiScroller, UiVisualElement,
   object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{design_system, scroll_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, scroll_styles};
 
 const PRIMARY_ID: ObjectId = object_id!("d24fec17-cb8a-4b9c-a604-da4113d6ef9b");
 const SCROLLER_ID: ObjectId = object_id!("df12adf3-3a6c-4900-bb15-1f53117f1a8e");
@@ -67,6 +68,45 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     }
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  match (target_id, event.event_kind()) {
+    (PRIMARY_ID, UiEventKind::ScrollChanged) => response.label(SCROLL_STATUS_ID, "Moving")?,
+    (PRIMARY_ID, UiEventKind::ScrollSettled) => {
+      let Some((x, y)) = event.scroll_offset() else {
+        return Ok(false);
+      };
+      response.label(SCROLL_STATUS_ID, &format!("Settled {x:.0} × {y:.0}"))?;
+    }
+    (SCROLLER_ID, UiEventKind::ValueChanging) => {
+      let Some(UiValueView::F32(proposed)) = event.value_changing() else {
+        return Ok(false);
+      };
+      response.label(SCROLLER_STATUS_ID, &format!("Preview {proposed:.0}"))?;
+    }
+    (SCROLLER_ID, UiEventKind::ValueCommitted) => {
+      let Some(commit) = event.value_commit() else {
+        return Ok(false);
+      };
+      let UiValueView::F32(proposed) = commit.proposed() else {
+        return Ok(false);
+      };
+      let scroller = response
+        .writer()
+        .scroller_builder()
+        .float_value(proposed)
+        .finish();
+      response.update(SCROLLER_ID, scroller)?;
+      response.label(SCROLLER_STATUS_ID, &format!("Committed {proposed:.0}"))?;
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 pub(crate) fn scroll_page(page_id: ObjectId, ids: &ScrollIds) -> UiNode {

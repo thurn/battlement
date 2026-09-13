@@ -1,10 +1,15 @@
 use std::{mem, rc::Rc, thread};
 
+use battlement::application::{ApplicationState, ReducedMotionPreference};
 use battlement::{
-  ActionBody, ActionId, ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId,
+  ActionBody, ActionId, ClientMessage, Command, CoreErrorCode, Response, ScreenSize, SessionId,
   Snapshot, UiEventAction, UiEventResponse,
 };
-use battlement_native::{Engine, EngineError};
+use battlement_native::{
+  ConnectView, CoreActionBodyView, CoreClientMessageView, Engine, EngineError,
+  FlatBufferResponseCommand, FlatBufferSubmitError, NativeEngine, NativeResponse,
+  NativeUiEventResponse, UiEventActionView,
+};
 
 use crate::{action_context, app::App, app_delivery};
 
@@ -13,7 +18,7 @@ impl<G: 'static> Engine for App<G> {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response, EngineError> {
     self.healthy = false;
     if self.session.is_none() {
       for root in &self.roots {
@@ -34,9 +39,17 @@ impl<G: 'static> Engine for App<G> {
       queue.snapshot_action = None;
       queue.localizer = None;
       let mut observations = self.observations.borrow_mut();
-      observations.application = message.application_state;
-      observations.reduced_motion = message.reduced_motion_preference;
-      observations.screen = message.screen;
+      observations.application = ApplicationState {
+        focused: message.focused(),
+        paused: message.paused(),
+      };
+      observations.reduced_motion = match message.reduced_motion_preference().ordinal() {
+        0 => ReducedMotionPreference::Unavailable,
+        1 => ReducedMotionPreference::Reduce,
+        2 => ReducedMotionPreference::NoPreference,
+        _ => unreachable!("ConnectView validates reduced-motion ordinals"),
+      };
+      observations.screen = ScreenSize::new(message.screen_width(), message.screen_height());
       if self.reset {
         observations.remount = queue.generation;
       }
@@ -82,6 +95,59 @@ impl<G: 'static> Engine for App<G> {
     Ok(self.delivery.prepare(response))
   }
 
+  fn submit_core_view(
+    &mut self,
+    message: CoreClientMessageView<'_>,
+  ) -> Result<Response<Self::Command>, EngineError> {
+    let session = self
+      .session
+      .expect("connect before submitting application messages");
+    let CoreClientMessageView::Action(action) = message else {
+      return Ok(Response::empty(session));
+    };
+    let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
+      .expect("core view validates nonzero session UUIDs");
+    self.check_session(session_id)?;
+    let action_id = ActionId::from_uuid(uuid::Uuid::from_bytes(action.action_id()))
+      .expect("core view validates nonzero action UUIDs");
+    self.healthy = false;
+    let _action = action_context::enter(Some(action_id));
+    let commit = match action.body() {
+      CoreActionBodyView::ReducedMotionPreferenceChanged(preference) => {
+        self.observations.borrow_mut().reduced_motion = match preference.value() {
+          0 => ReducedMotionPreference::Unavailable,
+          1 => ReducedMotionPreference::Reduce,
+          2 => ReducedMotionPreference::NoPreference,
+          _ => unreachable!("core view validates reduced-motion preferences"),
+        };
+        self.runtime.refresh(&mut self.model)
+      }
+      CoreActionBodyView::ApplicationStateChanged(state) => {
+        self.observations.borrow_mut().application = ApplicationState {
+          focused: state.focused(),
+          paused: state.paused(),
+        };
+        self.runtime.refresh(&mut self.model)
+      }
+      CoreActionBodyView::GeometryObservations(batch) => {
+        self.runtime.observe_geometry_view(&mut self.model, batch)
+      }
+      CoreActionBodyView::MotionEvents(batch) => {
+        self.runtime.motion_events_view(&mut self.model, batch)
+      }
+      _ => {
+        self.healthy = true;
+        return Ok(Response::empty(session));
+      }
+    }
+    .expect("application observation failed to render");
+    let mut response = Response::empty(session);
+    app_delivery::append(&mut response, Some(action_id), commit);
+    self.settle(&mut response, Some(action_id), false);
+    self.healthy = true;
+    Ok(self.delivery.prepare(response))
+  }
+
   fn submit_ui_event(&mut self, action: UiEventAction) -> Result<UiEventResponse, EngineError> {
     self.check_session(action.session_id)?;
     self.healthy = false;
@@ -94,6 +160,32 @@ impl<G: 'static> Engine for App<G> {
     let mut response = Response::empty(action.session_id);
     app_delivery::append(&mut response, Some(action.action_id), event.into_commit());
     self.settle(&mut response, Some(action.action_id), false);
+    self.healthy = true;
+    Ok(UiEventResponse::new(
+      disposition,
+      self.delivery.prepare(response),
+    ))
+  }
+
+  fn submit_ui_event_view(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<UiEventResponse, EngineError> {
+    let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
+      .expect("UI event view validates nonzero session UUIDs");
+    self.check_session(session_id)?;
+    let action_id = ActionId::from_uuid(uuid::Uuid::from_bytes(action.action_id()))
+      .expect("UI event view validates nonzero action UUIDs");
+    self.healthy = false;
+    let _action = action_context::enter(Some(action_id));
+    let event = self
+      .runtime
+      .dispatch_view(&mut self.model, action)
+      .expect("application event failed to render");
+    let disposition = event.disposition();
+    let mut response = Response::empty(session_id);
+    app_delivery::append(&mut response, Some(action_id), event.into_commit());
+    self.settle(&mut response, Some(action_id), false);
     self.healthy = true;
     Ok(UiEventResponse::new(
       disposition,
@@ -114,6 +206,48 @@ impl<G: 'static> Engine for App<G> {
     }
     Ok(Some(self.delivery.prepare(response)))
   }
+}
+
+impl<G: 'static> NativeEngine for App<G> {
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+
+  fn connect_native(&mut self, message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
+    let response = <Self as Engine>::connect(self, message)?;
+    native_response(response)
+  }
+
+  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+    let message = CoreClientMessageView::read(bytes).map_err(|error| {
+      FlatBufferSubmitError::invalid_argument(format!("invalid client message: {error}"))
+    })?;
+    let response = self
+      .submit_core_view(message)
+      .map_err(FlatBufferSubmitError::engine)?;
+    native_response(response).map_err(FlatBufferSubmitError::engine)
+  }
+
+  fn submit_ui_event_native(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<NativeUiEventResponse, EngineError> {
+    let result = self.submit_ui_event_view(action)?;
+    Ok(NativeUiEventResponse {
+      disposition: result.disposition,
+      response: native_response(result.response)?,
+    })
+  }
+
+  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+    <Self as Engine>::poll(self)?
+      .map(native_response)
+      .transpose()
+  }
+}
+
+fn native_response(response: Response) -> Result<NativeResponse, EngineError> {
+  let session_id = *response.session_id.as_uuid().as_bytes();
+  let message = <Command as FlatBufferResponseCommand>::write_response(&response)?;
+  NativeResponse::from_core(session_id, message)
 }
 
 impl<G: 'static> App<G> {

@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using Battlement.Errors;
 using Battlement.UI;
-using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Battlement
@@ -40,6 +39,8 @@ namespace Battlement
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
         private readonly ConcurrentQueue<BattlementCapturedUnityError> unityErrors = new();
+        private readonly BattlementConnectRequestWriter connectRequests = new();
+        private readonly BattlementCoreClientMessageWriter coreRequests = new();
         private bool isApplicationPaused;
         private bool hasApplicationFocus = true;
         private bool dittoInputActive;
@@ -417,6 +418,14 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(BattlementRunner));
             }
 
+            if (checkedOptions.Transport is BattlementNativeTransport nativeTransport)
+            {
+                nativeTransport.SetExpectedWireContractDigest(
+                    checkedOptions.FlatBufferResponseSchema?.WireContractDigest
+                        ?? BattlementNativeContract.WireContractDigest
+                );
+            }
+
             BattlementConfiguredRuntime runtime = new BattlementConfiguredRuntime(checkedOptions);
             configuredRuntime = runtime;
             try
@@ -506,11 +515,9 @@ namespace Battlement
                 runtime.SetCustomCommands(customCommands);
                 BattlementUiEventDispatcher uiEventDispatcher = new BattlementUiEventDispatcher(
                     checkedOptions.Transport,
-                    checkedOptions.ProtocolCodec,
                     responses,
                     dittoMotionClock,
-                    payload => DecodeResponse(checkedOptions, payload),
-                    () => customCommands.Types.Count == 0,
+                    (payload, owner) => DecodeResponse(checkedOptions, payload, owner),
                     RecordUiFailure,
                     (severity, eventName, message) => Log(severity, eventName, message),
                     this
@@ -574,6 +581,7 @@ namespace Battlement
                     SetInputEnabled,
                     uiDocuments,
                     ApplyGeometryObservations,
+                    ApplyGeometryObservations,
                     modules,
                     checkedOptions.OpenExternalUrl
                 );
@@ -609,26 +617,28 @@ namespace Battlement
         /// <summary>Registers one game-owned command type before connecting.</summary>
         public void RegisterCommand<TPayload, TError>(
             string type,
-            IBattlementCommandHandler<TPayload> handler,
-            JsonConverter<TPayload>? payloadConverter = null,
-            JsonConverter<TError>? errorConverter = null
+            IBattlementCommandHandler<TPayload> handler
         )
         {
             RequireConfiguredAndStopped();
-            configuredRuntime!.CustomCommands.Register(
+            configuredRuntime!.CustomCommands.Register<TPayload, TError>(type, handler);
+        }
+
+        /// <summary>Registers a generated, synchronously borrowed custom-command payload.</summary>
+        public void RegisterFlatBufferCommand<TPayloadView, TError>(
+            string type,
+            IBattlementFlatBufferCommandHandler<TPayloadView> handler
+        )
+        {
+            RequireConfiguredAndStopped();
+            configuredRuntime!.CustomCommands.RegisterFlatBuffer<TPayloadView, TError>(
                 type,
-                handler,
-                payloadConverter,
-                errorConverter
+                handler
             );
         }
 
         /// <summary>Emits a typed game-owned action through the active transport.</summary>
-        public ActionId EmitCustomAction<TPayload>(
-            string type,
-            TPayload payload,
-            JsonConverter<TPayload>? payloadConverter = null
-        )
+        public ActionId EmitCustomAction<TPayload>(string type, TPayload payload)
         {
             EnsureMainThread();
             BattlementCustomCommands.RequireNamespaced(type);
@@ -643,13 +653,8 @@ namespace Battlement
             }
 
             var actionId = new ActionId(Guid.NewGuid());
-            Submit(
-                RequireExtensionCodec()
-                    .SerializeCustomAction(
-                        new CustomAction<TPayload>(actionId, currentSession, type, payload),
-                        payloadConverter
-                    )
-            );
+            var action = new CustomAction<TPayload>(actionId, currentSession, type, payload);
+            Submit(RequireFlatBufferClientSchema().SerializeCustomAction(action));
             return actionId;
         }
 
@@ -738,7 +743,7 @@ namespace Battlement
         }
 
         /// <summary>Submits one already encoded client message to the active session.</summary>
-        public void Submit(ReadOnlyMemory<byte> json)
+        public void Submit(ReadOnlyMemory<byte> message)
         {
             BattlementRunnerOptions configured = RequireOptions();
             if (session.Phase != BattlementSessionPhase.Running)
@@ -747,13 +752,13 @@ namespace Battlement
                     "Client messages may only be submitted while the runner is active."
                 );
             }
-            if (json.Length > BattlementProtocolLimits.MaximumMessageBytes)
+            if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
             {
                 FailSession(
                     configured,
                     $"A client message cannot exceed "
                         + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                    payloadBytes: json.Length
+                    payloadBytes: message.Length
                 );
                 return;
             }
@@ -764,7 +769,7 @@ namespace Battlement
                 BattlementTransportResult result;
                 using (BattlementProfiler.Transport.Auto())
                 {
-                    result = configured.Transport.Submit(json);
+                    result = configured.Transport.Submit(message);
                 }
 
                 ProcessTransportResult(
@@ -780,7 +785,7 @@ namespace Battlement
                     configured,
                     $"Submit response failed: {exception.Message}",
                     duration: configuredRuntime.DittoMotionClock.Elapsed - started,
-                    payloadBytes: json.Length,
+                    payloadBytes: message.Length,
                     exception: exception
                 );
             }
@@ -800,7 +805,16 @@ namespace Battlement
             };
             SubmitFailure(
                 configured,
-                () => configured.ProtocolCodec.SerializeBatchFailure(bounded),
+                () =>
+                {
+                    RecordBatchFailure(configured, bounded);
+                    return coreRequests.WriteBatchFailure(bounded);
+                },
+                native =>
+                {
+                    RecordBatchFailure(configured, bounded);
+                    return native.Submit(bounded);
+                },
                 "battlement.batch.failed",
                 bounded.Message,
                 bounded.SessionId,
@@ -828,7 +842,16 @@ namespace Battlement
             };
             SubmitFailure(
                 configured,
-                () => configured.ProtocolCodec.SerializeOperationFailure(bounded),
+                () =>
+                {
+                    RecordOperationFailure(configured, bounded);
+                    return coreRequests.WriteOperationFailure(bounded);
+                },
+                native =>
+                {
+                    RecordOperationFailure(configured, bounded);
+                    return native.Submit(bounded);
+                },
                 "battlement.operation.failed",
                 bounded.Message,
                 bounded.SessionId,
@@ -851,14 +874,15 @@ namespace Battlement
             SubmitFailure(
                 configured,
                 () =>
-                    exception.Registration.SerializeBatchFailure(
-                        RequireExtensionCodec(),
+                    exception.Registration.SerializeFlatBufferBatchFailure(
+                        RequireFlatBufferClientSchema(),
                         sessionId,
                         batchId,
                         commandId,
                         exception.ErrorCode,
                         message
                     ),
+                null,
                 "battlement.batch.failed",
                 message,
                 sessionId,
@@ -880,14 +904,15 @@ namespace Battlement
             SubmitFailure(
                 configured,
                 () =>
-                    exception.Registration.SerializeOperationFailure(
-                        RequireExtensionCodec(),
+                    exception.Registration.SerializeFlatBufferOperationFailure(
+                        RequireFlatBufferClientSchema(),
                         sessionId,
                         batchId,
                         commandId,
                         exception.ErrorCode,
                         message
                     ),
+                null,
                 "battlement.operation.failed",
                 message,
                 sessionId,
@@ -1017,31 +1042,60 @@ namespace Battlement
                     }
                     else
                     {
-                        byte[] message;
+                        var action = new Action(
+                            new ActionId(Guid.NewGuid()),
+                            session.LastSession
+                                ?? throw new InvalidOperationException(
+                                    "No Battlement session is active."
+                                ),
+                            motion is not null
+                                ? new ActionBody.MotionEvents(motion)
+                                : new ActionBody.GeometryObservations(geometry!)
+                        );
+                        int messageLength;
+                        ReadOnlyMemory<byte> message = default;
                         using (BattlementProfiler.Serialization.Auto())
-                            message = SerializeAction(
-                                configured,
-                                motion is not null
-                                    ? new ActionBody.MotionEvents(motion)
-                                    : new ActionBody.GeometryObservations(geometry!)
-                            );
+                        {
+                            if (configured.Transport is BattlementNativeTransport native)
+                            {
+                                RecordCoreAction(configured, action);
+                                message = native.WriteCore(action);
+                                messageLength = message.Length;
+                            }
+                            else
+                            {
+                                message = coreRequests.WriteAction(action);
+                                RecordCoreAction(configured, action);
+                                messageLength = message.Length;
+                            }
+                        }
                         if (motion is not null)
-                            configuredRuntime.UiDocuments.RecordMotionTraffic(message.Length);
-                        if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                            configuredRuntime.UiDocuments.RecordMotionTraffic(messageLength);
+                        if (messageLength > BattlementProtocolLimits.MaximumMessageBytes)
                         {
                             FailSession(
                                 configured,
                                 $"A client message cannot exceed "
                                     + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                                payloadBytes: message.Length
+                                payloadBytes: messageLength
                             );
                             return;
                         }
                         using (BattlementProfiler.Transport.Auto())
-                            result = configured.Transport.Submit(message);
+                        {
+                            try
+                            {
+                                result = configured.Transport.Submit(message);
+                            }
+                            finally
+                            {
+                                if (configured.Transport is not BattlementNativeTransport)
+                                    coreRequests.TrimOversized();
+                            }
+                        }
                     }
 
-                    payloadBytes = result.Payload.Length;
+                    payloadBytes = result.PayloadLength;
                     bool emptyPoll =
                         geometry is null && result.Status == BattlementTransportStatus.NoMessage;
                     if (!emptyPoll)
@@ -1132,6 +1186,27 @@ namespace Battlement
         internal (ulong DecodeNs, ulong ApplyNs) DittoResponseObservation() =>
             (dittoResponseDecodeNs, dittoResponseApplyNs);
 
+        internal DittoTransportFrameMetrics? DittoTransportObservation()
+        {
+            if (configuredRuntime?.Options.Transport is not BattlementNativeTransport native)
+                return null;
+            BattlementNativeTransportDiagnostics value = native.Diagnostics;
+            return new DittoTransportFrameMetrics(
+                value.LiveBufferCount,
+                value.LiveAllocationBytes,
+                value.PendingFinalizerReleases,
+                value.BuildersCreated,
+                value.BuildersReused,
+                value.BuilderGrowths,
+                value.BuilderCopiedBytes,
+                value.IdleBuilderBytes,
+                value.HandoffPayloadCopies,
+                value.ClientBuilderGrowths,
+                value.ClientBuilderCopiedBytes,
+                value.ClientBuilderRetainedBytes
+            );
+        }
+
         private void OnApplicationPause(bool pauseStatus)
         {
             isApplicationPaused = pauseStatus;
@@ -1192,9 +1267,7 @@ namespace Battlement
             )
                 return;
             publishedApplicationState = state;
-            Submit(
-                SerializeAction(RequireOptions(), new ActionBody.ApplicationStateChanged(state))
-            );
+            SubmitCoreAction(new ActionBody.ApplicationStateChanged(state));
         }
 
         private void PublishReducedMotionPreference()
@@ -1206,12 +1279,7 @@ namespace Battlement
             )
                 return;
             publishedReducedMotionPreference = preference;
-            Submit(
-                SerializeAction(
-                    RequireOptions(),
-                    new ActionBody.ReducedMotionPreferenceChanged(preference)
-                )
-            );
+            SubmitCoreAction(new ActionBody.ReducedMotionPreferenceChanged(preference));
         }
 
         private void OnApplicationQuit() => Stop();
@@ -1239,11 +1307,28 @@ namespace Battlement
             try
             {
                 configuredRuntime.Modules.Prepare();
+                if (
+                    configured.Transport is BattlementNativeTransport
+                    && configuredRuntime.CustomCommands.Types.Count > 0
+                    && (
+                        configured.FlatBufferResponseSchema is null
+                        || configured.FlatBufferClientSchema is null
+                    )
+                )
+                {
+                    throw new InvalidOperationException(
+                        "Native custom commands require generated FlatBuffer client and "
+                            + "random-access response schemas."
+                    );
+                }
                 Connect connect = BuildConnect(configured);
-                byte[] bytes;
+                (configured.Transport as IBattlementClientMessageObserver)?.RecordConnect(connect);
+                ReadOnlyMemory<byte> bytes;
                 using (BattlementProfiler.Serialization.Auto())
                 {
-                    bytes = configured.ProtocolCodec.SerializeConnect(connect);
+                    bytes = configured.Transport is BattlementNativeTransport native
+                        ? native.WriteConnect(connect)
+                        : connectRequests.Write(connect);
                 }
                 if (bytes.Length > BattlementProtocolLimits.MaximumMessageBytes)
                 {
@@ -1260,7 +1345,15 @@ namespace Battlement
                 BattlementTransportResult result;
                 using (BattlementProfiler.Transport.Auto())
                 {
-                    result = configured.Transport.Connect(bytes);
+                    try
+                    {
+                        result = configured.Transport.Connect(bytes);
+                    }
+                    finally
+                    {
+                        if (configured.Transport is not BattlementNativeTransport)
+                            connectRequests.TrimOversized();
+                    }
                 }
 
                 if (result.Status != BattlementTransportStatus.Success)
@@ -1307,74 +1400,74 @@ namespace Battlement
             TimeSpan? duration = null
         )
         {
-            if (result.Status != BattlementTransportStatus.Success)
+            using (result)
             {
-                FailSession(configured, failureMessage, result, duration);
-                return;
-            }
-
-            responses.Enqueue(
-                payload => DecodeResponse(configured, payload),
-                result.Payload,
-                isInitial,
-                previousSession
-            );
-            BattlementConfiguredRuntime runtime = configuredRuntime!;
-            if (runtime.UiEventDispatcher.IsDispatching != true)
-                DrainResponses(configured);
-        }
-
-        private Response<ICommand> DecodeResponse(
-            BattlementRunnerOptions configured,
-            ReadOnlyMemory<byte> payload
-        )
-        {
-            BattlementConfiguredRuntime runtime = configuredRuntime!;
-            if (runtime.CustomCommands.Types.Count > 0)
-            {
-                return RequireExtensionCodec()
-                    .DeserializeResponse(payload, runtime.CustomCommands.Read);
-            }
-
-            Response core = configured.ProtocolCodec.DeserializeResponse(payload);
-            var messages = new ResponseMessage<ICommand>[core.Messages.Count];
-            for (int index = 0; index < messages.Length; index++)
-            {
-                messages[index] = core.Messages[index] switch
+                if (result.Status != BattlementTransportStatus.Success)
                 {
-                    ResponseMessage<Command>.SnapshotMessage snapshot =>
-                        new ResponseMessage<ICommand>.SnapshotMessage(snapshot.Snapshot),
-                    ResponseMessage<Command>.BatchMessage batch =>
-                        new ResponseMessage<ICommand>.BatchMessage(ToAnyBatch(batch.Batch)),
-                    _ => throw new InvalidDataException("Unknown core response message."),
-                };
-            }
-
-            return new Response<ICommand>(core.SessionId, messages);
-        }
-
-        private static Batch<ICommand> ToAnyBatch(Batch<Command> batch)
-        {
-            var groups = new ParallelCommandGroup<ICommand>[batch.Groups.Count];
-            for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
-            {
-                IReadOnlyList<Command> commands = batch.Groups[groupIndex].Commands;
-                var anyCommands = new ICommand[commands.Count];
-                for (int commandIndex = 0; commandIndex < anyCommands.Length; commandIndex++)
-                {
-                    anyCommands[commandIndex] = commands[commandIndex];
+                    FailSession(configured, failureMessage, result, duration);
+                    return;
                 }
 
-                groups[groupIndex] = new ParallelCommandGroup<ICommand>(anyCommands);
+                IBattlementResponseView? direct = result.DetachResponseView();
+                if (direct is null)
+                {
+                    responses.Enqueue(
+                        (payload, owner) => DecodeResponse(configured, payload, owner),
+                        result.BorrowedPayload,
+                        isInitial,
+                        previousSession,
+                        result.DetachPayloadOwner()
+                    );
+                }
+                else
+                {
+                    BattlementResponseStream.Reservation reservation = responses.Reserve(
+                        (payload, owner) => DecodeResponse(configured, payload, owner),
+                        isInitial,
+                        previousSession
+                    );
+                    reservation.Commit(direct);
+                }
+                BattlementConfiguredRuntime runtime = configuredRuntime!;
+                if (runtime.UiEventDispatcher.IsDispatching != true)
+                    DrainResponses(configured);
             }
+        }
 
-            return new Batch<ICommand>(
-                batch.Id,
-                batch.SessionId,
-                groups,
-                batch.CausedByActionId,
-                batch.Start
-            );
+        private IBattlementResponseView DecodeResponse(
+            BattlementRunnerOptions configured,
+            ReadOnlyMemory<byte> payload,
+            IDisposable? payloadOwner
+        )
+        {
+            try
+            {
+                if (BattlementFlatBufferMaterializer.IsResponse(payload))
+                {
+                    if (configured.FlatBufferResponseSchema is null)
+                    {
+                        IDisposable? owner = payloadOwner;
+                        payloadOwner = null;
+                        return new BattlementFlatBufferResponse(payload, owner);
+                    }
+                    IDisposable? customOwner = payloadOwner;
+                    payloadOwner = null;
+                    return new BattlementCustomFlatBufferResponse(
+                        payload,
+                        customOwner,
+                        configured.FlatBufferResponseSchema
+                    );
+                }
+
+                throw new InvalidDataException(
+                    "The engine returned a response outside the FlatBuffer schema."
+                );
+            }
+            catch
+            {
+                payloadOwner?.Dispose();
+                throw;
+            }
         }
 
         private void DrainResponses(BattlementRunnerOptions configured)
@@ -1384,7 +1477,8 @@ namespace Battlement
                 responses.Drain(
                     (response, isInitial, previousSession) =>
                         ValidateResponse(configured, response, isInitial, previousSession),
-                    (session, message) => ApplyMessage(configured, session, message),
+                    (session, response, index) =>
+                        ApplyMessage(configured, session, response, index),
                     () => session.Phase == BattlementSessionPhase.ApplyingSnapshot,
                     () => session.Phase == BattlementSessionPhase.Stopped,
                     dittoInputActive
@@ -1418,18 +1512,18 @@ namespace Battlement
 
         private bool ValidateResponse(
             BattlementRunnerOptions configured,
-            Response<ICommand> response,
+            IBattlementResponseView response,
             bool isInitial,
             SessionId? previousSession
         )
         {
-            if (response.SessionId.Value == Guid.Empty || response.Messages is null)
+            if (response.SessionId.Value == Guid.Empty)
             {
                 FailSession(configured, "The response did not contain orderable identity fields.");
                 return false;
             }
 
-            if (response.Messages.Count > 256)
+            if (response.MessageCount > 256)
             {
                 FailSession(configured, "A response cannot contain more than 256 messages.");
                 return false;
@@ -1445,13 +1539,7 @@ namespace Battlement
                 return false;
             }
 
-            if (
-                isInitial
-                && (
-                    response.Messages.Count == 0
-                    || response.Messages[0] is not ResponseMessage<ICommand>.SnapshotMessage
-                )
-            )
+            if (isInitial && (response.MessageCount == 0 || !response.IsSnapshot(0)))
             {
                 FailSession(configured, "The first current-session message was not a snapshot.");
                 return false;
@@ -1477,30 +1565,28 @@ namespace Battlement
         private void ApplyMessage(
             BattlementRunnerOptions configured,
             SessionId responseSession,
-            ResponseMessage<ICommand> message
+            IBattlementResponseView response,
+            int messageIndex
         )
         {
             dittoStateVersion++;
-            if (message is ResponseMessage<ICommand>.SnapshotMessage snapshotMessage)
+            if (response.IsSnapshot(messageIndex))
             {
-                ApplySnapshot(configured, responseSession, snapshotMessage.Snapshot);
-            }
-            else if (message is ResponseMessage<ICommand>.BatchMessage batchMessage)
-            {
-                ApplyBatch(configured, responseSession, batchMessage.Batch);
+                ApplySnapshot(configured, responseSession, response.ReadSnapshot(messageIndex));
             }
             else
             {
-                FailSession(configured, "The response contained an unknown message kind.");
+                ApplyBatch(configured, responseSession, response.ReadBatch(messageIndex));
             }
         }
 
         private void ApplyBatch(
             BattlementRunnerOptions configured,
             SessionId responseSession,
-            Batch<ICommand> batch
+            IBattlementBatchView batch
         )
         {
+            bool transferred = false;
             try
             {
                 BattlementBatchAdmissionResult result = batchAdmission.Admit(
@@ -1542,6 +1628,7 @@ namespace Battlement
                     fields
                 );
                 configuredRuntime!.BatchScheduler.Schedule(responseSession, batch, result);
+                transferred = true;
             }
             catch (BattlementBatchAdmissionException exception)
             {
@@ -1558,6 +1645,11 @@ namespace Battlement
             catch (BattlementUnorderableBatchException exception)
             {
                 FailSession(configured, exception.Message, exception: exception);
+            }
+            finally
+            {
+                if (!transferred)
+                    batch.Dispose();
             }
         }
 
@@ -1593,9 +1685,10 @@ namespace Battlement
         private void ApplySnapshot(
             BattlementRunnerOptions configured,
             SessionId responseSession,
-            Snapshot snapshot
+            IBattlementSnapshotView snapshot
         )
         {
+            bool transferred = false;
             try
             {
                 configuredRuntime!.PointerInput.Suspend();
@@ -1611,11 +1704,17 @@ namespace Battlement
                     snapshot,
                     session.IsReconnecting
                 );
+                transferred = true;
                 AdvanceSnapshotPreparation(configured);
             }
             catch (BattlementSnapshotReplacementException exception)
             {
                 FailSession(configured, exception.Message, exception: exception);
+            }
+            finally
+            {
+                if (!transferred)
+                    snapshot.Dispose();
             }
         }
 
@@ -1663,7 +1762,7 @@ namespace Battlement
             if (result is not null)
             {
                 fields["status"] = result.Status.ToString();
-                fields["payload_bytes"] = result.Payload.Length.ToString(
+                fields["payload_bytes"] = result.PayloadLength.ToString(
                     CultureInfo.InvariantCulture
                 );
                 if (
@@ -1778,7 +1877,8 @@ namespace Battlement
 
         private void SubmitFailure(
             BattlementRunnerOptions configured,
-            Func<byte[]> serialize,
+            Func<ReadOnlyMemory<byte>> serialize,
+            Func<BattlementNativeTransport, BattlementTransportResult>? nativeSubmit,
             string eventName,
             string message,
             SessionId sessionId,
@@ -1821,13 +1921,23 @@ namespace Battlement
             try
             {
                 BattlementTransportResult result;
-                byte[] json;
+                ReadOnlyMemory<byte>? encoded = null;
                 using (BattlementProfiler.Serialization.Auto())
                 {
-                    json = serialize();
-                    payloadBytes = json.Length;
+                    if (
+                        configured.Transport is BattlementNativeTransport native
+                        && nativeSubmit is not null
+                    )
+                    {
+                        payloadBytes = 0;
+                    }
+                    else
+                    {
+                        encoded = serialize();
+                        payloadBytes = encoded.Value.Length;
+                    }
                 }
-                if (json.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                if (payloadBytes > BattlementProtocolLimits.MaximumMessageBytes)
                 {
                     FailSession(
                         configured,
@@ -1841,7 +1951,11 @@ namespace Battlement
 
                 using (BattlementProfiler.Transport.Auto())
                 {
-                    result = configured.Transport.Submit(json);
+                    result =
+                        configured.Transport is BattlementNativeTransport native
+                        && nativeSubmit is not null
+                            ? nativeSubmit(native)
+                            : configured.Transport.Submit(encoded!.Value);
                 }
 
                 ProcessTransportResult(
@@ -1860,6 +1974,11 @@ namespace Battlement
                     payloadBytes: payloadBytes,
                     exception: submissionException
                 );
+            }
+            finally
+            {
+                if (configured.Transport is not BattlementNativeTransport)
+                    coreRequests.TrimOversized();
             }
         }
 
@@ -2004,29 +2123,105 @@ namespace Battlement
                 return false;
             }
 
-            BattlementRunnerOptions configured = RequireOptions();
-            byte[] message;
-            using (BattlementProfiler.Serialization.Auto())
-                message = SerializeAction(configured, body, actionId);
-            Submit(message);
+            SubmitCoreAction(body, actionId, currentSession);
             return CanEmitInput && session.LastSession == currentSession;
         }
 
-        private byte[] SerializeAction(
-            BattlementRunnerOptions configured,
+        private void SubmitCoreAction(
             ActionBody body,
-            ActionId? actionId = null
-        ) =>
-            configured.ProtocolCodec.SerializeAction(
-                new Action(
-                    actionId ?? new ActionId(Guid.NewGuid()),
-                    session.LastSession
-                        ?? throw new InvalidOperationException("No Battlement session is active."),
-                    body
-                )
+            ActionId? actionId = null,
+            SessionId? expectedSession = null
+        )
+        {
+            BattlementRunnerOptions configured = RequireOptions();
+            SessionId currentSession =
+                session.LastSession
+                ?? throw new InvalidOperationException("No Battlement session is active.");
+            if (expectedSession is SessionId expected && expected != currentSession)
+                return;
+            var action = new Action(actionId ?? new ActionId(Guid.NewGuid()), currentSession, body);
+            if (configured.Transport is BattlementNativeTransport native)
+            {
+                RecordCoreAction(configured, action);
+                SubmitNative(native, action);
+            }
+            else
+            {
+                ReadOnlyMemory<byte> message;
+                using (BattlementProfiler.Serialization.Auto())
+                    message = coreRequests.WriteAction(action);
+                RecordCoreAction(configured, action);
+                try
+                {
+                    Submit(message);
+                }
+                finally
+                {
+                    coreRequests.TrimOversized();
+                }
+            }
+        }
+
+        private static void RecordCoreAction(BattlementRunnerOptions configured, Action action)
+        {
+            (configured.Transport as IBattlementCoreMessageObserver)?.RecordAction(action);
+            configured.CoreMessageObserver?.RecordAction(action);
+        }
+
+        private static void RecordBatchFailure(
+            BattlementRunnerOptions configured,
+            BatchFailed<CoreErrorCode> failure
+        )
+        {
+            (configured.Transport as IBattlementCoreMessageObserver)?.RecordBatchFailure(failure);
+            configured.CoreMessageObserver?.RecordBatchFailure(failure);
+        }
+
+        private static void RecordOperationFailure(
+            BattlementRunnerOptions configured,
+            OperationFailed<CoreErrorCode> failure
+        )
+        {
+            (configured.Transport as IBattlementCoreMessageObserver)?.RecordOperationFailure(
+                failure
             );
+            configured.CoreMessageObserver?.RecordOperationFailure(failure);
+        }
+
+        private void SubmitNative(BattlementNativeTransport transport, Action action)
+        {
+            BattlementRunnerOptions configured = RequireOptions();
+            TimeSpan started = configuredRuntime!.DittoMotionClock.Elapsed;
+            try
+            {
+                BattlementTransportResult result;
+                using (BattlementProfiler.Transport.Auto())
+                    result = transport.Submit(action);
+                ProcessTransportResult(
+                    configured,
+                    result,
+                    "Submit failed.",
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started
+                );
+            }
+            catch (Exception exception)
+            {
+                FailSession(
+                    configured,
+                    $"Submit response failed: {exception.Message}",
+                    duration: configuredRuntime.DittoMotionClock.Elapsed - started,
+                    exception: exception
+                );
+            }
+        }
 
         private void ApplyGeometryObservations(GeometryObservationUpdate update)
+        {
+            configuredRuntime!.GeometrySampler.Apply(update);
+            geometryFrames.Retire(update);
+        }
+
+        private void ApplyGeometryObservations(BattlementDirectGeometryCommand update)
         {
             configuredRuntime!.GeometrySampler.Apply(update);
             geometryFrames.Retire(update);
@@ -2145,10 +2340,10 @@ namespace Battlement
             return configured;
         }
 
-        private IBattlementExtensionProtocolCodec RequireExtensionCodec() =>
-            RequireOptions().ProtocolCodec as IBattlementExtensionProtocolCodec
+        private IBattlementFlatBufferClientSchema RequireFlatBufferClientSchema() =>
+            RequireOptions().FlatBufferClientSchema
             ?? throw new InvalidOperationException(
-                "Registered custom code requires an extension-capable protocol codec."
+                "Native custom code requires a generated FlatBuffer client schema."
             );
 
         private void RequireConfiguredAndStopped()

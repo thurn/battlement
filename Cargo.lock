@@ -601,9 +601,19 @@ dependencies = [
  "battlement",
  "battlement-cloud",
  "battlement-cloud-fake",
+ "battlement-flatbuffers",
  "battlement-native",
  "battlement-ui-fake",
- "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-flatbuffers"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-cloud",
+ "flatbuffers",
  "uuid",
 ]
 
@@ -613,6 +623,7 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "battlement",
+ "battlement-flatbuffers",
  "color-backtrace",
  "libloading",
  "rayon",
@@ -621,6 +632,7 @@ dependencies = [
  "sha2",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -628,7 +640,9 @@ name = "battlement-native-export-fixture"
 version = "0.0.0"
 dependencies = [
  "battlement",
+ "battlement-flatbuffers",
  "battlement-native",
+ "flatbuffers",
  "serde",
  "tracing",
 ]
@@ -640,6 +654,7 @@ dependencies = [
  "battlement",
  "battlement-builder",
  "battlement-fake",
+ "battlement-flatbuffers",
  "battlement-native",
  "battlement-reactant-asset-macros",
  "inventory",
@@ -1313,6 +1328,16 @@ name = "find-msvc-tools"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
+
+[[package]]
+name = "flatbuffers"
+version = "25.12.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3"
+dependencies = [
+ "bitflags",
+ "rustc_version",
+]
 
 [[package]]
 name = "flate2"

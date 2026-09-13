@@ -1,0 +1,245 @@
+include "command_core.fbs";
+include "accessibility.fbs";
+include "ui.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum BatchStart:ubyte { Now, AfterEarlierBlockingWork, AfterEarlierAssetPreparation }
+
+enum CoreCommandKind:ubyte {
+  ApplicationOpenUrl,
+  Diagnostics,
+  AssetsReplaceSet,
+  SceneLoad,
+  SceneUnload,
+  SceneSetPrimary,
+  ObjectCreate,
+  ObjectDestroy,
+  ObjectSetActive,
+  ObjectReparent,
+  TransformSetLocalPosition,
+  TransformSetWorldPosition,
+  TransformTweenLocalPosition,
+  TransformTweenWorldPosition,
+  TransformSetLocalRotation,
+  TransformSetWorldRotation,
+  TransformTweenLocalRotation,
+  TransformTweenWorldRotation,
+  TransformSetLocalScale,
+  TransformTweenLocalScale,
+  RendererSetMaterial,
+  CameraSetEnabled,
+  CameraSetPerspective,
+  CameraTweenFieldOfView,
+  CameraSetOrthographic,
+  CameraTweenOrthographicSize,
+  CameraSetClipping,
+  CameraSetClear,
+  LightSetEnabled,
+  LightSetType,
+  LightSetColor,
+  LightTweenColor,
+  LightSetIntensity,
+  LightTweenIntensity,
+  LightSetRange,
+  LightSetSpotAngle,
+  LightSetShadows,
+  ImageSetTexture,
+  ImageSetSize,
+  ImageSetFit,
+  ImageSetTint,
+  ImageTweenTint,
+  ImageSetOpacity,
+  ImageTweenOpacity,
+  ImageSetFaceCamera,
+  TextSetContent,
+  TextSetFont,
+  TextSetSize,
+  TextTweenSize,
+  TextSetColor,
+  TextTweenColor,
+  TextSetAlignment,
+  TextSetWrapping,
+  TextSetRichText,
+  TextSetFaceCamera,
+  AnimatorPlay,
+  AnimatorCrossFade,
+  AnimatorSetBool,
+  AnimatorSetInt,
+  AnimatorSetFloat,
+  AnimatorSetTrigger,
+  AnimatorSetSpeed,
+  ParticlePlay,
+  ParticleStop,
+  ParticleSpawn,
+  AudioPlay,
+  AudioStop,
+  AudioPause,
+  AudioResume,
+  AudioSeek,
+  AudioSetBuffering,
+  AudioReplace,
+  AudioSetVolume,
+  AudioTweenVolume,
+  TimeWait,
+  OperationCancel,
+  InputSetEnabled,
+  InputSetCamera,
+  InputSetPointerEvents,
+  InputSetGlobalKeys,
+  InputSetController,
+  ControllerVibrate,
+  DebugUi,
+  VisualElementCreate,
+  VisualElementUpdate,
+  VisualElementDestroy,
+  VisualElementPerformAction,
+  MotionValue,
+  MotionValuePlayback,
+  MotionPlayback,
+  MotionControlledClock,
+  MotionControl,
+  MotionScope,
+  MotionDragControl,
+  GeometryObservationUpdate,
+  AccessibilityUpdate
+}
+
+union CoreCommandPayload {
+  ExternalUrlPayload,
+  DiagnosticsPayload,
+  ReplaceAssetSetPayload,
+  SceneLoadPayload,
+  SceneIdPayload,
+  ObjectCreatePayload,
+  ObjectIdPayload,
+  ObjectSetActivePayload,
+  ObjectReparentPayload,
+  PositionPayload,
+  TweenPositionPayload,
+  RotationPayload,
+  TweenRotationPayload,
+  ScalePayload,
+  TweenScalePayload,
+  SetMaterialPayload,
+  ObjectEnabledPayload,
+  PerspectivePayload,
+  TweenFieldOfViewPayload,
+  OrthographicPayload,
+  TweenOrthographicSizePayload,
+  CameraClippingPayload,
+  CameraClearPayload,
+  LightTypePayload,
+  ColorPayload,
+  TweenColorPayload,
+  IntensityPayload,
+  TweenIntensityPayload,
+  LightRangePayload,
+  SpotAnglePayload,
+  LightShadowsPayload,
+  SetTexturePayload,
+  SetFontPayload,
+  ImageSizePayload,
+  ImageFitPayload,
+  TintPayload,
+  TweenTintPayload,
+  OpacityPayload,
+  TweenOpacityPayload,
+  TextContentPayload,
+  TextSizePayload,
+  TweenTextSizePayload,
+  TextAlignmentPayload,
+  TextWrappingPayload,
+  AnimatorPlayPayload,
+  AnimatorCrossFadePayload,
+  AnimatorBoolPayload,
+  AnimatorIntPayload,
+  AnimatorFloatPayload,
+  AnimatorParameterPayload,
+  AnimatorSpeedPayload,
+  ParticlePlayPayload,
+  ParticleStopPayload,
+  ParticleSpawnPayload,
+  AudioPlayPayload,
+  AudioStopPayload,
+  AudioPlaybackPayload,
+  AudioSeekPayload,
+  AudioBufferingPayload,
+  AudioReplacePayload,
+  AudioVolumePayload,
+  TweenAudioVolumePayload,
+  WaitPayload,
+  CancelOperationPayload,
+  SetInputEnabledPayload,
+  PointerEventsPayload,
+  GlobalKeysPayload,
+  ControllerInputSettings,
+  ControllerVibrationPayload,
+  DebugUiPayload,
+  VisualElementCreatePayload,
+  VisualElementUpdatePayload,
+  VisualElementDestroyPayload,
+  VisualElementActionPayload,
+  MotionValueOperation,
+  MotionValuePlaybackOperation,
+  MotionPlaybackOperation,
+  MotionControlledClockOperation,
+  MotionControlOperation,
+  MotionScopeOperation,
+  MotionDragControlOperation,
+  GeometryObservationUpdate,
+  AccessibilityUpdate
+}
+
+table CoreCommand {
+  command_id:Uuid (required);
+  blocking:bool = true;
+  kind:CoreCommandKind;
+  payload:CoreCommandPayload (required);
+}
+
+union CommandEntryPayload { CoreCommand }
+
+table CommandEntry {
+  command:CommandEntryPayload (required);
+}
+
+table ParallelCommandGroup {
+  commands:[CommandEntry] (required);
+}
+
+table Batch {
+  batch_id:Uuid (required);
+  session_id:Uuid (required);
+  caused_by_action_id:Uuid;
+  start:BatchStart;
+  groups:[ParallelCommandGroup] (required);
+}
+
+table Snapshot {
+  session_id:Uuid (required);
+  prepared_assets:[PreparedAsset] (required);
+  scenes:[Scene] (required);
+  primary_scene_id:Uuid;
+  objects:[GameObject] (required);
+  ui:[UiDocument] (required);
+  panel_input_configuration:PanelInputConfiguration (required);
+  input_camera_id:Uuid;
+  input_disabled:bool;
+  global_keys:[PhysicalKey] (required);
+  controller_input:ControllerInputSettings;
+}
+
+union ResponseMessage { Snapshot, Batch }
+
+table ResponseMessageEntry {
+  message:ResponseMessage (required);
+}
+
+table Response {
+  session_id:Uuid (required);
+  messages:[ResponseMessageEntry] (required);
+}
+
+root_type Response;
+file_identifier "BTRS";

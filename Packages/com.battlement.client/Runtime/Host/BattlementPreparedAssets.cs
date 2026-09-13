@@ -41,11 +41,33 @@ namespace Battlement
         /// </param>
         public void BeginReplacement(IReadOnlyList<PreparedAsset> assets, bool isAuthoritative)
         {
-            ThrowIfDisposed();
             Preconditions.CheckNotNull(assets, nameof(assets));
+            BeginReplacement(assets.Count, index => assets[index], isAuthoritative);
+        }
+
+        internal void BeginReplacement(
+            BattlementFlatBufferSnapshotView snapshot,
+            bool isAuthoritative
+        ) =>
+            BeginReplacement(
+                snapshot.DirectPreparedAssetCount,
+                snapshot.ReadDirectPreparedAsset,
+                isAuthoritative
+            );
+
+        internal void BeginReplacement(BattlementDirectAssetSet assets) =>
+            BeginReplacement(assets.Count, assets.Read, isAuthoritative: false);
+
+        private void BeginReplacement(
+            int assetCount,
+            Func<int, PreparedAsset> readAsset,
+            bool isAuthoritative
+        )
+        {
+            ThrowIfDisposed();
             CancelPending();
 
-            if (assets.Count > MaximumAssets)
+            if (assetCount > MaximumAssets)
             {
                 throw Failure(
                     CoreErrorCode.LimitExceeded,
@@ -53,13 +75,14 @@ namespace Battlement
                 );
             }
 
-            var declarations = new List<(string Address, PreparedAsset Asset)>(assets.Count);
+            var declarations = new List<(string Address, PreparedAsset Asset)>(assetCount);
             var validated = new Dictionary<string, PreparedAsset>(
-                assets.Count,
+                assetCount,
                 StringComparer.Ordinal
             );
-            foreach (PreparedAsset asset in assets)
+            for (int index = 0; index < assetCount; index++)
             {
+                PreparedAsset asset = readAsset(index);
                 string address = AddressOf(asset);
                 if (Encoding.UTF8.GetByteCount(address) > MaximumStringBytes)
                 {
@@ -100,7 +123,7 @@ namespace Battlement
                 }
             }
 
-            var target = new Dictionary<string, Entry>(assets.Count, StringComparer.Ordinal);
+            var target = new Dictionary<string, Entry>(assetCount, StringComparer.Ordinal);
             var additions = new List<Entry>();
             try
             {

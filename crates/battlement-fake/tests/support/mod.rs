@@ -1,13 +1,23 @@
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
-use battlement::{ClientMessage, Command, Connect, Response, UiEventAction, UiEventResponse};
-use battlement_native::{Engine, EngineError};
+use battlement::{ClientMessage, Command, Response, UiEventAction, UiEventResponse};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 pub type SharedProbe = Rc<RefCell<Probe>>;
 
 #[derive(Default)]
+#[allow(dead_code)]
+pub struct RecordedConnect {
+  pub platform: String,
+  pub unity_version: String,
+  pub screen_width: u32,
+  pub screen_height: u32,
+  pub modules: Vec<String>,
+}
+
+#[derive(Default)]
 pub struct Probe {
-  pub connects: Vec<Connect>,
+  pub connects: Vec<RecordedConnect>,
   pub submits: Vec<ClientMessage<(), ()>>,
   pub polls: usize,
 }
@@ -39,8 +49,14 @@ impl Engine for ScriptedEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
-    self.probe.borrow_mut().connects.push(message);
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
+    self.probe.borrow_mut().connects.push(RecordedConnect {
+      platform: message.platform().to_owned(),
+      unity_version: message.unity_version().to_owned(),
+      screen_width: message.screen_width(),
+      screen_height: message.screen_height(),
+      modules: message.modules().map(str::to_owned).collect(),
+    });
     self
       .connect_responses
       .pop_front()

@@ -29,9 +29,15 @@ namespace Battlement
             Application.lowMemory += HandleLowMemory;
         }
 
-        public IBattlementCommandOperation? Play(CommandBody.Particle.Play command)
+        public IBattlementCommandOperation? Play(CommandBody.Particle.Play command) =>
+            Play(command.ObjectId, command.Restart);
+
+        public IBattlementCommandOperation? Play(BattlementDirectParticlePlay command) =>
+            Play(command.ObjectId, command.Restart);
+
+        private IBattlementCommandOperation? Play(ObjectId objectId, bool restart)
         {
-            GameObject target = world.RequireObject(command.ObjectId);
+            GameObject target = world.RequireObject(objectId);
             ParticleSystem[] systems = RequireSystems(target);
             if (motionClock.IsInstant || motionClock.IsControlled)
             {
@@ -43,7 +49,7 @@ namespace Battlement
             }
             foreach (ParticleSystem system in systems)
             {
-                if (command.Restart)
+                if (restart)
                 {
                     system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
@@ -54,12 +60,18 @@ namespace Battlement
             return null;
         }
 
-        public IBattlementCommandOperation? Stop(CommandBody.Particle.Stop command)
+        public IBattlementCommandOperation? Stop(CommandBody.Particle.Stop command) =>
+            Stop(command.ObjectId, command.Clear);
+
+        public IBattlementCommandOperation? Stop(BattlementDirectParticleStop command) =>
+            Stop(command.ObjectId, command.Clear);
+
+        private IBattlementCommandOperation? Stop(ObjectId objectId, bool clear)
         {
-            ParticleSystemStopBehavior behavior = command.Clear
+            ParticleSystemStopBehavior behavior = clear
                 ? ParticleSystemStopBehavior.StopEmittingAndClear
                 : ParticleSystemStopBehavior.StopEmitting;
-            foreach (ParticleSystem system in RequireSystems(world.RequireObject(command.ObjectId)))
+            foreach (ParticleSystem system in RequireSystems(world.RequireObject(objectId)))
             {
                 system.Stop(false, behavior);
             }
@@ -126,6 +138,61 @@ namespace Battlement
 
                 instance.Acquire(commandId.Value, position);
                 return new EffectOperation(instance, now + command.Lifetime);
+            }
+            catch
+            {
+                instance?.Destroy();
+                lease?.Dispose();
+                throw;
+            }
+        }
+
+        public IBattlementCommandOperation? Spawn(
+            CommandId commandId,
+            BattlementDirectParticleSpawn command,
+            TimeSpan now
+        )
+        {
+            TimeSpan lifetime = BattlementProtocolLimits.RequireDuration(
+                TimeSpan.FromMilliseconds(command.LifetimeMilliseconds),
+                "A particle effect lifetime",
+                allowZero: false
+            );
+            if (motionClock.IsInstant || motionClock.IsControlled)
+                return null;
+            UnityEngine.Vector3 position = command.ObjectId is ObjectId objectId
+                ? world.RequireObject(objectId).transform.position
+                : new UnityEngine.Vector3(
+                    RequireFinite(command.X, "World position X"),
+                    RequireFinite(command.Y, "World position Y"),
+                    RequireFinite(command.Z, "World position Z")
+                );
+            var asset = new PreparedAsset.ParticleEffect(
+                new ParticleEffectAddress(command.Address)
+            );
+            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            EffectInstance? instance = null;
+            try
+            {
+                if (lease.Value is not GameObject prefab)
+                    throw new BattlementCommandException(
+                        CoreErrorCode.AssetTypeMismatch,
+                        $"Prepared particle effect '{command.Address}' is not a GameObject."
+                    );
+                if (!prefab.TryGetComponent(out BattlementEffectPool marker))
+                {
+                    instance = EffectInstance.Create(prefab, lease, null);
+                    lease = null!;
+                }
+                else
+                {
+                    RequirePoolLimit(marker.MaxInactiveCount);
+                    EffectPool pool = GetPool(command.Address, prefab, marker.MaxInactiveCount);
+                    instance = pool.Get(lease);
+                    lease = null!;
+                }
+                instance.Acquire(commandId.Value, position);
+                return new EffectOperation(instance, now + lifetime);
             }
             catch
             {

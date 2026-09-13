@@ -22,11 +22,7 @@ namespace Battlement.Tests
             harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
             harness.Runner.Connect();
             harness.Transport.EnqueueUiEvent(
-                new BattlementUiEventTransportResult(
-                    BattlementTransportStatus.Success,
-                    UiEventDisposition.PreventDefault,
-                    SnapshotPayload(session, inputDisabled: true)
-                )
+                SnapshotResult(session, inputDisabled: true, UiEventDisposition.PreventDefault)
             );
 
             UiEventDisposition? disposition = Invoke(harness.Runner, Event());
@@ -57,17 +53,10 @@ namespace Battlement.Tests
             harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
             harness.Runner.Connect();
             harness.Transport.EnqueueUiEvent(
-                new BattlementUiEventTransportResult(
-                    BattlementTransportStatus.Success,
-                    UiEventDisposition.Continue,
-                    SnapshotPayload(session, inputDisabled: true)
-                )
+                SnapshotResult(session, inputDisabled: true, UiEventDisposition.Continue)
             );
             harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(
-                    BattlementTransportStatus.Success,
-                    SnapshotPayload(session, inputDisabled: false)
-                )
+                FakeBattlementTransport.ResponseResult(SnapshotResponse(session, false))
             );
 
             Assert.That(Invoke(harness.Runner, Event()), Is.EqualTo(UiEventDisposition.Continue));
@@ -121,7 +110,7 @@ namespace Battlement.Tests
                 new BattlementUiEventTransportResult(
                     BattlementTransportStatus.Success,
                     (UiEventDisposition)disposition,
-                    emptyPayload ? ReadOnlyMemory<byte>.Empty : SnapshotPayload(session, false)
+                    emptyPayload ? ReadOnlyMemory<byte>.Empty : new byte[] { 1 }
                 )
             );
 
@@ -145,6 +134,38 @@ namespace Battlement.Tests
             );
         }
 
+        [Test]
+        public void MalformedResponseCannotPublishPreventDefaultDisposition()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
+            harness.Runner.Connect();
+            harness.Transport.EnqueueUiEvent(
+                new BattlementUiEventTransportResult(
+                    BattlementTransportStatus.Success,
+                    UiEventDisposition.PreventDefault,
+                    new byte[] { 1, 2, 3, 4 }
+                )
+            );
+
+            Assert.That(Invoke(harness.Runner, Event()), Is.Null);
+            BattlementUiEventInspection inspection = harness.Runner.UiEventInspections.Single();
+            Assert.That(inspection.Disposition, Is.Null);
+            Assert.That(inspection.PreventedByReactant, Is.False);
+            Assert.That(
+                inspection.Outcome,
+                Is.EqualTo(BattlementUiEventInspectionOutcome.FailedAfterDispatch)
+            );
+            Assert.That(
+                inspection.FailureReason,
+                Is.EqualTo(BattlementUiEventFailureReason.ResponseSerialization)
+            );
+
+            harness.Runner.RunFrame();
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+        }
+
         private static UiEvent Event() =>
             new(
                 new ObjectId(Guid.NewGuid()),
@@ -156,20 +177,31 @@ namespace Battlement.Tests
         private static UiEventDisposition? Invoke(BattlementRunner runner, UiEvent value) =>
             (UiEventDisposition?)EmitUiEvent.Invoke(runner, new object[] { value });
 
-        private static byte[] SnapshotPayload(SessionId session, bool inputDisabled) =>
-            BattlementJson.SerializeResponse(
-                new Response(
-                    session,
-                    new ResponseMessage<Command>[]
-                    {
-                        new ResponseMessage<Command>.SnapshotMessage(
-                            FakeBattlementTransport.CompleteSnapshot(
-                                session,
-                                inputDisabled: inputDisabled
-                            )
-                        ),
-                    }
-                )
+        private static BattlementUiEventTransportResult SnapshotResult(
+            SessionId session,
+            bool inputDisabled,
+            UiEventDisposition disposition
+        ) =>
+            new BattlementUiEventTransportResult(
+                BattlementTransportStatus.Success,
+                disposition,
+                ReadOnlyMemory<byte>.Empty
+            ).OwnResponseView(
+                new BattlementOwnedResponseView(SnapshotResponse(session, inputDisabled))
+            );
+
+        private static Response SnapshotResponse(SessionId session, bool inputDisabled) =>
+            new(
+                session,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.SnapshotMessage(
+                        FakeBattlementTransport.CompleteSnapshot(
+                            session,
+                            inputDisabled: inputDisabled
+                        )
+                    ),
+                }
             );
     }
 }

@@ -15,6 +15,15 @@ namespace Battlement
             return null;
         }
 
+        public static IBattlementCommandOperation? SetEnabled(
+            BattlementDirectInputEnabled command,
+            Action<bool> setInputEnabled
+        )
+        {
+            setInputEnabled(command.Enabled);
+            return null;
+        }
+
         public static IBattlementCommandOperation? SetCamera(
             CommandBody.Input.SetCamera command,
             BattlementWorld world

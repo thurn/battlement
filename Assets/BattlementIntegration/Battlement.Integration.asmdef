@@ -3,9 +3,9 @@
   "rootNamespace": "Battlement.Integration",
   "references": [
     "Battlement.Protocol",
-    "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.Json",
+    "Battlement.FlatBuffers",
+    "Google.FlatBuffers",
     "Unity.InputSystem",
     "Unity.TextMeshPro"
   ]

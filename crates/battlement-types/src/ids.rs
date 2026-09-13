@@ -38,6 +38,11 @@ pub struct ProtocolId<K> {
 }
 
 impl<K> ProtocolId<K> {
+  /// Creates an identifier from canonical RFC 4122 bytes, rejecting all-zero input.
+  pub const fn from_bytes(bytes: [u8; 16]) -> Result<Self, IdError> {
+    Self::from_uuid(Uuid::from_bytes(bytes))
+  }
+
   /// Creates an identifier from a UUID, rejecting the all-zero value.
   pub const fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
     if uuid.is_nil() {

@@ -219,9 +219,10 @@ namespace Battlement.Tests
                 )
             );
             harness.Runner.Connect();
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             Physics.SyncTransforms();
             string? diagnostic = null;
             DittoResolvedScenario scenario = Scenario(

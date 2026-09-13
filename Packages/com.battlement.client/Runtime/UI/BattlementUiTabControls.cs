@@ -64,6 +64,14 @@ namespace Battlement.UI
             Synchronize(state);
         }
 
+        internal void ApplyDirectSelection(ObjectId objectId, uint selected)
+        {
+            TabViewState state = views[objectId.Value];
+            ValidateIndex(state.Target, selected);
+            RunSuppressed(state, () => state.Target.selectedTabIndex = checked((int)selected));
+            Synchronize(state);
+        }
+
         public void Initialize(TabView target, ObjectId objectId, Prop<uint> selectedTabIndex)
         {
             TabViewState state = views[objectId.Value];

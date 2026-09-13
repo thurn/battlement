@@ -70,9 +70,19 @@ namespace Battlement.Cloud.Diagnostics
 
         public void Execute(DiagnosticsCommand command)
         {
+            if (command is not DiagnosticsCommand.SetMetadata metadata)
+                throw new BattlementModuleException(
+                    CoreErrorCode.InvalidEncoding,
+                    "The Diagnostics command kind is unknown."
+                );
+            SetMetadata(metadata.Key, metadata.Value);
+        }
+
+        public void SetMetadata(string key, string? value)
+        {
             if (disposed)
                 throw new ObjectDisposedException(nameof(BattlementDiagnosticsRuntime));
-            CoreErrorCode? validation = DiagnosticsProtocol.Validate(command);
+            CoreErrorCode? validation = DiagnosticsProtocol.Validate(key, value);
             if (validation is CoreErrorCode errorCode)
             {
                 throw new BattlementModuleException(
@@ -80,16 +90,9 @@ namespace Battlement.Cloud.Diagnostics
                     "The Diagnostics metadata command is invalid."
                 );
             }
-            if (command is not DiagnosticsCommand.SetMetadata metadata)
-            {
-                throw new BattlementModuleException(
-                    CoreErrorCode.InvalidEncoding,
-                    "The Diagnostics command kind is unknown."
-                );
-            }
             try
             {
-                backend.SetMetadata(metadata.Key, metadata.Value);
+                backend.SetMetadata(key, value);
             }
             catch (Exception exception)
             {

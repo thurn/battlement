@@ -1,13 +1,13 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, F32Range, GameObject, LowerLimit, ObjectId,
-  ParentScene, PreparedAsset, Prop, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
-  UiElement, UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse,
-  UiMinMaxSlider, UiNode, UiProgressBar, UiValue, UpperLimit,
+  CameraState, ClientMessage, Command, F32Range, GameObject, LowerLimit, ObjectId, ParentScene,
+  PreparedAsset, Prop, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
+  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiMinMaxSlider,
+  UiNode, UiProgressBar, UiValue, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct RangeEngine {
   session_id: SessionId,
@@ -21,7 +21,7 @@ impl Engine for RangeEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))

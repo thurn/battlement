@@ -43,7 +43,7 @@ fn document(document: UiDocument) -> UiDocument {
   )
 }
 
-battlement_native::export_deterministic_engine!(
+battlement_native::export_deterministic_native_engine!(
   self::create_engine,
   clock = virtualized,
   randomness = seeded,

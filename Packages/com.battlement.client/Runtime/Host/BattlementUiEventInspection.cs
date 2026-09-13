@@ -64,7 +64,7 @@ namespace Battlement
 
         public bool NativePreventionApplied { get; internal set; }
 
-        public UiEventDisposition Disposition { get; internal set; }
+        public UiEventDisposition? Disposition { get; internal set; }
 
         public ulong? AdmissionSequence { get; internal set; }
 

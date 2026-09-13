@@ -1,0 +1,49 @@
+{
+  "version": "25.12.19",
+  "commit": "7e16302",
+  "compiler_archives": {
+    "darwin-arm64": {
+      "url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/Mac.flatc.binary.zip",
+      "sha256": "9340a5f9900b95e34ccadcb06bceec91180cc8b83098d5e966ed6d8d590cbba2"
+    },
+    "darwin-x86_64": {
+      "url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/MacIntel.flatc.binary.zip",
+      "sha256": "b1b0c5bd2b4a19282d461e5ba725f41399af23ef42f4277605b75148996f2f4b"
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/Linux.flatc.binary.clang%2B%2B-18.zip",
+      "sha256": "50c1915deeeb714f2a05c8ec795bd1af898d251a62e2774067703b29188efc90"
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/google/flatbuffers/releases/download/v25.12.19/Windows.flatc.binary.zip",
+      "sha256": "fff9445c9db907227bc64b54cc98743084c4949282aa4e576cff6a955724ddc8"
+    }
+  },
+  "generation_options": [
+    "--gen-onefile",
+    "--filename-suffix",
+    "_generated"
+  ],
+  "csharp_runtime_source_sha256": {
+    "ByteBuffer.cs": "f2f8fdeab8767cb928ae5d1b9d211db9e3ba64a2806f6562be34d95876a96f85",
+    "ByteBufferUtil.cs": "b1f712041443cbcf9acda6a1bf8f745c6ee1872ffb7bfb9b91be92ab37e060bd",
+    "FlatBufferBuilder.cs": "21b16221ecbcc4584fb382bf85cf8e9de80e60e468cc01fbbc798501a4a6115f",
+    "FlatBufferConstants.cs": "692a81a83d540adb80ee49655630ce63469657735ba1f071d246def38f0da469",
+    "FlatBufferVerify.cs": "d93a8ed082945ab2162dbc35187658b604812b7f2ecc0a2c6ab6c832ba3da175",
+    "IFlatbufferObject.cs": "3741b1769a4b80bacfe977c957173c0b005c50cfb70e42381b280b65f4a2174d",
+    "Offset.cs": "3ca223869957cd70fdcdb9fd04b4766c14c189e499e0fd874c9bfc8e238c457a",
+    "Struct.cs": "08ea4836f780dcce794f86ab8548be3bffbd55754a4c9b75adabdf1f7a3b0bc7",
+    "Table.cs": "ee88858a4a7a12f1a440b978643fe98d0b4686e9ab2deef73c76af50932fac92"
+  },
+  "csharp_runtime_artifact_sha256": {
+    "ByteBuffer.cs": "3d9e64d247da27d6bb86ccb06342ec7358c9ce2db7b2b4ddf656d5a1f81f0980",
+    "ByteBufferUtil.cs": "b1f712041443cbcf9acda6a1bf8f745c6ee1872ffb7bfb9b91be92ab37e060bd",
+    "FlatBufferBuilder.cs": "01e2c4460f39b0353fc772a99dc8833e23631803e470ac653dd81e1f842507b1",
+    "FlatBufferConstants.cs": "692a81a83d540adb80ee49655630ce63469657735ba1f071d246def38f0da469",
+    "FlatBufferVerify.cs": "6b7d1e8d3ea7de6b2cf97aa3c178764988df204d12610e354a8b019185795f94",
+    "IFlatbufferObject.cs": "3741b1769a4b80bacfe977c957173c0b005c50cfb70e42381b280b65f4a2174d",
+    "Offset.cs": "3ca223869957cd70fdcdb9fd04b4766c14c189e499e0fd874c9bfc8e238c457a",
+    "Struct.cs": "08ea4836f780dcce794f86ab8548be3bffbd55754a4c9b75adabdf1f7a3b0bc7",
+    "Table.cs": "0f9ca5b7755f0e28df255c2703cb6e02675eed9c49f4767926983b416130a306"
+  }
+}

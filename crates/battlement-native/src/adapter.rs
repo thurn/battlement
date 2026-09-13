@@ -5,16 +5,21 @@ use std::{
   sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use battlement::{Response, UiEventAction, UiEventDisposition, json};
-use serde::{Serialize, de::DeserializeOwned};
+use battlement::{Response, SessionId, UiEventDisposition};
+use battlement_flatbuffers::{
+  ConnectView, FinishedMessage, UiEventActionView, recycle_message_storage,
+};
 
-use crate::{Engine, EngineError, EngineFactory, panic_capture};
+use crate::{
+  Engine, EngineFactory, FlatBufferResponseCommand, FlatBufferSubmitError, NativeEngine,
+  NativeEngineFactory, NativeResponse, panic_capture,
+};
 
-/// Operation completed successfully and returned a JSON response.
+/// Operation completed successfully and returned a FlatBuffer response.
 pub const OK: i32 = 0;
 /// Poll completed successfully without a response.
 pub const NO_MESSAGE: i32 = 1;
-/// A pointer, length, or JSON input was invalid.
+/// A pointer, length, or FlatBuffer input was invalid.
 pub const INVALID_ARGUMENT: i32 = 2;
 /// Engine construction or execution failed.
 pub const ENGINE_ERROR: i32 = 3;
@@ -30,12 +35,21 @@ static OUTSTANDING_BUFFERS: AtomicUsize = AtomicUsize::new(0);
 
 /// One owned byte buffer crossing the C ABI.
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct BattlementBuffer {
   /// Pointer to the first byte, or null when `length` is zero.
   pub data: *mut u8,
   /// Number of initialized bytes available at `data`.
   pub length: u64,
+  /// Bytes retained by the original allocation.
+  pub allocation_bytes: u64,
+  /// Base pointer of the original allocation. This may precede `data` for a
+  /// backwards-built FlatBuffer.
+  #[doc(hidden)]
+  pub allocation_data: *mut u8,
+  /// Initialized length used to reconstruct the original allocation.
+  #[doc(hidden)]
+  pub allocation_length: u64,
 }
 
 impl BattlementBuffer {
@@ -43,19 +57,35 @@ impl BattlementBuffer {
   pub const EMPTY: Self = Self {
     data: ptr::null_mut(),
     length: 0,
+    allocation_bytes: 0,
+    allocation_data: ptr::null_mut(),
+    allocation_length: 0,
   };
 
   pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
+    Self::from_storage(bytes, 0)
+  }
+
+  pub(crate) fn from_storage(bytes: Vec<u8>, start: usize) -> Self {
+    assert!(
+      start <= bytes.len(),
+      "finished buffer start exceeds storage"
+    );
     if bytes.is_empty() {
       return Self::EMPTY;
     }
+    assert!(start < bytes.len(), "finished buffer cannot be empty");
 
-    let mut bytes = bytes.into_boxed_slice();
+    let mut bytes = std::mem::ManuallyDrop::new(bytes);
+    let allocation_data = bytes.as_mut_ptr();
     let buffer = Self {
-      data: bytes.as_mut_ptr(),
-      length: bytes.len() as u64,
+      // SAFETY: `start` was checked against the initialized allocation length.
+      data: unsafe { allocation_data.add(start) },
+      length: (bytes.len() - start) as u64,
+      allocation_bytes: bytes.capacity() as u64,
+      allocation_data,
+      allocation_length: bytes.len() as u64,
     };
-    std::mem::forget(bytes);
     OUTSTANDING_BUFFERS.fetch_add(1, Ordering::Relaxed);
     buffer
   }
@@ -75,9 +105,9 @@ impl Drop for LiveEngineReservation {
 
 /// Opaque owner of one concrete engine instance.
 #[repr(C)]
-pub struct BattlementEngine<E: Engine> {
-  engine: E,
-  poisoned: bool,
+pub struct BattlementEngine<E> {
+  pub(crate) engine: E,
+  pub(crate) poisoned: bool,
 }
 
 /// Creates the process's one live engine instance.
@@ -158,64 +188,46 @@ pub unsafe fn destroy<E: Engine>(engine: *mut BattlementEngine<E>) {
 ///
 /// # Safety
 ///
-/// `engine` must be the live handle from [`create`]. `json_data` must be
+/// `engine` must be the live handle from [`create`]. `flatbuffer_data` must be
 /// readable for `length` bytes for the duration of this call. `out_buffer` must
 /// be writable and correctly aligned.
 pub unsafe fn connect<E: Engine>(
   engine: *mut BattlementEngine<E>,
-  json_data: *const u8,
+  flatbuffer_data: *const u8,
   length: u64,
   out_buffer: *mut BattlementBuffer,
 ) -> i32 {
   // SAFETY: All raw pointers are validated before their promised regions are accessed.
-  unsafe {
-    request(
-      engine,
-      json_data,
-      length,
-      out_buffer,
-      "connect",
-      |engine, value| engine.connect(value),
-    )
-  }
+  unsafe { request_connect(engine, flatbuffer_data, length, out_buffer) }
 }
 
-/// Decodes a client message, invokes the engine, and serializes its response.
+/// Verifies a core client FlatBuffer, invokes the engine, and serializes its response.
 ///
 /// # Safety
 ///
-/// `engine` must be the live handle from [`create`]. `json_data` must be
+/// `engine` must be the live handle from [`create`]. `flatbuffer_data` must be
 /// readable for `length` bytes for the duration of this call. `out_buffer` must
 /// be writable and correctly aligned.
 pub unsafe fn submit<E: Engine>(
   engine: *mut BattlementEngine<E>,
-  json_data: *const u8,
+  flatbuffer_data: *const u8,
   length: u64,
   out_buffer: *mut BattlementBuffer,
 ) -> i32 {
   // SAFETY: All raw pointers are validated before their promised regions are accessed.
-  unsafe {
-    request(
-      engine,
-      json_data,
-      length,
-      out_buffer,
-      "client message",
-      |engine, value| engine.submit(value),
-    )
-  }
+  unsafe { request_submit(engine, flatbuffer_data, length, out_buffer) }
 }
 
 /// Decodes a synchronous UI event, invokes the engine, and returns both outputs.
 ///
 /// # Safety
 ///
-/// `engine` must be the live handle from [`create`]. `json_data` must be
+/// `engine` must be the live handle from [`create`]. `flatbuffer_data` must be
 /// readable for `length` bytes. Both output pointers must be writable and
 /// correctly aligned.
 pub unsafe fn submit_ui_event<E: Engine>(
   engine: *mut BattlementEngine<E>,
-  json_data: *const u8,
+  flatbuffer_data: *const u8,
   length: u64,
   out_disposition: *mut u32,
   out_buffer: *mut BattlementBuffer,
@@ -243,7 +255,7 @@ pub unsafe fn submit_ui_event<E: Engine>(
     return PANIC;
   }
   // SAFETY: The caller promises the input is readable for the duration of this call.
-  let bytes = match unsafe { input_slice(json_data, length) } {
+  let bytes = match unsafe { input_slice(flatbuffer_data, length) } {
     Ok(bytes) => bytes,
     Err(error) => {
       // SAFETY: `out_buffer` was checked and initialized above.
@@ -251,27 +263,18 @@ pub unsafe fn submit_ui_event<E: Engine>(
       return INVALID_ARGUMENT;
     }
   };
-  let action: UiEventAction = match json::from_slice(bytes) {
+  let action = match UiEventActionView::read(bytes) {
     Ok(action) => action,
     Err(error) => {
       // SAFETY: `out_buffer` was checked and initialized above.
-      unsafe { write_error(out_buffer, format!("invalid UI event action JSON: {error}")) };
+      unsafe { write_error(out_buffer, error.to_string()) };
       return INVALID_ARGUMENT;
     }
   };
-  if !action.is_valid() {
-    // SAFETY: `out_buffer` was checked and initialized above.
-    unsafe {
-      write_error(
-        out_buffer,
-        "a default-prevented UI event must be cancelable",
-      )
-    };
-    return INVALID_ARGUMENT;
-  }
-  let session_id = action.session_id;
+  let session_id = SessionId::from_uuid(uuid::Uuid::from_bytes(action.session_id()))
+    .expect("verified UI event session UUID is nonzero");
   // SAFETY: The caller promises a unique live engine pointer for this serial call.
-  let result = match unsafe { &mut (*engine).engine }.submit_ui_event(action) {
+  let result = match unsafe { &mut (*engine).engine }.submit_ui_event_view(action) {
     Ok(result) => result,
     Err(error) => {
       // SAFETY: `out_buffer` was checked and initialized above.
@@ -284,17 +287,18 @@ pub unsafe fn submit_ui_event<E: Engine>(
     unsafe { write_error(out_buffer, "UI event response session mismatch") };
     return ENGINE_ERROR;
   }
-  let bytes = match json::to_vec(&result.response) {
-    Ok(bytes) => bytes,
+  let message = match E::Command::write_response(&result.response) {
+    Ok(message) => message,
     Err(error) => {
       // SAFETY: `out_buffer` was checked and initialized above.
       unsafe { write_error(out_buffer, format!("could not serialize response: {error}")) };
       return ENGINE_ERROR;
     }
   };
+  let (storage, start) = message.into_storage();
   // SAFETY: Both outputs were checked and serialization has completed.
   unsafe {
-    out_buffer.write(BattlementBuffer::from_bytes(bytes));
+    out_buffer.write(BattlementBuffer::from_storage(storage, start));
     out_disposition.write(result.disposition as u32);
   }
   OK
@@ -353,12 +357,16 @@ pub unsafe fn buffer_free(buffer: BattlementBuffer) {
   if buffer.data.is_null() || buffer.length == 0 {
     return;
   }
-  let Ok(length) = usize::try_from(buffer.length) else {
+  let (Ok(length), Ok(capacity)) = (
+    usize::try_from(buffer.allocation_length),
+    usize::try_from(buffer.allocation_bytes),
+  ) else {
     return;
   };
-  let slice = ptr::slice_from_raw_parts_mut(buffer.data, length);
-  // SAFETY: The caller returns the exact boxed slice allocated by `from_bytes`.
-  unsafe { drop(Box::from_raw(slice)) };
+  // SAFETY: The caller returns the exact Vec allocation and dimensions from
+  // `from_storage`; `data` may point at a finished suffix and is never used to free.
+  let storage = unsafe { Vec::from_raw_parts(buffer.allocation_data, length, capacity) };
+  recycle_message_storage(storage);
   OUTSTANDING_BUFFERS.fetch_sub(1, Ordering::Relaxed);
 }
 
@@ -369,6 +377,55 @@ pub unsafe fn buffer_free(buffer: BattlementBuffer) {
 #[doc(hidden)]
 pub fn outstanding_buffer_count() -> usize {
   OUTSTANDING_BUFFERS.load(Ordering::Relaxed)
+}
+
+/// Reads cumulative direct-response builder and handoff-copy diagnostics.
+///
+/// # Safety
+///
+/// Every output must be writable and correctly aligned.
+#[doc(hidden)]
+pub unsafe fn ffi_transport_diagnostics(
+  out_created: *mut u64,
+  out_reused: *mut u64,
+  out_growths: *mut u64,
+  out_copied_bytes: *mut u64,
+  out_idle_bytes: *mut u64,
+  out_handoff_payload_copies: *mut u64,
+) -> i32 {
+  for output in [
+    out_created,
+    out_reused,
+    out_growths,
+    out_copied_bytes,
+    out_idle_bytes,
+    out_handoff_payload_copies,
+  ] {
+    if !output.is_null() {
+      // SAFETY: The caller promises each non-null output is writable.
+      unsafe { output.write(0) };
+    }
+  }
+  if out_created.is_null()
+    || out_reused.is_null()
+    || out_growths.is_null()
+    || out_copied_bytes.is_null()
+    || out_idle_bytes.is_null()
+    || out_handoff_payload_copies.is_null()
+  {
+    return INVALID_ARGUMENT;
+  }
+  let diagnostics = battlement_flatbuffers::message_writer_diagnostics();
+  // SAFETY: All outputs were checked and initialized above.
+  unsafe {
+    out_created.write(diagnostics.created);
+    out_reused.write(diagnostics.reused);
+    out_growths.write(diagnostics.growths);
+    out_copied_bytes.write(diagnostics.copied_bytes);
+    out_idle_bytes.write(diagnostics.idle_bytes as u64);
+    out_handoff_payload_copies.write(0);
+  }
+  OK
 }
 
 /// Runs engine creation behind the panic-safe C ABI boundary.
@@ -568,6 +625,330 @@ where
   }
 }
 
+/// Creates a direct FlatBuffers engine behind the panic-safe ABI boundary.
+///
+/// # Safety
+///
+/// Both output pointers must be writable and correctly aligned.
+#[doc(hidden)]
+pub unsafe fn ffi_native_create<F>(
+  factory: F,
+  out_engine: *mut *mut c_void,
+  out_error: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  if out_engine.is_null() || out_error.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises writable outputs.
+  unsafe {
+    out_engine.write(ptr::null_mut());
+    out_error.write(BattlementBuffer::EMPTY);
+  }
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
+    if HAS_LIVE_ENGINE
+      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .is_err()
+    {
+      // SAFETY: The output was validated and initialized above.
+      unsafe { write_error(out_error, "a Battlement engine instance is already live") };
+      return INVALID_ARGUMENT;
+    }
+    let mut reservation = LiveEngineReservation { committed: false };
+    if let Err(error) = crate::logging::log_initialize() {
+      // SAFETY: The output was validated and initialized above.
+      unsafe {
+        write_error(
+          out_error,
+          format!("could not initialize Rust tracing: {error}"),
+        )
+      };
+      return ENGINE_ERROR;
+    }
+    match factory.create_native() {
+      Ok(engine) => {
+        let engine = Box::new(BattlementEngine {
+          engine,
+          poisoned: false,
+        });
+        // SAFETY: The output was validated above.
+        unsafe { out_engine.write(Box::into_raw(engine).cast()) };
+        reservation.committed = true;
+        OK
+      }
+      Err(error) => {
+        // SAFETY: The output was validated above.
+        unsafe { write_error(out_error, error) };
+        ENGINE_ERROR
+      }
+    }
+  })) {
+    Ok(status) => status,
+    Err(payload) => {
+      HAS_LIVE_ENGINE.store(false, Ordering::Release);
+      // SAFETY: Outputs were validated above.
+      unsafe {
+        out_engine.write(ptr::null_mut());
+        write_panic(out_error, "battlement_engine_create", payload.as_ref());
+      }
+      PANIC
+    }
+  }
+}
+
+/// Destroys a direct FlatBuffers engine behind the panic-safe ABI boundary.
+///
+/// # Safety
+///
+/// `engine` must be the unique pointer returned by [`ffi_native_create`].
+#[doc(hidden)]
+pub unsafe fn ffi_native_destroy<F>(
+  _: F,
+  engine: *mut c_void,
+  out_error: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  if out_error.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises a writable output.
+  unsafe { out_error.write(BattlementBuffer::EMPTY) };
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
+    if engine.is_null() {
+      return;
+    }
+    HAS_LIVE_ENGINE.store(false, Ordering::Release);
+    // SAFETY: The caller transfers the exact allocation returned at creation.
+    drop(unsafe { Box::from_raw(engine.cast::<BattlementEngine<F::Engine>>()) });
+  })) {
+    Ok(()) => OK,
+    Err(payload) => {
+      // SAFETY: The output was validated above.
+      unsafe { write_panic(out_error, "battlement_engine_destroy", payload.as_ref()) };
+      PANIC
+    }
+  }
+}
+
+/// Runs direct native connect and registers no intermediate owned response.
+///
+/// # Safety
+///
+/// Pointers must satisfy the exported connect contract.
+#[doc(hidden)]
+pub unsafe fn ffi_native_connect<F>(
+  _: F,
+  engine: *mut c_void,
+  data: *const u8,
+  length: u64,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  let engine = engine.cast::<BattlementEngine<F::Engine>>();
+  // SAFETY: The factory marker identifies the concrete engine allocation.
+  unsafe {
+    ffi_native_output_call(engine, out_buffer, "battlement_connect", |engine| {
+      let bytes =
+        input_slice(data, length).map_err(|error| (INVALID_ARGUMENT, error.to_owned()))?;
+      let view = ConnectView::read(bytes)
+        .map_err(|error| (INVALID_ARGUMENT, format!("invalid connect: {error}")))?;
+      engine
+        .connect_native(view)
+        .map(NativeResponse::into_message)
+        .map_err(|error| (ENGINE_ERROR, error.to_string()))
+    })
+  }
+}
+
+/// Runs direct native submission.
+///
+/// # Safety
+///
+/// Pointers must satisfy the exported submit contract.
+#[doc(hidden)]
+pub unsafe fn ffi_native_submit<F>(
+  _: F,
+  engine: *mut c_void,
+  data: *const u8,
+  length: u64,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  let engine = engine.cast::<BattlementEngine<F::Engine>>();
+  // SAFETY: The factory marker identifies the concrete engine allocation.
+  unsafe {
+    ffi_native_output_call(engine, out_buffer, "battlement_submit", |engine| {
+      let bytes =
+        input_slice(data, length).map_err(|error| (INVALID_ARGUMENT, error.to_owned()))?;
+      engine
+        .submit_native(bytes)
+        .map(NativeResponse::into_message)
+        .map_err(|error| match error {
+          FlatBufferSubmitError::InvalidArgument(error) => (INVALID_ARGUMENT, error.to_string()),
+          FlatBufferSubmitError::Engine(error) => (ENGINE_ERROR, error.to_string()),
+        })
+    })
+  }
+}
+
+/// Runs direct synchronous native UI-event submission.
+///
+/// # Safety
+///
+/// Pointers must satisfy the exported UI-submit contract.
+#[doc(hidden)]
+pub unsafe fn ffi_native_submit_ui_event<F>(
+  _: F,
+  engine: *mut c_void,
+  data: *const u8,
+  length: u64,
+  out_disposition: *mut u32,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  if out_disposition.is_null() || out_buffer.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  unsafe {
+    out_disposition.write(UiEventDisposition::Continue as u32);
+    out_buffer.write(BattlementBuffer::EMPTY);
+  }
+  let engine = engine.cast::<BattlementEngine<F::Engine>>();
+  if engine.is_null() {
+    unsafe { write_error(out_buffer, "engine pointer is null") };
+    return INVALID_ARGUMENT;
+  }
+  if unsafe { (*engine).poisoned } {
+    unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+    return PANIC;
+  }
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
+    let bytes =
+      unsafe { input_slice(data, length) }.map_err(|error| (INVALID_ARGUMENT, error.to_owned()))?;
+    let action =
+      UiEventActionView::read(bytes).map_err(|error| (INVALID_ARGUMENT, error.to_string()))?;
+    let session_id = action.session_id();
+    let result = unsafe { &mut (*engine).engine }
+      .submit_ui_event_native(action)
+      .map_err(|error| (ENGINE_ERROR, error.to_string()))?;
+    if result.response.session_id() != session_id {
+      return Err((
+        ENGINE_ERROR,
+        "UI event response session mismatch".to_owned(),
+      ));
+    }
+    Ok(result)
+  })) {
+    Ok(Ok(result)) => unsafe {
+      out_disposition.write(result.disposition as u32);
+      write_finished(out_buffer, result.response.into_message())
+    },
+    Ok(Err((status, error))) => {
+      unsafe { write_error(out_buffer, error) };
+      status
+    }
+    Err(payload) => {
+      unsafe { (*engine).poisoned = true };
+      unsafe { write_panic(out_buffer, "battlement_submit_ui_event", payload.as_ref()) };
+      PANIC
+    }
+  }
+}
+
+/// Polls a direct native engine for an already-finished response.
+///
+/// # Safety
+///
+/// Pointers must satisfy the exported poll contract.
+#[doc(hidden)]
+pub unsafe fn ffi_native_poll<F>(
+  _: F,
+  engine: *mut c_void,
+  out_buffer: *mut BattlementBuffer,
+) -> i32
+where
+  F: NativeEngineFactory,
+{
+  if out_buffer.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  unsafe { out_buffer.write(BattlementBuffer::EMPTY) };
+  let engine = engine.cast::<BattlementEngine<F::Engine>>();
+  if engine.is_null() {
+    unsafe { write_error(out_buffer, "engine pointer is null") };
+    return INVALID_ARGUMENT;
+  }
+  if unsafe { (*engine).poisoned } {
+    unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+    return PANIC;
+  }
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
+    unsafe { &mut (*engine).engine }.poll_native()
+  })) {
+    Ok(Ok(Some(message))) => unsafe { write_finished(out_buffer, message.into_message()) },
+    Ok(Ok(None)) => NO_MESSAGE,
+    Ok(Err(error)) => {
+      unsafe { write_error(out_buffer, error) };
+      ENGINE_ERROR
+    }
+    Err(payload) => {
+      unsafe { (*engine).poisoned = true };
+      unsafe { write_panic(out_buffer, "battlement_poll", payload.as_ref()) };
+      PANIC
+    }
+  }
+}
+
+unsafe fn ffi_native_output_call<E: NativeEngine>(
+  engine: *mut BattlementEngine<E>,
+  out_buffer: *mut BattlementBuffer,
+  operation: &'static str,
+  call: impl FnOnce(&mut E) -> Result<FinishedMessage, (i32, String)>,
+) -> i32 {
+  if out_buffer.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises a writable output.
+  unsafe { out_buffer.write(BattlementBuffer::EMPTY) };
+  if engine.is_null() {
+    // SAFETY: The output was validated above.
+    unsafe { write_error(out_buffer, "engine pointer is null") };
+    return INVALID_ARGUMENT;
+  }
+  if unsafe { (*engine).poisoned } {
+    // SAFETY: The output was validated above.
+    unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+    return PANIC;
+  }
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| call(unsafe { &mut (*engine).engine }))) {
+    Ok(Ok(message)) => unsafe { write_finished(out_buffer, message) },
+    Ok(Err((status, error))) => {
+      unsafe { write_error(out_buffer, error) };
+      status
+    }
+    Err(payload) => {
+      unsafe { (*engine).poisoned = true };
+      unsafe { write_panic(out_buffer, operation, payload.as_ref()) };
+      PANIC
+    }
+  }
+}
+
 /// Frees one output buffer without allowing a panic to cross the ABI.
 ///
 /// # Safety
@@ -615,19 +996,65 @@ unsafe fn write_panic(
   unsafe { write_error(out_buffer, message) };
 }
 
-unsafe fn request<E, I, F>(
+unsafe fn request_connect<E: Engine>(
   engine: *mut BattlementEngine<E>,
   data: *const u8,
   length: u64,
   out_buffer: *mut BattlementBuffer,
-  input_name: &str,
-  operation: F,
-) -> i32
-where
-  E: Engine,
-  I: DeserializeOwned,
-  F: FnOnce(&mut E, I) -> Result<Response<E::Command>, EngineError>,
-{
+) -> i32 {
+  if out_buffer.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises that a non-null output pointer is writable.
+  unsafe { out_buffer.write(BattlementBuffer::EMPTY) };
+  if engine.is_null() {
+    // SAFETY: The output was checked and initialized above.
+    unsafe { write_error(out_buffer, "engine pointer is null") };
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises a unique live engine pointer for this serial call.
+  if unsafe { (*engine).poisoned } {
+    // SAFETY: The output was checked and initialized above.
+    unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+    return PANIC;
+  }
+  // SAFETY: The caller promises the input is readable for the duration of this call.
+  let bytes = match unsafe { input_slice(data, length) } {
+    Ok(bytes) => bytes,
+    Err(message) => {
+      // SAFETY: The output was checked and initialized above.
+      unsafe { write_error(out_buffer, message) };
+      return INVALID_ARGUMENT;
+    }
+  };
+  let message = match ConnectView::read(bytes) {
+    Ok(message) => message,
+    Err(failure) => {
+      // SAFETY: The output was checked and initialized above.
+      unsafe { write_error(out_buffer, format!("invalid connect: {failure}")) };
+      return INVALID_ARGUMENT;
+    }
+  };
+  // SAFETY: The caller promises a unique live engine pointer for this serial call.
+  match unsafe { &mut (*engine).engine }.connect(message) {
+    Ok(response) => {
+      // SAFETY: The output was checked and initialized above.
+      unsafe { write_response(out_buffer, &response) }
+    }
+    Err(failure) => {
+      // SAFETY: The output was checked and initialized above.
+      unsafe { write_error(out_buffer, failure.to_string()) };
+      ENGINE_ERROR
+    }
+  }
+}
+
+unsafe fn request_submit<E: Engine>(
+  engine: *mut BattlementEngine<E>,
+  data: *const u8,
+  length: u64,
+  out_buffer: *mut BattlementBuffer,
+) -> i32 {
   if out_buffer.is_null() {
     return INVALID_ARGUMENT;
   }
@@ -654,23 +1081,19 @@ where
       return INVALID_ARGUMENT;
     }
   };
-  let value = match json::from_slice(bytes) {
-    Ok(value) => value,
-    Err(error) => {
-      // SAFETY: `out_buffer` was checked and initialized above.
-      unsafe { write_error(out_buffer, format!("invalid {input_name} JSON: {error}")) };
-      return INVALID_ARGUMENT;
-    }
-  };
-
   // SAFETY: The caller promises a unique live engine pointer for this serial call.
   let engine = unsafe { &mut (*engine).engine };
-  match operation(engine, value) {
+  match engine.submit_flatbuffer(bytes) {
     Ok(response) => {
       // SAFETY: `out_buffer` was checked and initialized above.
       unsafe { write_response(out_buffer, &response) }
     }
-    Err(error) => {
+    Err(FlatBufferSubmitError::InvalidArgument(error)) => {
+      // SAFETY: `out_buffer` was checked and initialized above.
+      unsafe { write_error(out_buffer, error.to_string()) };
+      INVALID_ARGUMENT
+    }
+    Err(FlatBufferSubmitError::Engine(error)) => {
       // SAFETY: `out_buffer` was checked and initialized above.
       unsafe { write_error(out_buffer, error.to_string()) };
       ENGINE_ERROR
@@ -679,6 +1102,12 @@ where
 }
 
 unsafe fn input_slice<'a>(data: *const u8, length: u64) -> Result<&'a [u8], &'static str> {
+  if length > battlement_flatbuffers::MAXIMUM_MESSAGE_BYTES as u64 {
+    return Err("input length exceeds 16 MiB");
+  }
+  if length > isize::MAX as u64 {
+    return Err("input length exceeds the maximum Rust slice size");
+  }
   let length = usize::try_from(length).map_err(|_| "input length exceeds this platform")?;
   if length == 0 {
     return Ok(&[]);
@@ -691,14 +1120,15 @@ unsafe fn input_slice<'a>(data: *const u8, length: u64) -> Result<&'a [u8], &'st
   Ok(unsafe { std::slice::from_raw_parts(data, length) })
 }
 
-unsafe fn write_response<C: Serialize>(
+unsafe fn write_response<C: FlatBufferResponseCommand>(
   out_buffer: *mut BattlementBuffer,
   response: &Response<C>,
 ) -> i32 {
-  match json::to_vec(response) {
-    Ok(bytes) => {
+  match C::write_response(response) {
+    Ok(message) => {
+      let (storage, start) = message.into_storage();
       // SAFETY: The caller provides a checked, writable output pointer.
-      unsafe { out_buffer.write(BattlementBuffer::from_bytes(bytes)) };
+      unsafe { out_buffer.write(BattlementBuffer::from_storage(storage, start)) };
       OK
     }
     Err(error) => {
@@ -707,6 +1137,13 @@ unsafe fn write_response<C: Serialize>(
       ENGINE_ERROR
     }
   }
+}
+
+unsafe fn write_finished(out_buffer: *mut BattlementBuffer, message: FinishedMessage) -> i32 {
+  let (storage, start) = message.into_storage();
+  // SAFETY: The caller provides a checked, writable output pointer.
+  unsafe { out_buffer.write(BattlementBuffer::from_storage(storage, start)) };
+  OK
 }
 
 unsafe fn write_error(out_buffer: *mut BattlementBuffer, error: impl ToString) {

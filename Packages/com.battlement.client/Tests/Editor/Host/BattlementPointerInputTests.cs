@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -50,9 +49,10 @@ namespace Battlement.Tests
                         useMainCamera: true
                     )
                 );
-                harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                    new Response(session, Array.Empty<ResponseMessage<Command>>())
-                );
+                harness.Transport.DefaultSubmitResult = () =>
+                    FakeBattlementTransport.ResponseResult(
+                        new Response(session, Array.Empty<ResponseMessage<Command>>())
+                    );
                 harness.Runner.Connect();
                 Physics.SyncTransforms();
                 UnityEngine.Vector2 position = camera.WorldToScreenPoint(
@@ -481,9 +481,10 @@ namespace Battlement.Tests
                     inputDisabled: inputDisabled
                 )
             );
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.Connect();
             Physics.SyncTransforms();
         }
@@ -557,25 +558,11 @@ namespace Battlement.Tests
                 .FindObjectsByType<BattlementIdentity>()
                 .Single(identity => identity.Id == id.Value);
 
-        private static Action[] Actions(BattlementTestHarness harness)
-        {
-            var actions = new List<Action>();
-            foreach (byte[] bytes in harness.Transport.SubmitMessages)
-            {
-                try
-                {
-                    ClientMessage<CoreErrorCode, byte> message =
-                        BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
-                    if (message is ClientMessage<CoreErrorCode, byte>.ActionMessage action)
-                    {
-                        if (action.Action.Body is not ActionBody.ApplicationStateChanged)
-                            actions.Add(action.Action);
-                    }
-                }
-                catch (JsonSerializationException) { }
-            }
-
-            return actions.ToArray();
-        }
+        private static Action[] Actions(BattlementTestHarness harness) =>
+            harness
+                .Transport.Actions.Where(action =>
+                    action.Body is not ActionBody.ApplicationStateChanged
+                )
+                .ToArray();
     }
 }

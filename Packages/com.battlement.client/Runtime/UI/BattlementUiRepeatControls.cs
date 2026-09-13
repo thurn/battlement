@@ -112,6 +112,24 @@ namespace Battlement.UI
             timings[objectId.Value] = (delay, interval);
         }
 
+        internal void ApplyDirectTiming(
+            NativeRepeatButton target,
+            ObjectId objectId,
+            uint delay,
+            uint interval
+        )
+        {
+            if (interval == 0)
+                throw Failure("RepeatButton interval must be positive.");
+            if (pressed.Contains(objectId.Value))
+            {
+                pendingTimings[objectId.Value] = (delay, interval);
+                return;
+            }
+            target.SetAction(actions[objectId.Value], delay, interval);
+            timings[objectId.Value] = (delay, interval);
+        }
+
         public void Remove(Guid objectId)
         {
             actions.Remove(objectId);

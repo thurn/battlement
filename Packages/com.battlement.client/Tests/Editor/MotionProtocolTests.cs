@@ -122,7 +122,7 @@ namespace Battlement.Tests
             StringAssert.Contains("\"Controlled\"", text);
             StringAssert.Contains("\"Mirror\"", text);
             StringAssert.Contains("\"CubicBezier\"", text);
-            StringAssert.Contains("\"Discrete\":\"hidden\"", text);
+            StringAssert.Contains("\"Discrete\":{\"String\":\"hidden\"}", text);
             StringAssert.Contains($"\"Time\":{{\"Controlled\":\"{clockId.Value}\"}}", text);
         }
 
@@ -402,7 +402,7 @@ namespace Battlement.Tests
                             {
                                 new MotionPropertyValue(
                                     MotionProperty.Visibility,
-                                    new MotionValue.Discrete(JToken.FromObject("hidden"))
+                                    new MotionValue.Discrete("hidden")
                                 ),
                             }
                         ),

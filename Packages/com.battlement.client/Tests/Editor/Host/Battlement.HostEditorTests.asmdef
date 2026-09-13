@@ -2,9 +2,11 @@
   "name": "Battlement.HostEditorTests",
   "rootNamespace": "Battlement.Tests",
   "references": [
+    "Battlement.FlatBuffers",
     "Battlement.Protocol",
     "Battlement.UI",
     "Battlement.Runtime",
+    "Google.FlatBuffers",
     "Battlement.Cloud.Diagnostics",
     "Battlement.Json",
     "Battlement.CustomFixtures",

@@ -5,17 +5,15 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Battlement.CustomFixtures;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
-using UnityEngine.TestTools;
 using BattlementAction = Battlement.Action;
+using FixtureWire = Battlement.FlatBuffers.FixtureGenerated;
 using Object = UnityEngine.Object;
 
 namespace Battlement.Tests
@@ -83,7 +81,7 @@ namespace Battlement.Tests
             Assert.That(HasIdentity(13), Is.False, "Commands after a failure must be skipped.");
             Assert.That(HasIdentity(10), Is.False, "Destroyed objects must leave the lookup.");
             Assert.That(
-                host.Codec.BatchFailures.Select(failure => failure.ErrorCode),
+                host.Observer.BatchFailures.Select(failure => failure.ErrorCode),
                 Does.Contain(CoreErrorCode.UnknownObject)
             );
             Assert.That(
@@ -101,6 +99,11 @@ namespace Battlement.Tests
             Assert.That(host.Runner.IsInputAvailable, Is.True, Diagnostics(host));
             Assert.That(HasIdentity(20), Is.True);
             Assert.That(HasIdentity(21), Is.False);
+            Assert.That(
+                NativeFixture.fixture_outstanding_buffers(),
+                Is.Not.EqualTo(UIntPtr.Zero),
+                "The delayed native batch must retain its response lease across frames."
+            );
 
             host.Clock.Advance(TimeSpan.FromMilliseconds(299));
             host.RunFrame();
@@ -109,6 +112,11 @@ namespace Battlement.Tests
             host.Clock.Advance(TimeSpan.FromMilliseconds(1));
             host.RunFrame();
             Assert.That(HasIdentity(21), Is.True, "Nonblocking work must not delay group three.");
+            Assert.That(
+                NativeFixture.fixture_outstanding_buffers(),
+                Is.EqualTo(UIntPtr.Zero),
+                "Completing the delayed batch must release its native response lease."
+            );
         }
 
         private static void RunSnapshotReplacement(ReleaseScenarioHost host, Mouse mouse)
@@ -141,7 +149,7 @@ namespace Battlement.Tests
             Assert.That(HasIdentity(40), Is.True);
             Assert.That(host.Runner.TryGetPreparedAsset(prefab, out _), Is.True);
             Assert.That(
-                host.Codec.BatchFailures.Last().ErrorCode,
+                host.Observer.BatchFailures.Last().ErrorCode,
                 Is.EqualTo(CoreErrorCode.AssetInUse)
             );
             FakeAssetHandle handle = host.AssetStorage.Handles.Single(candidate =>
@@ -152,28 +160,28 @@ namespace Battlement.Tests
 
         private static void RunCustomFailure(ReleaseScenarioHost host, Mouse mouse)
         {
-            var handler = new FixtureHandler(FixtureHandlerMode.Throw);
-            host.Runner.RegisterCommand(
+            ulong submitsBefore = NativeFixture.fixture_submit_calls().ToUInt64();
+            var handler = new FixtureHandler(
+                FixtureHandlerMode.EmitNestedActionAndReject,
+                host.Runner
+            );
+            host.Runner.RegisterFlatBufferCommand<FixtureWire.FlashPayload, FixtureError>(
                 "fixture.character.flash",
-                handler,
-                new FlashPayloadFormatter(),
-                new FixtureErrorFormatter()
+                handler
             );
             host.Connect();
-            LogAssert.Expect(
-                LogType.Exception,
-                new Regex(
-                    "^BattlementCaughtFailureException: battlement\\.batch\\.failed; "
-                        + "source=Unity; type=CommandFailed; fixture handler exploded"
-                )
-            );
             host.RunFrame();
 
             Assert.That(handler.InvocationCount, Is.EqualTo(1));
+            Assert.That(handler.LastFlatBufferPayload.HasValue, Is.True);
+            Assert.Throws<ObjectDisposedException>(() =>
+                _ = handler.LastFlatBufferPayload!.Value.Scale
+            );
             Assert.That(HasIdentity(51), Is.False);
             Assert.That(
-                host.Codec.BatchFailures.Last().ErrorCode,
-                Is.EqualTo(CoreErrorCode.HandlerFailed)
+                NativeFixture.fixture_submit_calls().ToUInt64(),
+                Is.EqualTo(submitsBefore + 2),
+                "Nested custom actions and typed custom failures must both reach Rust."
             );
         }
 
@@ -198,7 +206,7 @@ namespace Battlement.Tests
             Move(host, mouse, leftPosition, false);
 
             Assert.That(
-                host.Codec.Actions.Select(action => action.Body.GetType().Name),
+                host.Observer.Actions.Select(action => action.Body.GetType().Name),
                 Is.EqualTo(
                     new[]
                     {
@@ -213,7 +221,7 @@ namespace Battlement.Tests
                     }
                 )
             );
-            var first = (ActionBody.PointerEnter)host.Codec.Actions[0].Body;
+            var first = (ActionBody.PointerEnter)host.Observer.Actions[0].Body;
             Assert.That(first.ObjectId, Is.EqualTo(Id(60)), "Child hits use the parent identity.");
         }
 
@@ -286,6 +294,9 @@ namespace Battlement.Tests
         {
             [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr fixture_outstanding_buffers();
+
+            [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern UIntPtr fixture_submit_calls();
         }
     }
 
@@ -305,23 +316,31 @@ namespace Battlement.Tests
             AssetStorage = new FakeBattlementAssetStorage();
             Clock = new FakeBattlementClock();
             Logger = new FakeBattlementLogger();
-            Codec = new RecordingProtocolCodec();
+            Observer = new RecordingCoreMessageObserver();
+            var flatBuffers = new FixtureFlatBufferResponseSchema(
+                error => (byte)(FixtureError)error,
+                payload =>
+                {
+                    var value = (FlashPayload)payload;
+                    return (value.ObjectId, value.Scale);
+                }
+            );
             Runner.Configure(
                 new BattlementRunnerOptions(
                     transport,
                     AssetStorage,
-                    Codec,
-                    Clock,
-                    Logger,
+                    clock: Clock,
+                    logger: Logger,
                     useInstantAnimations: true,
-                    customCommandTypes: new[] { $"fixture.release.{scenario}" }
+                    customCommandTypes: new[] { $"fixture.release.{scenario}" },
+                    flatBufferResponseSchema: flatBuffers,
+                    flatBufferClientSchema: flatBuffers,
+                    coreMessageObserver: Observer
                 )
             );
-            Runner.RegisterCommand(
+            Runner.RegisterCommand<FlashPayload, FixtureError>(
                 $"fixture.release.{scenario}",
-                new FixtureHandler(),
-                new FlashPayloadFormatter(),
-                new FixtureErrorFormatter()
+                new FixtureHandler()
             );
         }
 
@@ -333,7 +352,7 @@ namespace Battlement.Tests
 
         public FakeBattlementLogger Logger { get; }
 
-        public RecordingProtocolCodec Codec { get; }
+        public RecordingCoreMessageObserver Observer { get; }
 
         public static ReleaseScenarioHost Create(string scenario)
         {
@@ -369,55 +388,17 @@ namespace Battlement.Tests
         }
     }
 
-    internal sealed class RecordingProtocolCodec : IBattlementExtensionProtocolCodec
+    internal sealed class RecordingCoreMessageObserver : IBattlementCoreMessageObserver
     {
-        private readonly IBattlementExtensionProtocolCodec inner = BattlementJson.Instance;
-
         public List<BattlementAction> Actions { get; } = new();
 
         public List<BatchFailed<CoreErrorCode>> BatchFailures { get; } = new();
 
-        public byte[] SerializeConnect(Connect value) => inner.SerializeConnect(value);
+        public void RecordAction(BattlementAction value) => Actions.Add(value);
 
-        public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value)
-        {
+        public void RecordBatchFailure(BatchFailed<CoreErrorCode> value) =>
             BatchFailures.Add(value);
-            return inner.SerializeBatchFailure(value);
-        }
 
-        public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
-            inner.SerializeOperationFailure(value);
-
-        public byte[] SerializeAction(BattlementAction value)
-        {
-            Actions.Add(value);
-            return inner.SerializeAction(value);
-        }
-
-        public byte[] SerializeUiEventAction(UiEventAction value) =>
-            inner.SerializeUiEventAction(value);
-
-        public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
-            inner.DeserializeResponse(bytes);
-
-        public Response<ICommand> DeserializeResponse(
-            ReadOnlyMemory<byte> bytes,
-            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
-        ) => inner.DeserializeResponse(bytes, decodeCustomCommand);
-
-        public byte[] SerializeCustomAction<TPayload>(
-            CustomAction<TPayload> value,
-            JsonConverter<TPayload>? payloadConverter
-        ) => inner.SerializeCustomAction(value, payloadConverter);
-
-        public byte[] SerializeBatchFailure<TError>(
-            BatchFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        ) => inner.SerializeBatchFailure(value, errorConverter);
-
-        public byte[] SerializeOperationFailure<TError>(
-            OperationFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        ) => inner.SerializeOperationFailure(value, errorConverter);
+        public void RecordOperationFailure(OperationFailed<CoreErrorCode> value) { }
     }
 }

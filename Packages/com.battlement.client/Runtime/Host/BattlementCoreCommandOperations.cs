@@ -15,6 +15,15 @@ namespace Battlement
             return new PreparedAssetReplacementOperation(preparedAssets);
         }
 
+        public static IBattlementCommandOperation ReplaceAssets(
+            BattlementDirectAssetSet command,
+            BattlementPreparedAssets preparedAssets
+        )
+        {
+            preparedAssets.BeginReplacement(command);
+            return new PreparedAssetReplacementOperation(preparedAssets);
+        }
+
         public static IBattlementCommandOperation LoadScene(
             CommandBody.Scene.Load command,
             BattlementScenes scenes
@@ -24,8 +33,40 @@ namespace Battlement
             return new SceneCommandOperation(scenes);
         }
 
+        public static IBattlementCommandOperation LoadScene(
+            BattlementDirectSceneCommand command,
+            BattlementScenes scenes
+        )
+        {
+            scenes.BeginLoad(
+                command.SceneId,
+                new SceneAddress(
+                    command.Address
+                        ?? throw new BattlementCommandException(
+                            CoreErrorCode.InvalidProperty,
+                            "A scene-load address is absent."
+                        )
+                ),
+                command.MakePrimary
+            );
+            return new SceneCommandOperation(scenes);
+        }
+
         public static IBattlementCommandOperation UnloadScene(
             CommandBody.Scene.Unload command,
+            BattlementScenes scenes,
+            BattlementWorld world,
+            BattlementOperationRegistry operations
+        )
+        {
+            scenes.ValidateUnload(command.SceneId);
+            operations.CancelObjects(world.GetSceneObjectIds(command.SceneId));
+            scenes.BeginUnload(command.SceneId);
+            return new SceneCommandOperation(scenes);
+        }
+
+        public static IBattlementCommandOperation UnloadScene(
+            BattlementDirectSceneCommand command,
             BattlementScenes scenes,
             BattlementWorld world,
             BattlementOperationRegistry operations

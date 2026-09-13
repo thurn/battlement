@@ -35,6 +35,24 @@ namespace Battlement.UI
                 Apply(controls[objectId.Value], dropdown);
         }
 
+        internal void ApplyDirectSelection(ObjectId objectId, uint? index, string? value)
+        {
+            DropdownState state = controls[objectId.Value];
+            var selection = new DropdownChoice(index, value);
+            ValidateSelection(selection, state.Target.choices);
+            state.Suppressed = true;
+            try
+            {
+                state.Committed = selection;
+                state.Target.SetValueWithoutNotify(value ?? string.Empty);
+                SyncLabelColor(state.Target);
+            }
+            finally
+            {
+                state.Suppressed = false;
+            }
+        }
+
         public static void ValidateUpdate(UiElement element, VisualElement current)
         {
             if (element is not UiElement.DropdownField update)

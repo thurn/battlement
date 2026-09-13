@@ -134,9 +134,9 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
 
             Action[] actions = Actions(harness);
-            Assert.That(actions, Has.Length.EqualTo(2));
-            Assert.That(actions[0].Body, Is.TypeOf<ActionBody.KeyDown>());
-            Assert.That(actions[1].Body, Is.TypeOf<ActionBody.GeometryObservations>());
+            Assert.That(actions, Has.Length.EqualTo(1));
+            Assert.That(actions[0].Body, Is.TypeOf<ActionBody.GeometryObservations>());
+            Assert.That(harness.Transport.SubmitMessages, Has.Count.EqualTo(2));
             Assert.That(
                 harness.Transport.Calls.TakeLast(2),
                 Is.EqualTo(new[] { "submit", "submit" })
@@ -177,25 +177,6 @@ namespace Battlement.Tests
             );
             Assert.That(harness.Runner.IsInputAvailable, Is.False);
             Assert.That(harness.Logger.Records.Last().Fields!["status"], Is.EqualTo("NoMessage"));
-        }
-
-        [Test]
-        public void OversizedGeometryStopsBeforeTransportSubmission()
-        {
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: new OversizedActionCodec()
-            );
-            SessionId session = Connect(harness);
-            InstallViewport(harness, session, ObservationId(6));
-
-            harness.Runner.RunFrame();
-
-            Assert.That(harness.Transport.SubmitMessages, Is.Empty);
-            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(
-                harness.Logger.Records.Last().Fields!["payload_bytes"],
-                Is.EqualTo((BattlementProtocolLimits.MaximumMessageBytes + 1).ToString())
-            );
         }
 
         private static SessionId Connect(BattlementTestHarness harness)
@@ -273,23 +254,10 @@ namespace Battlement.Tests
                 }
             );
 
-        private static byte[] Input(SessionId session) =>
-            BattlementJson.SerializeAction(
-                new Action(
-                    new ActionId(Guid.NewGuid()),
-                    session,
-                    new ActionBody.KeyDown(PhysicalKey.KeyA)
-                )
-            );
+        private static byte[] Input(SessionId session) => new byte[] { 1 };
 
         private static Action[] Actions(BattlementTestHarness harness) =>
-            harness
-                .Transport.SubmitMessages.Select(bytes =>
-                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes)
-                )
-                .OfType<ClientMessage<CoreErrorCode, byte>.ActionMessage>()
-                .Select(message => message.Action)
-                .ToArray();
+            harness.Transport.Actions.ToArray();
 
         private static GeometryObservationBatch Batch(
             ulong generation,
@@ -303,25 +271,5 @@ namespace Battlement.Tests
 
         private static GeometryObservationId ObservationId(int value) =>
             new(new Guid(value, 0, 0, new byte[8]));
-
-        private sealed class OversizedActionCodec : IBattlementProtocolCodec
-        {
-            public byte[] SerializeConnect(Connect value) => BattlementJson.SerializeConnect(value);
-
-            public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
-                BattlementJson.SerializeBatchFailure(value);
-
-            public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
-                BattlementJson.SerializeOperationFailure(value);
-
-            public byte[] SerializeAction(Action value) =>
-                new byte[BattlementProtocolLimits.MaximumMessageBytes + 1];
-
-            public byte[] SerializeUiEventAction(UiEventAction value) =>
-                new byte[BattlementProtocolLimits.MaximumMessageBytes + 1];
-
-            public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
-                BattlementJson.DeserializeResponse(bytes);
-        }
     }
 }

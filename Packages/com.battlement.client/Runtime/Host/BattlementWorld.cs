@@ -104,6 +104,54 @@ namespace Battlement
             }
         }
 
+        public void PrepareReplacement(
+            IReadOnlyList<BattlementDirectSnapshotObject> descriptions,
+            IReadOnlyList<BattlementScene> scenes
+        )
+        {
+            var pendingIds = new HashSet<Guid>();
+            foreach (BattlementDirectSnapshotObject description in descriptions)
+            {
+                Guid value = RequireNonzero(
+                    description.Placement.ObjectId.Value,
+                    nameof(description.Placement.ObjectId)
+                );
+                if (!pendingIds.Add(value))
+                    throw DuplicateId("object", value);
+                if (
+                    usedIds.Contains(value)
+                    && (
+                        !objects.TryGetValue(value, out BattlementIdentity identity)
+                        || identity == null
+                        || identity.gameObject == null
+                    )
+                )
+                    throw DuplicateId("object", value);
+            }
+
+            replacementIds = pendingIds;
+            PrepareReplacementScenes(scenes);
+        }
+
+        private void PrepareReplacementScenes(IReadOnlyList<BattlementScene> scenes)
+        {
+            replacementSceneIds = new HashSet<Guid>();
+            foreach (BattlementScene description in scenes)
+            {
+                Guid value = RequireNonzero(description.Id.Value, nameof(description.Id));
+                if (!replacementSceneIds.Add(value))
+                    throw DuplicateId("scene", value);
+                if (!usedIds.Contains(value))
+                    continue;
+                if (
+                    sceneContainers.TryGetValue(value, out GameObject container)
+                    && container != null
+                )
+                    continue;
+                throw DuplicateId("scene", value);
+            }
+        }
+
         public void ReplaceObjects(IReadOnlyList<BattlementGameObject> descriptions)
         {
             HashSet<Guid> allowedIds =
@@ -167,6 +215,17 @@ namespace Battlement
             }
         }
 
+        public void ReplaceObjects(IReadOnlyList<BattlementDirectSnapshotObject> descriptions)
+        {
+            HashSet<Guid> allowedIds =
+                replacementIds
+                ?? throw new InvalidOperationException("Object replacement was not prepared.");
+            replacementIds = null;
+            DestroyOwnedObjects();
+            foreach (BattlementDirectSnapshotObject description in descriptions)
+                CreateDirectObject(description.Description, allowedIds);
+        }
+
         public void CreateObject(BattlementGameObject description)
         {
             Transform container = ResolveContainer(description.ParentScene);
@@ -220,6 +279,187 @@ namespace Battlement
 
                 DestroyUnityObject(gameObject);
                 throw;
+            }
+        }
+
+        public void CreateObject(BattlementDirectImageObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: true
+            );
+
+        public void CreateObject(BattlementDirectPrimitiveObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: true
+            );
+
+        public void CreateObject(BattlementDirectPrefabObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: false
+            );
+
+        public void CreateObject(BattlementDirectEmptyObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: false
+            );
+
+        public void CreateObject(BattlementDirectTextObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: false
+            );
+
+        public void CreateObject(BattlementDirectCameraObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: false
+            );
+
+        public void CreateObject(BattlementDirectLightObjectCreate description) =>
+            CreateDirectObject(
+                description.Placement,
+                () => objectFactory.Construct(description),
+                usesAutomaticPointerCollider: false
+            );
+
+        private void CreateDirectObject(
+            BattlementDirectObjectPlacement placement,
+            System.Func<(GameObject GameObject, IBattlementAssetLease? Lease)> construct,
+            bool usesAutomaticPointerCollider,
+            bool allowReplacement = false
+        )
+        {
+            Transform container = ResolveContainer(placement);
+            GameObject? parent = placement.ParentId is ObjectId parentId
+                ? RequireObject(parentId)
+                : null;
+            (GameObject gameObject, IBattlementAssetLease? lease) = construct();
+            bool registered = false;
+            try
+            {
+                if (parent != null && parent.scene != container.gameObject.scene)
+                {
+                    throw new BattlementWorldException(
+                        CoreErrorCode.InvalidHierarchy,
+                        $"Object {placement.ObjectId} and parent {placement.ParentId} "
+                            + "are in different scenes."
+                    );
+                }
+
+                RegisterObject(
+                    placement.ObjectId,
+                    gameObject,
+                    container,
+                    lease,
+                    placement.PointerEvents,
+                    placement.DragMode,
+                    usesAutomaticPointerCollider,
+                    allowReplacement
+                );
+                registered = true;
+                if (parent != null)
+                    gameObject.transform.SetParent(parent.transform, false);
+                BattlementObjectFactory.ApplyStableState(gameObject, placement);
+            }
+            catch
+            {
+                if (registered)
+                {
+                    BattlementIdentity identity = gameObject.GetComponent<BattlementIdentity>();
+                    Unregister(identity);
+                    BattlementOwnedResources.Release(gameObject);
+                }
+                else
+                {
+                    lease?.Dispose();
+                }
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
+        private void CreateDirectObject(object description, ISet<Guid> allowedIds)
+        {
+            switch (description)
+            {
+                case BattlementDirectImageObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        true,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectPrimitiveObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        true,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectPrefabObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectEmptyObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectTextObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectCameraObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectLightObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                case BattlementDirectUiDocumentObjectCreate value:
+                    CreateDirectObject(
+                        value.Placement,
+                        () => objectFactory.Construct(value),
+                        false,
+                        allowedIds.Contains(value.Placement.ObjectId.Value)
+                    );
+                    break;
+                default:
+                    throw new BattlementWorldException(
+                        CoreErrorCode.InvalidProperty,
+                        "A direct snapshot object kind is unsupported."
+                    );
             }
         }
 
@@ -647,6 +887,23 @@ namespace Battlement
                 ParentScene.Persistent => persistentContainer.transform,
                 ParentScene.Specific specific => RequireSceneContainer(specific.SceneId),
                 ParentScene.Primary => primarySceneId is Guid id
+                    ? RequireSceneContainer(new SceneId(id))
+                    : throw new BattlementWorldException(
+                        CoreErrorCode.UnknownScene,
+                        "The primary content scene is not loaded."
+                    ),
+                _ => throw new BattlementWorldException(
+                    CoreErrorCode.UnknownScene,
+                    "The parent scene selection is unknown."
+                ),
+            };
+
+        private Transform ResolveContainer(BattlementDirectObjectPlacement placement) =>
+            placement.ParentSceneKind switch
+            {
+                2 => persistentContainer.transform,
+                1 when placement.SceneId is SceneId sceneId => RequireSceneContainer(sceneId),
+                0 => primarySceneId is Guid id
                     ? RequireSceneContainer(new SceneId(id))
                     : throw new BattlementWorldException(
                         CoreErrorCode.UnknownScene,

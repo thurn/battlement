@@ -1,13 +1,12 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  Batch, BatchId, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId,
-  ParallelCommandGroup, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
-  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiLabel, UiNode,
-  UiTab, UiTabView,
+  Batch, BatchId, CameraState, ClientMessage, Command, GameObject, ObjectId, ParallelCommandGroup,
+  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventAction,
+  UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiLabel, UiNode, UiTab, UiTabView,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct TabEngine {
   session_id: SessionId,
@@ -21,7 +20,7 @@ impl Engine for TabEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))

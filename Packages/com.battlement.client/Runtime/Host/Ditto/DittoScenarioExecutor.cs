@@ -621,6 +621,7 @@ namespace Battlement
                 ResponseDecodeNs = responseDecodeNs,
                 ResponseApplyNs = responseApplyNs,
                 LayoutObservationNs = layoutObservationNs,
+                Transport = runner.DittoTransportObservation(),
             };
             inputReleaseAndSyncTransportNs = 0;
             if (phase != Phase.PointerBaseline && performanceRecorder is not null)

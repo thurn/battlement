@@ -18,11 +18,13 @@ namespace Battlement
     internal sealed class BattlementUiEventDispatcher
     {
         private readonly IBattlementTransport transport;
-        private readonly IBattlementProtocolCodec codec;
         private readonly BattlementResponseStream responses;
         private readonly IBattlementClock clock;
-        private readonly Func<ReadOnlyMemory<byte>, Response<ICommand>> decodeResponse;
-        private readonly Func<bool> canDecodeInBackground;
+        private readonly Func<
+            ReadOnlyMemory<byte>,
+            IDisposable?,
+            IBattlementResponseView
+        > decodeResponse;
         private readonly Action<
             string,
             BattlementUiEventTransportResult?,
@@ -31,31 +33,26 @@ namespace Battlement
         > reportFailure;
         private readonly Action<BattlementLogSeverity, string, string> log;
         private readonly IBattlementUiEventActivation activation;
+        private readonly BattlementUiEventRequestWriter requests = new();
         private readonly List<BattlementUiEventInspection> inspections = new();
         private int dispatchDepth;
         private BattlementUiEventInspection? awaitingNativePrevention;
 
         internal BattlementUiEventDispatcher(
             IBattlementTransport transport,
-            IBattlementProtocolCodec codec,
             BattlementResponseStream responses,
             IBattlementClock clock,
-            Func<ReadOnlyMemory<byte>, Response<ICommand>> decodeResponse,
-            Func<bool> canDecodeInBackground,
+            Func<ReadOnlyMemory<byte>, IDisposable?, IBattlementResponseView> decodeResponse,
             Action<string, BattlementUiEventTransportResult?, TimeSpan, Exception?> reportFailure,
             Action<BattlementLogSeverity, string, string> log,
             IBattlementUiEventActivation activation
         )
         {
             this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            this.codec = codec ?? throw new ArgumentNullException(nameof(codec));
             this.responses = responses ?? throw new ArgumentNullException(nameof(responses));
             this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
             this.decodeResponse =
                 decodeResponse ?? throw new ArgumentNullException(nameof(decodeResponse));
-            this.canDecodeInBackground =
-                canDecodeInBackground
-                ?? throw new ArgumentNullException(nameof(canDecodeInBackground));
             this.reportFailure =
                 reportFailure ?? throw new ArgumentNullException(nameof(reportFailure));
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -69,6 +66,7 @@ namespace Battlement
         internal UiEventDisposition? Dispatch(UiEvent value, SessionId session)
         {
             var action = new UiEventAction(new ActionId(Guid.NewGuid()), session, value);
+            (transport as IBattlementClientMessageObserver)?.RecordUiEvent(action);
             string? activationRoute;
             bool beginsActivation = activation.TryBegin(action, out activationRoute);
             var inspection = new BattlementUiEventInspection(action, UiEventKindOf(value.Body));
@@ -85,22 +83,34 @@ namespace Battlement
                     decodeFailed: _ => FailDeferredResponse(inspection)
                 );
                 inspection.AdmissionSequence = reservation.Sequence;
-                byte[] message;
-                using (BattlementProfiler.Serialization.Auto())
-                    message = codec.SerializeUiEventAction(action);
-                if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                using BattlementUiEventTransportResult result = SubmitUiEvent(action);
+                BattlementUiEventTransportResult SubmitUiEvent(UiEventAction submitted)
                 {
-                    throw new InvalidDataException(
-                        "A UI event cannot exceed "
-                            + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes."
-                    );
-                }
-
-                BattlementUiEventTransportResult result;
-                using (BattlementProfiler.Transport.Auto())
-                {
-                    enteredTransport = true;
-                    result = transport.SubmitUiEvent(message);
+                    using (BattlementProfiler.Transport.Auto())
+                    {
+                        enteredTransport = true;
+                        if (transport is BattlementNativeTransport native)
+                        {
+                            using (BattlementProfiler.Serialization.Auto())
+                                return native.SubmitUiEvent(submitted);
+                        }
+                        else
+                        {
+                            ReadOnlyMemory<byte> message;
+                            using (BattlementProfiler.Serialization.Auto())
+                                message = requests.Write(submitted);
+                            if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                                throw new InvalidDataException("A UI event cannot exceed 16 MiB.");
+                            try
+                            {
+                                return transport.SubmitUiEvent(message);
+                            }
+                            finally
+                            {
+                                requests.TrimOversized();
+                            }
+                        }
+                    }
                 }
                 if (result.Status != BattlementTransportStatus.Success)
                 {
@@ -137,22 +147,32 @@ namespace Battlement
                         $"UI event returned unknown disposition {(uint)result.Disposition}."
                     );
                 }
-                if (result.ResponsePayload.IsEmpty)
+                if (result.BorrowedResponsePayload.IsEmpty && result.ResponseView is null)
                 {
                     throw new InvalidDataException("UI event returned an empty response payload.");
                 }
 
-                bool backgroundDecode =
-                    codec is IBattlementBackgroundProtocolCodec
-                    && canDecodeInBackground()
-                    && !beginsActivation;
-                reservation.Commit(result.ResponsePayload, backgroundDecode);
+                IBattlementResponseView? direct = result.DetachResponseView();
+                if (direct is null)
+                {
+                    IDisposable? owner = result.DetachPayloadOwner();
+                    try
+                    {
+                        direct = decodeResponse(result.BorrowedResponsePayload, owner);
+                        owner = null;
+                    }
+                    finally
+                    {
+                        owner?.Dispose();
+                    }
+                }
+                reservation.Commit(direct);
                 reservation = null;
                 inspection.Disposition = result.Disposition;
                 inspection.PreventedByReactant =
                     result.Disposition == UiEventDisposition.PreventDefault
                     && !value.DefaultPrevented;
-                inspection.ResponseBytes = result.ResponsePayload.Length;
+                inspection.ResponseBytes = result.ResponsePayloadLength;
                 inspection.SynchronousDurationMicroseconds = Microseconds(clock.Elapsed - started);
                 inspection.Outcome = BattlementUiEventInspectionOutcome.Completed;
                 if (beginsActivation && activationRoute == "ui-accessibility")
@@ -229,15 +249,17 @@ namespace Battlement
         }
 
         private void ObserveDecodedResponse(
-            Response<ICommand> response,
+            IBattlementResponseView response,
             BattlementUiEventInspection inspection
         )
         {
             var batchIds = new List<BatchId>();
-            foreach (ResponseMessage<ICommand> message in response.Messages)
+            for (int index = 0; index < response.MessageCount; index++)
             {
-                if (message is ResponseMessage<ICommand>.BatchMessage batch)
-                    batchIds.Add(batch.Batch.Id);
+                if (response.IsSnapshot(index))
+                    continue;
+                using IBattlementBatchView batch = response.ReadBatch(index);
+                batchIds.Add(batch.Id);
             }
             inspection.SetBatchIds(batchIds);
             inspection.AppliedAt = clock.Elapsed;

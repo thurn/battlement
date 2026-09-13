@@ -2,12 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Threading;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
 using UnityEngine;
 
 namespace Battlement
@@ -84,6 +79,53 @@ namespace Battlement
         );
     }
 
+    /// <summary>
+    /// Runs a generated custom-command payload view while its response lease is live.
+    /// </summary>
+    public interface IBattlementFlatBufferCommandHandler<TPayloadView>
+    {
+        /// <summary>
+        /// Runs synchronously. The generated payload view must not be retained after this call.
+        /// </summary>
+        IBattlementCommandOperation? Execute(
+            BattlementFlatBufferCommand<TPayloadView> command,
+            BattlementCommandContext context
+        );
+    }
+
+    /// <summary>Metadata and a generated borrowed payload for one custom command.</summary>
+    public readonly struct BattlementFlatBufferCommand<TPayloadView>
+    {
+        public BattlementFlatBufferCommand(
+            CommandId id,
+            string type,
+            TPayloadView payload,
+            bool isBlocking
+        ) => (Id, Type, Payload, IsBlocking) = (id, type, payload, isBlocking);
+
+        public CommandId Id { get; }
+
+        public string Type { get; }
+
+        public TPayloadView Payload { get; }
+
+        public bool IsBlocking { get; }
+    }
+
+    /// <summary>
+    /// Dispatches a generated payload view without reconstructing an owned protocol command.
+    /// </summary>
+    public interface IBattlementFlatBufferCustomCommandDispatcher
+    {
+        IBattlementCommandOperation? Launch<TPayloadView>(
+            CommandId id,
+            string type,
+            bool isBlocking,
+            TPayloadView payload,
+            TimeSpan now
+        );
+    }
+
     /// <summary>A protocol-visible game-specific custom-command failure.</summary>
     public sealed class BattlementCommandFailureException<TError> : Exception
     {
@@ -98,22 +140,8 @@ namespace Battlement
         public TError ErrorCode { get; }
     }
 
-    internal sealed class BattlementCustomCommands
+    internal sealed class BattlementCustomCommands : IBattlementFlatBufferCustomCommandDispatcher
     {
-        private static readonly UTF8Encoding StrictUtf8 = new(false, true);
-        private static readonly JsonSerializerSettings PayloadSettings = new()
-        {
-            ContractResolver = new CanonicalConstructorContractResolver
-            {
-                NamingStrategy = new SnakeCaseNamingStrategy(),
-            },
-            DefaultValueHandling = DefaultValueHandling.Ignore,
-            NullValueHandling = NullValueHandling.Ignore,
-        };
-
-        static BattlementCustomCommands() =>
-            PayloadSettings.Converters.Add(new StringEnumConverter { AllowIntegerValues = false });
-
         private readonly Dictionary<string, IBattlementCommandRegistration> registrations = new(
             StringComparer.Ordinal
         );
@@ -126,9 +154,7 @@ namespace Battlement
 
         public void Register<TPayload, TError>(
             string type,
-            IBattlementCommandHandler<TPayload> handler,
-            JsonConverter<TPayload>? payloadConverter,
-            JsonConverter<TError>? errorConverter
+            IBattlementCommandHandler<TPayload> handler
         )
         {
             RequireNamespaced(type);
@@ -144,33 +170,32 @@ namespace Battlement
                 new BattlementCommandRegistration<TPayload, TError>(
                     type,
                     Preconditions.CheckNotNull(handler, nameof(handler)),
-                    payloadConverter,
-                    errorConverter,
                     createContext
                 )
             );
         }
 
-        public ICommand Read(
-            CommandId id,
+        public void RegisterFlatBuffer<TPayloadView, TError>(
             string type,
-            bool isBlocking,
-            ReadOnlyMemory<byte> payload
+            IBattlementFlatBufferCommandHandler<TPayloadView> handler
         )
         {
-            if (!registrations.TryGetValue(type, out IBattlementCommandRegistration registration))
+            RequireNamespaced(type);
+            if (registrations.ContainsKey(type))
             {
-                return new BattlementUnknownCustomCommand(id, type, isBlocking);
+                throw new InvalidOperationException(
+                    $"A custom command handler is already registered for {type}."
+                );
             }
 
-            try
-            {
-                return registration.Deserialize(id, isBlocking, payload);
-            }
-            catch (Exception exception)
-            {
-                return new BattlementInvalidCustomCommand(id, type, isBlocking, exception);
-            }
+            registrations.Add(
+                type,
+                new BattlementFlatBufferCommandRegistration<TPayloadView, TError>(
+                    type,
+                    Preconditions.CheckNotNull(handler, nameof(handler)),
+                    createContext
+                )
+            );
         }
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
@@ -210,31 +235,33 @@ namespace Battlement
             return registration.Launch(command, now);
         }
 
-        public bool TryGet(string type, out IBattlementCommandRegistration registration) =>
-            registrations.TryGetValue(type, out registration!);
-
-        public static T DecodePayload<T>(ReadOnlyMemory<byte> payload, JsonConverter<T>? converter)
+        public IBattlementCommandOperation? Launch<TPayloadView>(
+            CommandId id,
+            string type,
+            bool isBlocking,
+            TPayloadView payload,
+            TimeSpan now
+        )
         {
-            string json = StrictUtf8.GetString(payload.Span);
-            var serializer = JsonSerializer.Create(PayloadSettings);
-            if (converter is not null)
+            if (!registrations.TryGetValue(type, out IBattlementCommandRegistration registration))
             {
-                serializer.Converters.Insert(0, converter);
-            }
-
-            using var reader = new JsonTextReader(new StringReader(json));
-            T value =
-                serializer.Deserialize<T>(reader)
-                ?? throw new JsonSerializationException("A custom JSON payload was null.");
-            if (reader.Read())
-            {
-                throw new JsonSerializationException(
-                    "A custom JSON payload must contain exactly one JSON value."
+                throw new BattlementCommandException(
+                    CoreErrorCode.HandlerNotRegistered,
+                    $"No custom command handler is registered for {type}."
                 );
             }
-
-            return value;
+            if (registration is not IBattlementFlatBufferCommandRegistration<TPayloadView> direct)
+            {
+                throw new BattlementCommandException(
+                    CoreErrorCode.InvalidEncoding,
+                    $"Custom command {type} used the wrong generated payload view."
+                );
+            }
+            return direct.LaunchFlatBuffer(id, type, isBlocking, payload, now);
         }
+
+        public bool TryGet(string type, out IBattlementCommandRegistration registration) =>
+            registrations.TryGetValue(type, out registration!);
 
         public static void RequireNamespaced(string type)
         {
@@ -256,12 +283,10 @@ namespace Battlement
 
     internal interface IBattlementCommandRegistration
     {
-        ICommand Deserialize(CommandId id, bool isBlocking, ReadOnlyMemory<byte> payload);
-
         IBattlementCommandOperation? Launch(ICommand command, TimeSpan now);
 
-        byte[] SerializeBatchFailure(
-            IBattlementExtensionProtocolCodec codec,
+        ReadOnlyMemory<byte> SerializeFlatBufferBatchFailure(
+            IBattlementFlatBufferClientSchema schema,
             SessionId sessionId,
             BatchId batchId,
             CommandId? commandId,
@@ -269,8 +294,8 @@ namespace Battlement
             string message
         );
 
-        byte[] SerializeOperationFailure(
-            IBattlementExtensionProtocolCodec codec,
+        ReadOnlyMemory<byte> SerializeFlatBufferOperationFailure(
+            IBattlementFlatBufferClientSchema schema,
             SessionId sessionId,
             BatchId batchId,
             CommandId commandId,
@@ -279,36 +304,30 @@ namespace Battlement
         );
     }
 
+    internal interface IBattlementFlatBufferCommandRegistration<TPayloadView>
+        : IBattlementCommandRegistration
+    {
+        IBattlementCommandOperation? LaunchFlatBuffer(
+            CommandId id,
+            string type,
+            bool isBlocking,
+            TPayloadView payload,
+            TimeSpan now
+        );
+    }
+
     internal sealed class BattlementCommandRegistration<TPayload, TError>
         : IBattlementCommandRegistration
     {
         private readonly string type;
         private readonly IBattlementCommandHandler<TPayload> handler;
-        private readonly JsonConverter<TPayload>? payloadConverter;
-        private readonly JsonConverter<TError>? errorConverter;
         private readonly Func<TimeSpan, BattlementCommandContext> createContext;
 
         public BattlementCommandRegistration(
             string type,
             IBattlementCommandHandler<TPayload> handler,
-            JsonConverter<TPayload>? payloadConverter,
-            JsonConverter<TError>? errorConverter,
             Func<TimeSpan, BattlementCommandContext> createContext
-        ) =>
-            (
-                this.type,
-                this.handler,
-                this.payloadConverter,
-                this.errorConverter,
-                this.createContext
-            ) = (type, handler, payloadConverter, errorConverter, createContext);
-
-        public ICommand Deserialize(CommandId id, bool isBlocking, ReadOnlyMemory<byte> payload)
-        {
-            TPayload value = BattlementCustomCommands.DecodePayload(payload, payloadConverter);
-
-            return new CustomCommand<TPayload>(id, type, value, isBlocking);
-        }
+        ) => (this.type, this.handler, this.createContext) = (type, handler, createContext);
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
         {
@@ -364,36 +383,142 @@ namespace Battlement
             }
         }
 
-        public byte[] SerializeBatchFailure(
-            IBattlementExtensionProtocolCodec codec,
+        public ReadOnlyMemory<byte> SerializeFlatBufferBatchFailure(
+            IBattlementFlatBufferClientSchema schema,
             SessionId sessionId,
             BatchId batchId,
             CommandId? commandId,
             object errorCode,
             string message
         ) =>
-            codec.SerializeBatchFailure(
-                new BatchFailed<TError>(sessionId, batchId, (TError)errorCode, message, commandId),
-                errorConverter
+            schema.SerializeBatchFailure(
+                new BatchFailed<TError>(sessionId, batchId, (TError)errorCode, message, commandId)
             );
 
-        public byte[] SerializeOperationFailure(
-            IBattlementExtensionProtocolCodec codec,
+        public ReadOnlyMemory<byte> SerializeFlatBufferOperationFailure(
+            IBattlementFlatBufferClientSchema schema,
             SessionId sessionId,
             BatchId batchId,
             CommandId commandId,
             object errorCode,
             string message
         ) =>
-            codec.SerializeOperationFailure(
+            schema.SerializeOperationFailure(
                 new OperationFailed<TError>(
                     sessionId,
                     batchId,
                     commandId,
                     (TError)errorCode,
                     message
-                ),
-                errorConverter
+                )
+            );
+    }
+
+    internal sealed class BattlementFlatBufferCommandRegistration<TPayloadView, TError>
+        : IBattlementFlatBufferCommandRegistration<TPayloadView>
+    {
+        private readonly string type;
+        private readonly IBattlementFlatBufferCommandHandler<TPayloadView> handler;
+        private readonly Func<TimeSpan, BattlementCommandContext> createContext;
+
+        public BattlementFlatBufferCommandRegistration(
+            string type,
+            IBattlementFlatBufferCommandHandler<TPayloadView> handler,
+            Func<TimeSpan, BattlementCommandContext> createContext
+        ) => (this.type, this.handler, this.createContext) = (type, handler, createContext);
+
+        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now) =>
+            throw new BattlementCommandException(
+                CoreErrorCode.InvalidEncoding,
+                $"Custom command {type} requires its generated FlatBuffer payload view."
+            );
+
+        public IBattlementCommandOperation? LaunchFlatBuffer(
+            CommandId id,
+            string commandType,
+            bool isBlocking,
+            TPayloadView payload,
+            TimeSpan now
+        )
+        {
+            var cancellation = new CancellationTokenSource();
+            try
+            {
+                IBattlementCommandOperation? operation = handler.Execute(
+                    new BattlementFlatBufferCommand<TPayloadView>(
+                        id,
+                        commandType,
+                        payload,
+                        isBlocking
+                    ),
+                    createContext(now) with
+                    {
+                        Cancellation = cancellation.Token,
+                    }
+                );
+                if (operation is null)
+                {
+                    cancellation.Dispose();
+                    return null;
+                }
+                var custom = new BattlementCustomOperation<TError>(operation, cancellation, this);
+                return operation is IBattlementScopedCommandOperation scoped
+                    ? new BattlementScopedCommandOperation(
+                        scoped.TargetObjectId,
+                        custom,
+                        scoped.ControlsTransform
+                    )
+                    : custom;
+            }
+            catch (BattlementCommandFailureException<TError> exception)
+            {
+                cancellation.Dispose();
+                throw new BattlementRegisteredCommandException(
+                    this,
+                    exception.ErrorCode!,
+                    exception.Message,
+                    exception
+                );
+            }
+            catch (Exception exception)
+            {
+                cancellation.Dispose();
+                throw new BattlementCommandException(
+                    CoreErrorCode.HandlerFailed,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+
+        public ReadOnlyMemory<byte> SerializeFlatBufferBatchFailure(
+            IBattlementFlatBufferClientSchema schema,
+            SessionId sessionId,
+            BatchId batchId,
+            CommandId? commandId,
+            object errorCode,
+            string message
+        ) =>
+            schema.SerializeBatchFailure(
+                new BatchFailed<TError>(sessionId, batchId, (TError)errorCode, message, commandId)
+            );
+
+        public ReadOnlyMemory<byte> SerializeFlatBufferOperationFailure(
+            IBattlementFlatBufferClientSchema schema,
+            SessionId sessionId,
+            BatchId batchId,
+            CommandId commandId,
+            object errorCode,
+            string message
+        ) =>
+            schema.SerializeOperationFailure(
+                new OperationFailed<TError>(
+                    sessionId,
+                    batchId,
+                    commandId,
+                    (TError)errorCode,
+                    message
+                )
             );
     }
 

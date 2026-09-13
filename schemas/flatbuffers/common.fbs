@@ -1,0 +1,65 @@
+namespace Battlement.FlatBuffers.Generated;
+
+struct Uuid {
+  bytes:[ubyte:16];
+}
+
+struct ScreenSize {
+  width:uint;
+  height:uint;
+}
+
+struct Vector2d {
+  x:double;
+  y:double;
+}
+
+struct Vector3d {
+  x:double;
+  y:double;
+  z:double;
+}
+
+struct Quaterniond {
+  x:double;
+  y:double;
+  z:double;
+  w:double;
+}
+
+struct RgbColor {
+  r:double;
+  g:double;
+  b:double;
+}
+
+struct RgbaColor {
+  r:double;
+  g:double;
+  b:double;
+  a:double;
+}
+
+struct Rectd {
+  x:double;
+  y:double;
+  width:double;
+  height:double;
+}
+
+struct LocalTransform {
+  position:Vector3d;
+  rotation:Quaterniond;
+  scale:Vector3d;
+}
+
+enum ReducedMotionPreference:ubyte {
+  Unavailable = 0,
+  Reduce = 1,
+  NoPreference = 2
+}
+
+table ApplicationState {
+  focused:bool;
+  paused:bool;
+}

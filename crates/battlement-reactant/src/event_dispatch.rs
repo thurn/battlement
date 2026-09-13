@@ -46,6 +46,117 @@ pub(crate) fn dispatch<G: 'static>(
   self::invoke_raw(runtime_id, roots, game, event)
 }
 
+pub(crate) fn dispatch_view<G: 'static>(
+  runtime_id: u64,
+  roots: &[&RenderTree],
+  game: &mut G,
+  action: battlement_native::UiEventActionView<'_>,
+) -> DispatchResult {
+  let incoming_prevented = action.default_prevented();
+  let target_id = ObjectId::from_uuid(uuid::Uuid::from_bytes(action.target_id()))
+    .expect("UI event view validates nonzero target UUIDs");
+  let Some(path) = self::logical_path(runtime_id, roots, target_id) else {
+    return DispatchResult {
+      disposition: disposition(incoming_prevented),
+      invoked: false,
+      local_invalidation: false,
+      prevented_by_reactant: false,
+    };
+  };
+  let kind = action.event_kind();
+  let requires_owned_body = path.iter().any(|node| {
+    node
+      .handlers
+      .iter()
+      .any(|handler| handler.native_kind() == kind && !handler.supports_native_view())
+  });
+  let owned_body = requires_owned_body.then(|| {
+    Rc::new(
+      action
+        .to_owned_event()
+        .expect("verified UI event view must produce a legacy callback body")
+        .body,
+    )
+  });
+  let stopped = Rc::new(Cell::new(false));
+  let target_node = path.last().expect("event path has a target");
+  let shared = Rc::new(EventInner::new(
+    target_node.target,
+    stopped,
+    action.cancelable(),
+    incoming_prevented,
+  ));
+  if !kind.propagates() {
+    let invoked = self::invoke_view_handlers(
+      game,
+      target_node,
+      EventPhase::Target,
+      HandlerPhase::Default,
+      kind,
+      Rc::clone(&shared),
+      action,
+      owned_body,
+    );
+    return DispatchResult {
+      disposition: disposition(shared.default_prevented()),
+      invoked: invoked.invoked,
+      local_invalidation: invoked.invoked && invoked.local_only,
+      prevented_by_reactant: shared.prevented_by_reactant(),
+    };
+  }
+  let mut invoked = HandlerInvocations::default();
+  for node in &path[..path.len() - 1] {
+    invoked.merge(self::invoke_view_handlers(
+      game,
+      node,
+      EventPhase::Capture,
+      HandlerPhase::Capture,
+      kind,
+      Rc::clone(&shared),
+      action,
+      owned_body.as_ref().map(Rc::clone),
+    ));
+  }
+  invoked.merge(self::invoke_view_handlers(
+    game,
+    target_node,
+    EventPhase::Target,
+    HandlerPhase::Capture,
+    kind,
+    Rc::clone(&shared),
+    action,
+    owned_body.as_ref().map(Rc::clone),
+  ));
+  invoked.merge(self::invoke_view_handlers(
+    game,
+    target_node,
+    EventPhase::Target,
+    HandlerPhase::Default,
+    kind,
+    Rc::clone(&shared),
+    action,
+    owned_body.as_ref().map(Rc::clone),
+  ));
+  for node in path[..path.len() - 1].iter().rev() {
+    invoked.merge(self::invoke_view_handlers(
+      game,
+      node,
+      EventPhase::Bubble,
+      HandlerPhase::Default,
+      kind,
+      Rc::clone(&shared),
+      action,
+      owned_body.as_ref().map(Rc::clone),
+    ));
+  }
+  DispatchResult {
+    disposition: disposition(shared.default_prevented()),
+    invoked: invoked.invoked,
+    local_invalidation: invoked.invoked && invoked.local_only,
+    prevented_by_reactant: shared.prevented_by_reactant(),
+  }
+}
+
 #[derive(Clone)]
 struct LogicalNode {
   target: ElementTarget,
@@ -171,6 +282,46 @@ fn invoke_raw_handlers<G: 'static>(
       Rc::clone(&event),
       Rc::clone(&body),
     );
+    invoked.local_only =
+      (!invoked.invoked || invoked.local_only) && handler.has_local_invalidation();
+    invoked.invoked = true;
+  }
+  invoked
+}
+
+#[allow(clippy::too_many_arguments)]
+fn invoke_view_handlers<G: 'static>(
+  game: &mut G,
+  node: &LogicalNode,
+  phase: EventPhase,
+  handler_phase: HandlerPhase,
+  kind: UiEventKind,
+  event: Rc<EventInner>,
+  action: battlement_native::UiEventActionView<'_>,
+  owned_body: Option<Rc<UiEventBody>>,
+) -> HandlerInvocations {
+  let mut invoked = HandlerInvocations::default();
+  for handler in &node.handlers {
+    if event.propagation_stopped() {
+      break;
+    }
+    if handler.native_kind() != kind || handler.phase() != handler_phase {
+      continue;
+    }
+    if handler.supports_native_view() {
+      handler.invoke_native_view(game, node.target, phase, Rc::clone(&event), action);
+    } else {
+      handler.invoke(
+        game,
+        node.target,
+        phase,
+        Rc::clone(&event),
+        owned_body
+          .as_ref()
+          .map(Rc::clone)
+          .expect("legacy native handler requires an owned callback body"),
+      );
+    }
     invoked.local_only =
       (!invoked.invoked || invoked.local_only) && handler.has_local_invalidation();
     invoked.invoked = true;

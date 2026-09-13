@@ -1,0 +1,66 @@
+include "common.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum SemanticRole:ubyte {
+  Button, Checkbox, Switch, Radio, RadioGroup, Slider, Progress, Disclosure,
+  ScrollArea, Tab, TabList, TabPanel, Dialog, Heading, Image, StaticText,
+  Group, ListBox, Option, Table, Row, ColumnHeader, RowHeader, Cell, Link,
+  Navigation, Region
+}
+
+enum CheckedState:ubyte { False, True, Mixed }
+enum PopupKind:ubyte { ListBox }
+enum CurrentPage:ubyte { Page }
+enum AccessibilityScrollDirection:ubyte { Forward, Backward }
+enum AccessibilityScrollAxis:ubyte { Horizontal, Vertical }
+
+table SemanticState {
+  disabled:bool;
+  checked:CheckedState = null;
+  selected:bool = null;
+  expanded:bool = null;
+  popup:PopupKind = null;
+  busy:bool;
+  current:CurrentPage = null;
+}
+
+table AccessibilityRangeValue {
+  current:double;
+  minimum:double;
+  maximum:double;
+  text:string;
+}
+
+table AccessibilityActionSet {
+  activate:bool;
+  increment:bool;
+  decrement:bool;
+  dismiss:bool;
+  scroll:[AccessibilityScrollDirection] (required);
+}
+
+table AccessibilityNodeSnapshot {
+  object_id:Uuid (required);
+  parent_id:Uuid;
+  children:[Uuid] (required);
+  role:SemanticRole;
+  label:string;
+  hint:string;
+  state:SemanticState (required);
+  value:AccessibilityRangeValue;
+  actions:AccessibilityActionSet (required);
+  heading_level:ubyte = null;
+  scroll_axis:AccessibilityScrollAxis = null;
+}
+
+table AccessibilitySnapshot {
+  commit_sequence:ulong;
+  roots:[Uuid] (required);
+  nodes:[AccessibilityNodeSnapshot] (required);
+}
+
+table AccessibilityUpdate {
+  snapshot:AccessibilitySnapshot;
+  announcements:[string] (required);
+}

@@ -10,6 +10,28 @@ namespace Battlement
         public static void Validate(
             GameObjectKind.UiDocumentState value,
             IReadOnlyDictionary<string, PreparedAsset> prepared
+        ) =>
+            Validate(
+                value,
+                address =>
+                    prepared.TryGetValue(address.Value, out PreparedAsset asset)
+                    && asset is PreparedAsset.RenderTexture
+            );
+
+        public static void Validate(
+            GameObjectKind.UiDocumentState value,
+            IBattlementPreparedAssetLookup prepared
+        ) =>
+            Validate(
+                value,
+                address =>
+                    prepared.TryGet(new PreparedAsset.RenderTexture(address), out object? asset)
+                    && asset is UnityEngine.RenderTexture
+            );
+
+        internal static void Validate(
+            GameObjectKind.UiDocumentState value,
+            Func<RenderTextureAddress, bool> targetTexturePrepared
         )
         {
             RequireId(value.RootId.Value, "UI root");
@@ -43,7 +65,7 @@ namespace Battlement
             RequireUnit(panel.MatchFactor, "UI match factor");
             if (panel.TargetDisplay > 7)
                 throw Invalid("UI target display must be in [0, 7].");
-            ValidateTargetTexture(panel, prepared);
+            ValidateTargetTexture(panel, targetTexturePrepared);
             RequireEnum(panel.RenderMode, "panel render mode");
             RequireEnum(panel.ScaleMode, "panel scale mode");
             RequireEnum(panel.ScreenMatchMode, "panel screen match mode");
@@ -54,7 +76,7 @@ namespace Battlement
 
         private static void ValidateTargetTexture(
             PanelSettingsValue panel,
-            IReadOnlyDictionary<string, PreparedAsset> prepared
+            Func<RenderTextureAddress, bool> targetTexturePrepared
         )
         {
             if (panel.TargetTexture is not RenderTextureAddress targetTexture)
@@ -67,10 +89,7 @@ namespace Battlement
                     "A target-texture panel cannot also target a display or use world space."
                 );
             }
-            if (
-                !prepared.TryGetValue(targetTexture.Value, out PreparedAsset asset)
-                || asset is not PreparedAsset.RenderTexture
-            )
+            if (!targetTexturePrepared(targetTexture))
             {
                 throw new BattlementWorldException(
                     CoreErrorCode.AssetNotPrepared,

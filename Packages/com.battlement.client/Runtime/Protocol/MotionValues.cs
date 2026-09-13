@@ -4,6 +4,16 @@ using System.Collections.Generic;
 
 namespace Battlement
 {
+    /// <summary>A closed discrete Motion value.</summary>
+    public abstract record MotionDiscreteValue
+    {
+        public sealed record Null : MotionDiscreteValue;
+
+        public sealed record String(string Value) : MotionDiscreteValue;
+
+        public static implicit operator MotionDiscreteValue(string value) => new String(value);
+    }
+
     /// <summary>Every normalized value shape accepted by a motion property.</summary>
     public abstract record MotionValue
     {
@@ -32,6 +42,6 @@ namespace Battlement
         public sealed record ClipPolygon(IReadOnlyList<IReadOnlyList<UiLength>> Value)
             : MotionValue;
 
-        public sealed record Discrete(Newtonsoft.Json.Linq.JToken Value) : MotionValue;
+        public sealed record Discrete(MotionDiscreteValue Value) : MotionValue;
     }
 }

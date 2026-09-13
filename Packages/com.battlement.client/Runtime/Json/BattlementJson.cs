@@ -6,14 +6,8 @@ using Newtonsoft.Json;
 namespace Battlement
 {
     /// <summary>Encodes and decodes Battlement protocol values as JSON.</summary>
-    public sealed class BattlementJson
-        : IBattlementExtensionProtocolCodec,
-            IBattlementBackgroundProtocolCodec
+    public static class BattlementJson
     {
-        public static BattlementJson Instance { get; } = new();
-
-        private BattlementJson() { }
-
         /// <summary>Encodes a connection message.</summary>
         public static byte[] SerializeConnect(Connect value) => JsonProtocol.Serialize(value);
 
@@ -56,23 +50,6 @@ namespace Battlement
         /// <summary>Decodes a response containing only core commands.</summary>
         public static Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             JsonProtocol.Deserialize<Response>(bytes);
-
-        byte[] IBattlementProtocolCodec.SerializeConnect(Connect value) => SerializeConnect(value);
-
-        byte[] IBattlementProtocolCodec.SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
-            SerializeBatchFailure(value);
-
-        byte[] IBattlementProtocolCodec.SerializeOperationFailure(
-            OperationFailed<CoreErrorCode> value
-        ) => SerializeOperationFailure(value);
-
-        byte[] IBattlementProtocolCodec.SerializeAction(Action value) => SerializeAction(value);
-
-        byte[] IBattlementProtocolCodec.SerializeUiEventAction(UiEventAction value) =>
-            SerializeUiEventAction(value);
-
-        Response IBattlementProtocolCodec.DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
-            DeserializeResponse(bytes);
 
         /// <summary>Encodes a response containing core and custom commands.</summary>
         public static byte[] SerializeResponse<TPayload>(
@@ -193,25 +170,5 @@ namespace Battlement
                 bytes,
                 new CustomCommandJsonConverter(decodeCustomCommand)
             );
-
-        Response<ICommand> IBattlementExtensionProtocolCodec.DeserializeResponse(
-            ReadOnlyMemory<byte> bytes,
-            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
-        ) => DeserializeResponse(bytes, decodeCustomCommand);
-
-        byte[] IBattlementExtensionProtocolCodec.SerializeCustomAction<TPayload>(
-            CustomAction<TPayload> value,
-            JsonConverter<TPayload>? payloadConverter
-        ) => SerializeCustomAction(value, payloadConverter);
-
-        byte[] IBattlementExtensionProtocolCodec.SerializeBatchFailure<TError>(
-            BatchFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        ) => SerializeBatchFailure(value, errorConverter);
-
-        byte[] IBattlementExtensionProtocolCodec.SerializeOperationFailure<TError>(
-            OperationFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        ) => SerializeOperationFailure(value, errorConverter);
     }
 }

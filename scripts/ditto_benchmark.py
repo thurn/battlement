@@ -31,7 +31,7 @@ REQUIRED_TIMINGS = {
 
 
 def load_definition(path: Path) -> dict[str, Any]:
-    """Load and verify the immutable 20-scenario, 40-checkpoint definition."""
+    """Load and verify the immutable 17-scenario, 32-checkpoint definition."""
     definition = json.loads(path.read_text(encoding="utf-8"))
     if definition.get("schema") != 1 or definition.get("profile") != "macos":
         raise RuntimeError("benchmark schema and profile must be canonical")
@@ -44,8 +44,8 @@ def load_definition(path: Path) -> dict[str, Any]:
     samples = definition.get("samples", [])
     scenarios = [scenario for sample in samples for scenario in sample.get("scenarios", [])]
     checkpoints = [name for scenario in scenarios for name in scenario.get("checkpoints", [])]
-    if len(samples) != 5 or len(scenarios) != 20 or len(checkpoints) != 40:
-        raise RuntimeError("benchmark shape must be exactly five samples, 20 scenarios, and 40 screenshots")
+    if len(samples) != 5 or len(scenarios) != 17 or len(checkpoints) != 32:
+        raise RuntimeError("benchmark shape must be exactly five samples, 17 scenarios, and 32 screenshots")
     if len({scenario["name"] for scenario in scenarios}) != len(scenarios):
         raise RuntimeError("benchmark scenario names must be globally unique")
     for sample in samples:

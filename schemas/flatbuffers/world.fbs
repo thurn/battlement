@@ -1,0 +1,217 @@
+include "common.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum PreparedAssetKind:ubyte {
+  Scene,
+  Prefab,
+  ParticleEffect,
+  Material,
+  Texture,
+  Sprite,
+  VectorImage,
+  RenderTexture,
+  AudioClip,
+  TextMeshProFont,
+  UiFont
+}
+
+table PreparedAsset {
+  kind:PreparedAssetKind;
+  address:string (required);
+}
+
+table Scene {
+  scene_id:Uuid (required);
+  address:string (required);
+}
+
+enum ParentSceneKind:ubyte { PrimaryScene, Scene, Persistent }
+
+table ParentScene {
+  kind:ParentSceneKind;
+  scene_id:Uuid;
+}
+
+enum PointerEventKind:ubyte { Enter, Exit, Down, Up, Click }
+enum DragMode:ubyte { None, SnapToPointer, PreserveOffset }
+enum ImageFit:ubyte { Stretch, Contain, Cover }
+enum CameraProjection:ubyte { Perspective, Orthographic }
+enum CameraClearMode:ubyte { Skybox, SolidColor, Depth, Nothing }
+enum LightType:ubyte { Directional, Point, Spot }
+enum ShadowMode:ubyte { None, Hard, Soft }
+enum HorizontalAlignment:ubyte { Left, Center, Right, Justified }
+enum VerticalAlignment:ubyte { Top, Middle, Bottom }
+
+table MaterialAssignment {
+  slot:uint;
+  address:string (required);
+}
+
+table EmptyObject {}
+
+table PrimitiveObject {
+  materials:[MaterialAssignment] (required);
+}
+
+table ImageObject {
+  texture:string (required);
+  width:double;
+  height:double;
+  fit:ImageFit;
+  tint:RgbColor (required);
+  opacity:double = 1.0;
+  face_camera:bool;
+}
+
+table TextObject {
+  text:string (required);
+  font:string (required);
+  size:double = 1.0;
+  color:RgbaColor (required);
+  horizontal:HorizontalAlignment;
+  vertical:VerticalAlignment;
+  wrap_width:double = null;
+  rich_text:bool;
+  face_camera:bool;
+}
+
+table CameraObject {
+  enabled:bool = true;
+  projection:CameraProjection;
+  field_of_view:double = 60.0;
+  orthographic_size:double = 5.0;
+  near:double = 0.3;
+  far:double = 1000.0;
+  clear_mode:CameraClearMode;
+  clear_color:RgbaColor (required);
+}
+
+table LightObject {
+  enabled:bool = true;
+  light_type:LightType = Point;
+  color:RgbaColor (required);
+  intensity:double = 1.0;
+  range:double = 10.0;
+  outer_spot_angle:double = 30.0;
+  inner_spot_angle:double;
+  shadows:ShadowMode;
+}
+
+table AnimatorBoolParameter { name:string (required); value:bool; }
+table AnimatorIntParameter { name:string (required); value:int; }
+table AnimatorFloatParameter { name:string (required); value:double; }
+
+table AnimatorState {
+  state:string (required);
+  layer:uint;
+  normalized_start_time:double;
+  bool_parameters:[AnimatorBoolParameter] (required);
+  int_parameters:[AnimatorIntParameter] (required);
+  float_parameters:[AnimatorFloatParameter] (required);
+  speed:double = 1.0;
+}
+
+table PrefabObject {
+  address:string (required);
+  materials:[MaterialAssignment] (required);
+  animator:AnimatorState;
+}
+
+enum PanelRenderMode:ubyte { ScreenSpaceOverlay, WorldSpace }
+enum PanelScaleMode:ubyte { ConstantPixelSize, ConstantLogicalPixelSize, ConstantPhysicalSize, ScaleWithScreenSize }
+enum PanelScreenMatchMode:ubyte { MatchWidthOrHeight, Shrink, Expand }
+enum DynamicAtlasFilter:ubyte { Readability, Size, Format, ColorSpace, FilterMode }
+enum DocumentPosition:ubyte { Relative, Absolute }
+enum WorldSpaceSizeMode:ubyte { Fixed, Dynamic }
+enum PivotReferenceSize:ubyte { BoundingBox, Layout }
+enum DocumentPivot:ubyte {
+  TopLeft, TopCenter, TopRight,
+  MiddleLeft, Center, MiddleRight,
+  BottomLeft, BottomCenter, BottomRight
+}
+
+table DynamicAtlasSettings {
+  min_atlas_size:uint = 64;
+  max_atlas_size:uint = 4096;
+  max_sub_texture_size:uint = 64;
+  filters:[DynamicAtlasFilter] (required);
+}
+
+table PanelSettings {
+  render_mode:PanelRenderMode;
+  scale_mode:PanelScaleMode = ConstantPhysicalSize;
+  reference_sprite_pixels_per_unit:float = 100.0;
+  scale:float = 1.0;
+  reference_dpi:float = 96.0;
+  fallback_dpi:float = 96.0;
+  reference_resolution:ScreenSize (required);
+  screen_match_mode:PanelScreenMatchMode;
+  match_factor:float;
+  target_display:uint;
+  target_texture:string;
+  clear_depth_stencil:bool = true;
+  clear_color:bool;
+  color_clear_value:RgbaColor (required);
+  dynamic_atlas:DynamicAtlasSettings (required);
+}
+
+table UiDocumentObject {
+  root_id:Uuid (required);
+  panel_settings:PanelSettings (required);
+  position:DocumentPosition;
+  world_space_size_mode:WorldSpaceSizeMode;
+  world_space_size:ScreenSize (required);
+  pivot_reference_size:PivotReferenceSize;
+  pivot:DocumentPivot = Center;
+  sorting_order:int;
+}
+
+union GameObjectContent {
+  UiDocumentObject,
+  EmptyObject,
+  PrimitiveObject,
+  ImageObject,
+  TextObject,
+  CameraObject,
+  LightObject,
+  PrefabObject
+}
+
+enum GameObjectKind:ubyte {
+  UiDocument,
+  Empty,
+  Cube,
+  Sphere,
+  Capsule,
+  Cylinder,
+  Plane,
+  Quad,
+  Image,
+  Text,
+  Camera,
+  Light,
+  Prefab
+}
+
+table GameObject {
+  object_id:Uuid (required);
+  parent_scene:ParentScene (required);
+  parent_id:Uuid;
+  active:bool = true;
+  local_transform:LocalTransform (required);
+  pointer_events:[PointerEventKind] (required);
+  drag_mode:DragMode;
+  kind:GameObjectKind;
+  content:GameObjectContent (required);
+}
+
+enum InteractionDistanceKind:ubyte { Unbounded, Inclusive }
+enum PanelInputRedirection:ubyte { AutoSwitch, Never, Always }
+
+table PanelInputConfiguration {
+  interaction_layers:uint = 4294967291;
+  distance_kind:InteractionDistanceKind;
+  maximum_interaction_distance:float;
+  input_redirection:PanelInputRedirection;
+}

@@ -185,9 +185,9 @@ where
     {
       connect.modules.push("battlement.diagnostics".to_owned());
     }
-    let response = engine
-      .connect(connect.clone())
-      .unwrap_or_else(|error| panic!("connect failed: {error}"));
+    let response =
+      battlement_native::with_connect_view(&connect, |message| engine.connect(message))
+        .unwrap_or_else(|error| panic!("connect failed: {error}"));
     assert!(
       !response.session_id.as_uuid().is_nil(),
       "connect returned a zero session"
@@ -226,10 +226,11 @@ where
 
   /// Reconnects the owned engine using the original connection metadata.
   pub fn reconnect(&mut self) {
-    let response = self
-      .engine
-      .connect(self.connect.clone())
-      .unwrap_or_else(|error| panic!("reconnect failed for session {}: {error}", self.session_id));
+    let response =
+      battlement_native::with_connect_view(&self.connect, |message| self.engine.connect(message))
+        .unwrap_or_else(|error| {
+          panic!("reconnect failed for session {}: {error}", self.session_id)
+        });
     assert!(
       !response.session_id.as_uuid().is_nil(),
       "reconnect returned a zero session"
@@ -880,20 +881,25 @@ where
     command_id: CommandId,
     code: CoreErrorCode,
   ) {
-    let encoded = serde_json::to_value(code).expect("core error code must serialize");
-    let error_code = serde_json::from_value(encoded).unwrap_or_else(|error| {
-      panic!("engine error-code type cannot represent a core failure: {error}")
-    });
+    let failure = BatchFailed::new(
+      self.session_id,
+      batch_id,
+      Some(command_id),
+      code,
+      "A Diagnostics command failed in the fake client.",
+    );
+    let message = battlement_flatbuffers::write_core_batch_failure(&failure)
+      .expect("fake core batch failure must satisfy the FlatBuffers contract");
     let response = self
       .engine
-      .submit(ClientMessage::BatchFailed(BatchFailed::new(
-        self.session_id,
-        batch_id,
-        Some(command_id),
-        error_code,
-        "A Diagnostics command failed in the fake client.",
-      )))
-      .unwrap_or_else(|error| panic!("batch-failure submit failed: {error}"));
+      .submit_flatbuffer(message.as_bytes())
+      .unwrap_or_else(|error| {
+        let error = match error {
+          battlement_native::FlatBufferSubmitError::InvalidArgument(error)
+          | battlement_native::FlatBufferSubmitError::Engine(error) => error,
+        };
+        panic!("batch-failure submit failed: {error}")
+      });
     self.apply_response(response, ResponseMode::Existing);
   }
 

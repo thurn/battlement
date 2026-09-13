@@ -88,6 +88,7 @@ namespace Battlement.Integration.EditorTests
             Assert.That(fixture.Failure, Is.Empty);
             Assert.That(fixture.HasPassed, Is.True);
             Assert.That(fixture.ClickTarget!.transform.localPosition.y, Is.EqualTo(1.25f));
+            Assert.That(fixture.OwnedCoreCommandMaterializations, Is.Zero);
             yield return new ExitPlayMode();
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }

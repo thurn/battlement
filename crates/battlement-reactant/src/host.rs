@@ -67,7 +67,8 @@ use crate::{
   animation_controls::{AnimationControls, AnimationScope},
   builder_support::IntoOption,
   element_ref::ElementRef,
-  event_handler::Handler,
+  event::ReactantNativeEvent,
+  event_handler::{Handler, HandlerPhase, native_slot},
   focus::FocusProps,
   host_facade::{self, HostState},
   key::ErasedKey,
@@ -552,6 +553,43 @@ macro_rules! facade {
           .retain(|existing| !existing.same_slot(&handler));
         self.state.handlers.push(handler);
         self
+      }
+
+      /// Handles a verified native event through a synchronously borrowed payload view.
+      ///
+      /// The event and any strings or vectors reached through it cannot be retained.
+      /// Copy only values that the application intentionally stores after this callback.
+      #[must_use]
+      pub fn on_native_event_with_model<G: 'static>(
+        self,
+        kind: battlement::UiEventKind,
+        callback: impl for<'a> Fn(&mut G, ReactantNativeEvent<'a>) + 'static,
+      ) -> Self {
+        self.with_handler(Handler::native_view_callback(
+          native_slot(kind),
+          kind,
+          HandlerPhase::Default,
+          callback,
+        ))
+      }
+
+      /// Handles a propagating verified native event during logical capture.
+      #[must_use]
+      pub fn on_native_event_capture_with_model<G: 'static>(
+        self,
+        kind: battlement::UiEventKind,
+        callback: impl for<'a> Fn(&mut G, ReactantNativeEvent<'a>) + 'static,
+      ) -> Self {
+        assert!(
+          kind.propagates(),
+          "only propagating UI events support capture handlers"
+        );
+        self.with_handler(Handler::native_view_callback(
+          native_slot(kind),
+          kind,
+          HandlerPhase::Capture,
+          callback,
+        ))
       }
 
       /// Paints a static clipped background without animation slots.

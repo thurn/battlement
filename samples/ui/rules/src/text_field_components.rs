@@ -2,8 +2,9 @@ use battlement::{
   Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode,
   UiTextField, UiValue, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{design_system, text_field_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, text_field_styles};
 
 pub(crate) const ACCEPTED_ID: ObjectId = object_id!("fd496f77-d46e-4bf9-8f5e-5cba8229d94f");
 pub(crate) const NORMALIZED_ID: ObjectId = object_id!("df0c6d77-9ff1-40cb-8ae3-a01353df5c73");
@@ -81,6 +82,73 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     }
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  match event.event_kind() {
+    UiEventKind::Input if target_id == ACCEPTED_ID => {
+      let Some(value) = event.input_text() else {
+        return Ok(false);
+      };
+      response.label(DRAFT_ID, &format!("LOCAL DRAFT  {value}"))?;
+      response.label(STATUS_ID, "EDITING · no commit traffic")?;
+    }
+    UiEventKind::SelectionChanged if target_id == ACCEPTED_ID => {
+      let Some(value) = event.selection() else {
+        return Ok(false);
+      };
+      response.label(
+        SELECTION_ID,
+        &format!(
+          "SELECTION  {} → {}",
+          value.selection_index, value.cursor_index
+        ),
+      )?;
+    }
+    UiEventKind::ValueCommitted if target_id == ACCEPTED_ID => {
+      let Some(commit) = event.value_commit() else {
+        return Ok(false);
+      };
+      let UiValueView::Text(proposed) = commit.proposed() else {
+        return Ok(false);
+      };
+      let field = response
+        .writer()
+        .text_field_builder()
+        .text_value(proposed)
+        .finish();
+      response.update(ACCEPTED_ID, field)?;
+      response.label(DRAFT_ID, &format!("LOCAL DRAFT  {proposed}"))?;
+      response.label(COMMITTED_ID, &format!("RUST COMMITTED  {proposed}"))?;
+      response.label(STATUS_ID, "ACCEPTED · exact value authored")?;
+    }
+    UiEventKind::ValueCommitted if target_id == NORMALIZED_ID => {
+      let Some(commit) = event.value_commit() else {
+        return Ok(false);
+      };
+      let UiValueView::Text(proposed) = commit.proposed() else {
+        return Ok(false);
+      };
+      let normalized = proposed.trim().to_uppercase();
+      let field = response
+        .writer()
+        .text_field_builder()
+        .text_value(&normalized)
+        .finish();
+      response.update(NORMALIZED_ID, field)?;
+      response.label(STATUS_ID, &format!("NORMALIZED · {normalized}"))?;
+      response.label(COMMITTED_ID, &format!("RUST COMMITTED  {normalized}"))?;
+    }
+    UiEventKind::ValueCommitted if target_id == REJECTED_ID => {
+      response.label(STATUS_ID, "REJECTED · kept prior value")?;
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 fn editor() -> UiNode {

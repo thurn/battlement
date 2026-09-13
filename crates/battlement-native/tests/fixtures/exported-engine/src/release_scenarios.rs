@@ -1,28 +1,38 @@
 use battlement::{
-  ActionBody, AnimatorState, AnyCommand, Batch, BatchId, CameraClearMode, CameraProjection,
-  CameraState, ClientMessage, Color, Command, CommandBody, CommandId, Connect, CustomCommand,
-  GameObject, GameObjectKind, ImageState, LightState, LocalTransform, MaterialAssignment, ObjectId,
-  ObjectIdPayload, ParallelCommandGroup, ParentScene, PointerEvent, PositionPayload, PreparedAsset,
-  PropertyCommand, ReplaceAssetSetPayload, Response, ResponseMessage, Scene, SceneAddress, SceneId,
-  SessionId, Snapshot, TextState, Vector3, WaitPayload,
+  AnimatorState, AnyCommand, Batch, BatchId, CameraClearMode, CameraProjection, CameraState, Color,
+  Command, CommandBody, CommandId, CustomCommand, GameObject, GameObjectKind, ImageState,
+  LightState, LocalTransform, MaterialAssignment, ObjectId, ObjectIdPayload, ParallelCommandGroup,
+  ParentScene, PointerEvent, PositionPayload, PreparedAsset, PropertyCommand,
+  ReplaceAssetSetPayload, Response, ResponseMessage, Scene, SceneAddress, SceneId, SessionId,
+  Snapshot, TextState, Tween, TweenPositionPayload, Vector3, WaitPayload,
 };
-use battlement_native::EngineError;
+use battlement_native::{ConnectView, CoreActionBodyView, CoreClientMessageView, EngineError};
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_SCENE: &str = "battlement/tests/default-scene";
 const RELEASE_PREFIX: &str = "fixture.release.";
 const INTEGRATION_COMMAND: &str = "fixture.integration.scale";
-const INTEGRATION_SCENE: &str = "battlement/integration/scene";
-const INTEGRATION_PREFAB: &str = "battlement/integration/prefab";
-const INTEGRATION_EFFECT: &str = "battlement/integration/effect";
-const INTEGRATION_MATERIAL: &str = "battlement/integration/material";
-const INTEGRATION_TEXTURE: &str = "battlement/integration/texture";
-const INTEGRATION_AUDIO: &str = "battlement/integration/audio";
-const INTEGRATION_FONT: &str = "battlement/integration/font";
+pub(crate) const INTEGRATION_SCENE: &str = "battlement/integration/scene";
+pub(crate) const INTEGRATION_PREFAB: &str = "battlement/integration/prefab";
+pub(crate) const INTEGRATION_EFFECT: &str = "battlement/integration/effect";
+pub(crate) const INTEGRATION_MATERIAL: &str = "battlement/integration/material";
+pub(crate) const INTEGRATION_TEXTURE: &str = "battlement/integration/texture";
+pub(crate) const INTEGRATION_AUDIO: &str = "battlement/integration/audio";
+pub(crate) const INTEGRATION_FONT: &str = "battlement/integration/font";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 /// Tuple payload matching the Unity custom-command fixture converter.
 pub struct FlashPayload(ObjectId, f32);
+
+impl FlashPayload {
+  pub(crate) fn object_id(self) -> ObjectId {
+    self.0
+  }
+
+  pub(crate) fn scale(self) -> f32 {
+    self.1
+  }
+}
 
 #[derive(Clone, Copy)]
 pub enum ReleaseScenario {
@@ -37,29 +47,29 @@ pub enum ReleaseScenario {
 }
 
 impl ReleaseScenario {
-  pub fn from_connect(connect: &Connect) -> Option<Self> {
+  pub fn is_integration(self) -> bool {
+    matches!(self, Self::IntegrationFixture)
+  }
+
+  pub fn from_connect(connect: ConnectView<'_>) -> Option<Self> {
     if connect
-      .custom_command_types
-      .iter()
+      .custom_command_types()
       .any(|command_type| command_type == INTEGRATION_COMMAND)
     {
       return Some(Self::IntegrationFixture);
     }
-    connect
-      .custom_command_types
-      .iter()
-      .find_map(
-        |command_type| match command_type.strip_prefix(RELEASE_PREFIX)? {
-          "batch-failures" => Some(Self::BatchFailures),
-          "timing" => Some(Self::Timing),
-          "snapshot-replacement" => Some(Self::SnapshotReplacement),
-          "asset-lifetime" => Some(Self::AssetLifetime),
-          "custom-failure" => Some(Self::CustomFailure),
-          "pointer-input" => Some(Self::PointerInput),
-          "fatal-reconnect" => Some(Self::FatalReconnect),
-          _ => None,
-        },
-      )
+    connect.custom_command_types().find_map(|command_type| {
+      match command_type.strip_prefix(RELEASE_PREFIX)? {
+        "batch-failures" => Some(Self::BatchFailures),
+        "timing" => Some(Self::Timing),
+        "snapshot-replacement" => Some(Self::SnapshotReplacement),
+        "asset-lifetime" => Some(Self::AssetLifetime),
+        "custom-failure" => Some(Self::CustomFailure),
+        "pointer-input" => Some(Self::PointerInput),
+        "fatal-reconnect" => Some(Self::FatalReconnect),
+        _ => None,
+      }
+    })
   }
 
   pub fn connect_response(self, session_id: SessionId) -> Response<AnyCommand<FlashPayload>> {
@@ -96,18 +106,20 @@ impl ReleaseScenario {
     })
   }
 
-  pub fn submit_response(
+  pub fn submit_core_response(
     self,
     session_id: SessionId,
-    message: ClientMessage<FlashPayload, battlement::CoreErrorCode>,
+    message: CoreClientMessageView<'_>,
   ) -> Response<AnyCommand<FlashPayload>> {
-    let ClientMessage::Action(action) = message else {
+    let CoreClientMessageView::Action(action) = message else {
       return Response::new(session_id, Vec::new());
     };
-    let ActionBody::PointerClick(payload) = action.body else {
+    let CoreActionBodyView::PointerClick(payload) = action.body() else {
       return Response::new(session_id, Vec::new());
     };
-    if !matches!(self, Self::IntegrationFixture) || payload.object_id != object_id(3701) {
+    if !matches!(self, Self::IntegrationFixture)
+      || payload.object_id() != *object_id(3701).as_uuid().as_bytes()
+    {
       return Response::new(session_id, Vec::new());
     }
 
@@ -126,7 +138,7 @@ pub fn object_id(value: u128) -> ObjectId {
   format!("{value:032x}").parse().unwrap()
 }
 
-fn scene_id(value: u128) -> SceneId {
+pub(crate) fn scene_id(value: u128) -> SceneId {
   format!("{value:032x}").parse().unwrap()
 }
 
@@ -349,7 +361,13 @@ fn timing(session_id: SessionId) -> Response<AnyCommand<FlashPayload>> {
           AnyCommand::Core(
             Command::new(
               CommandId::new_v4(),
-              CommandBody::TimeWait(WaitPayload { duration_ms: 800 }),
+              CommandBody::TransformTweenLocalPosition(PropertyCommand::canceling(
+                TweenPositionPayload {
+                  object_id: object_id(20),
+                  position: Vector3::new(1.0, 0.0, 0.0),
+                  tween: Tween::new().duration_ms(800),
+                },
+              )),
             )
             .nonblocking(),
           ),

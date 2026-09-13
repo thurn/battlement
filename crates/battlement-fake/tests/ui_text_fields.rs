@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset, Response,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventAction, UiEventBody, UiEventDisposition,
+  CameraState, ClientMessage, Command, GameObject, ObjectId, PreparedAsset, Response, Scene,
+  SceneId, SessionId, Snapshot, UiDocument, UiEventAction, UiEventBody, UiEventDisposition,
   UiEventKind, UiEventResponse, UiNode, UiTextField,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct TextEngine {
   session_id: SessionId,
@@ -20,7 +20,7 @@ impl Engine for TextEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))

@@ -51,8 +51,8 @@ namespace Battlement.Tests
                 MotionProperty.Visibility,
                 new MotionValue[]
                 {
-                    new MotionValue.Discrete(JToken.FromObject("visible")),
-                    new MotionValue.Discrete(JToken.FromObject("hidden")),
+                    new MotionValue.Discrete("visible"),
+                    new MotionValue.Discrete("hidden"),
                 },
                 Tween()
             );
@@ -63,10 +63,13 @@ namespace Battlement.Tests
                 .Sample(track, track.Values[0], 0, 500_000)
                 .Value;
             Assert.That(
-                ((MotionValue.Discrete)before).Value.Value<string>(),
+                ((MotionDiscreteValue.String)((MotionValue.Discrete)before).Value).Value,
                 Is.EqualTo("visible")
             );
-            Assert.That(((MotionValue.Discrete)after).Value.Value<string>(), Is.EqualTo("hidden"));
+            Assert.That(
+                ((MotionDiscreteValue.String)((MotionValue.Discrete)after).Value).Value,
+                Is.EqualTo("hidden")
+            );
         }
 
         [Test]

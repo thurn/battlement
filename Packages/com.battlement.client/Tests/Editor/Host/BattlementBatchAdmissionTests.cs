@@ -192,13 +192,11 @@ namespace Battlement.Tests
                 );
                 harness.Runner.Submit(new byte[] { 1 });
 
-                var failure = (ClientMessage<CoreErrorCode, byte>.BatchFailedMessage)Decode(
-                    harness.Transport.SubmitMessages[^1]
-                );
-                Assert.That(failure.Failure.BatchId, Is.EqualTo(batch.Id));
-                Assert.That(failure.Failure.SessionId, Is.EqualTo(session));
-                Assert.That(failure.Failure.ErrorCode, Is.EqualTo(code));
-                Assert.That(failure.Failure.CommandId, Is.EqualTo(commandId));
+                BatchFailed<CoreErrorCode> failure = harness.Transport.BatchFailures[^1];
+                Assert.That(failure.BatchId, Is.EqualTo(batch.Id));
+                Assert.That(failure.SessionId, Is.EqualTo(session));
+                Assert.That(failure.ErrorCode, Is.EqualTo(code));
+                Assert.That(failure.CommandId, Is.EqualTo(commandId));
             }
 
             Assert.That(harness.Transport.Calls, Does.Not.Contain("stop"));
@@ -229,12 +227,11 @@ namespace Battlement.Tests
 
             using BattlementTestHarness malformedHarness = BattlementTestHarness.Create();
             Connect(malformedHarness, session);
-            byte[] malformed = BattlementJson
-                .SerializeResponse(BatchResponse(session, ValidBatch(session, BatchStart.Now)))
-                .Take(12)
-                .ToArray();
             malformedHarness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, malformed)
+                new BattlementTransportResult(
+                    BattlementTransportStatus.Success,
+                    new byte[] { 0, 1, 2, 3 }
+                )
             );
             malformedHarness.Runner.Submit(new byte[] { 2 });
 
@@ -271,8 +268,5 @@ namespace Battlement.Tests
 
         private static Command ValidCommand() =>
             new(new CommandId(Guid.NewGuid()), new CommandBody.Input.SetEnabled(true));
-
-        private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
     }
 }

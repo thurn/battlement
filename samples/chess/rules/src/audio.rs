@@ -5,6 +5,9 @@ use battlement::{
   BatchId, Command, CommandBody, CommandId, ParallelCommandGroup, PropertyCommand, Response,
   SessionId,
 };
+use battlement_native::{
+  CoreCommandOffset, EngineError, MessageWriter, NativeBatchStart, NativeResponse,
+};
 use fastrand::Rng;
 
 use crate::{MUSIC_TRACKS, assets::sfx};
@@ -12,7 +15,7 @@ use crate::{MUSIC_TRACKS, assets::sfx};
 const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
 const MUSIC_CROSSFADE_MS: u64 = 5_000;
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
-const SOUND_EFFECT_VOLUME: f64 = 0.8;
+pub(crate) const SOUND_EFFECT_VOLUME: f64 = 0.8;
 
 pub(crate) const PICKUP_SOUNDS: [AudioClipAddress; 4] =
   [sfx::CLICK, sfx::CLICK_2, sfx::CLICK_3, sfx::CLICK_4];
@@ -125,6 +128,70 @@ impl MusicPlaylist {
     )))
   }
 
+  pub(crate) fn poll_native(
+    &mut self,
+    session_id: SessionId,
+    now: Instant,
+  ) -> Result<Option<NativeResponse>, EngineError> {
+    let Some(due) = self.transition_due else {
+      return Ok(None);
+    };
+    if now < due {
+      return Ok(None);
+    }
+    let previous = self.active;
+    if previous.is_some() {
+      self.track_index = (self.track_index + 1) % MUSIC_TRACKS.len();
+    }
+    let active = CommandId::new_v4();
+    self.active = Some(active);
+    self.transition_due = Some(now + MUSIC_TRACK_DURATION);
+
+    let mut message = MessageWriter::default();
+    let mut commands = vec![
+      message
+        .play_audio(
+          id(active),
+          false,
+          MUSIC_TRACKS[self.track_index].as_str(),
+          self.volume,
+          1.0,
+          true,
+          if previous.is_some() {
+            MUSIC_CROSSFADE_MS
+          } else {
+            0
+          },
+        )
+        .map_err(protocol)?,
+    ];
+    if let Some(previous) = previous {
+      commands.push(
+        message
+          .stop_audio(
+            id(CommandId::new_v4()),
+            false,
+            id(previous),
+            MUSIC_CROSSFADE_MS,
+          )
+          .map_err(protocol)?,
+      );
+    }
+    let group = message.parallel_group(&commands).map_err(protocol)?;
+    let session = id(session_id);
+    let batch = message
+      .batch(
+        id(BatchId::new_v4()),
+        session,
+        None,
+        NativeBatchStart::Now,
+        &[group],
+      )
+      .map_err(protocol)?;
+    let finished = message.finish(session, &[batch]).map_err(protocol)?;
+    Ok(Some(NativeResponse::from_core(session, finished)?))
+  }
+
   pub(crate) fn reset(&mut self, now: Instant) {
     self.active = None;
     self.track_index = 0;
@@ -133,11 +200,7 @@ impl MusicPlaylist {
   }
 
   pub(crate) fn start_initial_track(&mut self, now: Instant) -> Vec<Command> {
-    let previous = self.active;
-    self.reset(now);
-    let active = CommandId::new_v4();
-    self.active = Some(active);
-    self.transition_due = Some(now + MUSIC_TRACK_DURATION);
+    let (previous, active) = self.start_initial_track_state(now);
     let mut commands = previous
       .map(|audio_command_id| {
         Command::new_v4(CommandBody::AudioStop(AudioStopPayload {
@@ -152,14 +215,40 @@ impl MusicPlaylist {
     commands
   }
 
+  pub(crate) fn write_initial_track(
+    &mut self,
+    message: &mut MessageWriter,
+    now: Instant,
+  ) -> Result<Vec<CoreCommandOffset>, battlement_native::ProtocolError> {
+    let (previous, active) = self.start_initial_track_state(now);
+    let mut commands = Vec::with_capacity(2);
+    if let Some(previous) = previous {
+      commands.push(message.stop_audio(id(CommandId::new_v4()), false, id(previous), 0)?);
+    }
+    commands.push(message.play_audio(
+      id(active),
+      false,
+      MUSIC_TRACKS[self.track_index].as_str(),
+      self.volume,
+      1.0,
+      true,
+      0,
+    )?);
+    Ok(commands)
+  }
+
   pub(crate) fn set_volume(&mut self, volume: f64) -> Option<CommandBody> {
-    self.volume = volume.clamp(0.0, 1.0);
-    self.active.map(|active| {
+    self.set_volume_target(volume).map(|(active, volume)| {
       CommandBody::AudioSetVolume(PropertyCommand::canceling(AudioVolumePayload {
         audio_command_id: active,
-        volume: self.volume,
+        volume,
       }))
     })
+  }
+
+  pub(crate) fn set_volume_target(&mut self, volume: f64) -> Option<(CommandId, f64)> {
+    self.volume = volume.clamp(0.0, 1.0);
+    self.active.map(|active| (active, self.volume))
   }
 
   pub(crate) fn volume(&self) -> f64 {
@@ -175,6 +264,23 @@ impl MusicPlaylist {
       fade_in_ms: if fade_in { MUSIC_CROSSFADE_MS } else { 0 },
     })
   }
+
+  fn start_initial_track_state(&mut self, now: Instant) -> (Option<CommandId>, CommandId) {
+    let previous = self.active;
+    self.reset(now);
+    let active = CommandId::new_v4();
+    self.active = Some(active);
+    self.transition_due = Some(now + MUSIC_TRACK_DURATION);
+    (previous, active)
+  }
+}
+
+fn id<K>(value: battlement::ProtocolId<K>) -> [u8; 16] {
+  *value.as_uuid().as_bytes()
+}
+
+fn protocol(error: battlement_native::ProtocolError) -> EngineError {
+  EngineError::new(error.to_string())
 }
 
 pub(crate) fn parallel_group(
@@ -209,7 +315,11 @@ pub(crate) fn play_sound(address: impl Into<AudioClipAddress>) -> CommandBody {
 }
 
 pub(crate) fn random_sound(rng: &mut Rng, sounds: &[AudioClipAddress]) -> AudioClipAddress {
-  sounds[rng.usize(..sounds.len())].clone()
+  random_sound_address(rng, sounds).into()
+}
+
+pub(crate) fn random_sound_address<'a>(rng: &mut Rng, sounds: &'a [AudioClipAddress]) -> &'a str {
+  sounds[rng.usize(..sounds.len())].as_str()
 }
 
 pub(crate) fn response_for_action(

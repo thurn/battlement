@@ -3,15 +3,18 @@
 use std::collections::HashSet;
 
 use battlement::{
-  BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, Connect, CoreErrorCode,
+  ActionId, BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, CoreErrorCode,
   DocumentPosition, GameObject, InteractionDistance, InteractionLayerMask, ObjectId,
   PanelInputConfiguration, PanelInputRedirection, PanelRenderMode, PanelScaleMode, PanelSettings,
   ParallelCommandGroup, ParentScene, PickingMode, PivotReferenceSize, Quaternion, Response, Scene,
   SceneId, ScreenSize, SessionId, Snapshot, TransitionProperty, UiBox, UiButton, UiDocument,
-  UiEventAction, UiEventBody, UiEventDisposition, UiEventResponse, UiGroupBox, UiLabel, Vector3,
-  WorldSpaceSizeMode, object_id, scene_id,
+  UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiGroupBox,
+  UiLabel, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
-use battlement_native::{Engine, EngineError};
+use battlement_native::{
+  ConnectView, CoreClientMessageView, Engine, EngineError, FlatBufferResponseCommand,
+  FlatBufferSubmitError, NativeEngine, NativeResponse, NativeUiEventResponse, UiEventActionView,
+};
 
 #[path = "assets.rs"]
 pub mod asset_catalog;
@@ -47,6 +50,7 @@ mod interaction_styles;
 mod keyboard_navigation_components;
 mod keyboard_navigation_styles;
 mod layout_styles;
+mod native_ui;
 mod navigation;
 mod part_components;
 mod part_styles;
@@ -408,7 +412,24 @@ impl UiLabEngine {
     let UiEventBody::Click(click) = event.body else {
       return Ok(Response::empty(self.session_id));
     };
-    let commands = match event.target_id {
+    self.handle_click(
+      event.target_id,
+      match click {
+        battlement::ClickEvent::Pointer { .. } => 0,
+        battlement::ClickEvent::NavigationSubmit => 1,
+        battlement::ClickEvent::Repeat => 2,
+      },
+      action.action_id,
+    )
+  }
+
+  fn handle_click(
+    &mut self,
+    target_id: ObjectId,
+    click_kind: u8,
+    action_id: ActionId,
+  ) -> Result<Response<Command>, EngineError> {
+    let commands = match target_id {
       COMPONENTS_BUTTON_ID if self.page != Page::Components => {
         self.page = Page::Components;
         self.greeting_visible = false;
@@ -623,11 +644,14 @@ impl UiLabEngine {
       ICON_BUTTON_ID if self.page == Page::Buttons => {
         button_status_commands("Prepared vector icon command submitted")
       }
-      NAVIGATION_BUTTON_ID if self.page == Page::Buttons => button_status_commands(match click {
-        battlement::ClickEvent::NavigationSubmit => "Navigation submit won Click precedence",
-        battlement::ClickEvent::Pointer { .. } => "Pointer command submitted once",
-        battlement::ClickEvent::Repeat => "Unexpected repeat activation",
-      }),
+      NAVIGATION_BUTTON_ID if self.page == Page::Buttons => {
+        button_status_commands(match click_kind {
+          1 => "Navigation submit won Click precedence",
+          0 => "Pointer command submitted once",
+          2 => "Unexpected repeat activation",
+          _ => return Err(EngineError::new("unknown click kind")),
+        })
+      }
       REPEAT_BUTTON_ID if self.page == Page::Buttons => {
         self.repeat_count += 1;
         repeat_commands(self.repeat_count)
@@ -696,9 +720,233 @@ impl UiLabEngine {
       return Ok(Response::empty(self.session_id));
     }
     Ok(Response::batch(
-      Batch::new(BatchId::new_v4(), self.session_id, commands)
-        .caused_by_action_id(action.action_id),
+      Batch::new(BatchId::new_v4(), self.session_id, commands).caused_by_action_id(action_id),
     ))
+  }
+
+  fn write_transform_event_response(
+    &mut self,
+    action: UiEventActionView<'_>,
+    response: &mut native_ui::NativeUiResponseBuilder,
+  ) -> Result<bool, EngineError> {
+    if ObjectId::from_bytes(action.target_id()).ok() != Some(TRANSFORM_TARGET_ID) {
+      return Ok(false);
+    }
+    let (status, complete) = match action.event_kind() {
+      UiEventKind::TransitionStart => ("Running", false),
+      UiEventKind::TransitionEnd => {
+        self
+          .transform_completed
+          .extend(action.transition().expect("transition body").properties());
+        let complete = [
+          TransitionProperty::Rotate,
+          TransitionProperty::Scale,
+          TransitionProperty::Translate,
+        ]
+        .iter()
+        .all(|property| self.transform_completed.contains(property));
+        (
+          if complete {
+            if self.transform_settled {
+              "Transform complete"
+            } else {
+              "Ready"
+            }
+          } else {
+            "Running"
+          },
+          complete,
+        )
+      }
+      UiEventKind::TransitionCancel => ("Cancelled", false),
+      _ => return Ok(false),
+    };
+    response.label(TRANSFORM_STATUS_ID, status)?;
+    if complete {
+      let button = response
+        .writer()
+        .button_builder()
+        .text(if self.transform_settled {
+          "Reset"
+        } else {
+          "Launch"
+        })
+        .enabled(true)
+        .finish();
+      response.update(TRANSFORM_ACTION_ID, button)?;
+    }
+    Ok(true)
+  }
+
+  fn write_interaction_event_response(
+    &mut self,
+    action: UiEventActionView<'_>,
+    response: &mut native_ui::NativeUiResponseBuilder,
+  ) -> Result<bool, EngineError> {
+    if action.event_kind() != UiEventKind::Click
+      || ObjectId::from_bytes(action.target_id()).ok() != Some(CALLBACK_BUTTON_ID)
+    {
+      return Ok(false);
+    }
+    if self.greeting_visible {
+      self.greeting_visible = false;
+      response.destroy(GREETING_ID)?;
+      let button = response
+        .writer()
+        .button_builder()
+        .text("Click to run a Rust callback")
+        .finish();
+      response.update(CALLBACK_BUTTON_ID, button)?;
+      return Ok(true);
+    }
+
+    self.greeting_visible = true;
+    self.write_interaction_show_response(response)?;
+    Ok(true)
+  }
+
+  fn write_interaction_show_response(
+    &mut self,
+    response: &mut native_ui::NativeUiResponseBuilder,
+  ) -> Result<(), EngineError> {
+    let transient = response
+      .writer()
+      .box_builder()
+      .background_color(rgba(battlement::Color::rgb(0.08, 0.2, 0.24)))
+      .finish();
+    let transient_node = response
+      .writer()
+      .ui_node(object_bytes(TRANSIENT_CARD_ID), transient, &[])
+      .map_err(writer_error)?;
+    response.create(PAGE_ID, TRANSIENT_CARD_ID, &[transient_node])?;
+    response.next_group();
+    let updated = response
+      .writer()
+      .box_builder()
+      .name("updated-callback-result")
+      .background_color(rgba(battlement::Color::rgb(0.1, 0.36, 0.4)))
+      .finish();
+    response.update(TRANSIENT_CARD_ID, updated)?;
+    response.next_group();
+    response.parent(TRANSIENT_CARD_ID, PAGE_ID)?;
+    response.next_group();
+    response.index(TRANSIENT_CARD_ID, 0)?;
+    response.next_group();
+    response.destroy(TRANSIENT_CARD_ID)?;
+    response.next_group();
+
+    let child_id = ObjectId::new_v4();
+    let text = response
+      .writer()
+      .label_builder("Hello, world")
+      .font_size(26.0)
+      .color(rgba(design_system::PRIMARY_TEXT))
+      .finish();
+    let child = response
+      .writer()
+      .ui_node(object_bytes(child_id), text, &[])
+      .map_err(writer_error)?;
+    let greeting = response
+      .writer()
+      .box_builder()
+      .name("rust-callback-result")
+      .background_color(rgba(design_system::SUCCESS_BACKGROUND))
+      .padding(22.0, 22.0)
+      .margin(12.0, 12.0)
+      .finish();
+    let greeting = response
+      .writer()
+      .ui_node(
+        object_bytes(GREETING_ID),
+        greeting,
+        &[object_bytes(child_id)],
+      )
+      .map_err(writer_error)?;
+    response.create(PAGE_ID, GREETING_ID, &[greeting, child])?;
+    let button = response.writer().button_builder().text("Hide").finish();
+    response.update(CALLBACK_BUTTON_ID, button)?;
+    Ok(())
+  }
+
+  fn write_button_event_response(
+    &mut self,
+    action: UiEventActionView<'_>,
+    response: &mut native_ui::NativeUiResponseBuilder,
+  ) -> Result<bool, EngineError> {
+    if action.event_kind() != UiEventKind::Click {
+      return Ok(false);
+    }
+    let target_id =
+      ObjectId::from_bytes(action.target_id()).expect("UI event view validates target UUIDs");
+    let status = match target_id {
+      ORDINARY_BUTTON_ID => "Pointer command submitted once",
+      ICON_BUTTON_ID => "Prepared vector icon command submitted",
+      NAVIGATION_BUTTON_ID => match action.click_kind() {
+        Some(1) => "Navigation submit won Click precedence",
+        Some(0) => "Pointer command submitted once",
+        Some(2) => "Unexpected repeat activation",
+        _ => return Ok(false),
+      },
+      REPEAT_BUTTON_ID => {
+        self.repeat_count += 1;
+        let count = self.repeat_count;
+        response.label(REPEAT_COUNTER_ID, &count.to_string())?;
+        response.label(
+          BUTTON_STATUS_ID,
+          &format!("Repeat callback {count} | release adds no click"),
+        )?;
+        if count == 4 {
+          let repeat = response
+            .writer()
+            .repeat_button_builder()
+            .repeat_timing(200, std::num::NonZeroU32::new(100).unwrap())
+            .finish();
+          response.update(REPEAT_BUTTON_ID, repeat)?;
+        }
+        return Ok(true);
+      }
+      _ => return Ok(false),
+    };
+    response.label(BUTTON_STATUS_ID, status)?;
+    Ok(true)
+  }
+
+  fn write_world_event_response(
+    &mut self,
+    action: UiEventActionView<'_>,
+    response: &mut native_ui::NativeUiResponseBuilder,
+  ) -> Result<bool, EngineError> {
+    if action.event_kind() != UiEventKind::Click
+      || ObjectId::from_bytes(action.target_id()).ok() != Some(WORLD_BUTTON_ID)
+    {
+      return Ok(false);
+    }
+    self.world_action_count += 1;
+    let status = response
+      .writer()
+      .label_builder(&format!("UI action count  /  {}", self.world_action_count))
+      .background_color(rgba(battlement::Color::rgb(0.04, 0.32, 0.18)))
+      .color(rgba(design_system::PRIMARY_TEXT))
+      .font_size(24.0)
+      .padding(10.0, 10.0)
+      .border_radius(8.0)
+      .finish();
+    response.update(WORLD_STATUS_ID, status)?;
+    let button = response
+      .writer()
+      .button_builder()
+      .text("ACTIVATED — SEND AGAIN")
+      .background_color(rgba(battlement::Color::rgb(0.04, 0.38, 0.45)))
+      .border_color(rgba(design_system::CYAN))
+      .border_width(3.0)
+      .border_radius(12.0)
+      .color(rgba(design_system::PRIMARY_TEXT))
+      .font_size(24.0)
+      .padding(16.0, 16.0)
+      .margin_edges(18.0, 0.0, 10.0, 0.0)
+      .finish();
+    response.update(WORLD_BUTTON_ID, button)?;
+    Ok(true)
   }
 }
 
@@ -707,7 +955,7 @@ impl Engine for UiLabEngine {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
     self.connect_engine()
   }
 
@@ -739,6 +987,134 @@ impl Engine for UiLabEngine {
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
     Ok(None)
   }
+}
+
+impl NativeEngine for UiLabEngine {
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+
+  fn connect_native(&mut self, _message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
+    native_response(self.connect_engine()?)
+  }
+
+  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+    CoreClientMessageView::read(bytes)
+      .map_err(|error| FlatBufferSubmitError::invalid_argument(error.to_string()))?;
+    NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
+      .map_err(FlatBufferSubmitError::engine)
+  }
+
+  fn submit_ui_event_native(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<NativeUiEventResponse, EngineError> {
+    let session_id =
+      SessionId::from_bytes(action.session_id()).expect("UI event view validates session UUIDs");
+    if session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    let action_id =
+      ActionId::from_bytes(action.action_id()).expect("UI event view validates action UUIDs");
+    let mut direct_response = native_ui::NativeUiResponseBuilder::new();
+    let wrote_direct = match self.page {
+      Page::BooleanControls => {
+        boolean_components::write_event_response(action, &mut direct_response)?
+      }
+      Page::Tabs => tab_components::write_event_response(action, &mut direct_response)?,
+      Page::TextFields => {
+        text_field_components::write_event_response(action, &mut direct_response)?
+      }
+      Page::Sliders => slider_components::write_event_response(action, &mut direct_response)?,
+      Page::Ranges => range_components::write_event_response(action, &mut direct_response)?,
+      Page::Scroll => scroll_components::write_event_response(action, &mut direct_response)?,
+      Page::Dropdowns => dropdown_components::write_event_response(action, &mut direct_response)?,
+      Page::ChoiceGroups => {
+        choice_group_components::write_event_response(action, &mut direct_response)?
+      }
+      Page::PointerRouting => {
+        pointer_routing_components::write_event_response(action, &mut direct_response)?
+      }
+      Page::KeyboardNavigation => {
+        keyboard_navigation_components::write_event_response(action, &mut direct_response)?
+      }
+      Page::RemainingEvents => remaining_event_components::write_event_response(
+        &mut self.remaining_event_timeline,
+        action,
+        &mut direct_response,
+      )?,
+      Page::Transforms => self.write_transform_event_response(action, &mut direct_response)?,
+      Page::Interactions => self.write_interaction_event_response(action, &mut direct_response)?,
+      Page::Buttons => self.write_button_event_response(action, &mut direct_response)?,
+      Page::Actions => action_components::write_event_response(
+        action,
+        &mut self.accepted_action_value,
+        &mut self.action_cleanup,
+        &mut direct_response,
+      )?,
+      Page::WorldSpace => self.write_world_event_response(action, &mut direct_response)?,
+      Page::RenderModes => render_mode_components::write_event_response(
+        action,
+        &mut self.render_mode_details_expanded,
+        &mut direct_response,
+      )?,
+      _ => false,
+    };
+    if wrote_direct {
+      return Ok(NativeUiEventResponse {
+        disposition: if action.default_prevented() {
+          UiEventDisposition::PreventDefault
+        } else {
+          UiEventDisposition::Continue
+        },
+        response: direct_response.finish(self.session_id, action_id)?,
+      });
+    }
+    if action.event_kind() != UiEventKind::Click {
+      return Ok(NativeUiEventResponse {
+        disposition: if action.default_prevented() {
+          UiEventDisposition::PreventDefault
+        } else {
+          UiEventDisposition::Continue
+        },
+        response: NativeResponse::empty(*self.session_id.as_uuid().as_bytes())?,
+      });
+    }
+    let target_id =
+      ObjectId::from_bytes(action.target_id()).expect("UI event view validates target UUIDs");
+    let click_kind = action
+      .click_kind()
+      .ok_or_else(|| EngineError::new("click event payload is absent"))?;
+    let response = self.handle_click(target_id, click_kind, action_id)?;
+    Ok(NativeUiEventResponse {
+      disposition: if action.default_prevented() {
+        UiEventDisposition::PreventDefault
+      } else {
+        UiEventDisposition::Continue
+      },
+      response: native_response(response)?,
+    })
+  }
+
+  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+    Ok(None)
+  }
+}
+
+fn native_response(response: Response) -> Result<NativeResponse, EngineError> {
+  let session_id = *response.session_id.as_uuid().as_bytes();
+  let message = <Command as FlatBufferResponseCommand>::write_response(&response)?;
+  NativeResponse::from_core(session_id, message)
+}
+
+fn rgba(value: battlement::Color) -> [f64; 4] {
+  [value.r, value.g, value.b, value.a]
+}
+
+fn object_bytes(value: ObjectId) -> [u8; 16] {
+  *value.as_uuid().as_bytes()
+}
+
+fn writer_error(error: impl std::fmt::Display) -> EngineError {
+  EngineError::new(error.to_string())
 }
 
 fn snapshot(session_id: SessionId) -> Snapshot {
@@ -1042,7 +1418,24 @@ fn layout_ids() -> components::LayoutIds {
   }
 }
 
-battlement_native::export_deterministic_engine!(
+#[cfg(test)]
+mod native_tests {
+  use super::*;
+
+  #[test]
+  fn writes_the_interaction_subtree_as_a_verified_direct_response() {
+    let mut engine = create_engine().unwrap();
+    let mut response = native_ui::NativeUiResponseBuilder::new();
+    engine
+      .write_interaction_show_response(&mut response)
+      .unwrap();
+    response
+      .finish(engine.session_id, ActionId::new_v4())
+      .unwrap();
+  }
+}
+
+battlement_native::export_deterministic_native_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,

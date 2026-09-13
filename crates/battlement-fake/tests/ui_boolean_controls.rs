@@ -1,13 +1,13 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, CommandBody, Connect, GameObject, ObjectId, ParentScene,
+  CameraState, ClientMessage, Command, CommandBody, GameObject, ObjectId, ParentScene,
   PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
   UiEventAction, UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode,
   UiRadioButton, UiToggle,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct BooleanEngine {
   session_id: SessionId,
@@ -22,7 +22,7 @@ impl Engine for BooleanEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))

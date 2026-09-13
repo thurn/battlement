@@ -2,7 +2,6 @@
 
 using System;
 using System.Linq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using Object = UnityEngine.Object;
 
@@ -201,25 +200,6 @@ namespace Battlement.Tests
             Object.FindObjectsByType<BattlementIdentity>().Any(identity => identity.Id == id.Value);
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>
-            harness
-                .Transport.SubmitMessages.Select(TryDecode)
-                .OfType<ClientMessage<CoreErrorCode, byte>.BatchFailedMessage>()
-                .Select(message => message.Failure)
-                .ToArray();
-
-        private static ClientMessage<CoreErrorCode, byte>? TryDecode(byte[] bytes)
-        {
-            try
-            {
-                return Decode(bytes);
-            }
-            catch (JsonSerializationException)
-            {
-                return null;
-            }
-        }
-
-        private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
+            harness.Transport.BatchFailures.ToArray();
     }
 }

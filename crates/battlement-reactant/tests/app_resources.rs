@@ -133,7 +133,7 @@ fn refetch_completion_keeps_its_action_when_polled_or_serviced_by_another_event(
       completed: false,
     });
     let mut app = App::new("app/content").ui(memo(Screen { resource }));
-    let initial = app.connect(app_support::connect()).unwrap();
+    let initial = app.connect_owned(&app_support::connect()).unwrap();
     let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
       panic!("snapshot")
     };

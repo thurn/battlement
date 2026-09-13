@@ -2,8 +2,10 @@ use battlement::{
   Command, FocusDirection, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind,
   UiEventPhase, UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
 };
+use battlement_native::UiEventActionView;
+use std::fmt;
 
-use crate::{design_system, keyboard_navigation_styles};
+use crate::{design_system, keyboard_navigation_styles, native_ui::NativeUiResponseBuilder};
 
 pub(crate) const TARGETS: [ObjectId; 4] = [
   object_id!("23100000-0000-4000-8000-000000000001"),
@@ -103,6 +105,148 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     ));
   }
   Some(commands)
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, battlement_native::EngineError> {
+  let target_id =
+    ObjectId::from_bytes(event.target_id()).expect("UI event view validates target UUIDs");
+  let Some(index) = TARGETS.iter().position(|id| *id == target_id) else {
+    return Ok(false);
+  };
+  let name = target_name(index);
+  let mut focus_status = None;
+  let message = match event.event_kind() {
+    UiEventKind::FocusIn | UiEventKind::Focus => {
+      let value = event.focus().expect("focus body");
+      let related = related_name_bytes(value.related_target_id());
+      focus_status = Some(format!(
+        "● {name} ← {related} · {}",
+        focus_direction_name(value.direction())
+      ));
+      format!(
+        "FOCUS RELATION\n{name} gained focus\nfrom {related}\ndirection {:?}",
+        value.direction()
+      )
+    }
+    UiEventKind::FocusOut | UiEventKind::Blur => {
+      let value = event.focus().expect("focus body");
+      format!(
+        "FOCUS RELATION\n{name} released focus\nto {}\ndirection {:?}",
+        related_name_bytes(value.related_target_id()),
+        value.direction()
+      )
+    }
+    UiEventKind::KeyDown | UiEventKind::KeyUp => {
+      let value = event.key().expect("key body");
+      format!(
+        "PHYSICAL KEY {}\ncode {:?}\ntext {:?}\nmodifiers {:?}",
+        if event.event_kind() == UiEventKind::KeyDown {
+          "DOWN"
+        } else {
+          "UP"
+        },
+        value.physical_key(),
+        value.text(),
+        ModifiersDebug(value.modifiers())
+      )
+    }
+    UiEventKind::NavigationMove => {
+      let value = event.navigation().expect("navigation body");
+      let movement = value.movement();
+      format!(
+        "NAVIGATION MOVE\ndirection {:?}\nvector {:.1}, {:.1}",
+        value.direction(),
+        movement.0,
+        movement.1
+      )
+    }
+    UiEventKind::NavigationCancel => {
+      "NAVIGATION CANCEL\nEscape stayed in UI focus routing.".to_owned()
+    }
+    UiEventKind::PointerEnter | UiEventKind::PointerLeave => return Ok(true),
+    UiEventKind::Click if event.click_kind() == Some(1) => format!(
+      "ACTIVATED · {name}\nNavigation submit became exactly one Click.\nNo duplicate NavigationSubmit action crossed the transport."
+    ),
+    UiEventKind::Click if event.click_kind() == Some(0) => {
+      format!("ACTIVATED · {name}\nPointer Click used the same Rust handler.")
+    }
+    _ => return Ok(false),
+  };
+  response.label(INSPECTOR_ID, &message)?;
+  if let Some(focus_status) = focus_status {
+    for (target_index, target_id) in TARGETS.into_iter().enumerate() {
+      let focused = target_index == index;
+      let background = if focused {
+        battlement::Color::rgb(0.10, 0.28, 0.32)
+      } else {
+        battlement::Color::rgb(0.04, 0.14, 0.17)
+      };
+      let border = if focused {
+        battlement::Color::rgb(1.0, 0.69, 0.22)
+      } else {
+        battlement::Color::rgb(0.10, 0.42, 0.46)
+      };
+      let element = response
+        .writer()
+        .button_builder()
+        .width_percent(44.0)
+        .height(92.0)
+        .margin(8.0, 8.0)
+        .background_color(rgba(background))
+        .color(rgba(battlement::Color::rgb(0.92, 0.97, 0.98)))
+        .border_color(rgba(border))
+        .border_width(if focused { 4.0 } else { 1.0 })
+        .border_radius(10.0)
+        .font_size(17.0)
+        .text_align_middle_center()
+        .finish();
+      response.update(target_id, element)?;
+    }
+    response.label(FOCUS_ID, &focus_status)?;
+  }
+  Ok(true)
+}
+
+struct ModifiersDebug(u32);
+
+impl fmt::Debug for ModifiersDebug {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    const NAMES: [&str; 7] = [
+      "Alt",
+      "Control",
+      "Command",
+      "Shift",
+      "CapsLock",
+      "Numeric",
+      "FunctionKey",
+    ];
+    formatter.write_str("KeyModifiers([")?;
+    let mut separator = "";
+    for (index, name) in NAMES.into_iter().enumerate() {
+      if self.0 & (1 << index) == 0 {
+        continue;
+      }
+      formatter.write_str(separator)?;
+      formatter.write_str(name)?;
+      separator = ", ";
+    }
+    formatter.write_str("])")
+  }
+}
+
+fn related_name_bytes(value: Option<[u8; 16]>) -> &'static str {
+  value
+    .and_then(|id| ObjectId::from_bytes(id).ok())
+    .and_then(|id| TARGETS.iter().position(|value| *value == id))
+    .map(target_name)
+    .unwrap_or("outside Battlement UI")
+}
+
+fn rgba(value: battlement::Color) -> [f64; 4] {
+  [value.r, value.g, value.b, value.a]
 }
 
 fn grid_card() -> UiNode {

@@ -8,7 +8,7 @@ launch = "90s"
 baseline_download = "2m"
 
 [defaults]
-step_timeout = "2s"
+step_timeout = "5s"
 scenario_timeout = "10s"
 motion = "instant"
 

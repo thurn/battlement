@@ -121,6 +121,30 @@ namespace Battlement.UI
             }
         }
 
+        internal void ApplyDirectRadio(ObjectId objectId, uint selected)
+        {
+            RadioState state = radios[objectId.Value];
+            if (selected >= state.Target.choices.Count())
+                throw Failure("Radio selection is out of range.");
+            state.Committed = checked((int)selected);
+            state.Target.SetValueWithoutNotify(state.Committed);
+        }
+
+        internal void ApplyDirectToggle(ObjectId objectId, IReadOnlyList<uint> selected)
+        {
+            ToggleState state = toggles[objectId.Value];
+            ValidateToggleSelection(
+                selected,
+                state.ChildCount,
+                state.Target.isMultipleSelection,
+                state.Target.allowEmptySelection
+            );
+            state.SelectedIndices = selected;
+            state.HasAuthoredSelection = true;
+            state.Committed = State(selected, state.ChildCount);
+            state.Target.SetValueWithoutNotify(state.Committed);
+        }
+
         public static void ValidateUpdate(UiElement element, VisualElement current, int childCount)
         {
             if (element is UiElement.RadioButtonGroup radioUpdate)

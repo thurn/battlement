@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Prop, Style, UiElement};
 
+#[repr(u16)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub(crate) enum Part {
   ButtonIcon,
@@ -106,6 +107,12 @@ pub(crate) enum Part {
   MinMaxSliderRangeDragger,
 }
 
+impl Part {
+  pub(crate) const fn wire_code(self) -> u16 {
+    self as u16
+  }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub(crate) struct PartStyle {
   pub part: Part,
@@ -150,6 +157,38 @@ pub(crate) fn merge(target: &mut Option<Vec<PartStyle>>, update: &Option<Vec<Par
       target.push(replacement.clone());
     }
   }
+}
+
+pub(crate) fn difference(
+  previous: &Option<Vec<PartStyle>>,
+  desired: &Option<Vec<PartStyle>>,
+) -> Option<Vec<PartStyle>> {
+  let previous = previous.as_deref().unwrap_or_default();
+  let desired = desired.as_deref().unwrap_or_default();
+  let mut patch = Vec::new();
+  for source in desired.iter().chain(previous.iter().filter(|candidate| {
+    !desired
+      .iter()
+      .any(|value| value.part == candidate.part && value.index == candidate.index)
+  })) {
+    let old = previous
+      .iter()
+      .find(|value| value.part == source.part && value.index == source.index)
+      .map_or_else(Style::default, |value| value.style.clone());
+    let new = desired
+      .iter()
+      .find(|value| value.part == source.part && value.index == source.index)
+      .map_or_else(Style::default, |value| value.style.clone());
+    let style = Style::difference(&old, &new);
+    if !style.is_empty() {
+      patch.push(PartStyle {
+        part: source.part,
+        index: source.index,
+        style,
+      });
+    }
+  }
+  (!patch.is_empty()).then_some(patch)
 }
 
 pub(crate) fn remove(target: &mut Option<Vec<PartStyle>>, removed: &[Part]) {

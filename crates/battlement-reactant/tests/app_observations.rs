@@ -45,7 +45,7 @@ impl Component for Observed {
 fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions() {
   let values = Rc::new(RefCell::new(Vec::new()));
   let mut app = App::new("app/content").ui(memo(Observed(Rc::clone(&values))));
-  let initial = app.connect(app_support::connect()).unwrap();
+  let initial = app.connect_owned(&app_support::connect()).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(values.borrow().last().unwrap().0, ScreenSize::new(800, 600));
   let observation = initial
@@ -119,7 +119,7 @@ fn host_observations_reach_memoized_components_and_reconnect_uses_new_dimensions
   let mut connect = app_support::connect();
   connect.screen = ScreenSize::new(400, 300);
   connect.reduced_motion_preference = ReducedMotionPreference::NoPreference;
-  app.connect(connect).unwrap();
+  app.connect_owned(&connect).unwrap();
   let _ = app.poll().unwrap();
   assert_eq!(
     *values.borrow().last().unwrap(),

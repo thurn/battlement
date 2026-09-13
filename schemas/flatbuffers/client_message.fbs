@@ -1,0 +1,176 @@
+include "ui_event.fbs";
+include "geometry.fbs";
+include "motion.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum CoreErrorCode:ubyte {
+  InvalidEncoding,
+  LimitExceeded,
+  WrongSession,
+  DuplicateId,
+  UnknownCommand,
+  UnknownObject,
+  UnknownScene,
+  UnknownAsset,
+  AssetNotPrepared,
+  AssetTypeMismatch,
+  AssetInUse,
+  ComponentMissing,
+  InvalidComponentCount,
+  InvalidHierarchy,
+  InvalidProperty,
+  PropertyControlledByBillboard,
+  InfiniteWait,
+  EarlierBatchFailed,
+  HandlerNotRegistered,
+  HandlerFailed,
+  UnityException,
+  ModuleUnavailable,
+  DiagnosticsMetadataInvalid,
+  DiagnosticsOperationFailed
+}
+
+enum ControllerButton:ubyte {
+  South,
+  East,
+  West,
+  North,
+  LeftShoulder,
+  RightShoulder,
+  LeftStickButton,
+  RightStickButton,
+  Start,
+  Select
+}
+
+enum ControllerDirection:ubyte { Left, Right, Up, Down }
+enum ControllerNavigationSource:ubyte { Dpad, LeftStick }
+
+enum CoreActionKind:ubyte {
+  Activate,
+  PointerEnter,
+  PointerExit,
+  PointerDown,
+  PointerUp,
+  PointerClick,
+  DragStart,
+  DragEnd,
+  KeyDown,
+  KeyUp,
+  ControllerButtonDown,
+  ControllerButtonUp,
+  ControllerNavigate,
+  GeometryObservations,
+  MotionEvents,
+  ApplicationStateChanged,
+  ReducedMotionPreferenceChanged
+}
+
+table ActivationAction {
+  object_id:Uuid (required);
+}
+
+table PointerAction {
+  object_id:Uuid (required);
+  pointer_id:int;
+  screen_position:PanelPoint (required);
+  world_hit:Vector3d (required);
+}
+
+table PointerButtonAction {
+  object_id:Uuid (required);
+  pointer_id:int;
+  screen_position:PanelPoint (required);
+  world_hit:Vector3d (required);
+  button:PointerButton (required);
+}
+
+table DragAction {
+  object_id:Uuid (required);
+  pointer_id:int;
+  screen_position:PanelPoint (required);
+  world_position:Vector3d (required);
+}
+
+table KeyAction {
+  key:PhysicalKey;
+}
+
+table ControllerButtonAction {
+  controller_id:int;
+  button:ControllerButton;
+}
+
+table ControllerNavigateAction {
+  controller_id:int;
+  direction:ControllerDirection;
+  source:ControllerNavigationSource;
+  repeat:bool;
+}
+
+table GeometryAction {
+  value:GeometryObservationBatch (required);
+}
+
+table MotionAction {
+  value:MotionEventBatch (required);
+}
+
+table ApplicationStateAction {
+  value:ApplicationState (required);
+}
+
+table ReducedMotionPreferenceAction {
+  value:ReducedMotionPreference;
+}
+
+union CoreActionBody {
+  ActivationAction,
+  PointerAction,
+  PointerButtonAction,
+  DragAction,
+  KeyAction,
+  ControllerButtonAction,
+  ControllerNavigateAction,
+  GeometryAction,
+  MotionAction,
+  ApplicationStateAction,
+  ReducedMotionPreferenceAction
+}
+
+table CoreAction {
+  action_id:Uuid (required);
+  session_id:Uuid (required);
+  kind:CoreActionKind;
+  body:CoreActionBody (required);
+}
+
+table BatchFailed {
+  session_id:Uuid (required);
+  batch_id:Uuid (required);
+  command_id:Uuid;
+  error_code:CoreErrorCode;
+  message:string (required);
+}
+
+table OperationFailed {
+  session_id:Uuid (required);
+  batch_id:Uuid (required);
+  command_id:Uuid (required);
+  error_code:CoreErrorCode;
+  message:string (required);
+}
+
+union CoreClientMessageBody {
+  CoreAction,
+  BatchFailed,
+  OperationFailed
+}
+
+table CoreClientMessage {
+  body:CoreClientMessageBody (required);
+}
+
+root_type CoreClientMessage;
+file_identifier "BTCM";

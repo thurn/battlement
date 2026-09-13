@@ -120,7 +120,7 @@ fn references_prepare_initial_and_later_assets_without_author_lists() {
 #[test]
 fn consecutive_responses_wait_for_preparation_and_keep_prior_dependencies() {
   let mut app = App::new("app/content").ui(Browser);
-  let initial = app.connect(app_support::connect()).unwrap();
+  let initial = app.connect_owned(&app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
   };
@@ -189,5 +189,5 @@ fn automatic_preparation_cannot_claim_unregistered_generated_addresses() {
       "battlement-reactant/generated/unregistered.png",
     )),
   ));
-  let _ = app.connect(app_support::connect());
+  let _ = app.connect_owned(&app_support::connect());
 }

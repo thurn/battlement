@@ -78,6 +78,33 @@ namespace Battlement.Tests
             Assert.That(result.SettledCompletionLatencyNs, Is.Not.Null);
         }
 
+        [Test]
+        public void PreservesPerFrameTransportMetrics()
+        {
+            var ticks = new Queue<long>(new long[] { 0, 0, 0, 0 });
+            var recorder = new DittoStepPerformanceRecorder(60, ticks.Dequeue, 60, () => 0);
+            var transport = new DittoTransportFrameMetrics(
+                2,
+                4096,
+                1,
+                3,
+                4,
+                5,
+                6,
+                8192,
+                0,
+                7,
+                8,
+                5120
+            );
+
+            recorder.BeginInputDispatch();
+            recorder.Presented(1, true, false, EmptyTiming() with { Transport = transport });
+            DittoStepPerformance result = recorder.Finish();
+
+            Assert.That(result.ObserverTimings[0].Transport, Is.EqualTo(transport));
+        }
+
         private static DittoObserverFrameTiming EmptyTiming() =>
             new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
     }

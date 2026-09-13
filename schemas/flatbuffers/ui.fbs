@@ -1,0 +1,752 @@
+include "motion.fbs";
+include "world.fbs";
+include "ui_event.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum PropState:ubyte { Unset, Set, Reset }
+
+enum UiSubscriptionKind:ubyte {
+  AccessibilityAction, PointerDown, PointerMove, PointerUp, PointerCancel,
+  Click, PointerEnter, PointerLeave, PointerOver, PointerOut, Wheel,
+  PointerCapture, PointerCaptureOut, KeyDown, KeyUp, NavigationMove,
+  NavigationCancel, FocusIn, Focus, FocusOut, Blur, GeometryChanged,
+  AttachToPanel, DetachFromPanel, TransitionStart, TransitionEnd,
+  TransitionCancel, ValueChanging, ValueCommitted, Input, SelectionChanged,
+  LinkEnter, LinkLeave, LinkDown, LinkUp, ScrollSettled, ScrollChanged,
+  TabSelectionRequested, TabCloseRequested, TabReorderRequested
+}
+
+enum UiElementKind:ubyte {
+  VisualElement, Flex, Grid, Stack, Box, Label, TextElement, TextField,
+  Toggle, RadioButton, RadioButtonGroup, ToggleButtonGroup, DropdownField,
+  Button, RepeatButton, GroupBox, PopupWindow, ScrollView, Scroller, Slider,
+  SliderInt, MinMaxSlider, ProgressBar, Tab, TabView, Image
+}
+
+enum UiPropertyKey:ushort {
+  Name, Enabled, PickingMode, LanguageDirection, Focusable, TabIndex,
+  DelegatesFocus, AutoFocus, Inert, Classes, Paint, Events,
+  EventSubscriptions, GridItem, StackItem, Sticky, OverlayPlacement, Motion,
+  Direction, Wrap, AlignItems, JustifyContent, RowGap, ColumnGap,
+  Columns, Rows, AutoColumns, AutoRows, AutoFlow, JustifyItems,
+  Text, EnableRichText, EmojiFallbackSupport, ParseEscapeSequences,
+  DisplayTooltipWhenElided, Selectable, DoubleClickSelectsWord,
+  TripleClickSelectsLine, SelectAllOnFocus, SelectAllOnMouseUp,
+  Value, Label, Placeholder, Multiline, Password, ReadOnly,
+  HidePlaceholderOnFocus, CursorIndex, SelectIndex, ShowMixedValue, Choices,
+  SelectedIndex, AllowEmptySelection, MultipleSelection, SelectedIndices,
+  Selection, Icon, DelayMs, IntervalMs, Mode, HorizontalScrollerVisibility,
+  VerticalScrollerVisibility, ScrollOffset, HorizontalPageSize,
+  VerticalPageSize, MouseWheelScrollSize, TouchScrollBehavior,
+  ScrollDecelerationRate, Elasticity, ElasticAnimationInterval,
+  NestedInteraction, LowValue, HighValue, PageSize, ShowInputField,
+  Inverted, Fill, MinValue, MaxValue, LowLimit, HighLimit, Title,
+  Closeable, SelectedTabIndex, Reorderable, Source, SourceRect,
+  TintColor, ScaleMode, Uv,
+  StyleAlignContent, StyleAlignItems, StyleAlignSelf, StyleAspectRatio,
+  StyleBackgroundColor, StyleBackgroundImage, StyleBackgroundPositionX,
+  StyleBackgroundPositionY, StyleBackgroundRepeat, StyleBackgroundSize,
+  StyleBorderBottomColor, StyleBorderBottomLeftRadius,
+  StyleBorderBottomRightRadius, StyleBorderBottomWidth,
+  StyleBorderLeftColor, StyleBorderLeftWidth, StyleBorderRightColor,
+  StyleBorderRightWidth, StyleBorderTopColor, StyleBorderTopLeftRadius,
+  StyleBorderTopRightRadius, StyleBorderTopWidth, StyleBottom, StyleColor,
+  StyleCursor, StyleDisplay, StyleFlexBasis, StyleFlexDirection,
+  StyleFlexGrow, StyleFlexShrink, StyleFlexWrap, StyleFontSize, StyleHeight,
+  StyleJustifyContent, StyleLeft, StyleLetterSpacing, StyleMarginBottom,
+  StyleMarginLeft, StyleMarginRight, StyleMarginTop, StyleMaxHeight,
+  StyleMaxWidth, StyleMinHeight, StyleMinWidth, StyleOpacity, StyleOverflow,
+  StylePaddingBottom, StylePaddingLeft, StylePaddingRight, StylePaddingTop,
+  StylePosition, StyleRight, StyleRotate, StyleScale, StyleTextOverflow,
+  StyleTextShadow, StyleTop, StyleTransformOrigin, StyleTranslate,
+  StyleTransitionDelay, StyleTransitionDuration, StyleTransitionProperty,
+  StyleTransitionTimingFunction, StyleUnityBackgroundImageTintColor,
+  StyleUnityEditorTextRenderingMode, StyleUnityFontDefinition,
+  StyleUnityFontStyleAndWeight, StyleUnityMaterial,
+  StyleUnityOverflowClipBox, StyleUnityParagraphSpacing,
+  StyleUnitySliceBottom, StyleUnitySliceLeft, StyleUnitySliceRight,
+  StyleUnitySliceScale, StyleUnitySliceTop, StyleUnitySliceType,
+  StyleUnityTextAlign, StyleUnityTextAutoSize, StyleUnityTextGenerator,
+  StyleUnityTextOutlineColor, StyleUnityTextOutlineWidth,
+  StyleUnityTextOverflowPosition, StyleVisibility, StyleWhiteSpace,
+  StyleWidth, StyleWordSpacing
+}
+
+table BoolPropertyValue { value:bool; }
+table IntPropertyValue { value:int; }
+table UIntPropertyValue { value:uint; }
+table FloatPropertyValue { value:float; }
+table TextPropertyValue { value:string (required); }
+table TextListPropertyValue { values:[string] (required); }
+table UIntListPropertyValue { values:[uint] (required); }
+
+enum UiEnumCatalog:ubyte {
+  PickingMode, LanguageDirection, FlexDirection, FlexWrap, Align, Justify,
+  GridAutoFlow, SliderDirection, ScrollViewMode, ScrollerVisibility,
+  TouchScrollBehavior, NestedInteraction, ImageScaleMode, Display, Visibility,
+  Overflow, OverflowClipBox, Position, TextOverflow, TextOverflowPosition,
+  WhiteSpace, TextGenerator, EditorTextRenderingMode, FontStyle, TextAnchor,
+  SliceType, BackgroundPositionKeyword, BackgroundRepeatMode,
+  EasingFunction, TransitionProperty
+}
+
+table EnumPropertyValue {
+  catalog:UiEnumCatalog;
+  value:uint;
+}
+
+enum LengthKind:ubyte { Pixels, Percent, Calc, Auto }
+table LengthPropertyValue {
+  kind:LengthKind;
+  pixels:float;
+  percentage:float;
+}
+
+enum AspectRatioKind:ubyte { Auto, Ratio }
+table AspectRatioPropertyValue {
+  kind:AspectRatioKind;
+  width:float;
+  height:float;
+}
+
+table BackgroundPositionPropertyValue {
+  keyword:uint;
+  offset:LengthPropertyValue (required);
+}
+
+table BackgroundRepeatPropertyValue { x:uint; y:uint; }
+enum BackgroundSizeKind:ubyte { Auto, Cover, Contain, Axes }
+table BackgroundSizePropertyValue {
+  kind:BackgroundSizeKind;
+  x:LengthPropertyValue;
+  y:LengthPropertyValue;
+}
+
+enum CursorKind:ubyte { Default, Texture }
+table CursorPropertyValue {
+  kind:CursorKind;
+  address:string;
+  hotspot:Vector2d;
+}
+
+table RotatePropertyValue { x:float; y:float; z:float; degrees:float; }
+table ScalePropertyValue { x:float; y:float; }
+table TextShadowPropertyValue {
+  x:float;
+  y:float;
+  blur_radius:float;
+  color:RgbaColor (required);
+}
+table TransformOriginPropertyValue {
+  x:LengthPropertyValue (required);
+  y:LengthPropertyValue (required);
+  z:float;
+}
+table TranslatePropertyValue {
+  x:LengthPropertyValue (required);
+  y:LengthPropertyValue (required);
+  z:float;
+}
+table FloatListPropertyValue { values:[float] (required); }
+table EnumListPropertyValue {
+  catalog:UiEnumCatalog;
+  values:[uint] (required);
+}
+enum TextAutoSizeKind:ubyte { None, BestFit }
+table TextAutoSizePropertyValue {
+  kind:TextAutoSizeKind;
+  min_size:float;
+  max_size:float;
+}
+
+enum OverlayPlacementKind:ubyte { PopoverLayer, ModalLayer, Popover, Modal }
+enum PlacementSide:ubyte { Top, Right, Bottom, Left }
+enum PlacementAlign:ubyte { Start, Center, End }
+table OverlayPlacementPropertyValue {
+  kind:OverlayPlacementKind;
+  anchor:Uuid;
+  initial_focus:Uuid;
+  restore_focus:Uuid;
+  side:PlacementSide;
+  align:PlacementAlign;
+  main_offset:float;
+  cross_offset:float;
+  collision_padding:float;
+  flip:bool;
+  shift:bool;
+}
+
+struct F32Vector2 { x:float; y:float; }
+table PaintLengthPoint {
+  x:LengthPropertyValue (required);
+  y:LengthPropertyValue (required);
+}
+table PaintContour { points:[PaintLengthPoint] (required); }
+enum PaintFillRule:ubyte { NonZero, EvenOdd }
+table PaintClipPathValue {
+  contours:[PaintContour] (required);
+  fill_rule:PaintFillRule;
+}
+enum PaintBlendMode:ubyte { Normal, Screen, Additive }
+table PaintShadowValue {
+  x:float;
+  y:float;
+  blur:float;
+  spread:float;
+  color:RgbaColor (required);
+  inset:bool;
+}
+enum PaintGradientKind:ubyte { Linear, Radial }
+table PaintGradientStop {
+  color:RgbaColor (required);
+  position:float;
+}
+table PaintGradientValue {
+  kind:PaintGradientKind;
+  angle:float;
+  center:F32Vector2;
+  radius:F32Vector2;
+  stops:[PaintGradientStop] (required);
+}
+enum PaintFillKind:ubyte { Color, Gradient }
+table PaintFillValue {
+  kind:PaintFillKind;
+  color:RgbaColor;
+  gradient:PaintGradientValue;
+}
+enum PaintFilterKind:ubyte { Brightness, DropShadow }
+table PaintFilterValue {
+  kind:PaintFilterKind;
+  amount:float;
+  shadow:PaintShadowValue;
+}
+table PaintInsetsValue {
+  top:LengthPropertyValue (required);
+  right:LengthPropertyValue (required);
+  bottom:LengthPropertyValue (required);
+  left:LengthPropertyValue (required);
+}
+table PaintLayerValue {
+  background:PaintFillValue (required);
+  filters:[PaintFilterValue];
+  clip_polygon:[PaintLengthPoint];
+  box_shadows:[PaintShadowValue];
+  clip_insets:PaintInsetsValue;
+  bounds_insets:PaintInsetsValue;
+}
+table PaintStylePropertyValue {
+  subtree_clip:PaintClipPathValue;
+  blend_mode:PaintBlendMode;
+  has_blend_mode:bool;
+  background:PaintFillValue;
+  filters:[PaintFilterValue];
+  clip_polygon:[PaintLengthPoint];
+  box_shadows:[PaintShadowValue];
+  clip_insets:PaintInsetsValue;
+  layers:[PaintLayerValue] (required);
+}
+
+table ColorPropertyValue { value:RgbaColor (required); }
+table RectPropertyValue { value:Rectd (required); }
+table Vector2PropertyValue { value:Vector2d (required); }
+
+enum AssetSourceKind:ubyte { Texture, Sprite, VectorImage, RenderTexture, Material, UiFont }
+table AssetPropertyValue {
+  kind:AssetSourceKind;
+  address:string (required);
+}
+
+enum GridTrackKind:ubyte { Pixels, Fraction, Auto }
+struct GridTrackValue { kind:GridTrackKind; value:float; }
+table GridTracksPropertyValue { values:[GridTrackValue] (required); }
+
+table GridItemPropertyValue {
+  row:uint = null;
+  column:uint = null;
+  row_span:uint = 1;
+  column_span:uint = 1;
+  align_self:uint;
+  justify_self:uint;
+}
+
+table StackItemPropertyValue {
+  order:int;
+  align_self:uint;
+  justify_self:uint;
+  top:float = null;
+  right:float = null;
+  bottom:float = null;
+  left:float = null;
+  contributes_to_size:bool = true;
+}
+
+table StickyPropertyValue {
+  top:float = null;
+  right:float = null;
+  bottom:float = null;
+  left:float = null;
+  order:int;
+}
+
+enum ChoiceKind:ubyte { None, Index }
+table ChoicePropertyValue { kind:ChoiceKind; index:uint; value:string; }
+enum LimitKind:ubyte { Unbounded, Inclusive }
+table LimitPropertyValue { kind:LimitKind; value:float; }
+
+enum StyleValueKind:ubyte { Value, Initial }
+
+union UiPropertyValue {
+  BoolPropertyValue,
+  IntPropertyValue,
+  UIntPropertyValue,
+  FloatPropertyValue,
+  TextPropertyValue,
+  TextListPropertyValue,
+  UIntListPropertyValue,
+  EnumPropertyValue,
+  LengthPropertyValue,
+  AspectRatioPropertyValue,
+  BackgroundPositionPropertyValue,
+  BackgroundRepeatPropertyValue,
+  BackgroundSizePropertyValue,
+  CursorPropertyValue,
+  RotatePropertyValue,
+  ScalePropertyValue,
+  TextShadowPropertyValue,
+  TransformOriginPropertyValue,
+  TranslatePropertyValue,
+  FloatListPropertyValue,
+  EnumListPropertyValue,
+  TextAutoSizePropertyValue,
+  OverlayPlacementPropertyValue,
+  PaintStylePropertyValue,
+  MotionDescriptorPropertyValue,
+  ColorPropertyValue,
+  RectPropertyValue,
+  Vector2PropertyValue,
+  AssetPropertyValue,
+  GridTracksPropertyValue,
+  GridItemPropertyValue,
+  StackItemPropertyValue,
+  StickyPropertyValue,
+  ChoicePropertyValue,
+  LimitPropertyValue
+}
+
+table UiProperty {
+  key:UiPropertyKey;
+  state:PropState;
+  style_value_kind:StyleValueKind;
+  value:UiPropertyValue;
+}
+
+enum MotionLayer:ubyte { Animate, InView, Focus, FocusVisible, Hover, Tap, Drag, Exit }
+table MotionCallbackSubscriptions {
+  start:bool;
+  update:bool;
+  repeat:bool;
+  complete:bool;
+  stop:bool;
+  cancel:bool;
+}
+table MotionSlotDescriptor {
+  slot:ulong;
+  generation:uint;
+  layer:MotionLayer;
+  target:MotionTargetDescriptor (required);
+  callbacks:MotionCallbackSubscriptions (required);
+}
+
+enum MotionClockKind:ubyte { Unscaled, Scaled, Controlled, Audio }
+table MotionClockSource { kind:MotionClockKind; object_id:Uuid; }
+enum ReducedMotionPolicy:ubyte { User, Always, Never }
+
+enum MotionPseudoState:ubyte { Hover, Focus, Active, Disabled }
+table MotionPseudoStyle {
+  state:MotionPseudoState;
+  values:[MotionPropertyValue] (required);
+}
+table StylePropertyTransition {
+  property:MotionProperty;
+  transition:TransitionDefinition (required);
+}
+table StyleTransitionDescriptor {
+  properties:[StylePropertyTransition] (required);
+  all:TransitionDefinition;
+  allow_discrete:bool;
+}
+
+table CssPropertyTrack {
+  property:MotionProperty;
+  values:[MotionValueEntry] (required);
+  times:[double] (required);
+  transition:TransitionDefinition (required);
+}
+enum AnimationDirection:ubyte { Normal, Reverse, Alternate, AlternateReverse }
+enum AnimationFill:ubyte { None, Forwards, Backwards, Both }
+enum AnimationPlayState:ubyte { Running, Paused }
+enum AnimationComposition:ubyte { Replace, Add, Accumulate }
+table CssAnimationDescriptor {
+  slot:ulong;
+  generation:uint;
+  restart_key:ulong;
+  tracks:[CssPropertyTrack] (required);
+  direction:AnimationDirection;
+  fill:AnimationFill;
+  play_state:AnimationPlayState;
+  composition:AnimationComposition;
+  diagnostic_name:string;
+}
+
+enum DecorationPlacement:ubyte { Before, After }
+enum DecorationPosition:ubyte { Fill, Border }
+enum DecorationOverflow:ubyte { Hidden, Visible }
+table MotionDecorationDescriptor {
+  key:ulong;
+  placement:DecorationPlacement;
+  position:DecorationPosition;
+  overflow:DecorationOverflow;
+  style:[UiProperty] (required);
+  animations:[CssAnimationDescriptor] (required);
+}
+
+enum VariantWhen:ubyte { Together, BeforeChildren, AfterChildren }
+enum StaggerDirection:ubyte { Forward, Reverse }
+table MotionVariantResolution {
+  names:[string] (required);
+  inherited:bool;
+  custom_snapshot:ulong;
+  child_index:uint;
+  delay_micros:ulong;
+  when:VariantWhen;
+  stagger_direction:StaggerDirection;
+}
+
+enum MotionExpressionOperationKind:ubyte {
+  Add, Subtract, Multiply, Divide, Power, SquareRoot, Absolute, Minimum, Maximum,
+  Clamp, Modulo, Wrap, ExponentialDecay, Mix
+}
+table MotionExpressionOperation {
+  kind:MotionExpressionOperationKind;
+  value:double;
+  minimum:double;
+  maximum:double;
+}
+enum MotionValueSourceKind:ubyte { Mutable, Time, Velocity, Range, Spring, Expression }
+table MotionSpringConfiguration {
+  generator:TransitionGeneratorKind;
+  duration_micros:ulong;
+  stiffness:double;
+  damping:double;
+  mass:double;
+  initial_velocity:double = null;
+  rest_speed:double = null;
+  rest_delta:double = null;
+  bounce:double;
+}
+table MotionValueSource {
+  kind:MotionValueSourceKind;
+  clock:MotionClockSource;
+  source:Uuid;
+  input:[MotionValueEntry];
+  output:[MotionValueEntry];
+  clamp:bool;
+  spring:MotionSpringConfiguration;
+  expression:MotionExpressionOperation;
+  inputs:[Uuid];
+}
+table MotionValueDescriptor {
+  value_id:Uuid (required);
+  initial:MotionValue (required);
+  source:MotionValueSource (required);
+}
+enum MotionBindingComposition:ubyte { Replace, Compose }
+table MotionValueBinding {
+  property:MotionProperty;
+  value_id:Uuid (required);
+  composition:MotionBindingComposition;
+}
+enum MotionValueEventKind:ubyte { Change, Velocity, AnimationFrame }
+table MotionValueSubscription {
+  subscription_id:Uuid (required);
+  value_id:Uuid (required);
+  event:MotionValueEventKind;
+}
+table MotionNamedTarget {
+  name:string (required);
+  target:MotionTargetDescriptor (required);
+}
+
+table MotionDragBounds { min_x:float; max_x:float; min_y:float; max_y:float; }
+enum MotionDragConstraintKind:ubyte { None, Bounds, Element }
+table MotionDragConstraint {
+  kind:MotionDragConstraintKind;
+  bounds:MotionDragBounds;
+  element_id:Uuid;
+}
+table MotionDragElastic { left:float; right:float; top:float; bottom:float; }
+table MotionDragTransition {
+  velocity_retention:float;
+  rest_speed:float;
+  bounce_stiffness:float;
+  bounce_damping:float;
+}
+table MotionDragDescriptor {
+  axis:MotionGestureAxis;
+  constraints:MotionDragConstraint;
+  elastic:MotionDragElastic (required);
+  momentum:bool;
+  direction_lock:bool;
+  listener:bool;
+  has_snap_to_origin:bool;
+  snap_to_origin:MotionGestureAxis;
+  control_id:Uuid;
+  propagation:bool;
+  transition:MotionDragTransition (required);
+  x_value:Uuid;
+  y_value:Uuid;
+}
+table MotionGestureSubscriptions {
+  hover:bool;
+  tap:bool;
+  focus:bool;
+  focus_visible:bool;
+  pan:bool;
+  pan_update:bool;
+  drag:bool;
+  drag_update:bool;
+  momentum_complete:bool;
+  constraints_measured:bool;
+  scroll:bool;
+  in_view:bool;
+}
+table MotionGestureDescriptor {
+  pan_threshold:float;
+  direction_lock_threshold:float;
+  pointer_tap_slop:float;
+  touch_tap_slop:float;
+  pan:bool;
+  drag:MotionDragDescriptor;
+  in_view:bool;
+  scroll:bool;
+  scroll_x_value:Uuid;
+  scroll_y_value:Uuid;
+  in_view_value:Uuid;
+  subscriptions:MotionGestureSubscriptions (required);
+}
+
+enum MotionLayoutMode:ubyte { Position, Size, Both }
+table MotionLayoutIdentity { value_type:string (required); value_hash:ulong; }
+table MotionLayoutDescriptor {
+  mode:MotionLayoutMode;
+  group:MotionLayoutIdentity (required);
+  layout_id:MotionLayoutIdentity;
+  scroll:bool;
+  root:bool;
+  pop_layout:bool;
+  transition:TransitionDefinition (required);
+}
+
+table MotionDescriptor {
+  descriptor_id:Uuid (required);
+  host_id:Uuid (required);
+  generation:uint;
+  initial:MotionTargetDescriptor;
+  initial_disabled:bool;
+  slots:[MotionSlotDescriptor] (required);
+  clock:MotionClockSource (required);
+  reduced_motion:ReducedMotionPolicy;
+  pseudo_styles:[MotionPseudoStyle] (required);
+  style_transition:StyleTransitionDescriptor (required);
+  animations:[CssAnimationDescriptor] (required);
+  decorations:[MotionDecorationDescriptor] (required);
+  variants:MotionVariantResolution;
+  values:[MotionValueDescriptor] (required);
+  value_bindings:[MotionValueBinding] (required);
+  value_subscriptions:[MotionValueSubscription] (required);
+  control_id:Uuid;
+  scope_id:Uuid;
+  scope_root:bool;
+  motion_name:string;
+  named_targets:[MotionNamedTarget] (required);
+  gestures:MotionGestureDescriptor;
+  layout:MotionLayoutDescriptor;
+}
+table MotionDescriptorPropertyValue { value:MotionDescriptor (required); }
+
+table UiEventSubscriptionValue {
+  kind:UiSubscriptionKind;
+  phases:ubyte;
+}
+
+enum UiPart:ushort {
+  ButtonIcon,
+  GroupBoxTitle,
+  PopupWindowContentContainer,
+  ToggleLabel,
+  ToggleInput,
+  ToggleCheckmark,
+  ToggleText,
+  RadioButtonLabel,
+  RadioButtonInput,
+  RadioButtonCheckmarkBackground,
+  RadioButtonCheckmark,
+  RadioButtonText,
+  DropdownFieldLabel,
+  DropdownFieldInput,
+  DropdownFieldText,
+  DropdownFieldArrow,
+  ProgressBarContainer,
+  ProgressBarBackground,
+  ProgressBarProgress,
+  ProgressBarTitleContainer,
+  ProgressBarTitle,
+  ScrollViewContentAndVerticalScrollContainer,
+  ScrollViewViewport,
+  ScrollViewContentContainer,
+  ScrollViewHorizontalScroller,
+  ScrollViewHorizontalSlider,
+  ScrollViewHorizontalLowButton,
+  ScrollViewHorizontalHighButton,
+  ScrollViewHorizontalTrack,
+  ScrollViewHorizontalDragger,
+  ScrollViewHorizontalDraggerBorder,
+  ScrollViewVerticalScroller,
+  ScrollViewVerticalSlider,
+  ScrollViewVerticalLowButton,
+  ScrollViewVerticalHighButton,
+  ScrollViewVerticalTrack,
+  ScrollViewVerticalDragger,
+  ScrollViewVerticalDraggerBorder,
+  ScrollerSlider,
+  ScrollerLowButton,
+  ScrollerHighButton,
+  ScrollerTrack,
+  ScrollerDragger,
+  ScrollerDraggerBorder,
+  TabHeader,
+  TabLabel,
+  TabIcon,
+  TabUnderline,
+  TabCloseButton,
+  TabDragHandle,
+  TabDragHandleLeadingBar,
+  TabDragHandleTrailingBar,
+  TabContentContainer,
+  TabViewContentViewport,
+  TabViewHeaderContainer,
+  TabViewContentContainer,
+  TabViewPreviousButton,
+  TabViewNextButton,
+  TextFieldLabel,
+  TextFieldInput,
+  TextFieldTextElement,
+  TextFieldMultilineScrollView,
+  TextFieldVerticalScroller,
+  TextFieldVerticalSlider,
+  TextFieldVerticalLowButton,
+  TextFieldVerticalHighButton,
+  TextFieldVerticalTrack,
+  TextFieldVerticalDragger,
+  TextFieldVerticalDraggerBorder,
+  RadioButtonGroupLabel,
+  RadioButtonGroupInput,
+  RadioButtonGroupChoicesContainer,
+  RadioButtonGroupContentContainer,
+  RadioButtonGroupAllOptions,
+  RadioButtonGroupOption,
+  RadioButtonGroupOptionCheckmarkBackground,
+  RadioButtonGroupOptionCheckmark,
+  RadioButtonGroupOptionText,
+  ToggleButtonGroupLabel,
+  ToggleButtonGroupInput,
+  SliderLabel,
+  SliderInput,
+  SliderTrack,
+  SliderDragger,
+  SliderDraggerBorder,
+  SliderFill,
+  SliderTextInput,
+  SliderIntLabel,
+  SliderIntInput,
+  SliderIntTrack,
+  SliderIntDragger,
+  SliderIntDraggerBorder,
+  SliderIntFill,
+  SliderIntTextInput,
+  MinMaxSliderLabel,
+  MinMaxSliderInput,
+  MinMaxSliderTrack,
+  MinMaxSliderMinimumThumb,
+  MinMaxSliderMaximumThumb,
+  MinMaxSliderRangeDragger
+}
+
+table PartStyle {
+  part:UiPart;
+  index:uint = null;
+  properties:[UiProperty] (required);
+}
+
+table UiElement {
+  kind:UiElementKind;
+  usage_hints:uint;
+  properties:[UiProperty] (required);
+  event_subscriptions:[UiEventSubscriptionValue] (required);
+  part_styles:[PartStyle] (required);
+}
+
+table UiNode {
+  object_id:Uuid (required);
+  element:UiElement (required);
+  child_ids:[Uuid] (required);
+}
+
+table UiDocument {
+  document_id:Uuid (required);
+  root_id:Uuid (required);
+  root_element:UiElement (required);
+  root_child_ids:[Uuid] (required);
+  nodes:[UiNode] (required);
+}
+
+table VisualElementCreatePayload {
+  parent_id:Uuid (required);
+  child_index:uint = null;
+  nodes:[UiNode] (required);
+  root_id:Uuid (required);
+}
+
+enum VisualElementUpdateKind:ubyte { Properties, Parent, Index }
+table VisualElementUpdatePayload {
+  kind:VisualElementUpdateKind;
+  object_id:Uuid (required);
+  element:UiElement;
+  parent_id:Uuid;
+  child_index:uint = null;
+}
+
+table VisualElementDestroyPayload { object_id:Uuid (required); }
+
+enum VisualElementActionKind:ubyte {
+  ParticleStreaks, Focus, Blur, CapturePointer, ReleasePointer, ScrollTo, SelectText
+}
+table UiParticleStreak {
+  origin:F32Vector2 (required);
+  travel:F32Vector2 (required);
+  size:F32Vector2 (required);
+  rotation:float;
+  color:RgbaColor (required);
+  lifetime_ms:uint;
+  delay_ms:uint;
+}
+table VisualElementActionPayload {
+  object_id:Uuid (required);
+  kind:VisualElementActionKind;
+  streaks:[UiParticleStreak];
+  pointer_id:int;
+  descendant_id:Uuid;
+  cursor_index:uint;
+  selection_index:uint;
+}

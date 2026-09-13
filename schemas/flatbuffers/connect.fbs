@@ -1,0 +1,18 @@
+include "common.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+table ConnectRequest {
+  platform:string (required);
+  unity_version:string (required);
+  screen:ScreenSize (required);
+  application_state:ApplicationState (required);
+  reduced_motion_preference:ReducedMotionPreference = Unavailable;
+  custom_command_types:[string] (required);
+  modules:[string] (required);
+  persistent_data_path:string;
+  streaming_assets_path:string;
+}
+
+root_type ConnectRequest;
+file_identifier "BTCO";

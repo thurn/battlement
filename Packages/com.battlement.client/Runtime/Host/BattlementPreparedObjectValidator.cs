@@ -66,6 +66,197 @@ namespace Battlement
             }
         }
 
+        public static void Validate(
+            IReadOnlyList<BattlementDirectSnapshotObject> objects,
+            IBattlementPreparedAssetLookup preparedAssets,
+            ObjectId? inputCameraId
+        )
+        {
+            foreach (BattlementDirectSnapshotObject snapshotObject in objects)
+            {
+                switch (snapshotObject.Description)
+                {
+                    case BattlementDirectImageObjectCreate image:
+                        RequirePreparedValue<Texture>(
+                            preparedAssets,
+                            new PreparedAsset.Texture(new TextureAddress(image.Texture)),
+                            image.Texture
+                        );
+                        break;
+                    case BattlementDirectTextObjectCreate text:
+                        RequirePreparedValue<TMP_FontAsset>(
+                            preparedAssets,
+                            new PreparedAsset.TextMeshProFont(
+                                new TextMeshProFontAddress(text.Font)
+                            ),
+                            text.Font
+                        );
+                        break;
+                    case BattlementDirectPrefabObjectCreate prefab:
+                        ValidateDirectPrefab(prefab, preparedAssets, inputCameraId);
+                        break;
+                    case BattlementDirectPrimitiveObjectCreate primitive:
+                        ValidateDirectPrimitiveMaterials(primitive.Materials, preparedAssets);
+                        break;
+                    case BattlementDirectUiDocumentObjectCreate document:
+                        BattlementUiDocumentValidator.Validate(document.State, preparedAssets);
+                        break;
+                    case BattlementDirectEmptyObjectCreate:
+                    case BattlementDirectCameraObjectCreate:
+                    case BattlementDirectLightObjectCreate:
+                        break;
+                    default:
+                        throw Invalid(
+                            CoreErrorCode.InvalidProperty,
+                            "Unknown direct game-object kind."
+                        );
+                }
+            }
+        }
+
+        private static void ValidateDirectPrefab(
+            BattlementDirectPrefabObjectCreate description,
+            IBattlementPreparedAssetLookup preparedAssets,
+            ObjectId? inputCameraId
+        )
+        {
+            GameObject value = RequirePreparedValue<GameObject>(
+                preparedAssets,
+                new PreparedAsset.Prefab(new PrefabAddress(description.Address)),
+                description.Address
+            );
+            foreach (BattlementDirectMaterialAssignment assignment in description.Materials)
+            {
+                RequirePreparedValue<Material>(
+                    preparedAssets,
+                    new PreparedAsset.Material(new MaterialAddress(assignment.Address)),
+                    assignment.Address
+                );
+            }
+            ValidateDirectRootState(value, description.Materials, description.Animator);
+            if (inputCameraId is not ObjectId selectedCameraId)
+                return;
+            if (description.Placement.ObjectId != selectedCameraId)
+                return;
+            Camera[] cameras = value.GetComponents<Camera>();
+            if (cameras.Length != 1 || !cameras[0].enabled)
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    $"Input camera {selectedCameraId} must be enabled and active."
+                );
+        }
+
+        private static void ValidateDirectPrimitiveMaterials(
+            IReadOnlyList<BattlementDirectMaterialAssignment> assignments,
+            IBattlementPreparedAssetLookup preparedAssets
+        )
+        {
+            foreach (BattlementDirectMaterialAssignment assignment in assignments)
+            {
+                if (assignment.Slot != 0)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        $"Renderer material slot {assignment.Slot} is outside [0, 0]."
+                    );
+                RequirePreparedValue<Material>(
+                    preparedAssets,
+                    new PreparedAsset.Material(new MaterialAddress(assignment.Address)),
+                    assignment.Address
+                );
+            }
+        }
+
+        private static void ValidateDirectRootState(
+            GameObject prefab,
+            IReadOnlyList<BattlementDirectMaterialAssignment> materials,
+            BattlementDirectAnimatorState? animatorState
+        )
+        {
+            if (materials.Count > 0)
+            {
+                Renderer[] renderers = prefab.GetComponents<Renderer>();
+                if (renderers.Length != 1)
+                    throw Invalid(
+                        renderers.Length == 0
+                            ? CoreErrorCode.ComponentMissing
+                            : CoreErrorCode.InvalidComponentCount,
+                        "Material state requires exactly one root Renderer; "
+                            + $"found {renderers.Length}."
+                    );
+                int slotCount = renderers[0].sharedMaterials.Length;
+                foreach (BattlementDirectMaterialAssignment assignment in materials)
+                {
+                    if (assignment.Slot >= slotCount)
+                        throw Invalid(
+                            CoreErrorCode.InvalidProperty,
+                            $"Renderer material slot {assignment.Slot} is outside the "
+                                + "available range."
+                        );
+                }
+            }
+            if (!animatorState.HasValue)
+                return;
+            Animator[] animators = prefab.GetComponents<Animator>();
+            if (animators.Length != 1)
+                throw Invalid(
+                    animators.Length == 0
+                        ? CoreErrorCode.ComponentMissing
+                        : CoreErrorCode.InvalidComponentCount,
+                    animators.Length == 0
+                        ? "The prefab has no root Animator."
+                        : $"Prefab root has {animators.Length} Animators; exactly one is required."
+                );
+            GameObject validationInstance = Object.Instantiate(prefab);
+            try
+            {
+                validationInstance.SetActive(true);
+                Animator animator = validationInstance.GetComponent<Animator>();
+                animator.Update(0);
+                ValidateDirectAnimatorController(animator, animatorState.Value);
+            }
+            finally
+            {
+                if (Application.isPlaying)
+                    Object.Destroy(validationInstance);
+                else
+                    Object.DestroyImmediate(validationInstance);
+            }
+        }
+
+        private static void ValidateDirectAnimatorController(
+            Animator animator,
+            BattlementDirectAnimatorState state
+        )
+        {
+            if (state.Layer >= animator.layerCount)
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    $"Animator layer {state.Layer} does not exist."
+                );
+            int layer = checked((int)state.Layer);
+            int stateHash = Animator.StringToHash(state.State);
+            if (!animator.HasState(layer, stateHash))
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    $"Animator state '{state.State}' does not exist on layer {state.Layer}."
+                );
+            ValidateAnimatorParameters(
+                animator,
+                state.BoolParameters.Select(value => value.Name),
+                AnimatorControllerParameterType.Bool
+            );
+            ValidateAnimatorParameters(
+                animator,
+                state.IntParameters.Select(value => value.Name),
+                AnimatorControllerParameterType.Int
+            );
+            ValidateAnimatorParameters(
+                animator,
+                state.FloatParameters.Select(value => value.Name),
+                AnimatorControllerParameterType.Float
+            );
+        }
+
         private static void ValidatePrefab(
             BattlementGameObject description,
             GameObjectKind.Prefab prefab,

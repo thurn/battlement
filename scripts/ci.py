@@ -501,6 +501,11 @@ def generate_unity_project_files() -> None:
                 ],
                 cwd=REPOSITORY_ROOT,
             )
+        if result.returncode != 0:
+            # Unity can leave its empty project lock behind when compilation
+            # aborts before normal batch-mode shutdown. The process has exited
+            # and this operation still owns the repository's editor lease.
+            (REPOSITORY_ROOT / "Temp/UnityLockfile").unlink(missing_ok=True)
         wait_for_unity_project_unlock()
         if result.returncode != 0:
             print_tail(unity_log, 120)
@@ -715,12 +720,19 @@ def check_csharp_line_lengths(samples: list[str]) -> None:
         *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in samples),
     ):
         for path in root.rglob("*.cs"):
+            relative = path.relative_to(REPOSITORY_ROOT)
+            if (
+                "Generated" in relative.parts
+                or "Google" in relative.parts
+                or path.name.endswith("_generated.cs")
+            ):
+                continue
             for line_number, line in enumerate(
                 path.read_text(encoding="utf-8").splitlines(), 1
             ):
                 if len(line) > 100:
                     violations.append(
-                        f"{path.relative_to(REPOSITORY_ROOT)}:{line_number}: "
+                        f"{relative}:{line_number}: "
                         f"line is {len(line)} characters; maximum is 100"
                     )
     if violations:

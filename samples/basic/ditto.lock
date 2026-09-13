@@ -9,7 +9,7 @@ sha256 = "4446af29f19c0725902122adc33bf01cef76b1721cbfef2d7e24d20ee1a87f62"
 width = 1280
 height = 720
 size_bytes = 44451
-source = "1fc04e368157d39d0a63be6452f2008deed5a7d326152ed58f2f6f4c9ef9e767"
+source = "138f9afb733b9422d6c11db00c9e2059f60c8fcd49e2f32e340311e18d8872ce"
 
 [[baselines]]
 profile = "macos"
@@ -19,7 +19,7 @@ sha256 = "b450a21e8c71e981e7ffcf67b3387b8d992e3406be72d0ff9e4e5eac5bf473a5"
 width = 1280
 height = 720
 size_bytes = 45648
-source = "1fc04e368157d39d0a63be6452f2008deed5a7d326152ed58f2f6f4c9ef9e767"
+source = "138f9afb733b9422d6c11db00c9e2059f60c8fcd49e2f32e340311e18d8872ce"
 
 [[baselines]]
 profile = "macos"
@@ -29,4 +29,4 @@ sha256 = "94de0b919a6354d172bbc57def9991401c34916bceab810a7311a7db77dd59ad"
 width = 1280
 height = 720
 size_bytes = 44359
-source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+source = "138f9afb733b9422d6c11db00c9e2059f60c8fcd49e2f32e340311e18d8872ce"

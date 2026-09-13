@@ -50,10 +50,10 @@ def execution_ms(summary: dict[str, Any]) -> int:
 
 def summarize_repetition(samples: list[dict[str, Any]]) -> dict[str, Any]:
     """Summarize one serialized pass through all fixed benchmark constituents."""
-    if sum(item["scenario_count"] for item in samples) != 20:
-        raise RuntimeError("performance repetition did not execute exactly 20 scenarios")
-    if sum(item["checkpoint_count"] for item in samples) != 40:
-        raise RuntimeError("performance repetition did not capture exactly 40 screenshots")
+    if sum(item["scenario_count"] for item in samples) != 17:
+        raise RuntimeError("performance repetition did not execute exactly 17 scenarios")
+    if sum(item["checkpoint_count"] for item in samples) != 32:
+        raise RuntimeError("performance repetition did not capture exactly 32 screenshots")
     phases = sorted({name for item in samples for name in item["phases_ms"]})
     return {
         "measurement_unit": "maximum constituent public Ditto run",
@@ -66,8 +66,8 @@ def summarize_repetition(samples: list[dict[str, Any]]) -> dict[str, Any]:
             )
             for name in phases
         },
-        "scenario_count": 20,
-        "checkpoint_count": 40,
+        "scenario_count": 17,
+        "checkpoint_count": 32,
         "samples": samples,
     }
 

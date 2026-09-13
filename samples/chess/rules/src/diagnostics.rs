@@ -1,13 +1,14 @@
 use battlement::{
-  Batch, BatchId, Command, Connect, ParallelCommandGroup, Response, ResponseMessage, SessionId,
+  Batch, BatchId, Command, ParallelCommandGroup, Response, ResponseMessage, SessionId,
 };
 use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
+use battlement_native::ConnectView;
 use cozy_chess::{Board, GameStatus};
 
 const MODULE_ID: &str = "battlement.diagnostics";
 
-pub(crate) fn is_available(connect: &Connect) -> bool {
-  connect.modules.iter().any(|module| module == MODULE_ID)
+pub(crate) fn is_available(connect: ConnectView<'_>) -> bool {
+  connect.modules().any(|module| module == MODULE_ID)
 }
 
 pub(crate) fn record_session_started(

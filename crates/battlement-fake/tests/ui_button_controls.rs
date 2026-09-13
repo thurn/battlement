@@ -1,13 +1,13 @@
 use std::{cell::RefCell, num::NonZeroU32, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset, Response,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventAction,
-  UiEventBody, UiEventKind, UiEventPhase, UiEventResponse, UiEventSubscription, UiNode,
-  UiRepeatButton, UiVisualElement,
+  CameraState, ClientMessage, Command, GameObject, ObjectId, PreparedAsset, Response, Scene,
+  SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventAction, UiEventBody,
+  UiEventKind, UiEventPhase, UiEventResponse, UiEventSubscription, UiNode, UiRepeatButton,
+  UiVisualElement,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct RecordingEngine {
   session_id: SessionId,
@@ -20,7 +20,7 @@ impl Engine for RecordingEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("engine connected twice"),
     ))

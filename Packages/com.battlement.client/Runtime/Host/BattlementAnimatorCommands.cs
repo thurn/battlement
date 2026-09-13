@@ -8,6 +8,92 @@ namespace Battlement
 {
     internal static class BattlementAnimatorCommands
     {
+        public static IBattlementCommandOperation? Launch(
+            BattlementDirectAnimatorCommand command,
+            BattlementWorld world,
+            TimeSpan now,
+            bool skipWait
+        )
+        {
+            Animator animator = RequireAnimator(command.ObjectId, world);
+            switch (command.Kind)
+            {
+                case BattlementDirectAnimatorCommandKind.Play:
+                case BattlementDirectAnimatorCommandKind.CrossFade:
+                {
+                    int layer = RequireState(animator, command.Value, command.Layer);
+                    float start = RequireUnit(command.Number, "Animator normalized start time");
+                    if (command.Kind == BattlementDirectAnimatorCommandKind.CrossFade)
+                    {
+                        float duration = RequirePositiveSeconds(
+                            TimeSpan.FromMilliseconds(command.CrossFadeMilliseconds),
+                            "Animator cross-fade duration"
+                        );
+                        animator.CrossFade(
+                            Animator.StringToHash(command.Value),
+                            RequireNormalizedTransitionDuration(animator, layer, duration),
+                            layer,
+                            start
+                        );
+                    }
+                    else
+                    {
+                        animator.Play(Animator.StringToHash(command.Value), layer, start);
+                    }
+                    animator.Update(0);
+                    return Wait(
+                        RequireWait(TimeSpan.FromMilliseconds(command.WaitMilliseconds)),
+                        now,
+                        skipWait
+                    );
+                }
+                case BattlementDirectAnimatorCommandKind.SetBool:
+                    animator.SetBool(
+                        RequireParameter(
+                            animator,
+                            command.Value,
+                            AnimatorControllerParameterType.Bool
+                        ),
+                        command.Enabled
+                    );
+                    return null;
+                case BattlementDirectAnimatorCommandKind.SetInt:
+                    animator.SetInteger(
+                        RequireParameter(
+                            animator,
+                            command.Value,
+                            AnimatorControllerParameterType.Int
+                        ),
+                        checked((int)command.Integer)
+                    );
+                    return null;
+                case BattlementDirectAnimatorCommandKind.SetFloat:
+                    animator.SetFloat(
+                        RequireParameter(
+                            animator,
+                            command.Value,
+                            AnimatorControllerParameterType.Float
+                        ),
+                        RequireFinite(command.Number, $"Animator parameter '{command.Value}'")
+                    );
+                    return null;
+                case BattlementDirectAnimatorCommandKind.SetTrigger:
+                    animator.SetTrigger(
+                        RequireParameter(
+                            animator,
+                            command.Value,
+                            AnimatorControllerParameterType.Trigger
+                        )
+                    );
+                    return null;
+                case BattlementDirectAnimatorCommandKind.SetSpeed:
+                    animator.speed = RequireNonnegative(command.Number, "Animator speed");
+                    return null;
+                default:
+                    throw Invalid("An animator command kind is unknown.");
+            }
+        }
+
         public static IBattlementCommandOperation? Play(
             CommandBody.Animator.Play command,
             BattlementWorld world,
@@ -234,7 +320,10 @@ namespace Battlement
         ) =>
             duration == TimeSpan.Zero || skipWait
                 ? null
-                : BattlementTimeCommands.Wait(new CommandBody.Time.Wait(duration), now);
+                : BattlementTimeCommands.Wait(
+                    new BattlementDirectWait(checked((ulong)duration.TotalMilliseconds)),
+                    now
+                );
 
         private static BattlementCommandException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);

@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Battlement
 {
@@ -15,7 +13,6 @@ namespace Battlement
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
         private const int MaximumQueuedResponses = 256;
         private const long MaximumQueuedBytes = 64L * 1024 * 1024;
-        private const int BackgroundDecodeThresholdBytes = 32 * 1024;
 
         private readonly LinkedList<PendingResponse> pending = new();
         private PendingResponse? active;
@@ -23,7 +20,6 @@ namespace Battlement
         private int queuedResponses;
         private long queuedBytes;
         private ulong nextSequence;
-        private Task<BackgroundDecodeResult>? backgroundDecodeTail;
 
         public bool HasPending => isProcessing || active is not null || pending.Count > 0;
 
@@ -32,16 +28,17 @@ namespace Battlement
         public long LastApplyTicks { get; private set; }
 
         public void Enqueue(
-            Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
+            Func<ReadOnlyMemory<byte>, IDisposable?, IBattlementResponseView> decode,
             ReadOnlyMemory<byte> payload,
             bool isInitial,
-            SessionId? previousSession
+            SessionId? previousSession,
+            IDisposable? payloadOwner = null
         )
         {
             Reservation reservation = Reserve(decode, isInitial, previousSession);
             try
             {
-                reservation.Commit(payload);
+                reservation.Commit(payload, payloadOwner);
             }
             catch
             {
@@ -51,10 +48,10 @@ namespace Battlement
         }
 
         public Reservation Reserve(
-            Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
+            Func<ReadOnlyMemory<byte>, IDisposable?, IBattlementResponseView> decode,
             bool isInitial = false,
             SessionId? previousSession = null,
-            Action<Response<ICommand>>? decoded = null,
+            Action<IBattlementResponseView>? decoded = null,
             Action<Exception>? decodeFailed = null
         )
         {
@@ -76,9 +73,37 @@ namespace Battlement
             return new Reservation(this, node, nextSequence++);
         }
 
+        public Reservation Reserve(
+            Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
+            bool isInitial = false,
+            SessionId? previousSession = null,
+            Action<Response<ICommand>>? decoded = null,
+            Action<Exception>? decodeFailed = null
+        ) =>
+            Reserve(
+                (payload, owner) =>
+                {
+                    try
+                    {
+                        Response<ICommand> response = decode(payload);
+                        decoded?.Invoke(response);
+                        return new BattlementOwnedResponseView(response, owner);
+                    }
+                    catch
+                    {
+                        owner?.Dispose();
+                        throw;
+                    }
+                },
+                isInitial,
+                previousSession,
+                decoded: null,
+                decodeFailed
+            );
+
         public void Drain(
-            Func<Response<ICommand>, bool, SessionId?, bool> validate,
-            Action<SessionId, ResponseMessage<ICommand>> apply,
+            Func<IBattlementResponseView, bool, SessionId?, bool> validate,
+            Action<SessionId, IBattlementResponseView, int> apply,
             Func<bool> isPaused,
             Func<bool> isStopped,
             bool observeTiming
@@ -106,53 +131,33 @@ namespace Battlement
 
                         if (!active.IsDecoded)
                         {
-                            if (active.BackgroundDecode is Task<BackgroundDecodeResult> task)
+                            long decodeStarted = observeTiming ? Stopwatch.GetTimestamp() : 0;
+                            try
                             {
-                                if (!task.IsCompleted)
+                                using (BattlementProfiler.ResponseParsing.Auto())
                                 {
-                                    return;
+                                    IDisposable? owner = active.PayloadOwner;
+                                    active.PayloadOwner = null;
+                                    active.Response = active.Decode(active.Payload, owner);
                                 }
-                                BackgroundDecodeResult result = task.GetAwaiter().GetResult();
-                                if (observeTiming)
-                                {
-                                    LastDecodeTicks = checked(
-                                        LastDecodeTicks + result.ElapsedTicks
-                                    );
-                                }
-                                if (result.Exception is Exception exception)
-                                {
-                                    active.DecodeFailed?.Invoke(exception);
-                                    throw exception;
-                                }
-                                active.Response =
-                                    result.Response
-                                    ?? throw new InvalidDataException(
-                                        "Background response decoding returned no result."
-                                    );
                             }
-                            else
+                            catch (Exception exception)
                             {
-                                long decodeStarted = observeTiming ? Stopwatch.GetTimestamp() : 0;
-                                try
-                                {
-                                    using (BattlementProfiler.ResponseParsing.Auto())
-                                    {
-                                        active.Response = active.Decode(active.Payload);
-                                    }
-                                }
-                                catch (Exception exception)
-                                {
-                                    active.DecodeFailed?.Invoke(exception);
-                                    throw;
-                                }
-                                if (observeTiming)
-                                {
-                                    LastDecodeTicks = checked(
-                                        LastDecodeTicks + Stopwatch.GetTimestamp() - decodeStarted
-                                    );
-                                }
+                                active.DecodeFailed?.Invoke(exception);
+                                RetireActive();
+                                throw;
+                            }
+                            if (observeTiming)
+                            {
+                                LastDecodeTicks = checked(
+                                    LastDecodeTicks + Stopwatch.GetTimestamp() - decodeStarted
+                                );
                             }
                             active.IsDecoded = true;
+                        }
+                        if (!active.DecodedNotified)
+                        {
+                            active.DecodedNotified = true;
                             active.Decoded?.Invoke(active.Response!);
                         }
 
@@ -179,14 +184,12 @@ namespace Battlement
                             !isStopped()
                             && !isPaused()
                             && active is not null
-                            && active.NextMessageIndex < active.Response!.Messages.Count
+                            && active.NextMessageIndex < active.Response!.MessageCount
                         )
                         {
-                            ResponseMessage<ICommand> message = active.Response.Messages[
-                                active.NextMessageIndex++
-                            ];
+                            int messageIndex = active.NextMessageIndex++;
                             long applyStarted = observeTiming ? Stopwatch.GetTimestamp() : 0;
-                            apply(active.Response.SessionId, message);
+                            apply(active.Response.SessionId, active.Response, messageIndex);
                             if (observeTiming)
                             {
                                 LastApplyTicks = checked(
@@ -197,7 +200,7 @@ namespace Battlement
 
                         if (
                             active is not null
-                            && active.NextMessageIndex >= active.Response!.Messages.Count
+                            && active.NextMessageIndex >= active.Response!.MessageCount
                         )
                         {
                             RetireActive();
@@ -217,9 +220,12 @@ namespace Battlement
 
         public void Clear()
         {
+            active?.Response?.Dispose();
+            active?.PayloadOwner?.Dispose();
+            foreach (PendingResponse response in pending)
+                response.PayloadOwner?.Dispose();
             active = null;
             pending.Clear();
-            backgroundDecodeTail = null;
             queuedResponses = 0;
             queuedBytes = 0;
             nextSequence = 0;
@@ -242,7 +248,7 @@ namespace Battlement
         private void Commit(
             LinkedListNode<PendingResponse> node,
             ReadOnlyMemory<byte> payload,
-            bool decodeInBackground
+            IDisposable? payloadOwner
         )
         {
             if (node.List != pending || node.Value.IsCommitted)
@@ -262,48 +268,20 @@ namespace Battlement
                 );
             }
             node.Value.Payload = payload;
+            node.Value.PayloadOwner = payloadOwner;
             node.Value.IsCommitted = true;
             queuedBytes += payload.Length;
-            if (decodeInBackground && payload.Length >= BackgroundDecodeThresholdBytes)
-            {
-                PendingResponse response = node.Value;
-                Task<BackgroundDecodeResult>? predecessor = backgroundDecodeTail;
-                backgroundDecodeTail = predecessor is null
-                    ? Task.Run(() => DecodeInBackground(response))
-                    : predecessor.ContinueWith(
-                        _ => DecodeInBackground(response),
-                        CancellationToken.None,
-                        TaskContinuationOptions.ExecuteSynchronously,
-                        TaskScheduler.Default
-                    );
-                response.BackgroundDecode = backgroundDecodeTail;
-            }
         }
 
-        private static BackgroundDecodeResult DecodeInBackground(PendingResponse pending)
+        private void Commit(LinkedListNode<PendingResponse> node, IBattlementResponseView response)
         {
-            long started = Stopwatch.GetTimestamp();
-            try
+            if (node.List != pending || node.Value.IsCommitted)
             {
-                Response<ICommand> response;
-                using (BattlementProfiler.ResponseParsing.Auto())
-                {
-                    response = pending.Decode(pending.Payload);
-                }
-                return new BackgroundDecodeResult(
-                    response,
-                    null,
-                    Stopwatch.GetTimestamp() - started
-                );
+                throw new InvalidOperationException("Response reservation is not pending.");
             }
-            catch (Exception exception)
-            {
-                return new BackgroundDecodeResult(
-                    null,
-                    exception,
-                    Stopwatch.GetTimestamp() - started
-                );
-            }
+            node.Value.Response = response;
+            node.Value.IsDecoded = true;
+            node.Value.IsCommitted = true;
         }
 
         private void Release(LinkedListNode<PendingResponse> node)
@@ -324,10 +302,8 @@ namespace Battlement
             }
             queuedResponses--;
             queuedBytes -= active.Payload.Length;
-            if (ReferenceEquals(active.BackgroundDecode, backgroundDecodeTail))
-            {
-                backgroundDecodeTail = null;
-            }
+            active.Response?.Dispose();
+            active.PayloadOwner?.Dispose();
             active = null;
         }
 
@@ -344,12 +320,36 @@ namespace Battlement
 
             public ulong Sequence { get; }
 
-            public void Commit(ReadOnlyMemory<byte> payload, bool decodeInBackground = false)
+            public void Commit(ReadOnlyMemory<byte> payload, IDisposable? payloadOwner = null)
             {
                 BattlementResponseStream current =
                     owner ?? throw new InvalidOperationException("Response reservation is closed.");
-                current.Commit(node, payload, decodeInBackground);
-                owner = null;
+                try
+                {
+                    current.Commit(node, payload, payloadOwner);
+                    owner = null;
+                }
+                catch
+                {
+                    payloadOwner?.Dispose();
+                    throw;
+                }
+            }
+
+            public void Commit(IBattlementResponseView response)
+            {
+                BattlementResponseStream current =
+                    owner ?? throw new InvalidOperationException("Response reservation is closed.");
+                try
+                {
+                    current.Commit(node, response);
+                    owner = null;
+                }
+                catch
+                {
+                    response.Dispose();
+                    throw;
+                }
             }
 
             public void Release()
@@ -364,10 +364,10 @@ namespace Battlement
         internal sealed class PendingResponse
         {
             public PendingResponse(
-                Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
+                Func<ReadOnlyMemory<byte>, IDisposable?, IBattlementResponseView> decode,
                 bool isInitial,
                 SessionId? previousSession,
-                Action<Response<ICommand>>? decoded,
+                Action<IBattlementResponseView>? decoded,
                 Action<Exception>? decodeFailed
             )
             {
@@ -378,17 +378,17 @@ namespace Battlement
                 DecodeFailed = decodeFailed;
             }
 
-            public Func<ReadOnlyMemory<byte>, Response<ICommand>> Decode { get; }
+            public Func<ReadOnlyMemory<byte>, IDisposable?, IBattlementResponseView> Decode { get; }
 
-            public Action<Response<ICommand>>? Decoded { get; }
+            public Action<IBattlementResponseView>? Decoded { get; }
 
             public Action<Exception>? DecodeFailed { get; }
 
-            public Task<BackgroundDecodeResult>? BackgroundDecode { get; set; }
-
             public ReadOnlyMemory<byte> Payload { get; set; }
 
-            public Response<ICommand>? Response { get; set; }
+            public IDisposable? PayloadOwner { get; set; }
+
+            public IBattlementResponseView? Response { get; set; }
 
             public bool IsInitial { get; }
 
@@ -401,12 +401,8 @@ namespace Battlement
             public bool IsCommitted { get; set; }
 
             public bool IsDecoded { get; set; }
-        }
 
-        internal sealed record BackgroundDecodeResult(
-            Response<ICommand>? Response,
-            Exception? Exception,
-            long ElapsedTicks
-        );
+            public bool DecodedNotified { get; set; }
+        }
     }
 }

@@ -483,14 +483,6 @@ namespace Battlement.Tests
         }
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>
-            harness
-                .Transport.SubmitMessages.Skip(1)
-                .Where(bytes => bytes.Length > 1)
-                .Select(bytes =>
-                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes)
-                )
-                .OfType<ClientMessage<CoreErrorCode, byte>.BatchFailedMessage>()
-                .Select(message => message.Failure)
-                .ToArray();
+            harness.Transport.BatchFailures.ToArray();
     }
 }

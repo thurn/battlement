@@ -37,6 +37,24 @@ namespace Battlement
             }
         }
 
+        internal void Initialize(
+            Renderer renderer,
+            BattlementPreparedAssets assets,
+            IReadOnlyList<BattlementDirectMaterialAssignment> assignments
+        )
+        {
+            targetRenderer = renderer;
+            preparedAssets = assets;
+            var uniqueSlots = new HashSet<uint>();
+            foreach (BattlementDirectMaterialAssignment assignment in assignments)
+            {
+                if (!uniqueSlots.Add(assignment.Slot))
+                    throw Invalid($"Renderer material slot {assignment.Slot} appeared twice.");
+            }
+            foreach (BattlementDirectMaterialAssignment assignment in assignments)
+                SetMaterial(new MaterialAddress(assignment.Address), assignment.Slot);
+        }
+
         internal void EnsureInitialized(Renderer renderer, BattlementPreparedAssets assets)
         {
             if (targetRenderer == null && preparedAssets == null)

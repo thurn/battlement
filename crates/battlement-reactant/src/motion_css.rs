@@ -1,8 +1,8 @@
 //! CSS-style transitions, reusable animations, and decoration layers.
 
 use std::{
+  fmt::{self, Write},
   hash::{DefaultHasher, Hash, Hasher},
-  io,
 };
 
 use battlement::{
@@ -565,23 +565,24 @@ fn animation_restart_key(
   composition: AnimationComposition,
 ) -> u64 {
   let mut hasher = DefaultHasher::new();
-  serde_json::to_writer(
-    HasherWriter(&mut hasher),
-    &(slot, tracks, direction, fill, composition),
-  )
-  .expect("CSS animation restart settings serialize");
+  slot.hash(&mut hasher);
+  tracks.len().hash(&mut hasher);
+  for track in tracks {
+    // These are closed typed protocol values. Hash their complete structural
+    // representation directly instead of routing runtime identity through JSON.
+    write!(HasherFormatter(&mut hasher), "{track:?}").expect("hash writes cannot fail");
+  }
+  std::mem::discriminant(&direction).hash(&mut hasher);
+  std::mem::discriminant(&fill).hash(&mut hasher);
+  std::mem::discriminant(&composition).hash(&mut hasher);
   hasher.finish()
 }
 
-struct HasherWriter<'a>(&'a mut DefaultHasher);
+struct HasherFormatter<'a>(&'a mut DefaultHasher);
 
-impl io::Write for HasherWriter<'_> {
-  fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-    self.0.write(bytes);
-    Ok(bytes.len())
-  }
-
-  fn flush(&mut self) -> io::Result<()> {
+impl fmt::Write for HasherFormatter<'_> {
+  fn write_str(&mut self, value: &str) -> fmt::Result {
+    self.0.write(value.as_bytes());
     Ok(())
   }
 }

@@ -9,11 +9,11 @@ namespace Battlement
     internal static class BattlementNativeContract
     {
         internal const string NativeAbiDigest =
-            "f27c823eda0c569cd86feda6c9d24b7a1d1d5c0eedc2206ee92ec2e26aa9cc79";
+            "5cb6150a485693a6a744f64a7ef64af1b2fc9d63a84ab279dde266a2dc3a7b14";
         internal const string WireContractDigest =
-            "3c7f1f5a672808b12f91b111f91973cdac13b37ddaedce812b2044caa1da10cd";
+            "94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb";
 
-        internal static void Verify()
+        internal static void Verify(string expectedWireContractDigest)
         {
             Require(
                 "native ABI",
@@ -22,7 +22,7 @@ namespace Battlement
             );
             Require(
                 "wire contract",
-                WireContractDigest,
+                expectedWireContractDigest,
                 BattlementNativeMethods.battlement_wire_contract_digest()
             );
         }

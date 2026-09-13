@@ -29,6 +29,18 @@ impl<T> Prop<T> {
   }
 }
 
+impl<T: Clone + PartialEq> Prop<T> {
+  pub(crate) fn difference(previous: &Self, desired: &Self) -> Self {
+    if previous == desired {
+      Self::Unset
+    } else if desired.is_unset() {
+      Self::Reset
+    } else {
+      desired.clone()
+    }
+  }
+}
+
 impl<T> Prop<Vec<T>> {
   pub(crate) fn push(&mut self, value: T) {
     if !matches!(self, Self::Set(_)) {

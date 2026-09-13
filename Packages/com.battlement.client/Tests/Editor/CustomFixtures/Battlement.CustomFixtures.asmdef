@@ -3,14 +3,11 @@
   "rootNamespace": "Battlement.CustomFixtures",
   "references": [
     "Battlement.Protocol",
-    "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.Json"
+    "Battlement.FlatBuffers",
+    "Google.FlatBuffers"
   ],
   "includePlatforms": [
     "Editor"
-  ],
-  "precompiledReferences": [
-    "Newtonsoft.Json.dll"
   ]
 }

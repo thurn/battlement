@@ -1,22 +1,99 @@
 #nullable enable
 
 using System;
-using Newtonsoft.Json;
 using UnityEngine.SceneManagement;
 
 namespace Battlement
 {
+    /// <summary>
+    /// Generated random-access reader for a build-composed response schema.
+    /// Implementations must not retain the supplied byte buffer or generated table structs.
+    /// </summary>
+    public interface IBattlementFlatBufferResponseViewSchema
+    {
+        /// <summary>SHA-256 digest of the complete build-composed wire manifest.</summary>
+        string WireContractDigest { get; }
+
+        void ValidateResponse(Google.FlatBuffers.ByteBuffer bytes);
+        SessionId ReadSessionId(Google.FlatBuffers.ByteBuffer bytes);
+        int ReadMessageCount(Google.FlatBuffers.ByteBuffer bytes);
+        bool IsSnapshot(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        Battlement.FlatBuffers.Generated.Snapshot ReadSnapshotTable(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex
+        );
+        BatchId ReadBatchId(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        SessionId ReadBatchSessionId(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        ActionId? ReadCausedByActionId(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        BatchStart ReadBatchStart(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        int ReadGroupCount(Google.FlatBuffers.ByteBuffer bytes, int messageIndex);
+        int ReadCommandCount(Google.FlatBuffers.ByteBuffer bytes, int messageIndex, int groupIndex);
+        CommandId ReadCommandId(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex
+        );
+        bool ReadCommandIsBlocking(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex
+        );
+        bool IsCoreCommand(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex
+        );
+        Battlement.FlatBuffers.Generated.CoreCommand ReadCoreCommandTable(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex
+        );
+        IBattlementCommandOperation? LaunchCustomCommand(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex,
+            CommandId commandId,
+            bool isBlocking,
+            IBattlementFlatBufferCustomCommandDispatcher dispatcher,
+            TimeSpan now
+        );
+        bool IsAssetPreparation(
+            Google.FlatBuffers.ByteBuffer bytes,
+            int messageIndex,
+            int groupIndex,
+            int commandIndex
+        );
+    }
+
+    /// <summary>Generated writer for one build-composed client-message schema.</summary>
+    public interface IBattlementFlatBufferClientSchema
+    {
+        /// <summary>Encodes one game-owned action without a JSON intermediate.</summary>
+        ReadOnlyMemory<byte> SerializeCustomAction<TPayload>(CustomAction<TPayload> value);
+
+        /// <summary>Encodes one game-owned batch failure without a JSON intermediate.</summary>
+        ReadOnlyMemory<byte> SerializeBatchFailure<TError>(BatchFailed<TError> value);
+
+        /// <summary>Encodes one game-owned operation failure without a JSON intermediate.</summary>
+        ReadOnlyMemory<byte> SerializeOperationFailure<TError>(OperationFailed<TError> value);
+    }
+
     /// <summary>A rules-engine transport owned by one <see cref="BattlementRunner"/>.</summary>
     public interface IBattlementTransport : IDisposable
     {
         /// <summary>Starts a new transport session.</summary>
-        BattlementTransportResult Connect(ReadOnlyMemory<byte> json);
+        BattlementTransportResult Connect(ReadOnlyMemory<byte> message);
 
-        /// <summary>Submits one JSON client message synchronously.</summary>
-        BattlementTransportResult Submit(ReadOnlyMemory<byte> json);
+        /// <summary>Submits one already encoded client message synchronously.</summary>
+        BattlementTransportResult Submit(ReadOnlyMemory<byte> message);
 
         /// <summary>Submits one UI event before its native callback returns.</summary>
-        BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json);
+        BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> message);
 
         /// <summary>Polls immediately for one response.</summary>
         BattlementTransportResult Poll();
@@ -25,6 +102,23 @@ namespace Battlement
         /// Stops the active session without disposing reusable transport resources.
         /// </summary>
         void Stop();
+    }
+
+    /// <summary>Observes typed core messages before transport submission.</summary>
+    public interface IBattlementCoreMessageObserver
+    {
+        void RecordAction(Action value);
+
+        void RecordBatchFailure(BatchFailed<CoreErrorCode> value);
+
+        void RecordOperationFailure(OperationFailed<CoreErrorCode> value);
+    }
+
+    internal interface IBattlementClientMessageObserver
+    {
+        void RecordConnect(Connect value);
+
+        void RecordUiEvent(UiEventAction value);
     }
 
     /// <summary>The transport-level outcome of one synchronous engine call.</summary>
@@ -40,8 +134,11 @@ namespace Battlement
     }
 
     /// <summary>An owned response payload or diagnostic returned by a transport call.</summary>
-    public sealed record BattlementTransportResult
+    public sealed record BattlementTransportResult : IDisposable
     {
+        private readonly ReadOnlyMemory<byte> payload;
+        private bool nativeBacked;
+
         public BattlementTransportResult(
             BattlementTransportStatus status,
             ReadOnlyMemory<byte> payload = default,
@@ -50,28 +147,144 @@ namespace Battlement
         )
         {
             Status = status;
-            Payload = payload;
+            this.payload = payload;
             Diagnostic = diagnostic;
             NativeStatus = nativeStatus;
         }
 
         public BattlementTransportStatus Status { get; }
 
-        public ReadOnlyMemory<byte> Payload { get; }
+        /// <summary>
+        /// Returns an independently owned copy when the response is backed by native memory.
+        /// </summary>
+        public ReadOnlyMemory<byte> Payload => nativeBacked ? payload.ToArray() : payload;
+
+        internal ReadOnlyMemory<byte> BorrowedPayload => payload;
+
+        internal int PayloadLength => payload.Length;
 
         public string? Diagnostic { get; }
 
         public int? NativeStatus { get; }
+
+        internal IDisposable? PayloadOwner { get; private set; }
+
+        internal IBattlementResponseView? ResponseView { get; private set; }
+
+        internal BattlementTransportResult OwnPayload(IDisposable owner)
+        {
+            PayloadOwner = owner;
+            nativeBacked = owner is BattlementNativeBufferMemory;
+            return this;
+        }
+
+        internal IDisposable? DetachPayloadOwner()
+        {
+            IDisposable? owner = PayloadOwner;
+            PayloadOwner = null;
+            return owner;
+        }
+
+        internal BattlementTransportResult OwnResponseView(IBattlementResponseView response)
+        {
+            ResponseView = response ?? throw new ArgumentNullException(nameof(response));
+            return this;
+        }
+
+        internal IBattlementResponseView? DetachResponseView()
+        {
+            IBattlementResponseView? response = ResponseView;
+            ResponseView = null;
+            return response;
+        }
+
+        public void Dispose()
+        {
+            PayloadOwner?.Dispose();
+            PayloadOwner = null;
+            ResponseView?.Dispose();
+            ResponseView = null;
+        }
     }
 
     /// <summary>An immediate UI disposition and opaque deferred response payload.</summary>
-    public sealed record BattlementUiEventTransportResult(
-        BattlementTransportStatus Status,
-        UiEventDisposition Disposition,
-        ReadOnlyMemory<byte> ResponsePayload,
-        string? Diagnostic = null,
-        int? NativeStatus = null
-    );
+    public sealed record BattlementUiEventTransportResult : IDisposable
+    {
+        private readonly ReadOnlyMemory<byte> responsePayload;
+        private bool nativeBacked;
+
+        public BattlementUiEventTransportResult(
+            BattlementTransportStatus status,
+            UiEventDisposition disposition,
+            ReadOnlyMemory<byte> responsePayload,
+            string? diagnostic = null,
+            int? nativeStatus = null
+        ) =>
+            (Status, Disposition, this.responsePayload, Diagnostic, NativeStatus) = (
+                status,
+                disposition,
+                responsePayload,
+                diagnostic,
+                nativeStatus
+            );
+
+        public BattlementTransportStatus Status { get; }
+
+        public UiEventDisposition Disposition { get; }
+
+        /// <summary>
+        /// Returns an independently owned copy when the response is backed by native memory.
+        /// </summary>
+        public ReadOnlyMemory<byte> ResponsePayload =>
+            nativeBacked ? responsePayload.ToArray() : responsePayload;
+
+        public string? Diagnostic { get; }
+
+        public int? NativeStatus { get; }
+
+        internal ReadOnlyMemory<byte> BorrowedResponsePayload => responsePayload;
+
+        internal int ResponsePayloadLength => responsePayload.Length;
+
+        internal IDisposable? PayloadOwner { get; private set; }
+
+        internal IBattlementResponseView? ResponseView { get; private set; }
+
+        internal BattlementUiEventTransportResult OwnPayload(IDisposable? owner)
+        {
+            PayloadOwner = owner;
+            nativeBacked = owner is BattlementNativeBufferMemory;
+            return this;
+        }
+
+        internal IDisposable? DetachPayloadOwner()
+        {
+            IDisposable? owner = PayloadOwner;
+            PayloadOwner = null;
+            return owner;
+        }
+
+        internal BattlementUiEventTransportResult OwnResponseView(IBattlementResponseView response)
+        {
+            ResponseView = response ?? throw new ArgumentNullException(nameof(response));
+            return this;
+        }
+
+        internal IBattlementResponseView? DetachResponseView()
+        {
+            IBattlementResponseView? response = ResponseView;
+            ResponseView = null;
+            return response;
+        }
+
+        public void Dispose()
+        {
+            PayloadOwner?.Dispose();
+            PayloadOwner = null;
+            ResponseView?.Dispose();
+            ResponseView = null;
+        }
+    }
 
     /// <summary>Prepares Addressables entries for use by Battlement-controlled content.</summary>
     public interface IBattlementAssetStorage : IDisposable
@@ -146,60 +359,5 @@ namespace Battlement
     {
         /// <summary>Gets elapsed monotonic time since an arbitrary origin.</summary>
         TimeSpan Elapsed { get; }
-    }
-
-    /// <summary>Encodes and decodes the protocol values used by the host.</summary>
-    public interface IBattlementProtocolCodec
-    {
-        /// <summary>Encodes one connection message.</summary>
-        byte[] SerializeConnect(Connect value);
-
-        /// <summary>Encodes one core batch-failure submission.</summary>
-        byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value);
-
-        /// <summary>Encodes one core operation-failure submission.</summary>
-        byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value);
-
-        /// <summary>Encodes one built-in pointer or keyboard action.</summary>
-        byte[] SerializeAction(Action value);
-
-        /// <summary>Encodes one synchronous UI event action.</summary>
-        byte[] SerializeUiEventAction(UiEventAction value);
-
-        /// <summary>Decodes one response containing core commands.</summary>
-        Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
-    }
-
-    /// <summary>
-    /// Marks a protocol codec whose independent calls are safe on worker threads.
-    /// </summary>
-    public interface IBattlementBackgroundProtocolCodec : IBattlementProtocolCodec { }
-
-    /// <summary>JSON extension operations needed by registered game code.</summary>
-    public interface IBattlementExtensionProtocolCodec : IBattlementProtocolCodec
-    {
-        /// <summary>Decodes a response and delegates each custom payload to its registry.</summary>
-        Response<ICommand> DeserializeResponse(
-            ReadOnlyMemory<byte> bytes,
-            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
-        );
-
-        /// <summary>Encodes one typed game-owned action.</summary>
-        byte[] SerializeCustomAction<TPayload>(
-            CustomAction<TPayload> value,
-            JsonConverter<TPayload>? payloadConverter
-        );
-
-        /// <summary>Encodes one game-owned batch failure.</summary>
-        byte[] SerializeBatchFailure<TError>(
-            BatchFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        );
-
-        /// <summary>Encodes one game-owned late operation failure.</summary>
-        byte[] SerializeOperationFailure<TError>(
-            OperationFailed<TError> value,
-            JsonConverter<TError>? errorConverter
-        );
     }
 }

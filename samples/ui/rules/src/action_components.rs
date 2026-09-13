@@ -3,8 +3,9 @@ use battlement::{
   UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiScrollView, UiSlider,
   UiTextElement, UiTextField, UiToggle, UiValue, UiVisualElement, VisualElementAction, object_id,
 };
+use battlement_native::{UiEventActionView, UiValueView};
 
-use crate::{action_styles, design_system};
+use crate::{action_styles, design_system, native_ui::NativeUiResponseBuilder};
 
 pub(crate) const RUN_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000001");
 pub(crate) const SCROLL_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000002");
@@ -95,6 +96,97 @@ pub(crate) fn event_commands(
     ]),
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  accepted: &mut bool,
+  cleanup: &mut CleanupEvidence,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, battlement_native::EngineError> {
+  let target_id =
+    ObjectId::from_bytes(event.target_id()).expect("UI event view validates target UUIDs");
+  match (event.event_kind(), target_id) {
+    (UiEventKind::Click, RUN_ID) => {
+      response.focus(FOCUS_TARGET_ID)?;
+      response.blur(FOCUS_TARGET_ID)?;
+      response.scroll_to(SCROLL_ID, SCROLL_TARGET_ID)?;
+      response.focus(SELECTABLE_ID)?;
+      response.select_text(SELECTABLE_ID, 11, 3)?;
+      response.capture_pointer(SELECTABLE_ID, 17)?;
+      response.release_pointer(SELECTABLE_ID, 17)?;
+      response.label(
+        ACTION_STATUS_ID,
+        "PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release",
+      )?;
+      response.label(SELECTION_STATUS_ID, "SELECTION | UTF-16 3-11 applied")?;
+      let button = response
+        .writer()
+        .button_builder()
+        .text("Run actions again")
+        .finish();
+      response.update(RUN_ID, button)?;
+    }
+    (UiEventKind::Click, CLEANUP_ID) => {
+      *cleanup = CleanupEvidence::default();
+      response.label(CONTROL_STATUS_ID, cleanup_status(cleanup))?;
+    }
+    (UiEventKind::Input, DRAFT_ID) => {
+      cleanup.draft = true;
+      write_cleanup(cleanup, response)?;
+    }
+    (UiEventKind::ValueChanging, DRAG_ID) => {
+      cleanup.drag = true;
+      write_cleanup(cleanup, response)?;
+    }
+    (UiEventKind::ValueCommitted, id) if id == DRAFT_ID || id == DRAG_ID => {
+      cleanup.draft_leaked = target_id == DRAFT_ID;
+      cleanup.drag_leaked = target_id == DRAG_ID;
+      response.label(CONTROL_STATUS_ID, cleanup_status(cleanup))?;
+    }
+    (UiEventKind::ValueCommitted, ACCEPTED_ID) => {
+      let Some(UiValueView::Bool(proposed)) = event.value_commit().map(|value| value.proposed())
+      else {
+        return Ok(false);
+      };
+      *accepted = proposed;
+      let toggle = response
+        .writer()
+        .toggle_builder()
+        .bool_value(proposed)
+        .finish();
+      response.update(ACCEPTED_ID, toggle)?;
+      response.label(
+        CONTROL_STATUS_ID,
+        &format!(
+          "ACCEPTED | response committed {} before repaint",
+          state(proposed)
+        ),
+      )?;
+    }
+    (UiEventKind::ValueCommitted, REJECTED_ID) => {
+      let Some(UiValueView::Bool(proposed)) = event.value_commit().map(|value| value.proposed())
+      else {
+        return Ok(false);
+      };
+      response.label(
+        CONTROL_STATUS_ID,
+        &format!("REJECTED | proposal {} rolled back to ON", state(proposed)),
+      )?;
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
+}
+
+fn write_cleanup(
+  cleanup: &CleanupEvidence,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<(), battlement_native::EngineError> {
+  response.set_input_enabled(false)?;
+  response.next_group();
+  response.label(CONTROL_STATUS_ID, cleanup_status(cleanup))?;
+  response.set_input_enabled(true)
 }
 
 fn action_console(ran: bool) -> UiNode {

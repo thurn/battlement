@@ -1,0 +1,426 @@
+include "common.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+struct PanelPoint { x:double; y:double; }
+struct Vector2 { x:float; y:float; }
+struct Vector3 { x:float; y:float; z:float; }
+struct Rect { x:double; y:double; width:double; height:double; }
+struct FloatRange { min:float; max:float; }
+
+enum PointerType:ubyte { Mouse, Touch, Pen, Unknown }
+enum PointerButtonKind:ubyte { None, Left, Middle, Right, Other }
+enum NavigationDirection:ubyte { None, Left, Up, Right, Down, Next, Previous }
+enum AccessibilityActionKind:ubyte {
+  Activate,
+  Increment,
+  Decrement,
+  Dismiss,
+  ScrollForward,
+  ScrollBackward
+}
+enum ClickKind:ubyte { Pointer, NavigationSubmit, Repeat }
+enum FocusDirectionKind:ubyte { Absent, None, Unspecified, Left, Right, Other }
+
+enum PhysicalKey:ushort {
+  Escape,
+  F1,
+  F2,
+  F3,
+  F4,
+  F5,
+  F6,
+  F7,
+  F8,
+  F9,
+  F10,
+  F11,
+  F12,
+  Backquote,
+  Digit0,
+  Digit1,
+  Digit2,
+  Digit3,
+  Digit4,
+  Digit5,
+  Digit6,
+  Digit7,
+  Digit8,
+  Digit9,
+  Minus,
+  Equal,
+  Backspace,
+  Tab,
+  KeyA,
+  KeyB,
+  KeyC,
+  KeyD,
+  KeyE,
+  KeyF,
+  KeyG,
+  KeyH,
+  KeyI,
+  KeyJ,
+  KeyK,
+  KeyL,
+  KeyM,
+  KeyN,
+  KeyO,
+  KeyP,
+  KeyQ,
+  KeyR,
+  KeyS,
+  KeyT,
+  KeyU,
+  KeyV,
+  KeyW,
+  KeyX,
+  KeyY,
+  KeyZ,
+  BracketLeft,
+  BracketRight,
+  Backslash,
+  CapsLock,
+  Semicolon,
+  Quote,
+  Enter,
+  ShiftLeft,
+  ShiftRight,
+  ControlLeft,
+  ControlRight,
+  AltLeft,
+  AltRight,
+  MetaLeft,
+  MetaRight,
+  Comma,
+  Period,
+  Slash,
+  Space,
+  ContextMenu,
+  Insert,
+  Delete,
+  Home,
+  End,
+  PageUp,
+  PageDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  PrintScreen,
+  ScrollLock,
+  Pause,
+  NumLock,
+  Numpad0,
+  Numpad1,
+  Numpad2,
+  Numpad3,
+  Numpad4,
+  Numpad5,
+  Numpad6,
+  Numpad7,
+  Numpad8,
+  Numpad9,
+  NumpadDecimal,
+  NumpadAdd,
+  NumpadSubtract,
+  NumpadMultiply,
+  NumpadDivide,
+  NumpadEnter,
+}
+
+enum TransitionProperty:ushort {
+  All,
+  AlignContent,
+  AlignItems,
+  AlignSelf,
+  AspectRatio,
+  BackgroundColor,
+  BackgroundImage,
+  BackgroundPositionX,
+  BackgroundPositionY,
+  BackgroundRepeat,
+  BackgroundSize,
+  BorderBottomColor,
+  BorderBottomLeftRadius,
+  BorderBottomRightRadius,
+  BorderBottomWidth,
+  BorderLeftColor,
+  BorderLeftWidth,
+  BorderRightColor,
+  BorderRightWidth,
+  BorderTopColor,
+  BorderTopLeftRadius,
+  BorderTopRightRadius,
+  BorderTopWidth,
+  Bottom,
+  Color,
+  Cursor,
+  Display,
+  FlexBasis,
+  FlexDirection,
+  FlexGrow,
+  FlexShrink,
+  FlexWrap,
+  FontSize,
+  Height,
+  JustifyContent,
+  Left,
+  LetterSpacing,
+  MarginBottom,
+  MarginLeft,
+  MarginRight,
+  MarginTop,
+  MaxHeight,
+  MaxWidth,
+  MinHeight,
+  MinWidth,
+  Opacity,
+  Overflow,
+  PaddingBottom,
+  PaddingLeft,
+  PaddingRight,
+  PaddingTop,
+  Position,
+  Right,
+  Rotate,
+  Scale,
+  TextOverflow,
+  TextShadow,
+  Top,
+  TransformOrigin,
+  TransitionDelay,
+  TransitionDuration,
+  TransitionProperty,
+  TransitionTimingFunction,
+  Translate,
+  UnityBackgroundImageTintColor,
+  UnityEditorTextRenderingMode,
+  UnityFontDefinition,
+  UnityFontStyleAndWeight,
+  UnityMaterial,
+  UnityOverflowClipBox,
+  UnityParagraphSpacing,
+  UnitySliceBottom,
+  UnitySliceLeft,
+  UnitySliceRight,
+  UnitySliceScale,
+  UnitySliceTop,
+  UnitySliceType,
+  UnityTextAlign,
+  UnityTextAutoSize,
+  UnityTextGenerator,
+  UnityTextOutlineColor,
+  UnityTextOutlineWidth,
+  UnityTextOverflowPosition,
+  Visibility,
+  WhiteSpace,
+  Width,
+  WordSpacing,
+}
+
+table PointerButton {
+  kind:PointerButtonKind;
+  other:int;
+}
+
+table OptionalIndex {
+  present:bool;
+  value:uint;
+}
+
+table DropdownChoice {
+  has_index:bool;
+  index:uint;
+  value:string;
+}
+
+table BoolValue { value:bool; }
+table IndexValue { value:OptionalIndex (required); }
+table IndicesValue { values:[uint] (required); }
+table ChoiceValue { value:DropdownChoice (required); }
+table F32Value { value:float; }
+table I32Value { value:int; }
+table F32RangeValue { value:FloatRange (required); }
+table StringValue { value:string (required); }
+
+union UiValue {
+  BoolValue,
+  IndexValue,
+  IndicesValue,
+  ChoiceValue,
+  F32Value,
+  I32Value,
+  F32RangeValue,
+  StringValue
+}
+
+table AccessibilityActionEvent {
+  backend_generation:ulong;
+  action:AccessibilityActionKind;
+}
+
+table PointerButtonEvent {
+  position:PanelPoint (required);
+  delta:Vector2 (required);
+  pointer_id:int;
+  button:PointerButton;
+  buttons:uint;
+  pressure:float;
+  click_count:uint = 1;
+  modifiers:uint;
+  pointer_type:PointerType;
+}
+
+table PointerMoveEvent {
+  position:PanelPoint (required);
+  delta:Vector2 (required);
+  pointer_id:int;
+  changed_button:PointerButton;
+  buttons:uint;
+  pressure:float;
+  click_count:uint;
+  modifiers:uint;
+  pointer_type:PointerType;
+}
+
+table PointerCancelEvent {
+  position:PanelPoint (required);
+  delta:Vector2 (required);
+  pointer_id:int;
+  buttons:uint;
+  pressure:float;
+  modifiers:uint;
+  pointer_type:PointerType;
+}
+
+table PointerBoundaryEvent {
+  position:PanelPoint (required);
+  pointer_id:int;
+  pointer_type:PointerType;
+}
+
+table PointerCrossingEvent {
+  position:PanelPoint (required);
+  pointer_id:int;
+  pointer_type:PointerType;
+  related_target_id:Uuid;
+}
+
+table WheelEvent {
+  position:PanelPoint (required);
+  delta:Vector3 (required);
+  modifiers:uint;
+}
+
+table PointerCaptureEvent { pointer_id:int; }
+
+table FocusEvent {
+  related_target_id:Uuid;
+  direction:FocusDirectionKind;
+  other_direction:int;
+}
+
+table KeyEvent {
+  has_physical_key:bool;
+  physical_key:PhysicalKey;
+  text:string (required);
+  modifiers:uint;
+}
+
+table NavigationMoveEvent {
+  direction:NavigationDirection;
+  move:Vector2 (required);
+}
+
+table EmptyEvent {}
+table ValueChangingEvent { proposed:UiValue (required); }
+table ValueCommitEvent {
+  previous:UiValue (required);
+  proposed:UiValue (required);
+}
+table TextInputEvent { value:string (required); }
+table SelectionEvent { cursor_index:uint; selection_index:uint; }
+table GeometryEvent {
+  previous:Rect (required);
+  current:Rect (required);
+}
+table LinkEvent {
+  link_id:string (required);
+  link_text:string (required);
+  position:PanelPoint (required);
+  pointer_id:int;
+  button:PointerButton;
+}
+table ScrollEvent { offset:Vector2 (required); }
+table TabSelectionEvent {
+  previous_index:uint;
+  proposed_index:uint;
+  proposed_tab_id:Uuid (required);
+}
+table TabCloseEvent { tab_id:Uuid (required); index:uint; }
+table TabReorderEvent {
+  tab_id:Uuid (required);
+  previous_index:uint;
+  proposed_index:uint;
+}
+table TransitionEvent {
+  properties:[TransitionProperty] (required);
+  elapsed_ms:float;
+}
+
+table PointerClickEvent {
+  position:PanelPoint (required);
+  click_count:uint = 1;
+  pointer_id:int;
+  button:PointerButton;
+  modifiers:uint;
+}
+table ClickEvent {
+  kind:ClickKind;
+  pointer:PointerClickEvent;
+}
+
+union UiEventBody {
+  AccessibilityActionEvent,
+  PointerButtonEvent,
+  PointerMoveEvent,
+  PointerCancelEvent,
+  PointerBoundaryEvent,
+  PointerCrossingEvent,
+  WheelEvent,
+  PointerCaptureEvent,
+  KeyEvent,
+  NavigationMoveEvent,
+  EmptyEvent,
+  FocusEvent,
+  GeometryEvent,
+  TransitionEvent,
+  ValueChangingEvent,
+  ValueCommitEvent,
+  TextInputEvent,
+  SelectionEvent,
+  LinkEvent,
+  ScrollEvent,
+  TabSelectionEvent,
+  TabCloseEvent,
+  TabReorderEvent,
+  ClickEvent
+}
+
+table UiEvent {
+  target_id:Uuid (required);
+  cancelable:bool;
+  default_prevented:bool;
+  kind:ubyte;
+  body:UiEventBody (required);
+}
+
+table UiEventAction {
+  action_id:Uuid (required);
+  session_id:Uuid (required);
+  event:UiEvent (required);
+}
+
+root_type UiEventAction;
+file_identifier "BTUI";

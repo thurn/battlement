@@ -65,6 +65,15 @@ namespace Battlement.UI
             }
         }
 
+        internal void ApplyDirectRange(ObjectId objectId, float min, float max)
+        {
+            RangeState state = ranges[objectId.Value];
+            Validate(state.Target.lowLimit, state.Target.highLimit, min, max);
+            state.Cancel();
+            state.Target.SetValueWithoutNotify(new Vector2(min, max));
+            state.Committed = state.Target.value;
+        }
+
         public static void ValidateNode(UiElement element)
         {
             switch (element)

@@ -21,6 +21,20 @@ namespace Battlement
             return completeImmediately ? null : new WaitOperation(now + command.Duration);
         }
 
+        public static IBattlementCommandOperation? Wait(
+            BattlementDirectWait command,
+            TimeSpan now,
+            bool completeImmediately = false
+        )
+        {
+            TimeSpan duration = BattlementProtocolLimits.RequireDuration(
+                TimeSpan.FromMilliseconds(command.DurationMilliseconds),
+                "A wait duration",
+                allowZero: false
+            );
+            return completeImmediately ? null : new WaitOperation(now + duration);
+        }
+
         private sealed class WaitOperation : IBattlementCommandOperation
         {
             private readonly TimeSpan completion;

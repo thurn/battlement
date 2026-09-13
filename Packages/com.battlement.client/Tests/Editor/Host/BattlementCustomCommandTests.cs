@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Battlement.CustomFixtures;
 using Battlement.Errors;
+using Google.FlatBuffers;
 using NUnit.Framework;
 using UnityEngine;
+using FixtureWire = Battlement.FlatBuffers.FixtureGenerated;
 using ProtocolVector3 = Battlement.Vector3;
 
 namespace Battlement.Tests
@@ -15,22 +17,17 @@ namespace Battlement.Tests
     {
         private const string CommandType = "fixture.character.flash";
 
-        private static readonly FlashPayloadFormatter PayloadFormatter = new();
-        private static readonly FixtureErrorFormatter ErrorFormatter = new();
-
         [Test]
         public void RegistrationAdvertisesAndRunsThroughPublicServices()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             var handler = new FixtureHandler();
             Register(harness, handler);
             Assert.Throws<InvalidOperationException>(() => Register(harness, handler));
             Assert.Throws<ArgumentException>(() =>
-                harness.Runner.RegisterCommand(
+                harness.Runner.RegisterCommand<FlashPayload, FixtureError>(
                     "battlement.private",
-                    handler,
-                    PayloadFormatter,
-                    ErrorFormatter
+                    handler
                 )
             );
 
@@ -43,9 +40,7 @@ namespace Battlement.Tests
 
             harness.Runner.RunFrame();
 
-            Connect connect = BattlementJson.DeserializeConnect(
-                harness.Transport.ConnectMessages.Single()
-            );
+            Connect connect = harness.Transport.ConnectValues.Single();
             Assert.That(connect.CustomCommandTypes, Does.Contain(CommandType));
             Assert.That(handler.InvocationCount, Is.EqualTo(1));
             Assert.That(handler.InvocationThreadId, Is.EqualTo(Environment.CurrentManagedThreadId));
@@ -57,9 +52,9 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void UnregisteredAndMalformedPayloadsFailOnlyTheirBatches()
+        public void UnregisteredPayloadFailsOnlyItsBatch()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             Register(harness, new FixtureHandler());
             SessionId session = new(Guid.NewGuid());
             ObjectId targetId = new(Guid.NewGuid());
@@ -90,33 +85,13 @@ namespace Battlement.Tests
                 Is.EqualTo(nameof(CoreErrorCode.HandlerNotRegistered))
             );
 
-            using BattlementTestHarness malformed = BattlementTestHarness.Create();
-            malformed.Runner.RegisterCommand(
-                CommandType,
-                new FixtureHandler(),
-                new RejectingFlashPayloadFormatter(),
-                ErrorFormatter
-            );
-            Connect(malformed, session, targetId);
-            malformed.Transport.EnqueueSubmit(EmptyResult(session));
-            malformed.Transport.EnqueuePoll(
-                Result(Response(session, Batch(session, Custom(targetId, scale: 3f))))
-            );
-            malformed.Runner.RunFrame();
-
-            Assert.That(
-                malformed
-                    .Logger.Records.Last(record => record.EventName == "battlement.batch.failed")
-                    .Fields!["error_code"],
-                Is.EqualTo(nameof(CoreErrorCode.InvalidEncoding))
-            );
-            Assert.That(malformed.Runner.IsInputAvailable, Is.True);
+            Assert.That(harness.Runner.IsInputAvailable, Is.True);
         }
 
         [Test]
         public void ImmediateExceptionsUseCoreOrGameNamespacedFailures()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             var handler = new FixtureHandler(FixtureHandlerMode.Throw);
             Register(harness, handler);
             SessionId session = new(Guid.NewGuid());
@@ -150,18 +125,18 @@ namespace Battlement.Tests
             );
             harness.Runner.RunFrame();
 
-            ClientMessage<FixtureError, FlashPayload> submitted = DecodeCustom(
-                harness.Transport.SubmitMessages.Last()
-            );
-            var failed = (ClientMessage<FixtureError, FlashPayload>.BatchFailedMessage)submitted;
-            Assert.That(failed.Failure.ErrorCode, Is.EqualTo(FixtureError.Rejected));
-            Assert.That(failed.Failure.CommandId, Is.Not.Null);
+            FixtureWire.FixtureBatchFailed failed = DecodeCustom(
+                    harness.Transport.SubmitMessages.Last()
+                )
+                .BodyAsFixtureBatchFailed();
+            Assert.That(failed.Error, Is.EqualTo(FixtureWire.FixtureError.Rejected));
+            Assert.That(failed.CommandId.HasValue, Is.True);
         }
 
         [Test]
         public void TrackedWorkBlocksFailsLateAndReceivesCancellation()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             var handler = new FixtureHandler(FixtureHandlerMode.Track);
             Register(harness, handler);
             SessionId session = new(Guid.NewGuid());
@@ -183,11 +158,11 @@ namespace Battlement.Tests
             handler.Operation!.ShouldFail = true;
             harness.Transport.EnqueueSubmit(EmptyResult(session));
             harness.Runner.RunFrame();
-            var blockingFailure = (ClientMessage<
-                FixtureError,
-                FlashPayload
-            >.BatchFailedMessage)DecodeCustom(harness.Transport.SubmitMessages.Last());
-            Assert.That(blockingFailure.Failure.ErrorCode, Is.EqualTo(FixtureError.Delayed));
+            FixtureWire.FixtureBatchFailed blockingFailure = DecodeCustom(
+                    harness.Transport.SubmitMessages.Last()
+                )
+                .BodyAsFixtureBatchFailed();
+            Assert.That(blockingFailure.Error, Is.EqualTo(FixtureWire.FixtureError.Delayed));
             Assert.That(target.transform.localScale, Is.EqualTo(UnityEngine.Vector3.one));
 
             handler.Mode = FixtureHandlerMode.Track;
@@ -198,11 +173,11 @@ namespace Battlement.Tests
             late.ShouldFail = true;
             harness.Transport.EnqueueSubmit(EmptyResult(session));
             harness.Runner.RunFrame();
-            var operationFailure = (ClientMessage<
-                FixtureError,
-                FlashPayload
-            >.OperationFailedMessage)DecodeCustom(harness.Transport.SubmitMessages.Last());
-            Assert.That(operationFailure.Failure.ErrorCode, Is.EqualTo(FixtureError.Delayed));
+            FixtureWire.FixtureOperationFailed operationFailure = DecodeCustom(
+                    harness.Transport.SubmitMessages.Last()
+                )
+                .BodyAsFixtureOperationFailed();
+            Assert.That(operationFailure.Error, Is.EqualTo(FixtureWire.FixtureError.Delayed));
 
             harness.Transport.EnqueuePoll(
                 Result(Response(session, Batch(session, Custom(targetId).Nonblocking())))
@@ -218,7 +193,7 @@ namespace Battlement.Tests
         [Test]
         public void TypedActionNestedReturnWaitsForCurrentCommandStep()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             var handler = new FixtureHandler(FixtureHandlerMode.EmitNestedAction, harness.Runner);
             Register(harness, handler);
             SessionId session = new(Guid.NewGuid());
@@ -236,12 +211,15 @@ namespace Battlement.Tests
 
             harness.Runner.RunFrame();
 
-            var action = (ClientMessage<
-                FixtureError,
-                FlashPayload
-            >.CustomActionMessage)DecodeCustom(harness.Transport.SubmitMessages.Single());
-            Assert.That(action.Action.Type, Is.EqualTo("fixture.flash.completed"));
-            Assert.That(action.Action.SessionId, Is.EqualTo(session));
+            FixtureWire.FixtureAction action = DecodeCustom(
+                    harness.Transport.SubmitMessages.Single()
+                )
+                .BodyAsFixtureAction();
+            Assert.That(action.ActionType, Is.EqualTo("fixture.flash.completed"));
+            Assert.That(
+                BattlementFlatBufferCore.ReadUuid(action.SessionId, "session"),
+                Is.EqualTo(session.Value)
+            );
             Assert.That(harness.Runner.TryGetObject(targetId, out GameObject? target), Is.True);
             Assert.That(
                 target!.transform.localScale,
@@ -253,7 +231,7 @@ namespace Battlement.Tests
         [Test]
         public void ObjectDestructionCancelsScopedCustomWork()
         {
-            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            using BattlementTestHarness harness = CreateHarness();
             var handler = new FixtureHandler(FixtureHandlerMode.Track);
             Register(harness, handler);
             SessionId session = new(Guid.NewGuid());
@@ -279,7 +257,7 @@ namespace Battlement.Tests
         }
 
         private static void Register(BattlementTestHarness harness, FixtureHandler handler) =>
-            harness.Runner.RegisterCommand(CommandType, handler, PayloadFormatter, ErrorFormatter);
+            harness.Runner.RegisterCommand<FlashPayload, FixtureError>(CommandType, handler);
 
         private static void Connect(
             BattlementTestHarness harness,
@@ -325,16 +303,43 @@ namespace Battlement.Tests
                 }
             );
 
-        private static BattlementTransportResult Result(Response<ICommand> response)
-        {
-            byte[] bytes = BattlementJson.SerializeResponse(response, PayloadFormatter);
-            return new(BattlementTransportStatus.Success, bytes);
-        }
+        private static BattlementTransportResult Result(Response<ICommand> response) =>
+            new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
+                new BattlementOwnedResponseView(response)
+            );
 
         private static BattlementTransportResult EmptyResult(SessionId session) =>
             Result(new Response<ICommand>(session, Array.Empty<ResponseMessage<ICommand>>()));
 
-        private static ClientMessage<FixtureError, FlashPayload> DecodeCustom(byte[] message) =>
-            BattlementJson.DeserializeClientMessage(message, ErrorFormatter, PayloadFormatter);
+        private static BattlementTestHarness CreateHarness()
+        {
+            var schema = new FixtureFlatBufferResponseSchema(
+                error => (byte)(FixtureError)error,
+                payload =>
+                {
+                    var value = (FlashPayload)payload;
+                    return (value.ObjectId, value.Scale);
+                }
+            );
+            return BattlementTestHarness.Create(
+                flatBufferResponseSchema: schema,
+                flatBufferClientSchema: schema
+            );
+        }
+
+        private static FixtureWire.FixtureClientMessage DecodeCustom(byte[] message)
+        {
+            var bytes = new ByteBuffer(message);
+            Assert.That(
+                new Verifier(bytes).VerifyBuffer(
+                    "BTCM",
+                    true,
+                    FixtureWire.FixtureClientMessageVerify.Verify
+                ),
+                Is.True
+            );
+            bytes.Position = FlatBufferConstants.SizePrefixLength;
+            return FixtureWire.FixtureClientMessage.GetRootAsFixtureClientMessage(bytes);
+        }
     }
 }

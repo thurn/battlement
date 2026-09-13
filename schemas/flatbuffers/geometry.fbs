@@ -1,0 +1,136 @@
+include "ui_event.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+struct Projective2 {
+  m11:double;
+  m12:double;
+  m13:double;
+  m21:double;
+  m22:double;
+  m23:double;
+  m31:double;
+  m32:double;
+  m33:double;
+}
+
+struct ViewportPoint {
+  x:double;
+  y:double;
+  display_id:uint;
+}
+
+struct ViewportRect {
+  x:double;
+  y:double;
+  width:double;
+  height:double;
+  display_id:uint;
+}
+
+table ElementGeometry {
+  layout:Rect (required);
+  viewport_bound:ViewportRect (required);
+  viewport_from_local:Projective2 (required);
+  viewport_from_parent:Projective2 (required);
+  panel_id:Uuid (required);
+}
+
+enum DisplayOrientation:ubyte {
+  Landscape,
+  LandscapeFlipped,
+  Portrait,
+  PortraitFlipped
+}
+
+table ViewportGeometry {
+  viewport:ViewportRect (required);
+  safe_area:ViewportRect (required);
+  scale:double;
+  dpi:double = null;
+  orientation:DisplayOrientation;
+}
+
+table WorldPointGeometry {
+  point:ViewportPoint (required);
+  depth:double;
+  is_inside_viewport:bool;
+}
+
+table WorldBoundsGeometry {
+  bound:ViewportRect (required);
+  nearest_depth:double;
+  farthest_depth:double;
+  is_inside_viewport:bool;
+}
+
+union GeometryValue {
+  ElementGeometry,
+  ViewportGeometry,
+  WorldPointGeometry,
+  WorldBoundsGeometry
+}
+
+enum GeometryUnavailable:ubyte {
+  Detached,
+  Hidden,
+  ObjectMissing,
+  CameraDisabled,
+  DisplayUnavailable,
+  NoRenderers,
+  BehindCamera,
+  NoViewportMapping,
+  ProjectionUnavailable
+}
+
+table CurrentGeometry {
+  value:GeometryValue (required);
+}
+
+table UnavailableGeometry {
+  reason:GeometryUnavailable;
+}
+
+union GeometryResult {
+  CurrentGeometry,
+  UnavailableGeometry
+}
+
+table GeometryObservationValue {
+  observation_id:Uuid (required);
+  result:GeometryResult (required);
+}
+
+table GeometryObservationBatch {
+  generation:ulong;
+  changed:[GeometryObservationValue] (required);
+}
+
+enum GeometryTargetKind:ubyte {
+  UiElement,
+  Viewport,
+  WorldOrigin,
+  WorldAnchor,
+  WorldRenderedBounds
+}
+
+enum CameraTargetKind:ubyte { Input, Object }
+
+table GeometryObservationTarget {
+  kind:GeometryTargetKind;
+  object_id:Uuid;
+  display_id:uint;
+  camera_kind:CameraTargetKind;
+  camera_object_id:Uuid;
+  anchor:string;
+}
+
+table GeometryObservation {
+  observation_id:Uuid (required);
+  target:GeometryObservationTarget (required);
+}
+
+table GeometryObservationUpdate {
+  added:[GeometryObservation] (required);
+  removed:[Uuid] (required);
+}

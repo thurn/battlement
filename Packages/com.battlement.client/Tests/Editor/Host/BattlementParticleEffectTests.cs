@@ -452,27 +452,11 @@ namespace Battlement.Tests
                 .ToArray();
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>
-            Messages(harness)
-                .OfType<ClientMessage<CoreErrorCode, byte>.BatchFailedMessage>()
-                .Select(value => value.Failure)
-                .ToArray();
+            harness.Transport.BatchFailures.ToArray();
 
         private static OperationFailed<CoreErrorCode>[] OperationFailures(
             BattlementTestHarness harness
-        ) =>
-            Messages(harness)
-                .OfType<ClientMessage<CoreErrorCode, byte>.OperationFailedMessage>()
-                .Select(value => value.Failure)
-                .ToArray();
-
-        private static IEnumerable<ClientMessage<CoreErrorCode, byte>> Messages(
-            BattlementTestHarness harness
-        ) =>
-            harness
-                .Transport.SubmitMessages.Where(bytes => bytes.Length > 1)
-                .Select(bytes =>
-                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes)
-                );
+        ) => harness.Transport.OperationFailures.ToArray();
     }
 
     public sealed class PoolResetRecorder : MonoBehaviour, IBattlementPoolReset

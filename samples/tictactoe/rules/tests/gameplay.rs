@@ -4,6 +4,10 @@ use battlement::{
   ImageFit, ImageState, ObjectId, PointerEvent, PreparedAsset, TextureAddress, Vector3,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
+use battlement_native::{
+  ConnectInput, ConnectView, NativeEngine, NativeReducedMotionPreference, ResponseView,
+  write_connect,
+};
 use battlement_rules::{
   BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, STATUS_ID, TITLE_ID,
   TicTacToeEngine, VisualState, X_TEXTURE,
@@ -11,6 +15,33 @@ use battlement_rules::{
 
 const BOARD_CENTER_Y: f64 = -0.7;
 const CELL_SIZE: f64 = 1.92;
+
+#[test]
+fn exported_connect_constructs_a_verified_snapshot_directly() {
+  let request = write_connect(&ConnectInput {
+    platform: "test",
+    unity_version: "test",
+    screen_width: 1280,
+    screen_height: 720,
+    focused: true,
+    paused: false,
+    reduced_motion_preference: NativeReducedMotionPreference::Unavailable,
+    custom_command_types: &[],
+    modules: &[],
+    persistent_data_path: None,
+    streaming_assets_path: None,
+  })
+  .unwrap();
+  let mut engine = battlement_rules::create_engine().unwrap();
+
+  let response =
+    NativeEngine::connect_native(&mut engine, ConnectView::read(request.as_bytes()).unwrap())
+      .unwrap();
+  let view = ResponseView::read(response.as_bytes()).unwrap();
+
+  assert_eq!(view.session_id(), response.session_id());
+  assert_eq!(view.message_count(), 1);
+}
 
 #[test]
 fn initial_world_contains_clickable_board_and_prepared_art() {

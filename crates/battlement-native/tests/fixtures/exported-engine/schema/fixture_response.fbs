@@ -1,0 +1,92 @@
+include "response.fbs";
+include "client_message.fbs";
+
+namespace Battlement.FlatBuffers.FixtureGenerated;
+
+table FlashPayload {
+  object_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  scale:float;
+}
+
+table FlashCommand {
+  command_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  blocking:bool = true;
+  command_type:string (required);
+  payload:FlashPayload (required);
+}
+
+enum FixtureError : ubyte { Rejected, Delayed }
+
+table FixtureAction {
+  action_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  session_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  action_type:string (required);
+  payload:FlashPayload (required);
+}
+
+table FixtureBatchFailed {
+  session_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  batch_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  command_id:Battlement.FlatBuffers.Generated.Uuid;
+  error:FixtureError;
+  message:string (required);
+}
+
+table FixtureOperationFailed {
+  session_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  batch_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  command_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  error:FixtureError;
+  message:string (required);
+}
+
+union FixtureClientBody {
+  Battlement.FlatBuffers.Generated.CoreAction,
+  Battlement.FlatBuffers.Generated.BatchFailed,
+  Battlement.FlatBuffers.Generated.OperationFailed,
+  FixtureAction,
+  FixtureBatchFailed,
+  FixtureOperationFailed
+}
+
+table FixtureClientMessage {
+  body:FixtureClientBody (required);
+}
+
+union FixtureCommand {
+  Battlement.FlatBuffers.Generated.CoreCommand,
+  FlashCommand
+}
+
+table CommandEntry {
+  command:FixtureCommand (required);
+}
+
+table ParallelCommandGroup {
+  commands:[CommandEntry] (required);
+}
+
+table Batch {
+  batch_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  session_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  caused_by_action_id:Battlement.FlatBuffers.Generated.Uuid;
+  start:Battlement.FlatBuffers.Generated.BatchStart;
+  groups:[ParallelCommandGroup] (required);
+}
+
+union ResponseMessage {
+  Battlement.FlatBuffers.Generated.Snapshot,
+  Batch
+}
+
+table ResponseMessageEntry {
+  message:ResponseMessage (required);
+}
+
+table Response {
+  session_id:Battlement.FlatBuffers.Generated.Uuid (required);
+  messages:[ResponseMessageEntry] (required);
+}
+
+root_type Response;
+file_identifier "BTRS";

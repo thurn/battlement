@@ -42,11 +42,7 @@ namespace Battlement.Performance
             startedAt = Time.realtimeSinceStartup;
             transport = new PerformanceSmokeTransport();
             runner.Configure(
-                new BattlementRunnerOptions(
-                    transport,
-                    new BattlementAddressablesAssetStorage(),
-                    BattlementJson.Instance
-                )
+                new BattlementRunnerOptions(transport, new BattlementAddressablesAssetStorage())
             );
             runner.Connect();
 
@@ -202,16 +198,31 @@ namespace Battlement.Performance
         {
             ProfilerRecorderSample[] samples = recorder.ToArray();
             long total = samples.Sum(sample => sample.Value);
-            long maximum = samples.Length == 0 ? 0 : samples.Max(sample => sample.Value);
+            long[] ordered = samples
+                .Select(sample => sample.Value)
+                .OrderBy(value => value)
+                .ToArray();
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "{0}: samples={1} total={2:0.###}{4} max={3:0.###}{4}",
+                "{0}: samples={1} total={2:0.###}{7} median={3:0.###}{7} "
+                    + "p95={4:0.###}{7} p99={5:0.###}{7} max={6:0.###}{7}",
                 name,
                 samples.Length,
                 total * scale,
-                maximum * scale,
+                Percentile(ordered, 0.5) * scale,
+                Percentile(ordered, 0.95) * scale,
+                Percentile(ordered, 0.99) * scale,
+                (ordered.Length == 0 ? 0 : ordered[^1]) * scale,
                 unit
             );
+        }
+
+        private static long Percentile(long[] ordered, double percentile)
+        {
+            if (ordered.Length == 0)
+                return 0;
+            int index = Math.Max(0, (int)Math.Ceiling(percentile * ordered.Length) - 1);
+            return ordered[index];
         }
 
         private static string ReportPath()

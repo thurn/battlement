@@ -88,6 +88,16 @@ namespace Battlement
             return null;
         }
 
+        public IBattlementCommandOperation? Vibrate(BattlementDirectVibration command, TimeSpan now)
+        {
+            Gamepad? gamepad = Gamepad.current;
+            if (gamepad == null)
+                return null;
+            gamepad.SetMotorSpeeds((float)command.LowFrequency, (float)command.HighFrequency);
+            vibrationEnds = now + TimeSpan.FromMilliseconds(command.DurationMilliseconds);
+            return null;
+        }
+
         public void Reset()
         {
             held.Clear();

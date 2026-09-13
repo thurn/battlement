@@ -7,6 +7,7 @@ mod cursor;
 mod diagnostics;
 mod input;
 mod movement;
+mod native;
 mod persistence;
 mod presentation;
 mod spawn;
@@ -21,12 +22,15 @@ use std::{
 
 use battlement::{
   ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command, CommandBody,
-  Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState,
-  MaterialAssignment, ObjectId, ObjectSetActivePayload, ParticleSpawnLocation,
-  ParticleSpawnPayload, PointerEvent, PrefabAddress, PreparedAsset, Quaternion, Response, SceneId,
-  SessionId, UiEventAction, UiEventResponse, Vector3, object_id, scene_id,
+  CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState, MaterialAssignment,
+  ObjectId, ObjectSetActivePayload, ParticleSpawnLocation, ParticleSpawnPayload, PointerEvent,
+  PrefabAddress, PreparedAsset, Quaternion, Response, SceneId, SessionId, UiEventAction,
+  UiEventResponse, Vector3, object_id, scene_id,
 };
-use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
+use battlement_native::{
+  ConnectView, CoreClientMessageView, Engine, EngineError, FlatBufferSubmitError, NativeEngine,
+  NativeResponse, NativeUiEventResponse, UiEventActionView, threading::AdaptiveThreadPool,
+};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use fastrand::Rng;
 use tracing::info;
@@ -249,17 +253,174 @@ impl Engine for ChessEngine {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response<Self::Command>, EngineError> {
+    self.connect_state(message);
+    let mut response = Response::snapshot(self.snapshot());
+    diagnostics::record_session_started(
+      &mut response,
+      self.diagnostics_enabled,
+      self.session_id,
+      self.started,
+      &self.board,
+    );
+    Ok(response)
+  }
+
+  fn submit(
+    &mut self,
+    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+  ) -> Result<Response<Self::Command>, EngineError> {
+    self.submit_message(message)
+  }
+
+  fn submit_core_view(
+    &mut self,
+    message: CoreClientMessageView<'_>,
+  ) -> Result<Response<Self::Command>, EngineError> {
+    let CoreClientMessageView::Action(action) = message else {
+      return Ok(Response::empty(self.session_id));
+    };
+    if action.session_id() != *self.session_id.as_uuid().as_bytes() {
+      return Err(EngineError::new("Chess action session mismatch"));
+    }
+    let action_id = ActionId::from_bytes(action.action_id()).expect("validated action UUID");
+    self.submit_action_view(action_id, action.body())
+  }
+
+  fn submit_ui_event(
+    &mut self,
+    action: UiEventAction,
+  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
+    if action.session_id != self.session_id {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    Ok(UiEventResponse::from_event(
+      &action.event,
+      Response::empty(self.session_id),
+    ))
+  }
+
+  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
+    if !self.started {
+      return Ok(None);
+    }
+    Ok(
+      self
+        .poll_ai()?
+        .or_else(|| self.music.poll(self.session_id, (self.now)())),
+    )
+  }
+}
+
+impl NativeEngine for ChessEngine {
+  const WIRE_CONTRACT_DIGEST_C: &'static [u8; 65] = battlement_native::WIRE_CONTRACT_DIGEST_C;
+
+  fn connect_native(&mut self, message: ConnectView<'_>) -> Result<NativeResponse, EngineError> {
+    self.connect_state(message);
+    native::snapshot(self)
+  }
+
+  fn submit_native(&mut self, bytes: &[u8]) -> Result<NativeResponse, FlatBufferSubmitError> {
+    let message = CoreClientMessageView::read(bytes).map_err(|error| {
+      FlatBufferSubmitError::invalid_argument(format!("invalid client message: {error}"))
+    })?;
+    let CoreClientMessageView::Action(action) = message else {
+      return NativeResponse::empty(*self.session_id.as_uuid().as_bytes())
+        .map_err(FlatBufferSubmitError::engine);
+    };
+    if action.session_id() != *self.session_id.as_uuid().as_bytes() {
+      return Err(FlatBufferSubmitError::engine(EngineError::new(
+        "Chess action session mismatch",
+      )));
+    }
+    let action_id = ActionId::from_bytes(action.action_id()).expect("validated action UUID");
+    self
+      .submit_action_view_native(action_id, action.body())
+      .map_err(FlatBufferSubmitError::engine)
+  }
+
+  fn submit_ui_event_native(
+    &mut self,
+    action: UiEventActionView<'_>,
+  ) -> Result<NativeUiEventResponse, EngineError> {
+    if action.session_id() != *self.session_id.as_uuid().as_bytes() {
+      return Err(EngineError::new("UI event session mismatch"));
+    }
+    Ok(NativeUiEventResponse {
+      disposition: if action.default_prevented() {
+        battlement::UiEventDisposition::PreventDefault
+      } else {
+        battlement::UiEventDisposition::Continue
+      },
+      response: NativeResponse::empty(*self.session_id.as_uuid().as_bytes())?,
+    })
+  }
+
+  fn poll_native(&mut self) -> Result<Option<NativeResponse>, EngineError> {
+    if !self.started {
+      return Ok(None);
+    }
+    if let Some(mv) = self.poll_ai_move() {
+      let mut board_after = self.board.clone();
+      board_after.play_unchecked(mv);
+      let metadata = if self.diagnostics_enabled {
+        match board_after.status() {
+          GameStatus::Won => vec![("chess.game_status", "won")],
+          GameStatus::Drawn => vec![("chess.game_status", "drawn")],
+          GameStatus::Ongoing => Vec::new(),
+        }
+      } else {
+        Vec::new()
+      };
+      let session_id = self.session_id;
+      let response = native::batch_response_with_metadata(
+        session_id,
+        None,
+        battlement_native::NativeBatchStart::AfterEarlierBlockingWork,
+        &metadata,
+        |message| {
+          let mut groups = native::apply_move(self, message, mv, true)?;
+          let last = groups.last_mut().expect("an AI move has a final group");
+          last.push(
+            message
+              .set_local_scale(
+                *battlement::CommandId::new_v4().as_uuid().as_bytes(),
+                true,
+                *cursor::EFFECT_ID.as_uuid().as_bytes(),
+                [1.0, 1.0, 1.0],
+              )
+              .map_err(native::protocol)?,
+          );
+          last.push(
+            message
+              .set_input_enabled(
+                *battlement::CommandId::new_v4().as_uuid().as_bytes(),
+                true,
+                true,
+              )
+              .map_err(native::protocol)?,
+          );
+          Ok(groups)
+        },
+      )?;
+      return Ok(Some(response));
+    }
+    self.music.poll_native(self.session_id, (self.now)())
+  }
+}
+
+impl ChessEngine {
+  fn connect_state(&mut self, message: ConnectView<'_>) {
     self.session_id = SessionId::new_v4();
-    self.diagnostics_enabled = diagnostics::is_available(&message);
+    self.diagnostics_enabled = diagnostics::is_available(message);
     self.highlight_ids = array::from_fn(self::highlight_id);
     self.persistent_data_path = (!self.deterministic_runtime)
-      .then(|| message.persistent_data_path.map(PathBuf::from))
+      .then(|| message.persistent_data_path().map(PathBuf::from))
       .flatten();
-    self.screen_aspect = if message.screen.height == 0 {
+    self.screen_aspect = if message.screen_height() == 0 {
       16.0 / 9.0
     } else {
-      f64::from(message.screen.width) / f64::from(message.screen.height)
+      f64::from(message.screen_width()) / f64::from(message.screen_height())
     };
     let saved_board = self
       .semantic_fixture
@@ -305,60 +466,23 @@ impl Engine for ChessEngine {
         status = ?self.board.status(),
         "Chess session connected"
     );
-    let mut response = Response::snapshot(self.snapshot());
-    diagnostics::record_session_started(
-      &mut response,
-      self.diagnostics_enabled,
-      self.session_id,
-      self.started,
-      &self.board,
-    );
-    Ok(response)
   }
 
-  fn submit(
-    &mut self,
-    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-  ) -> Result<Response<Self::Command>, EngineError> {
-    self.submit_message(message)
-  }
-
-  fn submit_ui_event(
-    &mut self,
-    action: UiEventAction,
-  ) -> Result<UiEventResponse<Self::Command>, EngineError> {
-    if action.session_id != self.session_id {
-      return Err(EngineError::new("UI event session mismatch"));
-    }
-    Ok(UiEventResponse::from_event(
-      &action.event,
-      Response::empty(self.session_id),
-    ))
-  }
-
-  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-    if !self.started {
-      return Ok(None);
-    }
-    Ok(
-      self
-        .poll_ai()?
-        .or_else(|| self.music.poll(self.session_id, (self.now)())),
-    )
-  }
-}
-
-impl ChessEngine {
   /// Returns the current user-visible state classification.
   pub const fn visual_state(&self) -> VisualState {
     self.visual_state
   }
 
   pub(crate) fn set_visual_state(&mut self, next: VisualState) -> [CommandBody; 2] {
+    let previous = self.change_visual_state(next);
+    visual_state::transition(previous, next)
+  }
+
+  pub(crate) fn change_visual_state(&mut self, next: VisualState) -> VisualState {
     let previous = self.visual_state;
     self.visual_state = next;
     info!(from = ?previous, to = ?next, "Chess visual state changed");
-    visual_state::transition(previous, next)
+    previous
   }
 
   fn submit_drag(
@@ -489,12 +613,19 @@ impl ChessEngine {
   }
 
   fn poll_ai(&mut self) -> Result<Option<Response<Command>>, EngineError> {
+    let Some(mv) = self.poll_ai_move() else {
+      return Ok(None);
+    };
+    Ok(Some(self.ai_move_response(mv)?))
+  }
+
+  fn poll_ai_move(&mut self) -> Option<Move> {
     if self.ai_poll_deferrals > 0 {
       self.ai_poll_deferrals -= 1;
-      return Ok(None);
+      return None;
     }
     let Some(receiver) = &self.ai_move else {
-      return Ok(None);
+      return None;
     };
     match receiver.try_recv() {
       Ok(mv) => {
@@ -505,34 +636,38 @@ impl ChessEngine {
             promotion = ?mv.promotion,
             "Computer move selected"
         );
-        let mut groups = self.apply_move(mv, true)?;
-        groups.last_mut().unwrap().extend([
-          cursor::dim_command(false),
-          CommandBody::set_input_enabled(true),
-        ]);
-        let mut response = Response::batch(
-          Batch::new(
-            BatchId::new_v4(),
-            self.session_id,
-            groups.into_iter().map(audio::parallel_group).collect(),
-          )
-          .start(BatchStart::AfterEarlierBlockingWork),
-        );
-        diagnostics::record_game_status(
-          &mut response,
-          self.diagnostics_enabled,
-          self.session_id,
-          self.board.status(),
-        );
-        Ok(Some(response))
+        Some(mv)
       }
-      Err(TryRecvError::Empty) => Ok(None),
+      Err(TryRecvError::Empty) => None,
       Err(TryRecvError::Disconnected) => {
         self.ai_move = None;
         tracing::warn!("Computer move search ended without a result");
-        Ok(None)
+        None
       }
     }
+  }
+
+  fn ai_move_response(&mut self, mv: Move) -> Result<Response<Command>, EngineError> {
+    let mut groups = self.apply_move(mv, true)?;
+    groups.last_mut().unwrap().extend([
+      cursor::dim_command(false),
+      CommandBody::set_input_enabled(true),
+    ]);
+    let mut response = Response::batch(
+      Batch::new(
+        BatchId::new_v4(),
+        self.session_id,
+        groups.into_iter().map(audio::parallel_group).collect(),
+      )
+      .start(BatchStart::AfterEarlierBlockingWork),
+    );
+    diagnostics::record_game_status(
+      &mut response,
+      self.diagnostics_enabled,
+      self.session_id,
+      self.board.status(),
+    );
+    Ok(response)
   }
 
   fn start_ai(&mut self) {
@@ -1020,7 +1155,7 @@ fn address(color: Color, piece: Piece) -> PrefabAddress {
   }
 }
 
-battlement_native::export_deterministic_engine!(
+battlement_native::export_deterministic_native_engine!(
   create_engine,
   clock = virtualized,
   randomness = seeded,

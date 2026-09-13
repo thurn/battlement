@@ -447,8 +447,13 @@ namespace Battlement.UI
         {
             if (property is not MotionProperty.Visibility and not MotionProperty.Display)
                 return timing;
-            string next = ((MotionValue.Discrete)value).Value.ToObject<string>()!;
-            string? previous = (old as MotionValue.Discrete)?.Value.ToObject<string>();
+            string next = ((MotionValue.Discrete)value).Value is MotionDiscreteValue.String text
+                ? text.Value
+                : throw new InvalidOperationException("A CSS discrete value must be a string.");
+            string? previous = (old as MotionValue.Discrete)?.Value
+                is MotionDiscreteValue.String oldText
+                ? oldText.Value
+                : null;
             bool appearing =
                 (next == "visible" && previous == "hidden")
                 || (next == "flex" && previous == "none");

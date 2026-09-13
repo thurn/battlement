@@ -3,8 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -20,13 +18,12 @@ namespace Battlement.Tests
             harness.Transport.EnqueueConnect(
                 FakeBattlementTransport.SnapshotResponse(session, inputDisabled: true)
             );
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.Connect();
-            Connect connect = BattlementJson.Deserialize<Connect>(
-                harness.Transport.ConnectMessages.Single()
-            );
+            Connect connect = harness.Transport.ConnectValues.Single();
             Assert.That(connect.ApplicationState, Is.EqualTo(new ApplicationState()));
 
             LogAssert.ignoreFailingMessages = true;
@@ -45,17 +42,9 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
 
             ApplicationState[] observed = harness
-                .Transport.SubmitMessages.Select(bytes =>
-                {
-                    JToken state = JObject.Parse(Encoding.UTF8.GetString(bytes))["Action"]![
-                        "body"
-                    ]!["ApplicationStateChanged"]!;
-                    Assert.That(state["focused"], Is.Not.Null);
-                    Assert.That(state["paused"], Is.Not.Null);
-                    var action = (ClientMessage<CoreErrorCode, byte>.ActionMessage)
-                        BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
-                    return ((ActionBody.ApplicationStateChanged)action.Action.Body).Value;
-                })
+                .Transport.Actions.Select(action =>
+                    ((ActionBody.ApplicationStateChanged)action.Body).Value
+                )
                 .ToArray();
             Assert.That(
                 observed,

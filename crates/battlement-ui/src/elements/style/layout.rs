@@ -205,6 +205,15 @@ impl AspectRatio {
   pub const fn new(width: f32, height: f32) -> Self {
     Self::Ratio { width, height }
   }
+
+  /// Returns the authored width and height components, or `None` for automatic sizing.
+  #[must_use]
+  pub const fn components(self) -> Option<(f32, f32)> {
+    match self {
+      Self::Auto => None,
+      Self::Ratio { width, height } => Some((width, height)),
+    }
+  }
 }
 
 /// Cross-axis alignment for a flex container or item.

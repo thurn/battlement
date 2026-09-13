@@ -8,7 +8,7 @@ use cozy_chess::{Color, GameStatus, Square};
 
 use crate::{ChessEngine, assets::effects, audio, movement, visual_state::VisualState};
 
-const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
+pub(crate) const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 
 /// Initial cursor square after starting or resetting a game.
 pub const START: Square = Square::E2;
@@ -284,7 +284,7 @@ impl ChessEngine {
     ))
   }
 
-  fn controller_cycle_squares(&self) -> Vec<Square> {
+  pub(crate) fn controller_cycle_squares(&self) -> Vec<Square> {
     if let Some(selected) = self.selected {
       return crate::legal_destinations(&self.board, selected);
     }

@@ -252,6 +252,15 @@ namespace Battlement.UI
 
         public void Apply(MotionValueOperation operation) => graph.Apply(operation);
 
+        public void ApplyValue(
+            ObjectId valueId,
+            MotionValueOperationKind kind,
+            MotionValue? value,
+            ObjectId playbackId,
+            uint generation,
+            TransitionDefinition? transition
+        ) => graph.ApplyValue(valueId, kind, value, playbackId, generation, transition);
+
         public void Apply(MotionValuePlaybackOperation operation)
         {
             graph.Apply(operation);
@@ -283,6 +292,41 @@ namespace Battlement.UI
                 );
         }
 
+        public void ApplyValuePlayback(
+            ObjectId playbackId,
+            uint generation,
+            MotionPlaybackOperationKind kind,
+            ulong micros,
+            double number,
+            MotionPlaybackDirection direction
+        )
+        {
+            graph.ApplyValuePlayback(playbackId, generation, kind, micros, number);
+            if (!imperativePlaybacks.TryGet(playbackId.Value, out ImperativePlayback playback))
+                return;
+            if (playback.Generation != generation)
+                throw Invalid("The imperative playback generation is stale.");
+            foreach (MotionPlaybackAddress address in playback.Addresses.ToArray())
+                ApplyPlayback(
+                    address.DescriptorId,
+                    address.Slot,
+                    address.Generation,
+                    kind,
+                    micros,
+                    number,
+                    direction
+                );
+            MotionPlaybackOutcome? outcome = kind switch
+            {
+                MotionPlaybackOperationKind.Stop => MotionPlaybackOutcome.Stopped,
+                MotionPlaybackOperationKind.Cancel => MotionPlaybackOutcome.Cancelled,
+                MotionPlaybackOperationKind.Complete => MotionPlaybackOutcome.Completed,
+                _ => null,
+            };
+            if (outcome is MotionPlaybackOutcome terminal)
+                FinishImperative(playbackId.Value, terminal);
+        }
+
         public void Apply(MotionControlOperation operation)
         {
             switch (operation.Command)
@@ -294,7 +338,12 @@ namespace Battlement.UI
                         MotionPlaybackOutcome.Cancelled
                     );
                     var addresses = new List<MotionPlaybackAddress>();
-                    var active = new ActiveControl(start, addresses);
+                    var active = new ActiveControl(
+                        start.PlaybackId,
+                        start.Generation,
+                        start.Target,
+                        addresses
+                    );
                     activeControls[operation.ControlId.Value] = active;
                     imperativePlaybacks.Register(start.PlaybackId, start.Generation, addresses);
                     installingControls.Add(operation.ControlId.Value);
@@ -336,6 +385,61 @@ namespace Battlement.UI
                         MotionPlaybackOutcome.Cancelled
                     );
                     foreach (DescriptorState binding in ControlBindings(operation.ControlId))
+                        ClearImperative(binding);
+                    break;
+                default:
+                    throw Invalid("Unknown animation-controls operation.");
+            }
+        }
+
+        public void ApplyControl(
+            ObjectId controlId,
+            MotionControlOperationKind kind,
+            ObjectId playbackId,
+            uint generation,
+            MotionControlTarget? target
+        )
+        {
+            if (
+                (kind is MotionControlOperationKind.Start or MotionControlOperationKind.Set)
+                && target is null
+            )
+                throw Invalid("A motion control target is absent.");
+            switch (kind)
+            {
+                case MotionControlOperationKind.Start:
+                    RemoveActiveControl(controlId.Value, true, MotionPlaybackOutcome.Cancelled);
+                    var addresses = new List<MotionPlaybackAddress>();
+                    var active = new ActiveControl(playbackId, generation, target!, addresses);
+                    activeControls[controlId.Value] = active;
+                    imperativePlaybacks.Register(playbackId, generation, addresses);
+                    installingControls.Add(controlId.Value);
+                    try
+                    {
+                        foreach (DescriptorState binding in ControlBindings(controlId))
+                            addresses.Add(InstallActiveControl(binding, active));
+                    }
+                    finally
+                    {
+                        installingControls.Remove(controlId.Value);
+                    }
+                    break;
+                case MotionControlOperationKind.Set:
+                    RemoveActiveControl(controlId.Value, true, MotionPlaybackOutcome.Cancelled);
+                    foreach (DescriptorState binding in ControlBindings(controlId))
+                        BattlementMotionControlUtilities.ApplyImmediately(
+                            binding,
+                            BattlementMotionControlUtilities.Resolve(binding, target!)
+                        );
+                    break;
+                case MotionControlOperationKind.Stop:
+                    RemoveActiveControl(controlId.Value, false, MotionPlaybackOutcome.Stopped);
+                    foreach (DescriptorState binding in ControlBindings(controlId))
+                        StopImperative(binding);
+                    break;
+                case MotionControlOperationKind.Clear:
+                    RemoveActiveControl(controlId.Value, false, MotionPlaybackOutcome.Cancelled);
+                    foreach (DescriptorState binding in ControlBindings(controlId))
                         ClearImperative(binding);
                     break;
                 default:
@@ -423,6 +527,101 @@ namespace Battlement.UI
             }
         }
 
+        public void ApplyScope(IBattlementMotionScopeView operation)
+        {
+            DescriptorState? root = descriptors.Values.FirstOrDefault(value =>
+                value.Descriptor.ScopeRoot && value.Descriptor.ScopeId == operation.ScopeId
+            );
+            if (root is null)
+                return;
+            switch (operation.Kind)
+            {
+                case MotionScopeOperationKind.Start:
+                    var addresses = new List<MotionPlaybackAddress>();
+                    var selected =
+                        new Dictionary<
+                            Guid,
+                            (
+                                DescriptorState Descriptor,
+                                List<(MotionTargetDescriptor Target, ulong Offset)> Targets
+                            )
+                        >();
+                    for (int index = 0; index < operation.StepCount; index++)
+                    {
+                        MotionSelector selector = operation.ReadStepSelector(index);
+                        MotionTargetDescriptor descriptor = operation.ReadStepTarget(index);
+                        ulong startMicros = operation.ReadStepStartMicros(index);
+                        foreach (
+                            DescriptorState target in BattlementMotionControlUtilities.Select(
+                                descriptors.Values,
+                                root,
+                                selector
+                            )
+                        )
+                        {
+                            Guid id = target.Descriptor.DescriptorId.Value;
+                            if (!selected.TryGetValue(id, out var group))
+                            {
+                                group = (target, new List<(MotionTargetDescriptor, ulong)>());
+                                selected.Add(id, group);
+                            }
+                            group.Targets.Add(
+                                (
+                                    BattlementMotionControlUtilities.Delay(descriptor, startMicros),
+                                    (ulong)index
+                                )
+                            );
+                        }
+                    }
+                    foreach (var group in selected.Values)
+                        addresses.AddRange(
+                            InstallImperatives(
+                                group.Descriptor,
+                                group.Targets,
+                                operation.Generation
+                            )
+                        );
+                    imperativePlaybacks.Register(
+                        operation.PlaybackId,
+                        operation.Generation,
+                        addresses
+                    );
+                    if (addresses.Count == 0)
+                        FinishImperative(
+                            operation.PlaybackId.Value,
+                            MotionPlaybackOutcome.Completed
+                        );
+                    break;
+                case MotionScopeOperationKind.Set:
+                    MotionSelector setSelector = operation.ReadSelector();
+                    MotionTargetDescriptor setTarget = operation.ReadTarget();
+                    foreach (
+                        DescriptorState selectedTarget in BattlementMotionControlUtilities.Select(
+                            descriptors.Values,
+                            root,
+                            setSelector
+                        )
+                    )
+                        BattlementMotionControlUtilities.ApplyImmediately(
+                            selectedTarget,
+                            setTarget
+                        );
+                    break;
+                case MotionScopeOperationKind.Stop:
+                    foreach (
+                        DescriptorState selectedTarget in BattlementMotionControlUtilities.Select(
+                            descriptors.Values,
+                            root,
+                            operation.ReadSelector()
+                        )
+                    )
+                        StopImperative(selectedTarget);
+                    break;
+                default:
+                    throw Invalid("Unknown animation-scope operation.");
+            }
+        }
+
         public void Apply(MotionDragControlOperation operation)
         {
             BattlementGestureState[] bindings = gestures
@@ -432,6 +631,24 @@ namespace Battlement.UI
                 throw Invalid("External drag controls are bound to more than one host.");
             if (bindings.Length == 1)
                 bindings[0].StartExternal(operation);
+        }
+
+        public void ApplyDragControl(
+            ObjectId controlId,
+            int pointerId,
+            MotionPointerDevice device,
+            float x,
+            float y,
+            bool snapToCursor
+        )
+        {
+            BattlementGestureState[] bindings = gestures
+                .Values.Where(value => value.ControlId == controlId)
+                .ToArray();
+            if (bindings.Length > 1)
+                throw Invalid("External drag controls are bound to more than one host.");
+            if (bindings.Length == 1)
+                bindings[0].StartExternal(pointerId, device, x, y, snapToCursor);
         }
 
         public void Apply(MotionPlaybackOperation operation)
@@ -479,6 +696,50 @@ namespace Battlement.UI
                         operation.Generation,
                         direction.Value
                     );
+                    break;
+                default:
+                    throw Invalid("Unknown motion playback operation.");
+            }
+        }
+
+        public void ApplyPlayback(
+            ObjectId descriptorId,
+            ulong slot,
+            uint generation,
+            MotionPlaybackOperationKind kind,
+            ulong micros,
+            double number,
+            MotionPlaybackDirection direction
+        )
+        {
+            switch (kind)
+            {
+                case MotionPlaybackOperationKind.Play:
+                    Play(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Pause:
+                    Pause(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Replay:
+                    Replay(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Stop:
+                    Stop(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Cancel:
+                    Cancel(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Complete:
+                    Complete(descriptorId, slot, generation);
+                    break;
+                case MotionPlaybackOperationKind.Seek:
+                    Seek(descriptorId, slot, generation, micros);
+                    break;
+                case MotionPlaybackOperationKind.SetSpeed:
+                    SetSpeed(descriptorId, slot, generation, number);
+                    break;
+                case MotionPlaybackOperationKind.SetDirection:
+                    SetDirection(descriptorId, slot, generation, direction);
                     break;
                 default:
                     throw Invalid("Unknown motion playback operation.");
@@ -834,8 +1095,8 @@ namespace Battlement.UI
         ) =>
             InstallImperative(
                 descriptor,
-                BattlementMotionControlUtilities.Resolve(descriptor, active.Start.Target),
-                active.Start.Generation,
+                BattlementMotionControlUtilities.Resolve(descriptor, active.Target),
+                active.Generation,
                 0
             );
 
@@ -847,7 +1108,7 @@ namespace Battlement.UI
         {
             if (!activeControls.Remove(controlId, out ActiveControl active))
                 return;
-            FinishImperative(active.Start.PlaybackId.Value, outcome);
+            FinishImperative(active.PlaybackId.Value, outcome);
             if (!clearSlots)
                 return;
             foreach (DescriptorState binding in descriptors.Values.ToArray())
@@ -872,7 +1133,7 @@ namespace Battlement.UI
         private void ForgetActiveControl(Guid id)
         {
             foreach ((Guid controlId, ActiveControl control) in activeControls.ToArray())
-                if (control.Start.PlaybackId.Value == id)
+                if (control.PlaybackId.Value == id)
                     activeControls.Remove(controlId);
         }
 
@@ -1064,7 +1325,9 @@ namespace Battlement.UI
             new(CoreErrorCode.InvalidProperty, message);
 
         private sealed record ActiveControl(
-            MotionControlCommand.Start Start,
+            ObjectId PlaybackId,
+            uint Generation,
+            MotionControlTarget Target,
             List<MotionPlaybackAddress> Addresses
         );
     }

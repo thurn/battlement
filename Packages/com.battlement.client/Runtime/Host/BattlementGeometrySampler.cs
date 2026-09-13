@@ -92,6 +92,29 @@ namespace Battlement
                 latest.Remove(id);
         }
 
+        internal void Apply(BattlementDirectGeometryCommand update)
+        {
+            registry.Apply(Added(update), Removed(update));
+            for (int index = 0; index < update.RemovedCount; index++)
+                latest.Remove(update.ReadRemoved(index));
+        }
+
+        private static IEnumerable<GeometryObservation> Added(
+            BattlementDirectGeometryCommand update
+        )
+        {
+            for (int index = 0; index < update.AddedCount; index++)
+                yield return update.ReadAdded(index);
+        }
+
+        private static IEnumerable<GeometryObservationId> Removed(
+            BattlementDirectGeometryCommand update
+        )
+        {
+            for (int index = 0; index < update.RemovedCount; index++)
+                yield return update.ReadRemoved(index);
+        }
+
         public void Reset()
         {
             registry = new GeometryRegistry();

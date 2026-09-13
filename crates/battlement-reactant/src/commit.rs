@@ -117,6 +117,10 @@ impl SessionUi<'_> {
       .prepare(&mut snapshot, &self.documents, discover_assets);
     let commit = self.runtime.commit_session(
       &mut self.committed,
+      self
+        .retained_ui
+        .take()
+        .expect("Reactant retained UI plan was already consumed"),
       external,
       self
         .resource_completions

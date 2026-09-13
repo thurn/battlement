@@ -28,7 +28,7 @@ namespace Battlement
     public interface IBattlementDiagnosticsRuntime : IBattlementModuleRuntime
     {
         /// <summary>Executes one synchronous Diagnostics command.</summary>
-        void Execute(DiagnosticsCommand command);
+        void SetMetadata(string key, string? value);
     }
 
     /// <summary>Stable module execution failure consumed by the core batch pipeline.</summary>
@@ -79,6 +79,16 @@ namespace Battlement
 
         public void Execute(DiagnosticsCommand command)
         {
+            if (command is not DiagnosticsCommand.SetMetadata metadata)
+                throw new BattlementModuleException(
+                    CoreErrorCode.InvalidEncoding,
+                    "The Diagnostics command kind is unknown."
+                );
+            Execute(metadata.Key, metadata.Value);
+        }
+
+        public void Execute(string key, string? value)
+        {
             IBattlementDiagnosticsRuntime? runtime = runtimes
                 .OfType<IBattlementDiagnosticsRuntime>()
                 .FirstOrDefault(value => value.ModuleId == "battlement.diagnostics");
@@ -89,7 +99,7 @@ namespace Battlement
                     "No selected Diagnostics module owns the command."
                 );
             }
-            runtime.Execute(command);
+            runtime.SetMetadata(key, value);
         }
 
         public void Dispose() => DisposeRuntimes();

@@ -23,6 +23,16 @@ namespace Battlement
             }
         }
 
+        internal void Retire(BattlementDirectGeometryCommand update)
+        {
+            for (int index = 0; index < update.RemovedCount; index++)
+            {
+                GeometryObservationId id = update.ReadRemoved(index);
+                submitted.Remove(id);
+                pending.Remove(id);
+            }
+        }
+
         public void Merge(GeometryObservationBatch batch)
         {
             if (generation is { } previous && batch.Generation.Value <= previous.Value)

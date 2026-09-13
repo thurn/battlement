@@ -15,6 +15,14 @@ namespace Battlement
 
         public static IReadOnlyList<BattlementGameObject> Validate(Snapshot snapshot)
         {
+            using var view = new BattlementOwnedSnapshotView(snapshot);
+            return Validate(view);
+        }
+
+        public static IReadOnlyList<BattlementGameObject> Validate(
+            IBattlementOwnedSnapshotView snapshot
+        )
+        {
             Preconditions.CheckNotNull(snapshot, nameof(snapshot));
             RequireId(snapshot.SessionId.Value, "session");
             Dictionary<string, PreparedAsset> prepared =
@@ -348,6 +356,167 @@ namespace Battlement
             }
         }
 
+        private static void ValidateUi(
+            IBattlementUiDocumentCollectionView documents,
+            IReadOnlyDictionary<Guid, BattlementGameObject> objects,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
+        )
+        {
+            var identities = new HashSet<Guid>(objects.Keys);
+            var documentIds = new HashSet<Guid>();
+            for (int documentIndex = 0; documentIndex < documents.DocumentCount; documentIndex++)
+            {
+                IBattlementUiDocumentView document = documents.ReadDocument(documentIndex);
+                UiDocument root = document.ReadRoot();
+                ValidateDocumentOwner(
+                    root.DocumentId.Value,
+                    root.RootId.Value,
+                    objects,
+                    documentIds
+                );
+                if (!identities.Add(root.RootId.Value))
+                    throw Invalid(
+                        CoreErrorCode.DuplicateId,
+                        $"UI root {root.RootId.Value} is duplicated."
+                    );
+                ValidateUiCommon(
+                    root.Name,
+                    root.PickingMode,
+                    root.LanguageDirection,
+                    root.Classes,
+                    null,
+                    root.Style,
+                    root.Events,
+                    root.EventSubscriptions,
+                    null,
+                    identities,
+                    0,
+                    prepared
+                );
+                ValidateFlatForest(document, identities, prepared);
+            }
+            RequireAllDocuments(objects, documentIds);
+        }
+
+        private static void ValidateFlatForest(
+            IBattlementUiDocumentView document,
+            ISet<Guid> identities,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
+        )
+        {
+            var indices = new Dictionary<Guid, int>(document.NodeCount);
+            var parents = new HashSet<Guid>();
+            for (int index = 0; index < document.NodeCount; index++)
+            {
+                Guid id = RequireId(document.ReadNodeId(index).Value, "UI element");
+                if (!indices.TryAdd(id, index) || !identities.Add(id))
+                    throw Invalid(CoreErrorCode.DuplicateId, $"UI identity {id} is duplicated.");
+            }
+            if (identities.Count > MaximumObjects)
+                throw Invalid(CoreErrorCode.LimitExceeded, "The UI identity limit was exceeded.");
+            for (int index = 0; index < document.NodeCount; index++)
+            {
+                for (int child = 0; child < document.ReadChildCount(index); child++)
+                {
+                    Guid childId = document.ReadChildId(index, child).Value;
+                    if (!indices.ContainsKey(childId) || !parents.Add(childId))
+                        throw Invalid(CoreErrorCode.InvalidHierarchy, "The UI forest is invalid.");
+                }
+            }
+            var visited = new HashSet<Guid>();
+            var pending = new Stack<(Guid Id, int Depth)>();
+            for (int index = document.RootChildCount - 1; index >= 0; index--)
+            {
+                Guid id = document.ReadRootChildId(index).Value;
+                if (!indices.ContainsKey(id) || !parents.Add(id))
+                    throw Invalid(CoreErrorCode.InvalidHierarchy, "The UI forest is invalid.");
+                pending.Push((id, 1));
+            }
+            while (pending.Count != 0)
+            {
+                (Guid id, int depth) = pending.Pop();
+                if (!visited.Add(id) || depth > MaximumHierarchyDepth)
+                    throw Invalid(
+                        CoreErrorCode.InvalidHierarchy,
+                        "The UI forest is cyclic or too deep."
+                    );
+                int nodeIndex = indices[id];
+                UiElement element = document.ReadNodeElement(nodeIndex);
+                int childCount = document.ReadChildCount(nodeIndex);
+                ValidateUiElement(element, childCount, prepared);
+                ValidateUiCommon(
+                    element.Name,
+                    element.PickingMode,
+                    element.LanguageDirection,
+                    element.Classes,
+                    element.UsageHints,
+                    element.Style,
+                    element.Events,
+                    element.EventSubscriptions,
+                    null,
+                    identities,
+                    depth,
+                    prepared
+                );
+                for (int child = childCount - 1; child >= 0; child--)
+                    pending.Push((document.ReadChildId(nodeIndex, child).Value, depth + 1));
+            }
+            if (visited.Count != document.NodeCount)
+                throw Invalid(CoreErrorCode.InvalidHierarchy, "The UI forest is disconnected.");
+        }
+
+        private static void ValidateDocumentOwner(
+            Guid documentId,
+            Guid rootId,
+            IReadOnlyDictionary<Guid, BattlementGameObject> objects,
+            ISet<Guid> documentIds
+        )
+        {
+            RequireId(documentId, "UI document");
+            RequireId(rootId, "UI root");
+            if (!documentIds.Add(documentId))
+                throw Invalid(
+                    CoreErrorCode.DuplicateId,
+                    $"UI document {documentId} appeared twice."
+                );
+            if (
+                !objects.TryGetValue(documentId, out BattlementGameObject owner)
+                || owner.Kind is not GameObjectKind.UiDocumentState state
+                || state.RootId.Value != rootId
+            )
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    $"UI document {documentId} does not match its document GameObject and root."
+                );
+            ObjectId? parentId = owner.ParentId;
+            while (parentId is ObjectId parent)
+            {
+                BattlementGameObject ancestor = objects[parent.Value];
+                if (ancestor.Kind is GameObjectKind.UiDocumentState)
+                    throw Invalid(
+                        CoreErrorCode.InvalidHierarchy,
+                        $"UI document {documentId} cannot be nested beneath another document."
+                    );
+                parentId = ancestor.ParentId;
+            }
+        }
+
+        private static void RequireAllDocuments(
+            IReadOnlyDictionary<Guid, BattlementGameObject> objects,
+            ISet<Guid> documentIds
+        )
+        {
+            foreach (BattlementGameObject value in objects.Values)
+                if (
+                    value.Kind is GameObjectKind.UiDocumentState
+                    && !documentIds.Contains(value.Id.Value)
+                )
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        $"UI document GameObject {value.Id} has no document entry."
+                    );
+        }
+
         private static void ValidateUiCommon(
             Prop<string> name,
             Prop<UiPickingMode> pickingMode,
@@ -507,6 +676,71 @@ namespace Battlement
                     prepared
                 );
             }
+        }
+
+        private static void ValidateUiElement(
+            UiElement element,
+            int childCount,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
+        )
+        {
+            if (element is UiElement.Label label && label.Text.IsSet)
+                RequireString(label.Text.Value, "Label text", allowEmpty: true);
+            if (element is UiElement.Button button)
+            {
+                if (button.Text.IsSet)
+                    RequireString(button.Text.Value, "Button text", allowEmpty: true);
+                if (button.Icon.IsSet)
+                    ValidateIcon(button.Icon.Value, prepared);
+            }
+            if (element is UiElement.Toggle toggle)
+            {
+                if (toggle.Label.IsSet)
+                    RequireString(toggle.Label.Value, "Toggle label", allowEmpty: true);
+                if (toggle.Text.IsSet)
+                    RequireString(toggle.Text.Value, "Toggle text", allowEmpty: true);
+            }
+            if (element is UiElement.RadioButton radio)
+            {
+                if (radio.Label.IsSet)
+                    RequireString(radio.Label.Value, "RadioButton label", allowEmpty: true);
+                if (radio.Text.IsSet)
+                    RequireString(radio.Text.Value, "RadioButton text", allowEmpty: true);
+            }
+            if (element is UiElement.RepeatButton repeat)
+            {
+                RequireString(
+                    repeat.Text.IsSet ? repeat.Text.Value : string.Empty,
+                    "RepeatButton text",
+                    allowEmpty: true
+                );
+                if (!repeat.DelayMs.IsSet || !repeat.IntervalMs.IsSet)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "RepeatButton creation requires valid timing."
+                    );
+                if (repeat.IntervalMs.Value == 0)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "RepeatButton creation requires valid timing."
+                    );
+            }
+            if (element is UiElement.Image image)
+                ValidateImage(image, prepared);
+            if (
+                element
+                    is UiElement.Label
+                        or UiElement.TextElement
+                        or UiElement.RepeatButton
+                        or UiElement.Toggle
+                        or UiElement.RadioButton
+                        or UiElement.Image
+                && childCount != 0
+            )
+                throw Invalid(
+                    CoreErrorCode.InvalidHierarchy,
+                    "Leaf UI controls cannot have children."
+                );
         }
 
         private static bool Propagates(UiEventKind kind) =>

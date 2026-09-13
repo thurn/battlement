@@ -41,6 +41,21 @@ namespace Battlement
                 factor => apply(target, UnityEngine.Vector3.LerpUnclamped(start, end, factor))
             );
 
+        public IBattlementCommandOperation? Vector(
+            Transform target,
+            UnityEngine.Vector3 start,
+            UnityEngine.Vector3 end,
+            BattlementDirectTweenSettings settings,
+            TimeSpan now,
+            Action<Transform, UnityEngine.Vector3> apply
+        ) =>
+            Start(
+                target,
+                Validate(settings),
+                now,
+                factor => apply(target, UnityEngine.Vector3.LerpUnclamped(start, end, factor))
+            );
+
         public IBattlementCommandOperation? Rotation(
             Transform target,
             UnityEngine.Quaternion start,
@@ -56,6 +71,21 @@ namespace Battlement
                 factor => apply(target, UnityEngine.Quaternion.SlerpUnclamped(start, end, factor))
             );
 
+        public IBattlementCommandOperation? Rotation(
+            Transform target,
+            UnityEngine.Quaternion start,
+            UnityEngine.Quaternion end,
+            BattlementDirectTweenSettings settings,
+            TimeSpan now,
+            Action<Transform, UnityEngine.Quaternion> apply
+        ) =>
+            Start(
+                target,
+                Validate(settings),
+                now,
+                factor => apply(target, UnityEngine.Quaternion.SlerpUnclamped(start, end, factor))
+            );
+
         public IBattlementCommandOperation? Float(
             Transform target,
             float start,
@@ -64,6 +94,21 @@ namespace Battlement
             TimeSpan now,
             Action<float> apply
         ) => Start(target, settings, now, factor => apply(Mathf.LerpUnclamped(start, end, factor)));
+
+        public IBattlementCommandOperation? Float(
+            Transform target,
+            float start,
+            float end,
+            BattlementDirectTweenSettings settings,
+            TimeSpan now,
+            Action<float> apply
+        ) =>
+            Start(
+                target,
+                Validate(settings),
+                now,
+                factor => apply(Mathf.LerpUnclamped(start, end, factor))
+            );
 
         public IBattlementCommandOperation? Color(
             Transform target,
@@ -76,6 +121,21 @@ namespace Battlement
             Start(
                 target,
                 settings,
+                now,
+                factor => apply(UnityEngine.Color.LerpUnclamped(start, end, factor))
+            );
+
+        public IBattlementCommandOperation? Color(
+            Transform target,
+            UnityEngine.Color start,
+            UnityEngine.Color end,
+            BattlementDirectTweenSettings settings,
+            TimeSpan now,
+            Action<UnityEngine.Color> apply
+        ) =>
+            Start(
+                target,
+                Validate(settings),
                 now,
                 factor => apply(UnityEngine.Color.LerpUnclamped(start, end, factor))
             );
@@ -102,7 +162,11 @@ namespace Battlement
 
         public static bool IsForever(Tween? settings) => settings?.Repeat is TweenRepeat.Forever;
 
+        internal static void ValidateSettings(Tween settings) => Validate(settings);
+
         public void ValidateOnly(Tween settings) => Validate(settings);
+
+        public void ValidateOnly(BattlementDirectTweenSettings settings) => Validate(settings);
 
         private IBattlementCommandOperation? Start(
             Transform target,
@@ -111,7 +175,16 @@ namespace Battlement
             Action<float> apply
         )
         {
-            TweenTiming timing = Validate(settings);
+            return Start(target, Validate(settings), now, apply);
+        }
+
+        private IBattlementCommandOperation? Start(
+            Transform target,
+            TweenTiming timing,
+            TimeSpan now,
+            Action<float> apply
+        )
+        {
             if (useInstantAnimations || motionClock.IsInstant)
             {
                 apply(timing.FinalFactor);
@@ -136,6 +209,65 @@ namespace Battlement
                 useUnscaledTime: true
             );
             return tween.isAlive ? new PrimeTweenOperation(target, tween, timing.IsInfinite) : null;
+        }
+
+        private static TweenTiming Validate(BattlementDirectTweenSettings settings)
+        {
+            TimeSpan duration = Milliseconds(settings.DurationMilliseconds, "Tween duration");
+            TimeSpan delay = Milliseconds(settings.DelayMilliseconds, "Tween delay");
+            if (!Enum.IsDefined(typeof(Easing), settings.Easing))
+                throw Invalid("Tween easing is unknown.");
+
+            int cycles;
+            bool isInfinite;
+            RepeatMode mode;
+            switch (settings.RepeatKind)
+            {
+                case 0:
+                    (cycles, isInfinite, mode) = (1, false, RepeatMode.Restart);
+                    break;
+                case 1:
+                    if (settings.RepeatCount > MaximumAdditionalTraversals)
+                    {
+                        throw new BattlementCommandException(
+                            CoreErrorCode.LimitExceeded,
+                            $"A tween may repeat at most {MaximumAdditionalTraversals} times."
+                        );
+                    }
+                    RequireMode(settings.RepeatMode);
+                    (cycles, isInfinite, mode) = (
+                        checked((int)settings.RepeatCount + 1),
+                        false,
+                        settings.RepeatMode
+                    );
+                    break;
+                case 2:
+                    RequireMode(settings.RepeatMode);
+                    (cycles, isInfinite, mode) = (-1, true, settings.RepeatMode);
+                    break;
+                default:
+                    throw Invalid("Tween repeat behavior is unknown.");
+            }
+            if (duration == TimeSpan.Zero && (isInfinite || cycles > 1))
+                throw Invalid("A zero-duration tween cannot repeat.");
+            return new TweenTiming(
+                duration,
+                delay,
+                ToPrime(settings.Easing),
+                cycles,
+                mode == RepeatMode.Restart
+                    ? PrimeTween.CycleMode.Restart
+                    : PrimeTween.CycleMode.Yoyo,
+                isInfinite
+            );
+        }
+
+        private static TimeSpan Milliseconds(ulong value, string name)
+        {
+            const ulong MaximumMilliseconds = 922_337_203_685;
+            if (value > MaximumMilliseconds)
+                throw Invalid($"{name} exceeds the supported duration range.");
+            return TimeSpan.FromTicks(checked((long)value * TimeSpan.TicksPerMillisecond));
         }
 
         private static TweenTiming Validate(Tween settings)

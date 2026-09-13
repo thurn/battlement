@@ -32,6 +32,17 @@ pub struct ReactantEvent<E> {
   phase: EventPhase,
 }
 
+/// A synchronous event view borrowing the verified native request buffer.
+///
+/// The value cannot outlive its callback. Copy text or collections explicitly
+/// only when application state needs to retain them after dispatch.
+pub struct ReactantNativeEvent<'a> {
+  inner: Rc<EventInner>,
+  action: battlement_native::UiEventActionView<'a>,
+  current_target: ElementTarget,
+  phase: EventPhase,
+}
+
 impl ElementTarget {
   /// Returns the event-time native host identity.
   #[must_use]
@@ -135,6 +146,71 @@ impl<E> ReactantEvent<E> {
     Self {
       inner,
       payload: EventPayload::Owned(Rc::new(payload)),
+      current_target,
+      phase,
+    }
+  }
+}
+
+impl<'a> ReactantNativeEvent<'a> {
+  /// Returns the verified generated action view.
+  #[must_use]
+  pub const fn action(&self) -> battlement_native::UiEventActionView<'a> {
+    self.action
+  }
+
+  /// Returns the original logical target.
+  #[must_use]
+  pub fn target(&self) -> ElementTarget {
+    self.inner.target
+  }
+
+  /// Returns the host whose callback is currently running.
+  #[must_use]
+  pub const fn current_target(&self) -> ElementTarget {
+    self.current_target
+  }
+
+  /// Returns the logical route phase.
+  #[must_use]
+  pub const fn phase(&self) -> EventPhase {
+    self.phase
+  }
+
+  /// Returns whether the active native event permits default prevention.
+  #[must_use]
+  pub fn cancelable(&self) -> bool {
+    self.inner.cancelable
+  }
+
+  /// Returns whether a native or Reactant handler has prevented the default.
+  #[must_use]
+  pub fn default_prevented(&self) -> bool {
+    self.inner.default_prevented.get()
+  }
+
+  /// Prevents the current event's remaining native default actions when allowed.
+  pub fn prevent_default(&self) {
+    if self.inner.cancelable {
+      self.inner.default_prevented.set(true);
+      self.inner.prevented_by_reactant.set(true);
+    }
+  }
+
+  /// Stops later logical callbacks for this dispatch.
+  pub fn stop_propagation(&self) {
+    self.inner.propagation_stopped.set(true);
+  }
+
+  pub(crate) fn new(
+    inner: Rc<EventInner>,
+    action: battlement_native::UiEventActionView<'a>,
+    current_target: ElementTarget,
+    phase: EventPhase,
+  ) -> Self {
+    Self {
+      inner,
+      action,
       current_target,
       phase,
     }

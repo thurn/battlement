@@ -6,6 +6,7 @@ using Battlement.UI;
 using TMPro;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using Wire = Battlement.FlatBuffers.Generated;
 
 namespace Battlement
 {
@@ -77,6 +78,43 @@ namespace Battlement
                 ),
             };
 
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectImageObjectCreate description
+        ) => (CreateImage(description, IsPointerTarget(description.Placement)), null);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectPrimitiveObjectCreate description
+        ) =>
+            Primitive(
+                DirectPrimitiveType(description.Kind),
+                IsPointerTarget(description.Placement),
+                description.Materials
+            );
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectPrefabObjectCreate description
+        ) => InstantiatePrefab(description);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectEmptyObjectCreate description
+        ) => (new GameObject("Battlement Empty"), null);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectTextObjectCreate description
+        ) => (CreateText(description), null);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectCameraObjectCreate description
+        ) => (BattlementStandardComponents.CreateCamera(description), null);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectLightObjectCreate description
+        ) => (BattlementStandardComponents.CreateLight(description), null);
+
+        public (GameObject GameObject, IBattlementAssetLease? Lease) Construct(
+            BattlementDirectUiDocumentObjectCreate description
+        ) => (BattlementUiDocuments.CreateGameObject(description.State, preparedAssets), null);
+
         public static void ApplyStableState(GameObject gameObject, BattlementGameObject description)
         {
             ApplyLocalTransform(gameObject.transform, description.LocalTransform);
@@ -85,6 +123,33 @@ namespace Battlement
             {
                 ApplyAnimator(gameObject, animator);
             }
+        }
+
+        public static void ApplyStableState(
+            GameObject gameObject,
+            BattlementDirectObjectPlacement description
+        )
+        {
+            Transform transform = gameObject.transform;
+            transform.SetLocalPositionAndRotation(
+                new UnityEngine.Vector3(
+                    (float)description.PositionX,
+                    (float)description.PositionY,
+                    (float)description.PositionZ
+                ),
+                Normalize(
+                    description.RotationX,
+                    description.RotationY,
+                    description.RotationZ,
+                    description.RotationW
+                )
+            );
+            transform.localScale = new UnityEngine.Vector3(
+                (float)description.ScaleX,
+                (float)description.ScaleY,
+                (float)description.ScaleZ
+            );
+            gameObject.SetActive(description.Active);
         }
 
         public static bool UsesAutomaticPointerCollider(GameObjectKind kind) =>
@@ -99,6 +164,9 @@ namespace Battlement
 
         private static bool IsPointerTarget(BattlementGameObject description) =>
             description.PointerEvents.Count > 0 || description.DragMode is not null;
+
+        private static bool IsPointerTarget(BattlementDirectObjectPlacement description) =>
+            description.PointerEvents.Length > 0 || description.DragMode is not null;
 
         public static void SetPointerEventsEnabled(GameObject gameObject, bool enabled)
         {
@@ -150,9 +218,55 @@ namespace Battlement
             }
         }
 
+        private GameObject CreateImage(
+            BattlementDirectImageObjectCreate state,
+            bool pointerEventsEnabled
+        )
+        {
+            var asset = new PreparedAsset.Texture(new TextureAddress(state.Texture));
+            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            var gameObject = new GameObject("Battlement Image");
+            try
+            {
+                gameObject
+                    .AddComponent<BattlementImage>()
+                    .Initialize(lease, state, pointerEventsEnabled);
+                return gameObject;
+            }
+            catch
+            {
+                lease.Dispose();
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
         private GameObject CreateText(TextState state)
         {
             var asset = new PreparedAsset.TextMeshProFont(state.Font);
+            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            var gameObject = new GameObject(
+                "Battlement Text",
+                typeof(RectTransform),
+                typeof(TextMeshPro),
+                typeof(BattlementText)
+            );
+            try
+            {
+                gameObject.GetComponent<BattlementText>().Initialize(lease, state);
+                return gameObject;
+            }
+            catch
+            {
+                lease.Dispose();
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
+        private GameObject CreateText(BattlementDirectTextObjectCreate state)
+        {
+            var asset = new PreparedAsset.TextMeshProFont(new TextMeshProFontAddress(state.Font));
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
             var gameObject = new GameObject(
                 "Battlement Text",
@@ -218,6 +332,44 @@ namespace Battlement
             }
         }
 
+        private (GameObject GameObject, IBattlementAssetLease? Lease) InstantiatePrefab(
+            BattlementDirectPrefabObjectCreate description
+        )
+        {
+            var asset = new PreparedAsset.Prefab(new PrefabAddress(description.Address));
+            IBattlementAssetLease lease = preparedAssets.Acquire(asset);
+            GameObject? instance = null;
+            try
+            {
+                if (lease.Value is not GameObject prefab)
+                    throw new BattlementWorldException(
+                        CoreErrorCode.AssetTypeMismatch,
+                        $"Prepared prefab '{description.Address}' is not a GameObject."
+                    );
+                if (description.Animator.HasValue && prefab.GetComponent<Animator>() == null)
+                    throw new BattlementWorldException(
+                        CoreErrorCode.ComponentMissing,
+                        $"Prefab '{description.Address}' has no root Animator."
+                    );
+                instance = Object.Instantiate(prefab);
+                BattlementGeometryAnchorCatalog anchors = (
+                    (IBattlementGeometryAnchorLease)lease
+                ).GeometryAnchors;
+                BattlementGeometryAnchorMap.Attach(instance, anchors);
+                ApplyMaterials(instance, description.Materials);
+                if (description.Animator is BattlementDirectAnimatorState animator)
+                    ApplyAnimator(instance, animator);
+                return (instance, lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                if (instance != null)
+                    DestroyUnityObject(instance);
+                throw;
+            }
+        }
+
         private (GameObject GameObject, IBattlementAssetLease? Lease) Primitive(
             PrimitiveType type,
             bool isPointerTarget,
@@ -236,6 +388,31 @@ namespace Battlement
                     }
                 }
 
+                ApplyMaterials(gameObject, materials);
+                return (gameObject, null);
+            }
+            catch
+            {
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
+        private (GameObject GameObject, IBattlementAssetLease? Lease) Primitive(
+            PrimitiveType type,
+            bool isPointerTarget,
+            IReadOnlyList<BattlementDirectMaterialAssignment> materials
+        )
+        {
+            GameObject gameObject = GameObject.CreatePrimitive(type);
+            gameObject.name = $"Battlement {type}";
+            try
+            {
+                if (!isPointerTarget)
+                {
+                    foreach (Collider collider in gameObject.GetComponents<Collider>())
+                        DestroyUnityObject(collider);
+                }
                 ApplyMaterials(gameObject, materials);
                 return (gameObject, null);
             }
@@ -271,6 +448,43 @@ namespace Battlement
                 .AddComponent<BattlementMaterialAssignments>()
                 .Initialize(renderers[0], preparedAssets, assignments);
         }
+
+        private void ApplyMaterials(
+            GameObject gameObject,
+            IReadOnlyList<BattlementDirectMaterialAssignment> assignments
+        )
+        {
+            if (assignments.Count == 0)
+                return;
+            Renderer[] renderers = gameObject.GetComponents<Renderer>();
+            if (renderers.Length != 1)
+            {
+                throw new BattlementWorldException(
+                    renderers.Length == 0
+                        ? CoreErrorCode.ComponentMissing
+                        : CoreErrorCode.InvalidComponentCount,
+                    $"Material state requires exactly one root Renderer; found {renderers.Length}."
+                );
+            }
+            gameObject
+                .AddComponent<BattlementMaterialAssignments>()
+                .Initialize(renderers[0], preparedAssets, assignments);
+        }
+
+        internal static PrimitiveType DirectPrimitiveType(Wire.GameObjectKind kind) =>
+            kind switch
+            {
+                Wire.GameObjectKind.Cube => PrimitiveType.Cube,
+                Wire.GameObjectKind.Sphere => PrimitiveType.Sphere,
+                Wire.GameObjectKind.Capsule => PrimitiveType.Capsule,
+                Wire.GameObjectKind.Cylinder => PrimitiveType.Cylinder,
+                Wire.GameObjectKind.Plane => PrimitiveType.Plane,
+                Wire.GameObjectKind.Quad => PrimitiveType.Quad,
+                _ => throw new BattlementWorldException(
+                    CoreErrorCode.InvalidProperty,
+                    $"Direct primitive kind {kind} is unknown."
+                ),
+            };
 
         private static void ApplyAnimator(GameObject gameObject, AnimatorState state)
         {
@@ -330,6 +544,64 @@ namespace Battlement
             }
 
             animator.speed = speed;
+            animator.Play(stateHash, layer, normalizedStartTime);
+            animator.Update(0);
+        }
+
+        private static void ApplyAnimator(
+            GameObject gameObject,
+            BattlementDirectAnimatorState state
+        )
+        {
+            Animator[] animators = gameObject.GetComponents<Animator>();
+            if (animators.Length != 1)
+                throw new BattlementWorldException(
+                    animators.Length == 0
+                        ? CoreErrorCode.ComponentMissing
+                        : CoreErrorCode.InvalidComponentCount,
+                    $"Animator state requires exactly one root Animator; found {animators.Length}."
+                );
+            Animator animator = animators[0];
+            if (state.Layer >= animator.layerCount)
+                throw InvalidAnimator($"Animator layer {state.Layer} does not exist.");
+            int layer = checked((int)state.Layer);
+            int stateHash = Animator.StringToHash(state.State);
+            if (string.IsNullOrEmpty(state.State) || !animator.HasState(layer, stateHash))
+                throw InvalidAnimator(
+                    $"Animator state '{state.State}' does not exist on layer {state.Layer}."
+                );
+            float normalizedStartTime = RequireAnimatorUnit(
+                state.NormalizedStartTime,
+                "Animator normalized start time"
+            );
+            foreach (BattlementDirectAnimatorBool parameter in state.BoolParameters)
+                animator.SetBool(
+                    RequireAnimatorParameter(
+                        animator,
+                        parameter.Name,
+                        AnimatorControllerParameterType.Bool
+                    ),
+                    parameter.Value
+                );
+            foreach (BattlementDirectAnimatorInt parameter in state.IntParameters)
+                animator.SetInteger(
+                    RequireAnimatorParameter(
+                        animator,
+                        parameter.Name,
+                        AnimatorControllerParameterType.Int
+                    ),
+                    parameter.Value
+                );
+            foreach (BattlementDirectAnimatorFloat parameter in state.FloatParameters)
+                animator.SetFloat(
+                    RequireAnimatorParameter(
+                        animator,
+                        parameter.Name,
+                        AnimatorControllerParameterType.Float
+                    ),
+                    RequireAnimatorFinite(parameter.Value, $"Animator '{parameter.Name}'")
+                );
+            animator.speed = RequireAnimatorNonnegative(state.Speed, "Animator speed");
             animator.Play(stateHash, layer, normalizedStartTime);
             animator.Update(0);
         }
@@ -396,12 +668,12 @@ namespace Battlement
 
         private static UnityEngine.Quaternion Normalize(Quaternion value)
         {
-            var rotation = new UnityEngine.Quaternion(
-                (float)value.X,
-                (float)value.Y,
-                (float)value.Z,
-                (float)value.W
-            );
+            return Normalize(value.X, value.Y, value.Z, value.W);
+        }
+
+        private static UnityEngine.Quaternion Normalize(double x, double y, double z, double w)
+        {
+            var rotation = new UnityEngine.Quaternion((float)x, (float)y, (float)z, (float)w);
             float magnitude = Mathf.Sqrt(
                 (rotation.x * rotation.x)
                     + (rotation.y * rotation.y)

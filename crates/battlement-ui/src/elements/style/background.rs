@@ -115,6 +115,15 @@ impl BackgroundSize {
       y: y.into(),
     }
   }
+
+  /// Returns explicit axis sizes, or `None` for a keyword size.
+  #[must_use]
+  pub const fn axis_values(self) -> Option<(LengthOrAuto, LengthOrAuto)> {
+    match self {
+      Self::Axes { x, y } => Some((x, y)),
+      Self::Auto | Self::Cover | Self::Contain => None,
+    }
+  }
 }
 
 /// Pixel selected as the active point of a custom cursor texture.
@@ -168,6 +177,15 @@ impl Cursor {
     match self {
       Self::Default => None,
       Self::Texture { address, .. } => Some(address),
+    }
+  }
+
+  /// Returns the prepared texture and hotspot for a custom cursor.
+  #[must_use]
+  pub const fn texture_value(&self) -> Option<(&TextureAddress, CursorHotspot)> {
+    match self {
+      Self::Default => None,
+      Self::Texture { address, hotspot } => Some((address, *hotspot)),
     }
   }
 }

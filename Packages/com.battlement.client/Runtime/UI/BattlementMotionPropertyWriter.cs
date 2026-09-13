@@ -259,7 +259,7 @@ namespace Battlement.UI
                 MotionProperty.BackgroundImage => Stored(
                     target,
                     property,
-                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                    new MotionValue.Discrete(new MotionDiscreteValue.Null())
                 ),
                 MotionProperty.BackgroundGradient => Stored(
                     target,
@@ -292,12 +292,12 @@ namespace Battlement.UI
                 MotionProperty.Mask => Stored(
                     target,
                     property,
-                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                    new MotionValue.Discrete(new MotionDiscreteValue.Null())
                 ),
                 MotionProperty.UnityMaterial => Stored(
                     target,
                     property,
-                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                    new MotionValue.Discrete(new MotionDiscreteValue.Null())
                 ),
                 MotionProperty.Display => new MotionValue.Discrete(
                     target.resolvedStyle.display == DisplayStyle.Flex ? "flex" : "none"
@@ -494,7 +494,7 @@ namespace Battlement.UI
             }
             if (value is MotionValue.Discrete discrete && property == MotionProperty.Visibility)
             {
-                target.style.visibility = discrete.Value.ToObject<string>() switch
+                target.style.visibility = Text(discrete.Value) switch
                 {
                     "visible" => Visibility.Visible,
                     "hidden" => Visibility.Hidden,
@@ -506,7 +506,7 @@ namespace Battlement.UI
             }
             if (value is MotionValue.Discrete display && property == MotionProperty.Display)
             {
-                target.style.display = display.Value.ToObject<string>() switch
+                target.style.display = Text(display.Value) switch
                 {
                     "flex" => DisplayStyle.Flex,
                     "none" => DisplayStyle.None,
@@ -518,6 +518,11 @@ namespace Battlement.UI
             }
             throw Unsupported(property);
         }
+
+        private static string Text(MotionDiscreteValue value) =>
+            value is MotionDiscreteValue.String text
+                ? text.Value
+                : throw new InvalidOperationException("A Motion keyword value must be a string.");
 
         public static void Configure(VisualElement target, IBattlementUiAssetLookup? assets) =>
             BattlementAdvancedPaint.For(target).Configure(assets);

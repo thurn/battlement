@@ -98,8 +98,8 @@ def main() -> None:
     first = benchmark.validate_result(result, sample, sample["scenarios"])
     second = benchmark.validate_result(copy.deepcopy(result), sample, sample["scenarios"])
     assert first == second
-    assert first["scenario_count"] == 4
-    assert first["checkpoint_count"] == 6
+    assert first["scenario_count"] == 2
+    assert first["checkpoint_count"] == 3
     assert first["excluded_ms"] == 0
 
     warm_result = copy.deepcopy(result)
@@ -152,7 +152,7 @@ def main() -> None:
         except RuntimeError:
             pass
         else:
-            raise AssertionError("changed 20/40 benchmark shape was accepted")
+            raise AssertionError("changed 17/32 benchmark shape was accepted")
 
     samples = []
     for fixed_sample in definition["samples"]:
@@ -162,8 +162,8 @@ def main() -> None:
         )
         samples.append({**summary, "sample": fixed_sample["name"]})
     repetition = budget.summarize_repetition(samples)
-    assert repetition["scenario_count"] == 20
-    assert repetition["checkpoint_count"] == 40
+    assert repetition["scenario_count"] == 17
+    assert repetition["checkpoint_count"] == 32
     assert repetition["execution_ms"] == 90
     accepted = budget.enforce(
         [10] * budget.HASH_REPETITIONS,

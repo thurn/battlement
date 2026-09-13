@@ -319,6 +319,24 @@ impl GeometryRuntime {
     Ok(())
   }
 
+  pub(crate) fn accept_view(
+    &mut self,
+    batch: battlement_native::GeometryObservationBatchView<'_>,
+  ) -> Result<(), GeometryValidationError> {
+    let generation = GeometryGeneration(
+      std::num::NonZeroU64::new(batch.generation())
+        .expect("geometry view validates nonzero generations"),
+    );
+    let changed = batch
+      .changed_values()
+      .map(|value| value.copy_for_retention())
+      .collect();
+    self.accept(&GeometryObservationBatch {
+      generation,
+      changed,
+    })
+  }
+
   pub(crate) fn snapshot_generation(
     &self,
     targets: &[GeometryTarget],

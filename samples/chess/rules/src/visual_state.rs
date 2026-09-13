@@ -2,10 +2,11 @@ use battlement::{
   Color, Command, CommandBody, ObjectId, PickingMode, Position, Style, UiDocument, UiLabel, UiNode,
   object_id,
 };
+use battlement_native::{CoreCommandOffset, MessageWriter, UiDocumentOffset};
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
 
-const DOCUMENT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000001");
-const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
+pub(crate) const DOCUMENT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000001");
+pub(crate) const ROOT_ID: ObjectId = object_id!("43000000-0000-4000-8000-000000000002");
 const STATE_IDS: [ObjectId; 17] = [
   object_id!("43000000-0000-4000-8000-000000000101"),
   object_id!("43000000-0000-4000-8000-000000000102"),
@@ -188,11 +189,58 @@ pub(crate) fn document(state: VisualState) -> UiDocument {
     .child(self::node(state))
 }
 
+pub(crate) fn write_document(
+  message: &mut MessageWriter,
+  state: VisualState,
+) -> Result<UiDocumentOffset, battlement_native::ProtocolError> {
+  let root = message
+    .visual_element_builder()
+    .name("chess-state")
+    .ignore_picking()
+    .absolute()
+    .top(0.0)
+    .left(0.0)
+    .right(0.0)
+    .finish();
+  let label = write_label(message, state);
+  let node = message.ui_node(id(state.object_id()), label, &[])?;
+  message.ui_document(
+    id(DOCUMENT_ID),
+    id(ROOT_ID),
+    root,
+    &[id(state.object_id())],
+    &[node],
+  )
+}
+
 pub(crate) fn transition(from: VisualState, to: VisualState) -> [CommandBody; 2] {
   [
     Command::destroy_visual_element(from.object_id()).body,
     Command::create_visual_element(ROOT_ID, self::node(to)).body,
   ]
+}
+
+pub(crate) fn write_transition(
+  message: &mut MessageWriter,
+  from: VisualState,
+  to: VisualState,
+) -> Result<[CoreCommandOffset; 2], battlement_native::ProtocolError> {
+  let destroy = message.destroy_visual_element(
+    *battlement::CommandId::new_v4().as_uuid().as_bytes(),
+    true,
+    *from.object_id().as_uuid().as_bytes(),
+  )?;
+  let label = write_label(message, to);
+  let node = message.ui_node(*to.object_id().as_uuid().as_bytes(), label, &[])?;
+  let create = message.create_visual_element(
+    *battlement::CommandId::new_v4().as_uuid().as_bytes(),
+    true,
+    *ROOT_ID.as_uuid().as_bytes(),
+    None,
+    *to.object_id().as_uuid().as_bytes(),
+    &[node],
+  )?;
+  Ok([destroy, create])
 }
 
 fn node(state: VisualState) -> UiNode {
@@ -213,6 +261,29 @@ fn node(state: VisualState) -> UiNode {
           .border_radius(6),
       ),
   )
+}
+
+fn write_label(
+  message: &mut MessageWriter,
+  state: VisualState,
+) -> battlement_native::UiElementOffset {
+  message
+    .label_builder(state.label())
+    .name(state.registry_key())
+    .ignore_picking()
+    .absolute()
+    .top(18.0)
+    .left(24.0)
+    .padding(9.0, 15.0)
+    .font_size(18.0)
+    .color([0.96, 0.97, 0.91, 1.0])
+    .background_color([0.03, 0.04, 0.035, 0.88])
+    .border_radius(6.0)
+    .finish()
+}
+
+fn id(value: ObjectId) -> [u8; 16] {
+  *value.as_uuid().as_bytes()
 }
 
 fn is_castle(board: &Board, mv: Move, mover: PieceColor) -> bool {

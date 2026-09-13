@@ -140,7 +140,7 @@ fn ui_disposition_is_synchronous_and_old_session_events_are_rejected() {
     cleanups: Rc::default(),
     handle: Rc::default(),
   });
-  let response = app.connect(app_support::connect()).unwrap();
+  let response = app.connect_owned(&app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &response.messages[0] else {
     panic!("initial snapshot");
   };
@@ -153,7 +153,7 @@ fn ui_disposition_is_synchronous_and_old_session_events_are_rejected() {
   );
   let event = app.submit_ui_event(action.clone()).unwrap();
   assert_eq!(event.disposition, UiEventDisposition::PreventDefault);
-  let next = app.connect(app_support::connect()).unwrap();
+  let next = app.connect_owned(&app_support::connect()).unwrap();
   assert_ne!(next.session_id, response.session_id);
   assert!(app.submit_ui_event(action).is_err());
   assert!(
@@ -192,7 +192,7 @@ impl Component for Commands {
 #[test]
 fn native_commands_keep_action_attribution_through_deferred_effects() {
   let mut app = App::new("app/content").ui(Commands);
-  let initial = app.connect(app_support::connect()).unwrap();
+  let initial = app.connect_owned(&app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot");
   };
@@ -237,7 +237,7 @@ fn assert_command_action(response: &battlement::Response, action: ActionId) {
 #[test]
 fn back_to_back_actions_do_not_steal_deferred_effect_attribution() {
   let mut app = App::new("app/content").ui(Commands);
-  let initial = app.connect(app_support::connect()).unwrap();
+  let initial = app.connect_owned(&app_support::connect()).unwrap();
   let ResponseMessage::Snapshot(snapshot) = &initial.messages[0] else {
     panic!("snapshot")
   };

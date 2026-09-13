@@ -52,7 +52,23 @@ namespace Battlement
         ulong CpuHashNs,
         uint ObservedPixels,
         ulong LayoutObservationNs,
-        ulong RecorderBookkeepingNs
+        ulong RecorderBookkeepingNs,
+        DittoTransportFrameMetrics? Transport = null
+    );
+
+    internal sealed record DittoTransportFrameMetrics(
+        int LiveLeaseCount,
+        long LiveNativeAllocationBytes,
+        int PendingFinalizerReleases,
+        ulong NativeBuildersCreated,
+        ulong NativeBuildersReused,
+        ulong NativeBuilderGrowths,
+        ulong NativeBuilderCopiedBytes,
+        ulong NativeIdleBuilderBytes,
+        ulong HandoffPayloadCopies,
+        ulong ClientBuilderGrowths,
+        ulong ClientBuilderCopiedBytes,
+        int ClientBuilderRetainedBytes
     );
 
     internal sealed record DittoVisualObservation(

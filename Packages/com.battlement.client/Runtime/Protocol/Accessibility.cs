@@ -127,6 +127,18 @@ namespace Battlement
         IReadOnlyList<string> Announcements
     );
 
+    internal interface IBattlementAccessibilityUpdateView
+    {
+        bool HasSnapshot { get; }
+        ulong CommitSequence { get; }
+        int RootCount { get; }
+        int NodeCount { get; }
+        int AnnouncementCount { get; }
+        ObjectId ReadRoot(int index);
+        AccessibilityNodeSnapshot ReadNode(int index);
+        string ReadAnnouncement(int index);
+    }
+
     /// <summary>Normalized direct accessibility callback.</summary>
     public abstract record AccessibilityAction
     {

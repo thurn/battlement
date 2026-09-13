@@ -89,9 +89,8 @@ namespace Battlement.Tests
                         new BattlementRunnerOptions(
                             firstTransport,
                             firstAssetStorage,
-                            BattlementJson.Instance,
-                            new FakeBattlementClock(),
-                            new FakeBattlementLogger(),
+                            clock: new FakeBattlementClock(),
+                            logger: new FakeBattlementLogger(),
                             useInstantAnimations: true,
                             errorSink: new FakeBattlementErrorSink(),
                             suppressDevelopmentErrorDialogs: true,
@@ -110,9 +109,8 @@ namespace Battlement.Tests
                     new BattlementRunnerOptions(
                         secondTransport,
                         secondAssetStorage,
-                        BattlementJson.Instance,
-                        new FakeBattlementClock(),
-                        new FakeBattlementLogger(),
+                        clock: new FakeBattlementClock(),
+                        logger: new FakeBattlementLogger(),
                         useInstantAnimations: true,
                         errorSink: new FakeBattlementErrorSink(),
                         suppressDevelopmentErrorDialogs: true,
@@ -160,10 +158,9 @@ namespace Battlement.Tests
                 new BattlementRunnerOptions(
                     secondTransport,
                     new FakeBattlementAssetStorage(),
-                    BattlementJson.Instance,
-                    new FakeBattlementClock(),
-                    new FakeBattlementLogger(),
-                    true,
+                    clock: new FakeBattlementClock(),
+                    logger: new FakeBattlementLogger(),
+                    useInstantAnimations: true,
                     caughtFailureReporter: new FakeCaughtFailureReporter()
                 )
             );
@@ -191,9 +188,7 @@ namespace Battlement.Tests
 
             harness.Runner.Connect();
 
-            Connect connect = BattlementJson.DeserializeConnect(
-                harness.Transport.ConnectMessages.Single()
-            );
+            Connect connect = harness.Transport.ConnectValues.Single();
             Assert.That(connect.Platform, Is.EqualTo(ExpectedPlatform()));
             Assert.That(connect.UnityVersion, Is.EqualTo(Application.unityVersion));
             Assert.That(connect.Screen.Width, Is.EqualTo((uint)Screen.width));
@@ -290,9 +285,10 @@ namespace Battlement.Tests
 
             var session = new SessionId(Guid.NewGuid());
             harness.Transport.EnqueueConnect(FakeBattlementTransport.SnapshotResponse(session));
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.Reconnect();
             LogAssert.ignoreFailingMessages = true;
             try

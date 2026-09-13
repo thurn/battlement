@@ -90,7 +90,8 @@ const SHELL_SUPPLEMENTAL_ASSETS: &[(&str, &str)] = &[
   ),
 ];
 const REQUIRED_PLUGIN_EXPORTS: &[&str] = &[
-  "battlement_buffer_free",
+  "battlement_buffer_info",
+  "battlement_release_buffer",
   "battlement_connect",
   "battlement_ditto_determinism_capabilities",
   "battlement_ditto_determinism_contract",

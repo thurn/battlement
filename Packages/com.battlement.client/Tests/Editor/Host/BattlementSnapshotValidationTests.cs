@@ -129,8 +129,9 @@ namespace Battlement.Tests
             {
                 Objects = objects,
             };
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: new FixedResponseCodec(
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
                     new Response(
                         session,
                         new ResponseMessage<Command>[]
@@ -139,9 +140,6 @@ namespace Battlement.Tests
                         }
                     )
                 )
-            );
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 1 })
             );
 
             harness.Runner.Connect();
@@ -174,8 +172,9 @@ namespace Battlement.Tests
             {
                 Objects = fixture.Objects.Concat(objects).ToArray(),
             };
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: new FixedResponseCodec(
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
                     new Response(
                         session,
                         new ResponseMessage<Command>[]
@@ -184,9 +183,6 @@ namespace Battlement.Tests
                         }
                     )
                 )
-            );
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 1 })
             );
 
             harness.Runner.Connect();
@@ -693,27 +689,5 @@ namespace Battlement.Tests
                     }
                 )
             );
-
-        private sealed class FixedResponseCodec : IBattlementProtocolCodec
-        {
-            private readonly Response response;
-
-            public FixedResponseCodec(Response response) => this.response = response;
-
-            public byte[] SerializeConnect(Connect value) => new byte[] { 1 };
-
-            public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
-                throw new NotSupportedException();
-
-            public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
-                throw new NotSupportedException();
-
-            public byte[] SerializeAction(Action value) => throw new NotSupportedException();
-
-            public byte[] SerializeUiEventAction(UiEventAction value) =>
-                throw new NotSupportedException();
-
-            public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) => response;
-        }
     }
 }

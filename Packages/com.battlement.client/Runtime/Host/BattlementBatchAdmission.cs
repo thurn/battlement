@@ -22,7 +22,7 @@ namespace Battlement
 
         public BattlementBatchAdmissionResult Admit(
             SessionId responseSession,
-            Batch<ICommand> batch
+            IBattlementBatchView batch
         )
         {
             if (batch.Id.Value == Guid.Empty)
@@ -64,10 +64,10 @@ namespace Battlement
                 );
             }
 
-            if (batch.Groups is null || batch.Groups.Count is 0 or > MaximumGroups)
+            if (batch.GroupCount is 0 or > MaximumGroups)
             {
                 CoreErrorCode code =
-                    batch.Groups?.Count > MaximumGroups
+                    batch.GroupCount > MaximumGroups
                         ? CoreErrorCode.LimitExceeded
                         : CoreErrorCode.InvalidProperty;
                 throw Invalid(
@@ -77,15 +77,13 @@ namespace Battlement
             }
 
             var commandIds = new HashSet<Guid>();
-            foreach (ParallelCommandGroup<ICommand>? group in batch.Groups)
+            for (int groupIndex = 0; groupIndex < batch.GroupCount; groupIndex++)
             {
-                if (
-                    group?.Commands is null
-                    || group.Commands.Count is 0 or > MaximumCommandsPerGroup
-                )
+                int commandCount = batch.CommandCount(groupIndex);
+                if (commandCount is 0 or > MaximumCommandsPerGroup)
                 {
                     CoreErrorCode code =
-                        group?.Commands?.Count > MaximumCommandsPerGroup
+                        commandCount > MaximumCommandsPerGroup
                             ? CoreErrorCode.LimitExceeded
                             : CoreErrorCode.InvalidProperty;
                     throw Invalid(
@@ -95,17 +93,10 @@ namespace Battlement
                     );
                 }
 
-                foreach (ICommand? command in group.Commands)
+                for (int commandIndex = 0; commandIndex < commandCount; commandIndex++)
                 {
-                    if (command is null || command is Command { Body: null })
-                    {
-                        throw Invalid(
-                            CoreErrorCode.InvalidProperty,
-                            "Every command must contain its common fields."
-                        );
-                    }
-
-                    if (command.Id.Value == Guid.Empty)
+                    CommandId commandId = batch.CommandId(groupIndex, commandIndex);
+                    if (commandId.Value == Guid.Empty)
                     {
                         throw Invalid(
                             CoreErrorCode.InvalidProperty,
@@ -113,12 +104,12 @@ namespace Battlement
                         );
                     }
 
-                    if (!commandIds.Add(command.Id.Value))
+                    if (!commandIds.Add(commandId.Value))
                     {
                         throw Invalid(
                             CoreErrorCode.DuplicateId,
-                            $"Command UUID {command.Id} appeared more than once in a batch.",
-                            command.Id
+                            $"Command UUID {commandId} appeared more than once in a batch.",
+                            commandId
                         );
                     }
                 }

@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -149,9 +148,10 @@ namespace Battlement.Tests
                     globalKeys: new[] { code }
                 )
             );
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(harnessSession, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(harnessSession, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.Connect();
             harness.Runner.RunFrame();
             return harness;
@@ -167,9 +167,10 @@ namespace Battlement.Tests
                 )
             );
             harness.Runner.Reconnect();
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.RunFrame();
             return session;
         }
@@ -251,26 +252,10 @@ namespace Battlement.Tests
 
         private static Action[] Actions(BattlementTestHarness harness) =>
             harness
-                .Transport.SubmitMessages.Select(TryDeserializeAction)
-                .OfType<Action>()
-                .Where(action => action.Body is not ActionBody.ApplicationStateChanged)
+                .Transport.Actions.Where(action =>
+                    action.Body is not ActionBody.ApplicationStateChanged
+                )
                 .ToArray();
-
-        private static Action? TryDeserializeAction(byte[] bytes)
-        {
-            try
-            {
-                ClientMessage<CoreErrorCode, byte> message =
-                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
-                return message is ClientMessage<CoreErrorCode, byte>.ActionMessage action
-                    ? action.Action
-                    : null;
-            }
-            catch (JsonSerializationException)
-            {
-                return null;
-            }
-        }
 
         private static Key InputKey(PhysicalKey code)
         {

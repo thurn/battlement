@@ -95,6 +95,35 @@ namespace Battlement.UI
                 PublishPresentation();
         }
 
+        internal void Apply(IBattlementAccessibilityUpdateView update)
+        {
+            if (update.HasSnapshot)
+            {
+                var nodes = new List<AccessibilityNodeSnapshot>(update.NodeCount);
+                for (int index = 0; index < update.NodeCount; index++)
+                    nodes.Add(update.ReadNode(index));
+                var directRoots = new List<ObjectId>(update.RootCount);
+                for (int index = 0; index < update.RootCount; index++)
+                    directRoots.Add(update.ReadRoot(index));
+                Validate(update.CommitSequence, directRoots, nodes);
+                mirror.Clear();
+                foreach (AccessibilityNodeSnapshot node in nodes)
+                    mirror.Add(node.ObjectId.Value, node);
+                commitSequence = update.CommitSequence;
+            }
+            for (int index = 0; index < update.AnnouncementCount; index++)
+            {
+                string announcement = update.ReadAnnouncement(index);
+                if (!string.IsNullOrWhiteSpace(announcement))
+                {
+                    announcements.Add(announcement);
+                    pendingAnnouncements.Add(announcement);
+                }
+            }
+            if (!commitSuspended)
+                PublishPresentation();
+        }
+
         public void Dispose() => backend.Dispose();
 
         public void Refresh()
@@ -201,12 +230,19 @@ namespace Battlement.UI
             pendingAnnouncements.Clear();
         }
 
-        private void Validate(AccessibilitySnapshot snapshot)
+        private void Validate(AccessibilitySnapshot snapshot) =>
+            Validate(snapshot.CommitSequence, snapshot.Roots, snapshot.Nodes);
+
+        private void Validate(
+            ulong nextCommitSequence,
+            IReadOnlyList<ObjectId> nextRoots,
+            IReadOnlyList<AccessibilityNodeSnapshot> nextNodes
+        )
         {
-            if (snapshot.CommitSequence <= commitSequence)
+            if (nextCommitSequence <= commitSequence)
                 throw Failure("Accessibility commit sequence must increase.");
-            var nodes = snapshot.Nodes.ToDictionary(node => node.ObjectId.Value);
-            foreach (AccessibilityNodeSnapshot node in snapshot.Nodes)
+            var nodes = nextNodes.ToDictionary(node => node.ObjectId.Value);
+            foreach (AccessibilityNodeSnapshot node in nextNodes)
             {
                 if (resolveElement(node.ObjectId.Value) is null)
                     throw Failure($"Accessibility host {node.ObjectId.Value} is not live.");
@@ -221,7 +257,7 @@ namespace Battlement.UI
                 }
                 ValidateRole(node);
             }
-            foreach (ObjectId root in snapshot.Roots)
+            foreach (ObjectId root in nextRoots)
             {
                 if (!nodes.TryGetValue(root.Value, out AccessibilityNodeSnapshot node))
                     throw Failure($"Accessibility root {root.Value} is missing.");

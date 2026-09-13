@@ -15,14 +15,13 @@ use std::{
 use trox::ls;
 
 use battlement::{
-  CameraState, ClickEvent, ClientMessage, Command, Connect, GameObject, GameObjectKind,
-  GeometryGeneration, GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings,
-  ParentScene, PreparedAsset, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiElementKind, UiEvent, UiEventAction, UiEventResponse, UiLabel,
-  UiNode,
+  CameraState, ClickEvent, ClientMessage, Command, GameObject, GameObjectKind, GeometryGeneration,
+  GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
+  Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
+  UiElementKind, UiEvent, UiEventAction, UiEventResponse, UiLabel, UiNode,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 use battlement_reactant::{
   component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -128,7 +127,7 @@ impl Engine for ReactantEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)
@@ -168,7 +167,7 @@ impl Engine for StructuralEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)
@@ -366,8 +365,11 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
     .into_parts(snapshot(SessionId::new_v4(), &[root]));
   assert!(first_commit.is_empty());
   let first_host = first_snapshot.ui[0].children[0].object_id;
+  let retained_bytes = active.retained_ui_allocation_bytes();
+  assert!(retained_bytes > 0);
 
   assert!(active.refresh(&mut ()).expect("active refresh").is_empty());
+  assert_eq!(active.retained_ui_allocation_bytes(), retained_bytes);
   assert!(active.poll(&mut ()).expect("active poll").is_empty());
   assert!(
     active
@@ -395,6 +397,7 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
   let shutdown = active.shutdown(&mut ());
   assert!(!shutdown.is_empty());
   let _ = shutdown.into_groups();
+  assert_eq!(active.retained_ui_allocation_bytes(), 0);
   assert_panics(|| active.poll(&mut ()));
 }
 

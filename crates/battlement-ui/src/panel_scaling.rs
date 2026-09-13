@@ -32,6 +32,14 @@ pub struct PanelPixelScale {
   value: f32,
 }
 
+impl PanelPixelScale {
+  /// Returns the checked positive pixel multiplier.
+  #[must_use]
+  pub const fn value(self) -> f32 {
+    self.value
+  }
+}
+
 /// Checked design and fallback densities for physical-size scaling.
 ///
 /// Construct this through [`PanelScaleMode::constant_physical_size`].
@@ -41,6 +49,20 @@ pub struct PanelPhysicalScale {
   fallback_dpi: f32,
 }
 
+impl PanelPhysicalScale {
+  /// Returns the checked design density.
+  #[must_use]
+  pub const fn reference_dpi(self) -> f32 {
+    self.reference_dpi
+  }
+
+  /// Returns the checked fallback density.
+  #[must_use]
+  pub const fn fallback_dpi(self) -> f32 {
+    self.fallback_dpi
+  }
+}
+
 /// Checked reference resolution and matching strategy for screen-size scaling.
 ///
 /// Construct this through [`PanelScaleMode::scale_with_screen_size`].
@@ -48,6 +70,20 @@ pub struct PanelPhysicalScale {
 pub struct PanelScreenScale {
   reference_resolution: ScreenSize,
   screen_match_mode: PanelScreenMatchMode,
+}
+
+impl PanelScreenScale {
+  /// Returns the checked reference resolution.
+  #[must_use]
+  pub const fn reference_resolution(self) -> ScreenSize {
+    self.reference_resolution
+  }
+
+  /// Returns the checked aspect-ratio matching strategy.
+  #[must_use]
+  pub const fn screen_match_mode(self) -> PanelScreenMatchMode {
+    self.screen_match_mode
+  }
 }
 
 impl PanelScaleMode {
@@ -252,6 +288,14 @@ pub enum PanelScreenMatchMode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PanelMatchFactor {
   value: f32,
+}
+
+impl PanelMatchFactor {
+  /// Returns the checked width/height interpolation factor.
+  #[must_use]
+  pub const fn value(self) -> f32 {
+    self.value
+  }
 }
 
 impl PanelScreenMatchMode {

@@ -12,7 +12,7 @@ use std::{
 use trox::ls;
 
 use battlement::{
-  AnchorName, CameraState, CameraTarget, ClientMessage, Command, CommandBody, Connect, DisplayId,
+  AnchorName, CameraState, CameraTarget, ClientMessage, Command, CommandBody, DisplayId,
   DisplayOrientation, ElementGeometry, GameObject, GameObjectKind, GeometryGeneration,
   GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryRegistry,
@@ -22,7 +22,7 @@ use battlement::{
   UiVisualElementProperties, ViewportGeometry, ViewportRect,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 use battlement_reactant::{
   component::{self, Component},
   element_ref::{self, ElementRef},
@@ -68,7 +68,7 @@ impl Engine for ScriptedEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     self
       .connect
       .take()

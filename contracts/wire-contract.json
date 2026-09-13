@@ -1,12 +1,31 @@
 {
-  "version": 1,
-  "encoding": "utf-8-json",
+  "version": 2,
   "maximum_payload_bytes": 16777216,
+  "native_abi_digest": "f95544a6f3d31c488306db5e26964155d26d158a6c0ffb7d03a83f037528a0f9",
+  "flatbuffers": {
+    "version": "25.12.19",
+    "generation_options": ["--gen-onefile", "--filename-suffix", "_generated"],
+    "schema_closure": {
+      "accessibility.fbs": "9f1104e07fa863c8464ddd3e54a58280e2a47e57d78cb4034db4b550d5ced33c",
+      "client_message.fbs": "b6aa73c5af336e2a4a64c51d2e25afaf3fa342d4b21fe35574aa90aaf5047427",
+      "command_core.fbs": "a2a1cc3b1d542e161cfe50fd2ddcf9277dafe96547a4102541914a59342202cc",
+      "common.fbs": "4c4a2e9519a92af36e074fcaab98c7186d29b2ba41fd80c7fcb548c0762eaf36",
+      "connect.fbs": "936884f7d251d148ec678a6d80b99dcf5ad570048df540965defbc75f30c4893",
+      "geometry.fbs": "37085d76a20e8fc22bd3399f61e47b7bba47a6060e058e35e5c5bc0733c8e5d1",
+      "motion.fbs": "002ea35ffd681115fadfdee64a7bc9b64d4415e23f92d9eaafe7f95f0e7624b9",
+      "response.fbs": "31070bce7ba9b6a6aaf3569cf81dcb02a5eb55be157b0132c95849e8eb9e1783",
+      "ui.fbs": "49f1b64006a1c8dee26f40a88739b7f7b37b8646d7c70b38758eeab6c0184736",
+      "ui_event.fbs": "eba5eb77a44c688c9bb0734f9640e53f478121dad57e508c0c97d6db1784d40d",
+      "world.fbs": "e2f60e2e593cc49939e1da09f1ed9149bc6006a2be2a3cac2008743b8f042b64"
+    },
+    "rust_runtime": "flatbuffers=25.12.19",
+    "csharp_runtime": "v25.12.19+battlement-verifier-limits"
+  },
   "operations": {
-    "connect": {"request": "Connect", "response": "Response"},
-    "submit": {"request": "ClientMessage", "response": "Response"},
-    "submit_ui_event": {"request": "UiEventAction", "response": "UiEventResponse"},
-    "poll": {"request": null, "response": "Response"}
+    "connect": {"request": "ConnectRequest", "request_encoding": "size-prefixed-flatbuffers", "response": "Response", "response_encoding": "size-prefixed-flatbuffers"},
+    "submit": {"request": "CoreClientMessage", "request_encoding": "size-prefixed-flatbuffers", "response": "Response", "response_encoding": "size-prefixed-flatbuffers"},
+    "submit_ui_event": {"request": "UiEventAction", "request_encoding": "size-prefixed-flatbuffers", "response": "Response", "response_encoding": "size-prefixed-flatbuffers"},
+    "poll": {"request": null, "response": "Response", "response_encoding": "size-prefixed-flatbuffers"}
   },
   "status_codes": {
     "ok": 0,

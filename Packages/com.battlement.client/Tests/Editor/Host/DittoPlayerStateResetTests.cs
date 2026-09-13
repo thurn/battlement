@@ -17,7 +17,7 @@ namespace Battlement.Tests
         public void BoundaryJournalsDirtyResetAndCleanPublicUnityStateExactlyOnce()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
-            using var engineTransport = new BattlementNativeTransport();
+            using var engineTransport = FixtureTransport();
             var authored = new GameObject("Project-authored sentinel");
             var documentId = new ObjectId(Guid.NewGuid());
             var rootId = new ObjectId(Guid.NewGuid());
@@ -109,7 +109,7 @@ namespace Battlement.Tests
         public void DestroyFailureCompletesSafeResetAndMarksPlayerNonReusable()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
-            using var engineTransport = new BattlementNativeTransport();
+            using var engineTransport = FixtureTransport();
             harness.Runner.Connect();
             DittoNativeEngineSession engine = CreateEngine(engineTransport, "panic-destroy");
             LogAssert.Expect(
@@ -210,18 +210,25 @@ namespace Battlement.Tests
             Assert.That(
                 engine!
                     .Connect(
-                        BattlementJson.SerializeConnect(
-                            new Connect(
-                                platform,
-                                Application.unityVersion,
-                                new ScreenSize((uint)Screen.width, (uint)Screen.height)
-                            )
+                        new Connect(
+                            platform,
+                            Application.unityVersion,
+                            new ScreenSize((uint)Screen.width, (uint)Screen.height)
                         )
                     )
                     .Status,
                 Is.EqualTo(BattlementTransportStatus.Success)
             );
             return engine;
+        }
+
+        private static BattlementNativeTransport FixtureTransport()
+        {
+            var transport = new BattlementNativeTransport();
+            transport.SetExpectedWireContractDigest(
+                Battlement.CustomFixtures.FixtureFlatBufferResponseSchema.ContractDigest
+            );
+            return transport;
         }
 
         private sealed record UnityState(

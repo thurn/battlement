@@ -54,6 +54,57 @@ namespace Battlement
             }
         }
 
+        public static GameObject CreateCamera(BattlementDirectCameraObjectCreate state)
+        {
+            var gameObject = new GameObject("Battlement Camera");
+            try
+            {
+                Camera camera = gameObject.AddComponent<Camera>();
+                camera.orthographic = state.Projection switch
+                {
+                    0 => false,
+                    1 => true,
+                    _ => throw Invalid("Camera projection is unknown."),
+                };
+                camera.fieldOfView = RequireRange(
+                    state.FieldOfView,
+                    1,
+                    179,
+                    "Camera field of view"
+                );
+                camera.orthographicSize = RequirePositive(
+                    state.OrthographicSize,
+                    "Camera orthographic size"
+                );
+                camera.nearClipPlane = RequirePositive(state.Near, "Camera near clip");
+                camera.farClipPlane = RequireFinite(state.Far, "Camera far clip");
+                if (camera.farClipPlane <= camera.nearClipPlane)
+                    throw Invalid("Camera far clip must be greater than its near clip.");
+                camera.clearFlags = state.ClearMode switch
+                {
+                    0 => CameraClearFlags.Skybox,
+                    1 => CameraClearFlags.SolidColor,
+                    2 => CameraClearFlags.Depth,
+                    3 => CameraClearFlags.Nothing,
+                    _ => throw Invalid("Camera clear mode is unknown."),
+                };
+                camera.backgroundColor = ConvertColor(
+                    state.Red,
+                    state.Green,
+                    state.Blue,
+                    state.Alpha,
+                    "Camera clear color"
+                );
+                camera.enabled = state.Enabled;
+                return gameObject;
+            }
+            catch
+            {
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
         public static GameObject CreateLight(LightState state)
         {
             var gameObject = new GameObject("Battlement Light");
@@ -105,12 +156,71 @@ namespace Battlement
             }
         }
 
+        public static GameObject CreateLight(BattlementDirectLightObjectCreate state)
+        {
+            var gameObject = new GameObject("Battlement Light");
+            try
+            {
+                Light light = gameObject.AddComponent<Light>();
+                light.type = state.LightType switch
+                {
+                    0 => UnityEngine.LightType.Directional,
+                    1 => UnityEngine.LightType.Point,
+                    2 => UnityEngine.LightType.Spot,
+                    _ => throw Invalid("Light type is unknown."),
+                };
+                light.color = ConvertColor(
+                    state.Red,
+                    state.Green,
+                    state.Blue,
+                    state.Alpha,
+                    "Light color"
+                );
+                light.intensity = RequireNonnegative(state.Intensity, "Light intensity");
+                light.range = RequirePositive(state.Range, "Light range");
+                float outer = RequireRange(state.OuterSpotAngle, 0, 179, "Light outer spot angle");
+                float inner = RequireNonnegative(state.InnerSpotAngle, "Light inner spot angle");
+                if (inner > outer)
+                    throw Invalid("Light inner spot angle cannot exceed its outer angle.");
+                light.spotAngle = outer;
+                light.innerSpotAngle = inner;
+                light.shadows = state.Shadows switch
+                {
+                    0 => LightShadows.None,
+                    1 => LightShadows.Hard,
+                    2 => LightShadows.Soft,
+                    _ => throw Invalid("Light shadow mode is unknown."),
+                };
+                light.enabled = state.Enabled;
+                return gameObject;
+            }
+            catch
+            {
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
         internal static UnityEngine.Color ConvertColor(Color value, string name) =>
             new(
                 RequireUnit(value.Red, $"{name} red"),
                 RequireUnit(value.Green, $"{name} green"),
                 RequireUnit(value.Blue, $"{name} blue"),
                 RequireUnit(value.Alpha, $"{name} alpha")
+            );
+
+        internal static UnityEngine.Color ConvertColor(
+            double red,
+            double green,
+            double blue,
+            double alpha,
+            string name
+        ) =>
+            new(
+                RequireUnit(red, $"{name} red"),
+                RequireUnit(green, $"{name} green"),
+                RequireUnit(blue, $"{name} blue"),
+                RequireUnit(alpha, $"{name} alpha")
             );
 
         internal static float RequirePositive(double value, string name)

@@ -2,8 +2,9 @@ use battlement::{
   Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
   UiNode, UiRadioButtonGroup, UiToggleButtonGroup, UiValue, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{choice_group_styles, design_system};
+use crate::{choice_group_styles, design_system, native_ui::NativeUiResponseBuilder};
 
 pub(crate) const FORMATION_ID: ObjectId = object_id!("34ee78d0-a503-4d77-b61d-bbd86cf39e41");
 pub(crate) const FILTER_ID: ObjectId = object_id!("17805693-79d9-46ac-97db-1694047f8a9e");
@@ -106,6 +107,108 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     }
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  if event.event_kind() != UiEventKind::ValueCommitted {
+    return Ok(false);
+  }
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  let Some(commit) = event.value_commit() else {
+    return Ok(false);
+  };
+  match target_id {
+    FORMATION_ID => {
+      let (UiValueView::Index(previous), UiValueView::Index(Some(selected))) =
+        (commit.previous(), commit.proposed())
+      else {
+        return Ok(false);
+      };
+      let group = response
+        .writer()
+        .radio_button_group_builder()
+        .selected_index(Some(selected))
+        .finish();
+      response.update(FORMATION_ID, group)?;
+      response.label(
+        STATUS_ID,
+        &format!("FORMATION · {} committed", label(&FORMATIONS, selected)),
+      )?;
+      response.label(
+        FORMATION_SUMMARY_ID,
+        &format!("SELECTED INDEX · {selected}"),
+      )?;
+      response.label(
+        HISTORY_ID,
+        &format!(
+          "EXCLUSIVE  {} → {}  |  index {} → {}",
+          optional_label(&FORMATIONS, previous),
+          label(&FORMATIONS, selected),
+          optional_index(previous),
+          selected,
+        ),
+      )?;
+    }
+    FILTER_ID => {
+      let (UiValueView::Indices(previous), UiValueView::Indices(proposed)) =
+        (commit.previous(), commit.proposed())
+      else {
+        return Ok(false);
+      };
+      let previous = previous.iter().collect::<Vec<_>>();
+      let proposed = proposed.iter().collect::<Vec<_>>();
+      let group = response
+        .writer()
+        .toggle_button_group_builder()
+        .selected_indices(proposed.iter().copied())
+        .finish();
+      response.update(FILTER_ID, group)?;
+      response.label(
+        FILTER_SUMMARY_ID,
+        &format!("SELECTED INDICES · {}", format_indices(&proposed)),
+      )?;
+      response.label(
+        STATUS_ID,
+        &format!("FILTERS · {}", selected_labels(&proposed)),
+      )?;
+      response.label(
+        HISTORY_ID,
+        &format!(
+          "MULTI  {} → {}  |  sorted index set",
+          format_indices(&previous),
+          format_indices(&proposed),
+        ),
+      )?;
+      for (index, (object_id, text)) in [
+        (FILTER_AIR_ID, "AIR"),
+        (FILTER_LAND_ID, "LAND"),
+        (FILTER_SEA_ID, "SEA"),
+      ]
+      .into_iter()
+      .enumerate()
+      {
+        let active = proposed.binary_search(&(index as u32)).is_ok();
+        let (background, foreground) = if active {
+          ([0.98, 0.72, 0.24, 1.0], [0.012, 0.025, 0.045, 1.0])
+        } else {
+          ([0.045, 0.12, 0.14, 1.0], [0.94, 0.98, 0.99, 1.0])
+        };
+        let button = response
+          .writer()
+          .button_builder()
+          .text(&filter_button_text(text, active))
+          .background_color(background)
+          .color(foreground)
+          .finish();
+        response.update(object_id, button)?;
+      }
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 fn formation_card() -> UiNode {

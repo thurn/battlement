@@ -145,17 +145,32 @@ namespace Battlement.UI
             setLayer(MotionLayer.Drag, false);
         }
 
-        public void StartExternal(MotionDragControlOperation operation)
+        public void StartExternal(MotionDragControlOperation operation) =>
+            StartExternal(
+                operation.PointerId,
+                operation.Device,
+                operation.Point.X,
+                operation.Point.Y,
+                operation.SnapToCursor
+            );
+
+        public void StartExternal(
+            int externalPointerId,
+            MotionPointerDevice externalDevice,
+            float x,
+            float y,
+            bool snapToCursor
+        )
         {
             MotionDragDescriptor? drag = gestures.Drag;
-            if (disposed || drag is null || operation.PointerId < 0)
+            if (disposed || drag is null || externalPointerId < 0)
                 return;
             if (!target.enabledInHierarchy)
                 return;
             Cancel();
-            device = operation.Device;
-            pointerId = operation.PointerId;
-            start = point = priorPoint = new Vector2(operation.Point.X, operation.Point.Y);
+            device = externalDevice;
+            pointerId = externalPointerId;
+            start = point = priorPoint = new Vector2(x, y);
             offset = Vector2.zero;
             velocity = Vector2.zero;
             priorTime = now();
@@ -168,7 +183,7 @@ namespace Battlement.UI
                 ReadPixels(MotionProperty.Y)
             );
             ResolveBounds();
-            if (operation.SnapToCursor)
+            if (snapToCursor)
                 offset = Constrain(point - SnapCenter(), elastic: true);
             target.CapturePointer(pointerId);
             ownsCapture = true;

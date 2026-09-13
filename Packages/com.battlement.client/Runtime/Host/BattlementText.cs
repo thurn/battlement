@@ -67,6 +67,58 @@ namespace Battlement
             fontLease = lease;
         }
 
+        internal void Initialize(
+            IBattlementAssetLease lease,
+            BattlementDirectTextObjectCreate state
+        )
+        {
+            float size = BattlementStandardComponents.RequirePositive(state.Size, "Text size");
+            float? wrapWidth = state.WrapWidth is double width
+                ? BattlementStandardComponents.RequirePositive(width, "Text wrap width")
+                : null;
+            if (lease.Value is not TMP_FontAsset preparedFont)
+                throw new BattlementWorldException(
+                    CoreErrorCode.AssetTypeMismatch,
+                    $"Prepared font '{state.Font}' is not a TextMesh Pro font."
+                );
+            TextMeshPro text = GetComponent<TextMeshPro>();
+            text.text = state.Text;
+            text.font = preparedFont;
+            text.fontSize = size;
+            text.color = BattlementStandardComponents.ConvertColor(
+                state.Red,
+                state.Green,
+                state.Blue,
+                state.Alpha,
+                "Text color"
+            );
+            text.horizontalAlignment = state.Horizontal switch
+            {
+                0 => HorizontalAlignmentOptions.Left,
+                1 => HorizontalAlignmentOptions.Center,
+                2 => HorizontalAlignmentOptions.Right,
+                3 => HorizontalAlignmentOptions.Justified,
+                _ => throw Invalid("Text horizontal alignment is unknown."),
+            };
+            text.verticalAlignment = state.Vertical switch
+            {
+                0 => VerticalAlignmentOptions.Top,
+                1 => VerticalAlignmentOptions.Middle,
+                2 => VerticalAlignmentOptions.Bottom,
+                _ => throw Invalid("Text vertical alignment is unknown."),
+            };
+            text.textWrappingMode = wrapWidth is null
+                ? TextWrappingModes.NoWrap
+                : TextWrappingModes.Normal;
+            text.richText = state.RichText;
+            text.enableAutoSizing = false;
+            text.overflowMode = TextOverflowModes.Overflow;
+            if (wrapWidth is float value)
+                text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, value);
+            FacesCamera = state.FacesCamera;
+            fontLease = lease;
+        }
+
         internal void SetContent(string content) => GetComponent<TextMeshPro>().text = content;
 
         internal void SetFont(IBattlementAssetLease lease)

@@ -2,8 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Threading;
 using NUnit.Framework;
 
 namespace Battlement.Tests
@@ -13,24 +13,19 @@ namespace Battlement.Tests
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
 
         [Test]
-        public void BackgroundDecodeDoesNotBlockAndPreservesAdmissionOrder()
+        public void DecodeRunsSynchronouslyInAdmissionOrderOnTheCallingThread()
         {
             var stream = new BattlementResponseStream();
-            using var firstStarted = new ManualResetEventSlim();
-            using var releaseFirst = new ManualResetEventSlim();
-            using var secondStarted = new ManualResetEventSlim();
             var decoded = new List<int>();
             int callingThread = Environment.CurrentManagedThreadId;
-            int workerThread = callingThread;
+            var decodeThreads = new List<int>();
             SessionId session = new(Guid.NewGuid());
             Response<ICommand> response = new(session, Array.Empty<ResponseMessage<ICommand>>());
 
             BattlementResponseStream.Reservation first = stream.Reserve(
                 _ =>
                 {
-                    workerThread = Environment.CurrentManagedThreadId;
-                    firstStarted.Set();
-                    releaseFirst.Wait();
+                    decodeThreads.Add(Environment.CurrentManagedThreadId);
                     return response;
                 },
                 decoded: _ => decoded.Add(1)
@@ -38,115 +33,66 @@ namespace Battlement.Tests
             BattlementResponseStream.Reservation second = stream.Reserve(
                 _ =>
                 {
-                    secondStarted.Set();
+                    decodeThreads.Add(Environment.CurrentManagedThreadId);
                     return response;
                 },
                 decoded: _ => decoded.Add(2)
             );
-            first.Commit(new byte[32 * 1024], decodeInBackground: true);
-            second.Commit(new byte[32 * 1024], decodeInBackground: true);
-
-            Assert.That(firstStarted.Wait(TimeSpan.FromSeconds(2)), Is.True);
+            first.Commit(new byte[32 * 1024]);
+            second.Commit(new byte[32 * 1024]);
             Drain(stream);
-            Assert.That(decoded, Is.Empty);
-            Assert.That(secondStarted.IsSet, Is.False);
-            Assert.That(workerThread, Is.Not.EqualTo(callingThread));
-
-            releaseFirst.Set();
-            bool completed = SpinWait.SpinUntil(
-                () =>
-                {
-                    Drain(stream);
-                    return decoded.Count == 2;
-                },
-                TimeSpan.FromSeconds(2)
-            );
-            Assert.That(completed, Is.True);
             Assert.That(decoded, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(decodeThreads, Is.All.EqualTo(callingThread));
         }
 
         [Test]
-        public void ConnectAndSubmitParseSynchronouslyOnTheCallingThread()
+        public void ResponsePayloadOwnerIsReleasedOnRetirementClearAndRejectedCommit()
         {
-            var codec = new RecordingCodec();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: codec
-            );
-            int callingThread = Environment.CurrentManagedThreadId;
-            byte[] submitted = { 1, 2, 3, 4 };
             SessionId session = new(Guid.NewGuid());
+            Response<ICommand> response = new(session, Array.Empty<ResponseMessage<ICommand>>());
+            var stream = new BattlementResponseStream();
+            var retired = new TrackingDisposable();
+            BattlementResponseStream.Reservation first = stream.Reserve(_ => response);
+            first.Commit(new byte[] { 1 }, retired);
+            Drain(stream);
+            Assert.That(retired.IsDisposed, Is.True);
 
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[17])
-            );
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
-            harness.Runner.Connect();
+            var cleared = new TrackingDisposable();
+            BattlementResponseStream.Reservation second = stream.Reserve(_ => response);
+            second.Commit(new byte[] { 2 }, cleared);
+            stream.Clear();
+            Assert.That(cleared.IsDisposed, Is.True);
 
-            harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[31])
+            var decodeFailed = new TrackingDisposable();
+            BattlementResponseStream.Reservation failed = stream.Reserve(_ =>
+                throw new InvalidOperationException("decode failed")
             );
-            codec.EnqueueResponse(Response(session, inputDisabled: true));
-            harness.Runner.Submit(submitted);
+            failed.Commit(new byte[] { 3 }, decodeFailed);
+            Assert.Throws<InvalidOperationException>(() => Drain(stream));
+            Assert.That(decodeFailed.IsDisposed, Is.True);
 
-            Assert.That(codec.PayloadSizes, Is.EqualTo(new[] { 17, 31 }));
-            Assert.That(codec.ThreadIds, Is.All.EqualTo(callingThread));
-            Assert.That(harness.Transport.SubmitMessages.Single(), Is.EqualTo(submitted));
-            Assert.That(harness.Runner.IsInputAvailable, Is.False);
-        }
-
-        [Test]
-        public void ResponseAtTheLimitParsesButLargerResponseStopsBeforeParsing()
-        {
-            var codec = new RecordingCodec();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: codec
+            var rejected = new TrackingDisposable();
+            BattlementResponseStream.Reservation third = stream.Reserve(_ => response);
+            Assert.Throws<System.IO.InvalidDataException>(() =>
+                third.Commit(new byte[MaximumResponseBytes + 1], rejected)
             );
-            codec.EnqueueResponse(Response(new SessionId(Guid.NewGuid()), inputDisabled: false));
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(
-                    BattlementTransportStatus.Success,
-                    new byte[MaximumResponseBytes]
-                )
-            );
-
-            harness.Runner.Connect();
-            Assert.That(codec.PayloadSizes, Is.EqualTo(new[] { MaximumResponseBytes }));
-            Assert.That(harness.Runner.IsInputAvailable, Is.True);
-
-            harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(
-                    BattlementTransportStatus.Success,
-                    new byte[MaximumResponseBytes + 1]
-                )
-            );
-            harness.Runner.Submit(new byte[] { 1 });
-
-            Assert.That(codec.PayloadSizes, Has.Count.EqualTo(1));
-            Assert.That(harness.Runner.IsInputAvailable, Is.False);
-            Assert.That(
-                harness.Transport.Calls.TakeLast(2),
-                Is.EqualTo(new[] { "submit", "stop" })
-            );
-            Assert.That(
-                harness.Logger.Records.Last().EventName,
-                Is.EqualTo("battlement.session.failed")
-            );
+            Assert.That(rejected.IsDisposed, Is.True);
+            third.Release();
         }
 
         [Test]
         public void OutboundPayloadLimitStopsBeforeCallingTheTransport()
         {
-            var connectCodec = new RecordingCodec { ConnectPayloadSize = MaximumResponseBytes + 1 };
             using BattlementTestHarness connectHarness = BattlementTestHarness.Create(
-                protocolCodec: connectCodec
+                customCommandTypes: new[] { new string('x', MaximumResponseBytes) }
             );
 
             connectHarness.Runner.Connect();
 
             Assert.That(connectHarness.Transport.Calls, Is.EqualTo(new[] { "stop" }));
             Assert.That(
-                connectHarness.Logger.Records.Last().Fields!["payload_bytes"],
-                Is.EqualTo((MaximumResponseBytes + 1).ToString())
+                connectHarness.Logger.Records.Last().EventName,
+                Is.EqualTo("battlement.session.failed")
             );
 
             using BattlementTestHarness submitHarness = BattlementTestHarness.Create();
@@ -163,90 +109,55 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void NestedSubmitParsesImmediatelyButAppliesAfterTheOuterResponse()
+        public void NestedResponseQueuesBehindTheResponseBeingDecoded()
         {
-            var codec = new RecordingCodec();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: codec
-            );
+            var stream = new BattlementResponseStream();
             SessionId session = new(Guid.NewGuid());
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
-            harness.Runner.Connect();
+            var applied = new List<bool>();
+            BattlementResponseStream.Reservation outer = stream.Reserve(
+                (_, owner) =>
+                {
+                    BattlementResponseStream.Reservation nested = stream.Reserve(
+                        (_, owner) =>
+                            new BattlementOwnedResponseView(
+                                Response(session, inputDisabled: false),
+                                owner
+                            )
+                    );
+                    nested.Commit(new byte[] { 2 });
+                    Assert.That(applied, Is.Empty);
+                    return new BattlementOwnedResponseView(
+                        Response(session, inputDisabled: true),
+                        owner
+                    );
+                }
+            );
+            outer.Commit(new byte[] { 1 });
+            stream.Drain(
+                (_, _, _) => true,
+                (_, response, index) => applied.Add(response.ReadSnapshot(index).IsInputDisabled),
+                () => false,
+                () => false,
+                observeTiming: false
+            );
 
-            codec.EnqueueResponse(Response(session, inputDisabled: true));
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
-            harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 10 })
-            );
-            harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 20 })
-            );
-            codec.BeforeSecondDecode = () =>
-            {
-                harness.Runner.Submit(new byte[] { 2 });
-                Assert.That(
-                    harness.Runner.IsInputAvailable,
-                    Is.True,
-                    "A nested return must not apply while the outer response is parsing."
-                );
-            };
-
-            harness.Runner.Submit(new byte[] { 1 });
-
-            Assert.That(codec.PayloadSizes, Has.Count.EqualTo(3));
-            Assert.That(codec.PayloadSizes.TakeLast(2), Is.EqualTo(new[] { 1, 1 }));
-            Assert.That(
-                harness.Transport.Calls.TakeLast(2),
-                Is.EqualTo(new[] { "submit", "submit" })
-            );
-            Assert.That(
-                harness.Runner.IsInputAvailable,
-                Is.True,
-                "FIFO draining should apply the outer disabled snapshot before the "
-                    + "nested enabled snapshot."
-            );
+            Assert.That(applied, Is.EqualTo(new[] { true, false }));
         }
 
         [Test]
-        public void ReentrantResponseQueueRejectsTheTwoHundredFiftySeventhEntry()
+        public void ResponseQueueRejectsTheTwoHundredFiftySeventhEntry()
         {
-            var codec = new RecordingCodec();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: codec
-            );
-            SessionId session = new(Guid.NewGuid());
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 1 })
-            );
-            harness.Runner.Connect();
+            var stream = new BattlementResponseStream();
+            var reservations = new List<BattlementResponseStream.Reservation>();
+            for (int index = 0; index < 256; index++)
+                reservations.Add(stream.Reserve(_ => throw new InvalidOperationException()));
 
-            for (int index = 0; index < 258; index++)
-            {
-                codec.EnqueueResponse(Response(session, inputDisabled: false));
-                harness.Transport.EnqueueSubmit(
-                    new BattlementTransportResult(
-                        BattlementTransportStatus.Success,
-                        new byte[] { (byte)index }
-                    )
-                );
-            }
-            codec.BeforeSecondDecode = () =>
-            {
-                for (int index = 0; index < 257; index++)
-                {
-                    harness.Runner.Submit(new byte[] { 2 });
-                }
-            };
-
-            harness.Runner.Submit(new byte[] { 1 });
-
-            Assert.That(harness.Transport.SubmitMessages, Has.Count.EqualTo(257));
-            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(
-                harness.Logger.Records.Last().Message,
-                Does.Contain("cannot queue more than 256 responses")
+            InvalidDataException error = Assert.Throws<InvalidDataException>(() =>
+                stream.Reserve(_ => throw new InvalidOperationException())
             );
+            Assert.That(error.Message, Does.Contain("cannot queue more than 256 responses"));
+            foreach (BattlementResponseStream.Reservation reservation in reservations)
+                reservation.Release();
         }
 
         private static Response Response(SessionId session, bool inputDisabled)
@@ -267,52 +178,17 @@ namespace Battlement.Tests
         private static void Drain(BattlementResponseStream stream) =>
             stream.Drain(
                 (_, _, _) => true,
-                (_, _) => { },
+                (_, _, _) => { },
                 () => false,
                 () => false,
                 observeTiming: false
             );
 
-        private sealed class RecordingCodec : IBattlementProtocolCodec
+        private sealed class TrackingDisposable : IDisposable
         {
-            private readonly Queue<Response> responses = new();
-            private int decodeCount;
+            public bool IsDisposed { get; private set; }
 
-            public List<int> PayloadSizes { get; } = new();
-
-            public List<int> ThreadIds { get; } = new();
-
-            public System.Action? BeforeSecondDecode { get; set; }
-
-            public int ConnectPayloadSize { get; set; }
-
-            public void EnqueueResponse(Response response) => responses.Enqueue(response);
-
-            public byte[] SerializeConnect(Connect value) => new byte[ConnectPayloadSize];
-
-            public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
-                new byte[] { 30 };
-
-            public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
-                new byte[] { 40 };
-
-            public byte[] SerializeAction(Action value) => new byte[] { 50 };
-
-            public byte[] SerializeUiEventAction(UiEventAction value) => new byte[] { 60 };
-
-            public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
-            {
-                decodeCount++;
-                PayloadSizes.Add(bytes.Length);
-                ThreadIds.Add(Environment.CurrentManagedThreadId);
-                Response response = responses.Dequeue();
-                if (decodeCount == 2)
-                {
-                    BeforeSecondDecode?.Invoke();
-                }
-
-                return response;
-            }
+            public void Dispose() => IsDisposed = true;
         }
     }
 }

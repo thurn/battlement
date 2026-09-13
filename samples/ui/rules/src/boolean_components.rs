@@ -2,8 +2,9 @@ use battlement::{
   Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode,
   UiRadioButton, UiToggle, UiValue, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{boolean_styles, design_system};
+use crate::{boolean_styles, design_system, native_ui::NativeUiResponseBuilder};
 
 pub(crate) const ACCEPTED_TOGGLE_ID: ObjectId = object_id!("93ecbf8e-5be7-4087-b292-6f68903436c1");
 pub(crate) const REJECTED_TOGGLE_ID: ObjectId = object_id!("d18a9439-619d-4ca8-ac58-d82d999b3bf1");
@@ -84,6 +85,62 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     ]),
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  if event.event_kind() != UiEventKind::ValueCommitted {
+    return Ok(false);
+  }
+  let Some(commit) = event.value_commit() else {
+    return Ok(false);
+  };
+  let (UiValueView::Bool(previous), UiValueView::Bool(proposed)) =
+    (commit.previous(), commit.proposed())
+  else {
+    return Ok(false);
+  };
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  let history = format!(
+    "PROPOSAL  {} → {}  |  committed before callback: {}",
+    state(previous),
+    state(proposed),
+    state(previous),
+  );
+  match target_id {
+    ACCEPTED_TOGGLE_ID => {
+      let element = response
+        .writer()
+        .toggle_builder()
+        .bool_value(proposed)
+        .finish();
+      response.update(ACCEPTED_TOGGLE_ID, element)?;
+      response.label(
+        STATUS_ID,
+        &format!("ACCEPTED · threat alerts committed {}", state(proposed)),
+      )?;
+    }
+    REJECTED_TOGGLE_ID => {
+      response.label(STATUS_ID, "REJECTED · safety interlock remains ON")?;
+    }
+    ACCEPTED_RADIO_ID => {
+      let element = response
+        .writer()
+        .radio_button_builder()
+        .bool_value(proposed)
+        .finish();
+      response.update(ACCEPTED_RADIO_ID, element)?;
+      response.label(STATUS_ID, "ACCEPTED · command channel committed")?;
+    }
+    REJECTED_RADIO_ID => {
+      response.label(STATUS_ID, "REJECTED · restricted channel stays OFF")?;
+    }
+    _ => return Ok(false),
+  }
+  response.label(HISTORY_ID, &history)?;
+  Ok(true)
 }
 
 fn settings_card() -> UiNode {

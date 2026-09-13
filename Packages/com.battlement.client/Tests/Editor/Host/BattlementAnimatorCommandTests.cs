@@ -2,7 +2,6 @@
 
 using System;
 using System.Linq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -342,23 +341,7 @@ namespace Battlement.Tests
                 .GetComponent<Animator>();
 
         private static BatchFailed<CoreErrorCode>[] Failures(BattlementTestHarness harness) =>
-            harness
-                .Transport.SubmitMessages.Select(TryDecode)
-                .OfType<ClientMessage<CoreErrorCode, byte>.BatchFailedMessage>()
-                .Select(message => message.Failure)
-                .ToArray();
-
-        private static ClientMessage<CoreErrorCode, byte>? TryDecode(byte[] bytes)
-        {
-            try
-            {
-                return BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
-            }
-            catch (JsonSerializationException)
-            {
-                return null;
-            }
-        }
+            harness.Transport.BatchFailures.ToArray();
 
         private sealed class AnimatorFixture : IDisposable
         {

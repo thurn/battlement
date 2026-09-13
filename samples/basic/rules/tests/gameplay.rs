@@ -2,10 +2,41 @@ use battlement::{
   DragMode, GameObjectKind, PointerButton, PointerEvent, PreparedAsset, ScreenPosition, Vector3,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
+use battlement_native::{
+  ConnectInput, ConnectView, NativeEngine, NativeReducedMotionPreference, ResponseView,
+  write_connect,
+};
 use battlement_rules::{
   BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, VisualState,
   WHITE_MATERIAL, YELLOW_MATERIAL,
 };
+
+#[test]
+fn exported_connect_constructs_a_verified_snapshot_directly() {
+  let request = write_connect(&ConnectInput {
+    platform: "test",
+    unity_version: "test",
+    screen_width: 1280,
+    screen_height: 720,
+    focused: true,
+    paused: false,
+    reduced_motion_preference: NativeReducedMotionPreference::Unavailable,
+    custom_command_types: &[],
+    modules: &[],
+    persistent_data_path: None,
+    streaming_assets_path: None,
+  })
+  .unwrap();
+  let mut engine = battlement_rules::create_engine().unwrap();
+
+  let response =
+    NativeEngine::connect_native(&mut engine, ConnectView::read(request.as_bytes()).unwrap())
+      .unwrap();
+  let view = ResponseView::read(response.as_bytes()).unwrap();
+
+  assert_eq!(view.session_id(), response.session_id());
+  assert_eq!(view.message_count(), 1);
+}
 
 #[test]
 fn initial_world_contains_interactive_cubes_and_prepared_assets() {

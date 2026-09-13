@@ -58,7 +58,7 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
         }],
         transition_end: vec![MotionPropertyValue {
           property: MotionProperty::Visibility,
-          value: MotionValue::Discrete(serde_json::json!("hidden")),
+          value: MotionValue::Discrete("hidden".into()),
         }],
       },
       callbacks: MotionCallbackSubscriptions {

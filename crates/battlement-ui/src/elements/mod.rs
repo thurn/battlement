@@ -49,6 +49,8 @@ pub use toggle::UiToggle;
 pub use toggle_button_group::UiToggleButtonGroup;
 pub use visual_element::{LanguageDirection, PickingMode, UiVisualElement, UsageHint};
 
+mod difference;
+
 macro_rules! impl_common_visual_element_methods {
   () => {
     /// Sets the name used by Unity queries and `#name` USS selectors.
@@ -334,6 +336,21 @@ impl UiElement {
     self.into()
   }
 
+  /// Returns whether this element carries declarations for native subparts.
+  #[must_use]
+  pub fn has_part_styles(&self) -> bool {
+    parts::styles(self).is_some_and(|values| !values.is_empty())
+  }
+
+  /// Iterates authored native-subpart style declarations in protocol order.
+  #[doc(hidden)]
+  pub fn part_style_entries(&self) -> impl Iterator<Item = (u16, Option<u32>, &Style)> {
+    parts::styles(self)
+      .into_iter()
+      .flatten()
+      .map(|value| (value.part.wire_code(), value.index, &value.style))
+  }
+
   /// Applies populated properties from `update` to this element.
   ///
   /// Shared visual properties and element-specific properties are sparse:
@@ -384,6 +401,13 @@ impl UiElement {
       (Self::Image(target), Self::Image(value)) => target.apply_update(value),
       _ => unreachable!("validated UI element kinds diverged"),
     }
+  }
+
+  /// Produces the typed sparse update that changes the previous declaration into the desired one.
+  #[doc(hidden)]
+  #[must_use]
+  pub fn difference(previous: &Self, desired: &Self, hierarchy_changed: bool) -> Option<Self> {
+    difference::element(previous, desired, hierarchy_changed)
   }
 }
 

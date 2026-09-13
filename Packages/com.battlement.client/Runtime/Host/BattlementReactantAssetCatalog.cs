@@ -109,6 +109,45 @@ namespace Battlement
             );
         }
 
+        internal void Validate(BattlementFlatBufferSnapshotView snapshot)
+        {
+            var linked = new SortedSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < snapshot.DirectPreparedAssetCount; index++)
+            {
+                if (
+                    snapshot.DirectPreparedAssetKind(index)
+                    != Battlement.FlatBuffers.Generated.PreparedAssetKind.Texture
+                )
+                    continue;
+                string address = snapshot.DirectPreparedAssetAddress(index);
+                if (address.StartsWith(AddressPrefix, StringComparison.Ordinal))
+                    linked.Add(address);
+            }
+            ValidateLinked(linked.ToArray());
+        }
+
+        private void ValidateLinked(string[] linked)
+        {
+            if (addresses.SequenceEqual(linked, StringComparer.Ordinal))
+                return;
+            string? missingFromSnapshot = addresses
+                .Except(linked, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (missingFromSnapshot is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Generated asset catalog address '{missingFromSnapshot}' is missing from the "
+                        + "authoritative snapshot. Regenerate the rules asset catalog."
+                );
+            }
+            string extraLinked = linked.Except(addresses, StringComparer.Ordinal).First();
+            throw new InvalidOperationException(
+                $"Authoritative snapshot contains generated address '{extraLinked}' that is not "
+                    + "in the bundled asset catalog. Place its generator invocation directly at "
+                    + "module scope and regenerate assets."
+            );
+        }
+
         private static void RequireFields(JObject value, params string[] expected)
         {
             string[] actual = value.Properties().Select(property => property.Name).ToArray();

@@ -6,6 +6,7 @@ members = [
     "crates/battlement-cloud",
     "crates/battlement-cloud-fake",
     "crates/battlement-ditto",
+    "crates/battlement-flatbuffers",
     "crates/battlement-types",
     "crates/battlement-tooling",
     "crates/battlement-ui",
@@ -29,6 +30,7 @@ repository = "https://github.com/thurn/battlement"
 rust-version = "1.98.1"
 
 [workspace.dependencies]
+battlement-flatbuffers = { path = "crates/battlement-flatbuffers" }
 battlement-cloud = { path = "crates/battlement-cloud" }
 battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
 battlement-ditto = { path = "crates/battlement-ditto" }

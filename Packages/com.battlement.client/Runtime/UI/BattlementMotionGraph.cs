@@ -232,6 +232,63 @@ namespace Battlement.UI
             }
         }
 
+        public void ApplyValue(
+            ObjectId valueId,
+            MotionValueOperationKind kind,
+            MotionValue? value,
+            ObjectId playbackId,
+            uint generation,
+            TransitionDefinition? transition
+        )
+        {
+            if (!nodes.TryGetValue(valueId.Value, out NodeState node))
+                throw Invalid("The motion value does not exist.");
+            if (node.Descriptor.Source is not MotionValueSource.Mutable)
+                throw Invalid("Only mutable motion values accept imperative operations.");
+            switch (kind)
+            {
+                case MotionValueOperationKind.Set:
+                    node.Set(value ?? throw Invalid("A set motion value is absent."), false);
+                    break;
+                case MotionValueOperationKind.Jump:
+                    node.Set(value ?? throw Invalid("A jump motion value is absent."), true);
+                    break;
+                case MotionValueOperationKind.Stop:
+                    node.Stop();
+                    foreach ((Guid id, ValuePlayback playback) in playbacks.ToArray())
+                    {
+                        if (playback.Node != node)
+                            continue;
+                        playback.Stop();
+                        QueuePlaybackEvent(id, playback);
+                        playbacks.Remove(id);
+                    }
+                    break;
+                case MotionValueOperationKind.Animate:
+                    foreach ((Guid id, ValuePlayback playback) in playbacks.ToArray())
+                    {
+                        if (playback.Node != node)
+                            continue;
+                        playback.Cancel();
+                        QueuePlaybackEvent(id, playback);
+                        playbacks.Remove(id);
+                    }
+                    playbacks.Add(
+                        playbackId.Value,
+                        new ValuePlayback(
+                            node,
+                            generation,
+                            value ?? throw Invalid("An animated motion value is absent."),
+                            transition ?? throw Invalid("An animated motion transition is absent."),
+                            clock(new MotionClockSource.Unscaled()).ElapsedMicros
+                        )
+                    );
+                    break;
+                default:
+                    throw Invalid("Unknown motion-value command.");
+            }
+        }
+
         public void SetLocal(ObjectId valueId, MotionValue value)
         {
             if (!nodes.TryGetValue(valueId.Value, out NodeState node))
@@ -256,6 +313,30 @@ namespace Battlement.UI
                 QueuePlaybackEvent(operation.PlaybackId.Value, playback);
                 playbacks.Remove(operation.PlaybackId.Value);
             }
+        }
+
+        public void ApplyValuePlayback(
+            ObjectId playbackId,
+            uint generation,
+            MotionPlaybackOperationKind kind,
+            ulong micros,
+            double number
+        )
+        {
+            if (!playbacks.TryGetValue(playbackId.Value, out ValuePlayback playback))
+                return;
+            if (playback.Generation != generation)
+                throw Invalid("The motion-value playback generation is stale.");
+            playback.Apply(
+                kind,
+                micros,
+                number,
+                clock(new MotionClockSource.Unscaled()).ElapsedMicros
+            );
+            if (!playback.Terminal)
+                return;
+            QueuePlaybackEvent(playbackId.Value, playback);
+            playbacks.Remove(playbackId.Value);
         }
 
         public IReadOnlyList<MotionValueSample> DrainSamples()
@@ -996,6 +1077,22 @@ namespace Battlement.UI
                 anchor = now;
             }
 
+            public ValuePlayback(
+                NodeState node,
+                uint generation,
+                MotionValue target,
+                TransitionDefinition transition,
+                ulong now
+            )
+            {
+                Node = node;
+                Generation = generation;
+                origin = node.SnapshotValue();
+                this.target = target;
+                this.transition = transition;
+                anchor = now;
+            }
+
             public NodeState Node { get; }
 
             public uint Generation { get; }
@@ -1088,6 +1185,65 @@ namespace Battlement.UI
                         held = 0;
                         anchor = now;
                         paused = false;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            public void Apply(
+                MotionPlaybackOperationKind kind,
+                ulong micros,
+                double number,
+                ulong now
+            )
+            {
+                switch (kind)
+                {
+                    case MotionPlaybackOperationKind.Play when paused:
+                        anchor = now;
+                        paused = false;
+                        break;
+                    case MotionPlaybackOperationKind.Pause when !paused:
+                        held += checked((ulong)((now - anchor) * speed));
+                        paused = true;
+                        break;
+                    case MotionPlaybackOperationKind.Stop:
+                        Outcome = MotionPlaybackOutcome.Stopped;
+                        Node.Stop();
+                        break;
+                    case MotionPlaybackOperationKind.Cancel:
+                        Outcome = MotionPlaybackOutcome.Cancelled;
+                        Node.Set(origin, true);
+                        break;
+                    case MotionPlaybackOperationKind.Complete:
+                        Outcome = MotionPlaybackOutcome.Completed;
+                        Node.Set(target, true);
+                        break;
+                    case MotionPlaybackOperationKind.Seek:
+                        held = micros;
+                        paused = true;
+                        Sample(now);
+                        break;
+                    case MotionPlaybackOperationKind.SetSpeed:
+                        if (!paused)
+                        {
+                            held += checked((ulong)((now - anchor) * speed));
+                            anchor = now;
+                        }
+                        speed = number;
+                        if (speed == 0)
+                            paused = true;
+                        break;
+                    case MotionPlaybackOperationKind.SetDirection:
+                    case MotionPlaybackOperationKind.Replay:
+                        held = 0;
+                        anchor = now;
+                        paused = false;
+                        break;
+                    case MotionPlaybackOperationKind.Play:
+                        break;
+                    case MotionPlaybackOperationKind.Pause:
                         break;
                     default:
                         break;

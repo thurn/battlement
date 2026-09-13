@@ -1,0 +1,5 @@
+{
+  "name": "Google.FlatBuffers",
+  "rootNamespace": "Google.FlatBuffers",
+  "allowUnsafeCode": true
+}

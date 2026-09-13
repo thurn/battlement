@@ -33,12 +33,62 @@ namespace Battlement
             bool pointerEventsEnabled
         )
         {
-            Validate(state);
+            Initialize(
+                lease,
+                state.Texture.Value,
+                state.Width,
+                state.Height,
+                state.Fit,
+                state.Tint.Red,
+                state.Tint.Green,
+                state.Tint.Blue,
+                state.Opacity,
+                state.FacesCamera,
+                pointerEventsEnabled
+            );
+        }
+
+        internal void Initialize(
+            IBattlementAssetLease lease,
+            BattlementDirectImageObjectCreate state,
+            bool pointerEventsEnabled
+        )
+        {
+            Initialize(
+                lease,
+                state.Texture,
+                state.Width,
+                state.Height,
+                state.Fit,
+                state.Red,
+                state.Green,
+                state.Blue,
+                state.Opacity,
+                state.FacesCamera,
+                pointerEventsEnabled
+            );
+        }
+
+        private void Initialize(
+            IBattlementAssetLease lease,
+            string textureAddress,
+            double requestedWidth,
+            double requestedHeight,
+            ImageFit requestedFit,
+            double red,
+            double green,
+            double blue,
+            double opacity,
+            bool facesCamera,
+            bool pointerEventsEnabled
+        )
+        {
+            Validate(requestedWidth, requestedHeight, requestedFit, red, green, blue, opacity);
             if (lease.Value is not Texture preparedTexture)
             {
                 throw new BattlementWorldException(
                     CoreErrorCode.AssetTypeMismatch,
-                    $"Prepared texture '{state.Texture.Value}' is not a Unity Texture."
+                    $"Prepared texture '{textureAddress}' is not a Unity Texture."
                 );
             }
 
@@ -63,16 +113,11 @@ namespace Battlement
 
             textureLease = lease;
             texture = preparedTexture;
-            width = (float)state.Width;
-            height = (float)state.Height;
-            fit = state.Fit;
-            color = new UnityEngine.Color(
-                (float)state.Tint.Red,
-                (float)state.Tint.Green,
-                (float)state.Tint.Blue,
-                (float)state.Opacity
-            );
-            FacesCamera = state.FacesCamera;
+            width = (float)requestedWidth;
+            height = (float)requestedHeight;
+            fit = requestedFit;
+            color = new UnityEngine.Color((float)red, (float)green, (float)blue, (float)opacity);
+            FacesCamera = facesCamera;
             material.SetTexture(BaseMap, texture);
             material.SetColor(BaseColor, color);
             UpdateGeometry();
@@ -288,13 +333,34 @@ namespace Battlement
 
         private static void Validate(ImageState state)
         {
-            RequirePositive(state.Width, "Image width");
-            RequirePositive(state.Height, "Image height");
-            RequireUnit(state.Tint.Red, "Image tint red");
-            RequireUnit(state.Tint.Green, "Image tint green");
-            RequireUnit(state.Tint.Blue, "Image tint blue");
-            RequireUnit(state.Opacity, "Image opacity");
-            if (state.Fit is < ImageFit.Stretch or > ImageFit.Cover)
+            Validate(
+                state.Width,
+                state.Height,
+                state.Fit,
+                state.Tint.Red,
+                state.Tint.Green,
+                state.Tint.Blue,
+                state.Opacity
+            );
+        }
+
+        private static void Validate(
+            double width,
+            double height,
+            ImageFit fit,
+            double red,
+            double green,
+            double blue,
+            double opacity
+        )
+        {
+            RequirePositive(width, "Image width");
+            RequirePositive(height, "Image height");
+            RequireUnit(red, "Image tint red");
+            RequireUnit(green, "Image tint green");
+            RequireUnit(blue, "Image tint blue");
+            RequireUnit(opacity, "Image opacity");
+            if (fit is < ImageFit.Stretch or > ImageFit.Cover)
             {
                 throw Invalid("Image fit is unknown.");
             }

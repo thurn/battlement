@@ -127,6 +127,10 @@ namespace Battlement
                     ("ClipPolygon", typeof(MotionValue.ClipPolygon)),
                     ("Discrete", typeof(MotionValue.Discrete))
                 ),
+                [typeof(MotionDiscreteValue)] = Fixed(
+                    ("Null", typeof(MotionDiscreteValue.Null)),
+                    ("String", typeof(MotionDiscreteValue.String))
+                ),
                 [typeof(MotionExpressionOperation)] = Fixed(
                     ("Add", typeof(MotionExpressionOperation.Add)),
                     ("Subtract", typeof(MotionExpressionOperation.Subtract)),

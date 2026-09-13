@@ -6,6 +6,15 @@ using System.Linq;
 
 namespace Battlement
 {
+    /// <summary>Scalar discriminator for applying a mutable motion-value command.</summary>
+    public enum MotionValueOperationKind
+    {
+        Set,
+        Jump,
+        Stop,
+        Animate,
+    }
+
     /// <summary>One closed operation evaluated by the native motion-value graph.</summary>
     public abstract record MotionExpressionOperation
     {
@@ -247,8 +256,7 @@ namespace Battlement
                     y.Value,
                     (left, right) => left.SequenceEqual(right)
                 ),
-                (MotionValue.Discrete x, MotionValue.Discrete y) =>
-                    Newtonsoft.Json.Linq.JToken.DeepEquals(x.Value, y.Value),
+                (MotionValue.Discrete x, MotionValue.Discrete y) => x.Value == y.Value,
                 _ => a == b,
             };
 

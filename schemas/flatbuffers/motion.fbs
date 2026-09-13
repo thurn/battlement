@@ -1,0 +1,321 @@
+include "common.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum MotionProperty:ushort {
+  AlignContent, AlignItems, AlignSelf, AspectRatio, BackgroundColor,
+  BackgroundImage, BackgroundPositionX, BackgroundPositionY, BackgroundRepeat,
+  BackgroundSize, BorderBottomColor, BorderBottomLeftRadius,
+  BorderBottomRightRadius, BorderBottomWidth, BorderLeftColor, BorderLeftWidth,
+  BorderRightColor, BorderRightWidth, BorderTopColor, BorderTopLeftRadius,
+  BorderTopRightRadius, BorderTopWidth, Bottom, Color, Cursor, Display, FlexBasis,
+  FlexDirection, FlexGrow, FlexShrink, FlexWrap, FontSize, Height, JustifyContent,
+  Left, LetterSpacing, MarginBottom, MarginLeft, MarginRight, MarginTop, MaxHeight,
+  MaxWidth, MinHeight, MinWidth, Opacity, Overflow, PaddingBottom, PaddingLeft,
+  PaddingRight, PaddingTop, Position, Right, Rotate, Scale, TextOverflow,
+  TextShadow, Top, TransformOrigin, Translate, UnityBackgroundImageTintColor,
+  UnityEditorTextRenderingMode, UnityFontDefinition, UnityFontStyleAndWeight,
+  UnityMaterial, UnityOverflowClipBox, UnityParagraphSpacing, UnitySliceBottom,
+  UnitySliceLeft, UnitySliceRight, UnitySliceScale, UnitySliceTop, UnitySliceType,
+  UnityTextAlign, UnityTextAutoSize, UnityTextGenerator, UnityTextOutlineColor,
+  UnityTextOutlineWidth, UnityTextOverflowPosition, Visibility, WhiteSpace, Width,
+  WordSpacing, X, Y, Z, RotateX, RotateY, ScaleX, ScaleY, SkewX, SkewY,
+  TransformList, PaintFilter, BackgroundGradient, BoxShadow, ClipInset,
+  ClipPolygon, Mask, Layout
+}
+
+struct MotionLength { pixels:float; percentage:float; }
+struct MotionColor { red:double; green:double; blue:double; alpha:double; }
+struct MotionVector2 { x:float; y:float; }
+struct MotionVector3 { x:float; y:float; z:float; }
+
+table ScalarMotionValue { value:float; }
+table LengthMotionValue { value:MotionLength (required); }
+table ColorMotionValue { value:MotionColor (required); }
+table Vector2MotionValue { value:MotionVector2 (required); }
+table Vector3MotionValue { value:MotionVector3 (required); }
+table AngleMotionValue { value:float; }
+
+enum MotionTransformKind:ubyte { Translate, Rotate, Skew, Scale }
+table MotionTransform {
+  kind:MotionTransformKind;
+  lengths:[MotionLength];
+  scalars:[float];
+}
+table TransformListMotionValue { values:[MotionTransform] (required); }
+
+struct MotionShadow {
+  x:float;
+  y:float;
+  blur:float;
+  spread:float;
+  color:MotionColor;
+  inset:bool;
+}
+
+enum MotionFilterKind:ubyte { Brightness, DropShadow }
+table MotionFilter {
+  kind:MotionFilterKind;
+  brightness:float;
+  shadow:MotionShadow;
+}
+table FilterListMotionValue { values:[MotionFilter] (required); }
+table ShadowListMotionValue { values:[MotionShadow] (required); }
+
+struct MotionGradientStop { color:MotionColor; position:float; }
+enum MotionGradientKind:ubyte { Linear, Radial }
+table GradientMotionValue {
+  kind:MotionGradientKind;
+  angle:float;
+  center:MotionVector2;
+  radius:MotionVector2;
+  stops:[MotionGradientStop] (required);
+}
+
+table ClipInsetMotionValue { values:[MotionLength] (required); }
+struct MotionLengthPoint { x:MotionLength; y:MotionLength; }
+table ClipPolygonMotionValue { values:[MotionLengthPoint] (required); }
+
+enum MotionDiscreteKind:ubyte { Null, String }
+table DiscreteMotionValue {
+  kind:MotionDiscreteKind;
+  string_value:string;
+}
+
+union MotionValue {
+  ScalarMotionValue,
+  LengthMotionValue,
+  ColorMotionValue,
+  Vector2MotionValue,
+  Vector3MotionValue,
+  AngleMotionValue,
+  TransformListMotionValue,
+  FilterListMotionValue,
+  ShadowListMotionValue,
+  GradientMotionValue,
+  ClipInsetMotionValue,
+  ClipPolygonMotionValue,
+  DiscreteMotionValue
+}
+
+table MotionPropertyValue {
+  property:MotionProperty;
+  value:MotionValue (required);
+}
+
+enum MotionLifecycleKind:ubyte {
+  Activated, Started, Repeated, Completed, Stopped, Cancelled
+}
+
+table MotionLifecycleEvent {
+  sequence:ulong;
+  descriptor_id:Uuid (required);
+  slot:ulong;
+  generation:uint;
+  elapsed_micros:ulong;
+  kind:MotionLifecycleKind;
+  repeat_first:uint;
+  repeat_last:uint;
+}
+
+table MotionPresentationSample {
+  descriptor_id:Uuid (required);
+  slot:ulong;
+  generation:uint;
+  elapsed_micros:ulong;
+  values:[MotionPropertyValue] (required);
+}
+
+table MotionValueSample {
+  subscription_id:Uuid (required);
+  value_id:Uuid (required);
+  frame:ulong;
+  value:MotionValue (required);
+  velocity:MotionValue (required);
+  discontinuity:bool;
+}
+
+enum MotionGestureEventKind:ubyte {
+  HoverStart, HoverEnd, TapStart, Tap, TapCancel, FocusStart, FocusEnd,
+  FocusVisibleStart, FocusVisibleEnd, PanSessionStart, PanStart, Pan, PanEnd,
+  PanCancel, DragStart, DragDirectionLock, Drag, DragEnd, DragCancel,
+  DragMomentumComplete, DragConstraintsMeasured, Scroll, InViewEnter, InViewLeave
+}
+enum MotionPointerDevice:ubyte { Mouse, Pen, Touch, Keyboard, Gamepad }
+enum MotionGestureAxis:ubyte { X, Y, Both }
+
+table MotionGestureEvent {
+  descriptor_id:Uuid (required);
+  generation:uint;
+  kind:MotionGestureEventKind;
+  pointer_id:int;
+  device:MotionPointerDevice;
+  point:MotionVector2 (required);
+  delta:MotionVector2 (required);
+  offset:MotionVector2 (required);
+  velocity:MotionVector2 (required);
+  has_axis:bool;
+  axis:MotionGestureAxis;
+  momentum_generation:uint;
+  constrained:bool;
+}
+
+enum MotionPlaybackOutcome:ubyte { Completed, Stopped, Cancelled }
+table MotionPlaybackEvent {
+  playback_id:Uuid (required);
+  generation:uint;
+  outcome:MotionPlaybackOutcome;
+}
+
+table MotionEventBatch {
+  first_sequence:ulong;
+  last_sequence:ulong;
+  events:[MotionLifecycleEvent] (required);
+  samples:[MotionPresentationSample] (required);
+  value_samples:[MotionValueSample] (required);
+  playback_events:[MotionPlaybackEvent] (required);
+  gesture_events:[MotionGestureEvent] (required);
+}
+
+table MotionValueEntry { value:MotionValue (required); }
+
+enum StepPosition:ubyte { Start, End }
+enum MotionEasingKind:ubyte { Linear, EaseIn, EaseOut, EaseInOut, CubicBezier, Steps }
+table MotionEasingDefinition {
+  kind:MotionEasingKind;
+  cubic_bezier:[float];
+  step_count:uint;
+  step_position:StepPosition;
+}
+
+enum MotionRepeatKind:ubyte { None, Count, Forever }
+enum MotionRepeatType:ubyte { Loop, Reverse, Mirror }
+enum TransitionGeneratorKind:ubyte { Immediate, Tween, SpringPhysical, SpringDuration, SpringVisualDuration, Inertia }
+enum InertiaTargetKind:ubyte { Identity, NearestMultiple, FloorMultiple, CeilingMultiple, Clamp }
+
+table TransitionDefinition {
+  generator:TransitionGeneratorKind;
+  duration_micros:ulong;
+  easings:[MotionEasingDefinition];
+  times:[double];
+  stiffness:double;
+  damping:double;
+  mass:double = 1.0;
+  initial_velocity:double = null;
+  rest_speed:double = null;
+  rest_delta:double = null;
+  bounce:double;
+  power:double;
+  time_constant_micros:ulong;
+  minimum:double = null;
+  maximum:double = null;
+  bounce_stiffness:double;
+  bounce_damping:double;
+  inertia_target:InertiaTargetKind;
+  inertia_target_value:double;
+  inertia_target_maximum:double;
+  delay_micros:long;
+  repeat:MotionRepeatKind;
+  repeat_count:uint;
+  repeat_delay_micros:ulong;
+  repeat_type:MotionRepeatType;
+}
+
+table MotionPropertyTrack {
+  property:MotionProperty;
+  values:[MotionValueEntry] (required);
+  times:[double];
+  transition:TransitionDefinition (required);
+}
+
+table MotionTargetDescriptor {
+  tracks:[MotionPropertyTrack] (required);
+  transition_end:[MotionPropertyValue] (required);
+}
+
+enum MotionPlaybackDirection:ubyte { Forward, Reverse, Alternate, AlternateReverse }
+enum MotionPlaybackCommandKind:ubyte { Play, Pause, Replay, Stop, Cancel, Complete, Seek, SetSpeed, SetDirection }
+table MotionPlaybackCommand {
+  kind:MotionPlaybackCommandKind;
+  elapsed_micros:ulong;
+  speed:double;
+  direction:MotionPlaybackDirection;
+}
+
+table MotionPlaybackOperation {
+  descriptor_id:Uuid (required);
+  slot:ulong;
+  generation:uint;
+  command:MotionPlaybackCommand (required);
+}
+
+enum MotionControlledClockCommandKind:ubyte { Set, Advance }
+table MotionControlledClockOperation {
+  clock_id:Uuid (required);
+  command:MotionControlledClockCommandKind;
+  micros:ulong;
+}
+
+enum MotionValueCommandKind:ubyte { Set, Jump, Stop, Animate }
+table MotionValueOperation {
+  value_id:Uuid (required);
+  command:MotionValueCommandKind;
+  value:MotionValue;
+  playback_id:Uuid;
+  generation:uint;
+  transition:TransitionDefinition;
+}
+
+table MotionValuePlaybackOperation {
+  playback_id:Uuid (required);
+  generation:uint;
+  command:MotionPlaybackCommand (required);
+}
+
+enum MotionControlTargetKind:ubyte { Target, Variant }
+table MotionControlTarget {
+  kind:MotionControlTargetKind;
+  target:MotionTargetDescriptor;
+  variant:string;
+}
+
+enum MotionControlCommandKind:ubyte { Start, Set, Stop, Clear }
+table MotionControlOperation {
+  control_id:Uuid (required);
+  command:MotionControlCommandKind;
+  playback_id:Uuid;
+  generation:uint;
+  target:MotionControlTarget;
+}
+
+enum MotionSelectorKind:ubyte { Element, Name, ScopeRoot, Children, Descendants }
+table MotionSelector {
+  kind:MotionSelectorKind;
+  object_id:Uuid;
+  name:string;
+}
+
+table MotionSequenceStep {
+  selector:MotionSelector (required);
+  target:MotionTargetDescriptor (required);
+  start_micros:ulong;
+}
+
+enum MotionScopeCommandKind:ubyte { Start, Set, Stop }
+table MotionScopeOperation {
+  scope_id:Uuid (required);
+  command:MotionScopeCommandKind;
+  playback_id:Uuid;
+  generation:uint;
+  steps:[MotionSequenceStep];
+  selector:MotionSelector;
+  target:MotionTargetDescriptor;
+}
+
+table MotionDragControlOperation {
+  control_id:Uuid (required);
+  pointer_id:int;
+  device:MotionPointerDevice;
+  point:MotionVector2 (required);
+  snap_to_cursor:bool;
+}

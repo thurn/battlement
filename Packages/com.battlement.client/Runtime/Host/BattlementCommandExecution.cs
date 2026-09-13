@@ -20,6 +20,7 @@ namespace Battlement
         private readonly Action<bool> setInputEnabled;
         private readonly BattlementUiDocuments uiDocuments;
         private readonly Action<GeometryObservationUpdate> updateGeometry;
+        private readonly Action<BattlementDirectGeometryCommand> updateDirectGeometry;
         private readonly BattlementModules modules;
         private readonly Action<string> openExternalUrl;
 
@@ -37,6 +38,7 @@ namespace Battlement
             Action<bool> setInputEnabled,
             BattlementUiDocuments uiDocuments,
             Action<GeometryObservationUpdate> updateGeometry,
+            Action<BattlementDirectGeometryCommand> updateDirectGeometry,
             BattlementModules modules,
             Action<string> openExternalUrl
         )
@@ -54,38 +56,558 @@ namespace Battlement
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
             this.updateGeometry = updateGeometry;
+            this.updateDirectGeometry = updateDirectGeometry;
             this.modules = modules;
             this.openExternalUrl = openExternalUrl;
         }
 
-        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
+        public IBattlementCommandOperation? Launch(BattlementCommandExecution command, TimeSpan now)
         {
-            if (command is ICustomCommand)
+            if (command.DirectLocalPosition is BattlementDirectLocalPosition position)
             {
-                return customCommands.Launch(command, now);
+                return LaunchDirectLocalPosition(position);
+            }
+            if (command.DirectWorldPosition is BattlementDirectWorldPosition worldPosition)
+            {
+                return LaunchDirectWorldPosition(worldPosition);
+            }
+            if (command.DirectRotation is BattlementDirectRotation rotation)
+            {
+                return LaunchDirect(() => BattlementTransformCommands.SetRotation(rotation, world));
+            }
+            if (command.DirectScale is BattlementDirectScale scale)
+            {
+                return LaunchDirect(() => BattlementTransformCommands.SetLocalScale(scale, world));
+            }
+            if (
+                command.DirectTweenLocalPosition is BattlementDirectTweenLocalPosition tweenPosition
+            )
+            {
+                RequireNonblockingForever(command.IsBlocking, tweenPosition.Tween);
+                return LaunchDirect(() =>
+                    BattlementTransformCommands.TweenLocalPosition(
+                        tweenPosition,
+                        world,
+                        tweens,
+                        now
+                    )
+                );
+            }
+            if (command.DirectTweenRotation is BattlementDirectTweenRotation tweenRotation)
+            {
+                RequireNonblockingForever(command.IsBlocking, tweenRotation.Tween);
+                return LaunchDirect(() =>
+                    BattlementTransformCommands.TweenRotation(tweenRotation, world, tweens, now)
+                );
+            }
+            if (command.DirectTweenScale is BattlementDirectTweenScale tweenScale)
+            {
+                RequireNonblockingForever(command.IsBlocking, tweenScale.Tween);
+                return LaunchDirect(() =>
+                    BattlementTransformCommands.TweenLocalScale(tweenScale, world, tweens, now)
+                );
+            }
+            if (command.DirectLabelUpdate is BattlementDirectLabelUpdate label)
+            {
+                return LaunchDirectLabelUpdate(label);
+            }
+            if (command.DirectTextContent is BattlementDirectTextContent text)
+            {
+                return LaunchDirect(() => BattlementImageTextCommands.SetContent(text, world));
+            }
+            if (command.DirectComponent is BattlementDirectComponentCommand component)
+            {
+                if (component.Tween is BattlementDirectTweenSettings tween)
+                    RequireNonblockingForever(command.IsBlocking, tween);
+                return LaunchDirect(() =>
+                    component.Kind <= BattlementDirectComponentCommandKind.LightSetShadows
+                        ? BattlementCameraLightCommands.Launch(component, world, tweens, now)
+                        : BattlementImageTextCommands.Launch(
+                            component,
+                            world,
+                            preparedAssets,
+                            tweens,
+                            now
+                        )
+                );
+            }
+            if (command.DirectAnimator is BattlementDirectAnimatorCommand animator)
+                return BattlementAnimatorCommands.Launch(
+                    animator,
+                    world,
+                    now,
+                    motionClock.IsInstant
+                );
+            if (command.DirectGeometry is BattlementDirectGeometryCommand geometry)
+                return ExecuteUi(() => updateDirectGeometry(geometry));
+            if (command.DirectAccessibility is BattlementDirectAccessibilityCommand accessibility)
+                return ExecuteUi(() => uiDocuments.Apply(accessibility));
+            if (command.DirectDiagnostics is BattlementDirectDiagnostics diagnostics)
+            {
+                if (!command.IsBlocking)
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Diagnostics commands must be blocking."
+                    );
+                return ExecuteModule(() => modules.Execute(diagnostics.Key, diagnostics.Value));
+            }
+            if (command.DirectAssets is BattlementDirectAssetSet assets)
+                return LaunchDirect(() =>
+                    BattlementCoreCommandOperations.ReplaceAssets(assets, preparedAssets)
+                );
+            if (command.DirectUiDestroy is ObjectId uiDestroy)
+                return ExecuteUi(() => uiDocuments.Destroy(uiDestroy));
+            if (command.DirectUiAction is BattlementDirectVisualElementAction uiAction)
+                return ExecuteUi(() => uiDocuments.PerformAction(uiAction));
+            if (command.DirectUiPlacement is BattlementDirectVisualElementPlacement uiPlacement)
+                return ExecuteUi(() => uiDocuments.Update(uiPlacement));
+            if (command.DirectUiScalar is BattlementDirectUiScalar uiScalar)
+                return ExecuteUi(() => uiDocuments.UpdateScalar(uiScalar));
+            if (command.DirectUiProperties is BattlementDirectUiProperties uiProperties)
+                return ExecuteUi(() =>
+                    uiDocuments.UpdateProperties(uiProperties.ObjectId, uiProperties.ReadElement())
+                );
+            if (command.DirectUiCreate is BattlementDirectUiCreate uiCreate)
+                return ExecuteUi(() =>
+                    uiDocuments.Create(
+                        uiCreate.ParentId,
+                        uiCreate.RootId,
+                        uiCreate,
+                        uiCreate.ChildIndex
+                    )
+                );
+            if (command.DirectMotion is BattlementDirectMotionCommand motion)
+                return ExecuteUi(() => ApplyDirectMotion(motion));
+            if (command.DirectMotionValue is BattlementDirectMotionValueCommand motionValue)
+                return ExecuteUi(() => ApplyDirectMotionValue(motionValue));
+            if (command.DirectMotionControl is BattlementDirectMotionControlCommand motionControl)
+                return ExecuteUi(() => ApplyDirectMotionControl(motionControl));
+            if (command.DirectMotionScope is BattlementDirectMotionScopeCommand motionScope)
+                return ExecuteUi(() => uiDocuments.ApplyScope(motionScope));
+            if (command.DirectSetMaterial is BattlementDirectSetMaterial material)
+            {
+                return LaunchDirect(() =>
+                    BattlementObjectCommands.SetMaterial(material, world, preparedAssets)
+                );
+            }
+            if (command.DirectDestroyObject is BattlementDirectDestroyObject destroy)
+            {
+                return LaunchDirect(() =>
+                    BattlementObjectCommands.Destroy(destroy, world, operations)
+                );
+            }
+            if (command.DirectObjectActive is BattlementDirectObjectActive active)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.SetActive(active, world));
+            }
+            if (command.DirectObjectReparent is BattlementDirectObjectReparent reparent)
+            {
+                return LaunchDirect(() =>
+                    BattlementObjectCommands.Reparent(reparent, world, operations)
+                );
+            }
+            if (command.DirectInputEnabled is BattlementDirectInputEnabled input)
+            {
+                return BattlementInputCommands.SetEnabled(input, setInputEnabled);
+            }
+            if (command.DirectImageObjectCreate is BattlementDirectImageObjectCreate createImage)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createImage, world));
+            }
+            if (
+                command.DirectPrimitiveObjectCreate
+                is BattlementDirectPrimitiveObjectCreate createPrimitive
+            )
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createPrimitive, world));
+            }
+            if (command.DirectPrefabObjectCreate is BattlementDirectPrefabObjectCreate createPrefab)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createPrefab, world));
+            }
+            if (command.DirectEmptyObjectCreate is BattlementDirectEmptyObjectCreate createEmpty)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createEmpty, world));
+            }
+            if (command.DirectTextObjectCreate is BattlementDirectTextObjectCreate createText)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createText, world));
+            }
+            if (command.DirectCameraObjectCreate is BattlementDirectCameraObjectCreate createCamera)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createCamera, world));
+            }
+            if (command.DirectLightObjectCreate is BattlementDirectLightObjectCreate createLight)
+            {
+                return LaunchDirect(() => BattlementObjectCommands.Create(createLight, world));
+            }
+            if (command.DirectParticleSpawn is BattlementDirectParticleSpawn particle)
+            {
+                return LaunchDirect(() => particleEffects.Spawn(command.Id, particle, now));
+            }
+            if (command.DirectAudioPlay is BattlementDirectAudioPlay audio)
+            {
+                if (command.IsBlocking && audio.Loop)
+                {
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Looping audio must be nonblocking."
+                    );
+                }
+                return LaunchDirect(() => audioSources.Play(command.Id, audio, now));
+            }
+            if (command.DirectParticlePlay is BattlementDirectParticlePlay particlePlay)
+            {
+                if (command.IsBlocking)
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Particle play has no inferred end and must be nonblocking."
+                    );
+                return LaunchDirect(() => particleEffects.Play(particlePlay));
+            }
+            if (command.DirectParticleStop is BattlementDirectParticleStop particleStop)
+                return LaunchDirect(() => particleEffects.Stop(particleStop));
+            if (command.DirectAudioStop is BattlementDirectAudioStop audioStop)
+                return LaunchDirect(() => audioSources.Stop(audioStop, now));
+            if (command.DirectAudioVolume is BattlementDirectAudioVolume audioVolume)
+                return LaunchDirect(() => audioSources.SetVolume(audioVolume));
+            if (command.DirectAudioControl is BattlementDirectAudioControl audioControl)
+                return LaunchDirect(() => LaunchDirectAudioControl(audioControl, now));
+            if (command.DirectTweenAudioVolume is BattlementDirectTweenAudioVolume tweenAudioVolume)
+            {
+                RequireNonblockingForever(command.IsBlocking, tweenAudioVolume.Tween);
+                return LaunchDirect(() => audioSources.TweenVolume(tweenAudioVolume, tweens, now));
+            }
+            if (command.DirectWait is BattlementDirectWait wait)
+            {
+                if (!command.IsBlocking)
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "A wait command must be blocking."
+                    );
+                return BattlementTimeCommands.Wait(
+                    wait,
+                    now,
+                    motionClock.IsInstant || motionClock.IsControlled
+                );
+            }
+            if (command.DirectVibration is BattlementDirectVibration vibration)
+                return controllerInput.Vibrate(vibration, now);
+            if (command.DirectDebugUi is BattlementDirectDebugUi debugUi)
+                return ExecuteUi(() => BattlementDebugUi.SetVisible(debugUi));
+            if (command.DirectSceneCommand is BattlementDirectSceneCommand scene)
+            {
+                return scene.Kind switch
+                {
+                    BattlementDirectSceneCommandKind.Load =>
+                        BattlementCoreCommandOperations.LoadScene(scene, scenes),
+                    BattlementDirectSceneCommandKind.Unload =>
+                        BattlementCoreCommandOperations.UnloadScene(
+                            scene,
+                            scenes,
+                            world,
+                            operations
+                        ),
+                    BattlementDirectSceneCommandKind.SetPrimary => scenes.SetPrimary(scene.SceneId),
+                    _ => throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "A scene command kind is unknown."
+                    ),
+                };
+            }
+            if (
+                command.DirectInputConfiguration
+                is BattlementDirectInputConfiguration inputConfiguration
+            )
+                return LaunchDirectInputConfiguration(inputConfiguration);
+            if (command.DirectOpenUrl is BattlementDirectOpenUrl openUrl)
+            {
+                return ExecuteUi(() =>
+                {
+                    _ = new Uri(openUrl.Url, UriKind.Absolute);
+                    openExternalUrl(openUrl.Url);
+                });
+            }
+            if (command.CustomCommand is ICommand custom)
+            {
+                return customCommands.Launch(custom, now);
+            }
+            if (command.DirectCustomCommand is IBattlementDirectCustomCommand directCustom)
+            {
+                return directCustom.Launch(customCommands, now);
             }
 
             return LaunchCore(
-                command as Command
+                command.Id,
+                command.CoreBody
                     ?? throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
-                        "The batch contained an unknown command implementation."
+                        "The batch contained neither a core nor a custom command payload."
                     ),
+                command.IsBlocking,
                 now
             );
         }
 
         public void BeginBatch() => uiDocuments.BeginCommit();
 
+        private void ApplyDirectMotion(BattlementDirectMotionCommand command)
+        {
+            switch (command.Kind)
+            {
+                case BattlementDirectMotionCommandKind.ValuePlayback:
+                    uiDocuments.ApplyValuePlayback(
+                        command.ObjectId,
+                        command.Generation,
+                        command.Playback,
+                        command.Micros,
+                        command.Number,
+                        command.Direction
+                    );
+                    break;
+                case BattlementDirectMotionCommandKind.Playback:
+                    uiDocuments.ApplyPlayback(
+                        command.ObjectId,
+                        command.Slot,
+                        command.Generation,
+                        command.Playback,
+                        command.Micros,
+                        command.Number,
+                        command.Direction
+                    );
+                    break;
+                case BattlementDirectMotionCommandKind.ControlledClockSet:
+                    uiDocuments.ApplyControlledClock(command.ObjectId, command.Micros, false);
+                    break;
+                case BattlementDirectMotionCommandKind.ControlledClockAdvance:
+                    uiDocuments.ApplyControlledClock(command.ObjectId, command.Micros, true);
+                    break;
+                case BattlementDirectMotionCommandKind.DragControl:
+                    uiDocuments.ApplyDragControl(
+                        command.ObjectId,
+                        command.PointerId,
+                        command.Device,
+                        command.X,
+                        command.Y,
+                        command.SnapToCursor
+                    );
+                    break;
+                default:
+                    throw new BattlementUiException(
+                        CoreErrorCode.InvalidProperty,
+                        "A direct motion command kind is unknown."
+                    );
+            }
+        }
+
+        private void ApplyDirectMotionValue(BattlementDirectMotionValueCommand command)
+        {
+            MotionValueOperationKind kind = command.Kind;
+            bool hasValue = kind != MotionValueOperationKind.Stop;
+            bool animates = kind == MotionValueOperationKind.Animate;
+            uiDocuments.ApplyValue(
+                command.ValueId,
+                kind,
+                hasValue ? command.ReadValue() : null,
+                animates ? command.PlaybackId : default,
+                animates ? command.Generation : 0,
+                animates ? command.ReadTransition() : null
+            );
+        }
+
+        private void ApplyDirectMotionControl(BattlementDirectMotionControlCommand command)
+        {
+            MotionControlOperationKind kind = command.Kind;
+            bool hasTarget =
+                kind is MotionControlOperationKind.Start or MotionControlOperationKind.Set;
+            uiDocuments.ApplyControl(
+                command.ControlId,
+                kind,
+                kind == MotionControlOperationKind.Start ? command.PlaybackId : default,
+                kind == MotionControlOperationKind.Start ? command.Generation : 0,
+                hasTarget ? command.ReadTarget() : null
+            );
+        }
+
         public void EndBatch() => uiDocuments.EndCommit();
 
-        private IBattlementCommandOperation? LaunchCore(Command command, TimeSpan now)
+        private static void RequireNonblockingForever(
+            bool isBlocking,
+            BattlementDirectTweenSettings tween
+        )
+        {
+            if (isBlocking && tween.RepeatKind == 2)
+            {
+                throw new BattlementCommandException(
+                    CoreErrorCode.InvalidProperty,
+                    "A forever tween must be nonblocking."
+                );
+            }
+        }
+
+        private IBattlementCommandOperation? LaunchDirectLocalPosition(
+            BattlementDirectLocalPosition position
+        )
+        {
+            try
+            {
+                return BattlementTransformCommands.SetLocalPosition(position, world);
+            }
+            catch (BattlementWorldException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+
+        private IBattlementCommandOperation? LaunchDirectWorldPosition(
+            BattlementDirectWorldPosition position
+        )
+        {
+            return LaunchDirect(() =>
+                BattlementTransformCommands.SetWorldPosition(position, world)
+            );
+        }
+
+        private static IBattlementCommandOperation? LaunchDirect(
+            Func<IBattlementCommandOperation?> launch
+        )
+        {
+            try
+            {
+                return launch();
+            }
+            catch (BattlementWorldException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+            catch (BattlementAssetException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+
+        private IBattlementCommandOperation? LaunchDirectLabelUpdate(
+            BattlementDirectLabelUpdate label
+        )
+        {
+            try
+            {
+                string text = label.ReadText();
+                uiDocuments.UpdateLabelText(label.ObjectId, text);
+                return null;
+            }
+            catch (BattlementUiException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+
+        private IBattlementCommandOperation? LaunchDirectAudioControl(
+            BattlementDirectAudioControl command,
+            TimeSpan now
+        ) =>
+            command.Kind switch
+            {
+                BattlementDirectAudioControlKind.Pause => audioSources.Pause(
+                    command.AudioCommandId
+                ),
+                BattlementDirectAudioControlKind.Resume => audioSources.Resume(
+                    command.AudioCommandId
+                ),
+                BattlementDirectAudioControlKind.Seek => audioSources.Seek(
+                    command.AudioCommandId,
+                    TimeSpan.FromMilliseconds(command.PositionMilliseconds),
+                    now
+                ),
+                BattlementDirectAudioControlKind.SetBuffering => audioSources.SetBuffering(
+                    command.AudioCommandId,
+                    command.Buffering
+                ),
+                BattlementDirectAudioControlKind.Replace => audioSources.Replace(
+                    command.AudioCommandId,
+                    command.Address
+                        ?? throw new BattlementCommandException(
+                            CoreErrorCode.InvalidProperty,
+                            "An audio replacement address is absent."
+                        ),
+                    now
+                ),
+                _ => throw new BattlementCommandException(
+                    CoreErrorCode.InvalidProperty,
+                    "An audio control kind is unknown."
+                ),
+            };
+
+        private IBattlementCommandOperation? LaunchDirectInputConfiguration(
+            BattlementDirectInputConfiguration command
+        )
+        {
+            switch (command.Kind)
+            {
+                case BattlementDirectInputConfigurationKind.Camera:
+                    world.ConfigureInputCamera(
+                        command.ObjectId
+                            ?? throw new BattlementCommandException(
+                                CoreErrorCode.InvalidProperty,
+                                "An input camera UUID is absent."
+                            )
+                    );
+                    break;
+                case BattlementDirectInputConfigurationKind.PointerEvents:
+                    PointerEvent[] pointerEvents = command.ReadPointerEvents();
+                    world.SetPointerEvents(
+                        command.ObjectId
+                            ?? throw new BattlementCommandException(
+                                CoreErrorCode.InvalidProperty,
+                                "An input object UUID is absent."
+                            ),
+                        pointerEvents
+                    );
+                    break;
+                case BattlementDirectInputConfigurationKind.GlobalKeys:
+                    PhysicalKey[] globalKeys = command.ReadGlobalKeys();
+                    world.SetGlobalKeys(globalKeys);
+                    break;
+                case BattlementDirectInputConfigurationKind.Controller:
+                    ControllerInputSettings controller = command.ReadController();
+                    world.SetControllerInput(controller);
+                    break;
+                default:
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "An input configuration kind is unknown."
+                    );
+            }
+            return null;
+        }
+
+        private IBattlementCommandOperation? LaunchCore(
+            CommandId id,
+            CommandBody body,
+            bool isBlocking,
+            TimeSpan now
+        )
         {
             try
             {
                 if (
-                    command.IsBlocking
-                    && BattlementTweenAdapter.IsForever(BattlementTweenAdapter.For(command.Body))
+                    isBlocking && BattlementTweenAdapter.IsForever(BattlementTweenAdapter.For(body))
                 )
                 {
                     throw new BattlementCommandException(
@@ -94,7 +616,7 @@ namespace Battlement
                     );
                 }
 
-                if (command.IsBlocking && command.Body is CommandBody.Particle.Play)
+                if (isBlocking && body is CommandBody.Particle.Play)
                 {
                     throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
@@ -102,7 +624,7 @@ namespace Battlement
                     );
                 }
 
-                if (command.Body is CommandBody.Diagnostics && !command.IsBlocking)
+                if (body is CommandBody.Diagnostics && !isBlocking)
                 {
                     throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
@@ -110,7 +632,7 @@ namespace Battlement
                     );
                 }
 
-                if (command.Body is CommandBody.Diagnostics validatedDiagnostics)
+                if (body is CommandBody.Diagnostics validatedDiagnostics)
                 {
                     CoreErrorCode? validation = DiagnosticsProtocol.Validate(
                         validatedDiagnostics.Command
@@ -124,7 +646,7 @@ namespace Battlement
                     }
                 }
 
-                if (command.IsBlocking && command.Body is CommandBody.Audio.Play { Loop: true })
+                if (isBlocking && body is CommandBody.Audio.Play { Loop: true })
                 {
                     throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
@@ -132,12 +654,12 @@ namespace Battlement
                     );
                 }
 
-                if (command.Body is CommandBody.Controller.Vibrate vibration)
+                if (body is CommandBody.Controller.Vibrate vibration)
                 {
                     ValidateVibration(vibration);
                 }
 
-                return command.Body switch
+                return body switch
                 {
                     CommandBody.Assets.ReplaceSet assets =>
                         BattlementCoreCommandOperations.ReplaceAssets(assets, preparedAssets),
@@ -375,12 +897,8 @@ namespace Battlement
                     ),
                     CommandBody.Particle.Play particle => particleEffects.Play(particle),
                     CommandBody.Particle.Stop particle => particleEffects.Stop(particle),
-                    CommandBody.Particle.Spawn particle => particleEffects.Spawn(
-                        command.Id,
-                        particle,
-                        now
-                    ),
-                    CommandBody.Audio.Play audio => audioSources.Play(command.Id, audio, now),
+                    CommandBody.Particle.Spawn particle => particleEffects.Spawn(id, particle, now),
+                    CommandBody.Audio.Play audio => audioSources.Play(id, audio, now),
                     CommandBody.Audio.Stop audio => audioSources.Stop(audio, now),
                     CommandBody.Audio.Pause audio => audioSources.Pause(audio),
                     CommandBody.Audio.Resume audio => audioSources.Resume(audio),
@@ -460,7 +978,7 @@ namespace Battlement
                     ),
                     _ => throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
-                        $"Command {command.Body.GetType().Name} is not implemented yet."
+                        $"Command {body.GetType().Name} is not implemented yet."
                     ),
                 };
             }

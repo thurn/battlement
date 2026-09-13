@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -28,11 +27,11 @@ namespace Battlement
                     return;
                 }
 
-                BattlementNativeBuffer output = default;
+                ulong output = 0;
                 try
                 {
                     int status = BattlementNativeMethods.battlement_logging_drain(out output);
-                    string records = Decode(output);
+                    string records = Decode(Inspect(output));
                     if (status != Ok)
                     {
                         throw new IOException($"Native logging drain failed: {records}");
@@ -52,12 +51,12 @@ namespace Battlement
                 }
                 finally
                 {
-                    Free(output);
+                    Release(output);
                 }
             }
         }
 
-        private static string Decode(BattlementNativeBuffer buffer)
+        private static unsafe string Decode(BattlementNativeBuffer buffer)
         {
             string? shapeError = buffer.ValidateShape(MaximumPayloadBytes);
             if (shapeError is not null)
@@ -69,9 +68,9 @@ namespace Battlement
                 return string.Empty;
             }
 
-            var bytes = new byte[checked((int)buffer.Length)];
-            Marshal.Copy(buffer.Data, bytes, 0, bytes.Length);
-            return Utf8.GetString(bytes);
+            return Utf8.GetString(
+                new ReadOnlySpan<byte>(buffer.Data.ToPointer(), checked((int)buffer.Length))
+            );
         }
 
         private static void Disable(Exception exception)
@@ -114,11 +113,30 @@ namespace Battlement
                 )
             ?? new Dictionary<string, string>();
 
-        private static void Free(BattlementNativeBuffer buffer)
+        private static BattlementNativeBuffer Inspect(ulong handle)
         {
-            if (buffer.Data != IntPtr.Zero && buffer.Length != 0)
+            if (handle == 0)
             {
-                BattlementNativeMethods.battlement_buffer_free(buffer);
+                return default;
+            }
+            int status = BattlementNativeMethods.battlement_buffer_info(
+                handle,
+                out IntPtr data,
+                out ulong length,
+                out ulong allocationBytes
+            );
+            if (status != Ok)
+            {
+                throw new IOException($"Native logging buffer inspection failed: {status}.");
+            }
+            return new BattlementNativeBuffer(handle, data, length, allocationBytes);
+        }
+
+        private static void Release(ulong handle)
+        {
+            if (handle != 0 && BattlementNativeMethods.battlement_release_buffer(handle) != Ok)
+            {
+                throw new IOException("Native logging buffer release failed.");
             }
         }
 

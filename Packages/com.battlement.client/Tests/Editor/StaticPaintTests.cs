@@ -31,7 +31,7 @@ namespace Battlement.Tests
                     {
                         new MotionPropertyValue(
                             MotionProperty.UnityMaterial,
-                            new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                            new MotionValue.Discrete(new MotionDiscreteValue.Null())
                         ),
                     }
                 ),
@@ -77,7 +77,7 @@ namespace Battlement.Tests
                     {
                         new MotionPropertyValue(
                             MotionProperty.UnityMaterial,
-                            new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                            new MotionValue.Discrete(new MotionDiscreteValue.Null())
                         ),
                     }
                 ),
@@ -89,7 +89,7 @@ namespace Battlement.Tests
                 BattlementMotionPropertyWriter.Write(
                     fixture.Target,
                     MotionProperty.UnityMaterial,
-                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                    new MotionValue.Discrete(new MotionDiscreteValue.Null())
                 )
             );
             Assert.That(fixture.Child.parent, Is.Not.SameAs(fixture.Target));
@@ -99,7 +99,7 @@ namespace Battlement.Tests
             BattlementMotionPropertyWriter.Write(
                 fixture.Target,
                 MotionProperty.UnityMaterial,
-                new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                new MotionValue.Discrete(new MotionDiscreteValue.Null())
             );
             Assert.That(fixture.Target.style.unityMaterial.keyword, Is.EqualTo(StyleKeyword.None));
             yield return null;

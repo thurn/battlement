@@ -175,6 +175,7 @@ namespace Battlement
             || baseType == typeof(IconSource)
             || baseType == typeof(UiValue)
             || baseType == typeof(MotionValue)
+            || baseType == typeof(MotionDiscreteValue)
             || baseType == typeof(TransformOperation)
             || baseType == typeof(PaintFill)
             || baseType == typeof(MotionRepeat)

@@ -1,0 +1,7 @@
+{
+  "name": "Battlement.FlatBuffers",
+  "rootNamespace": "Battlement.FlatBuffers",
+  "references": [
+    "Google.FlatBuffers"
+  ]
+}

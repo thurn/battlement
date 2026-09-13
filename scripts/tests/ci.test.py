@@ -43,6 +43,7 @@ def main() -> None:
         assert ci.select_native_samples(["scripts/ci.py"], ["basic"]) == []
         _verify_unity_project_generation(root)
         _verify_csharp_preflight()
+        _verify_csharp_line_length_exclusions(root)
         _verify_unity_execution_selection(root)
         _verify_unity_native_diagnostics_selection()
         for name in ("tictactoe", "basic", "chess", "chess-ui"):
@@ -501,6 +502,35 @@ def _verify_unity_project_generation(root: Path) -> None:
     ):
         ci.generate_unity_project_files()
 
+    lock = root / "Temp/UnityLockfile"
+
+    class FailedTransaction:
+        def run(
+            self, command: list[str], **_options: object
+        ) -> subprocess.CompletedProcess[str]:
+            lock.parent.mkdir(parents=True, exist_ok=True)
+            lock.touch()
+            Path(command[command.index("-logFile") + 1]).write_text(
+                "compiler failure\n", encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(command, 1)
+
+    with (
+        patch.object(ci, "unity_editor", return_value=Path(sys.executable)),
+        patch.object(
+            ci,
+            "unity_project_transaction",
+            return_value=nullcontext(FailedTransaction()),
+        ),
+    ):
+        try:
+            ci.generate_unity_project_files()
+        except RuntimeError as error:
+            assert "project-file generation failed" in str(error)
+        else:
+            raise AssertionError("failed Unity project generation was accepted")
+    assert not lock.exists()
+
 
 def _verify_csharp_preflight() -> None:
     selection = ci.unity_test_selection.Selection(
@@ -533,6 +563,18 @@ def _verify_csharp_preflight() -> None:
         "Check samples have no C#",
         "Check .NET diagnostics",
     ]
+
+
+def _verify_csharp_line_length_exclusions(root: Path) -> None:
+    package = root / "Packages/com.battlement.client"
+    generated = package / "Runtime/FlatBuffers/Generated/value_generated.cs"
+    vendored = package / "Runtime/FlatBuffers/Google/Table.cs"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    vendored.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text("x" * 101, encoding="utf-8")
+    vendored.write_text("x" * 101, encoding="utf-8")
+    with patch.object(ci, "REPOSITORY_ROOT", root):
+        ci.check_csharp_line_lengths([])
 
 
 def _verify_unity_execution_selection(root: Path) -> None:

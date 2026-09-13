@@ -10,6 +10,10 @@ use battlement::{
   UiVisualElementProperties, VisualElementUpdate,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
+use battlement_flatbuffers::{
+  UiEventActionView,
+  test_support::{navigation_submit_ui_event, text_input_ui_event},
+};
 use battlement_reactant::{
   event::{EventPhase, ReactantEvent},
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -75,6 +79,23 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
   ));
   let mut world = UiWorld::default();
   world.replace(initial.ui).expect("initial tree is valid");
+
+  let session_id = SessionId::new_v4();
+  let native_event = navigation_submit_ui_event(
+    *uuid::Uuid::new_v4().as_bytes(),
+    *session_id.as_uuid().as_bytes(),
+    *button_id.as_uuid().as_bytes(),
+    true,
+    false,
+  );
+  let native = reactant
+    .dispatch_view(
+      &mut game,
+      UiEventActionView::read(&native_event).expect("native click verifies"),
+    )
+    .expect("borrowed brief click dispatches");
+  self::apply(&mut world, native.into_commit());
+  assert_eq!(game.status, "brief-last");
 
   let brief = reactant
     .dispatch(
@@ -190,6 +211,52 @@ fn event_views_clone_without_requiring_clone_payloads() {
   fn assert_clone<T: Clone>() {}
 
   assert_clone::<ReactantEvent<NonClonePayload>>();
+}
+
+#[test]
+fn native_text_handler_borrows_until_the_callback_chooses_to_store() {
+  let document = self::document();
+  let mut game = Game {
+    form: Form::BriefLast,
+    status: String::new(),
+  };
+  let mut reactant = runtime_support::reactant(IdleSpawner);
+  reactant.register_root(document.clone(), |_game| {
+    battlement_reactant::host::TextField::new().on_native_event_with_model(
+      UiEventKind::Input,
+      |game: &mut Game, event| {
+        game.status = event
+          .action()
+          .input_text()
+          .expect("input handler receives text")
+          .to_owned();
+      },
+    )
+  });
+  let initial = reactant
+    .begin_session(&mut game)
+    .expect("initial render succeeds")
+    .into_parts(self::snapshot(&document))
+    .0;
+  let target_id = initial.ui[0].children[0].object_id;
+  let session_id = SessionId::new_v4();
+  let bytes = text_input_ui_event(
+    *uuid::Uuid::new_v4().as_bytes(),
+    *session_id.as_uuid().as_bytes(),
+    *target_id.as_uuid().as_bytes(),
+    "入力🙂",
+  );
+
+  let result = reactant
+    .dispatch_view(
+      &mut game,
+      UiEventActionView::read(&bytes).expect("text input verifies"),
+    )
+    .expect("borrowed text dispatches");
+
+  assert_eq!(game.status, "入力🙂");
+  let _ = result.into_groups();
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

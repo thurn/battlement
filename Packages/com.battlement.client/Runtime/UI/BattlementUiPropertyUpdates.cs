@@ -68,53 +68,55 @@ namespace Battlement.UI
             this.repeatControls = repeatControls;
         }
 
-        internal void Apply(VisualElementUpdate.Properties update)
+        internal void Apply(VisualElementUpdate.Properties update) =>
+            Apply(update.ObjectId, update.Element);
+
+        internal void Apply(ObjectId objectId, UiElement value)
         {
-            VisualElement target = require(update.ObjectId);
-            UiElement value = update.Element;
+            VisualElement target = require(objectId);
             bool genericRootUpdate =
-                hierarchy.IsRoot(update.ObjectId.Value) && value is UiElement.VisualElement;
+                hierarchy.IsRoot(objectId.Value) && value is UiElement.VisualElement;
             if (!genericRootUpdate)
-                RequireElementKind(target, value, update.ObjectId);
+                RequireElementKind(target, value, objectId);
             ValidateLayoutUpdate(target, value);
-            ValidateStickyUpdate(target, update.ObjectId, value);
-            ValidateOverlayUpdate(target, update.ObjectId, value);
+            ValidateStickyUpdate(target, objectId, value);
+            ValidateOverlayUpdate(target, objectId, value);
             BattlementUiElementProperties.Validate(value, allowUsageHints: false);
             BattlementUiChoiceControls.ValidateUpdate(
                 value,
                 target,
-                hierarchy.Children(update.ObjectId.Value).Count
+                hierarchy.Children(objectId.Value).Count
             );
             BattlementUiDropdownControls.ValidateUpdate(value, target);
             BattlementUiSliderControls.ValidateUpdate(value, target);
             BattlementUiRangeControls.ValidateUpdate(value, target);
             BattlementUiScrollControls.ValidateUpdate(target, value);
             BattlementUiTabControls.ValidateUpdate(target, value);
-            textFieldControls.ValidateUpdate(update.ObjectId, value);
+            textFieldControls.ValidateUpdate(objectId, value);
             focusCoordinator.ValidateUpdate(target, value);
 
             using BattlementUiPartProperties.PreparedUpdate preparedParts = partProperties.Prepare(
                 target,
-                update.ObjectId,
+                objectId,
                 value
             );
             using BattlementPreparedUiPropertyUpdate preparedProperties = properties.PrepareUpdate(
                 target,
-                update.ObjectId,
+                objectId,
                 value
             );
             using BattlementPreparedMotionAdmission? preparedMotion = motionWorld.Prepare(
                 target,
-                update.ObjectId,
+                objectId,
                 value.Motion,
                 value.Paint
             );
-            System.Action? commitStyle = motionWorld.PrepareStyle(update.ObjectId, value.Style);
+            System.Action? commitStyle = motionWorld.PrepareStyle(objectId, value.Style);
             preparedProperties.Commit();
             commitStyle?.Invoke();
             BattlementPaintProperties.Apply(target, value.Paint);
             if (!value.Paint.IsUnset)
-                motionWorld.CommitPaint(update.ObjectId);
+                motionWorld.CommitPaint(objectId);
             focusCoordinator.ApplyUpdate(target, value);
             BattlementGridItems.Apply(target, value.GridItem);
             BattlementStackItems.Apply(target, value.StackItem);
@@ -125,23 +127,23 @@ namespace Battlement.UI
                 gridLayout.ApplyGrid(grid);
             if (target is BattlementLayoutContainer stackLayout && value is UiElement.Stack stack)
                 stackLayout.ApplyStack(stack);
-            RefreshParentLayout(update.ObjectId.Value);
+            RefreshParentLayout(objectId.Value);
             stickyCoordinator.Apply(target, value.Sticky, hierarchy.SourceOrdinal(target));
             overlayCoordinator.Apply(target, value.OverlayPlacement);
-            scrollControls.ApplyUpdate(target, update.ObjectId, value);
-            tabControls.ApplyUpdate(target, update.ObjectId, value);
-            textFieldControls.ApplyUpdate(target, update.ObjectId, value);
-            booleanControls.ApplyUpdate(target, update.ObjectId, value);
-            choiceControls.ApplyUpdate(target, update.ObjectId, value);
-            dropdownControls.ApplyUpdate(target, update.ObjectId, value);
-            sliderControls.ApplyUpdate(target, update.ObjectId, value);
-            rangeControls.ApplyUpdate(target, update.ObjectId, value);
-            preparedParts.Commit(update.ObjectId.Value);
+            scrollControls.ApplyUpdate(target, objectId, value);
+            tabControls.ApplyUpdate(target, objectId, value);
+            textFieldControls.ApplyUpdate(target, objectId, value);
+            booleanControls.ApplyUpdate(target, objectId, value);
+            choiceControls.ApplyUpdate(target, objectId, value);
+            dropdownControls.ApplyUpdate(target, objectId, value);
+            sliderControls.ApplyUpdate(target, objectId, value);
+            rangeControls.ApplyUpdate(target, objectId, value);
+            preparedParts.Commit(objectId.Value);
             preparedMotion?.Commit();
             if (value is UiElement.RepeatButton repeat)
                 repeatControls.ApplyUpdate(
                     (UnityEngine.UIElements.RepeatButton)target,
-                    update.ObjectId,
+                    objectId,
                     repeat
                 );
             overlayCoordinator.RefreshAll();

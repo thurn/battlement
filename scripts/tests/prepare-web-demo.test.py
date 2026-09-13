@@ -55,20 +55,33 @@ def main() -> None:
             prepare_web_demo.REPOSITORY_ROOT = repository
             prepare_web_demo.unity_editor = lambda _sample: Path(sys.executable)
             initial = prepare_web_demo.staged_fingerprint("fixture", False)
+            subprocess.run(
+                [
+                    "git",
+                    "mv",
+                    "Packages/com.battlement.client/Runtime/old.cs",
+                    "Packages/com.battlement.client/Runtime/new.cs",
+                ],
+                cwd=repository,
+                check=True,
+            )
+            renamed = prepare_web_demo.staged_fingerprint("fixture", False)
+            assert renamed != initial
+            baseline = renamed
             closure = prepare_web_demo.dependency_pathspecs("fixture")
             assert closure == ("crates/battlement-cli", "crates/runtime")
             harness = repository / "scripts/web_compatibility.py"
             harness.write_text("# changed harness\n")
             subprocess.run(["git", "add", str(harness)], cwd=repository, check=True)
-            assert prepare_web_demo.staged_fingerprint("fixture", False) == initial
+            assert prepare_web_demo.staged_fingerprint("fixture", False) == baseline
             client_test = repository / "Packages/com.battlement.client/Tests/example.cs"
             client_test.write_text("// changed test\n")
             subprocess.run(["git", "add", str(client_test)], cwd=repository, check=True)
-            assert prepare_web_demo.staged_fingerprint("fixture", False) == initial
+            assert prepare_web_demo.staged_fingerprint("fixture", False) == baseline
             unrelated = repository / "crates/unrelated/src/lib.rs"
             unrelated.write_text("pub fn unrelated() {}\n")
             subprocess.run(["git", "add", str(unrelated)], cwd=repository, check=True)
-            assert prepare_web_demo.staged_fingerprint("fixture", False) == initial
+            assert prepare_web_demo.staged_fingerprint("fixture", False) == baseline
             tracked = repository / "crates/runtime/src/lib.rs"
             tracked.write_text("pub fn value() -> u8 { 2 }\n")
             subprocess.run(["git", "add", str(tracked)], cwd=repository, check=True)
@@ -76,7 +89,7 @@ def main() -> None:
         finally:
             prepare_web_demo.REPOSITORY_ROOT = original_root
             prepare_web_demo.unity_editor = original_editor
-        assert initial != changed
+        assert baseline != changed
 
     print("Web demo cache tests passed.")
 
@@ -84,6 +97,7 @@ def main() -> None:
 def create_repository(root: Path) -> None:
     for directory in (
         "Packages/com.battlement.client",
+        "Packages/com.battlement.client/Runtime",
         "Packages/com.battlement.client/Tests",
         "crates/battlement-cli/src",
         "crates/runtime/src",
@@ -102,6 +116,7 @@ def create_repository(root: Path) -> None:
         ("Cargo.lock", "version = 4\n"),
         ("rust-toolchain.toml", "[toolchain]\nchannel = \"1.98.1\"\n"),
         ("Packages/com.battlement.client/package.json", "{}\n"),
+        ("Packages/com.battlement.client/Runtime/old.cs", "// runtime\n"),
         (
             "crates/battlement-cli/Cargo.toml",
             '[package]\nname = "battlement-cli"\nversion = "0.1.0"\nedition = "2024"\n'

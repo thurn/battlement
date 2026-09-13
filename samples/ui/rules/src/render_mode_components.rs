@@ -2,8 +2,11 @@ use battlement::{
   Command, ObjectId, PickingMode, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiImage,
   UiLabel, UiNode, UiVisualElement, object_id,
 };
+use battlement_native::UiEventActionView;
 
-use crate::{asset_catalog::ui::assets, render_mode_styles};
+use crate::{
+  asset_catalog::ui::assets, design_system, native_ui::NativeUiResponseBuilder, render_mode_styles,
+};
 
 pub(crate) const DETAILS_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000004");
 const DETAILS_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000005");
@@ -69,6 +72,65 @@ pub(crate) fn event_commands(event: &UiEvent, details_expanded: &mut bool) -> Op
     )]),
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  details_expanded: &mut bool,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, battlement_native::EngineError> {
+  if ObjectId::from_bytes(event.target_id()).ok() != Some(DETAILS_BUTTON_ID) {
+    return Ok(false);
+  }
+  let focused = match event.event_kind() {
+    UiEventKind::Click => {
+      *details_expanded = !*details_expanded;
+      true
+    }
+    UiEventKind::FocusIn => true,
+    UiEventKind::FocusOut => false,
+    _ => return Ok(false),
+  };
+  let border = if focused {
+    design_system::ACCENT
+  } else {
+    battlement::Color::rgb(0.12, 0.40, 0.44)
+  };
+  let button = response
+    .writer()
+    .button_builder()
+    .text(if *details_expanded {
+      "HIDE DETAILS"
+    } else {
+      "SHOW DETAILS"
+    })
+    .height(44.0)
+    .background_color(rgba(battlement::Color::rgb(0.035, 0.12, 0.14)))
+    .color(rgba(design_system::CYAN))
+    .border_color(rgba(border))
+    .border_width(if focused { 3.0 } else { 1.0 })
+    .border_radius(6.0)
+    .font_size(13.0)
+    .text_align_middle_center()
+    .margin_edges(4.0, 0.0, 0.0, 0.0)
+    .finish();
+  response.update(DETAILS_BUTTON_ID, button)?;
+  if event.event_kind() == UiEventKind::Click {
+    let details = response
+      .writer()
+      .visual_element_builder()
+      .displayed(*details_expanded)
+      .background_color(rgba(battlement::Color::rgb(0.025, 0.085, 0.105)))
+      .padding(12.0, 12.0)
+      .margin_edges(8.0, 0.0, 0.0, 0.0)
+      .finish();
+    response.update(DETAILS_ID, details)?;
+  }
+  Ok(true)
+}
+
+fn rgba(value: battlement::Color) -> [f64; 4] {
+  [value.r, value.g, value.b, value.a]
 }
 
 fn target_preview() -> UiNode {

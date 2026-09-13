@@ -36,8 +36,20 @@ pub fn route_subscriptions(
   route: &[(ObjectId, Vec<UiEventSubscription>)],
   event: &UiEvent,
 ) -> Vec<UiEventDelivery> {
-  let kind = event.kind();
-  if route.is_empty() || route[0].0 != event.target_id {
+  route_subscriptions_for_kind(route, event.target_id, event.kind())
+}
+
+/// Routes a verified borrowed event using only its scalar target and kind.
+///
+/// This avoids reconstructing an owned callback body at the native boundary.
+#[doc(hidden)]
+#[must_use]
+pub fn route_subscriptions_for_kind(
+  route: &[(ObjectId, Vec<UiEventSubscription>)],
+  target_id: ObjectId,
+  kind: crate::UiEventKind,
+) -> Vec<UiEventDelivery> {
+  if route.is_empty() || route[0].0 != target_id {
     return Vec::new();
   }
   if !kind.propagates() {

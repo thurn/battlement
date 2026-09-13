@@ -58,6 +58,8 @@ namespace Battlement
 
         public void BeginSession()
         {
+            foreach (ScheduledBatch batch in batches)
+                batch.Dispose();
             batches.Clear();
             operations.BeginSession();
             ActivityVersion++;
@@ -66,12 +68,14 @@ namespace Battlement
         public void CancelForSnapshot()
         {
             operations.CancelAll();
+            foreach (ScheduledBatch batch in batches)
+                batch.Dispose();
             batches.Clear();
         }
 
         public void Schedule(
             SessionId sessionId,
-            Batch<ICommand> batch,
+            IBattlementBatchView batch,
             BattlementBatchAdmissionResult admission
         )
         {
@@ -188,21 +192,27 @@ namespace Battlement
                 return previousBlockingCount != scheduled.BlockingOperations.Count;
             }
 
-            if (scheduled.NextGroup >= scheduled.Batch.Groups.Count)
+            if (scheduled.NextGroup >= scheduled.Batch.GroupCount)
             {
                 scheduled.Outcome = BatchOutcome.Succeeded;
                 executor.EndBatch();
+                scheduled.Dispose();
                 return true;
             }
 
-            ParallelCommandGroup<ICommand> group = scheduled.Batch.Groups[scheduled.NextGroup++];
-            foreach (ICommand command in group.Commands)
+            int groupIndex = scheduled.NextGroup++;
+            int commandCount = scheduled.Batch.CommandCount(groupIndex);
+            for (int commandIndex = 0; commandIndex < commandCount; commandIndex++)
             {
+                BattlementCommandExecution command = scheduled.Batch.ReadCommand(
+                    groupIndex,
+                    commandIndex
+                );
                 try
                 {
                     IBattlementCommandOperation? operation = operations.Launch(
                         scheduled.SessionId,
-                        scheduled.Batch.Id,
+                        scheduled.Id,
                         command,
                         now,
                         started => executor.Launch(command, started)
@@ -262,13 +272,9 @@ namespace Battlement
             {
                 return false;
             }
-            if (scheduled.Batch.Start == BatchStart.AfterEarlierAssetPreparation)
+            if (scheduled.Start == BatchStart.AfterEarlierAssetPreparation)
             {
-                return earlier.Batch.Groups.Any(group =>
-                    group.Commands.Any(command =>
-                        command is Command { Body: CommandBody.Assets.ReplaceSet }
-                    )
-                );
+                return earlier.ContainsAssetPreparation;
             }
             return scheduled.Admission.WaitsThroughSequence is long through
                 && earlier.Admission.Sequence <= through;
@@ -276,7 +282,7 @@ namespace Battlement
 
         private bool DependsOnFailedPredecessor(ScheduledBatch scheduled)
         {
-            if (scheduled.Batch.Start == BatchStart.AfterEarlierAssetPreparation)
+            if (scheduled.Start == BatchStart.AfterEarlierAssetPreparation)
             {
                 return batches.Any(batch =>
                     IsDependency(scheduled, batch) && batch.Outcome == BatchOutcome.Failed
@@ -312,13 +318,14 @@ namespace Battlement
             reportFailure(
                 new BatchFailed<CoreErrorCode>(
                     scheduled.SessionId,
-                    scheduled.Batch.Id,
+                    scheduled.Id,
                     errorCode,
                     message,
                     commandId
                 ),
                 exception
             );
+            scheduled.Dispose();
         }
 
         private void FailCustom(
@@ -335,7 +342,8 @@ namespace Battlement
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
             executor.EndBatch();
-            reportCustomFailure(exception, scheduled.SessionId, scheduled.Batch.Id, commandId);
+            reportCustomFailure(exception, scheduled.SessionId, scheduled.Id, commandId);
+            scheduled.Dispose();
         }
 
         private enum BatchOutcome
@@ -345,22 +353,42 @@ namespace Battlement
             Failed,
         }
 
-        private sealed class ScheduledBatch
+        private sealed class ScheduledBatch : IDisposable
         {
             public ScheduledBatch(
                 SessionId sessionId,
-                Batch<ICommand> batch,
+                IBattlementBatchView batch,
                 BattlementBatchAdmissionResult admission
             )
             {
                 SessionId = sessionId;
                 Batch = batch;
                 Admission = admission;
+                Id = batch.Id;
+                Start = batch.Start;
+                for (int groupIndex = 0; groupIndex < batch.GroupCount; groupIndex++)
+                {
+                    for (
+                        int commandIndex = 0;
+                        commandIndex < batch.CommandCount(groupIndex);
+                        commandIndex++
+                    )
+                    {
+                        if (batch.IsAssetPreparation(groupIndex, commandIndex))
+                            ContainsAssetPreparation = true;
+                    }
+                }
             }
 
             public SessionId SessionId { get; }
 
-            public Batch<ICommand> Batch { get; }
+            public IBattlementBatchView Batch { get; }
+
+            public BatchId Id { get; }
+
+            public BatchStart Start { get; }
+
+            public bool ContainsAssetPreparation { get; }
 
             public BattlementBatchAdmissionResult Admission { get; }
 
@@ -371,6 +399,8 @@ namespace Battlement
             public int NextGroup { get; set; }
 
             public BatchOutcome Outcome { get; set; }
+
+            public void Dispose() => Batch.Dispose();
         }
 
         private sealed record ScheduledOperation(

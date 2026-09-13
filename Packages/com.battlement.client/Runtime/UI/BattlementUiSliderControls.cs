@@ -94,6 +94,24 @@ namespace Battlement.UI
             }
         }
 
+        internal void ApplyDirectFloat(ObjectId objectId, float value)
+        {
+            FloatState state = floats[objectId.Value];
+            Validate(state.Target.lowValue, state.Target.highValue, value, state.Target.pageSize);
+            state.Cancel();
+            state.Target.SetValueWithoutNotify(value);
+            state.Committed = value;
+        }
+
+        internal void ApplyDirectInt(ObjectId objectId, int value)
+        {
+            IntState state = integers[objectId.Value];
+            Validate(state.Target.lowValue, state.Target.highValue, value, state.Target.pageSize);
+            state.Cancel();
+            state.Target.SetValueWithoutNotify(value);
+            state.Committed = value;
+        }
+
         public static void ValidateUpdate(UiElement element, VisualElement current)
         {
             switch (element)

@@ -420,9 +420,12 @@ namespace Battlement.UI
         {
             if (value is not MotionValue.Discrete discrete)
                 throw new InvalidOperationException("A motion asset value must be discrete.");
-            return discrete.Value.Type == Newtonsoft.Json.Linq.JTokenType.Null
-                ? null
-                : discrete.Value.ToObject<string>();
+            return discrete.Value switch
+            {
+                MotionDiscreteValue.Null => null,
+                MotionDiscreteValue.String text => text.Value,
+                _ => throw new InvalidOperationException("Unknown discrete Motion value."),
+            };
         }
 
         private IReadOnlyList<Vector2> Geometry(UnityRect rect)

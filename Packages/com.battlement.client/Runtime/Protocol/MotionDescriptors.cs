@@ -496,6 +496,54 @@ namespace Battlement
         AlternateReverse,
     }
 
+    /// <summary>
+    /// Scalar discriminator for applying playback without an owned command object.
+    /// </summary>
+    public enum MotionPlaybackOperationKind
+    {
+        Play,
+        Pause,
+        Replay,
+        Stop,
+        Cancel,
+        Complete,
+        Seek,
+        SetSpeed,
+        SetDirection,
+    }
+
+    /// <summary>Scalar discriminator for an animation-control mutation.</summary>
+    public enum MotionControlOperationKind
+    {
+        Start,
+        Set,
+        Stop,
+        Clear,
+    }
+
+    /// <summary>Scalar discriminator for a scoped animation mutation.</summary>
+    public enum MotionScopeOperationKind
+    {
+        Start,
+        Set,
+        Stop,
+    }
+
+    /// <summary>Guarded, random-access view of one scoped motion command.</summary>
+    public interface IBattlementMotionScopeView
+    {
+        ObjectId ScopeId { get; }
+        MotionScopeOperationKind Kind { get; }
+        ObjectId PlaybackId { get; }
+        uint Generation { get; }
+        int StepCount { get; }
+        MotionSelector ReadStepSelector(int index);
+        MotionTargetDescriptor ReadStepTarget(int index);
+        ulong ReadStepStartMicros(int index);
+        MotionSelector ReadSelector();
+        MotionTargetDescriptor ReadTarget();
+    }
+
     /// <summary>Generation-checked playback operation.</summary>
     public abstract record MotionPlaybackCommand
     {

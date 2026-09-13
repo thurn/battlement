@@ -4,13 +4,13 @@ use std::{collections::VecDeque, slice, sync::Arc};
 
 use battlement::{
   BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, CameraState,
-  ClientMessage, Command, Connect, GameObject, GameObjectKind, ImageSource, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
-  Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument, UiDocumentState, UiElement,
-  UiElementKind, UiEventAction, UiEventResponse, UiVisualElementProperties,
+  ClientMessage, Command, GameObject, GameObjectKind, ImageSource, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId,
+  SessionId, Snapshot, StyleValue, UiDocument, UiDocumentState, UiElement, UiElementKind,
+  UiEventAction, UiEventResponse, UiVisualElementProperties,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 use battlement_reactant::{
   asset_generator::{self, LogicalInsets, LogicalRect, LogicalSize},
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -84,7 +84,7 @@ impl Engine for SnapshotEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(self.responses.pop_front().expect("fixture has a snapshot"))
   }
 

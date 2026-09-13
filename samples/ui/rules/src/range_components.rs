@@ -2,8 +2,9 @@ use battlement::{
   Command, F32Range, LowerLimit, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind,
   UiLabel, UiMinMaxSlider, UiNode, UiProgressBar, UiValue, UiVisualElement, UpperLimit, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{design_system, range_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, range_styles};
 
 pub(crate) const RESOURCE_RANGE_ID: ObjectId = object_id!("4be5cd99-a70d-4dca-af82-57dc73f91eea");
 pub(crate) const RANGE_STATUS_ID: ObjectId = object_id!("cb0e1e49-857d-4a3b-a95e-f0dce69060d8");
@@ -57,6 +58,45 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     }
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  if ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID") != RESOURCE_RANGE_ID
+  {
+    return Ok(false);
+  }
+  let (prefix, value, committed) = match event.event_kind() {
+    UiEventKind::ValueChanging => match event.value_changing() {
+      Some(value) => ("LIVE", value, false),
+      None => return Ok(false),
+    },
+    UiEventKind::ValueCommitted => match event.value_commit() {
+      Some(value) => ("COMMITTED", value.proposed(), true),
+      None => return Ok(false),
+    },
+    _ => return Ok(false),
+  };
+  let UiValueView::F32Range { min, max } = value else {
+    return Ok(false);
+  };
+  if committed {
+    let range = response
+      .writer()
+      .min_max_slider_builder()
+      .range(min, max)
+      .finish();
+    response.update(RESOURCE_RANGE_ID, range)?;
+  }
+  response.label(RANGE_MIN_LABEL_ID, &format!("MIN · {min:.0}%"))?;
+  response.label(RANGE_MAX_LABEL_ID, &format!("MAX · {max:.0}%"))?;
+  response.label(
+    RANGE_STATUS_ID,
+    &format!("{prefix}  reserve {min:.0}-{max:.0}%"),
+  )?;
+  Ok(true)
 }
 
 fn range_card() -> UiNode {

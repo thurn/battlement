@@ -5,6 +5,38 @@ use crate::{
   FilterFunction, FilterList, Gradient, GradientStop, Length, Shadow, TransformOperation,
 };
 
+/// A closed discrete Motion value; arbitrary JSON is not part of the protocol.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum MotionDiscreteValue {
+  /// The absence of a discrete value.
+  Null,
+  /// One UTF-8 string value.
+  String(String),
+}
+
+impl MotionDiscreteValue {
+  /// Returns the string value, if this is not `Null`.
+  #[must_use]
+  pub fn as_str(&self) -> Option<&str> {
+    match self {
+      Self::Null => None,
+      Self::String(value) => Some(value),
+    }
+  }
+}
+
+impl From<String> for MotionDiscreteValue {
+  fn from(value: String) -> Self {
+    Self::String(value)
+  }
+}
+
+impl From<&str> for MotionDiscreteValue {
+  fn from(value: &str) -> Self {
+    Self::String(value.to_owned())
+  }
+}
+
 /// Every normalized value shape accepted by [`MotionProperty`](crate::MotionProperty).
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum MotionValue {
@@ -33,7 +65,7 @@ pub enum MotionValue {
   /// Ordered polygon vertices.
   ClipPolygon(Vec<[Length; 2]>),
   /// A catalog-declared discrete protocol value.
-  Discrete(serde_json::Value),
+  Discrete(MotionDiscreteValue),
 }
 
 impl MotionValue {

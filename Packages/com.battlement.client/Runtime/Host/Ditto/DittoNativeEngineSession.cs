@@ -60,7 +60,7 @@ namespace Battlement
             }
         }
 
-        public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
+        public BattlementTransportResult Connect(Connect value)
         {
             if (IsDestroyed)
             {
@@ -72,7 +72,7 @@ namespace Battlement
             }
 
             connected = true;
-            return transport.ConnectDittoEngine(json);
+            return transport.ConnectDittoEngine(value);
         }
 
         public BattlementTransportResult Destroy()

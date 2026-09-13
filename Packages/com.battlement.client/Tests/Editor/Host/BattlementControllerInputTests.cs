@@ -2,7 +2,6 @@
 
 using System;
 using System.Linq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -170,9 +169,10 @@ namespace Battlement.Tests
                         ?? new ControllerInputSettings(new[] { ControllerButton.South })
                 )
             );
-            harness.Transport.DefaultSubmitResult = FakeBattlementTransport.ResponseResult(
-                new Response(session, Array.Empty<ResponseMessage<Command>>())
-            );
+            harness.Transport.DefaultSubmitResult = () =>
+                FakeBattlementTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
             harness.Runner.Connect();
             harness.Runner.RunFrame();
             return harness;
@@ -212,25 +212,6 @@ namespace Battlement.Tests
         }
 
         private static Action[] Actions(BattlementTestHarness harness) =>
-            harness
-                .Transport.SubmitMessages.Select(TryDeserializeAction)
-                .OfType<Action>()
-                .ToArray();
-
-        private static Action? TryDeserializeAction(byte[] bytes)
-        {
-            try
-            {
-                ClientMessage<CoreErrorCode, byte> message =
-                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
-                return message is ClientMessage<CoreErrorCode, byte>.ActionMessage action
-                    ? action.Action
-                    : null;
-            }
-            catch (JsonSerializationException)
-            {
-                return null;
-            }
-        }
+            harness.Transport.Actions.ToArray();
     }
 }

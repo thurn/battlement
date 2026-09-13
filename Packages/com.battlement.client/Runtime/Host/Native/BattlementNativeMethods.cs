@@ -5,24 +5,44 @@ using System.Runtime.InteropServices;
 
 namespace Battlement
 {
-    [StructLayout(LayoutKind.Sequential)]
     internal readonly struct BattlementNativeBuffer
     {
+        internal readonly ulong Handle;
         internal readonly IntPtr Data;
         internal readonly ulong Length;
+        internal readonly ulong AllocationBytes;
 
-        internal BattlementNativeBuffer(IntPtr data, ulong length) =>
-            (Data, Length) = (data, length);
+        internal BattlementNativeBuffer(
+            ulong handle,
+            IntPtr data,
+            ulong length,
+            ulong allocationBytes
+        ) => (Handle, Data, Length, AllocationBytes) = (handle, data, length, allocationBytes);
 
-        internal string? ValidateShape(ulong maximumBytes)
+        internal string? ValidateShape(ulong maximumBytes) =>
+            ValidateShape(maximumBytes, maximumBytes);
+
+        internal string? ValidateShape(ulong maximumMessageBytes, ulong maximumAllocationBytes)
         {
-            if ((Data == IntPtr.Zero) != (Length == 0))
+            if (Handle == 0)
             {
-                return "Native output did not use the required {NULL,0} empty representation.";
+                return Data == IntPtr.Zero && Length == 0 && AllocationBytes == 0
+                    ? null
+                    : "Native empty output carried nonempty buffer metadata.";
             }
-
-            return Length > maximumBytes
-                ? $"Native output exceeded the {maximumBytes}-byte limit."
+            if (Data == IntPtr.Zero || Length == 0)
+            {
+                return "Native output handle did not describe a nonempty finished range.";
+            }
+            if (Length > AllocationBytes)
+            {
+                return "Native output length exceeded its allocation size.";
+            }
+            if (Length > maximumMessageBytes)
+                return $"Native output exceeded the {maximumMessageBytes}-byte limit "
+                    + "for a message.";
+            return AllocationBytes > maximumAllocationBytes
+                ? $"Native output exceeded the {maximumAllocationBytes}-byte allocation limit."
                 : null;
         }
     }
@@ -42,53 +62,62 @@ namespace Battlement
         internal static extern IntPtr battlement_wire_contract_digest();
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_engine_create(
-            out IntPtr engine,
-            out BattlementNativeBuffer error
-        );
+        internal static extern int battlement_engine_create(out ulong engine, out ulong error);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_engine_destroy(
-            IntPtr engine,
-            out BattlementNativeBuffer error
-        );
+        internal static extern int battlement_engine_destroy(ulong engine, out ulong error);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_connect(
-            IntPtr engine,
-            [In] byte[] json,
+            ulong engine,
+            IntPtr input,
             ulong length,
-            out BattlementNativeBuffer output
+            out ulong output
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_submit(
-            IntPtr engine,
-            [In] byte[] json,
+            ulong engine,
+            IntPtr input,
             ulong length,
-            out BattlementNativeBuffer output
+            out ulong output
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_submit_ui_event(
-            IntPtr engine,
-            [In] byte[] json,
+            ulong engine,
+            IntPtr input,
             ulong length,
             out uint disposition,
-            out BattlementNativeBuffer output
+            out ulong output
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_poll(
-            IntPtr engine,
-            out BattlementNativeBuffer output
+        internal static extern int battlement_poll(ulong engine, out ulong output);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_buffer_info(
+            ulong buffer,
+            out IntPtr data,
+            out ulong length,
+            out ulong allocationBytes
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void battlement_buffer_free(BattlementNativeBuffer buffer);
+        internal static extern int battlement_release_buffer(ulong buffer);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_logging_drain(out BattlementNativeBuffer records);
+        internal static extern int battlement_transport_diagnostics(
+            out ulong buildersCreated,
+            out ulong buildersReused,
+            out ulong builderGrowths,
+            out ulong builderCopiedBytes,
+            out ulong idleBuilderBytes,
+            out ulong handoffPayloadCopies
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_logging_drain(out ulong records);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern uint battlement_ditto_determinism_contract();

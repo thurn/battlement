@@ -2,8 +2,11 @@ use battlement::{
   Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiTab,
   UiTabView, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView};
 
-use crate::{asset_catalog::ui::assets, design_system, tab_styles};
+use crate::{
+  asset_catalog::ui::assets, design_system, native_ui::NativeUiResponseBuilder, tab_styles,
+};
 
 const VIEW_ID: ObjectId = object_id!("aa1bd60d-71e5-4f3a-a7ba-13f456621b9c");
 const BOARD_ID: ObjectId = object_id!("e7491a26-c97e-4668-9b72-0aba2f8920c1");
@@ -121,6 +124,62 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     ]),
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  if target_id != VIEW_ID {
+    return Ok(false);
+  }
+  match event.event_kind() {
+    UiEventKind::TabSelectionRequested => {
+      let Some(value) = event.tab_selection() else {
+        return Ok(false);
+      };
+      let element = response
+        .writer()
+        .tab_view_builder()
+        .selected_tab_index(value.proposed_index)
+        .finish();
+      response.update(VIEW_ID, element)?;
+      response.label(
+        STATUS_ID,
+        &format!("Selected tab {}", value.proposed_index + 1),
+      )?;
+    }
+    UiEventKind::TabReorderRequested => {
+      let Some(value) = event.tab_reorder() else {
+        return Ok(false);
+      };
+      let tab_id = ObjectId::from_bytes(value.tab_id).expect("validated tab UUID");
+      response.index(tab_id, value.proposed_index)?;
+      response.label(
+        STATUS_ID,
+        &format!(
+          "Reordered {} → {}",
+          value.previous_index + 1,
+          value.proposed_index + 1
+        ),
+      )?;
+    }
+    UiEventKind::TabCloseRequested => {
+      let Some(value) = event.tab_close() else {
+        return Ok(false);
+      };
+      let tab_id = ObjectId::from_bytes(value.tab_id).expect("validated tab UUID");
+      if tab_id == BOARD_ID {
+        response.label(STATUS_ID, "Rejected close | BOARD is pinned")?;
+      } else {
+        response.destroy(tab_id)?;
+        response.label(STATUS_ID, "Closed | 4 tabs remain")?;
+      }
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 fn tab(object_id: ObjectId, label: &str, heading: &str, detail: &str) -> UiNode {

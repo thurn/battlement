@@ -1,9 +1,8 @@
 #nullable enable
 
 using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
+using Wire = Battlement.FlatBuffers.FixtureGenerated;
 
 namespace Battlement.CustomFixtures
 {
@@ -30,84 +29,12 @@ namespace Battlement.CustomFixtures
         Reject,
         Track,
         EmitNestedAction,
+        EmitNestedActionAndReject,
     }
 
-    public sealed class FlashPayloadFormatter : JsonConverter<FlashPayload>
-    {
-        public override void WriteJson(
-            JsonWriter writer,
-            FlashPayload? value,
-            JsonSerializer serializer
-        )
-        {
-            if (value is null)
-            {
-                throw new JsonSerializationException("A flash payload cannot be null.");
-            }
-
-            writer.WriteStartArray();
-            writer.WriteValue(value.ObjectId.Value.ToString());
-            writer.WriteValue(value.Scale);
-            writer.WriteEndArray();
-        }
-
-        public override FlashPayload ReadJson(
-            JsonReader reader,
-            Type objectType,
-            FlashPayload? existingValue,
-            bool hasExistingValue,
-            JsonSerializer serializer
-        )
-        {
-            JArray values = JArray.Load(reader);
-            if (
-                values.Count != 2
-                || !Guid.TryParse(values[0]?.Value<string>(), out Guid objectId)
-                || objectId == Guid.Empty
-            )
-            {
-                throw new JsonSerializationException("Expected a flash payload pair.");
-            }
-
-            return new FlashPayload(new ObjectId(objectId), values[1]!.Value<float>());
-        }
-    }
-
-    public sealed class FixtureErrorFormatter : JsonConverter<FixtureError>
-    {
-        public override void WriteJson(
-            JsonWriter writer,
-            FixtureError value,
-            JsonSerializer serializer
-        ) => writer.WriteValue(value.ToString());
-
-        public override FixtureError ReadJson(
-            JsonReader reader,
-            Type objectType,
-            FixtureError existingValue,
-            bool hasExistingValue,
-            JsonSerializer serializer
-        ) => Enum.Parse<FixtureError>(reader.Value?.ToString() ?? string.Empty);
-    }
-
-    public sealed class RejectingFlashPayloadFormatter : JsonConverter<FlashPayload>
-    {
-        public override void WriteJson(
-            JsonWriter writer,
-            FlashPayload? value,
-            JsonSerializer serializer
-        ) => new FlashPayloadFormatter().WriteJson(writer, value, serializer);
-
-        public override FlashPayload ReadJson(
-            JsonReader reader,
-            Type objectType,
-            FlashPayload? existingValue,
-            bool hasExistingValue,
-            JsonSerializer serializer
-        ) => throw new JsonSerializationException("fixture payload rejected");
-    }
-
-    public sealed class FixtureHandler : IBattlementCommandHandler<FlashPayload>
+    public sealed class FixtureHandler
+        : IBattlementCommandHandler<FlashPayload>,
+            IBattlementFlatBufferCommandHandler<Wire.FlashPayload>
     {
         private readonly BattlementRunner? runner;
 
@@ -126,8 +53,31 @@ namespace Battlement.CustomFixtures
 
         public FixtureOperation? Operation { get; private set; }
 
+        public Wire.FlashPayload? LastFlatBufferPayload { get; private set; }
+
         public IBattlementCommandOperation? Execute(
             CustomCommand<FlashPayload> command,
+            BattlementCommandContext context
+        ) => Execute(command.Payload.ObjectId, command.Payload.Scale, context);
+
+        public IBattlementCommandOperation? Execute(
+            BattlementFlatBufferCommand<Wire.FlashPayload> command,
+            BattlementCommandContext context
+        )
+        {
+            LastFlatBufferPayload = command.Payload;
+            return Execute(
+                new ObjectId(
+                    BattlementFlatBufferCore.ReadUuid(command.Payload.ObjectId, "flash object")
+                ),
+                command.Payload.Scale,
+                context
+            );
+        }
+
+        private IBattlementCommandOperation? Execute(
+            ObjectId objectId,
+            float scale,
             BattlementCommandContext context
         )
         {
@@ -147,25 +97,29 @@ namespace Battlement.CustomFixtures
                     );
                 case FixtureHandlerMode.Track:
                     Operation = new FixtureOperation(context);
-                    return context.ForObject(
-                        command.Payload.ObjectId,
-                        Operation,
-                        controlsTransform: true
-                    );
+                    return context.ForObject(objectId, Operation, controlsTransform: true);
                 case FixtureHandlerMode.EmitNestedAction:
                     runner!.EmitCustomAction(
                         "fixture.flash.completed",
-                        command.Payload,
-                        new FlashPayloadFormatter()
+                        new FlashPayload(objectId, scale)
                     );
                     break;
+                case FixtureHandlerMode.EmitNestedActionAndReject:
+                    runner!.EmitCustomAction(
+                        "fixture.flash.completed",
+                        new FlashPayload(objectId, scale)
+                    );
+                    throw new BattlementCommandFailureException<FixtureError>(
+                        FixtureError.Rejected,
+                        "fixture command rejected"
+                    );
                 default:
                     throw new ArgumentOutOfRangeException(nameof(Mode));
             }
 
-            if (context.Objects.TryGetObject(command.Payload.ObjectId, out GameObject? target))
+            if (context.Objects.TryGetObject(objectId, out GameObject? target))
             {
-                target!.transform.localScale = UnityEngine.Vector3.one * command.Payload.Scale;
+                target!.transform.localScale = UnityEngine.Vector3.one * scale;
             }
 
             return null;

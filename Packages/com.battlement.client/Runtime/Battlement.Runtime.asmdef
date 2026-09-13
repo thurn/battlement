@@ -2,13 +2,16 @@
   "name": "Battlement.Runtime",
   "rootNamespace": "Battlement",
   "references": [
+    "Battlement.FlatBuffers",
     "Battlement.Protocol",
     "Battlement.UI",
+    "Google.FlatBuffers",
     "Newtonsoft.Json",
     "PrimeTween.Runtime",
     "Unity.Addressables",
     "Unity.InputSystem",
     "Unity.ResourceManager",
     "Unity.TextMeshPro"
-  ]
+  ],
+  "allowUnsafeCode": true
 }

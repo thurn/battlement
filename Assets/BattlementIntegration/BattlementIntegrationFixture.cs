@@ -2,9 +2,11 @@
 
 using System;
 using System.Linq;
+using Battlement.CustomFixtures;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using FixtureWire = Battlement.FlatBuffers.FixtureGenerated;
 
 namespace Battlement.Integration
 {
@@ -36,6 +38,7 @@ namespace Battlement.Integration
         private bool began;
         private bool passed;
         private string failure = string.Empty;
+        private FixtureFlatBufferResponseSchema? responseSchema;
 
         /// <summary>Whether the Rust snapshot is rendered and ready for the click.</summary>
         public bool IsReadyForClick { get; private set; }
@@ -45,6 +48,12 @@ namespace Battlement.Integration
 
         /// <summary>Gets the terminal failure diagnostic, if any.</summary>
         public string Failure => failure;
+
+        /// <summary>
+        /// Number of returned core commands expanded into owned protocol objects.
+        /// </summary>
+        public int OwnedCoreCommandMaterializations =>
+            responseSchema?.OwnedCoreCommandMaterializations ?? 0;
 
         /// <summary>Gets the click target supplied by the Rust snapshot.</summary>
         public GameObject? ClickTarget
@@ -67,19 +76,19 @@ namespace Battlement.Integration
             began = true;
             startedAt = Time.realtimeSinceStartup;
             handler = new IntegrationFixtureHandler();
+            responseSchema = new FixtureFlatBufferResponseSchema();
             runner.Configure(
                 new BattlementRunnerOptions(
                     new BattlementNativeTransport(),
                     new BattlementAddressablesAssetStorage(),
-                    BattlementJson.Instance,
-                    customCommandTypes: new[] { CustomCommandType }
+                    customCommandTypes: new[] { CustomCommandType },
+                    flatBufferResponseSchema: responseSchema,
+                    flatBufferClientSchema: responseSchema
                 )
             );
-            runner.RegisterCommand(
+            runner.RegisterFlatBufferCommand<FixtureWire.FlashPayload, IntegrationFixtureError>(
                 CustomCommandType,
-                handler,
-                new IntegrationFixturePayloadFormatter(),
-                new IntegrationFixtureErrorFormatter()
+                handler
             );
             runner.Connect();
         }

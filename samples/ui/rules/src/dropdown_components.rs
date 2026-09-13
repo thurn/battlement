@@ -2,8 +2,9 @@ use battlement::{
   Command, ObjectId, UiBox, UiButton, UiDropdownField, UiElement, UiEvent, UiEventBody,
   UiEventKind, UiLabel, UiNode, UiValue, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{design_system, dropdown_styles};
+use crate::{design_system, dropdown_styles, native_ui::NativeUiResponseBuilder};
 
 pub(crate) const THEME_ID: ObjectId = object_id!("ae31830c-672e-4e99-b409-02ba8383d452");
 pub(crate) const LOADOUT_ID: ObjectId = object_id!("2d5a2b47-1e52-45c2-b454-a178157133f0");
@@ -102,6 +103,88 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     ]),
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  if target_id == CLEAR_ID && event.event_kind() == UiEventKind::Click {
+    let dropdown = response
+      .writer()
+      .dropdown_field_builder()
+      .selection(None, None)
+      .finish();
+    response.update(LOADOUT_ID, dropdown)?;
+    response.label(LOADOUT_SUMMARY_ID, "CLEARED · no selected index or value")?;
+    response.label(STATUS_ID, "LOADOUT · cleared by Rust")?;
+    response.label(HISTORY_ID, "CLEARED  SCOUT → NONE  |  (none, none)")?;
+    let button = response
+      .writer()
+      .button_builder()
+      .text("Loadout cleared")
+      .enabled(false)
+      .finish();
+    response.update(CLEAR_ID, button)?;
+    return Ok(true);
+  }
+  if event.event_kind() != UiEventKind::ValueCommitted {
+    return Ok(false);
+  }
+  let Some(commit) = event.value_commit() else {
+    return Ok(false);
+  };
+  let (UiValueView::Choice(previous), UiValueView::Choice(proposed)) =
+    (commit.previous(), commit.proposed())
+  else {
+    return Ok(false);
+  };
+  match target_id {
+    THEME_ID => {
+      let (Some(index), Some(value)) = (proposed.index(), proposed.value()) else {
+        return Ok(false);
+      };
+      let dropdown = response
+        .writer()
+        .dropdown_field_builder()
+        .selection(Some(index), Some(value))
+        .finish();
+      response.update(THEME_ID, dropdown)?;
+      response.label(
+        THEME_SUMMARY_ID,
+        &format!("COMMITTED · {value} (index {index})"),
+      )?;
+      response.label(STATUS_ID, &format!("THEME · {value} committed"))?;
+      response.label(
+        HISTORY_ID,
+        &format!(
+          "ACCEPTED  {} → {value}  |  matching index + value",
+          value_or_none(previous.value())
+        ),
+      )?;
+    }
+    LOADOUT_ID => {
+      response.label(
+        STATUS_ID,
+        &format!(
+          "REJECTED · {} remains uncommitted",
+          value_or_none(proposed.value())
+        ),
+      )?;
+      response.label(LOADOUT_SUMMARY_ID, "COMMITTED · SCOUT (index 0)")?;
+      response.label(
+        HISTORY_ID,
+        &format!(
+          "REJECTED  {} → {}  |  native proposal rolled back",
+          value_or_none(previous.value()),
+          value_or_none(proposed.value())
+        ),
+      )?;
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 fn theme_card() -> UiNode {

@@ -14,6 +14,7 @@ use battlement::{
   GeometryObservationBatch, MotionEventBatch, MotionSequence, ObjectId, UiDocument, UiEvent,
   UiEventDisposition,
 };
+use battlement_flatbuffers::{RetainedUiBudget, RetainedUiSnapshot};
 use trox::{Bundle, Localizer, SourceLocale};
 
 use crate::{
@@ -120,6 +121,7 @@ impl ReactantEventResult {
 pub struct SessionUi<'a> {
   pub(crate) runtime: &'a mut dyn SessionRuntime,
   pub(crate) documents: Vec<UiDocument>,
+  pub(crate) retained_ui: Option<Vec<Rc<RetainedUiSnapshot>>>,
   pub(crate) committed: Vec<RenderTree>,
   pub(crate) external: Option<SessionExternal>,
   pub(crate) resource_completions: Option<FrozenCompletions>,
@@ -145,6 +147,8 @@ pub struct Reactant<G: 'static> {
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
   committed_portals: Option<portal::PortalLayout>,
+  retained_ui_budget: RetainedUiBudget,
+  retained_ui: Vec<Rc<RetainedUiSnapshot>>,
   last_motion_sequence: Option<MotionSequence>,
   semantic_commit_sequence: u64,
   last_accessibility: Option<AccessibilitySnapshot>,
@@ -173,6 +177,8 @@ impl<G: 'static> Reactant<G> {
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
       committed_portals: None,
+      retained_ui_budget: RetainedUiBudget::default(),
+      retained_ui: Vec::new(),
       last_motion_sequence: None,
       semantic_commit_sequence: 0,
       last_accessibility: None,
@@ -181,6 +187,12 @@ impl<G: 'static> Reactant<G> {
       ),
       resources: ResourceRuntime::new(spawner),
     }
+  }
+
+  /// Returns the allocation capacity of all live immutable UI declaration arenas.
+  #[must_use]
+  pub fn retained_ui_allocation_bytes(&self) -> usize {
+    self.retained_ui_budget.allocated_bytes()
   }
 
   /// Configures source-language resolution while registration is open.
@@ -292,6 +304,7 @@ impl<G: 'static> Reactant<G> {
     Ok(SessionUi {
       runtime: self,
       documents: planned.documents,
+      retained_ui: Some(planned.retained_ui),
       committed: planned.committed,
       external: Some(planned.external),
       resource_completions: Some(planned.resource_completions),
@@ -370,7 +383,8 @@ impl<G: 'static> Reactant<G> {
           .iter()
           .zip(&desired.roots)
           .map(|(root, physical)| runtime_document::render(&root.document, physical))
-          .collect();
+          .collect::<Vec<_>>();
+        let retained_ui = self.build_retained_layout(&documents, &desired, &bindings)?;
         let mut geometry_targets = Vec::new();
         for tree in &rendered {
           tree.geometry_targets(&mut geometry_targets);
@@ -383,12 +397,13 @@ impl<G: 'static> Reactant<G> {
         Ok((
           rendered,
           documents,
+          retained_ui,
           desired.externals,
           attachments,
           geometry,
         ))
       }));
-      let (committed, documents, externals, attachments, geometry) = match rendered {
+      let (committed, documents, retained_ui, externals, attachments, geometry) = match rendered {
         Ok(Ok(value)) => value,
         Ok(Err(error)) => return Err(error),
         Err(payload) => panic::resume_unwind(payload),
@@ -400,6 +415,7 @@ impl<G: 'static> Reactant<G> {
       }
       return Ok(PlannedSession {
         documents,
+        retained_ui,
         committed,
         external: SessionExternal::new(bindings, externals),
         resource_completions: resources.take(),
@@ -459,6 +475,55 @@ impl<G: 'static> Reactant<G> {
     })
   }
 
+  /// Dispatches a verified borrowed UI event without reconstructing its callback payload.
+  pub fn dispatch_view(
+    &mut self,
+    game: &mut G,
+    action: battlement_native::UiEventActionView<'_>,
+  ) -> Result<ReactantEventResult, RenderError> {
+    self.require_active();
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      let dispatch = event_dispatch::dispatch_view(
+        runtime.runtime_id,
+        &runtime
+          .roots
+          .iter()
+          .map(|root| &root.committed)
+          .collect::<Vec<_>>(),
+        game,
+        action,
+      );
+      let dispatch_dirty = dispatch.invoked || reported || geometry_effected;
+      let runtime_dirty = runtime.geometry.borrow().dirty() || runtime.pending_hooks_changed();
+      let commit = if dispatch_dirty || runtime_dirty {
+        if dispatch.local_invalidation
+          && !reported
+          && !geometry_effected
+          && !runtime.geometry.borrow().dirty()
+          && runtime.pending_hooks_changed()
+        {
+          runtime.render_local_state(game)?
+        } else {
+          runtime.render(game, None)?
+        }
+      } else {
+        runtime.commit_pending_actions()
+      };
+      Ok(ReactantEventResult {
+        disposition: dispatch.disposition,
+        prevented_by_reactant: dispatch.prevented_by_reactant,
+        commit,
+      })
+    })
+  }
+
   /// Installs one complete geometry generation while active.
   pub fn observe_geometry(
     &mut self,
@@ -474,6 +539,41 @@ impl<G: 'static> Reactant<G> {
         .geometry
         .borrow_mut()
         .accept(&batch)
+        .expect("Reactant received an invalid geometry generation");
+      let resources = runtime.freeze_resources();
+      let resources_changed = resources.changed();
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
+        return runtime.render(game, Some(resources));
+      }
+      if runtime.pending_hooks_changed() {
+        runtime.render(game, Some(resources))
+      } else {
+        let mut resources = resources;
+        runtime.apply_resources_transaction(&mut resources);
+        Ok(runtime.commit_pending_actions())
+      }
+    })
+  }
+
+  /// Installs a verified native geometry generation, retaining only registry-owned values.
+  pub fn observe_geometry_view(
+    &mut self,
+    game: &mut G,
+    batch: battlement_native::GeometryObservationBatchView<'_>,
+  ) -> Result<ReactantCommit, RenderError> {
+    self.require_active();
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime
+        .geometry
+        .borrow_mut()
+        .accept_view(batch)
         .expect("Reactant received an invalid geometry generation");
       let resources = runtime.freeze_resources();
       let resources_changed = resources.changed();
@@ -548,6 +648,69 @@ impl<G: 'static> Reactant<G> {
     })
   }
 
+  /// Applies a verified native Motion batch without materializing its outer record graph.
+  pub fn motion_events_view(
+    &mut self,
+    game: &mut G,
+    batch: battlement_native::MotionEventBatchView<'_>,
+  ) -> Result<ReactantCommit, RenderError> {
+    self.require_active();
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      if let Some(previous) = runtime.last_motion_sequence
+        && batch.lifecycle_count() != 0
+      {
+        assert!(
+          batch.first_sequence() > previous.0,
+          "Motion event batch sequence is stale"
+        );
+      }
+      let mut changed = false;
+      for event in batch.lifecycle_events() {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_event(game, &event);
+          changed |= root.committed.apply_motion_event(&event);
+        }
+      }
+      for sample in batch.presentation_samples() {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_sample(game, &sample);
+        }
+      }
+      for event in batch.gesture_events() {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_gesture(game, &event);
+        }
+      }
+      let value_samples = batch.value_samples().collect::<Vec<_>>();
+      changed |= runtime
+        .motion_values
+        .borrow_mut()
+        .apply_samples(&value_samples);
+      let playback_events = batch.playback_events().collect::<Vec<_>>();
+      let playback_invocations = runtime
+        .motion_values
+        .borrow_mut()
+        .take_playback_events(&playback_events);
+      for invocation in playback_invocations {
+        changed |= invocation.invoke();
+      }
+      if batch.lifecycle_count() != 0 {
+        runtime.last_motion_sequence = Some(battlement::MotionSequence(batch.last_sequence()));
+      }
+      if changed
+        || runtime.pending_hooks_changed()
+        || runtime_motion::has_ready_presence(&runtime.roots)
+      {
+        runtime.render(game, None)
+      } else {
+        Ok(runtime.commit_pending_actions())
+      }
+    })
+  }
+
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
@@ -572,6 +735,37 @@ impl<G: 'static> Reactant<G> {
     runtime_motion::invoke_ready_presence(&mut self.roots, game);
     let rendered_generation = self.geometry.borrow().generation;
     self.render_geometry(game, rendered_generation, 0, resources, None, None)
+  }
+
+  fn build_retained_layout(
+    &self,
+    documents: &[UiDocument],
+    layout: &portal::PortalLayout,
+    bindings: &[(PortalTarget, ObjectId)],
+  ) -> Result<Vec<Rc<RetainedUiSnapshot>>, RenderError> {
+    let mut snapshots = Vec::with_capacity(documents.len() + layout.externals.len());
+    for document in documents {
+      snapshots.push(Rc::new(
+        RetainedUiSnapshot::build_document_in(&self.retained_ui_budget, document)
+          .map_err(|error| RenderError::message(error.to_string()))?,
+      ));
+    }
+    for (target, root) in &layout.externals {
+      let container_id = bindings
+        .iter()
+        .find_map(|(candidate, object_id)| (candidate == target).then_some(*object_id))
+        .expect("every retained external portal has a bound container");
+      snapshots.push(Rc::new(
+        RetainedUiSnapshot::build_in(
+          &self.retained_ui_budget,
+          container_id,
+          container_id,
+          &root.hosts,
+        )
+        .map_err(|error| RenderError::message(error.to_string()))?,
+      ));
+    }
+    Ok(snapshots)
   }
 
   fn render_local_state(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
@@ -706,11 +900,27 @@ impl<G: 'static> Reactant<G> {
         .collect::<Vec<_>>();
       battlement::validate_documents(&documents)
         .expect("Reactant rendered an invalid UI hierarchy");
+      let retained_ui = self.build_retained_layout(&documents, &desired, &bindings)?;
+      let unchanged_roots = retained_ui
+        .iter()
+        .take(documents.len())
+        .enumerate()
+        .map(|(index, desired)| {
+          self
+            .retained_ui
+            .get(index)
+            .is_some_and(|previous| previous.same_declaration(desired))
+        })
+        .collect::<Vec<_>>();
       let groups = self
         .roots
         .iter()
         .zip(previous.roots.iter().zip(&desired.roots))
-        .map(|(root, (previous, desired))| {
+        .enumerate()
+        .map(|(index, (root, (previous, desired)))| {
+          if unchanged_roots[index] {
+            return Vec::new();
+          }
           let groups =
             reconcile::command_groups(root.document.root_id, &previous.hosts, &desired.hosts);
           runtime_document::with_coverage_barrier(root.document.root_id, previous, desired, groups)
@@ -762,7 +972,8 @@ impl<G: 'static> Reactant<G> {
         geometry,
         semantic_snapshot,
         accessibility_changed,
-        desired,
+        retained_ui,
+        unchanged_roots,
       ))
     }));
     let (
@@ -772,7 +983,8 @@ impl<G: 'static> Reactant<G> {
       geometry,
       semantic_snapshot,
       accessibility_changed,
-      desired,
+      mut retained_ui,
+      unchanged_roots,
     ) = match planned {
       Ok(Ok(value)) => value,
       Ok(Err(error)) => {
@@ -831,7 +1043,16 @@ impl<G: 'static> Reactant<G> {
       },
       local_transactions.as_deref_mut(),
     );
-    self.committed_portals = Some(desired);
+    for (index, unchanged) in unchanged_roots.into_iter().enumerate() {
+      if unchanged {
+        retained_ui[index] = Rc::clone(&self.retained_ui[index]);
+      }
+    }
+    self.retained_ui = retained_ui;
+    // The verified retained arenas own the committed physical declaration.
+    // Portal layouts are render-transaction scratch and must not keep a second
+    // owned `UiNode` forest alive between entries.
+    self.committed_portals = None;
     if accessibility_changed {
       self.semantic_commit_sequence += 1;
       self.last_accessibility = next_accessibility;
@@ -914,6 +1135,7 @@ impl<G: 'static> Reactant<G> {
       for root in &mut self.roots {
         root.committed = RenderTree::default();
       }
+      self.retained_ui.clear();
       if let Some(geometry) = geometry {
         self.geometry.borrow_mut().commit(geometry);
       }
@@ -1262,9 +1484,11 @@ fn same_accessibility(previous: &AccessibilitySnapshot, current: &AccessibilityS
 }
 
 pub(crate) trait SessionRuntime {
+  #[allow(clippy::too_many_arguments)]
   fn commit_session(
     &mut self,
     committed: &mut [RenderTree],
+    retained_ui: Vec<Rc<RetainedUiSnapshot>>,
     external: PreparedExternal,
     resource_completions: FrozenCompletions,
     attachments: AttachmentSet,
@@ -1278,6 +1502,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
   fn commit_session(
     &mut self,
     committed: &mut [RenderTree],
+    retained_ui: Vec<Rc<RetainedUiSnapshot>>,
     external: PreparedExternal,
     resource_completions: FrozenCompletions,
     attachments: AttachmentSet,
@@ -1297,6 +1522,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
         self.semantic_commit_sequence + 1,
       );
       self.install_rendered(committed, attachments, true, None);
+      self.retained_ui = retained_ui;
       self.committed_portals = None;
       self
         .element_refs

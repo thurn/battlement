@@ -33,6 +33,10 @@ namespace Battlement
             };
         }
 
+        /// <summary>Validates direct metadata fields without constructing a command.</summary>
+        public static CoreErrorCode? Validate(string key, string? value) =>
+            !ValidKey(key) || !ValidValue(value) ? CoreErrorCode.DiagnosticsMetadataInvalid : null;
+
         private static bool ValidKey(string? key)
         {
             if (

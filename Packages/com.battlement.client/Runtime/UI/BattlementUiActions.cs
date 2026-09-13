@@ -58,6 +58,42 @@ namespace Battlement.UI
             }
         }
 
+        internal void Perform(BattlementDirectVisualElementAction command)
+        {
+            VisualElement target = require(command.ObjectId);
+            switch (command.Kind)
+            {
+                case BattlementDirectVisualElementActionKind.ParticleStreaks:
+                    particles.Restart(target, command.Streaks ?? Array.Empty<UiParticleStreak>());
+                    break;
+                case BattlementDirectVisualElementActionKind.Focus:
+                    Focus(target);
+                    break;
+                case BattlementDirectVisualElementActionKind.Blur:
+                    Blur(target);
+                    break;
+                case BattlementDirectVisualElementActionKind.CapturePointer:
+                    Capture(target, command.ObjectId, command.PointerId);
+                    break;
+                case BattlementDirectVisualElementActionKind.ReleasePointer:
+                    Release(target, command.ObjectId, command.PointerId);
+                    break;
+                case BattlementDirectVisualElementActionKind.ScrollTo:
+                    ScrollTo(
+                        target,
+                        command.ObjectId,
+                        command.DescendantId
+                            ?? throw Failure("ScrollTo requires a descendant UUID.")
+                    );
+                    break;
+                case BattlementDirectVisualElementActionKind.SelectText:
+                    SelectText(target, command.CursorIndex, command.SelectionIndex);
+                    break;
+                default:
+                    throw Failure("The UI action is unsupported by this executor.");
+            }
+        }
+
         public void Remove(ObjectId objectId, VisualElement target)
         {
             particles.Remove(target);

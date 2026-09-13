@@ -283,6 +283,42 @@ impl PaintLayer {
     self
   }
 
+  /// Returns this layer's required fill.
+  #[must_use]
+  pub const fn background_fill(&self) -> &PaintFill {
+    &self.background
+  }
+
+  /// Returns filters applied to this layer.
+  #[must_use]
+  pub const fn paint_filters(&self) -> Option<&FilterList> {
+    self.paint_filter.as_ref()
+  }
+
+  /// Returns this layer's optional clip polygon.
+  #[must_use]
+  pub fn clip_polygon_value(&self) -> Option<&[[Length; 2]]> {
+    self.clip_polygon.as_deref()
+  }
+
+  /// Returns this layer's optional shadows.
+  #[must_use]
+  pub fn box_shadows(&self) -> Option<&[Shadow]> {
+    self.box_shadow.as_deref()
+  }
+
+  /// Returns this layer's optional clip insets.
+  #[must_use]
+  pub const fn clip_insets(&self) -> Option<&[Length; 4]> {
+    self.clip_inset.as_ref()
+  }
+
+  /// Returns this layer's optional bounds insets.
+  #[must_use]
+  pub const fn bounds_insets(&self) -> Option<&[Length; 4]> {
+    self.bounds_inset.as_ref()
+  }
+
   fn is_valid(&self) -> bool {
     let background_valid = match &self.background {
       PaintFill::Color(value) => [value.r, value.g, value.b, value.a]
@@ -415,6 +451,30 @@ pub enum Gradient {
     /// Ordered normalized color stops.
     stops: Vec<GradientStop>,
   },
+}
+
+impl Gradient {
+  /// Returns a linear gradient's angle and stops.
+  #[must_use]
+  pub fn linear_value(&self) -> Option<(f32, &[GradientStop])> {
+    match self {
+      Self::Linear { angle, stops } => Some((*angle, stops)),
+      Self::Radial { .. } => None,
+    }
+  }
+
+  /// Returns a radial gradient's center, radius, and stops.
+  #[must_use]
+  pub fn radial_value(&self) -> Option<([f32; 2], [f32; 2], &[GradientStop])> {
+    match self {
+      Self::Radial {
+        center,
+        radius,
+        stops,
+      } => Some((*center, *radius, stops)),
+      Self::Linear { .. } => None,
+    }
+  }
 }
 
 impl TransformOperation {

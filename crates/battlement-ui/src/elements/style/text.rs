@@ -57,6 +57,15 @@ impl TextAutoSize {
   pub const fn best_fit(min_size: f32, max_size: f32) -> Self {
     Self::BestFit { min_size, max_size }
   }
+
+  /// Returns best-fit bounds, or `None` when automatic fitting is disabled.
+  #[must_use]
+  pub const fn bounds(self) -> Option<(f32, f32)> {
+    match self {
+      Self::None => None,
+      Self::BestFit { min_size, max_size } => Some((min_size, max_size)),
+    }
+  }
 }
 
 /// Text layout behavior when content exceeds the available width.

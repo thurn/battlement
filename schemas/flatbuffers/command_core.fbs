@@ -1,0 +1,275 @@
+include "client_message.fbs";
+include "world.fbs";
+
+namespace Battlement.FlatBuffers.Generated;
+
+enum ConflictPolicy:ubyte { Cancel, Wait }
+enum RepeatMode:ubyte { Restart, PingPong }
+enum TweenRepeatKind:ubyte { Once, Count, Forever }
+enum Easing:ubyte {
+  Linear, InSine, OutSine, InOutSine, InQuad, OutQuad, InOutQuad,
+  InCubic, OutCubic, InOutCubic, InQuart, OutQuart, InOutQuart,
+  InQuint, OutQuint, InOutQuint, InExpo, OutExpo, InOutExpo,
+  InCirc, OutCirc, InOutCirc, InBack, OutBack, InOutBack,
+  InElastic, OutElastic, InOutElastic, InBounce, OutBounce, InOutBounce
+}
+
+struct Tween {
+  delay_ms:ulong;
+  duration_ms:ulong;
+  easing:Easing;
+  repeat_kind:TweenRepeatKind;
+  repeat_count:uint;
+  repeat_mode:RepeatMode;
+}
+
+table ExternalUrlPayload { url:string (required); }
+table DiagnosticsPayload { key:string (required); value:string; }
+table ReplaceAssetSetPayload { assets:[PreparedAsset] (required); }
+table SceneLoadPayload { scene_id:Uuid (required); address:string (required); make_primary:bool; }
+table SceneIdPayload { scene_id:Uuid (required); }
+table ObjectCreatePayload { object:GameObject (required); }
+table ObjectIdPayload { object_id:Uuid (required); }
+table ObjectSetActivePayload { object_id:Uuid (required); active:bool; }
+table ObjectReparentPayload { object_id:Uuid (required); parent_id:Uuid; world_position_stays:bool; }
+
+table PositionPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  position:Vector3d (required);
+}
+
+table TweenPositionPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  position:Vector3d (required);
+  tween:Tween (required);
+}
+
+table RotationPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  rotation:Quaterniond (required);
+}
+
+table TweenRotationPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  rotation:Quaterniond (required);
+  tween:Tween (required);
+}
+
+table ScalePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  scale:Vector3d (required);
+}
+
+table TweenScalePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  scale:Vector3d (required);
+  tween:Tween (required);
+}
+
+table SetMaterialPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  address:string (required);
+  slot:uint = null;
+}
+
+table ObjectEnabledPayload { object_id:Uuid (required); enabled:bool; }
+
+table PerspectivePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  field_of_view:double;
+}
+
+table TweenFieldOfViewPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  field_of_view:double;
+  tween:Tween (required);
+}
+
+table OrthographicPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  size:double;
+}
+
+table TweenOrthographicSizePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  size:double;
+  tween:Tween (required);
+}
+
+table CameraClippingPayload { object_id:Uuid (required); near:double; far:double; }
+table CameraClearPayload { object_id:Uuid (required); clear_mode:CameraClearMode; clear_color:RgbaColor; }
+table LightTypePayload { object_id:Uuid (required); light_type:LightType; }
+
+table ColorPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  color:RgbaColor (required);
+}
+
+table TweenColorPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  color:RgbaColor (required);
+  tween:Tween (required);
+}
+
+table IntensityPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  intensity:double;
+}
+
+table TweenIntensityPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  intensity:double;
+  tween:Tween (required);
+}
+
+table LightRangePayload { object_id:Uuid (required); range:double; }
+table SpotAnglePayload { object_id:Uuid (required); outer_spot_angle:double; inner_spot_angle:double; }
+table LightShadowsPayload { object_id:Uuid (required); shadows:ShadowMode; }
+
+table SetTexturePayload { object_id:Uuid (required); address:string (required); }
+table SetFontPayload { object_id:Uuid (required); address:string (required); }
+table ImageSizePayload { object_id:Uuid (required); width:double; height:double; }
+table ImageFitPayload { object_id:Uuid (required); fit:ImageFit; }
+
+table TintPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  tint:RgbColor (required);
+}
+
+table TweenTintPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  tint:RgbColor (required);
+  tween:Tween (required);
+}
+
+table OpacityPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  opacity:double;
+}
+
+table TweenOpacityPayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  opacity:double;
+  tween:Tween (required);
+}
+
+table TextContentPayload { object_id:Uuid (required); content:string (required); }
+
+table TextSizePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  size:double;
+}
+
+table TweenTextSizePayload {
+  on_conflict:ConflictPolicy;
+  object_id:Uuid (required);
+  size:double;
+  tween:Tween (required);
+}
+
+table TextAlignmentPayload { object_id:Uuid (required); horizontal:HorizontalAlignment; vertical:VerticalAlignment; }
+table TextWrappingPayload { object_id:Uuid (required); wrap_width:double = null; }
+
+table AnimatorPlayPayload {
+  object_id:Uuid (required);
+  state:string (required);
+  layer:uint;
+  normalized_start_time:double;
+  wait_ms:ulong;
+}
+
+table AnimatorCrossFadePayload {
+  object_id:Uuid (required);
+  state:string (required);
+  layer:uint;
+  normalized_start_time:double;
+  wait_ms:ulong;
+  cross_fade_ms:ulong;
+}
+
+table AnimatorBoolPayload { object_id:Uuid (required); parameter:string (required); value:bool; }
+table AnimatorIntPayload { object_id:Uuid (required); parameter:string (required); value:int; }
+table AnimatorFloatPayload { object_id:Uuid (required); parameter:string (required); value:double; }
+table AnimatorParameterPayload { object_id:Uuid (required); parameter:string (required); }
+table AnimatorSpeedPayload { object_id:Uuid (required); speed:double; }
+
+table ParticlePlayPayload { object_id:Uuid (required); restart:bool; }
+table ParticleStopPayload { object_id:Uuid (required); clear:bool; }
+enum ParticleSpawnLocationKind:ubyte { GameObject, WorldPosition }
+table ParticleSpawnPayload {
+  address:string (required);
+  location_kind:ParticleSpawnLocationKind;
+  object_id:Uuid;
+  world_position:Vector3d;
+  lifetime_ms:ulong;
+}
+
+table AudioPlayPayload {
+  address:string (required);
+  volume:double = 1.0;
+  pitch:double = 1.0;
+  loop:bool;
+  fade_in_ms:ulong;
+}
+
+table AudioStopPayload { audio_command_id:Uuid (required); fade_out_ms:ulong; }
+table AudioPlaybackPayload { audio_command_id:Uuid (required); }
+table AudioSeekPayload { audio_command_id:Uuid (required); position_ms:ulong; }
+table AudioBufferingPayload { audio_command_id:Uuid (required); buffering:bool; }
+table AudioReplacePayload { audio_command_id:Uuid (required); address:string (required); }
+
+table AudioVolumePayload {
+  on_conflict:ConflictPolicy;
+  audio_command_id:Uuid (required);
+  volume:double;
+}
+
+table TweenAudioVolumePayload {
+  on_conflict:ConflictPolicy;
+  audio_command_id:Uuid (required);
+  volume:double;
+  tween:Tween (required);
+}
+
+table WaitPayload { duration_ms:ulong; }
+table CancelOperationPayload { command_id:Uuid (required); }
+table SetInputEnabledPayload { enabled:bool; }
+table PointerEventsPayload { object_id:Uuid (required); events:[PointerEventKind] (required); }
+table GlobalKeysPayload { keys:[PhysicalKey] (required); }
+
+table ControllerInputSettings {
+  buttons:[ControllerButton] (required);
+  navigation_enabled:bool = true;
+  stick_dead_zone:double = null;
+  repeat_delay_ms:ulong = null;
+  repeat_interval_ms:ulong = null;
+}
+
+table ControllerVibrationPayload {
+  low_frequency:double;
+  high_frequency:double;
+  duration_ms:ulong;
+}
+
+enum DebugUiSurface:ubyte { LogViewer, FpsViewer }
+table DebugUiPayload { surface:DebugUiSurface; visible:bool; }

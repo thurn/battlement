@@ -230,18 +230,23 @@ namespace Battlement
         public IReadOnlyDictionary<GeometryObservationId, GeometryObservationTarget> Targets =>
             targets;
 
-        public void Apply(GeometryObservationUpdate update)
+        public void Apply(GeometryObservationUpdate update) => Apply(update.Added, update.Removed);
+
+        internal void Apply(
+            IEnumerable<GeometryObservation> added,
+            IEnumerable<GeometryObservationId> removedValues
+        )
         {
             var next = new Dictionary<GeometryObservationId, GeometryObservationTarget>(targets);
             var removed = new HashSet<GeometryObservationId>();
-            foreach (GeometryObservationId id in update.Removed)
+            foreach (GeometryObservationId id in removedValues)
             {
                 if (!removed.Add(id))
                     throw new ArgumentException("A removed geometry observation ID is duplicated.");
                 if (!next.Remove(id))
                     throw new ArgumentException("A removed geometry observation is unknown.");
             }
-            foreach (GeometryObservation observation in update.Added)
+            foreach (GeometryObservation observation in added)
             {
                 if (removed.Contains(observation.ObservationId))
                     throw new ArgumentException("A geometry observation epoch cannot be reused.");

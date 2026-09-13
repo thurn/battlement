@@ -1,10 +1,11 @@
 #nullable enable
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Google.FlatBuffers;
 using NUnit.Framework;
+using Wire = Battlement.FlatBuffers.Generated;
 
 namespace Battlement.Tests
 {
@@ -32,17 +33,13 @@ namespace Battlement.Tests
                 )
             );
 
-            var batchMessage = (ClientMessage<CoreErrorCode, byte>.BatchFailedMessage)Decode(
-                harness.Transport.SubmitMessages[0]
-            );
-            Assert.That(batchMessage.Failure.SessionId, Is.EqualTo(session));
-            Assert.That(batchMessage.Failure.BatchId, Is.EqualTo(batch));
-            Assert.That(batchMessage.Failure.CommandId, Is.EqualTo(command));
-            Assert.That(batchMessage.Failure.ErrorCode, Is.EqualTo(CoreErrorCode.AssetNotPrepared));
-            Assert.That(
-                Encoding.UTF8.GetByteCount(batchMessage.Failure.Message),
-                Is.EqualTo(65_536)
-            );
+            Wire.BatchFailed batchMessage = Decode(harness.Transport.SubmitMessages[0])
+                .BodyAsBatchFailed();
+            Assert.That(ReadId(batchMessage.SessionId, "session_id"), Is.EqualTo(session.Value));
+            Assert.That(ReadId(batchMessage.BatchId, "batch_id"), Is.EqualTo(batch.Value));
+            Assert.That(ReadId(batchMessage.CommandId, "command_id"), Is.EqualTo(command.Value));
+            Assert.That(batchMessage.ErrorCode, Is.EqualTo(Wire.CoreErrorCode.AssetNotPrepared));
+            Assert.That(Encoding.UTF8.GetByteCount(batchMessage.Message), Is.EqualTo(65_536));
 
             harness.Transport.EnqueueSubmit(SnapshotResponse(session, inputDisabled: false));
             harness.Runner.ReportOperationFailure(
@@ -55,18 +52,19 @@ namespace Battlement.Tests
                 )
             );
 
-            var operationMessage = (ClientMessage<
-                CoreErrorCode,
-                byte
-            >.OperationFailedMessage)Decode(harness.Transport.SubmitMessages[1]);
-            Assert.That(operationMessage.Failure.SessionId, Is.EqualTo(session));
-            Assert.That(operationMessage.Failure.BatchId, Is.EqualTo(batch));
-            Assert.That(operationMessage.Failure.CommandId, Is.EqualTo(command));
+            Wire.OperationFailed operationMessage = Decode(harness.Transport.SubmitMessages[1])
+                .BodyAsOperationFailed();
             Assert.That(
-                operationMessage.Failure.ErrorCode,
-                Is.EqualTo(CoreErrorCode.UnityException)
+                ReadId(operationMessage.SessionId, "session_id"),
+                Is.EqualTo(session.Value)
             );
-            Assert.That(operationMessage.Failure.Message, Is.EqualTo("particle callback failed"));
+            Assert.That(ReadId(operationMessage.BatchId, "batch_id"), Is.EqualTo(batch.Value));
+            Assert.That(
+                ReadId(operationMessage.CommandId, "command_id"),
+                Is.EqualTo(command.Value)
+            );
+            Assert.That(operationMessage.ErrorCode, Is.EqualTo(Wire.CoreErrorCode.UnityException));
+            Assert.That(operationMessage.Message, Is.EqualTo("particle callback failed"));
             Assert.That(harness.Runner.IsInputAvailable, Is.True);
             Assert.That(harness.Transport.Calls, Does.Not.Contain("stop"));
 
@@ -88,63 +86,63 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void EveryCoreErrorCodeUsesItsExactProtocolName()
+        public void EveryCoreErrorCodeUsesItsExactWireOrdinal()
         {
             SessionId session = new(Guid.NewGuid());
             BatchId batch = new(Guid.NewGuid());
+            var writer = new BattlementCoreClientMessageWriter();
             foreach (CoreErrorCode errorCode in Enum.GetValues(typeof(CoreErrorCode)))
             {
-                byte[] bytes = BattlementJson.SerializeBatchFailure(
-                    new BatchFailed<CoreErrorCode>(session, batch, errorCode, "diagnostic")
-                );
-                var message = (ClientMessage<CoreErrorCode, byte>.BatchFailedMessage)Decode(bytes);
-                Assert.That(message.Failure.ErrorCode, Is.EqualTo(errorCode));
+                byte[] bytes = writer
+                    .WriteBatchFailure(
+                        new BatchFailed<CoreErrorCode>(session, batch, errorCode, "diagnostic")
+                    )
+                    .ToArray();
+                Wire.BatchFailed message = Decode(bytes).BodyAsBatchFailed();
+                Assert.That((int)message.ErrorCode, Is.EqualTo((int)errorCode));
             }
         }
 
         [Test]
         public void ReturnedCorrectionAppliesAfterTheCurrentResponseWithoutRecursion()
         {
-            var codec = new ReentrantFailureCodec();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(
-                protocolCodec: codec
-            );
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
             BatchId batch = new(Guid.NewGuid());
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
-            harness.Transport.EnqueueConnect(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 1 })
-            );
+            harness.Transport.EnqueueConnect(SnapshotResponse(session, inputDisabled: false));
             harness.Runner.Connect();
 
-            codec.EnqueueResponse(Response(session, inputDisabled: true));
-            codec.EnqueueResponse(Response(session, inputDisabled: false));
             harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 2 })
-            );
-            harness.Transport.EnqueueSubmit(
-                new BattlementTransportResult(BattlementTransportStatus.Success, new byte[] { 3 })
-            );
-            codec.BeforeSecondDecode = () =>
-            {
-                harness.Runner.ReportBatchFailure(
-                    new BatchFailed<CoreErrorCode>(
-                        session,
-                        batch,
-                        CoreErrorCode.UnknownObject,
-                        "target missing"
+                new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
+                    new CallbackResponseView(
+                        new BattlementOwnedResponseView(Response(session, inputDisabled: true)),
+                        () =>
+                        {
+                            harness.Runner.ReportBatchFailure(
+                                new BatchFailed<CoreErrorCode>(
+                                    session,
+                                    batch,
+                                    CoreErrorCode.UnknownObject,
+                                    "target missing"
+                                )
+                            );
+                            Assert.That(
+                                harness.Runner.IsInputAvailable,
+                                Is.True,
+                                "The correction must not apply inside the current response."
+                            );
+                        }
                     )
-                );
-                Assert.That(
-                    harness.Runner.IsInputAvailable,
-                    Is.True,
-                    "The correction must not apply inside the current response."
-                );
-            };
+                )
+            );
+            harness.Transport.EnqueueSubmit(SnapshotResponse(session, inputDisabled: false));
 
             harness.Runner.Submit(new byte[] { 9 });
 
-            Assert.That(codec.DecodedPayloads, Is.EqualTo(new byte[] { 1, 2, 3 }));
+            Assert.That(
+                harness.Transport.Calls.TakeLast(2),
+                Is.EqualTo(new[] { "submit", "submit" })
+            );
             Assert.That(
                 harness.Runner.IsInputAvailable,
                 Is.True,
@@ -187,8 +185,20 @@ namespace Battlement.Tests
             );
         }
 
-        private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
+        private static Wire.CoreClientMessage Decode(byte[] bytes)
+        {
+            var buffer = new ByteBuffer(bytes);
+            var verifier = new Verifier(buffer, new Options(64, 1_000_000, true, true));
+            Assert.That(
+                verifier.VerifyBuffer("BTCM", true, Wire.CoreClientMessageVerify.Verify),
+                Is.True
+            );
+            buffer.Position = 4;
+            return Wire.CoreClientMessage.GetRootAsCoreClientMessage(buffer);
+        }
+
+        private static Guid ReadId(Wire.Uuid? value, string field) =>
+            BattlementFlatBufferCore.ReadUuid(value, field);
 
         private static BattlementTransportResult SnapshotResponse(
             SessionId session,
@@ -208,43 +218,6 @@ namespace Battlement.Tests
                     new ResponseMessage<Command>.SnapshotMessage(snapshot),
                 }
             );
-        }
-
-        private sealed class ReentrantFailureCodec : IBattlementProtocolCodec
-        {
-            private readonly Queue<Response> responses = new();
-            private int decodeCount;
-
-            public List<byte> DecodedPayloads { get; } = new();
-
-            public System.Action? BeforeSecondDecode { get; set; }
-
-            public void EnqueueResponse(Response response) => responses.Enqueue(response);
-
-            public byte[] SerializeConnect(Connect value) => Array.Empty<byte>();
-
-            public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
-                new byte[] { 4 };
-
-            public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
-                new byte[] { 5 };
-
-            public byte[] SerializeAction(Action value) => new byte[] { 6 };
-
-            public byte[] SerializeUiEventAction(UiEventAction value) => new byte[] { 7 };
-
-            public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
-            {
-                decodeCount++;
-                DecodedPayloads.Add(bytes.Span[0]);
-                Response response = responses.Dequeue();
-                if (decodeCount == 2)
-                {
-                    BeforeSecondDecode?.Invoke();
-                }
-
-                return response;
-            }
         }
     }
 }

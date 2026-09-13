@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField, UiEventAction,
-  UiEventBody, UiEventDisposition, UiEventKind, UiEventResponse, UiNode, UiValue,
+  CameraState, ClientMessage, Command, GameObject, ObjectId, ParentScene, PreparedAsset, Response,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField, UiEventAction, UiEventBody,
+  UiEventDisposition, UiEventKind, UiEventResponse, UiNode, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 
 struct DropdownEngine {
   session_id: SessionId,
@@ -20,7 +20,7 @@ impl Engine for DropdownEngine {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     Ok(Response::snapshot(
       self.snapshot.take().expect("connected twice"),
     ))

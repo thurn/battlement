@@ -27,7 +27,7 @@
 //!         .ui(Greeting::new())
 //! }
 //!
-//! battlement_native::export_engine!(create_engine);
+//! battlement_native::export_native_engine!(create_engine);
 //! ```
 //!
 //! Reactant uses React-compatible names only where Battlement can preserve the

@@ -20,7 +20,7 @@ use battlement_fake::{
   client::{FakeClient, PointerInput},
   world::WorldTransform,
 };
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, CoreClientMessageView, Engine, EngineError};
 use support::ScriptedEngine;
 use uuid::Uuid;
 
@@ -45,7 +45,7 @@ impl Engine for CoreScriptedEngine {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, _message: battlement::Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     self
       .connect_response
       .take()
@@ -61,6 +61,59 @@ impl Engine for CoreScriptedEngine {
       .submit_response
       .take()
       .ok_or_else(|| EngineError::new("unexpected submit"))
+  }
+
+  fn submit_core_view(
+    &mut self,
+    message: CoreClientMessageView<'_>,
+  ) -> Result<Response, EngineError> {
+    let CoreClientMessageView::BatchFailed(failure) = message else {
+      return Err(EngineError::new("unexpected core submission"));
+    };
+    let error_codes = [
+      CoreErrorCode::InvalidEncoding,
+      CoreErrorCode::LimitExceeded,
+      CoreErrorCode::WrongSession,
+      CoreErrorCode::DuplicateId,
+      CoreErrorCode::UnknownCommand,
+      CoreErrorCode::UnknownObject,
+      CoreErrorCode::UnknownScene,
+      CoreErrorCode::UnknownAsset,
+      CoreErrorCode::AssetNotPrepared,
+      CoreErrorCode::AssetTypeMismatch,
+      CoreErrorCode::AssetInUse,
+      CoreErrorCode::ComponentMissing,
+      CoreErrorCode::InvalidComponentCount,
+      CoreErrorCode::InvalidHierarchy,
+      CoreErrorCode::InvalidProperty,
+      CoreErrorCode::PropertyControlledByBillboard,
+      CoreErrorCode::InfiniteWait,
+      CoreErrorCode::EarlierBatchFailed,
+      CoreErrorCode::HandlerNotRegistered,
+      CoreErrorCode::HandlerFailed,
+      CoreErrorCode::UnityException,
+      CoreErrorCode::ModuleUnavailable,
+      CoreErrorCode::DiagnosticsMetadataInvalid,
+      CoreErrorCode::DiagnosticsOperationFailed,
+    ];
+    let error_code = *error_codes
+      .get(usize::from(failure.error_code()))
+      .ok_or_else(|| EngineError::new("unexpected core error code"))?;
+    let session_id = battlement::SessionId::from_uuid(Uuid::from_bytes(failure.session_id()))
+      .expect("verified session ID is nonzero");
+    let batch_id = battlement::BatchId::from_uuid(Uuid::from_bytes(failure.batch_id()))
+      .expect("verified batch ID is nonzero");
+    let command_id = failure.command_id().map(|value| {
+      battlement::CommandId::from_uuid(Uuid::from_bytes(value))
+        .expect("verified command ID is nonzero")
+    });
+    self.submit(ClientMessage::BatchFailed(BatchFailed::new(
+      session_id,
+      batch_id,
+      command_id,
+      error_code,
+      failure.message(),
+    )))
   }
 
   fn submit_ui_event(
@@ -206,8 +259,8 @@ fn default_connect_and_snapshot_are_observable() {
   let connect = &probe.borrow().connects[0];
   assert_eq!(connect.platform, "battlement-fake");
   assert_eq!(connect.unity_version, "battlement-fake");
-  assert_eq!(connect.screen.width, 1920);
-  assert_eq!(connect.screen.height, 1080);
+  assert_eq!(connect.screen_width, 1920);
+  assert_eq!(connect.screen_height, 1080);
   assert!(connect.modules.is_empty());
   assert!(client.world().input_enabled());
   assert_eq!(client.world().input_camera_id(), Some(object_id(1)));

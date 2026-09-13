@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "base_wire_contract_digest": "94063de87b8aa3df3d8492dd61c6fae2b6e1fd962c0efb6750c7299e3ecbc9cb",
+  "schema_closure": {
+    "fixture_response.fbs": "172ddb3984ab5e8455ed7b942d099ff27ff4b8e9209ff6de2df2922a825f31a0"
+  },
+  "generation_options": ["--gen-onefile", "--filename-suffix", "_generated"]
+}

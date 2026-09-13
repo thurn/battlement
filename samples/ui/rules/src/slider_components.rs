@@ -2,8 +2,9 @@ use battlement::{
   Command, ObjectId, SliderDirection, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
   UiNode, UiSlider, UiSliderInt, UiValue, UiVisualElement, object_id,
 };
+use battlement_native::{EngineError, UiEventActionView, UiValueView};
 
-use crate::{design_system, slider_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, slider_styles};
 
 pub(crate) const CONTINUOUS_ID: ObjectId = object_id!("08e45324-236a-469d-a4f8-f2f40922a9b8");
 pub(crate) const STEPPED_ID: ObjectId = object_id!("c1ad6472-f8ae-40cb-9d21-60f6e544db53");
@@ -86,6 +87,63 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     }
     _ => None,
   }
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, EngineError> {
+  let target_id = ObjectId::from_bytes(event.target_id()).expect("validated UI target UUID");
+  let value = match event.event_kind() {
+    UiEventKind::ValueChanging => match event.value_changing() {
+      Some(value) => value,
+      None => return Ok(false),
+    },
+    UiEventKind::ValueCommitted => match event.value_commit() {
+      Some(value) => value.proposed(),
+      None => return Ok(false),
+    },
+    _ => return Ok(false),
+  };
+  match (target_id, event.event_kind(), value) {
+    (CONTINUOUS_ID, UiEventKind::ValueChanging, UiValueView::F32(proposed)) => {
+      response.label(
+        LIVE_STATUS_ID,
+        &format!("LIVE  thrust trim  {proposed:.1}%"),
+      )?;
+    }
+    (STEPPED_ID, UiEventKind::ValueChanging, UiValueView::I32(proposed)) => {
+      response.label(LIVE_STATUS_ID, &format!("LIVE  shield step  {proposed}"))?;
+    }
+    (CONTINUOUS_ID, UiEventKind::ValueCommitted, UiValueView::F32(proposed)) => {
+      let slider = response
+        .writer()
+        .slider_builder()
+        .float_value(proposed)
+        .finish();
+      response.update(CONTINUOUS_ID, slider)?;
+      response.label(CONTINUOUS_VALUE_ID, &format!("FINAL · {proposed:.1}%"))?;
+      response.label(
+        COMMIT_STATUS_ID,
+        &format!("COMMITTED  horizontal value {proposed:.1}"),
+      )?;
+    }
+    (STEPPED_ID, UiEventKind::ValueCommitted, UiValueView::I32(proposed)) => {
+      let slider = response
+        .writer()
+        .slider_int_builder()
+        .int_value(proposed)
+        .finish();
+      response.update(STEPPED_ID, slider)?;
+      response.label(STEPPED_VALUE_ID, &format!("FINAL · STEP {proposed}"))?;
+      response.label(
+        COMMIT_STATUS_ID,
+        &format!("COMMITTED  vertical integer {proposed}"),
+      )?;
+    }
+    _ => return Ok(false),
+  }
+  Ok(true)
 }
 
 fn continuous_card() -> UiNode {

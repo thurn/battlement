@@ -11,7 +11,7 @@ use battlement_tooling::unity_lease::UnityEditorLease;
 
 use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
 
-const BOOTSTRAP_IDENTIFIER: &str = "Battlement.Json::Battlement.BattlementBootstrap";
+const BOOTSTRAP_IDENTIFIER: &str = "Battlement.Runtime::Battlement.BattlementBootstrap";
 
 pub(crate) fn run(
   project: &Path,
@@ -184,7 +184,7 @@ mod tests {
     fs::write(assets.join("Content.unity"), "ordinary content\n")?;
     fs::write(
       assets.join("Main.unity"),
-      "m_EditorClassIdentifier: Battlement.Json::Battlement.BattlementBootstrap\n",
+      "m_EditorClassIdentifier: Battlement.Runtime::Battlement.BattlementBootstrap\n",
     )?;
 
     assert_eq!(

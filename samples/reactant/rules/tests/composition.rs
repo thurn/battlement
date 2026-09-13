@@ -16,7 +16,7 @@ use battlement_fake::{
   client::{FakeClient, ui::UiClient},
   journal::ExecutedCommand,
 };
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 use battlement_rules::{
   CONTENT_SCENE, MOTION_AUDIO_CLIP, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, ReactantEngine,
   Screen, create_engine, generated_asset_addresses,
@@ -41,7 +41,7 @@ impl Engine for CorrelationEngine {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, message: ConnectView<'_>) -> Result<Response, EngineError> {
     self.inner.connect(message)
   }
 

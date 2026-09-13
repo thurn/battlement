@@ -93,6 +93,18 @@ namespace Battlement.UI
             }
         }
 
+        internal void ApplyDirectValue(ObjectId objectId, float value)
+        {
+            ScrollerState state = scrollers[objectId.Value];
+            if (!float.IsFinite(value))
+                throw Failure("Scroller values must be finite.");
+            state.Cancel();
+            state.Target.slider.SetValueWithoutNotify(value);
+            state.Committed = state.Target.value;
+            if (!state.Target.enabledInHierarchy)
+                state.Cancel();
+        }
+
         public void Advance()
         {
             TimeSpan current = now();

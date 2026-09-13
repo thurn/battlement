@@ -4,8 +4,9 @@ use battlement::{
   Command, ObjectId, TransitionProperty, UiBox, UiButton, UiElement, UiEvent, UiEventBody,
   UiEventKind, UiLabel, UiNode, UiTextElement, UiVisualElement, object_id,
 };
+use battlement_native::UiEventActionView;
 
-use crate::{design_system, remaining_event_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, remaining_event_styles};
 
 pub(crate) const LINK_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000002");
 pub(crate) const LINK_INSPECTOR_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000003");
@@ -171,6 +172,123 @@ pub(crate) fn event_commands(
     ));
   }
   Some(commands)
+}
+
+pub(crate) fn write_event_response(
+  timeline: &mut LifecycleTimeline,
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, battlement_native::EngineError> {
+  let target_id =
+    ObjectId::from_bytes(event.target_id()).expect("UI event view validates target UUIDs");
+  let (inspector, message, transition_completed) = match event.event_kind() {
+    UiEventKind::LinkEnter | UiEventKind::LinkLeave => {
+      let value = event.link().expect("link body");
+      if event.event_kind() == UiEventKind::LinkEnter {
+        timeline.link_entered = true;
+      } else {
+        timeline.link_left = true;
+      }
+      timeline.link_identity = Some(format!("{} · {}", value.link_id(), value.link_text()));
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
+    }
+    UiEventKind::LinkDown => {
+      timeline.link_down = true;
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
+    }
+    UiEventKind::LinkUp => {
+      timeline.link_up = true;
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
+    }
+    UiEventKind::SelectionChanged if target_id == LINK_ID => {
+      let value = event.selection().expect("selection body");
+      timeline.selection = Some((value.cursor_index, value.selection_index));
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
+    }
+    UiEventKind::GeometryChanged if target_id == TARGET_ID => {
+      let _geometry = event.geometry().expect("geometry body");
+      timeline.geometry = true;
+      timeline.geometry_detail = Some("finite old → new rect".to_owned());
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(timeline, String::new()),
+        false,
+      )
+    }
+    UiEventKind::AttachToPanel if target_id == TARGET_ID => {
+      timeline.attached = true;
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(timeline, "target joined panel".to_owned()),
+        false,
+      )
+    }
+    UiEventKind::DetachFromPanel if target_id == TARGET_ID => {
+      timeline.detached = true;
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(timeline, "target left panel".to_owned()),
+        false,
+      )
+    }
+    UiEventKind::TransitionStart if target_id == TARGET_ID => {
+      let value = event.transition().expect("transition body");
+      timeline.transition_started = true;
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(
+          timeline,
+          format!("{} supported properties · start", value.property_count()),
+        ),
+        false,
+      )
+    }
+    UiEventKind::TransitionEnd if target_id == TARGET_ID => {
+      let value = event.transition().expect("transition body");
+      timeline.transition_completed.extend(value.properties());
+      let completed = [
+        TransitionProperty::Width,
+        TransitionProperty::Height,
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::BackgroundColor,
+      ]
+      .iter()
+      .all(|property| timeline.transition_completed.contains(property));
+      timeline.transition_ended = completed;
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(
+          timeline,
+          if completed {
+            "5 properties · complete".to_owned()
+          } else {
+            "transition running".to_owned()
+          },
+        ),
+        completed,
+      )
+    }
+    UiEventKind::TransitionCancel if target_id == TARGET_ID => {
+      let value = event.transition().expect("transition body");
+      timeline.transition_cancelled = true;
+      (
+        LIFECYCLE_INSPECTOR_ID,
+        lifecycle_message(
+          timeline,
+          format!("{} properties · interrupted", value.property_count()),
+        ),
+        false,
+      )
+    }
+    _ => return Ok(false),
+  };
+  response.label(inspector, &message)?;
+  if transition_completed {
+    let button = response.writer().button_builder().enabled(true).finish();
+    response.update(ACTION_ID, button)?;
+  }
+  Ok(true)
 }
 
 pub(crate) fn timeline_commands(timeline: &LifecycleTimeline) -> Vec<Command> {

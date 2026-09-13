@@ -8,6 +8,7 @@ use std::{
 };
 
 use battlement::{self, CommandBody, UiDocument};
+use battlement_flatbuffers::RetainedUiSnapshot;
 
 use crate::{
   effect::EffectOperation,
@@ -37,6 +38,7 @@ pub(crate) struct FrozenResources {
 
 pub(crate) struct PlannedSession {
   pub(crate) documents: Vec<UiDocument>,
+  pub(crate) retained_ui: Vec<Rc<RetainedUiSnapshot>>,
   pub(crate) committed: Vec<RenderTree>,
   pub(crate) external: SessionExternal,
   pub(crate) resource_completions: FrozenCompletions,

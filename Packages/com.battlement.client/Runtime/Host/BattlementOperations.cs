@@ -59,7 +59,7 @@ namespace Battlement
         public IBattlementCommandOperation? Launch(
             SessionId sessionId,
             BatchId batchId,
-            ICommand command,
+            BattlementCommandExecution command,
             TimeSpan now,
             Func<TimeSpan, IBattlementCommandOperation?> launch
         )
@@ -72,23 +72,104 @@ namespace Battlement
                 );
             }
 
-            if (command is Command { Body: CommandBody.Operation.Cancel cancel })
+            if (command.CoreBody is CommandBody.Operation.Cancel cancel)
             {
                 Cancel(cancel.CommandId);
                 return null;
             }
+            if (command.DirectCancel is BattlementDirectCancel directCancel)
+            {
+                Cancel(directCancel.CommandId);
+                return null;
+            }
 
-            BattlementConflictKey[] keys = command is Command core
-                ? BattlementConflictKeys.For(core.Body)
+            BattlementConflictKey[] keys =
+                command.CoreBody is CommandBody core ? BattlementConflictKeys.For(core)
+                : command.DirectLocalPosition is BattlementDirectLocalPosition position
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            position.ObjectId.Value,
+                            BattlementConflictKeys.Position
+                        ),
+                    }
+                : command.DirectWorldPosition is BattlementDirectWorldPosition worldPosition
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            worldPosition.ObjectId.Value,
+                            BattlementConflictKeys.Position
+                        ),
+                    }
+                : command.DirectTweenLocalPosition
+                    is BattlementDirectTweenLocalPosition tweenPosition
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            tweenPosition.ObjectId.Value,
+                            BattlementConflictKeys.Position
+                        ),
+                    }
+                : command.DirectTweenRotation is BattlementDirectTweenRotation tweenRotation
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            tweenRotation.ObjectId.Value,
+                            BattlementConflictKeys.Rotation
+                        ),
+                    }
+                : command.DirectTweenScale is BattlementDirectTweenScale tweenScale
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            tweenScale.ObjectId.Value,
+                            BattlementConflictKeys.LocalScale
+                        ),
+                    }
+                : command.DirectRotation is BattlementDirectRotation rotation
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            rotation.ObjectId.Value,
+                            BattlementConflictKeys.Rotation
+                        ),
+                    }
+                : command.DirectScale is BattlementDirectScale scale
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            scale.ObjectId.Value,
+                            BattlementConflictKeys.LocalScale
+                        ),
+                    }
+                : command.DirectSetMaterial is BattlementDirectSetMaterial material
+                    ? new[]
+                    {
+                        new BattlementConflictKey(
+                            material.ObjectId.Value,
+                            "material",
+                            material.Slot
+                        ),
+                    }
+                : command.DirectAudioVolume is BattlementDirectAudioVolume audioVolume
+                    ? new[]
+                    {
+                        new BattlementConflictKey(audioVolume.AudioCommandId.Value, "volume"),
+                    }
+                : command.DirectTweenAudioVolume is BattlementDirectTweenAudioVolume tweenVolume
+                    ? new[]
+                    {
+                        new BattlementConflictKey(tweenVolume.AudioCommandId.Value, "volume"),
+                    }
+                : command.DirectComponent is BattlementDirectComponentCommand component
+                    ? BattlementConflictKeys.For(component)
                 : Array.Empty<BattlementConflictKey>();
             TrackedOperation[] conflicts = operations
                 .Where(operation => operation.ConflictsWith(keys))
                 .ToArray();
             if (
-                command is Command
-                {
-                    Body: IPropertyCommandBody { OnConflict: ConflictPolicy.Wait }
-                }
+                command.CoreBody is IPropertyCommandBody { OnConflict: ConflictPolicy.Wait }
+                || command.DirectConflictPolicy == ConflictPolicy.Wait
             )
             {
                 if (conflicts.Any(operation => operation.IsInfinite))
@@ -114,7 +195,63 @@ namespace Battlement
                 sessionId,
                 batchId,
                 command.IsBlocking,
-                command is Command target ? BattlementOperationTargets.For(target.Body) : null,
+                command.CoreBody is CommandBody target ? BattlementOperationTargets.For(target)
+                    : command.DirectLocalPosition is BattlementDirectLocalPosition targetPosition
+                        ? targetPosition.ObjectId.Value
+                    : command.DirectWorldPosition
+                        is BattlementDirectWorldPosition targetWorldPosition
+                        ? targetWorldPosition.ObjectId.Value
+                    : command.DirectTweenLocalPosition
+                        is BattlementDirectTweenLocalPosition targetTweenPosition
+                        ? targetTweenPosition.ObjectId.Value
+                    : command.DirectTweenRotation
+                        is BattlementDirectTweenRotation targetTweenRotation
+                        ? targetTweenRotation.ObjectId.Value
+                    : command.DirectTweenScale is BattlementDirectTweenScale targetTweenScale
+                        ? targetTweenScale.ObjectId.Value
+                    : command.DirectLabelUpdate is BattlementDirectLabelUpdate targetLabel
+                        ? targetLabel.ObjectId.Value
+                    : command.DirectTextContent is BattlementDirectTextContent targetText
+                        ? targetText.ObjectId.Value
+                    : command.DirectSetMaterial is BattlementDirectSetMaterial targetMaterial
+                        ? targetMaterial.ObjectId.Value
+                    : command.DirectRotation is BattlementDirectRotation targetRotation
+                        ? targetRotation.ObjectId.Value
+                    : command.DirectScale is BattlementDirectScale targetScale
+                        ? targetScale.ObjectId.Value
+                    : command.DirectObjectActive is BattlementDirectObjectActive targetActive
+                        ? targetActive.ObjectId.Value
+                    : command.DirectPrimitiveObjectCreate
+                        is BattlementDirectPrimitiveObjectCreate targetPrimitive
+                        ? targetPrimitive.Placement.ObjectId.Value
+                    : command.DirectPrefabObjectCreate
+                        is BattlementDirectPrefabObjectCreate targetPrefab
+                        ? targetPrefab.Placement.ObjectId.Value
+                    : command.DirectEmptyObjectCreate
+                        is BattlementDirectEmptyObjectCreate targetEmpty
+                        ? targetEmpty.Placement.ObjectId.Value
+                    : command.DirectTextObjectCreate
+                        is BattlementDirectTextObjectCreate targetCreatedText
+                        ? targetCreatedText.Placement.ObjectId.Value
+                    : command.DirectCameraObjectCreate
+                        is BattlementDirectCameraObjectCreate targetCamera
+                        ? targetCamera.Placement.ObjectId.Value
+                    : command.DirectLightObjectCreate
+                        is BattlementDirectLightObjectCreate targetLight
+                        ? targetLight.Placement.ObjectId.Value
+                    : command.DirectObjectReparent is BattlementDirectObjectReparent targetReparent
+                        ? targetReparent.ObjectId.Value
+                    : command.DirectParticleSpawn is BattlementDirectParticleSpawn targetParticle
+                        ? targetParticle.ObjectId?.Value
+                    : command.DirectParticlePlay is BattlementDirectParticlePlay targetParticlePlay
+                        ? targetParticlePlay.ObjectId.Value
+                    : command.DirectParticleStop is BattlementDirectParticleStop targetParticleStop
+                        ? targetParticleStop.ObjectId.Value
+                    : command.DirectComponent is BattlementDirectComponentCommand targetComponent
+                        ? targetComponent.ObjectId.Value
+                    : command.DirectAnimator is BattlementDirectAnimatorCommand targetAnimator
+                        ? targetAnimator.ObjectId.Value
+                    : null,
                 keys,
                 conflicts,
                 launch,
@@ -448,6 +585,74 @@ namespace Battlement
                 new BattlementConflictKey(id.Value, Position),
                 new BattlementConflictKey(id.Value, Rotation),
                 new BattlementConflictKey(id.Value, LocalScale),
+            };
+
+        public static BattlementConflictKey[] For(BattlementDirectComponentCommand command) =>
+            command.Kind switch
+            {
+                BattlementDirectComponentCommandKind.CameraSetPerspective => CameraProjection(
+                    command.ObjectId
+                ),
+                BattlementDirectComponentCommandKind.CameraSetOrthographic => CameraProjection(
+                    command.ObjectId
+                ),
+                BattlementDirectComponentCommandKind.CameraTweenFieldOfView => Object(
+                    command.ObjectId,
+                    "camera.fieldOfView"
+                ),
+                BattlementDirectComponentCommandKind.CameraTweenOrthographicSize => Object(
+                    command.ObjectId,
+                    "camera.orthographicSize"
+                ),
+                BattlementDirectComponentCommandKind.LightSetColor => Object(
+                    command.ObjectId,
+                    "light.color"
+                ),
+                BattlementDirectComponentCommandKind.LightTweenColor => Object(
+                    command.ObjectId,
+                    "light.color"
+                ),
+                BattlementDirectComponentCommandKind.LightSetIntensity => Object(
+                    command.ObjectId,
+                    "light.intensity"
+                ),
+                BattlementDirectComponentCommandKind.LightTweenIntensity => Object(
+                    command.ObjectId,
+                    "light.intensity"
+                ),
+                BattlementDirectComponentCommandKind.ImageSetTint => Object(
+                    command.ObjectId,
+                    "image.tint"
+                ),
+                BattlementDirectComponentCommandKind.ImageTweenTint => Object(
+                    command.ObjectId,
+                    "image.tint"
+                ),
+                BattlementDirectComponentCommandKind.ImageSetOpacity => Object(
+                    command.ObjectId,
+                    "image.opacity"
+                ),
+                BattlementDirectComponentCommandKind.ImageTweenOpacity => Object(
+                    command.ObjectId,
+                    "image.opacity"
+                ),
+                BattlementDirectComponentCommandKind.TextSetColor => Object(
+                    command.ObjectId,
+                    "text.color"
+                ),
+                BattlementDirectComponentCommandKind.TextTweenColor => Object(
+                    command.ObjectId,
+                    "text.color"
+                ),
+                BattlementDirectComponentCommandKind.TextSetSize => Object(
+                    command.ObjectId,
+                    "text.size"
+                ),
+                BattlementDirectComponentCommandKind.TextTweenSize => Object(
+                    command.ObjectId,
+                    "text.size"
+                ),
+                _ => Array.Empty<BattlementConflictKey>(),
             };
 
         private static BattlementConflictKey[] CameraProjection(ObjectId id) =>

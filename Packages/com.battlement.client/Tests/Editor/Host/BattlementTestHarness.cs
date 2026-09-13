@@ -22,11 +22,12 @@ namespace Battlement.Tests
             BattlementRunner runner,
             bool useInstantAnimations,
             IEnumerable<string>? customCommandTypes,
-            IBattlementProtocolCodec? protocolCodec,
             IBattlementErrorSink? errorSink,
             IBattlementFailurePresenter? failurePresenter,
             bool suppressDevelopmentErrorDialogs,
-            Action<string>? openExternalUrl
+            Action<string>? openExternalUrl,
+            IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema,
+            IBattlementFlatBufferClientSchema? flatBufferClientSchema
         )
         {
             Scene = scene;
@@ -41,16 +42,17 @@ namespace Battlement.Tests
                 new BattlementRunnerOptions(
                     Transport,
                     AssetStorage,
-                    protocolCodec ?? BattlementJson.Instance,
-                    Clock,
-                    Logger,
-                    useInstantAnimations,
-                    customCommandTypes,
-                    ErrorSink,
-                    failurePresenter,
-                    suppressDevelopmentErrorDialogs,
-                    new FakeCaughtFailureReporter(),
-                    openExternalUrl
+                    clock: Clock,
+                    logger: Logger,
+                    useInstantAnimations: useInstantAnimations,
+                    customCommandTypes: customCommandTypes,
+                    errorSink: ErrorSink,
+                    failurePresenter: failurePresenter,
+                    suppressDevelopmentErrorDialogs: suppressDevelopmentErrorDialogs,
+                    caughtFailureReporter: new FakeCaughtFailureReporter(),
+                    openExternalUrl: openExternalUrl,
+                    flatBufferResponseSchema: flatBufferResponseSchema,
+                    flatBufferClientSchema: flatBufferClientSchema
                 )
             );
         }
@@ -72,11 +74,12 @@ namespace Battlement.Tests
         public static BattlementTestHarness Create(
             bool useInstantAnimations = true,
             IEnumerable<string>? customCommandTypes = null,
-            IBattlementProtocolCodec? protocolCodec = null,
             IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
             bool suppressDevelopmentErrorDialogs = true,
-            Action<string>? openExternalUrl = null
+            Action<string>? openExternalUrl = null,
+            IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema = null,
+            IBattlementFlatBufferClientSchema? flatBufferClientSchema = null
         )
         {
             Scene scene = EditorSceneManager.NewScene(
@@ -93,11 +96,12 @@ namespace Battlement.Tests
                 runner,
                 useInstantAnimations,
                 customCommandTypes,
-                protocolCodec,
                 errorSink,
                 failurePresenter,
                 suppressDevelopmentErrorDialogs,
-                openExternalUrl
+                openExternalUrl,
+                flatBufferResponseSchema,
+                flatBufferClientSchema
             );
         }
 
@@ -116,6 +120,44 @@ namespace Battlement.Tests
         }
     }
 
+    internal sealed class CallbackResponseView : IBattlementResponseView
+    {
+        private readonly IBattlementResponseView inner;
+        private System.Action? beforeFirstRead;
+
+        public CallbackResponseView(IBattlementResponseView inner, System.Action beforeFirstRead) =>
+            (this.inner, this.beforeFirstRead) = (
+                inner ?? throw new ArgumentNullException(nameof(inner)),
+                beforeFirstRead ?? throw new ArgumentNullException(nameof(beforeFirstRead))
+            );
+
+        public SessionId SessionId
+        {
+            get
+            {
+                InvokeCallback();
+                return inner.SessionId;
+            }
+        }
+
+        public int MessageCount => inner.MessageCount;
+
+        public bool IsSnapshot(int index) => inner.IsSnapshot(index);
+
+        public IBattlementSnapshotView ReadSnapshot(int index) => inner.ReadSnapshot(index);
+
+        public IBattlementBatchView ReadBatch(int index) => inner.ReadBatch(index);
+
+        public void Dispose() => inner.Dispose();
+
+        private void InvokeCallback()
+        {
+            System.Action? callback = beforeFirstRead;
+            beforeFirstRead = null;
+            callback?.Invoke();
+        }
+    }
+
     internal sealed class FakeCaughtFailureReporter : IBattlementCaughtFailureReporter
     {
         public List<BattlementError> Errors { get; } = new();
@@ -123,7 +165,10 @@ namespace Battlement.Tests
         public void Report(BattlementError error) => Errors.Add(error);
     }
 
-    internal sealed class FakeBattlementTransport : IBattlementTransport
+    internal sealed class FakeBattlementTransport
+        : IBattlementTransport,
+            IBattlementCoreMessageObserver,
+            IBattlementClientMessageObserver
     {
         private static readonly SceneId DefaultSceneId = new(
             Guid.Parse("00000000-0000-0000-0000-000000000101")
@@ -139,6 +184,7 @@ namespace Battlement.Tests
         private readonly Queue<BattlementTransportResult> submitResults = new();
         private readonly Queue<BattlementUiEventTransportResult> uiEventResults = new();
         private readonly Queue<BattlementTransportResult> pollResults = new();
+        private SessionId? session;
 
         public List<string> Calls { get; } = new();
 
@@ -148,7 +194,17 @@ namespace Battlement.Tests
 
         public List<byte[]> UiEventMessages { get; } = new();
 
-        public BattlementTransportResult? DefaultSubmitResult { get; set; }
+        public List<Connect> ConnectValues { get; } = new();
+
+        public List<Action> Actions { get; } = new();
+
+        public List<UiEventAction> UiEventActions { get; } = new();
+
+        public List<BatchFailed<CoreErrorCode>> BatchFailures { get; } = new();
+
+        public List<OperationFailed<CoreErrorCode>> OperationFailures { get; } = new();
+
+        public Func<BattlementTransportResult>? DefaultSubmitResult { get; set; }
 
         public bool IsDisposed { get; private set; }
 
@@ -158,11 +214,17 @@ namespace Battlement.Tests
         {
             Calls.Add("connect");
             ConnectMessages.Add(json.ToArray());
-            return connectResults.Count > 0 ? connectResults.Dequeue() : SnapshotResponse();
+            BattlementTransportResult result =
+                connectResults.Count > 0 ? connectResults.Dequeue() : SnapshotResponse();
+            session = result.ResponseView?.SessionId ?? session;
+            return result;
         }
 
-        public void EnqueueConnect(BattlementTransportResult result) =>
+        public void EnqueueConnect(BattlementTransportResult result)
+        {
+            session = result.ResponseView?.SessionId;
             connectResults.Enqueue(result);
+        }
 
         public BattlementTransportResult Submit(ReadOnlyMemory<byte> json)
         {
@@ -170,28 +232,30 @@ namespace Battlement.Tests
             SubmitMessages.Add(json.ToArray());
             return submitResults.Count > 0
                 ? submitResults.Dequeue()
-                : DefaultSubmitResult
-                    ?? new BattlementTransportResult(BattlementTransportStatus.Success, json);
+                : DefaultSubmitResult?.Invoke() ?? EmptyResponse();
         }
 
         public void EnqueueSubmit(BattlementTransportResult result) =>
             submitResults.Enqueue(result);
 
-        public BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> json)
+        public BattlementUiEventTransportResult SubmitUiEvent(ReadOnlyMemory<byte> message)
         {
             Calls.Add("submit_ui_event");
-            UiEventMessages.Add(json.ToArray());
+            byte[] bytes = message.ToArray();
+            UiEventMessages.Add(bytes);
             if (uiEventResults.Count > 0)
             {
                 return uiEventResults.Dequeue();
             }
-            UiEventAction action = BattlementJson.Deserialize<UiEventAction>(json);
+            UiEventAction action = UiEventActions[^1];
             return new BattlementUiEventTransportResult(
                 BattlementTransportStatus.Success,
                 action.Event.DefaultPrevented
                     ? UiEventDisposition.PreventDefault
                     : UiEventDisposition.Continue,
-                BattlementJson.SerializeResponse(
+                ReadOnlyMemory<byte>.Empty
+            ).OwnResponseView(
+                new BattlementOwnedResponseView(
                     new Response(action.SessionId, Array.Empty<ResponseMessage<Command>>())
                 )
             );
@@ -199,6 +263,18 @@ namespace Battlement.Tests
 
         public void EnqueueUiEvent(BattlementUiEventTransportResult result) =>
             uiEventResults.Enqueue(result);
+
+        public void RecordConnect(Connect value) => ConnectValues.Add(value);
+
+        public void RecordAction(Action value) => Actions.Add(value);
+
+        public void RecordUiEvent(UiEventAction value) => UiEventActions.Add(value);
+
+        public void RecordBatchFailure(BatchFailed<CoreErrorCode> value) =>
+            BatchFailures.Add(value);
+
+        public void RecordOperationFailure(OperationFailed<CoreErrorCode> value) =>
+            OperationFailures.Add(value);
 
         public BattlementTransportResult Poll()
         {
@@ -252,10 +328,7 @@ namespace Battlement.Tests
                     new ResponseMessage<Command>.SnapshotMessage(snapshot),
                 }
             );
-            return new BattlementTransportResult(
-                BattlementTransportStatus.Success,
-                BattlementJson.SerializeResponse(response)
-            );
+            return ResponseResult(response);
         }
 
         public static Snapshot CompleteSnapshot(
@@ -335,10 +408,21 @@ namespace Battlement.Tests
         public static bool IsFixtureIdentity(BattlementIdentity identity) =>
             identity.Id == DefaultInputCameraId.Value;
 
-        public static BattlementTransportResult ResponseResult(Response response)
+        public static BattlementTransportResult ResponseResult(Response response) =>
+            new BattlementTransportResult(BattlementTransportStatus.Success).OwnResponseView(
+                new BattlementOwnedResponseView(response)
+            );
+
+        private BattlementTransportResult EmptyResponse()
         {
-            byte[] bytes = BattlementJson.SerializeResponse(response);
-            return new(BattlementTransportStatus.Success, bytes);
+            SessionId current =
+                Actions.Count > 0
+                    ? Actions[^1].SessionId
+                    : session
+                        ?? throw new InvalidOperationException(
+                            "A fake transport cannot answer before a session response is queued."
+                        );
+            return ResponseResult(new Response(current, Array.Empty<ResponseMessage<Command>>()));
         }
     }
 

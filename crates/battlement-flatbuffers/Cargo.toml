@@ -1,0 +1,17 @@
+[package]
+name = "battlement-flatbuffers"
+version = "0.1.0"
+description = "Verified FlatBuffers transport bindings for Battlement"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+test-support = []
+
+[dependencies]
+battlement = { path = "../battlement" }
+battlement-cloud = { path = "../battlement-cloud" }
+flatbuffers = "=25.12.19"
+uuid.workspace = true

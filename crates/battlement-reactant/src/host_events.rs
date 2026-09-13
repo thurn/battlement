@@ -20,6 +20,7 @@ use crate::{
     ToggleHost, View,
   },
 };
+use battlement_native::{UiEventActionView, UiValueView};
 
 macro_rules! event_methods {
   ($(($brief:ident, $aware:ident, $aware_model:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
@@ -719,17 +720,77 @@ macro_rules! change_host {
   };
 }
 
+macro_rules! change_host_native {
+  ($host:ty, $value:ty, $slot:literal, $kind:ident, $body:ident => $payload:expr, $native:expr) => {
+    impl $host {
+      /// Replaces the payload-free change handler.
+      #[must_use]
+      pub fn on_change<G: 'static>(self, callback: impl IntoCallback<(), G>) -> Self {
+        self.with_handler(Handler::brief_owned_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          callback.into_callback(),
+        ))
+      }
+
+      /// Replaces the typed change callback while preserving model access.
+      #[must_use]
+      pub fn on_change_value<G: 'static>(self, callback: impl IntoCallback<$value, G>) -> Self {
+        self.with_handler(Handler::native_value_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          $native,
+          callback.into_callback(),
+        ))
+      }
+
+      /// Replaces the typed change handler.
+      #[must_use]
+      pub fn on_change_event(self, callback: impl Fn(ReactantEvent<$value>) + 'static) -> Self {
+        self.with_handler(Handler::native_event_owned_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          $native,
+          callback.into_callback(),
+        ))
+      }
+
+      /// Replaces the typed change handler.
+      #[must_use]
+      pub fn on_change_event_with_model<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$value>) + 'static,
+      ) -> Self {
+        self.with_handler(Handler::native_event_owned_callback(
+          $slot,
+          UiEventKind::$kind,
+          HandlerPhase::Default,
+          |$body| $payload,
+          $native,
+          callback.into_callback(),
+        ))
+      }
+    }
+  };
+}
+
 change_host!(TextField, String, "input", Input, body => match body { UiEventBody::Input(value) => value.value, _ => panic!("Reactant Input change handler received another event kind") });
-change_host!(Scroller, f32, "value_changing", ValueChanging, body => changing_f32(body));
-change_host!(SliderHost, f32, "value_changing", ValueChanging, body => changing_f32(body));
-change_host!(SliderInt, i32, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::I32(value) => value, _ => panic!("Reactant SliderInt change handler received another value type") }, _ => panic!("Reactant SliderInt change handler received another event kind") });
-change_host!(MinMaxSlider, F32Range, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::F32Range(value) => value, _ => panic!("Reactant MinMaxSlider change handler received another value type") }, _ => panic!("Reactant MinMaxSlider change handler received another event kind") });
-change_host!(ToggleHost, bool, "value_committed", ValueCommitted, body => committed_bool(body));
-change_host!(RadioButton, bool, "value_committed", ValueCommitted, body => committed_bool(body));
-change_host!(RadioButtonGroup, Option<u32>, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Index(value) => value, _ => panic!("Reactant RadioButtonGroup change handler received another value type") }, _ => panic!("Reactant RadioButtonGroup change handler received another event kind") });
+change_host_native!(Scroller, f32, "value_changing", ValueChanging, body => changing_f32(body), changing_f32_view);
+change_host_native!(SliderHost, f32, "value_changing", ValueChanging, body => changing_f32(body), changing_f32_view);
+change_host_native!(SliderInt, i32, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::I32(value) => value, _ => panic!("Reactant SliderInt change handler received another value type") }, _ => panic!("Reactant SliderInt change handler received another event kind") }, changing_i32_view);
+change_host_native!(MinMaxSlider, F32Range, "value_changing", ValueChanging, body => match body { UiEventBody::ValueChanging(value) => match value.proposed { UiValue::F32Range(value) => value, _ => panic!("Reactant MinMaxSlider change handler received another value type") }, _ => panic!("Reactant MinMaxSlider change handler received another event kind") }, changing_range_view);
+change_host_native!(ToggleHost, bool, "value_committed", ValueCommitted, body => committed_bool(body), committed_bool_view);
+change_host_native!(RadioButton, bool, "value_committed", ValueCommitted, body => committed_bool(body), committed_bool_view);
+change_host_native!(RadioButtonGroup, Option<u32>, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Index(value) => value, _ => panic!("Reactant RadioButtonGroup change handler received another value type") }, _ => panic!("Reactant RadioButtonGroup change handler received another event kind") }, committed_index_view);
 change_host!(ToggleButtonGroup, Vec<u32>, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Indices(value) => value, _ => panic!("Reactant ToggleButtonGroup change handler received another value type") }, _ => panic!("Reactant ToggleButtonGroup change handler received another event kind") });
 change_host!(DropdownField, Choice, "value_committed", ValueCommitted, body => match body { UiEventBody::ValueCommitted(value) => match value.proposed { UiValue::Choice(value) => value, _ => panic!("Reactant DropdownField change handler received another value type") }, _ => panic!("Reactant DropdownField change handler received another event kind") });
-change_host!(TabView, u32, "tab_selection_requested", TabSelectionRequested, body => match body { UiEventBody::TabSelectionRequested(value) => value.proposed_index, _ => panic!("Reactant TabView change handler received another event kind") });
+change_host_native!(TabView, u32, "tab_selection_requested", TabSelectionRequested, body => match body { UiEventBody::TabSelectionRequested(value) => value.proposed_index, _ => panic!("Reactant TabView change handler received another event kind") }, tab_selection_view);
 
 fn changing_f32(body: UiEventBody) -> f32 {
   match body {
@@ -749,4 +810,63 @@ fn committed_bool(body: UiEventBody) -> bool {
     },
     _ => panic!("Reactant Boolean change handler received another event kind"),
   }
+}
+
+fn changing_f32_view(action: UiEventActionView<'_>) -> f32 {
+  match action
+    .value_changing()
+    .expect("validated value-changing event")
+  {
+    UiValueView::F32(value) => value,
+    _ => panic!("Reactant floating-point change handler received another value type"),
+  }
+}
+
+fn changing_i32_view(action: UiEventActionView<'_>) -> i32 {
+  match action
+    .value_changing()
+    .expect("validated value-changing event")
+  {
+    UiValueView::I32(value) => value,
+    _ => panic!("Reactant SliderInt change handler received another value type"),
+  }
+}
+
+fn changing_range_view(action: UiEventActionView<'_>) -> F32Range {
+  match action
+    .value_changing()
+    .expect("validated value-changing event")
+  {
+    UiValueView::F32Range { min, max } => F32Range::new(min, max),
+    _ => panic!("Reactant MinMaxSlider change handler received another value type"),
+  }
+}
+
+fn committed_bool_view(action: UiEventActionView<'_>) -> bool {
+  match action
+    .value_commit()
+    .expect("validated value-commit event")
+    .proposed()
+  {
+    UiValueView::Bool(value) => value,
+    _ => panic!("Reactant Boolean change handler received another value type"),
+  }
+}
+
+fn committed_index_view(action: UiEventActionView<'_>) -> Option<u32> {
+  match action
+    .value_commit()
+    .expect("validated value-commit event")
+    .proposed()
+  {
+    UiValueView::Index(value) => value,
+    _ => panic!("Reactant RadioButtonGroup change handler received another value type"),
+  }
+}
+
+fn tab_selection_view(action: UiEventActionView<'_>) -> u32 {
+  action
+    .tab_selection()
+    .expect("validated tab-selection event")
+    .proposed_index
 }

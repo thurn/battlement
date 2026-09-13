@@ -4,15 +4,14 @@ mod runtime_support;
 use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
-  Align, CameraState, ClientMessage, Command, Connect, FlexDirection, FlexWrap, GameObject,
-  GameObjectKind, GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayPlacement,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage,
-  Scene, SceneId, SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState,
-  UiElement, UiElementKind, UiEventAction, UiEventResponse, UiNode, UiVisualElementProperties,
-  UpperLimit,
+  Align, CameraState, ClientMessage, Command, FlexDirection, FlexWrap, GameObject, GameObjectKind,
+  GridItem, GridTrack, Justify, LowerLimit, ObjectId, OverlayPlacement, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Response, ResponseMessage, Scene, SceneId,
+  SessionId, Snapshot, StackItem, Sticky, Style, UiDocument, UiDocumentState, UiElement,
+  UiElementKind, UiEventAction, UiEventResponse, UiNode, UiVisualElementProperties, UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_native::{Engine, EngineError};
+use battlement_native::{ConnectView, Engine, EngineError};
 use battlement_reactant::{
   component::Component,
   element_ref::use_element_ref,
@@ -147,7 +146,7 @@ impl<G: 'static> Engine for SessionEngine<G> {
   type ErrorCode = ();
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, _message: ConnectView<'_>) -> Result<Response, EngineError> {
     let response = self
       .reactant
       .begin_session(&mut self.game)

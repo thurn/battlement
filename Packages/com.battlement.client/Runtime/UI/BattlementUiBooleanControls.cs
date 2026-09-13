@@ -39,6 +39,13 @@ namespace Battlement.UI
                 Apply(controls[objectId.Value], value);
         }
 
+        internal void ApplyDirectValue(ObjectId objectId, bool value)
+        {
+            BooleanControlState state = controls[objectId.Value];
+            state.Committed = value;
+            state.Target.SetValueWithoutNotify(value);
+        }
+
         public void Remove(Guid objectId)
         {
             if (controls.Remove(objectId, out BooleanControlState state))

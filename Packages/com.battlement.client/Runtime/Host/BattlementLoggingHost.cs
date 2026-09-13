@@ -213,6 +213,12 @@ namespace Battlement
                 host.SetVisible(command.Surface, command.Visible);
             }
         }
+
+        public static void SetVisible(BattlementDirectDebugUi command)
+        {
+            if (host != null)
+                host.SetVisible((DebugUiSurface)command.Surface, command.Visible);
+        }
     }
 
     internal static class BattlementLoggingBootstrap

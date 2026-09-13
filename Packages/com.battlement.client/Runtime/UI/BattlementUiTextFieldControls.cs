@@ -48,6 +48,21 @@ namespace Battlement.UI
                 Apply(fields[objectId.Value], text);
         }
 
+        internal void ApplyDirectValue(ObjectId objectId, string value)
+        {
+            TextFieldState state = fields[objectId.Value];
+            CheckedIndex(state.PendingCursorIndex ?? state.Target.cursorIndex, value);
+            CheckedIndex(state.PendingSelectIndex ?? state.Target.selectIndex, value);
+            RunSuppressed(
+                state,
+                () =>
+                {
+                    state.Committed = value;
+                    state.Target.SetValueWithoutNotify(value);
+                }
+            );
+        }
+
         public void ValidateUpdate(ObjectId objectId, UiElement value)
         {
             if (value is not UiElement.TextField field)

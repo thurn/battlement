@@ -70,8 +70,14 @@ def web_build_identity(sample: str, release: bool) -> BuildIdentity:
     pathspecs = tuple(dict.fromkeys(path for paths in groups.values() for path in paths))
     status = subprocess.run(
         [
-            "git", "status", "--porcelain=v1", "-z", "--untracked-files=all",
-            "--", *pathspecs,
+            "git",
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=all",
+            "--no-renames",
+            "--",
+            *pathspecs,
         ],
         cwd=REPOSITORY_ROOT,
         check=True,

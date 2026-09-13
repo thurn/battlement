@@ -2,8 +2,10 @@ use battlement::{
   Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
   UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
 };
+use battlement_native::UiEventActionView;
+use std::fmt;
 
-use crate::{design_system, pointer_routing_styles};
+use crate::{design_system, native_ui::NativeUiResponseBuilder, pointer_routing_styles};
 
 pub(crate) const ROOT_ROUTE_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000001");
 pub(crate) const PANEL_ROUTE_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000002");
@@ -130,6 +132,174 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     ));
   }
   Some(commands)
+}
+
+pub(crate) fn write_event_response(
+  event: UiEventActionView<'_>,
+  response: &mut NativeUiResponseBuilder,
+) -> Result<bool, battlement_native::EngineError> {
+  let target_id =
+    ObjectId::from_bytes(event.target_id()).expect("UI event view validates target UUIDs");
+  if target_id != TARGET_ROUTE_ID {
+    return Ok(false);
+  }
+  let (payload, captured) = match event.event_kind() {
+    UiEventKind::PointerDown => {
+      let value = event.pointer_button().expect("pointer-down body");
+      (
+        Some(format!(
+          "POINTER DOWN\nposition  {:.0}, {:.0}\ndelta     {:.0}, {:.0}\npointer   {} · {:?}\nbutton    {:?}\nbuttons   {}\npressure  {:.2}\nclicks    {}\nmodifiers {:?}",
+          value.position.0,
+          value.position.1,
+          value.delta.0,
+          value.delta.1,
+          value.pointer_id,
+          value.pointer_type,
+          value.button,
+          value.buttons,
+          value.pressure,
+          value.click_count,
+          ModifiersDebug(value.modifiers),
+        )),
+        None,
+      )
+    }
+    UiEventKind::PointerMove => {
+      let value = event.pointer_move().expect("pointer-move body");
+      (
+        Some(format!(
+          "POINTER MOVE\nposition  {:.0}, {:.0}\ndelta     {:.0}, {:.0}\npointer   {} · {:?}\nchanged   {:?}\nbuttons   {}\npressure  {:.2}\nclicks    {}\nmodifiers {:?}",
+          value.position.0,
+          value.position.1,
+          value.delta.0,
+          value.delta.1,
+          value.pointer_id,
+          value.pointer_type,
+          value.changed_button,
+          value.buttons,
+          value.pressure,
+          value.click_count,
+          ModifiersDebug(value.modifiers),
+        )),
+        None,
+      )
+    }
+    UiEventKind::PointerUp => (None, Some(false)),
+    UiEventKind::PointerCapture => (None, Some(true)),
+    UiEventKind::PointerCaptureOut => (None, Some(false)),
+    UiEventKind::Wheel => {
+      let value = event.wheel().expect("wheel body");
+      (
+        Some(format!(
+          "WHEEL\nposition  {:.0}, {:.0}\ndelta     {:.1}, {:.1}, {:.1}\nmodifiers {:?}",
+          value.position.0,
+          value.position.1,
+          value.delta.0,
+          value.delta.1,
+          value.delta.2,
+          ModifiersDebug(value.modifiers),
+        )),
+        None,
+      )
+    }
+    _ => return Ok(false),
+  };
+  if let Some(payload) = payload {
+    response.label(PAYLOAD_ID, &payload)?;
+  }
+  let subscriptions = [
+    (
+      TARGET_ROUTE_ID,
+      kinds()
+        .map(UiEventSubscription::target)
+        .into_iter()
+        .collect(),
+    ),
+    (PANEL_ROUTE_ID, routed().into_iter().collect()),
+    (ROOT_ROUTE_ID, routed().into_iter().collect()),
+  ];
+  let deliveries = battlement::routing::route_subscriptions_for_kind(
+    &subscriptions,
+    target_id,
+    event.event_kind(),
+  );
+  let route_keys = [
+    (ROOT_ROUTE_ID, UiEventPhase::Trickle),
+    (PANEL_ROUTE_ID, UiEventPhase::Trickle),
+    (TARGET_ROUTE_ID, UiEventPhase::Target),
+    (PANEL_ROUTE_ID, UiEventPhase::Bubble),
+    (ROOT_ROUTE_ID, UiEventPhase::Bubble),
+  ];
+  for (id, key) in ROUTE_STEPS.into_iter().zip(route_keys) {
+    let active = deliveries
+      .iter()
+      .any(|delivery| (delivery.object_id, delivery.phase) == key);
+    let (background, foreground) = if active {
+      (
+        design_system::ACCENT,
+        battlement::Color::rgb(0.018, 0.055, 0.075),
+      )
+    } else {
+      (
+        battlement::Color::rgb(0.045, 0.14, 0.17),
+        battlement::Color::rgb(0.55, 0.66, 0.7),
+      )
+    };
+    let element = response
+      .writer()
+      .label_update_builder()
+      .padding(6.0, 8.0)
+      .margin(2.0, 2.0)
+      .background_color(rgba(background))
+      .color(rgba(foreground))
+      .border_radius(6.0)
+      .font_size(10.0)
+      .text_align_middle_center()
+      .finish();
+    response.update(id, element)?;
+  }
+  if let Some(active) = captured {
+    response.label(
+      CAPTURE_ID,
+      if active {
+        "● CAPTURED · POINTER OWNED BY TARGET"
+      } else {
+        "○ RELEASED · POINTER ROUTING RESTORED"
+      },
+    )?;
+  }
+  Ok(true)
+}
+
+fn rgba(value: battlement::Color) -> [f64; 4] {
+  [value.r, value.g, value.b, value.a]
+}
+
+struct ModifiersDebug(u32);
+
+impl fmt::Debug for ModifiersDebug {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    const NAMES: [&str; 7] = [
+      "Alt",
+      "Control",
+      "Command",
+      "Shift",
+      "CapsLock",
+      "Numeric",
+      "FunctionKey",
+    ];
+    formatter.write_str("KeyModifiers([")?;
+    let mut separator = "";
+    for (index, name) in NAMES.into_iter().enumerate() {
+      if self.0 & (1 << index) == 0 {
+        continue;
+      }
+      formatter.write_str(separator)?;
+      formatter.write_str(name)?;
+      separator = ", ";
+    }
+    formatter.write_str("])")
+  }
 }
 
 fn route_card() -> UiNode {

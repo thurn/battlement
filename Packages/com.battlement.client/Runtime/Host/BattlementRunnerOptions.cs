@@ -14,7 +14,6 @@ namespace Battlement
         public BattlementRunnerOptions(
             IBattlementTransport transport,
             IBattlementAssetStorage assetStorage,
-            IBattlementProtocolCodec protocolCodec,
             IBattlementClock? clock = null,
             IBattlementLogger? logger = null,
             bool useInstantAnimations = false,
@@ -23,13 +22,15 @@ namespace Battlement
             IBattlementFailurePresenter? failurePresenter = null,
             bool suppressDevelopmentErrorDialogs = false,
             IBattlementCaughtFailureReporter? caughtFailureReporter = null,
-            Action<string>? openExternalUrl = null
+            Action<string>? openExternalUrl = null,
+            IBattlementFlatBufferResponseViewSchema? flatBufferResponseSchema = null,
+            IBattlementFlatBufferClientSchema? flatBufferClientSchema = null,
+            IBattlementCoreMessageObserver? coreMessageObserver = null
         )
         {
             OpenExternalUrl = openExternalUrl ?? Application.OpenURL;
             Transport = Preconditions.CheckNotNull(transport, nameof(transport));
             AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
-            ProtocolCodec = Preconditions.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
             Logger = logger ?? new BattlementUnityLogger();
             ErrorSink = errorSink ?? new BattlementFileErrorSink();
@@ -40,6 +41,9 @@ namespace Battlement
                 .OrderBy(type => type, StringComparer.Ordinal)
                 .ToArray();
             CaughtFailureReporter = caughtFailureReporter ?? new UnityCaughtFailureReporter();
+            FlatBufferResponseSchema = flatBufferResponseSchema;
+            FlatBufferClientSchema = flatBufferClientSchema;
+            CoreMessageObserver = coreMessageObserver;
         }
 
         /// <summary>Dispatches an absolute URL to the platform external handler.</summary>
@@ -48,8 +52,6 @@ namespace Battlement
         public IBattlementTransport Transport { get; }
 
         public IBattlementAssetStorage AssetStorage { get; }
-
-        public IBattlementProtocolCodec ProtocolCodec { get; }
 
         public IBattlementClock Clock { get; }
 
@@ -67,6 +69,15 @@ namespace Battlement
         public IReadOnlyList<string> CustomCommandTypes { get; }
 
         public IBattlementCaughtFailureReporter CaughtFailureReporter { get; }
+
+        /// <summary>Generated response reader for a build containing custom commands.</summary>
+        public IBattlementFlatBufferResponseViewSchema? FlatBufferResponseSchema { get; }
+
+        /// <summary>Generated client writer for a build containing custom protocol types.</summary>
+        public IBattlementFlatBufferClientSchema? FlatBufferClientSchema { get; }
+
+        /// <summary>Optional diagnostics hook invoked before core message submission.</summary>
+        public IBattlementCoreMessageObserver? CoreMessageObserver { get; }
     }
 
     internal sealed class UnityBattlementClock : IBattlementClock
