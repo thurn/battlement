@@ -10,6 +10,11 @@ reason = "Shader behavior can differ under WebGL"
 samples = ["ui"]
 
 [[risks]]
+paths = ["Packages/com.battlement.client/Runtime/UI/BattlementPaint*.cs", "Packages/com.battlement.client/Runtime/UI/BattlementRadialGradientRaster.cs"]
+reason = "Paint rasterization and browser worker scheduling"
+samples = ["chess-ui"]
+
+[[risks]]
 paths = ["Packages/com.battlement.client/Editor/BattlementSampleBuild.cs"]
 reason = "Web player construction"
 samples = ["basic"]

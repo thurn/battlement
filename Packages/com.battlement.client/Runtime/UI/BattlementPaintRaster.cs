@@ -160,8 +160,7 @@ namespace Battlement.UI
             {
                 if (filter is UiFilterFunction.Brightness brightness)
                 {
-                    Parallel.For(
-                        0,
+                    BattlementPaintWork.ForRows(
                         height,
                         y =>
                         {
@@ -192,8 +191,7 @@ namespace Battlement.UI
                 }
             }
             var upload = new Color32[count];
-            Parallel.For(
-                0,
+            BattlementPaintWork.ForRows(
                 height,
                 y =>
                 {
@@ -295,11 +293,10 @@ namespace Battlement.UI
                 linearSquared = linearDelta.sqrMagnitude;
                 stops = linear.Stops;
             }
-            Parallel.For(
-                0,
+            BattlementPaintWork.ForRows(
                 height,
                 () => new float[points.Count],
-                (y, _, crossings) =>
+                (y, crossings) =>
                 {
                     float sampleY = bounds.y + y + 0.5f;
                     int crossingCount = 0;
@@ -353,8 +350,7 @@ namespace Battlement.UI
                         }
                     }
                     return crossings;
-                },
-                _ => { }
+                }
             );
         }
 
@@ -443,8 +439,7 @@ namespace Battlement.UI
                 }
             }
             UnityColor tint = Color(shadow.Color);
-            Parallel.For(
-                0,
+            BattlementPaintWork.ForRows(
                 height,
                 y =>
                 {
@@ -520,8 +515,7 @@ namespace Battlement.UI
             int lines = horizontal ? height : width;
             int length = horizontal ? width : height;
             float scale = 1f / (radius * 2 + 1);
-            Parallel.For(
-                0,
+            BattlementPaintWork.ForRows(
                 lines,
                 line =>
                 {
@@ -595,5 +589,30 @@ namespace Battlement.UI
 
         private static UnityColor Color(Color color) =>
             new((float)color.Red, (float)color.Green, (float)color.Blue, (float)color.Alpha);
+    }
+
+    /// <summary>Runs independent raster rows without requesting late browser workers.</summary>
+    internal static class BattlementPaintWork
+    {
+        internal static void ForRows(int count, Action<int> action)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            for (int index = 0; index < count; index++)
+                action(index);
+#else
+            Parallel.For(0, count, action);
+#endif
+        }
+
+        internal static void ForRows<T>(int count, Func<T> initialize, Func<int, T, T> action)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            T local = initialize();
+            for (int index = 0; index < count; index++)
+                local = action(index, local);
+#else
+            Parallel.For(0, count, initialize, (index, _, local) => action(index, local), _ => { });
+#endif
+        }
     }
 }

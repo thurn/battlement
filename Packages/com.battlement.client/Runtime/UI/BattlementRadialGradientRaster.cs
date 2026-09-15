@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityColor = UnityEngine.Color;
 using UnityRect = UnityEngine.Rect;
@@ -78,16 +77,14 @@ namespace Battlement.UI
             }
 
             if (result.Length >= ParallelPixelThreshold)
-                Parallel.For(
-                    0,
+                BattlementPaintWork.ForRows(
                     height,
                     () => new float[points.Count],
-                    (y, _, crossings) =>
+                    (y, crossings) =>
                     {
                         FillRow(y, crossings);
                         return crossings;
-                    },
-                    _ => { }
+                    }
                 );
             else
             {

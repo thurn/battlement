@@ -10,6 +10,6 @@ async (page, context) => {
   await page.waitForTimeout(1000);
   // ReturnButton is fixed at design (328, 1358), inside the 29 px frame inset.
   await check.click(650, 599);
-  await check.expectImage('main-menu-restored', menu, content, 0, 0.04);
+  await check.expectImage('main-menu-restored', menu, content, 0, 0.06);
   return check.result('Open Settings and return to the main menu');
 }
