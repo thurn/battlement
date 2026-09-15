@@ -33,7 +33,7 @@ MonoBehaviour:
   m_ClearDepthStencil: 1
   m_ClearColor: 0
   m_ColorClearValue: {r: 0, g: 0, b: 0, a: 0}
-  m_VertexBudget: 0
+  m_VertexBudget: 32768
   m_TextureSlotCount: 8
   m_DynamicAtlasSettings:
     m_MinAtlasSize: 64

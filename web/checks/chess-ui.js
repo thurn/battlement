@@ -3,7 +3,7 @@ async (page, context) => {
   // PortraitViewport fits 1024x1536 at 0.75 of the desktop height fit.
   // MainMenu's Settings action is the second 140 px row at design y=640.
   const content = { x: 520, y: 265, width: 240, height: 180 };
-  await page.waitForTimeout(1500);
+  // Capture and navigate as soon as the host connects to exercise the panel's initial buffers.
   const menu = await check.capture('main-menu-actions', content);
   await check.click(640, 340);
   await check.expectImage('settings-panel', menu, content, 0.2);
