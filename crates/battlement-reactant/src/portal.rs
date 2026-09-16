@@ -387,24 +387,32 @@ fn physical_hosts(
   expanding: &mut Vec<PortalTarget>,
 ) -> Vec<UiNode> {
   let mut hosts = Vec::new();
+  self::append_physical_hosts(tree, ranges, expanding, &mut hosts);
+  hosts
+}
+
+fn append_physical_hosts(
+  tree: &RenderTree,
+  ranges: &HashMap<PortalTarget, Vec<PortalRange<'_>>>,
+  expanding: &mut Vec<PortalTarget>,
+  hosts: &mut Vec<UiNode>,
+) {
   for position in &tree.positions {
     if position.portal.is_some() {
       continue;
     }
-    let mut retained = position
-      .suspense
-      .as_ref()
-      .filter(|suspense| suspense.showing_fallback)
-      .map_or_else(Vec::new, |suspense| {
-        self::physical_hosts(&suspense.primary, ranges, expanding)
-      });
-    self::hide_roots(&mut retained);
     if let Some(host) = &position.host {
-      let mut host = host.clone();
-      host.children = retained;
-      host
-        .children
-        .extend(self::physical_hosts(&position.children, ranges, expanding));
+      let mut host = UiNode::new(host.object_id, host.element.clone());
+      if let Some(suspense) = position
+        .suspense
+        .as_ref()
+        .filter(|suspense| suspense.showing_fallback)
+      {
+        let start = host.children.len();
+        self::append_physical_hosts(&suspense.primary, ranges, expanding, &mut host.children);
+        self::hide_roots(&mut host.children[start..]);
+      }
+      self::append_physical_hosts(&position.children, ranges, expanding, &mut host.children);
       if let Some(target) = &position.portal_target {
         assert!(
           !expanding.contains(target),
@@ -414,21 +422,28 @@ fn physical_hosts(
         let mut target_ranges = ranges.get(target).into_iter().flatten().collect::<Vec<_>>();
         target_ranges.sort_by_key(|range| range.source);
         for range in target_ranges {
-          let mut portal_hosts = self::physical_hosts(range.tree, ranges, expanding);
+          let start = host.children.len();
+          self::append_physical_hosts(range.tree, ranges, expanding, &mut host.children);
           if range.hidden {
-            self::hide_roots(&mut portal_hosts);
+            self::hide_roots(&mut host.children[start..]);
           }
-          host.children.extend(portal_hosts);
         }
         expanding.pop();
       }
       hosts.push(host);
     } else {
-      hosts.extend(retained);
-      hosts.extend(self::physical_hosts(&position.children, ranges, expanding));
+      if let Some(suspense) = position
+        .suspense
+        .as_ref()
+        .filter(|suspense| suspense.showing_fallback)
+      {
+        let start = hosts.len();
+        self::append_physical_hosts(&suspense.primary, ranges, expanding, hosts);
+        self::hide_roots(&mut hosts[start..]);
+      }
+      self::append_physical_hosts(&position.children, ranges, expanding, hosts);
     }
   }
-  hosts
 }
 
 fn hide_roots(hosts: &mut [UiNode]) {
