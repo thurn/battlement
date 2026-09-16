@@ -11,7 +11,7 @@ use battlement_native::{ConnectView, CoreActionBodyView, CoreClientMessageView, 
 const DEFAULT_SCENE: &str = "battlement/tests/default-scene";
 const RELEASE_PREFIX: &str = "fixture.release.";
 const INTEGRATION_COMMAND: &str = "fixture.integration.scale";
-pub(crate) const INTEGRATION_SCENE: &str = "battlement/integration/scene";
+pub(crate) const INTEGRATION_SCENE: &str = crate::WORKER_SCENE_ADDRESS;
 pub(crate) const INTEGRATION_PREFAB: &str = "battlement/integration/prefab";
 pub(crate) const INTEGRATION_EFFECT: &str = "battlement/integration/effect";
 pub(crate) const INTEGRATION_MATERIAL: &str = "battlement/integration/material";
@@ -59,6 +59,9 @@ impl ReleaseScenario {
       return Some(Self::IntegrationFixture);
     }
     connect.custom_command_types().find_map(|command_type| {
+      if command_type == crate::WORKER_COMMAND_TYPE {
+        return Some(Self::WorkerCancellation);
+      }
       match command_type.strip_prefix(RELEASE_PREFIX)? {
         "batch-failures" => Some(Self::BatchFailures),
         "timing" => Some(Self::Timing),
@@ -67,7 +70,6 @@ impl ReleaseScenario {
         "custom-failure" => Some(Self::CustomFailure),
         "pointer-input" => Some(Self::PointerInput),
         "fatal-reconnect" => Some(Self::FatalReconnect),
-        "worker-cancellation" => Some(Self::WorkerCancellation),
         _ => None,
       }
     })

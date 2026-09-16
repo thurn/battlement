@@ -3,6 +3,7 @@ use std::{
   panic::{self, AssertUnwindSafe},
   sync::{Arc, Condvar, Mutex, MutexGuard},
   thread,
+  time::{Duration, Instant},
 };
 
 type WorkerTask = Box<dyn FnOnce(WorkerConnection) + Send + 'static>;
@@ -141,12 +142,25 @@ impl WorkerObserver {
     self::lock(&self.shared.state).events.clone()
   }
 
-  #[cfg(test)]
-  fn wait_for(&self, predicate: impl Fn(&[WorkerEvent]) -> bool) {
+  pub(crate) fn wait_for(
+    &self,
+    timeout: Duration,
+    predicate: impl Fn(&[WorkerEvent]) -> bool,
+  ) -> bool {
+    let deadline = Instant::now() + timeout;
     let mut state = self::lock(&self.shared.state);
     while !predicate(&state.events) {
-      state = self::wait(&self.shared.changed, state);
+      let remaining = deadline.saturating_duration_since(Instant::now());
+      if remaining.is_zero() {
+        return false;
+      }
+      let (next, result) = self::wait_timeout(&self.shared.changed, state, remaining);
+      state = next;
+      if result.timed_out() && !predicate(&state.events) {
+        return false;
+      }
     }
+    true
   }
 }
 
@@ -270,11 +284,24 @@ fn wait<'a, T>(condition: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, 
     .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+fn wait_timeout<'a, T>(
+  condition: &Condvar,
+  guard: MutexGuard<'a, T>,
+  timeout: Duration,
+) -> (MutexGuard<'a, T>, std::sync::WaitTimeoutResult) {
+  condition
+    .wait_timeout(guard, timeout)
+    .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
-  use std::sync::{
-    Arc, Barrier,
-    atomic::{AtomicUsize, Ordering},
+  use std::{
+    sync::{
+      Arc, Barrier,
+      atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
   };
 
   use crate::worker::{WorkerEvent, WorkerSlot};
@@ -306,7 +333,9 @@ mod tests {
     entered.wait();
     let second = slot.replace(|_| {});
     proceed.wait();
-    observer.wait_for(|events| events.contains(&WorkerEvent::Stopped(second)));
+    assert!(observer.wait_for(Duration::from_secs(5), |events| {
+      events.contains(&WorkerEvent::Stopped(second))
+    }));
 
     let events = observer.events();
     assert_eq!(drops.load(Ordering::SeqCst), 1);
@@ -320,9 +349,13 @@ mod tests {
     let slot = WorkerSlot::new();
     let observer = slot.observer();
     let failed = slot.replace(|_| panic!("rules failed"));
-    observer.wait_for(|events| events.contains(&WorkerEvent::Stopped(failed)));
+    assert!(observer.wait_for(Duration::from_secs(5), |events| {
+      events.contains(&WorkerEvent::Stopped(failed))
+    }));
     let replacement = slot.replace(|_| {});
-    observer.wait_for(|events| events.contains(&WorkerEvent::Stopped(replacement)));
+    assert!(observer.wait_for(Duration::from_secs(5), |events| {
+      events.contains(&WorkerEvent::Stopped(replacement))
+    }));
 
     let events = observer.events();
     assert!(events.contains(&WorkerEvent::Failed(failed, "rules failed".to_owned())));
@@ -347,7 +380,9 @@ mod tests {
     let superseded_again = slot.replace(|_| {});
     let latest = slot.replace(|_| {});
     release.wait();
-    observer.wait_for(|events| events.contains(&WorkerEvent::Stopped(latest)));
+    assert!(observer.wait_for(Duration::from_secs(5), |events| {
+      events.contains(&WorkerEvent::Stopped(latest))
+    }));
 
     let events = observer.events();
     assert!(events.contains(&WorkerEvent::Cancelled(active)));

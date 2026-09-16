@@ -2374,6 +2374,18 @@ name = "reactant-rules"
 version = "0.1.0"
 
 [[package]]
+name = "reactant-testing"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-fake",
+ "battlement-native",
+ "battlement-native-export-fixture",
+ "reactant-core",
+ "trox",
+]
+
+[[package]]
 name = "reactant-ui"
 version = "0.1.0"
 dependencies = [

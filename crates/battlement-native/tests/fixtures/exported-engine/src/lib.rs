@@ -22,10 +22,16 @@ use battlement_native::{
   NativeObjectPlacement, NativeParentScene, NativePointerEvent, NativePreparedAssetKind,
   NativeTransform, UiEventActionView, UiEventResult,
 };
-use reactant_rules::platform_proof::{ProofObserver, ProofTask, WorkerProof};
+pub use reactant_rules::platform_proof::{ProofObserver, ProofSnapshot};
+use reactant_rules::platform_proof::{ProofTask, WorkerProof};
 
 pub use release_scenarios::FlashPayload;
 use release_scenarios::ReleaseScenario;
+
+/// Custom command type that selects the exported worker-cancellation scenario.
+pub const WORKER_COMMAND_TYPE: &str = "fixture.release.worker-cancellation";
+/// Scene address required by the exported worker-cancellation scenario.
+pub const WORKER_SCENE_ADDRESS: &str = "battlement/integration/scene";
 
 static SUBMIT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static CONNECT_CALLS: AtomicUsize = AtomicUsize::new(0);
@@ -42,6 +48,36 @@ pub struct FixtureEngine {
   poll_count: usize,
   worker_proof: Option<WorkerProof>,
   worker_action_started: bool,
+}
+
+/// Explicit engine and observer service for worker-lifecycle tests.
+pub struct WorkerFixture {
+  engine: FixtureEngine,
+  observer: ProofObserver,
+}
+
+impl WorkerFixture {
+  /// Creates a fresh exported engine with an attached worker-proof observer.
+  pub fn create() -> Result<Self, EngineError> {
+    let mut engine = create_engine()?;
+    let proof = WorkerProof::new();
+    let observer = proof.observer();
+    *worker_observer().lock().unwrap() = Some(observer.clone());
+    engine.worker_proof = Some(proof);
+    Ok(Self { engine, observer })
+  }
+
+  /// Separates the real exported engine from its event-driven observer.
+  #[must_use]
+  pub fn into_parts(self) -> (FixtureEngine, ProofObserver) {
+    (self.engine, self.observer)
+  }
+}
+
+/// Returns the object whose public click action enters the waiting proof barrier.
+#[must_use]
+pub fn worker_action_object_id() -> battlement::ObjectId {
+  release_scenarios::object_id(70)
 }
 
 impl Drop for FixtureEngine {

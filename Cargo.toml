@@ -17,6 +17,7 @@ members = [
     "crates/reactant-core",
     "crates/reactant-ui",
     "crates/reactant",
+    "crates/reactant-testing",
     "crates/rt",
     "crates/battlement-reactant-asset-macros",
     "crates/battlement-reactant-asset-syntax",

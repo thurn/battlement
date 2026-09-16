@@ -3,6 +3,7 @@
 use std::{
   sync::{Arc, Condvar, Mutex, MutexGuard},
   thread::{self, ThreadId},
+  time::{Duration, Instant},
 };
 
 use crate::{
@@ -165,6 +166,70 @@ impl ProofObserver {
     values.release_computation = true;
     self.state.changed.notify_all();
   }
+
+  /// Waits until at least `minimum` proof workers have started.
+  #[must_use]
+  pub fn wait_for_worker_started(
+    &self,
+    minimum: usize,
+    timeout: Duration,
+  ) -> Option<ProofSnapshot> {
+    self
+      .worker
+      .wait_for(timeout, |events| {
+        self::count(events, |event| matches!(event, WorkerEvent::Started(_))) >= minimum
+      })
+      .then(|| self.snapshot())
+  }
+
+  /// Waits until at least `minimum` proof workers have stopped.
+  #[must_use]
+  pub fn wait_for_worker_stopped(
+    &self,
+    minimum: usize,
+    timeout: Duration,
+  ) -> Option<ProofSnapshot> {
+    self
+      .worker
+      .wait_for(timeout, |events| {
+        self::count(events, |event| matches!(event, WorkerEvent::Stopped(_))) >= minimum
+      })
+      .then(|| self.snapshot())
+  }
+
+  /// Waits until the cancellation-aware rules barrier is entered.
+  #[must_use]
+  pub fn wait_for_waiting(&self, timeout: Duration) -> Option<ProofSnapshot> {
+    self.wait_for_barrier(timeout, |values| values.waiting)
+  }
+
+  /// Waits until the ordinary-computation barrier is entered.
+  #[must_use]
+  pub fn wait_for_computing(&self, timeout: Duration) -> Option<ProofSnapshot> {
+    self.wait_for_barrier(timeout, |values| values.computing)
+  }
+
+  fn wait_for_barrier(
+    &self,
+    timeout: Duration,
+    predicate: impl Fn(&ProofValues) -> bool,
+  ) -> Option<ProofSnapshot> {
+    let deadline = Instant::now() + timeout;
+    let mut values = self::lock(&self.state.values);
+    while !predicate(&values) {
+      let remaining = deadline.saturating_duration_since(Instant::now());
+      if remaining.is_zero() {
+        return None;
+      }
+      let (next, result) = self::wait_timeout(&self.state.changed, values, remaining);
+      values = next;
+      if result.timed_out() && !predicate(&values) {
+        return None;
+      }
+    }
+    drop(values);
+    Some(self.snapshot())
+  }
 }
 
 impl Drop for DropProbe {
@@ -262,52 +327,48 @@ fn wait<'a, T>(condition: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, 
     .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+fn wait_timeout<'a, T>(
+  condition: &Condvar,
+  guard: MutexGuard<'a, T>,
+  timeout: Duration,
+) -> (MutexGuard<'a, T>, std::sync::WaitTimeoutResult) {
+  condition
+    .wait_timeout(guard, timeout)
+    .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[cfg(test)]
 mod tests {
-  use std::{
-    thread,
-    time::{Duration, Instant},
-  };
+  use std::time::Duration;
 
-  use crate::platform_proof::{ProofSnapshot, ProofTask, WorkerProof};
+  use crate::platform_proof::{ProofTask, WorkerProof};
 
   #[test]
   fn repeated_replacement_runs_only_the_latest_proof_task() {
     let proof = WorkerProof::new();
     let observer = proof.observer();
     proof.replace(ProofTask::Wait);
-    wait_for(&observer, |snapshot| snapshot.waiting);
+    observer
+      .wait_for_waiting(Duration::from_secs(5))
+      .expect("waiting proof barrier");
     proof.replace(ProofTask::Computation);
-    wait_for(&observer, |snapshot| {
-      snapshot.computing && snapshot.stopped == 1
-    });
+    observer
+      .wait_for_worker_stopped(1, Duration::from_secs(5))
+      .expect("first proof worker stopped");
+    observer
+      .wait_for_computing(Duration::from_secs(5))
+      .expect("computation proof barrier");
     proof.replace(ProofTask::Complete);
     proof.replace(ProofTask::Complete);
     proof.replace(ProofTask::Complete);
     observer.release_computation();
-    let snapshot = wait_for(&observer, |snapshot| snapshot.stopped == 3);
+    let snapshot = observer
+      .wait_for_worker_stopped(3, Duration::from_secs(5))
+      .expect("all proof workers stopped");
 
     assert_eq!(snapshot.started, 3);
     assert_eq!(snapshot.cancelled, 2);
     assert_eq!(snapshot.completed, 1);
     assert_eq!(snapshot.last_started, 5);
-  }
-
-  fn wait_for(
-    observer: &crate::platform_proof::ProofObserver,
-    predicate: impl Fn(ProofSnapshot) -> bool,
-  ) -> ProofSnapshot {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-      let snapshot = observer.snapshot();
-      if predicate(snapshot) {
-        return snapshot;
-      }
-      assert!(
-        Instant::now() < deadline,
-        "worker proof timed out: {snapshot:?}"
-      );
-      thread::yield_now();
-    }
   }
 }

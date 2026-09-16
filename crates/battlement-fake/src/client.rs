@@ -375,6 +375,12 @@ where
     UiClient { client: self }
   }
 
+  /// Returns the current logical UI world for read-only observation.
+  #[must_use]
+  pub fn ui_world(&self) -> &UiWorld {
+    &self.ui_world
+  }
+
   /// Performs a complete semantic mouse click on one object.
   pub fn click(&mut self, object_id: battlement::ObjectId) {
     self.click_at(object_id, self.world.world_transform(object_id).position);
