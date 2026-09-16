@@ -61,7 +61,7 @@ fn nested_reparent_completes_before_its_old_ancestor_is_destroyed() {
       .child(UiNode::new(child_id, UiLabel::new("moved"))),
   ];
 
-  let groups = reconcile::command_groups(root_id, &previous, &desired);
+  let groups = reconcile::ui_command_groups(root_id, &previous, &desired);
   let move_group = groups
     .iter()
     .position(|group| group.iter().any(|body| self::is_move(body, child_id)))
@@ -107,7 +107,7 @@ fn disjoint_ends_of_a_move_chain_share_the_first_group() {
     })
     .collect::<Vec<_>>();
 
-  let groups = reconcile::command_groups(root_id, &previous, &desired);
+  let groups = reconcile::ui_command_groups(root_id, &previous, &desired);
   assert_eq!(groups.len(), 2);
   assert_eq!(groups[0].len(), 2);
   assert!(self::is_move(&groups[0][0], children[0]));

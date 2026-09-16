@@ -2,7 +2,7 @@
 
 use battlement::{Command, CommandBody, ObjectId, Prop, UiDocument, UiVisualElement};
 
-use crate::portal::PortalRoot;
+use crate::{portal::PortalRoot, ui_host_adapter};
 
 pub(crate) fn validate_subscriptions(document: &UiDocument) {
   let authored_events = matches!(&document.element.events, Prop::Set(values) if !values.is_empty());
@@ -19,7 +19,7 @@ pub(crate) fn render(document: &UiDocument, physical: &PortalRoot) -> UiDocument
   if !physical.subscriptions.is_empty() {
     document.element.event_subscriptions = Prop::Set(physical.subscriptions.clone());
   }
-  document.children.clone_from(&physical.hosts);
+  document.children = ui_host_adapter::to_ui_nodes(&physical.hosts);
   document
 }
 

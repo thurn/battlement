@@ -24,6 +24,7 @@ use crate::{
   portal::PortalTarget,
   render::{RenderPosition, RenderTree},
   runtime::RenderError,
+  ui_host_adapter,
 };
 
 impl RenderTree {
@@ -133,7 +134,10 @@ impl RenderTree {
           .host
           .as_mut()
           .expect("drag constraints require a native host");
-        let Prop::Set(descriptor) = &mut host.element.visual_element_mut().motion else {
+        let Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
+          .visual_element_mut()
+          .motion
+        else {
           panic!("drag constraints require a Motion descriptor");
         };
         let gestures = descriptor
@@ -159,7 +163,9 @@ impl RenderTree {
           .host
           .as_mut()
           .expect("overlay metadata requires a public wrapper host");
-        host.element.visual_element_mut().overlay_placement = Prop::Set(match reference {
+        ui_host_adapter::element_mut(host)
+          .visual_element_mut()
+          .overlay_placement = Prop::Set(match reference {
           OverlayReference::Popover { anchor, placement } => OverlayPlacement::Popover {
             anchor: attachments.reference_target(runtime_id, anchor),
             placement: *placement,
@@ -488,7 +494,7 @@ impl RenderTree {
     let mut invoked = false;
     for position in &mut self.positions {
       let matches = position.host.as_ref().is_some_and(|host| {
-        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+        let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion else {
           return false;
         };
         descriptor.descriptor_id == event.descriptor_id
@@ -528,7 +534,7 @@ impl RenderTree {
     let mut invoked = false;
     for position in &mut self.positions {
       let matches = position.host.as_ref().is_some_and(|host| {
-        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+        let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion else {
           return false;
         };
         descriptor.descriptor_id == sample.descriptor_id
@@ -556,7 +562,7 @@ impl RenderTree {
     let mut invoked = false;
     for position in &mut self.positions {
       let matches = position.host.as_ref().is_some_and(|host| {
-        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+        let Prop::Set(descriptor) = &ui_host_adapter::element(host).visual_element().motion else {
           return false;
         };
         descriptor.descriptor_id == event.descriptor_id && descriptor.generation == event.generation

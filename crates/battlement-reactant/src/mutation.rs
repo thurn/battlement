@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use battlement::{Command, CommandBody, ObjectId, UiNode, VisualElementUpdate};
+use battlement::{Command, CommandBody, ObjectId};
+
+use crate::host_node::HostNode;
 
 pub(crate) fn lower(
-  commands: Vec<Command>,
+  planned: Vec<PlannedMutation>,
   previous_parents: &HashMap<ObjectId, ObjectId>,
   previous_preorder: &[ObjectId],
   desired_preorder: &[ObjectId],
@@ -11,18 +13,11 @@ pub(crate) fn lower(
 ) -> Vec<Vec<CommandBody>> {
   let previous_ordinals = self::ordinals(previous_preorder);
   let desired_ordinals = self::ordinals(desired_preorder);
-  let mut current_parents = previous_parents.clone();
-  let mut mutations = commands
+  let mut mutations = planned
     .into_iter()
     .enumerate()
-    .map(|(sequence, command)| {
-      Mutation::new(
-        sequence,
-        command.body,
-        &mut current_parents,
-        &previous_ordinals,
-        &desired_ordinals,
-      )
+    .map(|(sequence, planned)| {
+      Mutation::new(sequence, planned, &previous_ordinals, &desired_ordinals)
     })
     .collect::<Vec<_>>();
   for index in 0..mutations.len() {
@@ -43,6 +38,75 @@ pub(crate) fn lower(
   self::groups(mutations)
 }
 
+pub(crate) struct PlannedMutation {
+  kind: MutationKind,
+  target: ObjectId,
+  old_parent: Option<ObjectId>,
+  new_parent: Option<ObjectId>,
+  created: HashSet<ObjectId>,
+  body: CommandBody,
+  conflicts: HashSet<ObjectId>,
+}
+
+impl PlannedMutation {
+  pub(crate) fn create(command: Command, node: &HostNode, parent_id: ObjectId) -> Self {
+    let mut created = HashSet::new();
+    self::collect_created(node, &mut created);
+    let mut conflicts = created.clone();
+    conflicts.insert(parent_id);
+    Self {
+      kind: MutationKind::Create,
+      target: node.object_id,
+      old_parent: None,
+      new_parent: Some(parent_id),
+      created,
+      body: command.body,
+      conflicts,
+    }
+  }
+
+  pub(crate) fn move_host(
+    command: Command,
+    object_id: ObjectId,
+    old_parent: ObjectId,
+    new_parent: ObjectId,
+  ) -> Self {
+    Self {
+      kind: MutationKind::Move,
+      target: object_id,
+      old_parent: Some(old_parent),
+      new_parent: Some(new_parent),
+      created: HashSet::new(),
+      body: command.body,
+      conflicts: HashSet::from([object_id, old_parent, new_parent]),
+    }
+  }
+
+  pub(crate) fn properties(command: Command, object_id: ObjectId) -> Self {
+    Self {
+      kind: MutationKind::Properties,
+      target: object_id,
+      old_parent: None,
+      new_parent: None,
+      created: HashSet::new(),
+      body: command.body,
+      conflicts: HashSet::from([object_id]),
+    }
+  }
+
+  pub(crate) fn destroy(command: Command, object_id: ObjectId, old_parent: ObjectId) -> Self {
+    Self {
+      kind: MutationKind::Destroy,
+      target: object_id,
+      old_parent: Some(old_parent),
+      new_parent: None,
+      created: HashSet::new(),
+      body: command.body,
+      conflicts: HashSet::from([object_id, old_parent]),
+    }
+  }
+}
+
 struct Mutation {
   sequence: usize,
   ordinal: (usize, MutationKind, ObjectId),
@@ -59,85 +123,19 @@ struct Mutation {
 impl Mutation {
   fn new(
     sequence: usize,
-    body: CommandBody,
-    current_parents: &mut HashMap<ObjectId, ObjectId>,
+    planned: PlannedMutation,
     previous_ordinals: &HashMap<ObjectId, usize>,
     desired_ordinals: &HashMap<ObjectId, usize>,
   ) -> Self {
-    let (target, kind, old_parent, new_parent, created, conflicts) = match &body {
-      CommandBody::VisualElementCreate(value) => {
-        let mut conflicts = HashSet::from([value.parent_id]);
-        self::collect_created(
-          &value.node,
-          value.parent_id,
-          current_parents,
-          &mut conflicts,
-        );
-        let mut created = conflicts.clone();
-        created.remove(&value.parent_id);
-        (
-          value.node.object_id,
-          MutationKind::Create,
-          None,
-          Some(value.parent_id),
-          created,
-          conflicts,
-        )
-      }
-      CommandBody::VisualElementUpdate(value) => match value.as_ref() {
-        VisualElementUpdate::Properties { object_id, .. } => (
-          *object_id,
-          MutationKind::Properties,
-          None,
-          None,
-          HashSet::new(),
-          HashSet::from([*object_id]),
-        ),
-        VisualElementUpdate::Parent {
-          object_id,
-          parent_id,
-          ..
-        } => {
-          let old_parent = current_parents[object_id];
-          current_parents.insert(*object_id, *parent_id);
-          (
-            *object_id,
-            MutationKind::Move,
-            Some(old_parent),
-            Some(*parent_id),
-            HashSet::new(),
-            HashSet::from([*object_id, old_parent, *parent_id]),
-          )
-        }
-        VisualElementUpdate::Index { object_id, .. } => {
-          let parent_id = current_parents[object_id];
-          (
-            *object_id,
-            MutationKind::Move,
-            Some(parent_id),
-            Some(parent_id),
-            HashSet::new(),
-            HashSet::from([*object_id, parent_id]),
-          )
-        }
-      },
-      CommandBody::VisualElementDestroy(value) => {
-        let mut conflicts = HashSet::from([value.object_id]);
-        let old_parent = current_parents.remove(&value.object_id);
-        if let Some(parent_id) = old_parent {
-          conflicts.insert(parent_id);
-        }
-        (
-          value.object_id,
-          MutationKind::Destroy,
-          old_parent,
-          None,
-          HashSet::new(),
-          conflicts,
-        )
-      }
-      _ => panic!("Reactant reconciliation emitted a non-UI mutation"),
-    };
+    let PlannedMutation {
+      kind,
+      target,
+      old_parent,
+      new_parent,
+      created,
+      body,
+      conflicts,
+    } = planned;
     let preorder = desired_ordinals
       .get(&target)
       .or_else(|| previous_ordinals.get(&target))
@@ -174,16 +172,10 @@ fn ordinals(preorder: &[ObjectId]) -> HashMap<ObjectId, usize> {
     .collect()
 }
 
-fn collect_created(
-  node: &UiNode,
-  parent_id: ObjectId,
-  current_parents: &mut HashMap<ObjectId, ObjectId>,
-  conflicts: &mut HashSet<ObjectId>,
-) {
-  conflicts.insert(node.object_id);
-  current_parents.insert(node.object_id, parent_id);
+fn collect_created(node: &HostNode, created: &mut HashSet<ObjectId>) {
+  created.insert(node.object_id);
   for child in &node.children {
-    self::collect_created(child, node.object_id, current_parents, conflicts);
+    self::collect_created(child, created);
   }
 }
 

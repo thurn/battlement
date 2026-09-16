@@ -5,7 +5,7 @@ use std::{
   rc::Rc,
 };
 
-use battlement::{ObjectId, Prop, UiElement, UiNode, UiVisualElementProperties};
+use battlement::{ObjectId, Prop, UiElement, UiVisualElementProperties};
 
 use crate::{
   component::Component,
@@ -16,6 +16,7 @@ use crate::{
   hook_storage::HookComponent,
   hooks,
   host_facade::FacadeMetadata,
+  host_node::HostNode,
   key::ErasedKey,
   localization,
   motion::MotionProps,
@@ -32,6 +33,7 @@ use crate::{
   runtime::RenderError,
   semantics::SemanticProps,
   suspense::{SuspenseMarker, SuspenseState},
+  ui_host_adapter,
 };
 
 /// A value Reactant can lower into native host descriptions.
@@ -203,7 +205,7 @@ pub(crate) struct RenderTree {
 pub(crate) struct RenderPosition {
   pub(crate) descriptor: TypeId,
   pub(crate) key: Option<ErasedKey>,
-  pub(crate) host: Option<UiNode>,
+  pub(crate) host: Option<HostNode>,
   pub(crate) handlers: Vec<Handler>,
   pub(crate) motion_callbacks: MotionCallbacks,
   pub(crate) motion_callback_history: Vec<MotionCallbackRegistration>,
@@ -239,7 +241,10 @@ fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   let mut result = None;
   for position in &tree.positions {
     if let Some(host) = &position.host
-      && matches!(host.element.visual_element().motion, Prop::Set(_))
+      && matches!(
+        ui_host_adapter::element(host).visual_element().motion,
+        Prop::Set(_)
+      )
     {
       assert!(
         result.replace(host.object_id).is_none(),
@@ -1083,7 +1088,7 @@ impl<'a> RenderSink<'a> {
       .filter(|position| position.key.is_none() && position.descriptor == descriptor)
   }
 
-  fn push(&mut self, descriptor: TypeId, host: Option<UiNode>, children: RenderTree) {
+  fn push(&mut self, descriptor: TypeId, host: Option<HostNode>, children: RenderTree) {
     self.positions.push(RenderPosition {
       descriptor,
       key: None,

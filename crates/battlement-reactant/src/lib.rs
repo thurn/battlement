@@ -92,6 +92,7 @@ mod host_events;
 mod host_facade;
 mod host_flex;
 mod host_grid;
+mod host_node;
 mod host_properties;
 mod host_stack;
 pub mod key;
@@ -140,6 +141,7 @@ mod semantic_projection;
 mod semantic_validation;
 pub mod semantics;
 pub mod suspense;
+mod ui_host_adapter;
 mod variant_map;
 
 #[doc(hidden)]

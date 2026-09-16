@@ -18,9 +18,9 @@ These are starting points, not instructions to load whole directories.
 | Role | Current source |
 | --- | --- |
 | Application and engine integration | [app.rs](../../crates/battlement-reactant/src/app.rs), [app_engine.rs](../../crates/battlement-reactant/src/app_engine.rs) |
-| Tree representation and construction | [render.rs](../../crates/battlement-reactant/src/render.rs), [render_tree.rs](../../crates/battlement-reactant/src/render_tree.rs) |
+| Tree representation and construction | [render.rs](../../crates/battlement-reactant/src/render.rs), [render_tree.rs](../../crates/battlement-reactant/src/render_tree.rs), [shared host boundary](../../crates/battlement-reactant/src/host_node.rs) |
 | Runtime and commit receipt | [runtime.rs](../../crates/battlement-reactant/src/runtime.rs), [commit.rs](../../crates/battlement-reactant/src/commit.rs) |
-| Native tree mutation planning | [reconcile.rs](../../crates/battlement-reactant/src/reconcile.rs) |
+| Native tree mutation planning | [reconcile.rs](../../crates/battlement-reactant/src/reconcile.rs), [UI host adapter](../../crates/battlement-reactant/src/ui_host_adapter.rs) |
 | Hooks and context | [hooks.rs](../../crates/battlement-reactant/src/hooks.rs), [context.rs](../../crates/battlement-reactant/src/context.rs) |
 | Keys, refs, portals, presence | [key.rs](../../crates/battlement-reactant/src/key.rs), [element_ref.rs](../../crates/battlement-reactant/src/element_ref.rs), [portal.rs](../../crates/battlement-reactant/src/portal.rs), [presence.rs](../../crates/battlement-reactant/src/presence.rs) |
 | Stores and subscriptions | [external_store.rs](../../crates/battlement-reactant/src/external_store.rs) |

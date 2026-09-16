@@ -20,6 +20,7 @@ use crate::{
   render::{Node, Render, RenderSink},
   render_value::Sealed,
   semantics::{ControlBehavior, InteractionProps, SemanticName, SemanticProps},
+  ui_host_adapter,
 };
 
 /// Deferred overlay references resolved against the complete desired tree.
@@ -415,7 +416,9 @@ fn collect_modals(tree: &RenderTree, values: &mut Vec<battlement::ObjectId>) {
   for position in &tree.positions {
     if let Some(host) = &position.host
       && matches!(
-        host.element.visual_element().overlay_placement,
+        ui_host_adapter::element(host)
+          .visual_element()
+          .overlay_placement,
         Prop::Set(OverlayPlacement::Modal { .. })
       )
     {
@@ -433,7 +436,10 @@ fn apply_order(
   for position in &mut tree.positions {
     let mut child_rank = inherited_rank;
     if let Some(host) = &mut position.host {
-      let overlay = host.element.visual_element().overlay_placement.clone();
+      let overlay = ui_host_adapter::element(host)
+        .visual_element()
+        .overlay_placement
+        .clone();
       let order = match overlay {
         Prop::Set(OverlayPlacement::Modal { .. }) => {
           child_rank = ranks[&host.object_id];
@@ -445,7 +451,7 @@ fn apply_order(
         Prop::Unset | Prop::Reset => None,
       };
       if let Some(order) = order {
-        let visual = host.element.visual_element_mut();
+        let visual = ui_host_adapter::element_mut(host).visual_element_mut();
         let Prop::Set(mut item) = visual.stack_item else {
           panic!("Reactant Overlay wrapper lost its private StackItem");
         };

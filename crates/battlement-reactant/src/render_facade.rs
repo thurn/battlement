@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use battlement::{
-  MotionDescriptor, MotionGeneration, ObjectId, Prop, UiElement, UiEventSubscription, UiNode,
+  MotionDescriptor, MotionGeneration, ObjectId, Prop, UiElement, UiEventSubscription,
   UiVisualElementProperties,
 };
 
@@ -9,11 +9,12 @@ use crate::{
   element_ref::ElementRef,
   event_handler::Handler,
   host_facade::FacadeMetadata,
+  host_node::HostNode,
   motion::MotionProps,
   motion_lifecycle::{self, MotionCallbackRegistration, MotionCallbacks},
   motion_variants::{ExitBlueprint, ResolvedVariants, VariantScope},
-  reconcile,
   render::{RenderPosition, RenderTree},
+  ui_host_adapter,
 };
 
 pub(crate) struct PreparedFacade {
@@ -21,7 +22,7 @@ pub(crate) struct PreparedFacade {
   pub(crate) resolved_variants: ResolvedVariants,
   descriptor: TypeId,
   metadata: Box<FacadeMetadata>,
-  node: UiNode,
+  node: HostNode,
   drag_constraint_ref: Option<ElementRef>,
   motion_callbacks: MotionCallbacks,
   exit_blueprint: Option<ExitBlueprint>,
@@ -37,12 +38,11 @@ pub(crate) fn prepare(
   scope: &VariantScope,
 ) -> Box<PreparedFacade> {
   let previous = matching.and_then(|position| position.host.as_ref());
-  let mut node = UiNode::new(
+  let mut node = ui_host_adapter::node(
     previous.map_or_else(ObjectId::new_v4, |value| value.object_id),
     *element,
   );
-  let remount =
-    previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element));
+  let remount = previous.is_some_and(|value| value.requires_remount(&node));
   if remount {
     node.object_id = ObjectId::new_v4();
   }
@@ -50,10 +50,13 @@ pub(crate) fn prepare(
   let drag_constraint_ref = metadata.motion.drag_constraint_ref().cloned();
   let motion_callbacks = metadata.motion.callbacks(&resolved_variants);
   let exit_blueprint = ExitBlueprint::new(metadata.motion.clone(), scope.clone());
-  let previous_motion = previous.and_then(|value| match &value.element.visual_element().motion {
-    Prop::Set(value) => Some(value.clone()),
-    Prop::Unset | Prop::Reset => None,
-  });
+  let previous_motion =
+    previous.and_then(
+      |value| match &ui_host_adapter::element(value).visual_element().motion {
+        Prop::Set(value) => Some(value.clone()),
+        Prop::Unset | Prop::Reset => None,
+      },
+    );
   let motion_callback_history = matching.map_or_else(Vec::new, |position| {
     motion_lifecycle::carry_registrations(
       &position.motion_callback_history,
@@ -105,7 +108,9 @@ impl PreparedFacade {
         &resolved_variants,
         previous_motion.as_ref(),
       );
-      node.element.visual_element_mut().motion = if previous_motion
+      ui_host_adapter::element_mut(&mut node)
+        .visual_element_mut()
+        .motion = if previous_motion
         .as_ref()
         .is_some_and(|previous| &descriptor == previous)
       {
@@ -124,7 +129,9 @@ impl PreparedFacade {
         Prop::Set(descriptor)
       };
     } else if previous_motion.is_some() {
-      node.element.visual_element_mut().motion = Prop::Reset;
+      ui_host_adapter::element_mut(&mut node)
+        .visual_element_mut()
+        .motion = Prop::Reset;
     }
     let mut kinds = metadata
       .handlers
@@ -134,7 +141,7 @@ impl PreparedFacade {
       .collect::<Vec<_>>();
     kinds.sort_by_key(|kind| *kind as usize);
     kinds.dedup();
-    let visual = node.element.visual_element_mut();
+    let visual = ui_host_adapter::element_mut(&mut node).visual_element_mut();
     visual.events = Prop::Unset;
     visual.event_subscriptions = if kinds.is_empty() {
       Prop::Unset

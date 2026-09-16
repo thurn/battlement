@@ -41,7 +41,7 @@ use crate::{
   resource_cache::{FrozenCompletions, PanicPayload},
   resource_runtime::{self, ResourceRuntime},
   root_view::RootRegistration,
-  runtime_document, runtime_motion, semantic_projection,
+  runtime_document, runtime_motion, semantic_projection, ui_host_adapter,
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -760,7 +760,7 @@ impl<G: 'static> Reactant<G> {
           &self.retained_ui_budget,
           container_id,
           container_id,
-          &root.hosts,
+          &ui_host_adapter::to_ui_nodes(&root.hosts),
         )
         .map_err(|error| RenderError::message(error.to_string()))?,
       ));

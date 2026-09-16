@@ -9,13 +9,15 @@ use std::{
 
 use battlement::{
   Display, ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventKind, UiEventPhase,
-  UiEventSubscription, UiNode, UiVisualElementProperties,
+  UiEventSubscription, UiVisualElementProperties,
 };
 
 use crate::{
   event_handler::Handler,
+  host_node::HostNode,
   render::{Render, RenderSink, RenderTree},
   render_value::Sealed,
+  ui_host_adapter,
 };
 
 /// Identifies one portal container owned by a Reactant runtime.
@@ -70,7 +72,7 @@ impl<R: Render> Sealed for Portal<R> {
 }
 
 pub(crate) struct PortalRoot {
-  pub(crate) hosts: Vec<UiNode>,
+  pub(crate) hosts: Vec<HostNode>,
   pub(crate) subscriptions: Vec<UiEventSubscription>,
 }
 
@@ -203,7 +205,7 @@ fn collect_attachment_hosts(
   }
 }
 
-fn validate_overlay_hosts(roots: &[Vec<UiNode>], attachments: &HashMap<PortalTarget, ObjectId>) {
+fn validate_overlay_hosts(roots: &[Vec<HostNode>], attachments: &HashMap<PortalTarget, ObjectId>) {
   let target_ids = attachments.values().copied().collect::<HashSet<_>>();
   for root in roots {
     let configured = self::collect_overlay_hosts(root, &target_ids);
@@ -219,7 +221,7 @@ fn validate_overlay_hosts(roots: &[Vec<UiNode>], attachments: &HashMap<PortalTar
       continue;
     };
     assert!(
-      root.len() == 1 && matches!(root[0].element, UiElement::Stack(_)),
+      root.len() == 1 && matches!(ui_host_adapter::element(&root[0]), UiElement::Stack(_)),
       "OverlayHost requires one document-root Stack"
     );
     assert_eq!(
@@ -231,7 +233,7 @@ fn validate_overlay_hosts(roots: &[Vec<UiNode>], attachments: &HashMap<PortalTar
   }
 }
 
-fn collect_overlay_hosts(roots: &[UiNode], target_ids: &HashSet<ObjectId>) -> Vec<ObjectId> {
+fn collect_overlay_hosts(roots: &[HostNode], target_ids: &HashSet<ObjectId>) -> Vec<ObjectId> {
   let mut values = Vec::new();
   for node in roots {
     if target_ids.contains(&node.object_id) && self::is_overlay_host(node) {
@@ -242,9 +244,10 @@ fn collect_overlay_hosts(roots: &[UiNode], target_ids: &HashSet<ObjectId>) -> Ve
   values
 }
 
-fn is_overlay_host(node: &UiNode) -> bool {
-  let visual = node.element.visual_element();
-  matches!(node.element, UiElement::Stack(_))
+fn is_overlay_host(node: &HostNode) -> bool {
+  let element = ui_host_adapter::element(node);
+  let visual = element.visual_element();
+  matches!(element, UiElement::Stack(_))
     && visual.picking_mode == Prop::Set(PickingMode::Ignore)
     && matches!(
       visual.stack_item,
@@ -256,16 +259,18 @@ fn is_overlay_host(node: &UiNode) -> bool {
     )
 }
 
-fn contains_overlay_wrapper(roots: &[UiNode]) -> bool {
+fn contains_overlay_wrapper(roots: &[HostNode]) -> bool {
   roots.iter().any(|node| {
     matches!(
-      node.element.visual_element().overlay_placement,
+      ui_host_adapter::element(node)
+        .visual_element()
+        .overlay_placement,
       Prop::Set(_)
     ) || self::contains_overlay_wrapper(&node.children)
   })
 }
 
-fn find_host(roots: &[UiNode], id: ObjectId) -> Option<&UiNode> {
+fn find_host(roots: &[HostNode], id: ObjectId) -> Option<&HostNode> {
   for node in roots {
     if node.object_id == id {
       return Some(node);
@@ -385,7 +390,7 @@ fn physical_hosts(
   tree: &RenderTree,
   ranges: &HashMap<PortalTarget, Vec<PortalRange<'_>>>,
   expanding: &mut Vec<PortalTarget>,
-) -> Vec<UiNode> {
+) -> Vec<HostNode> {
   let mut hosts = Vec::new();
   self::append_physical_hosts(tree, ranges, expanding, &mut hosts);
   hosts
@@ -395,14 +400,14 @@ fn append_physical_hosts(
   tree: &RenderTree,
   ranges: &HashMap<PortalTarget, Vec<PortalRange<'_>>>,
   expanding: &mut Vec<PortalTarget>,
-  hosts: &mut Vec<UiNode>,
+  hosts: &mut Vec<HostNode>,
 ) {
   for position in &tree.positions {
     if position.portal.is_some() {
       continue;
     }
     if let Some(host) = &position.host {
-      let mut host = UiNode::new(host.object_id, host.element.clone());
+      let mut host = host.without_children();
       if let Some(suspense) = position
         .suspense
         .as_ref()
@@ -446,16 +451,16 @@ fn append_physical_hosts(
   }
 }
 
-fn hide_roots(hosts: &mut [UiNode]) {
+fn hide_roots(hosts: &mut [HostNode]) {
   for host in hosts {
-    let visual = host.element.visual_element_mut();
+    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     visual.auto_focus = Prop::Set(false);
     visual.inert = Prop::Set(true);
     visual.style.display = Prop::Set(StyleValue::Value(Display::None));
   }
 }
 
-fn coverage_subscriptions(hosts: &[UiNode], trees: &[&RenderTree]) -> Vec<UiEventSubscription> {
+fn coverage_subscriptions(hosts: &[HostNode], trees: &[&RenderTree]) -> Vec<UiEventSubscription> {
   let mut unmatched_object_ids = HashSet::new();
   self::collect_host_ids(hosts, &mut unmatched_object_ids);
   let mut kinds = Vec::new();
@@ -528,10 +533,10 @@ fn collect_coverage_kinds(
   }
 }
 
-fn external_root(mut hosts: Vec<UiNode>, trees: &[&RenderTree]) -> PortalRoot {
+fn external_root(mut hosts: Vec<HostNode>, trees: &[&RenderTree]) -> PortalRoot {
   for host in &mut hosts {
     let subscriptions = self::coverage_subscriptions(std::slice::from_ref(host), trees);
-    let visual = host.element.visual_element_mut();
+    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     let mut combined = match &visual.event_subscriptions {
       Prop::Set(subscriptions) => subscriptions.clone(),
       Prop::Unset | Prop::Reset => Vec::new(),
@@ -558,14 +563,14 @@ fn external_root(mut hosts: Vec<UiNode>, trees: &[&RenderTree]) -> PortalRoot {
   }
 }
 
-fn collect_host_ids(hosts: &[UiNode], object_ids: &mut HashSet<ObjectId>) {
+fn collect_host_ids(hosts: &[HostNode], object_ids: &mut HashSet<ObjectId>) {
   for host in hosts {
     object_ids.insert(host.object_id);
     self::collect_host_ids(&host.children, object_ids);
   }
 }
 
-fn collect_unique_host_ids(hosts: &[UiNode], object_ids: &mut HashSet<ObjectId>) {
+fn collect_unique_host_ids(hosts: &[HostNode], object_ids: &mut HashSet<ObjectId>) {
   for host in hosts {
     assert!(
       object_ids.insert(host.object_id),

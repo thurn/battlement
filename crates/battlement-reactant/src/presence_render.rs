@@ -10,6 +10,7 @@ use crate::{
   },
   render::{RenderPosition, RenderSink, RenderTree, sink_with_scope},
   render_value::Sealed,
+  ui_host_adapter,
 };
 
 pub(crate) fn push<R: 'static>(
@@ -175,7 +176,9 @@ pub(crate) fn push<R: 'static>(
 
 fn mark_pop_layout(position: &mut RenderPosition) {
   if let Some(host) = &mut position.host
-    && let battlement::Prop::Set(descriptor) = &mut host.element.visual_element_mut().motion
+    && let battlement::Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
+      .visual_element_mut()
+      .motion
   {
     let layout = descriptor
       .layout
@@ -201,7 +204,7 @@ fn mark_inert_descendants(position: &mut RenderPosition, inherited: bool) {
   };
   let mut child_inherited = inherited;
   if let Some(host) = &mut position.host {
-    let visual = host.element.visual_element_mut();
+    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     if !inherited {
       visual.auto_focus = Prop::Set(false);
       visual.inert = Prop::Set(true);
@@ -341,9 +344,10 @@ fn start_exit(
     .as_ref()
     .map_or_else(Vec::new, |component| component.presence_holds());
   if let (Some(host), Some(blueprint)) = (&mut position.host, &position.exit_blueprint) {
-    let visual = host.element.visual_element_mut();
+    let object_id = host.object_id;
+    let visual = ui_host_adapter::element_mut(host).visual_element_mut();
     if let Prop::Set(previous) = &visual.motion
-      && let Some(descriptor) = blueprint.descriptor(host.object_id, previous, custom)
+      && let Some(descriptor) = blueprint.descriptor(object_id, previous, custom)
     {
       position.motion_callback_history = motion_lifecycle::carry_registrations(
         &position.motion_callback_history,
@@ -370,13 +374,17 @@ fn start_exit(
 
 fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
   if let (Some(current_host), Some(previous_host)) = (&mut current.host, &previous.host) {
-    let previous_motion = &previous_host.element.visual_element().motion;
+    let previous_motion = &ui_host_adapter::element(previous_host)
+      .visual_element()
+      .motion;
     let exiting = matches!(
       previous_motion,
       Prop::Set(value) if value.slots.iter().any(|slot| slot.layer == MotionLayer::Exit)
     );
     if exiting {
-      current_host.element.visual_element_mut().motion = previous_motion.clone();
+      ui_host_adapter::element_mut(current_host)
+        .visual_element_mut()
+        .motion = previous_motion.clone();
       current.exit_blueprint = previous.exit_blueprint.clone();
       current.motion_callbacks = previous.motion_callbacks.clone();
       current.motion_callback_history = previous.motion_callback_history.clone();
@@ -405,7 +413,9 @@ fn freeze_exit_motion(current: &mut RenderPosition, previous: &RenderPosition) {
 fn suppress_initial(tree: &mut RenderTree) {
   for position in &mut tree.positions {
     if let Some(host) = &mut position.host
-      && let Prop::Set(descriptor) = &mut host.element.visual_element_mut().motion
+      && let Prop::Set(descriptor) = &mut ui_host_adapter::element_mut(host)
+        .visual_element_mut()
+        .motion
     {
       descriptor.initial = None;
       descriptor.initial_disabled = true;

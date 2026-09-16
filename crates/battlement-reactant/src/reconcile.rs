@@ -1,11 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
-use battlement::{
-  self, Command, CommandBody, ObjectId, UiElement, UiElementKind, UiNode,
-  UiVisualElementProperties, VisualElementCreate,
-};
+#[cfg(test)]
+use battlement::{Command, UiNode};
+use battlement::{CommandBody, ObjectId};
 
-use crate::mutation;
+#[cfg(test)]
+use crate::ui_host_adapter;
+use crate::{
+  host_node::HostNode,
+  mutation::{self, PlannedMutation},
+};
 
 #[cfg(test)]
 pub(crate) fn commands(
@@ -13,17 +17,34 @@ pub(crate) fn commands(
   previous: &[UiNode],
   desired: &[UiNode],
 ) -> Vec<Command> {
-  self::command_groups(parent_id, previous, desired)
-    .into_iter()
-    .flatten()
-    .map(Command::new_v4)
-    .collect()
+  self::command_groups(
+    parent_id,
+    &ui_host_adapter::from_ui_nodes(previous),
+    &ui_host_adapter::from_ui_nodes(desired),
+  )
+  .into_iter()
+  .flatten()
+  .map(Command::new_v4)
+  .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn ui_command_groups(
+  parent_id: ObjectId,
+  previous: &[UiNode],
+  desired: &[UiNode],
+) -> Vec<Vec<CommandBody>> {
+  self::command_groups(
+    parent_id,
+    &ui_host_adapter::from_ui_nodes(previous),
+    &ui_host_adapter::from_ui_nodes(desired),
+  )
 }
 
 pub(crate) fn command_groups(
   parent_id: ObjectId,
-  previous: &[UiNode],
-  desired: &[UiNode],
+  previous: &[HostNode],
+  desired: &[HostNode],
 ) -> Vec<Vec<CommandBody>> {
   let previous = TreeIndex::new(parent_id, previous);
   let desired = TreeIndex::new(parent_id, desired);
@@ -44,9 +65,7 @@ pub(crate) fn command_groups(
     .nodes
     .iter()
     .chain(&desired.nodes)
-    .filter_map(|(object_id, node)| {
-      (node.element.kind() == UiElementKind::ToggleButtonGroup).then_some(*object_id)
-    })
+    .filter_map(|(object_id, node)| node.constrains_children().then_some(*object_id))
     .collect();
   mutation::lower(
     plan
@@ -63,38 +82,23 @@ pub(crate) fn command_groups(
   )
 }
 
-pub(crate) fn requires_remount(previous: &UiElement, desired: &UiElement) -> bool {
-  if previous.kind() != desired.kind() {
-    return true;
-  }
-  if previous.visual_element().usage_hints != desired.visual_element().usage_hints {
-    return true;
-  }
-  let Some(patch) = self::property_patch(previous, desired, false) else {
-    return false;
-  };
-  let mut merged = previous.clone();
-  merged.apply_update(&patch);
-  battlement::validate_element_state(&merged).is_err()
-}
-
 #[derive(Default)]
 struct Plan {
-  reparents: Vec<Command>,
-  destroys: Vec<Command>,
-  placements: Vec<Command>,
-  properties: Vec<Command>,
+  reparents: Vec<PlannedMutation>,
+  destroys: Vec<PlannedMutation>,
+  placements: Vec<PlannedMutation>,
+  properties: Vec<PlannedMutation>,
 }
 
 struct TreeIndex<'a> {
-  nodes: HashMap<ObjectId, &'a UiNode>,
+  nodes: HashMap<ObjectId, &'a HostNode>,
   parents: HashMap<ObjectId, ObjectId>,
   children: HashMap<ObjectId, Vec<ObjectId>>,
   preorder: Vec<ObjectId>,
 }
 
 impl<'a> TreeIndex<'a> {
-  fn new(root_id: ObjectId, nodes: &'a [UiNode]) -> Self {
+  fn new(root_id: ObjectId, nodes: &'a [HostNode]) -> Self {
     let mut result = Self {
       nodes: HashMap::new(),
       parents: HashMap::new(),
@@ -154,10 +158,12 @@ fn plan_reparents(
       .find(|candidate| current[&desired_parent].contains(candidate))
       .copied();
     let child_index = self::anchor_index(&current[&desired_parent], anchor);
-    plan.reparents.push(Command::move_visual_element(
+    let command = desired.nodes[&object_id].move_command(desired_parent, child_index);
+    plan.reparents.push(PlannedMutation::move_host(
+      command,
       object_id,
+      previous_parent,
       desired_parent,
-      child_index,
     ));
     self::remove_child(current, previous_parent, object_id);
     current
@@ -187,10 +193,12 @@ fn stage_capacity_blocked_reparent(
     .expect("Reactant cannot order the requested host reparents");
   let previous_parent = current_parents[&object_id];
   let child_index = u32::try_from(current[&root_id].len()).expect("validated child index fits u32");
-  plan.reparents.push(Command::move_visual_element(
+  let command = previous.nodes[&object_id].move_command(root_id, child_index);
+  plan.reparents.push(PlannedMutation::move_host(
+    command,
     object_id,
+    previous_parent,
     root_id,
-    child_index,
   ));
   self::remove_child(current, previous_parent, object_id);
   current
@@ -222,7 +230,7 @@ fn is_toggle_group(object_id: ObjectId, previous: &TreeIndex<'_>, desired: &Tree
     .nodes
     .get(&object_id)
     .or_else(|| previous.nodes.get(&object_id))
-    .is_some_and(|node| node.element.kind() == UiElementKind::ToggleButtonGroup)
+    .is_some_and(|node| node.constrains_children())
 }
 
 fn is_descendant(
@@ -245,9 +253,11 @@ fn plan_removals(
   for object_id in &previous.children[&parent_id] {
     if !desired.nodes.contains_key(object_id) {
       self::remove_child(current, parent_id, *object_id);
-      plan
-        .destroys
-        .push(Command::destroy_visual_element(*object_id));
+      plan.destroys.push(PlannedMutation::destroy(
+        previous.nodes[object_id].destroy_command(),
+        *object_id,
+        parent_id,
+      ));
       continue;
     }
     self::plan_removals(*object_id, previous, desired, current, plan);
@@ -268,12 +278,11 @@ fn reconcile_children(
     let child = desired.nodes[object_id];
     if !previous.nodes.contains_key(object_id) {
       let index = self::anchor_index(&current[&parent_id], anchor);
-      let create = VisualElementCreate::new(parent_id, child.clone()).child_index(index);
-      plan
-        .placements
-        .push(Command::new_v4(CommandBody::VisualElementCreate(Box::new(
-          create,
-        ))));
+      plan.placements.push(PlannedMutation::create(
+        child.create_command(parent_id, index),
+        child,
+        parent_id,
+      ));
       current
         .get_mut(&parent_id)
         .expect("physical parent has a child sequence")
@@ -284,9 +293,12 @@ fn reconcile_children(
     if !retained.contains(object_id)
       && let Some(index) = self::place_before(current, parent_id, *object_id, anchor)
     {
-      plan
-        .placements
-        .push(Command::update_visual_element_index(*object_id, index));
+      plan.placements.push(PlannedMutation::move_host(
+        child.index_command(index),
+        *object_id,
+        parent_id,
+        parent_id,
+      ));
     }
     anchor = Some(*object_id);
   }
@@ -301,14 +313,10 @@ fn reconcile_children(
     let child = desired.nodes[object_id];
     self::reconcile_children(*object_id, previous, desired, current, plan);
     let hierarchy_changed = previous.children[object_id] != desired.children[object_id];
-    if let Some(patch) =
-      self::property_patch(&previous_child.element, &child.element, hierarchy_changed)
-    {
-      battlement::validate_element_update(&patch)
-        .expect("Reactant generated an invalid property patch");
+    if let Some(command) = previous_child.property_command(child, hierarchy_changed) {
       plan
         .properties
-        .push(Command::update_visual_element(*object_id, patch));
+        .push(PlannedMutation::properties(command, *object_id));
     }
   }
 }
@@ -393,15 +401,7 @@ fn remove_child(
     .retain(|candidate| *candidate != object_id);
 }
 
-fn property_patch(
-  previous: &UiElement,
-  desired: &UiElement,
-  hierarchy_changed: bool,
-) -> Option<UiElement> {
-  UiElement::difference(previous, desired, hierarchy_changed)
-}
-
-fn collect_tree<'a>(parent_id: ObjectId, nodes: &'a [UiNode], result: &mut TreeIndex<'a>) {
+fn collect_tree<'a>(parent_id: ObjectId, nodes: &'a [HostNode], result: &mut TreeIndex<'a>) {
   result
     .children
     .insert(parent_id, nodes.iter().map(|node| node.object_id).collect());

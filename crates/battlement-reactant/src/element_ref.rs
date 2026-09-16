@@ -12,7 +12,7 @@ use std::{
 };
 
 use battlement::{
-  Command, CommandBody, ElementGeometry, ObjectId, Prop, UiElement, UiElementKind, UiNode,
+  Command, CommandBody, ElementGeometry, ObjectId, Prop, UiElement, UiElementKind,
   UiParticleStreak, UiTextElement, UiVisualElementProperties, VisualElementAction,
 };
 
@@ -22,8 +22,10 @@ use crate::{
   geometry_runtime::GeometryRuntime,
   hook_storage::{HookKind, HookSlot},
   hooks,
+  host_node::HostNode,
   portal::PortalLayout,
   render::RenderTree,
+  ui_host_adapter,
 };
 
 thread_local! {
@@ -415,7 +417,7 @@ impl AttachmentSet {
     let action = match (&queued.action, queued.descendant) {
       (VisualElementAction::ScrollTo { .. }, Some(descendant)) if self.current(descendant) => {
         assert!(
-          target.element.kind() == UiElementKind::ScrollView,
+          ui_host_adapter::element(target).kind() == UiElementKind::ScrollView,
           "Reactant ScrollTo requires a UiScrollView"
         );
         assert!(
@@ -429,7 +431,7 @@ impl AttachmentSet {
       (VisualElementAction::ScrollTo { .. }, _) => return None,
       (VisualElementAction::Focus, _) => {
         assert!(
-          self::focusable(&target.element),
+          self::focusable(ui_host_adapter::element(target)),
           "Reactant Focus requires a focusable host"
         );
         VisualElementAction::Focus
@@ -441,7 +443,11 @@ impl AttachmentSet {
         },
         _,
       ) => {
-        self::validate_selection(&target.element, *cursor_index, *selection_index);
+        self::validate_selection(
+          ui_host_adapter::element(target),
+          *cursor_index,
+          *selection_index,
+        );
         queued.action.clone()
       }
       _ => queued.action.clone(),
@@ -592,7 +598,7 @@ fn collect_tree(
   }
 }
 
-fn find_node(layout: &PortalLayout, object_id: ObjectId) -> Option<&UiNode> {
+fn find_node(layout: &PortalLayout, object_id: ObjectId) -> Option<&HostNode> {
   layout
     .roots
     .iter()
@@ -601,7 +607,7 @@ fn find_node(layout: &PortalLayout, object_id: ObjectId) -> Option<&UiNode> {
     .find_map(|node| self::find_in_node(node, object_id))
 }
 
-fn find_in_node(node: &UiNode, object_id: ObjectId) -> Option<&UiNode> {
+fn find_in_node(node: &HostNode, object_id: ObjectId) -> Option<&HostNode> {
   if node.object_id == object_id {
     return Some(node);
   }
@@ -611,7 +617,7 @@ fn find_in_node(node: &UiNode, object_id: ObjectId) -> Option<&UiNode> {
     .find_map(|child| self::find_in_node(child, object_id))
 }
 
-fn is_descendant(node: &UiNode, descendant_id: ObjectId) -> bool {
+fn is_descendant(node: &HostNode, descendant_id: ObjectId) -> bool {
   node
     .children
     .iter()

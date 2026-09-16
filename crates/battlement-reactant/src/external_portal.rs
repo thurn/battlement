@@ -8,8 +8,9 @@ use battlement::{
 };
 
 use crate::{
+  host_node::HostNode,
   portal::{PortalLayout, PortalRoot, PortalTarget},
-  reconcile,
+  reconcile, ui_host_adapter,
 };
 
 pub(crate) struct ExternalPortalRegistry {
@@ -120,7 +121,9 @@ impl ExternalPortalRegistry {
     for target in &self.targets {
       self::find_children_mut(&mut prospective, target.current_id)
         .expect("committed external portal target remains in caller UI")
-        .extend(desired.externals[&target.target].hosts.iter().cloned());
+        .extend(ui_host_adapter::to_ui_nodes(
+          &desired.externals[&target.target].hosts,
+        ));
     }
     battlement::validate_documents(&prospective)
       .expect("Reactant rendered an invalid external portal hierarchy");
@@ -194,7 +197,7 @@ impl SessionExternal {
         .hosts;
       self::find_children_mut(&mut prospective.ui, *id)
         .expect("validated external portal target remains in snapshot")
-        .extend(hosts.iter().cloned());
+        .extend(ui_host_adapter::to_ui_nodes(hosts));
       debug_assert_eq!(
         &self::find_children(&snapshot.ui, *id).expect("external target exists")[..prefix.len()],
         prefix
@@ -218,7 +221,11 @@ impl SessionExternal {
           let hosts = &self.roots[target].hosts;
           self::merge_groups(
             groups,
-            reconcile::command_groups(*id, prefix, &self::with_prefix(prefix, hosts)),
+            reconcile::command_groups(
+              *id,
+              &ui_host_adapter::from_ui_nodes(prefix),
+              &self::with_prefix(prefix, hosts),
+            ),
           )
         });
     PreparedExternal {
@@ -234,8 +241,11 @@ impl SessionExternal {
   }
 }
 
-fn with_prefix(prefix: &[UiNode], hosts: &[UiNode]) -> Vec<UiNode> {
-  prefix.iter().chain(hosts).cloned().collect()
+fn with_prefix(prefix: &[UiNode], hosts: &[HostNode]) -> Vec<HostNode> {
+  ui_host_adapter::from_ui_nodes(prefix)
+    .into_iter()
+    .chain(hosts.iter().cloned())
+    .collect()
 }
 
 fn find_children(documents: &[UiDocument], id: ObjectId) -> Option<&Vec<UiNode>> {
