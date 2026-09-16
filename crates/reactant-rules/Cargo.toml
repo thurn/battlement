@@ -1,0 +1,8 @@
+[package]
+name = "reactant-rules"
+version = "0.1.0"
+description = "Typed synchronous game rules and simulation for Reactant"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
