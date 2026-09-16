@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import subprocess
 from pathlib import Path
 
 import native_validation_selection
@@ -38,11 +40,13 @@ class RustSelection:
     root: bool
     samples: tuple[Path, ...]
     reasons: tuple[str, ...]
+    packages: tuple[str, ...] | None = None
 
     def report(self) -> dict[str, object]:
         return {
             "reasons": list(self.reasons),
             "root": self.root,
+            "lint_packages": list(self.packages) if self.packages is not None else None,
             "samples": [str(path.parent) for path in self.samples],
         }
 
@@ -89,7 +93,56 @@ def select_rust(
         reasons.append("root workspace crate changed: " + ", ".join(sorted(changed_crates)))
     if not root and not selected:
         reasons.append("no changed path can affect a Rust workspace")
-    return RustSelection(root, tuple(selected), tuple(dict.fromkeys(reasons)))
+    packages = None
+    if changed_crates and not global_paths:
+        packages = affected_root_packages(repository, changed_crates)
+    return RustSelection(root, tuple(selected), tuple(dict.fromkeys(reasons)), packages)
+
+
+def affected_root_packages(repository: Path, changed_crates: set[str]) -> tuple[str, ...] | None:
+    """Select lint packages through normal, build, optional and dev dependencies.
+
+    Tests retain workspace coverage for runtime-built fixtures outside Cargo edges.
+    Unknown crate paths retain full-workspace linting, including deleted crates.
+    Cargo remains authoritative for feature and target-specific dependency edges.
+    """
+    result = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--all-features"],
+        cwd=repository, check=True, capture_output=True, text=True,
+    )
+    metadata = json.loads(result.stdout)
+    packages = {package["id"]: package for package in metadata["packages"]}
+    changed = set()
+    found = set()
+    for identity, package in packages.items():
+        try:
+            path = Path(package["manifest_path"]).resolve().relative_to((repository / "crates").resolve())
+        except ValueError:
+            continue
+        if path.parts[0] in changed_crates:
+            changed.add(identity)
+            found.add(path.parts[0])
+    if found != changed_crates:
+        return None
+    nodes = metadata["resolve"]["nodes"]
+    while True:
+        dependents = {
+            node["id"] for node in nodes
+            if any(dependency["pkg"] in changed for dependency in node["deps"])
+        }
+        expanded = changed | dependents
+        if expanded == changed:
+            break
+        changed = expanded
+    members = changed & set(metadata["workspace_members"])
+    return tuple(sorted(packages[identity]["name"] for identity in members)) or None
+
+
+def root_arguments(selection: RustSelection) -> list[str]:
+    """Return package selectors, or the conservative whole-workspace fallback."""
+    if selection.packages is None:
+        return ["--workspace"]
+    return [argument for package in selection.packages for argument in ("-p", package)]
 
 
 def select_reactant_assets(paths: list[str]) -> tuple[bool, tuple[str, ...]]:

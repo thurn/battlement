@@ -42,6 +42,7 @@ where
         self::select_response::<G, P>(&prompt, index)
       }
       Self::Interactive { connection, policy } => {
+        connection.check_active();
         let owner = {
           let wrapped = prompt.as_prompt();
           policy.owner(state, &wrapped)
@@ -55,7 +56,7 @@ where
   }
 }
 
-fn select_response<G, P>(prompt: &P, index: usize) -> P::ResponseType
+pub(crate) fn select_response<G, P>(prompt: &P, index: usize) -> P::ResponseType
 where
   G: Game,
   P: PromptData<G>,

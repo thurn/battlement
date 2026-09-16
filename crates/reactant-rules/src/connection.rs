@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-  ChoicePolicy, Game, PromptData,
+  ChoiceOwner, ChoicePolicy, Game, PresentedPrompt, PromptData, ResponseHandle, execution,
   publication::{Checkpoint, Publications},
+  response::{Reply, Request},
 };
 
 /// The engine-owned publication connection used by interactive rules.
@@ -11,6 +12,10 @@ pub struct DisplayConnection<G: Game> {
 }
 
 impl<G: Game> DisplayConnection<G> {
+  pub(crate) fn check_active(&self) {
+    self.publications.check_active();
+  }
+
   pub(crate) fn present(
     &mut self,
     state: &G::State,
@@ -30,24 +35,61 @@ impl<G: Game> DisplayConnection<G> {
     });
   }
 
-  pub(crate) fn choose<P>(&mut self, _state: &G::State, _prompt: P) -> P::ResponseType
+  pub(crate) fn choose<P>(&mut self, state: &G::State, prompt: P) -> P::ResponseType
   where
     P: PromptData<G>,
   {
+    let request = self.publish_prompt(state, prompt, ChoiceOwner::Human);
+    let response = request.wait();
     self.publications.check_active();
-    panic!("interactive prompts require typed request support");
+    response
   }
 
   pub(crate) fn choose_with_policy<P>(
     &mut self,
-    _state: &G::State,
-    _prompt: P,
-    _policy: &mut impl ChoicePolicy<G>,
+    state: &G::State,
+    prompt: P,
+    policy: &mut impl ChoicePolicy<G>,
   ) -> P::ResponseType
   where
     P: PromptData<G>,
   {
+    let request = self.publish_prompt(state, prompt, ChoiceOwner::Policy);
+    let index = policy.choose(state, &request.prompt.as_prompt());
     self.publications.check_active();
-    panic!("interactive prompts require typed request support");
+    let response = execution::select_response::<G, P>(&request.prompt, index);
+    request.finish_policy();
+    self.publications.check_active();
+    response
+  }
+
+  fn publish_prompt<P: PromptData<G>>(
+    &self,
+    state: &G::State,
+    prompt: P,
+    owner: ChoiceOwner,
+  ) -> Arc<Request<G, P>> {
+    self.publications.check_active();
+    let reservation = self.publications.reserve();
+    let request = Arc::new(Request::new(
+      prompt,
+      owner,
+      Arc::clone(&self.publications.abandoned),
+    ));
+    let snapshot = G::logical_clone(state);
+    self.publications.check_active();
+    let prompt = request.prompt.as_ref().clone().into_prompt();
+    self.publications.check_active();
+    let reply: Arc<dyn Reply> = request.clone();
+    let handle = ResponseHandle::new(&reply);
+    self.publications.register_request(reply);
+    reservation.publish(Checkpoint {
+      state: snapshot,
+      animation: None,
+      prompt: Some(PresentedPrompt { prompt, handle }),
+      completion: None,
+    });
+    self.publications.check_active();
+    request
   }
 }

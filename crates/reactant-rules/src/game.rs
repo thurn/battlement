@@ -54,6 +54,14 @@ pub trait PromptData<G: Game>: Clone + Send + Sync + 'static {
   fn is_valid_response(&self, response: &Self::ResponseType) -> bool;
 
   /// Wraps this concrete data in the game's borrowed prompt enum.
+  ///
+  /// A temporary wrapper cannot become owned display storage:
+  /// ```compile_fail
+  /// use reactant_rules::{Game, PromptData};
+  /// fn escape<G: Game, P: PromptData<G>>(prompt: P) -> G::Prompt<'static> {
+  ///   prompt.as_prompt()
+  /// }
+  /// ```
   fn as_prompt(&self) -> G::Prompt<'_>;
 
   /// Wraps this concrete data in the game's owned prompt enum.

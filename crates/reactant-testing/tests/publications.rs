@@ -12,26 +12,33 @@ fn held_consumer_releases_one_of_32_slots_before_more_builders_run() {
     values: vec![0],
     probe: Arc::clone(&probe),
   };
-  let display = publication_game::start(&accepted, 34);
+  let display = publication_game::start_action(&accepted, Action::Mixed(34));
   display.wait_for_worker_started();
   let held = display.take_checkpoint();
   assert_eq!(held.state().values, [1]);
   display.wait_for_publication(|o| o.waiting_for_capacity && o.published == 33);
   assert_eq!(probe.snapshots.load(Ordering::SeqCst), 34); // private state plus 33 snapshots
-  assert_eq!(probe.animations.load(Ordering::SeqCst), 33);
+  assert_eq!(probe.animations.load(Ordering::SeqCst), 17);
   assert_eq!(display.publication_observation().builders_started, 33);
 
   let first = display.take_checkpoint();
   assert_eq!(first.state().values, [2]);
   display.wait_for_publication(|o| o.waiting_for_capacity && o.published == 34);
   assert_eq!(probe.snapshots.load(Ordering::SeqCst), 35);
-  assert_eq!(probe.animations.load(Ordering::SeqCst), 34);
+  assert_eq!(probe.animations.load(Ordering::SeqCst), 17);
   // Final output uses the same full FIFO and cannot even clone yet.
   assert_eq!(display.publication_observation().builders_started, 34);
   for value in 3..=34 {
     let checkpoint = display.take_checkpoint();
     assert_eq!(checkpoint.state().values, [value]);
-    assert_eq!(checkpoint.animation(), Some(&value));
+    if value % 2 == 0 {
+      assert!(checkpoint.animation().is_none());
+      let prompt = checkpoint.prompt().expect("ordered policy prompt");
+      assert_eq!(prompt.prompt.0, value);
+      assert!(!prompt.handle.is_active());
+    } else {
+      assert_eq!(checkpoint.animation(), Some(&value));
+    }
     assert!(!checkpoint.is_final());
   }
   let final_output = display.take_checkpoint();

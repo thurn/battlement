@@ -1,4 +1,5 @@
 use std::{
+  borrow::Cow,
   sync::{
     Arc, Condvar, Mutex,
     atomic::{AtomicUsize, Ordering},
@@ -6,7 +7,9 @@ use std::{
   time::Duration,
 };
 
-use reactant_rules::{ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game};
+use reactant_rules::{
+  ChoiceOwner, ChoicePolicy, DisplayConnection, ExecutionMode, Game, PromptData,
+};
 use reactant_testing::PublicationDisplay;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -33,6 +36,7 @@ pub struct State {
 
 pub enum Action {
   Publish(usize),
+  Mixed(usize),
   FailAfterPublication,
 }
 
@@ -92,7 +96,7 @@ impl Game for PublicationGame {
   type State = State;
   type Action = Action;
   type StateAnimation = usize;
-  type Prompt<'a> = ();
+  type Prompt<'a> = Cow<'a, NumberPrompt>;
   type Context = Context;
 
   fn logical_clone(state: &State) -> State {
@@ -112,11 +116,15 @@ impl Game for PublicationGame {
 
   fn execute(context: &mut Context, state: &mut State, action: Action) {
     let count = match action {
-      Action::Publish(count) => count,
+      Action::Publish(count) | Action::Mixed(count) => count,
       Action::FailAfterPublication => 1,
     };
     for value in 1..=count {
       state.values[0] = value;
+      if matches!(action, Action::Mixed(_)) && value % 2 == 0 {
+        assert_eq!(context.execution.choose(state, NumberPrompt(value)), value);
+        continue;
+      }
       context.execution.present(state, || {
         state.probe.animations.fetch_add(1, Ordering::SeqCst);
         if value == 1 {
@@ -133,11 +141,11 @@ impl Game for PublicationGame {
 }
 
 impl ChoicePolicy<PublicationGame> for Policy {
-  fn owner(&self, _: &State, _: &()) -> ChoiceOwner {
+  fn owner(&self, _: &State, _: &Cow<'_, NumberPrompt>) -> ChoiceOwner {
     ChoiceOwner::Policy
   }
-  fn choose(&mut self, _: &State, _: &()) -> usize {
-    panic!("choice-free fixture")
+  fn choose(&mut self, _: &State, _: &Cow<'_, NumberPrompt>) -> usize {
+    0
   }
 }
 
@@ -158,4 +166,23 @@ pub fn start_action(state: &State, action: Action) -> PublicationDisplay<Publica
       probe,
     },
   )
+}
+
+#[derive(Clone)]
+pub struct NumberPrompt(pub usize);
+
+impl PromptData<PublicationGame> for NumberPrompt {
+  type ResponseType = usize;
+  fn options(&self) -> impl Iterator<Item = usize> {
+    [self.0].into_iter()
+  }
+  fn is_valid_response(&self, response: &usize) -> bool {
+    *response == self.0
+  }
+  fn as_prompt(&self) -> Cow<'_, Self> {
+    Cow::Borrowed(self)
+  }
+  fn into_prompt(self) -> Cow<'static, Self> {
+    Cow::Owned(self)
+  }
 }

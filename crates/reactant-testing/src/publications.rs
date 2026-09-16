@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use reactant_rules::{
-  Checkpoint, DisplayConnection, Game, PublicationObservation, RulesRun, RunObservation,
+  Checkpoint, DisplayConnection, Game, PublicationObservation, ResponseHandle, RulesRun,
+  RunObservation,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -12,6 +13,7 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// releases its slot; neither operation advances virtual time or a frame.
 pub struct PublicationDisplay<G: Game> {
   run: RulesRun<G>,
+  settled: Option<Checkpoint<G>>,
 }
 
 impl<G: Game> PublicationDisplay<G> {
@@ -23,6 +25,7 @@ impl<G: Game> PublicationDisplay<G> {
   ) -> Self {
     Self {
       run: RulesRun::start(state, action, make_context),
+      settled: None,
     }
   }
 
@@ -48,6 +51,26 @@ impl<G: Game> PublicationDisplay<G> {
   /// Takes currently available output without waiting or advancing time.
   pub fn try_take_checkpoint(&self) -> Option<Checkpoint<G>> {
     self.run.take_checkpoint()
+  }
+
+  /// Returns the current response connection without advancing display work.
+  pub fn response_handle(&self) -> Option<ResponseHandle<G::Prompt<'static>>> {
+    self.run.response_handle()
+  }
+
+  /// Consumes finite work through a final checkpoint or an unanswered human prompt.
+  /// Repeated settling at that boundary retains the same snapshot. No host time
+  /// or frames advance; policy requests do not require a display reply.
+  pub fn settle(&mut self) -> &Checkpoint<G> {
+    while !self.settled.as_ref().is_some_and(|checkpoint| {
+      checkpoint.is_final()
+        || checkpoint
+          .prompt()
+          .is_some_and(|prompt| prompt.handle.is_waiting_for_human())
+    }) {
+      self.settled = Some(self.take_checkpoint());
+    }
+    self.settled.as_ref().expect("settled publication")
   }
 
   /// Invalidates output and wakes blocked helpers without joining the worker.

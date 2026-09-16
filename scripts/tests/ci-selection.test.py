@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import sys
+import tempfile
 from unittest.mock import patch
 
 
@@ -62,5 +63,37 @@ selected, reasons = ci_selection.select_reactant_assets(
 assert not selected and "no changed path" in reasons[0]
 selected, _reasons = ci_selection.select_reactant_assets([])
 assert selected
+
+with tempfile.TemporaryDirectory() as directory:
+    repository = Path(directory)
+    (repository / "Cargo.toml").write_text(
+        '[workspace]\nmembers = ["crates/*"]\nresolver = "2"\n'
+    )
+    manifests = {
+        "rules": "",
+        "display": '[dependencies]\nrules = { path = "../rules" }\n',
+        "app": '[dev-dependencies]\ndisplay = { path = "../display" }\n',
+        "builder": '[build-dependencies]\nrules = { path = "../rules" }\n',
+        "optional": '[dependencies]\nrules = { path = "../rules", optional = true }\n',
+        "targeted": '[target.\'cfg(target_os = "windows")\'.dependencies]\nrules = { path = "../rules" }\n',
+        "unrelated": "",
+    }
+    for name, dependencies in manifests.items():
+        crate = repository / "crates" / name
+        (crate / "src").mkdir(parents=True)
+        (crate / "src/lib.rs").write_text("")
+        (crate / "Cargo.toml").write_text(
+            f'[package]\nname = "{name}"\nversion = "0.1.0"\nedition = "2021"\n'
+            + dependencies
+        )
+    selection = ci_selection.select_rust(repository, ["crates/rules/src/lib.rs"], [])
+    assert selection.packages == ("app", "builder", "display", "optional", "rules", "targeted")
+    assert ci_selection.root_arguments(selection) == [
+        argument for package in selection.packages for argument in ("-p", package)
+    ]
+    assert ci_selection.select_rust(repository, ["crates/unrelated/src/lib.rs"], []).packages == ("unrelated",)
+    unknown = ci_selection.select_rust(repository, ["crates/deleted/src/lib.rs"], [])
+    assert ci_selection.root_arguments(unknown) == ["--workspace"]
+    assert ci_selection.select_rust(repository, ["Cargo.lock", "crates/rules/src/lib.rs"], []).packages is None
 
 print("CI selection tests passed")

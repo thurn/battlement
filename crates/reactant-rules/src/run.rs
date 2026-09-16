@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread, time::Duration};
 
 use crate::{
-  Checkpoint, DisplayConnection, Game, PublicationObservation,
+  Checkpoint, DisplayConnection, Game, PublicationObservation, ResponseHandle,
   publication::Publications,
   worker::{WorkerEvent, WorkerObserver, WorkerSlot},
 };
@@ -85,6 +85,11 @@ impl<G: Game> RulesRun<G> {
   /// Takes the oldest checkpoint and immediately releases its pending slot.
   pub fn take_checkpoint(&self) -> Option<Checkpoint<G>> {
     self.publications.take()
+  }
+
+  /// Returns the current request connection without consuming its checkpoint.
+  pub fn response_handle(&self) -> Option<ResponseHandle<G::Prompt<'static>>> {
+    self.publications.response_handle()
   }
 
   /// Invalidates pending output and wakes publication waits without joining.

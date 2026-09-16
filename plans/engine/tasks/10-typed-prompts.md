@@ -16,7 +16,11 @@ map](../source-map.md) · [Validation](../validation.md)
 queue](09-checkpoint-publication.md) is integrated.
 
 **Starting code:** PromptData and ExecutionMode from task 02; worker
-connection from task 09; display driver.
+connection from task 09; display driver. `response.rs` implements retained typed
+requests and response handles; `PublicationDisplay` exposes early request access
+and prompt-aware `settle`. Public scenarios live in
+`crates/reactant-testing/tests/prompts.rs` and extend the FIFO scenario in
+`publications.rs`.
 
 ## Example
 

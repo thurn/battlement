@@ -1,11 +1,14 @@
 use std::{
   collections::VecDeque,
   mem,
-  sync::{Condvar, Mutex, MutexGuard},
+  sync::{
+    Arc, Condvar, Mutex, MutexGuard,
+    atomic::{AtomicBool, Ordering},
+  },
   time::{Duration, Instant},
 };
 
-use crate::{Game, worker};
+use crate::{Game, PresentedPrompt, ResponseHandle, response::Reply, worker};
 
 const CAPACITY: usize = 32;
 
@@ -13,7 +16,7 @@ const CAPACITY: usize = 32;
 pub struct Checkpoint<G: Game> {
   pub(crate) state: G::State,
   pub(crate) animation: Option<G::StateAnimation>,
-  pub(crate) prompt: Option<G::Prompt<'static>>,
+  pub(crate) prompt: Option<PresentedPrompt<G::Prompt<'static>>>,
   pub(crate) completion: Option<(G::State, G::Context)>,
 }
 
@@ -35,11 +38,13 @@ pub struct PublicationObservation {
 pub(crate) struct Publications<G: Game> {
   state: Mutex<Queue<G>>,
   changed: Condvar,
+  pub(crate) abandoned: Arc<AtomicBool>,
 }
 
 struct Queue<G: Game> {
   entries: VecDeque<Checkpoint<G>>,
   reserved: usize,
+  request: Option<Arc<dyn Reply>>,
   observation: PublicationObservation,
 }
 
@@ -59,7 +64,7 @@ impl<G: Game> Checkpoint<G> {
   }
 
   /// Returns owned prompt data when this checkpoint presents a request.
-  pub fn prompt(&self) -> Option<&G::Prompt<'static>> {
+  pub fn prompt(&self) -> Option<&PresentedPrompt<G::Prompt<'static>>> {
     self.prompt.as_ref()
   }
 
@@ -75,9 +80,11 @@ impl<G: Game> Publications<G> {
       state: Mutex::new(Queue {
         entries: VecDeque::new(),
         reserved: 0,
+        request: None,
         observation: PublicationObservation::default(),
       }),
       changed: Condvar::new(),
+      abandoned: Arc::new(AtomicBool::new(false)),
     }
   }
 
@@ -123,16 +130,38 @@ impl<G: Game> Publications<G> {
   }
 
   pub(crate) fn abandon(&self) {
-    let entries = {
+    let (entries, request) = {
       let mut state = self::lock(&self.state);
+      self.abandoned.store(true, Ordering::Release);
       state.observation.abandoned = true;
       state.observation.waiting_for_capacity = false;
       let entries = mem::take(&mut state.entries);
       self.changed.notify_all();
-      entries
+      (entries, state.request.take())
     };
+    if let Some(request) = request {
+      request.cancel();
+    }
     // Game-owned destructors run outside the communication lock.
     drop(entries);
+  }
+
+  pub(crate) fn register_request(&self, request: Arc<dyn Reply>) {
+    let mut state = self::lock(&self.state);
+    if state.observation.abandoned {
+      drop(state);
+      worker::unwind_cancelled();
+    }
+    let previous = state.request.replace(request);
+    drop(state);
+    drop(previous);
+  }
+
+  pub(crate) fn response_handle(&self) -> Option<ResponseHandle<G::Prompt<'static>>> {
+    self::lock(&self.state)
+      .request
+      .as_ref()
+      .map(ResponseHandle::new)
   }
 
   pub(crate) fn observation(&self) -> PublicationObservation {

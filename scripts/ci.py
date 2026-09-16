@@ -75,6 +75,7 @@ ROOT_RUST_INPUTS = (
     "samples",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_selection.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
     "scripts/resource_slots.py",
@@ -87,6 +88,7 @@ SAMPLE_SHARED_INPUTS = (
     "crates",
     "scripts/ci.py",
     "scripts/ci_cache.py",
+    "scripts/ci_selection.py",
     "scripts/ci_steps.py",
     "scripts/perf_log.py",
     "scripts/resource_slots.py",
@@ -289,6 +291,14 @@ def rust_workspace_inputs(workspace: Path | None) -> tuple[str, ...]:
     return (*SAMPLE_SHARED_INPUTS, str(workspace.parent))
 
 
+def root_cache_name(name: str, selection: ci_selection.RustSelection) -> str:
+    """Keep evidence for distinct package selections in separate cache entries."""
+    if selection.packages is None:
+        return name
+    digest = hashlib.sha256("\0".join(selection.packages).encode()).hexdigest()[:16]
+    return f"{name}-{digest}"
+
+
 def lint_rust_workspaces(
     selection: ci_selection.RustSelection, ci_cache: CiCache
 ) -> None:
@@ -297,9 +307,9 @@ def lint_rust_workspaces(
         steps.append((
             "root workspace",
             lambda: ci_cache.run(
-                "rust-lint-root", rust_workspace_inputs(None),
+                root_cache_name("rust-lint-root", selection), rust_workspace_inputs(None),
                 lambda: subprocess.run(
-                    ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+                    ["cargo", "clippy", *ci_selection.root_arguments(selection), "--all-targets", "--", "-D", "warnings"],
                     cwd=REPOSITORY_ROOT, env=cargo_environment(None), check=True,
                 ),
             ),
