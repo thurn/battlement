@@ -309,7 +309,7 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
         patch.object(ci.subprocess, "run", side_effect=completed),
     ):
         ci.build_standalone_samples(["basic", "chess"], object(), leases)
-    assert commands[0] == ["cargo", "build", "-p", "battlement-ditto-cli"]
+    assert commands[0] == ["cargo", "build", "-p", "rt"]
     assert sorted(leases.prepared) == ["basic", "chess"]
 
     steps: list[tuple[list[str], dict[str, str]]] = []

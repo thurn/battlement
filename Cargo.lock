@@ -534,24 +534,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "battlement-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "battlement-ditto",
- "battlement-ditto-cli",
- "battlement-reactant-assets",
- "battlement-tooling",
- "clap",
- "ctrlc",
- "png",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
-]
-
-[[package]]
 name = "battlement-cloud"
 version = "0.1.0"
 dependencies = [
@@ -591,16 +573,6 @@ dependencies = [
  "toml",
  "ureq",
  "uuid",
-]
-
-[[package]]
-name = "battlement-ditto-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "battlement-ditto",
- "battlement-reactant-assets",
- "ctrlc",
 ]
 
 [[package]]
@@ -2491,7 +2463,10 @@ dependencies = [
  "battlement-tooling",
  "clap",
  "ctrlc",
+ "png",
  "serde",
+ "serde_json",
+ "sha2",
  "tempfile",
  "toml",
 ]

@@ -21,7 +21,9 @@ SPEC.loader.exec_module(deploy)
 def create_sample(root: Path, name: str) -> None:
     sample = root / "samples" / name
     sample.mkdir(parents=True)
-    (sample / "sample.toml").write_text(f'executable = "{name}"\n')
+    (sample / "sample.toml").write_text(
+        f'application = "{name}.app"\nscene = "Assets/Main.unity"\n'
+    )
     output = sample / "Build/release/WebThreads"
     (output / "Build").mkdir(parents=True)
     (output / "StreamingAssets").mkdir()
@@ -38,17 +40,18 @@ def main() -> None:
 
         deploy.REPOSITORY_ROOT = root
         deploy.STAGING_ROOT = root / "Build/cloudflare"
-        names = deploy.sample_names()
-        assert names == ["basic", "chess", "tictactoe"]
+        names = ["chess", "basic", "tictactoe"]
 
         commands: list[list[str]] = []
         original_run = deploy.run
         deploy.run = lambda command, **_kwargs: commands.append(command) or ""
         try:
-            deploy.build_samples("chess", names)
+            deploy.build_samples(names)
         finally:
             deploy.run = original_run
-        assert [command[-3] for command in commands] == ["chess", "basic", "tictactoe"]
+        assert [
+            Path(command[command.index("--project") + 1]).name for command in commands
+        ] == names
 
         deploy.assemble_site(names, "0123456789abcdef")
         deploy.validate_site(names)

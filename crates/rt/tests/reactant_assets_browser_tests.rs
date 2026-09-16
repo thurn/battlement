@@ -63,7 +63,6 @@ fn explicit_non_chrome_executable_is_rejected_by_the_protocol_contract() {
   fixture.write_assets(false);
   let report_path = fixture.root.join("rejected.json");
   let output = fixture.run([
-    "reactant",
     "assets",
     "generate",
     "--browser",
@@ -89,7 +88,6 @@ fn missing_explicit_browser_fails_without_starting_a_renderer() {
   fixture.write_assets(false);
   let report_path = fixture.root.join("missing.json");
   let output = fixture.run([
-    "reactant",
     "assets",
     "generate",
     "--browser",
@@ -121,6 +119,11 @@ impl Fixture {
     fs::create_dir_all(project.join("ProjectSettings")).unwrap();
     fs::create_dir_all(project.join("rules/src")).unwrap();
     fs::write(project.join("Packages/manifest.json"), "{}\n").unwrap();
+    fs::write(
+      project.join("reactant.toml"),
+      "[project]\napplication = \"Fixture\"\nscene = \"Assets/Main.unity\"\n",
+    )
+    .unwrap();
     fs::write(
       project.join("ProjectSettings/ProjectVersion.txt"),
       "m_EditorVersion: fixture\n",
@@ -170,7 +173,6 @@ impl Fixture {
 
   fn generate(&self, report: &Path) -> Output {
     self.run([
-      "reactant",
       "assets",
       "generate",
       "--work-report",
@@ -183,7 +185,7 @@ impl Fixture {
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
   {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+    Command::new(env!("CARGO_BIN_EXE_rt"))
       .args(arguments)
       .current_dir(&self.project)
       .output()

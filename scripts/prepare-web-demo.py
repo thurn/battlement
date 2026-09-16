@@ -61,7 +61,7 @@ def web_build_identity(sample: str, release: bool) -> BuildIdentity:
             f"samples/{sample}/Assets",
             f"samples/{sample}/Packages",
             f"samples/{sample}/ProjectSettings",
-            f"samples/{sample}/sample.toml",
+            f"samples/{sample}/reactant.toml",
         ),
         "sample-rules": (f"samples/{sample}/rules",),
         "web-bootstrap": ("web/init.js",),
@@ -118,10 +118,10 @@ def dependency_pathspecs(sample: str) -> tuple[str, ...]:
     queue = [
         directory
         for directory, package in by_directory.items()
-        if package["name"] == "battlement-cli"
+        if package["name"] == "rt"
     ]
     if not queue:
-        raise RuntimeError("Cargo metadata omitted the battlement-cli build package")
+        raise RuntimeError("Cargo metadata omitted the rt build package")
     for package in sample_packages:
         queue.extend(
             str(Path(dependency["path"]).resolve())
@@ -275,8 +275,8 @@ def changed_categories(entries: Path, manifest: dict[str, object]) -> str:
 
 def build_command(sample: str, release: bool) -> list[str]:
     command = [
-        "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
-        "sample", "build", sample, "--web",
+        "cargo", "run", "--quiet", "-p", "rt", "--",
+        "build", "--project", f"samples/{sample}", "--web",
     ]
     if release:
         command.append("--release")
@@ -344,13 +344,13 @@ def command_version(command: list[str]) -> str:
 def validate_sample(sample: str) -> None:
     if not sample or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in sample):
         raise RuntimeError("Sample names may contain lowercase letters, numbers, and hyphens.")
-    if not (REPOSITORY_ROOT / "samples" / sample / "sample.toml").is_file():
+    if not (REPOSITORY_ROOT / "samples" / sample / "reactant.toml").is_file():
         raise RuntimeError(f"Unknown sample: {sample}")
 
 
 def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("sample")
+    parser.add_argument("--project", type=Path, required=True)
     parser.add_argument(
         "--development",
         action="store_true",
@@ -363,8 +363,13 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
 if __name__ == "__main__":
     arguments = parse_arguments()
     try:
+        project = arguments.project.resolve()
+        samples = (REPOSITORY_ROOT / "samples").resolve()
+        if project.parent != samples:
+            raise RuntimeError("Web demo project must be an explicit direct child of samples/")
+        sample = project.name
         prepare(
-            arguments.sample,
+            sample,
             not arguments.development,
             arguments.cache_root,
         )

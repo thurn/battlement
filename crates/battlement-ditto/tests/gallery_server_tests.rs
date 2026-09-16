@@ -89,6 +89,8 @@ fn gallery_command_opens_without_a_baseline_store_or_lock() {
   let port = listener.local_addr().unwrap().port();
   drop(listener);
   let mut child = ditto_command()
+    .arg("--config")
+    .arg(repository.join("ditto.toml"))
     .args(["gallery", "--port", &port.to_string(), "--no-open"])
     .current_dir(&repository)
     .stdout(Stdio::null())
@@ -117,7 +119,7 @@ fn ditto_command() -> ProcessCommand {
       .join("../..")
       .join("Cargo.toml"),
   );
-  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command.args(["--package", "rt", "--bin", "rt", "--", "ditto"]);
   command
 }
 

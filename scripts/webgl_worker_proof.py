@@ -42,7 +42,7 @@ def run(output: Path | None = None) -> Path:
                     "run",
                     "--quiet",
                     "-p",
-                    "battlement-cli",
+                    "rt",
                     "--",
                     "ditto",
                     "--config",

@@ -16,7 +16,6 @@ fn empty_commands_resolve_project_and_remove_only_generated_output() {
   let generated = fixture.run_from(
     &fixture.root,
     [
-      "reactant",
       "assets",
       "generate",
       "--project",
@@ -38,7 +37,7 @@ fn empty_commands_resolve_project_and_remove_only_generated_output() {
 
   let nested = fixture.project.join("Assets/Nested/Deeper");
   fs::create_dir_all(&nested).unwrap();
-  let checked = fixture.run_from(&nested, ["reactant", "assets", "check"]);
+  let checked = fixture.run_from(&nested, ["assets", "check"]);
   assert!(checked.status.success(), "{}", stderr(&checked));
 }
 
@@ -53,13 +52,7 @@ fn check_is_read_only_and_reports_stale_empty_output() {
 
   let checked = fixture.run_from(
     &fixture.project,
-    [
-      "reactant",
-      "assets",
-      "check",
-      "--work-report",
-      report.to_str().unwrap(),
-    ],
+    ["assets", "check", "--work-report", report.to_str().unwrap()],
   );
 
   assert!(!checked.status.success());
@@ -80,7 +73,6 @@ fn selections_reject_non_projects_and_escaped_rules_manifests() {
   let escaped = fixture.run_from(
     &fixture.project,
     [
-      "reactant",
       "assets",
       "generate",
       "--manifest-path",
@@ -92,7 +84,7 @@ fn selections_reject_non_projects_and_escaped_rules_manifests() {
 
   let not_project = fixture.run_from(
     &fixture.root,
-    ["reactant", "assets", "generate", "--project", "outside"],
+    ["assets", "generate", "--project", "outside"],
   );
   assert!(!not_project.status.success());
   assert!(stderr(&not_project).contains("is not a Unity project"));
@@ -101,8 +93,8 @@ fn selections_reject_non_projects_and_escaped_rules_manifests() {
 #[test]
 #[ignore = "run by scripts/reactant_asset_validation.py"]
 fn asset_command_help_exposes_the_shared_selection_contract() {
-  let output = Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
-    .args(["reactant", "assets", "generate", "--help"])
+  let output = Command::new(env!("CARGO_BIN_EXE_rt"))
+    .args(["assets", "generate", "--help"])
     .output()
     .unwrap();
   assert!(output.status.success(), "{}", stderr(&output));
@@ -129,7 +121,6 @@ fn empty_preview_uses_the_system_opener_without_a_renderer() {
   let previewed = fixture.run_from(
     &fixture.project,
     [
-      "reactant",
       "assets",
       "preview",
       "--work-report",
@@ -196,7 +187,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
 
   let output = fixture.run_from(
     &fixture.project,
-    ["reactant", "assets", "generate", "--features", "art"],
+    ["assets", "generate", "--features", "art"],
   );
 
   assert!(output.status.success(), "{}", stderr(&output));
@@ -262,7 +253,7 @@ fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
   )
   .unwrap();
 
-  let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let output = fixture.run_from(&fixture.project, ["assets", "check"]);
 
   assert!(!output.status.success());
   assert!(stderr(&output).contains("assets are stale"));
@@ -307,7 +298,7 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
   ];
   for (source, diagnostic) in cases {
     fs::write(fixture.project.join("rules/src/lib.rs"), source).unwrap();
-    let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+    let output = fixture.run_from(&fixture.project, ["assets", "check"]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains(diagnostic), "{}", stderr(&output));
   }
@@ -342,7 +333,7 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
     "pub fn art() {}\n",
   )
   .unwrap();
-  let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let output = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!output.status.success());
   assert!(stderr(&output).contains("reachable declaration packages differ"));
   assert!(stderr(&output).contains("host="));
@@ -367,7 +358,7 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
     ),
   )
   .unwrap();
-  let renamed = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let renamed = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!renamed.status.success());
   assert!(stderr(&renamed).contains("aliases reactant as renamed_reactant"));
 
@@ -389,7 +380,7 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
      [dependencies]\noutside-assets = { path = \"../../outside-assets\" }\n",
   )
   .unwrap();
-  let nonportable = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let nonportable = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!nonportable.status.success());
   assert!(stderr(&nonportable).contains("outside Unity project"));
   assert!(stderr(&nonportable).contains("no portable coordinate"));
@@ -432,7 +423,7 @@ fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
       format!("reactant::asset_generator::generate! {{ {declaration} }}\n"),
     )
     .unwrap();
-    let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+    let output = fixture.run_from(&fixture.project, ["assets", "check"]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains(category), "{}", stderr(&output));
   }
@@ -462,7 +453,7 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
   )
   .unwrap();
 
-  let first = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let first = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!first.status.success());
   assert!(stderr(&first).contains("assets are stale"));
   let first_asset = identity_line(&first, "asset=");
@@ -477,7 +468,7 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
     textures.join("panel.png"),
   )
   .unwrap();
-  let changed = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let changed = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!changed.status.success());
   assert!(stderr(&changed).contains("assets are stale"));
   let changed_asset = identity_line(&changed, "asset=");
@@ -515,7 +506,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
      }\n",
   )
   .unwrap();
-  let valid = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let valid = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!valid.status.success());
   assert!(stderr(&valid).contains("assets are stale"));
   assert!(identity_line(&valid, "asset=").contains("Assets/Fonts/face.ttf="));
@@ -527,7 +518,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
      }\n",
   )
   .unwrap();
-  let uncovered = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let uncovered = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!uncovered.status.success());
   assert!(stderr(&uncovered).contains("does not cover authored character U+10FFFF"));
 
@@ -537,7 +528,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
     fonts.join("face.ttf"),
   )
   .unwrap();
-  let mismatched = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let mismatched = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!mismatched.status.success());
   assert!(stderr(&mismatched).contains("extension does not match its TrueType format"));
 
@@ -556,7 +547,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
      }\n",
   )
   .unwrap();
-  let escaped = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  let escaped = fixture.run_from(&fixture.project, ["assets", "check"]);
   assert!(!escaped.status.success());
   assert!(stderr(&escaped).contains("resolves outside Unity project"));
 }
@@ -751,9 +742,8 @@ fn graph_inputs_and_corrupt_state_fall_back_to_full_resolution() {
   assert_eq!(report(&corrupt_report)["cargoMetadataRuns"], 2);
 
   let environment_report = fixture.root.join("environment.json");
-  let environment_changed = Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+  let environment_changed = Command::new(env!("CARGO_BIN_EXE_rt"))
     .args([
-      "reactant",
       "assets",
       "generate",
       "--work-report",
@@ -774,7 +764,6 @@ fn graph_inputs_and_corrupt_state_fall_back_to_full_resolution() {
   let feature_changed = fixture.run_from(
     &fixture.project,
     [
-      "reactant",
       "assets",
       "generate",
       "--features",
@@ -801,7 +790,6 @@ fn graph_inputs_and_corrupt_state_fall_back_to_full_resolution() {
   let checked = fixture.run_from(
     &fixture.project,
     [
-      "reactant",
       "assets",
       "check",
       "--work-report",
@@ -829,6 +817,11 @@ impl Fixture {
     fs::create_dir_all(project.join("ProjectSettings")).unwrap();
     fs::write(project.join("Packages/manifest.json"), "{}\n").unwrap();
     fs::write(
+      project.join("reactant.toml"),
+      "[project]\napplication = \"Fixture\"\nscene = \"Assets/Main.unity\"\n",
+    )
+    .unwrap();
+    fs::write(
       project.join("ProjectSettings/ProjectVersion.txt"),
       "m_EditorVersion: fixture\n",
     )
@@ -846,7 +839,7 @@ impl Fixture {
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
   {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+    Command::new(env!("CARGO_BIN_EXE_rt"))
       .args(arguments)
       .current_dir(current)
       .output()
@@ -867,7 +860,6 @@ impl Fixture {
     self.run_from(
       &self.project,
       [
-        "reactant",
         "assets",
         "generate",
         "--work-report",

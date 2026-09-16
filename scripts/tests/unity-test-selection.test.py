@@ -30,7 +30,7 @@ def main() -> None:
     ):
         assert root in roots
     for root in (
-        "crates/battlement-cli",
+        "crates/rt",
         "crates/battlement-ditto",
         "crates/reactant",
         "crates/battlement-tooling",

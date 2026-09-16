@@ -166,25 +166,40 @@ impl Fixture {
   }
 
   fn generate(&self, extra: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
-      .arg("generate")
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rt"));
+    command
+      .args([
+        "addressables",
+        if extra.contains(&"--check") {
+          "check"
+        } else {
+          "generate"
+        },
+        "--project",
+      ])
       .arg(&self.project)
-      .args(extra)
       .env("UNITY_EDITOR", &self.editor)
-      .env("BATTLEMENT_FAKE_EXPORT", &self.export)
-      .output()
-      .unwrap()
+      .env("BATTLEMENT_FAKE_EXPORT", &self.export);
+    command.output().unwrap()
   }
 
   fn generate_from(&self, current_dir: &Path, extra: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
-      .arg("generate")
-      .args(extra)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_rt"));
+    command
+      .args([
+        "addressables",
+        if extra.contains(&"--check") {
+          "check"
+        } else {
+          "generate"
+        },
+        "--project",
+      ])
+      .arg(&self.project)
       .current_dir(current_dir)
       .env("UNITY_EDITOR", &self.editor)
-      .env("BATTLEMENT_FAKE_EXPORT", &self.export)
-      .output()
-      .unwrap()
+      .env("BATTLEMENT_FAKE_EXPORT", &self.export);
+    command.output().unwrap()
   }
 }
 

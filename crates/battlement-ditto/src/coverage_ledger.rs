@@ -133,7 +133,7 @@ struct ScenarioFacts {
   videos: BTreeSet<String>,
 }
 
-/// Discovers and checks every direct child of `samples` containing `sample.toml`.
+/// Discovers and checks every configured direct child of `samples`.
 pub fn check_repository(repository: &Path) -> Result<CoverageReport> {
   let samples = repository.join("samples");
   let catalog: Catalog = read_toml(&samples.join(LEDGER_NAME))?;
@@ -156,7 +156,7 @@ pub fn check_repository(repository: &Path) -> Result<CoverageReport> {
   let mut reports = Vec::new();
   for entry in fs::read_dir(&samples).with_context(|| format!("read {}", samples.display()))? {
     let directory = entry?.path();
-    if !directory.join("sample.toml").is_file() {
+    if !directory.join("sample.toml").is_file() && !directory.join("reactant.toml").is_file() {
       continue;
     }
     reports.push(check_sample(&directory)?);

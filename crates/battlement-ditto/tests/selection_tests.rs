@@ -230,7 +230,7 @@ fn ditto_command() -> Command {
       .join("../..")
       .join("Cargo.toml"),
   );
-  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command.args(["--package", "rt", "--bin", "rt", "--", "ditto"]);
   command
 }
 

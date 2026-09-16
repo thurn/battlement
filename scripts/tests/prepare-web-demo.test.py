@@ -23,9 +23,11 @@ SPEC.loader.exec_module(prepare_web_demo)
 
 
 def main() -> None:
-    arguments = prepare_web_demo.parse_arguments(["tic-tac-toe"])
+    arguments = prepare_web_demo.parse_arguments(["--project", "samples/tic-tac-toe"])
     assert arguments.development is False
-    arguments = prepare_web_demo.parse_arguments(["tic-tac-toe", "--development"])
+    arguments = prepare_web_demo.parse_arguments([
+        "--project", "samples/tic-tac-toe", "--development",
+    ])
     assert arguments.development is True
 
     with tempfile.TemporaryDirectory(prefix="battlement-web-demo-test.") as temporary:
@@ -69,7 +71,7 @@ def main() -> None:
             assert renamed != initial
             baseline = renamed
             closure = prepare_web_demo.dependency_pathspecs("fixture")
-            assert closure == ("crates/battlement-cli", "crates/runtime")
+            assert closure == ("crates/rt", "crates/runtime")
             harness = repository / "scripts/web_compatibility.py"
             harness.write_text("# changed harness\n")
             subprocess.run(["git", "add", str(harness)], cwd=repository, check=True)
@@ -99,7 +101,7 @@ def create_repository(root: Path) -> None:
         "Packages/com.battlement.client",
         "Packages/com.battlement.client/Runtime",
         "Packages/com.battlement.client/Tests",
-        "crates/battlement-cli/src",
+        "crates/rt/src",
         "crates/runtime/src",
         "crates/unrelated/src",
         "samples/fixture/ProjectSettings",
@@ -111,18 +113,18 @@ def create_repository(root: Path) -> None:
     for path, contents in (
         (
             "Cargo.toml",
-            '[workspace]\nmembers = ["crates/battlement-cli", "crates/runtime", "crates/unrelated"]\nresolver = "2"\n',
+            '[workspace]\nmembers = ["crates/rt", "crates/runtime", "crates/unrelated"]\nresolver = "2"\n',
         ),
         ("Cargo.lock", "version = 4\n"),
         ("rust-toolchain.toml", "[toolchain]\nchannel = \"1.98.1\"\n"),
         ("Packages/com.battlement.client/package.json", "{}\n"),
         ("Packages/com.battlement.client/Runtime/old.cs", "// runtime\n"),
         (
-            "crates/battlement-cli/Cargo.toml",
-            '[package]\nname = "battlement-cli"\nversion = "0.1.0"\nedition = "2024"\n'
+            "crates/rt/Cargo.toml",
+            '[package]\nname = "rt"\nversion = "0.1.0"\nedition = "2024"\n'
             '[dependencies]\nruntime = { path = "../runtime" }\n',
         ),
-        ("crates/battlement-cli/src/main.rs", "fn main() {}\n"),
+        ("crates/rt/src/main.rs", "fn main() {}\n"),
         (
             "crates/runtime/Cargo.toml",
             '[package]\nname = "runtime"\nversion = "0.1.0"\nedition = "2024"\n',
@@ -134,7 +136,10 @@ def create_repository(root: Path) -> None:
         ),
         ("crates/unrelated/src/lib.rs", ""),
         ("web/init.js", ""),
-        ("samples/fixture/sample.toml", "application = \"Fixture.app\"\n"),
+        (
+            "samples/fixture/reactant.toml",
+            "[project]\napplication = \"Fixture.app\"\nscene = \"Assets/Main.unity\"\n",
+        ),
         ("samples/fixture/ProjectSettings/ProjectVersion.txt", "m_EditorVersion: fixture\n"),
         (
             "samples/fixture/rules/Cargo.toml",

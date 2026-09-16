@@ -48,9 +48,9 @@ Use the [validation sequence](workflow.md#validation-sequence) to schedule these
 do not run the entire list after each edit:
 
 ```text
-cargo battlement reactant assets generate --project samples/chess-ui
-cargo battlement sample run chess-ui --release
-cargo battlement ditto --config samples/chess-ui/ditto.toml run --profile macos
+cargo run -p rt -- assets generate --project samples/chess-ui
+just chess-ui --release
+cargo run -p rt -- ditto --config samples/chess-ui/ditto.toml run --profile macos
 ./scripts/ci.py
 ```
 

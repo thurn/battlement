@@ -252,6 +252,7 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
   );
   let output_path = temporary.path().join("copy.json");
   let output = ditto_command()
+    .args(["--config", "ditto.toml"])
     .args([
       "capture",
       "--profile",
@@ -362,6 +363,7 @@ fn check_prerequisite_failure(missing_odiff: bool) {
   );
 
   let output = ditto_command()
+    .args(["--config", "ditto.toml"])
     .args(if missing_odiff {
       vec!["run", "--json"]
     } else {
@@ -482,6 +484,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   fs::write(&fragment_path, FRAGMENT).unwrap();
 
   let file = ditto_command()
+    .args(["--config", "ditto.toml"])
     .args([
       "capture",
       "--fragment",
@@ -502,6 +505,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   assert!(String::from_utf8_lossy(&file.stderr).contains("DITTO_RESULT="));
 
   let mut stdin = ditto_command()
+    .args(["--config", "ditto.toml"])
     .args(["capture", "--fragment=-", "--json"])
     .env("DITTO_CACHE_ROOT", &cache)
     .current_dir(&repository)
@@ -530,7 +534,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
 
 fn ditto_command() -> ProcessCommand {
   static DITTO_BINARY: OnceLock<PathBuf> = OnceLock::new();
-  ProcessCommand::new(DITTO_BINARY.get_or_init(|| {
+  let mut command = ProcessCommand::new(DITTO_BINARY.get_or_init(|| {
     let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
       .join("../..")
       .join("Cargo.toml");
@@ -538,7 +542,7 @@ fn ditto_command() -> ProcessCommand {
       ProcessCommand::new(env!("CARGO"))
         .args(["build", "--quiet", "--manifest-path"])
         .arg(&manifest)
-        .args(["--package", "battlement-ditto-cli", "--bin", "ditto"])
+        .args(["--package", "rt", "--bin", "rt"])
         .status()
         .unwrap()
         .success()
@@ -566,8 +570,10 @@ fn ditto_command() -> ProcessCommand {
       } else {
         "release"
       })
-      .join(if cfg!(windows) { "ditto.exe" } else { "ditto" })
-  }))
+      .join(if cfg!(windows) { "rt.exe" } else { "rt" })
+  }));
+  command.arg("ditto");
+  command
 }
 
 #[cfg(target_os = "macos")]

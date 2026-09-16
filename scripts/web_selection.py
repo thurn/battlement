@@ -96,7 +96,11 @@ def changed_paths(repository: Path) -> tuple[str, list[str]]:
 
 def validate_affected(repository: Path) -> None:
     """Build and check only selected local browser contracts; retain native checks independently."""
-    names = sorted(path.parent.name for path in (repository / "samples").glob("*/sample.toml"))
+    names = sorted({
+        path.parent.name
+        for pattern in ("*/sample.toml", "*/reactant.toml")
+        for path in (repository / "samples").glob(pattern)
+    })
     revision, paths = changed_paths(repository)
     selected = select(repository, paths, names)
     print("Browser risk selection: " + json.dumps(selected.report(), sort_keys=True), flush=True)

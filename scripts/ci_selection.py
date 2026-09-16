@@ -20,7 +20,7 @@ REACTANT_ASSET_INPUTS = (
     "Cargo.lock",
     "Cargo.toml",
     "rust-toolchain.toml",
-    "crates/battlement-cli/",
+    "crates/rt/",
     "crates/reactant-core/",
     "crates/reactant-ui/",
     "crates/reactant/",

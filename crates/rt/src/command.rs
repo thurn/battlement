@@ -78,6 +78,9 @@ struct BuildArgs {
   /// Build a browser player instead of a native player.
   #[arg(long)]
   web: bool,
+  /// Build a direct Battlement project without Reactant asset preparation.
+  #[arg(long)]
+  skip_assets: bool,
 }
 
 #[derive(Debug, Args)]
@@ -96,6 +99,9 @@ struct AuthorArgs {
   /// Build the Rust application plugin with the release profile.
   #[arg(long)]
   release: bool,
+  /// Author a direct Battlement project without Reactant asset preparation.
+  #[arg(long)]
+  skip_assets: bool,
 }
 
 /// Runs the `rt` process and reports failures to the terminal.
@@ -116,24 +122,55 @@ fn run() -> Result<u8> {
     .map_err(|error| anyhow::anyhow!("failed to install interrupt handler: {error}"))?;
   match Cli::parse().command {
     Command::Build(args) => {
-      let (project, options) = resolve_build(args)?;
-      battlement_tooling::application::build(&project, &options, &INTERRUPTED, prepare_assets)?;
+      let (project, options, prepare) = resolve_build(args)?;
+      if prepare {
+        battlement_tooling::application::build(&project, &options, &INTERRUPTED, prepare_assets)?;
+      } else {
+        battlement_tooling::application::build(&project, &options, &INTERRUPTED, |_, _| Ok(()))?;
+      }
     }
     Command::Run(args) => {
       let port = args.port;
-      let (project, options) = resolve_build(args.build)?;
-      battlement_tooling::application::run(&project, &options, port, &INTERRUPTED, prepare_assets)?;
+      let (project, options, prepare) = resolve_build(args.build)?;
+      if prepare {
+        battlement_tooling::application::run(
+          &project,
+          &options,
+          port,
+          &INTERRUPTED,
+          prepare_assets,
+        )?;
+      } else {
+        battlement_tooling::application::run(
+          &project,
+          &options,
+          port,
+          &INTERRUPTED,
+          |_, _| Ok(()),
+        )?;
+      }
     }
     Command::Author(args) => {
-      let project = resolve_project(args.project)?;
-      battlement_tooling::author::run(
-        &project.root,
-        Some(&project.manifest),
-        Some(&project.scene),
-        args.release,
-        &INTERRUPTED,
-        prepare_assets,
-      )?;
+      let project = resolve_project(args.project, args.skip_assets)?;
+      if args.skip_assets {
+        battlement_tooling::author::run(
+          &project.root,
+          Some(&project.manifest),
+          Some(&project.scene),
+          args.release,
+          &INTERRUPTED,
+          |_, _| Ok(()),
+        )?;
+      } else {
+        battlement_tooling::author::run(
+          &project.root,
+          Some(&project.manifest),
+          Some(&project.scene),
+          args.release,
+          &INTERRUPTED,
+          prepare_assets,
+        )?;
+      }
     }
     Command::Assets(args) => crate::assets::run(args)?,
     Command::Addressables(args) => crate::addressables::run(args)?,
@@ -147,17 +184,21 @@ fn run() -> Result<u8> {
 
 fn resolve_build(
   args: BuildArgs,
-) -> Result<(battlement_tooling::application::Project, BuildOptions)> {
-  let project = resolve_project(args.project)?;
+) -> Result<(battlement_tooling::application::Project, BuildOptions, bool)> {
+  let prepare = !args.skip_assets;
+  let project = resolve_project(args.project, args.skip_assets)?;
   let options = BuildOptions {
     output: crate::project::resolve_output(&project.root, args.output),
     release: args.release,
     web: args.web,
   };
-  Ok((project, options))
+  Ok((project, options, prepare))
 }
 
-fn resolve_project(args: ProjectArgs) -> Result<battlement_tooling::application::Project> {
+fn resolve_project(
+  args: ProjectArgs,
+  allow_missing_configuration: bool,
+) -> Result<battlement_tooling::application::Project> {
   crate::project::resolve(
     args.project,
     Overrides {
@@ -165,6 +206,7 @@ fn resolve_project(args: ProjectArgs) -> Result<battlement_tooling::application:
       manifest_path: args.manifest_path,
       scene: args.scene,
     },
+    allow_missing_configuration,
   )
 }
 

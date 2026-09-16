@@ -219,6 +219,11 @@ impl Fixture {
     }
     fs::write(project.join("Packages/manifest.json"), "{}\n").unwrap();
     fs::write(
+      project.join("reactant.toml"),
+      "[project]\napplication = \"Fixture\"\nscene = \"Assets/Main.unity\"\n",
+    )
+    .unwrap();
+    fs::write(
       project.join("ProjectSettings/ProjectVersion.txt"),
       "m_EditorVersion: fixture\n",
     )
@@ -297,9 +302,8 @@ impl Fixture {
   }
 
   fn run(&self, command: &str, report: &str) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+    Command::new(env!("CARGO_BIN_EXE_rt"))
       .args([
-        "reactant",
         "assets",
         command,
         "--work-report",

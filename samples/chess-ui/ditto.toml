@@ -16,6 +16,7 @@ motion = "controlled"
 target_fps = 60
 
 [player]
+reactant = true
 unity_project = "."
 scene = "Assets/Scenes/ChessUi.unity"
 rust_manifest = "rules/Cargo.toml"

@@ -56,6 +56,7 @@ class DittoBuildLeases:
             process = subprocess.Popen(
                 [
                     str(self.binary),
+                    "ditto",
                     "--config", f"samples/{sample}/ditto.toml",
                     "build", "--profile", "macos", "--json",
                     "--output", str(output),

@@ -36,8 +36,11 @@ impl PlayerPreparation for ReactantPreparation {
     if prepared.contains(&suite.source) {
       return Ok(());
     }
-    let project =
-      crate::project::resolve(suite.player.unity_project.clone(), Overrides::default())?;
+    let project = crate::project::resolve(
+      suite.player.unity_project.clone(),
+      Overrides::default(),
+      false,
+    )?;
     ensure!(
       project.manifest == suite.player.rust_manifest,
       "Ditto rust_manifest {} does not match reactant.toml manifest-path {}",

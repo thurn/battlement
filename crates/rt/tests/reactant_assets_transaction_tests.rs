@@ -166,6 +166,11 @@ impl Fixture {
     }
     fs::write(project.join("Packages/manifest.json"), "{}\n").unwrap();
     fs::write(
+      project.join("reactant.toml"),
+      "[project]\napplication = \"Fixture\"\nscene = \"Assets/Main.unity\"\n",
+    )
+    .unwrap();
+    fs::write(
       project.join("ProjectSettings/ProjectVersion.txt"),
       "m_EditorVersion: fixture\n",
     )
@@ -228,25 +233,19 @@ impl Fixture {
   }
 
   fn generate(&self) -> Output {
-    self.run(["reactant", "assets", "generate"])
+    self.run(["assets", "generate"])
   }
 
   fn generate_with_browser(&self, browser: &Path) -> Output {
-    self.run([
-      "reactant",
-      "assets",
-      "generate",
-      "--browser",
-      browser.to_str().unwrap(),
-    ])
+    self.run(["assets", "generate", "--browser", browser.to_str().unwrap()])
   }
 
   fn check(&self) -> Output {
-    self.run(["reactant", "assets", "check"])
+    self.run(["assets", "check"])
   }
 
   fn run<const N: usize>(&self, arguments: [&str; N]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+    Command::new(env!("CARGO_BIN_EXE_rt"))
       .args(arguments)
       .current_dir(&self.project)
       .output()

@@ -237,9 +237,11 @@ def command_output(command: list[str]) -> str:
 
 def sample_names() -> list[str]:
     """Return declared Unity sample names in stable order."""
-    return sorted(
-        path.parent.name for path in (REPOSITORY_ROOT / "samples").glob("*/sample.toml")
-    )
+    return sorted({
+        path.parent.name
+        for pattern in ("*/sample.toml", "*/reactant.toml")
+        for path in (REPOSITORY_ROOT / "samples").glob(pattern)
+    })
 
 
 def sample_rust_workspaces() -> list[Path]:
@@ -820,8 +822,8 @@ def build_standalone_samples(
         if platform.system() != "Darwin":
             subprocess.run(
                 [
-                    "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
-                    "sample", "build", name,
+                    "cargo", "run", "--quiet", "-p", "rt", "--",
+                    "ditto", "--config", f"samples/{name}/ditto.toml", "build",
                 ],
                 cwd=REPOSITORY_ROOT,
                 env=cargo_environment(None, f"standalone-{name}"),
@@ -848,7 +850,7 @@ def build_standalone_samples(
         started = time.monotonic()
         with ci_steps.span("Prepare standalone sample builder"):
             subprocess.run(
-                ["cargo", "build", "-p", "battlement-ditto-cli"],
+                ["cargo", "build", "-p", "rt"],
                 cwd=REPOSITORY_ROOT,
                 check=True,
             )
@@ -1161,7 +1163,7 @@ def run_ci(
         lease_evidence = invocation_root.parent / f"{invocation_id}.prepared-builds"
         ditto_builds = DittoBuildLeases(
             REPOSITORY_ROOT,
-            REPOSITORY_ROOT / "target/debug/ditto",
+            REPOSITORY_ROOT / "target/debug/rt",
             cache_root,
             lease_evidence,
         )

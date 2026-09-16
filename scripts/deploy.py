@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tomllib
 import urllib.error
 import urllib.request
 
@@ -38,11 +39,6 @@ def run(command: list[str], *, capture: bool = False) -> str:
     return result.stdout.strip() if capture else ""
 
 
-def sample_names() -> list[str]:
-    """Return convention-based sample names in stable order."""
-    return sorted(path.parent.name for path in (REPOSITORY_ROOT / "samples").glob("*/sample.toml"))
-
-
 def require_deployable_checkout() -> str:
     branch = run(["git", "branch", "--show-current"], capture=True)
     if branch != "master":
@@ -58,16 +54,22 @@ def require_wrangler() -> None:
     run([str(WRANGLER), "whoami"])
 
 
-def build_samples(target: str, names: list[str]) -> None:
-    order = names if target == "all" else [target, *(name for name in names if name != target)]
-    if target != "all":
-        print("A named deployment still rebuilds the complete sample site.", flush=True)
-    for name in order:
+def build_samples(names: list[str]) -> None:
+    for name in names:
         print(f"\n==> Build {name}", flush=True)
-        run([
-            "cargo", "run", "--quiet", "-p", "battlement-cli", "--", "sample", "build",
-            name, "--web", "--release",
-        ])
+        project = REPOSITORY_ROOT / "samples" / name
+        command = [
+            "cargo", "run", "--quiet", "-p", "rt", "--", "build",
+            "--project", str(project), "--web", "--release",
+        ]
+        configuration = project / "sample.toml"
+        if configuration.is_file():
+            document = tomllib.loads(configuration.read_text())
+            command.extend([
+                "--skip-assets", "--application", document["application"],
+                "--manifest-path", "rules/Cargo.toml", "--scene", document["scene"],
+            ])
+        run(command)
 
 
 def build_root_index(names: list[str], revision: str) -> str:
@@ -193,9 +195,15 @@ def smoke_test(names: list[str]) -> None:
     raise RuntimeError(f"live smoke test failed: {error}")
 
 
-def parse_arguments(names: list[str]) -> argparse.Namespace:
+def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("target", choices=[*names, "all"])
+    parser.add_argument(
+        "--project",
+        action="append",
+        type=Path,
+        required=True,
+        help="explicit sample project path; repeat for the complete deployment set",
+    )
     return parser.parse_args()
 
 
@@ -218,11 +226,17 @@ def publish_site(names: list[str], revision: str) -> None:
 
 
 def main() -> None:
-    names = sample_names()
-    args = parse_arguments(names)
+    args = parse_arguments()
+    projects = [project.resolve() for project in args.project]
+    samples_root = (REPOSITORY_ROOT / "samples").resolve()
+    if any(project.parent != samples_root for project in projects):
+        raise RuntimeError("deployment projects must be explicit direct children of samples/")
+    names = [project.name for project in projects]
+    if len(names) != len(set(names)):
+        raise RuntimeError("deployment project paths must be unique")
     revision = require_deployable_checkout()
     require_wrangler()
-    build_samples(args.target, names)
+    build_samples(names)
     assemble_site(names, revision)
     publish_site(names, revision)
     try:

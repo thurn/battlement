@@ -1,2 +1,4 @@
+[project]
 application = "Battlement Reactant.app"
 scene = "Assets/Scenes/ReactantSample.unity"
+manifest-path = "rules/Cargo.toml"

@@ -18,6 +18,7 @@ anti_alias = true
 max_changed_percent = 0.01
 
 [player]
+reactant = false
 unity_project = "."
 scene = "Assets/Scenes/BasicSample.unity"
 rust_manifest = "rules/Cargo.toml"

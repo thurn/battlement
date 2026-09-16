@@ -142,7 +142,7 @@ def cli_browser() -> None:
             "cargo",
             "test",
             "-p",
-            "battlement-cli",
+            "rt",
             "--test",
             "reactant_assets_render_tests",
             FAST_TEST,
@@ -253,7 +253,7 @@ def exhaustive(evidence: Path) -> None:
                     "cargo",
                     "test",
                     "-p",
-                    "battlement-cli",
+                    "rt",
                     "--test",
                     target,
                     "--",
@@ -269,11 +269,11 @@ def exhaustive(evidence: Path) -> None:
                 "run",
                 "--quiet",
                 "-p",
-                "battlement-cli",
+                "rt",
                 "--",
-                "sample",
                 "build",
-                "reactant",
+                "--project",
+                "samples/reactant",
             ],
             environment=cargo_environment("exhaustive-native"),
         )
@@ -283,11 +283,11 @@ def exhaustive(evidence: Path) -> None:
                 "run",
                 "--quiet",
                 "-p",
-                "battlement-cli",
+                "rt",
                 "--",
-                "sample",
                 "build",
-                "reactant",
+                "--project",
+                "samples/reactant",
                 "--web",
             ],
             environment=cargo_environment("exhaustive-web"),
@@ -314,7 +314,7 @@ def exhaustive(evidence: Path) -> None:
 
 def binary_path(environment: dict[str, str]) -> Path:
     suffix = ".exe" if os.name == "nt" else ""
-    return Path(environment["CARGO_TARGET_DIR"]) / "debug" / f"cargo-battlement{suffix}"
+    return Path(environment["CARGO_TARGET_DIR"]) / "debug" / f"rt{suffix}"
 
 
 def write_performance_fixture(root: Path) -> Path:
@@ -323,6 +323,10 @@ def write_performance_fixture(root: Path) -> Path:
     for directory in (project / "Assets", project / "Packages", project / "ProjectSettings", source):
         directory.mkdir(parents=True, exist_ok=True)
     (project / "Packages/manifest.json").write_text("{}\n", encoding="utf-8")
+    (project / "reactant.toml").write_text(
+        '[project]\napplication = "Performance Fixture"\nscene = "Assets/Main.unity"\n',
+        encoding="utf-8",
+    )
     (project / "ProjectSettings/ProjectVersion.txt").write_text(
         "m_EditorVersion: performance-fixture\n", encoding="utf-8"
     )
@@ -378,14 +382,13 @@ def performance(evidence: Path) -> None:
         raise RuntimeError("the Reactant asset performance tier requires the macOS reference host")
     evidence.mkdir(parents=True, exist_ok=True)
     environment = cargo_environment("performance")
-    run(["cargo", "build", "--quiet", "-p", "battlement-cli"], environment=environment)
+    run(["cargo", "build", "--quiet", "-p", "rt"], environment=environment)
     executable = binary_path(environment)
     with tempfile.TemporaryDirectory(prefix="reactant-asset-performance.") as temporary:
         project = write_performance_fixture(Path(temporary))
         report = Path(temporary) / "warmup.json"
         command = [
             str(executable),
-            "reactant",
             "assets",
             "generate",
             "--work-report",

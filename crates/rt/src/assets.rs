@@ -59,6 +59,7 @@ pub(crate) fn run(args: Args) -> Result<()> {
       manifest_path: selection.manifest_path,
       ..Overrides::default()
     },
+    false,
   )?;
   battlement_reactant_assets::run(
     command,

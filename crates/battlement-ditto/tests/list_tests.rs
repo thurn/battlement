@@ -91,7 +91,12 @@ impl Fixture {
 
   fn command(&self, directory: &Path, arguments: &[&str]) -> Command {
     let mut command = ditto_command();
-    command.arg("list").args(arguments).current_dir(directory);
+    command
+      .arg("--config")
+      .arg(self.root.join("ditto.toml"))
+      .arg("list")
+      .args(arguments)
+      .current_dir(directory);
     command
   }
 }
@@ -104,7 +109,7 @@ fn ditto_command() -> Command {
       .join("../..")
       .join("Cargo.toml"),
   );
-  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command.args(["--package", "rt", "--bin", "rt", "--", "ditto"]);
   command
 }
 

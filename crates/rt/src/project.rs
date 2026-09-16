@@ -31,15 +31,28 @@ struct ProjectTable {
 pub fn resolve(
   root: PathBuf,
   overrides: Overrides,
+  allow_missing_configuration: bool,
 ) -> Result<battlement_tooling::application::Project> {
   let root = root
     .canonicalize()
     .with_context(|| format!("failed to locate Reactant project {}", root.display()))?;
   let configuration = root.join("reactant.toml");
-  let contents = fs::read_to_string(&configuration)
-    .with_context(|| format!("failed to read {}", configuration.display()))?;
-  let document: Document = toml::from_str(&contents)
-    .with_context(|| format!("failed to parse {}", configuration.display()))?;
+  let document = match fs::read_to_string(&configuration) {
+    Ok(contents) => toml::from_str(&contents)
+      .with_context(|| format!("failed to parse {}", configuration.display()))?,
+    Err(error) if allow_missing_configuration && error.kind() == std::io::ErrorKind::NotFound => {
+      Document {
+        project: ProjectTable {
+          application: None,
+          manifest_path: None,
+          scene: None,
+        },
+      }
+    }
+    Err(error) => {
+      return Err(error).with_context(|| format!("failed to read {}", configuration.display()));
+    }
+  };
   let application = overrides
     .application
     .or(document.project.application)
@@ -96,7 +109,7 @@ mod tests {
       "[project]\napplication = \"Card Table\"\nscene = \"Assets/Scenes/CardTable.unity\"\n",
     )?;
 
-    let project = resolve(directory.path().to_owned(), Overrides::default())?;
+    let project = resolve(directory.path().to_owned(), Overrides::default(), false)?;
     let root = directory.path().canonicalize()?;
 
     assert_eq!(project.application, "Card Table");
@@ -120,12 +133,33 @@ mod tests {
         manifest_path: Some("custom/plugin.toml".into()),
         scene: Some("Assets/Override.unity".into()),
       },
+      false,
     )?;
     let root = directory.path().canonicalize()?;
 
     assert_eq!(project.application, "Override");
     assert_eq!(project.scene, root.join("Assets/Override.unity"));
     assert_eq!(project.manifest, root.join("custom/plugin.toml"));
+    Ok(())
+  }
+
+  #[test]
+  fn explicit_direct_project_can_skip_reactant_configuration() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let project = resolve(
+      directory.path().to_owned(),
+      Overrides {
+        application: Some("Direct Fixture".to_owned()),
+        manifest_path: Some("rules/Cargo.toml".into()),
+        scene: Some("Assets/Main.unity".into()),
+      },
+      true,
+    )?;
+
+    let root = directory.path().canonicalize()?;
+    assert_eq!(project.application, "Direct Fixture");
+    assert_eq!(project.manifest, root.join("rules/Cargo.toml"));
+    assert_eq!(project.scene, root.join("Assets/Main.unity"));
     Ok(())
   }
 
@@ -137,7 +171,7 @@ mod tests {
       "[project]\napplication = \"Card Table\"\nscene = \"Assets/Main.unity\"\noutput = \"ignored\"\nweb = true\n",
     )?;
 
-    let project = resolve(directory.path().to_owned(), Overrides::default())?;
+    let project = resolve(directory.path().to_owned(), Overrides::default(), false)?;
     let root = directory.path().canonicalize()?;
 
     assert_eq!(resolve_output(&project.root, None), None);
