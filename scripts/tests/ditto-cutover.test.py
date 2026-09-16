@@ -39,7 +39,9 @@ FORBIDDEN_MARKERS = tuple(
 DITTO_PATHS = (
     Path(".tollgate/config.toml"),
     Path("crates/battlement-ditto"),
-    Path("crates/battlement-tooling"),
+    Path("crates/battlement-tooling/src/discovery.rs"),
+    Path("crates/battlement-tooling/src/macos_build.rs"),
+    Path("crates/battlement-tooling/src/macos_build_staging.rs"),
     Path("Packages/com.battlement.client/Editor/BattlementDittoBuild.cs"),
     Path("scripts/ditto_ci.py"),
 )

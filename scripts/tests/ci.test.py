@@ -402,6 +402,7 @@ def _verify_selected_native_execution() -> None:
         patch.object(ci, "run_csharp_preflight"),
         patch.object(ci, "lint_rust_workspaces"),
         patch.object(ci, "test_rust_workspaces", return_value=0.0),
+        patch.object(ci.ci_tooling, "run") as tooling,
         patch.object(ci, "run_selected_unity_tests", return_value=0.0),
         patch.object(ci, "build_standalone_samples", return_value=0.0),
         patch.object(ci, "run_ditto_validation", side_effect=record_ditto),
@@ -414,6 +415,7 @@ def _verify_selected_native_execution() -> None:
         ci.run_ci(full=True, use_ci_cache=False, ditto=True)
 
     assert native_runs == [("ui",)]
+    tooling.assert_called_once_with(ci.REPOSITORY_ROOT, performance=True)
 
 
 def _verify_rust_configuration() -> None:

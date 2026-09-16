@@ -10,3 +10,43 @@ width = 1280
 height = 720
 size_bytes = 64155
 source = "7c7c44a7dbb7647dfc4d33843b0320031dab4db3636dc3973f62a0678f29122a"
+
+[[baselines]]
+profile = "macos"
+scenario = "rules session acceptance"
+checkpoint = "accepted-ready"
+sha256 = "ffd3d3bdc2b449e793c2f7d09785973147092f69d0108ddec33b3258caf580c9"
+width = 1280
+height = 720
+size_bytes = 41416
+source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+
+[[baselines]]
+profile = "macos"
+scenario = "rules session acceptance"
+checkpoint = "failed-recovery-menu"
+sha256 = "6306399f803fde34c155c2be66f2bec10039498b7aae71079135f455cf6b87cc"
+width = 1280
+height = 720
+size_bytes = 46866
+source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+
+[[baselines]]
+profile = "macos"
+scenario = "rules session acceptance"
+checkpoint = "held-final-output"
+sha256 = "8e6750da0a636ef6f0b5c21482a96090bbd67fb8f99255538a65ea48f4e23a4a"
+width = 1280
+height = 720
+size_bytes = 41080
+source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"
+
+[[baselines]]
+profile = "macos"
+scenario = "rules session acceptance"
+checkpoint = "human-wait-menu"
+sha256 = "c7c5c4249e1a95c3dfcbaa20e0443451c1c8e1968882a696b1807deb4a69c62f"
+width = 1280
+height = 720
+size_bytes = 42519
+source = "d31c9498c42695776aa08d0bee5763f905a8260a29c0fa2ff147215a5bd893d0"

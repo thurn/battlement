@@ -8,7 +8,7 @@ use std::{
   time::{Duration, Instant},
 };
 
-use crate::{Game, PresentedPrompt, ResponseHandle, response::Reply, worker};
+use crate::{CompletedAction, Game, PresentedPrompt, ResponseHandle, response::Reply, worker};
 
 const CAPACITY: usize = 32;
 
@@ -17,7 +17,15 @@ pub struct Checkpoint<G: Game> {
   pub(crate) state: G::State,
   pub(crate) animation: Option<G::StateAnimation>,
   pub(crate) prompt: Option<PresentedPrompt<G::Prompt<'static>>>,
-  pub(crate) completion: Option<(G::State, G::Context)>,
+  pub(crate) completion: Option<CompletedAction<G>>,
+}
+
+/// Owned checkpoint parts transferred to the app's Rust display consumer.
+pub struct CheckpointParts<G: Game> {
+  pub state: G::State,
+  pub animation: Option<G::StateAnimation>,
+  pub prompt: Option<PresentedPrompt<G::Prompt<'static>>>,
+  pub completion: Option<CompletedAction<G>>,
 }
 
 /// Cumulative publication boundaries, independent of host time and frames.
@@ -53,6 +61,16 @@ pub(crate) struct Reservation<'a, G: Game> {
 }
 
 impl<G: Game> Checkpoint<G> {
+  /// Transfers rendering data and optional completion without cloning state.
+  pub fn into_parts(self) -> CheckpointParts<G> {
+    CheckpointParts {
+      state: self.state,
+      animation: self.animation,
+      prompt: self.prompt,
+      completion: self.completion,
+    }
+  }
+
   /// Returns the independent state snapshot for this publication.
   pub fn state(&self) -> &G::State {
     &self.state

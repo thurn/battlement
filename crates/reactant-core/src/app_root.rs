@@ -7,6 +7,7 @@ use battlement::{
 
 use crate::{
   app_context::{AppHandle, AppQueue, Observations},
+  app_runtime::RuntimeSlot,
   application,
   context::ContextProvider,
   key::KeyRenderExt,
@@ -41,7 +42,9 @@ impl<G: 'static> AppRoot<G> {
     runtime: &mut Reactant<G>,
     observations: &Rc<RefCell<Observations>>,
     queue: &Rc<RefCell<AppQueue>>,
+    orchestration: &Rc<RefCell<RuntimeSlot>>,
   ) {
+    let orchestration = Rc::clone(orchestration);
     let observations = Rc::clone(observations);
     let queue = Rc::clone(queue);
     let view = Rc::clone(&self.view);
@@ -52,7 +55,12 @@ impl<G: 'static> AppRoot<G> {
           ContextProvider::new().context(observed.screen).child(
             ContextProvider::new()
               .context(AppHandle::new(&queue))
-              .child(view(model).key(observed.remount)),
+              .child(
+                orchestration
+                  .borrow()
+                  .provide(view(model))
+                  .key(observed.remount),
+              ),
           ),
         ),
       )

@@ -3,3 +3,19 @@ version = 1
 [[states]]
 key = "composition.initial"
 screen = "composition"
+
+[[states]]
+key = "rules-session.human-wait-menu"
+screen = "rules-session"
+
+[[states]]
+key = "rules-session.held-final-output"
+screen = "rules-session"
+
+[[states]]
+key = "rules-session.accepted-ready"
+screen = "rules-session"
+
+[[states]]
+key = "rules-session.failed-recovery-menu"
+screen = "rules-session"

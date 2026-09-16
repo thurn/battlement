@@ -44,6 +44,11 @@ where
     }
   }
 
+  /// Runs a public app operation without polling, advancing time, or a frame.
+  pub fn with_engine<R>(&mut self, operation: impl FnOnce(&mut E) -> R) -> R {
+    operation(self.client.engine_mut())
+  }
+
   /// Replaces the engine session without advancing time or rendering a frame.
   pub fn reconnect(&mut self) {
     self.client.reconnect();

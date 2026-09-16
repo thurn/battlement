@@ -5,12 +5,12 @@ description: Find Reactant component authoring, reconciliation, host behavior, a
 
 # Reactant grounding
 
-Begin with `crates/battlement-reactant/src/lib.rs`, `prelude.rs`, and `app.rs`
-for the public authoring surface and engine integration. Component code renders
+Begin with `crates/reactant/src/lib.rs` and `crates/reactant-core/src/app.rs`
+for the authoring facade and shared engine integration. Component code renders
 through `Component` and `Render`; inspect a nearby working component before
 choosing an abstraction.
 
-| Concern | Starting point under `crates/battlement-reactant/src/` |
+| Concern | Starting point under `crates/reactant-core/src/` |
 | --- | --- |
 | Components and host composition | `component.rs`, `components/`, `host.rs` |
 | State and lifecycle | `hooks.rs`, `hook_storage.rs`, `effect.rs` |
@@ -28,7 +28,7 @@ Use `samples/reactant/rules/src/` for focused examples and
 `samples/chess-ui/rules/src/` for composed application UI. Select the relevant
 component or test; do not read every screen or reconstruct a feature ledger.
 
-`crates/battlement-reactant/tests/` exercises authoring and runtime behavior.
+`crates/reactant-core/tests/` exercises authoring and runtime behavior.
 The selected sample's `ditto.toml` supplies native host scenarios. Use
 `battlement-ditto` to probe visible behavior and `battlement-build` when asset
 or player generation is needed.

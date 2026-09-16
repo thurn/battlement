@@ -3,10 +3,12 @@ use crate::DITTO_VISUAL_STATE_REGISTRY;
 #[test]
 fn deterministic_registry_matches_the_static_composition_scenario() {
   let suite = include_str!("../../ditto.toml");
-  assert_eq!(DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(), 1);
   assert!(DITTO_VISUAL_STATE_REGISTRY.contains("key = \"composition.initial\""));
   assert!(DITTO_VISUAL_STATE_REGISTRY.contains("screen = \"composition\""));
-  assert_eq!(suite.matches("[[scenarios]]").count(), 1);
+  let suite = suite
+    .split("[[scenarios]]")
+    .find(|scenario| scenario.contains("name = \"composition\""))
+    .expect("composition scenario");
   assert!(suite.contains("name = \"composition\""));
   assert_eq!(suite.matches("screenshot =").count(), 1);
   assert!(suite.contains("screenshot = { name = \"initial\" }"));

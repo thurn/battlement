@@ -27,6 +27,7 @@ import tollgate_evidence
 from ci_cache import CiCache
 import ci_steps
 import ci_selection
+import ci_tooling
 from ci_steps import run_parallel_steps, run_step
 from ditto_build_leases import DittoBuildLeases
 from platform_support import (
@@ -1062,99 +1063,9 @@ def run_ci(
             run_reactant_asset_fast_lane()
             reactant_cli_seconds = time.monotonic() - reactant_cli_started
     run_step(
-        "Test operation telemetry",
-        [sys.executable, "scripts/tests/operation-log.test.py"],
+        "Test repository tooling",
+        function=lambda: ci_tooling.run(REPOSITORY_ROOT, performance=full and ditto),
     )
-    run_step("Test CI job handles", [sys.executable, "scripts/tests/ci-job.test.py"])
-    run_step(
-        "Test validation preparation",
-        [sys.executable, "scripts/tests/prepare-validation.test.py"],
-    )
-    run_step(
-        "Test resource slots",
-        [sys.executable, "scripts/tests/resource-slots.test.py"],
-    )
-    run_step(
-        "Test Unity transactions",
-        [sys.executable, "scripts/tests/unity-transaction.test.py"],
-    )
-    run_step(
-        "Test Web sample server",
-        [sys.executable, "scripts/tests/serve-web.test.py"],
-    )
-    run_step(
-        "Test Web demo cache",
-        [sys.executable, "scripts/tests/prepare-web-demo.test.py"],
-    )
-    run_step(
-        "Test sample deployment workflow",
-        [sys.executable, "scripts/tests/deploy.test.py"],
-    )
-    run_step(
-        "Test isolated Playwright transport",
-        [sys.executable, "scripts/tests/playwright-mcp.test.py"],
-    )
-    run_step(
-        "Test browser risk selection",
-        [sys.executable, "scripts/tests/web-selection.test.py"],
-    )
-    run_step(
-        "Test CI sample discovery",
-        [sys.executable, "scripts/tests/ci.test.py"],
-    )
-    run_step(
-        "Test affected CI selection",
-        [sys.executable, "scripts/tests/ci-selection.test.py"],
-    )
-    run_step(
-        "Test CI Cache",
-        [sys.executable, "scripts/tests/ci-cache.test.py"],
-    )
-    run_step(
-        "Test Unity affected-test selection",
-        [sys.executable, "scripts/tests/unity-test-selection.test.py"],
-    )
-    run_step(
-        "Test native sample selection",
-        [sys.executable, "scripts/tests/native-validation-selection.test.py"],
-    )
-    run_step(
-        "Test performance reporting",
-        [sys.executable, "scripts/tests/perf-report.test.py"],
-    )
-    run_step(
-        "Test candidate performance reporting",
-        [sys.executable, "scripts/tests/perf-candidate.test.py"],
-    )
-    run_step(
-        "Test Tollgate evidence collection",
-        [sys.executable, "scripts/tests/tollgate-evidence.test.py"],
-    )
-    run_step(
-        "Test trusted prose validation",
-        [sys.executable, "scripts/tests/prose-validation.test.py"],
-    )
-    run_step(
-        "Test Ditto CI",
-        [sys.executable, "scripts/tests/ditto-ci.test.py"],
-    )
-    run_step(
-        "Test Ditto replay",
-        [sys.executable, "scripts/tests/ditto-replay.test.py"],
-    )
-    run_step(
-        "Test Ditto build-cache lifetime",
-        [sys.executable, "scripts/tests/ditto-cache-lifetime.test.py"],
-    )
-    if full and ditto:
-        run_step(
-            "Test Ditto performance benchmark",
-            [sys.executable, "scripts/tests/ditto-benchmark.test.py"],
-        )
-        run_step(
-            "Test Ditto cutover",
-            [sys.executable, "scripts/tests/ditto-cutover.test.py"],
-        )
     unity_seconds = run_selected_unity_tests(unity_selection, ci_cache)
     if full:
         print(

@@ -13,6 +13,7 @@ use crate::{
   app_context::{AppQueue, Observations},
   app_delivery::Delivery,
   app_root::AppRoot,
+  app_runtime::{AppRuntime, RuntimeSlot},
   cooperative_executor::CooperativeExecutor,
   executor::{BoxFuture, SpawnedTask, Spawner},
   portal::PortalTarget,
@@ -42,6 +43,7 @@ use crate::{
 /// ```
 pub struct App<G: 'static = ()> {
   pub(crate) model: G,
+  pub(crate) orchestration: Rc<RefCell<RuntimeSlot>>,
   pub(crate) runtime: Reactant<G>,
   pub(crate) roots: Vec<AppRoot<G>>,
   pub(crate) scene: Scene,
@@ -73,6 +75,7 @@ impl<G: 'static> App<G> {
     runtime.resources.cache.borrow_mut().attributed = true;
     Self {
       model,
+      orchestration: Rc::new(RefCell::new(RuntimeSlot::default())),
       runtime,
       roots: Vec::new(),
       scene: Scene::new(SceneId::new_v4(), scene),
@@ -98,6 +101,13 @@ impl<G: 'static> App<G> {
       reset: false,
       healthy: true,
     }
+  }
+
+  /// Returns this app's single orchestration runtime, creating it when needed.
+  /// Higher-level application APIs use this to retain ownership across sessions.
+  #[doc(hidden)]
+  pub fn application_runtime<T: AppRuntime>(&mut self, create: impl FnOnce() -> T) -> Rc<T> {
+    self.orchestration.borrow_mut().get_or_insert(create)
   }
 
   /// Adds the primary UI, whose component props do not depend on the game model.

@@ -6,6 +6,7 @@ use std::{
 use battlement::{UiEventBody, UiEventKind};
 
 use crate::{
+  app_runtime,
   callback::{Callback, Invalidation},
   event::{ElementTarget, EventInner, EventPhase, ReactantEvent, ReactantNativeEvent},
   semantics,
@@ -254,7 +255,7 @@ impl Handler {
     event: Rc<EventInner>,
     body: Rc<UiEventBody>,
   ) {
-    (self.callback)(game, current_target, phase, event, body);
+    app_runtime::callback(|| (self.callback)(game, current_target, phase, event, body));
   }
 
   pub(crate) fn supports_native_view(&self) -> bool {
@@ -269,16 +270,18 @@ impl Handler {
     event: Rc<EventInner>,
     action: battlement_native::UiEventActionView<'_>,
   ) {
-    self
-      .native_callback
-      .as_ref()
-      .expect("native event callback support was checked")(
-      game,
-      current_target,
-      phase,
-      event,
-      action,
-    );
+    app_runtime::callback(|| {
+      self
+        .native_callback
+        .as_ref()
+        .expect("native event callback support was checked")(
+        game,
+        current_target,
+        phase,
+        event,
+        action,
+      );
+    });
   }
 
   pub(crate) fn model(&self) -> Option<TypeId> {

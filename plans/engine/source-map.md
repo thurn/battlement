@@ -18,6 +18,7 @@ These are starting points, not instructions to load whole directories.
 | Role | Current source |
 | --- | --- |
 | Public Reactant facade and UI crate surface | [facade](../../crates/reactant/src/lib.rs), [UI layer](../../crates/reactant-ui/src/lib.rs) |
+| App-owned rules sessions and submission | [game_app.rs](../../crates/reactant/src/game_app.rs), [game_session.rs](../../crates/reactant/src/game_session.rs), [game_output.rs](../../crates/reactant/src/game_output.rs), [public session scenarios](../../crates/reactant-testing/tests/sessions.rs) |
 | Application and engine integration | [app.rs](../../crates/reactant-core/src/app.rs), [app_engine.rs](../../crates/reactant-core/src/app_engine.rs) |
 | Tree representation and construction | [render.rs](../../crates/reactant-core/src/render.rs), [render_tree.rs](../../crates/reactant-core/src/render_tree.rs), [shared host boundary](../../crates/reactant-core/src/host_node.rs) |
 | Runtime and commit receipt | [runtime.rs](../../crates/reactant-core/src/runtime.rs), [commit.rs](../../crates/reactant-core/src/commit.rs) |

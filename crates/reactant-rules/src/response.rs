@@ -18,6 +18,7 @@ pub struct PresentedPrompt<T> {
 /// A typed connection to one request, valid independently of display consumption.
 pub struct ResponseHandle<T> {
   request: Weak<dyn Reply>,
+  owner: ChoiceOwner,
   prompt_type: PhantomData<fn() -> T>,
 }
 
@@ -46,6 +47,7 @@ impl<T> Clone for ResponseHandle<T> {
   fn clone(&self) -> Self {
     Self {
       request: self.request.clone(),
+      owner: self.owner,
       prompt_type: PhantomData,
     }
   }
@@ -55,6 +57,7 @@ impl<T> ResponseHandle<T> {
   pub(crate) fn new(request: &Arc<dyn Reply>) -> Self {
     Self {
       request: Arc::downgrade(request),
+      owner: request.owner(),
       prompt_type: PhantomData,
     }
   }
@@ -81,6 +84,11 @@ impl<T> ResponseHandle<T> {
     if let Some(request) = self.request.upgrade() {
       request.submit(TypeId::of::<G>(), TypeId::of::<P>(), Box::new(response));
     }
+  }
+
+  /// Returns the immutable request owner, including after resolution.
+  pub fn owner(&self) -> ChoiceOwner {
+    self.owner
   }
 
   /// Reports an unanswered human decision, where finite display settling stops.

@@ -59,6 +59,7 @@ pub mod app_context;
 mod app_delivery;
 mod app_engine;
 mod app_root;
+pub mod app_runtime;
 pub mod application;
 pub mod asset_generator;
 #[doc(hidden)]

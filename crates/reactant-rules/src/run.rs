@@ -1,9 +1,12 @@
-use std::{sync::Arc, thread, time::Duration};
+use std::{rc::Rc, sync::Arc, thread, time::Duration};
 
 use crate::{
-  Checkpoint, DisplayConnection, Game, PublicationObservation, ResponseHandle,
+  Checkpoint, CompletedAction, DisplayConnection, Game, PublicationObservation, ResponseHandle,
+  RulesContext, RulesWorker,
   publication::Publications,
-  worker::{WorkerEvent, WorkerObserver, WorkerSlot},
+  session_context::PublicationTarget,
+  worker::WorkerSlot,
+  worker_observer::{WorkerEvent, WorkerObserver},
 };
 
 /// The display consumer of one synchronous rules action on a real worker.
@@ -12,7 +15,8 @@ use crate::{
 /// The owner must stop or drop the run when abandoning its display lifetime.
 /// Application acceptance remains the responsibility of the consuming session.
 pub struct RulesRun<G: Game> {
-  slot: WorkerSlot,
+  slot: Rc<WorkerSlot>,
+  id: u64,
   observer: WorkerObserver,
   publications: Arc<Publications<G>>,
 }
@@ -53,15 +57,23 @@ impl<G: Game> RulesRun<G> {
     make_context: impl FnOnce(DisplayConnection<G>) -> G::Context,
   ) -> Self {
     assert!(G::is_legal_action(state, &action), "illegal rules action");
-    let mut state = G::logical_clone(state);
+    let state = G::logical_clone(state);
+    RulesContext::new(make_context).start_private(&RulesWorker::default(), state, action)
+  }
+
+  pub(crate) fn spawn(
+    worker: &RulesWorker,
+    target: PublicationTarget<G>,
+    mut state: G::State,
+    mut context: G::Context,
+    action: G::Action,
+  ) -> Self {
     let publications = Arc::new(Publications::new());
-    let mut context = make_context(DisplayConnection {
-      publications: Arc::clone(&publications),
-    });
-    let slot = WorkerSlot::new();
-    let observer = slot.observer();
+    *target.lock().unwrap() = Arc::downgrade(&publications);
+    let slot = Rc::clone(&worker.slot);
+    let observer = slot.observe_next();
     let output = Arc::clone(&publications);
-    slot.replace(move |_| {
+    let id = slot.replace(move |_| {
       let _failure_guard = FailureGuard(output.as_ref());
       G::execute(&mut context, &mut state, action);
       output.check_active();
@@ -72,11 +84,16 @@ impl<G: Game> RulesRun<G> {
         state: snapshot,
         animation: None,
         prompt: None,
-        completion: Some((state, context)),
+        completion: Some(CompletedAction {
+          state,
+          context,
+          target,
+        }),
       });
     });
     Self {
       slot,
+      id,
       observer,
       publications,
     }
@@ -95,7 +112,7 @@ impl<G: Game> RulesRun<G> {
   /// Invalidates pending output and wakes publication waits without joining.
   pub fn stop(&self) {
     self.publications.abandon();
-    self.slot.close();
+    self.slot.cancel_run(self.id);
   }
 
   /// Returns cumulative public publication boundaries.

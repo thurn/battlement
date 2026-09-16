@@ -3,28 +3,15 @@ use std::{
   panic::{self, AssertUnwindSafe},
   sync::{Arc, Condvar, Mutex, MutexGuard},
   thread,
-  time::{Duration, Instant},
 };
+
+use crate::worker_observer::{Observers, WorkerEvent, WorkerObserver};
 
 type WorkerTask = Box<dyn FnOnce(WorkerConnection) + Send + 'static>;
 
 struct Cancellation;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum WorkerEvent {
-  Started(u64),
-  Completed(u64),
-  Cancelled(u64),
-  Failed(u64, String),
-  Stopped(u64),
-}
-
 pub(crate) struct WorkerSlot {
-  shared: Arc<Shared>,
-}
-
-#[derive(Clone)]
-pub(crate) struct WorkerObserver {
   shared: Arc<Shared>,
 }
 
@@ -42,7 +29,7 @@ struct SlotState {
   active: Option<ActiveWorker>,
   pending: Option<PendingWorker>,
   closed: bool,
-  events: Vec<WorkerEvent>,
+  events: Observers,
 }
 
 struct ActiveWorker {
@@ -75,16 +62,52 @@ impl WorkerSlot {
           active: None,
           pending: None,
           closed: false,
-          events: Vec::new(),
+          events: Observers::default(),
         }),
         changed: Condvar::new(),
       }),
     }
   }
 
+  #[cfg(any(test, feature = "platform-proof"))]
   pub(crate) fn observer(&self) -> WorkerObserver {
-    WorkerObserver {
-      shared: Arc::clone(&self.shared),
+    self::lock(&self.shared.state).events.subscribe(None)
+  }
+
+  pub(crate) fn observe_next(&self) -> WorkerObserver {
+    let mut state = self::lock(&self.shared.state);
+    let id = state.next_id;
+    state.events.subscribe(Some(id))
+  }
+
+  pub(crate) fn is_idle(&self) -> bool {
+    self::lock(&self.shared.state).active.is_none()
+  }
+
+  pub(crate) fn cancel_run(&self, id: u64) {
+    let pending = {
+      let mut state = self::lock(&self.shared.state);
+      if let Some(active) = &state.active
+        && active.id == id
+      {
+        self::cancel(&active.connection);
+      }
+      if state
+        .pending
+        .as_ref()
+        .is_some_and(|pending| pending.id == id)
+      {
+        state.pending.take()
+      } else {
+        None
+      }
+    };
+    if let Some(pending) = pending {
+      drop(pending);
+      let mut state = self::lock(&self.shared.state);
+      state.events.push(WorkerEvent::Cancelled(id));
+      state.events.push(WorkerEvent::Stopped(id));
+      self.shared.changed.notify_all();
     }
   }
 
@@ -134,33 +157,6 @@ impl WorkerSlot {
 impl Drop for WorkerSlot {
   fn drop(&mut self) {
     self.close();
-  }
-}
-
-impl WorkerObserver {
-  pub(crate) fn events(&self) -> Vec<WorkerEvent> {
-    self::lock(&self.shared.state).events.clone()
-  }
-
-  pub(crate) fn wait_for(
-    &self,
-    timeout: Duration,
-    predicate: impl Fn(&[WorkerEvent]) -> bool,
-  ) -> bool {
-    let deadline = Instant::now() + timeout;
-    let mut state = self::lock(&self.shared.state);
-    while !predicate(&state.events) {
-      let remaining = deadline.saturating_duration_since(Instant::now());
-      if remaining.is_zero() {
-        return false;
-      }
-      let (next, result) = self::wait_timeout(&self.shared.changed, state, remaining);
-      state = next;
-      if result.timed_out() && !predicate(&state.events) {
-        return false;
-      }
-    }
-    true
   }
 }
 
@@ -286,27 +282,15 @@ fn wait<'a, T>(condition: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, 
     .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn wait_timeout<'a, T>(
-  condition: &Condvar,
-  guard: MutexGuard<'a, T>,
-  timeout: Duration,
-) -> (MutexGuard<'a, T>, std::sync::WaitTimeoutResult) {
-  condition
-    .wait_timeout(guard, timeout)
-    .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
 #[cfg(test)]
 mod tests {
-  use std::{
-    sync::{
-      Arc, Barrier,
-      atomic::{AtomicUsize, Ordering},
-    },
-    time::Duration,
+  use std::sync::{
+    Arc, Barrier,
+    atomic::{AtomicUsize, Ordering},
   };
+  use std::time::Duration;
 
-  use crate::worker::{WorkerEvent, WorkerSlot};
+  use crate::{worker::WorkerSlot, worker_observer::WorkerEvent};
 
   struct DropProbe(Arc<AtomicUsize>);
 

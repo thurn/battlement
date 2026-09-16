@@ -8,7 +8,8 @@ use std::{
 
 use crate::{
   Game,
-  worker::{WorkerConnection, WorkerEvent, WorkerObserver, WorkerSlot},
+  worker::{WorkerConnection, WorkerSlot},
+  worker_observer::{WorkerEvent, WorkerObserver},
 };
 
 /// A deterministic task accepted by the native platform proof.
@@ -42,6 +43,7 @@ pub struct ProofSnapshot {
 /// Owns one non-joining worker slot used by native release validation.
 pub struct WorkerProof {
   slot: WorkerSlot,
+  worker: WorkerObserver,
   state: Arc<ProofState>,
 }
 
@@ -90,8 +92,11 @@ impl WorkerProof {
   /// Creates an idle proof worker.
   #[must_use]
   pub fn new() -> Self {
+    let slot = WorkerSlot::new();
+    let worker = slot.observer();
     Self {
-      slot: WorkerSlot::new(),
+      slot,
+      worker,
       state: Arc::new(ProofState {
         values: Mutex::new(ProofValues::default()),
         changed: Condvar::new(),
@@ -104,7 +109,7 @@ impl WorkerProof {
   #[must_use]
   pub fn observer(&self) -> ProofObserver {
     ProofObserver {
-      worker: self.slot.observer(),
+      worker: self.worker.clone(),
       state: Arc::clone(&self.state),
     }
   }

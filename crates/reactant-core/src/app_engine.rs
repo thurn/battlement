@@ -27,7 +27,12 @@ impl<G: 'static> App<G> {
     self.healthy = false;
     if self.session.is_none() {
       for root in &self.roots {
-        root.register(&mut self.runtime, &self.observations, &self.queue);
+        root.register(
+          &mut self.runtime,
+          &self.observations,
+          &self.queue,
+          &self.orchestration,
+        );
       }
     } else {
       self.runtime.resources.reset();
@@ -128,6 +133,7 @@ impl<G: 'static> App<G> {
       .expect("UI event view validates nonzero action UUIDs");
     self.healthy = false;
     let _action = action_context::enter(Some(action_id));
+    let _callback_scope = self.orchestration.borrow().enter();
     let event = self
       .runtime
       .dispatch_view(&mut self.model, action)
@@ -273,6 +279,13 @@ impl<G: 'static> App<G> {
   }
 
   fn settle(&mut self, response: &mut DeliveryResponse, action: Option<ActionId>, poll: bool) {
+    if self.orchestration.borrow().poll() {
+      let commit = self
+        .runtime
+        .refresh(&mut self.model)
+        .expect("application context failed to render");
+      app_delivery::append(response, action, commit);
+    }
     for pass in 0..2 {
       let requested =
         self.executor.has_ready() || !self.runtime.resources.operations.borrow().is_empty();
@@ -322,6 +335,7 @@ impl<G: 'static> App<G> {
 
 impl<G: 'static> Drop for App<G> {
   fn drop(&mut self) {
+    self.orchestration.borrow().stop();
     self.queue.borrow_mut().generation += 1;
     if self.healthy && !thread::panicking() {
       let _ = self.runtime.shutdown(&mut self.model).into_groups();

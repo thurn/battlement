@@ -244,6 +244,11 @@ where
     client
   }
 
+  /// Borrows the connected engine for public application operations.
+  pub fn engine_mut(&mut self) -> &mut E {
+    &mut self.engine
+  }
+
   /// Reconnects the engine using the original connection metadata.
   pub fn reconnect(&mut self) {
     let request = connect_message(&self.connect);
