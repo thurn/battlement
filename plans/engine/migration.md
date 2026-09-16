@@ -48,6 +48,46 @@ A protocol command test can remain in Battlement when it tests that protocol
 capability directly; it is not game-level evidence of behavior preservation. No
 compatibility shim should emit obsolete command patterns solely for tests.
 
+Use the following baseline selections when changing an existing sample. The
+sample's `ditto.toml` remains the executable inventory; these are the minimum
+state transitions that later migrations must preserve.
+
+| Sample | Native selection | Rust behavior that must remain observable |
+| --- | --- | --- |
+| basic | `connected`; `click round trip` initial/placed/restored | Pointer hover, click, drag, committed world position, visible status, and one deferred polled change. |
+| ui | Foundation scenarios plus every named `round trip` initial/changed/restored | Authored hierarchy, controls, input payloads, layout, appearance, asset sources, typography, and restoration. |
+| tictactoe | `human move`, fixture `human move`, seed 7 | Row-major hit mapping, immediate human mark, absent AI mark at 99 ms, present AI mark at 100 ms, terminal outcomes, and next-click reset. |
+| chess | `title`, `computer win`, and `resumed board`; semantic fixtures named in `visual_state.rs` | Start and eight four-piece spawn beats, selection and move paths, capture removal after impact, castling, en passant, promotion, audio, mouse/keyboard/controller input, pause/reset, and save/restore. |
+| reactant | `composition`; animation-validation cases and their declared seeds | Initial composition, sparse local updates, keyed state, portals and modal focus, resource rollback, geometry observation, finite/ambient/reduced motion, and exact performance workloads. |
+| chess-ui | `native action streaks`, `complete chess ui`, `performance settings navigation`, and `settings route transition` | Routing, settings persistence, semantic navigation, controller cancel, finite/reduced-motion effects, and retained interaction profiling. |
+
+Treat assertion coupling according to what it protects:
+
+| Existing assertion shape | Preservation rule |
+| --- | --- |
+| Exact command variant, group, count, or ordering | Keep it only as a protocol test. Replace game assertions with displayed pose, visibility through time, effect/audio occurrence, or lifecycle state when the owning sample migrates. Task 08 is the earliest owner for intermediate-time fake observations. |
+| Prefab or UI host kind and exact internal object/child count | Preserve it only when the sample directly demonstrates that low-level host contract. Migrated games assert semantic identity, content, geometry, and interaction instead; fixed performance workload cardinalities remain workload definitions. |
+| Manual-clock advance followed by `poll` | Preserve exact deadlines, but keep clock advancement distinct from worker synchronization and frame advancement. Move timed display assertions to the public driver beginning in task 08. |
+| Wall-clock sleep/poll loop | Replace it with bounded worker or render-submission barriers when that runtime moves. A timeout may detect a hang but cannot order the worker. |
+| Direct response message count or binary command layout | Keep it in FlatBuffers/native transport conformance, not as sample behavior evidence. Game-owned JSON persistence remains separate. |
+
+Until the public driver can observe intermediate time, retain the coupled chess
+path/capture, spawn-beat, and effect assertions. The current native chess player
+does not acknowledge Ditto world-object activations with semantic delivery
+receipts, so its deterministic native selections prove stable states but not
+motion checkpoints. Do not infer interpolation from the endpoint fake or refresh
+those baselines to conceal the gap. Task 08 supplies observable virtual time;
+the chess cutover then replaces the coupled assertions while comparing the
+native path and disappearance timing.
+
+The rendering regression gate uses comparable evidence, not implementation
+counts. Before and after tasks 06a and 06b, run the focused Reactant checks for
+local state callbacks without root reevaluation, internal portal ancestry/order,
+and escaped-error rollback, then rerun the chess-ui interaction profile under
+the same macOS release profile and 1280x800 display. Preserve the profiler's
+source fingerprint, target, raw attempts, transport counters, and component
+hotspots; compare score to score and use detail output only for attribution.
+
 For example, a capture test should observe the captured piece through time:
 
 ```rust
