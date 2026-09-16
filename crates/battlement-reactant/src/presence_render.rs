@@ -21,17 +21,18 @@ pub(crate) fn push<R: 'static>(
     return;
   }
   let descriptor = TypeId::of::<R>();
-  let previous = sink
-    .committed
+  let committed = sink.committed;
+  let previous = committed
     .positions
     .get(sink.positions.len())
     .filter(|position| position.key.is_none() && position.descriptor == descriptor);
-  let previous_children = previous.map_or_else(RenderTree::default, |value| value.children.clone());
+  let empty = RenderTree::default();
+  let previous_children = previous.map_or(&empty, |value| &value.children);
   let previous_state = previous.and_then(|value| value.presence.clone());
   let generation = previous_state
     .as_ref()
     .map_or(1, |value| value.generation.saturating_add(1));
-  let mut children = sink_with_scope(&previous_children, sink.variant_scope.clone());
+  let mut children = sink_with_scope(previous_children, sink.variant_scope.clone());
   presence::with_state(
     PresenceRenderState {
       present: true,
@@ -50,7 +51,7 @@ pub(crate) fn push<R: 'static>(
   validate_keyed(&current);
   stabilize_transparent_children(
     &mut current,
-    &previous_children,
+    previous_children,
     generation,
     &sink.variant_scope,
   );

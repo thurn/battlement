@@ -183,7 +183,7 @@ impl RenderTree {
     }
   }
 
-  pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode>> {
+  pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode<'_>>> {
     let mut path = Vec::new();
     self.find_event_path(target_id, &mut path).then_some(path)
   }
@@ -344,12 +344,16 @@ impl RenderTree {
     }
   }
 
-  pub(crate) fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+  pub(crate) fn find_event_path<'a>(
+    &'a self,
+    target_id: ObjectId,
+    path: &mut Vec<EventNode<'a>>,
+  ) -> bool {
     for position in &self.positions {
       if let Some(host) = &position.host {
         path.push(EventNode {
           object_id: host.object_id,
-          handlers: position.handlers.clone(),
+          handlers: &position.handlers,
         });
         if host.object_id == target_id {
           return true;
@@ -377,12 +381,16 @@ impl RenderTree {
     false
   }
 
-  fn find_hidden_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+  fn find_hidden_event_path<'a>(
+    &'a self,
+    target_id: ObjectId,
+    path: &mut Vec<EventNode<'a>>,
+  ) -> bool {
     for position in &self.positions {
       if let Some(host) = &position.host {
         path.push(EventNode {
           object_id: host.object_id,
-          handlers: Vec::new(),
+          handlers: &[],
         });
         if host.object_id == target_id {
           return true;

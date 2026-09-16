@@ -9,10 +9,10 @@ use crate::{
   runtime::Root,
 };
 
-#[derive(Clone)]
-pub(crate) struct EventNode {
+#[derive(Clone, Copy)]
+pub(crate) struct EventNode<'a> {
   pub(crate) object_id: battlement::ObjectId,
-  pub(crate) handlers: Vec<crate::event_handler::Handler>,
+  pub(crate) handlers: &'a [crate::event_handler::Handler],
 }
 
 pub(crate) struct DispatchResult {
@@ -156,10 +156,10 @@ pub(crate) fn dispatch_view<G: 'static>(
   }
 }
 
-#[derive(Clone)]
-struct LogicalNode {
+#[derive(Clone, Copy)]
+struct LogicalNode<'a> {
   target: ElementTarget,
-  handlers: Vec<Handler>,
+  handlers: &'a [Handler],
 }
 
 fn invoke_raw<G: 'static>(
@@ -264,7 +264,7 @@ fn invoke_raw_handlers<G: 'static>(
   body: Rc<UiEventBody>,
 ) -> HandlerInvocations {
   let mut invoked = HandlerInvocations::default();
-  for handler in &node.handlers {
+  for handler in node.handlers {
     if event.propagation_stopped() {
       break;
     }
@@ -300,7 +300,7 @@ fn invoke_view_handlers<G: 'static>(
   owned_body: Option<Rc<UiEventBody>>,
 ) -> HandlerInvocations {
   let mut invoked = HandlerInvocations::default();
-  for handler in &node.handlers {
+  for handler in node.handlers {
     if event.propagation_stopped() {
       break;
     }
@@ -336,17 +336,17 @@ fn disposition(prevented: bool) -> UiEventDisposition {
   }
 }
 
-fn logical_path(
+fn logical_path<'a>(
   runtime_id: u64,
-  roots: &[&RenderTree],
+  roots: &[&'a RenderTree],
   target_id: ObjectId,
-) -> Option<Vec<LogicalNode>> {
+) -> Option<Vec<LogicalNode<'a>>> {
   roots.iter().enumerate().find_map(|(index, tree)| {
     tree.event_path(target_id).map(|path| {
       let root = Root::new(runtime_id, index);
       path
         .into_iter()
-        .map(|node: EventNode| LogicalNode {
+        .map(|node: EventNode<'a>| LogicalNode {
           target: ElementTarget::new(root, node.object_id),
           handlers: node.handlers,
         })
