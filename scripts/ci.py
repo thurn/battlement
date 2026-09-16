@@ -567,7 +567,7 @@ def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
         test_log = Path(log_file.name)
     with tempfile.NamedTemporaryFile(prefix="battlement-unity-tests-results.", delete=False) as result_file:
         test_results = Path(result_file.name)
-    native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/debug"
+    native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/release"
     native_fixture_link = REPOSITORY_ROOT / (
         "battlement_rules.dll" if platform.system() == "Windows" else "battlement_rules"
     )
@@ -575,7 +575,7 @@ def run_unity_edit_mode_tests(assemblies: tuple[str, ...]) -> None:
     try:
         subprocess.run(
             [
-                "cargo", "build", "--quiet", "-p", "battlement-native-export-fixture",
+                "cargo", "build", "--quiet", "--release", "-p", "battlement-native-export-fixture",
                 "--target-dir", str(REPOSITORY_ROOT / "target/unity-native-fixture"),
             ],
             cwd=REPOSITORY_ROOT,

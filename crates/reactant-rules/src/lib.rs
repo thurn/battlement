@@ -2,6 +2,12 @@
 
 use std::marker::PhantomData;
 
+#[cfg(feature = "platform-proof")]
+#[doc(hidden)]
+pub mod platform_proof;
+#[cfg(any(test, feature = "platform-proof"))]
+mod worker;
+
 /// Defines a game's state, actions, prompts, and synchronous rules entry point.
 pub trait Game: Sized + Send + 'static {
   /// Mutable rules state and the immutable display snapshot source.

@@ -3,8 +3,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Battlement.CustomFixtures;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -30,6 +32,7 @@ namespace Battlement.Tests
             new("custom-failure", RunCustomFailure),
             new("pointer-input", RunPointerInput),
             new("fatal-reconnect", RunFatalReconnect),
+            new("worker-cancellation", RunWorkerCancellation),
         };
 
         private Mouse? mouse;
@@ -241,6 +244,88 @@ namespace Battlement.Tests
             Assert.That(host.Runner.IsInputAvailable, Is.True);
         }
 
+        private static void RunWorkerCancellation(ReleaseScenarioHost host, Mouse mouse)
+        {
+            host.Connect();
+            Click(host, mouse, 70);
+            WaitForWorker(6, 1, "the nested rules wait was not reached");
+            Assert.That(WorkerValue(0), Is.EqualTo(1));
+
+            host.Runner.Reconnect();
+            WaitForWorker(7, 1, "replacement computation did not start");
+            WaitForWorker(1, 1, "the cancelled worker did not stop");
+            Assert.That(WorkerValue(5), Is.EqualTo(2), "Nested drop probes must run once.");
+            Assert.That(WorkerValue(2), Is.EqualTo(1));
+            Assert.That(WorkerValue(3), Is.Zero, "Expected cancellation is not a rules panic.");
+
+            for (int replacement = 0; replacement < 3; replacement++)
+                host.Runner.Reconnect();
+            Assert.That(host.Runner.IsInputAvailable, Is.True, Diagnostics(host));
+            Assert.That(WorkerValue(0), Is.EqualTo(2), "Only one rules worker may be active.");
+
+            ulong submitsBefore = NativeFixture.fixture_submit_calls().ToUInt64();
+            Click(host, mouse, 71);
+            Assert.That(
+                NativeFixture.fixture_submit_calls().ToUInt64(),
+                Is.GreaterThan(submitsBefore),
+                "Replacement input must still reach Rust while old computation is abandoned."
+            );
+
+            NativeFixture.fixture_worker_release_computation();
+            WaitForWorker(1, 3, "the latest replacement did not finish");
+            Assert.That(WorkerValue(0), Is.EqualTo(3));
+            Assert.That(WorkerValue(2), Is.EqualTo(2));
+            Assert.That(WorkerValue(4), Is.EqualTo(1));
+            Assert.That(WorkerValue(8), Is.EqualTo(5), "Only the latest replacement may start.");
+
+            host.Runner.Reconnect();
+            WaitForWorker(3, 1, "a genuine rules panic was not reported");
+            WaitForWorker(1, 4, "the panicking worker did not stop");
+            host.Runner.Reconnect();
+            WaitForWorker(4, 2, "a replacement did not run after the genuine panic");
+            Assert.That(host.Runner.IsInputAvailable, Is.True, Diagnostics(host));
+
+            host.Runner.Reconnect();
+            WaitForWorker(7, 1, "exit fixture computation did not start");
+            using var disposed = new ManualResetEventSlim(false);
+            var fallback = new Thread(() =>
+            {
+                if (!disposed.Wait(TimeSpan.FromSeconds(1)))
+                    NativeFixture.fixture_worker_release_computation();
+            });
+            fallback.Start();
+            var stopwatch = Stopwatch.StartNew();
+            host.Dispose();
+            stopwatch.Stop();
+            disposed.Set();
+            NativeFixture.fixture_worker_release_computation();
+            fallback.Join();
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMilliseconds(500)));
+            WaitForWorker(1, 6, "the detached exit worker did not finish cleanup");
+        }
+
+        private static void Click(ReleaseScenarioHost host, Mouse mouse, ulong objectId)
+        {
+            Camera camera = Identity(1).GetComponent<Camera>();
+            UnityEngine.Vector2 position = camera.WorldToScreenPoint(
+                Identity(objectId).transform.position
+            );
+            Move(host, mouse, position, true);
+            Move(host, mouse, position, false);
+        }
+
+        private static ulong WorkerValue(uint index) =>
+            NativeFixture.fixture_worker_observation(index).ToUInt64();
+
+        private static void WaitForWorker(uint index, ulong minimum, string message)
+        {
+            Assert.That(
+                SpinWait.SpinUntil(() => WorkerValue(index) >= minimum, TimeSpan.FromSeconds(5)),
+                Is.True,
+                message
+            );
+        }
+
         private static void Move(
             ReleaseScenarioHost host,
             Mouse mouse,
@@ -297,12 +382,19 @@ namespace Battlement.Tests
 
             [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr fixture_submit_calls();
+
+            [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern UIntPtr fixture_worker_observation(uint index);
+
+            [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern void fixture_worker_release_computation();
         }
     }
 
     internal sealed class ReleaseScenarioHost : IDisposable
     {
         private readonly GameObject hostObject;
+        private bool isDisposed;
 
         private ReleaseScenarioHost(
             GameObject hostObject,
@@ -381,6 +473,9 @@ namespace Battlement.Tests
 
         public void Dispose()
         {
+            if (isDisposed)
+                return;
+            isDisposed = true;
             Runner.Stop();
             Runner.Dispose();
             Object.DestroyImmediate(hostObject);

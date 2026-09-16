@@ -7,7 +7,10 @@ mod fixture_response;
 mod fixture_response_generated;
 mod release_scenarios;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+  Mutex, OnceLock,
+  atomic::{AtomicUsize, Ordering},
+};
 
 use battlement::{
   AnyCommand, Batch, BatchId, Command, CommandBody, CommandId, ParallelCommandGroup, Response,
@@ -19,6 +22,7 @@ use battlement_native::{
   NativeObjectPlacement, NativeParentScene, NativePointerEvent, NativePreparedAssetKind,
   NativeTransform, UiEventActionView, UiEventResult,
 };
+use reactant_rules::platform_proof::{ProofObserver, ProofTask, WorkerProof};
 
 pub use release_scenarios::FlashPayload;
 use release_scenarios::ReleaseScenario;
@@ -26,6 +30,7 @@ use release_scenarios::ReleaseScenario;
 static SUBMIT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static CONNECT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static NEXT_ENGINE_ID: AtomicUsize = AtomicUsize::new(1);
+static WORKER_OBSERVER: OnceLock<Mutex<Option<ProofObserver>>> = OnceLock::new();
 
 /// Stateful fixture exposed through the native plugin ABI.
 pub struct FixtureEngine {
@@ -35,6 +40,8 @@ pub struct FixtureEngine {
   release_scenario: Option<ReleaseScenario>,
   connect_count: usize,
   poll_count: usize,
+  worker_proof: Option<WorkerProof>,
+  worker_action_started: bool,
 }
 
 impl Drop for FixtureEngine {
@@ -84,6 +91,9 @@ impl Engine for FixtureEngine {
     self.poll_count = 0;
     self.release_scenario = ReleaseScenario::from_connect(message);
     if let Some(scenario) = self.release_scenario {
+      if matches!(scenario, ReleaseScenario::WorkerCancellation) {
+        self.prepare_worker_proof();
+      }
       self.session_id = SessionId::new_v4();
       return native_response(scenario.connect_response(self.session_id));
     }
@@ -177,6 +187,12 @@ impl Engine for FixtureEngine {
       if self.mode == "panic-submit" {
         panic!("fixture submit panic");
       }
+      if matches!(
+        self.release_scenario,
+        Some(ReleaseScenario::WorkerCancellation)
+      ) {
+        self.apply_worker_action(message)?;
+      }
       let response = self.release_scenario.map_or_else(
         || Response::new(self.session_id, Vec::new()),
         |scenario| scenario.submit_core_response(self.session_id, message),
@@ -234,6 +250,58 @@ impl Engine for FixtureEngine {
     }
     Ok(None)
   }
+}
+
+impl FixtureEngine {
+  fn prepare_worker_proof(&mut self) {
+    let proof = self.worker_proof.get_or_insert_with(|| {
+      let proof = WorkerProof::new();
+      *worker_observer().lock().unwrap() = Some(proof.observer());
+      proof
+    });
+    let task = match self.connect_count {
+      2 | 8 => Some(ProofTask::Computation),
+      3..=5 | 7 => Some(ProofTask::Complete),
+      6 => Some(ProofTask::Panic),
+      _ => None,
+    };
+    if let Some(task) = task {
+      proof.replace(task);
+    }
+  }
+
+  fn apply_worker_action(
+    &mut self,
+    message: CoreClientMessageView<'_>,
+  ) -> Result<(), FlatBufferSubmitError> {
+    let CoreClientMessageView::Action(action) = message else {
+      return Ok(());
+    };
+    if action.session_id() != *self.session_id.as_uuid().as_bytes() {
+      return Err(FlatBufferSubmitError::engine(EngineError::new(
+        "fixture client message session mismatch",
+      )));
+    }
+    let CoreActionBodyView::PointerClick(payload) = action.body() else {
+      return Ok(());
+    };
+    let proof = self
+      .worker_proof
+      .as_ref()
+      .expect("worker scenario must create its proof");
+    let object_id = payload.object_id();
+    if !self.worker_action_started
+      && object_id == *release_scenarios::object_id(70).as_uuid().as_bytes()
+    {
+      self.worker_action_started = true;
+      proof.replace(ProofTask::Wait);
+    }
+    Ok(())
+  }
+}
+
+fn worker_observer() -> &'static Mutex<Option<ProofObserver>> {
+  WORKER_OBSERVER.get_or_init(|| Mutex::new(None))
 }
 
 fn direct_label_response(session_id: [u8; 16]) -> Result<EngineResponse, EngineError> {
@@ -886,6 +954,8 @@ pub fn create_engine() -> Result<FixtureEngine, EngineError> {
         release_scenario: None,
         connect_count: 0,
         poll_count: 0,
+        worker_proof: None,
+        worker_action_started: false,
       })
     }
   }
@@ -917,6 +987,36 @@ pub extern "C" fn fixture_submit_calls() -> usize {
 /// Returns the number of times the fixture engine received connect.
 pub extern "C" fn fixture_connect_calls() -> usize {
   CONNECT_CALLS.load(Ordering::Relaxed)
+}
+
+#[unsafe(no_mangle)]
+/// Returns one deterministic worker-proof observation selected by index.
+pub extern "C" fn fixture_worker_observation(index: u32) -> usize {
+  let observer = worker_observer().lock().unwrap().clone();
+  let Some(observer) = observer else {
+    return 0;
+  };
+  let snapshot = observer.snapshot();
+  match index {
+    0 => snapshot.started,
+    1 => snapshot.stopped,
+    2 => snapshot.cancelled,
+    3 => snapshot.failed,
+    4 => snapshot.completed,
+    5 => snapshot.drops,
+    6 => usize::from(snapshot.waiting),
+    7 => usize::from(snapshot.computing),
+    8 => usize::try_from(snapshot.last_started).unwrap(),
+    _ => 0,
+  }
+}
+
+#[unsafe(no_mangle)]
+/// Releases the platform proof's ordinary-computation barrier.
+pub extern "C" fn fixture_worker_release_computation() {
+  if let Some(observer) = worker_observer().lock().unwrap().clone() {
+    observer.release_computation();
+  }
 }
 
 #[unsafe(no_mangle)]

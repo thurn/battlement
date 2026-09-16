@@ -12,5 +12,6 @@ crate-type = ["cdylib", "rlib"]
 battlement = { path = "../../../../battlement" }
 battlement-flatbuffers = { path = "../../../../battlement-flatbuffers" }
 battlement-native = { path = "../../.." }
+reactant-rules = { workspace = true, features = ["platform-proof"] }
 flatbuffers = "=25.12.19"
 tracing.workspace = true

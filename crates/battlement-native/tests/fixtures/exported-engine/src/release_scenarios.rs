@@ -42,6 +42,7 @@ pub enum ReleaseScenario {
   CustomFailure,
   PointerInput,
   FatalReconnect,
+  WorkerCancellation,
   IntegrationFixture,
 }
 
@@ -66,6 +67,7 @@ impl ReleaseScenario {
         "custom-failure" => Some(Self::CustomFailure),
         "pointer-input" => Some(Self::PointerInput),
         "fatal-reconnect" => Some(Self::FatalReconnect),
+        "worker-cancellation" => Some(Self::WorkerCancellation),
         _ => None,
       }
     })
@@ -117,7 +119,10 @@ impl ReleaseScenario {
       return Response::new(session_id, Vec::new());
     };
     if !matches!(self, Self::IntegrationFixture)
-      || payload.object_id() != *object_id(3701).as_uuid().as_bytes()
+      || payload.object_id()
+        != *crate::release_scenarios::object_id(3701)
+          .as_uuid()
+          .as_bytes()
     {
       return Response::new(session_id, Vec::new());
     }
@@ -167,6 +172,12 @@ fn snapshot(session_id: SessionId, scenario: ReleaseScenario) -> Snapshot {
     ReleaseScenario::PointerInput => {
       objects.push(pointer_cube(60, -1.0));
       objects.push(pointer_cube(61, 1.0));
+    }
+    ReleaseScenario::WorkerCancellation => {
+      objects.extend([
+        pointer_cube_at(70, -2.0, 0.0),
+        pointer_cube_at(71, 0.0, 0.0),
+      ]);
     }
     ReleaseScenario::IntegrationFixture => unreachable!(),
     _ => {}
@@ -293,9 +304,13 @@ fn empty_object(id: u128, x: f64) -> GameObject {
 }
 
 fn pointer_cube(id: u128, x: f64) -> GameObject {
+  pointer_cube_at(id, x, 0.0)
+}
+
+fn pointer_cube_at(id: u128, x: f64, y: f64) -> GameObject {
   let mut object = GameObject::new(object_id(id), GameObjectKind::cube());
   object.parent_scene = ParentScene::Persistent;
-  object.local_transform.position = Vector3::new(x, 0.0, 0.0);
+  object.local_transform.position = Vector3::new(x, y, 0.0);
   object.pointer_events = vec![
     PointerEvent::Enter,
     PointerEvent::Exit,
