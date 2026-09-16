@@ -34,7 +34,9 @@ use crate::{
   macos_watch_capture::WarmMacosPlayer,
   maintenance_commands,
   native_execution::NativeExecution,
-  native_video, reactant_assets, run_commands, run_preflight, run_progress,
+  native_video,
+  preparation::PlayerPreparation,
+  run_commands, run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
@@ -50,7 +52,12 @@ use crate::{
   },
 };
 
-pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+pub(crate) fn build(
+  suite: &Suite,
+  options: BuildOptions,
+  stdout: &mut dyn Write,
+  preparation: &dyn PlayerPreparation,
+) -> Result<u8> {
   let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
   let profile = suite
     .profiles
@@ -65,7 +72,7 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     &maintenance_commands::discovery_request(suite, Target::Macos)?,
   )?;
   let selected = macos_build::select_macos_player(
-    &build_request(suite, &discovery, !options.debug_rules)?,
+    &build_request(suite, &discovery, !options.debug_rules, preparation)?,
     true,
   )?;
   let (build, disposition) = match selected {
@@ -123,6 +130,7 @@ pub(crate) struct Options {
   pub update: bool,
   pub filtered: bool,
   pub native_execution: Option<Arc<NativeExecution>>,
+  pub preparation: Arc<dyn PlayerPreparation>,
 }
 
 /// Warm process resources retained only by one watch invocation.
@@ -229,7 +237,10 @@ fn execute_inner(
       outcome: MacosBuildOutcome::Reused,
     }
   } else {
-    macos_build::select_macos_player(&build_request(suite, &discovery, true)?, !options.no_build)?
+    macos_build::select_macos_player(
+      &build_request(suite, &discovery, true, options.preparation.as_ref())?,
+      !options.no_build,
+    )?
   };
   let build_duration = build_started.elapsed().as_millis() as u64;
   let (build, disposition) = match selected {
@@ -457,8 +468,9 @@ fn build_request(
   suite: &Suite,
   discovery: &HostDiscovery,
   release_rules: bool,
+  preparation: &dyn PlayerPreparation,
 ) -> Result<MacosBuildRequest> {
-  reactant_assets::generate(suite)?;
+  preparation.prepare(suite)?;
   let unity_editor = required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

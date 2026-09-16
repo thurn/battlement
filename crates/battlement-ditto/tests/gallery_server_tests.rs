@@ -88,7 +88,7 @@ fn gallery_command_opens_without_a_baseline_store_or_lock() {
   let listener = TcpListener::bind("127.0.0.1:0").unwrap();
   let port = listener.local_addr().unwrap().port();
   drop(listener);
-  let mut child = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+  let mut child = ditto_command()
     .args(["gallery", "--port", &port.to_string(), "--no-open"])
     .current_dir(&repository)
     .stdout(Stdio::null())
@@ -107,6 +107,18 @@ fn gallery_command_opens_without_a_baseline_store_or_lock() {
   assert!(gallery.body.contains(r#""image":null"#));
   child.kill().unwrap();
   child.wait().unwrap();
+}
+
+fn ditto_command() -> ProcessCommand {
+  let mut command = ProcessCommand::new(env!("CARGO"));
+  command.args(["run", "--quiet", "--manifest-path"]);
+  command.arg(
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../..")
+      .join("Cargo.toml"),
+  );
+  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command
 }
 
 struct HttpResponse {

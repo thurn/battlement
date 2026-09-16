@@ -1,0 +1,12 @@
+{
+  "name": "Reactant.Editor",
+  "rootNamespace": "Reactant.Editor",
+  "references": [
+    "Battlement.Editor",
+    "Newtonsoft.Json",
+    "Unity.Addressables.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

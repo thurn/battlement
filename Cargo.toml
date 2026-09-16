@@ -6,6 +6,7 @@ members = [
     "crates/battlement-cloud",
     "crates/battlement-cloud-fake",
     "crates/battlement-ditto",
+    "crates/battlement-ditto-cli",
     "crates/battlement-flatbuffers",
     "crates/battlement-types",
     "crates/battlement-tooling",
@@ -40,6 +41,7 @@ battlement-flatbuffers = { path = "crates/battlement-flatbuffers" }
 battlement-cloud = { path = "crates/battlement-cloud" }
 battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
 battlement-ditto = { path = "crates/battlement-ditto" }
+battlement-ditto-cli = { path = "crates/battlement-ditto-cli" }
 battlement-reactant-asset-syntax = { path = "crates/battlement-reactant-asset-syntax" }
 battlement-reactant-assets = { path = "crates/battlement-reactant-assets" }
 battlement-tooling = { path = "crates/battlement-tooling" }

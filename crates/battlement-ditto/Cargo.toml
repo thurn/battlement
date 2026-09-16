@@ -7,12 +7,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
-[[bin]]
-name = "ditto"
-path = "src/main.rs"
-
 [dependencies]
-battlement-reactant-assets.workspace = true
 battlement-tooling.workspace = true
 anyhow.workspace = true
 aws-credential-types.workspace = true

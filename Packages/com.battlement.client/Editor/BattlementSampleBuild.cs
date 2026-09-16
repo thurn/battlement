@@ -70,7 +70,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(

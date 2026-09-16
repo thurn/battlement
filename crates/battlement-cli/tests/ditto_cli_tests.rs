@@ -77,7 +77,7 @@ fn direct_ditto_with(directory: &Path, arguments: &[&str]) -> std::process::Outp
       "--manifest-path",
       workspace.join("Cargo.toml").to_str().unwrap(),
       "--package",
-      "battlement-ditto",
+      "battlement-ditto-cli",
       "--bin",
       "ditto",
       "--",

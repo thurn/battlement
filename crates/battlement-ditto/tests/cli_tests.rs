@@ -2,8 +2,9 @@ use battlement_ditto::cli::{CleanCommand, Command, StorageCommand, parse_from};
 use std::{
   fs,
   io::Write,
+  path::PathBuf,
   process::{Command as ProcessCommand, Stdio},
-  sync::Mutex,
+  sync::{Mutex, OnceLock},
 };
 #[cfg(target_os = "macos")]
 use std::{os::unix::fs::PermissionsExt, path::Path};
@@ -250,7 +251,7 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
       .success()
   );
   let output_path = temporary.path().join("copy.json");
-  let output = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+  let output = ditto_command()
     .args([
       "capture",
       "--profile",
@@ -360,7 +361,7 @@ fn check_prerequisite_failure(missing_odiff: bool) {
       .success()
   );
 
-  let output = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+  let output = ditto_command()
     .args(if missing_odiff {
       vec!["run", "--json"]
     } else {
@@ -392,7 +393,13 @@ fn check_prerequisite_failure(missing_odiff: bool) {
     .output()
     .unwrap();
 
-  assert_eq!(output.status.code(), Some(2));
+  assert_eq!(
+    output.status.code(),
+    Some(2),
+    "stdout={} stderr={}",
+    String::from_utf8_lossy(&output.stdout),
+    String::from_utf8_lossy(&output.stderr)
+  );
   assert_eq!(
     output.stdout.iter().filter(|byte| **byte == b'\n').count(),
     1,
@@ -474,7 +481,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   let fragment_path = temporary.path().join("fragment.toml");
   fs::write(&fragment_path, FRAGMENT).unwrap();
 
-  let file = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+  let file = ditto_command()
     .args([
       "capture",
       "--fragment",
@@ -494,7 +501,7 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   assert_eq!(file_result["scenarios"][0]["name"], "fragment assertion");
   assert!(String::from_utf8_lossy(&file.stderr).contains("DITTO_RESULT="));
 
-  let mut stdin = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+  let mut stdin = ditto_command()
     .args(["capture", "--fragment=-", "--json"])
     .env("DITTO_CACHE_ROOT", &cache)
     .current_dir(&repository)
@@ -519,6 +526,48 @@ fn file_and_standard_input_fragments_produce_complete_handoffs() {
   assert_eq!(stdin_result["suite"], "standard-input");
   assert_eq!(stdin_result["scenarios"][0]["name"], "fragment assertion");
   assert!(String::from_utf8_lossy(&stdin.stderr).contains("DITTO_RESULT="));
+}
+
+fn ditto_command() -> ProcessCommand {
+  static DITTO_BINARY: OnceLock<PathBuf> = OnceLock::new();
+  ProcessCommand::new(DITTO_BINARY.get_or_init(|| {
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../..")
+      .join("Cargo.toml");
+    assert!(
+      ProcessCommand::new(env!("CARGO"))
+        .args(["build", "--quiet", "--manifest-path"])
+        .arg(&manifest)
+        .args(["--package", "battlement-ditto-cli", "--bin", "ditto"])
+        .status()
+        .unwrap()
+        .success()
+    );
+    let metadata = ProcessCommand::new(env!("CARGO"))
+      .args([
+        "metadata",
+        "--format-version",
+        "1",
+        "--no-deps",
+        "--manifest-path",
+      ])
+      .arg(manifest)
+      .output()
+      .unwrap();
+    assert!(metadata.status.success());
+    let target =
+      serde_json::from_slice::<serde_json::Value>(&metadata.stdout).unwrap()["target_directory"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    PathBuf::from(target)
+      .join(if cfg!(debug_assertions) {
+        "debug"
+      } else {
+        "release"
+      })
+      .join(if cfg!(windows) { "ditto.exe" } else { "ditto" })
+  }))
 }
 
 #[cfg(target_os = "macos")]

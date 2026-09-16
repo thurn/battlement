@@ -18,6 +18,7 @@ FULL_ASSEMBLIES = (
     "Battlement.Integration.EditorTests",
     "Battlement.EditorTests",
     "Battlement.HostEditorTests",
+    "Reactant.EditorTests",
 )
 HOST_ASSEMBLY = "Battlement.HostEditorTests"
 INTEGRATION_ASSEMBLIES = ("Battlement.Integration.EditorTests",)

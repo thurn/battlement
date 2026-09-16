@@ -1,0 +1,834 @@
+use std::{
+  env, fs,
+  hash::{DefaultHasher, Hash, Hasher},
+  net::TcpStream,
+  path::{Path, PathBuf},
+  process::{Child, Command, ExitStatus},
+  sync::atomic::{AtomicBool, Ordering},
+  thread,
+  time::{Duration, Instant},
+};
+
+use crate::unity_lease::{NativePlayerCapacityLease, UnityEditorLease};
+use anyhow::{Context, Result, bail};
+use tempfile::Builder;
+
+struct SampleConfig {
+  application: String,
+  scene: String,
+}
+
+struct PreparedSample {
+  root: PathBuf,
+  project: PathBuf,
+  config: SampleConfig,
+  manifest: PathBuf,
+  package: String,
+  editor: PathBuf,
+}
+
+const DEFAULT_WEB_PORT: u16 = 8000;
+
+/// Supplies the legacy componentized macOS player used by repository samples.
+pub trait ComponentizedMacosBuilder {
+  fn build(&self, config: &Path, release: bool) -> Result<PathBuf>;
+}
+
+/// Builds one explicitly selected project while allowing its owner to prepare assets.
+pub fn build<P, B>(
+  name: &str,
+  web: bool,
+  release: bool,
+  interrupted: &AtomicBool,
+  prepare: P,
+  componentized: &B,
+) -> Result<PathBuf>
+where
+  P: FnOnce(&Path, &Path) -> Result<()>,
+  B: ComponentizedMacosBuilder,
+{
+  let prepared = self::prepare(name)?;
+  prepare(&prepared.project, &prepared.manifest)?;
+  self::build_prepared(prepared, web, release, interrupted, componentized)
+}
+
+fn build_prepared<B>(
+  prepared: PreparedSample,
+  web: bool,
+  release: bool,
+  interrupted: &AtomicBool,
+  componentized: &B,
+) -> Result<PathBuf>
+where
+  B: ComponentizedMacosBuilder,
+{
+  #[cfg(target_os = "macos")]
+  if !web {
+    return self::build_componentized_macos(prepared, release, componentized);
+  }
+  let PreparedSample {
+    root,
+    project,
+    config,
+    manifest,
+    package,
+    editor,
+  } = prepared;
+  let (plugin, plugin_directory, plugin_name) = if web {
+    (
+      crate::plugin_build::web_rules_plugin(&package, release, &manifest, &editor)?,
+      project.join("Assets/Plugins/WebGL"),
+      "libbattlement_rules.a",
+    )
+  } else {
+    let architecture = crate::developer_tools::host_architecture()?;
+    (
+      crate::plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?,
+      project.join(self::native_plugin_directory()),
+      self::native_plugin_name(),
+    )
+  };
+  fs::create_dir_all(&plugin_directory)
+    .with_context(|| format!("failed to create {}", plugin_directory.display()))?;
+  fs::copy(&plugin, plugin_directory.join(plugin_name))
+    .context("failed to stage the sample native plugin")?;
+
+  let profile = if release { "release" } else { "debug" };
+  let output = if web {
+    project
+      .join("Build")
+      .join(profile)
+      .join(self::web_output_name())
+  } else {
+    project
+      .join("Build")
+      .join(profile)
+      .join(self::native_output_name(&config.application))
+  };
+  fs::create_dir_all(output.parent().expect("application has a build directory"))?;
+  if interrupted.load(Ordering::SeqCst) {
+    bail!("sample build interrupted");
+  }
+  let unity_log = Builder::new()
+    .prefix("battlement-sample-build.")
+    .tempfile()
+    .context("failed to create the Unity sample build log")?;
+  let capacity = UnityEditorLease::acquire(&crate::developer_tools::resource_slots())?;
+  let mut command = crate::transactional_unity_command(&project, &editor)?;
+  let mut child = command
+    .args([
+      "-batchmode",
+      "-nographics",
+      "--burst-disable-compilation",
+      "-quit",
+      "-projectPath",
+    ])
+    .arg(&project)
+    .args([
+      "-buildTarget",
+      if web {
+        "WebGL"
+      } else {
+        self::native_build_target()
+      },
+    ])
+    .args([
+      "-executeMethod",
+      "Battlement.Editor.BattlementSampleBuild.Build",
+      "-logFile",
+    ])
+    .arg(unity_log.path())
+    .env("BATTLEMENT_SAMPLE_BUILD_PATH", &output)
+    .env("BATTLEMENT_SAMPLE_SCENE_PATH", &config.scene)
+    .env(
+      "BATTLEMENT_SAMPLE_PLATFORM",
+      if web { "web" } else { "native" },
+    )
+    .env("BATTLEMENT_SAMPLE_RELEASE", if release { "1" } else { "0" })
+    .spawn()
+    .context("failed to launch Unity")?;
+  let status = self::wait_for_child(&mut child, interrupted).context("failed to wait for Unity")?;
+  drop(capacity);
+  if interrupted.load(Ordering::SeqCst) {
+    bail!("Unity sample build interrupted");
+  }
+  let log = fs::read_to_string(unity_log.path()).context("failed to read the Unity build log")?;
+  if !status.success() {
+    self::print_tail(&log, 120);
+    bail!("Unity sample build exited with status {status}");
+  }
+  if !log.contains(&format!("BATTLEMENT_SAMPLE_BUILD_OK:{}", output.display())) {
+    self::print_tail(&log, 120);
+    bail!("Unity sample build omitted its success marker");
+  }
+  if web {
+    self::configure_web_entry_point(&root, &output)?;
+    if !output.join("index.html").is_file() {
+      bail!(
+        "sample Web build omitted {}",
+        output.join("index.html").display()
+      );
+    }
+    let build_directory = output.join("Build");
+    let has_wasm = fs::read_dir(&build_directory)
+      .with_context(|| format!("failed to inspect {}", build_directory.display()))?
+      .filter_map(Result::ok)
+      .any(|entry| entry.file_name().to_string_lossy().contains(".wasm"));
+    if !has_wasm {
+      bail!("sample Web build omitted its WebAssembly player");
+    }
+    self::validate_threaded_web_output(&output)?;
+  } else {
+    let packaged_plugin = self::packaged_native_plugin(&output);
+    if !packaged_plugin.is_file() {
+      bail!("sample build omitted {}", packaged_plugin.display());
+    }
+    self::native_executable(&output)?;
+  }
+  fs::write(self::build_stamp(&output, web), b"")
+    .context("failed to record the completed sample build")?;
+  println!("Built {}", output.display());
+  Ok(output)
+}
+
+#[cfg(target_os = "macos")]
+fn build_componentized_macos<B>(
+  prepared: PreparedSample,
+  release: bool,
+  componentized: &B,
+) -> Result<PathBuf>
+where
+  B: ComponentizedMacosBuilder,
+{
+  let profile = if release { "release" } else { "debug" };
+  let output = prepared
+    .project
+    .join("Build")
+    .join(profile)
+    .join(&prepared.config.application);
+  let config = prepared.project.join("ditto.toml");
+  let cached = componentized.build(&config, release)?;
+  if output.exists() {
+    fs::remove_dir_all(&output)
+      .with_context(|| format!("failed to replace {}", output.display()))?;
+  }
+  fs::create_dir_all(output.parent().expect("application has a build directory"))?;
+  let copied = Command::new("/bin/cp")
+    .args(["-cR"])
+    .arg(&cached)
+    .arg(&output)
+    .status()
+    .context("failed to clone componentized sample app")?;
+  if !copied.success() {
+    bail!("failed to clone componentized sample app: {copied}");
+  }
+  self::native_executable(&output)?;
+  fs::write(self::build_stamp(&output, false), b"")
+    .context("failed to record the completed sample build")?;
+  println!("Built {}", output.display());
+  Ok(output)
+}
+
+fn configure_web_entry_point(root: &Path, output: &Path) -> Result<()> {
+  let index_path = output.join("index.html");
+  let mut index = fs::read_to_string(&index_path)
+    .with_context(|| format!("failed to read {}", index_path.display()))?;
+  let source =
+    fs::read_to_string(root.join("web/init.js")).context("failed to read the Web initializer")?;
+  let initializer = source;
+  let mut fingerprint = DefaultHasher::new();
+  initializer.hash(&mut fingerprint);
+  let initializer_script = format!(
+    "<script src=\"init.js?v={:016x}\"></script>",
+    fingerprint.finish()
+  );
+  if !index.contains("autoSyncPersistentDataPath: true") {
+    let marker = "var config = {";
+    let Some(offset) = index.find(marker) else {
+      bail!(
+        "Web entry point {} has no Unity config object",
+        index_path.display()
+      );
+    };
+    let insertion = offset + marker.len();
+    index.insert_str(insertion, "\n        autoSyncPersistentDataPath: true,");
+  }
+  if let Some(start) = index.find("<script src=\"init.js") {
+    let end = index[start..]
+      .find("</script>")
+      .map(|offset| start + offset + "</script>".len())
+      .context("Web entry point has an incomplete initializer script")?;
+    index.replace_range(start..end, &initializer_script);
+  } else {
+    let Some(offset) = index.find("</head>") else {
+      bail!(
+        "Web entry point {} has no closing head",
+        index_path.display()
+      );
+    };
+    index.insert_str(offset, &format!("  {initializer_script}\n"));
+  }
+  fs::write(&index_path, index)
+    .with_context(|| format!("failed to configure {}", index_path.display()))?;
+  fs::write(output.join("init.js"), initializer)
+    .with_context(|| format!("failed to write Web initializer into {}", output.display()))?;
+  Ok(())
+}
+
+pub fn run<P, B>(
+  name: &str,
+  web: bool,
+  port: Option<u16>,
+  release: bool,
+  interrupted: &AtomicBool,
+  prepare: P,
+  componentized: &B,
+) -> Result<()>
+where
+  P: FnOnce(&Path, &Path) -> Result<()>,
+  B: ComponentizedMacosBuilder,
+{
+  let prepared = self::prepare(name)?;
+  prepare(&prepared.project, &prepared.manifest)?;
+  let root = prepared.root.clone();
+  let project = prepared.project.clone();
+  let application = prepared.config.application.clone();
+  let profile = if release { "release" } else { "debug" };
+  let existing = if web {
+    project
+      .join("Build")
+      .join(profile)
+      .join(self::web_output_name())
+  } else {
+    project
+      .join("Build")
+      .join(profile)
+      .join(self::native_output_name(&application))
+  };
+  let output = if existing.exists() && !self::requires_rebuild(&root, &project, &existing, web)? {
+    existing
+  } else {
+    self::build_prepared(prepared, web, release, interrupted, componentized)?
+  };
+  if web {
+    return self::serve_web(
+      &root,
+      &project,
+      &output,
+      port.unwrap_or(DEFAULT_WEB_PORT),
+      interrupted,
+    );
+  }
+
+  let executable = self::native_executable(&output)?;
+  let _capacity = NativePlayerCapacityLease::acquire(&crate::developer_tools::resource_slots())?;
+  let mut player = Command::new(&executable)
+    .args(["-logFile", "-"])
+    .spawn()
+    .with_context(|| format!("failed to run {}", executable.display()))?;
+  let status = self::wait_for_child(&mut player, interrupted)?;
+  if interrupted.load(Ordering::SeqCst) {
+    return Ok(());
+  }
+  if !status.success() {
+    bail!("sample player exited with status {status}");
+  }
+  Ok(())
+}
+
+fn prepare(name: &str) -> Result<PreparedSample> {
+  self::validate_name(name)?;
+  let root = self::repository_root(name)?;
+  self::prepare_at(root, name)
+}
+
+fn prepare_at(root: PathBuf, name: &str) -> Result<PreparedSample> {
+  let project = root.join("samples").join(name);
+  let config = self::sample_config(&project)?;
+  let manifest = project.join("rules/Cargo.toml");
+  Ok(PreparedSample {
+    package: crate::developer_tools::rules_package(&manifest)?,
+    editor: crate::developer_tools::unity_editor(&project)?,
+    root,
+    project,
+    config,
+    manifest,
+  })
+}
+
+fn requires_rebuild(root: &Path, project: &Path, output: &Path, web: bool) -> Result<bool> {
+  let stamp = self::build_stamp(output, web);
+  let built_at = match fs::metadata(&stamp).and_then(|metadata| metadata.modified()) {
+    Ok(modified) => modified,
+    Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+    Err(error) => return Err(error).context("failed to inspect the sample build stamp"),
+  };
+  let inputs = [
+    root.join("Cargo.lock"),
+    root.join("Cargo.toml"),
+    root.join("Packages/com.battlement.client"),
+    root.join("crates"),
+    root.join("web/init.js"),
+    project.join("Assets"),
+    project.join("Packages"),
+    project.join("ProjectSettings"),
+    project.join("rules"),
+    project.join("sample.toml"),
+  ];
+  for input in inputs {
+    if self::modified_after(&input, built_at)? {
+      return Ok(true);
+    }
+  }
+  Ok(false)
+}
+
+fn build_stamp(output: &Path, web: bool) -> PathBuf {
+  output
+    .parent()
+    .expect("sample application has a build directory")
+    .join(if web {
+      ".battlement-web-threaded-build-stamp"
+    } else {
+      ".battlement-build-stamp"
+    })
+}
+
+#[cfg_attr(not(windows), allow(unused_variables))]
+fn serve_web(
+  root: &Path,
+  project: &Path,
+  output: &Path,
+  port: u16,
+  interrupted: &AtomicBool,
+) -> Result<()> {
+  let address = format!("127.0.0.1:{port}");
+  if TcpStream::connect(&address).is_ok() {
+    bail!("port {port} is already in use; select another with --port");
+  }
+  let python = if let Some(configured) = env::var_os("PYTHON") {
+    configured
+  } else {
+    #[cfg(windows)]
+    {
+      crate::developer_tools::unity_editor(project)?
+        .parent()
+        .context("Unity Editor path has no parent directory")?
+        .join("Data/PlaybackEngines/WebGLSupport/BuildTools/Emscripten/python/python.exe")
+        .into_os_string()
+    }
+    #[cfg(not(windows))]
+    {
+      "python3".into()
+    }
+  };
+  let mut server = Command::new(python)
+    .arg(root.join("scripts/serve_web.py"))
+    .arg("--port")
+    .arg(port.to_string())
+    .arg("--directory")
+    .arg(output)
+    .spawn()
+    .context("failed to start the local static server")?;
+  if let Err(error) = self::wait_for_server(&mut server, &address) {
+    self::stop_server(&mut server);
+    if interrupted.load(Ordering::SeqCst) {
+      return Ok(());
+    }
+    return Err(error);
+  }
+
+  let url = format!("http://{address}/");
+  println!("Running Battlement Web sample at {url}");
+  println!("Press Ctrl-C to stop.");
+  #[cfg(windows)]
+  let mut opener = {
+    let mut command = Command::new("rundll32.exe");
+    command.arg("url.dll,FileProtocolHandler");
+    command
+  };
+  #[cfg(not(windows))]
+  let mut opener = Command::new("open");
+  let open_status = match opener.arg(&url).status() {
+    Ok(status) => status,
+    Err(error) => {
+      self::stop_server(&mut server);
+      return Err(error).context("failed to open the Web sample in a browser");
+    }
+  };
+  if !open_status.success() {
+    self::stop_server(&mut server);
+    bail!("browser opener exited with status {open_status}");
+  }
+  let status = self::wait_for_child(&mut server, interrupted)
+    .context("failed to wait for the local static server")?;
+  if interrupted.load(Ordering::SeqCst) {
+    return Ok(());
+  }
+  if !status.success() {
+    bail!("local static server exited with status {status}");
+  }
+  Ok(())
+}
+
+fn wait_for_server(server: &mut Child, address: &str) -> Result<()> {
+  let deadline = Instant::now() + Duration::from_secs(5);
+  while Instant::now() < deadline {
+    if let Some(status) = server.try_wait()? {
+      bail!("local static server exited during startup with status {status}");
+    }
+    if TcpStream::connect(address).is_ok() {
+      return Ok(());
+    }
+    thread::sleep(Duration::from_millis(50));
+  }
+  bail!("local static server did not listen on {address} within five seconds")
+}
+
+fn stop_server(server: &mut Child) {
+  let _ = server.kill();
+  let _ = server.wait();
+}
+
+fn wait_for_child(child: &mut Child, interrupted: &AtomicBool) -> Result<ExitStatus> {
+  loop {
+    if let Some(status) = child.try_wait()? {
+      return Ok(status);
+    }
+    if interrupted.load(Ordering::SeqCst) {
+      let _ = child.kill();
+      return child.wait().context("failed to stop interrupted process");
+    }
+    thread::sleep(Duration::from_millis(50));
+  }
+}
+
+fn validate_threaded_web_output(output: &Path) -> Result<()> {
+  let index = fs::read_to_string(output.join("index.html"))
+    .context("failed to inspect the threaded Web entry point")?;
+  let external = [
+    "src=\"http://",
+    "src=\"https://",
+    "href=\"http://",
+    "href=\"https://",
+  ];
+  if external.iter().any(|value| index.contains(value)) {
+    bail!("threaded Web entry point embeds a cross-origin resource");
+  }
+  Ok(())
+}
+
+fn modified_after(path: &Path, timestamp: std::time::SystemTime) -> Result<bool> {
+  let metadata = fs::metadata(path)
+    .with_context(|| format!("failed to inspect sample input {}", path.display()))?;
+  if metadata.is_file() {
+    return Ok(metadata.modified()? > timestamp);
+  }
+  for entry in fs::read_dir(path).with_context(|| format!("failed to read {}", path.display()))? {
+    if self::modified_after(&entry?.path(), timestamp)? {
+      return Ok(true);
+    }
+  }
+  Ok(false)
+}
+
+fn repository_root(name: &str) -> Result<PathBuf> {
+  let mut directory = env::current_dir().context("failed to read the current directory")?;
+  loop {
+    let sample = directory.join("samples").join(name);
+    if sample.join("ProjectSettings/ProjectVersion.txt").is_file()
+      && sample.join("rules/Cargo.toml").is_file()
+    {
+      return Ok(directory);
+    }
+    if !directory.pop() {
+      bail!("sample {name:?} was not found below any parent samples/ directory");
+    }
+  }
+}
+
+fn sample_config(project: &Path) -> Result<SampleConfig> {
+  let path = project.join("sample.toml");
+  let contents =
+    fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+  Ok(SampleConfig {
+    application: self::config_value(&contents, "application")?,
+    scene: self::config_value(&contents, "scene")?,
+  })
+}
+
+fn native_executable(application: &Path) -> Result<PathBuf> {
+  #[cfg(windows)]
+  {
+    if !application.is_file() {
+      bail!("sample build omitted {}", application.display());
+    }
+    Ok(application.to_owned())
+  }
+  #[cfg(target_os = "macos")]
+  let info = application.join("Contents/Info.plist");
+  #[cfg(target_os = "macos")]
+  let result = Command::new("plutil")
+    .args(["-extract", "CFBundleExecutable", "raw"])
+    .arg(&info)
+    .output()
+    .with_context(|| format!("failed to inspect {}", info.display()))?;
+  #[cfg(target_os = "macos")]
+  if !result.status.success() {
+    bail!(
+      "failed to read CFBundleExecutable from {}: {}",
+      info.display(),
+      String::from_utf8_lossy(&result.stderr).trim()
+    );
+  }
+  #[cfg(target_os = "macos")]
+  let name = String::from_utf8(result.stdout)
+    .context("application executable name is not UTF-8")?
+    .trim()
+    .to_owned();
+  #[cfg(target_os = "macos")]
+  if name.is_empty() || Path::new(&name).file_name() != Some(name.as_ref()) {
+    bail!("application has an invalid executable name {name:?}");
+  }
+  #[cfg(target_os = "macos")]
+  let executable = application.join("Contents/MacOS").join(name);
+  #[cfg(target_os = "macos")]
+  if !executable.is_file() {
+    bail!("sample build omitted {}", executable.display());
+  }
+  #[cfg(target_os = "macos")]
+  Ok(executable)
+}
+
+fn native_plugin_directory() -> &'static str {
+  if cfg!(windows) {
+    "Assets/Plugins/x86_64"
+  } else {
+    "Assets/Plugins/macOS"
+  }
+}
+
+fn native_plugin_name() -> &'static str {
+  if cfg!(windows) {
+    "battlement_rules.dll"
+  } else {
+    "libbattlement_rules.dylib"
+  }
+}
+
+fn native_build_target() -> &'static str {
+  if cfg!(windows) {
+    "StandaloneWindows64"
+  } else {
+    "StandaloneOSX"
+  }
+}
+
+fn native_output_name(application: &str) -> PathBuf {
+  if cfg!(windows) {
+    Path::new(application).with_extension("exe")
+  } else {
+    application.into()
+  }
+}
+
+fn packaged_native_plugin(output: &Path) -> PathBuf {
+  if cfg!(windows) {
+    output
+      .parent()
+      .expect("Windows player has a build directory")
+      .join(format!(
+        "{}_Data",
+        output
+          .file_stem()
+          .expect("Windows player has a file stem")
+          .to_string_lossy()
+      ))
+      .join("Plugins/x86_64/battlement_rules.dll")
+  } else {
+    output.join("Contents/PlugIns/libbattlement_rules.dylib")
+  }
+}
+
+fn web_output_name() -> &'static str {
+  "WebThreads"
+}
+
+fn config_value(contents: &str, key: &str) -> Result<String> {
+  contents
+    .lines()
+    .filter_map(|line| line.split_once('='))
+    .find_map(|(candidate, value)| {
+      (candidate.trim() == key).then(|| {
+        value
+          .trim()
+          .strip_prefix('"')?
+          .strip_suffix('"')
+          .map(str::to_owned)
+      })?
+    })
+    .with_context(|| format!("sample.toml has no quoted {key} value"))
+}
+
+fn print_tail(contents: &str, count: usize) {
+  let lines = contents.lines().collect::<Vec<_>>();
+  eprintln!("{}", lines[lines.len().saturating_sub(count)..].join("\n"));
+}
+
+fn validate_name(name: &str) -> Result<()> {
+  if name.is_empty()
+    || !name
+      .bytes()
+      .all(|character| character.is_ascii_alphanumeric() || matches!(character, b'-' | b'_'))
+  {
+    bail!("sample names may contain only ASCII letters, digits, '-' and '_'");
+  }
+  Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn sample_names_are_safe_path_components() {
+    assert!(self::validate_name("basic").is_ok());
+    assert!(self::validate_name("future-sample_2").is_ok());
+    assert!(self::validate_name("../basic").is_err());
+    assert!(self::validate_name("").is_err());
+  }
+
+  #[test]
+  fn generic_preparation_does_not_modify_framework_owned_assets() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let name = "cardboard-orchestra";
+    let project = directory.path().join("samples").join(name);
+    for relative in ["Assets", "Packages", "ProjectSettings", "rules/src"] {
+      fs::create_dir_all(project.join(relative))?;
+    }
+    fs::write(project.join("Packages/manifest.json"), "{}\n")?;
+    fs::write(
+      project.join("ProjectSettings/ProjectVersion.txt"),
+      "m_EditorVersion: fixture\n",
+    )?;
+    fs::write(
+      project.join("sample.toml"),
+      "application = \"Cardboard Orchestra.app\"\nscene = \"Assets/Main.unity\"\n",
+    )?;
+    fs::write(
+      project.join("rules/Cargo.toml"),
+      "[package]\nname = \"cardboard-orchestra-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[workspace]\n",
+    )?;
+    fs::write(project.join("rules/src/lib.rs"), "pub fn ready() {}\n")?;
+    let generated = project.join("Assets/Generated/FrameworkOwnedAssets");
+    fs::create_dir_all(&generated)?;
+    fs::write(generated.join("stale.png"), "stale")?;
+    fs::write(
+      project.join("Assets/Generated/FrameworkOwnedAssets.meta"),
+      "stale",
+    )?;
+
+    let prepared = self::prepare_at(directory.path().to_owned(), name)?;
+
+    assert_eq!(prepared.package, "cardboard-orchestra-rules");
+    assert!(generated.exists());
+    assert!(
+      project
+        .join("Assets/Generated/FrameworkOwnedAssets.meta")
+        .exists()
+    );
+    Ok(())
+  }
+
+  #[cfg(target_os = "macos")]
+  #[test]
+  fn native_executable_comes_from_the_application_bundle() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let application = directory.path().join("Battlement UI Lab.app");
+    let contents = application.join("Contents");
+    let executable = contents.join("MacOS/Battlement UI Lab");
+    fs::create_dir_all(executable.parent().expect("executable has a parent"))?;
+    fs::write(
+      contents.join("Info.plist"),
+      r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Battlement UI Lab</string>
+</dict></plist>"#,
+    )?;
+    fs::write(&executable, "player")?;
+
+    assert_eq!(self::native_executable(&application)?, executable);
+    Ok(())
+  }
+
+  #[cfg(target_os = "macos")]
+  #[test]
+  fn native_executable_must_exist_in_the_application_bundle() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let application = directory.path().join("Sample.app");
+    let contents = application.join("Contents");
+    fs::create_dir_all(&contents)?;
+    fs::write(
+      contents.join("Info.plist"),
+      r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Missing Player</string>
+</dict></plist>"#,
+    )?;
+
+    let error = self::native_executable(&application).unwrap_err();
+    assert!(error.to_string().contains("Contents/MacOS/Missing Player"));
+    Ok(())
+  }
+  #[test]
+  fn interrupted_child_is_stopped() -> Result<()> {
+    let interrupted = AtomicBool::new(false);
+    #[cfg(target_os = "windows")]
+    let mut child = Command::new("powershell.exe")
+      .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
+      .spawn()?;
+    #[cfg(not(target_os = "windows"))]
+    let mut child = Command::new("sh").args(["-c", "sleep 30"]).spawn()?;
+    interrupted.store(true, Ordering::SeqCst);
+
+    let status = self::wait_for_child(&mut child, &interrupted)?;
+
+    assert!(!status.success());
+    assert!(child.try_wait()?.is_some());
+    Ok(())
+  }
+
+  #[test]
+  fn web_builds_enable_persistence_and_storage_reset() {
+    let temporary = tempfile::tempdir().unwrap();
+    let output = temporary.path().join("output");
+    let web = temporary.path().join("web");
+    fs::create_dir_all(&output).unwrap();
+    fs::create_dir_all(&web).unwrap();
+    fs::write(web.join("init.js"), "// Browser initializer.\n").unwrap();
+    let index = output.join("index.html");
+    fs::write(
+            &index,
+            "<html><head></head><body><script>\nvar config = {\n  productName: 'chess',\n};\n</script></body></html>",
+        )
+        .unwrap();
+
+    self::configure_web_entry_point(temporary.path(), &output).unwrap();
+    self::configure_web_entry_point(temporary.path(), &output).unwrap();
+
+    let generated = fs::read_to_string(index).unwrap();
+    assert_eq!(
+      generated
+        .matches("autoSyncPersistentDataPath: true")
+        .count(),
+      1
+    );
+    assert!(generated.contains("var config = {\n        autoSyncPersistentDataPath: true,"));
+    assert_eq!(generated.matches("<script src=\"init.js?v=").count(), 1);
+    assert_eq!(
+      fs::read_to_string(output.join("init.js")).unwrap(),
+      "// Browser initializer.\n"
+    );
+  }
+}

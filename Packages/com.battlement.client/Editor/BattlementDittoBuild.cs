@@ -157,7 +157,7 @@ namespace Battlement.Editor
             try
             {
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     AddressableAssetSettings.BuildPlayerContent(
                         out AddressablesPlayerBuildResult result
@@ -277,7 +277,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(
@@ -355,7 +355,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(
@@ -438,7 +438,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(
@@ -550,7 +550,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
-                using (ReactantGeneratedAssets.Prepare(settings))
+                using (BattlementEditorPreparation.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(

@@ -6,10 +6,10 @@ use std::{
   process::{Command, Stdio},
 };
 
+use crate::host::SystemHost;
 use anyhow::{Context, Result, bail};
-use battlement_tooling::host::SystemHost;
 
-pub(crate) fn rules_package(manifest: &Path) -> Result<String> {
+pub fn rules_package(manifest: &Path) -> Result<String> {
   let contents = fs::read_to_string(manifest)
     .with_context(|| format!("failed to read {}", manifest.display()))?;
   let name = contents
@@ -21,7 +21,7 @@ pub(crate) fn rules_package(manifest: &Path) -> Result<String> {
   Ok(name.to_owned())
 }
 
-pub(crate) fn host_architecture() -> Result<String> {
+pub fn host_architecture() -> Result<String> {
   #[cfg(windows)]
   {
     match env::consts::ARCH {
@@ -46,7 +46,7 @@ pub(crate) fn host_architecture() -> Result<String> {
   }
 }
 
-pub(crate) fn unity_editor(project: &Path) -> Result<PathBuf> {
+pub fn unity_editor(project: &Path) -> Result<PathBuf> {
   if let Some(configured) = env::var_os("UNITY_EDITOR") {
     return Ok(configured.into());
   }
@@ -63,11 +63,11 @@ pub(crate) fn unity_editor(project: &Path) -> Result<PathBuf> {
   Ok(format!("/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity").into())
 }
 
-pub(crate) fn resource_slots() -> PathBuf {
-  battlement_tooling::discovery::resource_slots(&SystemHost)
+pub fn resource_slots() -> PathBuf {
+  crate::discovery::resource_slots(&SystemHost)
 }
 
-pub(crate) fn architectures(path: &Path) -> Result<Vec<String>> {
+pub fn architectures(path: &Path) -> Result<Vec<String>> {
   let output = output("lipo", [OsStr::new("-archs"), path.as_os_str()])?;
   let architectures: Vec<String> = output.split_whitespace().map(str::to_owned).collect();
   if architectures.is_empty() {
@@ -76,7 +76,7 @@ pub(crate) fn architectures(path: &Path) -> Result<Vec<String>> {
   Ok(architectures)
 }
 
-pub(crate) fn exported_symbols(path: &Path) -> Result<Vec<String>> {
+pub fn exported_symbols(path: &Path) -> Result<Vec<String>> {
   output("nm", [OsStr::new("-gjU"), path.as_os_str()]).map(|output| {
     output
       .lines()
@@ -87,7 +87,7 @@ pub(crate) fn exported_symbols(path: &Path) -> Result<Vec<String>> {
   })
 }
 
-pub(crate) fn sign(path: &Path, identity: &str) -> Result<()> {
+pub fn sign(path: &Path, identity: &str) -> Result<()> {
   status(
     "codesign",
     [
@@ -99,7 +99,7 @@ pub(crate) fn sign(path: &Path, identity: &str) -> Result<()> {
   )
 }
 
-pub(crate) fn signature_is_valid(path: &Path) -> bool {
+pub fn signature_is_valid(path: &Path) -> bool {
   Command::new("codesign")
     .args(["--verify", "--deep", "--strict"])
     .arg(path)

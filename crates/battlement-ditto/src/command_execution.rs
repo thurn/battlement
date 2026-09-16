@@ -1,18 +1,24 @@
-use std::{io::Write, sync::atomic::AtomicBool};
+use std::{
+  io::Write,
+  sync::{Arc, atomic::AtomicBool},
+};
 
 use anyhow::Result;
 
 use crate::{
   cli::{Command, Invocation},
-  config, gallery_commands, macos_run, maintenance_commands, profile_commands, review_commands,
-  run_commands, selection, storage_commands, suite, webgl_run,
+  config, gallery_commands, macos_run, maintenance_commands,
+  preparation::PlayerPreparation,
+  profile_commands, review_commands, run_commands, selection, storage_commands, suite, webgl_run,
 };
 
-pub(crate) fn execute(
+/// Executes one parsed invocation with caller-owned player preparation.
+pub fn execute(
   invocation: Invocation,
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
+  preparation: Arc<dyn PlayerPreparation>,
 ) -> Result<u8> {
   match invocation.command {
     Command::Build(options) => {
@@ -24,10 +30,14 @@ pub(crate) fn execute(
         .ok_or_else(|| anyhow::anyhow!("profile {profile_name:?} does not exist"))?
         .target();
       match target {
-        crate::config::model::Target::Macos => macos_run::build(&suite, options, stdout),
-        crate::config::model::Target::Webgl => webgl_run::build(&suite, options, stdout),
+        crate::config::model::Target::Macos => {
+          macos_run::build(&suite, options, stdout, preparation.as_ref())
+        }
+        crate::config::model::Target::Webgl => {
+          webgl_run::build(&suite, options, stdout, preparation.as_ref())
+        }
         crate::config::model::Target::IosSimulator => {
-          crate::ios_run::build(&suite, options, stdout)
+          crate::ios_run::build(&suite, options, stdout, preparation.as_ref())
         }
       }
     }
@@ -53,6 +63,7 @@ pub(crate) fn execute(
       stdout,
       stderr,
       interrupted,
+      preparation,
     ),
     Command::Capture(options) => run_commands::capture(
       invocation.config.as_deref(),
@@ -60,6 +71,7 @@ pub(crate) fn execute(
       stdout,
       stderr,
       interrupted,
+      preparation,
     ),
     Command::Profile(options) => profile_commands::profile(
       invocation.config.as_deref(),
@@ -67,6 +79,7 @@ pub(crate) fn execute(
       stdout,
       stderr,
       interrupted,
+      preparation,
     ),
     Command::Review(options) => {
       review_commands::review(invocation.config.as_deref(), options, stderr, interrupted)

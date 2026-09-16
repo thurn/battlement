@@ -45,11 +45,11 @@ These are starting points, not instructions to load whole directories.
 | World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [tween.rs](../../crates/battlement-fake/src/tween.rs) |
 | Binary response fake | [response_reader.rs](../../crates/battlement-fake/src/response_reader.rs) |
 | UI fake | [lib.rs](../../crates/battlement-ui-fake/src/lib.rs) |
-| Legacy CLI and plugin operations | [main.rs](../../crates/battlement-cli/src/main.rs), [plugin.rs](../../crates/battlement-cli/src/plugin.rs), [plugin_build.rs](../../crates/battlement-cli/src/plugin_build.rs) |
-| Legacy sample build/run and author preparation | [sample.rs](../../crates/battlement-cli/src/sample.rs), [author.rs](../../crates/battlement-cli/src/author.rs) |
-| Legacy Addressables command | [generate.rs](../../crates/battlement-cli/src/generate.rs) |
-| Standalone Ditto executable and reusable command | [main.rs](../../crates/battlement-ditto/src/main.rs), [lib.rs](../../crates/battlement-ditto/src/lib.rs), [cli.rs](../../crates/battlement-ditto/src/cli.rs) |
+| Legacy CLI composition | [main.rs](../../crates/battlement-cli/src/main.rs), [sample.rs](../../crates/battlement-cli/src/sample.rs), [author.rs](../../crates/battlement-cli/src/author.rs) |
+| Reusable build, run, author, plugin, and Addressables tooling | [project.rs](../../crates/battlement-tooling/src/project.rs), [author.rs](../../crates/battlement-tooling/src/author.rs), [plugin.rs](../../crates/battlement-tooling/src/plugin.rs), [addressables.rs](../../crates/battlement-tooling/src/addressables.rs) |
+| Generic Ditto library and temporary legacy adapter | [lib.rs](../../crates/battlement-ditto/src/lib.rs), [cli.rs](../../crates/battlement-ditto/src/cli.rs), [adapter](../../crates/battlement-ditto-cli/src/lib.rs) |
 | Unity release/adapter builders | [BattlementSampleBuild.cs](../../Packages/com.battlement.client/Editor/BattlementSampleBuild.cs), [BattlementDittoBuild.cs](../../Packages/com.battlement.client/Editor/BattlementDittoBuild.cs) |
+| Unity editor preparation boundary | [BattlementEditorPreparation.cs](../../Packages/com.battlement.client/Editor/BattlementEditorPreparation.cs), [ReactantGeneratedAssets.cs](../../Packages/com.battlement.client/Editor/Reactant/ReactantGeneratedAssets.cs) |
 | Legacy Reactant asset command and asset pipeline | [reactant_assets.rs](../../crates/battlement-cli/src/reactant_assets.rs), [asset_generator.rs](../../crates/reactant-core/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs) |
 | Repository sample command mapping | [justfile](../../justfile) |
 | Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
@@ -57,8 +57,9 @@ These are starting points, not instructions to load whole directories.
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
-Project tooling remains owned by `battlement-cli` and the existing Reactant asset
-packages until task 07 moves that edge behind the `rt` facade.
+Reusable project mechanics are Battlement-owned. The legacy CLI and Ditto adapter
+compose Reactant preparation until the remaining task 07 leaves introduce and cut
+callers over to `rt`.
 
 ## Planned additions
 

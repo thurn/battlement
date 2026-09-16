@@ -21,7 +21,7 @@ import operation_log
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 GENERATOR_INPUTS = (
-    "crates/battlement-cli/src/generate.rs",
+    "crates/battlement-tooling/src/addressables.rs",
     "crates/battlement-cli/src/reactant_assets.rs",
     "crates/reactant-core/src/asset_generator",
 )
@@ -122,7 +122,7 @@ def relevant_inputs(repository: Path, producers: list[tuple[str, str]]) -> list[
         if producer == "addressables":
             paths.add(f":(exclude)samples/{sample}/rules/src/assets.rs")
             paths.add(f"samples/{sample}/Assets/AddressableAssetsData")
-            paths.add("crates/battlement-cli/src/generate.rs")
+            paths.add("crates/battlement-tooling/src/addressables.rs")
         else:
             paths.add(f"samples/{sample}/Assets/Original")
             paths.add("crates/battlement-cli/src/reactant_assets.rs")

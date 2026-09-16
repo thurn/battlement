@@ -1,7 +1,10 @@
 //! Shared host and build tooling for Battlement developer commands.
 
+pub mod addressables;
+pub mod author;
 pub mod build_cache;
 pub mod build_identity;
+pub mod developer_tools;
 pub mod discovery;
 pub mod doctor;
 pub mod fingerprint;
@@ -9,6 +12,9 @@ pub mod host;
 pub mod ios_build;
 pub mod macos_build;
 pub mod odiff_binary;
+pub mod plugin;
+pub mod plugin_build;
+pub mod project;
 pub mod unity_lease;
 pub mod web_archive;
 pub mod webgl_build;

@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 
-use crate::{plugin_build, tools};
+use crate::{developer_tools, plugin_build};
 
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
 const REQUIRED_SYMBOLS: [&str; 9] = [
@@ -22,11 +22,12 @@ const REQUIRED_SYMBOLS: [&str; 9] = [
   "battlement_submit_ui_event",
 ];
 
-pub(crate) struct PluginDetails {
-  architectures: Vec<String>,
+/// Validated architecture coverage for one native plugin.
+pub struct PluginDetails {
+  pub architectures: Vec<String>,
 }
 
-pub(crate) fn inspect(app: &Path) -> Result<()> {
+pub fn inspect(app: &Path) -> Result<()> {
   let plugin = installed_plugin(app)?;
   let details = details(&plugin)?;
   println!("Application: {}", app.display());
@@ -43,7 +44,7 @@ pub(crate) fn inspect(app: &Path) -> Result<()> {
   );
   println!(
     "Code signature: {}",
-    if tools::signature_is_valid(app) {
+    if developer_tools::signature_is_valid(app) {
       "valid"
     } else {
       "missing or invalid"
@@ -52,7 +53,7 @@ pub(crate) fn inspect(app: &Path) -> Result<()> {
   Ok(())
 }
 
-pub(crate) fn verify(library: &Path) -> Result<PluginDetails> {
+pub fn verify(library: &Path) -> Result<PluginDetails> {
   let details = details(library)?;
   println!("Verified plugin: {}", library.display());
   println!("Architectures: {}", details.architectures.join(", "));
@@ -60,7 +61,7 @@ pub(crate) fn verify(library: &Path) -> Result<PluginDetails> {
   Ok(details)
 }
 
-pub(crate) fn install(app: &Path, library: &Path, identity: Option<&str>) -> Result<()> {
+pub fn install(app: &Path, library: &Path, identity: Option<&str>) -> Result<()> {
   let replacement = verify(library)?;
   let destination = installed_plugin(app)?;
   if same_file(library, &destination)? {
@@ -91,7 +92,7 @@ pub(crate) fn install(app: &Path, library: &Path, identity: Option<&str>) -> Res
   Ok(())
 }
 
-pub(crate) fn build_and_install(
+pub fn build_and_install(
   app: &Path,
   package: &str,
   release: bool,
@@ -104,7 +105,7 @@ pub(crate) fn build_and_install(
   install(app, &library, identity)
 }
 
-pub(crate) fn restore(app: &Path, identity: Option<&str>) -> Result<()> {
+pub fn restore(app: &Path, identity: Option<&str>) -> Result<()> {
   let destination = installed_plugin(app)?;
   let backup = backup_plugin(app);
   require_file(&backup, "backup")?;
@@ -128,8 +129,8 @@ pub(crate) fn restore(app: &Path, identity: Option<&str>) -> Result<()> {
 
 fn details(library: &Path) -> Result<PluginDetails> {
   require_file(library, "plugin")?;
-  let architectures = tools::architectures(library)?;
-  validate_symbols(&tools::exported_symbols(library)?)?;
+  let architectures = developer_tools::architectures(library)?;
+  validate_symbols(&developer_tools::exported_symbols(library)?)?;
   Ok(PluginDetails { architectures })
 }
 
@@ -214,8 +215,8 @@ fn discard_displaced(displaced: &Path) -> Result<()> {
 }
 
 fn sign_installation(app: &Path, plugin: &Path, identity: &str) -> Result<()> {
-  tools::sign(plugin, identity)?;
-  tools::sign(app, identity)
+  developer_tools::sign(plugin, identity)?;
+  developer_tools::sign(app, identity)
 }
 
 fn print_signing(identity: Option<&str>) {

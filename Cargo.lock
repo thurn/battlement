@@ -539,6 +539,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "battlement-ditto",
+ "battlement-ditto-cli",
  "battlement-reactant-assets",
  "battlement-tooling",
  "clap",
@@ -575,7 +576,6 @@ dependencies = [
  "aws-credential-types",
  "aws-sdk-s3",
  "aws-smithy-runtime-api",
- "battlement-reactant-assets",
  "battlement-tooling",
  "clap",
  "ctrlc",
@@ -591,6 +591,16 @@ dependencies = [
  "toml",
  "ureq",
  "uuid",
+]
+
+[[package]]
+name = "battlement-ditto-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "battlement-ditto",
+ "battlement-reactant-assets",
+ "ctrlc",
 ]
 
 [[package]]

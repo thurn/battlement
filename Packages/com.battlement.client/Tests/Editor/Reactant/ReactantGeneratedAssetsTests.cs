@@ -4,16 +4,16 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using Battlement.Editor;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using Reactant.Editor;
 using UnityEditor;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
-namespace Battlement.Tests
+namespace Reactant.Tests
 {
     [Parallelizable(ParallelScope.None)]
     public sealed class ReactantGeneratedAssetsTests

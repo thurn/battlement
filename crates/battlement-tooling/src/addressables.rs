@@ -5,8 +5,8 @@ use std::{
   process::Command,
 };
 
+use crate::unity_lease::UnityEditorLease;
 use anyhow::{Context, Result, bail};
-use battlement_tooling::unity_lease::UnityEditorLease;
 use serde::Deserialize;
 use tempfile::Builder;
 
@@ -89,7 +89,7 @@ struct ChildModule {
   module: Module,
 }
 
-pub(crate) fn run(project: Option<&Path>, output: Option<&Path>, check: bool) -> Result<()> {
+pub fn run(project: Option<&Path>, output: Option<&Path>, check: bool) -> Result<()> {
   let project = self::project(project)?;
   let output = match output {
     Some(path) if path.is_absolute() => path.to_owned(),
@@ -183,8 +183,8 @@ fn export(project: &Path) -> Result<Vec<ExportEntry>> {
   let export_path = temporary.path().join("addresses.json");
   let log_path = temporary.path().join("unity.log");
   let editor = self::unity_editor(project)?;
-  let _capacity = UnityEditorLease::acquire(&crate::tools::resource_slots())?;
-  let status = battlement_tooling::transactional_unity_command(project, &editor)?
+  let _capacity = UnityEditorLease::acquire(&crate::developer_tools::resource_slots())?;
+  let status = crate::transactional_unity_command(project, &editor)?
     .args([
       "-batchmode",
       "-nographics",

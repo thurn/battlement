@@ -27,7 +27,9 @@ use crate::{
   ios_simulator::{self, IosSimulator, SimulatorTools},
   job_resolution, macos_run, maintenance_commands,
   native_execution::NativeExecution,
-  native_video, reactant_assets, run_preflight, run_progress,
+  native_video,
+  preparation::PlayerPreparation,
+  run_preflight, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -43,7 +45,12 @@ use crate::{
 };
 
 /// Builds or reuses one immutable iOS Simulator release player.
-pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+pub(crate) fn build(
+  suite: &Suite,
+  options: BuildOptions,
+  stdout: &mut dyn Write,
+  preparation: &dyn PlayerPreparation,
+) -> Result<u8> {
   let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
   let profile = suite
     .profiles
@@ -61,7 +68,8 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::IosSimulator)?,
   )?;
-  let selected = ios_build::select_ios_player(&self::build_request(suite, &discovery)?, true)?;
+  let selected =
+    ios_build::select_ios_player(&self::build_request(suite, &discovery, preparation)?, true)?;
   let (build, disposition) = match selected {
     IosBuildResult::Ready { build, outcome } => (
       build,
@@ -145,7 +153,7 @@ pub(crate) fn execute(
   if !run_preflight::comparison(&discovery, selection, options.command, result) {
     return Ok(());
   }
-  let request = self::build_request(suite, &discovery)?;
+  let request = self::build_request(suite, &discovery, options.preparation.as_ref())?;
   let build_started = Instant::now();
   let selected = ios_build::select_ios_player(&request, !options.no_build)?;
   let build_duration = build_started.elapsed().as_millis() as u64;
@@ -387,8 +395,12 @@ pub(crate) fn execute(
   Ok(())
 }
 
-fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<IosBuildRequest> {
-  reactant_assets::generate(suite)?;
+fn build_request(
+  suite: &Suite,
+  discovery: &HostDiscovery,
+  preparation: &dyn PlayerPreparation,
+) -> Result<IosBuildRequest> {
+  preparation.prepare(suite)?;
   let unity_editor = macos_run::required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

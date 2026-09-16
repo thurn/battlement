@@ -19,6 +19,7 @@ use crate::{
   },
   macos_run, maintenance_commands,
   native_execution::NativeExecution,
+  preparation::PlayerPreparation,
   review_commands, run_progress,
   selection::{self, Disposition},
   watch_commands,
@@ -48,6 +49,7 @@ pub(crate) struct ExecuteOptions {
   pub base_source: PathBuf,
   pub fragment_source: Option<PathBuf>,
   pub native_execution: Option<Arc<NativeExecution>>,
+  pub preparation: Arc<dyn PlayerPreparation>,
 }
 
 pub(crate) struct CompletedCycle {
@@ -62,6 +64,7 @@ pub(crate) fn run(
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
+  preparation: Arc<dyn PlayerPreparation>,
 ) -> Result<u8> {
   let suite = config::load(config_path)?;
   let filtered = !options.selection.includes.is_empty() || !options.selection.excludes.is_empty();
@@ -81,6 +84,7 @@ pub(crate) fn run(
       base_source: suite.source,
       fragment_source: None,
       native_execution: None,
+      preparation,
     },
     stdout,
     stderr,
@@ -94,6 +98,7 @@ pub(crate) fn capture(
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
+  preparation: Arc<dyn PlayerPreparation>,
 ) -> Result<u8> {
   let base = config::load(config_path)?;
   let base_source = base.source.clone();
@@ -134,6 +139,7 @@ pub(crate) fn capture(
       base_source,
       fragment_source,
       native_execution: None,
+      preparation,
     },
     stdout,
     stderr,
@@ -321,6 +327,7 @@ fn macos_options(options: &ExecuteOptions) -> macos_run::Options {
     update: options.update,
     filtered: options.filtered,
     native_execution: options.native_execution.clone(),
+    preparation: options.preparation.clone(),
   }
 }
 

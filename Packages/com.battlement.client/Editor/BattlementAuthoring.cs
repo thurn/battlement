@@ -19,7 +19,7 @@ namespace Battlement.Editor
         private const string NativePluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
         private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
 #endif
-        private static ReactantGeneratedAssets? generatedAssets;
+        private static IDisposable? generatedAssets;
 
         [MenuItem("Battlement/Play Game")]
         public static void Play()
@@ -27,7 +27,7 @@ namespace Battlement.Editor
             ConfigureNativePlugin();
             AddressableAssetSettings settings = SelectFastPlayMode();
             generatedAssets?.Dispose();
-            generatedAssets = ReactantGeneratedAssets.Prepare(settings);
+            generatedAssets = BattlementEditorPreparation.Prepare(settings);
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             try

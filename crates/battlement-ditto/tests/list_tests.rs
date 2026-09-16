@@ -90,10 +90,22 @@ impl Fixture {
   }
 
   fn command(&self, directory: &Path, arguments: &[&str]) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_ditto"));
+    let mut command = ditto_command();
     command.arg("list").args(arguments).current_dir(directory);
     command
   }
+}
+
+fn ditto_command() -> Command {
+  let mut command = Command::new(env!("CARGO"));
+  command.args(["run", "--quiet", "--manifest-path"]);
+  command.arg(
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../..")
+      .join("Cargo.toml"),
+  );
+  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command
 }
 
 const SUITE: &str = r#"name = "minimal"

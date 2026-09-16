@@ -1,10 +1,6 @@
 mod author;
-mod generate;
-mod plugin;
-mod plugin_build;
 mod reactant_assets;
 mod sample;
-mod tools;
 
 use std::{
   ffi::OsString,
@@ -181,14 +177,6 @@ fn main() {
   }
 }
 
-fn reset_interrupted() {
-  INTERRUPTED.store(false, Ordering::SeqCst);
-}
-
-fn interrupted() -> bool {
-  INTERRUPTED.load(Ordering::SeqCst)
-}
-
 fn install_interrupt_handler() -> Result<()> {
   ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::SeqCst))
     .map_err(|error| anyhow::anyhow!("failed to install interrupt handler: {error}"))
@@ -214,7 +202,7 @@ fn run() -> Result<u8> {
     }
     Command::Ditto { arguments } => {
       install_interrupt_handler()?;
-      battlement_ditto::process_from_with_interrupt(
+      battlement_ditto_cli::process_from_with_interrupt(
         std::iter::once(OsString::from("ditto")).chain(arguments),
         &mut std::io::stdout(),
         &mut std::io::stderr(),
@@ -226,12 +214,12 @@ fn run() -> Result<u8> {
       output,
       check,
     } => {
-      generate::run(project.as_deref(), output.as_deref(), check)?;
+      battlement_tooling::addressables::run(project.as_deref(), output.as_deref(), check)?;
       0
     }
     Command::Plugin(args) => match args.command {
       PluginCommand::Inspect { app } => {
-        plugin::inspect(&app)?;
+        battlement_tooling::plugin::inspect(&app)?;
         0
       }
       PluginCommand::Install {
@@ -244,9 +232,9 @@ fn run() -> Result<u8> {
       } => {
         let identity = signing_identity(&signing);
         if let Some(library) = library {
-          plugin::install(&app, &library, identity)?;
+          battlement_tooling::plugin::install(&app, &library, identity)?;
         } else {
-          plugin::build_and_install(
+          battlement_tooling::plugin::build_and_install(
             &app,
             package.as_deref().expect("clap requires a package"),
             release,
@@ -257,11 +245,11 @@ fn run() -> Result<u8> {
         0
       }
       PluginCommand::Restore { app, signing } => {
-        plugin::restore(&app, signing_identity(&signing))?;
+        battlement_tooling::plugin::restore(&app, signing_identity(&signing))?;
         0
       }
       PluginCommand::Verify { library } => {
-        plugin::verify(&library)?;
+        battlement_tooling::plugin::verify(&library)?;
         0
       }
     },

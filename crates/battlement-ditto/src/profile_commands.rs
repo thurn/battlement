@@ -1,4 +1,8 @@
-use std::{io::Write, path::Path, sync::atomic::AtomicBool};
+use std::{
+  io::Write,
+  path::Path,
+  sync::{Arc, atomic::AtomicBool},
+};
 
 use anyhow::{Context, Result, ensure};
 
@@ -6,6 +10,7 @@ use crate::{
   cli::{ProfileOptions, SelectionOptions},
   config,
   config::model::{PerformancePass, ScenarioPerformance, Target},
+  preparation::PlayerPreparation,
   run_commands::{self, ExecuteOptions},
   selection::{self, Disposition},
   wire::result::ResultCommand,
@@ -20,6 +25,7 @@ pub(crate) fn profile(
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
+  preparation: Arc<dyn PlayerPreparation>,
 ) -> Result<u8> {
   let mut suite = config::load(config_path)?;
   let performance = suite
@@ -100,6 +106,7 @@ pub(crate) fn profile(
       base_source,
       fragment_source: None,
       native_execution: None,
+      preparation,
     },
     stdout,
     stderr,

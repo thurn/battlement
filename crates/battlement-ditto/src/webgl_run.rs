@@ -23,7 +23,9 @@ use crate::{
   config::model::{Profile, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
-  job_resolution, macos_run, maintenance_commands, reactant_assets, run_preflight, run_progress,
+  job_resolution, macos_run, maintenance_commands,
+  preparation::PlayerPreparation,
+  run_preflight, run_progress,
   selection::Selection,
   session_server::PlayerSessionRequirements,
   webgl_capture::{self, LocalWebglLauncher, WebglCaptureRequest, WebglCaptureTimeouts},
@@ -39,7 +41,12 @@ use crate::{
 };
 
 /// Builds or reuses one immutable threaded WebGL release player.
-pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+pub(crate) fn build(
+  suite: &Suite,
+  options: BuildOptions,
+  stdout: &mut dyn Write,
+  preparation: &dyn PlayerPreparation,
+) -> Result<u8> {
   let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
   let profile = suite
     .profiles
@@ -57,7 +64,8 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Webgl)?,
   )?;
-  let selected = webgl_build::select_webgl_player(&self::build_request(suite, &discovery)?, true)?;
+  let selected =
+    webgl_build::select_webgl_player(&self::build_request(suite, &discovery, preparation)?, true)?;
   let (build, disposition) = match selected {
     WebglBuildResult::Ready { build, outcome } => (
       build,
@@ -119,7 +127,7 @@ pub(crate) fn execute(
   if !run_preflight::comparison(&discovery, selection, options.command, result) {
     return Ok(());
   }
-  let request = self::build_request(suite, &discovery)?;
+  let request = self::build_request(suite, &discovery, options.preparation.as_ref())?;
   let build_started = Instant::now();
   let selected = webgl_build::select_webgl_player(&request, !options.no_build)?;
   let build_duration = build_started.elapsed().as_millis() as u64;
@@ -356,8 +364,12 @@ fn fail_capture(
   result.exit_code = 2;
 }
 
-fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<WebglBuildRequest> {
-  reactant_assets::generate(suite)?;
+fn build_request(
+  suite: &Suite,
+  discovery: &HostDiscovery,
+  preparation: &dyn PlayerPreparation,
+) -> Result<WebglBuildRequest> {
+  preparation.prepare(suite)?;
   let unity_editor = macos_run::required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

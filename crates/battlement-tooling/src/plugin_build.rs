@@ -4,8 +4,8 @@ use std::{
   process::Command,
 };
 
+use crate::{unity_lease::CompilerCapacityLease, web_archive};
 use anyhow::{Context, Result, bail};
-use battlement_tooling::{unity_lease::CompilerCapacityLease, web_archive};
 
 #[cfg(target_os = "macos")]
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
@@ -18,7 +18,7 @@ const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\
 const THREADED_RUSTFLAGS: &str = "-C panic=unwind -C target-feature=+atomics,+bulk-memory,+mutable-globals \
    -C link-arg=-fwasm-exceptions -C link-arg=-pthread";
 
-pub(crate) fn rules_plugin(
+pub fn rules_plugin(
   package: &str,
   architectures: &[String],
   release: bool,
@@ -52,7 +52,7 @@ pub(crate) fn rules_plugin(
   )
 }
 
-pub(crate) fn web_rules_plugin(
+pub fn web_rules_plugin(
   package: &str,
   release: bool,
   manifest_path: &Path,
@@ -137,7 +137,7 @@ pub(crate) fn web_rules_plugin(
     "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
     THREADED_RUSTFLAGS,
   );
-  let capacity = CompilerCapacityLease::acquire(&crate::tools::resource_slots())?;
+  let capacity = CompilerCapacityLease::acquire(&crate::developer_tools::resource_slots())?;
   let status = command
     .status()
     .context("failed to run the Rust WebAssembly build")?;
@@ -215,7 +215,7 @@ fn build_slice(
   if let Some(manifest_path) = manifest_path {
     command.arg("--manifest-path").arg(manifest_path);
   }
-  let capacity = CompilerCapacityLease::acquire(&crate::tools::resource_slots())?;
+  let capacity = CompilerCapacityLease::acquire(&crate::developer_tools::resource_slots())?;
   let status = command.status().context("failed to run cargo build")?;
   drop(capacity);
   if !status.success() {

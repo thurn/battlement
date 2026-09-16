@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 battlement-ditto.workspace = true
+battlement-ditto-cli.workspace = true
 battlement-reactant-assets.workspace = true
 battlement-tooling.workspace = true
 anyhow.workspace = true

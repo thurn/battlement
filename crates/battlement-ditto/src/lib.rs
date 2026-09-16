@@ -15,6 +15,7 @@ pub mod ios_simulator;
 pub mod macos_capture;
 mod macos_watch_capture;
 pub mod player_supervision;
+pub mod preparation;
 pub mod r2_baseline_store;
 pub mod r2_publication_store;
 pub mod review_acceptance;
@@ -43,7 +44,6 @@ pub mod native_execution;
 mod native_video;
 mod performance;
 mod profile_commands;
-mod reactant_assets;
 mod review_acceptance_result;
 mod review_commands;
 mod run_commands;
@@ -54,13 +54,18 @@ mod storage_commands;
 mod watch_commands;
 mod webgl_run;
 
+pub use command_execution::execute as execute_invocation;
+
 #[cfg(test)]
 mod native_video_tests;
 
 use std::{
   ffi::OsString,
   io::{self, Write},
-  sync::atomic::{AtomicBool, Ordering},
+  sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+  },
 };
 
 use anyhow::{Result, ensure};
@@ -79,6 +84,7 @@ where
     &mut io::stdout(),
     &mut io::stderr(),
     &INTERRUPTED,
+    Arc::new(preparation::NoPlayerPreparation),
   )?;
   ensure!(code == 0, "Ditto command exited with status {code}");
   Ok(())
@@ -121,6 +127,27 @@ where
   I: IntoIterator<Item = T>,
   T: Into<OsString> + Clone,
 {
+  process_from_with_preparation(
+    arguments,
+    stdout,
+    stderr,
+    interrupted,
+    Arc::new(preparation::NoPlayerPreparation),
+  )
+}
+
+/// Runs Ditto with project preparation supplied by its embedding owner.
+pub fn process_from_with_preparation<I, T>(
+  arguments: I,
+  stdout: &mut dyn Write,
+  stderr: &mut dyn Write,
+  interrupted: &AtomicBool,
+  preparation: Arc<dyn preparation::PlayerPreparation>,
+) -> u8
+where
+  I: IntoIterator<Item = T>,
+  T: Into<OsString> + Clone,
+{
   let invocation = match cli::parse_from(arguments) {
     Ok(invocation) => invocation,
     Err(error) => {
@@ -133,7 +160,7 @@ where
       return code;
     }
   };
-  match command_execution::execute(invocation, stdout, stderr, interrupted) {
+  match command_execution::execute(invocation, stdout, stderr, interrupted, preparation) {
     Ok(code) => {
       assert!(matches!(code, 0 | 1 | 2 | 130), "invalid Ditto exit code");
       code

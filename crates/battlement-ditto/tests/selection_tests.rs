@@ -201,7 +201,7 @@ fn a_full_suite_fragment_does_not_inherit_from_the_discovered_suite() {
 #[test]
 fn list_prints_selected_checkpoints_and_precise_skip_reasons() {
   let fixture = Fixture::new(SUITE);
-  let output = Command::new(env!("CARGO_BIN_EXE_ditto"))
+  let output = ditto_command()
     .args([
       "--config",
       fixture.config.to_str().unwrap(),
@@ -220,6 +220,18 @@ fn list_prints_selected_checkpoints_and_precise_skip_reasons() {
     "{stdout}"
   );
   assert!(stdout.contains("screenshot: video-screen"), "{stdout}");
+}
+
+fn ditto_command() -> Command {
+  let mut command = Command::new(env!("CARGO"));
+  command.args(["run", "--quiet", "--manifest-path"]);
+  command.arg(
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../..")
+      .join("Cargo.toml"),
+  );
+  command.args(["--package", "battlement-ditto-cli", "--bin", "ditto", "--"]);
+  command
 }
 
 struct Fixture {
