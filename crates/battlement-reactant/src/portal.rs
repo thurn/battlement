@@ -8,7 +8,7 @@ use std::{
 };
 
 use battlement::{
-  Display, ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventPhase,
+  Display, ObjectId, Overflow, PickingMode, Prop, StyleValue, UiElement, UiEventKind, UiEventPhase,
   UiEventSubscription, UiNode, UiVisualElementProperties,
 };
 
@@ -441,24 +441,26 @@ fn hide_roots(hosts: &mut [UiNode]) {
 }
 
 fn coverage_subscriptions(hosts: &[UiNode], trees: &[&RenderTree]) -> Vec<UiEventSubscription> {
-  let mut object_ids = Vec::new();
-  self::collect_host_ids(hosts, &mut object_ids);
+  let mut unmatched_object_ids = HashSet::new();
+  self::collect_host_ids(hosts, &mut unmatched_object_ids);
   let mut kinds = Vec::new();
-  for object_id in object_ids {
-    let path = trees
-      .iter()
-      .find_map(|tree| tree.event_path(object_id))
-      .expect("every physical Reactant host has a logical path");
-    for node in path {
-      kinds.extend(
-        node
-          .handlers
-          .iter()
-          .map(Handler::native_kind)
-          .filter(|kind| kind.propagates()),
-      );
+  let mut path = Vec::new();
+  for tree in trees {
+    self::collect_coverage_kinds(
+      tree,
+      &mut unmatched_object_ids,
+      false,
+      &mut path,
+      &mut kinds,
+    );
+    if unmatched_object_ids.is_empty() {
+      break;
     }
   }
+  assert!(
+    unmatched_object_ids.is_empty(),
+    "every physical Reactant host has a logical path"
+  );
   kinds.sort_by_key(|kind| *kind as usize);
   kinds.dedup();
   kinds
@@ -470,6 +472,45 @@ fn coverage_subscriptions(hosts: &[UiNode], trees: &[&RenderTree]) -> Vec<UiEven
       ]
     })
     .collect()
+}
+
+fn collect_coverage_kinds(
+  tree: &RenderTree,
+  unmatched_object_ids: &mut HashSet<ObjectId>,
+  hidden: bool,
+  path: &mut Vec<UiEventKind>,
+  kinds: &mut Vec<UiEventKind>,
+) {
+  for position in &tree.positions {
+    let path_length = path.len();
+    if let Some(host) = &position.host {
+      if !hidden {
+        path.extend(
+          position
+            .handlers
+            .iter()
+            .map(Handler::native_kind)
+            .filter(|kind| kind.propagates()),
+        );
+      }
+      if unmatched_object_ids.remove(&host.object_id) {
+        kinds.extend(path.iter().copied());
+      }
+    }
+    if let Some(suspense) = &position.suspense
+      && (hidden || suspense.showing_fallback)
+    {
+      self::collect_coverage_kinds(&suspense.primary, unmatched_object_ids, true, path, kinds);
+    }
+    self::collect_coverage_kinds(
+      &position.children,
+      unmatched_object_ids,
+      hidden,
+      path,
+      kinds,
+    );
+    path.truncate(path_length);
+  }
 }
 
 fn external_root(mut hosts: Vec<UiNode>, trees: &[&RenderTree]) -> PortalRoot {
@@ -502,9 +543,9 @@ fn external_root(mut hosts: Vec<UiNode>, trees: &[&RenderTree]) -> PortalRoot {
   }
 }
 
-fn collect_host_ids(hosts: &[UiNode], object_ids: &mut Vec<ObjectId>) {
+fn collect_host_ids(hosts: &[UiNode], object_ids: &mut HashSet<ObjectId>) {
   for host in hosts {
-    object_ids.push(host.object_id);
+    object_ids.insert(host.object_id);
     self::collect_host_ids(&host.children, object_ids);
   }
 }
