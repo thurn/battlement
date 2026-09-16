@@ -231,7 +231,7 @@ pub(crate) struct RenderSink<'a> {
   pub(crate) positions: Vec<RenderPosition>,
   pub(crate) error: Option<RenderError>,
   pub(crate) pending: Vec<ResourceToken>,
-  pending_hook_lengths: Vec<usize>,
+  pending_hook_lengths: Option<Vec<usize>>,
   pub(crate) variant_scope: VariantScope,
 }
 
@@ -260,6 +260,20 @@ pub(crate) fn sink_with_scope(
   committed: &RenderTree,
   variant_scope: VariantScope,
 ) -> RenderSink<'_> {
+  RenderSink {
+    committed,
+    positions: Vec::new(),
+    error: None,
+    pending: Vec::new(),
+    pending_hook_lengths: None,
+    variant_scope,
+  }
+}
+
+fn checkpointed_sink_with_scope(
+  committed: &RenderTree,
+  variant_scope: VariantScope,
+) -> RenderSink<'_> {
   let mut pending_hook_lengths = Vec::new();
   committed.pending_hook_lengths(&mut pending_hook_lengths);
   RenderSink {
@@ -267,14 +281,14 @@ pub(crate) fn sink_with_scope(
     positions: Vec::new(),
     error: None,
     pending: Vec::new(),
-    pending_hook_lengths,
+    pending_hook_lengths: Some(pending_hook_lengths),
     variant_scope,
   }
 }
 
 impl<'a> RenderSink<'a> {
   pub(crate) fn new(committed: &'a RenderTree) -> Self {
-    sink_with_scope(committed, VariantScope::default())
+    checkpointed_sink_with_scope(committed, VariantScope::default())
   }
 
   pub(crate) fn push_keyed<R: 'static>(
@@ -406,7 +420,7 @@ impl<'a> RenderSink<'a> {
   ) -> Result<Option<(HookComponent, RenderTree)>, RenderError> {
     let mut retries = 0;
     loop {
-      let mut children = sink_with_scope(committed, variant_scope.checkpoint());
+      let mut children = checkpointed_sink_with_scope(committed, variant_scope.checkpoint());
       let performance_started = crate::performance::start();
       let (rendered, render_retry) =
         hooks::render_component(component, || source.render_into(&mut children));
@@ -894,7 +908,8 @@ impl<'a> RenderSink<'a> {
       self.pending.extend(pending);
       (children, Some(error), None)
     } else {
-      let mut children = sink_with_scope(primary_committed, self.variant_scope.clone());
+      let mut children =
+        checkpointed_sink_with_scope(primary_committed, self.variant_scope.clone());
       primary(&mut children);
       match children.finish_attempt() {
         Ok((children, pending)) => {
@@ -975,7 +990,8 @@ impl<'a> RenderSink<'a> {
     } else {
       &empty
     };
-    let mut primary_children = sink_with_scope(primary_committed, self.variant_scope.clone());
+    let mut primary_children =
+      checkpointed_sink_with_scope(primary_committed, self.variant_scope.clone());
     primary(&mut primary_children);
     if primary_children.error.is_none() && !primary_children.pending.is_empty() {
       primary_children.rollback_pending_hooks();
@@ -1125,10 +1141,13 @@ impl<'a> RenderSink<'a> {
   }
 
   fn rollback_pending_hooks(&mut self) {
+    let Some(pending_hook_lengths) = &self.pending_hook_lengths else {
+      return;
+    };
     let mut cursor = 0;
     self
       .committed
-      .truncate_pending_hooks(&self.pending_hook_lengths, &mut cursor);
-    assert_eq!(cursor, self.pending_hook_lengths.len());
+      .truncate_pending_hooks(pending_hook_lengths, &mut cursor);
+    assert_eq!(cursor, pending_hook_lengths.len());
   }
 }
