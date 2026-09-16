@@ -18,6 +18,8 @@ use battlement_tooling::{
 };
 
 use crate::{
+  build_lease,
+  cli::BuildOptions,
   config::model::{Profile, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
@@ -35,6 +37,70 @@ use crate::{
     run_storage::ActiveRun,
   },
 };
+
+/// Builds or reuses one immutable threaded WebGL release player.
+pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+  let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
+  let profile = suite
+    .profiles
+    .get(profile_name)
+    .with_context(|| format!("profile {profile_name:?} does not exist"))?;
+  anyhow::ensure!(
+    profile.target() == Target::Webgl,
+    "WebGL build requires a WebGL profile"
+  );
+  anyhow::ensure!(
+    !options.debug_rules,
+    "threaded WebGL proof builds require release Rust rules"
+  );
+  let discovery = HostDiscovery::inspect(
+    &SystemHost,
+    &maintenance_commands::discovery_request(suite, Target::Webgl)?,
+  )?;
+  let selected = webgl_build::select_webgl_player(&self::build_request(suite, &discovery)?, true)?;
+  let (build, disposition) = match selected {
+    WebglBuildResult::Ready { build, outcome } => (
+      build,
+      match outcome {
+        WebglBuildOutcome::Created => "created",
+        WebglBuildOutcome::Reused => "reused",
+      },
+    ),
+    WebglBuildResult::Required { .. } => unreachable!("builds are allowed"),
+    WebglBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+  };
+  let value = serde_json::json!({
+    "schema": 1,
+    "suite": suite.name,
+    "profile": profile_name,
+    "source_fingerprint": build.metadata().identity.source_fingerprint,
+    "build_fingerprint": build.metadata().identity.fingerprint,
+    "disposition": disposition,
+    "player_path": build.path(),
+    "application_path": build.player_path(),
+    "threaded": true,
+    "panic_runtime": "unwind",
+  });
+  let encoded = serde_json::to_string_pretty(&value)? + "\n";
+  if let Some(path) = options.output {
+    fs::write(path, &encoded)?;
+  }
+  if options.json {
+    write!(stdout, "{encoded}")?;
+  } else {
+    writeln!(
+      stdout,
+      "{} threaded WebGL player {disposition}: {}",
+      suite.name,
+      build.path().display()
+    )?;
+  }
+  stdout.flush()?;
+  if let Some(file_descriptor) = options.retain_until_fd_closed {
+    build_lease::until_eof(file_descriptor)?;
+  }
+  Ok(0)
+}
 
 pub(crate) fn execute(
   suite: &Suite,
@@ -306,7 +372,13 @@ fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<WebglBuildR
     scene: suite.player.scene.clone(),
     suite: suite.name.clone(),
     diagnostics: true,
-    generated_inputs: Vec::new(),
+    generated_inputs: vec![battlement_tooling::fingerprint::GeneratedInput {
+      generator: "battlement-web-initializer".to_owned(),
+      version: "1".to_owned(),
+      name: "web/init.js".to_owned(),
+      bytes: fs::read(suite.repository.join("web/init.js"))
+        .context("read the Web thread initializer")?,
+    }],
     native_inputs: Vec::<NativeInput>::new(),
     capture_adapter: CaptureAdapter {
       name: "webgl-canvas-png".to_owned(),

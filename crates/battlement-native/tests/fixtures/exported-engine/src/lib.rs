@@ -1007,6 +1007,7 @@ pub extern "C" fn fixture_worker_observation(index: u32) -> usize {
     6 => usize::from(snapshot.waiting),
     7 => usize::from(snapshot.computing),
     8 => usize::try_from(snapshot.last_started).unwrap(),
+    9 => usize::from(snapshot.off_creator_thread),
     _ => 0,
   }
 }

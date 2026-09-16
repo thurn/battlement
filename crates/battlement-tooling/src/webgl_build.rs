@@ -2,8 +2,10 @@
 
 use std::{
   collections::BTreeMap,
+  collections::hash_map::DefaultHasher,
   env, fs,
   fs::OpenOptions,
+  hash::{Hash, Hasher},
   io::Write,
   path::{Path, PathBuf},
   process::{Command, Output},
@@ -12,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
   build_cache::{
@@ -32,6 +35,9 @@ const PLAYER: &str = "player";
 const RUST_TARGET: &str = "wasm32-unknown-emscripten";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
 const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
+const RECIPE_VERSION: &str = "1";
+const THREADED_RUSTFLAGS: &str = "-C panic=unwind -C target-feature=+atomics,+bulk-memory,+mutable-globals \
+   -C link-arg=-fwasm-exceptions -C link-arg=-pthread";
 
 pub const STARTUP_IDENTITY_FILE: &str = "startup-identity.json";
 
@@ -111,11 +117,13 @@ pub fn select_webgl_player(
   allow_build: bool,
 ) -> Result<WebglBuildResult> {
   self::validate_request(request)?;
+  let mut generated_inputs = request.generated_inputs.clone();
+  generated_inputs.push(self::recipe_input());
   let source = SourceManifest::build(&FingerprintRequest {
     repository: request.repository.clone(),
     unity_project: request.unity_project.clone(),
     rust_manifest: request.rust_manifest.clone(),
-    generated_inputs: request.generated_inputs.clone(),
+    generated_inputs,
     case_sensitivity: CaseSensitivity::Insensitive,
   })?;
   let identity = self::build_identity(request, &source)?;
@@ -278,6 +286,12 @@ fn build_pending(
       "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER",
       emscripten.join("emscripten/emcc"),
     )
+    .env("RUSTC_BOOTSTRAP", "1")
+    .env(
+      "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
+      THREADED_RUSTFLAGS,
+    )
+    .args(["-Z", "build-std=std,panic_unwind"])
     .env("PATH", env::join_paths(paths)?);
   let compiler_capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
   let cargo_output = self::run_logged(cargo, pending.path(), "rust")?;
@@ -334,6 +348,9 @@ fn build_pending(
   if !unity_output.status.success() {
     return self::failed(pending, "unity", &unity_output, now);
   }
+  if let Err(error) = self::configure_entry_point(request, &pending.path().join(PLAYER)) {
+    return self::failed_message(pending, "entry-point", &error.to_string(), now);
+  }
   if let Err(error) = self::validate_player(&pending.path().join(PLAYER)) {
     return self::failed_message(pending, "unity", &error.to_string(), now);
   }
@@ -345,6 +362,47 @@ fn build_pending(
     build: pending.publish(Path::new(PLAYER), now)?.build,
     outcome: WebglBuildOutcome::Created,
   })
+}
+
+fn configure_entry_point(request: &WebglBuildRequest, player: &Path) -> Result<()> {
+  let initializer = request
+    .generated_inputs
+    .iter()
+    .find(|input| input.name == "web/init.js")
+    .context("WebGL build omitted the Web thread initializer input")?;
+  let index_path = player.join("index.html");
+  let mut index =
+    fs::read_to_string(&index_path).with_context(|| format!("read {}", index_path.display()))?;
+  let mut fingerprint = DefaultHasher::new();
+  initializer.bytes.hash(&mut fingerprint);
+  let script = format!(
+    "<script src=\"init.js?v={:016x}\"></script>",
+    fingerprint.finish()
+  );
+  if let Some(start) = index.find("<script src=\"init.js") {
+    let end = index[start..]
+      .find("</script>")
+      .map(|offset| start + offset + "</script>".len())
+      .context("WebGL entry point has an incomplete initializer script")?;
+    index.replace_range(start..end, &script);
+  } else {
+    let offset = index
+      .find("</head>")
+      .context("WebGL entry point has no closing head")?;
+    index.insert_str(offset, &format!("  {script}\n"));
+  }
+  fs::write(index_path, index)?;
+  fs::write(player.join("init.js"), &initializer.bytes)?;
+  Ok(())
+}
+
+fn recipe_input() -> GeneratedInput {
+  GeneratedInput {
+    generator: "battlement-webgl-build".to_owned(),
+    version: RECIPE_VERSION.to_owned(),
+    name: "recipe".to_owned(),
+    bytes: format!("{:x}", Sha256::digest(include_bytes!("webgl_build.rs"))).into_bytes(),
+  }
 }
 
 fn validate_player(player: &Path) -> Result<()> {

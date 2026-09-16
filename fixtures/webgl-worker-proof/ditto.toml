@@ -1,0 +1,33 @@
+name = "webgl-worker-proof"
+default_profile = "webgl"
+
+[timeouts]
+run = "5m"
+build = "20m"
+launch = "2m"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "30s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "../.."
+scene = "../../Assets/BattlementWebglWorkerProof/BattlementWebglWorkerProof.unity"
+rust_manifest = "../../crates/battlement-native/tests/fixtures/exported-engine/Cargo.toml"
+
+[profiles.webgl]
+target = "webgl"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "threaded cancellation"
+
+[[scenarios.steps]]
+advance = { frames = 1 }

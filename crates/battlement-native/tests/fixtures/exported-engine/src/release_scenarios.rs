@@ -182,13 +182,23 @@ fn snapshot(session_id: SessionId, scenario: ReleaseScenario) -> Snapshot {
     ReleaseScenario::IntegrationFixture => unreachable!(),
     _ => {}
   }
-  Snapshot::new(
-    session_id,
-    vec![PreparedAsset::Scene(SceneAddress::new(DEFAULT_SCENE))],
-    vec![Scene::new(scene_id(100), DEFAULT_SCENE)],
-    objects,
-    object_id(1),
-  )
+  if matches!(scenario, ReleaseScenario::WorkerCancellation) {
+    Snapshot::new(
+      session_id,
+      vec![PreparedAsset::Scene(SceneAddress::new(INTEGRATION_SCENE))],
+      vec![Scene::new(scene_id(100), INTEGRATION_SCENE)],
+      objects,
+      object_id(1),
+    )
+  } else {
+    Snapshot::new(
+      session_id,
+      vec![PreparedAsset::Scene(SceneAddress::new(DEFAULT_SCENE))],
+      vec![Scene::new(scene_id(100), DEFAULT_SCENE)],
+      objects,
+      object_id(1),
+    )
+  }
 }
 
 fn integration_connect_response(session_id: SessionId) -> Response<AnyCommand<FlashPayload>> {

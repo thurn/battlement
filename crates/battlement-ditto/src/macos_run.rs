@@ -58,7 +58,7 @@ pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write
     .with_context(|| format!("profile {profile_name:?} does not exist"))?;
   anyhow::ensure!(
     profile.target() == Target::Macos,
-    "build currently supports macOS profiles"
+    "macOS build requires a macOS profile"
   );
   let discovery = HostDiscovery::inspect(
     &SystemHost,

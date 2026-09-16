@@ -1,6 +1,9 @@
 //! Test-only controls for proving the worker boundary on release platforms.
 
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::{
+  sync::{Arc, Condvar, Mutex, MutexGuard},
+  thread::{self, ThreadId},
+};
 
 use crate::{
   Game,
@@ -32,6 +35,7 @@ pub struct ProofSnapshot {
   pub waiting: bool,
   pub computing: bool,
   pub last_started: u64,
+  pub off_creator_thread: bool,
 }
 
 /// Owns one non-joining worker slot used by native release validation.
@@ -50,6 +54,7 @@ pub struct ProofObserver {
 struct ProofState {
   values: Mutex<ProofValues>,
   changed: Condvar,
+  creator_thread: ThreadId,
 }
 
 #[derive(Default)]
@@ -58,6 +63,7 @@ struct ProofValues {
   waiting: bool,
   computing: bool,
   release_computation: bool,
+  off_creator_thread: bool,
 }
 
 struct DropProbe {
@@ -88,6 +94,7 @@ impl WorkerProof {
       state: Arc::new(ProofState {
         values: Mutex::new(ProofValues::default()),
         changed: Condvar::new(),
+        creator_thread: thread::current().id(),
       }),
     }
   }
@@ -148,6 +155,7 @@ impl ProofObserver {
           _ => None,
         })
         .unwrap_or(0),
+      off_creator_thread: values.off_creator_thread,
     }
   }
 
@@ -193,6 +201,10 @@ impl Game for ProofGame {
   }
 
   fn execute(context: &mut Self::Context, state: &mut Self::State, action: Self::Action) {
+    {
+      let mut values = self::lock(&context.state.values);
+      values.off_creator_thread = thread::current().id() != context.state.creator_thread;
+    }
     state.generation += 1;
     match action {
       ProofTask::Wait => self::outer_wait(&context.connection, Arc::clone(&context.state)),

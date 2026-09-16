@@ -15,8 +15,8 @@ const WEB_PLUGIN_NAME: &str = "libbattlement_rules.a";
 const WEB_TARGET: &str = "wasm32-unknown-emscripten";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
 const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
-const THREADED_RUSTFLAGS: &str =
-  "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=-pthread";
+const THREADED_RUSTFLAGS: &str = "-C panic=unwind -C target-feature=+atomics,+bulk-memory,+mutable-globals \
+   -C link-arg=-fwasm-exceptions -C link-arg=-pthread";
 
 pub(crate) fn rules_plugin(
   package: &str,
@@ -182,7 +182,7 @@ fn web_cargo_command(
     .arg(manifest_path)
     .arg("--lib")
     .args(["--crate-type", "staticlib"]);
-  command.args(["-Z", "build-std=std,panic_abort"]);
+  command.args(["-Z", "build-std=std,panic_unwind"]);
   self::configure_release_profile(&mut command, release);
   command
 }
@@ -348,8 +348,15 @@ mod tests {
     assert!(
       arguments
         .windows(2)
-        .any(|pair| pair == ["-Z", "build-std=std,panic_abort"])
+        .any(|pair| pair == ["-Z", "build-std=std,panic_unwind"])
     );
+  }
+
+  #[test]
+  fn threaded_web_build_uses_unwind_and_thread_link_flags() {
+    assert!(THREADED_RUSTFLAGS.contains("-C panic=unwind"));
+    assert!(THREADED_RUSTFLAGS.contains("-C link-arg=-fwasm-exceptions"));
+    assert!(THREADED_RUSTFLAGS.contains("-C link-arg=-pthread"));
   }
 
   #[test]

@@ -341,14 +341,10 @@ namespace Battlement.Editor
             }
 
             BattlementSampleBuild.ConfigurePlugin(true);
-            string previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
-            bool previousFallback = PlayerSettings.WebGL.decompressionFallback;
-            bool previousThreads = PlayerSettings.WebGL.threadsSupport;
             WebGLCompressionFormat previousCompression = PlayerSettings.WebGL.compressionFormat;
-            PlayerSettings.WebGL.emscriptenArgs = "-fwasm-exceptions";
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
-            PlayerSettings.WebGL.decompressionFallback = false;
-            PlayerSettings.WebGL.threadsSupport = false;
+            using BattlementSampleBuild.WebThreadSettings webSettings =
+                BattlementSampleBuild.ConfigureWebThreads(true);
             try
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
@@ -372,15 +368,13 @@ namespace Battlement.Editor
                             $"Ditto WebGL build failed with {report.summary.totalErrors} errors."
                         );
                     }
+                    BattlementSampleBuild.AddWebThreadGuard(output);
                     BattlementSampleBuild.SetWebDevicePixelRatio(output);
                 }
             }
             finally
             {
-                PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
                 PlayerSettings.WebGL.compressionFormat = previousCompression;
-                PlayerSettings.WebGL.decompressionFallback = previousFallback;
-                PlayerSettings.WebGL.threadsSupport = previousThreads;
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName

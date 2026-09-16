@@ -5,7 +5,7 @@ use anyhow::Result;
 use crate::{
   cli::{Command, Invocation},
   config, gallery_commands, macos_run, maintenance_commands, profile_commands, review_commands,
-  run_commands, selection, storage_commands, suite,
+  run_commands, selection, storage_commands, suite, webgl_run,
 };
 
 pub(crate) fn execute(
@@ -15,11 +15,22 @@ pub(crate) fn execute(
   interrupted: &AtomicBool,
 ) -> Result<u8> {
   match invocation.command {
-    Command::Build(options) => macos_run::build(
-      &config::load(invocation.config.as_deref())?,
-      options,
-      stdout,
-    ),
+    Command::Build(options) => {
+      let suite = config::load(invocation.config.as_deref())?;
+      let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
+      let target = suite
+        .profiles
+        .get(profile_name)
+        .ok_or_else(|| anyhow::anyhow!("profile {profile_name:?} does not exist"))?
+        .target();
+      match target {
+        crate::config::model::Target::Macos => macos_run::build(&suite, options, stdout),
+        crate::config::model::Target::Webgl => webgl_run::build(&suite, options, stdout),
+        crate::config::model::Target::IosSimulator => {
+          anyhow::bail!("build does not support iOS Simulator profiles")
+        }
+      }
+    }
     Command::List(options) => {
       writeln!(
         stdout,

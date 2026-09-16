@@ -33,8 +33,7 @@ namespace Battlement.Editor
         private const string WebThreadPool =
             "-sPTHREAD_POOL_SIZE=globalThis.battlementWebThreads.pthreadPoolSize";
 
-        // Make debug-profile Web builds fail loudly if code exceeds the prestarted pool;
-        // release profiles avoid the thread instrumentation and its console overhead.
+        // Never allow Emscripten to allocate workers beyond the prestarted finite pool.
         private const string WebThreadPoolStrict = "-sPTHREAD_POOL_SIZE_STRICT=2";
         private const string WebThreadDebug = "-sPTHREADS_DEBUG=1";
         private const string WebScriptStart = "    <script>\n      var canvas =";
@@ -63,32 +62,7 @@ namespace Battlement.Editor
             }
 
             ConfigurePlugin(web);
-            string previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
-            bool previousDecompressionFallback = PlayerSettings.WebGL.decompressionFallback;
-            bool previousThreadsSupport = PlayerSettings.WebGL.threadsSupport;
-            if (web)
-            {
-                string emscriptenArgs = RemoveArgument(previousEmscriptenArgs, "-pthread");
-                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREAD_POOL_SIZE=");
-                emscriptenArgs = RemoveArgumentsWithPrefix(
-                    emscriptenArgs,
-                    "-sPTHREAD_POOL_SIZE_STRICT="
-                );
-                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREADS_DEBUG=");
-                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sSTACK_SIZE=");
-                emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
-                emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
-                emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
-                emscriptenArgs = AppendArgument(emscriptenArgs, WebStackSize);
-                if (!release)
-                {
-                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);
-                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadDebug);
-                }
-                PlayerSettings.WebGL.emscriptenArgs = emscriptenArgs;
-                PlayerSettings.WebGL.decompressionFallback = true;
-                PlayerSettings.WebGL.threadsSupport = true;
-            }
+            using WebThreadSettings? webSettings = web ? ConfigureWebThreads(release) : null;
 
             try
             {
@@ -124,9 +98,6 @@ namespace Battlement.Editor
             }
             finally
             {
-                PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
-                PlayerSettings.WebGL.decompressionFallback = previousDecompressionFallback;
-                PlayerSettings.WebGL.threadsSupport = previousThreadsSupport;
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
@@ -194,6 +165,8 @@ namespace Battlement.Editor
             importer.SaveAndReimport();
         }
 
+        internal static WebThreadSettings ConfigureWebThreads(bool release) => new(release);
+
         internal static void ConfigureIosPlugin()
         {
             AssetDatabase.ImportAsset(IosPluginPath, ImportAssetOptions.ForceSynchronousImport);
@@ -216,7 +189,7 @@ namespace Battlement.Editor
             : string.IsNullOrWhiteSpace(existing) ? argument
             : $"{existing} {argument}";
 
-        private static void AddWebThreadGuard(string output)
+        internal static void AddWebThreadGuard(string output)
         {
             string indexPath = Path.Combine(output, "index.html");
             string html = File.ReadAllText(indexPath);
@@ -277,5 +250,46 @@ namespace Battlement.Editor
         private static string Required(string name) =>
             Environment.GetEnvironmentVariable(name)
             ?? throw new InvalidOperationException($"{name} must be set.");
+
+        internal sealed class WebThreadSettings : IDisposable
+        {
+            private readonly string previousEmscriptenArgs;
+            private readonly bool previousDecompressionFallback;
+            private readonly bool previousThreadsSupport;
+
+            internal WebThreadSettings(bool release)
+            {
+                previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
+                previousDecompressionFallback = PlayerSettings.WebGL.decompressionFallback;
+                previousThreadsSupport = PlayerSettings.WebGL.threadsSupport;
+                string emscriptenArgs = RemoveArgument(previousEmscriptenArgs, "-pthread");
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREAD_POOL_SIZE=");
+                emscriptenArgs = RemoveArgumentsWithPrefix(
+                    emscriptenArgs,
+                    "-sPTHREAD_POOL_SIZE_STRICT="
+                );
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREADS_DEBUG=");
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sSTACK_SIZE=");
+                emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
+                emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
+                emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
+                emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);
+                emscriptenArgs = AppendArgument(emscriptenArgs, WebStackSize);
+                if (!release)
+                {
+                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadDebug);
+                }
+                PlayerSettings.WebGL.emscriptenArgs = emscriptenArgs;
+                PlayerSettings.WebGL.decompressionFallback = true;
+                PlayerSettings.WebGL.threadsSupport = true;
+            }
+
+            public void Dispose()
+            {
+                PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
+                PlayerSettings.WebGL.decompressionFallback = previousDecompressionFallback;
+                PlayerSettings.WebGL.threadsSupport = previousThreadsSupport;
+            }
+        }
     }
 }
