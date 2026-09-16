@@ -241,7 +241,7 @@ def execute_suite(
     result_path = output / f"{sample['name']}.result.json"
     resource_path = output / f"{sample['name']}.resources.txt"
     command = [
-        "/usr/bin/time", "-lp", "-o", str(resource_path), str(binary),
+        "/usr/bin/time", "-lp", "-o", str(resource_path), str(binary), "ditto",
         "--config", sample["config"], "run", "--profile", "macos",
     ]
     if no_build:

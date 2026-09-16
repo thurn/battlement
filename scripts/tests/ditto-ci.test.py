@@ -32,6 +32,7 @@ import time
 import tomllib
 
 arguments = sys.argv[1:]
+assert arguments[0] == "ditto", arguments
 if "storage" in arguments:
     with Path(os.environ["FAKE_PUBLISH_LOG"]).open("a") as output:
         output.write(arguments[arguments.index("--config") + 1] + "\n")

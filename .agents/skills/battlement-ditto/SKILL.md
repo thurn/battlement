@@ -16,7 +16,7 @@ utmost priority issue.
 # Native scenario checks
 
 Run from the worktree root using
-`cargo run --quiet -p battlement-ditto -- --config samples/<sample>/ditto.toml <command>`.
+`cargo run --quiet -p rt -- ditto --config samples/<sample>/ditto.toml <command>`.
 Below, commands follow that prefix. Read the suite for profile names, aliases,
 and existing steps; the parser lives in `crates/battlement-ditto/src/cli.rs`.
 
@@ -52,13 +52,8 @@ For intentional baseline changes, run the selected scenarios with `--update`,
 inspect the `ditto.lock` diff for unrelated changes, then rerun without updating.
 R2 mutation credentials are at `~/.config/battlement/r2.env`; never print them.
 
-For CI reproduction, build the runner with `cargo build -p battlement-ditto`
-and prepare the selected native player with its `build --profile macos` command
-using `DITTO_CACHE_ROOT="${DITTO_CI_CACHE_ROOT:-$HOME/Library/Caches/Battlement/ditto-ci}"`.
-Then use `python3 scripts/ditto_ci.py sample <sample> '<scenario>'`.
-The wrapper requires the exact cached player and `target/debug/ditto`; set
-`DITTO_CI_BINARY` explicitly if the current runner was built elsewhere.
-For an exact retained run use `python3 scripts/ditto_ci.py replay <replay.json>`.
+For an exact retained CI run use
+`python3 scripts/ditto_ci.py replay <replay.json>`.
 The replay record pins player/tool inputs; missing retained inputs are not
 permission to silently rebuild and call it a replay. See `battlement-ci` for
 failure diagnosis. Web interaction is reserved for web-specific validation.

@@ -12,6 +12,7 @@ battlement = { path = "../battlement" }
 battlement-fake = { path = "../battlement-fake" }
 battlement-native = { path = "../battlement-native" }
 exported-worker-fixture = { package = "battlement-native-export-fixture", path = "../battlement-native/tests/fixtures/exported-engine" }
+reactant-rules.workspace = true
 
 [dev-dependencies]
 reactant-core.workspace = true

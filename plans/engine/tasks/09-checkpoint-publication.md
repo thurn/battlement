@@ -17,7 +17,10 @@ map](../source-map.md) · [Validation](../validation.md)
 time](08-public-display-driver.md) is integrated.
 
 **Starting code:** reactant-rules contexts/worker connection from tasks 02-03;
-public display driver.
+public display driver. The public `RulesRun` consumer executes `Game::execute`
+on the shared worker boundary; `PublicationDisplay` drives publication and
+lifecycle observations without advancing host time or frames. Its scenarios
+live in `crates/reactant-testing/tests/publications.rs`.
 
 ## Example
 

@@ -172,6 +172,7 @@ def pin_tool(path: Path, cache: Path) -> dict[str, str]:
 def record(
     repository: Path, binary: Path, cache: Path, sample: str,
     scenarios: list[str], environment: dict[str, str],
+    *, runner_arguments: list[str] | None = None,
 ) -> dict:
     """Capture the effective CI configuration without recording credentials."""
     config = Path(f"samples/{sample}/ditto.toml")
@@ -188,6 +189,7 @@ def record(
             tools[key] = pin_tool(Path(value), cache)
     return {
         "sample": sample, "profile": "macos", "scenarios": scenarios,
+        "runner_arguments": list(runner_arguments or []),
         "comparison_scenarios": comparison_scenarios,
         "config": str(config),
         "files": {str(path): digest(repository / path) for path in (config, lock)
@@ -247,7 +249,8 @@ def prepare(recipe_path: Path, repository: Path, scenarios: list[str]) -> tuple[
     if requires_comparison and "DITTO_ODIFF_PATH" not in recipe["tools"]:
         raise RuntimeError("The original run did not record an available ODiff dependency.")
     environment["DITTO_REPLAY_BUILD_FINGERPRINT"] = build["fingerprint"]
-    arguments = [recipe["tools"]["runner"]["path"], "--config", recipe["config"],
+    arguments = [recipe["tools"]["runner"]["path"], *recipe.get("runner_arguments", []),
+                 "--config", recipe["config"],
                  "run", "--profile", recipe["profile"], "--no-build", "--json"]
     return recipe, [*arguments, *selection], environment
 

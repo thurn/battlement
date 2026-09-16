@@ -164,7 +164,7 @@ def watch_sample(
     output.mkdir(parents=True, exist_ok=True)
     stderr_path = output / f"{sample['name']}.stderr.log"
     command = [
-        str(binary), "--config", sample["config"], "run", "--profile", "macos",
+        str(binary), "ditto", "--config", sample["config"], "run", "--profile", "macos",
         "--no-build", "--json", "--watch",
         *[scenario["name"] for scenario in sample["scenarios"]],
     ]

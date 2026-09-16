@@ -2382,6 +2382,7 @@ dependencies = [
  "battlement-native",
  "battlement-native-export-fixture",
  "reactant-core",
+ "reactant-rules",
  "trox",
 ]
 

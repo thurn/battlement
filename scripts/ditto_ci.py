@@ -38,7 +38,7 @@ CACHE_ROOT = Path(
     )
 )
 DITTO = Path(
-    os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
+    os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/rt")
 )
 GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "120"))
 SAMPLE_TIMEOUT_SECONDS = float(os.environ.get("DITTO_CI_SAMPLE_TIMEOUT_SECONDS", "180"))
@@ -247,7 +247,7 @@ def execute_sample(
     )
     expected = [scenario["name"] for scenario in suite["scenarios"]]
     arguments = [
-        str(DITTO), "--config", f"samples/{sample}/ditto.toml", "run",
+        str(DITTO), "ditto", "--config", f"samples/{sample}/ditto.toml", "run",
         "--profile", "macos", "--json", "--output", str(result_path),
     ]
     if preparation:
@@ -260,7 +260,8 @@ def execute_sample(
         arguments.extend(expected)
     environment = ditto_environment(cache_root)
     recipe = ditto_replay.record(
-        REPOSITORY_ROOT, DITTO, cache_root, sample, expected, environment
+        REPOSITORY_ROOT, DITTO, cache_root, sample, expected, environment,
+        runner_arguments=["ditto"],
     )
     ditto_replay.save(recipe, output / "replay.json")
     timeout_error = None
@@ -430,7 +431,7 @@ def prepare(mode: str, prepared: Path | None) -> None:
         cache_root.mkdir(parents=True, exist_ok=False)
         cache_root = cache_root.resolve()
         fingerprints = {}
-        command(["cargo", "build", "--release", "-p", "battlement-ditto"])
+        command(["cargo", "build", "-p", "rt"])
     else:
         if prepared is None:
             raise RuntimeError("warm preparation requires --prepared <cold-report>")
@@ -516,7 +517,7 @@ def publish() -> None:
         return
     for sample in SAMPLES:
         command([
-            str(DITTO), "--config", f"samples/{sample}/ditto.toml",
+            str(DITTO), "ditto", "--config", f"samples/{sample}/ditto.toml",
             "storage", "publish",
         ])
 

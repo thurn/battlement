@@ -7,7 +7,9 @@
 #![warn(missing_docs)]
 
 mod display;
+mod publications;
 mod worker;
 
 pub use display::Display;
+pub use publications::PublicationDisplay;
 pub use worker::{WorkerDisplay, WorkerDisplayBuilder, WorkerWaitError};

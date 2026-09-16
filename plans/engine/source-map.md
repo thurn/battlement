@@ -45,6 +45,7 @@ These are starting points, not instructions to load whole directories.
 | World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [presentation.rs](../../crates/battlement-fake/src/presentation.rs), [operation.rs](../../crates/battlement-fake/src/operation.rs), [interpolation.rs](../../crates/battlement-fake/src/interpolation.rs), [effects.rs](../../crates/battlement-fake/src/effects.rs) |
 | Binary response fake | [response_reader.rs](../../crates/battlement-fake/src/response_reader.rs) |
 | UI fake | [lib.rs](../../crates/battlement-ui-fake/src/lib.rs) |
+| Rules publication and worker consumer | [connection.rs](../../crates/reactant-rules/src/connection.rs), [publication.rs](../../crates/reactant-rules/src/publication.rs), [run.rs](../../crates/reactant-rules/src/run.rs), [public publication driver](../../crates/reactant-testing/src/publications.rs) |
 | Public display driver and worker barriers | [display.rs](../../crates/reactant-testing/src/display.rs), [worker.rs](../../crates/reactant-testing/src/worker.rs), [exported worker fixture](../../crates/battlement-native/tests/fixtures/exported-engine/src/lib.rs) |
 | Reactant project-tool composition | [command.rs](../../crates/rt/src/command.rs), [project.rs](../../crates/rt/src/project.rs), [repository recipes](../../justfile) |
 | Reactant project CLI and resolution | [command.rs](../../crates/rt/src/command.rs), [project.rs](../../crates/rt/src/project.rs), [assets.rs](../../crates/rt/src/assets.rs), [ditto.rs](../../crates/rt/src/ditto.rs), [plugin.rs](../../crates/rt/src/plugin.rs), [addressables.rs](../../crates/rt/src/addressables.rs) |
@@ -60,8 +61,8 @@ These are starting points, not instructions to load whole directories.
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
 Reusable project mechanics are Battlement-owned. `rt` resolves Reactant project
-metadata and composes asset preparation with those mechanics. The legacy CLI and
-Ditto adapter remain until their task 07 cutover leaf.
+metadata and composes asset preparation with those mechanics. The generic Ditto
+library remains independent of Reactant.
 
 ## Planned additions
 

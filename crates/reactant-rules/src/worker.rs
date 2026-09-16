@@ -118,7 +118,7 @@ impl WorkerSlot {
     id
   }
 
-  fn close(&self) {
+  pub(crate) fn close(&self) {
     let mut state = self::lock(&self.shared.state);
     state.closed = true;
     if let Some(active) = &state.active {
@@ -165,6 +165,7 @@ impl WorkerObserver {
 }
 
 impl WorkerConnection {
+  #[cfg(any(test, feature = "platform-proof"))]
   pub(crate) fn wait_until_cancelled(&self) -> ! {
     let mut cancelled = self::lock(&self.shared.cancelled);
     while !*cancelled {
@@ -260,7 +261,7 @@ fn cancel(connection: &ConnectionShared) {
   connection.changed.notify_all();
 }
 
-fn unwind_cancelled() -> ! {
+pub(crate) fn unwind_cancelled() -> ! {
   panic::resume_unwind(Box::new(Cancellation));
 }
 
@@ -278,6 +279,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+#[cfg(any(test, feature = "platform-proof"))]
 fn wait<'a, T>(condition: &Condvar, guard: MutexGuard<'a, T>) -> MutexGuard<'a, T> {
   condition
     .wait(guard)

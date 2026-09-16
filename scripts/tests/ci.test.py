@@ -327,6 +327,7 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
         ci.run_ditto_validation(2.5, leases, "retained-invocation")
     assert leases.checked
     assert steps[0][1]["DITTO_CI_CACHE_ROOT"] == str(leases.cache_root)
+    assert steps[0][1]["DITTO_CI_BINARY"] == str(leases.binary)
     assert steps[0][1]["DITTO_CI_INVOCATION_ID"] == "retained-invocation"
 
 

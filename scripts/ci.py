@@ -849,9 +849,13 @@ def build_standalone_samples(
     if platform.system() == "Darwin":
         started = time.monotonic()
         with ci_steps.span("Prepare standalone sample builder"):
+            environment = cargo_environment(None)
+            if ditto_builds is not None:
+                ditto_builds.binary = Path(environment["CARGO_TARGET_DIR"]) / "debug" / "rt"
             subprocess.run(
                 ["cargo", "build", "-p", "rt"],
                 cwd=REPOSITORY_ROOT,
+                env=environment,
                 check=True,
             )
         ditto_preparation_seconds = time.monotonic() - started
@@ -887,6 +891,7 @@ def run_ditto_validation(
     if ditto_builds is not None:
         ditto_builds.assert_healthy()
         environment["DITTO_CI_CACHE_ROOT"] = str(ditto_builds.cache_root)
+        environment["DITTO_CI_BINARY"] = str(ditto_builds.binary)
     command = [sys.executable, "scripts/ditto_ci.py", "gate"]
     if explicit_samples:
         for sample in samples:
@@ -965,6 +970,7 @@ def run_reactant_asset_fast_lane() -> None:
             "--portion",
             "cli/browser",
         ],
+        environment=cargo_environment(None),
     )
 
 
