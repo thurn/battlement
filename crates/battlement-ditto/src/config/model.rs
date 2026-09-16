@@ -30,6 +30,7 @@ pub struct Performance {
 /// Resolved Unity player inputs.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Player {
+  pub reactant: bool,
   pub unity_project: PathBuf,
   pub scene: PathBuf,
   pub rust_manifest: PathBuf,

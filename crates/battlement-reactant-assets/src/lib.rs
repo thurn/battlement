@@ -203,9 +203,7 @@ fn run_inner(
         println!("browser not started");
       }
       if !diagnostics.is_clean() {
-        bail!(
-          "generated Reactant assets are stale; run `cargo battlement reactant assets generate`"
-        );
+        bail!("generated Reactant assets are stale; run `rt assets generate`");
       }
       index.refresh_outputs(&project, report)?;
       return Ok(());
@@ -371,7 +369,7 @@ fn check_empty_output(project: &Path, report: &mut WorkReport) -> Result<()> {
   let metadata = project.join(GENERATED_ROOT_META);
   report.stat_calls += 2;
   if root.exists() || metadata.exists() {
-    bail!("generated Reactant assets are stale; run `cargo battlement reactant assets generate`");
+    bail!("generated Reactant assets are stale; run `rt assets generate`");
   }
   Ok(())
 }

@@ -57,6 +57,7 @@ pub(super) fn suite(
     ));
   }
   let player = Player {
+    reactant: raw.player.reactant,
     unity_project: player_path(
       &source_path,
       &source,

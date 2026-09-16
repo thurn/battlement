@@ -2486,6 +2486,7 @@ name = "rt"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "battlement-ditto",
  "battlement-reactant-assets",
  "battlement-tooling",
  "clap",

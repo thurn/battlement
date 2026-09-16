@@ -203,6 +203,7 @@ fn test_suite(repository: &std::path::Path, name: &str) -> crate::config::model:
     name: name.to_owned(),
     default_profile: "macos-local".to_owned(),
     player: Player {
+      reactant: false,
       unity_project: repository.to_owned(),
       scene: repository.join("Game.unity"),
       rust_manifest: repository.join("Cargo.toml"),

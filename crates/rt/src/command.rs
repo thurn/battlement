@@ -1,4 +1,5 @@
 use std::{
+  ffi::OsString,
   path::PathBuf,
   sync::atomic::{AtomicBool, Ordering},
 };
@@ -13,7 +14,7 @@ use crate::project::Overrides;
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Parser)]
-#[command(name = "rt", version, about = "Build and run Reactant applications")]
+#[command(name = "rt", version, about = "Reactant project tooling")]
 struct Cli {
   #[command(subcommand)]
   command: Command,
@@ -27,6 +28,25 @@ enum Command {
   Run(RunArgs),
   /// Prepare a Reactant application and open it in Unity Play mode.
   Author(AuthorArgs),
+  /// Discover, generate, check, or preview Reactant assets.
+  Assets(crate::assets::Args),
+  /// Generate or check typed Addressables constants.
+  Addressables(crate::addressables::Args),
+  /// Inspect, install, restore, or verify a native plugin.
+  Plugin(crate::plugin::Args),
+  /// Run Battlement Ditto with an explicit suite configuration.
+  #[command(disable_help_flag = true)]
+  Ditto(DittoArgs),
+}
+
+#[derive(Debug, Args)]
+struct DittoArgs {
+  /// Explicit ditto.toml suite file.
+  #[arg(long)]
+  config: Option<PathBuf>,
+  /// Arguments passed through to Ditto.
+  #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+  arguments: Vec<OsString>,
 }
 
 #[derive(Debug, Args)]
@@ -80,13 +100,17 @@ struct AuthorArgs {
 
 /// Runs the `rt` process and reports failures to the terminal.
 pub fn main() {
-  if let Err(error) = self::run() {
-    eprintln!("error: {error:#}");
-    std::process::exit(1);
+  match self::run() {
+    Ok(0) => {}
+    Ok(code) => std::process::exit(code.into()),
+    Err(error) => {
+      eprintln!("error: {error:#}");
+      std::process::exit(1);
+    }
   }
 }
 
-fn run() -> Result<()> {
+fn run() -> Result<u8> {
   INTERRUPTED.store(false, Ordering::SeqCst);
   ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::SeqCst))
     .map_err(|error| anyhow::anyhow!("failed to install interrupt handler: {error}"))?;
@@ -111,8 +135,14 @@ fn run() -> Result<()> {
         prepare_assets,
       )?;
     }
+    Command::Assets(args) => crate::assets::run(args)?,
+    Command::Addressables(args) => crate::addressables::run(args)?,
+    Command::Plugin(args) => crate::plugin::run(args)?,
+    Command::Ditto(args) => {
+      return crate::ditto::run(args.config, args.arguments, &INTERRUPTED);
+    }
   }
-  Ok(())
+  Ok(0)
 }
 
 fn resolve_build(
@@ -138,7 +168,7 @@ fn resolve_project(args: ProjectArgs) -> Result<battlement_tooling::application:
   )
 }
 
-fn prepare_assets(project: &std::path::Path, manifest: &std::path::Path) -> Result<()> {
+pub(crate) fn prepare_assets(project: &std::path::Path, manifest: &std::path::Path) -> Result<()> {
   battlement_reactant_assets::run_quiet(
     AssetCommand::Generate,
     &CommandOptions {
@@ -163,12 +193,44 @@ mod tests {
       .get_subcommands()
       .map(|command| command.get_name())
       .collect::<Vec<_>>();
-    assert_eq!(names, ["build", "run", "author"]);
+    assert_eq!(
+      names,
+      [
+        "build",
+        "run",
+        "author",
+        "assets",
+        "addressables",
+        "plugin",
+        "ditto"
+      ]
+    );
+    assert!(!names.contains(&"sample"));
+    assert!(!names.contains(&"reactant"));
   }
 
   #[test]
   fn web_port_requires_web_mode() {
     assert!(Cli::try_parse_from(["rt", "run", "--port", "9000"]).is_err());
     assert!(Cli::try_parse_from(["rt", "run", "--web", "--port", "9000"]).is_ok());
+  }
+
+  #[test]
+  fn support_commands_use_explicit_project_or_artifact_inputs() {
+    assert!(Cli::try_parse_from(["rt", "assets", "check", "--project", "project"]).is_ok());
+    assert!(Cli::try_parse_from(["rt", "addressables", "check"]).is_err());
+    assert!(Cli::try_parse_from(["rt", "addressables", "check", "--project", "project"]).is_ok());
+    assert!(Cli::try_parse_from(["rt", "plugin", "inspect", "Game.app"]).is_ok());
+    assert!(
+      Cli::try_parse_from([
+        "rt",
+        "ditto",
+        "--config",
+        "project/ditto.toml",
+        "run",
+        "smoke"
+      ])
+      .is_ok()
+    );
   }
 }

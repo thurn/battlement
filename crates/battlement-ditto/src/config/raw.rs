@@ -41,6 +41,8 @@ pub(super) struct RawFragment {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RawPlayer {
+  #[serde(default)]
+  pub reactant: bool,
   pub unity_project: PathBuf,
   pub scene: PathBuf,
   pub rust_manifest: PathBuf,

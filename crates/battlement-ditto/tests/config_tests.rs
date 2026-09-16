@@ -10,6 +10,7 @@ fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
   let fixture = Fixture::new(FULL_SUITE);
   let suite = fixture.load().unwrap();
   assert_eq!(suite.name, "complete");
+  assert!(!suite.player.reactant);
   assert_eq!(suite.timeouts.run.as_millis(), 60_000);
   assert_eq!(suite.timeouts.build.as_millis(), 900_000);
   assert_eq!(suite.defaults.step_timeout.as_millis(), 750);
@@ -44,6 +45,12 @@ fn complete_suite_applies_member_defaults_and_preserves_exact_decimals() {
   };
   assert_eq!(screenshot.comparison.threshold.as_str(), "0.05");
   assert_eq!(screenshot.comparison.max_changed_percent.as_str(), "0");
+}
+
+#[test]
+fn player_explicitly_declares_reactant_ownership() {
+  let fixture = Fixture::new(&MINIMAL_SUITE.replace("[player]", "[player]\nreactant = true"));
+  assert!(fixture.load().unwrap().player.reactant);
 }
 
 #[test]
