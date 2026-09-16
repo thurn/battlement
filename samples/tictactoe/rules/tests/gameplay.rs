@@ -92,7 +92,7 @@ fn board_hits_create_player_marks_in_row_major_cells() {
 
 #[test]
 fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
-  let (mut client, clock) = self::client(7);
+  let (mut client, _) = self::client(7);
   let before_player = client.checkpoint();
 
   self::click_cell(&mut client, 4);
@@ -102,13 +102,13 @@ fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
   client.assert_text(STATUS_ID, "Computer thinking…");
   assert!(!client.world().input_enabled());
 
-  clock.advance(Duration::from_millis(99));
+  client.advance_time(Duration::from_millis(99));
   client.poll();
   assert_eq!(self::marker_ids(&client), vec![player_marker]);
   client.assert_text(STATUS_ID, "Computer thinking…");
 
   let before_ai = client.checkpoint();
-  clock.advance(Duration::from_millis(1));
+  client.advance_time(Duration::from_millis(1));
   client.poll();
   let ai_marker = client.assert_one_object_created_since(before_ai);
   self::assert_mark(&client, ai_marker, O_TEXTURE);

@@ -8,7 +8,14 @@ use battlement::{
   UiVisualElementProperties, Validate,
 };
 
-use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
+use crate::{
+  assets,
+  client::FakeClient,
+  effects::{AudioOccurrence, ParticleOccurrence},
+  journal::ExecutedCommand,
+  operation::ScheduledOperation,
+  presentation, tween, world,
+};
 
 impl<E> FakeClient<E>
 where
@@ -45,11 +52,44 @@ where
     command
       .validate()
       .unwrap_or_else(|error| panic!("command {} validation failed: {error}", command.command_id));
-    self.execute_body(&command.body, command.command_id);
+    if let CommandBody::OperationCancel(value) = &command.body {
+      self.cancel_operation(value.command_id);
+    } else {
+      if let Some(key) = presentation::command_key(&command.body) {
+        self.cancel_conflicts(key, presentation::conflict_policy(&command.body));
+      }
+      if let Some(operation) =
+        ScheduledOperation::from_command(&command, batch_id, self.presentation_ms, &self.world)
+      {
+        self.schedule_operation(operation);
+      } else {
+        self.execute_body(&command.body, command.command_id);
+      }
+    }
+    self.record_occurrence(&command);
     self.reconcile_ui_interactions(&command.body);
     self.record_executed(command, batch_id, group_index, command_index);
     self.reconcile_device_state();
     true
+  }
+
+  fn record_occurrence(&mut self, command: &Command) {
+    match &command.body {
+      CommandBody::AudioPlay(value) => self.audio_occurrences.push(AudioOccurrence {
+        command_id: command.command_id,
+        address: value.address.clone(),
+        volume: value.volume,
+        pitch: value.pitch,
+        looping: value.r#loop,
+      }),
+      CommandBody::ParticleSpawn(value) => self.particle_occurrences.push(ParticleOccurrence {
+        command_id: command.command_id,
+        address: value.address.clone(),
+        location: value.location,
+        lifetime_ms: value.lifetime_ms,
+      }),
+      _ => {}
+    }
   }
 
   fn record_executed(

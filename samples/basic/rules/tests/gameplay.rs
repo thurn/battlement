@@ -109,6 +109,7 @@ fn clicking_a_cube_moves_it_and_updates_visible_status() {
   let mut client = self::client();
 
   client.click(CUBE_IDS[2]);
+  client.settle();
 
   self::assert_status_contains(&client, VisualState::ClickPlaced.registry_key());
   client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 2.0), 1e-9);
@@ -116,6 +117,7 @@ fn clicking_a_cube_moves_it_and_updates_visible_status() {
   self::assert_status_contains(&client, "500 ms move tween");
 
   client.click(CUBE_IDS[2]);
+  client.settle();
 
   self::assert_status_contains(&client, VisualState::ClickRestored.registry_key());
   client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 0.0), 1e-9);

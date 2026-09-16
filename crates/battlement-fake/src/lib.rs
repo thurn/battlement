@@ -1,14 +1,16 @@
 //! An in-memory Battlement client for fast rules-engine tests.
 //!
 //! The fake applies validated protocol snapshots and commands synchronously,
-//! exposing the resulting world and an execution journal without Unity,
-//! wall-clock time, or background work. Requests and responses cross the same
-//! verified FlatBuffer boundary as a native client.
+//! exposing the resulting world and an execution journal without Unity or
+//! wall-clock time. Presentation time advances only through explicit controls.
+//! Requests and responses cross the same verified FlatBuffer boundary as a
+//! native client.
 
 #![warn(missing_docs)]
 
 pub mod assets;
 pub mod client;
+pub mod effects;
 pub mod journal;
 mod response_command;
 mod response_motion_descriptor_reader;
@@ -24,6 +26,9 @@ pub use response_reader::read as read_response;
 
 mod assertions;
 mod executor;
+mod interpolation;
+mod operation;
+mod presentation;
 mod transform;
 mod tween;
 mod world_validation;

@@ -42,7 +42,7 @@ These are starting points, not instructions to load whole directories.
 | Unity command operations | [BattlementOperations.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementOperations.cs) |
 | Unity world and tween execution | [BattlementWorld.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementWorld.cs), [BattlementTweenAdapter.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementTweenAdapter.cs) |
 | Unity UI Motion | [BattlementMotionTimeline.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionTimeline.cs), [BattlementMotionWorld.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionWorld.cs) |
-| World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [tween.rs](../../crates/battlement-fake/src/tween.rs) |
+| World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [presentation.rs](../../crates/battlement-fake/src/presentation.rs), [operation.rs](../../crates/battlement-fake/src/operation.rs), [interpolation.rs](../../crates/battlement-fake/src/interpolation.rs), [effects.rs](../../crates/battlement-fake/src/effects.rs) |
 | Binary response fake | [response_reader.rs](../../crates/battlement-fake/src/response_reader.rs) |
 | UI fake | [lib.rs](../../crates/battlement-ui-fake/src/lib.rs) |
 | Reactant project-tool composition | [command.rs](../../crates/rt/src/command.rs), [project.rs](../../crates/rt/src/project.rs), [repository recipes](../../justfile) |

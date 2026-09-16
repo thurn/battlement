@@ -3,6 +3,7 @@
 use std::{
   collections::{HashMap, HashSet},
   sync::Arc,
+  time::Duration,
 };
 
 use battlement::{
@@ -25,7 +26,10 @@ use crate::{
     MinMaxSliderInteraction, ScrollInteraction, ScrollerInteraction, SliderIntInteraction,
     TextFieldInteraction, UiClient,
   },
+  effects::{AudioOccurrence, ParticleOccurrence},
   journal::{CommandCheckpoint, ExecutedCommand},
+  operation::ScheduledOperation,
+  presentation::ScheduledBatch,
   time::ManualClock,
   world::FakeWorld,
 };
@@ -79,6 +83,12 @@ where
   pub(crate) geometry_registry: GeometryRegistry,
   pub(crate) admitted_batches: HashSet<BatchId>,
   pub(crate) executed_commands: HashSet<CommandId>,
+  pub(crate) scheduled_batches: Vec<ScheduledBatch>,
+  pub(crate) operations: Vec<ScheduledOperation>,
+  pub(crate) presentation_ms: u64,
+  frame: u64,
+  pub(crate) audio_occurrences: Vec<AudioOccurrence>,
+  pub(crate) particle_occurrences: Vec<ParticleOccurrence>,
   pub(crate) next_action_number: u128,
   hovered: Option<PointerState>,
   pressed: Option<PressedPointer>,
@@ -208,6 +218,12 @@ where
       geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
       executed_commands: HashSet::new(),
+      scheduled_batches: Vec::new(),
+      operations: Vec::new(),
+      presentation_ms: 0,
+      frame: 0,
+      audio_occurrences: Vec::new(),
+      particle_occurrences: Vec::new(),
       next_action_number: 1,
       hovered: None,
       pressed: None,
@@ -254,6 +270,11 @@ where
     self.geometry_registry = GeometryRegistry::default();
     self.admitted_batches.clear();
     self.executed_commands.clear();
+    self.reset_presentation();
+    self.presentation_ms = 0;
+    self.frame = 0;
+    self.audio_occurrences.clear();
+    self.particle_occurrences.clear();
     self.next_action_number = 1;
     self.clear_device_state();
     self.scroll_interactions.clear();
@@ -287,6 +308,66 @@ where
     if let Some(response) = response {
       self.apply_response_bytes(response, ResponseMode::Existing);
     }
+  }
+
+  /// Advances virtual rules and presentation time without inventing a rendered frame.
+  pub fn advance_time(&mut self, duration: Duration) {
+    let milliseconds = u64::try_from(duration.as_millis())
+      .expect("fake presentation time exceeds the supported range");
+    assert_eq!(
+      Duration::from_millis(milliseconds),
+      duration,
+      "fake presentation time advances in whole milliseconds"
+    );
+    if let Some(clock) = &self.clock {
+      clock.advance(duration);
+    }
+    let target = self
+      .presentation_ms
+      .checked_add(milliseconds)
+      .expect("fake presentation time overflowed");
+    self.advance_presentation_to(target);
+  }
+
+  /// Records one rendered-frame boundary without advancing virtual time.
+  pub fn advance_frame(&mut self) {
+    self.frame = self
+      .frame
+      .checked_add(1)
+      .expect("fake frame count overflowed");
+    self.pump_presentation();
+  }
+
+  /// Advances through all finite presentation work and leaves infinite work active.
+  pub fn settle(&mut self) {
+    self.pump_presentation();
+    while let Some(deadline) = self.next_deadline() {
+      self.advance_presentation_to(deadline);
+    }
+  }
+
+  /// Returns elapsed fake presentation time.
+  #[must_use]
+  pub fn presentation_time(&self) -> Duration {
+    Duration::from_millis(self.presentation_ms)
+  }
+
+  /// Returns the number of explicitly advanced rendered frames.
+  #[must_use]
+  pub fn frame(&self) -> u64 {
+    self.frame
+  }
+
+  /// Returns audio play occurrences in execution order.
+  #[must_use]
+  pub fn audio_occurrences(&self) -> &[AudioOccurrence] {
+    &self.audio_occurrences
+  }
+
+  /// Returns temporary particle-effect occurrences in execution order.
+  #[must_use]
+  pub fn particle_occurrences(&self) -> &[ParticleOccurrence] {
+    &self.particle_occurrences
   }
 
   /// Returns a facade for UI state inspection and synthetic gestures.
@@ -802,6 +883,7 @@ where
               snapshot.session_id
             )
           });
+          self.reset_presentation();
           self
             .ui_world
             .replace(snapshot.ui.clone())
@@ -847,13 +929,7 @@ where
       );
     }
     self.admitted_batches.insert(batch.batch_id);
-    for (group_index, group) in batch.groups.into_iter().enumerate() {
-      for (command_index, command) in group.commands.into_iter().enumerate() {
-        if !self.execute_command(command, batch.batch_id, group_index, command_index) {
-          return;
-        }
-      }
-    }
+    self.schedule_batch(batch);
   }
 
   pub(crate) fn submit_action(&mut self, body: ActionBody) {

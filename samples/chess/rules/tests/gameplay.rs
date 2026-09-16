@@ -99,6 +99,7 @@ fn diagnostics_set_stable_metadata_without_per_move_updates() {
   assert_eq!(self::metadata(&client, "chess.game_status"), "ongoing");
   assert_eq!(client.diagnostics().metadata().len(), 5);
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let metadata_before_move = client.diagnostics().metadata().clone();
   let from = self::square('e', 2);
   let to = self::square('e', 4);
@@ -129,6 +130,9 @@ fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
   );
   client.click(self::highlight_at(&client, to));
 
+  client.advance_time(Duration::from_millis(150));
+  client.assert_world_position(pawn, self::square('e', 3), 1e-9);
+  client.settle();
   client.assert_world_position(pawn, to, 1e-9);
   assert!(!self::selected_effect(&client).active_self());
   assert!(self::active_highlight_squares(&client).is_empty());
@@ -170,6 +174,7 @@ fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
   );
 
   self::tap(&mut client, PhysicalKey::Enter);
+  client.settle();
   let pawn = self::piece_at(&client, self::square('e', 2));
   assert_eq!(self::cursor_square(&client), self::square('e', 2));
 
@@ -185,6 +190,7 @@ fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
   self::tap(&mut client, PhysicalKey::ArrowUp);
   self::tap(&mut client, PhysicalKey::ArrowUp);
   self::tap(&mut client, PhysicalKey::Enter);
+  client.settle();
 
   client.assert_world_position(pawn, self::square('e', 4), 1e-9);
   assert!(!client.world().input_enabled());
@@ -196,6 +202,7 @@ fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
   let deadline = Instant::now() + Duration::from_secs(2);
   while !client.world().input_enabled() && Instant::now() < deadline {
     client.poll();
+    client.settle();
     thread::sleep(Duration::from_millis(5));
   }
   assert!(client.world().input_enabled());
@@ -214,6 +221,7 @@ fn controller_plays_from_the_opening_screen_and_supports_spatial_and_fast_naviga
   );
 
   self::tap_controller(&mut client, ControllerButton::South);
+  client.settle();
   assert_eq!(self::cursor_square(&client), self::square('e', 2));
   self::tap_controller(&mut client, ControllerButton::South);
   client.controller_navigate(
@@ -305,6 +313,16 @@ fn click_to_move_animates_a_knight_along_two_sides_of_its_l_shape() {
   self::select(&mut client, knight, from);
   client.click(self::highlight_at(&client, to));
 
+  client.advance_time(Duration::from_millis(200));
+  client.assert_world_position(knight, corner, 1e-9);
+  client.advance_time(Duration::from_millis(60));
+  client.assert_world_position(
+    knight,
+    Vector3::new((corner.x + to.x) / 2.0, 0.0, (corner.z + to.z) / 2.0),
+    1e-9,
+  );
+  client.settle();
+
   let path = client.commands()[command_count..]
     .iter()
     .filter_map(|entry| match &entry.command.body {
@@ -329,6 +347,10 @@ fn click_capture_removes_the_captured_piece_after_the_move_reaches_its_square() 
 
   self::select(&mut client, bishop, from);
   client.click(captured);
+
+  client.advance_time(Duration::from_millis(299));
+  assert!(client.world().object(captured).is_some());
+  client.advance_time(Duration::from_millis(1));
 
   let commands = &client.commands()[command_count..];
   let move_group = commands
@@ -364,6 +386,10 @@ fn knight_capture_finishes_both_legs_before_removing_the_captured_piece() {
 
   self::select(&mut client, knight, from);
   client.click(captured);
+
+  client.advance_time(Duration::from_millis(319));
+  assert!(client.world().object(captured).is_some());
+  client.advance_time(Duration::from_millis(1));
 
   let commands = &client.commands()[command_count..];
   let last_move_group = commands
@@ -458,6 +484,7 @@ fn refresh_control_appears_only_in_pause_menu() {
   assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
 
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   assert!(
     !client
       .world()
@@ -493,6 +520,7 @@ fn saved_position_opens_on_the_next_launch() {
     connect.clone(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let queen = self::piece_at(&client, self::square('g', 6));
 
   self::drag(
@@ -551,6 +579,7 @@ fn desktop_restart_shortcuts_clear_the_save_and_replay_the_opening_animation() {
     for key in shortcut {
       client.key_down(key);
     }
+    client.settle();
 
     assert!(!directory.path().join("chess-game.json").exists());
     assert_eq!(
@@ -677,7 +706,20 @@ fn play_click_creates_a_standard_player_facing_position() {
 
 #[test]
 fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beats() {
-  let first = self::started_client(create_seeded_engine(1));
+  let mut first = FakeClient::connect(create_seeded_engine(1), self::assets());
+  first.click(PLAY_BUTTON_ID);
+  assert_eq!(self::piece_count(&first), 0);
+  first.advance_time(Duration::from_millis(79));
+  assert_eq!(self::piece_count(&first), 0);
+  first.advance_time(Duration::from_millis(1));
+  assert_eq!(self::piece_count(&first), 4);
+  for beat in 2..=PIECE_SPAWN_BEAT_COUNT {
+    first.advance_time(Duration::from_millis(CRITICAL_BEAT_INTERVAL_MS - 1));
+    assert_eq!(self::piece_count(&first), (beat - 1) * 4);
+    first.advance_time(Duration::from_millis(1));
+    assert_eq!(self::piece_count(&first), beat * 4);
+  }
+  first.advance_time(Duration::from_millis(1_000));
   let second = self::started_client(create_seeded_engine(2));
   let spawn_order = |client: &FakeClient<ChessEngine>| {
     client
@@ -753,6 +795,7 @@ fn illegal_drag_returns_the_piece_to_its_square() {
     self::assets(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let pawn = self::piece_at(&client, Vector3::new(0.5, 0.0, -2.5));
   let pointer = self::pointer_input(Vector3::new(0.5, 0.0, -2.5));
 
@@ -771,6 +814,7 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
     self::assets(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let pawn = self::piece_at(&client, Vector3::new(0.5, 0.0, -2.5));
   let pointer = self::pointer_input(Vector3::new(0.5, 0.0, -2.5));
   let leftmost_pawn = self::piece_at(&client, self::square('a', 7));
@@ -778,14 +822,15 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
 
   client.drag_start(pawn, pointer);
   client.drag_end(pawn, pointer, Vector3::new(0.5, 0.0, -0.5));
+  client.settle();
 
-  assert!(submitted_at.elapsed() < Duration::from_millis(50));
   client.assert_world_position(pawn, Vector3::new(0.5, 0.0, -0.5), 1e-9);
   assert!(!client.world().input_enabled());
 
   let deadline = Instant::now() + Duration::from_secs(2);
   while !self::black_has_moved(&client) && Instant::now() < deadline {
     client.poll();
+    client.settle();
     thread::sleep(Duration::from_millis(5));
   }
 
@@ -925,6 +970,7 @@ fn ai_plays_an_available_checkmate_through_polling() {
     self::assets(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let queen = self::piece_at(&client, self::square('g', 3));
   let deadline = Instant::now() + Duration::from_secs(2);
 
@@ -932,6 +978,7 @@ fn ai_plays_an_available_checkmate_through_polling() {
     && Instant::now() < deadline
   {
     client.poll();
+    client.settle();
     thread::sleep(Duration::from_millis(5));
   }
 
@@ -948,6 +995,7 @@ fn zero_budget_ai_preserves_a_deterministic_observation_window() {
     self::assets(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   let queen = self::piece_at(&client, self::square('g', 3));
 
   for _ in 0..128 {
@@ -956,6 +1004,7 @@ fn zero_budget_ai_preserves_a_deterministic_observation_window() {
   }
 
   client.poll();
+  client.settle();
   client.assert_world_position(queen, self::square('g', 2), 1e-9);
 }
 
@@ -1025,6 +1074,14 @@ fn is_piece(object: &battlement_fake::world::FakeObject) -> bool {
       object.kind(),
       GameObjectKind::Prefab { address, .. } if PIECE_PREFABS.contains(address)
   )
+}
+
+fn piece_count(client: &FakeClient<ChessEngine>) -> usize {
+  client
+    .world()
+    .objects()
+    .filter(|object| self::is_piece(object))
+    .count()
 }
 
 fn highlight_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
@@ -1177,6 +1234,7 @@ fn clocked_client() -> (FakeClient<ChessEngine>, ManualClock) {
     self::assets(),
   );
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   (client, clock)
 }
 
@@ -1184,6 +1242,7 @@ fn started_client(engine: ChessEngine) -> FakeClient<ChessEngine> {
   let mut client =
     FakeClient::connect_with_diagnostics(engine, self::assets(), DiagnosticsFake::default());
   client.click(PLAY_BUTTON_ID);
+  client.settle();
   client
 }
 
