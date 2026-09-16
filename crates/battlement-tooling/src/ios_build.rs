@@ -30,6 +30,7 @@ const EDITOR_METHOD: &str = "Battlement.Editor.BattlementDittoBuild.BuildIosSimu
 const PLAYER: &str = "BattlementDitto.app";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
 const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
+const IOS_BUILD_RECIPE: &[u8] = include_bytes!("ios_build.rs");
 
 pub const STARTUP_IDENTITY_FILE: &str = "startup-identity.json";
 
@@ -110,11 +111,18 @@ pub enum IosBuildResult {
 /// Selects an exact iOS Simulator player and optionally permits a cache-miss build.
 pub fn select_ios_player(request: &IosBuildRequest, allow_build: bool) -> Result<IosBuildResult> {
   self::validate_request(request)?;
+  let mut generated_inputs = request.generated_inputs.clone();
+  generated_inputs.push(GeneratedInput {
+    generator: "battlement-tooling".to_owned(),
+    version: "1".to_owned(),
+    name: "ios-build-recipe".to_owned(),
+    bytes: IOS_BUILD_RECIPE.to_vec(),
+  });
   let source = SourceManifest::build(&FingerprintRequest {
     repository: request.repository.clone(),
     unity_project: request.unity_project.clone(),
     rust_manifest: request.rust_manifest.clone(),
-    generated_inputs: request.generated_inputs.clone(),
+    generated_inputs,
     case_sensitivity: CaseSensitivity::Insensitive,
   })?;
   let identity = self::build_identity(request, &source)?;
@@ -242,6 +250,11 @@ fn build_identity(request: &IosBuildRequest, source: &SourceManifest) -> Result<
     options: BTreeMap::from([
       ("editor-method".to_owned(), EDITOR_METHOD.to_owned()),
       ("profile".to_owned(), "release".to_owned()),
+      ("rust-panic".to_owned(), "unwind".to_owned()),
+      (
+        "rust-std".to_owned(),
+        "build-std=std,panic_unwind".to_owned(),
+      ),
       ("xcode-sdk".to_owned(), "iphonesimulator".to_owned()),
     ]),
   })
@@ -268,7 +281,13 @@ fn build_pending(
     .arg("--lib")
     .args(["--crate-type", "staticlib"])
     .args(["--config", RELEASE_DEBUG_CONFIG])
-    .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG]);
+    .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG])
+    .args(["-Z", "build-std=std,panic_unwind"])
+    .env("RUSTC_BOOTSTRAP", "1")
+    .env(
+      "CARGO_TARGET_AARCH64_APPLE_IOS_SIM_RUSTFLAGS",
+      "-C panic=unwind",
+    );
   let compiler_capacity = CompilerCapacityLease::acquire(&request.resource_slots)?;
   let cargo_output = self::run_logged(cargo, pending.path(), "rust")?;
   drop(compiler_capacity);

@@ -324,6 +324,12 @@ namespace Battlement.Editor
                     .Select(character => char.IsLetterOrDigit(character) ? character : '-')
             );
 
+        private static string PackageIdentifier(string value) =>
+            string.Concat(value.ToLowerInvariant().Where(char.IsLetterOrDigit));
+
+        private static string AppendArgument(string existing, string argument) =>
+            string.IsNullOrWhiteSpace(existing) ? argument : $"{existing} {argument}";
+
         /// <summary>Builds one release WebGL player from validated host-provided inputs.</summary>
         public static void BuildWebgl()
         {
@@ -379,6 +385,98 @@ namespace Battlement.Editor
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
                 );
+            }
+            Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
+        }
+
+        /// <summary>Builds one ARM64 release Android player.</summary>
+        public static void BuildAndroid()
+        {
+            string output = Required("BATTLEMENT_DITTO_BUILD_PATH");
+            string scene = Required("BATTLEMENT_DITTO_SCENE_PATH");
+            bool diagnostics = Diagnostics();
+            if (
+                !EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.Android,
+                    BuildTarget.Android
+                )
+            )
+            {
+                throw new InvalidOperationException("Could not activate the Android build target.");
+            }
+
+            string previousProductName = PlayerSettings.productName;
+            string previousIdentifier = PlayerSettings.GetApplicationIdentifier(
+                NamedBuildTarget.Android
+            );
+            ScriptingImplementation previousBackend = PlayerSettings.GetScriptingBackend(
+                NamedBuildTarget.Android
+            );
+            AndroidArchitecture previousArchitectures = PlayerSettings.Android.targetArchitectures;
+            AndroidSdkVersions previousMinimumSdk = PlayerSettings.Android.minSdkVersion;
+            bool previousBundle = EditorUserBuildSettings.buildAppBundle;
+            string previousIl2CppArgs = PlayerSettings.GetAdditionalIl2CppArgs();
+            bool previousRunInBackground = PlayerSettings.runInBackground;
+            PlayerSettings.productName = "BattlementDitto";
+            PlayerSettings.SetApplicationIdentifier(
+                NamedBuildTarget.Android,
+                $"com.battlement.ditto.{PackageIdentifier(Required("BATTLEMENT_DITTO_SUITE"))}"
+            );
+            PlayerSettings.SetScriptingBackend(
+                NamedBuildTarget.Android,
+                ScriptingImplementation.IL2CPP
+            );
+            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+            PlayerSettings.SetAdditionalIl2CppArgs(
+                AppendArgument(previousIl2CppArgs, "--compiler-flags=\"-fbracket-depth=1024\"")
+            );
+            PlayerSettings.runInBackground = true;
+            EditorUserBuildSettings.buildAppBundle = false;
+            BattlementSampleBuild.ConfigureAndroidPlugin();
+            try
+            {
+                AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
+                using (OpusBuildAssets.Prepare(settings))
+                using (ReactantGeneratedAssets.Prepare(settings))
+                {
+                    BattlementSampleBuild.BuildAddressables();
+                    BuildReport report = BuildPipeline.BuildPlayer(
+                        new BuildPlayerOptions
+                        {
+                            scenes = new[] { scene },
+                            locationPathName = output,
+                            target = BuildTarget.Android,
+                            options = BuildOptions.None,
+                            extraScriptingDefines = DiagnosticsDefines(diagnostics),
+                        }
+                    );
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Ditto Android build failed with {report.summary.totalErrors} errors."
+                        );
+                    }
+                }
+            }
+            finally
+            {
+                PlayerSettings.productName = previousProductName;
+                PlayerSettings.SetApplicationIdentifier(
+                    NamedBuildTarget.Android,
+                    previousIdentifier
+                );
+                PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, previousBackend);
+                PlayerSettings.Android.targetArchitectures = previousArchitectures;
+                PlayerSettings.Android.minSdkVersion = previousMinimumSdk;
+                PlayerSettings.SetAdditionalIl2CppArgs(previousIl2CppArgs);
+                PlayerSettings.runInBackground = previousRunInBackground;
+                EditorUserBuildSettings.buildAppBundle = previousBundle;
+                AssetDatabase.SaveAssets();
+                EditorBuildSettings.RemoveConfigObject(
+                    AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
+                );
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             }
             Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
         }
@@ -517,6 +615,21 @@ namespace Battlement.Editor
             string projectPath = PBXProject.GetPBXProjectPath(output);
             var project = new PBXProject();
             project.ReadFromFile(projectPath);
+            project.SetBuildProperty(
+                project.GetUnityMainTargetGuid(),
+                "ASSETCATALOG_COMPILER_APPICON_NAME",
+                string.Empty
+            );
+            string assetCatalog = "Unity-iPhone/Images.xcassets";
+            string assetCatalogGuid = project.FindFileGuidByProjectPath(assetCatalog);
+            if (!string.IsNullOrEmpty(assetCatalogGuid))
+            {
+                project.RemoveFile(assetCatalogGuid);
+            }
+            if (Directory.Exists(Path.Combine(output, assetCatalog)))
+            {
+                Directory.Delete(Path.Combine(output, assetCatalog), true);
+            }
             foreach (
                 string launchScreen in new[]
                 {

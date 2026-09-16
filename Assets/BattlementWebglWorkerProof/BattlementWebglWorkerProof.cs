@@ -1,20 +1,21 @@
 #nullable enable
 
 using System;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Battlement.Integration
 {
-    /// <summary>Drives the release worker proof inside a browser-hosted Unity player.</summary>
+    /// <summary>Drives the release worker proof inside a Unity player.</summary>
     [DisallowMultipleComponent]
     public sealed class BattlementWebglWorkerProof : MonoBehaviour
     {
         public const string ScenePath =
             "Assets/BattlementWebglWorkerProof/BattlementWebglWorkerProof.unity";
         private const string Scenario = "fixture.release.worker-cancellation";
-#if UNITY_WEBGL && !UNITY_EDITOR
+#if (UNITY_WEBGL || UNITY_IOS) && !UNITY_EDITOR
         private const string NativeLibrary = "__Internal";
 #else
         private const string NativeLibrary = "battlement_rules";
@@ -25,6 +26,8 @@ namespace Battlement.Integration
 
         private int phase;
         private bool menuOpen;
+        private MethodInfo? emitAction;
+        private bool initialActionDispatched;
 
         private void Start()
         {
@@ -46,10 +49,28 @@ namespace Battlement.Integration
             );
             runner.Connect();
             Debug.Log("BATTLEMENT_WEBGL_WORKER_READY");
+#if UNITY_IOS || UNITY_ANDROID
+            emitAction =
+                typeof(BattlementRunner).GetMethod(
+                    "EmitAction",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    null,
+                    new[] { typeof(ActionBody) },
+                    null
+                )
+                ?? throw new MissingMethodException(
+                    typeof(BattlementRunner).FullName,
+                    "EmitAction"
+                );
+            Debug.Log($"BATTLEMENT_MOBILE_WORKER_TARGET:{Application.platform}");
+#endif
         }
 
         private void Update()
         {
+#if UNITY_IOS || UNITY_ANDROID
+            DriveMobileProof();
+#endif
             if (phase == 0 && Observation(6) == 1)
             {
                 phase = 1;
@@ -93,8 +114,59 @@ namespace Battlement.Integration
             {
                 phase = 11;
                 Debug.Log("BATTLEMENT_WEBGL_WORKER_NONJOINING_EXIT_CLEANED");
+#if UNITY_IOS || UNITY_ANDROID
+                Debug.Log($"BATTLEMENT_MOBILE_WORKER_PROOF:{Application.platform}:passed");
+#endif
             }
         }
+
+#if UNITY_IOS || UNITY_ANDROID
+        private void DriveMobileProof()
+        {
+            switch (phase)
+            {
+                case 0:
+                    if (initialActionDispatched)
+                        break;
+                    var action = new ActionBody.PointerClick(
+                        new ObjectId(new Guid("00000000-0000-0000-0000-000000000046")),
+                        new ScreenPosition(0, 0),
+                        Battlement.Vector3.Zero
+                    );
+                    initialActionDispatched =
+                        emitAction!.Invoke(runner, new object[] { action }) is true;
+                    break;
+                case 1:
+                    menuOpen = true;
+                    runner.Reconnect();
+                    phase = 2;
+                    break;
+                case 3:
+                    runner.Reconnect();
+                    runner.Reconnect();
+                    runner.Reconnect();
+                    Require(Observation(0) == 2, "held computation accumulated rules workers");
+                    ReleaseComputation();
+                    phase = 4;
+                    break;
+                case 5:
+                    runner.Reconnect();
+                    phase = 6;
+                    break;
+                case 7:
+                    runner.Reconnect();
+                    phase = 8;
+                    break;
+                case 9:
+                    runner.Reconnect();
+                    phase = 10;
+                    StartCoroutine(DisposeWhenComputing());
+                    break;
+                default:
+                    break;
+            }
+        }
+#endif
 
         private void OnGUI()
         {

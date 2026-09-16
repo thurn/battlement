@@ -25,6 +25,8 @@ namespace Battlement.Editor
 #endif
         private const string WebPluginPath = "Assets/Plugins/WebGL/libbattlement_rules.a";
         private const string IosPluginPath = "Assets/Plugins/iOS/libbattlement_rules.a";
+        private const string AndroidPluginPath =
+            "Assets/Plugins/Android/arm64-v8a/libbattlement_rules.so";
         private const string WebStackSize = "-sSTACK_SIZE=2MB";
 
         // init.js selects a current-thread pool on mobile and reserves dedicated
@@ -181,6 +183,23 @@ namespace Battlement.Editor
             importer.SetCompatibleWithEditor(false);
             importer.SetCompatibleWithPlatform(BuildTarget.iOS, true);
             importer.SetPlatformData(BuildTarget.iOS, "CPU", "AnyCPU");
+            importer.SaveAndReimport();
+        }
+
+        internal static void ConfigureAndroidPlugin()
+        {
+            AssetDatabase.ImportAsset(AndroidPluginPath, ImportAssetOptions.ForceSynchronousImport);
+            if (AssetImporter.GetAtPath(AndroidPluginPath) is not PluginImporter importer)
+            {
+                throw new InvalidOperationException(
+                    $"Android plugin was not imported: {AndroidPluginPath}"
+                );
+            }
+
+            importer.SetCompatibleWithAnyPlatform(false);
+            importer.SetCompatibleWithEditor(false);
+            importer.SetCompatibleWithPlatform(BuildTarget.Android, true);
+            importer.SetPlatformData(BuildTarget.Android, "CPU", "ARM64");
             importer.SaveAndReimport();
         }
 

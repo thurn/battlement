@@ -27,7 +27,7 @@ pub(crate) fn execute(
         crate::config::model::Target::Macos => macos_run::build(&suite, options, stdout),
         crate::config::model::Target::Webgl => webgl_run::build(&suite, options, stdout),
         crate::config::model::Target::IosSimulator => {
-          anyhow::bail!("build does not support iOS Simulator profiles")
+          crate::ios_run::build(&suite, options, stdout)
         }
       }
     }

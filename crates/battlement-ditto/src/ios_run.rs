@@ -1,6 +1,7 @@
 //! Production iOS Simulator build, launch, materialization, and baseline flow.
 
 use std::{
+  fs,
   io::Write,
   path::PathBuf,
   sync::{Arc, Mutex, atomic::AtomicBool},
@@ -17,6 +18,8 @@ use battlement_tooling::{
 };
 
 use crate::{
+  build_lease,
+  cli::BuildOptions,
   config::model::{Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer, NativeVideoResolver},
   image_comparison::OdiffPool,
@@ -38,6 +41,73 @@ use crate::{
     run_storage::ActiveRun,
   },
 };
+
+/// Builds or reuses one immutable iOS Simulator release player.
+pub(crate) fn build(suite: &Suite, options: BuildOptions, stdout: &mut dyn Write) -> Result<u8> {
+  let profile_name = options.profile.as_deref().unwrap_or(&suite.default_profile);
+  let profile = suite
+    .profiles
+    .get(profile_name)
+    .with_context(|| format!("profile {profile_name:?} does not exist"))?;
+  anyhow::ensure!(
+    profile.target() == Target::IosSimulator,
+    "iOS build requires an iOS Simulator profile"
+  );
+  anyhow::ensure!(
+    !options.debug_rules,
+    "iOS validation builds require release Rust rules"
+  );
+  let discovery = HostDiscovery::inspect(
+    &SystemHost,
+    &maintenance_commands::discovery_request(suite, Target::IosSimulator)?,
+  )?;
+  let selected = ios_build::select_ios_player(&self::build_request(suite, &discovery)?, true)?;
+  let (build, disposition) = match selected {
+    IosBuildResult::Ready { build, outcome } => (
+      build,
+      match outcome {
+        IosBuildOutcome::Created => "created",
+        IosBuildOutcome::Reused => "reused",
+      },
+    ),
+    IosBuildResult::Required { .. } => unreachable!("builds are allowed"),
+    IosBuildResult::Failed(failure) => anyhow::bail!(failure.message),
+  };
+  let value = serde_json::json!({
+    "schema": 1,
+    "suite": suite.name,
+    "profile": profile_name,
+    "target": "ios-simulator",
+    "source_fingerprint": build.metadata().identity.source_fingerprint,
+    "build_fingerprint": build.metadata().identity.fingerprint,
+    "disposition": disposition,
+    "player_path": build.path(),
+    "application_path": build.player_path(),
+    "architecture": SystemHost.architecture(),
+    "threaded": true,
+    "panic_runtime": "unwind",
+    "physical": false,
+  });
+  let encoded = serde_json::to_string_pretty(&value)? + "\n";
+  if let Some(path) = options.output {
+    fs::write(path, &encoded)?;
+  }
+  if options.json {
+    write!(stdout, "{encoded}")?;
+  } else {
+    writeln!(
+      stdout,
+      "{} iOS Simulator player {disposition}: {}",
+      suite.name,
+      build.path().display()
+    )?;
+  }
+  stdout.flush()?;
+  if let Some(file_descriptor) = options.retain_until_fd_closed {
+    build_lease::until_eof(file_descriptor)?;
+  }
+  Ok(0)
+}
 
 struct SimulatorVideoResolver {
   simulator: Arc<Mutex<IosSimulator>>,
