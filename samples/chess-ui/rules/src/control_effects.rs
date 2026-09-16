@@ -4,10 +4,10 @@ use battlement::{
   Color, Gradient, Length, LengthUnits, Overflow, Position, Rotate, Style, TransformOrigin,
   UiParticleStreak,
 };
-use battlement_reactant::prelude::{
+use reactant::prelude::{
   Animation, AnimationFill, Decoration, DecorationOverflow, Easing, Keyframes, StyleTarget,
 };
-use battlement_reactant::{hooks, prelude::EventCallback};
+use reactant::{hooks, prelude::EventCallback};
 
 const BUTTON_PARTICLES: [(f32, f32, f32, f32, f32, f32); 10] = [
   (0.10, 0.20, -34.0, -18.0, -22.0, 16.0),

@@ -1,6 +1,6 @@
 //! Shared text-size state and source growth formulas.
 
-use battlement_reactant::{hooks, prelude::*};
+use reactant::{hooks, prelude::*};
 
 #[derive(Clone, PartialEq)]
 struct FontScaleContext {

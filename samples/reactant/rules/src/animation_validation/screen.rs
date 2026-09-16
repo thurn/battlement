@@ -6,7 +6,7 @@ use crate::animation_validation::{
 };
 use crate::{Game, animation_validation::runner, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const TWEEN_CASE: CaseId = CaseId("public-tween");
 
@@ -123,21 +123,21 @@ impl Component for ValidationScreen {
             .join("\n")
         }
       });
-    battlement_reactant::host::ScrollView::new()
+    reactant::host::ScrollView::new()
             .name("targets-timelines-canvas")
             .style(canvas(self.compact))
             .content_container_style(content())
             .child(
-                battlement_reactant::host::Label::new(tx("MOTION AUTHORING", "Motion authoring section heading."))
+                reactant::host::Label::new(tx("MOTION AUTHORING", "Motion authoring section heading."))
                     .style(eyebrow()),
             )
             .child(
-                battlement_reactant::host::Label::new(tx("Targets & Timelines", "Motion authoring interface label."))
+                reactant::host::Label::new(tx("Targets & Timelines", "Motion authoring interface label."))
                     .name("page-title")
                     .style(title()),
             )
             .child(
-                battlement_reactant::host::Label::new(ls(
+                reactant::host::Label::new(ls(
                         format!(
                             "Case: validation-infrastructure/{} · t={}µs · generation={} · reconnects={} · actions={}",
                             self.state.selected_case.0, self.state.session
@@ -150,7 +150,7 @@ impl Component for ValidationScreen {
                     .style(status()),
             )
             .child(
-                battlement_reactant::host::View::new()
+                reactant::host::View::new()
                     .style(control_row())
                     .child(
                         action(
@@ -208,7 +208,7 @@ impl Component for ValidationScreen {
                     ),
             )
             .child(
-                battlement_reactant::host::View::new()
+                reactant::host::View::new()
                     .style(control_row())
                     .child(
                         action(
@@ -303,7 +303,7 @@ impl Component for ValidationScreen {
                     ),
             )
             .child(
-                battlement_reactant::host::Label::new(ls(
+                reactant::host::Label::new(ls(
                         format!(
                             "{} · {} · {:.1}x · {:?}", report_text, if self.state
                             .session.playing() { "playing" } else { "paused" }, self
@@ -328,7 +328,7 @@ impl Component for ValidationScreen {
                 ),
             )
             .child(
-                battlement_reactant::host::Label::new(ls(details))
+                reactant::host::Label::new(ls(details))
                     .name("validation-details")
                     .style(details_style(self.compact)),
             )
@@ -340,7 +340,7 @@ fn action(
   name: &'static str,
   callback: impl Fn(&mut Game) + 'static,
 ) -> impl Render {
-  battlement_reactant::host::ButtonHost::new(ls(text))
+  reactant::host::ButtonHost::new(ls(text))
     .name(name)
     .style(action_style())
     .on_click(callback)

@@ -5,7 +5,7 @@ use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, Overflow, ScrollViewMode, ScrollerVisibility,
   Style, WhiteSpace,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 use std::{
   cell::{Cell, RefCell},
   collections::BTreeMap,

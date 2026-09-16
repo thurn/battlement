@@ -32,7 +32,7 @@ def main() -> None:
     for root in (
         "crates/battlement-cli",
         "crates/battlement-ditto",
-        "crates/battlement-reactant",
+        "crates/reactant",
         "crates/battlement-tooling",
     ):
         assert root not in roots
@@ -42,7 +42,7 @@ def main() -> None:
         [
             "docs/guide.md",
             "samples/chess-ui/rules/src/lib.rs",
-            "crates/battlement-reactant/src/lib.rs",
+            "crates/reactant/src/lib.rs",
             "crates/battlement-ditto/src/lib.rs",
         ],
     )

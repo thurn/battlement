@@ -1,0 +1,11 @@
+[package]
+name = "reactant-ui"
+version = "0.1.0"
+description = "Battlement UI authoring surface for Reactant"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+reactant-core.workspace = true

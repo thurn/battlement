@@ -5,7 +5,7 @@ use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow,
   ScrollViewMode, ScrollerVisibility, Shadow, Style, WhiteSpace, object_id,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 use std::time::Duration;
 
 const AUDIO_PLAYBACK_ID: battlement::ObjectId = object_id!("72100000-0000-4000-8000-000000000001");
@@ -387,10 +387,7 @@ fn interactions(state: &ComposedEffectsState) -> View {
   )
 }
 
-fn ambient(
-  audio_scale: battlement_reactant::motion_value::MotionValue<f32>,
-  generation: u32,
-) -> View {
+fn ambient(audio_scale: reactant::motion_value::MotionValue<f32>, generation: u32) -> View {
   specimen(
     "composed-ambient-specimen",
     "AMBIENT + AUDIO",

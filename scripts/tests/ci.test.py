@@ -424,7 +424,7 @@ def _verify_rust_configuration() -> None:
         (root / "Cargo.toml").write_text(
             '[workspace]\n[workspace.package]\nrust-version = "1.98.1"\n'
         )
-        fixture = root / "crates/battlement-reactant/tests/fixtures/asset-registry"
+        fixture = root / "crates/reactant-core/tests/fixtures/asset-registry"
         fixture.mkdir(parents=True)
         (fixture / "Cargo.toml").write_text(
             '[workspace]\n[workspace.package]\nrust-version = "1.98.1"\n'

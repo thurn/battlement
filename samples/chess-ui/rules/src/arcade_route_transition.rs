@@ -1,6 +1,6 @@
 //! Controlled application routing and shared reduced-motion state.
 
-use battlement_reactant::{hooks, prelude::*};
+use reactant::{hooks, prelude::*};
 
 use crate::arcade_frame_pulse::ArcadeScreen;
 

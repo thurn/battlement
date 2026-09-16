@@ -17,7 +17,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 TROX_VERSION = "0.2.1"
 CONFIGURATIONS = (
     (
-        Path("crates/battlement-reactant/tests"),
+        Path("crates/reactant-core/tests"),
         (Path("localization.rs"), Path("localization"), Path("trox.ron")),
         (
             Path("localization/en-US.csv"),

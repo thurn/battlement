@@ -227,11 +227,11 @@ impl Fixture {
       Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
         .parent()
         .unwrap()
-        .join("battlement-reactant");
+        .join("reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
-        "[package]\nname = \"command-preview-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+        "[package]\nname = \"command-preview-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nreactant = {{ path = {:?} }}\n",
         reactant
       ),
     )
@@ -243,7 +243,7 @@ impl Fixture {
     .unwrap();
     fs::write(
       project.join("rules/src/lib.rs"),
-      r#"battlement_reactant::asset_generator::generate! {
+      r#"reactant::asset_generator::generate! {
         @nine-slice PANEL {
           @canvas 32px 20px;
           @slices 4px 5px 4px 5px; @allow-clipping top right bottom left;
@@ -251,7 +251,7 @@ impl Fixture {
           box-shadow: inset 1px 1px 1px red;
         }
       }
-      battlement_reactant::asset_generator::generate! {
+      reactant::asset_generator::generate! {
         @nine-slice PANEL_DUPLICATE {
           @canvas 32px 20px;
           @slices 4px 5px 4px 5px; @allow-clipping top right bottom left;
@@ -259,7 +259,7 @@ impl Fixture {
           box-shadow: inset 1px 1px 1px red;
         }
       }
-      battlement_reactant::asset_generator::generate! {
+      reactant::asset_generator::generate! {
         @background BADGE {
           @canvas 24px 16px; @subject 2px 2px 20px 12px;
           background: linear-gradient(135deg, #0ea5e9, #8b5cf6);

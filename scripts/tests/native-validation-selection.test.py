@@ -27,11 +27,11 @@ assert selection.select(ROOT, ["samples/ui/Assets/Resources/BattlementTextSettin
 
 dependencies = {
     "basic": {"battlement"},
-    "reactant": {"battlement", "battlement-reactant"},
-    "chess-ui": {"battlement", "battlement-reactant"},
+    "reactant": {"battlement", "reactant", "reactant-core", "reactant-ui"},
+    "chess-ui": {"battlement", "reactant", "reactant-core", "reactant-ui"},
 }
 with patch.object(selection, "sample_crates", side_effect=lambda _root, sample: dependencies[sample]):
-    assert selection.select(ROOT, ["crates/battlement-reactant/src/lib.rs"], SAMPLES) == [
+    assert selection.select(ROOT, ["crates/reactant-core/src/lib.rs"], SAMPLES) == [
         "reactant",
         "chess-ui",
     ]

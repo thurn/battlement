@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::controls;
 use crate::{Control, Game, Interaction, Screen, design_system, sample_navigation};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 #[builder]
 pub(crate) struct Navigation {
@@ -17,11 +17,11 @@ impl Component for Navigation {
   fn render(&self) -> impl Render {
     if self.phone {
       return Node::new(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("navigation")
           .style(design_system::phone_navigation())
           .child(
-            battlement_reactant::host::Label::new(tx("R", "Sample navigation section heading."))
+            reactant::host::Label::new(tx("R", "Sample navigation section heading."))
               .style(design_system::phone_brand()),
           )
           .child(controls::interactive_button(
@@ -35,7 +35,7 @@ impl Component for Navigation {
             |game| game.screen = sample_navigation::previous(game.screen),
           ))
           .child(
-            battlement_reactant::host::Label::new(ls(sample_navigation::phone_name(self.screen)))
+            reactant::host::Label::new(ls(sample_navigation::phone_name(self.screen)))
               .name("phone-current-screen")
               .style(design_system::phone_navigation_label()),
           )
@@ -52,11 +52,11 @@ impl Component for Navigation {
       );
     }
     Node::new(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .name("navigation")
         .style(design_system::navigation(self.compact))
         .child(
-          battlement_reactant::host::Label::new(if self.screen == Screen::TargetsTimelines {
+          reactant::host::Label::new(if self.screen == Screen::TargetsTimelines {
             tx("VALUES & TIME", "Sample navigation section heading.")
           } else {
             tx("REACTANT", "Sample navigation section heading.")
@@ -87,7 +87,7 @@ impl Component for Navigation {
           }),
         )
         .child(
-          battlement_reactant::host::View::new()
+          reactant::host::View::new()
             .name("navigation-items")
             .style(design_system::navigation_items(self.compact))
             .child(controls::interactive_button(

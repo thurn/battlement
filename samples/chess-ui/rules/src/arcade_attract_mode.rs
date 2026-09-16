@@ -5,7 +5,7 @@ use battlement::{
   Color, Gradient, Length, LengthUnits, Overflow, Position, Rotate, Scale, Shadow, Style,
   TransformOrigin,
 };
-use battlement_reactant::{
+use reactant::{
   component::Component,
   host::View,
   paint::{PaintLayer, PaintStyle},

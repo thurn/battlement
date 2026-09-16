@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const CHECKPOINTS: [u64; 4] = [0, 120_000, 320_000, 900_000];
 
@@ -125,7 +125,7 @@ impl Component for PhysicalMotion {
       .copied()
       .collect::<Vec<_>>()
       .join("  ›  ");
-    battlement_reactant::host::ScrollView::new()
+    reactant::host::ScrollView::new()
       .name("physical-motion-canvas")
       .style(design_system::canvas(self.compact).padding(0.0))
       .content_container_style(content())

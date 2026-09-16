@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Ident, TokenStream};
 use syn::{
   Attribute, Error, Expr, Field, Fields, ItemStruct, Path, Type,
@@ -164,9 +165,19 @@ pub fn parse(arguments: TokenStream, tokens: TokenStream) -> syn::Result<Input> 
     item,
     fields,
     names,
-    support: support
-      .unwrap_or_else(|| syn::parse_quote!(::battlement_reactant::prelude::__builder_support)),
+    support: support.unwrap_or_else(self::default_support),
   })
+}
+
+fn default_support() -> Path {
+  let found = crate_name("reactant").or_else(|_| crate_name("reactant-core"));
+  match found.expect("the default builder support requires reactant or reactant-core") {
+    FoundCrate::Itself => syn::parse_quote!(::reactant_core::prelude::__builder_support),
+    FoundCrate::Name(name) => {
+      let ident = Ident::new(&name, proc_macro2::Span::call_site());
+      syn::parse_quote!(::#ident::prelude::__builder_support)
+    }
+  }
 }
 
 pub fn conditions(attributes: &[Attribute]) -> syn::Result<Vec<Attribute>> {

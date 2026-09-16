@@ -20,8 +20,8 @@ workspaces = [
 ]
 dependencies = {
     "basic": {"battlement"},
-    "chess-ui": {"battlement", "battlement-reactant"},
-    "reactant": {"battlement", "battlement-reactant"},
+    "chess-ui": {"battlement", "reactant", "reactant-core", "reactant-ui"},
+    "reactant": {"battlement", "reactant", "reactant-core", "reactant-ui"},
 }
 
 with patch.object(
@@ -39,7 +39,7 @@ with patch.object(
     assert chess_ui.samples == (workspaces[1],)
 
     reactant = ci_selection.select_rust(
-        ROOT, ["crates/battlement-reactant/src/lib.rs"], workspaces
+        ROOT, ["crates/reactant-core/src/lib.rs"], workspaces
     )
     assert reactant.root
     assert reactant.samples == (workspaces[1], workspaces[2])

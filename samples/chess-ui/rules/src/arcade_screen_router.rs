@@ -1,7 +1,7 @@
 //! Complete two-screen application composition.
 
 use battlement::{Command, KeyEvent, PhysicalKey, Position, Style};
-use battlement_reactant::{portal::PortalTarget, prelude::*};
+use reactant::{portal::PortalTarget, prelude::*};
 
 use crate::{
   arcade_frame_pulse::ArcadeScreen, arcade_menu_transition::ArcadeMenuTransition,

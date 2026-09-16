@@ -1,7 +1,7 @@
 //! Directional selection and focus behavior for settings categories.
 
 use battlement::{KeyEvent, NavigationDirection, NavigationMoveEvent, PhysicalKey};
-use battlement_reactant::{
+use reactant::{
   callback::Callback, element_ref::ElementRef, event::ReactantEvent, prelude::EventCallback,
 };
 

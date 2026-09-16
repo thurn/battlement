@@ -1,7 +1,7 @@
 //! Controlled graphics settings composed from shared arcade controls.
 
 use battlement::{Position, Style};
-use battlement_reactant::{control_behavior, portal::PortalTarget, prelude::*};
+use reactant::{control_behavior, portal::PortalTarget, prelude::*};
 use trox::tx;
 
 use crate::{select_control::SelectControl, toggle_control::ToggleControl};

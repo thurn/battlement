@@ -5,9 +5,9 @@ use battlement::{
   Align, FlexDirection, FlexWrap, ImageScaleMode, LengthUnits, ScrollViewMode, ScrollerVisibility,
   Style, TextAnchor, TextureAddress, WhiteSpace,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background ARCADE_SCREEN_FRAME {
     @canvas 1024px 1536px;
     @subject 21px 21px 982px 1404px;
@@ -20,7 +20,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background SETTINGS_PANEL_FRAME {
     @canvas 887px 1021px;
     @allow-clipping top right bottom left;
@@ -34,7 +34,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice ACTION_BUTTON_FRAME {
     @canvas 760px 140px;
     @slices 24px 26px 24px 26px;
@@ -48,7 +48,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice SMALL_CONTROL_FRAME {
     @canvas 396px 106px;
     @slices 15px 15px 15px 15px;
@@ -62,7 +62,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice SETTINGS_TAB_ACTIVE {
     @canvas 288px 154px;
     @subject 12px 12px 264px 130px;
@@ -77,7 +77,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice SETTINGS_TAB_INACTIVE {
     @canvas 288px 154px;
     @subject 12px 12px 264px 130px;
@@ -91,7 +91,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image GAME_LOGO {
     @canvas 900px 360px;
     @subject 0px 45px 900px 250px;
@@ -113,7 +113,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image ACTION_LABEL_PLAY {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
@@ -135,7 +135,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image ACTION_LABEL_SETTINGS {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
@@ -157,7 +157,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image ACTION_LABEL_ABOUT {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
@@ -179,7 +179,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image ACTION_LABEL_QUIT {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
@@ -201,7 +201,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image ACTION_LABEL_RETURN {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;
@@ -223,7 +223,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background CHECKBOX_UNCHECKED {
     @canvas 101px 101px;
     @subject 12px 12px 77px 77px;
@@ -237,7 +237,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background CHECKBOX_CHECK {
     @canvas 101px 101px;
     @subject 25px 29px 50px 44px;
@@ -249,7 +249,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice VOLUME_SLIDER_TRACK {
     @canvas 308px 88px;
     @subject 12px 31px 284px 26px;
@@ -264,7 +264,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background VOLUME_SLIDER_FILL {
     @canvas 278px 20px;
     @allow-clipping top right bottom left;
@@ -275,7 +275,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background VOLUME_SLIDER_TICKS {
     @canvas 284px 10px;
     @allow-clipping top right bottom left;
@@ -284,7 +284,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background VOLUME_SLIDER_HANDLE {
     @canvas 68px 88px;
     @subject 12.5px 12px 43px 64px;
@@ -307,7 +307,7 @@ pub(crate) struct Assets {
 
 impl Component for Assets {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::ScrollView::new()
+    reactant::host::ScrollView::new()
       .name("assets-canvas")
       .mode(ScrollViewMode::Vertical)
       .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
@@ -321,14 +321,11 @@ impl Component for Assets {
       .style(self::canvas(self.compact))
       .content_container_style(self::content())
       .child(
-        battlement_reactant::host::Label::new(tx(
-          "MOCKUP ASSETS",
-          "Mockup assets section heading.",
-        ))
-        .style(design_system::eyebrow()),
+        reactant::host::Label::new(tx("MOCKUP ASSETS", "Mockup assets section heading."))
+          .style(design_system::eyebrow()),
       )
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("assets-gallery")
           .style(self::gallery())
           .child(self::branding_card(self.compact))
@@ -368,7 +365,7 @@ pub(crate) fn addresses() -> Vec<TextureAddress> {
 }
 
 fn branding_card(compact: bool) -> impl Render {
-  battlement_reactant::host::View::new()
+  reactant::host::View::new()
     .style(self::card(if compact { 400.0 } else { 520.0 }))
     .child(self::card_title("BRANDING + BUTTON LABELS"))
     .child(
@@ -382,7 +379,7 @@ fn branding_card(compact: bool) -> impl Render {
         )),
     )
     .child(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .style(self::label_grid())
         .child(self::label_image(
           ACTION_LABEL_PLAY,
@@ -413,11 +410,11 @@ fn branding_card(compact: bool) -> impl Render {
 }
 
 fn frames_card(compact: bool) -> impl Render {
-  battlement_reactant::host::View::new()
+  reactant::host::View::new()
     .style(self::card(if compact { 400.0 } else { 430.0 }))
     .child(self::card_title("SCREEN + PANEL FRAMES"))
     .child(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .style(self::row())
         .child(
           ARCADE_SCREEN_FRAME
@@ -443,7 +440,7 @@ fn frames_card(compact: bool) -> impl Render {
 }
 
 fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl Render {
-  battlement_reactant::host::View::new()
+  reactant::host::View::new()
     .style(self::card(if compact { 400.0 } else { 650.0 }))
     .child(self::card_title("FRAMES + CONTROL PARTS"))
     .child(crate::interactive_button(
@@ -464,10 +461,10 @@ fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl
       |game: &mut Game| game.assets_resized = !game.assets_resized,
     ))
     .child(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .style(self::row())
         .child(
-          battlement_reactant::host::View::new()
+          reactant::host::View::new()
             .name("assets-small-control-frame")
             .style(
               SMALL_CONTROL_FRAME
@@ -499,7 +496,7 @@ fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl
         ),
     )
     .child(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .style(self::row())
         .child(
           CHECKBOX_UNCHECKED
@@ -543,7 +540,7 @@ fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl
         ),
     )
     .child(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .style(self::row())
         .child(
           VOLUME_SLIDER_FILL
@@ -569,7 +566,7 @@ fn controls_card(compact: bool, resized: bool, interaction: Interaction) -> impl
 }
 
 fn label_image(
-  asset: battlement_reactant::asset_generator::TextImageAsset,
+  asset: reactant::asset_generator::TextImageAsset,
   name: &'static str,
   compact: bool,
 ) -> impl Render {
@@ -611,7 +608,7 @@ fn card(width: f32) -> Style {
 }
 
 fn card_title(text: &'static str) -> impl Render {
-  battlement_reactant::host::Label::new(ls(text)).style(
+  reactant::host::Label::new(ls(text)).style(
     Style::new()
       .height(28.0)
       .color(design_system::MUTED_TEXT)

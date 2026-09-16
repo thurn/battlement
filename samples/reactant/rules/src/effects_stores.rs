@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Control, Game, design_system};
 use battlement::{ScrollViewMode, ScrollerVisibility};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 use std::{
   collections::HashMap,
   sync::{
@@ -111,7 +111,7 @@ impl Component for EffectsStores {
       enabled,
     );
     let snapshot = use_external_store(self.store.clone());
-    battlement_reactant::host::ScrollView::new()
+    reactant::host::ScrollView::new()
       .name("effects-canvas")
       .mode(ScrollViewMode::Vertical)
       .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
@@ -124,18 +124,18 @@ impl Component for EffectsStores {
       .vertical_dragger_border_style(design_system::effects_scroll_dragger())
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("effects-content")
           .style(design_system::effects_content())
           .child(
-            battlement_reactant::host::Label::new(tx(
+            reactant::host::Label::new(tx(
               "EFFECTS & STORES",
               "Effects and stores section heading.",
             ))
             .style(design_system::eyebrow()),
           )
           .child(
-            battlement_reactant::host::Label::new(tx(
+            reactant::host::Label::new(tx(
               "Synchronize after commit",
               "Effects and stores interface label.",
             ))
@@ -143,22 +143,22 @@ impl Component for EffectsStores {
             .style(design_system::effects_title(self.compact)),
           )
           .child(
-            battlement_reactant::host::View::new()
+            reactant::host::View::new()
               .name("effects-specimen")
               .style(design_system::effects_specimen(self.compact))
               .child(
-                battlement_reactant::host::View::new()
+                reactant::host::View::new()
                   .name("effect-card")
                   .style(design_system::effect_card(self.compact))
                   .child(
-                    battlement_reactant::host::Label::new(tx(
+                    reactant::host::Label::new(tx(
                       "Connection",
                       "Effects and stores interface label.",
                     ))
                     .style(design_system::effect_heading()),
                   )
                   .child(
-                    battlement_reactant::host::Label::new(if connected {
+                    reactant::host::Label::new(if connected {
                       tx("CONNECTED", "Effects and stores status message.")
                     } else {
                       tx("DISCONNECTED", "Effects and stores status message.")
@@ -177,23 +177,20 @@ impl Component for EffectsStores {
                   )),
               )
               .child(
-                battlement_reactant::host::View::new()
+                reactant::host::View::new()
                   .name("store-card")
                   .style(design_system::effect_card(self.compact))
                   .child(
-                    battlement_reactant::host::Label::new(tx(
+                    reactant::host::Label::new(tx(
                       "External snapshot",
                       "Effects and stores interface label.",
                     ))
                     .style(design_system::effect_heading()),
                   )
                   .child(
-                    battlement_reactant::host::Label::new(ls(format!(
-                      "{}  {snapshot}",
-                      self.store.name
-                    )))
-                    .name("store-status")
-                    .style(design_system::effect_status()),
+                    reactant::host::Label::new(ls(format!("{}  {snapshot}", self.store.name)))
+                      .name("store-status")
+                      .style(design_system::effect_status()),
                   )
                   .child(crate::interactive_button(
                     self.store_phase.action(),

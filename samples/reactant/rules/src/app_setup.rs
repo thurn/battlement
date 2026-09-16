@@ -8,7 +8,7 @@ use battlement::{
   CameraClearMode, CameraProjection, CameraState, Color, GameObject, GameObjectKind, ParentScene,
   TextureAddress, Vector3,
 };
-use battlement_reactant::app::App;
+use reactant::app::App;
 
 /// The sample's application with its game-owned demonstration state.
 pub type ReactantEngine = App<Game>;

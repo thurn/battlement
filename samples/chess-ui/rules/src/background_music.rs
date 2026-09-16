@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use battlement::{AudioClipAddress, ObjectId, object_id};
-use battlement_reactant::{application, context::ContextProvider, hooks, prelude::*};
+use reactant::{application, context::ContextProvider, hooks, prelude::*};
 
 use crate::music_heartbeat::{self, Heartbeat};
 

@@ -130,12 +130,12 @@ impl Fixture {
       Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
         .parent()
         .unwrap()
-        .join("battlement-reactant");
+        .join("reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
         "[package]\nname = \"browser-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-         [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+         [dependencies]\nreactant = {{ path = {:?} }}\n",
         reactant
       ),
     )
@@ -160,8 +160,8 @@ impl Fixture {
     fs::write(
       self.project.join("rules/src/lib.rs"),
       format!(
-        "battlement_reactant::asset_generator::generate! {{\n  {}\n}}\n\
-         battlement_reactant::asset_generator::generate! {{\n  {}\n}}\n",
+        "reactant::asset_generator::generate! {{\n  {}\n}}\n\
+         reactant::asset_generator::generate! {{\n  {}\n}}\n",
         ordered[0], ordered[1]
       ),
     )

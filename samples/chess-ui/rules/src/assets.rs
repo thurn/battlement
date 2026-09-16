@@ -1,6 +1,6 @@
 //! Build-time image and font recipes consumed by the chess design system.
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background SETTINGS_PANEL_FRAME {
     @canvas 887px 1021px;
     @allow-clipping top right bottom left;
@@ -14,7 +14,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background MENU_REVEAL_SCAN {
     @canvas 966px 1388px;
     @allow-clipping top right bottom left;
@@ -27,7 +27,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background EXIT_FLASH {
     @canvas 966px 1388px;
     @allow-clipping top right bottom left;
@@ -39,7 +39,7 @@ battlement_reactant::asset_generator::generate! {
   }
 }
 
-battlement_reactant::asset_generator::generate_family! {
+reactant::asset_generator::generate_family! {
   @text-image {
     @canvas 480px 146px;
     @subject 0px 21px 480px 108px;

@@ -5,7 +5,7 @@ use battlement::{
   Color, Gradient, ImageScaleMode, Length, LengthUnits, Overflow, PickingMode, Position,
   SemanticRole, Shadow, Style, TransformOrigin,
 };
-use battlement_reactant::{hooks, paint::PaintStyle, prelude::*, semantics::SemanticVisibility};
+use reactant::{hooks, paint::PaintStyle, prelude::*, semantics::SemanticVisibility};
 
 /// Duration shared by the menu content and frame collapse.
 pub const ARCADE_EXIT_DURATION_SECS: f64 = 0.62;

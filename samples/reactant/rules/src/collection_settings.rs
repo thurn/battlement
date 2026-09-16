@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Game, layout_gallery_styles as styles};
 use battlement::{Command, FlexDirection};
-use battlement_reactant::{application, prelude::*};
+use reactant::{application, prelude::*};
 
 #[builder]
 pub(crate) struct CollectionSettings {

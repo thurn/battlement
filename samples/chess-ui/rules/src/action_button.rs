@@ -9,8 +9,8 @@ use battlement::{
   Align, Color, FlexDirection, ImageScaleMode, Length, LengthUnits, MotionProperty, PickingMode,
   Position, Style, TextAnchor, Translate, UiFontAddress, WhiteSpace,
 };
-use battlement_reactant::prelude::{Children, EventCallback, builder};
-use battlement_reactant::{
+use reactant::prelude::{Children, EventCallback, builder};
+use reactant::{
   component::Component,
   components::Button,
   element_ref, hooks,
@@ -36,7 +36,7 @@ pub enum ActionLabel {
 }
 
 impl ActionLabel {
-  fn asset(self) -> battlement_reactant::asset_generator::TextImageAsset {
+  fn asset(self) -> reactant::asset_generator::TextImageAsset {
     match self {
       Self::Play => assets::ACTION_LABEL_PLAY,
       Self::Settings => assets::ACTION_LABEL_SETTINGS,

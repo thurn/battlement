@@ -1,7 +1,7 @@
 //! Shared interaction-feedback state for arcade controls.
 
 use battlement::{Color, Gradient};
-use battlement_reactant::{
+use reactant::{
   element_ref::ElementRef,
   hooks,
   host::{ButtonHost, SliderHost, ToggleHost},
@@ -45,7 +45,7 @@ pub fn use_interaction() -> Interaction {
       hovered,
       pressed,
       focus_visible,
-      reduced_motion: battlement_reactant::motion_config::use_reduced_motion(),
+      reduced_motion: reactant::motion_config::use_reduced_motion(),
     },
     enter: set_hovered.callback().map_input(|()| true),
     leave: set_hovered

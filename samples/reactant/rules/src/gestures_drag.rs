@@ -5,7 +5,7 @@ use battlement::{
   Align, Color, FlexDirection, FlexWrap, LengthUnits, MotionGestureEvent, MotionGestureEventKind,
   MotionPointerDevice, ScrollViewMode, ScrollerVisibility, Style,
 };
-use battlement_reactant::{motion_value::MotionValue, prelude::*};
+use reactant::{motion_value::MotionValue, prelude::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct GesturesDragState {

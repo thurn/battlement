@@ -5,7 +5,7 @@ use battlement::{
   Color, ImageScaleMode, Length, LengthUnits, Overflow, PickingMode, Position, SemanticRole,
   Shadow, Style, TransformOrigin,
 };
-use battlement_reactant::{paint::PaintStyle, prelude::*, semantics::SemanticVisibility};
+use reactant::{paint::PaintStyle, prelude::*, semantics::SemanticVisibility};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum ScreenVariant {

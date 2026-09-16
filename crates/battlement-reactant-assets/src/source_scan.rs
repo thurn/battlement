@@ -273,7 +273,7 @@ fn collect_items(
         collector,
       )?,
       Item::Use(item_use) if self::use_mentions_generator(&item_use.tree) => bail!(
-        "{} imports or reexports the asset generator; use an exact battlement_reactant::asset_generator::generate! or generate_family! path",
+        "{} imports or reexports the asset generator; use an exact reactant::asset_generator::generate! or generate_family! path",
         collector.source.display()
       ),
       _ => {
@@ -350,7 +350,7 @@ fn collect_macro(
       "macro alias"
     };
     bail!(
-      "unsupported asset-generator {kind} in {}; use an exact battlement_reactant::asset_generator::generate! or generate_family! path",
+      "unsupported asset-generator {kind} in {}; use an exact reactant::asset_generator::generate! or generate_family! path",
       collector.source.display()
     );
   }
@@ -445,7 +445,7 @@ fn exact_generator(value: &Macro) -> bool {
     .segments
     .iter()
     .map(|segment| segment.ident.to_string())
-    .eq(["battlement_reactant", "asset_generator", "generate"])
+    .eq(["reactant", "asset_generator", "generate"])
 }
 
 fn exact_family_generator(value: &Macro) -> bool {
@@ -454,7 +454,7 @@ fn exact_family_generator(value: &Macro) -> bool {
     .segments
     .iter()
     .map(|segment| segment.ident.to_string())
-    .eq(["battlement_reactant", "asset_generator", "generate_family"])
+    .eq(["reactant", "asset_generator", "generate_family"])
 }
 
 fn conditional(attributes: &[Attribute]) -> bool {

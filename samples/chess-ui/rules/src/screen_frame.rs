@@ -7,10 +7,10 @@ use crate::{
   portrait_viewport::{PORTRAIT_DESIGN_HEIGHT, PORTRAIT_DESIGN_WIDTH},
 };
 use battlement::{Color, Length, Overflow, Position, Style, TransformOrigin};
-use battlement_reactant::prelude::{
+use reactant::prelude::{
   Children, Easing, Keyframes, StateSetter, StyleTarget, Transition, builder,
 };
-use battlement_reactant::{
+use reactant::{
   component::Component,
   components::Region,
   context::ContextProvider,

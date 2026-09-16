@@ -3,9 +3,9 @@
 use trox::tx;
 
 use battlement::{Align, Color, Justify, LengthUnits, Overflow};
-use battlement_reactant::prelude::{Child, builder};
-use battlement_reactant::semantics::{SemanticName, SemanticProps};
-use battlement_reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
+use reactant::prelude::{Child, builder};
+use reactant::semantics::{SemanticName, SemanticProps};
+use reactant::{component::Component, render::Render, scale_to_fit::ScaleToFit};
 
 /// Logical width of the portrait canvas before viewport scaling.
 pub const PORTRAIT_DESIGN_WIDTH: f32 = 1024.0;

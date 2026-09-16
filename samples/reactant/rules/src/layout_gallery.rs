@@ -4,7 +4,7 @@ use crate::{Game, design_system, layout_gallery_styles as styles};
 use battlement::{
   Align, Color, GridAutoFlow, GridItem, GridTrack, PickingMode, ScrollViewMode, StackItem, Sticky,
 };
-use battlement_reactant::{control_behavior, hooks, prelude::*};
+use reactant::{control_behavior, hooks, prelude::*};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LayoutGalleryState {

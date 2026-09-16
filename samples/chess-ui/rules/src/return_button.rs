@@ -7,8 +7,8 @@ use crate::{
   action_skin,
 };
 use battlement::{Position, Style};
-use battlement_reactant::prelude::{EventCallback, builder};
-use battlement_reactant::{
+use reactant::prelude::{EventCallback, builder};
+use reactant::{
   component::Component,
   control_behavior,
   host::View,

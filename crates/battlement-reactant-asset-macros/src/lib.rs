@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 
 use proc_macro::TokenStream;
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 
@@ -45,6 +46,7 @@ pub fn generate_family(input: TokenStream) -> TokenStream {
 fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStream2 {
   use battlement_reactant_asset_syntax::DeclarationKind;
 
+  let reactant = self::reactant_path();
   let symbol = format_ident!("{}", request.symbol);
   let address = format!(
     "battlement-reactant/generated/{}.png",
@@ -57,10 +59,10 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
   let subject_width = request.metadata.subject.width as f32;
   let subject_height = request.metadata.subject.height as f32;
   let canvas = quote! {
-    ::battlement_reactant::asset_generator::LogicalSize::new(#canvas_width, #canvas_height)
+    #reactant::asset_generator::LogicalSize::new(#canvas_width, #canvas_height)
   };
   let subject = quote! {
-    ::battlement_reactant::asset_generator::LogicalRect::new(
+    #reactant::asset_generator::LogicalRect::new(
       #subject_x,
       #subject_y,
       #subject_width,
@@ -69,9 +71,9 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
   };
   let (handle, value, slices) = match request.kind {
     DeclarationKind::Background => (
-      quote!(::battlement_reactant::asset_generator::BackgroundAsset),
+      quote!(#reactant::asset_generator::BackgroundAsset),
       quote! {
-        ::battlement_reactant::asset_generator::BackgroundAsset::__new(
+        #reactant::asset_generator::BackgroundAsset::__new(
           #address,
           #canvas,
           #subject,
@@ -80,9 +82,9 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
       quote!(::core::option::Option::None),
     ),
     DeclarationKind::TextImage => (
-      quote!(::battlement_reactant::asset_generator::TextImageAsset),
+      quote!(#reactant::asset_generator::TextImageAsset),
       quote! {
-        ::battlement_reactant::asset_generator::TextImageAsset::__new(
+        #reactant::asset_generator::TextImageAsset::__new(
           #address,
           #canvas,
           #subject,
@@ -101,7 +103,7 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
       let left = insets.left as f32;
       let raster_scale = request.metadata.raster_scale;
       let slices = quote! {
-        ::battlement_reactant::asset_generator::LogicalInsets::new(
+        #reactant::asset_generator::LogicalInsets::new(
           #top,
           #right,
           #bottom,
@@ -109,9 +111,9 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
         )
       };
       (
-        quote!(::battlement_reactant::asset_generator::NineSliceAsset),
+        quote!(#reactant::asset_generator::NineSliceAsset),
         quote! {
-          ::battlement_reactant::asset_generator::NineSliceAsset::__new(
+          #reactant::asset_generator::NineSliceAsset::__new(
             #address,
             #canvas,
             #subject,
@@ -127,8 +129,8 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
   quote! {
     pub static #symbol: #handle = #value;
 
-    ::battlement_reactant::__register_generated_asset!(
-      ::battlement_reactant::asset_generator::AssetRegistration::__new(
+    #reactant::__register_generated_asset!(
+      #reactant::asset_generator::AssetRegistration::__new(
         #address,
         #canvas,
         #subject,
@@ -136,6 +138,17 @@ fn expand(request: battlement_reactant_asset_syntax::AssetRequest) -> TokenStrea
         ::core::concat!(::core::module_path!(), "::", ::core::stringify!(#symbol)),
       )
     );
+  }
+}
+
+fn reactant_path() -> TokenStream2 {
+  let found = crate_name("reactant").or_else(|_| crate_name("reactant-core"));
+  match found.expect("generated assets require reactant or reactant-core") {
+    FoundCrate::Itself => quote!(::reactant_core),
+    FoundCrate::Name(name) => {
+      let ident = format_ident!("{name}");
+      quote!(::#ident)
+    }
   }
 }
 

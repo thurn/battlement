@@ -1,0 +1,13 @@
+[package]
+name = "reactant"
+version = "0.1.0"
+description = "Declarative application facade for Battlement"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+reactant-core.workspace = true
+reactant-rules.workspace = true
+reactant-ui.workspace = true

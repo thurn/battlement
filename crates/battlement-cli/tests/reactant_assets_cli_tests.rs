@@ -152,7 +152,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   fs::create_dir_all(fixture.project.join("rules/src/nested")).unwrap();
   fs::create_dir_all(fixture.project.join("rules/asset-pack/src")).unwrap();
   fs::write(
@@ -160,7 +160,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
        [features]\ndefault = []\nart = [\"dep:asset-pack\"]\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\nasset-pack = {{ path = \"asset-pack\", optional = true }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\nasset-pack = {{ path = \"asset-pack\", optional = true }}\n",
       reactant
     ),
   )
@@ -172,7 +172,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
   .unwrap();
   fs::write(
     fixture.project.join("rules/src/nested/mod.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @background PANEL { @canvas 20px 10px; @subject 1px 1px 18px 8px; background: linear-gradient(red, blue); }\n\
      }\n",
   )
@@ -181,14 +181,14 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
     fixture.project.join("rules/asset-pack/Cargo.toml"),
     format!(
       "[package]\nname = \"asset-pack\"\nversion = \"0.2.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
   .unwrap();
   fs::write(
     fixture.project.join("rules/asset-pack/src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @nine-slice FRAME { @canvas 30px 18px; @subject 2px 2px 26px 14px; @slices 2px 2px 2px 2px; border: 1px dashed red; }\n\
      }\n",
   )
@@ -211,21 +211,21 @@ fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   let git_assets = fixture.root.join("git-assets");
   fs::create_dir_all(git_assets.join("src")).unwrap();
   fs::write(
     git_assets.join("Cargo.toml"),
     format!(
       "[package]\nname = \"git-assets\"\nversion = \"0.3.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
   .unwrap();
   fs::write(
     git_assets.join("src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @background GIT_PANEL { @canvas 12px 8px; background: linear-gradient(red, blue); }\n\
      }\n",
   )
@@ -277,31 +277,31 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
   .unwrap();
   let cases = [
     (
-      "use battlement_reactant::asset_generator;\nasset_generator::generate! { anything }\n",
+      "use reactant::asset_generator;\nasset_generator::generate! { anything }\n",
       "imports or reexports",
     ),
     (
-      "fn nested() { battlement_reactant::asset_generator::generate! { anything } }\n",
+      "fn nested() { reactant::asset_generator::generate! { anything } }\n",
       "is nested",
     ),
     (
-      "#[cfg(any())]\nbattlement_reactant::asset_generator::generate! { anything }\n",
+      "#[cfg(any())]\nreactant::asset_generator::generate! { anything }\n",
       "conditionally compiled",
     ),
     (
-      "macro_rules! wrapped { () => { battlement_reactant::asset_generator::generate! { anything } } }\n",
+      "macro_rules! wrapped { () => { reactant::asset_generator::generate! { anything } } }\n",
       "macro wrapper",
     ),
   ];
@@ -317,7 +317,7 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
     fixture.project.join("rules/Cargo.toml"),
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n\
+       [dependencies]\nreactant = {{ path = {:?} }}\n\
        [target.'cfg(not(target_arch = \"wasm32\"))'.dependencies]\nhost-art = {{ path = \"host-art\" }}\n",
       reactant
     ),
@@ -332,7 +332,7 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
     fixture.project.join("rules/host-art/Cargo.toml"),
     format!(
       "[package]\nname = \"host-art\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
@@ -357,19 +357,19 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nreactant = {{ package = \"battlement-reactant\", path = {:?} }}\n",
+       [dependencies]\nrenamed-reactant = {{ package = \"reactant\", path = {:?} }}\n",
       reactant
     ),
   )
   .unwrap();
   let renamed = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
   assert!(!renamed.status.success());
-  assert!(stderr(&renamed).contains("aliases battlement-reactant as reactant"));
+  assert!(stderr(&renamed).contains("aliases reactant as renamed_reactant"));
 
   let outside = fixture.root.join("outside-assets");
   fs::create_dir_all(outside.join("src")).unwrap();
@@ -377,7 +377,7 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
     outside.join("Cargo.toml"),
     format!(
       "[package]\nname = \"outside-assets\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
@@ -403,12 +403,12 @@ fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )
@@ -429,7 +429,7 @@ fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
   ] {
     fs::write(
       fixture.project.join("rules/src/lib.rs"),
-      format!("battlement_reactant::asset_generator::generate! {{ {declaration} }}\n"),
+      format!("reactant::asset_generator::generate! {{ {declaration} }}\n"),
     )
     .unwrap();
     let output = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
@@ -453,10 +453,10 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
   .unwrap();
   fs::write(
     fixture.project.join("rules/src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
      }\n\
-     battlement_reactant::asset_generator::generate! {\n\
+     reactant::asset_generator::generate! {\n\
        @background OTHER { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
      }\n",
   )
@@ -510,7 +510,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   .unwrap();
   fs::write(
     fixture.project.join("rules/src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @text-image LABEL { @canvas 80px 24px; @font-file unity(\"Assets/Fonts/face.ttf\"); content: \"Hello\"; font-size: 16px; text-shadow: 1px 2px red, 2px 3px blue; }\n\
      }\n",
   )
@@ -522,7 +522,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
 
   fs::write(
     fixture.project.join("rules/src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @text-image LABEL { @canvas 80px 24px; @font-file unity(\"Assets/Fonts/face.ttf\"); content: \"\\u{10FFFF}\"; font-size: 16px; text-shadow: 1px 2px red, 2px 3px blue; }\n\
      }\n",
   )
@@ -551,7 +551,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   symlink(&outside, fixture.project.join("Assets/escape.png")).unwrap();
   fs::write(
     fixture.project.join("rules/src/lib.rs"),
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/escape.png\"); box-shadow: 1px 2px red; }\n\
      }\n",
   )
@@ -575,7 +575,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   )
   .unwrap();
   let source = fixture.project.join("rules/src/lib.rs");
-  let declaration = "battlement_reactant::asset_generator::generate! {\n\
+  let declaration = "reactant::asset_generator::generate! {\n\
     @background PANEL { @canvas 20px 10px; @subject 3px 2px 12px 4px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
   }\n";
   fs::write(&source, declaration).unwrap();
@@ -905,12 +905,12 @@ fn write_asset_manifest(fixture: &Fixture) {
     Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
       .parent()
       .unwrap()
-      .join("battlement-reactant");
+      .join("reactant");
   fs::write(
     fixture.project.join("rules/Cargo.toml"),
     format!(
       "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
-       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+       [dependencies]\nreactant = {{ path = {:?} }}\n",
       reactant
     ),
   )

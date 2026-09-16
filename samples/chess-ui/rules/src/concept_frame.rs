@@ -2,8 +2,8 @@
 
 use crate::frame_styles;
 use battlement::{Color, Position, Style};
-use battlement_reactant::prelude::builder;
-use battlement_reactant::{
+use reactant::prelude::builder;
+use reactant::{
   component::Component,
   host::View,
   paint::{PaintLayer, PaintStyle},

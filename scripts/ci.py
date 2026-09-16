@@ -53,7 +53,7 @@ RUSTFMT_VERSION = "1.9.0-stable"
 RUST_COMPONENTS = {"clippy", "rustfmt"}
 RUST_VERSION_MANIFESTS = (
     "Cargo.toml",
-    "crates/battlement-reactant/tests/fixtures/asset-registry/Cargo.toml",
+    "crates/reactant-core/tests/fixtures/asset-registry/Cargo.toml",
 )
 TOLLGATE_CI_COMMAND = f"rustup run {RUST_VERSION} python3 scripts/ci.py --full --tollgate-evidence"
 TOLLGATE_PROSE_COMMAND = "python3 scripts/prose_validation.py --tollgate-evidence"

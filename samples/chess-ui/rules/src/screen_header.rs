@@ -7,7 +7,7 @@ use crate::{
   header_artwork,
 };
 use battlement::{Length, PickingMode, Position, Style, Translate};
-use battlement_reactant::{control_behavior, element_behavior, focus::FocusProps, prelude::*};
+use reactant::{control_behavior, element_behavior, focus::FocusProps, prelude::*};
 
 /// Selects the fixed decorative heading.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

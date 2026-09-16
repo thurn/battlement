@@ -2,7 +2,7 @@
 
 use crate::frame_styles;
 use battlement::{Color, Gradient, Length, LengthUnits, Position, Style};
-use battlement_reactant::{
+use reactant::{
   component::Component,
   host::View,
   paint::{PaintBlendMode, PaintClipPath, PaintFillRule, PaintStyle},

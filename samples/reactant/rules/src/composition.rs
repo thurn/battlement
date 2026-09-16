@@ -2,7 +2,7 @@ use trox::{LocalizedString, ls, tx};
 
 use crate::controls;
 use crate::{Control, Interaction, design_system};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 #[builder]
 pub(crate) struct Composition {
@@ -29,18 +29,15 @@ pub(crate) struct Specimen {
 
 impl Component for Composition {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("composition-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new(tx(
-          "COMPOSITION",
-          "Component composition section heading.",
-        ))
-        .style(design_system::eyebrow()),
+        reactant::host::Label::new(tx("COMPOSITION", "Component composition section heading."))
+          .style(design_system::eyebrow()),
       )
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "Build declaratively",
           "Component composition interface label.",
         ))
@@ -67,21 +64,19 @@ impl Component for Composition {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .style(design_system::badge())
-      .child(
-        battlement_reactant::host::Label::new(self.text.clone()).style(design_system::badge_text()),
-      )
+      .child(reactant::host::Label::new(self.text.clone()).style(design_system::badge_text()))
   }
 }
 
 impl Component for Specimen {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("composition-specimen")
       .style(design_system::specimen())
       .child(
-        battlement_reactant::host::Label::new(ls(self.heading.clone()))
+        reactant::host::Label::new(ls(self.heading.clone()))
           .name("specimen-heading")
           .style(design_system::specimen_title()),
       )
@@ -108,7 +103,7 @@ fn composition_badges(reversed: bool) -> Node {
     badges.reverse();
   }
   Node::new(
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("composition-badges")
       .style(design_system::badge_row())
       .child(Fragment::new(badges)),

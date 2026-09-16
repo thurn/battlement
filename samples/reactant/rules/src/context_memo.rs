@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
 use crate::{Control, Game, design_system};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 #[builder]
 pub(crate) struct ContextMemo {
@@ -44,18 +44,15 @@ impl Component for ContextMemo {
     } else {
       Node::new(memo(ThemeCard::new().scope("NESTED")))
     };
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("context-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new(tx(
-          "CONTEXT & MEMO",
-          "Context and memo section heading.",
-        ))
-        .style(design_system::eyebrow()),
+        reactant::host::Label::new(tx("CONTEXT & MEMO", "Context and memo section heading."))
+          .style(design_system::eyebrow()),
       )
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "Values follow ancestry",
           "Context and memo interface label.",
         ))
@@ -63,15 +60,15 @@ impl Component for ContextMemo {
         .style(design_system::title()),
       )
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("context-specimen")
           .style(design_system::context_specimen())
           .child(
-            battlement_reactant::host::View::new()
+            reactant::host::View::new()
               .name("context-control")
               .style(design_system::context_control())
               .child(
-                battlement_reactant::host::Label::new(tx(
+                reactant::host::Label::new(tx(
                   "CONTEXT  Nearest provider wins",
                   "Context and memo interface label.",
                 ))
@@ -90,7 +87,7 @@ impl Component for ContextMemo {
               )),
           )
           .child(
-            battlement_reactant::host::View::new()
+            reactant::host::View::new()
               .name("context-cards")
               .style(design_system::context_row())
               .child(memo(ThemeCard::new().scope("OUTER")))
@@ -98,11 +95,11 @@ impl Component for ContextMemo {
           ),
       )
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("memo-experiment")
           .style(design_system::memo_experiment())
           .child(
-            battlement_reactant::host::Label::new(tx(
+            reactant::host::Label::new(tx(
               "MEMO  Unrelated value",
               "Context and memo interface label.",
             ))
@@ -120,7 +117,7 @@ impl Component for ContextMemo {
             move |game: &mut Game| unrelated_action(game),
           ))
           .child(
-            battlement_reactant::host::Label::new(ls(unrelated))
+            reactant::host::Label::new(ls(unrelated))
               .name("context-unrelated-value")
               .style(design_system::context_counter()),
           ),
@@ -135,14 +132,12 @@ impl Component for ThemeCard {
       Theme::Outer => ("DEFAULT", design_system::CYAN),
       Theme::Overridden => ("OVERRIDDEN", design_system::CONTEXT_OVERRIDE),
     };
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name(format!("context-{}", self.scope.to_ascii_lowercase()))
       .style(design_system::context_card(color))
+      .child(reactant::host::Label::new(ls(self.scope)).style(design_system::context_scope()))
       .child(
-        battlement_reactant::host::Label::new(ls(self.scope)).style(design_system::context_scope()),
-      )
-      .child(
-        battlement_reactant::host::Label::new(ls(name))
+        reactant::host::Label::new(ls(name))
           .name("context-theme")
           .style(design_system::context_theme(color)),
       )

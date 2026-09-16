@@ -8,7 +8,7 @@ use crate::{
 use battlement::{
   Align, Color, FlexDirection, Length, LengthUnits, Position, Rotate, Style, TextAnchor, TextShadow,
 };
-use battlement_reactant::{
+use reactant::{
   control_behavior,
   paint::PaintStyle,
   prelude::{PaintDropShadow, PaintFilterList, *},

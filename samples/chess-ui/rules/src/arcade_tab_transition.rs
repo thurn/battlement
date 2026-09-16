@@ -3,7 +3,7 @@
 use battlement::{
   Color, Gradient, Length, LengthUnits, Overflow, Position, SemanticRole, Style, TransformOrigin,
 };
-use battlement_reactant::{
+use reactant::{
   paint::PaintStyle,
   prelude::*,
   semantics::{SemanticName, SemanticProps, SemanticVisibility},

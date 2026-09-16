@@ -1,6 +1,6 @@
 //! Motion targets shared by the selector menu, options, flash, and caret.
 
-use battlement_reactant::motion::{Easing, MotionTarget, StyleTarget, Transition};
+use reactant::motion::{Easing, MotionTarget, StyleTarget, Transition};
 
 pub(crate) fn menu_initial(reduced: bool) -> StyleTarget {
   if reduced {

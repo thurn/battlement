@@ -168,10 +168,10 @@ fn valid_renders_report_each_stable_warning_category() {
 fn one_failed_request_publishes_no_render_cache_entries() {
   let fixture = Fixture::new();
   fixture.write_source(
-    "battlement_reactant::asset_generator::generate! {\n\
+    "reactant::asset_generator::generate! {\n\
        @background SAFE { @canvas 16px 16px; @subject 2px 2px 12px 12px; background: linear-gradient(red, blue); }\n\
      }\n\
-     battlement_reactant::asset_generator::generate! {\n\
+     reactant::asset_generator::generate! {\n\
        @background CLIPPED { @canvas 16px 16px; background: linear-gradient(red, blue); }\n\
      }\n",
   );
@@ -193,7 +193,7 @@ fn browser_shaping_rejects_an_ignored_joiner_without_publishing_pixels() {
   let fixture = Fixture::new();
   fixture.install_dependencies();
   fixture.write_source(
-    r#"battlement_reactant::asset_generator::generate! {
+    r#"reactant::asset_generator::generate! {
       @text-image JOINED {
         @canvas 32px 24px;
         @subject 3px 3px 26px 18px;
@@ -225,40 +225,40 @@ fn browser_shaping_rejects_an_ignored_joiner_without_publishing_pixels() {
 }
 
 const PAINT_BATCH: &str = r#"
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background GRADIENT { @canvas 32px 24px; @subject 4px 4px 24px 16px; background: linear-gradient(red, blue); }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background CLIP { @canvas 32px 24px; @subject 4px 4px 24px 16px; background: linear-gradient(red, blue); clip-path: circle(40% at 50% 50%); }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background MASK { @canvas 32px 24px; @subject 4px 4px 24px 16px; background: linear-gradient(red, blue); mask: linear-gradient(red, transparent) alpha; }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background SHADOW { @canvas 32px 24px; @subject 6px 6px 20px 12px; background: linear-gradient(red, blue); box-shadow: 1px 1px 2px red, inset 1px 1px 2px blue; }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background EFFECTS { @canvas 32px 24px; @subject 6px 6px 20px 12px; background: linear-gradient(red, blue); filter: blur(1px) saturate(1.2); transform: rotate(5deg); transform-origin: left top; }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @nine-slice FRAME { @canvas 32px 24px; @subject 4px 4px 24px 16px; @slices 3px 3px 3px 3px; @raster-scale 3; background: linear-gradient(red, blue); border: 1px dashed white; }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background LOCAL { @canvas 32px 24px; @subject 4px 4px 24px 16px; background: unity-url("Assets/Textures/source.png") center / 8px 8px no-repeat; box-shadow: 1px 1px 1px red; }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @text-image TEXT { @canvas 32px 24px; @subject 3px 3px 26px 18px; @font-file unity("Assets/Fonts/command.ttf"); content: "e\u{301}"; font-size: 8px; color: transparent; background: linear-gradient(red, blue); background-clip: text; text-shadow: 1px 1px 1px blue; }
 }
 "#;
 
 const WARNING_BATCH: &str = r#"
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background EDGE { @canvas 16px 16px; @subject 0px 2px 12px 12px; @allow-clipping left; background: linear-gradient(red, blue); }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background LOSSY { @canvas 16px 16px; @subject 2px 2px 12px 12px; @compression lossy-low; background: linear-gradient(rgba(255, 0, 0, 0.5), rgba(0, 0, 255, 0.5)); }
 }
-battlement_reactant::asset_generator::generate! {
+reactant::asset_generator::generate! {
   @background LARGE { @canvas 2049px 2048px; @subject 8px 8px 32px 32px; @raster-scale 1; background: linear-gradient(red, blue); }
 }
 "#;
@@ -287,11 +287,11 @@ impl Fixture {
       Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
         .parent()
         .unwrap()
-        .join("battlement-reactant");
+        .join("reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
-        "[package]\nname = \"render-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+        "[package]\nname = \"render-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nreactant = {{ path = {:?} }}\n",
         reactant
       ),
     )

@@ -5,8 +5,8 @@ use battlement::{
   StyleValue, UiEvent, UiEventBody, UiFontAddress, UiVisualElementProperties, VisualElementAction,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
-use battlement_reactant::{app::App, asset_generator};
 use battlement_rules::engine;
+use reactant::{app::App, asset_generator};
 
 const ACTION_FONT: UiFontAddress = UiFontAddress::from_static("chess-ui/fonts/action");
 const BACKGROUND_MUSIC: AudioClipAddress =

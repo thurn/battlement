@@ -4,8 +4,8 @@ use battlement::{
   Align, Color, FlexDirection, GridTrack, Length, LengthOrAuto, Position, Scale, Style,
   TransformOrigin, UiFontAddress,
 };
-use battlement_reactant::prelude::{Child, Children, builder};
-use battlement_reactant::{
+use reactant::prelude::{Child, Children, builder};
+use reactant::{
   component::Component,
   host::{Grid, View},
   label_binding::AssociatedLabel,

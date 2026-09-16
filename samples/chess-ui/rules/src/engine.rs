@@ -1,7 +1,7 @@
 //! Native entry point for the complete Chess UI mockup.
 
 use battlement::{Color, LengthUnits, Overflow, Style, UiDocument};
-use battlement_reactant::{app::App, host::Stack, overlay::OverlayHost};
+use reactant::{app::App, host::Stack, overlay::OverlayHost};
 
 use crate::{
   arcade_route_transition::ArcadeRouteTransition, arcade_screen_router::ArcadeScreenRouter,

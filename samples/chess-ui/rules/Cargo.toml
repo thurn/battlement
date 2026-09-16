@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 battlement = { path = "../../../crates/battlement" }
 battlement-native = { path = "../../../crates/battlement-native" }
-battlement-reactant = { path = "../../../crates/battlement-reactant" }
+reactant = { path = "../../../crates/reactant" }
 serde = { version = "1.0.228", features = ["derive"] }
 trox = "0.2.1"
 

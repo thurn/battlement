@@ -4,7 +4,7 @@ use trox::tx;
 
 use crate::{arcade_modal::ArcadeModal, select_control::VALUE_FONT};
 use battlement::{Align, Color, Style, TextAnchor, TextShadow, WhiteSpace};
-use battlement_reactant::{control_behavior, portal::PortalTarget, prelude::*};
+use reactant::{control_behavior, portal::PortalTarget, prelude::*};
 
 /// Unity's game-player privacy policy requested by the source interface.
 pub const PRIVACY_POLICY_URL: &str =

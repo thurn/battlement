@@ -9,7 +9,7 @@ use battlement::{
   Align, Color, FlexDirection, MotionProperty, Overflow, PickingMode, Position, Style, TextAnchor,
   TextShadow, WhiteSpace,
 };
-use battlement_reactant::{
+use reactant::{
   hooks,
   host::ButtonHost,
   motion::{Easing, MotionTarget, StyleTarget, Transition},

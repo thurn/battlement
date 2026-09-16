@@ -1,7 +1,7 @@
 //! Procedural keyboard and controller glyphs for input binding rows.
 
 use battlement::{Color, Gradient, Position, Rotate, Shadow, Style, TextAnchor};
-use battlement_reactant::{paint::PaintStyle, prelude::*};
+use reactant::{paint::PaintStyle, prelude::*};
 use trox::ls;
 
 use crate::{font_scale, setting_row::DISPLAY_FONT};

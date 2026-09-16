@@ -13,8 +13,8 @@ use crate::{
   incremental::{IncrementalIndex, ReusableGraph},
 };
 
-const REACTANT_PACKAGE: &str = "battlement-reactant";
-const REACTANT_CRATE: &str = "battlement_reactant";
+const REACTANT_PACKAGE: &str = "reactant";
+const REACTANT_CRATE: &str = "reactant";
 const WASM_TARGET: &str = "wasm32-unknown-unknown";
 
 /// One declaration found without expanding or executing the rules package.
@@ -203,7 +203,7 @@ fn resolve_graph(
       .find(|dependency| dependency.name != REACTANT_CRATE)
     {
       bail!(
-        "package {} aliases {REACTANT_PACKAGE} as {}; declarations require the exact battlement_reactant::asset_generator::generate! path",
+        "package {} aliases {REACTANT_PACKAGE} as {}; declarations require the exact reactant::asset_generator::generate! path",
         package.name,
         alias.name
       );

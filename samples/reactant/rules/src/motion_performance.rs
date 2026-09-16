@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, Length, LengthUnits, Overflow, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const HOST_COUNT: usize = 200;
 

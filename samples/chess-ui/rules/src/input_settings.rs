@@ -5,7 +5,7 @@ use battlement::{
   AnimationIterations, Color, FlexDirection, Gradient, GridTrack, KeyEvent, PhysicalKey, Position,
   ScrollerVisibility, SemanticRole, Shadow, Sticky, Style, TextAnchor, Vector, WhiteSpace,
 };
-use battlement_reactant::{
+use reactant::{
   announcement::{Announce, use_announce},
   component::Component,
   components::Button,

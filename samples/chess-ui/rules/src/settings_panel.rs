@@ -1,7 +1,7 @@
 //! Generated settings surround with live, padded content.
 
 use battlement::{ImageScaleMode, Overflow, PickingMode, Position, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 use crate::assets;
 

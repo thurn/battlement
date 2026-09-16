@@ -1,8 +1,8 @@
 //! A painted check glyph that never intercepts pointer input.
 
 use battlement::{Color, Length, LengthUnits, Position, Scale, Style, Translate};
-use battlement_reactant::prelude::builder;
-use battlement_reactant::{
+use reactant::prelude::builder;
+use reactant::{
   component::Component,
   host::View,
   paint::{PaintFill, PaintStyle},

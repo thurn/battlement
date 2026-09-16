@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use battlement_reactant::resource::Resource;
 use futures_channel::oneshot::{self, Sender};
+use reactant::resource::Resource;
 
 /// A demonstration data source completed explicitly by its Resolve button.
 #[derive(Clone)]

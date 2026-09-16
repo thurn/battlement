@@ -128,7 +128,7 @@ def compile_fixture() -> None:
             "cargo",
             "test",
             "-p",
-            "battlement-reactant",
+            "reactant-core",
             "--test",
             "generated_assets",
         ],
@@ -326,14 +326,14 @@ def write_performance_fixture(root: Path) -> Path:
     (project / "ProjectSettings/ProjectVersion.txt").write_text(
         "m_EditorVersion: performance-fixture\n", encoding="utf-8"
     )
-    reactant = REPOSITORY_ROOT / "crates/battlement-reactant"
+    reactant = REPOSITORY_ROOT / "crates/reactant"
     (project / "rules/Cargo.toml").write_text(
         "[package]\n"
         'name = "reactant-asset-performance"\n'
         'version = "0.1.0"\n'
         'edition = "2024"\n'
         "[dependencies]\n"
-        f"battlement-reactant = {{ path = {json.dumps(str(reactant))} }}\n",
+        f"reactant = {{ path = {json.dumps(str(reactant))} }}\n",
         encoding="utf-8",
     )
     modules = []
@@ -344,7 +344,7 @@ def write_performance_fixture(root: Path) -> Path:
             variant = index % 8
             width = 20 + variant
             declaration = (
-                "battlement_reactant::asset_generator::generate! {\n"
+                "reactant::asset_generator::generate! {\n"
                 f"  @background PERF_{index:03} {{\n"
                 f"    @canvas {width}px 16px;\n"
                 f"    @subject 2px 2px {width - 4}px 12px;\n"

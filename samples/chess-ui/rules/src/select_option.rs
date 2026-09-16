@@ -9,7 +9,7 @@ use crate::{
 use battlement::{
   Align, Color, FlexDirection, Gradient, Justify, PickingMode, Position, Shadow, Style, TextAnchor,
 };
-use battlement_reactant::{
+use reactant::{
   element_ref, hooks,
   paint::{PaintLayer, PaintStyle},
   prelude::*,

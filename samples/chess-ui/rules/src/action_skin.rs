@@ -1,7 +1,7 @@
 //! Paint recipes for the beveled outline and dark interior of arcade actions.
 
 use battlement::{Color, Gradient, Length};
-use battlement_reactant::paint::PaintFill;
+use reactant::paint::PaintFill;
 
 pub const INTERIOR: Color = Color::rgb8(2, 6, 19);
 

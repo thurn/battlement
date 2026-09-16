@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
 use crate::{Control, Interaction, design_system, preview_resource::Preview};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 use std::{error::Error, fmt};
 
 #[builder]
@@ -43,18 +43,18 @@ impl Component for ResourcesBoundaries {
   fn render(&self) -> impl Render {
     let compact = self.compact;
     let preview = self.preview_resource.clone();
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("resources-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "RESOURCES & BOUNDARIES",
           "Resources and boundaries section heading.",
         ))
         .style(design_system::resources_eyebrow(self.compact)),
       )
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "Recover without losing control",
           "Resources and boundaries interface label.",
         ))
@@ -62,16 +62,16 @@ impl Component for ResourcesBoundaries {
         .style(design_system::effects_title(self.compact)),
       )
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("resources-card-group")
           .style(design_system::resources_group(self.compact))
           .child(
             Suspense::new(
-              battlement_reactant::host::View::new()
+              reactant::host::View::new()
                 .name("resource-pending")
                 .style(design_system::boundary_card(false, self.compact))
                 .child(
-                  battlement_reactant::host::Label::new(tx(
+                  reactant::host::Label::new(tx(
                     "RESOURCE PENDING",
                     "Resources and boundaries section heading.",
                   ))
@@ -124,11 +124,11 @@ impl Component for ResourcePreview {
     let interaction = self.interaction;
     let control = use_resource_control(&self.resource.resource);
     use_resource(&self.resource.resource, 1).then(move |_| {
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .name("resource-ready")
         .style(design_system::boundary_card(false, compact))
         .child(
-          battlement_reactant::host::Label::new(tx(
+          reactant::host::Label::new(tx(
             "RESOURCE READY",
             "Resources and boundaries status message.",
           ))
@@ -155,11 +155,11 @@ impl Component for BoundaryPrimary {
       return Err(BoundaryFailure);
     }
     Ok(
-      battlement_reactant::host::View::new()
+      reactant::host::View::new()
         .name("boundary-primary")
         .style(design_system::boundary_card(false, self.compact))
         .child(
-          battlement_reactant::host::Label::new(tx(
+          reactant::host::Label::new(tx(
             "BOUNDARY READY",
             "Resources and boundaries status message.",
           ))
@@ -182,18 +182,18 @@ impl Component for BoundaryPrimary {
 
 impl Component for BoundaryFallback {
   fn render(&self) -> impl Render {
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("boundary-fallback")
       .style(design_system::boundary_card(true, self.compact))
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "ERROR CAUGHT",
           "Resources and boundaries status message.",
         ))
         .style(design_system::boundary_status(true, self.compact)),
       )
       .child(
-        battlement_reactant::host::Label::new(ls(self.message.clone()))
+        reactant::host::Label::new(ls(self.message.clone()))
           .name("boundary-error")
           .style(design_system::boundary_detail()),
       )

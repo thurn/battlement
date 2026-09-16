@@ -15,7 +15,7 @@ use battlement::{
   Align, Color, FlexDirection, Gradient, Length, LengthUnits, MotionProperty, Position, Style,
   TextAnchor, Translate, UiFontAddress,
 };
-use battlement_reactant::{
+use reactant::{
   control_behavior, element_ref, geometry, hooks,
   host::ButtonHost,
   motion::{Easing, MotionTarget, StyleTarget, Transition},

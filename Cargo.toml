@@ -15,7 +15,9 @@ members = [
     "crates/battlement-cli",
     "crates/battlement-native",
     "crates/reactant-rules",
-    "crates/battlement-reactant",
+    "crates/reactant-core",
+    "crates/reactant-ui",
+    "crates/reactant",
     "crates/battlement-reactant-asset-macros",
     "crates/battlement-reactant-asset-syntax",
     "crates/battlement-reactant-assets",
@@ -38,7 +40,6 @@ battlement-flatbuffers = { path = "crates/battlement-flatbuffers" }
 battlement-cloud = { path = "crates/battlement-cloud" }
 battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
 battlement-ditto = { path = "crates/battlement-ditto" }
-battlement-reactant = { path = "crates/battlement-reactant" }
 battlement-reactant-asset-syntax = { path = "crates/battlement-reactant-asset-syntax" }
 battlement-reactant-assets = { path = "crates/battlement-reactant-assets" }
 battlement-tooling = { path = "crates/battlement-tooling" }
@@ -46,6 +47,9 @@ battlement-types = { path = "crates/battlement-types" }
 battlement-ui = { path = "crates/battlement-ui" }
 battlement-ui-fake = { path = "crates/battlement-ui-fake" }
 reactant-rules = { path = "crates/reactant-rules" }
+reactant-core = { path = "crates/reactant-core" }
+reactant-ui = { path = "crates/reactant-ui" }
+reactant = { path = "crates/reactant" }
 anyhow = "1.0.100"
 aws-credential-types = "=1.2.3"
 aws-sdk-s3 = "=1.96.0"

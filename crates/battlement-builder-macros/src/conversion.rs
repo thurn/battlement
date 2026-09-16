@@ -41,8 +41,10 @@ impl Conversion {
       target,
       &[
         "EventCallback",
-        "battlement_reactant::prelude::EventCallback",
-        "battlement_reactant::callback::Callback",
+        "reactant::prelude::EventCallback",
+        "reactant::callback::Callback",
+        "reactant_core::prelude::EventCallback",
+        "reactant_core::callback::Callback",
       ],
     ) {
       return Self::Event { payload, optional };

@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use battlement_reactant::{hooks, motion_value::MotionValue, prelude::*};
+use reactant::{hooks, motion_value::MotionValue, prelude::*};
 
 use crate::background_music::{BackgroundMusicContext, BackgroundMusicStatus};
 

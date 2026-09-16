@@ -4,7 +4,7 @@ use crate::Game;
 use battlement::{
   Color, FlexDirection, GridTrack, LengthUnits, ScrollViewMode, StackItem, Sticky, Style,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const GRID_CHILDREN: usize = 1_000;
 

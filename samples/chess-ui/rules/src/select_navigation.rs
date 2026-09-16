@@ -1,7 +1,7 @@
 //! Keyboard and controller state transitions for the custom selector.
 
 use battlement::{KeyEvent, NavigationDirection, NavigationMoveEvent, PhysicalKey};
-use battlement_reactant::{event::ReactantEvent, hooks::StateSetter};
+use reactant::{event::ReactantEvent, hooks::StateSetter};
 
 /// Returns the selected option index, defaulting to the first option.
 pub(crate) fn selected_index(options: &[String], value: &str) -> usize {

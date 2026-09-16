@@ -3,7 +3,7 @@
 use battlement::{
   Color, Gradient, Length, MotionProperty, Position, Shadow, Style, TextAnchor, Translate,
 };
-use battlement_reactant::{
+use reactant::{
   control_behavior,
   host::ButtonHost,
   motion::{Easing, MotionTarget, StyleTarget, Transition},

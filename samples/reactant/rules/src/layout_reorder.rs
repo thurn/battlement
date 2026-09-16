@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Color, FlexDirection, FlexWrap, ScrollViewMode, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct LayoutReorderState {

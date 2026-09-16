@@ -1,6 +1,6 @@
 //! Prepared decorative lettering with transparent margins for offset shadows.
 
-battlement_reactant::asset_generator::generate_family! {
+reactant::asset_generator::generate_family! {
   @text-image {
     @filter-mode trilinear;
     @font-file unity("Assets/Original/barlow-condensed-800-italic.ttf");
@@ -34,7 +34,7 @@ battlement_reactant::asset_generator::generate_family! {
   }
 }
 
-battlement_reactant::asset_generator::generate_family! {
+reactant::asset_generator::generate_family! {
   @background {
     @canvas 314px 58px;
     @allow-clipping top right bottom left;

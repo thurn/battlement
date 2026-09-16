@@ -4,7 +4,7 @@ use battlement::{
   Color, Gradient, GradientStop, Length, LengthUnits, MotionProperty, PickingMode, Position,
   Shadow, Style, Translate,
 };
-use battlement_reactant::{
+use reactant::{
   component::Component,
   host::View,
   motion::{Easing, MotionTarget, StyleTarget, Transition},

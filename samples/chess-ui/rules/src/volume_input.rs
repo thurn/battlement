@@ -1,7 +1,7 @@
 //! Keyboard, controller, and pointer value normalization for volume sliders.
 
 use battlement::{KeyEvent, NavigationDirection, NavigationMoveEvent, PhysicalKey};
-use battlement_reactant::event::ReactantEvent;
+use reactant::event::ReactantEvent;
 
 /// Rounds a native pointer proposal to the slider's integer domain.
 pub(crate) fn pointer_value(value: f32) -> u32 {

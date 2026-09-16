@@ -8,8 +8,8 @@ pub(crate) fn interactive_button(
   style: Style,
   control: Control,
   click: impl Fn(&mut Game) + 'static,
-) -> battlement_reactant::host::ButtonHost {
-  battlement_reactant::host::ButtonHost::new(ls(text))
+) -> reactant::host::ButtonHost {
+  reactant::host::ButtonHost::new(ls(text))
     .name(name)
     .style(style)
     .on_pointer_enter(move |game: &mut Game| game.interaction.hovered = Some(control))

@@ -12,8 +12,8 @@ use battlement::{
   Align, Color, FlexDirection, Length, PickingMode, Position, Scale, Style, TextAnchor,
   TransformOrigin, WhiteSpace,
 };
-use battlement_reactant::prelude::{EventCallback, builder, use_control_label};
-use battlement_reactant::{
+use reactant::prelude::{EventCallback, builder, use_control_label};
+use reactant::{
   component::Component,
   control_behavior,
   host::{Flex, SliderHost, TextElement, View},
@@ -66,7 +66,7 @@ impl Component for VolumeControl {
           .direction(FlexDirection::Row)
           .gap(18.0)
           .name("volume-control")
-          .animate(heartbeat.apply(battlement_reactant::prelude::StyleTarget::new()))
+          .animate(heartbeat.apply(reactant::prelude::StyleTarget::new()))
           .style(
             Style::new()
               .position(Position::Relative)

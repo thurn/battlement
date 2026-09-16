@@ -1,7 +1,7 @@
 //! Resting paint for the clipped settings category headers.
 
 use battlement::{Color, Gradient, Length, Shadow};
-use battlement_reactant::prelude::{PaintDropShadow, PaintFilterList, PaintLayer, PaintStyle};
+use reactant::prelude::{PaintDropShadow, PaintFilterList, PaintLayer, PaintStyle};
 
 /// Paints a category outline and its inset without changing the tab's layout.
 pub fn paint(active: bool) -> PaintStyle {

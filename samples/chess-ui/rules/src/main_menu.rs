@@ -1,7 +1,7 @@
 //! Complete main-menu composition with host-owned settings navigation.
 
 use battlement::{Align, FlexDirection, Position, Style};
-use battlement_reactant::{control_behavior, hooks, prelude::*};
+use reactant::{control_behavior, hooks, prelude::*};
 use trox::{ls, tx};
 
 use crate::{

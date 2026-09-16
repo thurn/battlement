@@ -174,11 +174,11 @@ impl Fixture {
       Path::new(&env::var("CARGO_MANIFEST_DIR").expect("Cargo provides the manifest directory"))
         .parent()
         .unwrap()
-        .join("battlement-reactant");
+        .join("reactant");
     fs::write(
       project.join("rules/Cargo.toml"),
       format!(
-        "[package]\nname = \"transaction-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+        "[package]\nname = \"transaction-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[dependencies]\nreactant = {{ path = {:?} }}\n",
         reactant
       ),
     )
@@ -213,7 +213,7 @@ impl Fixture {
     fs::write(
       self.source(),
       format!(
-        r#"battlement_reactant::asset_generator::generate! {{
+        r#"reactant::asset_generator::generate! {{
           @nine-slice PANEL {{
             @canvas {width}px 12px;
             @slices 2px 2px 2px 2px;

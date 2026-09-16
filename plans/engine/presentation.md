@@ -94,9 +94,9 @@ sequence. Rules do not sleep for animation.
 
 ## Reuse the scheduler and Motion
 
-[Reactant delivery](../../crates/battlement-reactant/src/app_delivery.rs)
+[Reactant delivery](../../crates/reactant-core/src/app_delivery.rs)
 already submits [commits as
-batches](../../crates/battlement-reactant/src/commit.rs).
+batches](../../crates/reactant-core/src/commit.rs).
 [Commands](../../crates/battlement/src/commands/command.rs) carry blocking
 flags, and the
 [scheduler](../../Packages/com.battlement.client/Runtime/Host/BattlementBatchScheduler.cs)

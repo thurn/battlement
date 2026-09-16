@@ -96,7 +96,7 @@ def create_repository(root: Path) -> None:
         "scripts/prepare_validation.py": "# fixture\n",
         "crates/battlement-cli/src/generate.rs": "// generator\n",
         "crates/battlement-cli/src/reactant_assets.rs": "// generator\n",
-        "crates/battlement-reactant/src/asset_generator/mod.rs": "// generator\n",
+        "crates/reactant-core/src/asset_generator/mod.rs": "// generator\n",
         "samples/fixture/sample.toml": "application = 'Fixture.app'\nscene = 'Assets/Main.unity'\n",
         "samples/fixture/ditto.toml": "[[scenarios]]\nname = 'smoke'\nsteps = []\n",
         "samples/fixture/rules/src/lib.rs": "pub fn fixture() {}\n",

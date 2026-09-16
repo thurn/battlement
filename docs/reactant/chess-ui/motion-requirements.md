@@ -142,7 +142,7 @@ preserved unless an entry explicitly names a paint approximation.
   `ease-out`. The three-frame exit uses even per-property spacing when the
   four-value times array is incompatible. Skew deforms panel chrome while live
   content remains undeformed. Whole-subtree filters are omitted under the
-  [paint filtering API policy](../../../crates/battlement-reactant/src/motion_filter.rs).
+  [paint filtering API policy](../../../crates/reactant-core/src/motion_filter.rs).
 
 - `ArcadeModal.tsx:168`: modal shine. X `-115% -> 115%`, `1.8s` linear,
   infinite Motion repetition with `1.2s` repeat delay. Use a decoration target;

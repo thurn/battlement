@@ -13,7 +13,7 @@ use battlement::{
   Align, Color, FontStyle, Gradient, Justify, Length, MotionProperty, PickingMode, Position, Scale,
   Shadow, Style, TextAnchor, Translate,
 };
-use battlement_reactant::{
+use reactant::{
   control_behavior,
   host::ToggleHost,
   motion::{Easing, MotionTarget, StyleTarget, Transition},

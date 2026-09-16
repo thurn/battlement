@@ -1,7 +1,7 @@
 //! Controlled Sound settings composition backed by the shared music provider.
 
 use battlement::Style;
-use battlement_reactant::{control_behavior, prelude::*};
+use reactant::{control_behavior, prelude::*};
 use trox::tx;
 
 use crate::{font_scale, toggle_control::ToggleControl, volume_control::VolumeControl};

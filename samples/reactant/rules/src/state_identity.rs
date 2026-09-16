@@ -1,7 +1,7 @@
 use trox::{ls, tx};
 
 use crate::{Game, design_system};
-use battlement_reactant::{hooks, prelude::*};
+use reactant::{hooks, prelude::*};
 
 #[builder]
 pub(crate) struct StateIdentity {
@@ -58,11 +58,11 @@ impl Component for StateIdentity {
           .key((reset, id))
       })
       .collect::<Vec<_>>();
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name("state-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        battlement_reactant::host::Label::new(tx(
+        reactant::host::Label::new(tx(
           "State follows identity",
           "State identity interface label.",
         ))
@@ -70,7 +70,7 @@ impl Component for StateIdentity {
         .style(design_system::title()),
       )
       .child(
-        battlement_reactant::host::ButtonHost::new(ls(action))
+        reactant::host::ButtonHost::new(ls(action))
           .name("state-action")
           .style(design_system::primary_action(control))
           .on_pointer_enter({
@@ -120,16 +120,16 @@ impl Component for StateIdentity {
           }),
       )
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("state-specimen")
           .style(design_system::state_specimen())
           .child(
-            battlement_reactant::host::Label::new(ls(format!("BATCHED VALUE  {value}")))
+            reactant::host::Label::new(ls(format!("BATCHED VALUE  {value}")))
               .name("state-value")
               .style(design_system::state_value()),
           )
           .child(
-            battlement_reactant::host::View::new()
+            reactant::host::View::new()
               .name("identity-tokens")
               .style(design_system::identity_row())
               .child(Fragment::new(tokens)),
@@ -150,18 +150,18 @@ impl Component for IdentityToken {
     if state.pulse != self.pulse {
       dispatch.send(IdentityAction::Observe(self.pulse));
     }
-    battlement_reactant::host::View::new()
+    reactant::host::View::new()
       .name(format!("identity-token-{}", self.id))
       .style(design_system::identity_token(
         self.position,
         state.revision > 0,
       ))
-      .child(battlement_reactant::host::Label::new(ls(format!(
+      .child(reactant::host::Label::new(ls(format!(
         "0{}  {}",
         self.id, self.name
       ))))
       .child(
-        battlement_reactant::host::Label::new(ls(format!("REDUCER {}", state.revision)))
+        reactant::host::Label::new(ls(format!("REDUCER {}", state.revision)))
           .name("identity-state")
           .style(design_system::identity_state(state.revision > 0)),
       )

@@ -8,7 +8,7 @@ use crate::{
 use crate::{
   composition::Composition, controls, navigation::Navigation, preview_resource::Preview,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 #[builder]
 pub(crate) struct Shell {
@@ -218,10 +218,10 @@ impl Component for Shell {
           .compact(compact),
       ),
     };
-    battlement_reactant::host::Stack::new()
+    reactant::host::Stack::new()
       .style(design_system::root(compact))
       .child(
-        battlement_reactant::host::View::new()
+        reactant::host::View::new()
           .name("sample-shell")
           .style(design_system::root(compact))
           .child(

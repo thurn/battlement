@@ -13,4 +13,5 @@ proc-macro = true
 [dependencies]
 battlement-reactant-asset-syntax.workspace = true
 proc-macro2 = "1.0.107"
+proc-macro-crate = "3.4.0"
 quote = "1.0.42"

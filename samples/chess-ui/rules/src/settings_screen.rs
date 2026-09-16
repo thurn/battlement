@@ -4,7 +4,7 @@ use battlement::{
   AccessibilityScrollAxis, AccessibilityScrollDirection, Position, ScrollerVisibility, Style,
   Vector,
 };
-use battlement_reactant::{control_behavior, hooks, portal::PortalTarget, prelude::*};
+use reactant::{control_behavior, hooks, portal::PortalTarget, prelude::*};
 use trox::{ls, tx};
 
 use crate::{

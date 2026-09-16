@@ -1,8 +1,8 @@
 //! A decorative chevron whose orientation follows a selector’s open state.
 
 use battlement::{Color, Length, Position, Rotate, Style, Translate};
-use battlement_reactant::prelude::{StyleTarget, builder};
-use battlement_reactant::{
+use reactant::prelude::{StyleTarget, builder};
+use reactant::{
   component::Component,
   host::View,
   motion_config,

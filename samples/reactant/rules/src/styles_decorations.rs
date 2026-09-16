@@ -4,7 +4,7 @@ use crate::{Game, MOTION_MATERIAL, MOTION_TEXTURE, design_system};
 use battlement::{
   Align, Color, FlexDirection, FlexWrap, Gradient, GradientStop, Length, LengthUnits, Shadow, Style,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const CHECKPOINTS: [f64; 5] = [0.0, 0.18, 0.5, 0.99, 1.0];
 

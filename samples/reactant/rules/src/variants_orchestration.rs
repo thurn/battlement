@@ -2,7 +2,7 @@ use trox::{ls, tx};
 
 use crate::{Game, design_system};
 use battlement::{Align, Color, FlexDirection, FlexWrap, LengthUnits, Style};
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 
 const CHECKPOINTS: [u64; 5] = [0, 320, 410, 500, 720];
 

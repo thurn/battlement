@@ -17,23 +17,24 @@ These are starting points, not instructions to load whole directories.
 
 | Role | Current source |
 | --- | --- |
-| Application and engine integration | [app.rs](../../crates/battlement-reactant/src/app.rs), [app_engine.rs](../../crates/battlement-reactant/src/app_engine.rs) |
-| Tree representation and construction | [render.rs](../../crates/battlement-reactant/src/render.rs), [render_tree.rs](../../crates/battlement-reactant/src/render_tree.rs), [shared host boundary](../../crates/battlement-reactant/src/host_node.rs) |
-| Runtime and commit receipt | [runtime.rs](../../crates/battlement-reactant/src/runtime.rs), [commit.rs](../../crates/battlement-reactant/src/commit.rs) |
-| Native tree mutation planning | [reconcile.rs](../../crates/battlement-reactant/src/reconcile.rs), [UI host adapter](../../crates/battlement-reactant/src/ui_host_adapter.rs) |
-| Hooks and context | [hooks.rs](../../crates/battlement-reactant/src/hooks.rs), [context.rs](../../crates/battlement-reactant/src/context.rs) |
-| Keys, refs, portals, presence | [key.rs](../../crates/battlement-reactant/src/key.rs), [element_ref.rs](../../crates/battlement-reactant/src/element_ref.rs), [portal.rs](../../crates/battlement-reactant/src/portal.rs), [presence.rs](../../crates/battlement-reactant/src/presence.rs) |
-| Stores and subscriptions | [external_store.rs](../../crates/battlement-reactant/src/external_store.rs) |
-| Motion targets/controls/layout | [motion.rs](../../crates/battlement-reactant/src/motion.rs), [animation_controls.rs](../../crates/battlement-reactant/src/animation_controls.rs), [layout.rs](../../crates/battlement-reactant/src/layout.rs) |
-| Input and focus | [event_dispatch.rs](../../crates/battlement-reactant/src/event_dispatch.rs), [focus.rs](../../crates/battlement-reactant/src/focus.rs) |
-| Existing asynchronous executor | [executor.rs](../../crates/battlement-reactant/src/executor.rs); this is the resource spawner, not the new rules executor |
+| Public Reactant facade and UI crate surface | [facade](../../crates/reactant/src/lib.rs), [UI layer](../../crates/reactant-ui/src/lib.rs) |
+| Application and engine integration | [app.rs](../../crates/reactant-core/src/app.rs), [app_engine.rs](../../crates/reactant-core/src/app_engine.rs) |
+| Tree representation and construction | [render.rs](../../crates/reactant-core/src/render.rs), [render_tree.rs](../../crates/reactant-core/src/render_tree.rs), [shared host boundary](../../crates/reactant-core/src/host_node.rs) |
+| Runtime and commit receipt | [runtime.rs](../../crates/reactant-core/src/runtime.rs), [commit.rs](../../crates/reactant-core/src/commit.rs) |
+| Native tree mutation planning | [reconcile.rs](../../crates/reactant-core/src/reconcile.rs), [UI host adapter](../../crates/reactant-core/src/ui_host_adapter.rs) |
+| Hooks and context | [hooks.rs](../../crates/reactant-core/src/hooks.rs), [context.rs](../../crates/reactant-core/src/context.rs) |
+| Keys, refs, portals, presence | [key.rs](../../crates/reactant-core/src/key.rs), [element_ref.rs](../../crates/reactant-core/src/element_ref.rs), [portal.rs](../../crates/reactant-core/src/portal.rs), [presence.rs](../../crates/reactant-core/src/presence.rs) |
+| Stores and subscriptions | [external_store.rs](../../crates/reactant-core/src/external_store.rs) |
+| Motion targets/controls/layout | [motion.rs](../../crates/reactant-core/src/motion.rs), [animation_controls.rs](../../crates/reactant-core/src/animation_controls.rs), [layout.rs](../../crates/reactant-core/src/layout.rs) |
+| Input and focus | [event_dispatch.rs](../../crates/reactant-core/src/event_dispatch.rs), [focus.rs](../../crates/reactant-core/src/focus.rs) |
+| Existing asynchronous executor | [executor.rs](../../crates/reactant-core/src/executor.rs); this is the resource spawner, not the new rules executor |
 | Existing exported-engine fixture | [fixture entry](../../crates/battlement-native/tests/fixtures/exported-engine/src/lib.rs), [release scenarios](../../crates/battlement-native/tests/fixtures/exported-engine/src/release_scenarios.rs) |
 | Generic persistent-data host support | [Connect messages](../../crates/battlement/src/messages.rs), [Unity connect construction](../../Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs); durable browser flush is a task 43 addition |
 | Binary schemas and generation | [schemas](../../schemas/flatbuffers), [generator](../../scripts/generate_flatbuffers.py), [toolchain contract](../../schemas/flatbuffers-toolchain.json) |
-| Verified transport, borrowed events, and direct writers | [FlatBuffers facade](../../crates/battlement-flatbuffers/src/lib.rs), [app encoding](../../crates/battlement-reactant/src/app_engine.rs) |
+| Verified transport, borrowed events, and direct writers | [FlatBuffers facade](../../crates/battlement-flatbuffers/src/lib.rs), [app encoding](../../crates/reactant-core/src/app_engine.rs) |
 | Buffer ownership and admission | [native handles](../../crates/battlement-native/src/handles.rs), [Unity transport](../../Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeTransport.cs), [response stream](../../Packages/com.battlement.client/Runtime/Host/BattlementResponseStream.cs) |
-| Incremental rendering and retained state | [render_tree.rs](../../crates/battlement-reactant/src/render_tree.rs), [render.rs](../../crates/battlement-reactant/src/render.rs), [runtime.rs](../../crates/battlement-reactant/src/runtime.rs) |
-| Interaction profiling and capture attribution | [performance.rs](../../crates/battlement-reactant/src/performance.rs), [Ditto performance](../../crates/battlement-ditto/src/performance.rs) |
+| Incremental rendering and retained state | [render_tree.rs](../../crates/reactant-core/src/render_tree.rs), [render.rs](../../crates/reactant-core/src/render.rs), [runtime.rs](../../crates/reactant-core/src/runtime.rs) |
+| Interaction profiling and capture attribution | [performance.rs](../../crates/reactant-core/src/performance.rs), [Ditto performance](../../crates/battlement-ditto/src/performance.rs) |
 | Native C ABI and Engine | [engine.rs](../../crates/battlement-native/src/engine.rs), [lib.rs](../../crates/battlement-native/src/lib.rs) |
 | Protocol messages and commands | [messages.rs](../../crates/battlement/src/messages.rs), [body.rs](../../crates/battlement/src/commands/body.rs), [objects.rs](../../crates/battlement/src/objects.rs) |
 | Unity runner | [BattlementRunner.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs) |
@@ -49,12 +50,15 @@ These are starting points, not instructions to load whole directories.
 | Legacy Addressables command | [generate.rs](../../crates/battlement-cli/src/generate.rs) |
 | Standalone Ditto executable and reusable command | [main.rs](../../crates/battlement-ditto/src/main.rs), [lib.rs](../../crates/battlement-ditto/src/lib.rs), [cli.rs](../../crates/battlement-ditto/src/cli.rs) |
 | Unity release/adapter builders | [BattlementSampleBuild.cs](../../Packages/com.battlement.client/Editor/BattlementSampleBuild.cs), [BattlementDittoBuild.cs](../../Packages/com.battlement.client/Editor/BattlementDittoBuild.cs) |
-| Legacy Reactant asset command and asset pipeline | [reactant_assets.rs](../../crates/battlement-cli/src/reactant_assets.rs), [asset_generator.rs](../../crates/battlement-reactant/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs) |
+| Legacy Reactant asset command and asset pipeline | [reactant_assets.rs](../../crates/battlement-cli/src/reactant_assets.rs), [asset_generator.rs](../../crates/reactant-core/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs) |
 | Repository sample command mapping | [justfile](../../justfile) |
 | Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
 | Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/gameplay.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
+
+Project tooling remains owned by `battlement-cli` and the existing Reactant asset
+packages until task 07 moves that edge behind the `rt` facade.
 
 ## Planned additions
 

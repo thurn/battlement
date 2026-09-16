@@ -7,7 +7,7 @@ use battlement::{
   Align, Color, FlexDirection, Gradient, Justify, KeyEvent, LengthUnits, Overflow, PhysicalKey,
   PickingMode, Position, Shadow, Style, TextAnchor, WhiteSpace,
 };
-use battlement_reactant::{
+use reactant::{
   component::Component,
   components::Button,
   element_ref::{ElementRef, use_element_ref},

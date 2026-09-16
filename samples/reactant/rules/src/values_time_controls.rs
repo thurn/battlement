@@ -5,7 +5,7 @@ use battlement::{
   Align, AudioClipAddress, Color, FlexDirection, FlexWrap, Length, LengthUnits, ObjectId,
   ScrollViewMode, ScrollerVisibility, Style, TransformOperation, object_id,
 };
-use battlement_reactant::prelude::*;
+use reactant::prelude::*;
 use std::time::Duration;
 
 pub(crate) const AUDIO_CLIP: AudioClipAddress =
