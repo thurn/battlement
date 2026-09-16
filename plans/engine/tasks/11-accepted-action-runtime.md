@@ -56,6 +56,8 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
    context on failure/stop and construct a new one for replacement. Apply
    [bounded worker admission](../execution.md#worker-cancellation) across replacements;
    attach the latest display immediately without queuing superseded games or actions.
+   Reuse task 03's proven worker slot and lifecycle observer instead of adding
+   another worker coordinator.
 
 4. Implement idempotent nonjoining stop, old-handle isolation, fresh game-subtree presentation lifetime on replacement, and
    Ready/Busy/Failed/Stopped status. App teardown stops its session. Distinguish

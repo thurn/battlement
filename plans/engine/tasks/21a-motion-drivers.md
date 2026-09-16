@@ -28,7 +28,8 @@ writers; fake scheduling.
    replacement start from actual displayed values and preserve spring velocity.
 
 4. Extend the fake for these interpolation/control/outcome contracts. Reuse the temporal
-   driver; do not create a second scheduling framework.
+   driver; do not create a second scheduling framework. Keep virtual time, frame
+   advancement, and worker barriers explicit and independent.
 
 5. Expose running Motion as existing `IBattlementCommandOperation` instances, including
    finite/infinite behavior, completion, cancellation, and failures. Preserve generated

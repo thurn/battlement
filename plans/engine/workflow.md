@@ -5,6 +5,8 @@ lettered assignments run serially; the group page is an index, not one large
 implementation task. Read the leaf assignment and its linked contracts, then
 complete and integrate it before starting the next leaf in the
 [implementation order](README.md#implementation-order).
+After promotion, treat the source worktree as disposable and create the next
+leaf from the new certified release.
 
 Related pages: [starting code](source-map.md), [validation](validation.md),
 [migration](migration.md), and the repository's [instructions](../../AGENTS.md).

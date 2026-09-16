@@ -54,6 +54,9 @@ and operation registry; existing input properties; world/UI fakes.
   cancels unstarted and running game work, releases its buffers, and preserves app/menu
   state and operations. No per-snapshot host completion handshake is introduced.
 
+- Fake coverage proves logical queue behavior, but Unity-owned operation and
+  cancellation semantics require native evidence.
+
 Reuse existing evidence for covered behavior. Run affected checks and staged aggregate
 CI as specified in [validation](../validation.md).
 

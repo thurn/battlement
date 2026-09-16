@@ -73,8 +73,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 ## Scope of this task
 
 Prompt publication is task 10, application acceptance task 11, and existing
-command-queue integration task 12. Use a public display consumer fixture, not a
-private channel assertion.
+command-queue integration task 12. Extend `reactant-testing` through real public
+consumer APIs; do not expose a private channel or alternate rules executor.
 
 ## Manual QA
 

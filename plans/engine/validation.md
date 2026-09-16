@@ -27,6 +27,8 @@ explicit boundaries, not Cartesian products of layouts, effects, inputs, and
 platforms. Keep fixtures small, with stable seeds and public barriers. Wall-clock
 timeouts detect hangs; they never control worker ordering. Rules-only algorithms
 may be checked through the public rules API without a display or native fixture.
+Do not make passing behavior depend on sub-second wall-clock completion;
+synchronize on a public barrier and assert virtual-time boundaries instead.
 
 ## Display driver contract
 
