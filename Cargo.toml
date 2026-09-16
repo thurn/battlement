@@ -19,6 +19,7 @@ members = [
     "crates/reactant-core",
     "crates/reactant-ui",
     "crates/reactant",
+    "crates/rt",
     "crates/battlement-reactant-asset-macros",
     "crates/battlement-reactant-asset-syntax",
     "crates/battlement-reactant-assets",
@@ -52,6 +53,7 @@ reactant-rules = { path = "crates/reactant-rules" }
 reactant-core = { path = "crates/reactant-core" }
 reactant-ui = { path = "crates/reactant-ui" }
 reactant = { path = "crates/reactant" }
+rt = { path = "crates/rt" }
 anyhow = "1.0.100"
 aws-credential-types = "=1.2.3"
 aws-sdk-s3 = "=1.96.0"

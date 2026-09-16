@@ -1,6 +1,7 @@
 //! Shared host and build tooling for Battlement developer commands.
 
 pub mod addressables;
+pub mod application;
 pub mod author;
 pub mod build_cache;
 pub mod build_identity;
@@ -19,6 +20,7 @@ pub mod unity_lease;
 pub mod web_archive;
 pub mod webgl_build;
 
+mod application_web;
 mod build_cache_cleanup;
 mod build_cache_io;
 mod fingerprint_rust;

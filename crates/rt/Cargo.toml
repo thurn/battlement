@@ -1,21 +1,24 @@
 [package]
-name = "battlement-tooling"
+name = "rt"
 version = "0.1.0"
-description = "Shared build and host tooling for Battlement"
+description = "Reactant project tooling"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[[bin]]
+name = "rt"
+path = "src/main.rs"
+
 [dependencies]
+battlement-reactant-assets.workspace = true
+battlement-tooling.workspace = true
 anyhow.workspace = true
-fs2.workspace = true
-percent-encoding.workspace = true
+clap.workspace = true
+ctrlc.workspace = true
 serde.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
-tempfile = "3.27.0"
-tiny_http.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
+tempfile = "3.27.0"

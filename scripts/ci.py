@@ -848,7 +848,7 @@ def build_standalone_samples(
         started = time.monotonic()
         with ci_steps.span("Prepare standalone sample builder"):
             subprocess.run(
-                ["cargo", "build", "-p", "battlement-ditto"],
+                ["cargo", "build", "-p", "battlement-ditto-cli"],
                 cwd=REPOSITORY_ROOT,
                 check=True,
             )

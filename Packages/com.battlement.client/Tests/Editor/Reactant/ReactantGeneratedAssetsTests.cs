@@ -90,6 +90,24 @@ namespace Reactant.Tests
         }
 
         [Test]
+        [Category("ReactantGeneratedAssetsFast")]
+        public void CleanupRemovesEntriesPersistedByAnAddressablesBuild()
+        {
+            GeneratedAsset generated = CreateGeneratedAsset();
+            AddressableAssetSettings settings = CreatePersistedSettings();
+            AddressableAssetGroup group = CreateGroup(settings);
+            string groupPath = AssetDatabase.GetAssetPath(group);
+            ReactantGeneratedAssets owner = ReactantGeneratedAssets.Prepare(settings);
+            AssetDatabase.SaveAssets();
+            Assert.That(File.ReadAllText(groupPath), Does.Contain(generated.Address));
+
+            owner.Dispose();
+
+            Assert.That(File.ReadAllText(groupPath), Does.Not.Contain(generated.Address));
+            Assert.That(() => ReactantGeneratedAssets.Prepare(settings).Dispose(), Throws.Nothing);
+        }
+
+        [Test]
         [Category("ReactantGeneratedAssetsExhaustive")]
         public void RejectsUserOwnedAddressAndGuidConflictsWithoutMutation()
         {
@@ -298,6 +316,17 @@ namespace Reactant.Tests
                 $"Settings-{Guid.NewGuid():N}",
                 false,
                 false
+            );
+        }
+
+        private static AddressableAssetSettings CreatePersistedSettings()
+        {
+            Directory.CreateDirectory(SettingsRoot);
+            return AddressableAssetSettings.Create(
+                SettingsRoot,
+                $"Settings-{Guid.NewGuid():N}",
+                false,
+                true
             );
         }
 

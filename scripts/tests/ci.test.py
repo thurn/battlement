@@ -298,8 +298,10 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
             self.checked = True
 
     leases = Leases()
+    commands: list[list[str]] = []
 
     def completed(command: list[str], **_options: object) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
         return subprocess.CompletedProcess(command, 0, stdout="")
 
     with (
@@ -307,6 +309,7 @@ def _verify_ditto_build_leases_span_gate(root: Path) -> None:
         patch.object(ci.subprocess, "run", side_effect=completed),
     ):
         ci.build_standalone_samples(["basic", "chess"], object(), leases)
+    assert commands[0] == ["cargo", "build", "-p", "battlement-ditto-cli"]
     assert sorted(leases.prepared) == ["basic", "chess"]
 
     steps: list[tuple[list[str], dict[str, str]]] = []

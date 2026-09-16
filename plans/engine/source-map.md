@@ -46,7 +46,8 @@ These are starting points, not instructions to load whole directories.
 | Binary response fake | [response_reader.rs](../../crates/battlement-fake/src/response_reader.rs) |
 | UI fake | [lib.rs](../../crates/battlement-ui-fake/src/lib.rs) |
 | Legacy CLI composition | [main.rs](../../crates/battlement-cli/src/main.rs), [sample.rs](../../crates/battlement-cli/src/sample.rs), [author.rs](../../crates/battlement-cli/src/author.rs) |
-| Reusable build, run, author, plugin, and Addressables tooling | [project.rs](../../crates/battlement-tooling/src/project.rs), [author.rs](../../crates/battlement-tooling/src/author.rs), [plugin.rs](../../crates/battlement-tooling/src/plugin.rs), [addressables.rs](../../crates/battlement-tooling/src/addressables.rs) |
+| Reactant project CLI and resolution | [command.rs](../../crates/rt/src/command.rs), [project.rs](../../crates/rt/src/project.rs) |
+| Reusable application build, run, author, plugin, and Addressables tooling | [application.rs](../../crates/battlement-tooling/src/application.rs), [project.rs](../../crates/battlement-tooling/src/project.rs), [author.rs](../../crates/battlement-tooling/src/author.rs), [plugin.rs](../../crates/battlement-tooling/src/plugin.rs), [addressables.rs](../../crates/battlement-tooling/src/addressables.rs) |
 | Generic Ditto library and temporary legacy adapter | [lib.rs](../../crates/battlement-ditto/src/lib.rs), [cli.rs](../../crates/battlement-ditto/src/cli.rs), [adapter](../../crates/battlement-ditto-cli/src/lib.rs) |
 | Unity release/adapter builders | [BattlementSampleBuild.cs](../../Packages/com.battlement.client/Editor/BattlementSampleBuild.cs), [BattlementDittoBuild.cs](../../Packages/com.battlement.client/Editor/BattlementDittoBuild.cs) |
 | Unity editor preparation boundary | [BattlementEditorPreparation.cs](../../Packages/com.battlement.client/Editor/BattlementEditorPreparation.cs), [ReactantGeneratedAssets.cs](../../Packages/com.battlement.client/Editor/Reactant/ReactantGeneratedAssets.cs) |
@@ -57,9 +58,9 @@ These are starting points, not instructions to load whole directories.
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |
 
-Reusable project mechanics are Battlement-owned. The legacy CLI and Ditto adapter
-compose Reactant preparation until the remaining task 07 leaves introduce and cut
-callers over to `rt`.
+Reusable project mechanics are Battlement-owned. `rt` resolves Reactant project
+metadata and composes asset preparation with those mechanics. The legacy CLI and
+Ditto adapter remain until their task 07 cutover leaf.
 
 ## Planned additions
 

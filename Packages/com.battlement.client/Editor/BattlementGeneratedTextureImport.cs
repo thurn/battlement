@@ -278,6 +278,11 @@ namespace Battlement.Editor
                     return;
                 }
                 RemoveTemporaryEntries(settings, guids);
+                AssetDatabase.SaveAssetIfDirty(settings);
+                if (group != null)
+                {
+                    AssetDatabase.SaveAssetIfDirty(group);
+                }
                 RestoreDirtyState(settings, group, settingsWasDirty, groupWasDirty);
                 isDisposed = true;
             }

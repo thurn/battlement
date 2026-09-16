@@ -706,10 +706,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "fs2",
+ "percent-encoding",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
+ "tiny_http",
  "toml",
 ]
 
@@ -2477,6 +2479,20 @@ dependencies = [
  "serde",
  "serde_derive",
  "unicode-ident",
+]
+
+[[package]]
+name = "rt"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "battlement-reactant-assets",
+ "battlement-tooling",
+ "clap",
+ "ctrlc",
+ "serde",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
