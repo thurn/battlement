@@ -230,6 +230,26 @@ pub struct ObserverFrameTiming {
   pub observed_pixels: u32,
   pub layout_observation_ns: u64,
   pub recorder_bookkeeping_ns: u64,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub transport: Option<TransportFrameMetrics>,
+}
+
+/// Native and managed transport ownership counters sampled for one frame.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransportFrameMetrics {
+  pub live_lease_count: i32,
+  pub live_native_allocation_bytes: i64,
+  pub pending_finalizer_releases: i32,
+  pub native_builders_created: u64,
+  pub native_builders_reused: u64,
+  pub native_builder_growths: u64,
+  pub native_builder_copied_bytes: u64,
+  pub native_idle_builder_bytes: u64,
+  pub handoff_payload_copies: u64,
+  pub client_builder_growths: u64,
+  pub client_builder_copied_bytes: u64,
+  pub client_builder_retained_bytes: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

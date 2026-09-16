@@ -7,7 +7,9 @@ use battlement_ditto::wire::{
     Capability, Comparison, Display, Motion, ObjectState, PerformanceAttempt, PerformancePass,
     Platform,
   },
-  lifecycle::{ObserverFrameTiming, PacingConfiguration, StartupReport, StepPerformance},
+  lifecycle::{
+    ObserverFrameTiming, PacingConfiguration, StartupReport, StepPerformance, TransportFrameMetrics,
+  },
   result::{
     BaselineOutcome, BaselineWriteResult, BaselineWriteStatus, BuildDisposition, BuildResult,
     ComparisonOutcome, Distribution, ErrorOccurrence, ImageFile, JobResult, JobStatus, LogSpan,
@@ -515,6 +517,20 @@ fn observer_frame_timing() -> ObserverFrameTiming {
     observed_pixels: 1,
     layout_observation_ns: 0,
     recorder_bookkeeping_ns: 0,
+    transport: Some(TransportFrameMetrics {
+      live_lease_count: 1,
+      live_native_allocation_bytes: 256,
+      pending_finalizer_releases: 0,
+      native_builders_created: 1,
+      native_builders_reused: 2,
+      native_builder_growths: 3,
+      native_builder_copied_bytes: 4,
+      native_idle_builder_bytes: 5,
+      handoff_payload_copies: 6,
+      client_builder_growths: 7,
+      client_builder_copied_bytes: 8,
+      client_builder_retained_bytes: 512,
+    }),
   }
 }
 
