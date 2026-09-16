@@ -56,7 +56,8 @@ worker changes private state: A and B remain immutable
 
 - With the Rust consumer held on A, B1-B32 enqueue and B33 waits before its
   builders. Taking B1 permits one more construction. Unity pause alone does not
-  prevent publication or consumption. Mix present/final entries and prove
+  prevent publication or consumption while downstream capacity remains available.
+  Task 12 adds the separate capacity boundary. Mix present/final entries and prove
   FIFO order without dropping/coalescing. Task 10 extends this same scenario
   with actual prompts. Record snapshot counts; byte profiling belongs to task 46.
 

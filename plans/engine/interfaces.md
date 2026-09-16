@@ -58,7 +58,9 @@ let game = app.start_game::<HeartsGame>(initial_state, |connection| {
 The factory runs once on the app thread. Its returned context is `Send` and is
 owned by the session. The initial state is accepted immediately and a clone is
 queued for entry rendering. The session remains `Busy` until the Rust consumer
-has submitted that initial output; it does not wait for Unity playback.
+has submitted that initial output and any abandoned worker has finished cleanup;
+it does not wait for Unity playback. Replacement worker admission follows
+[execution](execution.md#worker-cancellation).
 Starting alone does not call `Game::execute`.
 
 Calling `start_game` again stops the old session and attaches the new one to the
@@ -75,9 +77,9 @@ state. The handle and component hooks are used on the app/display thread. AI
 policies receive state and a prompt, never a handle. A dispatched action may
 include a complete AI turn with many policy choices inside one `execute()` call.
 
-- Dispatch returns `Busy` first during initial publication, rules execution, a
-  human prompt wait, or final publication not yet consumed in Rust. It does not queue another action or run its
-  validator in that case.
+- Dispatch returns `Busy` first during initial publication, abandoned-worker
+  cleanup, rules execution, a human prompt wait, or final output awaiting successful
+  submission, including a capacity wait. It queues no action and runs no validator.
 - Otherwise `is_legal_action` runs against accepted state. False is a
   programming error and panics before cloning state or starting a worker.
 - `Started` means execution was scheduled, not completed. Session/run identities
@@ -123,8 +125,9 @@ callback. Normal return automatically publishes a final snapshot with no
 semantic event. Default movement still applies to changes in that snapshot.
 Reactant renders queued snapshots into Battlement batches; the existing queue
 waits for blocking operations before executing later commands. Rust renders
-ahead without waiting for Unity. Accept normal return when final publication is
-consumed. Queue prompt controls at the intended point using native input
+ahead while [downstream capacity](presentation.md#bound-downstream-admission)
+permits. Accept normal return after successful final-output submission. Queue prompt
+controls at the intended point using native input
 properties and request-bound targets; no presentation acknowledgement is needed.
 
 Interactive `choose` publishes a snapshot and owned prompt together, even when
@@ -349,7 +352,8 @@ impl App {
     // Stop the previously attached session, if any. Create the new connection,
     // construct the context, and attach the session to this app's display and
     // hooks internally. Accept initial_state and publish a logical clone.
-    // Starting does not execute an action. New and loaded states use this API.
+    // Only the latest replacement remains attached. Admission waits asynchronously
+    // for old-worker cleanup; starting never executes an action.
     todo!()
   }
 }
@@ -373,7 +377,7 @@ impl<G: Game> Clone for GameHandle<G> {
 
 impl<G: Game> GameHandle<G> {
   fn dispatch(&self, action: G::Action) -> DispatchResult {
-    // Busy includes initial publication, execution, human waits, and final publication.
+    // Busy includes old-worker cleanup, entry, execution, prompts, and final submission.
     // Return Busy first, without queueing the action or running its validator.
     // Otherwise panic if is_legal_action returns false. Clone accepted state,
     // schedule execute with the session's context, and return Started without
@@ -399,7 +403,7 @@ impl<G: Game> GameHandle<G> {
     // Worker or host gameplay failure sets Failed and retains the latest
     // accepted state. A host failure never reverses an accepted action.
     // Diagnostics receive details; display code offers restart/exit.
-    // Busy ends when final publication is consumed, without waiting for Unity.
+    // Final acceptance waits for successful output submission, not Unity playback.
     todo!()
   }
 }

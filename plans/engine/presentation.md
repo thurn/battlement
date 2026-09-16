@@ -31,17 +31,42 @@ simply a snapshot to render. Rules call `present` for intermediate changes and
 
 The Rust consumer takes entries in order, renders each against the previously
 rendered tree, and appends the resulting commands to Battlement. It can
-continue as soon as it has handed off those commands. Keep a FIFO of exactly
+continue as soon as it has handed off those commands and downstream capacity
+permits more output. Keep a FIFO of exactly
 32 pending snapshots between worker and consumer. Reserve before
 cloning/building; release a slot when the consumer takes the entry. Never drop
 or coalesce entries. This bounds snapshot count, not bytes or the number of
 commands Unity has yet to execute. Measure retained snapshot bytes separately.
-Do not claim a one-command-batch memory bound or introduce an animation wait
-to enforce it. Existing transport/queue limits still apply.
+Downstream capacity follows the bounded admission contract below; available
+capacity allows render-ahead without waiting for animation completion.
 
 The component tree represents the most recently rendered state, which may be
 ahead of Unity's playback. Retain that tree for the next diff, not an additional
 host-acknowledged tree. The engine does not stream game snapshots into Unity.
+
+## Bound downstream admission
+
+Use the existing FlatBuffers transport and its configured response/allocation
+limits. Account for queued and retained buffers through their last host use,
+including running operations and exit effects. A full cumulative budget is
+backpressure, not session failure: suspend further snapshot consumption and
+retain at most the current unsubmitted output. The 32-slot FIFO then naturally
+stops the worker before more builders run. Resume consumption when capacity is
+released; do not drop/coalesce snapshots or retry already submitted effects.
+
+Admission must reserve capacity before publishing output, and final state stays
+Busy/unaccepted until its final output is successfully submitted. Empty output
+can finish locally. One response exceeding the per-message limit remains an
+explicit error; keep the previous accepted state and report recovery.
+
+Reserve capacity and independent delivery for menu, resume, cancellation, and
+replacement work so a full gameplay budget cannot prevent its own release.
+Capacity notification is transport flow control, not a per-snapshot success or
+rendered-frame receipt. Do not block Unity's thread waiting for capacity. Test
+saturation with controlled budgets and verify obsolete buffer ownership is released
+after completion, failure, cancellation, and replacement; only live declared
+content and explicitly retained effects may keep their required buffers. Task 12 establishes
+this behavior; task 28 preserves it while paused.
 
 ## Generate ordinary ordered commands
 
@@ -57,9 +82,10 @@ nonblocking. Optional sequence labels schedule steps or sounds; they are not a
 game-progress API.
 
 Preserve ordering across responses with existing `BatchStart` dependencies.
-Reactant's current app delivery sets batches to `AfterEarlierAssetPreparation`;
-the game-snapshot path must preserve `AfterEarlierBlockingWork` for ordered game
-updates rather than overwrite it. Keep local UI work independent. Dependencies
+Reactant's current app delivery uses `AfterEarlierBlockingWork` for ordinary
+batches and separate `AfterEarlierAssetPreparation` asset batches. Preserve
+gameplay ordering while making independent menu/control delivery explicit;
+ordinary delivery must not overwrite that classification. Dependencies
 between create/move/remove operations belong in normal ordered command groups.
 
 No-change output needs no command and no special frame boundary. If the player
@@ -98,7 +124,7 @@ enabled/hit-region properties determining when the player can use them. Submit
 answers through request-bound handles. A queued prompt does not need to tell
 Rust when it becomes visible; its eventual response is the necessary return
 message. Live AI can choose after publication and queue subsequent states
-without waiting for Unity at all.
+without waiting for animation, subject to downstream admission capacity.
 
 Request-specific actionable children use distinct existing native object IDs
 and retain their response handles. Do not reuse a still-visible old prompt's
@@ -139,9 +165,19 @@ their authored position in the native command queue.
 A worker failure retains the previous accepted state. A host failure stops
 presentation and offers restart/exit; it does not undo rules actions that have
 already been accepted. Restart rebuilds from accepted state without replaying
-old events. Stop/replacement discards pending snapshots and uses existing host
-session/cancellation cleanup to cancel queued and running game commands. Old
-session messages cannot affect the replacement.
+old events. Handle existing `BatchFailed`/`OperationFailed` messages in the app,
+classifying gameplay versus cosmetic failures by their owned work. Old-session
+messages cannot affect the replacement.
+
+Stop/replacement discards pending snapshots and cancels only the old game's
+queued and running commands. Extend the existing scheduler with game-scoped
+work ownership and cancellation; its current whole-session reset clears all
+batches, and individual operation cancellation cannot cancel unstarted commands.
+Keep persistent app/menu hosts, hooks, and unrelated operations alive. Release
+old game buffers/resources and prevent unstarted commands from launching, even
+while paused or capacity-blocked. Reuse batch/command identities to attribute
+work and failures; do not introduce a second scheduler. Task 12 owns this
+boundary before later effects and pause tasks extend it.
 
 ## Manual QA
 

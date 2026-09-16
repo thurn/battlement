@@ -26,16 +26,18 @@ and operation registry; existing input properties; world/UI fakes.
    independent menus and host hover offsets responsive. Test a settings update while
    multiple future snapshots are already submitted.
 
-3. Stop/replacement cancels queued and running work through existing host cleanup. Host
-   failure reports recovery without reverting accepted rules state. Reuse
-   session/batch/command identity and failure messages.
+3. Preserve task 12a's game-scoped cancellation and capacity-reserved control path.
+   Attribute existing BatchFailed/OperationFailed messages to owned work; gameplay
+   failure reports recovery without reverting accepted state, cosmetic failures remain
+   diagnostic, and stale game failures cannot fail a replacement.
 
 ## Acceptance
 
 - Prompt controls become usable in command order; stale controls cannot answer a newer
   request. Local menus do not reveal queued future gameplay state.
 
-- Stop/restart removes old queued commands and effects. A host failure after acceptance
+- Stop/restart removes old queued commands and effects without remounting persistent
+  menus or canceling their independent work. A host failure after acceptance
   leaves accepted state available for reconstruction.
 
 Reuse existing evidence for covered behavior. Run affected checks and staged aggregate

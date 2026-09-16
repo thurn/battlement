@@ -30,8 +30,8 @@ Implementation requirements describe necessary changes. Acceptance examples
 specify observable results. Add the task's smallest working public scenario
 before extending it to the full set of cases.
 
-- Update Rust protocol, Unity execution, and the fake together when a capability
-  crosses those boundaries.
+- Follow [transport conformance](validation.md#host-conformance) when a capability
+  crosses Rust, FlatBuffers, Unity, and fake boundaries.
 - Keep existing callers compiling when changing an API. Later sample tasks
   replace behavior and ownership, not broken imports.
 - Use the specified later task for explicitly excluded work. Do not treat that

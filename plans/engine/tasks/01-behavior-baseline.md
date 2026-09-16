@@ -60,7 +60,9 @@ replace: assertions about exact command counts
 
 - Review evidence identifies the exact initial/changed/reset selections needed
   for later migrations, including chess capture paths, spawn beats,
-  save/restore, and input modes.
+  save/restore, and input modes. Retain representative interaction/rendering
+  measurements for the [migration regression gate](../validation.md#rendering-regression-gate),
+  including sparse local updates, portals, and rollback; reuse existing profilers.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

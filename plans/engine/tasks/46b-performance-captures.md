@@ -39,8 +39,9 @@ inspector counters; Hearts AI.
   host-local. Any optimization has a measured before/after result. Complexity bounds are
   not separate completion gates.
 
-- Missed numeric targets are reported honestly and do not fail completion; correctness
-  defects still do.
+- Missed complete-card numeric targets are reported honestly and do not fail completion;
+  correctness defects and demonstrated migration regressions against existing rendering
+  still do, under the [regression gate](../validation.md#rendering-regression-gate).
 
 - Public simulation primitive benchmarks still meet the separate
   no-extra-primitive-allocation/no-vtable contract, with mode branching allowed and

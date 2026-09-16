@@ -18,11 +18,13 @@ Unity editor generated assets; repository `justfile`.
 
 ## Implementation
 
-1. Move Battlement repository policy into [justfile](../../../justfile). Only its
-   recipes may select sample names, configuration files, default scenes, and review
+1. Move Battlement user-facing project defaults into [justfile](../../../justfile). Only its
+   recipes select user-facing sample names, configuration files, default scenes, and review
    modes. They pass explicit inputs to `rt` or to parameterized lower-level scripts.
    Those scripts must accept project paths and options; they must not maintain another
-   sample registry. Direct Battlement fixtures such as basic and ui do not create
+   user-facing sample/default registry. Validation dependency selectors and browser-risk
+   contracts retain their affected-sample mappings; update paths for moved crates/tools.
+   Direct Battlement fixtures such as basic and ui do not create
    another public CLI.
 
 2. Convert the existing Reactant and chess-ui projects from `sample.toml` to
@@ -39,8 +41,8 @@ Unity editor generated assets; repository `justfile`.
    build guidance in the same leaf.
 
 4. Preserve parameterized repository mechanics for basic, ui, tic-tac-toe, and chess
-   until their migrations. Only justfile selects sample names, default scenes, or review
-   modes.
+   until their migrations. Only justfile selects user-facing sample names, default
+   scenes, or review modes; preserve automated validation selection.
 
 ## Acceptance
 
@@ -50,8 +52,9 @@ Unity editor generated assets; repository `justfile`.
 
 - The repository's documented `just` recipes run all samples through explicit paths.
   Reactant and chess-ui use `rt`; basic, ui, tic-tac-toe, and chess use parameterized
-  repository mechanics until their assigned migrations. No script outside `justfile`
-  selects a sample name or default.
+  repository mechanics until their assigned migrations. Only `justfile` chooses
+  user-facing sample defaults; dependency and browser-risk selectors still choose
+  affected validation fixtures.
 
 - Cargo and Unity dependency inspection shows Reactant/`rt` depending on Battlement's
   reusable tooling, with no reverse Reactant dependency in Battlement crates or

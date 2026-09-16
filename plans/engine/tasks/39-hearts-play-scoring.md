@@ -55,7 +55,8 @@ match accepted.phase {
    them through choose_with_policy after publication without waiting for Unity.
    Keep consecutive AI plays inside PlayTurn with policy calls in one execute,
    not per-card handle dispatch. The 32-slot queue applies
-   backpressure only to publication. Schedule from accepted state. Queue human
+   publication backpressure when full, including downstream capacity waits. Schedule
+   from accepted state. Queue human
    prompt controls after earlier gameplay commands; menus remain usable while
    both rules computation and native playback progress independently.
 

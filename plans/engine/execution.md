@@ -14,7 +14,7 @@ sketch](interfaces.md#complete-contract-sketch) first. Related pages:
 ## Rules state and rendered state can be ahead of Unity
 
 - The **accepted state** is the initial state or the last normally completed
-  action whose final publication has been consumed in Rust. It is available for
+  action whose final output has been successfully submitted in Rust. It is available for
   explicit saves/recovery, even while Unity still animates earlier commands.
 - The worker mutates a private logical clone while computing an action.
 - The **rendered snapshot** is the immutable clone most recently consumed by
@@ -34,20 +34,22 @@ Components must conceal hidden information in player output.
 
 `App::start_game(initial_state, make_context)` replaces the old session,
 accepts initial state, and queues its initial render. It constructs the context
-and returns a handle. `Busy` lasts until that entry is consumed in Rust, not
-until Unity finishes entry animation. Starting executes no rules action.
+and returns a handle. `Busy` lasts until initial output is submitted and any
+abandoned worker finishes cleanup, not until Unity finishes entry animation. Starting
+executes no rules action.
 
 An interactive action follows this sequence:
 
-1. `dispatch` returns `Busy` if initial publication or another rules action is
-   pending, including a human choice. It queues no extra action in that case.
+1. `dispatch` returns `Busy` during initial publication, old-worker cleanup, or
+   another pending rules action, including human choice and final-output capacity waits.
+   It queues no extra action in that case.
 2. `is_legal_action` checks accepted state. False panics before cloning or
    starting a worker; normal UI offers legal actions.
 3. Clone accepted state, move context to the worker, and return `Started`.
 4. Rules mutate private state and call `present` or `choose` as needed.
 5. `present` reserves publication capacity, clones state, builds the animation
    event, and publishes it. The Rust consumer renders and submits commands in
-   order, without waiting for Unity.
+   order while downstream capacity permits, without waiting for animation completion.
 6. `choose` publishes a snapshot and owned prompt. A human response resumes the
    worker. A live AI policy runs after publication without waiting for display.
 7. Normal return publishes the final state with no semantic animation event.
@@ -86,16 +88,19 @@ context.execution.present(state, || StateAnimation::EnergyGained(1));
 ```
 
 The Rust consumer renders snapshots in order, submits their commands, and
-continues immediately. One FIFO has exactly 32 pending slots shared by present,
+continues while downstream capacity permits. One FIFO has exactly 32 pending slots
+shared by present,
 human/AI prompts, and final publication. Reserve before cloning/building;
 release a slot when the consumer takes its entry. The snapshot being rendered
 is outside the pending queue. Never drop or coalesce entries.
 
 Hold the Rust consumer on A: B1-B32 can enqueue, then B33 waits before its
 builders run. Taking B1 opens one slot. Pausing Unity alone does not hold slots:
-generated batches can accumulate under existing transport/queue limits. This
-bounds snapshot count, not bytes or downstream commands; task group 46 owns
-peak queue-byte profiling.
+generated batches accumulate while downstream capacity permits. At the
+[presentation admission boundary](presentation.md#bound-downstream-admission),
+the consumer waits for capacity and the snapshot FIFO can fill. The FIFO bounds
+snapshot count, not bytes; task 12 proves transport capacity/cleanup and task
+group 46 profiles peak bytes under sustained workloads.
 
 Keep accepted state, working state, the snapshot being rendered, and up to 32
 waiting snapshots as needed. Final publication transfers working state instead of keeping
@@ -209,7 +214,7 @@ Simulations may be scheduled elsewhere by game-owned code.
 ## Worker cancellation
 
 `stop`, replacement, or app teardown immediately invalidates the run, discards
-pending output, cancels outstanding host work through the existing queue, and
+pending output, cancels old game-owned host work through the existing queue, and
 wakes blocked helpers. Public status becomes
 `Stopped` immediately. The separate worker-stopped observation occurs only after
 worker-owned context/state and destructors have finished.
@@ -233,6 +238,16 @@ There is no public explicit cancellation check. Detachment keeps Unity from
 blocking on a join; it does not forcibly interrupt Rust computation. Builders,
 policies, and destructors must terminate. Platform proofs exercise actual helper
 waits and controlled ordinary computation, not pretend preemptive cancellation.
+
+An app permits at most one live rules worker, including an abandoned worker still
+finishing computation or cleanup. Replacement attaches and renders its initial
+display immediately, subject to ordinary asset readiness, but remains Busy until
+initial output is submitted and the old worker has stopped. Dispatch returns
+Busy without validation or queued actions during that wait. Menus and further
+replacement remain responsive; retain only the latest replacement session, not
+a queue of pending games. Old cleanup can release the worker slot but cannot
+change a replacement's state or failure status. Tasks 03–04 prove bounded worker
+admission; task 11 connects it to App and task 40 exercises it during AI search.
 
 ## Failure handling
 
@@ -263,8 +278,9 @@ and cannot fail a replacement session.
 
 ## Accept completed rules without waiting for animation
 
-When normal return's final publication is consumed in Rust, install the final
-state and set `Ready`. Submission to the existing command queue is sufficient;
+After normal return's final publication is rendered and its output successfully
+submitted in Rust, install the final state and set `Ready`. Capacity-blocked
+output retains the prior accepted state. Submission to the command queue is sufficient;
 Unity need not report completion. A worker failure before that point retains
 the previous accepted state. Host failures never roll accepted state backward.
 

@@ -46,12 +46,18 @@ expected cancellation produces no panic report
 4. Extend the exported native fixture and Unity integration runner to execute
    nested Rust rules calls, abandon the worker, and observe cleanup. Validate
    actual release panic strategy and keep all unwinding within Rust frames.
+   Use the current verified FlatBuffers Engine/fixture path; preserve buffer ownership.
 
 ## Acceptance
 
 - Cancellation wakes a waiting worker, calls nested drop probes exactly once,
   and produces worker-stopped after cleanup without an expected-cancellation
   panic report.
+
+- Hold an abandoned worker in ordinary computation and repeatedly replace its
+  session: menus respond, no second rules worker starts, and only the latest
+  replacement becomes eligible after cleanup, as specified in
+  [worker admission](../execution.md#worker-cancellation).
 
 - An ordinary rules panic is distinguishable from cancellation and does not
   poison an unrelated replacement run.

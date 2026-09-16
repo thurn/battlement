@@ -18,12 +18,13 @@ and operation registry; existing input properties; world/UI fakes.
 ## Implementation
 
 1. Consume snapshot entries in order, reconcile against the last rendered tree, and
-   submit ordinary batches. Release snapshot capacity when consumed; do not wait for
-   Unity or retain a second host-acknowledged tree.
+   submit ordinary FlatBuffers batches. Release snapshot capacity when consumed;
+   apply [bounded downstream admission](../presentation.md#bound-downstream-admission)
+   before consuming further snapshots. No second host-acknowledged tree is needed.
 
-2. Preserve `AfterEarlierBlockingWork` on gameplay batches across responses. Update app
-   delivery so asset preparation does not overwrite that dependency. Use existing asset
-   loading and admission behavior; local menu batches remain independent. Empty output
+2. Preserve the current `AfterEarlierBlockingWork` gameplay ordering across responses
+   and separate asset preparation. Make independent menu/control classification explicit
+   so ordinary delivery does not overwrite it. Use existing asset loading/admission. Empty output
    needs no command or frame wait.
 
 3. Use existing tween operations and a simple UI fixture. Submit final output before
@@ -31,8 +32,10 @@ and operation registry; existing input properties; world/UI fakes.
    delivery using the existing batch categories. Input-target replacement belongs to
    12b.
 
-4. Keep the session stop/failure behavior from task 11 connected to existing host
-   cleanup, so even this first integrated slice can abandon its queued batches.
+4. Implement game-scoped cancellation in the existing scheduler as specified in
+   [presentation](../presentation.md#rules-completion-and-failure), covering queued
+   unstarted batches and active operations while preserving unrelated app/menu work.
+   Handle existing binary failure messages and release retained buffers on every exit.
 
 ## Acceptance
 
@@ -43,8 +46,13 @@ and operation registry; existing input properties; world/UI fakes.
 
 - No-change output finishes locally; `TimeWait` supplies explicit pacing.
 
-- Stop/replacement cancels the integrated fixture's queued output through existing
-  cleanup; no host completion handshake is introduced.
+- Saturate a controlled downstream budget: final state remains Busy/unaccepted,
+  further consumption stops, and the 32-slot FIFO backpressures builders. Free capacity
+  and verify ordered exactly-once continuation. Oversized single output reports failure.
+
+- Menus, resume, and cancellation remain deliverable at saturation. Stop/replacement
+  cancels unstarted and running game work, releases its buffers, and preserves app/menu
+  state and operations. No per-snapshot host completion handshake is introduced.
 
 Reuse existing evidence for covered behavior. Run affected checks and staged aggregate
 CI as specified in [validation](../validation.md).

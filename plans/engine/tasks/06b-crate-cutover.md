@@ -28,12 +28,17 @@ hooks/context; input/focus; asset declarations.
 3. Mechanically update all workspace and standalone sample manifests/imports/macros in
    this task. Remove the old battlement-reactant package rather than keeping a
    compatibility facade. Update generated-asset source scanning to recognize the new
-   exact declaration paths. Update source-map.md to current locations.
+   exact declaration paths. Preserve FlatBuffers transport ownership and update CI
+   dependency/asset selectors for the new crate paths, including subsequent edits
+   after manifests stop changing. Update source-map.md to current locations.
 
 4. Keep project-tooling dependencies temporarily at their existing owner only until task
    07; explicitly record that remaining edge there.
 
 ## Acceptance
+
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
 
 - All existing component, localization, lifecycle, motion, and gallery behavior tests
   compile and pass through the extracted runtime.

@@ -29,6 +29,11 @@ These are starting points, not instructions to load whole directories.
 | Existing asynchronous executor | [executor.rs](../../crates/battlement-reactant/src/executor.rs); this is the resource spawner, not the new rules executor |
 | Existing exported-engine fixture | [fixture entry](../../crates/battlement-native/tests/fixtures/exported-engine/src/lib.rs), [release scenarios](../../crates/battlement-native/tests/fixtures/exported-engine/src/release_scenarios.rs) |
 | Generic persistent-data host support | [Connect messages](../../crates/battlement/src/messages.rs), [Unity connect construction](../../Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs); durable browser flush is a task 43 addition |
+| Binary schemas and generation | [schemas](../../schemas/flatbuffers), [generator](../../scripts/generate_flatbuffers.py), [toolchain contract](../../schemas/flatbuffers-toolchain.json) |
+| Verified transport, borrowed events, and direct writers | [FlatBuffers facade](../../crates/battlement-flatbuffers/src/lib.rs), [app encoding](../../crates/battlement-reactant/src/app_engine.rs) |
+| Buffer ownership and admission | [native handles](../../crates/battlement-native/src/handles.rs), [Unity transport](../../Packages/com.battlement.client/Runtime/Host/Native/BattlementNativeTransport.cs), [response stream](../../Packages/com.battlement.client/Runtime/Host/BattlementResponseStream.cs) |
+| Incremental rendering and retained state | [render_tree.rs](../../crates/battlement-reactant/src/render_tree.rs), [render.rs](../../crates/battlement-reactant/src/render.rs), [runtime.rs](../../crates/battlement-reactant/src/runtime.rs) |
+| Interaction profiling and capture attribution | [performance.rs](../../crates/battlement-reactant/src/performance.rs), [Ditto performance](../../crates/battlement-ditto/src/performance.rs) |
 | Native C ABI and Engine | [engine.rs](../../crates/battlement-native/src/engine.rs), [lib.rs](../../crates/battlement-native/src/lib.rs) |
 | Protocol messages and commands | [messages.rs](../../crates/battlement/src/messages.rs), [body.rs](../../crates/battlement/src/commands/body.rs), [objects.rs](../../crates/battlement/src/objects.rs) |
 | Unity runner | [BattlementRunner.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementRunner.cs) |
@@ -37,6 +42,7 @@ These are starting points, not instructions to load whole directories.
 | Unity world and tween execution | [BattlementWorld.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementWorld.cs), [BattlementTweenAdapter.cs](../../Packages/com.battlement.client/Runtime/Host/BattlementTweenAdapter.cs) |
 | Unity UI Motion | [BattlementMotionTimeline.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionTimeline.cs), [BattlementMotionWorld.cs](../../Packages/com.battlement.client/Runtime/UI/BattlementMotionWorld.cs) |
 | World fake | [client.rs](../../crates/battlement-fake/src/client.rs), [executor.rs](../../crates/battlement-fake/src/executor.rs), [tween.rs](../../crates/battlement-fake/src/tween.rs) |
+| Binary response fake | [response_reader.rs](../../crates/battlement-fake/src/response_reader.rs) |
 | UI fake | [lib.rs](../../crates/battlement-ui-fake/src/lib.rs) |
 | Legacy CLI and plugin operations | [main.rs](../../crates/battlement-cli/src/main.rs), [plugin.rs](../../crates/battlement-cli/src/plugin.rs), [plugin_build.rs](../../crates/battlement-cli/src/plugin_build.rs) |
 | Legacy sample build/run and author preparation | [sample.rs](../../crates/battlement-cli/src/sample.rs), [author.rs](../../crates/battlement-cli/src/author.rs) |
@@ -45,7 +51,7 @@ These are starting points, not instructions to load whole directories.
 | Unity release/adapter builders | [BattlementSampleBuild.cs](../../Packages/com.battlement.client/Editor/BattlementSampleBuild.cs), [BattlementDittoBuild.cs](../../Packages/com.battlement.client/Editor/BattlementDittoBuild.cs) |
 | Legacy Reactant asset command and asset pipeline | [reactant_assets.rs](../../crates/battlement-cli/src/reactant_assets.rs), [asset_generator.rs](../../crates/battlement-reactant/src/asset_generator.rs), [source_scan.rs](../../crates/battlement-reactant-assets/src/source_scan.rs) |
 | Repository sample command mapping | [justfile](../../justfile) |
-| Repository validation | [ci.py](../../scripts/ci.py), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
+| Repository validation | [ci.py](../../scripts/ci.py), [durable jobs](../../scripts/ci_job.py), [dependency selection](../../scripts/ci_selection.py), [browser risks](../../web/contracts.toml), [CI skill](../../.agents/skills/battlement-ci/SKILL.md) |
 | Existing game tests | [tic-tac-toe](../../samples/tictactoe/rules/tests/gameplay.rs), [chess](../../samples/chess/rules/tests/gameplay.rs) |
 | Chess AI and saves | [ai.rs](../../samples/chess/rules/src/ai.rs), [persistence.rs](../../samples/chess/rules/src/persistence.rs) |
 | Existing sample declarations | [sample guidance](../../samples/AGENTS.md), selected sample's rules/src and ditto.toml |

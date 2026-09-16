@@ -28,6 +28,9 @@ hooks/context; input/focus; asset declarations.
 
 ## Acceptance
 
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
+
 - All existing component, localization, lifecycle, motion, and gallery behavior tests
   compile and pass through the extracted runtime.
 

@@ -101,7 +101,8 @@ inspector output; game code supplies safe labels, not a generic state serializer
 
 Reuse existing diagnostics and the scene selector/reset UI. Fetch detailed poses
 only while inspecting a selected object; disabling the panel removes optional
-per-frame reporting. Performance instrumentation belongs to task group 46.
+per-frame reporting. Reuse current interaction profiling; task group 46 adds missing
+workload metrics.
 Do not build a generic resource browser, scene copier, timeline editor, or
 seek/replay UI. Laboratory reset starts the fixture again through its ordinary
 entrypoint. Enlarged card inspection remains normal game UI.
@@ -135,8 +136,12 @@ Keep correctness and simulation primitive requirements mandatory. Do not reduce
 cards, simplify their content, or disable effects to improve the numbers. Report
 misses with measured bottlenecks and reproducible follow-up cases. Optimize only
 when measurements justify the change; numerical misses and suspected complexity
-patterns alone are not mandatory refactoring gates.
+patterns alone are not mandatory refactoring gates. This does not waive the
+[existing-rendering regression gate](validation.md#rendering-regression-gate)
+during migration.
 
+Reuse existing Ditto capture ownership, measured-frame/transport metrics, and
+observer-cost attribution; do not replace them with screenshot timing proxies.
 Record GPU time, allocations, pending-checkpoint count, state-to-visible
 latency, asset loading, command generation, and host command execution separately. Use release
 builds, warmup, and at least ten minutes of sustained operation. Record

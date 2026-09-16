@@ -20,9 +20,10 @@ TimeWait, independent UI delivery, and task 12's game command classification.
    rules/session API. Reuse existing playback clocks and operation controls.
 2. Pause active gameplay animations and finite waits; prevent later gameplay
    commands from executing. Pause control must bypass the blocked gameplay
-   queue. Continue asset preparation, workers, snapshot consumption, and local
-   menu commands. The logical accepted state may advance while visible state is
-   frozen. Ordinary queue limits still apply.
+   queue. Continue asset preparation and local menus; workers and snapshot consumption
+   proceed while task 12's downstream budget permits. Saturation backpressures
+   production without failure. Accepted state may advance only after successful output
+   submission while visible state is frozen.
 3. Resume from the paused time with undelivered occurrences still pending; do
    not replay sounds/bursts or charge paused wall time. Do not override an
    independently paused Motion track when the game clock resumes. Apply existing native particle/audio pause
@@ -36,7 +37,11 @@ TimeWait, independent UI delivery, and task 12's game command classification.
   remain fixed while a worker completes and submits subsequent output.
 - A menu opens, animates, and accepts input during pause. Resume preserves command
   order and emits each pending transient once.
-- Stop while paused cancels queued/running work and permits a responsive new game.
+- Fill the downstream budget while paused: no snapshots/effects are dropped or
+  duplicated, menus/resume/stop remain usable, and final acceptance waits for submission.
+  Resume frees capacity and continues in order.
+- Stop while paused cancels only old game-owned queued/running work and permits
+  responsive replacement UI; old-worker cleanup still gates replacement rules.
 
 Reuse the queue/occurrence fixtures and add one focused native pause scenario;
 run affected checks and staged aggregate CI from [validation](../validation.md).

@@ -20,7 +20,8 @@ a state snapshot, ask a player to choose a card, and continue after that
 response. Reactant renders queued snapshots ahead of playback; Battlement
 sequences the generated commands while menus stay responsive. A 32-slot
 snapshot queue connects the rules worker to Reactant. Live AI choices run
-inside the same execution without waiting for Unity. MCTS calls the same rules
+inside the same execution without waiting for animation; downstream capacity
+can backpressure the snapshot consumer and worker. MCTS calls the same rules
 with a simulation context and an index-returning policy.
 
 The [rules/session contract](interfaces.md) and its [compiling
@@ -34,7 +35,7 @@ A **checkpoint** is an immutable logical clone of `Game::State`, optionally
 paired with one `StateAnimation` event or an active prompt. The snapshot says
 what to render; display code interprets the event to select movements, sounds,
 and effects. Reactant renders these queued snapshots into ordinary Battlement
-command batches. For example, a draw
+command batches carried by the existing verified FlatBuffers transport. For example, a draw
 should become visible before the energy it grants changes on screen:
 
 ```rust
@@ -115,8 +116,9 @@ and Android emulator, with reproducible mobile builds; see
 [the platform contract](validation.md#platform-evidence). Physical iPhone 17 and
 Galaxy S25 certification is tracked separately. The numerical performance
 targets in [test scenes and performance](fixtures.md) guide measurement and
-improvement; missed targets must be reported, but do not waive correctness or
-change the workload.
+improvement; missed targets must be reported without changing the workload.
+[Measured regressions against existing rendering](validation.md#rendering-regression-gate)
+block the responsible migration task independently of those advisory targets.
 
 ## Where to read next
 

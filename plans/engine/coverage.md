@@ -66,8 +66,9 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
   project through shared `rt build`/`rt run` handling; verify configuration
   precedence and failure-before-launch; preserve plugin, Addressables, Reactant
   asset, and Ditto behavior through `rt`; prove direct Ditto skips Reactant
-  preparation; confirm repository sample selection exists only in `just`
-  recipes; use Cargo metadata to prove `rt` is the sole project-tool binary and
+  preparation; keep user-facing sample defaults in `just` recipes while preserving
+  automated dependency/browser-risk validation selection; use Cargo metadata to prove
+  `rt` is the sole project-tool binary and
   `battlement-ditto` is Reactant-free and library-only.
 
 - One logical tree for UI and world props, hooks, context, events, and cleanup.
@@ -78,6 +79,15 @@ Read [architecture](architecture.md) and [API examples](interfaces.md).
 
   **Verify:** One component contributes a world card and UI details with shared
   state.
+
+- Protocol extensions preserve verified FlatBuffers readers/direct writers,
+  wire-contract matching, and buffer lifetimes through Unity and fake execution.
+
+  **Tasks:** [03](tasks/03-native-cancellation.md), [06](tasks/06-crate-boundaries.md),
+  [12](tasks/12-command-queue-integration.md), [17](tasks/17-world-rendering-primitives.md).
+
+  **Verify:** Apply [host conformance](validation.md#host-conformance), including
+  returned events, malformed inputs, and contract mismatches; no JSON transport returns.
 
 - Useful existing implementations and builder patterns retained; API changes
   update all callers.
@@ -121,9 +131,11 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   [10](tasks/10-typed-prompts.md), [12](tasks/12-command-queue-integration.md).
 
   **Verify:** Hold the Rust consumer on A; B1-B32 enqueue and B33 waits before
-  builders. Taking B1 opens one slot. Unity playback alone does not hold capacity.
-  Task 10 extends the queue proof with actual prompts and five generic AI
-  choices; task 46 measures retained bytes. Hearts does not need a synthetic
+  builders. Taking B1 opens one slot. Render ahead while downstream capacity permits;
+  task 12 proves saturation backpressures consumption without starving controls,
+  retains Busy until successful final submission, and releases buffers on every exit.
+  Task 10 adds actual prompts/five generic AI choices; task 46 profiles retained bytes.
+  Hearts does not need a synthetic
   five-consecutive-AI turn.
 
 - Typed choices return directly on the synchronous stack; prompt data owns its
@@ -195,7 +207,9 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   [47](tasks/47-release-conformance.md).
 
   **Verify:** Release a held builder and observe destructors before
-  worker-stopped while replacement stays responsive.
+  worker-stopped while replacement stays responsive. Repeated replacement retains
+  only the latest session; its rules cannot start until old-worker cleanup, and
+  dispatch remains Busy without validation. Reuse this proof in tasks 11 and 40.
 
 - Cancellation/valid-answer/normal-return races discard abandoned results;
   genuine panic reports failure only for its active run.
@@ -227,7 +241,7 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
 
   **Verify:** Restart from the last accepted state after failure.
 
-- Final state accepted when normal-return publication is consumed in Rust,
+- Final state accepted after successful final-output submission in Rust,
   independently of Unity playback. Ready permits another rules action.
 
   **Tasks:** [11](tasks/11-accepted-action-runtime.md),
@@ -236,8 +250,9 @@ snapshots. Read [execution](execution.md) and [presentation](presentation.md).
   [43](tasks/43-hearts-save-resume.md).
 
   **Verify:** Hold final publication to observe Busy and the prior accepted
-  state; consume it with Unity paused and observe Ready and the new accepted
-  state. Save/reload that state without replaying queued commands.
+  state; submit it with Unity paused and available capacity to observe Ready and
+  the new accepted state. Capacity-blocked final output remains Busy. Save/reload that
+  state without replaying queued commands.
 
 - Explicit persistence outside rules, no v1 autosave/acceptance callback; a
   write failure does not undo accepted gameplay.
@@ -605,7 +620,8 @@ and [presentation](presentation.md).
   cannot cancel blocking gameplay placement.
 
 - Gameplay host failure stops presentation without undoing accepted actions;
-  stop cancels queued/running work, including while paused.
+  stop cancels only old game-owned queued/running work, including while paused
+  or capacity-blocked, preserving persistent app/menu state and operations.
 
   **Tasks:** [12](tasks/12-command-queue-integration.md),
   [25](tasks/25-snapshot-animation-commands.md),
@@ -613,7 +629,9 @@ and [presentation](presentation.md).
   [45](tasks/45-effects-failures-laboratory.md).
 
   **Verify:** Failure shows restart/exit; late cosmetic failure cannot revoke an
-  accepted action. Old-session messages cannot mutate replacement state.
+  accepted action. Unstarted canceled commands never launch and retained buffers
+  release. Existing binary failure messages are attributed to owned work;
+  old-session messages cannot mutate replacement state.
 
 - Material/light/emission/volume continuous properties; discrete sound/burst;
   projectile visuals and persistent aura children.
@@ -651,13 +669,14 @@ and [presentation](presentation.md).
   native resources. Reuse the focused lifetime scenario.
 
 - App-owned gameplay pause freezes animations, waits, and later gameplay commands
-  while workers and independent menu UI continue.
+  while workers continue within downstream capacity and independent menus remain usable.
 
   **Tasks:** [28](tasks/28-gameplay-pause.md),
   [42](tasks/42-hearts-navigation-menus.md).
 
   **Verify:** Pause a trick hold, let rules finish, operate the menu, and resume
-  from the same presentation time without duplicate transients. Stop while paused.
+  from the same presentation time without duplicate transients. Saturate capacity
+  and prove menu/resume/stop remain usable; reuse task 12's admission evidence.
 
 - Small diagnostic inspector shows safe prompt, worker status, blocking work,
   and selected-object target versus displayed position.
@@ -759,14 +778,19 @@ scenes](fixtures.md), and [validation](validation.md).
 
 - Sparse-update measurements guide optimization; ordinary animation stays
   host-local and detailed geometry observations remain opt-in. No prescribed
-  complexity bound or unmeasured optimization is a completion gate.
+  complexity bound or unmeasured optimization is a completion gate. Demonstrated
+  regressions against existing rendering block the owning migration task under
+  the [regression gate](validation.md#rendering-regression-gate).
 
-  **Tasks:** [16](tasks/16-view-selectors-stores.md),
+  **Tasks:** [01](tasks/01-behavior-baseline.md), [06](tasks/06-crate-boundaries.md),
+  [13](tasks/13-mixed-logical-tree.md), [14](tasks/14-global-presentation-identity.md),
+  [15](tasks/15-destruction-and-exit-retention.md), [16](tasks/16-view-selectors-stores.md),
   [23](tasks/23-world-layout.md), [29](tasks/29-presentation-inspector.md),
   [46](tasks/46-performance-workloads.md).
 
-  **Verify:** Measure sparse updates and host command execution; keep ordinary motion
-  host-local.
+  **Verify:** Retain comparable before/after sparse-update, portal, and rollback
+  measurements. Include duplicate identities in unchanged subtrees; preserve
+  incremental evaluation and keep ordinary motion host-local.
 
 - Functional desktop native/threaded WebGL, preserved macOS/Windows support,
   iOS/Android builds and minimal cancellation-fixture/Hearts smoke checks.

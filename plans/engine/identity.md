@@ -43,9 +43,11 @@ UUID only when exactly one persistent presentation uses it.
 
 ## Match before removing the former parent
 
-Build an application-wide index of proposed UUIDs before changing native
-objects. Reject duplicate live declarations across UI, world, portals, and
-active roots before committing anything.
+Maintain an application-wide index of proposed UUIDs before changing native
+objects, including declarations in retained subtrees that did not reevaluate.
+Reject duplicate live declarations across UI, world, portals, and active roots
+before committing anything. Preserve incremental rendering when updating the
+index; a local change must not require reevaluating every component.
 
 Match the identified component before reconciling its descendants. This allows
 Reactant to preserve its existing hooks instead of evaluating a new component

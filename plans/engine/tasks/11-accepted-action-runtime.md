@@ -41,18 +41,21 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
 1. Implement the complete session surface in interfaces.md: the context factory,
    `GameHandle` methods, `DispatchResult`, `GameStatus`, state/prompt/status
    hooks, and app-owned attachment. Accept initial state immediately, hold Busy
-   until initial publication is consumed, and execute nothing merely because
-   a game starts. Unity playback never determines rules readiness.
+   until initial output is submitted and any abandoned worker has stopped, and
+   execute nothing merely because a game starts. Unity playback never determines rules readiness.
 
-2. Dispatch returns Busy before validation during initial publication, rules
-   execution, a human wait, or unconsumed final publication. Otherwise call is_legal_action; false panics before cloning or
+2. Dispatch returns Busy before validation during initial publication, old-worker
+   cleanup, rules execution, a human wait, or final output awaiting submission.
+   Otherwise call is_legal_action; false panics before cloning or
    worker creation. Legal work returns Started. Failed/stopped dispatch is a
    programming error. Run IDs are internal.
 
 3. Transfer the session context to one active worker at a time. Retain final
    state until the Rust consumer submits final output; automatic final publication has no semantic
    event. Return the context after normal completion; discard interrupted
-   context on failure/stop and construct a new one for replacement.
+   context on failure/stop and construct a new one for replacement. Apply
+   [bounded worker admission](../execution.md#worker-cancellation) across replacements;
+   attach the latest display immediately without queuing superseded games or actions.
 
 4. Implement idempotent nonjoining stop, old-handle isolation, fresh game-subtree presentation lifetime on replacement, and
    Ready/Busy/Failed/Stopped status. App teardown stops its session. Distinguish
@@ -76,8 +79,14 @@ Handle clones refer to the same session. Calling start again stops/replaces it.
   panics. Started does not imply completion.
 
 - Holding final publication in Rust keeps the previous accepted state and Busy.
-  Consuming it installs the new state and Ready even with Unity playback paused.
-  Another legal action may submit commands behind the earlier action.
+  Successfully submitting its output installs the new state and Ready even with
+  Unity playback paused.
+  Another legal action may submit commands behind the earlier action when capacity
+  permits. Task 12 proves actual capacity-blocked submission retains Busy/old state.
+
+- Repeated replacement during held old-worker computation keeps menus responsive
+  and replacement dispatch Busy without validation. Only the latest session can
+  execute after cleanup; stale failure cannot fail it.
 
 - Worker failure retains the previous accepted state. Host failure retains the
   latest accepted state, including actions completed ahead of playback. Restart

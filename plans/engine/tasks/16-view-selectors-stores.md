@@ -47,6 +47,9 @@ ScoreLabel::new().score(score)
 
 ## Acceptance
 
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
+
 - Updating an unrelated field leaves the subscribed component's render count
   unchanged. The selector itself may still run to compare its output.
 
@@ -64,8 +67,8 @@ claims, and staged aggregate CI described in [validation](../validation.md).
 
 ## Scope of this task
 
-Performance captures are task 46. This task establishes correctness and
-localized reevaluation, not numerical budgets.
+Complete-card captures are task 46. This task establishes correctness and
+localized reevaluation while passing the existing-rendering regression gate.
 
 ## Manual QA
 

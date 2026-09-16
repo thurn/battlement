@@ -97,6 +97,11 @@ optional optimization: a score label can subscribe only to the score and avoid
 reevaluation when the hand changes. Local menus and inspection use hooks or
 stores, rather than mutating the rules worker's state.
 
+Preserve the existing incremental local-render path, retained portal layout,
+borrowed committed trees, and checkpoints limited to rollback scopes through
+the extraction. New identity and host support must include retained subtrees;
+see the [rendering regression gate](validation.md#rendering-regression-gate).
+
 Store writes schedule another render. Each render sees one game snapshot and one
 stable store version. Ordinary host animation does not trigger a component
 render every frame. Input handlers may synchronously prevent native defaults;
@@ -120,7 +125,8 @@ existing standalone sample workspaces.
 - The Reactant-owned `rt` command owns general project build, run, authoring,
   Ditto, plugin, Addressables, and Reactant asset workflows. Reactant asset
   libraries own declarations, generated paint, and related preparation.
-- Battlement owns the protocol, C ABI, generic Unity hosts, generic asset
+- Battlement owns the protocol, verified FlatBuffers transport, C ABI, generic Unity
+  hosts, generic asset
   loading, command scheduling and operation completion, and low-level fakes.
 - Game Rust code owns rules, state, action validation, owned prompt data and
   policies, AI, saves, display components, and effect selection.
@@ -237,9 +243,12 @@ just sample reactant --web
 ```
 
 Direct Battlement examples such as basic and ui remain independent of Reactant.
-Only `justfile` selects their names and repository defaults. Lower-level scripts
+Only `justfile` selects their user-facing names and repository defaults. Lower-level scripts
 must accept explicit project paths and options, and must not contain their own
-sample registry. These fixtures do not justify a second public CLI.
+user-facing sample/default registry. Validation selectors and browser-risk
+contracts still map changed dependencies to affected samples; preserve them
+and update their crate/tool path mappings during extraction. These fixtures do not
+justify a second public CLI.
 
 Battlement owns reusable native-plugin, Unity-player, Addressables, and import
 mechanics. `rt` composes those lower-level operations with Reactant preparation,

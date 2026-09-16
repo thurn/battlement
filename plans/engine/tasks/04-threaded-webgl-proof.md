@@ -57,7 +57,9 @@ ordinary panic: reports execution failure instead of cancellation
   stale results.
 
 - The tested build proves actual threading and isolation, and its build inputs
-  enforce the required panic/runtime compatibility.
+  enforce the required panic/runtime compatibility. Repeat task 03's held-worker
+  replacement case against the real finite thread pool; old computation must not
+  cause additional rules workers to accumulate.
 
 Run the public scenarios, affected regressions, native checks for rendered
 claims, and staged aggregate CI described in [validation](../validation.md).

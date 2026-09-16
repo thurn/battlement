@@ -81,7 +81,7 @@ filtered view type or serialize full state into Unity.
 For a fourth card, publish card play before trick collection, then score/deal
 checkpoints as needed. One semantic event can describe all related effects.
 Normal return adds a final snapshot without an event. Accept the logical result
-when that publication is consumed in Rust; Unity may still be executing earlier
+after that publication's output is successfully submitted; Unity may still execute earlier
 commands. Native prompt controls appear at their ordered point in playback.
 
 Schedule the next action when `use_game_status::<HeartsGame>()` becomes `Ready`,
@@ -155,8 +155,9 @@ its invoker. Illegal cards remain inspectable but cannot be played. Modal menus
 block table actions, preserve selection, and expose Resume/Save/New Game/Exit.
 Opening the menu pauses game presentation as defined in
 [animation](motion.md#pause-gameplay-presentation-without-stopping-rules), including
-timed waits and subsequent gameplay commands, but not workers or snapshot
-consumption. Closing it resumes from the paused position. The menu itself stays
+timed waits and subsequent gameplay commands. Workers and snapshot consumption
+continue until [downstream capacity](presentation.md#bound-downstream-admission)
+backpressures production. Closing it resumes from the paused position. The menu itself stays
 responsive. Save may capture accepted state ahead of that paused position.
 
 Adapt hand spacing and camera framing to portrait and landscape viewports. Keep

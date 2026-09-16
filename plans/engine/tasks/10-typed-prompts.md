@@ -57,7 +57,8 @@ to a current request is a programming error; an ended-request reply is ignored.
    after reserving capacity. Concrete data is Clone + Send + Sync. The typed
    validator uses retained P without enum extraction. Live AI borrows
    P.as_prompt() on the rules worker immediately after enqueueing, without
-   waiting for Unity; only full 32-slot capacity delays publication. Then map its index
+   waiting for animation; publication waits when the 32-slot queue fills, including
+   downstream pressure holding the consumer. Then map its index
    directly through P. Human handles cannot resolve AI requests. Player routing
    remains in game context.
 

@@ -25,7 +25,8 @@ worker scheduling.
 2. Classify each live choice in `HeartsPolicy::owner`; `ExecutionMode` routes AI through
    DisplayConnection::choose_with_policy immediately after its snapshot/prompt is
    queued. Do not wait for visibility or animation. The shared queue applies
-   backpressure only at 32 pending entries. Run bounded computation on the rules worker,
+   backpressure at 32 pending entries, including when downstream capacity holds the
+   consumer. Run bounded computation on the rules worker,
    never Unity's thread. Stop invalidates output immediately; the policy may finish
    computation before the helper observes cancellation. No independent
    controller-message job or explicit engine cancellation primitive is required.
@@ -39,8 +40,9 @@ worker scheduling.
 - Every returned index selects a legal option from the original prompt order; rollout
   and full search may use different heuristics without extra prompt enums or engine execution specialization.
 
-- Replacement stays responsive during bounded AI work. Old results are discarded at the
-  choice boundary and cannot answer a replacement request.
+- Repeated replacement stays responsive during held AI work. Only the latest new
+  session remains pending, and no replacement rules worker starts until old cleanup.
+  Old results are discarded at the choice boundary and cannot answer its request.
 
 - Simulation skips snapshot/event builders and display waits, even when the live queue
   is full. Report its construction/search allocations instead of claiming all prompts

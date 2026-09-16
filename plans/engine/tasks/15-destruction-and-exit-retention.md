@@ -53,6 +53,9 @@ effect target B: destroyed; hooks and input are gone; terminal visual exits
 
 ## Acceptance
 
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
+
 - Hide/show during an unfinished transition preserves hook state, ref identity,
   and one compatible native visual while input remains unavailable when hidden.
 

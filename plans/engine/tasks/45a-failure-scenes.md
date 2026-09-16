@@ -31,7 +31,9 @@ generic failure surfaces.
 3. Cover delayed/failed asset commands, missing targets, batch redelivery, rerenders
    without replay, invalid graphs, blocking failure, no-change entries, explicit waits,
    local UI during animation, and old-session messages. Pause Unity while rules finish,
-   then inject a host failure without reversing state.
+   then inject a host failure without reversing state. Reuse task 12's saturation,
+   game-scoped cancellation, buffer-release, and capacity-wakeup cases and task 11's
+   repeated replacement admission proof; extend only demonstrated gaps.
 
 ## Acceptance
 

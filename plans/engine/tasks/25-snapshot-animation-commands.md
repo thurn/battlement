@@ -46,7 +46,8 @@ particle trail                       -> nonblocking operation
    placement. Use existing replacement controls for cosmetic work.
 5. Support authored finite waits through `TimeWait`. Finish equal-pose/no-change
    entries without a mandatory frame. Prompt controls follow earlier commands;
-   final rules acceptance depends only on Rust consuming final publication.
+   final rules acceptance follows successful final-output submission under task 12's
+   capacity contract, independently of animation completion.
 
 ## Acceptance
 

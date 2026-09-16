@@ -32,7 +32,8 @@ Table::new().child(Card::new().id(card_id))
 
 1. Add id(Uuid) to components and both host domains while retaining
    sibling-scoped key(). Construct an application-wide proposed UUID index and
-   reject all duplicate live declarations before visible mutation.
+   reject all duplicate live declarations before visible mutation, including IDs
+   inside retained subtrees that did not reevaluate. Keep sparse local updates incremental.
 
 2. Match UUID positions before descendant reconciliation. Detach/extract moved
    nodes before disposing unmatched old ancestors; do not clone hook storage
@@ -47,6 +48,9 @@ Table::new().child(Card::new().id(card_id))
    observations for presentation identity without exposing private maps.
 
 ## Acceptance
+
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
 
 - A counter/ref-bearing component moves from a soon-to-be-deleted parent to
   another root with state intact.

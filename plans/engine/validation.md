@@ -70,10 +70,31 @@ asset command dependencies, command-operation completion, and safe input while
 gameplay commands are queued. Inspect actual visible behavior; do not require a
 whole-display atomic swap or a rendered-frame receipt.
 
-Changed protocol capabilities need serialization and Unity-consumption coverage,
-plus returned events where that capability has them. Reuse existing protocol
-checks. Duplicate delivery and stale-ID scenarios belong to their engine owners
+Changed protocol capabilities extend the existing FlatBuffers path: schemas and
+generated bindings, verified Rust readers/direct writers, Unity views/execution,
+and fake decoding, including returned events. Follow the [source map](source-map.md)
+for generation and wire-contract checks. Preserve borrowed-view lifetimes,
+response-buffer ownership, validation-before-use, and exact wire-contract digest
+matching; do not restore JSON transport or a parallel owned message pipeline.
+Game-owned save files and tool metadata are separate formats and may retain JSON.
+Reuse existing protocol checks, including malformed input and mismatch rejection.
+Duplicate delivery and stale-ID scenarios belong to their engine owners
 and are reused by later features unless a new failure mode warrants extension.
+
+## Rendering regression gate
+
+Task 01 captures representative existing interaction/rendering measurements.
+Tasks 06 and 13–16 retain focused before/after evidence for sparse local updates,
+portal movement, and rollback, using existing profiling and native Ditto evidence.
+Keep workload, build profile, instrumentation, and environment comparable;
+confirm a regression with a repeatable case rather than treating noise as failure.
+A demonstrated migration-induced regression blocks its owning task and must be
+fixed there, not deferred to task 46. Preserve incremental evaluation and retained
+render data while testing duplicate identity against unchanged subtrees.
+
+The complete-card numerical targets remain advisory. Existing performance
+instrumentation and capture attribution must survive crate/tool moves; task 46
+extends them only for missing measurements and the new workloads.
 
 ## Platform evidence
 
@@ -134,26 +155,31 @@ After task 07, CLI contract tests must also prove:
   library; direct Battlement fixtures skip it; the Ditto library has no Reactant
   dependency.
 - Inspect repository recipes and parameterized scripts to verify that only
-  `justfile` chooses sample names/defaults. Exercise representative recipes; do
+  `justfile` chooses user-facing sample names/defaults while validation retains
+  dependency-based sample selection and browser-risk contracts. Exercise representative
+  recipes; do
   not add source-text assertion tests for this structural ownership rule.
 
 Before a package's creating task, run its predecessor checks from the source
 map. In particular, existing UI checks use battlement-reactant before task 06,
 and public display-driver checks begin in task 08.
 
-Stage intended inputs and run ./scripts/ci.py successfully before completing
-every implementation task, including this plan's documentation updates. Use
-retained CI logs and exact replay inputs for failures; no competing reruns.
-Inspect and stage intentional metadata produced by CI.
+Follow the [CI skill](../../.agents/skills/battlement-ci/SKILL.md): stage intended
+inputs, start one durable CI job, and complete its selected validation before
+finishing a task. The trusted prose lane applies only to its executable
+allowlist; a Markdown change does not itself qualify. Retain the job handle,
+logs, and exact replay inputs; do not launch competing reruns. Inspect and stage
+intentional metadata produced by CI.
 
 For >500 non-test-line changes, apply the repository's independent-review skill
 once in that task's session, verify findings, and fix confirmed issues. A task
 page's line count is not a reason to skip a necessary shared-engine fix.
 
-Web-visible tasks require the existing verified demo/tunnel lifecycle. Native
-Ditto is the primary gameplay validation; interactive web testing covers the
-web-specific host and review walkthrough. Use only the configured Playwright MCP
-browser service for automation.
+Native Ditto is the primary shared/gameplay validation. Browser-specific changes
+and declared platform risks require the checks selected by
+[web contracts](../../web/contracts.toml), alongside this plan's explicit
+threaded-WebGL proofs. Public demos require a user request; use the linked web
+skill for their lifecycle when requested.
 
 ## Performance and certification
 

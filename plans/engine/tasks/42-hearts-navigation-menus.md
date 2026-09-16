@@ -41,7 +41,8 @@ switch to pointer -> do not submit a duplicate answer
 3. Finish Resume/New Game/Exit menu flows, score/results focus order, and
    return-focus to the original card/control after a modal closes. Opening the
    menu acquires task 28's game-presentation pause; closing releases it. Workers
-   and snapshot consumption continue, and the menu remains responsive.
+   and snapshot consumption continue while downstream capacity permits; the menu
+   remains responsive even when capacity backpressures production.
 
 4. Ensure a new request or card that leaves the hand chooses a deterministic
    eligible focus target without firing activation. Preserve existing sample

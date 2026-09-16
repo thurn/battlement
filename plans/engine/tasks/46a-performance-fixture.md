@@ -21,9 +21,10 @@ inspector counters; Hearts AI.
    assets/seeds and recorded node/text/material counts. Include sparse/mass updates, 30
    simultaneous tracks, prompts/menus, and concurrent AI.
 
-2. Instrument Rust render/layout/reconcile, complete host CPU, asset loading, command
-   generation/execution, GPU, allocations, queue depth, and state-to-visible/input
-   latency separately.
+2. Extend existing Reactant/Ditto profiling only for missing measurements: Rust
+   render/layout/reconcile, complete host CPU, asset loading, command generation/execution,
+   GPU, allocations, queue depth, and state-to-visible/input latency. Preserve capture
+   ownership, measured-frame/transport metrics, and observer-cost attribution.
 
 3. Keep instrumentation limited to collecting the fixed workload metrics. Use existing
    profilers/counters where possible, mark unavailable measurements explicitly, and

@@ -250,7 +250,9 @@ again. [Identity](identity.md) defines this distinction.
 The game presentation has an app-owned pause/resume control outside the rules
 API. Pausing freezes its active animation/sequence clock, finite waits, and
 execution of later gameplay commands. Rules workers and snapshot consumption
-continue; their output remains queued. Do not queue the pause command behind the
+continue while the [downstream budget](presentation.md#bound-downstream-admission)
+has capacity; saturation backpressures production without failing the session. Do not
+queue the pause command behind the
 blocking operation it must pause. Stop/replacement must still cancel paused work.
 Independent menu commands and menu animations remain responsive.
 

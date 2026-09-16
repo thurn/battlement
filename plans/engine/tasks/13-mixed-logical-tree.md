@@ -49,6 +49,9 @@ portal:
 
 ## Acceptance
 
+- Preserve the [rendering regression gate](../validation.md#rendering-regression-gate)
+  with focused before/after evidence; fix demonstrated regressions in this task.
+
 - Updating a shared prop/context changes the world and UI outputs from the same
   snapshot through ordered command groups.
 
